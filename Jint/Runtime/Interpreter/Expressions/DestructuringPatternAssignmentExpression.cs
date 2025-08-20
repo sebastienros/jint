@@ -57,7 +57,7 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
             return HandleObjectPattern(context, op, argument, environment, checkPatternPropertyReference);
         }
 
-        ExceptionHelper.ThrowArgumentException("Not a pattern");
+        Throw.ArgumentException("Not a pattern");
         return default;
     }
 
@@ -259,7 +259,7 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                 }
                 else
                 {
-                    ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(pattern), $"Unable to determine how to handle array pattern element {left}");
+                    Throw.ArgumentOutOfRangeException(nameof(pattern), $"Unable to determine how to handle array pattern element {left}");
                     break;
                 }
             }
@@ -387,7 +387,7 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                 }
                 else
                 {
-                    ExceptionHelper.ThrowArgumentException("cannot handle parameter type " + restElement.Argument);
+                    Throw.ArgumentException("cannot handle parameter type " + restElement.Argument);
                 }
             }
         }
@@ -407,7 +407,7 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
         }
         else
         {
-            lhs.InitializeReferencedBinding(v);
+            lhs.InitializeReferencedBinding(v, DisposeHint.Normal);
         }
         engine._referencePool.Return(lhs);
     }
@@ -418,7 +418,7 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
         var reference = expression.Evaluate(context) as Reference;
         if (reference is null)
         {
-            ExceptionHelper.ThrowReferenceError(context.Engine.Realm, "invalid reference");
+            Throw.ReferenceError(context.Engine.Realm, "invalid reference");
         }
         reference.AssertValid(context.Engine.Realm);
         return reference;
@@ -434,13 +434,13 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
         var lhs = engine.ResolveBinding(name, environment);
         if (environment is not null)
         {
-            lhs.InitializeReferencedBinding(rval);
+            lhs.InitializeReferencedBinding(rval, DisposeHint.Normal);
         }
         else
         {
             if (checkReference && lhs.IsUnresolvableReference && StrictModeScope.IsStrictModeCode)
             {
-                ExceptionHelper.ThrowReferenceError(engine.Realm, lhs);
+                Throw.ReferenceError(engine.Realm, lhs);
             }
             engine.PutValue(lhs, rval);
         }

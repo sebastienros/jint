@@ -109,7 +109,7 @@ public sealed class RegExpConstructor : Constructor
 
             if (!regExpParseResult.Success)
             {
-                ExceptionHelper.ThrowSyntaxError(_realm, $"Unsupported regular expression. {regExpParseResult.ConversionError!.Description}");
+                Throw.SyntaxError(_realm, $"Unsupported regular expression. {regExpParseResult.ConversionError!.Description}");
             }
 
             r.Value = regExpParseResult.Regex!;
@@ -117,7 +117,7 @@ public sealed class RegExpConstructor : Constructor
         }
         catch (Exception ex)
         {
-            ExceptionHelper.ThrowSyntaxError(_realm, ex.Message);
+            Throw.SyntaxError(_realm, ex.Message);
         }
 
         r.Flags = f;

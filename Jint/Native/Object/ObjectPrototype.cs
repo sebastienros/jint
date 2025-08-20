@@ -47,7 +47,7 @@ public sealed class ObjectPrototype : Prototype
 
                     if (!objectInstance.SetPrototypeOf(proto))
                     {
-                        ExceptionHelper.ThrowTypeError(_realm, "Invalid prototype");
+                        Throw.TypeError(_realm, "Invalid prototype");
                     }
 
                     return Undefined;
@@ -104,7 +104,7 @@ public sealed class ObjectPrototype : Prototype
 
         if (!getter.IsCallable)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Target is not callable");
+            Throw.TypeError(_realm, "Target is not callable");
         }
 
         var desc = new GetSetPropertyDescriptor(getter, null, enumerable: true, configurable: true);
@@ -125,7 +125,7 @@ public sealed class ObjectPrototype : Prototype
 
         if (!setter.IsCallable)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Target is not callable");
+            Throw.TypeError(_realm, "Target is not callable");
         }
 
         var desc = new GetSetPropertyDescriptor(null, setter, enumerable: true, configurable: true);

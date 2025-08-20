@@ -38,18 +38,18 @@ internal sealed class AtomicsInstance : ObjectInstance
         {
             if (!iterationNumber.IsNumber())
             {
-                ExceptionHelper.ThrowTypeError(_realm, "Invalid iteration count");
+                Throw.TypeError(_realm, "Invalid iteration count");
             }
 
             var n = TypeConverter.ToNumber(iterationNumber);
             if (!TypeConverter.IsIntegralNumber(n))
             {
-                ExceptionHelper.ThrowTypeError(_realm, "Invalid iteration count");
+                Throw.TypeError(_realm, "Invalid iteration count");
             }
 
             if (n < 0)
             {
-                ExceptionHelper.ThrowRangeError(_realm, "Invalid iteration count");
+                Throw.RangeError(_realm, "Invalid iteration count");
             }
 
             n = System.Math.Min(n, _engine.Options.Constraints.MaxAtomicsPauseIterations);

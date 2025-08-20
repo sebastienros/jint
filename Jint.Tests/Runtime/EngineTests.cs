@@ -7,7 +7,6 @@ using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Debugger;
 using Jint.Tests.Runtime.Debugger;
-using Xunit.Abstractions;
 
 #pragma warning disable 618
 

@@ -92,7 +92,7 @@ internal sealed class SymbolPrototype : Prototype
             return instance.SymbolData;
         }
 
-        ExceptionHelper.ThrowTypeError(_realm);
+        Throw.TypeError(_realm);
         return null;
     }
 }

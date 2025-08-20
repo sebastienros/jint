@@ -46,7 +46,7 @@ internal static class GroupByHelper
         {
             if (_k >= ArrayOperations.MaxArrayLength)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm);
+                Throw.TypeError(_engine.Realm);
             }
 
             _callArgs[0] = currentValue;

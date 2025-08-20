@@ -20,7 +20,7 @@ public sealed class MaxStatementsConstraint : Constraint
     {
         if (MaxStatements > 0 && ++_statementsCount > MaxStatements)
         {
-            ExceptionHelper.ThrowStatementsCountOverflowException();
+            Throw.StatementsCountOverflowException();
         }
     }
 

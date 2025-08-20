@@ -73,7 +73,7 @@ internal sealed class BigIntPrototype : Prototype
             return thisObject;
         }
 
-        ExceptionHelper.ThrowTypeError(_realm);
+        Throw.TypeError(_realm);
         return null;
     }
 
@@ -92,7 +92,7 @@ internal sealed class BigIntPrototype : Prototype
 
         if (radixMV is < 2 or > 36)
         {
-            ExceptionHelper.ThrowRangeError(_realm, "radix must be between 2 and 36");
+            Throw.RangeError(_realm, "radix must be between 2 and 36");
         }
 
         var value = x._value;
@@ -145,7 +145,7 @@ internal sealed class BigIntPrototype : Prototype
             case BigIntInstance bigIntInstance:
                 return bigIntInstance.BigIntData;
             default:
-                ExceptionHelper.ThrowTypeError(_realm);
+                Throw.TypeError(_realm);
                 return default;
         }
     }

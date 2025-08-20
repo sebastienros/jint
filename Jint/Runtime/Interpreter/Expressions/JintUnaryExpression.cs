@@ -199,7 +199,7 @@ internal sealed class JintUnaryExpression : JintExpression
                 {
                     if (r.Strict)
                     {
-                        ExceptionHelper.ThrowSyntaxError(engine.Realm, "Delete of an unqualified identifier in strict mode.");
+                        Throw.SyntaxError(engine.Realm, "Delete of an unqualified identifier in strict mode.");
                     }
 
                     engine._referencePool.Return(r);
@@ -210,7 +210,7 @@ internal sealed class JintUnaryExpression : JintExpression
                 {
                     if (r.IsSuperReference)
                     {
-                        ExceptionHelper.ThrowReferenceError(engine.Realm, "Unsupported reference to 'super'");
+                        Throw.ReferenceError(engine.Realm, "Unsupported reference to 'super'");
                     }
 
                     var o = TypeConverter.ToObject(engine.Realm, r.Base);
@@ -222,12 +222,12 @@ internal sealed class JintUnaryExpression : JintExpression
                     {
                         if (r.Strict)
                         {
-                            ExceptionHelper.ThrowTypeError(engine.Realm, $"Cannot delete property '{r.ReferencedName}' of {o}");
+                            Throw.TypeError(engine.Realm, $"Cannot delete property '{r.ReferencedName}' of {o}");
                         }
 
                         if (StrictModeScope.IsStrictModeCode && !r.Base.AsObject().GetOwnProperty(r.ReferencedName).Configurable)
                         {
-                            ExceptionHelper.ThrowTypeError(engine.Realm, $"Cannot delete property '{r.ReferencedName}' of {o}");
+                            Throw.TypeError(engine.Realm, $"Cannot delete property '{r.ReferencedName}' of {o}");
                         }
                     }
 
@@ -237,7 +237,7 @@ internal sealed class JintUnaryExpression : JintExpression
 
                 if (r.Strict)
                 {
-                    ExceptionHelper.ThrowSyntaxError(engine.Realm);
+                    Throw.SyntaxError(engine.Realm);
                 }
 
                 var bindings = (Environment) r.Base;
@@ -250,7 +250,7 @@ internal sealed class JintUnaryExpression : JintExpression
                 return JsValue.Undefined;
 
             default:
-                ExceptionHelper.ThrowArgumentException();
+                Throw.ArgumentException();
                 return null;
         }
     }

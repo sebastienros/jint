@@ -107,13 +107,13 @@ internal sealed class DatePrototype : Prototype
         var oi = thisObject as ObjectInstance;
         if (oi is null)
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         var hint = arguments.At(0);
         if (!hint.IsString())
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         var hintString = hint.ToString();
@@ -128,7 +128,7 @@ internal sealed class DatePrototype : Prototype
         }
         else
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         return TypeConverter.OrdinaryToPrimitive(oi, tryFirst);
@@ -149,7 +149,7 @@ internal sealed class DatePrototype : Prototype
             return dateInstance._dateValue;
         }
 
-        ExceptionHelper.ThrowTypeError(_realm, "this is not a Date object");
+        Throw.TypeError(_realm, "this is not a Date object");
         return default;
     }
 
@@ -794,7 +794,7 @@ internal sealed class DatePrototype : Prototype
         var t = thisTime;
         if (t.IsNaN)
         {
-            ExceptionHelper.ThrowRangeError(_realm);
+            Throw.RangeError(_realm);
         }
 
         if (((JsDate) thisObject).DateTimeRangeValid)
@@ -941,7 +941,7 @@ internal sealed class DatePrototype : Prototype
             return 1;
         }
 
-        ExceptionHelper.ThrowArgumentException();
+        Throw.ArgumentException();
         return 0;
     }
 
@@ -1013,7 +1013,7 @@ internal sealed class DatePrototype : Prototype
             return 11;
         }
 
-        ExceptionHelper.ThrowInvalidOperationException();
+        Throw.InvalidOperationException();
         return 0;
     }
 
@@ -1087,7 +1087,7 @@ internal sealed class DatePrototype : Prototype
             return dayWithinYear - 333 - InLeapYear(t);
         }
 
-        ExceptionHelper.ThrowInvalidOperationException();
+        Throw.InvalidOperationException();
         return 0;
     }
 

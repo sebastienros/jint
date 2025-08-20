@@ -49,13 +49,13 @@ internal static class DtoaNumberFormatter
                 break;
             case DtoaMode.Fixed:
                 //fast_worked = FastFixedDtoa(v, requested_digits, buffer, length, point);
-                ExceptionHelper.ThrowNotImplementedException();
+                Throw.NotImplementedException();
                 break;
             case DtoaMode.Precision:
                 fast_worked = FastDtoa.NumberToString(v, DtoaMode.Precision, requested_digits, out point, ref buffer);
                 break;
             default:
-                ExceptionHelper.ThrowArgumentOutOfRangeException();
+                Throw.ArgumentOutOfRangeException();
                 return;
         }
 

@@ -89,6 +89,6 @@ internal sealed class JintIdentifierExpression : JintExpression
     [MethodImpl(MethodImplOptions.NoInlining)]
     private void ThrowNotInitialized(Engine engine)
     {
-        ExceptionHelper.ThrowReferenceError(engine.Realm, $"{_identifier.Key.Name} has not been initialized");
+        Throw.ReferenceError(engine.Realm, $"{_identifier.Key.Name} has not been initialized");
     }
 }

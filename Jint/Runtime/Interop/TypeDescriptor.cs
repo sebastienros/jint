@@ -48,6 +48,12 @@ internal sealed class TypeDescriptor
 
         IsEnumerable = isEnumerable;
 
+        IsDisposable = type.GetInterface(nameof(IDisposable)) is not null;
+
+#if SUPPORTS_ASYNC_DISPOSE
+        IsAsyncDisposable = type.GetInterface(nameof(IAsyncDisposable)) is not null;
+#endif
+
         if (IsArrayLike)
         {
             LengthProperty = lengthProperty;
@@ -69,6 +75,8 @@ internal sealed class TypeDescriptor
     public bool IsDictionary { get; }
     public bool IsStringKeyedGenericDictionary => _tryGetValueMethod is not null;
     public bool IsEnumerable { get; }
+    public bool IsDisposable { get; }
+    public bool IsAsyncDisposable { get; }
     public PropertyInfo? LengthProperty { get; }
 
     public bool Iterable => IsArrayLike || IsDictionary || IsEnumerable;
@@ -190,7 +198,7 @@ internal sealed class TypeDescriptor
     {
         if (!IsStringKeyedGenericDictionary)
         {
-            ExceptionHelper.ThrowInvalidOperationException("Not a string-keyed dictionary");
+            Throw.InvalidOperationException("Not a string-keyed dictionary");
         }
 
         // we could throw when indexing with an invalid key

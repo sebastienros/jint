@@ -45,7 +45,7 @@ public sealed class BindFunction : ObjectInstance, IConstructor, ICallable
         var f = BoundTargetFunction as Function;
         if (f is null)
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         var args = CreateArguments(arguments);
@@ -60,7 +60,7 @@ public sealed class BindFunction : ObjectInstance, IConstructor, ICallable
         var target = BoundTargetFunction as IConstructor;
         if (target is null)
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         var args = CreateArguments(arguments);
@@ -81,7 +81,7 @@ public sealed class BindFunction : ObjectInstance, IConstructor, ICallable
         var f = BoundTargetFunction as Function;
         if (f is null)
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         return f.OrdinaryHasInstance(v);

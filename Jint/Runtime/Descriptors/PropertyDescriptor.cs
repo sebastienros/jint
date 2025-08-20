@@ -219,7 +219,7 @@ public class PropertyDescriptor
     protected internal virtual JsValue? CustomValue
     {
         get => null;
-        set => ExceptionHelper.ThrowNotImplementedException();
+        set => Throw.NotImplementedException();
     }
 
     internal PropertyFlag Flags
@@ -235,7 +235,7 @@ public class PropertyDescriptor
     {
         if (o is not ObjectInstance obj)
         {
-            ExceptionHelper.ThrowTypeError(realm);
+            Throw.TypeError(realm);
             return null;
         }
 
@@ -283,7 +283,7 @@ public class PropertyDescriptor
 
         if ((hasValue || hasWritable) && (hasGet || hasSet))
         {
-            ExceptionHelper.ThrowTypeError(realm, "Invalid property descriptor. Cannot both specify accessors and a value or writable attribute");
+            Throw.TypeError(realm, "Invalid property descriptor. Cannot both specify accessors and a value or writable attribute");
         }
 
         var desc = hasGet || hasSet
@@ -317,7 +317,7 @@ public class PropertyDescriptor
         {
             if (!get!.IsUndefined() && get!.TryCast<ICallable>() == null)
             {
-                ExceptionHelper.ThrowTypeError(realm);
+                Throw.TypeError(realm);
             }
 
             ((GetSetPropertyDescriptor) desc).SetGet(get!);
@@ -327,7 +327,7 @@ public class PropertyDescriptor
         {
             if (!set!.IsUndefined() && set!.TryCast<ICallable>() is null)
             {
-                ExceptionHelper.ThrowTypeError(realm);
+                Throw.TypeError(realm);
             }
 
             ((GetSetPropertyDescriptor) desc).SetSet(set!);
@@ -335,7 +335,7 @@ public class PropertyDescriptor
 
         if ((hasSet || hasGet) && (hasValue || hasWritable))
         {
-            ExceptionHelper.ThrowTypeError(realm);
+            Throw.TypeError(realm);
         }
 
         return desc;
@@ -422,7 +422,7 @@ public class PropertyDescriptor
 
         protected internal override JsValue? CustomValue
         {
-            set => ExceptionHelper.ThrowInvalidOperationException("making changes to undefined property's descriptor is not allowed");
+            set => Throw.InvalidOperationException("making changes to undefined property's descriptor is not allowed");
         }
     }
 

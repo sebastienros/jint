@@ -47,7 +47,7 @@ internal sealed class BooleanPrototype : BooleanInstance
             return bi.BooleanData;
         }
 
-        ExceptionHelper.ThrowTypeError(_realm);
+        Throw.TypeError(_realm);
         return Undefined;
     }
 

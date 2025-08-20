@@ -457,7 +457,7 @@ public sealed class JsonParser
     private void ThrowError(int position, string messageFormat, params object[] arguments)
     {
         var msg = string.Format(CultureInfo.InvariantCulture, messageFormat, arguments);
-        ExceptionHelper.ThrowSyntaxError(_engine.Realm, $"{msg} at position {position}");
+        Throw.SyntaxError(_engine.Realm, $"{msg} at position {position}");
     }
 
     // Throw an exception because of the token.

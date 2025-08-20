@@ -2,13 +2,6 @@ using Jint.Runtime;
 
 namespace Jint.Native.Disposable;
 
-internal enum DisposeHint
-{
-    Normal,
-    Sync,
-    Async,
-}
-
 internal sealed class DisposeCapability
 {
     private readonly Engine _engine;
@@ -52,13 +45,13 @@ internal sealed class DisposeCapability
             {
                 if (!v.IsObject())
                 {
-                    ExceptionHelper.ThrowTypeError(_engine.Realm, "Expected an object for disposable resource.");
+                    Throw.TypeError(_engine.Realm, "Expected an object for disposable resource.");
                     return default;
                 }
                 method = v.AsObject().GetDisposeMethod(hint);
                 if (method is null)
                 {
-                    ExceptionHelper.ThrowTypeError(_engine.Realm, "No dispose method found for the resource.");
+                    Throw.TypeError(_engine.Realm, "No dispose method found for the resource.");
                     return default;
                 }
             }
@@ -94,7 +87,7 @@ internal sealed class DisposeCapability
                         hasAwaited = true;
                         try
                         {
-                            result = result.UnwrapIfPromise();
+                            result = result.UnwrapIfPromise(_engine.Options.Constraints.PromiseTimeout);
                         }
                         catch (JavaScriptException e)
                         {

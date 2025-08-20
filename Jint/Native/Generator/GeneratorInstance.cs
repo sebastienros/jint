@@ -80,7 +80,7 @@ internal sealed class GeneratorInstance : ObjectInstance
                 return new IteratorResult(_engine, abruptCompletion.Value, JsBoolean.True);
             }
 
-            ExceptionHelper.ThrowJavaScriptException(_engine, abruptCompletion.Value, AstExtensions.DefaultLocation);
+            Throw.JavaScriptException(_engine, abruptCompletion.Value, AstExtensions.DefaultLocation);
         }
 
         var genContext = _generatorContext;
@@ -97,7 +97,7 @@ internal sealed class GeneratorInstance : ObjectInstance
 
         if (_error is not null)
         {
-            ExceptionHelper.ThrowJavaScriptException(_engine, _error, AstExtensions.DefaultLocation);
+            Throw.JavaScriptException(_engine, _error, AstExtensions.DefaultLocation);
         }
 
         return ResumeExecution(genContext, new EvaluationContext(_engine));
@@ -133,7 +133,7 @@ internal sealed class GeneratorInstance : ObjectInstance
         if (result.Type == CompletionType.Throw)
         {
             _generatorState = GeneratorState.Completed;
-            ExceptionHelper.ThrowJavaScriptException(_engine, result.Value, result);
+            Throw.JavaScriptException(_engine, result.Value, result);
         }
 
         return resultValue!;
@@ -143,12 +143,12 @@ internal sealed class GeneratorInstance : ObjectInstance
     {
         if (!ReferenceEquals(generatorBrand, _generatorBrand))
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm, "Generator brand differs from attached brand");
+            Throw.TypeError(_engine.Realm, "Generator brand differs from attached brand");
         }
 
         if (_generatorState == GeneratorState.Executing)
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm, "Generator state was unexpectedly executing");
+            Throw.TypeError(_engine.Realm, "Generator state was unexpectedly executing");
         }
 
         return _generatorState;

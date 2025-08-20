@@ -44,7 +44,7 @@ internal sealed class Uint8ArrayPrototype : Prototype
 
         if (!s.IsString())
         {
-            ExceptionHelper.ThrowTypeError(_realm, "setFromBase64 must be called with a string");
+            Throw.TypeError(_realm, "setFromBase64 must be called with a string");
         }
 
         var opts = Uint8ArrayConstructor.GetOptionsObject(_engine, arguments.At(1));
@@ -54,7 +54,7 @@ internal sealed class Uint8ArrayPrototype : Prototype
         var taRecord = IntrinsicTypedArrayPrototype.MakeTypedArrayWithBufferWitnessRecord(into, ArrayBufferOrder.SeqCst);
         if (taRecord.IsTypedArrayOutOfBounds)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "TypedArray is out of bounds");
+            Throw.TypeError(_realm, "TypedArray is out of bounds");
         }
 
         var byteLength = taRecord.TypedArrayLength;
@@ -93,13 +93,13 @@ internal sealed class Uint8ArrayPrototype : Prototype
 
         if (!s.IsString())
         {
-            ExceptionHelper.ThrowTypeError(_realm, "setFromHex must be called with a string");
+            Throw.TypeError(_realm, "setFromHex must be called with a string");
         }
 
         var taRecord = IntrinsicTypedArrayPrototype.MakeTypedArrayWithBufferWitnessRecord(into, ArrayBufferOrder.SeqCst);
         if (taRecord.IsTypedArrayOutOfBounds)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "TypedArray is out of bounds");
+            Throw.TypeError(_realm, "TypedArray is out of bounds");
         }
 
         var byteLength = taRecord.TypedArrayLength;
@@ -172,7 +172,7 @@ internal sealed class Uint8ArrayPrototype : Prototype
         var taRecord = IntrinsicTypedArrayPrototype.MakeTypedArrayWithBufferWitnessRecord(ta, ArrayBufferOrder.SeqCst);
         if (taRecord.IsTypedArrayOutOfBounds)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "TypedArray is out of bounds");
+            Throw.TypeError(_realm, "TypedArray is out of bounds");
         }
 
         return buffer._arrayBufferData!.AsSpan(0, (int) taRecord.TypedArrayLength);
@@ -182,7 +182,7 @@ internal sealed class Uint8ArrayPrototype : Prototype
     {
         if (ta is not JsTypedArray { _arrayElementType: TypedArrayElementType.Uint8 } typedArray)
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm, "Not a Uint8Array");
+            Throw.TypeError(_engine.Realm, "Not a Uint8Array");
             return default;
         }
 

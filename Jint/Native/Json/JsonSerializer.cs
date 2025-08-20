@@ -207,7 +207,7 @@ public sealed class JsonSerializer
 
         if (value.IsBigInt())
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm, "Do not know how to serialize a BigInt");
+            Throw.TypeError(_engine.Realm, "Do not know how to serialize a BigInt");
         }
 
         if (value is ObjectInstance { IsCallable: false } objectInstance)

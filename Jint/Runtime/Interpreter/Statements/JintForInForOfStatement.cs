@@ -24,6 +24,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
     private List<Key>? _tdzNames;
     private bool _destructuring;
     private LhsKind _lhsKind;
+    private DisposeHint _disposeHint;
 
     public JintForInForOfStatement(ForInStatement statement) : base(statement)
     {
@@ -41,47 +42,51 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         _iterationKind = IterationKind.Iterate;
     }
 
-    protected override void Initialize(EvaluationContext context)
+    protected override void Initialize(EvaluationContext context2)
     {
         _lhsKind = LhsKind.Assignment;
-        var engine = context.Engine;
-        if (_leftNode is VariableDeclaration variableDeclaration)
+        _disposeHint = DisposeHint.Normal;
+        switch (_leftNode)
         {
-            _lhsKind = variableDeclaration.Kind == VariableDeclarationKind.Var
-                ? LhsKind.VarBinding
-                : LhsKind.LexicalBinding;
+            case VariableDeclaration variableDeclaration:
+                {
+                    _lhsKind = variableDeclaration.Kind == VariableDeclarationKind.Var
+                        ? LhsKind.VarBinding
+                        : LhsKind.LexicalBinding;
 
-            var variableDeclarationDeclaration = variableDeclaration.Declarations[0];
-            var id = variableDeclarationDeclaration.Id;
-            if (_lhsKind == LhsKind.LexicalBinding)
-            {
-                _tdzNames = new List<Key>(1);
-                id.GetBoundNames(_tdzNames);
-            }
+                    _disposeHint = variableDeclaration.Kind.GetDisposeHint();
 
-            if (id is DestructuringPattern pattern)
-            {
+                    var variableDeclarationDeclaration = variableDeclaration.Declarations[0];
+                    var id = variableDeclarationDeclaration.Id;
+                    if (_lhsKind == LhsKind.LexicalBinding)
+                    {
+                        _tdzNames = new List<Key>(1);
+                        id.GetBoundNames(_tdzNames);
+                    }
+
+                    if (id is DestructuringPattern pattern)
+                    {
+                        _destructuring = true;
+                        _assignmentPattern = pattern;
+                    }
+                    else
+                    {
+                        var identifier = (Identifier) id;
+                        _expr = new JintIdentifierExpression(identifier);
+                    }
+
+                    break;
+                }
+            case DestructuringPattern pattern:
                 _destructuring = true;
                 _assignmentPattern = pattern;
-            }
-            else
-            {
-                var identifier = (Identifier) id;
-                _expr = new JintIdentifierExpression(identifier);
-            }
-        }
-        else if (_leftNode is DestructuringPattern pattern)
-        {
-            _destructuring = true;
-            _assignmentPattern = pattern;
-        }
-        else if (_leftNode is MemberExpression memberExpression)
-        {
-            _expr = new JintMemberExpression(memberExpression);
-        }
-        else
-        {
-            _expr = new JintIdentifierExpression((Identifier) _leftNode);
+                break;
+            case MemberExpression memberExpression:
+                _expr = new JintMemberExpression(memberExpression);
+                break;
+            default:
+                _expr = new JintIdentifierExpression((Identifier) _leftNode);
+                break;
         }
 
         _body = new ProbablyBlockStatement(_forBody);
@@ -163,7 +168,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         {
             while (true)
             {
-                Environment? iterationEnv = null;
+                DeclarativeEnvironment? iterationEnv = null;
                 if (!iteratorRecord.TryIteratorStep(out var nextResult))
                 {
                     close = true;
@@ -173,7 +178,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 if (iteratorKind == IteratorKind.Async)
                 {
                     // nextResult = await nextResult;
-                    ExceptionHelper.ThrowNotImplementedException("await");
+                    Throw.NotImplementedException("await");
                 }
 
                 var nextValue = nextResult.Get(CommonProperties.Value);
@@ -222,7 +227,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                         var reference = (Reference) lhsRef;
                         if (lhsKind == LhsKind.LexicalBinding || _leftNode.Type == NodeType.Identifier && !reference.IsUnresolvableReference)
                         {
-                            reference.InitializeReferencedBinding(nextValue);
+                            reference.InitializeReferencedBinding(nextValue, _disposeHint);
                         }
                         else
                         {
@@ -276,6 +281,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 }
 
                 var result = stmt.Execute(context);
+                result = iterationEnv?.DisposeResources(result) ?? result;
                 engine.UpdateLexicalEnvironment(oldEnv);
 
                 if (!result.Value.IsEmpty)

@@ -126,7 +126,7 @@ public sealed class ArrayPrototype : ArrayInstance
             return _realm.Intrinsics.ArrayIteratorPrototype.Construct(oi, ArrayIteratorType.Key);
         }
 
-        ExceptionHelper.ThrowTypeError(_realm, "cannot construct iterator");
+        Throw.TypeError(_realm, "cannot construct iterator");
         return null;
     }
 
@@ -137,7 +137,7 @@ public sealed class ArrayPrototype : ArrayInstance
             return _realm.Intrinsics.ArrayIteratorPrototype.Construct(oi, ArrayIteratorType.Value);
         }
 
-        ExceptionHelper.ThrowTypeError(_realm, "cannot construct iterator");
+        Throw.TypeError(_realm, "cannot construct iterator");
         return null;
     }
 
@@ -160,7 +160,7 @@ public sealed class ArrayPrototype : ArrayInstance
 
         if (actualIndex >= (long) len || actualIndex < 0)
         {
-            ExceptionHelper.ThrowRangeError(_realm, "Invalid start index");
+            Throw.RangeError(_realm, "Invalid start index");
         }
 
         var a = CreateBackingArray(len);
@@ -180,7 +180,7 @@ public sealed class ArrayPrototype : ArrayInstance
             return _realm.Intrinsics.ArrayIteratorPrototype.Construct(oi, ArrayIteratorType.KeyAndValue);
         }
 
-        ExceptionHelper.ThrowTypeError(_realm, "cannot construct iterator");
+        Throw.TypeError(_realm, "cannot construct iterator");
         return null;
     }
 
@@ -388,7 +388,7 @@ public sealed class ArrayPrototype : ArrayInstance
 
         if (len == 0 && arguments.Length < 2)
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         var k = 0;
@@ -412,7 +412,7 @@ public sealed class ArrayPrototype : ArrayInstance
 
             if (kPresent == false)
             {
-                ExceptionHelper.ThrowTypeError(_realm);
+                Throw.TypeError(_realm);
             }
         }
 
@@ -491,7 +491,7 @@ public sealed class ArrayPrototype : ArrayInstance
 
         if (len > ArrayOperations.MaxArrayLength)
         {
-            ExceptionHelper.ThrowRangeError(_realm, "Invalid array length");
+            Throw.RangeError(_realm, "Invalid array length");
         }
 
         var callbackfn = arguments.At(0);
@@ -552,7 +552,7 @@ public sealed class ArrayPrototype : ArrayInstance
 
         if (!mapperFunction.IsCallable)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "flatMap mapper function is not callable");
+            Throw.TypeError(_realm, "flatMap mapper function is not callable");
         }
 
         var A = _realm.Intrinsics.Array.ArraySpeciesCreate(O.Target, 0);
@@ -615,7 +615,7 @@ public sealed class ArrayPrototype : ArrayInstance
                 {
                     if (targetIndex >= NumberConstructor.MaxSafeInteger)
                     {
-                        ExceptionHelper.ThrowTypeError(_realm);
+                        Throw.TypeError(_realm);
                     }
 
                     target.CreateDataPropertyOrThrow(targetIndex, element);
@@ -939,7 +939,7 @@ public sealed class ArrayPrototype : ArrayInstance
 
         if (len + insertCount - actualDeleteCount > ArrayOperations.MaxArrayLikeLength)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Invalid array length");
+            Throw.TypeError(_realm, "Invalid array length");
         }
 
         var instance = _realm.Intrinsics.Array.ArraySpeciesCreate(obj, actualDeleteCount);
@@ -1018,7 +1018,7 @@ public sealed class ArrayPrototype : ArrayInstance
 
         if (len + argCount > ArrayOperations.MaxArrayLikeLength)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Invalid array length");
+            Throw.TypeError(_realm, "Invalid array length");
         }
 
         // only prepare for larger if we cannot rely on default growth algorithm
@@ -1163,7 +1163,7 @@ public sealed class ArrayPrototype : ArrayInstance
 
         if (k < final && final - k > ArrayOperations.MaxArrayLength)
         {
-            ExceptionHelper.ThrowRangeError(_realm, "Invalid array length");
+            Throw.RangeError(_realm, "Invalid array length");
         }
 
         var length = (uint) System.Math.Max(0, (long) final - (long) k);
@@ -1377,7 +1377,7 @@ public sealed class ArrayPrototype : ArrayInstance
 
                     if (n + len > ArrayOperations.MaxArrayLikeLength)
                     {
-                        ExceptionHelper.ThrowTypeError(_realm, "Invalid array length");
+                        Throw.TypeError(_realm, "Invalid array length");
                     }
 
                     for (uint k = 0; k < len; k++)
@@ -1513,7 +1513,7 @@ public sealed class ArrayPrototype : ArrayInstance
         var newLen = len + insertCount - actualDeleteCount;
         if (newLen > ArrayOperations.MaxArrayLikeLength)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Invalid input length");
+            Throw.TypeError(_realm, "Invalid input length");
         }
 
         ValidateArrayLength(newLen);
@@ -1568,7 +1568,7 @@ public sealed class ArrayPrototype : ArrayInstance
         {
             if (compareArg is not ICallable callable)
             {
-                ExceptionHelper.ThrowTypeError(_realm, "The comparison function must be either a function or undefined");
+                Throw.TypeError(_realm, "The comparison function must be either a function or undefined");
                 return null;
             }
             compareFn = callable;
@@ -1592,7 +1592,7 @@ public sealed class ArrayPrototype : ArrayInstance
 
         if (len == 0 && arguments.Length < 2)
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         long k = (long) (len - 1);
@@ -1616,7 +1616,7 @@ public sealed class ArrayPrototype : ArrayInstance
 
             if (kPresent == false)
             {
-                ExceptionHelper.ThrowTypeError(_realm);
+                Throw.TypeError(_realm);
             }
         }
 
@@ -1651,7 +1651,7 @@ public sealed class ArrayPrototype : ArrayInstance
 
         if (n + (ulong) arguments.Length > ArrayOperations.MaxArrayLikeLength)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Invalid array length");
+            Throw.TypeError(_realm, "Invalid array length");
         }
 
         foreach (var a in arguments)
@@ -1696,7 +1696,7 @@ public sealed class ArrayPrototype : ArrayInstance
     {
         if (length > ArrayOperations.MaxArrayLength)
         {
-            ExceptionHelper.ThrowRangeError(_engine.Realm, "Invalid array length " + length);
+            Throw.RangeError(_engine.Realm, "Invalid array length " + length);
         }
     }
 

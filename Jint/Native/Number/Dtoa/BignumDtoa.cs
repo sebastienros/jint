@@ -92,7 +92,7 @@ internal static class BignumDtoa
                     ref builder);
                 break;
             default:
-                ExceptionHelper.ThrowArgumentOutOfRangeException();
+                Throw.ArgumentOutOfRangeException();
                 break;
         }
     }

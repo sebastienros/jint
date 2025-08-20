@@ -68,7 +68,7 @@ internal sealed class ObjectEnvironment : Environment
             if (strict)
             {
                 // data was deleted during reading of unscopable information, of course...
-                ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name.Key);
+                Throw.ReferenceNameError(_engine.Realm, name.Key);
             }
         }
 
@@ -107,13 +107,13 @@ internal sealed class ObjectEnvironment : Environment
     /// </summary>
     internal override void CreateImmutableBinding(Key name, bool strict = true)
     {
-        ExceptionHelper.ThrowInvalidOperationException("The concrete Environment Record method CreateImmutableBinding is never used within this specification in association with Object Environment Records.");
+        Throw.InvalidOperationException("The concrete Environment Record method CreateImmutableBinding is never used within this specification in association with Object Environment Records.");
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object-environment-records-initializebinding-n-v
     /// </summary>
-    internal override void InitializeBinding(Key name, JsValue value) => SetMutableBinding(name, value, strict: false);
+    internal override void InitializeBinding(Key name, JsValue value, DisposeHint hint) => SetMutableBinding(name, value, strict: false);
 
     internal override void SetMutableBinding(Key name, JsValue value, bool strict)
     {
@@ -122,7 +122,7 @@ internal sealed class ObjectEnvironment : Environment
         {
             if (strict)
             {
-                ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name);
+                Throw.ReferenceNameError(_engine.Realm, name);
             }
         }
 
@@ -135,7 +135,7 @@ internal sealed class ObjectEnvironment : Environment
         {
             if (strict)
             {
-                ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name.Key);
+                Throw.ReferenceNameError(_engine.Realm, name.Key);
             }
         }
 
@@ -148,7 +148,7 @@ internal sealed class ObjectEnvironment : Environment
         {
             if (strict)
             {
-                ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name.Name);
+                Throw.ReferenceNameError(_engine.Realm, name.Name);
             }
         }
 

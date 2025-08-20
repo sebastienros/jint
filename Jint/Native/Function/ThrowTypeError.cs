@@ -16,7 +16,7 @@ internal sealed class ThrowTypeError : Function
 
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
-        ExceptionHelper.ThrowTypeError(_realm);
+        Throw.TypeError(_realm);
         return null;
     }
 }

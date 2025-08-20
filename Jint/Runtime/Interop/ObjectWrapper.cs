@@ -46,6 +46,30 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                 _prototype = engine.Intrinsics.Array.PrototypeObject;
             }
         }
+
+        if (_typeDescriptor.IsDisposable)
+        {
+            SetProperty(GlobalSymbolRegistry.Dispose, new PropertyDescriptor(new ClrFunction(engine, "dispose", static (thisObject, _) =>
+            {
+                ((thisObject as ObjectWrapper)?.Target as IDisposable)?.Dispose();
+                return Undefined;
+            }), PropertyFlag.NonEnumerable));
+        }
+
+#if SUPPORTS_ASYNC_DISPOSE
+        if (_typeDescriptor.IsAsyncDisposable)
+        {
+            SetProperty(GlobalSymbolRegistry.AsyncDispose, new PropertyDescriptor(new ClrFunction(engine, "asyncDispose", (thisObject, _) =>
+            {
+                var target = ((thisObject as ObjectWrapper)?.Target as IAsyncDisposable)?.DisposeAsync();
+                if (target is not null)
+                {
+                    return ConvertAwaitableToPromise(engine, target);
+                }
+                return Undefined;
+            }), PropertyFlag.NonEnumerable));
+        }
+#endif
     }
 
     /// <summary>
@@ -55,7 +79,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     {
         if (target == null)
         {
-            ExceptionHelper.ThrowArgumentNullException(nameof(target));
+            Throw.ArgumentNullException(nameof(target));
         }
 
         // STJ integration
@@ -440,6 +464,9 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
     private static JsValue Iterator(JsValue thisObject, JsCallArguments arguments)
     {
+        if (thisObject is JsProxy proxy)
+            return Iterator(proxy._target, arguments);
+
         var wrapper = (ObjectWrapper) thisObject;
 
         return wrapper._typeDescriptor.IsDictionary
@@ -449,6 +476,9 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
     private static JsNumber GetLength(JsValue thisObject, JsCallArguments arguments)
     {
+        if (thisObject is JsProxy proxy)
+            return GetLength(proxy._target, arguments);
+
         var wrapper = (ObjectWrapper) thisObject;
         return JsNumber.Create((int) (wrapper._typeDescriptor.LengthProperty?.GetValue(wrapper.Target) ?? 0));
     }

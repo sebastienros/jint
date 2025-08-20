@@ -73,7 +73,7 @@ internal sealed class DataViewPrototype : Prototype
         var o = thisObject as JsDataView;
         if (o is null)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Method get DataView.prototype.buffer called on incompatible receiver " + thisObject);
+            Throw.TypeError(_realm, "Method get DataView.prototype.buffer called on incompatible receiver " + thisObject);
         }
 
         return o._viewedArrayBuffer!;
@@ -87,13 +87,13 @@ internal sealed class DataViewPrototype : Prototype
         var o = thisObject as JsDataView;
         if (o is null)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Method get DataView.prototype.byteLength called on incompatible receiver " + thisObject);
+            Throw.TypeError(_realm, "Method get DataView.prototype.byteLength called on incompatible receiver " + thisObject);
         }
 
         var viewRecord = MakeDataViewWithBufferWitnessRecord(o, ArrayBufferOrder.SeqCst);
         if (viewRecord.IsViewOutOfBounds)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Offset is outside the bounds of the DataView");
+            Throw.TypeError(_realm, "Offset is outside the bounds of the DataView");
         }
 
         var buffer = o._viewedArrayBuffer!;
@@ -110,13 +110,13 @@ internal sealed class DataViewPrototype : Prototype
         var o = thisObject as JsDataView;
         if (o is null)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Method get DataView.prototype.byteOffset called on incompatible receiver " + thisObject);
+            Throw.TypeError(_realm, "Method get DataView.prototype.byteOffset called on incompatible receiver " + thisObject);
         }
 
         var viewRecord = MakeDataViewWithBufferWitnessRecord(o, ArrayBufferOrder.SeqCst);
         if (viewRecord.IsViewOutOfBounds)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Offset is outside the bounds of the DataView");
+            Throw.TypeError(_realm, "Offset is outside the bounds of the DataView");
         }
 
         var buffer = o._viewedArrayBuffer!;
@@ -246,7 +246,7 @@ internal sealed class DataViewPrototype : Prototype
     {
         if (view is not JsDataView dataView)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Method called on incompatible receiver " + view);
+            Throw.TypeError(_realm, "Method called on incompatible receiver " + view);
             return Undefined;
         }
 
@@ -260,14 +260,14 @@ internal sealed class DataViewPrototype : Prototype
         var viewRecord = MakeDataViewWithBufferWitnessRecord(dataView, ArrayBufferOrder.Unordered);
         if (viewRecord.IsViewOutOfBounds)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Offset is outside the bounds of the DataView");
+            Throw.TypeError(_realm, "Offset is outside the bounds of the DataView");
         }
 
         var viewSize = viewRecord.ViewByteLength;
         var elementSize = type.GetElementSize();
         if (getIndex + elementSize > viewSize)
         {
-            ExceptionHelper.ThrowRangeError(_realm, "Offset is outside the bounds of the DataView");
+            Throw.RangeError(_realm, "Offset is outside the bounds of the DataView");
         }
 
         var bufferIndex = (int) (getIndex + viewOffset);
@@ -362,7 +362,7 @@ internal sealed class DataViewPrototype : Prototype
         var dataView = view as JsDataView;
         if (dataView is null)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Method called on incompatible receiver " + view);
+            Throw.TypeError(_realm, "Method called on incompatible receiver " + view);
         }
 
         var getIndex = TypeConverter.ToIndex(_realm, requestIndex);
@@ -385,14 +385,14 @@ internal sealed class DataViewPrototype : Prototype
         var viewRecord = MakeDataViewWithBufferWitnessRecord(dataView, ArrayBufferOrder.Unordered);
         if (viewRecord.IsViewOutOfBounds)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Offset is outside the bounds of the DataView");
+            Throw.TypeError(_realm, "Offset is outside the bounds of the DataView");
         }
 
         var viewSize = viewRecord.ViewByteLength;
         var elementSize = type.GetElementSize();
         if (getIndex + elementSize > viewSize)
         {
-            ExceptionHelper.ThrowRangeError(_realm, "Offset is outside the bounds of the DataView");
+            Throw.RangeError(_realm, "Offset is outside the bounds of the DataView");
         }
 
         var bufferIndex = (int) (getIndex + viewOffset);

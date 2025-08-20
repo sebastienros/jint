@@ -41,7 +41,7 @@ public static class ModuleFactory
     {
         if (!preparedModule.IsValid)
         {
-            ExceptionHelper.ThrowInvalidPreparedModuleArgumentException(nameof(preparedModule));
+            Throw.InvalidPreparedModuleArgumentException(nameof(preparedModule));
         }
 
         return new SourceTextModule(engine, engine.Realm, preparedModule, preparedModule.Program!.Location.SourceFile, async: false);
@@ -67,7 +67,7 @@ public static class ModuleFactory
         }
         catch (Exception)
         {
-            ExceptionHelper.ThrowJavaScriptException(engine, $"Could not load module {source}", AstExtensions.DefaultLocation);
+            Throw.JavaScriptException(engine, $"Could not load module {source}", AstExtensions.DefaultLocation);
             module = null;
         }
 

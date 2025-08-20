@@ -51,7 +51,7 @@ public sealed class SetConstructor : Constructor
             var adder = adderValue as ICallable;
             if (adder is null)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "add must be callable");
+                Throw.TypeError(_engine.Realm, "add must be callable");
             }
 
             var iterable = arguments.At(0).GetIterator(_realm);
@@ -85,7 +85,7 @@ public sealed class SetConstructor : Constructor
     {
         if (newTarget.IsUndefined())
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm);
+            Throw.TypeError(_engine.Realm);
         }
 
         var set = OrdinaryCreateFromConstructor(

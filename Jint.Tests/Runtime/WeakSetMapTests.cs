@@ -21,7 +21,7 @@ public class WeakSetMapTests
         Assert.Equal("Constructor WeakSet requires 'new'", e.Message);
     }
 
-    public static IEnumerable<object[]> PrimitiveKeys = new TheoryData<JsValue>
+    public static TheoryData<JsValue> PrimitiveKeys = new()
     {
         JsValue.Null,
         JsValue.Undefined,

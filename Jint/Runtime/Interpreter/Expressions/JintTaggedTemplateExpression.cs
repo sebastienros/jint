@@ -38,7 +38,7 @@ internal sealed class JintTaggedTemplateExpression : JintExpression
         var tagger = engine.GetValue(identifier) as ICallable;
         if (tagger is null)
         {
-            ExceptionHelper.ThrowTypeError(engine.Realm, "Argument must be callable");
+            Throw.TypeError(engine.Realm, "Argument must be callable");
         }
 
         ref readonly var expressions = ref _quasi._expressions;

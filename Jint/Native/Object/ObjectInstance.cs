@@ -5,7 +5,6 @@ using Jint.Collections;
 using Jint.Native.Array;
 using Jint.Native.BigInt;
 using Jint.Native.Boolean;
-using Jint.Native.Disposable;
 using Jint.Native.Json;
 using Jint.Native.Number;
 using Jint.Native.Promise;
@@ -130,7 +129,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         var oi = c as ObjectInstance;
         if (oi is null)
         {
-            ExceptionHelper.ThrowTypeError(o._engine.Realm);
+            Throw.TypeError(o._engine.Realm);
         }
 
         var s = oi.Get(GlobalSymbolRegistry.Species);
@@ -144,7 +143,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             return (IConstructor) s;
         }
 
-        ExceptionHelper.ThrowTypeError(o._engine.Realm);
+        Throw.TypeError(o._engine.Realm);
         return null;
     }
 
@@ -488,7 +487,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     {
         if (!Set(p, v) && throwOnError)
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm);
+            Throw.TypeError(_engine.Realm);
         }
 
         return true;
@@ -690,7 +689,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     {
         if (!Delete(property))
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm);
+            Throw.TypeError(_engine.Realm);
         }
         return true;
     }
@@ -722,7 +721,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     {
         if (!DefineOwnProperty(property, desc))
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm, "Cannot redefine property: " + property);
+            Throw.TypeError(_engine.Realm, "Cannot redefine property: " + property);
         }
 
         return true;
@@ -1261,7 +1260,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     {
         if (!value.IsObject() && !value.IsNull())
         {
-            ExceptionHelper.ThrowArgumentException();
+            Throw.ArgumentException();
         }
 
         var current = _prototype ?? Null;
@@ -1349,7 +1348,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     {
         if (!CreateDataProperty(p, v))
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm);
+            Throw.TypeError(_engine.Realm);
         }
 
         return true;
@@ -1393,7 +1392,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         var callable = jsValue as ICallable;
         if (callable is null)
         {
-            ExceptionHelper.ThrowTypeError(realm, $"Value returned for property '{p}' of object is not a function");
+            Throw.TypeError(realm, $"Value returned for property '{p}' of object is not a function");
         }
         return callable;
     }
@@ -1520,7 +1519,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     [MethodImpl(MethodImplOptions.NoInlining)]
     private void ThrowIncompatibleReceiver(JsValue value, string methodName)
     {
-        ExceptionHelper.ThrowTypeError(_engine.Realm, $"Method {methodName} called on incompatible receiver {value}");
+        Throw.TypeError(_engine.Realm, $"Method {methodName} called on incompatible receiver {value}");
     }
 
     public override bool Equals(object? obj) => Equals(obj as ObjectInstance);
@@ -1618,7 +1617,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         var func = v.GetV(_engine.Realm, p);
         if (func is not ICallable callable)
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm, "Can only invoke functions");
+            Throw.TypeError(_engine.Realm, "Can only invoke functions");
             return default;
         }
 

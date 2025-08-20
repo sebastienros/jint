@@ -67,12 +67,12 @@ internal sealed class PromiseConstructor : Constructor
     {
         if (newTarget.IsUndefined())
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Constructor Promise requires 'new'");
+            Throw.TypeError(_realm, "Constructor Promise requires 'new'");
         }
 
         if (arguments.At(0) is not ICallable executor)
         {
-            ExceptionHelper.ThrowTypeError(_realm, $"Promise executor {(arguments.At(0))} is not a function");
+            Throw.TypeError(_realm, $"Promise executor {(arguments.At(0))} is not a function");
             return null;
         }
 
@@ -101,12 +101,12 @@ internal sealed class PromiseConstructor : Constructor
     {
         if (!thisObject.IsObject())
         {
-            ExceptionHelper.ThrowTypeError(_realm, "PromiseResolve called on non-object");
+            Throw.TypeError(_realm, "PromiseResolve called on non-object");
         }
 
         if (thisObject is not IConstructor)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Promise.resolve invoked on a non-constructor value");
+            Throw.TypeError(_realm, "Promise.resolve invoked on a non-constructor value");
         }
 
         var x = arguments.At(0);
@@ -151,12 +151,12 @@ internal sealed class PromiseConstructor : Constructor
     {
         if (!thisObject.IsObject())
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Promise.reject called on non-object");
+            Throw.TypeError(_realm, "Promise.reject called on non-object");
         }
 
         if (thisObject is not IConstructor)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Promise.reject invoked on a non-constructor value");
+            Throw.TypeError(_realm, "Promise.reject invoked on a non-constructor value");
         }
 
         var r = arguments.At(0);
@@ -175,7 +175,7 @@ internal sealed class PromiseConstructor : Constructor
     {
         if (!thisObject.IsObject())
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Promise.try called on non-object");
+            Throw.TypeError(_realm, "Promise.try called on non-object");
         }
 
         var callbackfn = arguments.At(0);
@@ -201,7 +201,7 @@ internal sealed class PromiseConstructor : Constructor
     {
         if (!thisObject.IsObject())
         {
-            ExceptionHelper.ThrowTypeError(_realm, $"{callerName} called on non-object");
+            Throw.TypeError(_realm, $"{callerName} called on non-object");
         }
 
         //2. Let promiseCapability be ? NewPromiseCapability(C).
@@ -230,7 +230,7 @@ internal sealed class PromiseConstructor : Constructor
         {
             if (arguments.Length == 0)
             {
-                ExceptionHelper.ThrowTypeError(_realm, $"no arguments were passed to {callerName}");
+                Throw.TypeError(_realm, $"no arguments were passed to {callerName}");
             }
 
             var iterable = arguments.At(0);
@@ -325,7 +325,7 @@ internal sealed class PromiseConstructor : Constructor
                 }
                 else
                 {
-                    ExceptionHelper.ThrowTypeError(_realm, "Passed non Promise-like value");
+                    Throw.TypeError(_realm, "Passed non Promise-like value");
                 }
 
                 index += 1;
@@ -448,7 +448,7 @@ internal sealed class PromiseConstructor : Constructor
                 }
                 else
                 {
-                    ExceptionHelper.ThrowTypeError(_realm, "Passed non Promise-like value");
+                    Throw.TypeError(_realm, "Passed non Promise-like value");
                 }
 
                 index += 1;
@@ -557,7 +557,7 @@ internal sealed class PromiseConstructor : Constructor
                 }
                 else
                 {
-                    ExceptionHelper.ThrowTypeError(_realm, "Passed non Promise-like value");
+                    Throw.TypeError(_realm, "Passed non Promise-like value");
                 }
 
                 index += 1;
@@ -654,7 +654,7 @@ internal sealed class PromiseConstructor : Constructor
             return resolve;
         }
 
-        ExceptionHelper.ThrowTypeError(_realm, "resolve is not a function");
+        Throw.TypeError(_realm, "resolve is not a function");
         // Note: throws right before return
         return null;
     }
@@ -695,7 +695,7 @@ internal sealed class PromiseConstructor : Constructor
             if (resolveArg is not null && resolveArg != Undefined ||
                 rejectArg is not null && rejectArg != Undefined)
             {
-                ExceptionHelper.ThrowTypeError(engine.Realm, "executor was already called with not undefined args");
+                Throw.TypeError(engine.Realm, "executor was already called with not undefined args");
             }
 
             resolveArg = arguments.At(0);
@@ -717,7 +717,7 @@ internal sealed class PromiseConstructor : Constructor
         }
         else
         {
-            ExceptionHelper.ThrowTypeError(engine.Realm, "resolve is not a function");
+            Throw.TypeError(engine.Realm, "resolve is not a function");
         }
 
         if (rejectArg is ICallable rejFunc)
@@ -726,7 +726,7 @@ internal sealed class PromiseConstructor : Constructor
         }
         else
         {
-            ExceptionHelper.ThrowTypeError(engine.Realm, "reject is not a function");
+            Throw.TypeError(engine.Realm, "reject is not a function");
         }
 
         return new PromiseCapability(

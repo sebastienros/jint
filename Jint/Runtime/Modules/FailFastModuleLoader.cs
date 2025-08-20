@@ -10,7 +10,7 @@ internal sealed class FailFastModuleLoader : IModuleLoader
     {
         get
         {
-            ExceptionHelper.ThrowInvalidOperationException("Cannot access base path when modules loading is disabled");
+            Throw.InvalidOperationException("Cannot access base path when modules loading is disabled");
             return default;
         }
     }
@@ -28,6 +28,6 @@ internal sealed class FailFastModuleLoader : IModuleLoader
 
     private static void ThrowDisabledException()
     {
-        ExceptionHelper.ThrowInvalidOperationException("Module loading has been disabled, you need to enable it in engine options");
+        Throw.InvalidOperationException("Module loading has been disabled, you need to enable it in engine options");
     }
 }

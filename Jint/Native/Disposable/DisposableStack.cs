@@ -35,7 +35,7 @@ internal sealed class DisposableStack : ObjectInstance
         var completion = _disposeCapability.DisposeResources(new Completion(CompletionType.Normal, Undefined, _engine.GetLastSyntaxElement()));
         if (completion.Type == CompletionType.Throw)
         {
-            ExceptionHelper.ThrowJavaScriptException(_engine, completion.Value, completion);
+            Throw.JavaScriptException(_engine, completion.Value, completion);
         }
         return completion.Value;
     }
@@ -89,7 +89,7 @@ internal sealed class DisposableStack : ObjectInstance
     {
         if (State == DisposableState.Disposed)
         {
-            ExceptionHelper.ThrowReferenceError(_engine.Realm, "Stack already disposed.");
+            Throw.ReferenceError(_engine.Realm, "Stack already disposed.");
         }
     }
 }

@@ -139,7 +139,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         uint newLen = TypeConverter.ToUint32(value);
         if (newLen != TypeConverter.ToNumber(value))
         {
-            ExceptionHelper.ThrowRangeError(_engine.Realm);
+            Throw.RangeError(_engine.Realm);
         }
 
         var oldLenDesc = _length;
@@ -661,7 +661,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
     {
         if (!Delete(index))
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm);
+            Throw.TypeError(_engine.Realm);
         }
         return true;
     }
@@ -1053,7 +1053,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         {
             if (!Set(CommonProperties.Length, newLength))
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm);
+                Throw.TypeError(_engine.Realm);
             }
         }
     }
@@ -1100,7 +1100,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         {
             if (!Set(CommonProperties.Length, newLength))
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm);
+                Throw.TypeError(_engine.Realm);
             }
         }
 
@@ -1120,7 +1120,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
 
         if (!Delete(newLength, unwrapFromNonDataDescriptor: true, out var element))
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm);
+            Throw.TypeError(_engine.Realm);
         }
 
         SetLength(newLength);
@@ -1360,7 +1360,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
 
     private static void ThrowMaximumArraySizeReachedException(Engine engine, uint capacity)
     {
-        ExceptionHelper.ThrowMemoryLimitExceededException(
+        Throw.MemoryLimitExceededException(
             $"The array size {capacity} is larger than maximum allowed ({engine.Options.Constraints.MaxArraySize})"
         );
     }

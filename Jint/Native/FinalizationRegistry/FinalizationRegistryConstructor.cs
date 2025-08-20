@@ -35,13 +35,13 @@ internal sealed class FinalizationRegistryConstructor : Constructor
     {
         if (newTarget.IsUndefined())
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         var cleanupCallback = arguments.At(0);
         if (cleanupCallback is not ICallable callable)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "cleanup must be callable");
+            Throw.TypeError(_realm, "cleanup must be callable");
             return null;
         }
 

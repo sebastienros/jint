@@ -148,7 +148,7 @@ internal sealed class MethodDescriptor
         }
         catch (TargetInvocationException exception)
         {
-            ExceptionHelper.ThrowMeaningfulException(engine, exception);
+            Throw.MeaningfulException(engine, exception);
             return null;
         }
     }

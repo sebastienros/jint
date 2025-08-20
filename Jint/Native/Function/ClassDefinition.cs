@@ -85,7 +85,7 @@ internal sealed class ClassDefinition
             }
             else if (!superclass.IsConstructor)
             {
-                ExceptionHelper.ThrowTypeError(engine.Realm, "super class is not a constructor");
+                Throw.TypeError(engine.Realm, "super class is not a constructor");
             }
             else
             {
@@ -100,7 +100,7 @@ internal sealed class ClassDefinition
                 }
                 else
                 {
-                    ExceptionHelper.ThrowTypeError(engine.Realm, "cannot resolve super class prototype chain");
+                    Throw.TypeError(engine.Realm, "cannot resolve super class prototype chain");
                     return default;
                 }
 
@@ -203,7 +203,7 @@ internal sealed class ClassDefinition
 
             if (_className is not null)
             {
-                classEnv.InitializeBinding(_className, F);
+                classEnv.InitializeBinding(_className, F, DisposeHint.Normal);
             }
 
             F._privateMethods = instancePrivateMethods;
@@ -350,7 +350,7 @@ internal sealed class ClassDefinition
         var function = method.Value as IFunction;
         if (function is null)
         {
-            ExceptionHelper.ThrowSyntaxError(obj.Engine.Realm);
+            Throw.SyntaxError(obj.Engine.Realm);
         }
 
         if (method.Kind != PropertyKind.Get && method.Kind != PropertyKind.Set && !function.Generator)

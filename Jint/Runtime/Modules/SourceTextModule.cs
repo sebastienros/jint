@@ -204,7 +204,7 @@ internal class SourceTextModule : CyclicModule
             var resolution = ResolveExport(e.ExportName);
             if (resolution is null || resolution == ResolvedBinding.Ambiguous)
             {
-                ExceptionHelper.ThrowSyntaxError(_realm, "Ambiguous import statement for identifier: " + e.ExportName);
+                Throw.SyntaxError(_realm, "Ambiguous import statement for identifier: " + e.ExportName);
             }
         }
 
@@ -222,21 +222,21 @@ internal class SourceTextModule : CyclicModule
                 {
                     var ns = GetModuleNamespace(importedModule);
                     env.CreateImmutableBinding(ie.LocalName, strict: true);
-                    env.InitializeBinding(ie.LocalName, ns);
+                    env.InitializeBinding(ie.LocalName, ns, DisposeHint.Normal);
                 }
                 else
                 {
                     var resolution = importedModule.ResolveExport(ie.ImportName);
                     if (resolution is null || resolution == ResolvedBinding.Ambiguous)
                     {
-                        ExceptionHelper.ThrowSyntaxError(_realm, "Ambiguous import statement for identifier " + ie.ImportName);
+                        Throw.SyntaxError(_realm, "Ambiguous import statement for identifier " + ie.ImportName);
                     }
 
                     if (string.Equals(resolution.BindingName, "*namespace*", StringComparison.Ordinal))
                     {
                         var ns = GetModuleNamespace(resolution.Module);
                         env.CreateImmutableBinding(ie.LocalName, strict: true);
-                        env.InitializeBinding(ie.LocalName, ns);
+                        env.InitializeBinding(ie.LocalName, ns, DisposeHint.Normal);
                     }
                     else
                     {
@@ -269,7 +269,7 @@ internal class SourceTextModule : CyclicModule
                     if (declaredVarNames.Add(dn))
                     {
                         env.CreateMutableBinding(dn);
-                        env.InitializeBinding(dn, Undefined);
+                        env.InitializeBinding(dn, Undefined, d.Kind.GetDisposeHint());
                     }
                 }
             }
@@ -310,7 +310,7 @@ internal class SourceTextModule : CyclicModule
                 {
                     fo.SetFunctionName("default");
                 }
-                env.InitializeBinding(fn, fo);
+                env.InitializeBinding(fn, fo, DisposeHint.Normal);
             }
         }
 
@@ -327,23 +327,29 @@ internal class SourceTextModule : CyclicModule
         {
             using (new StrictModeScope(strict: true, force: true))
             {
+                var result = Completion.Empty();
                 _engine.EnterExecutionContext(moduleContext);
                 try
                 {
                     var statementList = new JintStatementList(statement: null, _source.Body);
+
+                    //Create new evaluation context when called from e.g. module tests
                     var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
-                    var result = statementList.Execute(context); //Create new evaluation context when called from e.g. module tests
-                    return result;
+
+                    result = statementList.Execute(context);
                 }
                 finally
                 {
+                    result = _environment.DisposeResources(result);
                     _engine.LeaveExecutionContext();
                 }
+
+                return result;
             }
         }
         else
         {
-            ExceptionHelper.ThrowNotImplementedException("async modules not implemented");
+            Throw.NotImplementedException("async modules not implemented");
             return default;
         }
     }

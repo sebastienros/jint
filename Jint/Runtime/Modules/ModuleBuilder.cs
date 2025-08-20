@@ -36,7 +36,7 @@ public sealed class ModuleBuilder
     {
         if (!preparedModule.IsValid)
         {
-            ExceptionHelper.ThrowInvalidPreparedModuleArgumentException(nameof(preparedModule));
+            Throw.InvalidPreparedModuleArgumentException(nameof(preparedModule));
         }
 
         if (_sourceRaw.Count > 0)
@@ -148,7 +148,7 @@ public sealed class ModuleBuilder
         catch (ParseErrorException ex)
         {
             var location = SourceLocation.From(Position.From(ex.LineNumber, ex.Column), Position.From(ex.LineNumber, ex.Column), _specifier);
-            ExceptionHelper.ThrowSyntaxError(_engine.Realm, $"Error while loading module: error in module '{_specifier}': {ex.Error}", location);
+            Throw.SyntaxError(_engine.Realm, $"Error while loading module: error in module '{_specifier}': {ex.Error}", location);
             return default;
         }
     }

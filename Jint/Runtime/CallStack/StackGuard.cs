@@ -44,7 +44,7 @@ internal sealed class StackGuard
 
         if (_engine.CallStack.Count > _engine.Options.Constraints.MaxExecutionStackCount)
         {
-            ExceptionHelper.ThrowRangeError(_engine.Realm, "Maximum call stack size exceeded");
+            Throw.RangeError(_engine.Realm, "Maximum call stack size exceeded");
         }
 
         return false;

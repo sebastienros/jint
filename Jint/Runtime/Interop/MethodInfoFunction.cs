@@ -246,7 +246,7 @@ internal sealed class MethodInfoFunction : Function
             }
             catch (TargetInvocationException exception)
             {
-                ExceptionHelper.ThrowMeaningfulException(_engine, exception);
+                Throw.MeaningfulException(_engine, exception);
             }
         }
 
@@ -255,7 +255,7 @@ internal sealed class MethodInfoFunction : Function
             return _fallbackClrFunctionInstance.Call(thisObject, jsArguments);
         }
 
-        ExceptionHelper.ThrowTypeError(_engine.Realm, "No public methods with the specified arguments were found.");
+        Throw.TypeError(_engine.Realm, "No public methods with the specified arguments were found.");
         return null;
     }
 

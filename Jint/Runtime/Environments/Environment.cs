@@ -49,7 +49,8 @@ internal abstract class Environment : JsValue
     /// </summary>
     /// <param name="name">The text of the bound name</param>
     /// <param name="value">The value for the binding.</param>
-    internal abstract void InitializeBinding(Key name, JsValue value);
+    /// <param name="hint">Disposal type hint</param>
+    internal abstract void InitializeBinding(Key name, JsValue value, DisposeHint hint);
 
     /// <summary>
     /// Sets the value of an already existing mutable binding in an environment record.
@@ -92,19 +93,21 @@ internal abstract class Environment : JsValue
 
     public override object ToObject()
     {
-        ExceptionHelper.ThrowNotSupportedException();
+        Throw.NotSupportedException();
         return null;
     }
 
     public override bool Equals(JsValue? other)
     {
-        ExceptionHelper.ThrowNotSupportedException();
+        Throw.NotSupportedException();
         return false;
     }
 
     internal abstract JsValue GetThisBinding();
 
     internal JsValue? NewTarget { get; set; }
+
+    internal virtual Completion DisposeResources(Completion c) => c;
 
     /// <summary>
     /// Helper to cache JsString/Key when environments use different lookups.

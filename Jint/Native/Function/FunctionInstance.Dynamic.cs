@@ -50,7 +50,7 @@ public partial class Function
                 fallbackProto = static intrinsics => intrinsics.AsyncGeneratorFunction.PrototypeObject;
                 break;
             default:
-                ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(kind), kind.ToString());
+                Throw.ArgumentOutOfRangeException(nameof(kind), kind.ToString());
                 break;
         }
 
@@ -96,7 +96,7 @@ public partial class Function
                         functionExpression = "async function* f(){}";
                         break;
                     default:
-                        ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(kind), kind.ToString());
+                        Throw.ArgumentOutOfRangeException(nameof(kind), kind.ToString());
                         break;
                 }
             }
@@ -117,7 +117,7 @@ public partial class Function
                         functionExpression = "async function* f(";
                         break;
                     default:
-                        ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(kind), kind.ToString());
+                        Throw.ArgumentOutOfRangeException(nameof(kind), kind.ToString());
                         break;
                 }
 
@@ -154,7 +154,7 @@ public partial class Function
         }
         catch (ParseErrorException ex)
         {
-            ExceptionHelper.ThrowSyntaxError(_engine.ExecutionContext.Realm, ex.Message);
+            Throw.SyntaxError(_engine.ExecutionContext.Realm, ex.Message);
         }
 
         var proto = GetPrototypeFromConstructor(newTarget, fallbackProto);

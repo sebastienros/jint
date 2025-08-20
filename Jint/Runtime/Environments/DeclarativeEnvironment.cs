@@ -2,6 +2,7 @@
 using System.Runtime.CompilerServices;
 using Jint.Collections;
 using Jint.Native;
+using Jint.Native.Disposable;
 
 namespace Jint.Runtime.Environments;
 
@@ -13,6 +14,7 @@ internal class DeclarativeEnvironment : Environment
 {
     internal HybridDictionary<Binding>? _dictionary;
     internal readonly bool _catchEnvironment;
+    private DisposeCapability? _disposeCapability;
 
     public DeclarativeEnvironment(Engine engine, bool catchEnvironment = false) : base(engine)
     {
@@ -35,16 +37,24 @@ internal class DeclarativeEnvironment : Environment
         return false;
     }
 
-    internal void CreateMutableBindingAndInitialize(Key name, bool canBeDeleted, JsValue value)
+    internal void CreateMutableBindingAndInitialize(Key name, bool canBeDeleted, JsValue value, DisposeHint hint)
     {
         _dictionary ??= new HybridDictionary<Binding>();
         _dictionary[name] = new Binding(value, canBeDeleted, mutable: true, strict: false);
+        if (hint != DisposeHint.Normal)
+        {
+            HandleDisposal(value, hint);
+        }
     }
 
-    internal void CreateImmutableBindingAndInitialize(Key name, bool strict, JsValue value)
+    internal void CreateImmutableBindingAndInitialize(Key name, bool strict, JsValue value, DisposeHint hint)
     {
         _dictionary ??= new HybridDictionary<Binding>();
         _dictionary[name] = new Binding(value, canBeDeleted: false, mutable: false, strict);
+        if (hint != DisposeHint.Normal)
+        {
+            HandleDisposal(value, hint);
+        }
     }
 
     internal sealed override void CreateMutableBinding(Key name, bool canBeDeleted = false)
@@ -59,10 +69,14 @@ internal class DeclarativeEnvironment : Environment
         _dictionary.CreateImmutableBinding(name, strict);
     }
 
-    internal sealed override void InitializeBinding(Key name, JsValue value)
+    internal sealed override void InitializeBinding(Key name, JsValue value, DisposeHint hint)
     {
         _dictionary ??= new HybridDictionary<Binding>();
         _dictionary.SetOrUpdateValue(name, static (current, value) => current.ChangeValue(value), value);
+        if (hint != DisposeHint.Normal)
+        {
+            HandleDisposal(value, hint);
+        }
     }
 
     internal sealed override void SetMutableBinding(BindingName name, JsValue value, bool strict) => SetMutableBinding(name.Key, value, strict);
@@ -76,7 +90,7 @@ internal class DeclarativeEnvironment : Environment
         {
             if (strict)
             {
-                ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name);
+                Throw.ReferenceNameError(_engine.Realm, name);
             }
 
             _dictionary[name] = new Binding(value, canBeDeleted: true, mutable: true, strict: false);
@@ -102,7 +116,7 @@ internal class DeclarativeEnvironment : Environment
         {
             if (strict)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "Assignment to constant variable.");
+                Throw.TypeError(_engine.Realm, "Assignment to constant variable.");
             }
         }
     }
@@ -121,7 +135,7 @@ internal class DeclarativeEnvironment : Environment
     [MethodImpl(MethodImplOptions.NoInlining)]
     private void ThrowUninitializedBindingError(Key name)
     {
-        ExceptionHelper.ThrowReferenceError(_engine.Realm, $"Cannot access '{name}' before initialization");
+        Throw.ReferenceError(_engine.Realm, $"Cannot access '{name}' before initialization");
     }
 
     internal sealed override bool DeleteBinding(Key name)
@@ -169,6 +183,8 @@ internal class DeclarativeEnvironment : Environment
 
     internal override JsValue GetThisBinding() => Undefined;
 
+    internal sealed override Completion DisposeResources(Completion c) => _disposeCapability?.DisposeResources(c) ?? c;
+
     public void Clear()
     {
         _dictionary = null;
@@ -184,6 +200,13 @@ internal class DeclarativeEnvironment : Environment
             source.TryGetValue(bn, out var lastValue);
             target[bn] = new Binding(lastValue.Value, canBeDeleted: false, mutable: true, strict: false);
         }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void HandleDisposal(JsValue value, DisposeHint hint)
+    {
+        _disposeCapability ??= new DisposeCapability(_engine);
+        _disposeCapability.AddDisposableResource(value, hint);
     }
 }
 

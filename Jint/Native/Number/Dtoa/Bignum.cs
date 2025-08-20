@@ -130,7 +130,7 @@ internal sealed class Bignum
     {
         if (size > kBigitCapacity)
         {
-            ExceptionHelper.ThrowInvalidOperationException();
+            Throw.InvalidOperationException();
         }
     }
 
@@ -594,7 +594,7 @@ internal sealed class Bignum
         // sum up used_digits of Bigit*Bigit.
         if ((1 << (2 * (kChunkSize - kBigitSize))) <= used_digits_)
         {
-            ExceptionHelper.ThrowNotImplementedException();
+            Throw.NotImplementedException();
         }
 
         ulong accumulator = 0;

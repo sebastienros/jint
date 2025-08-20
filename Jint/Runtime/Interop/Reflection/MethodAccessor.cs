@@ -23,6 +23,6 @@ internal sealed class MethodAccessor : ReflectionAccessor
 
     public override PropertyDescriptor CreatePropertyDescriptor(Engine engine, object target, string memberName, bool enumerable = true)
     {
-        return new(new MethodInfoFunction(engine, _targetType, target, memberName, _methods), PropertyFlag.AllForbidden);
+        return new(new MethodInfoFunction(engine, _targetType, target, memberName, _methods), PropertyFlag.Configurable | PropertyFlag.NonData);
     }
 }

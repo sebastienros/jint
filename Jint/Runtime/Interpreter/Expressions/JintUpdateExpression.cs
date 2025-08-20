@@ -32,7 +32,7 @@ internal sealed class JintUpdateExpression : JintExpression
         }
         else
         {
-            ExceptionHelper.ThrowArgumentException();
+            Throw.ArgumentException();
         }
 
         _leftIdentifier = _argument as JintIdentifierExpression;
@@ -60,7 +60,7 @@ internal sealed class JintUpdateExpression : JintExpression
         var reference = _argument.Evaluate(context) as Reference;
         if (reference is null)
         {
-            ExceptionHelper.ThrowTypeError(engine.Realm, "Invalid left-hand side expression");
+            Throw.TypeError(engine.Realm, "Invalid left-hand side expression");
         }
 
         reference.AssertValid(engine.Realm);
@@ -133,7 +133,7 @@ internal sealed class JintUpdateExpression : JintExpression
         {
             if (_evalOrArguments && strict)
             {
-                ExceptionHelper.ThrowSyntaxError(context.Engine.Realm);
+                Throw.SyntaxError(context.Engine.Realm);
             }
 
             var isInteger = value._type == InternalTypes.Integer;

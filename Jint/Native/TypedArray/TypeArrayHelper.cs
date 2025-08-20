@@ -9,14 +9,14 @@ internal static class TypeArrayHelper
     {
         if (o is not JsTypedArray typedArray)
         {
-            ExceptionHelper.ThrowTypeError(realm);
+            Throw.TypeError(realm);
             return default;
         }
 
         var taRecord = IntrinsicTypedArrayPrototype.MakeTypedArrayWithBufferWitnessRecord(typedArray, order);
         if (taRecord.IsTypedArrayOutOfBounds)
         {
-            ExceptionHelper.ThrowTypeError(realm, "TypedArray is out of bounds");
+            Throw.TypeError(realm, "TypedArray is out of bounds");
         }
 
         return taRecord;

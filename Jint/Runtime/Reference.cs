@@ -100,13 +100,13 @@ public sealed class Reference
             && (_base._type & InternalTypes.ObjectEnvironmentRecord) != InternalTypes.Empty
             && (CommonProperties.Eval.Equals(_referencedName) || CommonProperties.Arguments.Equals(_referencedName)))
         {
-            ExceptionHelper.ThrowSyntaxError(realm);
+            Throw.SyntaxError(realm);
         }
     }
 
-    internal void InitializeReferencedBinding(JsValue value)
+    internal void InitializeReferencedBinding(JsValue value, DisposeHint hint)
     {
-        ((Environment) _base).InitializeBinding(TypeConverter.ToString(_referencedName), value);
+        ((Environment) _base).InitializeBinding(TypeConverter.ToString(_referencedName), value, hint);
     }
 
     internal void EvaluateAndCachePropertyKey()
@@ -116,4 +116,11 @@ public sealed class Reference
             _referencedName = Runtime.TypeConverter.ToPropertyKey(_referencedName);
         }
     }
+}
+
+internal enum DisposeHint
+{
+    Normal,
+    Sync,
+    Async,
 }

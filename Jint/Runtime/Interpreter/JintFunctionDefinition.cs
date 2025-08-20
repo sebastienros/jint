@@ -37,7 +37,7 @@ internal sealed class JintFunctionDefinition
     {
         Completion result;
         JsArguments? argumentsInstance = null;
-        if (Function.Expression)
+        if (Function.Body is not FunctionBody)
         {
             // https://tc39.es/ecma262/#sec-runtime-semantics-evaluateconcisebody
             _bodyExpression ??= JintExpression.Build((Expression) Function.Body);

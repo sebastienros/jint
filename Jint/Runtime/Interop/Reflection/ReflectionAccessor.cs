@@ -57,7 +57,7 @@ internal abstract class ReflectionAccessor
             }
             catch (TargetInvocationException tie)
             {
-                ExceptionHelper.ThrowMeaningfulException(engine, tie);
+                Throw.MeaningfulException(engine, tie);
             }
         }
 
@@ -108,7 +108,7 @@ internal abstract class ReflectionAccessor
         }
         catch (TargetInvocationException exception)
         {
-            ExceptionHelper.ThrowMeaningfulException(engine, exception);
+            Throw.MeaningfulException(engine, exception);
         }
     }
 

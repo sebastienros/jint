@@ -130,7 +130,7 @@ internal static class ReflectionExtensions
             case TypeCode.Int64:
                 return (long) d;
             default:
-                ExceptionHelper.ThrowArgumentException("Cannot convert " + type);
+                Throw.ArgumentException("Cannot convert " + type);
                 return null;
         }
     }

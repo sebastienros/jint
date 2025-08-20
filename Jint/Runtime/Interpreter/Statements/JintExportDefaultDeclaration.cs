@@ -57,7 +57,7 @@ internal sealed class JintExportDefaultDeclaration : JintStatement<ExportDefault
             if (classBinding != null)
             {
                 env.CreateMutableBinding(classBinding);
-                env.InitializeBinding(classBinding, value);
+                env.InitializeBinding(classBinding, value, DisposeHint.Normal);
             }
         }
         else if (_functionDeclaration is not null)
@@ -79,7 +79,7 @@ internal sealed class JintExportDefaultDeclaration : JintStatement<ExportDefault
             functionInstance.SetFunctionName("default");
         }
 
-        env.InitializeBinding("*default*", value);
+        env.InitializeBinding("*default*", value, DisposeHint.Normal);
         return Completion.Empty();
     }
 
@@ -90,11 +90,11 @@ internal sealed class JintExportDefaultDeclaration : JintStatement<ExportDefault
     {
         if (environment is not null)
         {
-            environment.InitializeBinding(name, value);
+            environment.InitializeBinding(name, value, DisposeHint.Normal);
         }
         else
         {
-            ExceptionHelper.ThrowNotImplementedException();
+            Throw.NotImplementedException();
         }
     }
 }

@@ -57,7 +57,7 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
             return value;
         }
 
-        ExceptionHelper.ThrowReferenceError(_functionObject._realm, "'this' has already been bound");
+        Throw.ReferenceError(_functionObject._realm, "'this' has already been bound");
         return null!;
     }
 
@@ -82,7 +82,7 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
             message = "Must call super constructor in derived class before accessing 'this' or returning from derived constructor";
         }
 
-        ExceptionHelper.ThrowReferenceError(_engine.ExecutionContext.Realm, message);
+        Throw.ReferenceError(_engine.ExecutionContext.Realm, message);
     }
 
     public JsValue GetSuperBase()
@@ -187,7 +187,7 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
     {
         if (argument.IsNullOrUndefined())
         {
-            ExceptionHelper.ThrowTypeError(_functionObject._realm, "Destructed parameter is null or undefined");
+            Throw.TypeError(_functionObject._realm, "Destructed parameter is null or undefined");
         }
 
         var argumentObject = TypeConverter.ToObject(_engine.Realm, argument);
@@ -224,7 +224,7 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
                     }
                     else
                     {
-                        ExceptionHelper.ThrowSyntaxError(_functionObject._realm, "Object rest parameter can only be objects");
+                        Throw.SyntaxError(_functionObject._realm, "Object rest parameter can only be objects");
                     }
                 }
             }
@@ -241,7 +241,7 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
     {
         if (argument.IsNull())
         {
-            ExceptionHelper.ThrowTypeError(_functionObject._realm, "Destructed parameter is null");
+            Throw.TypeError(_functionObject._realm, "Destructed parameter is null");
         }
 
         JsArray? array;
@@ -253,7 +253,7 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
         {
             if (!argument.TryGetIterator(_functionObject._realm, out var iterator))
             {
-                ExceptionHelper.ThrowTypeError(context.Engine.Realm, "object is not iterable");
+                Throw.TypeError(context.Engine.Realm, "object is not iterable");
             }
 
             array = _engine.Realm.Intrinsics.Array.ArrayCreate(0);
@@ -303,7 +303,7 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
         }
         else
         {
-            ExceptionHelper.ThrowSyntaxError(_functionObject._realm, "Rest parameters can only be identifiers or arrays");
+            Throw.SyntaxError(_functionObject._realm, "Rest parameters can only be identifiers or arrays");
         }
     }
 
@@ -319,7 +319,7 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
             && right is Identifier idRight
             && string.Equals(idLeft.Name, idRight.Name, StringComparison.Ordinal))
         {
-            ExceptionHelper.ThrowReferenceNameError(_functionObject._realm, idRight.Name);
+            Throw.ReferenceNameError(_functionObject._realm, idRight.Name);
         }
 
         if (argument.IsUndefined())
@@ -378,7 +378,7 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
             }
             else
             {
-                ExceptionHelper.ThrowTypeError(_functionObject._realm, "Can't update the value of an immutable binding.");
+                Throw.TypeError(_functionObject._realm, "Can't update the value of an immutable binding.");
             }
         }
     }

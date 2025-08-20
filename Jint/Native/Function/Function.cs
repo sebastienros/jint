@@ -263,7 +263,7 @@ public abstract partial class Function : ObjectInstance, ICallable
         {
             if (proxyInstance._handler is null)
             {
-                ExceptionHelper.ThrowTypeErrorNoEngine();
+                Throw.TypeErrorNoEngine();
             }
 
             return GetFunctionRealm(proxyInstance._target);

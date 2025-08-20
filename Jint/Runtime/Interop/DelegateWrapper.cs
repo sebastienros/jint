@@ -142,7 +142,7 @@ internal sealed class DelegateWrapper : Function
         }
         catch (TargetInvocationException exception)
         {
-            ExceptionHelper.ThrowMeaningfulException(Engine, exception);
+            Throw.MeaningfulException(Engine, exception);
             throw;
         }
     }

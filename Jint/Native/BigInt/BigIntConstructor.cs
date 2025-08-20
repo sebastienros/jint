@@ -93,7 +93,7 @@ internal sealed class BigIntConstructor : Constructor
             return JsBigInt.Create((long) value._value);
         }
 
-        ExceptionHelper.ThrowRangeError(_realm, "The number " + value + " cannot be converted to a BigInt because it is not an integer");
+        Throw.RangeError(_realm, "The number " + value + " cannot be converted to a BigInt because it is not an integer");
         return null;
     }
 

@@ -461,32 +461,32 @@ internal sealed class SetPrototype : Prototype
     {
         if (obj is not ObjectInstance)
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         var rawSize = obj.Get(CommonProperties.Size);
         var numSize = TypeConverter.ToNumber(rawSize);
         if (double.IsNaN(numSize))
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         var intSize = TypeConverter.ToIntegerOrInfinity(numSize);
         if (intSize < 0)
         {
-            ExceptionHelper.ThrowRangeError(_realm);
+            Throw.RangeError(_realm);
         }
 
         var has = obj.Get(CommonProperties.Has);
         if (!has.IsCallable)
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         var keys = obj.Get(CommonProperties.Keys);
         if (!keys.IsCallable)
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         return new SetRecord(Set: obj, Size: intSize, Has: (ICallable) has, Keys: (ICallable) keys);
@@ -505,7 +505,7 @@ internal sealed class SetPrototype : Prototype
             return set;
         }
 
-        ExceptionHelper.ThrowTypeError(_realm, "object must be a Set");
+        Throw.TypeError(_realm, "object must be a Set");
         return default;
     }
 }
