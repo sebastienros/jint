@@ -170,15 +170,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                 case Operator.RemainderAssignment:
                     {
                         var rval = _right.GetValue(context);
-                        if (originalLeftValue.IsUndefined() || rval.IsUndefined())
-                        {
-                            newLeftValue = JsValue.Undefined;
-                        }
-                        else
-                        {
-                            newLeftValue = TypeConverter.ToNumber(originalLeftValue) % TypeConverter.ToNumber(rval);
-                        }
-
+                        newLeftValue = Remainder(context, originalLeftValue, rval);
                         break;
                     }
 
