@@ -9,10 +9,12 @@ public class BigIntTests
     [InlineData("a = a - b;", "100")]
     [InlineData("a = a * b;", "2829")]
     [InlineData("a = a / b;", "5")]
+    [InlineData("a = a % b;", "8")]
     [InlineData("a += b;", "146")]
     [InlineData("a -= b;", "100")]
     [InlineData("a *= b;", "2829")]
     [InlineData("a /= b;", "5")]
+    [InlineData("a %= b;", "8")]
     public void BasicOperations(string statement, string expected)
     {
         var outputValues = new List<JsValue>();

@@ -6,7 +6,6 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using Jint.Extensions;
 using Jint.Native;
-using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Runtime.Interop;
 
@@ -686,80 +685,7 @@ internal abstract class JintBinaryExpression : JintExpression
                 return JsValue.FromObject(context.Engine, opResult);
             }
 
-            var result = JsValue.Undefined;
-            left = TypeConverter.ToNumeric(left);
-            right = TypeConverter.ToNumeric(right);
-
-            if (AreIntegerOperands(left, right))
-            {
-                var leftInteger = left.AsInteger();
-                var rightInteger = right.AsInteger();
-
-                if (rightInteger == 0)
-                {
-                    result = JsNumber.DoubleNaN;
-                }
-                else
-                {
-                    var modulo = leftInteger % rightInteger;
-                    if (modulo == 0 && leftInteger < 0)
-                    {
-                        result = JsNumber.NegativeZero;
-                    }
-                    else
-                    {
-                        result = JsNumber.Create(modulo);
-                    }
-                }
-            }
-            else if (AreNonBigIntOperands(left, right))
-            {
-                var n = left.AsNumber();
-                var d = right.AsNumber();
-
-                if (double.IsNaN(n) || double.IsNaN(d) || double.IsInfinity(n))
-                {
-                    result = JsNumber.DoubleNaN;
-                }
-                else if (double.IsInfinity(d))
-                {
-                    result = n;
-                }
-                else if (NumberInstance.IsPositiveZero(d) || NumberInstance.IsNegativeZero(d))
-                {
-                    result = JsNumber.DoubleNaN;
-                }
-                else if (NumberInstance.IsPositiveZero(n) || NumberInstance.IsNegativeZero(n))
-                {
-                    result = n;
-                }
-                else
-                {
-                    result = JsNumber.Create(n % d);
-                }
-            }
-            else
-            {
-                AssertValidBigIntArithmeticOperands(left, right);
-
-                var n = TypeConverter.ToBigInt(left);
-                var d = TypeConverter.ToBigInt(right);
-
-                if (d == 0)
-                {
-                    Throw.RangeError(context.Engine.Realm, "Division by zero");
-                }
-                else if (n == 0)
-                {
-                    result = JsBigInt.Zero;
-                }
-                else
-                {
-                    result = JsBigInt.Create(n % d);
-                }
-            }
-
-            return result;
+            return Remainder(context, left, right);
         }
     }
 

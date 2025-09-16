@@ -142,6 +142,83 @@ internal abstract class JintExpression
         return result;
     }
 
+    protected static JsValue Remainder(EvaluationContext context, JsValue left, JsValue right)
+    {
+        var result = JsValue.Undefined;
+        left = TypeConverter.ToNumeric(left);
+        right = TypeConverter.ToNumeric(right);
+        if (AreIntegerOperands(left, right))
+        {
+            var leftInteger = left.AsInteger();
+            var rightInteger = right.AsInteger();
+
+            if (rightInteger == 0)
+            {
+                result = JsNumber.DoubleNaN;
+            }
+            else
+            {
+                var modulo = leftInteger % rightInteger;
+                if (modulo == 0 && leftInteger < 0)
+                {
+                    result = JsNumber.NegativeZero;
+                }
+                else
+                {
+                    result = JsNumber.Create(modulo);
+                }
+            }
+        }
+        else if (JintBinaryExpression.AreNonBigIntOperands(left, right))
+        {
+            var n = left.AsNumber();
+            var d = right.AsNumber();
+
+            if (double.IsNaN(n) || double.IsNaN(d) || double.IsInfinity(n))
+            {
+                result = JsNumber.DoubleNaN;
+            }
+            else if (double.IsInfinity(d))
+            {
+                result = n;
+            }
+            else if (NumberInstance.IsPositiveZero(d) || NumberInstance.IsNegativeZero(d))
+            {
+                result = JsNumber.DoubleNaN;
+            }
+            else if (NumberInstance.IsPositiveZero(n) || NumberInstance.IsNegativeZero(n))
+            {
+                result = n;
+            }
+            else
+            {
+                result = JsNumber.Create(n % d);
+            }
+        }
+        else
+        {
+            JintBinaryExpression.AssertValidBigIntArithmeticOperands(left, right);
+
+            var n = TypeConverter.ToBigInt(left);
+            var d = TypeConverter.ToBigInt(right);
+
+            if (d == 0)
+            {
+                Throw.RangeError(context.Engine.Realm, "Division by zero");
+            }
+            else if (n == 0)
+            {
+                result = JsBigInt.Zero;
+            }
+            else
+            {
+                result = JsBigInt.Create(n % d);
+            }
+        }
+
+        return result;
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected static JsValue Divide(EvaluationContext context, JsValue left, JsValue right)
     {
