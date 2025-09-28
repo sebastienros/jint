@@ -8,81 +8,6 @@ namespace Jint.Native.Intl
     /// </summary>
     internal static class IcuHelpers
     {
-
-        /// <summary>
-        /// Equivalent to WebKit's languageTagForLocaleID(localeID, isImmortal=false).
-        /// Calls ICU uloc_toLanguageTag(localeId, strict=false), then applies the same
-        /// unicode extension cleanup WebKit does (drop "-u-…-true" values).
-        /// </summary>
-        public static string LanguageTagForLocaleId(string localeId)
-        {
-            if (string.IsNullOrEmpty(localeId))
-                return string.Empty;
-
-            var status = ICU.UErrorCode.U_ZERO_ERROR;
-
-            // First pass with a reasonable buffer
-            byte[] buf = new byte[256];
-            int len = ICU.uloc_toLanguageTag(localeId, buf, buf.Length, strict: false, ref status);
-
-            // If ICU tells us the required size, reallocate and retry
-            if (len > buf.Length)
-            {
-                buf = new byte[len];
-                status = ICU.UErrorCode.U_ZERO_ERROR;
-                len = ICU.uloc_toLanguageTag(localeId, buf, buf.Length, strict: false, ref status);
-            }
-
-            if (status != ICU.UErrorCode.U_ZERO_ERROR || len <= 0)
-                Throw.ArgumentException($"ICU uloc_toLanguageTag failed for '{localeId}' (status={status}).");
-
-            // ICU writes UTF-8 bytes; decode exactly the returned length
-            string tag = System.Text.Encoding.UTF8.GetString(buf, 0, len);
-
-            // Do the same extension cleanup WebKit applies
-            return CanonicalizeUnicodeExtensionsAfterIcu(tag);
-        }
-
-        // Keys whose boolean "true" value is **elided** in canonical form.
-        // For these, "-u-<key>-yes" and "-u-<key>-true" both canonicalize to just "-u-<key>".
-        // Add "ca" here so a bare `-u-ca` does not synthesize `-yes`
-        private static readonly HashSet<string> s_trueDroppableKeys = new(StringComparer.OrdinalIgnoreCase)
-        {
-            "kb", "kc", "kh", "kk", "kn", "ca"
-        };
-
-
-        // Canonicalize subdivision aliases (used for rg/sd values).
-        private static string CanonicalizeSubdivision(string value)
-        {
-            switch (value.ToLowerInvariant())
-            {
-                case "no23": return "no50";
-                case "cn11": return "cnbj";
-                case "cz10a": return "cz110";
-                case "fra": return "frges";
-                case "frg": return "frges";
-                case "lud": return "lucl"; // test262 prefers the first in replacement list
-                default: return value;
-            }
-        }
-
-        // Canonicalize time zone type aliases (used for tz values).
-        private static string CanonicalizeTimeZoneType(string value)
-        {
-            switch (value.ToLowerInvariant())
-            {
-                case "cnckg": return "cnsha"; // deprecated -> preferred
-                case "eire": return "iedub"; // alias -> canonical
-                case "est": return "papty"; // alias -> canonical
-                case "gmt0": return "gmt";   // alias -> canonical
-                case "uct": return "utc";   // alias -> canonical
-                case "zulu": return "utc";   // alias -> canonical
-                case "utcw05": return "papty"; // short offset alias seen in test262
-                default: return value;
-            }
-        }
-
         /// <summary>
         /// Mirrors WebKit's canonicalizeUnicodeExtensionsAfterICULocaleCanonicalization():
         /// - Finds the "-u-" extension and its end (before the next singleton).
@@ -280,6 +205,45 @@ namespace Jint.Native.Intl
             canonical = FixKnownLanguageAliases(canonical);
 
             return canonical;
+        }
+
+        // Keys whose boolean "true" value is **elided** in canonical form.
+        // For these, "-u-<key>-yes" and "-u-<key>-true" both canonicalize to just "-u-<key>".
+        // Add "ca" here so a bare `-u-ca` does not synthesize `-yes`
+        private static readonly HashSet<string> s_trueDroppableKeys = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "kb", "kc", "kh", "kk", "kn", "ca"
+        };
+
+        // Canonicalize subdivision aliases (used for rg/sd values).
+        private static string CanonicalizeSubdivision(string value)
+        {
+            switch (value.ToLowerInvariant())
+            {
+                case "no23": return "no50";
+                case "cn11": return "cnbj";
+                case "cz10a": return "cz110";
+                case "fra": return "frges";
+                case "frg": return "frges";
+                case "lud": return "lucl"; // test262 prefers the first in replacement list
+                default: return value;
+            }
+        }
+
+        // Canonicalize time zone type aliases (used for tz values).
+        private static string CanonicalizeTimeZoneType(string value)
+        {
+            switch (value.ToLowerInvariant())
+            {
+                case "cnckg": return "cnsha"; // deprecated -> preferred
+                case "eire": return "iedub"; // alias -> canonical
+                case "est": return "papty"; // alias -> canonical
+                case "gmt0": return "gmt";   // alias -> canonical
+                case "uct": return "utc";   // alias -> canonical
+                case "zulu": return "utc";   // alias -> canonical
+                case "utcw05": return "papty"; // short offset alias seen in test262
+                default: return value;
+            }
         }
 
         private static string FixKnownLanguageAliases(string canonicalTag)

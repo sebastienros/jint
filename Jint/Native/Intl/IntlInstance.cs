@@ -5,7 +5,6 @@ using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
-using System.Text;
 
 namespace Jint.Native.Intl;
 
@@ -137,5 +136,4 @@ internal sealed class IntlInstance : ObjectInstance
 
         return arr;
     }
-
 }

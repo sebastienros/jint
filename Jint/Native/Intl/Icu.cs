@@ -5,10 +5,9 @@ namespace Jint.Native.Intl;
 
 // ICU (International Components for Unicode) is a native C/C++ library provided by the OS
 // that implements BCP-47 locale canonicalization, alias resolution, and other i18n data.
+// https://github.com/unicode-org/icu
 // We use DllImport to bind directly to its functions (e.g. uloc_toLanguageTag) so we can
 // reuse the OS-provided ICU implementation instead of reimplementing the spec in C#.
-// The wrapper below converts managed strings to UTF-8, calls ICU, and returns the canonical tag.
-
 internal static class ICU
 {
     private const string MacLib = "/usr/lib/libicucore.dylib";
@@ -48,8 +47,6 @@ private const string I18nLib = LinuxI18n;
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static string PtrToAnsiString(IntPtr p) => Marshal.PtrToStringAnsi(p)!;
 
-
-    // Older runtimes: pass IntPtr and pin a UTF-8 buffer manually.
     [DllImport(UcLib, CallingConvention = CallingConvention.Cdecl, EntryPoint = "uloc_toLanguageTag")]
     private static extern unsafe int uloc_toLanguageTag_ptr(
         byte* localeIdUtf8,                                   // const char* (UTF-8)
@@ -77,8 +74,7 @@ private const string I18nLib = LinuxI18n;
     out int parsedLength,
     ref UErrorCode err);
 
-    public static unsafe int uloc_forLanguageTag(
-        string langtag, byte[] localeId, int localeIdCapacity, out int parsedLength, ref UErrorCode err)
+    public static unsafe int uloc_forLanguageTag(string langtag, byte[] localeId, int localeIdCapacity, out int parsedLength, ref UErrorCode err)
     {
         var inBytes = System.Text.Encoding.UTF8.GetBytes(langtag + "\0");
         fixed (byte* p = inBytes)
@@ -86,6 +82,7 @@ private const string I18nLib = LinuxI18n;
             return uloc_forLanguageTag_ptr(p, localeId, localeIdCapacity, out parsedLength, ref err);
         }
     }
+
     [DllImport(UcLib, CallingConvention = CallingConvention.Cdecl, EntryPoint = "uloc_canonicalize")]
     private static extern unsafe int uloc_canonicalize_ptr(
         byte* localeIdUtf8,       // const char* (UTF-8, NUL-terminated)
