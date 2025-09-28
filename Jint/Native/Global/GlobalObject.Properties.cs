@@ -30,7 +30,7 @@ public partial class GlobalObject
     private static readonly Key propertyInt16Array = "Int16Array";
     private static readonly Key propertyInt32Array = "Int32Array";
     private static readonly Key propertyInt8Array = "Int8Array";
-    //private static readonly Key propertyIntl = "Intl";
+    private static readonly Key propertyIntl = "Intl";
     private static readonly Key propertyJSON = "JSON";
     private static readonly Key propertyMap = "Map";
     private static readonly Key propertyMath = "Math";
@@ -109,7 +109,7 @@ public partial class GlobalObject
         properties.AddDangerous(propertyInt16Array, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Int16Array, PropertyFlags));
         properties.AddDangerous(propertyInt32Array, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Int32Array, PropertyFlags));
         properties.AddDangerous(propertyInt8Array, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Int8Array, PropertyFlags));
-        // TODO properties.AddDapropertygerous(propertyIntl, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Intl, propertyFlags));
+        properties.AddDangerous(propertyIntl, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Intl, PropertyFlags));
         properties.AddDangerous(propertyJSON, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Json, PropertyFlags));
         properties.AddDangerous(propertyMap, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Map, PropertyFlags));
         properties.AddDangerous(propertyMath, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Math, PropertyFlags));
