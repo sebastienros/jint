@@ -537,6 +537,8 @@ public abstract partial class JsValue : IEquatable<JsValue>
                 return x == y;
             case Types.Object:
                 return x is ObjectWrapper xo && y is ObjectWrapper yo && ReferenceEquals(xo.Target, yo.Target);
+            case Types.BigInt:
+                return (x is JsBigInt xBigInt && y is JsBigInt yBigInt && xBigInt.Equals(yBigInt));
             default:
                 return false;
         }
