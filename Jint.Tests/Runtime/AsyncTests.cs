@@ -11,7 +11,7 @@ public class AsyncTests
     {
         var engine = new Engine();
         var result = engine.Evaluate("(async ()=>await '1')()");
-        result = result.UnwrapIfPromise();
+        result = result.UnwrapIfPromise(TestContext.Current.CancellationToken);
         Assert.Equal("1", result);
     }
 
@@ -21,7 +21,7 @@ public class AsyncTests
         Engine engine = new();
         engine.SetValue("callable", Callable);
         var result = engine.Evaluate("callable().then(x=>x*2)");
-        result = result.UnwrapIfPromise();
+        result = result.UnwrapIfPromise(TestContext.Current.CancellationToken);
         Assert.Equal(2, result);
 
         static async Task<int> Callable()
@@ -38,7 +38,7 @@ public class AsyncTests
         Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
         engine.SetValue("asyncTestClass", new AsyncTestClass());
         var result = engine.Evaluate("asyncTestClass.ReturnDelayedTaskAsync().then(x=>x)");
-        result = result.UnwrapIfPromise();
+        result = result.UnwrapIfPromise(TestContext.Current.CancellationToken);
         Assert.Equal(AsyncTestClass.TestString, result);
     }
 
@@ -48,7 +48,7 @@ public class AsyncTests
         Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
         engine.SetValue("asyncTestClass", new AsyncTestClass());
         var result = engine.Evaluate("asyncTestClass.ReturnDelayedTaskAsync().then(x=>x)");
-        result = result.UnwrapIfPromise(TimeSpan.FromMilliseconds(200));
+        result = result.UnwrapIfPromise(TimeSpan.FromMilliseconds(200), TestContext.Current.CancellationToken);
         Assert.Equal(AsyncTestClass.TestString, result);
     }
 
@@ -62,7 +62,7 @@ public class AsyncTests
             return await asyncTestClass.ReturnDelayedTaskAsync();
         }
         """);
-        var result = engine.Invoke("test").UnwrapIfPromise();
+        var result = engine.Invoke("test").UnwrapIfPromise(TestContext.Current.CancellationToken);
         Assert.Equal(AsyncTestClass.TestString, result);
     }
 
@@ -72,7 +72,7 @@ public class AsyncTests
         Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
         engine.SetValue("asyncTestClass", new AsyncTestClass());
         var result = engine.Evaluate("asyncTestClass.ReturnCompletedTask().then(x=>x)");
-        result = result.UnwrapIfPromise();
+        result = result.UnwrapIfPromise(TestContext.Current.CancellationToken);
         Assert.Equal(AsyncTestClass.TestString, result);
     }
 
@@ -86,7 +86,7 @@ public class AsyncTests
         engine.SetValue("callable", Callable);
         engine.SetValue("assert", new Action<bool>(Assert.True));
         var result = engine.Evaluate("callable(token).then(_ => assert(false)).catch(_ => assert(true))");
-        result = result.UnwrapIfPromise();
+        result = result.UnwrapIfPromise(TestContext.Current.CancellationToken);
         static async Task Callable(CancellationToken token)
         {
             await Task.FromCanceled(token);
@@ -103,7 +103,7 @@ public class AsyncTests
         engine.SetValue("asyncTestClass", new AsyncTestClass());
         engine.SetValue("assert", new Action<bool>(Assert.True));
         var result = engine.Evaluate("asyncTestClass.ReturnCancelledTask(token).then(_ => assert(false)).catch(_ => assert(true))");
-        result = result.UnwrapIfPromise();
+        result = result.UnwrapIfPromise(TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -128,7 +128,7 @@ public class AsyncTests
         engine.SetValue("asyncTestClass", new AsyncTestClass());
         engine.SetValue("assert", new Action<bool>(Assert.True));
         var result = engine.Evaluate("asyncTestClass.ThrowAfterDelayAsync().then(_ => assert(false)).catch(_ => assert(true))");
-        result = result.UnwrapIfPromise();
+        result = result.UnwrapIfPromise(TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -160,7 +160,7 @@ public class AsyncTests
         Engine engine = new();
         engine.SetValue("callable", Callable);
         var result = engine.Evaluate("callable().then(x=>x*2)");
-        result = result.UnwrapIfPromise();
+        result = result.UnwrapIfPromise(TestContext.Current.CancellationToken);
         Assert.Equal(2, result);
 
         static async ValueTask<int> Callable()
@@ -181,7 +181,7 @@ public class AsyncTests
         engine.SetValue("callable", Callable);
         engine.SetValue("assert", new Action<bool>(Assert.True));
         var result = engine.Evaluate("callable(token).then(_ => assert(false)).catch(_ => assert(true))");
-        result = result.UnwrapIfPromise();
+        result = result.UnwrapIfPromise(TestContext.Current.CancellationToken);
         static async ValueTask Callable(CancellationToken token)
         {
             await ValueTask.FromCanceled(token);
@@ -277,7 +277,7 @@ public class AsyncTests
         """;
         var result = engine.Execute(Script);
         var val = result.GetValue("main");
-        val.Call().UnwrapIfPromise();
+        val.Call().UnwrapIfPromise(TestContext.Current.CancellationToken);
         Assert.Equal(2, log.Count);
         Assert.Equal("Promise!", log[0]);
         Assert.Equal("Resolved!", log[1]);
@@ -302,7 +302,7 @@ public class AsyncTests
         """;
         var result = engine.Execute(Script);
         var val = result.GetValue("main").Call();
-        Assert.Equal(1, val.UnwrapIfPromise().AsInteger());
+        Assert.Equal(1, val.UnwrapIfPromise(TestContext.Current.CancellationToken).AsInteger());
     }
 
     [Fact]
