@@ -1,5 +1,10 @@
 ﻿using System.Text.RegularExpressions;
+using Acornima;
+using Acornima.Ast;
 using Jint.Native;
+using Jint.Native.Function;
+using Jint.Native.Object;
+using Jint.Runtime.Descriptors;
 
 namespace Jint.Tests.Runtime;
 
@@ -138,5 +143,51 @@ public class RegExpTests
         var engine = new Engine();
         var result = engine.Evaluate("/[^]?(:[rp][el]a[\\w-]+)[^]/.test(':reagent-')").AsBoolean();
         Assert.True(result);
+    }
+
+    [Fact]
+    public void RegExpLiteralInGetterShouldWork()
+    {
+        // Reproduces issue where using RegExp literal notation in getters parsed via Parser().ParseExpression()
+        // resulted in NullReferenceException due to uncompiled regex
+        var engine = new Engine();
+        var obj = new JsObject(engine);
+        
+        // This should not throw NullReferenceException
+        var getterFunction = (IFunction)new Parser().ParseExpression(
+            "function() { return 'test'.match(/[a-z]/)?.[0]; }"
+        );
+        var getter = new ScriptFunction(engine, getterFunction, true);
+
+        obj.FastSetProperty("name", new GetSetPropertyDescriptor(getter, null, true, false));
+        engine.SetValue("customObj", obj);
+
+        engine.Execute(string.Empty);
+        var result = engine.GetValue("customObj").AsObject();
+        var name = result.Get("name").ToString();
+
+        Assert.Equal("t", name);
+    }
+
+    [Fact]
+    public void RegExpLiteralInGetterWorksWithConstructorToo()
+    {
+        // Ensure the alternative RegExp constructor approach continues to work
+        var engine = new Engine();
+        var obj = new JsObject(engine);
+        
+        var getterFunction = (IFunction)new Parser().ParseExpression(
+            "function() { return 'test'.match(new RegExp('[a-z]'))?.[0]; }"
+        );
+        var getter = new ScriptFunction(engine, getterFunction, true);
+
+        obj.FastSetProperty("name", new GetSetPropertyDescriptor(getter, null, true, false));
+        engine.SetValue("customObj", obj);
+
+        engine.Execute(string.Empty);
+        var result = engine.GetValue("customObj").AsObject();
+        var name = result.Get("name").ToString();
+
+        Assert.Equal("t", name);
     }
 }
