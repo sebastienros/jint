@@ -20,7 +20,6 @@ internal sealed record ResolvedBinding(Module Module, string BindingName)
 public abstract class CyclicModule : Module
 {
     private Completion? _evalError;
-    private int _dfsIndex;
     private int _dfsAncestorIndex;
     internal HashSet<ModuleRequest> _requestedModules;
     private CyclicModule _cycleRoot;
@@ -70,7 +69,6 @@ public abstract class CyclicModule : Module
                 }
 
                 m.Status = ModuleStatus.Unlinked;
-                m._dfsIndex = -1;
                 m._dfsAncestorIndex = -1;
             }
 
@@ -186,7 +184,7 @@ public abstract class CyclicModule : Module
         }
 
         Status = ModuleStatus.Linking;
-        _dfsIndex = index;
+        var moduleIndex = index;
         _dfsAncestorIndex = index;
         index++;
         stack.Push(this);
@@ -229,12 +227,12 @@ public abstract class CyclicModule : Module
             Throw.InvalidOperationException("Error while linking module: Recursive dependency detected");
         }
 
-        if (_dfsAncestorIndex > _dfsIndex)
+        if (_dfsAncestorIndex > moduleIndex)
         {
             Throw.InvalidOperationException("Error while linking module: Recursive dependency detected");
         }
 
-        if (_dfsIndex == _dfsAncestorIndex)
+        if (moduleIndex == _dfsAncestorIndex)
         {
             while (true)
             {
@@ -276,7 +274,8 @@ public abstract class CyclicModule : Module
         }
 
         Status = ModuleStatus.Evaluating;
-        _dfsIndex = index;
+
+        var moduleIndex = index;
         _dfsAncestorIndex = index;
         _pendingAsyncDependencies = 0;
         index++;
@@ -335,7 +334,6 @@ public abstract class CyclicModule : Module
         }
 
         Completion completion;
-
         if (_pendingAsyncDependencies > 0 || _hasTLA)
         {
             if (_asyncEvaluation)
@@ -365,12 +363,12 @@ public abstract class CyclicModule : Module
             Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state (not found exactly once in stack)");
         }
 
-        if (_dfsAncestorIndex > _dfsIndex)
+        if (_dfsAncestorIndex > moduleIndex)
         {
             Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state (mismatch DFS ancestor index)");
         }
 
-        if (_dfsIndex == _dfsAncestorIndex)
+        if (moduleIndex == _dfsAncestorIndex)
         {
             var done = false;
             while (!done)
@@ -431,7 +429,7 @@ public abstract class CyclicModule : Module
     /// <summary>
     /// https://tc39.es/ecma262/#sec-async-module-execution-fulfilled
     /// </summary>
-    private static JsValue AsyncModuleExecutionFulfilled(JsValue thisObject, JsCallArguments arguments)
+    private JsValue AsyncModuleExecutionFulfilled(JsValue thisObject, JsCallArguments arguments)
     {
         var module = (CyclicModule) arguments.At(0);
         if (module.Status == ModuleStatus.Evaluated)
@@ -450,6 +448,9 @@ public abstract class CyclicModule : Module
         {
             Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state");
         }
+
+        _asyncEvaluation = false;
+        Status = ModuleStatus.Evaluated;
 
         if (module._topLevelCapability is not null)
         {
@@ -530,13 +531,6 @@ public abstract class CyclicModule : Module
         module._evalError = new Completion(CompletionType.Throw, error, default);
         module.Status = ModuleStatus.Evaluated;
 
-        var asyncParentModules = module._asyncParentModules;
-        for (var i = 0; i < asyncParentModules.Count; i++)
-        {
-            var m = asyncParentModules[i];
-            AsyncModuleExecutionRejected(thisObject, [m, error]);
-        }
-
         if (module._topLevelCapability is not null)
         {
             if (module._cycleRoot is null)
@@ -545,6 +539,13 @@ public abstract class CyclicModule : Module
             }
 
             module._topLevelCapability.Reject.Call(Undefined, error);
+        }
+
+        var asyncParentModules = module._asyncParentModules;
+        for (var i = 0; i < asyncParentModules.Count; i++)
+        {
+            var m = asyncParentModules[i];
+            AsyncModuleExecutionRejected(thisObject, [m, error]);
         }
 
         return Undefined;

@@ -88,7 +88,8 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
             for (var i = 0; i < _boundNames.Count; i++)
             {
                 var name = _boundNames[i];
-                if (kind == VariableDeclarationKind.Const)
+                // const, using, and await using all create immutable bindings
+                if (kind is VariableDeclarationKind.Const or VariableDeclarationKind.Using or VariableDeclarationKind.AwaitUsing)
                 {
                     loopEnvRec.CreateImmutableBinding(name);
                 }
