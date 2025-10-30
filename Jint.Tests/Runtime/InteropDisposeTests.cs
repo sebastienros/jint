@@ -46,7 +46,7 @@ public class InteropDisposeTests
     [InlineData("(async function x() { await using temp = getAsync(); })();")]
     public void ShouldAsyncDispose(string program)
     {
-        _engine.Evaluate(program).UnwrapIfPromise();
+        _engine.Evaluate(program).UnwrapIfPromise(TestContext.Current.CancellationToken);
         _asyncDisposable.Disposed.Should().BeTrue();
     }
 
