@@ -75,6 +75,13 @@ public sealed class ScriptFunction : Function, IConstructor
                 // actual call
                 var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
 
+                if (ArgumentsNeedToSurviveCall())
+                {
+                    // Take ownership of the array to allow the caller to
+                    // modify/cache it if needed.
+                    arguments = CloneArgumentsArray(arguments);
+                }
+
                 var result = _functionDefinition.EvaluateBody(context, this, arguments);
                 result = calleeContext.LexicalEnvironment.DisposeResources(result);
 
@@ -106,6 +113,11 @@ public sealed class ScriptFunction : Function, IConstructor
 
             return Undefined;
         }
+    }
+
+    private static JsCallArguments CloneArgumentsArray(JsCallArguments arguments)
+    {
+        return [..arguments];
     }
 
     internal override bool IsConstructor
@@ -212,4 +224,15 @@ public sealed class ScriptFunction : Function, IConstructor
     {
         _isClassConstructor = true;
     }
+
+    /// <summary>
+    /// Checks if an argument array passed to execute this function (see <see cref="Call"/>)
+    /// might still be in use when the call returns.
+    /// </summary>
+    /// <remarks>
+    /// This method will only check if the declaration itself has an indicator for that.
+    /// It will not check if the code running inside the function saves the arguments outside somewhere.
+    /// </remarks>
+    private bool ArgumentsNeedToSurviveCall()
+        => FunctionDeclaration is not null && (FunctionDeclaration.Generator || FunctionDeclaration.Async);
 }
