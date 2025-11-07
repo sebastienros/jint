@@ -117,7 +117,7 @@ public sealed class ScriptFunction : Function, IConstructor
 
     private static JsCallArguments CloneArgumentsArray(JsCallArguments arguments)
     {
-        return [..arguments];
+        return [.. arguments];
     }
 
     internal override bool IsConstructor
