@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Jint.Native;
+using Jint.Runtime;
 using Jint.Tests.Runtime.TestClasses;
 
 namespace Jint.Tests.Runtime;
@@ -43,13 +44,14 @@ public class AsyncTests
     }
 
     [Fact]
-    public void ShouldUnwrapPromiseWithCustomTimeout()
+    public void ShouldRespectCustomProvidedTimeoutWhenUnwrapping()
     {
         Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
         engine.SetValue("asyncTestClass", new AsyncTestClass());
         var result = engine.Evaluate("asyncTestClass.ReturnDelayedTaskAsync().then(x=>x)");
-        result = result.UnwrapIfPromise(TimeSpan.FromMilliseconds(200));
-        Assert.Equal(AsyncTestClass.TestString, result);
+        var timeout = TimeSpan.FromMilliseconds(1);
+        var exception = Assert.Throws<PromiseRejectedException>(() => result.UnwrapIfPromise(timeout));
+        Assert.Equal($"Promise was rejected with value Timeout of {timeout} reached", exception.Message);
     }
 
     [Fact]
