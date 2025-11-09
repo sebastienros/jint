@@ -49,8 +49,12 @@ internal sealed class RefStack<T> : IEnumerable<T> where T : struct
         return false;
     }
 
+    /// <summary>
+    /// Returns the last added item from the stack and decreases the stack size by one.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Is thrown if the stack is empty.</exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ref readonly T Pop()
+    public T Pop()
     {
         if (_size == 0)
         {
@@ -58,7 +62,34 @@ internal sealed class RefStack<T> : IEnumerable<T> where T : struct
         }
 
         _size--;
-        return ref _array[_size];
+        // Create a copy of the value because it will get overridden
+        // in the statement.
+        var result = _array[_size];
+        // Ensure that the item can get garbage collected if possible.
+        _array[_size] = default;
+        return result;
+    }
+
+    /// <summary>
+    /// Same as <see cref="Pop"/> but without copying the value.
+    /// </summary>
+    /// <remarks>
+    /// Use this method when the return value is not used and
+    /// <typeparamref name="T"/> is a value type. In that case, this methods
+    /// avoids one value type copy compared to <see cref="Pop"/>.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">Is thrown if the stack is empty.</exception>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void PopAndDiscard()
+    {
+        if (_size == 0)
+        {
+            Throw.InvalidOperationException("stack is empty");
+        }
+
+        _size--;
+        // Ensure that the item can get garbage collected if possible.
+        _array[_size] = default;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -113,7 +144,11 @@ internal sealed class RefStack<T> : IEnumerable<T> where T : struct
 
     public void Clear()
     {
-        _size = 0;
+        if (_size > 0)
+        {
+            Array.Fill(_array, default, 0, _size);
+            _size = 0;
+        }
     }
 
     public Enumerator GetEnumerator()

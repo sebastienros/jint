@@ -58,7 +58,7 @@ internal sealed class ExecutionContextStack
     public void Push(in ExecutionContext context) => _stack.Push(in context);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ref readonly ExecutionContext Pop() => ref _stack.Pop();
+    public void Pop() => _stack.PopAndDiscard();
 
     public IScriptOrModule? GetActiveScriptOrModule()
     {
