@@ -146,7 +146,7 @@ internal sealed class RefStack<T> : IEnumerable<T> where T : struct
     {
         if (_size > 0)
         {
-#if NETFRAMEWORK
+#if NETFRAMEWORK || NETSTANDARD2_0
             for (var i = 0; i < _size; i++)
             {
                 _array[i] = default;
