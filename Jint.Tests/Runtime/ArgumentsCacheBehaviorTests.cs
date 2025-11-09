@@ -41,6 +41,42 @@ public class ArgumentsCacheBehaviorTests
     }
 
     [Fact]
+    public void NamedArgsForGeneratorsAreNotReusedFromCache()
+    {
+        // Arrange
+        List<JsValue> logValues = new();
+        var engine = new Engine();
+        engine.SetValue("log", logValues.Add);
+
+        // Act
+        engine.Evaluate(
+            """
+            function *method(a, b) {
+              log(a);
+              log(b);
+            }
+              
+            function *other(a, b) {
+              log(a);
+              log(b);
+            }
+
+            var generator1 = method(42, undefined);
+            var generator2 = other(10, undefined);
+            generator1.next();
+            generator2.next();
+            """);
+
+        // Assert
+        Assert.Equal([
+            JsNumber.Create(42),
+            JsValue.Undefined,
+            JsNumber.Create(10),
+            JsValue.Undefined,
+        ], logValues);
+    }
+
+    [Fact]
     public void ArgsForGeneratorsWithBindAreNotReusedFromCache()
     {
         // Arrange
