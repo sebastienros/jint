@@ -80,7 +80,7 @@ internal sealed class JintCallStack
 
     public CallStackElement Pop()
     {
-        ref readonly var item = ref _stack.Pop();
+        var item = _stack.Pop();
         if (_statistics is not null)
         {
             if (_statistics[item] == 0)
