@@ -146,7 +146,14 @@ internal sealed class RefStack<T> : IEnumerable<T> where T : struct
     {
         if (_size > 0)
         {
+#if NETFRAMEWORK
+            for (var i = 0; i < _size; i++)
+            {
+                _array[i] = default;
+            }
+#else
             Array.Fill(_array, default, 0, _size);
+#endif
             _size = 0;
         }
     }
