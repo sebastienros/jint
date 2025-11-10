@@ -6,18 +6,18 @@
   <ItemGroup>
     <PackageVersion Include="Acornima" Version="1.2.0" />
     <PackageVersion Include="Acornima.Extras" Version="1.2.0" />
-    <PackageVersion Include="BenchmarkDotNet" Version="0.15.5" />
+    <PackageVersion Include="BenchmarkDotNet" Version="0.15.6" />
     <PackageVersion Include="BenchmarkDotNet.TestAdapter" Version="0.13.12" />
     <PackageVersion Include="FluentAssertions" Version="[7.2.0]" />
     <PackageVersion Include="Flurl.Http.Signed" Version="4.0.2" />
     <PackageVersion Include="Jurassic" Version="3.2.9" />
-    <PackageVersion Include="Meziantou.Analyzer" Version="2.0.248" />
+    <PackageVersion Include="Meziantou.Analyzer" Version="2.0.250" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="9.0.10" />
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="9.10.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.0.0" />
     <PackageVersion Include="MongoDB.Bson.signed" Version="2.19.0" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
-    <PackageVersion Include="NiL.JS" Version="2.6.1706" />
+    <PackageVersion Include="NiL.JS" Version="2.6.1707" />
     <PackageVersion Include="NodaTime" Version="3.2.2" />
     <PackageVersion Include="NUnit" Version="4.4.0" />
     <PackageVersion Include="NUnit3TestAdapter" Version="5.2.0" />
