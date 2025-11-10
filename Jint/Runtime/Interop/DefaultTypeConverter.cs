@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
@@ -25,12 +26,21 @@ public class DefaultTypeConverter : ITypeConverter
     private readonly record struct TypeConversionKey(Type Source, Type Target);
 
     private static readonly ConcurrentDictionary<TypeConversionKey, MethodInfo?> _knownCastOperators = new();
+    private static readonly ConcurrentDictionary<TypeConversionKey, MethodInfo?> _knownFromResultGenerics = new();
 
     private static readonly Type intType = typeof(int);
     private static readonly Type iCallableType = typeof(JsCallDelegate);
     private static readonly Type jsValueType = typeof(JsValue);
     private static readonly Type objectType = typeof(object);
     private static readonly Type engineType = typeof(Engine);
+    private static readonly Type taskType = typeof(Task);
+    private static readonly Type genTaskType = typeof(Task<>);
+    private static readonly MethodInfo taskFromResultInfo = taskType.GetMethod("FromResult")!;
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP
+    private static readonly Type valueTaskType = typeof(ValueTask);
+    private static readonly Type genValueTaskType = typeof(ValueTask<>);
+    private static readonly MethodInfo valueTaskFromResultInfo = valueTaskType.GetMethod("FromResult")!;
+#endif
 
     private static readonly MethodInfo changeTypeIfConvertible = typeof(DefaultTypeConverter).GetMethod(
         nameof(ChangeTypeOnlyIfConvertible), BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -390,10 +400,56 @@ public class DefaultTypeConverter : ITypeConverter
     [return: NotNullIfNotNull(nameof(value))]
     private static object? ChangeTypeOnlyIfConvertible(object? value, Type conversionType, IFormatProvider? provider)
     {
+        if (conversionType == taskType)
+        {
+            return Task.CompletedTask;
+        }
+
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP
+        if (conversionType == valueTaskType)
+        {
+            return default(ValueTask);
+        }
+#endif
+
+        if (conversionType.IsGenericType && conversionType.GetGenericTypeDefinition() == genTaskType)
+        {
+            var key = new TypeConversionKey(conversionType.GetGenericArguments()[0], genTaskType);
+            var fromResultMethod = _knownFromResultGenerics.GetOrAdd(key, GetFromResultMethod);
+            if (fromResultMethod != null)
+            {
+                return fromResultMethod.Invoke(null, [value]);
+            }
+        }
+
+#if NETCOREAPP
+        if (conversionType.IsGenericType && conversionType.GetGenericTypeDefinition() == genValueTaskType)
+        {
+            var key = new TypeConversionKey(conversionType.GetGenericArguments()[0], genValueTaskType);
+            var fromResultMethod = _knownFromResultGenerics.GetOrAdd(key, GetFromResultMethod);
+            if (fromResultMethod != null)
+            {
+                return fromResultMethod.Invoke(null, [value]);
+            }
+        }
+#endif
+
         if (value == null || value is IConvertible)
             return System.Convert.ChangeType(value, conversionType, provider);
 
         return value;
+    }
+
+    private static MethodInfo? GetFromResultMethod(TypeConversionKey key)
+    {
+        var (target, taskType) = key;
+#if NETCOREAPP
+        if (taskType == genValueTaskType)
+        {
+            return valueTaskFromResultInfo.MakeGenericMethod(target);
+        }
+#endif
+        return taskFromResultInfo.MakeGenericMethod(target);
     }
 
     private static bool TryCastWithOperators(object value, Type type, Type valueType, [NotNullWhen(true)] out object? converted)
