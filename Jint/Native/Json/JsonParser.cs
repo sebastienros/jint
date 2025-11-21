@@ -645,7 +645,7 @@ public sealed class JsonParser
         const char max = (char) 31;
         foreach (var c in propertyName)
         {
-            if (c != '\t' && c <= max)
+            if (c != '\t' && c != '\n' && c != '\r' && c != '\b' && c != '\f' && c <= max)
             {
                 return true;
             }
