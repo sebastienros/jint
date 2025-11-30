@@ -22,13 +22,12 @@
     <PackageReference Include="Acornima.Extras" />
     <PackageReference Include="FluentAssertions" />
     <PackageReference Include="Flurl.Http.Signed" />
+    <PackageReference Include="Microsoft.CSharp" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="MongoDB.Bson.signed" />
     <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="System.Text.Json" Condition="'$(TargetFramework)' == 'net472'" />
-    <PackageReference Include="xunit.v3" />
-    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="xunit.v3.mtp-v2" />
   </ItemGroup>
 
   <ItemGroup>

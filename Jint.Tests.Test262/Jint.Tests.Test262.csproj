@@ -7,7 +7,6 @@
     <IsPackable>false</IsPackable>
     <NoWarn>$(NoWarn);CS8002</NoWarn>
     <GeneratedTestSuiteDir>Generated</GeneratedTestSuiteDir>
-    <EnableNUnitRunner>true</EnableNUnitRunner>
     <OutputType>Exe</OutputType>
   </PropertyGroup>
 
@@ -17,7 +16,7 @@
 
   <ItemGroup>
     <PackageReference Include="Acornima.Extras" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="GitHubActionsTestLogger" />
     <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="NUnit" />
     <PackageReference Include="NUnit3TestAdapter" />
