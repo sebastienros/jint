@@ -55,7 +55,7 @@ jobs:
         enableCrossOsArchive: true
 
     - name: Test
-      run: dotnet test --configuration Release --logger "console;verbosity=quiet" --logger "GitHubActions;summary-include-passed=false;summary-include-skipped=false"
+      run: dotnet test --configuration Release --report-github
 
   # The matrix above is the shipped configuration: Release with host-contract verification off, which is what
   # the probe-count and no-descriptor pins in Jint.Tests.PublicInterface document as costing nothing. This leg
@@ -83,8 +83,8 @@ jobs:
       uses: actions/checkout@v7
 
     - name: Test Jint.Tests
-      run: dotnet test Jint.Tests/Jint.Tests.csproj --configuration Release --logger "console;verbosity=quiet" --logger "GitHubActions;summary-include-passed=false;summary-include-skipped=false"
+      run: dotnet test Jint.Tests/Jint.Tests.csproj --configuration Release --report-github
 
     - name: Test Jint.Tests.PublicInterface
-      run: dotnet test Jint.Tests.PublicInterface/Jint.Tests.PublicInterface.csproj --configuration Release --logger "console;verbosity=quiet" --logger "GitHubActions;summary-include-passed=false;summary-include-skipped=false"
+      run: dotnet test Jint.Tests.PublicInterface/Jint.Tests.PublicInterface.csproj --configuration Release --report-github
 

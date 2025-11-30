@@ -43,7 +43,7 @@ jobs:
         enableCrossOsArchive: true
 
     - name: Test
-      run: dotnet test --configuration Release --logger "console;verbosity=quiet" --logger "GitHubActions;summary-include-passed=false;summary-include-skipped=false"
+      run: dotnet test --configuration Release --report-github
 
     - name: Save Test262 generated suite
       if: steps.cache-test262.outputs.cache-hit != 'true'

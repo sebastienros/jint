@@ -44,7 +44,7 @@ jobs:
         key: test262-generated-${{ hashFiles('Jint.Tests.Test262/Test262Harness.settings.json') }}
 
     - name: Test
-      run: dotnet test --configuration Release --logger "console;verbosity=quiet" --logger "GitHubActions;summary-include-passed=false;summary-include-skipped=false"
+      run: dotnet test --configuration Release --report-github
 
     - name: Determine version from tag
       id: version
