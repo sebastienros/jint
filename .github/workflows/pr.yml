@@ -40,5 +40,5 @@ jobs:
       uses: actions/checkout@v5
 
     - name: Test
-      run: dotnet test --configuration Release --logger GitHubActions
+      run: dotnet test --configuration Release --logger "GitHubActions;summary-include-passed=false;summary-include-skipped=false"
 
