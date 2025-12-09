@@ -1059,6 +1059,10 @@ public sealed partial class Engine : IDisposable
         var hasDuplicates = configuration.HasDuplicates;
         var simpleParameterList = configuration.IsSimpleParameterList;
         var hasParameterExpressions = configuration.HasParameterExpressions;
+        if (configuration.RequiresInputArgumentsOwnership)
+        {
+            argumentsList = [.. argumentsList];
+        }
 
         var canInitializeParametersOnDeclaration = simpleParameterList && !configuration.HasDuplicates;
         var arguments = canInitializeParametersOnDeclaration ? argumentsList : null;

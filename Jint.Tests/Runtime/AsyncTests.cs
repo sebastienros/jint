@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Jint.Native;
+using Jint.Runtime;
 using Jint.Tests.Runtime.TestClasses;
 
 namespace Jint.Tests.Runtime;
@@ -43,13 +44,14 @@ public class AsyncTests
     }
 
     [Fact]
-    public void ShouldUnwrapPromiseWithCustomTimeout()
+    public void ShouldRespectCustomProvidedTimeoutWhenUnwrapping()
     {
         Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
         engine.SetValue("asyncTestClass", new AsyncTestClass());
         var result = engine.Evaluate("asyncTestClass.ReturnDelayedTaskAsync().then(x=>x)");
-        result = result.UnwrapIfPromise(TimeSpan.FromMilliseconds(200));
-        Assert.Equal(AsyncTestClass.TestString, result);
+        var timeout = TimeSpan.FromMilliseconds(1);
+        var exception = Assert.Throws<PromiseRejectedException>(() => result.UnwrapIfPromise(timeout));
+        Assert.Equal($"Promise was rejected with value Timeout of {timeout} reached", exception.Message);
     }
 
     [Fact]
@@ -153,7 +155,72 @@ public class AsyncTests
         Assert.Equal("123", asyncTestClass.StringToAppend);
     }
 
+    [Fact]
+    public void ShouldCompleteWithAsyncTaskCallbacks()
+    {
+        Engine engine = new(options =>
+        {
+            options.ExperimentalFeatures = ExperimentalFeature.TaskInterop;
+            options.Constraints.PromiseTimeout = TimeSpan.FromMilliseconds(-1);
+        });
+        engine.SetValue("asyncTestMethod", new Func<Func<Task>, Task<string>>(async callback => { await Task.Delay(100); await callback(); return "Hello World"; }));
+        engine.SetValue("asyncWork", new Func<Task>(() => Task.Delay(100)));
+        engine.SetValue("assert", new Action<bool>(Assert.True));
+        var result = engine.Evaluate("async function hello() {return await asyncTestMethod(async () =>{ await asyncWork(); })} hello();");
+        result = result.UnwrapIfPromise();
+        Assert.Equal("Hello World", result);
+    }
+
+    [Fact]
+    public void ShouldFromAsyncTaskCallbacks()
+    {
+        Engine engine = new(options =>
+        {
+            options.ExperimentalFeatures = ExperimentalFeature.TaskInterop;
+            options.Constraints.PromiseTimeout = TimeSpan.FromMilliseconds(-1);
+        });
+        engine.SetValue("asyncTestMethod", new Func<Func<Task<string>>, Task<string>>(async callback => { await Task.Delay(100); return await callback(); }));
+        engine.SetValue("asyncWork", new Func<Task<string>>(async () => { await Task.Delay(100); return "Hello World"; }));
+        engine.SetValue("assert", new Action<bool>(Assert.True));
+        var result = engine.Evaluate("async function hello() {return await asyncTestMethod(async () =>{ return await asyncWork(); })} hello();");
+        result = result.UnwrapIfPromise();
+        Assert.Equal("Hello World", result);
+    }
+
 #if NETFRAMEWORK == false
+
+    [Fact]
+    public void ShouldCompleteWithAsyncValueTaskCallbacks()
+    {
+        Engine engine = new(options =>
+        {
+            options.ExperimentalFeatures = ExperimentalFeature.TaskInterop;
+            options.Constraints.PromiseTimeout = TimeSpan.FromMilliseconds(-1);
+        });
+        engine.SetValue("asyncTestMethod", new Func<Func<ValueTask>, Task<string>>(async callback => { await Task.Delay(100); await callback(); return "Hello World"; }));
+        engine.SetValue("asyncWork", new Func<Task>(() => Task.Delay(100)));
+        engine.SetValue("assert", new Action<bool>(Assert.True));
+        var result = engine.Evaluate("async function hello() {return await asyncTestMethod(async () =>{ await asyncWork(); })} hello();");
+        result = result.UnwrapIfPromise();
+        Assert.Equal("Hello World", result);
+    }
+
+    [Fact]
+    public void ShouldFromAsyncValueTaskCallbacks()
+    {
+        Engine engine = new(options =>
+        {
+            options.ExperimentalFeatures = ExperimentalFeature.TaskInterop;
+            options.Constraints.PromiseTimeout = TimeSpan.FromMilliseconds(-1);
+        });
+        engine.SetValue("asyncTestMethod", new Func<Func<ValueTask<string>>, Task<string>>(async callback => { await Task.Delay(100); return await callback(); }));
+        engine.SetValue("asyncWork", new Func<ValueTask<string>>(async () => { await Task.Delay(100); return "Hello World"; }));
+        engine.SetValue("assert", new Action<bool>(Assert.True));
+        var result = engine.Evaluate("async function hello() {return await asyncTestMethod(async () =>{ return await asyncWork(); })} hello();");
+        result = result.UnwrapIfPromise();
+        Assert.Equal("Hello World", result);
+    }
+
     [Fact]
     public void ShouldValueTaskConvertedToPromiseInJS()
     {

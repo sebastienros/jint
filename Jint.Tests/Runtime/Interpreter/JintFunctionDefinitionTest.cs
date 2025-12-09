@@ -19,4 +19,35 @@ public class JintFunctionDefinitionTest
         var state = JintFunctionDefinition.BuildState(function);
         state.HasParameterExpressions.Should().Be(hasExpressions);
     }
+
+    [Theory]
+    [InlineData("function g() { }", false)]
+    [InlineData("function* g() { }", false)]
+    [InlineData("async function g() { }", false)]
+    [InlineData("() => { }", false)]
+    [InlineData("async () => { }", false)]
+    [InlineData("function g(a) { }", false)]
+    [InlineData("function* g(a) { }", false)]
+    [InlineData("async function g(a) { }", false)]
+    [InlineData("(a) => { }", false)]
+    [InlineData("async (a) => { }", false)]
+    [InlineData("function g(a) { _ = arguments[0] }", false)]
+    [InlineData("function* g(a) { _ = arguments[0] }", true)]
+    [InlineData("async function g(a) { _ = arguments[0] }", true)]
+    [InlineData("(a) => { _ = arguments[0] }", false)]
+    [InlineData("async (a) => { _ = arguments[0] }", true)]
+    public void ShouldIndicateArgumentsOwnershipIfNeeded(string functionCode, bool requiresOwnership)
+    {
+        var parser = new Parser();
+        var script = parser.ParseScript(functionCode);
+        Node statement = script.Body.First();
+        var function = (IFunction) (
+            statement is ExpressionStatement expr
+                ? expr.Expression
+                : statement
+        );
+
+        var state = JintFunctionDefinition.BuildState(function);
+        state.RequiresInputArgumentsOwnership.Should().Be(requiresOwnership);
+    }
 }

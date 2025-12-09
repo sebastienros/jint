@@ -61,16 +61,26 @@ internal sealed class JsValueArrayPool
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void ReturnArray(JsValue[] array)
     {
+        // Ensure that the array contents are cleared
+        // to allow garbage collecting the values of the
+        // array if possible. Only the array itself
+        // should be cached.
         if (array.Length == 1)
         {
+            array[0] = null!;
             _poolArray1.Free(array);
         }
         else if (array.Length == 2)
         {
+            array[0] = null!;
+            array[1] = null!;
             _poolArray2.Free(array);
         }
         else if (array.Length == 3)
         {
+            array[0] = null!;
+            array[1] = null!;
+            array[2] = null!;
             _poolArray3.Free(array);
         }
     }

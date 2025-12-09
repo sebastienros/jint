@@ -7,13 +7,19 @@ namespace Jint.Tests.Runtime;
 
 public class JsonTests
 {
-    [Fact]
-    public void CanParseTabsInProperties()
+    [Theory]
+    [InlineData(@"JSON.parse(""{\""abc\\tdef\"": \""42\""}"");", "abc\tdef")]
+    [InlineData(@"JSON.parse(""{\""abc\\ndef\"": \""42\""}"");", "abc\ndef")]
+    [InlineData(@"JSON.parse(""{\""abc\\fdef\"": \""42\""}"");", "abc\fdef")]
+    [InlineData(@"JSON.parse(""{\""abc\\bdef\"": \""42\""}"");", "abc\bdef")]
+    [InlineData(@"JSON.parse(""{\""abc\\rdef\"": \""42\""}"");", "abc\rdef")]
+    [InlineData(@"JSON.parse(""{\""abc\\r\\ndef\"": \""42\""}"");", "abc\r\ndef")]
+    [InlineData(@"JSON.parse(""{\""abc\\\""def\"": \""42\""}"");", "abc\"def")]
+    public void CanParseEscapeSequencesInProperties(string script, string expectedPropertyName)
     {
         var engine = new Engine();
-        const string script = @"JSON.parse(""{\""abc\\tdef\"": \""42\""}"");";
         var obj = engine.Evaluate(script).AsObject();
-        Assert.True(obj.HasOwnProperty("abc\tdef"));
+        Assert.True(obj.HasOwnProperty(expectedPropertyName));
     }
 
     [Theory]

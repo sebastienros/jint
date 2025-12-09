@@ -192,6 +192,7 @@ internal sealed class JintFunctionDefinition
         public bool IsSimpleParameterList;
         public bool HasParameterExpressions;
         public bool ArgumentsObjectNeeded;
+        public bool RequiresInputArgumentsOwnership;
         public List<Key>? VarNames;
         public LinkedList<FunctionDeclaration>? FunctionsToInitialize;
         public readonly HashSet<Key> FunctionNames = new();
@@ -269,6 +270,17 @@ internal sealed class JintFunctionDefinition
         if (state.ArgumentsObjectNeeded)
         {
             parameterBindings.Add(KnownKeys.Arguments);
+        }
+
+        if (function.Type == NodeType.ArrowFunctionExpression)
+        {
+            state.RequiresInputArgumentsOwnership = state.ArgumentsObjectNeeded ||
+                (function.Async && ArgumentsUsageAstVisitor.HasArgumentsReference(function));
+        }
+        else
+        {
+            state.RequiresInputArgumentsOwnership = state.ArgumentsObjectNeeded &&
+                (function.Async || function.Generator);
         }
 
         state.ParameterBindings = parameterBindings;

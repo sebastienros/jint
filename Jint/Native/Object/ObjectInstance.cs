@@ -1022,6 +1022,18 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             case ObjectClass.Arguments:
             case ObjectClass.Object:
 
+                if ((Engine.Options.ExperimentalFeatures & ExperimentalFeature.TaskInterop) != ExperimentalFeature.None)
+                {
+                    if (this is JsPromise asPromise)
+                    {
+                        var promsiseResult = asPromise.UnwrapIfPromise(Engine.Options.Constraints.PromiseTimeout);
+
+                        converted = promsiseResult is ObjectInstance oi
+                                    ? oi.ToObject(stack)
+                                    : promsiseResult.ToObject();
+                        break;
+                    }
+                }
                 if (this is JsArray arrayInstance)
                 {
                     var result = new object?[arrayInstance.GetLength()];
