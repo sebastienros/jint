@@ -24,7 +24,7 @@ jobs:
       uses: actions/checkout@v5
 
     - name: Test
-      run: dotnet test --configuration Release --logger GitHubActions
+      run: dotnet test --configuration Release --report-github
 
     - name: Pack with dotnet
       run: |

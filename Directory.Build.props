@@ -27,6 +27,10 @@
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
 
+    <EnableNUnitRunner>true</EnableNUnitRunner>
+    <EnableMicrosoftTestingPlatform>true</EnableMicrosoftTestingPlatform>
+    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+
   </PropertyGroup>
 
   <ItemGroup>
