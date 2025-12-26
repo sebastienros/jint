@@ -7,8 +7,24 @@ internal sealed class JintLiteralExpression : JintExpression
 {
     private static readonly object _nullMarker = new();
 
+    // Regex to match unicode escape sequences like \u2028, \u2029
+    private static readonly Regex UnicodeEscapePattern = new Regex(@"\\u([0-9A-Fa-f]{4})", RegexOptions.Compiled);
+
     private JintLiteralExpression(Literal expression) : base(expression)
     {
+    }
+
+    /// <summary>
+    /// Converts unicode escape sequences (e.g., \u2028) to actual unicode characters.
+    /// </summary>
+    private static string UnescapeUnicode(string pattern)
+    {
+        return UnicodeEscapePattern.Replace(pattern, match =>
+        {
+            var hex = match.Groups[1].Value;
+            var codePoint = int.Parse(hex, System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture);
+            return ((char)codePoint).ToString();
+        });
     }
 
     internal static JintExpression Build(Literal expression)
@@ -68,8 +84,32 @@ internal sealed class JintLiteralExpression : JintExpression
             var regExpParseResult = regExpLiteral.ParseResult;
             if (regExpParseResult.Success)
             {
-                var regex = regExpLiteral.UserData as Regex ?? regExpParseResult.Regex!;
-                return context.Engine.Realm.Intrinsics.RegExp.Construct(regex, regExpLiteral.RegExp.Pattern, regExpLiteral.RegExp.Flags, regExpParseResult);
+                var regex = regExpLiteral.UserData as Regex ?? regExpParseResult.Regex;
+
+                // Fallback: if Acornima failed to create Regex (e.g., due to unicode escapes), create it manually
+                if (regex is null)
+                {
+                    var pattern = regExpLiteral.RegExp.Pattern;
+                    var flags = regExpLiteral.RegExp.Flags;
+
+                    // Convert unicode escape sequences to actual characters
+                    var unescapedPattern = UnescapeUnicode(pattern);
+
+                    var options = RegexOptions.ECMAScript;
+                    if (flags.Contains('i')) options |= RegexOptions.IgnoreCase;
+                    if (flags.Contains('m')) options |= RegexOptions.Multiline;
+
+                    try
+                    {
+                        regex = new Regex(unescapedPattern, options);
+                    }
+                    catch
+                    {
+                        Throw.SyntaxError(context.Engine.Realm, $"Invalid regular expression pattern: {pattern}");
+                    }
+                }
+
+                return context.Engine.Realm.Intrinsics.RegExp.Construct(regex!, regExpLiteral.RegExp.Pattern, regExpLiteral.RegExp.Flags, regExpParseResult);
             }
 
             Throw.SyntaxError(context.Engine.Realm, $"Unsupported regular expression. {regExpParseResult.ConversionError!.Description}");
