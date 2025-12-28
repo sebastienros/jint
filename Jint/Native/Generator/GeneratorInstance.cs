@@ -160,6 +160,14 @@ internal sealed class GeneratorInstance : ObjectInstance
             _error = abruptCompletion.Value;
             Throw.JavaScriptException(_engine, _error, AstExtensions.DefaultLocation);
         }
+        else if (abruptCompletion.Type == CompletionType.Return)
+        {
+            // Not delegating - return should complete the generator immediately
+            // Per spec 27.5.3.4 GeneratorResumeAbrupt step 10.a.ii:
+            // "Return Completion Record { [[Type]]: return, [[Value]]: received.[[Value]], [[Target]]: empty }"
+            _generatorState = GeneratorState.Completed;
+            return new IteratorResult(_engine, abruptCompletion.Value, JsBoolean.True);
+        }
 
         // Clear the suspended value from previous suspension
         _suspendedValue = null;
