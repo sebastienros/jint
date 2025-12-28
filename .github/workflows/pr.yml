@@ -37,7 +37,7 @@ jobs:
         dotnet-version: 10.0
 
     - name: Checkout source code
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
 
     - name: Test
       run: dotnet test --configuration Release --logger "GitHubActions;summary-include-passed=false;summary-include-skipped=false"

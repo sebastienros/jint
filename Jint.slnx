@@ -1,0 +1,29 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="global.json" />
+    <File Path="README.md" />
+  </Folder>
+  <Folder Name="/Solution Items/.github/">
+    <File Path=".github/dependabot.yml" />
+  </Folder>
+  <Folder Name="/Solution Items/.github/ISSUE_TEMPLATE/">
+    <File Path=".github/ISSUE_TEMPLATE/bug_report.md" />
+    <File Path=".github/ISSUE_TEMPLATE/feature_request.md" />
+  </Folder>
+  <Folder Name="/Solution Items/.github/workflows/">
+    <File Path=".github/workflows/build.yml" />
+    <File Path=".github/workflows/pr.yml" />
+    <File Path=".github/workflows/release.yml" />
+  </Folder>
+  <Project Path="Jint.AotExample/Jint.AotExample.csproj" />
+  <Project Path="Jint.Benchmark/Jint.Benchmark.csproj" />
+  <Project Path="Jint.Repl/Jint.Repl.csproj" />
+  <Project Path="Jint.Tests.CommonScripts/Jint.Tests.CommonScripts.csproj" />
+  <Project Path="Jint.Tests.PublicInterface/Jint.Tests.PublicInterface.csproj" />
+  <Project Path="Jint.Tests.Test262/Jint.Tests.Test262.csproj" />
+  <Project Path="Jint.Tests/Jint.Tests.csproj" />
+  <Project Path="Jint/Jint.csproj" />
+</Solution>
