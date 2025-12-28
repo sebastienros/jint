@@ -47,6 +47,14 @@ internal sealed class JintYieldExpression : JintExpression
                 generator._isResuming = false;
                 generator._lastYieldNode = null;
 
+                // If we're resuming with a Throw completion, throw the exception at the yield point
+                // This allows try-catch blocks to handle the exception properly
+                if (generator._resumeCompletionType == CompletionType.Throw)
+                {
+                    generator._resumeCompletionType = CompletionType.Normal; // Reset for future
+                    Throw.JavaScriptException(context.Engine, returnValue, AstExtensions.DefaultLocation);
+                }
+
                 // If we're resuming with a Return completion, throw to trigger finally blocks
                 // This allows for-of loops to close their iterators properly
                 if (generator._resumeCompletionType == CompletionType.Return)

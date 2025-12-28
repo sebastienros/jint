@@ -80,6 +80,24 @@ internal sealed class GeneratorInstance : ObjectInstance
     /// </summary>
     internal CompletionType _resumeCompletionType;
 
+    /// <summary>
+    /// Tracks a pending completion (throw/return) that needs to be processed after a finally block
+    /// that yielded. When a finally block yields, we need to remember any pending completion
+    /// so we can restore it after the finally block completes.
+    /// </summary>
+    internal CompletionType _pendingCompletionType;
+
+    /// <summary>
+    /// The value associated with the pending completion (the thrown error or return value).
+    /// </summary>
+    internal JsValue? _pendingCompletionValue;
+
+    /// <summary>
+    /// Tracks which try statement's finally block we're currently inside.
+    /// Used to properly restore pending completion after finally completes.
+    /// </summary>
+    internal object? _currentFinallyStatement;
+
     public GeneratorInstance(Engine engine) : base(engine)
     {
     }
@@ -163,13 +181,8 @@ internal sealed class GeneratorInstance : ObjectInstance
         {
             _delegationResumeType = abruptCompletion.Type;
         }
-        else if (abruptCompletion.Type == CompletionType.Throw)
-        {
-            // Not delegating - throw immediately goes to exception handling
-            _error = abruptCompletion.Value;
-            Throw.JavaScriptException(_engine, _error, AstExtensions.DefaultLocation);
-        }
-        // For Return completion: resume execution so for-of/try-finally can close iterators properly
+        // For Throw/Return completion: resume execution so try-catch/try-finally can handle properly
+        // The exception will be thrown at the yield point by JintYieldExpression
 
         // Clear the suspended value from previous suspension
         _suspendedValue = null;
