@@ -266,6 +266,23 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
 
             close = true;
         }
+        catch (YieldSuspendException)
+        {
+            // Generator yield - don't close the iterator, we'll resume later
+            close = false;
+            throw;
+        }
+        catch (GeneratorReturnException)
+        {
+            // Generator return() was called - close iterator with Return completion
+            // This allows TypeErrors from iterator.return() to propagate properly
+            if (!done && iterator is not null)
+            {
+                done = true; // Prevent double-close in finally
+                iterator.Close(CompletionType.Return);
+            }
+            throw;
+        }
         catch
         {
             completionType = CompletionType.Throw;

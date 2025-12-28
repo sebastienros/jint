@@ -315,6 +315,22 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 }
             }
         }
+        catch (YieldSuspendException)
+        {
+            // Generator yield - don't close the iterator, we'll resume later
+            close = false;
+            throw;
+        }
+        catch (GeneratorReturnException)
+        {
+            // Generator return() was called - close iterator with Return completion
+            // This allows TypeErrors from iterator.return() to propagate properly
+            completionType = CompletionType.Return;
+            close = false; // Prevent double-close in finally
+            iteratorRecord.Close(completionType);
+            // Re-throw to continue unwinding (will be caught by JintStatementList)
+            throw;
+        }
         catch
         {
             completionType = CompletionType.Throw;

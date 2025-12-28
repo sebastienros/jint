@@ -136,6 +136,13 @@ internal sealed class JintStatementList
             var suspendedValue = generator?._suspendedValue ?? yieldEx.YieldedValue;
             c = new Completion(CompletionType.Return, suspendedValue, temp[i].Statement._statement);
         }
+        catch (GeneratorReturnException returnEx)
+        {
+            // Generator return() was called - propagate as Return completion
+            // This allows for-of loops to close their iterators properly
+            Reset();
+            c = new Completion(CompletionType.Return, returnEx.ReturnValue, temp[i].Statement._statement);
+        }
         catch (Exception ex)
         {
             Reset();

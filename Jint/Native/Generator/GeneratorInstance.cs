@@ -74,6 +74,12 @@ internal sealed class GeneratorInstance : ObjectInstance
     /// </summary>
     internal bool _shouldEarlyReturn;
 
+    /// <summary>
+    /// The completion type used when resuming via GeneratorResumeAbrupt.
+    /// Used by yield expressions to know if they should trigger an early return.
+    /// </summary>
+    internal CompletionType _resumeCompletionType;
+
     public GeneratorInstance(Engine engine) : base(engine)
     {
     }
@@ -149,6 +155,9 @@ internal sealed class GeneratorInstance : ObjectInstance
         _nextValue = abruptCompletion.Value;
         _isResuming = true;
 
+        // Track the completion type for the yield expression to handle
+        _resumeCompletionType = abruptCompletion.Type;
+
         // If we're in a delegation, set the resume type so the delegation loop handles it
         if (_delegatingIterator is not null)
         {
@@ -160,14 +169,7 @@ internal sealed class GeneratorInstance : ObjectInstance
             _error = abruptCompletion.Value;
             Throw.JavaScriptException(_engine, _error, AstExtensions.DefaultLocation);
         }
-        else if (abruptCompletion.Type == CompletionType.Return)
-        {
-            // Not delegating - return should complete the generator immediately
-            // Per spec 27.5.3.4 GeneratorResumeAbrupt step 10.a.ii:
-            // "Return Completion Record { [[Type]]: return, [[Value]]: received.[[Value]], [[Target]]: empty }"
-            _generatorState = GeneratorState.Completed;
-            return new IteratorResult(_engine, abruptCompletion.Value, JsBoolean.True);
-        }
+        // For Return completion: resume execution so for-of/try-finally can close iterators properly
 
         // Clear the suspended value from previous suspension
         _suspendedValue = null;

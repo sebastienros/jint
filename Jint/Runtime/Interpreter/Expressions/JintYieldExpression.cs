@@ -43,13 +43,21 @@ internal sealed class JintYieldExpression : JintExpression
                 // This is the yield we suspended at - return _nextValue as the result
                 var returnValue = generator._nextValue ?? JsValue.Undefined;
 
-                // Store this value for future iterations (e.g., same yield in a loop)
-                generator._yieldNodeValues ??= new Dictionary<object, JsValue>();
-                generator._yieldNodeValues[_expression] = returnValue;
-
                 // Clear resume state
                 generator._isResuming = false;
                 generator._lastYieldNode = null;
+
+                // If we're resuming with a Return completion, throw to trigger finally blocks
+                // This allows for-of loops to close their iterators properly
+                if (generator._resumeCompletionType == CompletionType.Return)
+                {
+                    generator._resumeCompletionType = CompletionType.Normal; // Reset for future
+                    throw new GeneratorReturnException(returnValue);
+                }
+
+                // Store this value for future iterations (e.g., same yield in a loop)
+                generator._yieldNodeValues ??= new Dictionary<object, JsValue>();
+                generator._yieldNodeValues[_expression] = returnValue;
 
                 return returnValue;
             }
