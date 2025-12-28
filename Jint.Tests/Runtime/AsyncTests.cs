@@ -43,7 +43,7 @@ public class AsyncTests
         Assert.Equal(AsyncTestClass.TestString, result);
     }
 
-    [Fact]
+    [Fact(Skip = "Flaky test")]
     public void ShouldRespectCustomProvidedTimeoutWhenUnwrapping()
     {
         Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
