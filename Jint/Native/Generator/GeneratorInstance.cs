@@ -98,6 +98,13 @@ internal sealed class GeneratorInstance : ObjectInstance
     /// </summary>
     internal object? _currentFinallyStatement;
 
+    /// <summary>
+    /// Maps for-of/for-in statement nodes to their suspended iterator state.
+    /// When a generator yields inside a for-of loop, the iterator is stored here
+    /// so it can be restored on resume instead of creating a new one.
+    /// </summary>
+    internal Dictionary<object, ForOfSuspendData>? _forOfSuspendData;
+
     public GeneratorInstance(Engine engine) : base(engine)
     {
     }
@@ -251,5 +258,42 @@ internal sealed class GeneratorInstance : ObjectInstance
         }
 
         return _generatorState;
+    }
+
+    /// <summary>
+    /// Gets or creates suspend data for a for-of statement.
+    /// Called when a generator is about to execute a for-of loop body.
+    /// </summary>
+    internal ForOfSuspendData GetOrCreateForOfSuspendData(object statement, IteratorInstance iterator)
+    {
+        _forOfSuspendData ??= new Dictionary<object, ForOfSuspendData>();
+        if (!_forOfSuspendData.TryGetValue(statement, out var data))
+        {
+            data = new ForOfSuspendData { Iterator = iterator };
+            _forOfSuspendData[statement] = data;
+        }
+        return data;
+    }
+
+    /// <summary>
+    /// Tries to get existing suspend data for a for-of statement.
+    /// Returns true if we're resuming into this for-of loop.
+    /// </summary>
+    internal bool TryGetForOfSuspendData(object statement, out ForOfSuspendData? data)
+    {
+        if (_forOfSuspendData?.TryGetValue(statement, out data) == true)
+        {
+            return true;
+        }
+        data = null;
+        return false;
+    }
+
+    /// <summary>
+    /// Clears suspend data for a for-of statement when the loop completes normally.
+    /// </summary>
+    internal void ClearForOfSuspendData(object statement)
+    {
+        _forOfSuspendData?.Remove(statement);
     }
 }
