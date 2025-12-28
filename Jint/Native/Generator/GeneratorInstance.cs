@@ -105,6 +105,13 @@ internal sealed class GeneratorInstance : ObjectInstance
     /// </summary>
     internal Dictionary<object, ForOfSuspendData>? _forOfSuspendData;
 
+    /// <summary>
+    /// Maps array destructuring pattern nodes to their suspended iterator state.
+    /// When a generator yields inside array destructuring (e.g., [x[yield]] = iterable),
+    /// the iterator is stored here so it can be properly closed on generator.return().
+    /// </summary>
+    internal Dictionary<object, DestructuringSuspendData>? _destructuringSuspendData;
+
     public GeneratorInstance(Engine engine) : base(engine)
     {
     }
@@ -295,5 +302,66 @@ internal sealed class GeneratorInstance : ObjectInstance
     internal void ClearForOfSuspendData(object statement)
     {
         _forOfSuspendData?.Remove(statement);
+    }
+
+    /// <summary>
+    /// Gets or creates suspend data for an array destructuring pattern.
+    /// Called when a generator is about to execute destructuring that may contain yields.
+    /// </summary>
+    internal DestructuringSuspendData GetOrCreateDestructuringSuspendData(object pattern, IteratorInstance iterator)
+    {
+        _destructuringSuspendData ??= new Dictionary<object, DestructuringSuspendData>();
+        if (!_destructuringSuspendData.TryGetValue(pattern, out var data))
+        {
+            data = new DestructuringSuspendData { Iterator = iterator };
+            _destructuringSuspendData[pattern] = data;
+        }
+        return data;
+    }
+
+    /// <summary>
+    /// Tries to get existing suspend data for an array destructuring pattern.
+    /// Returns true if we're resuming into this destructuring.
+    /// </summary>
+    internal bool TryGetDestructuringSuspendData(object pattern, out DestructuringSuspendData? data)
+    {
+        if (_destructuringSuspendData?.TryGetValue(pattern, out data) == true)
+        {
+            return true;
+        }
+        data = null;
+        return false;
+    }
+
+    /// <summary>
+    /// Clears suspend data for an array destructuring pattern when it completes.
+    /// </summary>
+    internal void ClearDestructuringSuspendData(object pattern)
+    {
+        _destructuringSuspendData?.Remove(pattern);
+    }
+
+    /// <summary>
+    /// Closes all pending destructuring iterators.
+    /// Called when generator.return() is invoked to properly close iterators
+    /// that were suspended mid-destructuring.
+    /// </summary>
+    internal void CloseAllDestructuringIterators(CompletionType completionType)
+    {
+        if (_destructuringSuspendData is null)
+        {
+            return;
+        }
+
+        foreach (var kvp in _destructuringSuspendData)
+        {
+            var data = kvp.Value;
+            if (!data.Done)
+            {
+                data.Iterator.Close(completionType);
+                data.Done = true;
+            }
+        }
+        _destructuringSuspendData.Clear();
     }
 }
