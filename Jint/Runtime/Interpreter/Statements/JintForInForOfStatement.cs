@@ -289,6 +289,15 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     v = result.Value;
                 }
 
+                // Check for generator suspension - if the generator is suspended, we need to exit the loop
+                if (engine.ExecutionContext.Suspended)
+                {
+                    var generator = engine.ExecutionContext.Generator;
+                    var suspendedValue = generator?._suspendedValue ?? result.Value;
+                    completionType = CompletionType.Return;
+                    return new Completion(CompletionType.Return, suspendedValue, _statement!);
+                }
+
                 if (result.Type == CompletionType.Break && (context.Target == null || string.Equals(context.Target, _statement?.LabelSet?.Name, StringComparison.Ordinal)))
                 {
                     completionType = CompletionType.Normal;
@@ -298,11 +307,6 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 if (result.Type != CompletionType.Continue || (context.Target != null && !string.Equals(context.Target, _statement?.LabelSet?.Name, StringComparison.Ordinal)))
                 {
                     completionType = result.Type;
-                    if (iterationKind == IterationKind.Enumerate)
-                    {
-                        // TODO es6-generators make sure we can start from where we left off
-                        //return result;
-                    }
                     if (result.IsAbrupt())
                     {
                         close = true;

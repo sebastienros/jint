@@ -143,6 +143,14 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                 v = result.Value;
             }
 
+            // Check for generator suspension - if the generator is suspended, we need to exit the loop
+            if (context.Engine.ExecutionContext.Suspended)
+            {
+                var generator = context.Engine.ExecutionContext.Generator;
+                var suspendedValue = generator?._suspendedValue ?? result.Value;
+                return new Completion(CompletionType.Return, suspendedValue, ((JintStatement) this)._statement);
+            }
+
             if (result.Type == CompletionType.Break && (context.Target == null || string.Equals(context.Target, _statement?.LabelSet?.Name, StringComparison.Ordinal)))
             {
                 return new Completion(CompletionType.Normal, result.Value, ((JintStatement) this)._statement);

@@ -21,6 +21,32 @@ internal sealed class GeneratorInstance : ObjectInstance
     public JsValue? _nextValue;
     public JsValue? _error;
 
+    /// <summary>
+    /// Tracks whether we are resuming from a suspended yield (vs first call from SuspendedStart).
+    /// When true, the first yield expression encountered should return _nextValue instead of yielding.
+    /// </summary>
+    internal bool _isResuming;
+
+    /// <summary>
+    /// Stores the value that was yielded when the generator suspended.
+    /// This is needed because the statement containing the yield might have a different completion value
+    /// (e.g., variable declarations return Empty, not the yielded value).
+    /// </summary>
+    internal JsValue? _suspendedValue;
+
+    /// <summary>
+    /// The yield expression node we suspended at. Used for node-based yield tracking
+    /// which works correctly for both loops (same node) and multi-yield expressions (different nodes).
+    /// </summary>
+    internal object? _lastYieldNode;
+
+    /// <summary>
+    /// Maps yield expression nodes to their return values from previous resumes.
+    /// When re-executing code with yields (e.g., in loops), yields that have already been
+    /// resumed return their stored value instead of yielding again.
+    /// </summary>
+    internal Dictionary<object, JsValue>? _yieldNodeValues;
+
     public GeneratorInstance(Engine engine) : base(engine)
     {
     }
@@ -56,6 +82,13 @@ internal sealed class GeneratorInstance : ObjectInstance
         // 6. Suspend methodContext.
 
         _nextValue = value;
+
+        // Track if we're resuming from a yield (vs first call from SuspendedStart)
+        // When resuming from SuspendedYield, the first yield encountered should return _nextValue
+        _isResuming = (state == GeneratorState.SuspendedYield);
+
+        // Clear the suspended value from previous suspension
+        _suspendedValue = null;
 
         var context = _engine._activeEvaluationContext;
         return ResumeExecution(genContext, context!);

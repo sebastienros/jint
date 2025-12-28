@@ -46,6 +46,14 @@ internal sealed class JintWhileStatement : JintStatement<WhileStatement>
                 v = completion.Value;
             }
 
+            // Check for generator suspension - if the generator is suspended, we need to exit the loop
+            if (context.Engine.ExecutionContext.Suspended)
+            {
+                var generator = context.Engine.ExecutionContext.Generator;
+                var suspendedValue = generator?._suspendedValue ?? completion.Value;
+                return new Completion(CompletionType.Return, suspendedValue, _statement);
+            }
+
             if (completion.Type != CompletionType.Continue || !string.Equals(context.Target, _labelSetName, StringComparison.Ordinal))
             {
                 if (completion.Type == CompletionType.Break && (context.Target == null || string.Equals(context.Target, _labelSetName, StringComparison.Ordinal)))

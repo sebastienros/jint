@@ -242,10 +242,10 @@ public class GeneratorTests
         Assert.Equal(2, _engine.Evaluate("sequence.next().value"));
         Assert.Equal(3, _engine.Evaluate("sequence.next().value"));
         Assert.Equal(5, _engine.Evaluate("sequence.next().value"));
-        Assert.Equal(9, _engine.Evaluate("sequence.next().value"));
+        Assert.Equal(8, _engine.Evaluate("sequence.next().value"));
         Assert.Equal(0, _engine.Evaluate("sequence.next(true).value"));
-        Assert.Equal(1, _engine.Evaluate("sequence.next().value)"));
-        Assert.Equal(1, _engine.Evaluate("sequence.next().value)"));
-        Assert.Equal(2, _engine.Evaluate("sequence.next().value)"));
+        Assert.Equal(1, _engine.Evaluate("sequence.next().value"));
+        Assert.Equal(1, _engine.Evaluate("sequence.next().value"));
+        Assert.Equal(2, _engine.Evaluate("sequence.next().value"));
     }
 }

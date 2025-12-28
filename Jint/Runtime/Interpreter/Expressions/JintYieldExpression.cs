@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Jint.Native;
 using Jint.Native.Generator;
 using Jint.Native.Iterator;
@@ -21,13 +22,43 @@ internal sealed class JintYieldExpression : JintExpression
         }
 
         var expression = (YieldExpression) _expression;
+        var generator = context.Engine.ExecutionContext.Generator;
 
-        JsValue value;
-        if (context.Engine.ExecutionContext.Generator?._nextValue is not null)
+        // Check if we're resuming from a suspended yield
+        // When resuming, we need to return the value passed to next() for the yield we suspended at
+        if (generator is not null && generator._isResuming)
         {
-            value = context.Engine.ExecutionContext.Generator._nextValue;
+            // Check if THIS yield expression is the one we suspended at (by node identity)
+            if (ReferenceEquals(_expression, generator._lastYieldNode))
+            {
+                // This is the yield we suspended at - return _nextValue as the result
+                var returnValue = generator._nextValue ?? JsValue.Undefined;
+
+                // Store this value for future iterations (e.g., same yield in a loop)
+                generator._yieldNodeValues ??= new Dictionary<object, JsValue>();
+                generator._yieldNodeValues[_expression] = returnValue;
+
+                // Clear resume state
+                generator._isResuming = false;
+                generator._lastYieldNode = null;
+
+                return returnValue;
+            }
+
+            // Check if this yield has a stored value from a previous resume
+            // This happens when re-executing a loop - the same yield node was resumed before
+            if (generator._yieldNodeValues?.TryGetValue(_expression, out var storedValue) == true)
+            {
+                return storedValue;
+            }
+
+            // This is a new yield that hasn't been processed yet
+            // Fall through to normal yield logic
         }
-        else if (expression.Argument is not null)
+
+        // Normal yield: evaluate argument and yield the value
+        JsValue value;
+        if (expression.Argument is not null)
         {
             value = Build(expression.Argument).GetValue(context);
         }
@@ -39,6 +70,12 @@ internal sealed class JintYieldExpression : JintExpression
         if (expression.Delegate)
         {
             value = YieldDelegate(context, value);
+        }
+
+        // Store the node we're yielding at for resume tracking
+        if (generator is not null)
+        {
+            generator._lastYieldNode = _expression;
         }
 
         return Yield(context, value);
@@ -233,8 +270,12 @@ internal sealed class JintYieldExpression : JintExpression
         var genContext = engine.ExecutionContext;
         var generator = genContext.Generator;
         generator!._generatorState = GeneratorState.SuspendedYield;
-        //_engine.LeaveExecutionContext();
+        // Store the yielded value so it can be retrieved even if the containing statement
+        // has a different completion value (e.g., variable declarations return Empty)
+        generator._suspendedValue = iterNextObj;
 
-        return iterNextObj;
+        // Throw an exception to immediately interrupt expression evaluation.
+        // This is caught at the statement level to handle generator suspension properly.
+        throw new YieldSuspendException(iterNextObj);
     }
 }

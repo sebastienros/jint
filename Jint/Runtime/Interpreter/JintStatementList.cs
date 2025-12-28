@@ -99,15 +99,22 @@ internal sealed class JintStatementList
                     c = new Completion(CompletionType.Return, pair.Value, pair.Statement._statement);
                 }
 
-                if (_generator)
+                // Check for generator suspension - works for both the main generator body and nested blocks
+                if (context.Engine.ExecutionContext.Suspended)
                 {
-                    if (context.Engine.ExecutionContext.Suspended)
-                    {
-                        _index = i + 1;
-                        c = new Completion(CompletionType.Return, c.Value, pair.Statement._statement);
-                        break;
-                    }
+                    // Don't increment _index - we'll re-execute this statement on resume
+                    // The yield tracking (_yieldIndex) handles knowing which yield to resume from
+                    _index = i;
+                    // Use the suspended value from the generator, as the statement's completion value
+                    // might be different (e.g., variable declarations return Empty, not the yielded value)
+                    var generator = context.Engine.ExecutionContext.Generator;
+                    var suspendedValue = generator?._suspendedValue ?? c.Value;
+                    c = new Completion(CompletionType.Return, suspendedValue, pair.Statement._statement);
+                    break;
                 }
+
+                // With node-based yield tracking, we don't need to reset state between statements
+                // Each yield node is uniquely identified, so no per-statement cleanup is needed
 
                 if (c.Type != CompletionType.Normal)
                 {
@@ -120,6 +127,14 @@ internal sealed class JintStatementList
                     lastValue = c.Value;
                 }
             }
+        }
+        catch (YieldSuspendException yieldEx)
+        {
+            // Generator yield - set index to current statement for resume
+            _index = i;
+            var generator = context.Engine.ExecutionContext.Generator;
+            var suspendedValue = generator?._suspendedValue ?? yieldEx.YieldedValue;
+            c = new Completion(CompletionType.Return, suspendedValue, temp[i].Statement._statement);
         }
         catch (Exception ex)
         {
