@@ -47,6 +47,33 @@ internal sealed class GeneratorInstance : ObjectInstance
     /// </summary>
     internal Dictionary<object, JsValue>? _yieldNodeValues;
 
+    /// <summary>
+    /// The iterator we're delegating to during yield* evaluation.
+    /// When this is non-null, we're in the middle of yield* delegation.
+    /// </summary>
+    internal IteratorInstance? _delegatingIterator;
+
+    /// <summary>
+    /// The yield* expression we're delegating from.
+    /// </summary>
+    internal object? _delegatingYieldNode;
+
+    /// <summary>
+    /// The type of completion we received when resuming during yield* delegation.
+    /// </summary>
+    internal CompletionType _delegationResumeType;
+
+    /// <summary>
+    /// When set, indicates that the generator should complete immediately with this value.
+    /// Used by yield* when the inner iterator's return method is null/undefined.
+    /// </summary>
+    internal JsValue? _earlyReturnValue;
+
+    /// <summary>
+    /// Whether an early return was triggered (e.g., from yield* with null return method).
+    /// </summary>
+    internal bool _shouldEarlyReturn;
+
     public GeneratorInstance(Engine engine) : base(engine)
     {
     }
@@ -117,23 +144,28 @@ internal sealed class GeneratorInstance : ObjectInstance
         }
 
         var genContext = _generatorContext;
-        var methodContext = _engine.ExecutionContext;
 
-        // Suspend methodContext
-        _nextValue = abruptCompletion.Type == CompletionType.Return
-            ? abruptCompletion.Value
-            : null;
+        // Store the value for resumption
+        _nextValue = abruptCompletion.Value;
+        _isResuming = true;
 
-        _error = abruptCompletion.Type == CompletionType.Throw
-            ? abruptCompletion.Value
-            : null;
-
-        if (_error is not null)
+        // If we're in a delegation, set the resume type so the delegation loop handles it
+        if (_delegatingIterator is not null)
         {
+            _delegationResumeType = abruptCompletion.Type;
+        }
+        else if (abruptCompletion.Type == CompletionType.Throw)
+        {
+            // Not delegating - throw immediately goes to exception handling
+            _error = abruptCompletion.Value;
             Throw.JavaScriptException(_engine, _error, AstExtensions.DefaultLocation);
         }
 
-        return ResumeExecution(genContext, new EvaluationContext(_engine));
+        // Clear the suspended value from previous suspension
+        _suspendedValue = null;
+
+        var context = _engine._activeEvaluationContext;
+        return ResumeExecution(genContext, context ?? new EvaluationContext(_engine));
     }
 
     private ObjectInstance ResumeExecution(in ExecutionContext genContext, EvaluationContext context)
@@ -144,11 +176,22 @@ internal sealed class GeneratorInstance : ObjectInstance
         var result = _generatorBody.Execute(context);
         _engine.LeaveExecutionContext();
 
+        // Check for early return (e.g., from yield* with null return method)
+        if (_shouldEarlyReturn)
+        {
+            var earlyValue = _earlyReturnValue ?? JsValue.Undefined;
+            _shouldEarlyReturn = false;
+            _earlyReturnValue = null;
+            _generatorState = GeneratorState.Completed;
+            return IteratorResult.CreateValueIteratorPosition(_engine, earlyValue, done: JsBoolean.True);
+        }
+
         ObjectInstance? resultValue = null;
         if (result.Type == CompletionType.Normal)
         {
             _generatorState = GeneratorState.Completed;
-            resultValue = IteratorResult.CreateValueIteratorPosition(_engine, result.Value, done: JsBoolean.True);
+            // Per spec 25.4.3.4 step 13.a: normal completion becomes return undefined
+            resultValue = IteratorResult.CreateValueIteratorPosition(_engine, JsValue.Undefined, done: JsBoolean.True);
         }
         else if (result.Type == CompletionType.Return)
         {

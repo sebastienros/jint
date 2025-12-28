@@ -24,6 +24,15 @@ internal sealed class JintYieldExpression : JintExpression
         var expression = (YieldExpression) _expression;
         var generator = context.Engine.ExecutionContext.Generator;
 
+        // Check if we're resuming from a yield* delegation
+        if (generator is not null
+            && generator._delegatingIterator is not null
+            && ReferenceEquals(_expression, generator._delegatingYieldNode))
+        {
+            // Continue the yield* delegation loop
+            return ContinueYieldDelegate(context, generator);
+        }
+
         // Check if we're resuming from a suspended yield
         // When resuming, we need to return the value passed to next() for the yield we suspended at
         if (generator is not null && generator._isResuming)
@@ -69,7 +78,7 @@ internal sealed class JintYieldExpression : JintExpression
 
         if (expression.Delegate)
         {
-            value = YieldDelegate(context, value);
+            return YieldDelegate(context, value);
         }
 
         // Store the node we're yielding at for resume tracking
@@ -83,17 +92,54 @@ internal sealed class JintYieldExpression : JintExpression
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-generator-function-definitions-runtime-semantics-evaluation
+    /// Starts the yield* delegation loop.
     /// </summary>
     private JsValue YieldDelegate(EvaluationContext context, JsValue value)
     {
         var engine = context.Engine;
         var generatorKind = engine.ExecutionContext.GetGeneratorKind();
         var iterator = value.GetIterator(engine.Realm, generatorKind);
-        var iteratorRecord = iterator;
-        var received = new Completion(CompletionType.Normal, JsValue.Undefined, _expression);
+        var generator = engine.ExecutionContext.Generator!;
+
+        // Store the iterator for delegation continuation
+        generator._delegatingIterator = iterator;
+        generator._delegatingYieldNode = _expression;
+
+        // Start the first iteration with a normal completion
+        return RunYieldDelegateLoop(context, generator, iterator, CompletionType.Normal, JsValue.Undefined);
+    }
+
+    /// <summary>
+    /// Continues the yield* delegation loop after resuming from a suspension.
+    /// </summary>
+    private static JsValue ContinueYieldDelegate(EvaluationContext context, GeneratorInstance generator)
+    {
+        var iterator = generator._delegatingIterator!;
+        var resumeType = generator._delegationResumeType;
+        var resumeValue = generator._nextValue ?? JsValue.Undefined;
+
+        // Clear the resuming flag since we're handling it here
+        generator._isResuming = false;
+
+        return RunYieldDelegateLoop(context, generator, iterator, resumeType, resumeValue);
+    }
+
+    /// <summary>
+    /// Runs the yield* delegation loop. Called both for initial delegation and continuation.
+    /// </summary>
+    private static JsValue RunYieldDelegateLoop(
+        EvaluationContext context,
+        GeneratorInstance generator,
+        IteratorInstance iterator,
+        CompletionType receivedType,
+        JsValue receivedValue)
+    {
+        var engine = context.Engine;
+        var generatorKind = engine.ExecutionContext.GetGeneratorKind();
+
         while (true)
         {
-            if (received.Type == CompletionType.Normal)
+            if (receivedType == CompletionType.Normal)
             {
                 iterator.TryIteratorStep(out var innerResult);
                 if (generatorKind == GeneratorKind.Async)
@@ -101,123 +147,161 @@ internal sealed class JintYieldExpression : JintExpression
                     innerResult = Await(innerResult);
                 }
 
-                if (innerResult is not IteratorResult oi)
-                {
-                    Throw.TypeError(engine.Realm);
-                }
+                // Per spec: if innerResult is not an object, throw TypeError
+                // Note: innerResult is already ObjectInstance from TryIteratorStep
 
                 var done = IteratorComplete(innerResult);
                 if (done)
                 {
+                    // Delegation complete - clean up and return the final value
+                    generator._delegatingIterator = null;
+                    generator._delegatingYieldNode = null;
                     return IteratorValue(innerResult);
                 }
 
                 if (generatorKind == GeneratorKind.Async)
                 {
-                    received = AsyncGeneratorYield(IteratorValue(innerResult));
+                    var asyncReceived = AsyncGeneratorYield(IteratorValue(innerResult));
+                    receivedType = asyncReceived.Type;
+                    receivedValue = asyncReceived.Value;
                 }
                 else
                 {
-                    received = GeneratorYield(innerResult);
+                    // Yield the value from the inner iterator and suspend
+                    SuspendForDelegation(context, generator, IteratorValue(innerResult), CompletionType.Normal);
                 }
-
             }
-            else if (received.Type == CompletionType.Throw)
+            else if (receivedType == CompletionType.Throw)
             {
-                var throwMethod = iterator.GetMethod("throw");
+                var iteratorInstance = iterator.Instance;
+                var throwMethod = iteratorInstance.GetMethod("throw");
                 if (throwMethod is not null)
                 {
-                    var innerResult = throwMethod.Call(iterator, received.Value);
+                    var innerResult = throwMethod.Call(iteratorInstance, new[] { receivedValue });
                     if (generatorKind == GeneratorKind.Async)
                     {
                         innerResult = Await(innerResult);
                     }
-                    // NOTE: Exceptions from the inner iterator throw method are propagated.
-                    // Normal completions from an inner throw method are processed similarly to an inner next.
-                    if (innerResult is not ObjectInstance oi)
+
+                    if (innerResult is not ObjectInstance innerObj)
                     {
-                        Throw.TypeError(engine.Realm);
+                        Throw.TypeError(engine.Realm, "Iterator result is not an object");
+                        return JsValue.Undefined; // unreachable
                     }
 
-                    var done = IteratorComplete(innerResult);
+                    var done = IteratorComplete(innerObj);
                     if (done)
                     {
-                        IteratorValue(innerResult);
+                        // Delegation complete - clean up and return the final value
+                        generator._delegatingIterator = null;
+                        generator._delegatingYieldNode = null;
+                        return IteratorValue(innerObj);
                     }
 
                     if (generatorKind == GeneratorKind.Async)
                     {
-                        received = AsyncGeneratorYield(IteratorValue(innerResult));
+                        var asyncReceived = AsyncGeneratorYield(IteratorValue(innerObj));
+                        receivedType = asyncReceived.Type;
+                        receivedValue = asyncReceived.Value;
                     }
                     else
                     {
-                        received = GeneratorYield(innerResult);
+                        // Yield the result and suspend
+                        SuspendForDelegation(context, generator, IteratorValue(innerObj), CompletionType.Normal);
                     }
                 }
                 else
                 {
                     // NOTE: If iterator does not have a throw method, this throw is going to terminate the yield* loop.
                     // But first we need to give iterator a chance to clean up.
-                    var closeCompletion = new Completion(CompletionType.Normal, null!, _expression);
                     if (generatorKind == GeneratorKind.Async)
                     {
-                        AsyncIteratorClose(iteratorRecord, CompletionType.Normal);
+                        AsyncIteratorClose(iterator, CompletionType.Normal);
                     }
                     else
                     {
-                        iteratorRecord.Close(CompletionType.Normal);
+                        iterator.Close(CompletionType.Normal);
                     }
 
-                    Throw.TypeError(engine.Realm, "Iterator does not have close method");
+                    generator._delegatingIterator = null;
+                    generator._delegatingYieldNode = null;
+                    Throw.TypeError(engine.Realm, "Iterator does not have throw method");
                 }
             }
-            else
+            else // receivedType == CompletionType.Return
             {
-                var returnMethod = iterator.GetMethod("return");
+                var iteratorInstance = iterator.Instance;
+                var returnMethod = iteratorInstance.GetMethod("return");
                 if (returnMethod is null)
                 {
-                    var temp = received.Value;
+                    var temp = receivedValue;
                     if (generatorKind == GeneratorKind.Async)
                     {
-                        temp = Await(received.Value);
+                        temp = Await(receivedValue);
                     }
 
-                    return temp;
+                    // Per spec: "Return Completion(received)" - the generator should complete
+                    // with the received return value, not just return it from yield*
+                    generator._delegatingIterator = null;
+                    generator._delegatingYieldNode = null;
+                    generator._generatorState = GeneratorState.Completed;
+                    generator._shouldEarlyReturn = true;
+                    generator._earlyReturnValue = temp;
+
+                    // Throw to interrupt execution - ResumeExecution will see the early return flag
+                    throw new YieldSuspendException(temp);
                 }
 
-                var innerReturnResult = returnMethod.Call(iterator, received.Value);
+                var innerReturnResult = returnMethod.Call(iteratorInstance, new[] { receivedValue });
                 if (generatorKind == GeneratorKind.Async)
                 {
                     innerReturnResult = Await(innerReturnResult);
                 }
 
-                if (innerReturnResult is not ObjectInstance oi)
+                if (innerReturnResult is not ObjectInstance innerReturnObj)
                 {
-                    Throw.TypeError(engine.Realm);
+                    Throw.TypeError(engine.Realm, "Iterator result is not an object");
+                    return JsValue.Undefined; // unreachable
                 }
 
-                var done = IteratorComplete(innerReturnResult);
+                var done = IteratorComplete(innerReturnObj);
                 if (done)
                 {
-                    var val = IteratorValue(innerReturnResult);
-                    return val;
+                    generator._delegatingIterator = null;
+                    generator._delegatingYieldNode = null;
+                    return IteratorValue(innerReturnObj);
                 }
 
                 if (generatorKind == GeneratorKind.Async)
                 {
-                    received = AsyncGeneratorYield(IteratorValue(innerReturnResult));
+                    var asyncReceived = AsyncGeneratorYield(IteratorValue(innerReturnObj));
+                    receivedType = asyncReceived.Type;
+                    receivedValue = asyncReceived.Value;
                 }
                 else
                 {
-                    received = GeneratorYield(innerReturnResult);
+                    // Yield the result and suspend
+                    SuspendForDelegation(context, generator, IteratorValue(innerReturnObj), CompletionType.Normal);
                 }
             }
         }
     }
 
-    private Completion GeneratorYield(JsValue innerResult)
+    /// <summary>
+    /// Suspends the generator during yield* delegation.
+    /// </summary>
+    private static void SuspendForDelegation(
+        EvaluationContext context,
+        GeneratorInstance generator,
+        JsValue yieldValue,
+        CompletionType expectedResumeType)
     {
-        throw new System.NotImplementedException();
+        generator._generatorState = GeneratorState.SuspendedYield;
+        generator._suspendedValue = yieldValue;
+        generator._delegationResumeType = expectedResumeType;
+
+        // Throw to suspend - the generator will be resumed via next/throw/return
+        throw new YieldSuspendException(yieldValue);
     }
 
     private static bool IteratorComplete(JsValue iterResult)
@@ -250,7 +334,7 @@ internal sealed class JintYieldExpression : JintExpression
     private static ObjectInstance Await(JsValue innerResult)
     {
         Throw.NotImplementedException("await");
-        return null;
+        return null!;
     }
 
     /// <summary>

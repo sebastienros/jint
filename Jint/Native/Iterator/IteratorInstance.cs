@@ -26,6 +26,13 @@ internal abstract class IteratorInstance : ObjectInstance
     }
 
     /// <summary>
+    /// Gets the underlying iterator object instance.
+    /// For object iterators, this is the wrapped object. For built-in iterators, this is self.
+    /// Used by yield* to call methods like "return" and "throw" on the iterator.
+    /// </summary>
+    public virtual ObjectInstance Instance => this;
+
+    /// <summary>
     /// https://tc39.es/ecma262/#sec-createiterresultobject
     /// </summary>
     private IteratorResult CreateIterResultObject(JsValue value, bool done)
@@ -37,6 +44,8 @@ internal abstract class IteratorInstance : ObjectInstance
     {
         private readonly ObjectInstance _target;
         private readonly ICallable? _nextMethod;
+
+        public override ObjectInstance Instance => _target;
 
         public ObjectIterator(ObjectInstance target) : base(target.Engine)
         {

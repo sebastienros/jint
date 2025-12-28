@@ -64,6 +64,15 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
         Environment? oldEnv = null;
         DeclarativeEnvironment? loopEnv = null;
         var engine = context.Engine;
+
+        // Check if we're resuming from a yield inside this for loop's body
+        // If so, skip the initialization to avoid resetting loop variables
+        var generator = engine.ExecutionContext.Generator;
+        var resumingInsideBody = generator is not null
+            && generator._isResuming
+            && generator._lastYieldNode is Node yieldNode
+            && IsNodeInsideBody(yieldNode);
+
         if (_boundNames != null)
         {
             oldEnv = engine.ExecutionContext.LexicalEnvironment;
@@ -89,13 +98,17 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
         var completion = Completion.Empty();
         try
         {
-            if (_initExpression != null)
+            // Skip initialization if resuming from inside the loop body
+            if (!resumingInsideBody)
             {
-                _initExpression?.GetValue(context);
-            }
-            else
-            {
-                _initStatement?.Execute(context);
+                if (_initExpression != null)
+                {
+                    _initExpression?.GetValue(context);
+                }
+                else
+                {
+                    _initStatement?.Execute(context);
+                }
             }
 
             completion = ForBodyEvaluation(context);
@@ -109,6 +122,17 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                 engine.UpdateLexicalEnvironment(oldEnv);
             }
         }
+    }
+
+    /// <summary>
+    /// Checks if the given node is inside this for statement's body.
+    /// Used to determine if we're resuming from a yield inside the loop.
+    /// </summary>
+    private bool IsNodeInsideBody(Node node)
+    {
+        var bodyRange = _statement.Body.Range;
+        var nodeRange = node.Range;
+        return bodyRange.Start <= nodeRange.Start && nodeRange.End <= bodyRange.End;
     }
 
     /// <summary>
