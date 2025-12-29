@@ -9,6 +9,24 @@ public class GeneratorTests
         _engine = new Engine();
     }
 
+    [Fact(Timeout = 10000)]
+    public void YieldInForLoopUpdateExpression()
+    {
+        const string Script = """
+            const foo = function*() {
+                for(var i = 0; i < 5; yield i++) {}
+            };
+
+            let str = '';
+            for (const val of foo()) {
+                str += val;
+            }
+            return str;
+        """;
+
+        Assert.Equal("01234", _engine.Evaluate(Script));
+    }
+
     [Fact]
     public void LoopYield()
     {

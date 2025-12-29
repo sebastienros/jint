@@ -65,13 +65,13 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
         DeclarativeEnvironment? loopEnv = null;
         var engine = context.Engine;
 
-        // Check if we're resuming from a yield inside this for loop's body
+        // Check if we're resuming from a yield inside this for statement (body, test, or update)
         // If so, skip the initialization to avoid resetting loop variables
         var generator = engine.ExecutionContext.Generator;
-        var resumingInsideBody = generator is not null
+        var resumingInLoop = generator is not null
             && generator._isResuming
             && generator._lastYieldNode is Node yieldNode
-            && IsNodeInsideBody(yieldNode);
+            && IsNodeInsideForStatement(yieldNode);
 
         if (_boundNames != null)
         {
@@ -98,8 +98,8 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
         var completion = Completion.Empty();
         try
         {
-            // Skip initialization if resuming from inside the loop body
-            if (!resumingInsideBody)
+            // Skip initialization if resuming from inside the loop (body, test, or update)
+            if (!resumingInLoop)
             {
                 if (_initExpression != null)
                 {
@@ -125,14 +125,41 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
     }
 
     /// <summary>
-    /// Checks if the given node is inside this for statement's body.
+    /// Checks if the given node is inside this for statement (body, test, or update).
     /// Used to determine if we're resuming from a yield inside the loop.
     /// </summary>
-    private bool IsNodeInsideBody(Node node)
+    private bool IsNodeInsideForStatement(Node node)
     {
-        var bodyRange = _statement.Body.Range;
         var nodeRange = node.Range;
-        return bodyRange.Start <= nodeRange.Start && nodeRange.End <= bodyRange.End;
+
+        // Check if inside body
+        var bodyRange = _statement.Body.Range;
+        if (bodyRange.Start <= nodeRange.Start && nodeRange.End <= bodyRange.End)
+        {
+            return true;
+        }
+
+        // Check if inside test expression
+        if (_statement.Test != null)
+        {
+            var testRange = _statement.Test.Range;
+            if (testRange.Start <= nodeRange.Start && nodeRange.End <= testRange.End)
+            {
+                return true;
+            }
+        }
+
+        // Check if inside update expression
+        if (_statement.Update != null)
+        {
+            var updateRange = _statement.Update.Range;
+            if (updateRange.Start <= nodeRange.Start && nodeRange.End <= updateRange.End)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -196,7 +223,17 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
             if (_increment != null)
             {
                 debugHandler?.OnStep(_increment._expression);
-                _increment.Evaluate(context);
+                try
+                {
+                    _increment.Evaluate(context);
+                }
+                catch (YieldSuspendException yieldEx)
+                {
+                    // Generator yielded in the update expression - return with the yielded value
+                    var generator = context.Engine.ExecutionContext.Generator;
+                    var suspendedValue = generator?._suspendedValue ?? yieldEx.YieldedValue;
+                    return new Completion(CompletionType.Return, suspendedValue, ((JintStatement) this)._statement);
+                }
             }
         }
     }
