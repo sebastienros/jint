@@ -109,8 +109,8 @@ internal sealed class JintStatementList
                     // might be different (e.g., variable declarations return Empty, not the yielded value)
                     var generator = context.Engine.ExecutionContext.Generator;
                     var suspendedValue = generator?._suspendedValue ?? c.Value;
-                    c = new Completion(CompletionType.Return, suspendedValue, pair.Statement._statement);
-                    break;
+                    // Return directly - don't fall through to the reset below
+                    return new Completion(CompletionType.Return, suspendedValue, pair.Statement._statement);
                 }
 
                 // With node-based yield tracking, we don't need to reset state between statements
@@ -127,6 +127,10 @@ internal sealed class JintStatementList
                     lastValue = c.Value;
                 }
             }
+
+            // Reset index after normal loop completion for potential re-execution
+            // (e.g., this block is a for-of body that will execute again on next iteration)
+            _index = 0;
         }
         catch (YieldSuspendException yieldEx)
         {
