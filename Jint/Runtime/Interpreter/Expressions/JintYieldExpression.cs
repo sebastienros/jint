@@ -157,14 +157,27 @@ internal sealed class JintYieldExpression : JintExpression
         {
             if (receivedType == CompletionType.Normal)
             {
-                iterator.TryIteratorStep(out var innerResult);
-                if (generatorKind == GeneratorKind.Async)
+                // Per spec 14.4.14 step 7.a.i: Call iterator.next with received.[[Value]]
+                // This passes the value from generator.next() to the inner iterator
+                var iteratorInstance = iterator.Instance;
+                var nextMethod = iteratorInstance.GetMethod(CommonProperties.Next);
+                if (nextMethod is null)
                 {
-                    innerResult = Await(innerResult);
+                    Throw.TypeError(engine.Realm, "Iterator does not have next method");
+                    return JsValue.Undefined; // unreachable
                 }
 
-                // Per spec: if innerResult is not an object, throw TypeError
-                // Note: innerResult is already ObjectInstance from TryIteratorStep
+                var innerResultValue = nextMethod.Call(iteratorInstance, new[] { receivedValue });
+                if (generatorKind == GeneratorKind.Async)
+                {
+                    innerResultValue = Await(innerResultValue);
+                }
+
+                if (innerResultValue is not ObjectInstance innerResult)
+                {
+                    Throw.TypeError(engine.Realm, "Iterator result is not an object");
+                    return JsValue.Undefined; // unreachable
+                }
 
                 var done = IteratorComplete(innerResult);
                 if (done)
