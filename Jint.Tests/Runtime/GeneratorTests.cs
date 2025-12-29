@@ -6,7 +6,7 @@ public class GeneratorTests
 
     public GeneratorTests()
     {
-        _engine = new Engine(options => options.ExperimentalFeatures = ExperimentalFeature.Generators);
+        _engine = new Engine();
     }
 
     [Fact]

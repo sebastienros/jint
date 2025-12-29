@@ -36,7 +36,7 @@ and many more.
 - ✔ Default, rest and spread
 - ✔ Enhanced object literals
 - ✔ `for...of`
-- ❌ Generators
+- ✔ Generators
 - ✔ Template strings
 - ✔ Lexical scoping of variables (let and const)
 - ✔ Map and Set

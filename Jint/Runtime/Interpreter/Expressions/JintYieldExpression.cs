@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Jint.Native;
 using Jint.Native.Generator;
 using Jint.Native.Iterator;
@@ -14,13 +13,6 @@ internal sealed class JintYieldExpression : JintExpression
 
     protected override object EvaluateInternal(EvaluationContext context)
     {
-        if ((context.Engine.Options.ExperimentalFeatures & ExperimentalFeature.Generators) == ExperimentalFeature.None)
-        {
-            Throw.JavaScriptException(
-                context.Engine.Intrinsics.Error,
-                "Yield expressions are not supported in the engine, you can enable the experimental feature 'Generators' in engine options to use them.");
-        }
-
         var expression = (YieldExpression) _expression;
         var generator = context.Engine.ExecutionContext.Generator;
 

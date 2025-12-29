@@ -1,6 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
 using Jint.Native;
-using Jint.Native.Generator;
 using Jint.Native.Iterator;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Expressions;

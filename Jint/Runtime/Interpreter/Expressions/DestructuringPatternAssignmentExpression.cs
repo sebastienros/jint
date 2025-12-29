@@ -1,7 +1,6 @@
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Function;
-using Jint.Native.Generator;
 using Jint.Native.Iterator;
 using Environment = Jint.Runtime.Environments.Environment;
 
