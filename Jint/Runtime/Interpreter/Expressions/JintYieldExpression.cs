@@ -197,7 +197,8 @@ internal sealed class JintYieldExpression : JintExpression
                 else
                 {
                     // Yield the value from the inner iterator and suspend
-                    SuspendForDelegation(context, generator, IteratorValue(innerResult), CompletionType.Normal);
+                    // Per spec, pass innerResult directly to GeneratorYield to preserve its exact state
+                    SuspendForDelegation(context, generator, innerResult, CompletionType.Normal);
                 }
             }
             else if (receivedType == CompletionType.Throw)
@@ -236,7 +237,7 @@ internal sealed class JintYieldExpression : JintExpression
                     else
                     {
                         // Yield the result and suspend
-                        SuspendForDelegation(context, generator, IteratorValue(innerObj), CompletionType.Normal);
+                        SuspendForDelegation(context, generator, innerObj, CompletionType.Normal);
                     }
                 }
                 else
@@ -296,9 +297,14 @@ internal sealed class JintYieldExpression : JintExpression
                 var done = IteratorComplete(innerReturnObj);
                 if (done)
                 {
+                    // Per spec 14.4.14 step 5.c.vii: Return Completion{[[Type]]: return, [[Value]]: value}
+                    // This means we need to signal a Return completion to the generator
+                    var returnValue = IteratorValue(innerReturnObj);
                     generator._delegatingIterator = null;
                     generator._delegatingYieldNode = null;
-                    return IteratorValue(innerReturnObj);
+                    // Throw GeneratorReturnException to signal Return completion
+                    // This will trigger finally blocks and then complete the generator
+                    throw new GeneratorReturnException(returnValue);
                 }
 
                 if (generatorKind == GeneratorKind.Async)
@@ -310,7 +316,7 @@ internal sealed class JintYieldExpression : JintExpression
                 else
                 {
                     // Yield the result and suspend
-                    SuspendForDelegation(context, generator, IteratorValue(innerReturnObj), CompletionType.Normal);
+                    SuspendForDelegation(context, generator, innerReturnObj, CompletionType.Normal);
                 }
             }
         }
@@ -322,15 +328,19 @@ internal sealed class JintYieldExpression : JintExpression
     private static void SuspendForDelegation(
         EvaluationContext context,
         GeneratorInstance generator,
-        JsValue yieldValue,
+        ObjectInstance innerResult,
         CompletionType expectedResumeType)
     {
         generator._generatorState = GeneratorState.SuspendedYield;
-        generator._suspendedValue = yieldValue;
+        // Don't access 'value' property here - the spec says we should not access it until needed
+        // We pass through the entire innerResult and let the caller access 'value' when they want
+        generator._suspendedValue = null;
         generator._delegationResumeType = expectedResumeType;
+        // Store the inner result to return it directly (preserving its exact 'done' property state)
+        generator._delegationInnerResult = innerResult;
 
-        // Throw to suspend - the generator will be resumed via next/throw/return
-        throw new YieldSuspendException(yieldValue);
+        // Throw to suspend - don't extract value, just signal suspension
+        throw new YieldSuspendException(JsValue.Undefined);
     }
 
     private static bool IteratorComplete(JsValue iterResult)

@@ -64,6 +64,13 @@ internal sealed class GeneratorInstance : ObjectInstance
     internal CompletionType _delegationResumeType;
 
     /// <summary>
+    /// When yield* suspends, stores the inner iterator's result object directly.
+    /// This allows us to pass through the exact result (including its 'done' property state)
+    /// instead of creating a new result with done: false.
+    /// </summary>
+    internal ObjectInstance? _delegationInnerResult;
+
+    /// <summary>
     /// When set, indicates that the generator should complete immediately with this value.
     /// Used by yield* when the inner iterator's return method is null/undefined.
     /// </summary>
@@ -234,7 +241,17 @@ internal sealed class GeneratorInstance : ObjectInstance
         {
             if (_generatorState == GeneratorState.SuspendedYield)
             {
-                resultValue = IteratorResult.CreateValueIteratorPosition(_engine, result.Value, done: JsBoolean.False);
+                // For yield* delegation, return the inner iterator's result directly
+                // to preserve its exact 'done' property state (including undefined)
+                if (_delegationInnerResult is not null)
+                {
+                    resultValue = _delegationInnerResult;
+                    _delegationInnerResult = null;
+                }
+                else
+                {
+                    resultValue = IteratorResult.CreateValueIteratorPosition(_engine, result.Value, done: JsBoolean.False);
+                }
             }
             else
             {
