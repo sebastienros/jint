@@ -77,7 +77,9 @@ public static class AstExtensions
             or NodeType.ArrowFunctionExpression
             or NodeType.FunctionExpression
             or NodeType.YieldExpression
-            or NodeType.TemplateLiteral)
+            or NodeType.TemplateLiteral
+            or NodeType.ArrayExpression
+            or NodeType.ObjectExpression)
         {
             var context = engine._activeEvaluationContext ?? new EvaluationContext(engine);
             return JintExpression.Build(expression).GetValue(context);
