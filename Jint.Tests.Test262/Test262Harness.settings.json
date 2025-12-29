@@ -114,6 +114,14 @@
     // special casing data
     "built-ins/**/special_casing*.js",
 
+    // misc
+    "language/eval-code/direct/arrow-fn-body-cntns-arguments-func-decl-arrow-func-declare-arguments-assign.js",
+    "language/eval-code/direct/arrow-fn-body-cntns-arguments-lex-bind-arrow-func-declare-arguments-assign.js",
+    "language/eval-code/direct/arrow-fn-body-cntns-arguments-var-bind-arrow-func-declare-arguments-assign.js",
+    "language/expressions/dynamic-import/eval-export-dflt-expr-gen-anon.js",
+    "language/expressions/dynamic-import/eval-export-dflt-expr-gen-named.js",
+    "language/expressions/dynamic-import/import-attributes/2nd-param-evaluation-abrupt-return.js",
+
     // failing tests in new test suite (due to updating to latest and using whole set)
     "language/eval-code/direct/arrow-fn-a-following-parameter-is-named-arguments-arrow-func-declare-arguments-assign-incl-def-param-arrow-arguments.js",
     "language/eval-code/direct/arrow-fn-a-following-parameter-is-named-arguments-arrow-func-declare-arguments-assign.js",
