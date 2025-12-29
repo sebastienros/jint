@@ -1092,18 +1092,12 @@ public sealed partial class Engine : IDisposable
             }
         }
 
-        if (!canInitializeParametersOnDeclaration)
-        {
-            // slower set
-            env.AddFunctionParameters(_activeEvaluationContext!, func.Function, argumentsList);
-        }
-
-        // Let iteratorRecord be CreateListIteratorRecord(argumentsList).
-        // If hasDuplicates is true, then
-        //     Perform ? IteratorBindingInitialization for formals with iteratorRecord and undefined as arguments.
-        // Else,
-        //     Perform ? IteratorBindingInitialization for formals with iteratorRecord and env as arguments.
-
+        // Per ECMAScript spec 10.2.11:
+        // When hasParameterExpressions is true, we need to create varEnv BEFORE evaluating parameter defaults
+        // so that eval called during parameter initialization uses the correct VariableEnvironment.
+        // This ensures:
+        // 1. Vars declared by eval in parameter expressions go to the right varEnv
+        // 2. EvalDeclarationInstantiation can detect conflicts between eval vars and parameter names
         DeclarativeEnvironment varEnv;
         if (!hasParameterExpressions)
         {
@@ -1123,8 +1117,27 @@ public sealed partial class Engine : IDisposable
             // in the formal parameter list do not have visibility of declarations in the function body.
             varEnv = JintEnvironment.NewDeclarativeEnvironment(this, env);
 
+            // Set VariableEnvironment BEFORE evaluating parameter defaults
+            // This is critical for proper eval behavior in parameter expressions
             UpdateVariableEnvironment(varEnv);
+        }
 
+        if (!canInitializeParametersOnDeclaration)
+        {
+            // slower set - evaluate parameter defaults
+            // At this point, VariableEnvironment is already set to varEnv (if hasParameterExpressions)
+            env.AddFunctionParameters(_activeEvaluationContext!, func.Function, argumentsList);
+        }
+
+        // Let iteratorRecord be CreateListIteratorRecord(argumentsList).
+        // If hasDuplicates is true, then
+        //     Perform ? IteratorBindingInitialization for formals with iteratorRecord and undefined as arguments.
+        // Else,
+        //     Perform ? IteratorBindingInitialization for formals with iteratorRecord and env as arguments.
+
+        // Now initialize var bindings in varEnv (after parameters are evaluated)
+        if (hasParameterExpressions)
+        {
             var varsToInitialize = configuration.VarsToInitialize!;
             for (var i = 0; i < varsToInitialize.Count; i++)
             {
@@ -1245,7 +1258,7 @@ public sealed partial class Engine : IDisposable
             }
 
             var thisLex = lexEnv;
-            while (!ReferenceEquals(thisLex, varEnv))
+            while (thisLex is not null && !ReferenceEquals(thisLex, varEnv))
             {
                 var thisEnvRec = thisLex;
                 if (thisEnvRec is not ObjectEnvironment)
@@ -1255,14 +1268,14 @@ public sealed partial class Engine : IDisposable
                     {
                         var variablesDeclaration = nodes[i];
                         var identifier = (Identifier) variablesDeclaration.Declarations[0].Id;
-                        if (thisEnvRec!.HasBinding(identifier.Name))
+                        if (thisEnvRec.HasBinding(identifier.Name))
                         {
                             Throw.SyntaxError(realm);
                         }
                     }
                 }
 
-                thisLex = thisLex!._outerEnv;
+                thisLex = thisLex._outerEnv;
             }
         }
 
