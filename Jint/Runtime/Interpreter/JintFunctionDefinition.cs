@@ -336,7 +336,6 @@ internal sealed class JintFunctionDefinition
     private static void GetBoundNames(
         Node parameter,
         List<Key> target,
-        bool checkDuplicates,
         ref bool hasRestParameter,
         ref bool hasParameterExpressions,
         ref bool hasDuplicates,
@@ -346,8 +345,8 @@ Start:
         if (parameter.Type == NodeType.Identifier)
         {
             var key = (Key) ((Identifier) parameter).Name;
+            hasDuplicates |= target.Contains(key);
             target.Add(key);
-            hasDuplicates |= checkDuplicates && target.Contains(key);
             hasArguments |= key == KnownKeys.Arguments;
             return;
         }
@@ -380,7 +379,6 @@ Start:
                     GetBoundNames(
                         element,
                         target,
-                        checkDuplicates,
                         ref hasRestParameter,
                         ref hasParameterExpressions,
                         ref hasDuplicates,
@@ -401,7 +399,6 @@ Start:
                     GetBoundNames(
                         ((AssignmentProperty) property).Value,
                         target,
-                        checkDuplicates,
                         ref hasRestParameter,
                         ref hasParameterExpressions,
                         ref hasDuplicates,
@@ -414,7 +411,8 @@ Start:
                 hasParameterExpressions |= ExpressionAstVisitor.HasExpression(assignmentPattern.ChildNodes);
                 parameter = assignmentPattern.Left;
 
-                continue;
+                // need to goto Start so Identifier case is handled
+                goto Start;
             }
 
             break;
@@ -451,7 +449,6 @@ Start:
                 GetBoundNames(
                     parameter,
                     parameterNames,
-                    checkDuplicates: true,
                     ref state.HasRestParameter,
                     ref state.HasParameterExpressions,
                     ref state.HasDuplicates,
