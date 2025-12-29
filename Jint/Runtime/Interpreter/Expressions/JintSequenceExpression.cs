@@ -36,6 +36,12 @@ internal sealed class JintSequenceExpression : JintExpression
         foreach (var expression in _expressions)
         {
             result = expression.GetValue(context);
+
+            // Check for generator suspension after each expression
+            if (context.Engine.ExecutionContext.Suspended)
+            {
+                return result;
+            }
         }
 
         return result;

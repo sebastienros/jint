@@ -29,6 +29,12 @@ internal sealed class JintLogicalAndExpression : JintExpression
 
         var left = _left.GetValue(context);
 
+        // Check for generator suspension after evaluating left operand
+        if (context.Engine.ExecutionContext.Suspended)
+        {
+            return left;
+        }
+
         if (left is JsBoolean b && !b._value)
         {
             return b;
