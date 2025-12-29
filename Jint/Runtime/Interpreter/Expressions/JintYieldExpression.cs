@@ -80,6 +80,13 @@ internal sealed class JintYieldExpression : JintExpression
         if (expression.Argument is not null)
         {
             value = Build(expression.Argument).GetValue(context);
+
+            // If the argument evaluation suspended the generator (nested yield), propagate
+            // the suspension up without yielding again - the inner yield already suspended
+            if (context.Engine.ExecutionContext.Suspended)
+            {
+                return value;
+            }
         }
         else
         {

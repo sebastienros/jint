@@ -154,6 +154,14 @@ internal sealed class ExpressionCache
             if (expression is JintSpreadExpression jse)
             {
                 jse.GetValueAndCheckIterator(context, out var objectInstance, out var iterator);
+
+                // If generator suspended during spread expression evaluation, stop processing
+                // The iterator will be null because we haven't started iteration yet
+                if (context.Engine.ExecutionContext.Suspended)
+                {
+                    return;
+                }
+
                 // optimize for array unless someone has touched the iterator
                 if (objectInstance is JsArray { HasOriginalIterator: true } ai)
                 {
@@ -173,12 +181,12 @@ internal sealed class ExpressionCache
             else
             {
                 target.Add(GetValue(context, expression)!);
-            }
 
-            // Check for generator suspension after each expression evaluation
-            if (context.Engine.ExecutionContext.Suspended)
-            {
-                return;
+                // Check for generator suspension after each expression evaluation
+                if (context.Engine.ExecutionContext.Suspended)
+                {
+                    return;
+                }
             }
         }
     }

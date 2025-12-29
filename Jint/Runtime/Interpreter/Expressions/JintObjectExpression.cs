@@ -134,14 +134,22 @@ internal sealed class JintObjectExpression : JintExpression
     /// <summary>
     /// Version that can safely build plain object with only normal init/data fields fast.
     /// </summary>
-    private JsObject BuildObjectFast(EvaluationContext context)
+    private JsValue BuildObjectFast(EvaluationContext context)
     {
-        var obj = new JsObject(context.Engine);
+        var engine = context.Engine;
+        var obj = new JsObject(engine);
         var properties = new PropertyDictionary(_properties.Length, checkExistingKeys: true);
         for (var i = 0; i < _properties.Length; i++)
         {
             var objectProperty = _properties[i];
             var propValue = _valueExpressions.GetValue(context, i);
+
+            // Check for generator suspension after each property evaluation
+            if (engine.ExecutionContext.Suspended)
+            {
+                return JsValue.Undefined;
+            }
+
             properties[objectProperty!._key!] = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
         }
 
@@ -164,7 +172,15 @@ internal sealed class JintObjectExpression : JintExpression
             if (objectProperty is null)
             {
                 // spread
-                if (_valueExpressions.GetValue(context, i) is ObjectInstance source)
+                var spreadValue = _valueExpressions.GetValue(context, i);
+
+                // Check for generator suspension
+                if (engine.ExecutionContext.Suspended)
+                {
+                    return JsValue.Undefined;
+                }
+
+                if (spreadValue is ObjectInstance source)
                 {
                     source.CopyDataProperties(obj, excludedItems: null);
                 }
@@ -195,6 +211,13 @@ internal sealed class JintObjectExpression : JintExpression
             if (property.Kind == PropertyKind.Init)
             {
                 var propValue = _valueExpressions.GetValue(context, i)!;
+
+                // Check for generator suspension
+                if (engine.ExecutionContext.Suspended)
+                {
+                    return JsValue.Undefined;
+                }
+
                 if (string.Equals(objectProperty._key, "__proto__", StringComparison.Ordinal) && !objectProperty._value.Computed && !objectProperty._value.Shorthand)
                 {
                     if (propValue.IsObject() || propValue.IsNull())
