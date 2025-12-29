@@ -40,11 +40,26 @@ internal sealed class JintArrayExpression : JintExpression
         {
             var values = new JsValue[expressions.Length];
             _arguments.BuildArguments(context, values);
+
+            // If generator suspended during argument evaluation, return undefined
+            // The expression will be re-evaluated on resume
+            if (engine.ExecutionContext.Suspended)
+            {
+                return JsValue.Undefined;
+            }
+
             return new JsArray(engine, values);
         }
 
         var array = new List<JsValue>();
         _arguments.BuildArgumentsWithSpreads(context, array);
+
+        // If generator suspended during argument evaluation, return undefined
+        if (engine.ExecutionContext.Suspended)
+        {
+            return JsValue.Undefined;
+        }
+
         return new JsArray(engine, array.ToArray());
     }
 

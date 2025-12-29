@@ -82,6 +82,13 @@ internal sealed class GeneratorInstance : ObjectInstance
     internal bool _shouldEarlyReturn;
 
     /// <summary>
+    /// Signals that generator.return() was called and execution should complete
+    /// after running finally blocks. Aligns with spec's Return completion handling
+    /// in GeneratorResumeAbrupt.
+    /// </summary>
+    internal bool _returnRequested;
+
+    /// <summary>
     /// The completion type used when resuming via GeneratorResumeAbrupt.
     /// Used by yield expressions to know if they should trigger an early return.
     /// </summary>

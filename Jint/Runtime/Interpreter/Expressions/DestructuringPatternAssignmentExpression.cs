@@ -118,8 +118,10 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                     iterator.Close(CompletionType.Return);
                 }
                 generator.ClearDestructuringSuspendData(pattern);
-                // Throw to propagate the return
-                throw new GeneratorReturnException(generator._nextValue ?? JsValue.Undefined);
+                // Signal return request - callers check _returnRequested flag
+                generator._returnRequested = true;
+                generator._suspendedValue = generator._nextValue ?? JsValue.Undefined;
+                return JsValue.Undefined;
             }
         }
         else
@@ -304,30 +306,33 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                     Throw.ArgumentOutOfRangeException(nameof(pattern), $"Unable to determine how to handle array pattern element {left}");
                     break;
                 }
+
+                // Check for generator suspension after processing each element
+                if (engine.ExecutionContext.Suspended)
+                {
+                    // Generator yield - don't close the iterator, we'll resume later
+                    close = false;
+                    return JsValue.Undefined;
+                }
+
+                // Check for generator return request
+                if (generator?._returnRequested == true)
+                {
+                    // Generator return() was called - close iterator with Return completion
+                    if (!done && iterator is not null)
+                    {
+                        done = true; // Prevent double-close in finally
+                        iterator.Close(CompletionType.Return);
+                    }
+                    generator.ClearDestructuringSuspendData(pattern);
+                    close = false; // Prevent double-close in finally
+                    return JsValue.Undefined;
+                }
             }
 
             close = true;
             // Clear suspend data on normal completion
             generator?.ClearDestructuringSuspendData(pattern);
-        }
-        catch (YieldSuspendException)
-        {
-            // Generator yield - don't close the iterator, we'll resume later
-            close = false;
-            throw;
-        }
-        catch (GeneratorReturnException)
-        {
-            // Generator return() was called - close iterator with Return completion
-            // This allows TypeErrors from iterator.return() to propagate properly
-            if (!done && iterator is not null)
-            {
-                done = true; // Prevent double-close in finally
-                iterator.Close(CompletionType.Return);
-            }
-            // Clear suspend data
-            generator?.ClearDestructuringSuspendData(pattern);
-            throw;
         }
         catch
         {

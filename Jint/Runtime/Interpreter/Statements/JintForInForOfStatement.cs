@@ -374,6 +374,18 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     return new Completion(CompletionType.Return, suspendedValue, _statement!);
                 }
 
+                // Check for generator return request (generator.return() was called)
+                if (generator?._returnRequested == true)
+                {
+                    // Close iterator with Return completion
+                    completionType = CompletionType.Return;
+                    close = false; // Prevent double-close in finally
+                    generator.ClearForOfSuspendData(_statement!);
+                    iteratorRecord.Close(completionType);
+                    var returnValue = generator._suspendedValue ?? result.Value;
+                    return new Completion(CompletionType.Return, returnValue, _statement!);
+                }
+
                 if (result.Type == CompletionType.Break && (context.Target == null || string.Equals(context.Target, _statement?.LabelSet?.Name, StringComparison.Ordinal)))
                 {
                     completionType = CompletionType.Normal;
@@ -392,24 +404,6 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     }
                 }
             }
-        }
-        catch (YieldSuspendException)
-        {
-            // Generator yield - don't close the iterator, we'll resume later
-            // Suspend data is already saved, so iterator state is preserved
-            close = false;
-            throw;
-        }
-        catch (GeneratorReturnException)
-        {
-            // Generator return() was called - close iterator with Return completion
-            // This allows TypeErrors from iterator.return() to propagate properly
-            completionType = CompletionType.Return;
-            close = false; // Prevent double-close in finally
-            generator?.ClearForOfSuspendData(_statement!);
-            iteratorRecord.Close(completionType);
-            // Re-throw to continue unwinding (will be caught by JintStatementList)
-            throw;
         }
         catch
         {

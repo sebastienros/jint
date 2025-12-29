@@ -86,6 +86,13 @@ internal sealed class ExpressionCache
         for (uint i = 0; i < (uint) expressions.Length; i++)
         {
             targetArray[i] = GetValue(context, expressions[i])!;
+
+            // Check for generator suspension after each expression evaluation
+            // This is needed because yield expressions return normally instead of throwing
+            if (context.Engine.ExecutionContext.Suspended)
+            {
+                return;
+            }
         }
     }
 
@@ -166,6 +173,12 @@ internal sealed class ExpressionCache
             else
             {
                 target.Add(GetValue(context, expression)!);
+            }
+
+            // Check for generator suspension after each expression evaluation
+            if (context.Engine.ExecutionContext.Suspended)
+            {
+                return;
             }
         }
     }

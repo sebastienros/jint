@@ -87,18 +87,6 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
                 blockValue = JintStatementList.HandleError(context.Engine, _singleStatement);
             }
         }
-        catch (YieldSuspendException yieldEx)
-        {
-            // Generator yield - propagate as Return completion
-            var generator = context.Engine.ExecutionContext.Generator;
-            var suspendedValue = generator?._suspendedValue ?? yieldEx.YieldedValue;
-            blockValue = new Completion(CompletionType.Return, suspendedValue, _singleStatement!._statement);
-        }
-        catch (GeneratorReturnException returnEx)
-        {
-            // Generator return() was called - propagate as Return completion
-            blockValue = new Completion(CompletionType.Return, returnEx.ReturnValue, _singleStatement!._statement);
-        }
         catch (Exception ex)
         {
             if (ex is JintException)
@@ -109,6 +97,21 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
             {
                 throw;
             }
+        }
+
+        // Check for generator suspension
+        var gen = context.Engine.ExecutionContext.Generator;
+        if (context.Engine.ExecutionContext.Suspended)
+        {
+            var suspendedValue = gen?._suspendedValue ?? blockValue.Value;
+            return new Completion(CompletionType.Return, suspendedValue, _singleStatement!._statement);
+        }
+
+        // Check for generator return request
+        if (gen?._returnRequested == true)
+        {
+            var returnValue = gen._suspendedValue ?? blockValue.Value;
+            return new Completion(CompletionType.Return, returnValue, _singleStatement!._statement);
         }
 
         return blockValue;
