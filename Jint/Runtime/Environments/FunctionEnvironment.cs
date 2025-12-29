@@ -200,37 +200,27 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
         var jsValues = _engine._jsValueArrayPool.RentArray(1);
         foreach (var property in properties)
         {
-            var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
-            var paramVarEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
-            PrivateEnvironment? privateEnvironment = null; // TODO PRIVATE check when implemented
-            _engine.EnterExecutionContext(paramVarEnv, paramVarEnv, _engine.ExecutionContext.Realm, privateEnvironment);
-
-            try
+            // Evaluate property access in the current execution context.
+            // The VariableEnvironment has already been set up correctly for eval in FunctionDeclarationInstantiation.
+            if (property is AssignmentProperty p)
             {
-                if (property is AssignmentProperty p)
+                var propertyName = p.GetKey(_engine);
+                processedProperties?.Add(propertyName.ToString());
+                jsValues[0] = argumentObject.Get(propertyName);
+                SetFunctionParameter(context, p.Value, jsValues, 0, initiallyEmpty);
+            }
+            else
+            {
+                if (((RestElement) property).Argument is Identifier restIdentifier)
                 {
-                    var propertyName = p.GetKey(_engine);
-                    processedProperties?.Add(propertyName.ToString());
-                    jsValues[0] = argumentObject.Get(propertyName);
-                    SetFunctionParameter(context, p.Value, jsValues, 0, initiallyEmpty);
+                    var rest = _engine.Realm.Intrinsics.Object.Construct((argumentObject.Properties?.Count ?? 0) - processedProperties!.Count);
+                    argumentObject.CopyDataProperties(rest, processedProperties);
+                    SetItemSafely(restIdentifier.Name, rest, initiallyEmpty);
                 }
                 else
                 {
-                    if (((RestElement) property).Argument is Identifier restIdentifier)
-                    {
-                        var rest = _engine.Realm.Intrinsics.Object.Construct((argumentObject.Properties?.Count ?? 0) - processedProperties!.Count);
-                        argumentObject.CopyDataProperties(rest, processedProperties);
-                        SetItemSafely(restIdentifier.Name, rest, initiallyEmpty);
-                    }
-                    else
-                    {
-                        Throw.SyntaxError(_functionObject._realm, "Object rest parameter can only be objects");
-                    }
+                    Throw.SyntaxError(_functionObject._realm, "Object rest parameter can only be objects");
                 }
-            }
-            finally
-            {
-                _engine.LeaveExecutionContext();
             }
         }
 
@@ -327,18 +317,17 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
             var expression = (Expression) right;
             var jintExpression = JintExpression.Build(expression);
 
-            var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
-            var paramVarEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
-
-            _engine.EnterExecutionContext(new ExecutionContext(null, paramVarEnv, paramVarEnv, null, _engine.Realm, null));
-            try
-            {
-                argument = jintExpression.GetValue(context);
-            }
-            finally
-            {
-                _engine.LeaveExecutionContext();
-            }
+            // Evaluate the default expression in the current execution context.
+            // The VariableEnvironment has already been set up correctly for eval in FunctionDeclarationInstantiation.
+            // The LexicalEnvironment is the function environment (funcEnv) which contains parameter bindings.
+            // This allows EvalDeclarationInstantiation to detect conflicts between eval'd vars and parameters.
+            //
+            // Note: Closures created during parameter evaluation will capture the function environment,
+            // and eval'd vars go to varEnv. For closures in parameters to see eval'd vars, they need
+            // to look up through the environment chain: funcEnv -> varEnv -> outer.
+            // But since varEnv's outer is funcEnv, not the other way around, this doesn't work by default.
+            // The spec's handling of this is complex; we prioritize the SyntaxError detection.
+            argument = jintExpression.GetValue(context);
 
             if (idLeft != null && right.IsFunctionDefinition())
             {
