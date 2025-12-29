@@ -36,18 +36,17 @@ internal abstract class IteratorInstance : ObjectInstance
     internal sealed class ObjectIterator : IteratorInstance
     {
         private readonly ObjectInstance _target;
-        private readonly ICallable _nextMethod;
+        private readonly ICallable? _nextMethod;
 
         public ObjectIterator(ObjectInstance target) : base(target.Engine)
         {
             _target = target;
-            if (target.Get(CommonProperties.Next) is not ICallable callable)
+            // Don't check for 'next' method here - it's only required when actually iterating
+            // This allows iterators with only 'return' method to be created (e.g., for closing)
+            if (target.Get(CommonProperties.Next) is ICallable callable)
             {
-                Throw.TypeError(target.Engine.Realm);
-                return;
+                _nextMethod = callable;
             }
-
-            _nextMethod = callable;
         }
 
         public override bool TryIteratorStep(out ObjectInstance result)
@@ -65,6 +64,13 @@ internal abstract class IteratorInstance : ObjectInstance
 
         private ObjectInstance IteratorNext()
         {
+            // Check for 'next' method when actually trying to iterate
+            if (_nextMethod is null)
+            {
+                Throw.TypeError(_target.Engine.Realm, "Iterator does not have a next method");
+                return null!;
+            }
+
             var jsValue = _nextMethod.Call(_target, Arguments.Empty);
             var instance = jsValue as ObjectInstance;
             if (instance is null)
