@@ -410,8 +410,9 @@ internal sealed class JintAssignmentExpression : JintExpression
 
             var rval = _right.GetValue(context);
 
-            // If generator suspended during right-hand side evaluation, don't assign
-            if (engine.ExecutionContext.Suspended)
+            // If generator suspended or return requested during right-hand side evaluation, don't assign
+            var generator = engine.ExecutionContext.Generator;
+            if (engine.ExecutionContext.Suspended || generator?._returnRequested == true)
             {
                 engine._referencePool.Return(lref);
                 return rval;
@@ -448,8 +449,9 @@ internal sealed class JintAssignmentExpression : JintExpression
                     return completion;
                 }
 
-                // If generator suspended during right-hand side evaluation, don't assign
-                if (engine.ExecutionContext.Suspended)
+                // If generator suspended or return requested during right-hand side evaluation, don't assign
+                var generator = engine.ExecutionContext.Generator;
+                if (engine.ExecutionContext.Suspended || generator?._returnRequested == true)
                 {
                     return completion;
                 }

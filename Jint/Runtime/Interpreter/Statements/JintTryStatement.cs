@@ -77,6 +77,14 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
                 }
             }
 
+            // Clear _returnRequested before running finally block.
+            // Per ECMAScript spec, a return in the finally block supersedes any pending return.
+            // If we don't clear this, the finally block's statements will incorrectly use _suspendedValue.
+            if (generator is not null)
+            {
+                generator._returnRequested = false;
+            }
+
             var f = _finalizer.Execute(context);
 
             // Clear the pending completion tracking if we completed normally
