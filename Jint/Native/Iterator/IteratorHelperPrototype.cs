@@ -38,13 +38,18 @@ internal sealed class IteratorHelperPrototype : Prototype
     private JsValue Next(JsValue thisObject, JsValue[] arguments)
     {
         // 1. Return ? GeneratorResume(this value, undefined, "Iterator Helper").
-        if (thisObject is not IteratorHelper helper)
+        if (thisObject is IteratorHelper helper)
         {
-            Throw.TypeError(_realm, "Method Iterator Helper.prototype.next called on incompatible receiver");
-            return Undefined;
+            return helper.Next();
         }
 
-        return helper.Next();
+        if (thisObject is ConcatIterator concatIterator)
+        {
+            return concatIterator.Next();
+        }
+
+        Throw.TypeError(_realm, "Method Iterator Helper.prototype.next called on incompatible receiver");
+        return Undefined;
     }
 
     /// <summary>
@@ -54,12 +59,17 @@ internal sealed class IteratorHelperPrototype : Prototype
     {
         // 1. Let O be this value.
         // 2. Perform ? RequireInternalSlot(O, [[UnderlyingIterator]]).
-        if (thisObject is not IteratorHelper helper)
+        if (thisObject is IteratorHelper helper)
         {
-            Throw.TypeError(_realm, "Method Iterator Helper.prototype.return called on incompatible receiver");
-            return Undefined;
+            return helper.Return();
         }
 
-        return helper.Return();
+        if (thisObject is ConcatIterator concatIterator)
+        {
+            return concatIterator.Return();
+        }
+
+        Throw.TypeError(_realm, "Method Iterator Helper.prototype.return called on incompatible receiver");
+        return Undefined;
     }
 }

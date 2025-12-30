@@ -1,3 +1,4 @@
+using Jint.Native.Generator;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -137,17 +138,6 @@ internal abstract class IteratorHelper : ObjectInstance
             Value = value;
             Done = done;
         }
-    }
-
-    /// <summary>
-    /// Generator state for iterator helpers.
-    /// </summary>
-    protected enum GeneratorState
-    {
-        SuspendedStart,
-        SuspendedYield,
-        Executing,
-        Completed
     }
 }
 
@@ -386,5 +376,155 @@ internal sealed class FlatMapIterator : IteratorHelper
             _innerIterator = new IteratorInstance.ObjectIterator(innerIteratorObj);
             _innerIteratorClosed = false;
         }
+    }
+}
+
+/// <summary>
+/// Iterator helper for Iterator.concat(...items) - sequences multiple iterables.
+/// https://tc39.es/proposal-iterator-sequencing/
+/// </summary>
+internal sealed class ConcatIterator : ObjectInstance
+{
+    private readonly List<IterableRecord> _iterables;
+    private int _currentIndex;
+    private IteratorInstance.ObjectIterator? _currentIterator;
+    private GeneratorState _state;
+    private bool _exhausted;
+
+    /// <summary>
+    /// Record for storing captured iterable and its iterator method.
+    /// </summary>
+    internal readonly struct IterableRecord
+    {
+        public readonly ICallable Method;
+        public readonly ObjectInstance Iterable;
+
+        public IterableRecord(ICallable method, ObjectInstance iterable)
+        {
+            Method = method;
+            Iterable = iterable;
+        }
+    }
+
+    public ConcatIterator(Engine engine, List<IterableRecord> iterables) : base(engine)
+    {
+        _iterables = iterables;
+        _currentIndex = 0;
+        _currentIterator = null;
+        _state = GeneratorState.SuspendedStart;
+        _exhausted = false;
+        _prototype = engine.Realm.Intrinsics.IteratorHelperPrototype;
+    }
+
+    /// <summary>
+    /// Called by IteratorHelperPrototype.next() to get the next value.
+    /// </summary>
+    public ObjectInstance Next()
+    {
+        // Check for re-entrant calls
+        if (_state == GeneratorState.Executing)
+        {
+            Throw.TypeError(_engine.Realm, "Generator is already executing");
+            return null!;
+        }
+
+        // If completed, return done
+        if (_state == GeneratorState.Completed)
+        {
+            return CreateIteratorResult(Undefined, done: true);
+        }
+
+        _state = GeneratorState.Executing;
+
+        try
+        {
+            while (true)
+            {
+                // If we have an active inner iterator, get next from it
+                if (_currentIterator is not null)
+                {
+                    if (_currentIterator.TryIteratorStep(out var result))
+                    {
+                        _state = GeneratorState.SuspendedYield;
+                        // Return the inner iterator's result directly (GeneratorYield semantics)
+                        return result;
+                    }
+                    // Current iterator exhausted, move to next
+                    _currentIterator = null;
+                }
+
+                // Check if we have more iterables
+                if (_currentIndex >= _iterables.Count)
+                {
+                    _exhausted = true;
+                    _state = GeneratorState.Completed;
+                    return CreateIteratorResult(Undefined, done: true);
+                }
+
+                // Create new inner iterator from next iterable
+                var record = _iterables[_currentIndex++];
+                var iterResult = record.Method.Call(record.Iterable);
+
+                if (iterResult is not ObjectInstance iterObj)
+                {
+                    Throw.TypeError(_engine.Realm, "Iterator is not an object");
+                    return null!;
+                }
+
+                _currentIterator = new IteratorInstance.ObjectIterator(iterObj);
+            }
+        }
+        catch
+        {
+            _state = GeneratorState.Completed;
+            _currentIterator?.Close(CompletionType.Throw);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Called by IteratorHelperPrototype.return() to close the helper.
+    /// </summary>
+    public ObjectInstance Return()
+    {
+        // Check for re-entrant calls
+        if (_state == GeneratorState.Executing)
+        {
+            Throw.TypeError(_engine.Realm, "Generator is already executing");
+            return null!;
+        }
+
+        // Set state to Executing during the close operation to detect re-entrancy
+        var previousState = _state;
+        _state = GeneratorState.Executing;
+
+        try
+        {
+            // Only close if we have an active inner iterator and haven't exhausted
+            // Capture and clear _currentIterator to prevent double-close
+            var iteratorToClose = _currentIterator;
+            _currentIterator = null;
+
+            if (iteratorToClose is not null && !_exhausted)
+            {
+                _exhausted = true;
+                iteratorToClose.Close(CompletionType.Return);
+            }
+            else
+            {
+                _exhausted = true;
+            }
+
+            return CreateIteratorResult(Undefined, done: true);
+        }
+        finally
+        {
+            _state = GeneratorState.Completed;
+        }
+    }
+
+    private IteratorResult CreateIteratorResult(JsValue value, bool done)
+    {
+        return IteratorResult.CreateValueIteratorPosition(_engine, value, JsBoolean.Create(done));
     }
 }
