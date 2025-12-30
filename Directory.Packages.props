@@ -12,7 +12,7 @@
     <PackageVersion Include="Flurl.Http.Signed" Version="4.0.2" />
     <PackageVersion Include="GitHubActionsTestLogger" Version="3.0.1" />
     <PackageVersion Include="Jurassic" Version="3.2.9" />
-    <PackageVersion Include="Meziantou.Analyzer" Version="2.0.264" />
+    <PackageVersion Include="Meziantou.Analyzer" Version="2.0.266" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.1" />
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.1.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
