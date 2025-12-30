@@ -71,15 +71,11 @@ internal sealed class GeneratorInstance : ObjectInstance
     internal ObjectInstance? _delegationInnerResult;
 
     /// <summary>
-    /// When set, indicates that the generator should complete immediately with this value.
-    /// Used by yield* when the inner iterator's return method is null/undefined.
+    /// Signals that generator.return() was called and execution should complete
+    /// after running finally blocks. Aligns with spec's Return completion handling
+    /// in GeneratorResumeAbrupt.
     /// </summary>
-    internal JsValue? _earlyReturnValue;
-
-    /// <summary>
-    /// Whether an early return was triggered (e.g., from yield* with null return method).
-    /// </summary>
-    internal bool _shouldEarlyReturn;
+    internal bool _returnRequested;
 
     /// <summary>
     /// The completion type used when resuming via GeneratorResumeAbrupt.
@@ -106,18 +102,11 @@ internal sealed class GeneratorInstance : ObjectInstance
     internal object? _currentFinallyStatement;
 
     /// <summary>
-    /// Maps for-of/for-in statement nodes to their suspended iterator state.
-    /// When a generator yields inside a for-of loop, the iterator is stored here
-    /// so it can be restored on resume instead of creating a new one.
+    /// Unified dictionary for all suspend data (for-of loops, destructuring patterns, etc.).
+    /// Keys are Jint expression/statement instances (not AST nodes) to avoid collisions
+    /// when the same script runs on multiple Engine instances.
     /// </summary>
-    internal Dictionary<object, ForOfSuspendData>? _forOfSuspendData;
-
-    /// <summary>
-    /// Maps array destructuring pattern nodes to their suspended iterator state.
-    /// When a generator yields inside array destructuring (e.g., [x[yield]] = iterable),
-    /// the iterator is stored here so it can be properly closed on generator.return().
-    /// </summary>
-    internal Dictionary<object, DestructuringSuspendData>? _destructuringSuspendData;
+    internal Dictionary<object, SuspendData>? _suspendData;
 
     public GeneratorInstance(Engine engine) : base(engine)
     {
@@ -220,16 +209,6 @@ internal sealed class GeneratorInstance : ObjectInstance
         var result = _generatorBody.Execute(context);
         _engine.LeaveExecutionContext();
 
-        // Check for early return (e.g., from yield* with null return method)
-        if (_shouldEarlyReturn)
-        {
-            var earlyValue = _earlyReturnValue ?? JsValue.Undefined;
-            _shouldEarlyReturn = false;
-            _earlyReturnValue = null;
-            _generatorState = GeneratorState.Completed;
-            return IteratorResult.CreateValueIteratorPosition(_engine, earlyValue, done: JsBoolean.True);
-        }
-
         ObjectInstance? resultValue = null;
         if (result.Type == CompletionType.Normal)
         {
@@ -285,77 +264,41 @@ internal sealed class GeneratorInstance : ObjectInstance
     }
 
     /// <summary>
-    /// Gets or creates suspend data for a for-of statement.
-    /// Called when a generator is about to execute a for-of loop body.
+    /// Gets or creates suspend data of the specified type.
+    /// Keys should be Jint expression/statement instances (this) to avoid collisions across engines.
     /// </summary>
-    internal ForOfSuspendData GetOrCreateForOfSuspendData(object statement, IteratorInstance iterator)
+    internal T GetOrCreateSuspendData<T>(object key, IteratorInstance iterator) where T : SuspendData, new()
     {
-        _forOfSuspendData ??= new Dictionary<object, ForOfSuspendData>();
-        if (!_forOfSuspendData.TryGetValue(statement, out var data))
+        _suspendData ??= new Dictionary<object, SuspendData>();
+        if (!_suspendData.TryGetValue(key, out var data))
         {
-            data = new ForOfSuspendData { Iterator = iterator };
-            _forOfSuspendData[statement] = data;
+            data = new T { Iterator = iterator };
+            _suspendData[key] = data;
         }
-        return data;
+        return (T) data;
     }
 
     /// <summary>
-    /// Tries to get existing suspend data for a for-of statement.
-    /// Returns true if we're resuming into this for-of loop.
+    /// Tries to get existing suspend data of the specified type.
+    /// Returns true if suspend data exists for the given key.
     /// </summary>
-    internal bool TryGetForOfSuspendData(object statement, out ForOfSuspendData? data)
+    internal bool TryGetSuspendData<T>(object key, out T? data) where T : SuspendData
     {
-        if (_forOfSuspendData?.TryGetValue(statement, out data) == true)
+        if (_suspendData?.TryGetValue(key, out var baseData) == true)
         {
+            data = (T) baseData;
             return true;
         }
-        data = null;
+        data = default;
         return false;
     }
 
     /// <summary>
-    /// Clears suspend data for a for-of statement when the loop completes normally.
+    /// Clears suspend data for the given key when the construct completes.
     /// </summary>
-    internal void ClearForOfSuspendData(object statement)
+    internal void ClearSuspendData(object key)
     {
-        _forOfSuspendData?.Remove(statement);
-    }
-
-    /// <summary>
-    /// Gets or creates suspend data for an array destructuring pattern.
-    /// Called when a generator is about to execute destructuring that may contain yields.
-    /// </summary>
-    internal DestructuringSuspendData GetOrCreateDestructuringSuspendData(object pattern, IteratorInstance iterator)
-    {
-        _destructuringSuspendData ??= new Dictionary<object, DestructuringSuspendData>();
-        if (!_destructuringSuspendData.TryGetValue(pattern, out var data))
-        {
-            data = new DestructuringSuspendData { Iterator = iterator };
-            _destructuringSuspendData[pattern] = data;
-        }
-        return data;
-    }
-
-    /// <summary>
-    /// Tries to get existing suspend data for an array destructuring pattern.
-    /// Returns true if we're resuming into this destructuring.
-    /// </summary>
-    internal bool TryGetDestructuringSuspendData(object pattern, out DestructuringSuspendData? data)
-    {
-        if (_destructuringSuspendData?.TryGetValue(pattern, out data) == true)
-        {
-            return true;
-        }
-        data = null;
-        return false;
-    }
-
-    /// <summary>
-    /// Clears suspend data for an array destructuring pattern when it completes.
-    /// </summary>
-    internal void ClearDestructuringSuspendData(object pattern)
-    {
-        _destructuringSuspendData?.Remove(pattern);
+        _suspendData?.Remove(key);
     }
 
     /// <summary>
@@ -365,20 +308,18 @@ internal sealed class GeneratorInstance : ObjectInstance
     /// </summary>
     internal void CloseAllDestructuringIterators(CompletionType completionType)
     {
-        if (_destructuringSuspendData is null)
+        if (_suspendData is null)
         {
             return;
         }
 
-        foreach (var kvp in _destructuringSuspendData)
+        foreach (var kvp in _suspendData)
         {
-            var data = kvp.Value;
-            if (!data.Done)
+            if (kvp.Value is DestructuringSuspendData data && !data.Done)
             {
                 data.Iterator.Close(completionType);
                 data.Done = true;
             }
         }
-        _destructuringSuspendData.Clear();
     }
 }

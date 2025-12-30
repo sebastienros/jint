@@ -410,6 +410,13 @@ internal sealed class JintAssignmentExpression : JintExpression
 
             var rval = _right.GetValue(context);
 
+            // If generator suspended or return requested during right-hand side evaluation, don't assign
+            if (context.IsGeneratorAborted())
+            {
+                engine._referencePool.Return(lref);
+                return rval;
+            }
+
             engine.PutValue(lref, rval);
             engine._referencePool.Return(lref);
             return rval;
@@ -437,6 +444,12 @@ internal sealed class JintAssignmentExpression : JintExpression
 
                 var completion = right.GetValue(context);
                 if (context.IsAbrupt())
+                {
+                    return completion;
+                }
+
+                // If generator suspended or return requested during right-hand side evaluation, don't assign
+                if (context.IsGeneratorAborted())
                 {
                     return completion;
                 }

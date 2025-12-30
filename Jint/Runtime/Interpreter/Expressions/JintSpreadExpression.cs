@@ -32,6 +32,14 @@ internal sealed class JintSpreadExpression : JintExpression
     internal void GetValueAndCheckIterator(EvaluationContext context, out JsValue instance, out IteratorInstance? iterator)
     {
         instance = _argument.GetValue(context);
+
+        // If generator suspended during argument evaluation, don't try to get iterator
+        if (context.IsGeneratorSuspended())
+        {
+            iterator = null;
+            return;
+        }
+
         if (instance is null || !instance.TryGetIterator(context.Engine.Realm, out iterator))
         {
             iterator = null;

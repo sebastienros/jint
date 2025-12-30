@@ -48,6 +48,12 @@ internal sealed class JintCallExpression : JintExpression
 
         var reference = _calleeExpression.Evaluate(context);
 
+        // Check for generator suspension after evaluating callee
+        if (context.IsGeneratorSuspended())
+        {
+            return reference as JsValue ?? JsValue.Undefined;
+        }
+
         if (ReferenceEquals(reference, JsValue.Undefined))
         {
             return JsValue.Undefined;
@@ -105,6 +111,16 @@ internal sealed class JintCallExpression : JintExpression
         }
 
         var arguments = this._arguments.ArgumentListEvaluation(context, out var rented);
+
+        // Check for generator suspension after argument evaluation
+        if (context.IsGeneratorSuspended())
+        {
+            if (rented && arguments is not null)
+            {
+                engine._jsValueArrayPool.ReturnArray(arguments);
+            }
+            return func; // Return any value, caller will check Suspended
+        }
 
         if (!func.IsObject() && !engine._referenceResolver.TryGetCallable(engine, reference, out func))
         {

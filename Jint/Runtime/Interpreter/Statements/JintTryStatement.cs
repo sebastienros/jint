@@ -57,7 +57,7 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
 
         // If a generator is suspended (yield), don't run the finally yet.
         // The finally will run when the generator resumes and exits the try block.
-        if (engine.ExecutionContext.Suspended)
+        if (context.IsGeneratorSuspended())
         {
             return b;
         }
@@ -75,6 +75,14 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
                     generator._pendingCompletionValue = b.Value;
                     generator._currentFinallyStatement = _statement;
                 }
+            }
+
+            // Clear _returnRequested before running finally block.
+            // Per ECMAScript spec, a return in the finally block supersedes any pending return.
+            // If we don't clear this, the finally block's statements will incorrectly use _suspendedValue.
+            if (generator is not null)
+            {
+                generator._returnRequested = false;
             }
 
             var f = _finalizer.Execute(context);
@@ -118,7 +126,7 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
         var b = _catch.Execute(context);
 
         // If a generator is suspended (yield), don't run the finally yet
-        if (engine.ExecutionContext.Suspended)
+        if (context.IsGeneratorSuspended())
         {
             return b;
         }
@@ -144,7 +152,7 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
         var f = _finalizer!.Execute(context);
 
         // If a generator is suspended (yield), don't process the pending completion yet
-        if (engine.ExecutionContext.Suspended)
+        if (context.IsGeneratorSuspended())
         {
             return f;
         }

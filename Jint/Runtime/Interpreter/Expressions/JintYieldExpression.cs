@@ -47,12 +47,14 @@ internal sealed class JintYieldExpression : JintExpression
                     Throw.JavaScriptException(context.Engine, returnValue, AstExtensions.DefaultLocation);
                 }
 
-                // If we're resuming with a Return completion, throw to trigger finally blocks
-                // This allows for-of loops to close their iterators properly
+                // If we're resuming with a Return completion, signal return request
+                // This allows for-of loops to close their iterators properly via finally blocks
                 if (generator._resumeCompletionType == CompletionType.Return)
                 {
                     generator._resumeCompletionType = CompletionType.Normal; // Reset for future
-                    throw new GeneratorReturnException(returnValue);
+                    generator._returnRequested = true;
+                    generator._suspendedValue = returnValue;
+                    return returnValue; // Callers check _returnRequested flag
                 }
 
                 // Store this value for future iterations (e.g., same yield in a loop)
@@ -78,6 +80,13 @@ internal sealed class JintYieldExpression : JintExpression
         if (expression.Argument is not null)
         {
             value = Build(expression.Argument).GetValue(context);
+
+            // If the argument evaluation suspended the generator (nested yield), propagate
+            // the suspension up without yielding again - the inner yield already suspended
+            if (context.IsGeneratorSuspended())
+            {
+                return value;
+            }
         }
         else
         {
@@ -191,6 +200,12 @@ internal sealed class JintYieldExpression : JintExpression
                     // Yield the value from the inner iterator and suspend
                     // Per spec, pass innerResult directly to GeneratorYield to preserve its exact state
                     SuspendForDelegation(context, generator, innerResult, CompletionType.Normal);
+
+                    // Check if suspended - if so, return to propagate suspension up the call stack
+                    if (context.IsGeneratorSuspended())
+                    {
+                        return JsValue.Undefined;
+                    }
                 }
             }
             else if (receivedType == CompletionType.Throw)
@@ -230,6 +245,12 @@ internal sealed class JintYieldExpression : JintExpression
                     {
                         // Yield the result and suspend
                         SuspendForDelegation(context, generator, innerObj, CompletionType.Normal);
+
+                        // Check if suspended - if so, return to propagate suspension up the call stack
+                        if (context.IsGeneratorSuspended())
+                        {
+                            return JsValue.Undefined;
+                        }
                     }
                 }
                 else
@@ -263,15 +284,16 @@ internal sealed class JintYieldExpression : JintExpression
                     }
 
                     // Per spec: "Return Completion(received)" - the generator should complete
-                    // with the received return value, not just return it from yield*
+                    // with the received return value, but we must let try-finally blocks execute.
+                    // Use _returnRequested to signal return completion through normal execution flow.
                     generator._delegatingIterator = null;
                     generator._delegatingYieldNode = null;
-                    generator._generatorState = GeneratorState.Completed;
-                    generator._shouldEarlyReturn = true;
-                    generator._earlyReturnValue = temp;
+                    generator._returnRequested = true;
+                    generator._suspendedValue = temp;
 
-                    // Throw to interrupt execution - ResumeExecution will see the early return flag
-                    throw new YieldSuspendException(temp);
+                    // Return to let the normal execution flow handle the return,
+                    // which will trigger any finally blocks before completing
+                    return temp;
                 }
 
                 var innerReturnResult = returnMethod.Call(iteratorInstance, new[] { receivedValue });
@@ -294,9 +316,12 @@ internal sealed class JintYieldExpression : JintExpression
                     var returnValue = IteratorValue(innerReturnObj);
                     generator._delegatingIterator = null;
                     generator._delegatingYieldNode = null;
-                    // Throw GeneratorReturnException to signal Return completion
+
+                    // Signal return request - callers check _returnRequested flag
                     // This will trigger finally blocks and then complete the generator
-                    throw new GeneratorReturnException(returnValue);
+                    generator._returnRequested = true;
+                    generator._suspendedValue = returnValue;
+                    return returnValue;
                 }
 
                 if (generatorKind == GeneratorKind.Async)
@@ -309,6 +334,12 @@ internal sealed class JintYieldExpression : JintExpression
                 {
                     // Yield the result and suspend
                     SuspendForDelegation(context, generator, innerReturnObj, CompletionType.Normal);
+
+                    // Check if suspended - if so, return to propagate suspension up the call stack
+                    if (context.IsGeneratorSuspended())
+                    {
+                        return JsValue.Undefined;
+                    }
                 }
             }
         }
@@ -316,6 +347,7 @@ internal sealed class JintYieldExpression : JintExpression
 
     /// <summary>
     /// Suspends the generator during yield* delegation.
+    /// Sets generator state to suspendedYield - callers check context.IsGeneratorSuspended().
     /// </summary>
     private static void SuspendForDelegation(
         EvaluationContext context,
@@ -331,8 +363,7 @@ internal sealed class JintYieldExpression : JintExpression
         // Store the inner result to return it directly (preserving its exact 'done' property state)
         generator._delegationInnerResult = innerResult;
 
-        // Throw to suspend - don't extract value, just signal suspension
-        throw new YieldSuspendException(JsValue.Undefined);
+        // Return normally - callers check ExecutionContext.Suspended flag
     }
 
     private static bool IteratorComplete(JsValue iterResult)
@@ -370,6 +401,7 @@ internal sealed class JintYieldExpression : JintExpression
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-yield
+    /// https://tc39.es/ecma262/#sec-generatoryield
     /// </summary>
     private static JsValue Yield(EvaluationContext context, JsValue iterNextObj)
     {
@@ -381,16 +413,18 @@ internal sealed class JintYieldExpression : JintExpression
             Throw.NotImplementedException("async not implemented");
         }
 
-        // https://tc39.es/ecma262/#sec-generatoryield
+        // GeneratorYield per spec:
+        // 1. Set generator.[[GeneratorState]] to suspendedYield
         var genContext = engine.ExecutionContext;
         var generator = genContext.Generator;
         generator!._generatorState = GeneratorState.SuspendedYield;
+
         // Store the yielded value so it can be retrieved even if the containing statement
         // has a different completion value (e.g., variable declarations return Empty)
         generator._suspendedValue = iterNextObj;
 
-        // Throw an exception to immediately interrupt expression evaluation.
-        // This is caught at the statement level to handle generator suspension properly.
-        throw new YieldSuspendException(iterNextObj);
+        // Return normally - callers check ExecutionContext.Suspended flag
+        // to detect that the generator has yielded
+        return iterNextObj;
     }
 }

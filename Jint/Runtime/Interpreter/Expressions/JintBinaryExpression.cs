@@ -647,7 +647,20 @@ internal abstract class JintBinaryExpression : JintExpression
             EnsureInitialized();
 
             var left = _left.GetValue(context);
+
+            // Check for generator suspension after evaluating left operand
+            if (context.IsGeneratorSuspended())
+            {
+                return left;
+            }
+
             var right = _right.GetValue(context);
+
+            // Check for generator suspension after evaluating right operand
+            if (context.IsGeneratorSuspended())
+            {
+                return right;
+            }
 
             var oi = right as ObjectInstance;
             if (oi is null)

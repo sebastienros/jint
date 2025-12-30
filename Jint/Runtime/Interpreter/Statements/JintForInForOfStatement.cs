@@ -105,7 +105,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
 
         if (generator is not null && generator._isResuming)
         {
-            if (generator.TryGetForOfSuspendData(_statement!, out suspendData))
+            if (generator.TryGetSuspendData<ForOfSuspendData>(this, out suspendData))
             {
                 // We're resuming into this for-of loop - use the saved iterator
                 keyResult = suspendData!.Iterator;
@@ -219,7 +219,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     {
                         close = true;
                         // Clean up suspend data on normal completion
-                        generator?.ClearForOfSuspendData(_statement!);
+                        generator?.ClearSuspendData(this);
                         return new Completion(CompletionType.Normal, v, _statement!);
                     }
 
@@ -294,6 +294,25 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                         iterationEnv,
                         checkPatternPropertyReference: _lhsKind != LhsKind.VarBinding);
 
+                    // Check for generator suspension after destructuring
+                    if (context.IsGeneratorSuspended())
+                    {
+                        close = false; // Don't close iterator, we'll resume later
+                        completionType = CompletionType.Return;
+                        return new Completion(CompletionType.Return, generator?._suspendedValue ?? nextValue, _statement!);
+                    }
+
+                    // Check for generator return request after destructuring
+                    if (generator?._returnRequested == true)
+                    {
+                        completionType = CompletionType.Return;
+                        close = false; // Prevent double-close in finally
+                        generator.ClearSuspendData(this);
+                        iteratorRecord.Close(completionType);
+                        var returnValue = generator._suspendedValue ?? nextValue;
+                        return new Completion(CompletionType.Return, returnValue, _statement!);
+                    }
+
                     status = context.Completion;
 
                     if (lhsKind == LhsKind.Assignment)
@@ -315,7 +334,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 if (status != CompletionType.Normal)
                 {
                     engine.UpdateLexicalEnvironment(oldEnv);
-                    generator?.ClearForOfSuspendData(_statement!);
+                    generator?.ClearSuspendData(this);
                     if (_iterationKind == IterationKind.AsyncIterate)
                     {
                         iteratorRecord.Close(status);
@@ -334,7 +353,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 // Before executing body, save state in case of yield
                 if (generator is not null)
                 {
-                    var data = generator.GetOrCreateForOfSuspendData(_statement!, iteratorRecord);
+                    var data = generator.GetOrCreateSuspendData<ForOfSuspendData>(this, iteratorRecord);
                     data.AccumulatedValue = v;
                     data.CurrentValue = nextValue;
                     data.IterationEnv = iterationEnv;
@@ -343,9 +362,9 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 var result = stmt.Execute(context);
 
                 // Clear current value after successful body execution (not suspended)
-                if (generator is not null && !engine.ExecutionContext.Suspended)
+                if (generator is not null && !context.IsGeneratorSuspended())
                 {
-                    if (generator.TryGetForOfSuspendData(_statement!, out var currentData))
+                    if (generator.TryGetSuspendData<ForOfSuspendData>(this, out var currentData))
                     {
                         currentData!.CurrentValue = null;
                     }
@@ -358,14 +377,14 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 {
                     v = result.Value;
                     // Update accumulated value in suspend data
-                    if (generator is not null && generator.TryGetForOfSuspendData(_statement!, out var data))
+                    if (generator is not null && generator.TryGetSuspendData<ForOfSuspendData>(this, out var data))
                     {
                         data!.AccumulatedValue = v;
                     }
                 }
 
                 // Check for generator suspension - if the generator is suspended, we need to exit the loop
-                if (engine.ExecutionContext.Suspended)
+                if (context.IsGeneratorSuspended())
                 {
                     // Iterator is already saved in suspend data, just exit
                     close = false; // Don't close - we'll resume
@@ -374,10 +393,22 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     return new Completion(CompletionType.Return, suspendedValue, _statement!);
                 }
 
+                // Check for generator return request (generator.return() was called)
+                if (generator?._returnRequested == true)
+                {
+                    // Close iterator with Return completion
+                    completionType = CompletionType.Return;
+                    close = false; // Prevent double-close in finally
+                    generator.ClearSuspendData(this);
+                    iteratorRecord.Close(completionType);
+                    var returnValue = generator._suspendedValue ?? result.Value;
+                    return new Completion(CompletionType.Return, returnValue, _statement!);
+                }
+
                 if (result.Type == CompletionType.Break && (context.Target == null || string.Equals(context.Target, _statement?.LabelSet?.Name, StringComparison.Ordinal)))
                 {
                     completionType = CompletionType.Normal;
-                    generator?.ClearForOfSuspendData(_statement!);
+                    generator?.ClearSuspendData(this);
                     return new Completion(CompletionType.Normal, v, _statement!);
                 }
 
@@ -387,41 +418,23 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     if (result.IsAbrupt())
                     {
                         close = true;
-                        generator?.ClearForOfSuspendData(_statement!);
+                        generator?.ClearSuspendData(this);
                         return result;
                     }
                 }
             }
         }
-        catch (YieldSuspendException)
-        {
-            // Generator yield - don't close the iterator, we'll resume later
-            // Suspend data is already saved, so iterator state is preserved
-            close = false;
-            throw;
-        }
-        catch (GeneratorReturnException)
-        {
-            // Generator return() was called - close iterator with Return completion
-            // This allows TypeErrors from iterator.return() to propagate properly
-            completionType = CompletionType.Return;
-            close = false; // Prevent double-close in finally
-            generator?.ClearForOfSuspendData(_statement!);
-            iteratorRecord.Close(completionType);
-            // Re-throw to continue unwinding (will be caught by JintStatementList)
-            throw;
-        }
         catch
         {
             completionType = CompletionType.Throw;
-            generator?.ClearForOfSuspendData(_statement!);
+            generator?.ClearSuspendData(this);
             throw;
         }
         finally
         {
             if (close)
             {
-                generator?.ClearForOfSuspendData(_statement!);
+                generator?.ClearSuspendData(this);
                 try
                 {
                     iteratorRecord.Close(completionType);

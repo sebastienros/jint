@@ -166,6 +166,13 @@ internal sealed class ClassDefinition
 
                 var target = !isStatic ? proto : F;
                 var element = ClassElementEvaluation(engine, target, e);
+
+                // Check for generator suspension after evaluating class element
+                if (engine.ExecutionContext.Suspended)
+                {
+                    return JsValue.Undefined;
+                }
+
                 if (element is PrivateElement privateElement)
                 {
                     var container = !isStatic ? instancePrivateMethods : staticPrivateMethods;
@@ -257,6 +264,12 @@ internal sealed class ClassDefinition
     private static ClassFieldDefinition ClassFieldDefinitionEvaluation(Engine engine, ObjectInstance homeObject, PropertyDefinition fieldDefinition)
     {
         var name = fieldDefinition.GetKey(engine);
+
+        // Check for generator suspension after evaluating computed property key
+        if (engine.ExecutionContext.Suspended)
+        {
+            return new ClassFieldDefinition { Name = JsValue.Undefined, Initializer = null };
+        }
 
         ScriptFunction? initializer = null;
         if (fieldDefinition.Value is not null)
@@ -366,6 +379,13 @@ internal sealed class ClassDefinition
         var intrinsics = engine.Realm.Intrinsics;
 
         var value = method.TryGetKey(engine);
+
+        // Check for generator suspension after evaluating computed property key
+        if (engine.ExecutionContext.Suspended)
+        {
+            return null;
+        }
+
         var propKey = TypeConverter.ToPropertyKey(value);
         var env = engine.ExecutionContext.LexicalEnvironment;
         var privateEnv = engine.ExecutionContext.PrivateEnvironment;

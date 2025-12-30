@@ -100,17 +100,25 @@ internal sealed class JintStatementList
                 }
 
                 // Check for generator suspension - works for both the main generator body and nested blocks
-                if (context.Engine.ExecutionContext.Suspended)
+                var gen = context.Engine.ExecutionContext.Generator;
+                if (context.IsGeneratorSuspended())
                 {
                     // Don't increment _index - we'll re-execute this statement on resume
                     // The yield tracking (_yieldIndex) handles knowing which yield to resume from
                     _index = i;
                     // Use the suspended value from the generator, as the statement's completion value
                     // might be different (e.g., variable declarations return Empty, not the yielded value)
-                    var generator = context.Engine.ExecutionContext.Generator;
-                    var suspendedValue = generator?._suspendedValue ?? c.Value;
+                    var suspendedValue = gen?._suspendedValue ?? c.Value;
                     // Return directly - don't fall through to the reset below
                     return new Completion(CompletionType.Return, suspendedValue, pair.Statement._statement);
+                }
+
+                // Check for generator return request (from generator.return() call)
+                if (gen?._returnRequested == true)
+                {
+                    Reset();
+                    var returnValue = gen._suspendedValue ?? c.Value;
+                    return new Completion(CompletionType.Return, returnValue, pair.Statement._statement);
                 }
 
                 // With node-based yield tracking, we don't need to reset state between statements
@@ -131,21 +139,6 @@ internal sealed class JintStatementList
             // Reset index after normal loop completion for potential re-execution
             // (e.g., this block is a for-of body that will execute again on next iteration)
             _index = 0;
-        }
-        catch (YieldSuspendException yieldEx)
-        {
-            // Generator yield - set index to current statement for resume
-            _index = i;
-            var generator = context.Engine.ExecutionContext.Generator;
-            var suspendedValue = generator?._suspendedValue ?? yieldEx.YieldedValue;
-            c = new Completion(CompletionType.Return, suspendedValue, temp[i].Statement._statement);
-        }
-        catch (GeneratorReturnException returnEx)
-        {
-            // Generator return() was called - propagate as Return completion
-            // This allows for-of loops to close their iterators properly
-            Reset();
-            c = new Completion(CompletionType.Return, returnEx.ReturnValue, temp[i].Statement._statement);
         }
         catch (Exception ex)
         {
