@@ -13,8 +13,9 @@ internal abstract class SuspendData
 {
     /// <summary>
     /// The iterator instance that was in progress when the generator suspended.
+    /// Null for constructs that don't use iterators (e.g., regular for loops).
     /// </summary>
-    public IteratorInstance Iterator { get; init; } = null!;
+    public IteratorInstance? Iterator { get; init; }
 }
 
 /// <summary>
@@ -62,4 +63,21 @@ internal sealed class ForOfSuspendData : SuspendData
     /// The iteration environment for lexical bindings (let/const in for-of).
     /// </summary>
     public DeclarativeEnvironment? IterationEnv { get; set; }
+}
+
+/// <summary>
+/// Stores the state of a regular for loop when a generator yields inside it.
+/// Saves loop variable values so they can be restored when resuming.
+/// </summary>
+internal sealed class ForLoopSuspendData : SuspendData
+{
+    /// <summary>
+    /// The saved values of loop variables (let bindings in for loop init).
+    /// </summary>
+    public Dictionary<Key, JsValue>? BoundValues { get; set; }
+
+    /// <summary>
+    /// The accumulated result value (v) from previous iterations.
+    /// </summary>
+    public JsValue AccumulatedValue { get; set; } = JsValue.Undefined;
 }

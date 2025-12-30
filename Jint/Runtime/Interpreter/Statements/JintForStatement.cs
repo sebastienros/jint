@@ -73,6 +73,12 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
             && generator._lastYieldNode is Node yieldNode
             && IsNodeInsideForStatement(yieldNode);
 
+        ForLoopSuspendData? suspendData = null;
+        if (resumingInLoop && _boundNames != null)
+        {
+            generator!.TryGetSuspendData<ForLoopSuspendData>(this, out suspendData);
+        }
+
         if (_boundNames != null)
         {
             oldEnv = engine.ExecutionContext.LexicalEnvironment;
@@ -93,6 +99,15 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
             }
 
             engine.UpdateLexicalEnvironment(loopEnv);
+
+            // Restore loop variable values if resuming
+            if (resumingInLoop && suspendData?.BoundValues is not null)
+            {
+                foreach (var kvp in suspendData.BoundValues)
+                {
+                    loopEnvRec.InitializeBinding(kvp.Key, kvp.Value, DisposeHint.Normal);
+                }
+            }
         }
 
         var completion = Completion.Empty();
@@ -118,6 +133,27 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
         {
             if (oldEnv is not null)
             {
+                // Save loop variable values if generator is suspended (don't save on normal completion)
+                if (generator is not null && context.IsGeneratorSuspended() && _boundNames != null)
+                {
+                    // Use the CURRENT lexical environment, not loopEnv, because
+                    // CreatePerIterationEnvironment may have created new environments during the loop
+                    var currentEnv = engine.ExecutionContext.LexicalEnvironment;
+                    var data = generator.GetOrCreateSuspendData<ForLoopSuspendData>(this);
+                    data.BoundValues ??= new Dictionary<Key, JsValue>();
+                    for (var i = 0; i < _boundNames.Count; i++)
+                    {
+                        var name = _boundNames[i];
+                        var value = currentEnv.GetBindingValue(name, strict: false);
+                        data.BoundValues[name] = value;
+                    }
+                }
+                else if (generator is not null && !context.IsGeneratorSuspended())
+                {
+                    // Clear suspend data on normal completion
+                    generator.ClearSuspendData(this);
+                }
+
                 loopEnv!.DisposeResources(completion);
                 engine.UpdateLexicalEnvironment(oldEnv);
             }

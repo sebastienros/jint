@@ -108,6 +108,7 @@ internal sealed class GeneratorInstance : ObjectInstance
     /// </summary>
     internal Dictionary<object, SuspendData>? _suspendData;
 
+
     public GeneratorInstance(Engine engine) : base(engine)
     {
     }
@@ -279,6 +280,21 @@ internal sealed class GeneratorInstance : ObjectInstance
     }
 
     /// <summary>
+    /// Gets or creates suspend data of the specified type (for constructs without iterators).
+    /// Keys should be Jint expression/statement instances (this) to avoid collisions across engines.
+    /// </summary>
+    internal T GetOrCreateSuspendData<T>(object key) where T : SuspendData, new()
+    {
+        _suspendData ??= new Dictionary<object, SuspendData>();
+        if (!_suspendData.TryGetValue(key, out var data))
+        {
+            data = new T();
+            _suspendData[key] = data;
+        }
+        return (T) data;
+    }
+
+    /// <summary>
     /// Tries to get existing suspend data of the specified type.
     /// Returns true if suspend data exists for the given key.
     /// </summary>
@@ -317,7 +333,7 @@ internal sealed class GeneratorInstance : ObjectInstance
         {
             if (kvp.Value is DestructuringSuspendData data && !data.Done)
             {
-                data.Iterator.Close(completionType);
+                data.Iterator?.Close(completionType);
                 data.Done = true;
             }
         }

@@ -302,6 +302,28 @@ public abstract partial class JsValue : IEquatable<JsValue>
         return target.OrdinaryHasInstance(this);
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-getmethod
+    /// </summary>
+    internal static ICallable? GetMethod(Realm realm, JsValue v, JsValue p)
+    {
+        // GetMethod uses GetV which converts primitives to objects
+        // https://tc39.es/ecma262/#sec-getv
+        var target = v is ObjectInstance obj ? obj : TypeConverter.ToObject(realm, v);
+        var jsValue = target.Get(p, v);
+        if (jsValue.IsNullOrUndefined())
+        {
+            return null;
+        }
+
+        var callable = jsValue as ICallable;
+        if (callable is null)
+        {
+            Throw.TypeError(realm, $"Value returned for property '{p}' of object is not a function");
+        }
+        return callable;
+    }
+
     public override string ToString()
     {
         return "None";

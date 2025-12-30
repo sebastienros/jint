@@ -115,7 +115,7 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                 if (!suspendData.Done)
                 {
                     suspendData.Done = true;
-                    iterator.Close(CompletionType.Return);
+                    iterator?.Close(CompletionType.Return);
                 }
                 generator.ClearSuspendData(pattern);
                 // Signal return request - callers check _returnRequested flag

@@ -50,15 +50,37 @@ internal sealed class IteratorResult : ObjectInstance
     {
         if (CommonProperties.Value.Equals(property))
         {
-            return new PropertyDescriptor(_value, PropertyFlag.AllForbidden);
+            return new PropertyDescriptor(_value, PropertyFlag.ConfigurableEnumerableWritable);
         }
 
         if (CommonProperties.Done.Equals(property))
         {
-            return new PropertyDescriptor(_done, PropertyFlag.AllForbidden);
+            return new PropertyDescriptor(_done, PropertyFlag.ConfigurableEnumerableWritable);
         }
 
         return base.GetOwnProperty(property);
+    }
+
+    public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
+    {
+        yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Value, new PropertyDescriptor(_value, PropertyFlag.ConfigurableEnumerableWritable));
+        yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Done, new PropertyDescriptor(_done, PropertyFlag.ConfigurableEnumerableWritable));
+        foreach (var prop in base.GetOwnProperties())
+        {
+            yield return prop;
+        }
+    }
+
+    public override List<JsValue> GetOwnPropertyKeys(Types types = Types.String | Types.Symbol)
+    {
+        var keys = new List<JsValue>();
+        if ((types & Types.String) != Types.Empty)
+        {
+            keys.Add(CommonProperties.Value);
+            keys.Add(CommonProperties.Done);
+        }
+        keys.AddRange(base.GetOwnPropertyKeys(types));
+        return keys;
     }
 
     public override object ToObject() => this;
