@@ -1092,18 +1092,12 @@ public sealed partial class Engine : IDisposable
             }
         }
 
-        if (!canInitializeParametersOnDeclaration)
-        {
-            // slower set
-            env.AddFunctionParameters(_activeEvaluationContext!, func.Function, argumentsList);
-        }
-
-        // Let iteratorRecord be CreateListIteratorRecord(argumentsList).
-        // If hasDuplicates is true, then
-        //     Perform ? IteratorBindingInitialization for formals with iteratorRecord and undefined as arguments.
-        // Else,
-        //     Perform ? IteratorBindingInitialization for formals with iteratorRecord and env as arguments.
-
+        // Per ECMAScript spec 10.2.11:
+        // When hasParameterExpressions is true, we need to create varEnv BEFORE evaluating parameter defaults
+        // so that eval called during parameter initialization uses the correct VariableEnvironment.
+        // This ensures:
+        // 1. Vars declared by eval in parameter expressions go to the right varEnv
+        // 2. EvalDeclarationInstantiation can detect conflicts between eval vars and parameter names
         DeclarativeEnvironment varEnv;
         if (!hasParameterExpressions)
         {
@@ -1119,12 +1113,50 @@ public sealed partial class Engine : IDisposable
         }
         else
         {
-            // NOTE: A separate Environment Record is needed to ensure that closures created by expressions
-            // in the formal parameter list do not have visibility of declarations in the function body.
-            varEnv = JintEnvironment.NewDeclarativeEnvironment(this, env);
+            // Per ECMAScript spec 10.2.11 step 20:
+            // Create a separate environment (paramEnv) for parameter evaluation.
+            // This is where eval'd vars during parameter initialization go.
+            // Closures created during parameter evaluation capture this environment.
+            var paramEnv = JintEnvironment.NewDeclarativeEnvironment(this, env);
 
+            // Step 20.f and 20.g: Set BOTH VariableEnvironment AND LexicalEnvironment to paramEnv
+            // before evaluating parameter defaults. This ensures:
+            // 1. Vars declared by eval in parameter expressions go to paramEnv
+            // 2. Closures created during parameter evaluation capture paramEnv
+            UpdateVariableEnvironment(paramEnv);
+            UpdateLexicalEnvironment(paramEnv);
+
+            // Per ECMAScript spec step 27-28:
+            // Create another separate environment (varEnv) for function body vars.
+            // This ensures closures in params do NOT have visibility of body declarations.
+            varEnv = JintEnvironment.NewDeclarativeEnvironment(this, paramEnv);
+        }
+
+        if (!canInitializeParametersOnDeclaration)
+        {
+            // Slower path - evaluate parameter defaults.
+            // At this point, if hasParameterExpressions:
+            // - VariableEnvironment = paramEnv (for eval vars during param init)
+            // - LexicalEnvironment = paramEnv (for closures to capture)
+            env.AddFunctionParameters(_activeEvaluationContext!, func.Function, argumentsList);
+        }
+
+        // After parameter initialization, switch VariableEnvironment to varEnv for body vars
+        // Per ECMAScript spec step 27-28
+        if (hasParameterExpressions)
+        {
             UpdateVariableEnvironment(varEnv);
+        }
 
+        // Let iteratorRecord be CreateListIteratorRecord(argumentsList).
+        // If hasDuplicates is true, then
+        //     Perform ? IteratorBindingInitialization for formals with iteratorRecord and undefined as arguments.
+        // Else,
+        //     Perform ? IteratorBindingInitialization for formals with iteratorRecord and env as arguments.
+
+        // Now initialize var bindings in varEnv (after parameters are evaluated)
+        if (hasParameterExpressions)
+        {
             var varsToInitialize = configuration.VarsToInitialize!;
             for (var i = 0; i < varsToInitialize.Count; i++)
             {
@@ -1245,7 +1277,7 @@ public sealed partial class Engine : IDisposable
             }
 
             var thisLex = lexEnv;
-            while (!ReferenceEquals(thisLex, varEnv))
+            while (thisLex is not null && !ReferenceEquals(thisLex, varEnv))
             {
                 var thisEnvRec = thisLex;
                 if (thisEnvRec is not ObjectEnvironment)
@@ -1255,14 +1287,35 @@ public sealed partial class Engine : IDisposable
                     {
                         var variablesDeclaration = nodes[i];
                         var identifier = (Identifier) variablesDeclaration.Declarations[0].Id;
-                        if (thisEnvRec!.HasBinding(identifier.Name))
+                        if (thisEnvRec.HasBinding(identifier.Name))
                         {
                             Throw.SyntaxError(realm);
                         }
                     }
                 }
 
-                thisLex = thisLex!._outerEnv;
+                thisLex = thisLex._outerEnv;
+            }
+
+            // When varEnv is a separate parameter environment (hasParameterExpressions case),
+            // we also need to check varEnv's outer for parameter bindings.
+            // This handles the case where parameters are in the FunctionEnvironment (varEnv's outer)
+            // but eval vars go to varEnv (the separate parameter environment).
+            // The while loop above walks from lexEnv to varEnv, but doesn't check varEnv's outer.
+            // Note: We only do this when varEnv is NOT a FunctionEnvironment - if it is, then
+            // this is a simple function without hasParameterExpressions and we don't need this check.
+            if (varEnv is DeclarativeEnvironment and not FunctionEnvironment && varEnv._outerEnv is FunctionEnvironment funcEnv)
+            {
+                ref readonly var nodes = ref hoistingScope._variablesDeclarations;
+                for (var i = 0; i < nodes.Count; i++)
+                {
+                    var variablesDeclaration = nodes[i];
+                    var identifier = (Identifier) variablesDeclaration.Declarations[0].Id;
+                    if (funcEnv.HasBinding(identifier.Name))
+                    {
+                        Throw.SyntaxError(realm);
+                    }
+                }
             }
         }
 

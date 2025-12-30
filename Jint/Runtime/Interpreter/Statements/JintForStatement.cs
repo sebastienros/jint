@@ -64,6 +64,15 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
         Environment? oldEnv = null;
         DeclarativeEnvironment? loopEnv = null;
         var engine = context.Engine;
+
+        // Check if we're resuming from a yield inside this for statement (body, test, or update)
+        // If so, skip the initialization to avoid resetting loop variables
+        var generator = engine.ExecutionContext.Generator;
+        var resumingInLoop = generator is not null
+            && generator._isResuming
+            && generator._lastYieldNode is Node yieldNode
+            && IsNodeInsideForStatement(yieldNode);
+
         if (_boundNames != null)
         {
             oldEnv = engine.ExecutionContext.LexicalEnvironment;
@@ -89,13 +98,17 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
         var completion = Completion.Empty();
         try
         {
-            if (_initExpression != null)
+            // Skip initialization if resuming from inside the loop (body, test, or update)
+            if (!resumingInLoop)
             {
-                _initExpression?.GetValue(context);
-            }
-            else
-            {
-                _initStatement?.Execute(context);
+                if (_initExpression != null)
+                {
+                    _initExpression?.GetValue(context);
+                }
+                else
+                {
+                    _initStatement?.Execute(context);
+                }
             }
 
             completion = ForBodyEvaluation(context);
@@ -109,6 +122,44 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                 engine.UpdateLexicalEnvironment(oldEnv);
             }
         }
+    }
+
+    /// <summary>
+    /// Checks if the given node is inside this for statement (body, test, or update).
+    /// Used to determine if we're resuming from a yield inside the loop.
+    /// </summary>
+    private bool IsNodeInsideForStatement(Node node)
+    {
+        var nodeRange = node.Range;
+
+        // Check if inside body
+        var bodyRange = _statement.Body.Range;
+        if (bodyRange.Start <= nodeRange.Start && nodeRange.End <= bodyRange.End)
+        {
+            return true;
+        }
+
+        // Check if inside test expression
+        if (_statement.Test != null)
+        {
+            var testRange = _statement.Test.Range;
+            if (testRange.Start <= nodeRange.Start && nodeRange.End <= testRange.End)
+            {
+                return true;
+            }
+        }
+
+        // Check if inside update expression
+        if (_statement.Update != null)
+        {
+            var updateRange = _statement.Update.Range;
+            if (updateRange.Start <= nodeRange.Start && nodeRange.End <= updateRange.End)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -143,6 +194,14 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                 v = result.Value;
             }
 
+            // Check for generator suspension - if the generator is suspended, we need to exit the loop
+            if (context.Engine.ExecutionContext.Suspended)
+            {
+                var generator = context.Engine.ExecutionContext.Generator;
+                var suspendedValue = generator?._suspendedValue ?? result.Value;
+                return new Completion(CompletionType.Return, suspendedValue, ((JintStatement) this)._statement);
+            }
+
             if (result.Type == CompletionType.Break && (context.Target == null || string.Equals(context.Target, _statement?.LabelSet?.Name, StringComparison.Ordinal)))
             {
                 return new Completion(CompletionType.Normal, result.Value, ((JintStatement) this)._statement);
@@ -164,7 +223,17 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
             if (_increment != null)
             {
                 debugHandler?.OnStep(_increment._expression);
-                _increment.Evaluate(context);
+                try
+                {
+                    _increment.Evaluate(context);
+                }
+                catch (YieldSuspendException yieldEx)
+                {
+                    // Generator yielded in the update expression - return with the yielded value
+                    var generator = context.Engine.ExecutionContext.Generator;
+                    var suspendedValue = generator?._suspendedValue ?? yieldEx.YieldedValue;
+                    return new Completion(CompletionType.Return, suspendedValue, ((JintStatement) this)._statement);
+                }
             }
         }
     }

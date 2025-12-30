@@ -85,18 +85,60 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
     {
         var engine = context.Engine;
         var realm = engine.Realm;
+        var generator = engine.ExecutionContext.Generator;
+
+        // Check if we're resuming from a yield inside this destructuring pattern
+        DestructuringSuspendData? suspendData = null;
+        var resuming = false;
+        if (generator is not null && generator._isResuming)
+        {
+            if (generator.TryGetDestructuringSuspendData(pattern, out suspendData))
+            {
+                resuming = true;
+            }
+        }
+
         var obj = TypeConverter.ToObject(realm, argument);
         ArrayOperations? arrayOperations = null;
         IteratorInstance? iterator = null;
 
-        // optimize for array unless someone has touched the iterator
-        if (obj.IsArrayLike && obj.HasOriginalIterator)
+        if (resuming && suspendData is not null)
         {
-            arrayOperations = ArrayOperations.For(obj, forWrite: false);
+            // Reuse the saved iterator
+            iterator = suspendData.Iterator;
+
+            // If resuming with Return completion, close the iterator immediately
+            // This handles the case where generator.return() was called while
+            // suspended inside this destructuring pattern
+            if (generator!._resumeCompletionType == CompletionType.Return)
+            {
+                if (!suspendData.Done)
+                {
+                    suspendData.Done = true;
+                    iterator.Close(CompletionType.Return);
+                }
+                generator.ClearDestructuringSuspendData(pattern);
+                // Throw to propagate the return
+                throw new GeneratorReturnException(generator._nextValue ?? JsValue.Undefined);
+            }
         }
         else
         {
-            iterator = obj.GetIterator(realm);
+            // optimize for array unless someone has touched the iterator
+            if (obj.IsArrayLike && obj.HasOriginalIterator)
+            {
+                arrayOperations = ArrayOperations.For(obj, forWrite: false);
+            }
+            else
+            {
+                iterator = obj.GetIterator(realm);
+
+                // Save the iterator for potential yield inside this pattern
+                if (generator is not null && iterator is not null)
+                {
+                    suspendData = generator.GetOrCreateDestructuringSuspendData(pattern, iterator);
+                }
+            }
         }
 
         var completionType = CompletionType.Normal;
@@ -265,10 +307,33 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
             }
 
             close = true;
+            // Clear suspend data on normal completion
+            generator?.ClearDestructuringSuspendData(pattern);
+        }
+        catch (YieldSuspendException)
+        {
+            // Generator yield - don't close the iterator, we'll resume later
+            close = false;
+            throw;
+        }
+        catch (GeneratorReturnException)
+        {
+            // Generator return() was called - close iterator with Return completion
+            // This allows TypeErrors from iterator.return() to propagate properly
+            if (!done && iterator is not null)
+            {
+                done = true; // Prevent double-close in finally
+                iterator.Close(CompletionType.Return);
+            }
+            // Clear suspend data
+            generator?.ClearDestructuringSuspendData(pattern);
+            throw;
         }
         catch
         {
             completionType = CompletionType.Throw;
+            // Clear suspend data on error
+            generator?.ClearDestructuringSuspendData(pattern);
             throw;
         }
         finally

@@ -6,7 +6,25 @@ public class GeneratorTests
 
     public GeneratorTests()
     {
-        _engine = new Engine(options => options.ExperimentalFeatures = ExperimentalFeature.Generators);
+        _engine = new Engine();
+    }
+
+    [Fact(Timeout = 10000)]
+    public void YieldInForLoopUpdateExpression()
+    {
+        const string Script = """
+            const foo = function*() {
+                for(var i = 0; i < 5; yield i++) {}
+            };
+
+            let str = '';
+            for (const val of foo()) {
+                str += val;
+            }
+            return str;
+        """;
+
+        Assert.Equal("01234", _engine.Evaluate(Script));
     }
 
     [Fact]
@@ -166,7 +184,7 @@ public class GeneratorTests
         Assert.True(_engine.Evaluate("item.done").AsBoolean());
     }
 
-    [Fact(Skip = "TODO es6-generators")]
+    [Fact]
     public void Sending()
     {
         const string Script = """
@@ -186,7 +204,7 @@ public class GeneratorTests
         Assert.Equal("bar", _engine.Evaluate("sent[1]"));
     }
 
-    [Fact(Skip = "TODO es6-generators")]
+    [Fact]
     public void Sending2()
     {
         const string Script = """
@@ -214,7 +232,7 @@ public class GeneratorTests
         Assert.Equal(26, _engine.Evaluate("generatorFunc.next(10).value")); // 26
     }
 
-    [Fact(Skip = "TODO es6-generators")]
+    [Fact]
     public void Fibonacci()
     {
         const string Script = """
@@ -242,10 +260,10 @@ public class GeneratorTests
         Assert.Equal(2, _engine.Evaluate("sequence.next().value"));
         Assert.Equal(3, _engine.Evaluate("sequence.next().value"));
         Assert.Equal(5, _engine.Evaluate("sequence.next().value"));
-        Assert.Equal(9, _engine.Evaluate("sequence.next().value"));
+        Assert.Equal(8, _engine.Evaluate("sequence.next().value"));
         Assert.Equal(0, _engine.Evaluate("sequence.next(true).value"));
-        Assert.Equal(1, _engine.Evaluate("sequence.next().value)"));
-        Assert.Equal(1, _engine.Evaluate("sequence.next().value)"));
-        Assert.Equal(2, _engine.Evaluate("sequence.next().value)"));
+        Assert.Equal(1, _engine.Evaluate("sequence.next().value"));
+        Assert.Equal(1, _engine.Evaluate("sequence.next().value"));
+        Assert.Equal(2, _engine.Evaluate("sequence.next().value"));
     }
 }

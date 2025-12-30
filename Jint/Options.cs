@@ -547,6 +547,7 @@ public enum ExperimentalFeature
     /// <summary>
     /// Generator support
     /// </summary>
+    [Obsolete("This flag is no longer necessary as generators are fully supported.")]
     Generators = 1,
 
     /// <summary>
@@ -557,5 +558,5 @@ public enum ExperimentalFeature
     /// <summary>
     /// All coercion rules enabled.
     /// </summary>
-    All = Generators | TaskInterop
+    All = TaskInterop,
 }
