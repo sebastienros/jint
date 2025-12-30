@@ -195,7 +195,7 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
             }
 
             // Check for generator suspension - if the generator is suspended, we need to exit the loop
-            if (context.Engine.ExecutionContext.Suspended)
+            if (context.IsGeneratorSuspended())
             {
                 var generator = context.Engine.ExecutionContext.Generator;
                 var suspendedValue = generator?._suspendedValue ?? result.Value;
@@ -226,7 +226,7 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                 _increment.Evaluate(context);
 
                 // Check for generator suspension in update expression (e.g., yield in the update)
-                if (context.Engine.ExecutionContext.Suspended)
+                if (context.IsGeneratorSuspended())
                 {
                     var generator = context.Engine.ExecutionContext.Generator;
                     var suspendedValue = generator?._suspendedValue ?? JsValue.Undefined;

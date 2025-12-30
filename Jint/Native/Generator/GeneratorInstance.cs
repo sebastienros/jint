@@ -71,17 +71,6 @@ internal sealed class GeneratorInstance : ObjectInstance
     internal ObjectInstance? _delegationInnerResult;
 
     /// <summary>
-    /// When set, indicates that the generator should complete immediately with this value.
-    /// Used by yield* when the inner iterator's return method is null/undefined.
-    /// </summary>
-    internal JsValue? _earlyReturnValue;
-
-    /// <summary>
-    /// Whether an early return was triggered (e.g., from yield* with null return method).
-    /// </summary>
-    internal bool _shouldEarlyReturn;
-
-    /// <summary>
     /// Signals that generator.return() was called and execution should complete
     /// after running finally blocks. Aligns with spec's Return completion handling
     /// in GeneratorResumeAbrupt.
@@ -226,16 +215,6 @@ internal sealed class GeneratorInstance : ObjectInstance
 
         var result = _generatorBody.Execute(context);
         _engine.LeaveExecutionContext();
-
-        // Check for early return (e.g., from yield* with null return method)
-        if (_shouldEarlyReturn)
-        {
-            var earlyValue = _earlyReturnValue ?? JsValue.Undefined;
-            _shouldEarlyReturn = false;
-            _earlyReturnValue = null;
-            _generatorState = GeneratorState.Completed;
-            return IteratorResult.CreateValueIteratorPosition(_engine, earlyValue, done: JsBoolean.True);
-        }
 
         ObjectInstance? resultValue = null;
         if (result.Type == CompletionType.Normal)

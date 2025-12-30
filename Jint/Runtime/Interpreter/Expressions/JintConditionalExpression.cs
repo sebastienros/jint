@@ -18,7 +18,7 @@ internal sealed class JintConditionalExpression : JintExpression
         var testValue = _test.GetValue(context);
 
         // Check for generator suspension after evaluating test
-        if (context.Engine.ExecutionContext.Suspended)
+        if (context.IsGeneratorSuspended())
         {
             return testValue;
         }

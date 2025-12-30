@@ -34,7 +34,7 @@ internal sealed class JintSpreadExpression : JintExpression
         instance = _argument.GetValue(context);
 
         // If generator suspended during argument evaluation, don't try to get iterator
-        if (context.Engine.ExecutionContext.Suspended)
+        if (context.IsGeneratorSuspended())
         {
             iterator = null;
             return;

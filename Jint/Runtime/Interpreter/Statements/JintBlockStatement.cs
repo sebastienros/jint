@@ -101,7 +101,7 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
 
         // Check for generator suspension
         var gen = context.Engine.ExecutionContext.Generator;
-        if (context.Engine.ExecutionContext.Suspended)
+        if (context.IsGeneratorSuspended())
         {
             var suspendedValue = gen?._suspendedValue ?? blockValue.Value;
             return new Completion(CompletionType.Return, suspendedValue, _singleStatement!._statement);

@@ -295,7 +295,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                         checkPatternPropertyReference: _lhsKind != LhsKind.VarBinding);
 
                     // Check for generator suspension after destructuring
-                    if (engine.ExecutionContext.Suspended)
+                    if (context.IsGeneratorSuspended())
                     {
                         close = false; // Don't close iterator, we'll resume later
                         completionType = CompletionType.Return;
@@ -362,7 +362,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 var result = stmt.Execute(context);
 
                 // Clear current value after successful body execution (not suspended)
-                if (generator is not null && !engine.ExecutionContext.Suspended)
+                if (generator is not null && !context.IsGeneratorSuspended())
                 {
                     if (generator.TryGetForOfSuspendData(_statement!, out var currentData))
                     {
@@ -384,7 +384,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 }
 
                 // Check for generator suspension - if the generator is suspended, we need to exit the loop
-                if (engine.ExecutionContext.Suspended)
+                if (context.IsGeneratorSuspended())
                 {
                     // Iterator is already saved in suspend data, just exit
                     close = false; // Don't close - we'll resume

@@ -42,7 +42,7 @@ internal sealed class NullishCoalescingExpression : JintExpression
         var left = _left.GetValue(context);
 
         // Check for generator suspension after evaluating left operand
-        if (context.Engine.ExecutionContext.Suspended)
+        if (context.IsGeneratorSuspended())
         {
             return left;
         }

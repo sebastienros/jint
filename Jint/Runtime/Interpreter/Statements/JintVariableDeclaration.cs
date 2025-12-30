@@ -72,7 +72,7 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
                     value = declaration.Init.GetValue(context).Clone();
 
                     // Check for generator suspension after evaluating initializer
-                    if (engine.ExecutionContext.Suspended)
+                    if (context.IsGeneratorSuspended())
                     {
                         engine._referencePool.Return(lhs);
                         return new Completion(CompletionType.Normal, value, _statement);
@@ -98,7 +98,7 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
                     var value = declaration.Init.GetValue(context);
 
                     // Check for generator suspension after evaluating initializer
-                    if (engine.ExecutionContext.Suspended)
+                    if (context.IsGeneratorSuspended())
                     {
                         return new Completion(CompletionType.Normal, value, _statement);
                     }
@@ -124,7 +124,7 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
                     var value = declaration.Init.GetValue(context).Clone();
 
                     // Check for generator suspension after evaluating initializer
-                    if (engine.ExecutionContext.Suspended)
+                    if (context.IsGeneratorSuspended())
                     {
                         engine._referencePool.Return(lhs);
                         return new Completion(CompletionType.Normal, value, _statement);
