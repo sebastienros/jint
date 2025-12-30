@@ -190,6 +190,26 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                     close = true;
                     var reference = GetReferenceFromMember(context, me);
 
+                    // Check for generator suspension after evaluating member expression
+                    if (engine.ExecutionContext.Suspended)
+                    {
+                        close = false; // Don't close iterator, we'll resume later
+                        return JsValue.Undefined;
+                    }
+
+                    // Check for generator return request
+                    if (generator?._returnRequested == true)
+                    {
+                        if (!done && iterator is not null)
+                        {
+                            done = true;
+                            iterator.Close(CompletionType.Return);
+                        }
+                        generator.ClearDestructuringSuspendData(pattern);
+                        close = false; // Already closed
+                        return JsValue.Undefined;
+                    }
+
                     JsValue value;
                     if (arrayOperations != null)
                     {
@@ -223,6 +243,26 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                     if (restElement.Argument is MemberExpression memberExpression)
                     {
                         reference = GetReferenceFromMember(context, memberExpression);
+
+                        // Check for generator suspension after evaluating member expression
+                        if (engine.ExecutionContext.Suspended)
+                        {
+                            close = false; // Don't close iterator, we'll resume later
+                            return JsValue.Undefined;
+                        }
+
+                        // Check for generator return request
+                        if (generator?._returnRequested == true)
+                        {
+                            if (!done && iterator is not null)
+                            {
+                                done = true;
+                                iterator.Close(CompletionType.Return);
+                            }
+                            generator.ClearDestructuringSuspendData(pattern);
+                            close = false; // Already closed
+                            return JsValue.Undefined;
+                        }
                     }
 
                     JsArray array;
@@ -285,6 +325,26 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                     {
                         var jintExpression = Build(assignmentPattern.Right);
                         value = jintExpression.GetValue(context);
+
+                        // Check for generator suspension after evaluating default value
+                        if (engine.ExecutionContext.Suspended)
+                        {
+                            close = false; // Don't close iterator, we'll resume later
+                            return JsValue.Undefined;
+                        }
+
+                        // Check for generator return request after evaluating default value
+                        if (generator?._returnRequested == true)
+                        {
+                            if (!done && iterator is not null)
+                            {
+                                done = true;
+                                iterator.Close(CompletionType.Return);
+                            }
+                            generator.ClearDestructuringSuspendData(pattern);
+                            close = false; // Already closed
+                            return JsValue.Undefined;
+                        }
                     }
 
                     if (assignmentPattern.Left is Identifier leftIdentifier)

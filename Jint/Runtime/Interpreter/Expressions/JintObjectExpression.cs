@@ -205,6 +205,12 @@ internal sealed class JintObjectExpression : JintExpression
                     return value;
                 }
 
+                // Check for generator suspension after evaluating computed property key
+                if (engine.ExecutionContext.Suspended)
+                {
+                    return value;
+                }
+
                 propName = TypeConverter.ToPropertyKey(value);
             }
 

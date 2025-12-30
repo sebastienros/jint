@@ -294,6 +294,25 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                         iterationEnv,
                         checkPatternPropertyReference: _lhsKind != LhsKind.VarBinding);
 
+                    // Check for generator suspension after destructuring
+                    if (engine.ExecutionContext.Suspended)
+                    {
+                        close = false; // Don't close iterator, we'll resume later
+                        completionType = CompletionType.Return;
+                        return new Completion(CompletionType.Return, generator?._suspendedValue ?? nextValue, _statement!);
+                    }
+
+                    // Check for generator return request after destructuring
+                    if (generator?._returnRequested == true)
+                    {
+                        completionType = CompletionType.Return;
+                        close = false; // Prevent double-close in finally
+                        generator.ClearForOfSuspendData(_statement!);
+                        iteratorRecord.Close(completionType);
+                        var returnValue = generator._suspendedValue ?? nextValue;
+                        return new Completion(CompletionType.Return, returnValue, _statement!);
+                    }
+
                     status = context.Completion;
 
                     if (lhsKind == LhsKind.Assignment)

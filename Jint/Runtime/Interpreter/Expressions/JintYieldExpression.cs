@@ -284,15 +284,15 @@ internal sealed class JintYieldExpression : JintExpression
                     }
 
                     // Per spec: "Return Completion(received)" - the generator should complete
-                    // with the received return value, not just return it from yield*
+                    // with the received return value, but we must let try-finally blocks execute.
+                    // Use _returnRequested to signal return completion through normal execution flow.
                     generator._delegatingIterator = null;
                     generator._delegatingYieldNode = null;
-                    generator._generatorState = GeneratorState.Completed;
-                    generator._shouldEarlyReturn = true;
-                    generator._earlyReturnValue = temp;
+                    generator._returnRequested = true;
+                    generator._suspendedValue = temp;
 
-                    // Return to propagate early return up the call stack
-                    // ResumeExecution will see the early return flag
+                    // Return to let the normal execution flow handle the return,
+                    // which will trigger any finally blocks before completing
                     return temp;
                 }
 

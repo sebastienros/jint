@@ -70,6 +70,14 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
                 if (declaration.Init != null)
                 {
                     value = declaration.Init.GetValue(context).Clone();
+
+                    // Check for generator suspension after evaluating initializer
+                    if (engine.ExecutionContext.Suspended)
+                    {
+                        engine._referencePool.Return(lhs);
+                        return new Completion(CompletionType.Normal, value, _statement);
+                    }
+
                     if (declaration.Init._expression.IsFunctionDefinition())
                     {
                         ((Function) value).SetFunctionName(lhs.ReferencedName);
@@ -88,6 +96,12 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
                         : null;
 
                     var value = declaration.Init.GetValue(context);
+
+                    // Check for generator suspension after evaluating initializer
+                    if (engine.ExecutionContext.Suspended)
+                    {
+                        return new Completion(CompletionType.Normal, value, _statement);
+                    }
 
                     DestructuringPatternAssignmentExpression.ProcessPatterns(
                         context,
@@ -108,6 +122,13 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
                     lhs.AssertValid(engine.Realm);
 
                     var value = declaration.Init.GetValue(context).Clone();
+
+                    // Check for generator suspension after evaluating initializer
+                    if (engine.ExecutionContext.Suspended)
+                    {
+                        engine._referencePool.Return(lhs);
+                        return new Completion(CompletionType.Normal, value, _statement);
+                    }
 
                     if (declaration.Init._expression.IsFunctionDefinition())
                     {
