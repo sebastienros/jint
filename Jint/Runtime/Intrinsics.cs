@@ -69,7 +69,8 @@ public sealed partial class Intrinsics
     private EvalFunction? _eval;
     private DateConstructor? _date;
     private IteratorConstructor? _iteratorConstructor;
-    private IteratorPrototype? _iteratorPrototype;
+    private IteratorHelperPrototype? _iteratorHelperPrototype;
+    private WrapForValidIteratorPrototype? _wrapForValidIteratorPrototype;
     private MathInstance? _math;
     private JsonInstance? _json;
     private SymbolConstructor? _symbol;
@@ -229,8 +230,13 @@ public sealed partial class Intrinsics
     internal IteratorConstructor Iterator =>
         _iteratorConstructor ??= new IteratorConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
-    internal IteratorPrototype IteratorPrototype =>
-        _iteratorPrototype ??= new IteratorPrototype(_engine, _realm, Object.PrototypeObject);
+    internal IteratorPrototype IteratorPrototype => Iterator.PrototypeObject;
+
+    internal IteratorHelperPrototype IteratorHelperPrototype =>
+        _iteratorHelperPrototype ??= new IteratorHelperPrototype(_engine, _realm, IteratorPrototype);
+
+    internal WrapForValidIteratorPrototype WrapForValidIteratorPrototype =>
+        _wrapForValidIteratorPrototype ??= new WrapForValidIteratorPrototype(_engine, _realm, IteratorPrototype);
 
     internal StringConstructor String =>
         _string ??= new StringConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);

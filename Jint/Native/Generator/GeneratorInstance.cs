@@ -108,6 +108,11 @@ internal sealed class GeneratorInstance : ObjectInstance
     /// </summary>
     internal Dictionary<object, SuspendData>? _suspendData;
 
+    /// <summary>
+    /// Separate dictionary for for-loop suspend data (doesn't need iterator tracking).
+    /// </summary>
+    internal Dictionary<object, ForLoopSuspendData>? _forLoopSuspendData;
+
     public GeneratorInstance(Engine engine) : base(engine)
     {
     }
@@ -299,6 +304,41 @@ internal sealed class GeneratorInstance : ObjectInstance
     internal void ClearSuspendData(object key)
     {
         _suspendData?.Remove(key);
+    }
+
+    /// <summary>
+    /// Gets or creates ForLoopSuspendData for the given key.
+    /// </summary>
+    internal ForLoopSuspendData GetOrCreateForLoopSuspendData(object key)
+    {
+        _forLoopSuspendData ??= new Dictionary<object, ForLoopSuspendData>();
+        if (!_forLoopSuspendData.TryGetValue(key, out var data))
+        {
+            data = new ForLoopSuspendData();
+            _forLoopSuspendData[key] = data;
+        }
+        return data;
+    }
+
+    /// <summary>
+    /// Tries to get existing ForLoopSuspendData for the given key.
+    /// </summary>
+    internal bool TryGetForLoopSuspendData(object key, out ForLoopSuspendData? data)
+    {
+        if (_forLoopSuspendData?.TryGetValue(key, out data) == true)
+        {
+            return true;
+        }
+        data = default;
+        return false;
+    }
+
+    /// <summary>
+    /// Clears ForLoopSuspendData for the given key.
+    /// </summary>
+    internal void ClearForLoopSuspendData(object key)
+    {
+        _forLoopSuspendData?.Remove(key);
     }
 
     /// <summary>

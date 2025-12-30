@@ -63,3 +63,20 @@ internal sealed class ForOfSuspendData : SuspendData
     /// </summary>
     public DeclarativeEnvironment? IterationEnv { get; set; }
 }
+
+/// <summary>
+/// Stores the state of a regular for loop when a generator yields inside it.
+/// Saves loop variable values so they can be restored when resuming.
+/// </summary>
+internal sealed class ForLoopSuspendData
+{
+    /// <summary>
+    /// The saved values of loop variables (let bindings in for loop init).
+    /// </summary>
+    public Dictionary<Key, JsValue>? BoundValues { get; set; }
+
+    /// <summary>
+    /// The accumulated result value (v) from previous iterations.
+    /// </summary>
+    public JsValue AccumulatedValue { get; set; } = JsValue.Undefined;
+}

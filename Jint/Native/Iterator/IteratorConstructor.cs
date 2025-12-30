@@ -19,12 +19,12 @@ internal sealed class IteratorConstructor : Constructor
         : base(engine, realm, _functionName)
     {
         _prototype = functionPrototype;
-        PrototypeObject = new IteratorPrototype(engine, realm, this);
+        PrototypeObject = new IteratorPrototype(engine, realm, objectPrototype);
         _length = new PropertyDescriptor(0, PropertyFlag.Configurable);
         _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
     }
 
-    private IteratorPrototype PrototypeObject { get; }
+    internal IteratorPrototype PrototypeObject { get; }
 
     protected override void Initialize()
     {
@@ -52,90 +52,101 @@ internal sealed class IteratorConstructor : Constructor
     /// </summary>
     private JsValue From(JsValue thisObject, JsValue[] arguments)
     {
-        var iteratorRecord = GetIteratorFlattenable(thisObject, StringHandlingType.IterateStringPrimitives);
-        var hasInstance = _engine.Intrinsics.Iterator.OrdinaryHasInstance(iteratorRecord);
-        if (hasInstance)
+        // 1. If O is a String, set O to ! ToObject(O).
+        var o = arguments.At(0);
+
+        // 2. Let iteratorRecord be ? GetIteratorFlattenable(O, iterate-strings).
+        var iteratorRecord = GetIteratorFlattenable(o, StringHandlingType.IterateStrings, out var underlyingIterator);
+
+        // 3. Let hasInstance be ? OrdinaryHasInstance(%Iterator%, iteratorRecord.[[Iterator]]).
+        var hasInstance = _engine.Intrinsics.Iterator.OrdinaryHasInstance(underlyingIterator);
+
+        // 4. If hasInstance is true, return iteratorRecord.[[Iterator]].
+        if (TypeConverter.ToBoolean(hasInstance))
         {
-            return iteratorRecord;
+            return underlyingIterator;
         }
 
-        var wrapper = new WrapForValidIteratorPrototype(_engine, iteratorRecord);
+        // 5. Let wrapper be OrdinaryObjectCreate(%WrapForValidIteratorPrototype%, « [[Iterated]] »).
+        // 6. Set wrapper.[[Iterated]] to iteratorRecord.
+        // 7. Return wrapper.
+        var wrapper = new WrapForValidIterator(_engine, iteratorRecord);
         return wrapper;
     }
 
-    private IteratorInstance.ObjectIterator GetIteratorFlattenable(JsValue obj, StringHandlingType stringHandling)
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-getiteratorflattenable
+    /// </summary>
+    private IteratorInstance.ObjectIterator GetIteratorFlattenable(JsValue obj, StringHandlingType stringHandling, out ObjectInstance iterator)
     {
-        if (obj is not ObjectInstance)
+        // 1. If obj is not an Object, then
+        if (obj is not ObjectInstance objInstance)
         {
-            if (stringHandling == StringHandlingType.RejectStrings || obj.IsString())
+            // a. If stringHandling is reject-strings or obj is not a String, throw a TypeError exception.
+            if (stringHandling == StringHandlingType.RejectStrings || !obj.IsString())
             {
-                Throw.TypeError(_realm);
+                Throw.TypeError(_realm, "Iterator.from requires an object or string");
             }
+
+            // For strings, get the iterator via Symbol.iterator
+            var stringObj = TypeConverter.ToObject(_realm, obj);
+            var stringMethod = stringObj.GetMethod(GlobalSymbolRegistry.Iterator);
+            if (stringMethod is null)
+            {
+                Throw.TypeError(_realm, "Object is not iterable");
+                iterator = null!;
+                return null!;
+            }
+
+            var stringIteratorResult = stringMethod.Call(stringObj);
+            if (stringIteratorResult is not ObjectInstance stringIterator)
+            {
+                Throw.TypeError(_realm, "Iterator result is not an object");
+                iterator = null!;
+                return null!;
+            }
+
+            iterator = stringIterator;
+            return new IteratorInstance.ObjectIterator(stringIterator);
         }
 
-        JsValue iterator;
-        var method = JsValue.GetMethod(_realm, obj, GlobalSymbolRegistry.Iterator);
+        // 2. Let method be ? GetMethod(obj, %Symbol.iterator%).
+        var method = objInstance.GetMethod(GlobalSymbolRegistry.Iterator);
+
+        // 3. If method is undefined, then
         if (method is null)
         {
-            iterator = obj;
+            // a. Let iterator be obj.
+            iterator = objInstance;
         }
         else
         {
-            iterator = method.Call(obj);
-        }
-
-        if (iterator is not ObjectInstance objectInstance)
-        {
-            Throw.TypeError(_realm);
-            return null;
-        }
-
-        return new IteratorInstance.ObjectIterator(objectInstance);
-    }
-
-    private sealed class WrapForValidIteratorPrototype : ObjectInstance
-    {
-        public WrapForValidIteratorPrototype(
-            Engine engine,
-            IteratorInstance.ObjectIterator iterated) : base(engine)
-        {
-            Iterated = iterated;
-            SetPrototypeOf(engine.Intrinsics.IteratorPrototype);
-        }
-
-        public IteratorInstance.ObjectIterator Iterated { get; }
-
-        public ObjectInstance Next()
-        {
-            var iteratorRecord = Iterated;
-            iteratorRecord.TryIteratorStep(out var obj);
-            return obj;
-        }
-
-        public JsValue Return()
-        {
-            var iterator = Iterated.GetIterator(_engine.Realm);
-            var returnMethod = iterator.GetMethod(CommonProperties.Return);
-            if (returnMethod is null)
+            // b. Else,
+            // i. Let iterator be ? Call(method, obj).
+            var result = method.Call(objInstance);
+            if (result is not ObjectInstance iteratorObj)
             {
-                return CreateIteratorResultObject(Undefined, done: JsBoolean.True);
+                Throw.TypeError(_realm, "Iterator result is not an object");
+                iterator = null!;
+                return null!;
             }
-
-            return returnMethod.Call(iterator);
+            iterator = iteratorObj;
         }
 
-        /// <summary>
-        /// https://tc39.es/ecma262/#sec-createiterresultobject
-        /// </summary>
-        private IteratorResult CreateIteratorResultObject(JsValue value, JsBoolean done)
-        {
-            return IteratorResult.CreateValueIteratorPosition(_engine, value, done);
-        }
+        // 4. If iterator is not an Object, throw a TypeError exception.
+        // (Already checked above)
+
+        // 5. Let nextMethod be ? Get(iterator, "next").
+        // 6. Let iteratorRecord be the Iterator Record { [[Iterator]]: iterator, [[NextMethod]]: nextMethod, [[Done]]: false }.
+        var iteratorRecord = new IteratorInstance.ObjectIterator(iterator);
+
+        // 7. Return iteratorRecord.
+        return iteratorRecord;
     }
 
     private enum StringHandlingType
     {
-        IterateStringPrimitives,
+        IterateStrings,
         RejectStrings
     }
 }

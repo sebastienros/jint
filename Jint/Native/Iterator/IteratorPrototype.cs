@@ -95,44 +95,54 @@ internal class IteratorPrototype : Prototype
     /// </summary>
     private JsValue Map(JsValue thisObject, JsValue[] arguments)
     {
+        // 1. Let O be the this value.
+        // 2. If O is not an Object, throw a TypeError exception.
         if (thisObject is not ObjectInstance o)
         {
-            Throw.TypeError(_realm, "object must be an Object");
+            Throw.TypeError(_realm, "Iterator.prototype.map called on non-object");
             return Undefined;
         }
 
-        var mapper = GetCallable(arguments.At(0));
-        var iterated = GetIteratorDirect(o);
-        //var iterator = new iterao
-
-        var closure = () =>
+        // 3. If IsCallable(mapper) is false, throw a TypeError exception.
+        ICallable mapper;
+        try
         {
-            //a. Let counter be 0.
-            //    b. Repeat,
-            //i. Let value be ? IteratorStepValue(iterated).
-            //    ii. If value is done, return undefined.
-            //    iii. Let mapped be Completion(Call(mapper, undefined, « value, 𝔽(counter) »)).
-            //iv. IfAbruptCloseIterator(mapped, iterated).
-            //    v. Let completion be Completion(Yield(mapped)).
-            //    vi. IfAbruptCloseIterator(completion, iterated).
-            //    vii. Set counter to counter + 1.
-        };
+            mapper = GetCallable(arguments.At(0));
+        }
+        catch
+        {
+            IteratorClose(o, CompletionType.Throw);
+            throw;
+        }
 
-        var result = new SuperFoo(_engine, closure, iterated);
-        return result;
+        // 4. Let iterated be GetIteratorDirect(O).
+        var iterated = GetIteratorDirect(o);
+
+        // Create and return map iterator
+        return new MapIterator(_engine, iterated, mapper);
     }
 
     private static IteratorInstance.ObjectIterator GetIteratorDirect(ObjectInstance objectInstance) => new(objectInstance);
 
-    private sealed class SuperFoo : IteratorInstance
+    /// <summary>
+    /// Close an iterator by calling its return() method directly (without reading next).
+    /// Used when validation fails before GetIteratorDirect is called.
+    /// </summary>
+    private static void IteratorClose(ObjectInstance obj, CompletionType completionType)
     {
-        public SuperFoo(Engine engine, Action closure, IteratorInstance iterated) : base(engine)
+        var returnMethod = obj.GetMethod(CommonProperties.Return);
+        if (returnMethod is null)
         {
+            return;
         }
 
-        public override bool TryIteratorStep(out ObjectInstance nextItem)
+        try
         {
-            throw new NotImplementedException();
+            returnMethod.Call(obj, Arguments.Empty);
+        }
+        catch when (completionType == CompletionType.Throw)
+        {
+            // Ignore errors from return when completion is throw
         }
     }
 
@@ -141,7 +151,31 @@ internal class IteratorPrototype : Prototype
     /// </summary>
     private JsValue Filter(JsValue thisObject, JsValue[] arguments)
     {
-        return Undefined;
+        // 1. Let O be the this value.
+        // 2. If O is not an Object, throw a TypeError exception.
+        if (thisObject is not ObjectInstance o)
+        {
+            Throw.TypeError(_realm, "Iterator.prototype.filter called on non-object");
+            return Undefined;
+        }
+
+        // 3. If IsCallable(predicate) is false, throw a TypeError exception.
+        ICallable predicate;
+        try
+        {
+            predicate = GetCallable(arguments.At(0));
+        }
+        catch
+        {
+            IteratorClose(o, CompletionType.Throw);
+            throw;
+        }
+
+        // 4. Let iterated be GetIteratorDirect(O).
+        var iterated = GetIteratorDirect(o);
+
+        // Create and return filter iterator
+        return new FilterIterator(_engine, iterated, predicate);
     }
 
     /// <summary>
@@ -149,7 +183,51 @@ internal class IteratorPrototype : Prototype
     /// </summary>
     private JsValue Take(JsValue thisObject, JsValue[] arguments)
     {
-        return Undefined;
+        // 1. Let O be the this value.
+        // 2. If O is not an Object, throw a TypeError exception.
+        if (thisObject is not ObjectInstance o)
+        {
+            Throw.TypeError(_realm, "Iterator.prototype.take called on non-object");
+            return Undefined;
+        }
+
+        // 3. Let numLimit be ? ToNumber(limit).
+        double numLimit;
+        try
+        {
+            numLimit = TypeConverter.ToNumber(arguments.At(0));
+        }
+        catch
+        {
+            IteratorClose(o, CompletionType.Throw);
+            throw;
+        }
+
+        // 4. If numLimit is NaN, throw a RangeError exception.
+        if (double.IsNaN(numLimit))
+        {
+            IteratorClose(o, CompletionType.Throw);
+            Throw.RangeError(_realm, "Invalid limit");
+            return Undefined;
+        }
+
+        // 5. Let integerLimit be ! ToIntegerOrInfinity(numLimit).
+        var integerLimit = TypeConverter.ToIntegerOrInfinity(numLimit);
+
+        // 6. If integerLimit < 0, throw a RangeError exception.
+        if (integerLimit < 0)
+        {
+            IteratorClose(o, CompletionType.Throw);
+            Throw.RangeError(_realm, "Invalid limit");
+            return Undefined;
+        }
+
+        // 7. Let iterated be GetIteratorDirect(O).
+        var iterated = GetIteratorDirect(o);
+
+        // Create and return take iterator
+        var limit = double.IsPositiveInfinity(integerLimit) ? long.MaxValue : (long) integerLimit;
+        return new TakeIterator(_engine, iterated, limit);
     }
 
     /// <summary>
@@ -157,7 +235,51 @@ internal class IteratorPrototype : Prototype
     /// </summary>
     private JsValue Drop(JsValue thisObject, JsValue[] arguments)
     {
-        return Undefined;
+        // 1. Let O be the this value.
+        // 2. If O is not an Object, throw a TypeError exception.
+        if (thisObject is not ObjectInstance o)
+        {
+            Throw.TypeError(_realm, "Iterator.prototype.drop called on non-object");
+            return Undefined;
+        }
+
+        // 3. Let numLimit be ? ToNumber(limit).
+        double numLimit;
+        try
+        {
+            numLimit = TypeConverter.ToNumber(arguments.At(0));
+        }
+        catch
+        {
+            IteratorClose(o, CompletionType.Throw);
+            throw;
+        }
+
+        // 4. If numLimit is NaN, throw a RangeError exception.
+        if (double.IsNaN(numLimit))
+        {
+            IteratorClose(o, CompletionType.Throw);
+            Throw.RangeError(_realm, "Invalid limit");
+            return Undefined;
+        }
+
+        // 5. Let integerLimit be ! ToIntegerOrInfinity(numLimit).
+        var integerLimit = TypeConverter.ToIntegerOrInfinity(numLimit);
+
+        // 6. If integerLimit < 0, throw a RangeError exception.
+        if (integerLimit < 0)
+        {
+            IteratorClose(o, CompletionType.Throw);
+            Throw.RangeError(_realm, "Invalid limit");
+            return Undefined;
+        }
+
+        // 7. Let iterated be GetIteratorDirect(O).
+        var iterated = GetIteratorDirect(o);
+
+        // Create and return drop iterator
+        var limit = double.IsPositiveInfinity(integerLimit) ? long.MaxValue : (long) integerLimit;
+        return new DropIterator(_engine, iterated, limit);
     }
 
     /// <summary>
@@ -165,7 +287,31 @@ internal class IteratorPrototype : Prototype
     /// </summary>
     private JsValue FlatMap(JsValue thisObject, JsValue[] arguments)
     {
-        return Undefined;
+        // 1. Let O be the this value.
+        // 2. If O is not an Object, throw a TypeError exception.
+        if (thisObject is not ObjectInstance o)
+        {
+            Throw.TypeError(_realm, "Iterator.prototype.flatMap called on non-object");
+            return Undefined;
+        }
+
+        // 3. If IsCallable(mapper) is false, throw a TypeError exception.
+        ICallable mapper;
+        try
+        {
+            mapper = GetCallable(arguments.At(0));
+        }
+        catch
+        {
+            IteratorClose(o, CompletionType.Throw);
+            throw;
+        }
+
+        // 4. Let iterated be GetIteratorDirect(O).
+        var iterated = GetIteratorDirect(o);
+
+        // Create and return flatMap iterator
+        return new FlatMapIterator(_engine, iterated, mapper);
     }
 
     /// <summary>
@@ -173,7 +319,73 @@ internal class IteratorPrototype : Prototype
     /// </summary>
     private JsValue Reduce(JsValue thisObject, JsValue[] arguments)
     {
-        return Undefined;
+        // 1. Let O be the this value.
+        // 2. If O is not an Object, throw a TypeError exception.
+        if (thisObject is not ObjectInstance o)
+        {
+            Throw.TypeError(_realm, "Iterator.prototype.reduce called on non-object");
+            return Undefined;
+        }
+
+        // 3. If IsCallable(reducer) is false, throw a TypeError exception.
+        ICallable reducer;
+        try
+        {
+            reducer = GetCallable(arguments.At(0));
+        }
+        catch
+        {
+            IteratorClose(o, CompletionType.Throw);
+            throw;
+        }
+
+        // 4. Let iterated be GetIteratorDirect(O).
+        var iterated = GetIteratorDirect(o);
+
+        JsValue accumulator;
+        var counter = 0;
+
+        // 5. If initialValue is not present, then
+        if (arguments.Length < 2)
+        {
+            // a. Let next be ? IteratorStep(iterated).
+            // b. If next is done, throw a TypeError exception.
+            if (!iterated.TryIteratorStep(out var firstResult))
+            {
+                Throw.TypeError(_realm, "Reduce of empty iterator with no initial value");
+                return Undefined;
+            }
+            // c. Let accumulator be ? IteratorValue(next).
+            accumulator = firstResult.Get(CommonProperties.Value);
+            counter = 1;
+        }
+        else
+        {
+            // 6. Else, let accumulator be initialValue.
+            accumulator = arguments.At(1);
+        }
+
+        // 7. Repeat,
+        while (iterated.TryIteratorStep(out var iteratorResult))
+        {
+            try
+            {
+                var value = iteratorResult.Get(CommonProperties.Value);
+                // a. Let value be ? IteratorStepValue(iterated).
+                // b. If value is done, return accumulator.
+                // c. Set accumulator to ? Call(reducer, undefined, « accumulator, value, 𝔽(counter) »).
+                accumulator = reducer.Call(Undefined, [accumulator, value, counter]);
+                // d. Set counter to counter + 1.
+                counter++;
+            }
+            catch
+            {
+                iterated.Close(CompletionType.Throw);
+                throw;
+            }
+        }
+
+        return accumulator;
     }
 
     /// <summary>
@@ -217,7 +429,19 @@ internal class IteratorPrototype : Prototype
             return Undefined;
         }
 
-        var procedure = GetCallable(arguments.At(0));
+        // Validate predicate first, close on failure
+        ICallable procedure;
+        try
+        {
+            procedure = GetCallable(arguments.At(0));
+        }
+        catch
+        {
+            IteratorClose(o, CompletionType.Throw);
+            throw;
+        }
+
+        // Then get the iterator
         var iterated = GetIteratorDirect(o);
 
         var counter = 0;
@@ -250,7 +474,19 @@ internal class IteratorPrototype : Prototype
             return Undefined;
         }
 
-        var predicate = GetCallable(arguments.At(0));
+        // Validate predicate first, close on failure
+        ICallable predicate;
+        try
+        {
+            predicate = GetCallable(arguments.At(0));
+        }
+        catch
+        {
+            IteratorClose(o, CompletionType.Throw);
+            throw;
+        }
+
+        // Then get the iterator
         var iterated = GetIteratorDirect(o);
 
         var counter = 0;
@@ -289,7 +525,19 @@ internal class IteratorPrototype : Prototype
             return Undefined;
         }
 
-        var predicate = GetCallable(arguments.At(0));
+        // Validate predicate first, close on failure
+        ICallable predicate;
+        try
+        {
+            predicate = GetCallable(arguments.At(0));
+        }
+        catch
+        {
+            IteratorClose(o, CompletionType.Throw);
+            throw;
+        }
+
+        // Then get the iterator
         var iterated = GetIteratorDirect(o);
 
         var counter = 0;
@@ -328,7 +576,19 @@ internal class IteratorPrototype : Prototype
             return Undefined;
         }
 
-        var predicate = GetCallable(arguments.At(0));
+        // Validate predicate first, close on failure
+        ICallable predicate;
+        try
+        {
+            predicate = GetCallable(arguments.At(0));
+        }
+        catch
+        {
+            IteratorClose(o, CompletionType.Throw);
+            throw;
+        }
+
+        // Then get the iterator
         var iterated = GetIteratorDirect(o);
 
         var counter = 0;
