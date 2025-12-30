@@ -108,10 +108,6 @@ internal sealed class GeneratorInstance : ObjectInstance
     /// </summary>
     internal Dictionary<object, SuspendData>? _suspendData;
 
-    /// <summary>
-    /// Separate dictionary for for-loop suspend data (doesn't need iterator tracking).
-    /// </summary>
-    internal Dictionary<object, ForLoopSuspendData>? _forLoopSuspendData;
 
     public GeneratorInstance(Engine engine) : base(engine)
     {
@@ -284,6 +280,21 @@ internal sealed class GeneratorInstance : ObjectInstance
     }
 
     /// <summary>
+    /// Gets or creates suspend data of the specified type (for constructs without iterators).
+    /// Keys should be Jint expression/statement instances (this) to avoid collisions across engines.
+    /// </summary>
+    internal T GetOrCreateSuspendData<T>(object key) where T : SuspendData, new()
+    {
+        _suspendData ??= new Dictionary<object, SuspendData>();
+        if (!_suspendData.TryGetValue(key, out var data))
+        {
+            data = new T();
+            _suspendData[key] = data;
+        }
+        return (T) data;
+    }
+
+    /// <summary>
     /// Tries to get existing suspend data of the specified type.
     /// Returns true if suspend data exists for the given key.
     /// </summary>
@@ -307,41 +318,6 @@ internal sealed class GeneratorInstance : ObjectInstance
     }
 
     /// <summary>
-    /// Gets or creates ForLoopSuspendData for the given key.
-    /// </summary>
-    internal ForLoopSuspendData GetOrCreateForLoopSuspendData(object key)
-    {
-        _forLoopSuspendData ??= new Dictionary<object, ForLoopSuspendData>();
-        if (!_forLoopSuspendData.TryGetValue(key, out var data))
-        {
-            data = new ForLoopSuspendData();
-            _forLoopSuspendData[key] = data;
-        }
-        return data;
-    }
-
-    /// <summary>
-    /// Tries to get existing ForLoopSuspendData for the given key.
-    /// </summary>
-    internal bool TryGetForLoopSuspendData(object key, out ForLoopSuspendData? data)
-    {
-        if (_forLoopSuspendData?.TryGetValue(key, out data) == true)
-        {
-            return true;
-        }
-        data = default;
-        return false;
-    }
-
-    /// <summary>
-    /// Clears ForLoopSuspendData for the given key.
-    /// </summary>
-    internal void ClearForLoopSuspendData(object key)
-    {
-        _forLoopSuspendData?.Remove(key);
-    }
-
-    /// <summary>
     /// Closes all pending destructuring iterators.
     /// Called when generator.return() is invoked to properly close iterators
     /// that were suspended mid-destructuring.
@@ -357,7 +333,7 @@ internal sealed class GeneratorInstance : ObjectInstance
         {
             if (kvp.Value is DestructuringSuspendData data && !data.Done)
             {
-                data.Iterator.Close(completionType);
+                data.Iterator?.Close(completionType);
                 data.Done = true;
             }
         }
