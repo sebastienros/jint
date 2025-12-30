@@ -88,9 +88,9 @@ internal sealed class IteratorConstructor : Constructor
                 Throw.TypeError(_realm, "Iterator.from requires an object or string");
             }
 
-            // For strings, get the iterator via Symbol.iterator
-            var stringObj = TypeConverter.ToObject(_realm, obj);
-            var stringMethod = stringObj.GetMethod(GlobalSymbolRegistry.Iterator);
+            // b. Let method be ? GetMethod(obj, @@iterator).
+            // Note: Use GetMethod on primitive to preserve receiver for strict mode getters
+            var stringMethod = GetMethod(_realm, obj, GlobalSymbolRegistry.Iterator);
             if (stringMethod is null)
             {
                 Throw.TypeError(_realm, "Object is not iterable");
@@ -98,7 +98,8 @@ internal sealed class IteratorConstructor : Constructor
                 return null!;
             }
 
-            var stringIteratorResult = stringMethod.Call(stringObj);
+            // c. Call method with obj (primitive) as receiver
+            var stringIteratorResult = stringMethod.Call(obj);
             if (stringIteratorResult is not ObjectInstance stringIterator)
             {
                 Throw.TypeError(_realm, "Iterator result is not an object");

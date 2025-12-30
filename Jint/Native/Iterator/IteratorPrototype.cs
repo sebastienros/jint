@@ -24,12 +24,12 @@ internal class IteratorPrototype : Prototype
         var properties = new PropertyDictionary(12, checkExistingKeys: false)
         {
             [KnownKeys.Constructor] = new GetSetPropertyDescriptor(
-                get: new ClrFunction(_engine, "Iterator.prototype.constructor", (_, _) => _engine.Intrinsics.Iterator),
-                set: new ClrFunction(_engine, "Iterator.prototype.constructor", (thisObject, arguments) =>
+                get: new ClrFunction(_engine, "get constructor", (_, _) => _engine.Intrinsics.Iterator, 0, PropertyFlag.Configurable),
+                set: new ClrFunction(_engine, "set constructor", (thisObject, arguments) =>
                 {
                     SetterThatIgnoresPrototypeProperties(thisObject, _engine.Intrinsics.IteratorPrototype, CommonProperties.Constructor, arguments.At(0));
                     return Undefined;
-                }),
+                }, 1, PropertyFlag.Configurable),
                 PropertyFlag.Configurable),
             ["map"] = new(new ClrFunction(_engine, "map", Map, 1, PropertyFlag.Configurable), PropertyFlag.Writable | PropertyFlag.Configurable),
             ["filter"] = new(new ClrFunction(_engine, "filter", Filter, 1, PropertyFlag.Configurable), PropertyFlag.Writable | PropertyFlag.Configurable),

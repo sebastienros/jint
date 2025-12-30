@@ -565,7 +565,9 @@ internal sealed class StringPrototype : StringInstance
         var searchValue = arguments.At(0);
         var replaceValue = arguments.At(1);
 
-        if (!searchValue.IsNullOrUndefined())
+        // 2. If searchValue is neither undefined nor null, then
+        // Note: spec requires checking if searchValue IS an object, not just not-null/undefined
+        if (searchValue is ObjectInstance)
         {
             var replacer = GetMethod(_realm, searchValue, GlobalSymbolRegistry.Replace);
             if (replacer != null)
@@ -617,7 +619,9 @@ internal sealed class StringPrototype : StringInstance
         var searchValue = arguments.At(0);
         var replaceValue = arguments.At(1);
 
-        if (!searchValue.IsNullOrUndefined())
+        // 2. If searchValue is neither undefined nor null, then
+        // Note: spec requires checking if searchValue IS an object, not just not-null/undefined
+        if (searchValue is ObjectInstance)
         {
             if (searchValue.IsRegExp())
             {
@@ -730,7 +734,9 @@ internal sealed class StringPrototype : StringInstance
         TypeConverter.RequireObjectCoercible(_engine, thisObject);
 
         var regex = arguments.At(0);
-        if (!regex.IsNullOrUndefined())
+        // 2. If regexp is neither undefined nor null, then
+        // Note: spec requires checking if regexp IS an object, not just not-null/undefined
+        if (regex is ObjectInstance)
         {
             if (regex.IsRegExp())
             {
