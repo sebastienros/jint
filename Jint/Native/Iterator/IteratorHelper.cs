@@ -1,3 +1,4 @@
+using Jint.Native.Generator;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -137,17 +138,6 @@ internal abstract class IteratorHelper : ObjectInstance
             Value = value;
             Done = done;
         }
-    }
-
-    /// <summary>
-    /// Generator state for iterator helpers.
-    /// </summary>
-    protected enum GeneratorState
-    {
-        SuspendedStart,
-        SuspendedYield,
-        Executing,
-        Completed
     }
 }
 
@@ -536,13 +526,5 @@ internal sealed class ConcatIterator : ObjectInstance
     private IteratorResult CreateIteratorResult(JsValue value, bool done)
     {
         return IteratorResult.CreateValueIteratorPosition(_engine, value, JsBoolean.Create(done));
-    }
-
-    private enum GeneratorState
-    {
-        SuspendedStart,
-        SuspendedYield,
-        Executing,
-        Completed
     }
 }
