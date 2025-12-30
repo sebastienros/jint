@@ -1,5 +1,4 @@
 using Jint.Native;
-using Jint.Native.Iterator;
 
 namespace Jint.Runtime;
 
@@ -9,13 +8,8 @@ namespace Jint.Runtime;
 /// the iterator must be preserved so it can be properly closed when the generator
 /// completes or returns.
 /// </summary>
-internal sealed class DestructuringSuspendData
+internal sealed class DestructuringSuspendData : SuspendData
 {
-    /// <summary>
-    /// The iterator instance from the destructuring that was in progress.
-    /// </summary>
-    public IteratorInstance Iterator { get; init; } = null!;
-
     /// <summary>
     /// The current element index in the destructuring pattern.
     /// </summary>

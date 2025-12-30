@@ -1,20 +1,13 @@
 using Jint.Native;
-using Jint.Native.Iterator;
 using Jint.Runtime.Environments;
 
 namespace Jint.Runtime;
 
 /// <summary>
 /// Stores the state of a for-of/for-in loop when a generator yields inside it.
-/// Following the NiL.JS SuspendData pattern for iterator state preservation.
 /// </summary>
-internal sealed class ForOfSuspendData
+internal sealed class ForOfSuspendData : SuspendData
 {
-    /// <summary>
-    /// The iterator instance from HeadEvaluation that was in progress.
-    /// </summary>
-    public IteratorInstance Iterator { get; init; } = null!;
-
     /// <summary>
     /// The current value being processed (from TryIteratorStep).
     /// Needed when yield happens during destructuring or body execution.
