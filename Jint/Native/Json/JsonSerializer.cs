@@ -212,6 +212,13 @@ public sealed class JsonSerializer
 
         if (value is ObjectInstance { IsCallable: false } objectInstance)
         {
+            // Handle RawJSON objects - output rawJSON property directly
+            if (objectInstance is JsRawJson rawJson)
+            {
+                json.Append(rawJson.RawJson);
+                return SerializeResult.NotUndefined;
+            }
+
             if (CanSerializesAsArray(objectInstance))
             {
                 SerializeJSONArray(objectInstance, ref json);

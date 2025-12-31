@@ -10,7 +10,6 @@
     "Atomics",
     "decorators",
     "import-defer",
-    "json-parse-with-source",
     "regexp-lookbehind",
     "regexp-modifiers",
     "regexp-unicode-property-escapes",
