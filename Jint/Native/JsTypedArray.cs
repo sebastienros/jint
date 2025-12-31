@@ -369,6 +369,10 @@ public sealed class JsTypedArray : ObjectInstance
         var elementType = _arrayElementType;
         var elementSize = elementType.GetElementSize();
         var indexedPosition = index * elementSize + offset;
+
+        // https://tc39.es/proposal-immutable-arraybuffer/#sec-integerindexedelementset
+        _viewedArrayBuffer.AssertNotImmutable();
+
         _viewedArrayBuffer.SetValueInBuffer(indexedPosition, elementType, numValue, true, ArrayBufferOrder.Unordered);
     }
 

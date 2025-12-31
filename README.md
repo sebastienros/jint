@@ -144,6 +144,7 @@ and many more.
 
 - ✔ `Error.isError`
 - ✔ Explicit Resource Management (`using` and `await using`)
+- ✔ Immutable Arraybuffers
 - ✔ Iterator Sequencing
 - ✔ `Math.sumPrecise`
 - ✔ `ShadowRealm`

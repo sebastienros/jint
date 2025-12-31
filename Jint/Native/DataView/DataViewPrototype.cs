@@ -351,6 +351,7 @@ internal sealed class DataViewPrototype : Prototype
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-setviewvalue
+    /// https://tc39.es/proposal-immutable-arraybuffer/#sec-setviewvalue
     /// </summary>
     private JsValue SetViewValue(
         JsValue view,
@@ -363,6 +364,15 @@ internal sealed class DataViewPrototype : Prototype
         if (dataView is null)
         {
             Throw.TypeError(_realm, "Method called on incompatible receiver " + view);
+        }
+
+        var buffer = dataView._viewedArrayBuffer!;
+
+        // https://tc39.es/proposal-immutable-arraybuffer/#sec-setviewvalue
+        // Check immutability BEFORE processing arguments
+        if (buffer.IsImmutableBuffer)
+        {
+            Throw.TypeError(_realm, "Cannot modify an immutable ArrayBuffer");
         }
 
         var getIndex = TypeConverter.ToIndex(_realm, requestIndex);
@@ -378,7 +388,6 @@ internal sealed class DataViewPrototype : Prototype
         }
 
         var isLittleEndianBoolean = TypeConverter.ToBoolean(isLittleEndian);
-        var buffer = dataView._viewedArrayBuffer!;
         buffer.AssertNotDetached();
 
         var viewOffset = dataView._byteOffset;

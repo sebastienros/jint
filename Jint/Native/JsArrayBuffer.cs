@@ -15,6 +15,7 @@ public class JsArrayBuffer : ObjectInstance
 
     internal byte[]? _arrayBufferData;
     internal readonly int? _arrayBufferMaxByteLength;
+    internal bool _isImmutable;
 
     internal readonly JsValue _arrayBufferDetachKey = Undefined;
 
@@ -51,6 +52,11 @@ public class JsArrayBuffer : ObjectInstance
     internal bool IsFixedLengthArrayBuffer => _arrayBufferMaxByteLength is null;
 
     internal virtual bool IsSharedArrayBuffer => false;
+
+    /// <summary>
+    /// https://tc39.es/proposal-immutable-arraybuffer/#sec-isimmutablebuffer
+    /// </summary>
+    internal bool IsImmutableBuffer => _isImmutable;
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-detacharraybuffer
@@ -353,6 +359,17 @@ public class JsArrayBuffer : ObjectInstance
         if (IsDetachedBuffer)
         {
             Throw.TypeError(_engine.Realm, "ArrayBuffer has been detached");
+        }
+    }
+
+    /// <summary>
+    /// https://tc39.es/proposal-immutable-arraybuffer/#sec-isimmutablebuffer
+    /// </summary>
+    internal void AssertNotImmutable()
+    {
+        if (IsImmutableBuffer)
+        {
+            Throw.TypeError(_engine.Realm, "Cannot modify an immutable ArrayBuffer");
         }
     }
 }
