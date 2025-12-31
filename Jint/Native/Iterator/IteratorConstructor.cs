@@ -239,74 +239,141 @@ internal sealed class IteratorConstructor : Constructor
             return Undefined;
         }
 
-        // 6-7. If mode is "longest", get padding option
+        // 6-7. If mode is "longest", get padding option (done later, after collecting iters)
         JsValue[]? paddingValues = null;
         IteratorInstance.ObjectIterator? paddingIterator = null;
+        ObjectInstance? paddingObj = null;
         if (mode == ZipMode.Longest)
         {
             var paddingOption = optionsObj?.Get(CommonProperties.Padding) ?? Undefined;
             if (!paddingOption.IsUndefined())
             {
-                if (paddingOption is not ObjectInstance paddingObj)
+                if (paddingOption is not ObjectInstance pObj)
                 {
                     Throw.TypeError(_realm, "padding must be an object");
                     return Undefined;
                 }
-                // Get iterator from padding object
-                paddingIterator = GetIteratorFlattenable(paddingObj, StringHandlingType.RejectStrings, out _);
+                paddingObj = pObj;
             }
         }
 
         // 8-14. Create iterators from the iterables array
+        // Per spec: iterate and call GetIteratorFlattenable for each element immediately
         var iters = new List<IteratorInstance.ObjectIterator>();
-
-        // iterables should be an array-like or iterable
-        // Per spec, we iterate over the iterables array elements
         var iterablesIterator = iterablesObj.GetIterator(_realm);
-        var iterablesList = new List<ObjectInstance>();
+        var inputIterClosed = false;
 
-        while (iterablesIterator.TryIteratorStep(out var result))
+        try
         {
-            var value = result.Get(CommonProperties.Value);
-            if (value is not ObjectInstance itemObj)
+            while (iterablesIterator.TryIteratorStep(out var result))
             {
-                // Close previously opened iterators
-                CloseIteratorsReverse(iters);
-                Throw.TypeError(_realm, "Each item in iterables must be an object");
-                return Undefined;
+                var value = result.Get(CommonProperties.Value);
+
+                // GetIteratorFlattenable handles non-objects by throwing TypeError
+                try
+                {
+                    var iterator = GetIteratorFlattenable(value, StringHandlingType.RejectStrings, out _);
+                    iters.Add(iterator);
+                }
+                catch
+                {
+                    // IfAbruptCloseIterators: close (inputIter + iters) in reverse
+                    // Per spec, reverse order of [inputIter, ...iters] = iters in reverse, then inputIter
+                    inputIterClosed = true;
+                    CloseIteratorsReverse(iters);
+                    try { iterablesIterator.Close(CompletionType.Throw); } catch { /* ignore */ }
+                    throw;
+                }
             }
-            iterablesList.Add(itemObj);
+        }
+        catch
+        {
+            // If iterablesIterator step throws, close collected iterators
+            if (!inputIterClosed)
+            {
+                CloseIteratorsReverse(iters);
+            }
+            throw;
         }
 
-        // Now get iterators from each iterable
-        foreach (var item in iterablesList)
+        // Get padding iterator now that we have all iters collected
+        // Per spec, if GetIterator throws, close all collected iters
+        if (paddingObj != null)
         {
             try
             {
-                var iterator = GetIteratorFlattenable(item, StringHandlingType.RejectStrings, out _);
-                iters.Add(iterator);
+                var method = paddingObj.GetMethod(GlobalSymbolRegistry.Iterator);
+                if (method is null)
+                {
+                    CloseIteratorsReverse(iters);
+                    Throw.TypeError(_realm, "padding is not iterable");
+                    return Undefined;
+                }
+                var iterResult = method.Call(paddingObj);
+                if (iterResult is not ObjectInstance iterObj)
+                {
+                    CloseIteratorsReverse(iters);
+                    Throw.TypeError(_realm, "Iterator result is not an object");
+                    return Undefined;
+                }
+                paddingIterator = new IteratorInstance.ObjectIterator(iterObj);
             }
             catch
             {
-                // Close previously opened iterators
                 CloseIteratorsReverse(iters);
                 throw;
             }
         }
 
         // Get padding values if we have a padding iterator
+        // Per spec: read exactly iters.Count values, then close if not exhausted
         if (paddingIterator != null)
         {
             paddingValues = new JsValue[iters.Count];
-            for (var i = 0; i < iters.Count; i++)
+            var usingIterator = true;
+
+            try
             {
-                if (paddingIterator.TryIteratorStep(out var paddingResult))
+                for (var i = 0; i < iters.Count; i++)
                 {
-                    paddingValues[i] = paddingResult.Get(CommonProperties.Value);
+                    if (usingIterator)
+                    {
+                        if (paddingIterator.TryIteratorStep(out var paddingResult))
+                        {
+                            paddingValues[i] = paddingResult.Get(CommonProperties.Value);
+                        }
+                        else
+                        {
+                            // Padding iterator exhausted
+                            usingIterator = false;
+                            paddingValues[i] = Undefined;
+                        }
+                    }
+                    else
+                    {
+                        paddingValues[i] = Undefined;
+                    }
                 }
-                else
+            }
+            catch
+            {
+                // If IteratorStepValue throws, close all collected iters
+                CloseIteratorsReverse(iters);
+                throw;
+            }
+
+            // If padding iterator wasn't exhausted, close it
+            if (usingIterator)
+            {
+                try
                 {
-                    paddingValues[i] = Undefined;
+                    paddingIterator.Close(CompletionType.Normal);
+                }
+                catch
+                {
+                    // If closing padding iterator throws, close all collected iters
+                    CloseIteratorsReverse(iters);
+                    throw;
                 }
             }
         }
@@ -393,24 +460,45 @@ internal sealed class IteratorConstructor : Constructor
 
         // Get own enumerable string-keyed properties of iterables
         // Per spec, for each key: GetOwnProperty, Get, GetIteratorFlattenable in order
+        // If any step throws, close already-collected iterators
         var ownKeys = iterablesObj.GetOwnPropertyKeys();
         var iters = new List<IteratorInstance.ObjectIterator>();
         var keysList = new List<JsValue>();
 
         foreach (var key in ownKeys)
         {
-            if (key.IsSymbol())
+            PropertyDescriptor desc;
+            try
             {
-                continue;
+                desc = iterablesObj.GetOwnProperty(key);
+            }
+            catch
+            {
+                CloseIteratorsReverse(iters);
+                throw;
             }
 
-            var desc = iterablesObj.GetOwnProperty(key);
             if (desc == PropertyDescriptor.Undefined || !desc.Enumerable)
             {
                 continue;
             }
 
-            var value = iterablesObj.Get(key);
+            JsValue value;
+            try
+            {
+                value = iterablesObj.Get(key);
+            }
+            catch
+            {
+                CloseIteratorsReverse(iters);
+                throw;
+            }
+
+            // Per spec, skip undefined values - they are not included in results
+            if (value.IsUndefined())
+            {
+                continue;
+            }
 
             try
             {
@@ -427,13 +515,22 @@ internal sealed class IteratorConstructor : Constructor
 
         // Get padding values from the padding object if present
         // Per spec, only call Get (not HasProperty)
+        // If Get throws, close all collected iters
         if (paddingObj != null)
         {
             paddingValues = new JsValue[keysList.Count];
-            for (var i = 0; i < keysList.Count; i++)
+            try
             {
-                var key = keysList[i];
-                paddingValues[i] = paddingObj.Get(key);
+                for (var i = 0; i < keysList.Count; i++)
+                {
+                    var key = keysList[i];
+                    paddingValues[i] = paddingObj.Get(key);
+                }
+            }
+            catch
+            {
+                CloseIteratorsReverse(iters);
+                throw;
             }
         }
 

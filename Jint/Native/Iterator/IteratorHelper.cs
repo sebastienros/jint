@@ -612,7 +612,19 @@ internal sealed class ZipIterator : ObjectInstance
             return null!;
         }
 
-        var previousState = _state;
+        // Per spec: If in suspended-start, set to completed first
+        // This allows re-entrant .next() calls during close to return done properly
+        if (_state == GeneratorState.SuspendedStart)
+        {
+            _state = GeneratorState.Completed;
+            if (!_exhausted)
+            {
+                _exhausted = true;
+                CloseAllIterators(CompletionType.Return);
+            }
+            return CreateIteratorResult(Undefined, done: true);
+        }
+
         _state = GeneratorState.Executing;
 
         try
@@ -661,7 +673,21 @@ internal sealed class ZipIterator : ObjectInstance
                 continue;
             }
 
-            if (!iter.TryIteratorStep(out var stepResult))
+            bool stepDone;
+            ObjectInstance? stepResult = null;
+            try
+            {
+                stepDone = !iter.TryIteratorStep(out stepResult);
+            }
+            catch
+            {
+                // Per spec: If IteratorStepValue throws, remove iter from openIters
+                // then call IteratorCloseAll on remaining
+                _openIters.Remove(iter);
+                throw;
+            }
+
+            if (stepDone)
             {
                 // Iterator is done
                 anyDone = true;
@@ -676,12 +702,76 @@ internal sealed class ZipIterator : ObjectInstance
                     return IteratorHelper.StepResult.DoneResult;
                 }
 
+                if (_mode == ZipMode.Strict)
+                {
+                    if (i == 0)
+                    {
+                        // Per spec: When first iterator (i=0) is done in strict mode,
+                        // check remaining iterators one by one with IteratorStep
+                        // If any is NOT done, close openIters and throw
+                        for (var k = 1; k < iterCount; k++)
+                        {
+                            var otherIter = _iters[k];
+                            if (!_openIters.Contains(otherIter))
+                            {
+                                continue;
+                            }
+
+                            bool otherDone;
+                            try
+                            {
+                                otherDone = !otherIter.TryIteratorStep(out _);
+                            }
+                            catch
+                            {
+                                _openIters.Remove(otherIter);
+                                throw;
+                            }
+
+                            if (otherDone)
+                            {
+                                _openIters.Remove(otherIter);
+                            }
+                            else
+                            {
+                                // Not done - iterators have different lengths
+                                CloseAllIterators(CompletionType.Throw);
+                                _exhausted = true;
+                                Throw.TypeError(_engine.Realm, "Iterators have different lengths");
+                                return IteratorHelper.StepResult.DoneResult;
+                            }
+                        }
+                        // All remaining iterators were also done
+                        _exhausted = true;
+                        return IteratorHelper.StepResult.DoneResult;
+                    }
+                    else
+                    {
+                        // Per spec: When i!=0 and iterator is done in strict mode,
+                        // first iterator wasn't done (or we'd have returned), so lengths differ
+                        CloseAllIterators(CompletionType.Throw);
+                        _exhausted = true;
+                        Throw.TypeError(_engine.Realm, "Iterators have different lengths");
+                        return IteratorHelper.StepResult.DoneResult;
+                    }
+                }
+
                 results[i] = GetPaddingValue(i);
             }
             else
             {
                 allDone = false;
-                var value = stepResult.Get(CommonProperties.Value);
+                JsValue value;
+                try
+                {
+                    value = stepResult!.Get(CommonProperties.Value);
+                }
+                catch
+                {
+                    // If getting the value throws, remove iter and close others
+                    _openIters.Remove(iter);
+                    throw;
+                }
                 results[i] = value;
             }
         }
@@ -690,9 +780,11 @@ internal sealed class ZipIterator : ObjectInstance
         if (_mode == ZipMode.Strict)
         {
             // In strict mode, if some are done and some aren't, throw
+            // Per spec: IteratorCloseAll(openIters, ThrowCompletion(TypeError))
+            // This means close exceptions are ignored because completion is already Throw
             if (anyDone && !allDone)
             {
-                CloseAllIterators(CompletionType.Normal);
+                CloseAllIterators(CompletionType.Throw);
                 _exhausted = true;
                 Throw.TypeError(_engine.Realm, "Iterators have different lengths");
                 return IteratorHelper.StepResult.DoneResult;
@@ -720,8 +812,11 @@ internal sealed class ZipIterator : ObjectInstance
 
     private void CloseOpenIteratorsInReverse(int upToIndex)
     {
-        // Close iterators in reverse order, but only those that are still open
-        // and were opened before the current index
+        // Per IteratorCloseAll spec with Return completion:
+        // Close all open iterators in reverse order, accumulating the first exception
+        Exception? caughtException = null;
+        var isThrowCompletion = false;
+
         for (var j = _openIters.Count - 1; j >= 0; j--)
         {
             var openIter = _openIters[j];
@@ -731,36 +826,61 @@ internal sealed class ZipIterator : ObjectInstance
             {
                 try
                 {
-                    openIter.Close(CompletionType.Normal);
+                    openIter.Close(isThrowCompletion ? CompletionType.Throw : CompletionType.Normal);
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Ignore errors during close
+                    // Capture the first exception, subsequent ones are ignored
+                    if (caughtException is null)
+                    {
+                        caughtException = ex;
+                        isThrowCompletion = true;
+                    }
                 }
             }
         }
         _openIters.Clear();
+
+        // Rethrow the first captured exception
+        if (caughtException is not null)
+        {
+            throw caughtException;
+        }
     }
 
     private void CloseAllIterators(CompletionType completionType)
     {
-        // Close all open iterators in reverse order
+        // Per IteratorCloseAll spec:
+        // 1. For each iterator in reverse, call IteratorClose
+        // 2. If any close throws and we don't already have an exception, capture it
+        // 3. Throw the first captured exception at the end
+        Exception? caughtException = null;
+        var isThrowCompletion = completionType == CompletionType.Throw;
+
         for (var i = _openIters.Count - 1; i >= 0; i--)
         {
             try
             {
-                _openIters[i].Close(completionType);
+                _openIters[i].Close(isThrowCompletion ? CompletionType.Throw : CompletionType.Normal);
             }
-            catch
+            catch (Exception ex)
             {
-                // If we're already throwing, ignore close errors
-                if (completionType != CompletionType.Throw)
+                // Per IteratorClose step 5: if completion is throw, ignore new exceptions
+                // Otherwise, capture the first exception
+                if (!isThrowCompletion && caughtException is null)
                 {
-                    throw;
+                    caughtException = ex;
+                    isThrowCompletion = true; // Subsequent closes will ignore their exceptions
                 }
             }
         }
         _openIters.Clear();
+
+        // Rethrow the first captured exception
+        if (caughtException is not null)
+        {
+            throw caughtException;
+        }
     }
 
     private IteratorResult CreateIteratorResult(JsValue value, bool done)
