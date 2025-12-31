@@ -26,6 +26,7 @@ internal static class CommonProperties
     internal static readonly JsString Return = JsString.CachedCreate("return");
     internal static readonly JsString Set = JsString.CachedCreate("set");
     internal static readonly JsString Size = JsString.CachedCreate("size");
+    internal static readonly JsString Source = JsString.CachedCreate("source");
     internal static readonly JsString Stack = JsString.CachedCreate("stack");
     internal static readonly JsString Value = JsString.CachedCreate("value");
     internal static readonly JsString Writable = JsString.CachedCreate("writable");

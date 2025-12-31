@@ -147,6 +147,7 @@ and many more.
 - ✔ Immutable Arraybuffers
 - ✔ Iterator Sequencing
 - ✔ Joint Iteration
+- ✔ JSON.parse source text access
 - ✔ `Math.sumPrecise`
 - ✔ `ShadowRealm`
 - ✔ `Uint8Array` to/from base64
