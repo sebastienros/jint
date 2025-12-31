@@ -135,7 +135,7 @@ and many more.
 - ✔ Iterator helper methods 
 - ✔ JSON modules
 - ✔ `Promise.try`
-- ❌ `RegExp.escape()`
+- ✔ `RegExp.escape()`
 - ❌ Regular expression pattern modifiers (inline flags)
 - ❌ Duplicate named capture groups
 - ✔ Set methods (`intersection`, `union`, `difference`, `symmetricDifference`, `isSubsetOf`, `isSupersetOf`, `isDisjointFrom`)
