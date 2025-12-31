@@ -48,6 +48,11 @@ internal sealed class IteratorHelperPrototype : Prototype
             return concatIterator.Next();
         }
 
+        if (thisObject is ZipIterator zipIterator)
+        {
+            return zipIterator.Next();
+        }
+
         Throw.TypeError(_realm, "Method Iterator Helper.prototype.next called on incompatible receiver");
         return Undefined;
     }
@@ -67,6 +72,11 @@ internal sealed class IteratorHelperPrototype : Prototype
         if (thisObject is ConcatIterator concatIterator)
         {
             return concatIterator.Return();
+        }
+
+        if (thisObject is ZipIterator zipIterator)
+        {
+            return zipIterator.Return();
         }
 
         Throw.TypeError(_realm, "Method Iterator Helper.prototype.return called on incompatible receiver");

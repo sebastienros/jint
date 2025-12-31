@@ -10,7 +10,6 @@
     "Atomics",
     "decorators",
     "import-defer",
-    "joint-iteration",
     "json-parse-with-source",
     "regexp-lookbehind",
     "regexp-modifiers",

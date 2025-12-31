@@ -126,7 +126,7 @@ internal abstract class IteratorHelper : ObjectInstance
     /// <summary>
     /// Represents the result of an iteration step.
     /// </summary>
-    protected readonly struct StepResult
+    internal readonly struct StepResult
     {
         public static readonly StepResult DoneResult = new(JsValue.Undefined, true);
 
@@ -529,4 +529,369 @@ internal sealed class ConcatIterator : ObjectInstance
     {
         return IteratorResult.CreateValueIteratorPosition(_engine, value, JsBoolean.Create(done));
     }
+}
+
+/// <summary>
+/// Iterator helper for Iterator.zip and Iterator.zipKeyed.
+/// https://tc39.es/proposal-joint-iteration/#sec-iteratorzip
+/// </summary>
+internal sealed class ZipIterator : ObjectInstance
+{
+    private readonly List<IteratorInstance.ObjectIterator> _iters;
+    private readonly List<IteratorInstance.ObjectIterator> _openIters;
+    private readonly ZipMode _mode;
+    private readonly IteratorInstance.ObjectIterator? _paddingIterator;
+    private readonly JsValue[]? _paddingValues;
+    private readonly Func<JsValue[], JsValue> _finishResults;
+    private GeneratorState _state;
+    private bool _exhausted;
+
+    public ZipIterator(
+        Engine engine,
+        List<IteratorInstance.ObjectIterator> iters,
+        ZipMode mode,
+        IteratorInstance.ObjectIterator? paddingIterator,
+        JsValue[]? paddingValues,
+        Func<JsValue[], JsValue> finishResults) : base(engine)
+    {
+        _iters = iters;
+        _openIters = new List<IteratorInstance.ObjectIterator>(iters);
+        _mode = mode;
+        _paddingIterator = paddingIterator;
+        _paddingValues = paddingValues;
+        _finishResults = finishResults;
+        _state = GeneratorState.SuspendedStart;
+        _exhausted = false;
+        _prototype = engine.Realm.Intrinsics.IteratorHelperPrototype;
+    }
+
+    public ObjectInstance Next()
+    {
+        // Check for re-entrant calls
+        if (_state == GeneratorState.Executing)
+        {
+            Throw.TypeError(_engine.Realm, "Generator is already executing");
+            return null!;
+        }
+
+        // If completed, return done
+        if (_state == GeneratorState.Completed)
+        {
+            return CreateIteratorResult(Undefined, done: true);
+        }
+
+        _state = GeneratorState.Executing;
+
+        try
+        {
+            var result = ExecuteStep();
+
+            if (result.Done)
+            {
+                _state = GeneratorState.Completed;
+                return CreateIteratorResult(Undefined, done: true);
+            }
+
+            _state = GeneratorState.SuspendedYield;
+            return CreateIteratorResult(result.Value, done: false);
+        }
+        catch
+        {
+            _state = GeneratorState.Completed;
+            CloseAllIterators(CompletionType.Throw);
+            throw;
+        }
+    }
+
+    public ObjectInstance Return()
+    {
+        // Check for re-entrant calls
+        if (_state == GeneratorState.Executing)
+        {
+            Throw.TypeError(_engine.Realm, "Generator is already executing");
+            return null!;
+        }
+
+        // Per spec: If in suspended-start, set to completed first
+        // This allows re-entrant .next() calls during close to return done properly
+        if (_state == GeneratorState.SuspendedStart)
+        {
+            _state = GeneratorState.Completed;
+            if (!_exhausted)
+            {
+                _exhausted = true;
+                CloseAllIterators(CompletionType.Return);
+            }
+            return CreateIteratorResult(Undefined, done: true);
+        }
+
+        _state = GeneratorState.Executing;
+
+        try
+        {
+            if (!_exhausted)
+            {
+                _exhausted = true;
+                CloseAllIterators(CompletionType.Return);
+            }
+            return CreateIteratorResult(Undefined, done: true);
+        }
+        finally
+        {
+            _state = GeneratorState.Completed;
+        }
+    }
+
+    private IteratorHelper.StepResult ExecuteStep()
+    {
+        var iterCount = _iters.Count;
+
+        // If no iterators, we're done immediately
+        if (iterCount == 0)
+        {
+            _exhausted = true;
+            return IteratorHelper.StepResult.DoneResult;
+        }
+
+        var results = new JsValue[iterCount];
+        var allDone = true;
+        var anyDone = false;
+        var firstDoneIndex = -1;
+
+        // Step through each iterator
+        for (var i = 0; i < iterCount; i++)
+        {
+            var iter = _iters[i];
+
+            // Check if this iterator is still open
+            if (!_openIters.Contains(iter))
+            {
+                // Already closed, use padding
+                anyDone = true;
+                if (firstDoneIndex < 0) firstDoneIndex = i;
+                results[i] = GetPaddingValue(i);
+                continue;
+            }
+
+            bool stepDone;
+            ObjectInstance? stepResult = null;
+            try
+            {
+                stepDone = !iter.TryIteratorStep(out stepResult);
+            }
+            catch
+            {
+                // Per spec: If IteratorStepValue throws, remove iter from openIters
+                // then call IteratorCloseAll on remaining
+                _openIters.Remove(iter);
+                throw;
+            }
+
+            if (stepDone)
+            {
+                // Iterator is done
+                anyDone = true;
+                if (firstDoneIndex < 0) firstDoneIndex = i;
+                _openIters.Remove(iter);
+
+                if (_mode == ZipMode.Shortest)
+                {
+                    // Close all other open iterators in reverse order
+                    CloseOpenIteratorsInReverse(i);
+                    _exhausted = true;
+                    return IteratorHelper.StepResult.DoneResult;
+                }
+
+                if (_mode == ZipMode.Strict)
+                {
+                    if (i == 0)
+                    {
+                        // Per spec: When first iterator (i=0) is done in strict mode,
+                        // check remaining iterators one by one with IteratorStep
+                        // If any is NOT done, close openIters and throw
+                        for (var k = 1; k < iterCount; k++)
+                        {
+                            var otherIter = _iters[k];
+                            if (!_openIters.Contains(otherIter))
+                            {
+                                continue;
+                            }
+
+                            bool otherDone;
+                            try
+                            {
+                                otherDone = !otherIter.TryIteratorStep(out _);
+                            }
+                            catch
+                            {
+                                _openIters.Remove(otherIter);
+                                throw;
+                            }
+
+                            if (otherDone)
+                            {
+                                _openIters.Remove(otherIter);
+                            }
+                            else
+                            {
+                                // Not done - iterators have different lengths
+                                CloseAllIterators(CompletionType.Throw);
+                                _exhausted = true;
+                                Throw.TypeError(_engine.Realm, "Iterators have different lengths");
+                                return IteratorHelper.StepResult.DoneResult;
+                            }
+                        }
+                        // All remaining iterators were also done
+                        _exhausted = true;
+                        return IteratorHelper.StepResult.DoneResult;
+                    }
+                    else
+                    {
+                        // Per spec: When i!=0 and iterator is done in strict mode,
+                        // first iterator wasn't done (or we'd have returned), so lengths differ
+                        CloseAllIterators(CompletionType.Throw);
+                        _exhausted = true;
+                        Throw.TypeError(_engine.Realm, "Iterators have different lengths");
+                        return IteratorHelper.StepResult.DoneResult;
+                    }
+                }
+
+                results[i] = GetPaddingValue(i);
+            }
+            else
+            {
+                allDone = false;
+                JsValue value;
+                try
+                {
+                    value = stepResult!.Get(CommonProperties.Value);
+                }
+                catch
+                {
+                    // If getting the value throws, remove iter and close others
+                    _openIters.Remove(iter);
+                    throw;
+                }
+                results[i] = value;
+            }
+        }
+
+        // Handle mode-specific termination after checking all iterators
+        if (_mode == ZipMode.Strict)
+        {
+            // In strict mode, if some are done and some aren't, throw
+            // Per spec: IteratorCloseAll(openIters, ThrowCompletion(TypeError))
+            // This means close exceptions are ignored because completion is already Throw
+            if (anyDone && !allDone)
+            {
+                CloseAllIterators(CompletionType.Throw);
+                _exhausted = true;
+                Throw.TypeError(_engine.Realm, "Iterators have different lengths");
+                return IteratorHelper.StepResult.DoneResult;
+            }
+        }
+
+        if (allDone)
+        {
+            _exhausted = true;
+            return IteratorHelper.StepResult.DoneResult;
+        }
+
+        var resultValue = _finishResults(results);
+        return new IteratorHelper.StepResult(resultValue, false);
+    }
+
+    private JsValue GetPaddingValue(int index)
+    {
+        if (_paddingValues != null && index < _paddingValues.Length)
+        {
+            return _paddingValues[index];
+        }
+        return Undefined;
+    }
+
+    private void CloseOpenIteratorsInReverse(int upToIndex)
+    {
+        // Per IteratorCloseAll spec with Return completion:
+        // Close all open iterators in reverse order, accumulating the first exception
+        Exception? caughtException = null;
+        var isThrowCompletion = false;
+
+        for (var j = _openIters.Count - 1; j >= 0; j--)
+        {
+            var openIter = _openIters[j];
+            // Find the index of this iterator in the original list
+            var originalIndex = _iters.IndexOf(openIter);
+            if (originalIndex != upToIndex && originalIndex != -1)
+            {
+                try
+                {
+                    openIter.Close(isThrowCompletion ? CompletionType.Throw : CompletionType.Normal);
+                }
+                catch (Exception ex)
+                {
+                    // Capture the first exception, subsequent ones are ignored
+                    if (caughtException is null)
+                    {
+                        caughtException = ex;
+                        isThrowCompletion = true;
+                    }
+                }
+            }
+        }
+        _openIters.Clear();
+
+        // Rethrow the first captured exception
+        if (caughtException is not null)
+        {
+            throw caughtException;
+        }
+    }
+
+    private void CloseAllIterators(CompletionType completionType)
+    {
+        // Per IteratorCloseAll spec:
+        // 1. For each iterator in reverse, call IteratorClose
+        // 2. If any close throws and we don't already have an exception, capture it
+        // 3. Throw the first captured exception at the end
+        Exception? caughtException = null;
+        var isThrowCompletion = completionType == CompletionType.Throw;
+
+        for (var i = _openIters.Count - 1; i >= 0; i--)
+        {
+            try
+            {
+                _openIters[i].Close(isThrowCompletion ? CompletionType.Throw : CompletionType.Normal);
+            }
+            catch (Exception ex)
+            {
+                // Per IteratorClose step 5: if completion is throw, ignore new exceptions
+                // Otherwise, capture the first exception
+                if (!isThrowCompletion && caughtException is null)
+                {
+                    caughtException = ex;
+                    isThrowCompletion = true; // Subsequent closes will ignore their exceptions
+                }
+            }
+        }
+        _openIters.Clear();
+
+        // Rethrow the first captured exception
+        if (caughtException is not null)
+        {
+            throw caughtException;
+        }
+    }
+
+    private IteratorResult CreateIteratorResult(JsValue value, bool done)
+    {
+        return IteratorResult.CreateValueIteratorPosition(_engine, value, JsBoolean.Create(done));
+    }
+}
+
+internal enum ZipMode
+{
+    Shortest,
+    Longest,
+    Strict
 }

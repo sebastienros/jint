@@ -30,10 +30,12 @@ internal sealed class IteratorConstructor : Constructor
     {
         const PropertyFlag PropertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
         const PropertyFlag LengthFlags = PropertyFlag.Configurable;
-        var properties = new PropertyDictionary(2, checkExistingKeys: false)
+        var properties = new PropertyDictionary(4, checkExistingKeys: false)
         {
             ["concat"] = new(new PropertyDescriptor(new ClrFunction(Engine, "concat", Concat, 0, LengthFlags), PropertyFlags)),
             ["from"] = new(new PropertyDescriptor(new ClrFunction(Engine, "from", From, 1, LengthFlags), PropertyFlags)),
+            ["zip"] = new(new PropertyDescriptor(new ClrFunction(Engine, "zip", Zip, 1, LengthFlags), PropertyFlags)),
+            ["zipKeyed"] = new(new PropertyDescriptor(new ClrFunction(Engine, "zipKeyed", ZipKeyed, 1, LengthFlags), PropertyFlags)),
         };
         SetProperties(properties);
     }
@@ -189,5 +191,399 @@ internal sealed class IteratorConstructor : Constructor
     {
         IterateStrings,
         RejectStrings
+    }
+
+    /// <summary>
+    /// https://tc39.es/proposal-joint-iteration/#sec-iterator.zip
+    /// </summary>
+    private JsValue Zip(JsValue thisObject, JsValue[] arguments)
+    {
+        var iterables = arguments.At(0);
+        var options = arguments.At(1);
+
+        // 1. If iterables is not an Object, throw a TypeError exception.
+        if (iterables is not ObjectInstance iterablesObj)
+        {
+            Throw.TypeError(_realm, "Iterator.zip requires an object");
+            return Undefined;
+        }
+
+        // 2. Set options to ? GetOptionsObject(options).
+        var optionsObj = GetOptionsObject(options);
+
+        // 3. Let mode be ? Get(options, "mode").
+        var modeValue = optionsObj?.Get(CommonProperties.Mode) ?? Undefined;
+
+        // 4. If mode is undefined, set mode to "shortest".
+        ZipMode mode;
+        if (modeValue.IsUndefined())
+        {
+            mode = ZipMode.Shortest;
+        }
+        else if (modeValue.IsString())
+        {
+            var modeStr = modeValue.ToString();
+            mode = modeStr switch
+            {
+                "shortest" => ZipMode.Shortest,
+                "longest" => ZipMode.Longest,
+                "strict" => ZipMode.Strict,
+                _ => throw new JavaScriptException(
+                    _engine.Realm.Intrinsics.TypeError,
+                    $"Invalid mode: {modeStr}")
+            };
+        }
+        else
+        {
+            Throw.TypeError(_realm, "mode must be a string");
+            return Undefined;
+        }
+
+        // 6-7. If mode is "longest", get padding option (done later, after collecting iters)
+        JsValue[]? paddingValues = null;
+        IteratorInstance.ObjectIterator? paddingIterator = null;
+        ObjectInstance? paddingObj = null;
+        if (mode == ZipMode.Longest)
+        {
+            var paddingOption = optionsObj?.Get(CommonProperties.Padding) ?? Undefined;
+            if (!paddingOption.IsUndefined())
+            {
+                if (paddingOption is not ObjectInstance pObj)
+                {
+                    Throw.TypeError(_realm, "padding must be an object");
+                    return Undefined;
+                }
+                paddingObj = pObj;
+            }
+        }
+
+        // 8-14. Create iterators from the iterables array
+        // Per spec: iterate and call GetIteratorFlattenable for each element immediately
+        var iters = new List<IteratorInstance.ObjectIterator>();
+        var iterablesIterator = iterablesObj.GetIterator(_realm);
+        var inputIterClosed = false;
+
+        try
+        {
+            while (iterablesIterator.TryIteratorStep(out var result))
+            {
+                var value = result.Get(CommonProperties.Value);
+
+                // GetIteratorFlattenable handles non-objects by throwing TypeError
+                try
+                {
+                    var iterator = GetIteratorFlattenable(value, StringHandlingType.RejectStrings, out _);
+                    iters.Add(iterator);
+                }
+                catch
+                {
+                    // IfAbruptCloseIterators: close (inputIter + iters) in reverse
+                    // Per spec, reverse order of [inputIter, ...iters] = iters in reverse, then inputIter
+                    inputIterClosed = true;
+                    CloseIteratorsReverse(iters);
+                    try { iterablesIterator.Close(CompletionType.Throw); } catch { /* ignore */ }
+                    throw;
+                }
+            }
+        }
+        catch
+        {
+            // If iterablesIterator step throws, close collected iterators
+            if (!inputIterClosed)
+            {
+                CloseIteratorsReverse(iters);
+            }
+            throw;
+        }
+
+        // Get padding iterator now that we have all iters collected
+        // Per spec, if GetIterator throws, close all collected iters
+        if (paddingObj != null)
+        {
+            try
+            {
+                var method = paddingObj.GetMethod(GlobalSymbolRegistry.Iterator);
+                if (method is null)
+                {
+                    CloseIteratorsReverse(iters);
+                    Throw.TypeError(_realm, "padding is not iterable");
+                    return Undefined;
+                }
+                var iterResult = method.Call(paddingObj);
+                if (iterResult is not ObjectInstance iterObj)
+                {
+                    CloseIteratorsReverse(iters);
+                    Throw.TypeError(_realm, "Iterator result is not an object");
+                    return Undefined;
+                }
+                paddingIterator = new IteratorInstance.ObjectIterator(iterObj);
+            }
+            catch
+            {
+                CloseIteratorsReverse(iters);
+                throw;
+            }
+        }
+
+        // Get padding values if we have a padding iterator
+        // Per spec: read exactly iters.Count values, then close if not exhausted
+        if (paddingIterator != null)
+        {
+            paddingValues = new JsValue[iters.Count];
+            var usingIterator = true;
+
+            try
+            {
+                for (var i = 0; i < iters.Count; i++)
+                {
+                    if (usingIterator)
+                    {
+                        if (paddingIterator.TryIteratorStep(out var paddingResult))
+                        {
+                            paddingValues[i] = paddingResult.Get(CommonProperties.Value);
+                        }
+                        else
+                        {
+                            // Padding iterator exhausted
+                            usingIterator = false;
+                            paddingValues[i] = Undefined;
+                        }
+                    }
+                    else
+                    {
+                        paddingValues[i] = Undefined;
+                    }
+                }
+            }
+            catch
+            {
+                // If IteratorStepValue throws, close all collected iters
+                CloseIteratorsReverse(iters);
+                throw;
+            }
+
+            // If padding iterator wasn't exhausted, close it
+            if (usingIterator)
+            {
+                try
+                {
+                    paddingIterator.Close(CompletionType.Normal);
+                }
+                catch
+                {
+                    // If closing padding iterator throws, close all collected iters
+                    CloseIteratorsReverse(iters);
+                    throw;
+                }
+            }
+        }
+
+        // 15. Let finishResults be a new Abstract Closure that creates an array
+        JsValue FinishResults(JsValue[] values)
+        {
+            // Create a proper array with correct property descriptors
+            var array = new JsArray(_engine, (uint) values.Length);
+            for (var i = 0; i < values.Length; i++)
+            {
+                array.CreateDataPropertyOrThrow((uint) i, values[i]);
+            }
+            return array;
+        }
+
+        // 16. Return IteratorZip(iters, mode, padding, finishResults).
+        return new ZipIterator(_engine, iters, mode, paddingIterator, paddingValues, FinishResults);
+    }
+
+    /// <summary>
+    /// https://tc39.es/proposal-joint-iteration/#sec-iterator.zipkeyed
+    /// </summary>
+    private JsValue ZipKeyed(JsValue thisObject, JsValue[] arguments)
+    {
+        var iterables = arguments.At(0);
+        var options = arguments.At(1);
+
+        // 1. If iterables is not an Object, throw a TypeError exception.
+        if (iterables is not ObjectInstance iterablesObj)
+        {
+            Throw.TypeError(_realm, "Iterator.zipKeyed requires an object");
+            return Undefined;
+        }
+
+        // 2. Set options to ? GetOptionsObject(options).
+        var optionsObj = GetOptionsObject(options);
+
+        // 3. Let mode be ? Get(options, "mode").
+        var modeValue = optionsObj?.Get(CommonProperties.Mode) ?? Undefined;
+
+        // 4. If mode is undefined, set mode to "shortest".
+        ZipMode mode;
+        if (modeValue.IsUndefined())
+        {
+            mode = ZipMode.Shortest;
+        }
+        else if (modeValue.IsString())
+        {
+            var modeStr = modeValue.ToString();
+            mode = modeStr switch
+            {
+                "shortest" => ZipMode.Shortest,
+                "longest" => ZipMode.Longest,
+                "strict" => ZipMode.Strict,
+                _ => throw new JavaScriptException(
+                    _engine.Realm.Intrinsics.TypeError,
+                    $"Invalid mode: {modeStr}")
+            };
+        }
+        else
+        {
+            Throw.TypeError(_realm, "mode must be a string");
+            return Undefined;
+        }
+
+        // 6-7. If mode is "longest", get padding option
+        JsValue[]? paddingValues = null;
+        IteratorInstance.ObjectIterator? paddingIterator = null;
+        ObjectInstance? paddingObj = null;
+        if (mode == ZipMode.Longest)
+        {
+            var paddingOption = optionsObj?.Get(CommonProperties.Padding) ?? Undefined;
+            if (!paddingOption.IsUndefined())
+            {
+                if (paddingOption is not ObjectInstance pObj)
+                {
+                    Throw.TypeError(_realm, "padding must be an object");
+                    return Undefined;
+                }
+                paddingObj = pObj;
+            }
+        }
+
+        // Get own enumerable string-keyed properties of iterables
+        // Per spec, for each key: GetOwnProperty, Get, GetIteratorFlattenable in order
+        // If any step throws, close already-collected iterators
+        var ownKeys = iterablesObj.GetOwnPropertyKeys();
+        var iters = new List<IteratorInstance.ObjectIterator>();
+        var keysList = new List<JsValue>();
+
+        foreach (var key in ownKeys)
+        {
+            PropertyDescriptor desc;
+            try
+            {
+                desc = iterablesObj.GetOwnProperty(key);
+            }
+            catch
+            {
+                CloseIteratorsReverse(iters);
+                throw;
+            }
+
+            if (desc == PropertyDescriptor.Undefined || !desc.Enumerable)
+            {
+                continue;
+            }
+
+            JsValue value;
+            try
+            {
+                value = iterablesObj.Get(key);
+            }
+            catch
+            {
+                CloseIteratorsReverse(iters);
+                throw;
+            }
+
+            // Per spec, skip undefined values - they are not included in results
+            if (value.IsUndefined())
+            {
+                continue;
+            }
+
+            try
+            {
+                var iterator = GetIteratorFlattenable(value, StringHandlingType.RejectStrings, out _);
+                iters.Add(iterator);
+                keysList.Add(key);
+            }
+            catch
+            {
+                CloseIteratorsReverse(iters);
+                throw;
+            }
+        }
+
+        // Get padding values from the padding object if present
+        // Per spec, only call Get (not HasProperty)
+        // If Get throws, close all collected iters
+        if (paddingObj != null)
+        {
+            paddingValues = new JsValue[keysList.Count];
+            try
+            {
+                for (var i = 0; i < keysList.Count; i++)
+                {
+                    var key = keysList[i];
+                    paddingValues[i] = paddingObj.Get(key);
+                }
+            }
+            catch
+            {
+                CloseIteratorsReverse(iters);
+                throw;
+            }
+        }
+
+        // Create finishResults closure that builds an object
+        var capturedKeys = keysList.ToArray();
+        JsValue FinishResults(JsValue[] values)
+        {
+            // Create null-prototype object
+            var obj = OrdinaryObjectCreate(_engine, null);
+            for (var i = 0; i < capturedKeys.Length; i++)
+            {
+                obj.CreateDataPropertyOrThrow(capturedKeys[i], values[i]);
+            }
+            return obj;
+        }
+
+        return new ZipIterator(_engine, iters, mode, paddingIterator, paddingValues, FinishResults);
+    }
+
+    /// <summary>
+    /// https://tc39.es/proposal-joint-iteration/#sec-getoptionsobject
+    /// </summary>
+    private ObjectInstance? GetOptionsObject(JsValue options)
+    {
+        // 1. If options is undefined, return null (we'll treat undefined as empty options).
+        if (options.IsUndefined())
+        {
+            return null;
+        }
+
+        // 2. If options is an Object, return options.
+        if (options is ObjectInstance optionsObj)
+        {
+            return optionsObj;
+        }
+
+        // 3. Throw a TypeError exception.
+        Throw.TypeError(_realm, "options must be an object or undefined");
+        return null;
+    }
+
+    private static void CloseIteratorsReverse(List<IteratorInstance.ObjectIterator> iters)
+    {
+        for (var i = iters.Count - 1; i >= 0; i--)
+        {
+            try
+            {
+                iters[i].Close(CompletionType.Normal);
+            }
+            catch
+            {
+                // Ignore errors during cleanup
+            }
+        }
     }
 }

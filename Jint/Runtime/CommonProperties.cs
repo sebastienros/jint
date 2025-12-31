@@ -18,8 +18,10 @@ internal static class CommonProperties
     internal static readonly JsString Keys = JsString.CachedCreate("keys");
     internal static readonly JsString Length = JsString.CachedCreate("length");
     internal static readonly JsString Message = JsString.CachedCreate("message");
+    internal static readonly JsString Mode = JsString.CachedCreate("mode");
     internal static readonly JsString Name = JsString.CachedCreate("name");
     internal static readonly JsString Next = JsString.CachedCreate("next");
+    internal static readonly JsString Padding = JsString.CachedCreate("padding");
     internal static readonly JsString Prototype = JsString.CachedCreate("prototype");
     internal static readonly JsString Return = JsString.CachedCreate("return");
     internal static readonly JsString Set = JsString.CachedCreate("set");
