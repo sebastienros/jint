@@ -9,7 +9,6 @@
     "async-iteration",
     "Atomics",
     "decorators",
-    "immutable-arraybuffer",
     "import-defer",
     "joint-iteration",
     "json-parse-with-source",
