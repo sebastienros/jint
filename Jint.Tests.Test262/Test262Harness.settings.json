@@ -17,7 +17,6 @@
     "regexp-modifiers",
     "regexp-unicode-property-escapes",
     "regexp-v-flag",
-    "RegExp.escape",
     "source-phase-imports",
     "tail-call-optimization",
     "Temporal",
