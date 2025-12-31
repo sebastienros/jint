@@ -446,8 +446,10 @@ internal sealed class ConcatIterator : ObjectInstance
                     if (_currentIterator.TryIteratorStep(out var result))
                     {
                         _state = GeneratorState.SuspendedYield;
-                        // Return the inner iterator's result directly (GeneratorYield semantics)
-                        return result;
+                        // Per spec, use IteratorStepValue which reads value property (may throw)
+                        // and Yield creates a fresh iterator result object
+                        var innerValue = result.Get(CommonProperties.Value);
+                        return CreateIteratorResult(innerValue, done: false);
                     }
                     // Current iterator exhausted, move to next
                     _currentIterator = null;

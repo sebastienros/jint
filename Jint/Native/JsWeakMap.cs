@@ -68,6 +68,12 @@ internal sealed class JsWeakMap : ObjectInstance
 
         var value = callbackfn.Call(Undefined, key);
 
+        // NOTE: The Map may have been modified during execution of callback.
+        if (_table.TryGetValue(key, out _))
+        {
+            _table.Remove(key);
+        }
+
         _table.Add(key, value);
         return value;
     }

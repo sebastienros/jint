@@ -1442,7 +1442,8 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                 var desc = GetOwnProperty(key);
                 if (desc.Enumerable)
                 {
-                    target.CreateDataProperty(key, UnwrapJsValue(desc, this));
+                    var propValue = Get(key);
+                    target.CreateDataProperty(key, propValue);
                 }
             }
         }

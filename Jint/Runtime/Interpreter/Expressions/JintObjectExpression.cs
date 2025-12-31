@@ -77,12 +77,11 @@ internal sealed class JintObjectExpression : JintExpression
             var property = properties[i];
             if (property is Acornima.Ast.ObjectProperty p)
             {
-                if (p.Key is Literal literal)
+                if (!p.Computed && p.Key is Literal literal)
                 {
                     propName = AstExtensions.LiteralKeyToString(literal);
                 }
-
-                if (!p.Computed && p.Key is Identifier identifier)
+                else if (!p.Computed && p.Key is Identifier identifier)
                 {
                     propName = identifier.Name;
                     _canBuildFast &= !string.Equals(propName, "__proto__", StringComparison.Ordinal);
