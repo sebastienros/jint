@@ -48,14 +48,20 @@ internal sealed class IteratorResult : ObjectInstance
 
     public override PropertyDescriptor GetOwnProperty(JsValue property)
     {
+        // Use full data descriptor flags including the "Set" flags so that
+        // Object.getOwnPropertyDescriptor returns the correct descriptor
+        const PropertyFlag DataPropertyFlags =
+            PropertyFlag.ConfigurableEnumerableWritable |
+            PropertyFlag.ConfigurableSet | PropertyFlag.EnumerableSet | PropertyFlag.WritableSet;
+
         if (CommonProperties.Value.Equals(property))
         {
-            return new PropertyDescriptor(_value, PropertyFlag.ConfigurableEnumerableWritable);
+            return new PropertyDescriptor(_value, DataPropertyFlags);
         }
 
         if (CommonProperties.Done.Equals(property))
         {
-            return new PropertyDescriptor(_done, PropertyFlag.ConfigurableEnumerableWritable);
+            return new PropertyDescriptor(_done, DataPropertyFlags);
         }
 
         return base.GetOwnProperty(property);
@@ -63,8 +69,12 @@ internal sealed class IteratorResult : ObjectInstance
 
     public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
     {
-        yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Value, new PropertyDescriptor(_value, PropertyFlag.ConfigurableEnumerableWritable));
-        yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Done, new PropertyDescriptor(_done, PropertyFlag.ConfigurableEnumerableWritable));
+        const PropertyFlag DataPropertyFlags =
+            PropertyFlag.ConfigurableEnumerableWritable |
+            PropertyFlag.ConfigurableSet | PropertyFlag.EnumerableSet | PropertyFlag.WritableSet;
+
+        yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Value, new PropertyDescriptor(_value, DataPropertyFlags));
+        yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Done, new PropertyDescriptor(_done, DataPropertyFlags));
         foreach (var prop in base.GetOwnProperties())
         {
             yield return prop;

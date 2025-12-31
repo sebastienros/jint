@@ -644,7 +644,7 @@ internal sealed class ZipIterator : ObjectInstance
         var results = new JsValue[iterCount];
         var allDone = true;
         var anyDone = false;
-        var doneIndices = new bool[iterCount];
+        var firstDoneIndex = -1;
 
         // Step through each iterator
         for (var i = 0; i < iterCount; i++)
@@ -655,8 +655,8 @@ internal sealed class ZipIterator : ObjectInstance
             if (!_openIters.Contains(iter))
             {
                 // Already closed, use padding
-                doneIndices[i] = true;
                 anyDone = true;
+                if (firstDoneIndex < 0) firstDoneIndex = i;
                 results[i] = GetPaddingValue(i);
                 continue;
             }
@@ -664,8 +664,8 @@ internal sealed class ZipIterator : ObjectInstance
             if (!iter.TryIteratorStep(out var stepResult))
             {
                 // Iterator is done
-                doneIndices[i] = true;
                 anyDone = true;
+                if (firstDoneIndex < 0) firstDoneIndex = i;
                 _openIters.Remove(iter);
 
                 if (_mode == ZipMode.Shortest)
@@ -673,16 +673,6 @@ internal sealed class ZipIterator : ObjectInstance
                     // Close all other open iterators in reverse order
                     CloseOpenIteratorsInReverse(i);
                     _exhausted = true;
-                    return IteratorHelper.StepResult.DoneResult;
-                }
-                else if (_mode == ZipMode.Strict && i > 0)
-                {
-                    // In strict mode, if an iterator finishes after the first one started returning values,
-                    // we need to check if all iterators are done
-                    // Close remaining and throw
-                    CloseOpenIteratorsInReverse(i);
-                    _exhausted = true;
-                    Throw.TypeError(_engine.Realm, "Iterators have different lengths");
                     return IteratorHelper.StepResult.DoneResult;
                 }
 
@@ -696,10 +686,10 @@ internal sealed class ZipIterator : ObjectInstance
             }
         }
 
-        // Handle mode-specific termination
+        // Handle mode-specific termination after checking all iterators
         if (_mode == ZipMode.Strict)
         {
-            // Check if some are done and some aren't
+            // In strict mode, if some are done and some aren't, throw
             if (anyDone && !allDone)
             {
                 CloseAllIterators(CompletionType.Normal);

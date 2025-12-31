@@ -392,26 +392,24 @@ internal sealed class IteratorConstructor : Constructor
         }
 
         // Get own enumerable string-keyed properties of iterables
-        var keys = new List<JsValue>();
+        // Per spec, for each key: GetOwnProperty, Get, GetIteratorFlattenable in order
         var ownKeys = iterablesObj.GetOwnPropertyKeys();
-        foreach (var key in ownKeys)
-        {
-            if (!key.IsSymbol())
-            {
-                var desc = iterablesObj.GetOwnProperty(key);
-                if (desc != PropertyDescriptor.Undefined && desc.Enumerable)
-                {
-                    keys.Add(key);
-                }
-            }
-        }
-
         var iters = new List<IteratorInstance.ObjectIterator>();
         var keysList = new List<JsValue>();
 
-        // Get iterators from each property value
-        foreach (var key in keys)
+        foreach (var key in ownKeys)
         {
+            if (key.IsSymbol())
+            {
+                continue;
+            }
+
+            var desc = iterablesObj.GetOwnProperty(key);
+            if (desc == PropertyDescriptor.Undefined || !desc.Enumerable)
+            {
+                continue;
+            }
+
             var value = iterablesObj.Get(key);
 
             try
