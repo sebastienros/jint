@@ -146,6 +146,7 @@ and many more.
 - ✔ Explicit Resource Management (`using` and `await using`)
 - ✔ Immutable Arraybuffers
 - ✔ Iterator Sequencing
+- ✔ Joint Iteration
 - ✔ `Math.sumPrecise`
 - ✔ `ShadowRealm`
 - ✔ `Uint8Array` to/from base64
