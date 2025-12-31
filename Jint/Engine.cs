@@ -567,7 +567,7 @@ public sealed partial class Engine : IDisposable
     {
         var baseValue = reference.Base;
 
-        if (baseValue.IsUndefined())
+        if (reference.IsUnresolvableReference)
         {
             if (_customResolver)
             {
@@ -596,6 +596,11 @@ public sealed partial class Engine : IDisposable
             if (returnReferenceToPool)
             {
                 _referencePool.Return(reference);
+            }
+
+            if (baseValue.IsNullOrUndefined())
+            {
+                ThrowPropertyNotFound(property, baseValue);
             }
 
             if (baseValue.IsObject())
@@ -644,6 +649,29 @@ public sealed partial class Engine : IDisposable
         }
 
         return bindingValue;
+    }
+
+    private void ThrowPropertyNotFound(JsValue property, JsValue baseValue)
+    {
+        // Avoid calling ToString() on the property as it may have a custom toString that throws
+        string propertyName;
+        if (property.IsSymbol())
+        {
+            propertyName = "[Symbol]";
+        }
+        else if (property.IsString())
+        {
+            propertyName = property.ToString();
+        }
+        else if (property.IsNumber())
+        {
+            propertyName = Runtime.TypeConverter.ToString(property);
+        }
+        else
+        {
+            propertyName = "unknown";
+        }
+        Throw.TypeError(Realm, $"Cannot read property '{propertyName}' of {baseValue}");
     }
 
     private bool TryHandleStringValue(JsValue property, JsString s, ref ObjectInstance? o, out JsValue jsValue)

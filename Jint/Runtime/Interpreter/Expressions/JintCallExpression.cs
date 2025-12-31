@@ -229,10 +229,6 @@ internal sealed class JintCallExpression : JintExpression
         var thisEnvironment = (FunctionEnvironment) engine.ExecutionContext.GetThisEnvironment();
         var newTarget = engine.GetNewTarget(thisEnvironment);
         var func = GetSuperConstructor(thisEnvironment);
-        if (func is null || !func.IsConstructor)
-        {
-            Throw.TypeError(engine.Realm, "Not a constructor");
-        }
 
         var rented = false;
         var defaultSuperCall = ReferenceEquals(_expression, ClassDefinition._defaultSuperCall);
@@ -240,6 +236,15 @@ internal sealed class JintCallExpression : JintExpression
         var argList = defaultSuperCall
             ? _arguments.DefaultSuperCallArgumentListEvaluation(context)
             : _arguments.ArgumentListEvaluation(context, out rented);
+
+        if (func is null || !func.IsConstructor)
+        {
+            if (rented)
+            {
+                engine._jsValueArrayPool.ReturnArray(argList);
+            }
+            Throw.TypeError(engine.Realm, "Not a constructor");
+        }
 
         var result = ((IConstructor) func).Construct(argList, newTarget);
 
