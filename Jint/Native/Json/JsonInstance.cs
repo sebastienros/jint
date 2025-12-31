@@ -24,12 +24,10 @@ internal sealed class JsonInstance : ObjectInstance
     {
         var properties = new PropertyDictionary(4, checkExistingKeys: false)
         {
-#pragma warning disable 618
             ["parse"] = new PropertyDescriptor(new ClrFunction(Engine, "parse", Parse, 2, PropertyFlag.Configurable), true, false, true),
             ["stringify"] = new PropertyDescriptor(new ClrFunction(Engine, "stringify", Stringify, 3, PropertyFlag.Configurable), true, false, true),
             ["rawJSON"] = new PropertyDescriptor(new ClrFunction(Engine, "rawJSON", RawJSON, 1, PropertyFlag.Configurable), true, false, true),
             ["isRawJSON"] = new PropertyDescriptor(new ClrFunction(Engine, "isRawJSON", IsRawJSON, 1, PropertyFlag.Configurable), true, false, true)
-#pragma warning restore 618
         };
         SetProperties(properties);
 
