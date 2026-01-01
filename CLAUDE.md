@@ -135,18 +135,20 @@ Acornima Parser (external) → AST → Interpreter → Runtime → Interop
   - Organized by topic (Runtime/, Parser/, Debugger/, etc.)
   - Uses FluentAssertions for readable assertions
   - Embedded test scripts in Runtime/Scripts/ and Parser/Scripts/
+  - Use timeout of 30 seconds when invoking test runner
 
-- **Jint.Tests.Test262/**: ECMAScript conformance suite
+- **Jint.Tests.Test262/**: ECMAScript conformance suite using NUnit
   - Official TC39 Test262 integration
   - Validates spec compliance
   - The test files are located in ..\test262\test when source code needed, you are always allowed to read from this directory and its sub-directories
   - The error output contains the failing script, you just need to remove line numbers from the JavaScript
   - Never try to fix these tests
+  - No need to use timeout, engine has default timeout of 30 seconds
 
-- **Jint.Tests.CommonScripts/**: Real-world benchmark scripts
+- **Jint.Tests.CommonScripts/**: Real-world benchmark scripts using NUnit
   - Performance validation (crypto, 3D rendering, etc.)
 
-- **Jint.Tests.PublicInterface/**: API contract tests
+- **Jint.Tests.PublicInterface/**: API contract tests using xUnit v3
   - Ensures public API stability
 
 ## Performance Considerations
@@ -168,16 +170,7 @@ When implementing new ECMAScript features:
 4. **Update TypeConverter.cs** if new type coercion rules apply
 5. **Add Statement/Expression handler** in Runtime/Interpreter/ if it's new syntax
 6. **Reference spec sections** in code comments
-7. **Add tests** in Jint.Tests for functionality and Jint.Tests.Test262 for spec compliance
-8. **Update README.md** feature checklist
-9. Jint.Tests.Test262\Test262Harness.settings.json contains exclusions and inclusions for test cases
-
-## Debugging
-
-- Set breakpoints in Jint/Runtime/Interpreter/Expressions/ or Statements/ to trace evaluation
-- Engine has built-in debugger support (Engine.Debugger property)
-- BreakPoint class allows programmatic breakpoints
-- Use Engine.Advanced APIs for low-level control
+7. Jint.Tests.Test262\Test262Harness.settings.json contains exclusions and inclusions for test cases
 
 ## Testing with Jint.Repl
 
@@ -201,7 +194,7 @@ dotnet run --project Jint.Repl --configuration Release
 
 ### Testing Scripts
 
-**Always use a timeout when testing scripts** to prevent infinite loops from hanging your session:
+**Always use a timeout when testing scripts using Jint.Repl** to prevent infinite loops from hanging your session:
 
 ```bash
 # Execute a file with 10 second timeout (recommended default)

@@ -1,7 +1,12 @@
 using System.Diagnostics.CodeAnalysis;
 using Jint.Native;
+using Jint.Native.AsyncFunction;
 using Jint.Native.Iterator;
+using Jint.Native.Object;
+using Jint.Native.Promise;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
+using Jint.Runtime.Interop;
 using Jint.Runtime.Interpreter.Expressions;
 using Environment = Jint.Runtime.Environments.Environment;
 
@@ -39,7 +44,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         _leftNode = statement.Left;
         _rightExpression = statement.Right;
         _forBody = statement.Body;
-        _iterationKind = IterationKind.Iterate;
+        _iterationKind = statement.Await ? IterationKind.AsyncIterate : IterationKind.Iterate;
     }
 
     protected override void Initialize(EvaluationContext context2)
@@ -97,12 +102,16 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
     {
         var engine = context.Engine;
         var generator = engine.ExecutionContext.Generator;
+        var asyncFunction = engine.ExecutionContext.AsyncFunction;
+        var asyncGenerator = engine.ExecutionContext.AsyncGenerator;
 
         // Check if we're resuming from a yield inside this for-of loop
         IteratorInstance? keyResult = null;
         ForOfSuspendData? suspendData = null;
+        ForAwaitSuspendData? forAwaitSuspendData = null;
         var resuming = false;
 
+        // Check generator resumption
         if (generator is not null && generator._isResuming)
         {
             if (generator.TryGetSuspendData<ForOfSuspendData>(this, out suspendData))
@@ -110,6 +119,45 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 // We're resuming into this for-of loop - use the saved iterator
                 keyResult = suspendData!.Iterator;
                 resuming = true;
+            }
+        }
+
+        // Check async function resumption (for for-await-of)
+        if (!resuming && asyncFunction is not null && asyncFunction._isResuming)
+        {
+            if (asyncFunction.TryGetSuspendData<ForAwaitSuspendData>(this, out forAwaitSuspendData))
+            {
+                // Check if we're resuming from a rejection - if so, throw the error
+                // Note: The iterator was already closed by AsyncFromSyncIteratorContinuation's onRejected handler
+                if (asyncFunction._lastAwaitNode == this && asyncFunction._resumeWithThrow)
+                {
+                    var error = asyncFunction._resumeValue ?? JsValue.Undefined;
+                    asyncFunction._isResuming = false;
+                    asyncFunction._lastAwaitNode = null;
+                    asyncFunction._resumeWithThrow = false;
+                    asyncFunction.ClearSuspendData(this);
+
+                    Throw.JavaScriptException(engine, error, _statement!.Location);
+                    return default;
+                }
+
+                // We're resuming into this for-await-of loop - use the saved iterator
+                keyResult = forAwaitSuspendData!.Iterator;
+                resuming = true;
+                // Clear the resuming flag since we've handled it
+                asyncFunction._isResuming = false;
+            }
+        }
+
+        // Check async generator resumption (for for-await-of inside async generator)
+        if (!resuming && asyncGenerator is not null && asyncGenerator._isResuming)
+        {
+            if (asyncGenerator.TryGetSuspendData<ForAwaitSuspendData>(this, out forAwaitSuspendData))
+            {
+                keyResult = forAwaitSuspendData!.Iterator;
+                resuming = true;
+                // Clear the resuming flag since we've handled it
+                asyncGenerator._isResuming = false;
             }
         }
 
@@ -122,7 +170,8 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
             }
         }
 
-        return BodyEvaluation(context, _expr, _body, keyResult!, _iterationKind, _lhsKind, suspendData, resuming);
+        var iteratorKind = _iterationKind == IterationKind.AsyncIterate ? IteratorKind.Async : IteratorKind.Sync;
+        return BodyEvaluation(context, _expr, _body, keyResult!, _iterationKind, _lhsKind, suspendData, resuming, iteratorKind);
     }
 
     /// <summary>
@@ -146,6 +195,15 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         var exprValue = _right.GetValue(context);
         engine.UpdateLexicalEnvironment(oldEnv);
 
+        // Check if execution suspended during the right-hand-side evaluation (e.g., await in array)
+        if (context.IsSuspended())
+        {
+            // Return false with null - the for-await statement will return normally and the
+            // statement list's suspension check will handle saving the index for resume.
+            result = null;
+            return false;
+        }
+
         if (_iterationKind == IterationKind.Enumerate)
         {
             if (exprValue.IsNullOrUndefined())
@@ -156,6 +214,11 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
 
             var obj = TypeConverter.ToObject(engine.Realm, exprValue);
             result = new IteratorInstance.EnumerableIterator(engine, obj.GetKeys());
+        }
+        else if (_iterationKind == IterationKind.AsyncIterate)
+        {
+            // For await-of uses async iteration
+            result = exprValue as IteratorInstance ?? exprValue.GetIterator(engine.Realm, Native.Generator.GeneratorKind.Async);
         }
         else
         {
@@ -215,18 +278,91 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 }
                 else
                 {
-                    if (!iteratorRecord.TryIteratorStep(out var nextResult))
-                    {
-                        close = true;
-                        // Clean up suspend data on normal completion
-                        generator?.ClearSuspendData(this);
-                        return new Completion(CompletionType.Normal, v, _statement!);
-                    }
+                    ObjectInstance nextResult;
 
                     if (iteratorKind == IteratorKind.Async)
                     {
-                        // nextResult = await nextResult;
-                        Throw.NotImplementedException("await");
+                        // For async iteration, we need to await the Promise from next()
+                        var asyncInstance = engine.ExecutionContext.AsyncFunction;
+                        var asyncGenerator = engine.ExecutionContext.AsyncGenerator;
+                        var asyncSuspendData = asyncInstance?.GetOrCreateSuspendData<ForAwaitSuspendData>(this)
+                                               ?? asyncGenerator?.GetOrCreateSuspendData<ForAwaitSuspendData>(this);
+
+                        // Check if we're resuming from awaiting next() with a successful result
+                        if (asyncSuspendData?.ResolvedIteratorResult is not null)
+                        {
+                            nextResult = asyncSuspendData.ResolvedIteratorResult;
+                            asyncSuspendData.ResolvedIteratorResult = null;
+                            v = asyncSuspendData.AccumulatedValue;
+
+                            // Check if iterator is done
+                            var doneVal = nextResult.Get(CommonProperties.Done);
+                            if (!doneVal.IsUndefined() && TypeConverter.ToBoolean(doneVal))
+                            {
+                                close = true;
+                                asyncInstance?.ClearSuspendData(this);
+                                asyncGenerator?.ClearSuspendData(this);
+                                return new Completion(CompletionType.Normal, v, _statement!);
+                            }
+                        }
+                        else
+                        {
+                            // Call next() on the iterator - for async iterators this returns a Promise
+                            var nextMethod = iteratorRecord.Instance.Get(CommonProperties.Next) as ICallable;
+                            if (nextMethod is null)
+                            {
+                                Throw.TypeError(engine.Realm, "Iterator does not have a next method");
+                                return default;
+                            }
+
+                            var nextPromise = nextMethod.Call(iteratorRecord.Instance, Arguments.Empty);
+
+                            // If result is a Promise, we need to await it
+                            if (nextPromise is JsPromise promise)
+                            {
+                                // Save current state for resume (including iterator)
+                                if (asyncSuspendData is not null)
+                                {
+                                    asyncSuspendData.AccumulatedValue = v;
+                                    asyncSuspendData.Iterator = iteratorRecord;
+                                }
+
+                                // Don't close the iterator when suspending - we'll resume later
+                                close = false;
+
+                                // Suspend and await the promise
+                                return SuspendForAsyncIteration(context, promise, asyncInstance, asyncGenerator, iteratorRecord, v);
+                            }
+
+                            // Not a promise - treat as sync iterator result
+                            nextResult = (nextPromise as ObjectInstance)!;
+                            if (nextResult is null)
+                            {
+                                Throw.TypeError(engine.Realm, "Iterator result is not an object");
+                                return default;
+                            }
+
+                            // Check if iterator is done
+                            var doneVal = nextResult.Get(CommonProperties.Done);
+                            if (!doneVal.IsUndefined() && TypeConverter.ToBoolean(doneVal))
+                            {
+                                close = true;
+                                asyncInstance?.ClearSuspendData(this);
+                                asyncGenerator?.ClearSuspendData(this);
+                                return new Completion(CompletionType.Normal, v, _statement!);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Sync iteration - use existing TryIteratorStep
+                        if (!iteratorRecord.TryIteratorStep(out nextResult))
+                        {
+                            close = true;
+                            // Clean up suspend data on normal completion
+                            generator?.ClearSuspendData(this);
+                            return new Completion(CompletionType.Normal, v, _statement!);
+                        }
                     }
 
                     nextValue = nextResult.Get(CommonProperties.Value);
@@ -473,6 +609,139 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
             else
             {
                 envRec.CreateMutableBinding(name, canBeDeleted: false);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Suspends the current async function/generator to await the iterator's next() Promise.
+    /// </summary>
+    private Completion SuspendForAsyncIteration(
+        EvaluationContext context,
+        JsPromise promise,
+        AsyncFunctionInstance? asyncInstance,
+        Native.AsyncGenerator.AsyncGeneratorInstance? asyncGenerator,
+        IteratorInstance iterator,
+        JsValue accumulatedValue)
+    {
+        var engine = context.Engine;
+
+        if (asyncInstance is not null)
+        {
+            // Save iterator and state for resume
+            var suspendData = asyncInstance.GetOrCreateSuspendData<ForAwaitSuspendData>(this);
+            suspendData.Iterator = iterator;
+            suspendData.AccumulatedValue = accumulatedValue;
+
+            // Suspend async function
+            asyncInstance._lastAwaitNode = this;
+            asyncInstance._state = AsyncFunctionState.SuspendedAwait;
+            asyncInstance._savedContext = engine.ExecutionContext;
+
+            // Create resume handlers
+            var onFulfilled = new ClrFunction(engine, "", (_, args) =>
+            {
+                var resolvedValue = args.At(0);
+
+                engine.AddToEventLoop(() =>
+                {
+                    // Store the resolved iterator result for resume
+                    var resumeSuspendData = asyncInstance.GetOrCreateSuspendData<ForAwaitSuspendData>(this);
+                    resumeSuspendData.ResolvedIteratorResult = resolvedValue as ObjectInstance;
+
+                    asyncInstance._resumeValue = JsValue.Undefined;
+                    asyncInstance._resumeWithThrow = false;
+                    JintAwaitExpression.AsyncFunctionResume(engine, asyncInstance);
+                });
+
+                return JsValue.Undefined;
+            }, 1, PropertyFlag.Configurable);
+
+            var onRejected = new ClrFunction(engine, "", (_, args) =>
+            {
+                var rejectedValue = args.At(0);
+
+                engine.AddToEventLoop(() =>
+                {
+                    asyncInstance._resumeValue = rejectedValue;
+                    asyncInstance._resumeWithThrow = true;
+                    JintAwaitExpression.AsyncFunctionResume(engine, asyncInstance);
+                });
+
+                return JsValue.Undefined;
+            }, 1, PropertyFlag.Configurable);
+
+            var resultCapability = PromiseConstructor.NewPromiseCapability(engine, engine.Realm.Intrinsics.Promise);
+            PromiseOperations.PerformPromiseThen(engine, promise, onFulfilled, onRejected, resultCapability);
+
+            // Return with completion that signals suspension
+            return new Completion(CompletionType.Normal, JsValue.Undefined, _statement!);
+        }
+        else if (asyncGenerator is not null)
+        {
+            // When iterating over an async generator from within the same async generator,
+            // we need to use the async generator's suspension mechanism.
+            // Save iterator and state for resume
+            var suspendData = asyncGenerator.GetOrCreateSuspendData<ForAwaitSuspendData>(this);
+            suspendData.Iterator = iterator;
+            suspendData.AccumulatedValue = accumulatedValue;
+
+            // Mark that we're waiting for the iterator result
+            asyncGenerator._asyncGeneratorState = Native.AsyncGenerator.AsyncGeneratorState.SuspendedYield;
+
+            // Create resume handlers - just store the result, the async generator's
+            // own mechanisms will handle resumption
+            var onFulfilled = new ClrFunction(engine, "", (_, args) =>
+            {
+                var resolvedValue = args.At(0);
+
+                // Store the resolved iterator result for when we resume
+                var resumeSuspendData = asyncGenerator.GetOrCreateSuspendData<ForAwaitSuspendData>(this);
+                resumeSuspendData.ResolvedIteratorResult = resolvedValue as ObjectInstance;
+
+                // Set up for resumption - mark as resuming so the for-await-of loop
+                // knows to use the stored result
+                asyncGenerator._isResuming = true;
+
+                // Resume the async generator
+                asyncGenerator.AsyncGeneratorResumeNext();
+
+                return JsValue.Undefined;
+            }, 1, PropertyFlag.Configurable);
+
+            var onRejected = new ClrFunction(engine, "", (_, args) =>
+            {
+                var rejectedValue = args.At(0);
+
+                // On rejection, throw in the async generator context
+                asyncGenerator._error = rejectedValue;
+                asyncGenerator._isResuming = true;
+                asyncGenerator._resumeCompletionType = CompletionType.Throw;
+                asyncGenerator.AsyncGeneratorResumeNext();
+
+                return JsValue.Undefined;
+            }, 1, PropertyFlag.Configurable);
+
+            PromiseOperations.PerformPromiseThen(engine, promise, onFulfilled, onRejected, null!);
+
+            // Return with completion that signals suspension
+            return new Completion(CompletionType.Normal, JsValue.Undefined, _statement!);
+        }
+        else
+        {
+            // Fallback: synchronously unwrap the promise (blocking)
+            try
+            {
+                var resolvedResult = promise.UnwrapIfPromise(engine.Options.Constraints.PromiseTimeout);
+                // Continue normally with the resolved result
+                // This won't work correctly for truly async promises
+                Throw.TypeError(engine.Realm, "for-await-of requires an async context");
+                return default;
+            }
+            catch (PromiseRejectedException e)
+            {
+                Throw.JavaScriptException(engine, e.RejectedValue, _statement!.Location);
+                return default;
             }
         }
     }

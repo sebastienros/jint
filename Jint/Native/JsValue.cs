@@ -84,9 +84,16 @@ public abstract partial class JsValue : IEquatable<JsValue>
                 if (method is null)
                 {
                     var syncMethod = obj.GetMethod(GlobalSymbolRegistry.Iterator);
+                    if (syncMethod is null)
+                    {
+                        iterator = null;
+                        return false;
+                    }
                     var syncIteratorRecord = obj.GetIterator(realm, GeneratorKind.Sync, syncMethod);
-                    // TODO async CreateAsyncFromSyncIterator(syncIteratorRecord);
-                    Throw.NotImplementedException("async");
+                    // CreateAsyncFromSyncIterator - wrap the sync iterator in an async adapter
+                    var asyncFromSync = new AsyncFromSyncIterator(obj.Engine, syncIteratorRecord);
+                    iterator = new IteratorInstance.ObjectIterator(asyncFromSync);
+                    return true;
                 }
             }
             else

@@ -1,10 +1,10 @@
-﻿using Jint.Native.AsyncFunction;
+﻿using Jint.Native.Function;
 using Jint.Native.Iterator;
 using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
-namespace Jint.Native.Generator;
+namespace Jint.Native.AsyncGenerator;
 
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-asyncgeneratorfunction-prototype
@@ -16,12 +16,12 @@ internal sealed class AsyncGeneratorFunctionPrototype : Prototype
     internal AsyncGeneratorFunctionPrototype(
         Engine engine,
         AsyncGeneratorFunctionConstructor constructor,
-        AsyncFunctionPrototype prototype,
-        IteratorPrototype iteratorPrototype) : base(engine, engine.Realm)
+        FunctionPrototype prototype,
+        AsyncIteratorPrototype asyncIteratorPrototype) : base(engine, engine.Realm)
     {
         _constructor = constructor;
         _prototype = prototype;
-        PrototypeObject = new AsyncGeneratorPrototype(engine, this, iteratorPrototype);
+        PrototypeObject = new AsyncGeneratorPrototype(engine, this, asyncIteratorPrototype);
     }
 
     public AsyncGeneratorPrototype PrototypeObject { get; }

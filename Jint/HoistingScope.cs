@@ -305,8 +305,15 @@ internal sealed class HoistingScope
                 return;
             }
 
-            // Found a top-level await
+            // Found a top-level await expression
             if (node.Type == NodeType.AwaitExpression)
+            {
+                _hasTopLevelAwait = true;
+                return;
+            }
+
+            // Found a top-level for-await-of statement
+            if (node is ForOfStatement { Await: true })
             {
                 _hasTopLevelAwait = true;
                 return;
