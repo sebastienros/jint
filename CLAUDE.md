@@ -34,12 +34,11 @@ dotnet test --configuration Release Jint.Tests.Test262/Jint.Tests.Test262.csproj
 ```
 
 Important: Run tests in Release mode for faster feedback loop.
+Important: If you make changes to Test262Harness.settings.json you need to delete folder Jint.Tests.Test262\Generated before building.
 
 ## Requirements
 
-- .NET 10 SDK (specified in global.json)
 - The project uses central package management via Directory.Packages.props
-- Targets: .NET Framework 4.6.2, .NET Standard 2.0/2.1, .NET 8.0+
 
 ## Architecture
 
@@ -128,6 +127,7 @@ Acornima Parser (external) → AST → Interpreter → Runtime → Interop
 - **Unsafe Code**: Allowed (used for performance-critical paths)
 - **Warnings as Errors**: Enabled - all warnings must be fixed
 - **Analysis**: Latest analyzers enabled with EnforceCodeStyleInBuild
+- **Performance**: Try to make code as perfomant as possible.
 
 ## Testing
 

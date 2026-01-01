@@ -140,6 +140,11 @@ internal sealed class JintUnaryExpression : JintExpression
             case Operator.UnaryPlus:
                 {
                     var v = _argument.GetValue(context);
+                    if (context.IsSuspended())
+                    {
+                        return JsValue.Undefined;
+                    }
+
                     if (context.OperatorOverloadingAllowed &&
                         TryOperatorOverloading(context, v, "op_UnaryPlus", out var result))
                     {
@@ -151,6 +156,11 @@ internal sealed class JintUnaryExpression : JintExpression
             case Operator.UnaryNegation:
                 {
                     var v = _argument.GetValue(context);
+                    if (context.IsSuspended())
+                    {
+                        return JsValue.Undefined;
+                    }
+
                     if (context.OperatorOverloadingAllowed &&
                         TryOperatorOverloading(context, v, "op_UnaryNegation", out var result))
                     {
@@ -162,6 +172,11 @@ internal sealed class JintUnaryExpression : JintExpression
             case Operator.BitwiseNot:
                 {
                     var v = _argument.GetValue(context);
+                    if (context.IsSuspended())
+                    {
+                        return JsValue.Undefined;
+                    }
+
                     if (context.OperatorOverloadingAllowed &&
                         TryOperatorOverloading(context, v, "op_OnesComplement", out var result))
                     {
@@ -179,6 +194,11 @@ internal sealed class JintUnaryExpression : JintExpression
             case Operator.LogicalNot:
                 {
                     var v = _argument.GetValue(context);
+                    if (context.IsSuspended())
+                    {
+                        return JsValue.Undefined;
+                    }
+
                     if (context.OperatorOverloadingAllowed &&
                         TryOperatorOverloading(context, v, "op_LogicalNot", out var result))
                     {
@@ -247,6 +267,7 @@ internal sealed class JintUnaryExpression : JintExpression
 
             case Operator.Void:
                 _argument.GetValue(context);
+                // No need to check suspension - we always return undefined anyway
                 return JsValue.Undefined;
 
             default:

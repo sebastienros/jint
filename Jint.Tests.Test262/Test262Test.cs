@@ -15,6 +15,7 @@ public abstract partial class Test262Test
             var relativePath = Path.GetDirectoryName(file.FileName);
             cfg.EnableModules(new Test262ModuleLoader(State.Test262Stream.Options.FileSystem, relativePath));
             cfg.ExperimentalFeatures = ExperimentalFeature.All;
+            cfg.TimeoutInterval(TimeSpan.FromSeconds(30));
         });
 
         if (file.Flags.Contains("raw"))

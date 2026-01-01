@@ -133,8 +133,9 @@ public class Host
 
         try
         {
-            // This should instead return the PromiseInstance returned by ModuleRecord.Evaluate (currently done in Engine.EvaluateModule), but until we have await this will do.
-            Engine.Modules.Import(moduleRequest, referrer?.Location);
+            // Just load the module - don't link/evaluate yet
+            // Link and evaluate happens in FinishLoadingImportedModule to properly handle async modules
+            Engine.Modules.Load(referrer?.Location, moduleRequest);
             promise.Resolve(JsValue.Undefined);
         }
         catch (JavaScriptException ex)
@@ -155,8 +156,59 @@ public class Host
             var moduleRecord = GetImportedModule(referrer, moduleRequest);
             try
             {
-                var ns = Module.GetModuleNamespace(moduleRecord);
-                payload.Resolve.Call(JsValue.Undefined, ns);
+                // Link the module if not already linked/linking/evaluating
+                if (moduleRecord is CyclicModule cyclicModule)
+                {
+                    if (cyclicModule.Status == ModuleStatus.Unlinked)
+                    {
+                        moduleRecord.Link();
+                    }
+                }
+                else
+                {
+                    // Non-cyclic modules - safe to call Link
+                    moduleRecord.Link();
+                }
+
+                // Evaluate returns a promise for async (TLA) modules
+                var evaluateResult = moduleRecord.Evaluate();
+                if (evaluateResult is not JsPromise evaluatePromise)
+                {
+                    // Non-cyclic module - shouldn't happen but handle gracefully
+                    var ns = Module.GetModuleNamespace(moduleRecord);
+                    payload.Resolve.Call(JsValue.Undefined, ns);
+                    return JsValue.Undefined;
+                }
+
+                if (evaluatePromise.State == PromiseState.Fulfilled)
+                {
+                    // Sync completion - resolve immediately with namespace
+                    var ns = Module.GetModuleNamespace(moduleRecord);
+                    payload.Resolve.Call(JsValue.Undefined, ns);
+                }
+                else if (evaluatePromise.State == PromiseState.Rejected)
+                {
+                    payload.Reject.Call(JsValue.Undefined, evaluatePromise.Value);
+                }
+                else
+                {
+                    // Pending - chain on the evaluation promise
+                    var onEvalFulfilled = new ClrFunction(Engine, "", (_, evalArgs) =>
+                    {
+                        var ns = Module.GetModuleNamespace(moduleRecord);
+                        payload.Resolve.Call(JsValue.Undefined, ns);
+                        return JsValue.Undefined;
+                    }, 0, PropertyFlag.Configurable);
+
+                    var onEvalRejected = new ClrFunction(Engine, "", (_, evalArgs) =>
+                    {
+                        payload.Reject.Call(JsValue.Undefined, evalArgs.At(0));
+                        return JsValue.Undefined;
+                    }, 1, PropertyFlag.Configurable);
+
+                    PromiseOperations.PerformPromiseThen(Engine, evaluatePromise,
+                        onEvalFulfilled, onEvalRejected, resultCapability: null!);
+                }
             }
             catch (JavaScriptException ex)
             {
@@ -170,9 +222,9 @@ public class Host
             var error = args.At(0);
             payload.Reject.Call(JsValue.Undefined, error);
             return JsValue.Undefined;
-        }, 0, PropertyFlag.Configurable);
+        }, 1, PropertyFlag.Configurable);
 
-        PromiseOperations.PerformPromiseThen(Engine, result, onFulfilled, onRejected, payload);
+        PromiseOperations.PerformPromiseThen(Engine, result, onFulfilled, onRejected, resultCapability: null!);
     }
 
     /// <summary>

@@ -44,7 +44,8 @@ public static class ModuleFactory
             Throw.InvalidPreparedModuleArgumentException(nameof(preparedModule));
         }
 
-        return new SourceTextModule(engine, engine.Realm, preparedModule, preparedModule.Program!.Location.SourceFile, async: false);
+        var hasTopLevelAwait = HoistingScope.HasTopLevelAwait(preparedModule.Program!);
+        return new SourceTextModule(engine, engine.Realm, preparedModule, preparedModule.Program!.Location.SourceFile, isAsync: hasTopLevelAwait);
     }
 
     /// <summary>

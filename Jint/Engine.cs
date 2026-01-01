@@ -513,16 +513,26 @@ public sealed partial class Engine : IDisposable
 
     internal void RunAvailableContinuations()
     {
-        var queue = _eventLoop.Events;
-        DoProcessEventLoop(queue);
-    }
-
-    private static void DoProcessEventLoop(ConcurrentQueue<Action> queue)
-    {
-        while (queue.TryDequeue(out var nextContinuation))
+        // Prevent re-entrant calls which can cause stack overflow.
+        // If we're already processing, the outer loop will handle any new events.
+        if (_eventLoop.IsProcessing)
         {
-            // note that continuation can enqueue new events
-            nextContinuation();
+            return;
+        }
+
+        _eventLoop.IsProcessing = true;
+        try
+        {
+            var queue = _eventLoop.Events;
+            while (queue.TryDequeue(out var nextContinuation))
+            {
+                // note that continuation can enqueue new events
+                nextContinuation();
+            }
+        }
+        finally
+        {
+            _eventLoop.IsProcessing = false;
         }
     }
 

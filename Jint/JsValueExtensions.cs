@@ -667,10 +667,37 @@ public static class JsValueExtensions
             var engine = promise.Engine;
             var completedEvent = promise.CompletedEvent;
 
-            engine.RunAvailableContinuations();
-            if (!completedEvent.Wait(timeout))
+            // Process continuations and poll with short intervals to handle
+            // continuations added by background tasks (like setTimeout callbacks)
+            var hasTimeout = timeout > TimeSpan.Zero;
+            var deadline = hasTimeout ? DateTime.UtcNow + timeout : DateTime.MaxValue;
+            var pollInterval = TimeSpan.FromMilliseconds(10);
+
+            while (promise.State == PromiseState.Pending)
             {
-                Throw.PromiseRejectedException($"Timeout of {timeout} reached");
+                engine.RunAvailableContinuations();
+
+                if (promise.State != PromiseState.Pending)
+                {
+                    break;
+                }
+
+                if (hasTimeout)
+                {
+                    var remaining = deadline - DateTime.UtcNow;
+                    if (remaining <= TimeSpan.Zero)
+                    {
+                        Throw.PromiseRejectedException($"Timeout of {timeout} reached");
+                    }
+
+                    var waitTime = remaining < pollInterval ? remaining : pollInterval;
+                    completedEvent.Wait(waitTime);
+                }
+                else
+                {
+                    // No timeout - just poll
+                    completedEvent.Wait(pollInterval);
+                }
             }
 
             switch (promise.State)

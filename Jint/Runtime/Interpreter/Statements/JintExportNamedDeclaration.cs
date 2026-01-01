@@ -23,7 +23,14 @@ internal sealed class JintExportNamedDeclaration : JintStatement<ExportNamedDecl
     /// </summary>
     protected override Completion ExecuteInternal(EvaluationContext context)
     {
-        _declarationStatement?.Execute(context);
+        var result = _declarationStatement?.Execute(context) ?? Completion.Empty();
+
+        // Check for async/generator suspension
+        if (context.IsSuspended())
+        {
+            return result;
+        }
+
         return new Completion(CompletionType.Normal, JsValue.Undefined, ((JintStatement) this)._statement);
     }
 }

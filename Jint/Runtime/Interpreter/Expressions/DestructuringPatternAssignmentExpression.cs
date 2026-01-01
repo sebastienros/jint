@@ -457,6 +457,11 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                         {
                             return completion;
                         }
+                        // Check for async/generator suspension after evaluating default value
+                        if (context.IsSuspended())
+                        {
+                            return JsValue.Undefined;
+                        }
                         value = completion;
                     }
 

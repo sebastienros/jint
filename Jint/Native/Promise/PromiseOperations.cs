@@ -38,23 +38,27 @@ internal static class PromiseOperations
                 try
                 {
                     var result = handler.Call(JsValue.Undefined, value);
-                    promiseCapability.Resolve.Call(JsValue.Undefined, result);
+                    // If promiseCapability is undefined, just return (spec step g)
+                    promiseCapability?.Resolve.Call(JsValue.Undefined, result);
                 }
                 catch (JavaScriptException e)
                 {
-                    promiseCapability.Reject.Call(JsValue.Undefined, e.Error);
+                    // If promiseCapability is undefined, this is an assertion failure per spec
+                    // but we need to handle it gracefully
+                    promiseCapability?.Reject.Call(JsValue.Undefined, e.Error);
                 }
             }
             else
             {
+                // If no handler, capability must be defined per spec
                 switch (reaction.Type)
                 {
                     case ReactionType.Fulfill:
-                        promiseCapability.Resolve.Call(JsValue.Undefined, value);
+                        promiseCapability?.Resolve.Call(JsValue.Undefined, value);
                         break;
 
                     case ReactionType.Reject:
-                        promiseCapability.Reject.Call(JsValue.Undefined, value);
+                        promiseCapability?.Reject.Call(JsValue.Undefined, value);
                         break;
 
                     default:

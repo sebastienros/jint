@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Native.Function;
+using Jint.Native.AsyncFunction;
 using Jint.Native.Generator;
 using Jint.Native.Promise;
 using Jint.Runtime.Environments;
@@ -48,11 +49,19 @@ internal sealed class JintFunctionDefinition
                 var jsValues = argumentsList;
 
                 var promiseCapability = PromiseConstructor.NewPromiseCapability(context.Engine, context.Engine.Realm.Intrinsics.Promise);
-                AsyncFunctionStart(context, promiseCapability, context =>
+                // Expression bodies don't have a statement list (used only for resumption)
+                AsyncFunctionStart(context, promiseCapability, body: null, context =>
                 {
                     context.Engine.FunctionDeclarationInstantiation(function, jsValues);
                     context.RunBeforeExecuteStatementChecks(Function.Body);
                     var jsValue = _bodyExpression.GetValue(context).Clone();
+
+                    // Check for async suspension - if suspended, return early to allow resumption
+                    if (context.IsSuspended())
+                    {
+                        return new Completion(CompletionType.Normal, jsValue, _bodyExpression._expression);
+                    }
+
                     return new Completion(CompletionType.Return, jsValue, _bodyExpression._expression);
                 });
                 result = new Completion(CompletionType.Return, promiseCapability.PromiseInstance, Function.Body);
@@ -78,11 +87,12 @@ internal sealed class JintFunctionDefinition
                 var arguments = argumentsList;
 
                 var promiseCapability = PromiseConstructor.NewPromiseCapability(context.Engine, context.Engine.Realm.Intrinsics.Promise);
-                _bodyStatementList ??= new JintStatementList(Function);
-                AsyncFunctionStart(context, promiseCapability, context =>
+                // Each async function invocation needs its own JintStatementList to track its own position
+                var bodyStatementList = new JintStatementList(Function);
+                AsyncFunctionStart(context, promiseCapability, bodyStatementList, context =>
                 {
                     context.Engine.FunctionDeclarationInstantiation(function, arguments);
-                    return _bodyStatementList.Execute(context);
+                    return bodyStatementList.Execute(context);
                 });
                 result = new Completion(CompletionType.Return, promiseCapability.PromiseInstance, Function.Body);
             }
@@ -102,11 +112,41 @@ internal sealed class JintFunctionDefinition
     /// <summary>
     /// https://tc39.es/ecma262/#sec-async-functions-abstract-operations-async-function-start
     /// </summary>
-    private static void AsyncFunctionStart(EvaluationContext context, PromiseCapability promiseCapability, Func<EvaluationContext, Completion> asyncFunctionBody)
+    private static void AsyncFunctionStart(
+        EvaluationContext context,
+        PromiseCapability promiseCapability,
+        JintStatementList? body,
+        Func<EvaluationContext, Completion> asyncFunctionBody)
     {
-        var runningContext = context.Engine.ExecutionContext;
-        var asyncContext = runningContext;
-        AsyncBlockStart(context, promiseCapability, asyncFunctionBody, asyncContext);
+        var engine = context.Engine;
+        var runningContext = engine.ExecutionContext;
+
+        // Step 1-2: Create async function state tracking instance
+        // This is an implementation detail not explicitly in spec, but needed for suspension/resumption
+        var asyncInstance = new AsyncFunctionInstance
+        {
+            _state = AsyncFunctionState.Executing,
+            _capability = promiseCapability,
+            _body = body,
+            _bodyFunction = asyncFunctionBody
+        };
+
+        // Step 3: "Let asyncContext be a copy of runningContext"
+        // Since ExecutionContext is a readonly struct, UpdateAsyncFunction creates a new copy
+        // with the AsyncFunction field set, achieving the spec's "copy" semantics.
+        var asyncContext = runningContext.UpdateAsyncFunction(asyncInstance);
+
+        // Store the context for resumption when awaited promises settle
+        asyncInstance._savedContext = asyncContext;
+
+        // Step 5: "Push asyncContext onto the execution context stack"
+        // We leave the old context and push the new one (equivalent to spec's push operation)
+        engine.LeaveExecutionContext();
+        engine.EnterExecutionContext(asyncContext);
+
+        // Step 6: "Resume the suspended evaluation of asyncContext"
+        // Perform AsyncBlockStart to begin executing the async function body
+        AsyncBlockStart(context, asyncInstance, asyncFunctionBody);
     }
 
     /// <summary>
@@ -114,12 +154,10 @@ internal sealed class JintFunctionDefinition
     /// </summary>
     private static void AsyncBlockStart(
         EvaluationContext context,
-        PromiseCapability promiseCapability,
-        Func<EvaluationContext, Completion> asyncBody,
-        in ExecutionContext asyncContext)
+        AsyncFunctionInstance asyncInstance,
+        Func<EvaluationContext, Completion> asyncBody)
     {
-        var runningContext = context.Engine.ExecutionContext;
-        // Set the code evaluation state of asyncContext such that when evaluation is resumed for that execution contxt the following steps will be performed:
+        var engine = context.Engine;
 
         Completion result;
         try
@@ -128,30 +166,33 @@ internal sealed class JintFunctionDefinition
         }
         catch (JavaScriptException e)
         {
-            promiseCapability.Reject.Call(JsValue.Undefined, e.Error);
+            asyncInstance._state = AsyncFunctionState.Completed;
+            asyncInstance._capability.Reject.Call(JsValue.Undefined, e.Error);
             return;
         }
 
+        // Check if we suspended at an await
+        if (asyncInstance._state == AsyncFunctionState.SuspendedAwait)
+        {
+            // Suspended - promise reaction will resume execution later
+            return;
+        }
+
+        // Completed - resolve or reject the async function's return promise
+        asyncInstance._state = AsyncFunctionState.Completed;
+
         if (result.Type == CompletionType.Normal)
         {
-            promiseCapability.Resolve.Call(JsValue.Undefined, JsValue.Undefined);
+            asyncInstance._capability.Resolve.Call(JsValue.Undefined, JsValue.Undefined);
         }
         else if (result.Type == CompletionType.Return)
         {
-            promiseCapability.Resolve.Call(JsValue.Undefined, result.Value);
+            asyncInstance._capability.Resolve.Call(JsValue.Undefined, result.Value);
         }
         else
         {
-            promiseCapability.Reject.Call(JsValue.Undefined, result.Value);
+            asyncInstance._capability.Reject.Call(JsValue.Undefined, result.Value);
         }
-
-        /*
-        4. Push asyncContext onto the execution context stack; asyncContext is now the running execution context.
-        5. Resume the suspended evaluation of asyncContext. Let result be the value returned by the resumed computation.
-        6. Assert: When we return here, asyncContext has already been removed from the execution context stack and runningContext is the currently running execution context.
-        7. Assert: result is a normal completion with a value of unused. The possible sources of this value are Await or, if the async function doesn't await anything, step 3.g above.
-        8. Return unused.
-        */
     }
 
     /// <summary>

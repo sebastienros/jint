@@ -28,12 +28,34 @@ internal sealed class JintWhileStatement : JintStatement<WhileStatement>
         var v = JsValue.Undefined;
         while (true)
         {
+            var asyncFn = context.Engine.ExecutionContext.AsyncFunction;
+
+            // Only clear completed awaits cache when starting a NEW iteration, not when resuming.
+            // When resuming from a nested await (e.g., "while (await await await x)"),
+            // we need the cached values of already-completed awaits to continue evaluation.
+            // When starting fresh (not resuming), clear the cache to ensure expressions like
+            // "while (await p)" evaluate p fresh each time even if p changes.
+            if (asyncFn is null || !asyncFn._isResuming)
+            {
+                asyncFn?._completedAwaits?.Clear();
+            }
+
             if (context.DebugMode)
             {
                 context.Engine.Debugger.OnStep(_test._expression);
             }
 
             var jsValue = _test.GetValue(context);
+
+            // Check for async/generator suspension after evaluating the test expression
+            if (context.IsSuspended())
+            {
+                var generator = context.Engine.ExecutionContext.Generator;
+                asyncFn = context.Engine.ExecutionContext.AsyncFunction;
+                var suspendedValue = generator?._suspendedValue ?? asyncFn?._resumeValue ?? JsValue.Undefined;
+                return new Completion(CompletionType.Return, suspendedValue, _statement);
+            }
+
             if (!TypeConverter.ToBoolean(jsValue))
             {
                 return new Completion(CompletionType.Normal, v, _statement);
