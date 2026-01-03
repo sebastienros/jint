@@ -30,7 +30,7 @@ internal sealed class JintLogicalAndExpression : JintExpression
         var left = _left.GetValue(context);
 
         // Check for generator suspension after evaluating left operand
-        if (context.IsGeneratorSuspended())
+        if (context.IsSuspended())
         {
             return left;
         }

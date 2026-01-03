@@ -101,7 +101,7 @@ internal sealed class JintStatementList
 
                 // Check for generator suspension - works for both the main generator body and nested blocks
                 var gen = context.Engine.ExecutionContext.Generator;
-                if (context.IsGeneratorSuspended())
+                if (context.IsSuspended())
                 {
                     // Don't increment _index - we'll re-execute this statement on resume
                     // The yield tracking (_yieldIndex) handles knowing which yield to resume from

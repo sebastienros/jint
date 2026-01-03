@@ -38,7 +38,7 @@ internal sealed class JintSequenceExpression : JintExpression
             result = expression.GetValue(context);
 
             // Check for generator suspension after each expression
-            if (context.IsGeneratorSuspended())
+            if (context.IsSuspended())
             {
                 return result;
             }

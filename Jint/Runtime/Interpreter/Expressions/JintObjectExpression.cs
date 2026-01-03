@@ -144,7 +144,7 @@ internal sealed class JintObjectExpression : JintExpression
             var propValue = _valueExpressions.GetValue(context, i);
 
             // Check for generator suspension after each property evaluation
-            if (context.IsGeneratorSuspended())
+            if (context.IsSuspended())
             {
                 return JsValue.Undefined;
             }
@@ -174,7 +174,7 @@ internal sealed class JintObjectExpression : JintExpression
                 var spreadValue = _valueExpressions.GetValue(context, i);
 
                 // Check for generator suspension
-                if (context.IsGeneratorSuspended())
+                if (context.IsSuspended())
                 {
                     return JsValue.Undefined;
                 }
@@ -205,7 +205,7 @@ internal sealed class JintObjectExpression : JintExpression
                 }
 
                 // Check for generator suspension after evaluating computed property key
-                if (context.IsGeneratorSuspended())
+                if (context.IsSuspended())
                 {
                     return value;
                 }
@@ -218,7 +218,7 @@ internal sealed class JintObjectExpression : JintExpression
                 var propValue = _valueExpressions.GetValue(context, i)!;
 
                 // Check for generator suspension
-                if (context.IsGeneratorSuspended())
+                if (context.IsSuspended())
                 {
                     return JsValue.Undefined;
                 }

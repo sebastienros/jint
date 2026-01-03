@@ -43,7 +43,7 @@ internal sealed class JintArrayExpression : JintExpression
 
             // If generator suspended during argument evaluation, return undefined
             // The expression will be re-evaluated on resume
-            if (context.IsGeneratorSuspended())
+            if (context.IsSuspended())
             {
                 return JsValue.Undefined;
             }
@@ -55,7 +55,7 @@ internal sealed class JintArrayExpression : JintExpression
         _arguments.BuildArgumentsWithSpreads(context, array);
 
         // If generator suspended during argument evaluation, return undefined
-        if (context.IsGeneratorSuspended())
+        if (context.IsSuspended())
         {
             return JsValue.Undefined;
         }

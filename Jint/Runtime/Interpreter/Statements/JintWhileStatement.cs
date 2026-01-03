@@ -47,7 +47,7 @@ internal sealed class JintWhileStatement : JintStatement<WhileStatement>
             }
 
             // Check for generator suspension - if the generator is suspended, we need to exit the loop
-            if (context.IsGeneratorSuspended())
+            if (context.IsSuspended())
             {
                 var generator = context.Engine.ExecutionContext.Generator;
                 var suspendedValue = generator?._suspendedValue ?? completion.Value;

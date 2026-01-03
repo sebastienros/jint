@@ -191,7 +191,7 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                     var reference = GetReferenceFromMember(context, me);
 
                     // Check for generator suspension after evaluating member expression
-                    if (context.IsGeneratorSuspended())
+                    if (context.IsSuspended())
                     {
                         close = false; // Don't close iterator, we'll resume later
                         return JsValue.Undefined;
@@ -245,7 +245,7 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                         reference = GetReferenceFromMember(context, memberExpression);
 
                         // Check for generator suspension after evaluating member expression
-                        if (context.IsGeneratorSuspended())
+                        if (context.IsSuspended())
                         {
                             close = false; // Don't close iterator, we'll resume later
                             return JsValue.Undefined;
@@ -327,7 +327,7 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                         value = jintExpression.GetValue(context);
 
                         // Check for generator suspension after evaluating default value
-                        if (context.IsGeneratorSuspended())
+                        if (context.IsSuspended())
                         {
                             close = false; // Don't close iterator, we'll resume later
                             return JsValue.Undefined;
@@ -368,7 +368,7 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                 }
 
                 // Check for generator suspension after processing each element
-                if (context.IsGeneratorSuspended())
+                if (context.IsSuspended())
                 {
                     // Generator yield - don't close the iterator, we'll resume later
                     close = false;

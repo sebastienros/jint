@@ -649,7 +649,7 @@ internal abstract class JintBinaryExpression : JintExpression
             var left = _left.GetValue(context);
 
             // Check for generator suspension after evaluating left operand
-            if (context.IsGeneratorSuspended())
+            if (context.IsSuspended())
             {
                 return left;
             }
@@ -657,7 +657,7 @@ internal abstract class JintBinaryExpression : JintExpression
             var right = _right.GetValue(context);
 
             // Check for generator suspension after evaluating right operand
-            if (context.IsGeneratorSuspended())
+            if (context.IsSuspended())
             {
                 return right;
             }

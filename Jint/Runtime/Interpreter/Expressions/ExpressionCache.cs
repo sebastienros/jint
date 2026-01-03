@@ -89,7 +89,7 @@ internal sealed class ExpressionCache
 
             // Check for generator suspension after each expression evaluation
             // This is needed because yield expressions return normally instead of throwing
-            if (context.IsGeneratorSuspended())
+            if (context.IsSuspended())
             {
                 return;
             }
@@ -157,7 +157,7 @@ internal sealed class ExpressionCache
 
                 // If generator suspended during spread expression evaluation, stop processing
                 // The iterator will be null because we haven't started iteration yet
-                if (context.IsGeneratorSuspended())
+                if (context.IsSuspended())
                 {
                     return;
                 }
@@ -183,7 +183,7 @@ internal sealed class ExpressionCache
                 target.Add(GetValue(context, expression)!);
 
                 // Check for generator suspension after each expression evaluation
-                if (context.IsGeneratorSuspended())
+                if (context.IsSuspended())
                 {
                     return;
                 }
