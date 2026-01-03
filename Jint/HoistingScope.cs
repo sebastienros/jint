@@ -277,4 +277,57 @@ internal sealed class HoistingScope
             }
         }
     }
+
+    /// <summary>
+    /// Checks if the module has top-level await expressions.
+    /// Only checks at the module level, not inside function bodies.
+    /// </summary>
+    public static bool HasTopLevelAwait(AstModule module)
+    {
+        return HasTopLevelAwaitVisitor.Check(module);
+    }
+
+    private sealed class HasTopLevelAwaitVisitor
+    {
+        private bool _hasTopLevelAwait;
+
+        public static bool Check(AstModule module)
+        {
+            var visitor = new HasTopLevelAwaitVisitor();
+            visitor.Visit(module);
+            return visitor._hasTopLevelAwait;
+        }
+
+        private void Visit(Node node)
+        {
+            if (_hasTopLevelAwait)
+            {
+                return;
+            }
+
+            // Found a top-level await
+            if (node.Type == NodeType.AwaitExpression)
+            {
+                _hasTopLevelAwait = true;
+                return;
+            }
+
+            // Don't descend into function bodies - those have their own async context
+            if (node.Type is NodeType.FunctionDeclaration or NodeType.FunctionExpression
+                or NodeType.ArrowFunctionExpression or NodeType.ClassDeclaration
+                or NodeType.ClassExpression)
+            {
+                return;
+            }
+
+            foreach (var childNode in node.ChildNodes)
+            {
+                Visit(childNode);
+                if (_hasTopLevelAwait)
+                {
+                    return;
+                }
+            }
+        }
+    }
 }

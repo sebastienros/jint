@@ -347,7 +347,7 @@ internal sealed class JintYieldExpression : JintExpression
 
     /// <summary>
     /// Suspends the generator during yield* delegation.
-    /// Sets generator state to suspendedYield - callers check context.IsGeneratorSuspended().
+    /// Sets generator state to suspendedYield - callers check context.IsSuspended().
     /// </summary>
     private static void SuspendForDelegation(
         EvaluationContext context,

@@ -109,6 +109,12 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
                         value,
                         environment,
                         checkPatternPropertyReference: _statement.Kind != VariableDeclarationKind.Var);
+
+                    // Check for async/generator suspension after processing patterns
+                    if (context.IsSuspended())
+                    {
+                        return new Completion(CompletionType.Normal, JsValue.Undefined, _statement);
+                    }
                 }
                 else if (declaration.LeftIdentifierExpression == null
                          || JintAssignmentExpression.SimpleAssignmentExpression.AssignToIdentifier(

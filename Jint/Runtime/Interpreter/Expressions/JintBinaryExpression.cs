@@ -39,6 +39,26 @@ internal abstract class JintBinaryExpression : JintExpression
         _initialized = true;
     }
 
+    /// <summary>
+    /// Evaluates both operands with proper suspension checks for async/generator functions.
+    /// Returns false if evaluation was suspended (caller should return early).
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    protected bool TryEvaluateOperands(EvaluationContext context, out JsValue left, out JsValue right)
+    {
+        EnsureInitialized();
+
+        left = _left.GetValue(context);
+        if (context.IsSuspended())
+        {
+            right = JsValue.Undefined;
+            return false;
+        }
+
+        right = _right.GetValue(context);
+        return !context.IsSuspended();
+    }
+
     private readonly record struct MethodResolverState(JsCallArguments Arguments);
 
     internal static bool TryOperatorOverloading(
@@ -203,10 +223,11 @@ internal abstract class JintBinaryExpression : JintExpression
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
-            EnsureInitialized();
+            if (!TryEvaluateOperands(context, out var left, out var right))
+            {
+                return JsValue.Undefined;
+            }
 
-            var left = _left.GetValue(context);
-            var right = _right.GetValue(context);
             var equal = left == right;
             return equal ? JsBoolean.True : JsBoolean.False;
         }
@@ -220,10 +241,11 @@ internal abstract class JintBinaryExpression : JintExpression
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
-            EnsureInitialized();
+            if (!TryEvaluateOperands(context, out var left, out var right))
+            {
+                return JsValue.Undefined;
+            }
 
-            var left = _left.GetValue(context);
-            var right = _right.GetValue(context);
             return left == right ? JsBoolean.False : JsBoolean.True;
         }
     }
@@ -236,10 +258,10 @@ internal abstract class JintBinaryExpression : JintExpression
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
-            EnsureInitialized();
-
-            var left = _left.GetValue(context);
-            var right = _right.GetValue(context);
+            if (!TryEvaluateOperands(context, out var left, out var right))
+            {
+                return JsValue.Undefined;
+            }
 
             if (context.OperatorOverloadingAllowed
                 && TryOperatorOverloading(context, left, right, "op_LessThan", out var opResult))
@@ -261,10 +283,10 @@ internal abstract class JintBinaryExpression : JintExpression
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
-            EnsureInitialized();
-
-            var left = _left.GetValue(context);
-            var right = _right.GetValue(context);
+            if (!TryEvaluateOperands(context, out var left, out var right))
+            {
+                return JsValue.Undefined;
+            }
 
             if (context.OperatorOverloadingAllowed
                 && TryOperatorOverloading(context, left, right, "op_GreaterThan", out var opResult))
@@ -286,10 +308,10 @@ internal abstract class JintBinaryExpression : JintExpression
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
-            EnsureInitialized();
-
-            var left = _left.GetValue(context);
-            var right = _right.GetValue(context);
+            if (!TryEvaluateOperands(context, out var left, out var right))
+            {
+                return JsValue.Undefined;
+            }
 
             if (context.OperatorOverloadingAllowed
                 && TryOperatorOverloading(context, left, right, "op_Addition", out var opResult))
@@ -331,10 +353,10 @@ internal abstract class JintBinaryExpression : JintExpression
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
-            EnsureInitialized();
-
-            var left = _left.GetValue(context);
-            var right = _right.GetValue(context);
+            if (!TryEvaluateOperands(context, out var left, out var right))
+            {
+                return JsValue.Undefined;
+            }
 
             if (context.OperatorOverloadingAllowed
                 && TryOperatorOverloading(context, left, right, "op_Subtraction", out var opResult))
@@ -372,10 +394,10 @@ internal abstract class JintBinaryExpression : JintExpression
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
-            EnsureInitialized();
-
-            var left = _left.GetValue(context);
-            var right = _right.GetValue(context);
+            if (!TryEvaluateOperands(context, out var left, out var right))
+            {
+                return JsValue.Undefined;
+            }
 
             JsValue result;
             if (context.OperatorOverloadingAllowed
@@ -415,10 +437,10 @@ internal abstract class JintBinaryExpression : JintExpression
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
-            EnsureInitialized();
-
-            var left = _left.GetValue(context);
-            var right = _right.GetValue(context);
+            if (!TryEvaluateOperands(context, out var left, out var right))
+            {
+                return JsValue.Undefined;
+            }
 
             if (context.OperatorOverloadingAllowed
                 && TryOperatorOverloading(context, left, right, "op_Division", out var opResult))
@@ -443,10 +465,10 @@ internal abstract class JintBinaryExpression : JintExpression
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
-            EnsureInitialized();
-
-            var left = _left.GetValue(context);
-            var right = _right.GetValue(context);
+            if (!TryEvaluateOperands(context, out var left, out var right))
+            {
+                return JsValue.Undefined;
+            }
 
             if (context.OperatorOverloadingAllowed
                 && TryOperatorOverloading(context, left, right, _invert ? "op_Inequality" : "op_Equality", out var opResult))
@@ -474,10 +496,10 @@ internal abstract class JintBinaryExpression : JintExpression
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
-            EnsureInitialized();
-
-            var leftValue = _left.GetValue(context);
-            var rightValue = _right.GetValue(context);
+            if (!TryEvaluateOperands(context, out var leftValue, out var rightValue))
+            {
+                return JsValue.Undefined;
+            }
 
             if (context.OperatorOverloadingAllowed
                 && TryOperatorOverloading(context, leftValue, rightValue, _leftFirst ? "op_GreaterThanOrEqual" : "op_LessThanOrEqual", out var opResult))
@@ -501,10 +523,11 @@ internal abstract class JintBinaryExpression : JintExpression
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
-            EnsureInitialized();
+            if (!TryEvaluateOperands(context, out var leftValue, out var rightValue))
+            {
+                return JsValue.Undefined;
+            }
 
-            var leftValue = _left.GetValue(context);
-            var rightValue = _right.GetValue(context);
             return leftValue.InstanceofOperator(rightValue) ? JsBoolean.True : JsBoolean.False;
         }
     }
@@ -517,10 +540,10 @@ internal abstract class JintBinaryExpression : JintExpression
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
-            EnsureInitialized();
-
-            var leftReference = _left.GetValue(context);
-            var rightReference = _right.GetValue(context);
+            if (!TryEvaluateOperands(context, out var leftReference, out var rightReference))
+            {
+                return JsValue.Undefined;
+            }
 
             var left = TypeConverter.ToNumeric(leftReference);
             var right = TypeConverter.ToNumeric(rightReference);
@@ -644,22 +667,9 @@ internal abstract class JintBinaryExpression : JintExpression
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
-            EnsureInitialized();
-
-            var left = _left.GetValue(context);
-
-            // Check for generator suspension after evaluating left operand
-            if (context.IsSuspended())
+            if (!TryEvaluateOperands(context, out var left, out var right))
             {
-                return left;
-            }
-
-            var right = _right.GetValue(context);
-
-            // Check for generator suspension after evaluating right operand
-            if (context.IsSuspended())
-            {
-                return right;
+                return JsValue.Undefined;
             }
 
             var oi = right as ObjectInstance;
@@ -687,10 +697,10 @@ internal abstract class JintBinaryExpression : JintExpression
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
-            EnsureInitialized();
-
-            var left = _left.GetValue(context);
-            var right = _right.GetValue(context);
+            if (!TryEvaluateOperands(context, out var left, out var right))
+            {
+                return JsValue.Undefined;
+            }
 
             if (context.OperatorOverloadingAllowed
                 && TryOperatorOverloading(context, left, right, "op_Modulus", out var opResult))
@@ -730,10 +740,10 @@ internal abstract class JintBinaryExpression : JintExpression
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
-            EnsureInitialized();
-
-            var lval = _left.GetValue(context);
-            var rval = _right.GetValue(context);
+            if (!TryEvaluateOperands(context, out var lval, out var rval))
+            {
+                return JsValue.Undefined;
+            }
 
             if (context.OperatorOverloadingAllowed
                 && TryOperatorOverloading(context, lval, rval, OperatorClrName, out var opResult))

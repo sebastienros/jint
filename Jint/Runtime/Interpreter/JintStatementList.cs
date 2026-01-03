@@ -1,9 +1,10 @@
-﻿using System.Runtime.CompilerServices;
+using System.Runtime.CompilerServices;
 using Jint.Collections;
 using Jint.Native;
 using Jint.Native.Error;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Statements;
+using Jint.Native.AsyncFunction;
 
 namespace Jint.Runtime.Interpreter;
 
@@ -121,6 +122,16 @@ internal sealed class JintStatementList
                     return new Completion(CompletionType.Return, returnValue, pair.Statement._statement);
                 }
 
+                // Check for async function suspension at await
+                var asyncFn = context.Engine.ExecutionContext.AsyncFunction;
+                if (asyncFn?._state == AsyncFunctionState.SuspendedAwait)
+                {
+                    // Save position for resume
+                    _index = i;
+                    // Return - the promise reaction will resume execution later
+                    return new Completion(CompletionType.Return, JsValue.Undefined, pair.Statement._statement);
+                }
+
                 // With node-based yield tracking, we don't need to reset state between statements
                 // Each yield node is uniquely identified, so no per-statement cleanup is needed
 
@@ -138,7 +149,14 @@ internal sealed class JintStatementList
 
             // Reset index after normal loop completion for potential re-execution
             // (e.g., this block is a for-of body that will execute again on next iteration)
-            _index = 0;
+            // But don't reset for async function/module bodies - if pending promise reactions
+            // call AsyncFunctionResume after completion, we shouldn't re-execute from start.
+            // Async bodies should complete exactly once.
+            var currentAsyncFn = context.Engine.ExecutionContext.AsyncFunction;
+            if (currentAsyncFn?._body != this)
+            {
+                _index = 0;
+            }
         }
         catch (Exception ex)
         {

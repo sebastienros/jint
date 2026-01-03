@@ -41,11 +41,11 @@ internal sealed class EvaluationContext
     }
 
     /// <summary>
-    /// Returns true if the generator is suspended (yielded).
-    /// Use this when you only need to check for yield suspension without return request.
+    /// Returns true if execution is suspended (generator at yield or async function at await).
+    /// Use this after evaluating expressions that may suspend.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool IsSuspended() => Engine.ExecutionContext.Suspended;
+    public bool IsSuspended() => Engine?.ExecutionContext.IsSuspended == true;
 
     public Node LastSyntaxElement
     {

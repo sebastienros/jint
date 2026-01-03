@@ -1,4 +1,5 @@
 using Jint.Native;
+using Jint.Native.AsyncFunction;
 using Jint.Native.Function;
 using Jint.Runtime.Interpreter.Expressions;
 using Environment = Jint.Runtime.Environments.Environment;
@@ -42,10 +43,12 @@ internal sealed class JintExportDefaultDeclaration : JintStatement<ExportDefault
     protected override Completion ExecuteInternal(EvaluationContext context)
     {
         var env = context.Engine.ExecutionContext.LexicalEnvironment;
-        if (env.HasBinding("*default*"))
+        var asyncFn = context.Engine.ExecutionContext.AsyncFunction;
+
+        // For function/class declarations, the binding is already initialized in SourceTextModule.InitializeEnvironment
+        // Skip if already bound AND we're not resuming from an async suspension
+        if (env.HasBinding("*default*") && (asyncFn is null || !asyncFn._isResuming))
         {
-            // We already have the default binding.
-            // Initialized in SourceTextModule.InitializeEnvironment.
             return Completion.Empty();
         }
 
@@ -71,6 +74,12 @@ internal sealed class JintExportDefaultDeclaration : JintStatement<ExportDefault
         else
         {
             value = _simpleExpression!.GetValue(context);
+        }
+
+        // Check if we suspended at an await - don't initialize yet
+        if (asyncFn?._state == AsyncFunctionState.SuspendedAwait)
+        {
+            return Completion.Empty();
         }
 
         if (value is Function functionInstance

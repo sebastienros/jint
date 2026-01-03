@@ -97,9 +97,6 @@
     "built-ins/String/prototype/match/duplicate-named-indices-groups-properties.js",
     "built-ins/String/prototype/match/duplicate-named-indices-groups-properties.js",
 
-    // needs "small" async rewrite
-    "language/module-code/top-level-await/async-module-does-not-block-sibling-modules.js",
-
     // requires investigation how to process complex function name evaluation for property
     "built-ins/Function/prototype/toString/method-computed-property-name.js",
     "language/expressions/class/elements/class-name-static-initializer-anonymous.js",
@@ -161,9 +158,9 @@
     "language/module-code/ambiguous-export-bindings/namespace-unambiguous-if-import-star-as-and-export.js",
     "language/module-code/ambiguous-export-bindings/namespace-unambiguous-if-export-star-as-from-and-import-star-as-and-export.js",
 
-    // top-level-await promise fulfillment order
-    "language/module-code/top-level-await/fulfillment-order.js",
-    "language/module-code/top-level-await/rejection-order.js"
+    // TLA with complex module graph - dynamic import inside TLA module doesn't settle
+    // when module has both static and dynamic imports with cyclic dependencies
+    "language/module-code/top-level-await/module-graphs-does-not-hang.js"
 
   ]
 }

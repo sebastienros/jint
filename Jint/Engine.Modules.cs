@@ -63,7 +63,8 @@ public partial class Engine
         private BuilderModule LoadFromBuilder(string specifier, ModuleBuilder moduleBuilder, ResolvedSpecifier moduleResolution)
         {
             var parsedModule = moduleBuilder.Parse();
-            var module = new BuilderModule(_engine, _engine.Realm, parsedModule, location: parsedModule.Program!.Location.SourceFile, async: false);
+            var hasTopLevelAwait = HoistingScope.HasTopLevelAwait(parsedModule.Program!);
+            var module = new BuilderModule(_engine, _engine.Realm, parsedModule, location: parsedModule.Program!.Location.SourceFile, async: hasTopLevelAwait);
             _modules[moduleResolution.Key] = module;
             moduleBuilder.BindExportedValues(module);
             _builders.Remove(specifier);
@@ -166,8 +167,47 @@ public partial class Engine
             if (evaluationResult is not JsPromise promise)
             {
                 Throw.InvalidOperationException($"Error while evaluating module: Module evaluation did not return a promise: {evaluationResult.Type}");
+                return null;
             }
-            else if (promise.State == PromiseState.Rejected)
+
+            // For async modules (TLA), we need to run the event loop to process pending jobs
+            // which will resolve the module's promise. With complex module graphs and dynamic
+            // imports, promise handlers may be registered asynchronously, so we need to allow
+            // multiple iterations even when the queue appears empty.
+            var emptyQueueIterations = 0;
+            const int maxEmptyQueueIterations = 10;
+
+            while (promise.State == PromiseState.Pending)
+            {
+                _engine.RunAvailableContinuations();
+
+                // Check if promise settled after processing continuations
+                if (promise.State != PromiseState.Pending)
+                {
+                    break;
+                }
+
+                // If no more jobs to process, this could mean:
+                // 1. True deadlock - promise will never resolve (error condition)
+                // 2. Complex module graph where async dependencies are chained and need more time
+                // We allow several iterations with empty queue before assuming deadlock.
+                if (_engine._eventLoop.Events.IsEmpty)
+                {
+                    emptyQueueIterations++;
+                    if (emptyQueueIterations >= maxEmptyQueueIterations)
+                    {
+                        // Queue has been empty for multiple iterations - likely a real issue
+                        break;
+                    }
+                }
+                else
+                {
+                    // Queue has events, reset the counter
+                    emptyQueueIterations = 0;
+                }
+            }
+
+            if (promise.State == PromiseState.Rejected)
             {
                 var location = module is CyclicModule cyclicModuleRecord
                     ? cyclicModuleRecord.AbnormalCompletionLocation

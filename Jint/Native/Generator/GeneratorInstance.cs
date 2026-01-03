@@ -9,7 +9,7 @@ namespace Jint.Native.Generator;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-generator-instances
 /// </summary>
-internal sealed class GeneratorInstance : ObjectInstance
+internal sealed class GeneratorInstance : ObjectInstance, ISuspendable
 {
     internal GeneratorState _generatorState;
     private ExecutionContext _generatorContext;
@@ -108,6 +108,32 @@ internal sealed class GeneratorInstance : ObjectInstance
     /// </summary>
     internal Dictionary<object, SuspendData>? _suspendData;
 
+    // ISuspendable implementation
+    bool ISuspendable.IsSuspended => _generatorState == GeneratorState.SuspendedYield;
+
+    bool ISuspendable.IsResuming
+    {
+        get => _isResuming;
+        set => _isResuming = value;
+    }
+
+    CompletionType ISuspendable.PendingCompletionType
+    {
+        get => _pendingCompletionType;
+        set => _pendingCompletionType = value;
+    }
+
+    JsValue? ISuspendable.PendingCompletionValue
+    {
+        get => _pendingCompletionValue;
+        set => _pendingCompletionValue = value;
+    }
+
+    object? ISuspendable.CurrentFinallyStatement
+    {
+        get => _currentFinallyStatement;
+        set => _currentFinallyStatement = value;
+    }
 
     public GeneratorInstance(Engine engine) : base(engine)
     {
@@ -268,7 +294,7 @@ internal sealed class GeneratorInstance : ObjectInstance
     /// Gets or creates suspend data of the specified type.
     /// Keys should be Jint expression/statement instances (this) to avoid collisions across engines.
     /// </summary>
-    internal T GetOrCreateSuspendData<T>(object key, IteratorInstance iterator) where T : SuspendData, new()
+    public T GetOrCreateSuspendData<T>(object key, IteratorInstance iterator) where T : SuspendData, new()
     {
         _suspendData ??= new Dictionary<object, SuspendData>();
         if (!_suspendData.TryGetValue(key, out var data))
@@ -283,9 +309,9 @@ internal sealed class GeneratorInstance : ObjectInstance
     /// Gets or creates suspend data of the specified type (for constructs without iterators).
     /// Keys should be Jint expression/statement instances (this) to avoid collisions across engines.
     /// </summary>
-    internal T GetOrCreateSuspendData<T>(object key) where T : SuspendData, new()
+    public T GetOrCreateSuspendData<T>(object key) where T : SuspendData, new()
     {
-        _suspendData ??= new Dictionary<object, SuspendData>();
+        _suspendData ??= [];
         if (!_suspendData.TryGetValue(key, out var data))
         {
             data = new T();
@@ -298,7 +324,7 @@ internal sealed class GeneratorInstance : ObjectInstance
     /// Tries to get existing suspend data of the specified type.
     /// Returns true if suspend data exists for the given key.
     /// </summary>
-    internal bool TryGetSuspendData<T>(object key, out T? data) where T : SuspendData
+    public bool TryGetSuspendData<T>(object key, out T? data) where T : SuspendData
     {
         if (_suspendData?.TryGetValue(key, out var baseData) == true)
         {
@@ -312,7 +338,7 @@ internal sealed class GeneratorInstance : ObjectInstance
     /// <summary>
     /// Clears suspend data for the given key when the construct completes.
     /// </summary>
-    internal void ClearSuspendData(object key)
+    public void ClearSuspendData(object key)
     {
         _suspendData?.Remove(key);
     }
