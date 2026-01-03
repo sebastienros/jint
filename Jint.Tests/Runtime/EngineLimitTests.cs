@@ -11,7 +11,7 @@ public class EngineLimitTests
 #if RELEASE
     const int FunctionNestingCount = 990;
 #else
-    const int FunctionNestingCount = 495;
+    const int FunctionNestingCount = 475;
 #endif
 
     [Fact]

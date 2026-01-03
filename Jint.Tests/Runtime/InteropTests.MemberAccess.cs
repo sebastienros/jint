@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using Jint.Native;
+using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
 using Jint.Tests.Runtime.Domain;
@@ -74,6 +75,23 @@ public partial class InteropTests
 
         // we forbid GetType by default
         Assert.True(engine.Evaluate("m.GetType").IsUndefined());
+    }
+
+    [Fact]
+    public void ShouldBeAbleToFilterConstructors()
+    {
+        var engine = new Engine(options => options
+            .SetTypeResolver(new TypeResolver
+            {
+                MemberFilter = member => member is System.Reflection.ConstructorInfo ci && ci.GetParameters().Length == 0
+            })
+        );
+
+        engine.SetValue("HiddenMembers", TypeReference.CreateTypeReference<HiddenMembers>(engine));
+        engine.Evaluate("new HiddenMembers()").Should().BeAssignableTo<ObjectInstance>();
+
+        var act = () => engine.Evaluate("new HiddenMembers('/etc/passwd')");
+        act.Should().Throw<JavaScriptException>().WithMessage("Could not resolve a constructor*");
     }
 
     [Fact]
