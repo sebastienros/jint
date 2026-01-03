@@ -83,7 +83,7 @@ internal sealed class JintYieldExpression : JintExpression
 
             // If the argument evaluation suspended the generator (nested yield), propagate
             // the suspension up without yielding again - the inner yield already suspended
-            if (context.IsGeneratorSuspended())
+            if (context.IsSuspended())
             {
                 return value;
             }
@@ -202,7 +202,7 @@ internal sealed class JintYieldExpression : JintExpression
                     SuspendForDelegation(context, generator, innerResult, CompletionType.Normal);
 
                     // Check if suspended - if so, return to propagate suspension up the call stack
-                    if (context.IsGeneratorSuspended())
+                    if (context.IsSuspended())
                     {
                         return JsValue.Undefined;
                     }
@@ -247,7 +247,7 @@ internal sealed class JintYieldExpression : JintExpression
                         SuspendForDelegation(context, generator, innerObj, CompletionType.Normal);
 
                         // Check if suspended - if so, return to propagate suspension up the call stack
-                        if (context.IsGeneratorSuspended())
+                        if (context.IsSuspended())
                         {
                             return JsValue.Undefined;
                         }
@@ -336,7 +336,7 @@ internal sealed class JintYieldExpression : JintExpression
                     SuspendForDelegation(context, generator, innerReturnObj, CompletionType.Normal);
 
                     // Check if suspended - if so, return to propagate suspension up the call stack
-                    if (context.IsGeneratorSuspended())
+                    if (context.IsSuspended())
                     {
                         return JsValue.Undefined;
                     }

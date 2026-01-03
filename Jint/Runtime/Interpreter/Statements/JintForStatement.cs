@@ -135,7 +135,7 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
             if (oldEnv is not null)
             {
                 // Save loop variable values if generator is suspended (don't save on normal completion)
-                if (generator is not null && context.IsGeneratorSuspended() && _boundNames != null)
+                if (generator is not null && context.IsSuspended() && _boundNames != null)
                 {
                     // Use the CURRENT lexical environment, not loopEnv, because
                     // CreatePerIterationEnvironment may have created new environments during the loop
@@ -149,7 +149,7 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                         data.BoundValues[name] = value;
                     }
                 }
-                else if (generator is not null && !context.IsGeneratorSuspended())
+                else if (generator is not null && !context.IsSuspended())
                 {
                     // Clear suspend data on normal completion
                     generator.ClearSuspendData(this);
@@ -232,7 +232,7 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
             }
 
             // Check for generator suspension - if the generator is suspended, we need to exit the loop
-            if (context.IsGeneratorSuspended())
+            if (context.IsSuspended())
             {
                 var generator = context.Engine.ExecutionContext.Generator;
                 var suspendedValue = generator?._suspendedValue ?? result.Value;
@@ -263,7 +263,7 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                 _increment.Evaluate(context);
 
                 // Check for generator suspension in update expression (e.g., yield in the update)
-                if (context.IsGeneratorSuspended())
+                if (context.IsSuspended())
                 {
                     var generator = context.Engine.ExecutionContext.Generator;
                     var suspendedValue = generator?._suspendedValue ?? JsValue.Undefined;

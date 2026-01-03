@@ -49,7 +49,7 @@ internal sealed class JintCallExpression : JintExpression
         var reference = _calleeExpression.Evaluate(context);
 
         // Check for generator suspension after evaluating callee
-        if (context.IsGeneratorSuspended())
+        if (context.IsSuspended())
         {
             return reference as JsValue ?? JsValue.Undefined;
         }
@@ -113,7 +113,7 @@ internal sealed class JintCallExpression : JintExpression
         var arguments = this._arguments.ArgumentListEvaluation(context, out var rented);
 
         // Check for generator suspension after argument evaluation
-        if (context.IsGeneratorSuspended())
+        if (context.IsSuspended())
         {
             if (rented && arguments is not null)
             {

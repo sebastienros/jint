@@ -45,7 +45,7 @@ internal sealed class EvaluationContext
     /// Use this when you only need to check for yield suspension without return request.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool IsGeneratorSuspended() => Engine.ExecutionContext.Suspended;
+    public bool IsSuspended() => Engine.ExecutionContext.Suspended;
 
     public Node LastSyntaxElement
     {
