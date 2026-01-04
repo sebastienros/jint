@@ -5,7 +5,6 @@
   "Namespace": "Jint.Tests.Test262",
   "Parallel": true,
   "ExcludedFeatures": [
-    "Array.fromAsync",
     "Atomics",
     "decorators",
     "import-defer",
