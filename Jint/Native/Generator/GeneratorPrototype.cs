@@ -27,12 +27,12 @@ internal sealed class GeneratorPrototype : ObjectInstance
     {
         const PropertyFlag PropertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
         const PropertyFlag LengthFlags = PropertyFlag.Configurable;
-        var properties = new PropertyDictionary(4, false)
+        var properties = new PropertyDictionary(4, checkExistingKeys: false)
         {
-            ["constructor"] = new(_constructor, PropertyFlag.Configurable),
-            ["next"] = new(new ClrFunction(Engine, "next", Next, 1, LengthFlags), PropertyFlags),
-            ["return"] = new(new ClrFunction(Engine, "return", Return, 1, LengthFlags), PropertyFlags),
-            ["throw"] = new(new ClrFunction(Engine, "throw", Throw, 1, LengthFlags), PropertyFlags)
+            [KnownKeys.Constructor] = new(_constructor, PropertyFlag.Configurable),
+            [KnownKeys.Next] = new(new ClrFunction(Engine, "next", Next, 1, LengthFlags), PropertyFlags),
+            [KnownKeys.Return] = new(new ClrFunction(Engine, "return", Return, 1, LengthFlags), PropertyFlags),
+            [KnownKeys.Throw] = new(new ClrFunction(Engine, "throw", Throw, 1, LengthFlags), PropertyFlags)
         };
         SetProperties(properties);
 

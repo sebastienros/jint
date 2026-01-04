@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.AsyncFunction;
+using Jint.Native.AsyncGenerator;
 using Jint.Native.Generator;
 using Jint.Native.Promise;
 using Jint.Runtime.Environments;
@@ -76,7 +77,9 @@ internal sealed class JintFunctionDefinition
         }
         else if (Function.Generator)
         {
-            result = EvaluateGeneratorBody(context, functionObject, argumentsList);
+            result = Function.Async
+                ? EvaluateAsyncGeneratorBody(context, functionObject, argumentsList)
+                : EvaluateGeneratorBody(context, functionObject, argumentsList);
         }
         else
         {
@@ -213,6 +216,28 @@ internal sealed class JintFunctionDefinition
         _bodyStatementList ??= new JintStatementList(Function);
         _bodyStatementList.Reset();
         G.GeneratorStart(_bodyStatementList);
+
+        return new Completion(CompletionType.Return, G, Function.Body);
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-runtime-semantics-evaluateasyncgeneratorbody
+    /// </summary>
+    private Completion EvaluateAsyncGeneratorBody(
+        EvaluationContext context,
+        Function functionObject,
+        JsCallArguments argumentsList)
+    {
+        var engine = context.Engine;
+        engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
+        var G = engine.Realm.Intrinsics.Function.OrdinaryCreateFromConstructor(
+            functionObject,
+            static intrinsics => intrinsics.AsyncGeneratorFunction.PrototypeObject.PrototypeObject,
+            static (Engine engine, Realm _, object? _) => new AsyncGeneratorInstance(engine));
+
+        _bodyStatementList ??= new JintStatementList(Function);
+        _bodyStatementList.Reset();
+        G.AsyncGeneratorStart(_bodyStatementList);
 
         return new Completion(CompletionType.Return, G, Function.Body);
     }

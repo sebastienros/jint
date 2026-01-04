@@ -65,6 +65,7 @@ and many more.
 
 #### ECMAScript 2018
 
+- ✔ Asynchronous iteration
 - ✔ `Promise.prototype.finally`
 - ✔ RegExp named capture groups
 - ✔ Rest/spread operators for object literals (`...identifier`)

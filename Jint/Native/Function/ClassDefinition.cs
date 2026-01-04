@@ -392,10 +392,19 @@ internal sealed class ClassDefinition
 
         if (function.Generator)
         {
-            var closure = intrinsics.Function.OrdinaryFunctionCreate(intrinsics.GeneratorFunction.PrototypeObject, definition, definition.ThisMode, env, privateEnv);
+            Prototype functionPrototype = function.Async
+                ? intrinsics.AsyncGeneratorFunction.PrototypeObject
+                : intrinsics.GeneratorFunction.PrototypeObject;
+
+            var closure = intrinsics.Function.OrdinaryFunctionCreate(functionPrototype!, definition, definition.ThisMode, env, privateEnv);
             closure.MakeMethod(obj);
             closure.SetFunctionName(propKey);
-            var prototype = ObjectInstance.OrdinaryObjectCreate(engine, intrinsics.GeneratorFunction.PrototypeObject.PrototypeObject);
+
+            ObjectInstance closurePrototype = function.Async
+                ? intrinsics.AsyncGeneratorFunction.PrototypeObject.PrototypeObject
+                : intrinsics.GeneratorFunction.PrototypeObject.PrototypeObject;
+
+            var prototype = ObjectInstance.OrdinaryObjectCreate(engine, closurePrototype);
             closure.DefinePropertyOrThrow(CommonProperties.Prototype, new PropertyDescriptor(prototype, PropertyFlag.Writable));
             return DefineMethodProperty(obj, propKey, closure, enumerable);
         }

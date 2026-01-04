@@ -1513,6 +1513,12 @@ public sealed partial class Engine : IDisposable
         return ref _executionContexts.ReplaceTopGenerator(generator);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal ref readonly ExecutionContext UpdateAsyncGenerator(Native.AsyncGenerator.AsyncGeneratorInstance asyncGenerator)
+    {
+        return ref _executionContexts.ReplaceTopAsyncGenerator(asyncGenerator);
+    }
+
     /// <summary>
     /// Invokes the named callable and returns the resulting object.
     /// </summary>

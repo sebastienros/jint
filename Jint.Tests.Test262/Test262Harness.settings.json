@@ -6,7 +6,6 @@
   "Parallel": true,
   "ExcludedFeatures": [
     "Array.fromAsync",
-    "async-iteration",
     "Atomics",
     "decorators",
     "import-defer",
@@ -26,9 +25,6 @@
     "intl402"
   ],
   "ExcludedFiles": [
-
-    // needs async-iteration
-    "built-ins/AsyncIteratorPrototype/Symbol.asyncDispose/*.js",
 
     // requires rewrite of destructing towards spec
     "language/destructuring/binding/keyed-destructuring-property-reference-target-evaluation-order-with-bindings.js",

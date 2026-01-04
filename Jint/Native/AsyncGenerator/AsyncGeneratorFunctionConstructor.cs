@@ -5,7 +5,7 @@ using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
-namespace Jint.Native.Generator;
+namespace Jint.Native.AsyncGenerator;
 
 /// <summary>
 /// https://tc39.es/ecma262/#sec-asyncgeneratorfunction-constructor
@@ -17,11 +17,11 @@ internal sealed class AsyncGeneratorFunctionConstructor : Constructor
     internal AsyncGeneratorFunctionConstructor(
         Engine engine,
         Realm realm,
-        AsyncFunctionPrototype prototype,
-        IteratorPrototype iteratorPrototype)
+        FunctionPrototype prototype,
+        AsyncIteratorPrototype asyncIteratorPrototype)
         : base(engine, realm, _functionName)
     {
-        PrototypeObject = new AsyncGeneratorFunctionPrototype(engine, this, prototype, iteratorPrototype);
+        PrototypeObject = new AsyncGeneratorFunctionPrototype(engine, this, prototype, asyncIteratorPrototype);
         _prototype = PrototypeObject;
         _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         _length = new PropertyDescriptor(JsNumber.PositiveOne, PropertyFlag.Configurable);

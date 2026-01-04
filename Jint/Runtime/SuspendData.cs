@@ -1,5 +1,6 @@
 using Jint.Native;
 using Jint.Native.Iterator;
+using Jint.Native.Object;
 using Jint.Runtime.Environments;
 
 namespace Jint.Runtime;
@@ -15,7 +16,7 @@ internal abstract class SuspendData
     /// The iterator instance that was in progress when the generator suspended.
     /// Null for constructs that don't use iterators (e.g., regular for loops).
     /// </summary>
-    public IteratorInstance? Iterator { get; init; }
+    public IteratorInstance? Iterator { get; set; }
 }
 
 /// <summary>
@@ -80,4 +81,35 @@ internal sealed class ForLoopSuspendData : SuspendData
     /// The accumulated result value (v) from previous iterations.
     /// </summary>
     public JsValue AccumulatedValue { get; set; } = JsValue.Undefined;
+}
+
+/// <summary>
+/// Stores the state of a for-await-of loop when an async function awaits inside it.
+/// </summary>
+internal sealed class ForAwaitSuspendData : SuspendData
+{
+    /// <summary>
+    /// The resolved iterator result from awaiting the next() Promise.
+    /// </summary>
+    public ObjectInstance? ResolvedIteratorResult { get; set; }
+
+    /// <summary>
+    /// The current value being processed (from the iterator result).
+    /// </summary>
+    public JsValue? CurrentValue { get; set; }
+
+    /// <summary>
+    /// The accumulated result value (v) from previous iterations.
+    /// </summary>
+    public JsValue AccumulatedValue { get; set; } = JsValue.Undefined;
+
+    /// <summary>
+    /// The iteration environment for lexical bindings (let/const in for-of).
+    /// </summary>
+    public DeclarativeEnvironment? IterationEnv { get; set; }
+
+    /// <summary>
+    /// Whether we are awaiting the next() call result.
+    /// </summary>
+    public bool AwaitingNext { get; set; }
 }

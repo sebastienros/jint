@@ -123,6 +123,8 @@ internal sealed class PromiseConstructor : Constructor
         return obj;
     }
 
+    internal JsValue PromiseResolve(JsValue x) => PromiseResolve(this, x);
+
     /// <summary>
     /// https://tc39.es/ecma262/#sec-promise-resolve
     /// </summary>
