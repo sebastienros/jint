@@ -11,18 +11,16 @@ namespace Jint.Native.Iterator;
 /// </summary>
 internal sealed class AsyncFromSyncIterator : ObjectInstance
 {
-    private readonly IteratorInstance _syncIterator;
-
     public AsyncFromSyncIterator(Engine engine, IteratorInstance syncIterator) : base(engine)
     {
-        _syncIterator = syncIterator;
+        SyncIterator = syncIterator;
         _prototype = engine.Realm.Intrinsics.AsyncFromSyncIteratorPrototype;
     }
 
     /// <summary>
     /// Gets the underlying sync iterator.
     /// </summary>
-    internal IteratorInstance SyncIterator => _syncIterator;
+    internal IteratorInstance SyncIterator { get; }
 }
 
 /// <summary>

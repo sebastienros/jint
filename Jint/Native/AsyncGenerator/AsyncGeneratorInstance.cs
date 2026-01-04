@@ -25,7 +25,7 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
     /// Queue of pending next/return/throw requests.
     /// Each request has a PromiseCapability that resolves when the request completes.
     /// </summary>
-    internal List<AsyncGeneratorRequest> _asyncGeneratorQueue = new();
+    internal List<AsyncGeneratorRequest> _asyncGeneratorQueue = [];
 
     /// <summary>
     /// The promise capability of the currently executing request.

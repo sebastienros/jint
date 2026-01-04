@@ -22,14 +22,11 @@ internal sealed class AsyncIteratorPrototype : Prototype
 
     protected override void Initialize()
     {
+        const PropertyFlag Flags = PropertyFlag.Writable | PropertyFlag.Configurable;
         var symbols = new SymbolDictionary(2)
         {
-            [GlobalSymbolRegistry.AsyncIterator] = new(
-                new ClrFunction(Engine, "[Symbol.asyncIterator]", AsyncIterator, 0, PropertyFlag.Configurable),
-                PropertyFlag.Writable | PropertyFlag.Configurable),
-            [GlobalSymbolRegistry.AsyncDispose] = new(
-                new ClrFunction(Engine, "[Symbol.asyncDispose]", AsyncDispose, 0, PropertyFlag.Configurable),
-                PropertyFlag.Writable | PropertyFlag.Configurable)
+            [GlobalSymbolRegistry.AsyncIterator] = new(new ClrFunction(Engine, "[Symbol.asyncIterator]", AsyncIterator, 0, PropertyFlag.Configurable), Flags),
+            [GlobalSymbolRegistry.AsyncDispose] = new(new ClrFunction(Engine, "[Symbol.asyncDispose]", AsyncDispose, 0, PropertyFlag.Configurable), Flags)
         };
         SetSymbols(symbols);
     }

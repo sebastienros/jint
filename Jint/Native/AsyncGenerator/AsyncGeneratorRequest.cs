@@ -8,14 +8,4 @@ namespace Jint.Native.AsyncGenerator;
 /// Represents a pending next/return/throw request for an async generator.
 /// Each request has a PromiseCapability that resolves when the request completes.
 /// </summary>
-internal sealed class AsyncGeneratorRequest
-{
-    public Completion Completion { get; }
-    public PromiseCapability Capability { get; }
-
-    public AsyncGeneratorRequest(Completion completion, PromiseCapability capability)
-    {
-        Completion = completion;
-        Capability = capability;
-    }
-}
+internal readonly record struct AsyncGeneratorRequest(Completion Completion, PromiseCapability Capability);
