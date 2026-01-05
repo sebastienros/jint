@@ -70,11 +70,16 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
         // If resuming from init expression, we must re-execute init to complete pending nested awaits
         var generator = engine.ExecutionContext.Generator;
         var asyncFn = engine.ExecutionContext.AsyncFunction;
+        var asyncGenerator = engine.ExecutionContext.AsyncGenerator;
 
         Node? resumeNode = null;
         if (generator is not null && generator._isResuming && generator._lastYieldNode is Node yieldNode)
         {
             resumeNode = yieldNode;
+        }
+        else if (asyncGenerator is not null && asyncGenerator._isResuming && asyncGenerator._lastYieldNode is Node asyncYieldNode)
+        {
+            resumeNode = asyncYieldNode;
         }
         else if (asyncFn is not null && asyncFn._isResuming && asyncFn._lastAwaitNode is JintExpression awaitExpr
             && awaitExpr._expression is Node awaitNode)
@@ -91,6 +96,10 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
             if (generator is not null)
             {
                 generator.TryGetSuspendData<ForLoopSuspendData>(this, out suspendData);
+            }
+            else if (asyncGenerator is not null)
+            {
+                asyncGenerator.TryGetSuspendData<ForLoopSuspendData>(this, out suspendData);
             }
             else if (asyncFn is not null)
             {
@@ -183,6 +192,17 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                             data.BoundValues[name] = value;
                         }
                     }
+                    else if (asyncGenerator is not null)
+                    {
+                        var data = asyncGenerator.GetOrCreateSuspendData<ForLoopSuspendData>(this);
+                        data.BoundValues ??= new Dictionary<Key, JsValue>();
+                        for (var i = 0; i < _boundNames.Count; i++)
+                        {
+                            var name = _boundNames[i];
+                            var value = currentEnv.GetBindingValue(name, strict: false);
+                            data.BoundValues[name] = value;
+                        }
+                    }
                     else if (asyncFn is not null)
                     {
                         var data = asyncFn.GetOrCreateSuspendData<ForLoopSuspendData>(this);
@@ -199,6 +219,7 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                 {
                     // Clear suspend data on normal completion
                     generator?.ClearSuspendData(this);
+                    asyncGenerator?.ClearSuspendData(this);
                     asyncFn?.ClearSuspendData(this);
                 }
 

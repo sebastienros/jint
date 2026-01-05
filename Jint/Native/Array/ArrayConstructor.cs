@@ -223,7 +223,6 @@ public sealed class ArrayConstructor : Constructor
         PromiseCapability promiseCapability,
         ulong k)
     {
-        System.Console.WriteLine($"[DEBUG] FromAsyncIteratorLoop k={k}, iterator type={iterator.GetType().Name}");
         try
         {
             // Get next method and call it
@@ -251,7 +250,6 @@ public sealed class ArrayConstructor : Constructor
 
                 var done = TypeConverter.ToBoolean(iterResultObj.Get(CommonProperties.Done));
                 var value = iterResultObj.Get(CommonProperties.Value);
-                System.Console.WriteLine($"[DEBUG] onFulfilled k={capturedK}, done={done}, value={value}");
                 if (done)
                 {
                     // Iteration complete
@@ -263,7 +261,6 @@ public sealed class ArrayConstructor : Constructor
                 ProcessAsyncIteratorValue(value, target, callable, thisArg, promiseCapability, capturedK, () =>
                 {
                     // Queue next iteration to prevent stack overflow
-                    System.Console.WriteLine($"[DEBUG] continueLoop called, will queue k={capturedK + 1}");
                     _engine.AddToEventLoop(() => FromAsyncIteratorLoop(iterator, target, callable, thisArg, promiseCapability, capturedK + 1));
                 });
                 return Undefined;
