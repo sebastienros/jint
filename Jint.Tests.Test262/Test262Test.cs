@@ -1,4 +1,7 @@
-﻿using Jint.Native;
+#nullable enable
+
+using Jint.Native;
+using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -8,11 +11,15 @@ namespace Jint.Tests.Test262;
 
 public abstract partial class Test262Test
 {
-    private static Engine BuildTestExecutor(Test262File file)
+    // Thread-local storage for agent manager (tests run in parallel)
+    [ThreadStatic]
+    private static Test262AgentManager? _currentAgentManager;
+
+    private static Engine BuildTestExecutor(Test262File file, Test262AgentManager? agentManager)
     {
         var engine = new Engine(cfg =>
         {
-            var relativePath = Path.GetDirectoryName(file.FileName);
+            var relativePath = Path.GetDirectoryName(file.FileName) ?? "";
             cfg.EnableModules(new Test262ModuleLoader(State.Test262Stream.Options.FileSystem, relativePath));
             cfg.ExperimentalFeatures = ExperimentalFeature.All;
             cfg.TimeoutInterval(TimeSpan.FromSeconds(30));
@@ -28,6 +35,22 @@ public abstract partial class Test262Test
         engine.Execute(State.Sources["sta.js"]);
 
         engine.SetValue("print", new ClrFunction(engine, "print", (_, args) => TypeConverter.ToString(args.At(0))));
+
+        // Provide a basic setTimeout for async tests that need it
+        engine.SetValue("setTimeout", new ClrFunction(engine, "setTimeout", (thisObj, args) =>
+        {
+            var callback = args.At(0);
+            var delay = (int)TypeConverter.ToNumber(args.At(1));
+            if (callback is ICallable callable)
+            {
+                Task.Run(async () =>
+                {
+                    await Task.Delay(delay);
+                    callable.Call(JsValue.Undefined, Arguments.Empty);
+                });
+            }
+            return JsValue.Undefined;
+        }));
 
         var o = engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
         o.FastSetProperty("evalScript", new PropertyDescriptor(new ClrFunction(engine, "evalScript",
@@ -70,6 +93,9 @@ public abstract partial class Test262Test
                 return JsValue.Undefined;
             }), true, true, true));
 
+        // Install agent support if needed
+        agentManager?.InstallAgent(engine, o);
+
         engine.SetValue("$262", o);
 
         foreach (var include in file.Includes)
@@ -85,22 +111,58 @@ public abstract partial class Test262Test
         return engine;
     }
 
+    private static bool NeedsAgentSupport(Test262File file)
+    {
+        // Check if test includes atomicsHelper.js which indicates multi-agent test
+        return file.Includes.Contains("atomicsHelper.js");
+    }
+
+    // Wrapper that maintains backward compatibility with generated code
+    private static Engine BuildTestExecutor(Test262File file)
+    {
+        // Clean up any previous agent manager
+        _currentAgentManager?.Dispose();
+        _currentAgentManager = null;
+
+        // Create agent manager if test needs it
+        if (NeedsAgentSupport(file))
+        {
+            _currentAgentManager = new Test262AgentManager();
+        }
+
+        return BuildTestExecutor(file, _currentAgentManager);
+    }
+
+    private static void CleanupAgentManager()
+    {
+        _currentAgentManager?.Dispose();
+        _currentAgentManager = null;
+    }
+
     private static void ExecuteTest(Engine engine, Test262File file)
     {
-        if (file.Type == ProgramType.Module)
+        try
         {
-            var specifier = "./" + Path.GetFileName(file.FileName);
-            engine.Modules.Add(specifier, builder => builder.AddSource(file.Program));
-            engine.Modules.Import(specifier);
-        }
-        else
-        {
-            var script = Engine.PrepareScript(file.Program, source: file.FileName, options: new ScriptPreparationOptions
+            if (file.Type == ProgramType.Module)
             {
-                ParsingOptions = ScriptParsingOptions.Default with { Tolerant = false },
-            });
+                var specifier = "./" + Path.GetFileName(file.FileName);
+                engine.Modules.Add(specifier, builder => builder.AddSource(file.Program));
+                engine.Modules.Import(specifier);
+            }
+            else
+            {
+                var script = Engine.PrepareScript(file.Program, source: file.FileName, options: new ScriptPreparationOptions
+                {
+                    ParsingOptions = ScriptParsingOptions.Default with { Tolerant = false },
+                });
 
-            engine.Execute(script);
+                engine.Execute(script);
+            }
+        }
+        finally
+        {
+            // Cleanup agent manager after test execution
+            CleanupAgentManager();
         }
     }
 
