@@ -5,7 +5,6 @@
   "Namespace": "Jint.Tests.Test262",
   "Parallel": true,
   "ExcludedFeatures": [
-    "Atomics",
     "decorators",
     "import-defer",
     "regexp-lookbehind",
@@ -18,6 +17,7 @@
     "u180e"
   ],
   "ExcludedFlags": [
+    "CanBlockIsFalse"
   ],
   "ExcludedDirectories": [
     "annexB",

@@ -61,7 +61,7 @@ and many more.
 ####  ECMAScript 2017
 
 - ✔ `Object.values`, `Object.entries` and `Object.getOwnPropertyDescriptors`
-- ❌ Shared memory and atomics
+- ✔ Shared memory and atomics
 
 #### ECMAScript 2018
 
@@ -123,7 +123,7 @@ and many more.
 #### ECMAScript 2024
 
 - ✔ ArrayBuffer enhancements - `ArrayBuffer.prototype.resize` and `ArrayBuffer.prototype.transfer`
-- ❌ `Atomics.waitAsync` 
+- ✔ `Atomics.waitAsync` 
 - ✔ Ensuring that strings are well-formed - `String.prototype.ensureWellFormed` and `String.prototype.isWellFormed`
 - ✔ Grouping synchronous iterables - `Object.groupBy` and `Map.groupBy`
 - ✔ `Promise.withResolvers`

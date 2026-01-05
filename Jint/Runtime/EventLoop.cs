@@ -10,5 +10,5 @@ internal sealed record EventLoop
     /// Tracks whether we are currently processing the event loop.
     /// Used to prevent re-entrant calls from causing stack overflow.
     /// </summary>
-    internal bool IsProcessing;
+    internal volatile int _isProcessing;
 }

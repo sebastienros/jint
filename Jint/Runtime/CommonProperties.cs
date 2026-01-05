@@ -5,6 +5,7 @@ namespace Jint.Runtime;
 internal static class CommonProperties
 {
     internal static readonly JsString Arguments = JsString.CachedCreate("arguments");
+    internal static readonly JsString Async = JsString.CachedCreate("async");
     internal static readonly JsString Callee = JsString.CachedCreate("callee");
     internal static readonly JsString Caller = JsString.CachedCreate("caller");
     internal static readonly JsString Configurable = JsString.CachedCreate("configurable");

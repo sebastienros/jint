@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using Jint.Collections;
 using Jint.Native;
 using Jint.Native.Function;
@@ -19,6 +20,7 @@ using Jint.Runtime.Interop.Reflection;
 using Jint.Runtime.Interpreter;
 using Jint.Runtime.Interpreter.Expressions;
 using Environment = Jint.Runtime.Environments.Environment;
+using ExecutionContext = Jint.Runtime.Environments.ExecutionContext;
 
 namespace Jint;
 
@@ -514,12 +516,12 @@ public sealed partial class Engine : IDisposable
     {
         // Prevent re-entrant calls which can cause stack overflow.
         // If we're already processing, the outer loop will handle any new events.
-        if (_eventLoop.IsProcessing)
+
+        if (Interlocked.CompareExchange(ref _eventLoop._isProcessing, 1, 0) == 1)
         {
             return;
         }
 
-        _eventLoop.IsProcessing = true;
         try
         {
             var queue = _eventLoop.Events;
@@ -531,7 +533,7 @@ public sealed partial class Engine : IDisposable
         }
         finally
         {
-            _eventLoop.IsProcessing = false;
+            _eventLoop._isProcessing = 0;
         }
     }
 

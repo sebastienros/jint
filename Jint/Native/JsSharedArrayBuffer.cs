@@ -1,3 +1,4 @@
+using System.Threading;
 using Jint.Runtime;
 
 namespace Jint.Native;
@@ -7,7 +8,8 @@ namespace Jint.Native;
 /// </summary>
 internal sealed class JsSharedArrayBuffer : JsArrayBuffer
 {
-    private readonly int _arrayBufferByteLengthData;
+    // Using volatile for thread-safe reads/writes
+    private volatile int _arrayBufferByteLengthData;
 
     internal JsSharedArrayBuffer(
         Engine engine,
@@ -23,6 +25,48 @@ internal sealed class JsSharedArrayBuffer : JsArrayBuffer
     }
 
     internal override int ArrayBufferByteLength => _arrayBufferByteLengthData;
+
+    /// <summary>
+    /// Override Resize for SharedArrayBuffer to properly update the byte length.
+    /// https://tc39.es/ecma262/#sec-sharedarraybuffer.prototype.grow
+    /// </summary>
+    internal new void Resize(uint newByteLength)
+    {
+        if (_arrayBufferMaxByteLength is null)
+        {
+            Throw.TypeError(_engine.Realm);
+        }
+
+        if (newByteLength > _arrayBufferMaxByteLength)
+        {
+            Throw.RangeError(_engine.Realm);
+        }
+
+        var currentByteLength = _arrayBufferByteLengthData;
+        if (newByteLength < currentByteLength)
+        {
+            Throw.RangeError(_engine.Realm);
+        }
+
+        if (newByteLength == currentByteLength)
+        {
+            return;
+        }
+
+        // For growable SharedArrayBuffers, the underlying data block is pre-allocated
+        // to maxByteLength, so we just need to update the byte length atomically
+        // Zero-fill the new bytes (they should already be zero in a new array, but be safe)
+        if (_arrayBufferData is not null)
+        {
+            for (var i = currentByteLength; i < (int) newByteLength; i++)
+            {
+                _arrayBufferData[i] = 0;
+            }
+        }
+
+        // Atomically update the byte length
+        Interlocked.Exchange(ref _arrayBufferByteLengthData, (int) newByteLength);
+    }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-createsharedbytedatablock
