@@ -191,7 +191,7 @@ public partial class Engine
                 // 1. True deadlock - promise will never resolve (error condition)
                 // 2. Complex module graph where async dependencies are chained and need more time
                 // We allow several iterations with empty queue before assuming deadlock.
-                if (_engine._eventLoop.Events.IsEmpty)
+                if (_engine._eventLoop.IsEmpty)
                 {
                     emptyQueueIterations++;
                     if (emptyQueueIterations >= maxEmptyQueueIterations)

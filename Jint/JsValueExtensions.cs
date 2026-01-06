@@ -666,53 +666,67 @@ public static class JsValueExtensions
         {
             var engine = promise.Engine;
             var completedEvent = promise.CompletedEvent;
+            var eventLoop = engine.EventLoop;
 
-            // Process continuations and poll with short intervals to handle
-            // continuations added by background tasks (like setTimeout callbacks)
-            var hasTimeout = timeout > TimeSpan.Zero;
-            var deadline = hasTimeout ? DateTime.UtcNow + timeout : DateTime.MaxValue;
-            var pollInterval = TimeSpan.FromMilliseconds(10);
+            // Mark this thread as the one waiting on the promise. This prevents
+            // background threads (from Task completions) from executing JavaScript
+            // continuations - only this waiting thread is allowed to process them.
+            var previousWaitingThreadId = eventLoop._waitingThreadId;
+            eventLoop._waitingThreadId = System.Environment.CurrentManagedThreadId;
 
-            while (promise.State == PromiseState.Pending)
+            try
             {
-                engine.RunAvailableContinuations();
+                // Process continuations and poll with short intervals to handle
+                // continuations added by background tasks (like setTimeout callbacks)
+                var hasTimeout = timeout > TimeSpan.Zero;
+                var deadline = hasTimeout ? DateTime.UtcNow + timeout : DateTime.MaxValue;
+                var pollInterval = TimeSpan.FromMilliseconds(10);
 
-                if (promise.State != PromiseState.Pending)
+                while (promise.State == PromiseState.Pending)
                 {
-                    break;
-                }
+                    engine.RunAvailableContinuations();
 
-                if (hasTimeout)
-                {
-                    var remaining = deadline - DateTime.UtcNow;
-                    if (remaining <= TimeSpan.Zero)
+                    if (promise.State != PromiseState.Pending)
                     {
-                        Throw.PromiseRejectedException($"Timeout of {timeout} reached");
+                        break;
                     }
 
-                    var waitTime = remaining < pollInterval ? remaining : pollInterval;
-                    completedEvent.Wait(waitTime);
+                    if (hasTimeout)
+                    {
+                        var remaining = deadline - DateTime.UtcNow;
+                        if (remaining <= TimeSpan.Zero)
+                        {
+                            Throw.PromiseRejectedException($"Timeout of {timeout} reached");
+                        }
+
+                        var waitTime = remaining < pollInterval ? remaining : pollInterval;
+                        completedEvent.Wait(waitTime);
+                    }
+                    else
+                    {
+                        // No timeout - just poll
+                        completedEvent.Wait(pollInterval);
+                    }
                 }
-                else
+
+                switch (promise.State)
                 {
-                    // No timeout - just poll
-                    completedEvent.Wait(pollInterval);
+                    case PromiseState.Pending:
+                        Throw.InvalidOperationException("'UnwrapIfPromise' called before Promise was settled");
+                        return null;
+                    case PromiseState.Fulfilled:
+                        return promise.Value;
+                    case PromiseState.Rejected:
+                        Throw.PromiseRejectedException(promise.Value);
+                        return null;
+                    default:
+                        Throw.ArgumentOutOfRangeException();
+                        return null;
                 }
             }
-
-            switch (promise.State)
+            finally
             {
-                case PromiseState.Pending:
-                    Throw.InvalidOperationException("'UnwrapIfPromise' called before Promise was settled");
-                    return null;
-                case PromiseState.Fulfilled:
-                    return promise.Value;
-                case PromiseState.Rejected:
-                    Throw.PromiseRejectedException(promise.Value);
-                    return null;
-                default:
-                    Throw.ArgumentOutOfRangeException();
-                    return null;
+                eventLoop._waitingThreadId = previousWaitingThreadId;
             }
         }
 

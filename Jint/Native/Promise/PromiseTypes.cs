@@ -29,3 +29,12 @@ public sealed record ManualPromise(
     Action<JsValue> Resolve,
     Action<JsValue> Reject
 );
+
+/// <summary>
+/// Internal version of ManualPromise that accepts CLR objects for thread-safe Task interop.
+/// </summary>
+internal sealed record ManualPromiseWithClrValue(
+    JsValue Promise,
+    Action<object?> Resolve,
+    Action<object?> Reject
+);

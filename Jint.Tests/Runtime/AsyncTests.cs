@@ -401,8 +401,7 @@ public class AsyncTests
         // This test verifies that multiple independent Engine instances can safely
         // run async JavaScript code in parallel threads. Each Engine instance is
         // isolated with its own event loop, so there should be no cross-thread issues.
-        // NOTE: Original value was 1000, but that causes resource exhaustion. Using 10 for stable testing.
-        const int ParallelCount = 10;
+        const int ParallelCount = 100;
 
         // [NOTE] perform 5 runs since concurrency bugs don't always manifest
         for (int run = 0; run < 5; run++)

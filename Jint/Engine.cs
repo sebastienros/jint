@@ -1,7 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using System.Threading;
 using Jint.Collections;
 using Jint.Native;
 using Jint.Native.Function;
@@ -20,7 +19,6 @@ using Jint.Runtime.Interop.Reflection;
 using Jint.Runtime.Interpreter;
 using Jint.Runtime.Interpreter.Expressions;
 using Environment = Jint.Runtime.Environments.Environment;
-using ExecutionContext = Jint.Runtime.Environments.ExecutionContext;
 
 namespace Jint;
 
@@ -41,6 +39,7 @@ public sealed partial class Engine : IDisposable
     internal ErrorDispatchInfo? _error;
 
     private readonly EventLoop _eventLoop = new();
+    internal EventLoop EventLoop => _eventLoop;
 
     private readonly Agent _agent = new();
 
@@ -495,16 +494,66 @@ public sealed partial class Engine : IDisposable
 
         Action<JsValue> SettleWith(Function settle) => value =>
         {
-            settle.Call(JsValue.Undefined, [value]);
+            // Enqueue to event loop to ensure thread safety - the settle operation
+            // may be called from a background thread (e.g., Task.ContinueWith callback)
+            // but JavaScript execution must happen on the thread that owns the Engine.
+            AddToEventLoop(() =>
+            {
+                settle.Call(JsValue.Undefined, [value]);
+            });
+
+            // Signal the CompletedEvent so that UnwrapIfPromise knows there's work to process.
+            promise.CompletedEvent.Set();
+
+            // Try to run continuations. If we're on a background thread and there's a
+            // waiting thread (in UnwrapIfPromise), this will be a no-op and the waiting
+            // thread will process instead. If we're on the main thread (direct Resolve call),
+            // this will process the continuations immediately.
             RunAvailableContinuations();
         };
 
         return new ManualPromise(promise, SettleWith(resolve), SettleWith(reject));
     }
 
+    /// <summary>
+    /// Internal version of RegisterPromise that returns settle functions accepting CLR objects.
+    /// The CLR to JsValue conversion happens on the event loop thread, not the caller thread.
+    /// This is critical for thread safety when called from Task.ContinueWith callbacks.
+    /// </summary>
+    internal ManualPromiseWithClrValue RegisterPromiseWithClrValue()
+    {
+        var promise = new JsPromise(this)
+        {
+            _prototype = Realm.Intrinsics.Promise.PrototypeObject
+        };
+
+        var (resolve, reject) = promise.CreateResolvingFunctions();
+
+        Action<object?> SettleWithClr(Function settle) => clrValue =>
+        {
+            // Enqueue to event loop to ensure thread safety - both the FromObject conversion
+            // and the settle operation are performed on the main thread, not the background
+            // thread that completed the Task.
+            AddToEventLoop(() =>
+            {
+                var jsValue = JsValue.FromObject(this, clrValue);
+                settle.Call(JsValue.Undefined, [jsValue]);
+            });
+
+            // Signal the CompletedEvent so that UnwrapIfPromise knows there's work to process.
+            // NOTE: We do NOT call RunAvailableContinuations() here because this method is
+            // called from background threads (Task.ContinueWith callbacks) and the _waitingThreadId
+            // protection might not be active yet. The waiting thread in UnwrapIfPromise will
+            // process the event loop when it wakes up.
+            promise.CompletedEvent.Set();
+        };
+
+        return new ManualPromiseWithClrValue(promise, SettleWithClr(resolve), SettleWithClr(reject));
+    }
+
     internal void AddToEventLoop(Action continuation)
     {
-        _eventLoop.Events.Enqueue(continuation);
+        _eventLoop.Enqueue(continuation);
     }
 
     internal void AddToKeptObjects(JsValue target)
@@ -514,27 +563,7 @@ public sealed partial class Engine : IDisposable
 
     internal void RunAvailableContinuations()
     {
-        // Prevent re-entrant calls which can cause stack overflow.
-        // If we're already processing, the outer loop will handle any new events.
-
-        if (Interlocked.CompareExchange(ref _eventLoop._isProcessing, 1, 0) == 1)
-        {
-            return;
-        }
-
-        try
-        {
-            var queue = _eventLoop.Events;
-            while (queue.TryDequeue(out var nextContinuation))
-            {
-                // note that continuation can enqueue new events
-                nextContinuation();
-            }
-        }
-        finally
-        {
-            _eventLoop._isProcessing = 0;
-        }
+        _eventLoop.RunAvailableContinuations();
     }
 
     internal void RunBeforeExecuteStatementChecks(StatementOrExpression? statement)
