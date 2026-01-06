@@ -86,6 +86,14 @@ internal static class DefaultObjectConverter
                     result = JsValue.ConvertAwaitableToPromise(engine, valueTask);
                     return result is not null;
                 }
+
+                // ValueTask<T> is not derived from ValueTask, so we need to check for it explicitly
+                var valueType2 = value.GetType();
+                if (valueType2.IsGenericType && valueType2.GetGenericTypeDefinition() == typeof(ValueTask<>))
+                {
+                    result = JsValue.ConvertAwaitableToPromise(engine, value);
+                    return result is not null;
+                }
 #endif
             }
 

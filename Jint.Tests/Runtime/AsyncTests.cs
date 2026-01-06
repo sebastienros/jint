@@ -203,7 +203,7 @@ public class AsyncTests
         Assert.Equal("Hello World", result);
     }
 
-#if NETFRAMEWORK == false
+#if !NETFRAMEWORK
 
     [Fact]
     public void ShouldCompleteWithAsyncValueTaskCallbacks()
@@ -309,6 +309,87 @@ public class AsyncTests
         var result = engine.Evaluate("async function hello() {await myAsyncMethod();myAsyncMethod2();} hello();");
         result.UnwrapIfPromise();
         Assert.Equal("12", log);
+    }
+
+    [Fact]
+    public void ShouldReturnedValueTaskOfTConvertedToPromiseInJS()
+    {
+        Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
+        engine.SetValue("asyncTestClass", new AsyncTestClass());
+        var result = engine.Evaluate("asyncTestClass.ReturnDelayedValueTaskAsync().then(x=>x)");
+        result = result.UnwrapIfPromise();
+        Assert.Equal(AsyncTestClass.TestString, result);
+    }
+
+    [Fact]
+    public void ShouldReturnedCompletedValueTaskOfTConvertedToPromiseInJS()
+    {
+        Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
+        engine.SetValue("asyncTestClass", new AsyncTestClass());
+        var result = engine.Evaluate("asyncTestClass.ReturnCompletedValueTask().then(x=>x)");
+        result = result.UnwrapIfPromise();
+        Assert.Equal(AsyncTestClass.TestString, result);
+    }
+
+    [Fact]
+    public void ShouldReturnedValueTaskOfTCatchWhenCancelled()
+    {
+        Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
+        CancellationTokenSource cancel = new();
+        cancel.Cancel();
+
+        engine.SetValue("cancelled", JsValue.Undefined);
+        engine.SetValue("token", cancel.Token);
+        engine.SetValue("asyncTestClass", new AsyncTestClass());
+
+        engine.Evaluate("asyncTestClass.ReturnCancelledValueTask(token).then(_ => cancelled = false).catch(_ => cancelled = true)").UnwrapIfPromise();
+
+        Assert.Equal(true, engine.Evaluate("cancelled").AsBoolean());
+    }
+
+    [Fact]
+    public void ShouldReturnedValueTaskOfTCatchWhenThrowError()
+    {
+        Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
+
+        engine.SetValue("cancelled", JsValue.Undefined);
+        engine.SetValue("asyncTestClass", new AsyncTestClass());
+
+        engine.Evaluate("asyncTestClass.ThrowAfterDelayValueTaskAsync().then(_ => cancelled = false).catch(_ => cancelled = true)").UnwrapIfPromise();
+        Assert.Equal(true, engine.Evaluate("cancelled").AsBoolean());
+    }
+
+    [Fact]
+    public void ShouldAwaitUnwrapValueTaskOfTPromiseWithCustomTimeout()
+    {
+        Engine engine = new(options => { options.ExperimentalFeatures = ExperimentalFeature.TaskInterop; options.Constraints.PromiseTimeout = TimeSpan.FromMilliseconds(500); });
+        engine.SetValue("asyncTestClass", new AsyncTestClass());
+        engine.Execute("""
+        async function test() {
+            return await asyncTestClass.ReturnDelayedValueTaskAsync();
+        }
+        """);
+        var result = engine.Invoke("test").UnwrapIfPromise();
+        Assert.Equal(AsyncTestClass.TestString, result);
+    }
+
+    [Fact]
+    public void ShouldIterateOverAsyncEnumeratorConvertedToPromiseInJS()
+    {
+        Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
+        engine.SetValue("asyncTestClass", new AsyncTestClass());
+        engine.Execute("""
+        async function test() {
+            var result = '';
+            var iter = asyncTestClass.AsyncEnumerable().GetAsyncEnumerator();
+            while (await iter.MoveNextAsync()) {
+                result += iter.Current;
+            }
+            return result;
+        }
+        """);
+        var result = engine.Invoke("test").UnwrapIfPromise();
+        Assert.Equal(AsyncTestClass.TestString, result);
     }
 #endif
 
