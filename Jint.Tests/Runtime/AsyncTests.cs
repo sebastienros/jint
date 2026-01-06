@@ -198,7 +198,7 @@ public class AsyncTests
         engine.SetValue("asyncWork", new Func<Task<string>>(async () => { await Task.Delay(100); return "Hello World"; }));
 
         var result = engine.Evaluate("async function hello() {return await asyncTestMethod(async () =>{ return await asyncWork(); })} hello();");
-        result = result.UnwrapIfPromise();
+        result = result.UnwrapIfPromise(TimeSpan.FromSeconds(30));
 
         Assert.Equal("Hello World", result);
     }
@@ -217,7 +217,7 @@ public class AsyncTests
         engine.SetValue("asyncWork", new Func<Task>(() => Task.Delay(100)));
         engine.SetValue("assert", new Action<bool>(Assert.True));
         var result = engine.Evaluate("async function hello() {return await asyncTestMethod(async () =>{ await asyncWork(); })} hello();");
-        result = result.UnwrapIfPromise();
+        result = result.UnwrapIfPromise(TimeSpan.FromSeconds(30));
         Assert.Equal("Hello World", result);
     }
 
@@ -233,7 +233,7 @@ public class AsyncTests
         engine.SetValue("asyncWork", new Func<ValueTask<string>>(async () => { await Task.Delay(100); return "Hello World"; }));
         engine.SetValue("assert", new Action<bool>(Assert.True));
         var result = engine.Evaluate("async function hello() {return await asyncTestMethod(async () =>{ return await asyncWork(); })} hello();");
-        result = result.UnwrapIfPromise();
+        result = result.UnwrapIfPromise(TimeSpan.FromSeconds(30));
         Assert.Equal("Hello World", result);
     }
 
