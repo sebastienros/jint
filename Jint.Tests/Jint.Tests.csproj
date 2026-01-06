@@ -6,7 +6,7 @@
     <AssemblyOriginatorKeyFile>..\Jint\Jint.snk</AssemblyOriginatorKeyFile>
     <SignAssembly>true</SignAssembly>
     <IsPackable>false</IsPackable>
-    <NoWarn>$(NoWarn);612</NoWarn>
+    <NoWarn>$(NoWarn);612;xUnit1051</NoWarn>
     <OutputType>Exe</OutputType>
   </PropertyGroup>
 
