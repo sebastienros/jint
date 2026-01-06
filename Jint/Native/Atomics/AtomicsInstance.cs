@@ -97,6 +97,7 @@ internal sealed class AtomicsInstance : ObjectInstance
         public int NotifyWaiters(int count)
         {
             var notified = 0;
+            List<Waiter>? syncToRemove = null;
             List<AsyncWaiter>? asyncToNotify = null;
 
             lock (_lock)
@@ -111,10 +112,30 @@ internal sealed class AtomicsInstance : ObjectInstance
 
                     lock (waiter.SyncRoot)
                     {
+                        // Skip if already notified (handles race where waiter hasn't been removed yet)
+                        if (waiter.Notified)
+                        {
+                            continue;
+                        }
+
                         waiter.Notified = true;
                         Monitor.Pulse(waiter.SyncRoot);
                     }
                     notified++;
+
+                    // Mark for removal from the list
+                    syncToRemove ??= [];
+                    syncToRemove.Add(waiter);
+                }
+
+                // Remove notified sync waiters from the list
+                // This prevents double-counting in subsequent Notify calls
+                if (syncToRemove != null)
+                {
+                    foreach (var waiter in syncToRemove)
+                    {
+                        _syncWaiters.Remove(waiter);
+                    }
                 }
 
                 // Then notify async waiters
