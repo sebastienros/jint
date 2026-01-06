@@ -181,7 +181,7 @@ public class AsyncTests
         engine.SetValue("asyncWork", new Func<Task>(() => Task.Delay(100)));
 
         var result = engine.Evaluate("async function hello() {return await asyncTestMethod(async () =>{ await asyncWork(); })} hello();");
-        result = result.UnwrapIfPromise();
+        result = result.UnwrapIfPromise(TimeSpan.FromSeconds(30));
 
         Assert.Equal("Hello World", result);
     }
@@ -198,7 +198,7 @@ public class AsyncTests
         engine.SetValue("asyncWork", new Func<Task<string>>(async () => { await Task.Delay(100); return "Hello World"; }));
 
         var result = engine.Evaluate("async function hello() {return await asyncTestMethod(async () =>{ return await asyncWork(); })} hello();");
-        result = result.UnwrapIfPromise();
+        result = result.UnwrapIfPromise(TimeSpan.FromSeconds(30));
 
         Assert.Equal("Hello World", result);
     }
@@ -217,7 +217,7 @@ public class AsyncTests
         engine.SetValue("asyncWork", new Func<Task>(() => Task.Delay(100)));
         engine.SetValue("assert", new Action<bool>(Assert.True));
         var result = engine.Evaluate("async function hello() {return await asyncTestMethod(async () =>{ await asyncWork(); })} hello();");
-        result = result.UnwrapIfPromise();
+        result = result.UnwrapIfPromise(TimeSpan.FromSeconds(30));
         Assert.Equal("Hello World", result);
     }
 
@@ -233,7 +233,7 @@ public class AsyncTests
         engine.SetValue("asyncWork", new Func<ValueTask<string>>(async () => { await Task.Delay(100); return "Hello World"; }));
         engine.SetValue("assert", new Action<bool>(Assert.True));
         var result = engine.Evaluate("async function hello() {return await asyncTestMethod(async () =>{ return await asyncWork(); })} hello();");
-        result = result.UnwrapIfPromise();
+        result = result.UnwrapIfPromise(TimeSpan.FromSeconds(30));
         Assert.Equal("Hello World", result);
     }
 
@@ -401,8 +401,7 @@ public class AsyncTests
         // This test verifies that multiple independent Engine instances can safely
         // run async JavaScript code in parallel threads. Each Engine instance is
         // isolated with its own event loop, so there should be no cross-thread issues.
-        // NOTE: Original value was 1000, but that causes resource exhaustion. Using 10 for stable testing.
-        const int ParallelCount = 10;
+        const int ParallelCount = 100;
 
         // [NOTE] perform 5 runs since concurrency bugs don't always manifest
         for (int run = 0; run < 5; run++)
@@ -443,7 +442,7 @@ public class AsyncTests
                         var val = result.GetValue("main").Call(testObj);
 
                         // Wait for the async function to complete (non-blocking async model)
-                        val = val.UnwrapIfPromise(TimeSpan.FromSeconds(10));
+                        val = val.UnwrapIfPromise(TimeSpan.FromSeconds(30));
                         Assert.Equal(1, val.AsInteger());
 
                         tasks[taskIdx].SetResult(null);

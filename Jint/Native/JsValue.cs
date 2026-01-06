@@ -152,16 +152,18 @@ public abstract partial class JsValue : IEquatable<JsValue>
 
     internal static JsValue ConvertTaskToPromise(Engine engine, Task task)
     {
-        var (promise, resolve, reject) = engine.RegisterPromise();
+        // Use RegisterPromiseWithClrValue to ensure FromObject is called on the main thread,
+        // not on the background thread that completes the Task.
+        var (promise, resolveClr, rejectClr) = engine.RegisterPromiseWithClrValue();
         task = task.ContinueWith(continuationAction =>
             {
                 if (continuationAction.IsFaulted)
                 {
-                    reject(FromObject(engine, continuationAction.Exception));
+                    rejectClr(continuationAction.Exception);
                 }
                 else if (continuationAction.IsCanceled)
                 {
-                    reject(FromObject(engine, new ExecutionCanceledException()));
+                    rejectClr(new ExecutionCanceledException());
                 }
                 else
                 {
@@ -169,18 +171,18 @@ public abstract partial class JsValue : IEquatable<JsValue>
                     // See https://github.com/sebastienros/jint/pull/1567#issuecomment-1681987702
                     if (Task.CompletedTask.Equals(continuationAction))
                     {
-                        resolve(FromObject(engine, JsValue.Undefined));
+                        resolveClr(Undefined);
                         return;
                     }
 
                     var result = continuationAction.GetType().GetProperty(nameof(Task<object>.Result));
                     if (result is not null)
                     {
-                        resolve(FromObject(engine, result.GetValue(continuationAction)));
+                        resolveClr(result.GetValue(continuationAction));
                     }
                     else
                     {
-                        resolve(FromObject(engine, JsValue.Undefined));
+                        resolveClr(Undefined);
                     }
                 }
             },
