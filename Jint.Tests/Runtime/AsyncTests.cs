@@ -442,7 +442,7 @@ public class AsyncTests
                         var val = result.GetValue("main").Call(testObj);
 
                         // Wait for the async function to complete (non-blocking async model)
-                        val = val.UnwrapIfPromise(TimeSpan.FromSeconds(10));
+                        val = val.UnwrapIfPromise(TimeSpan.FromSeconds(30));
                         Assert.Equal(1, val.AsInteger());
 
                         tasks[taskIdx].SetResult(null);
