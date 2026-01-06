@@ -20,6 +20,7 @@ jobs:
     name: ${{ matrix.os.name }}
 
     strategy:
+      fail-fast: false
       matrix:
         os:
           - { name: 'linux', image: 'ubuntu-latest' }
