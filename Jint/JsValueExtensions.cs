@@ -1,6 +1,7 @@
 using System.Diagnostics.Contracts;
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -661,6 +662,23 @@ public static class JsValueExtensions
     /// <param name="timeout">timeout to wait</param>
     /// <returns>inner value if Promise the value itself otherwise</returns>
     public static JsValue UnwrapIfPromise(this JsValue value, TimeSpan timeout)
+        => UnwrapIfPromiseCore(value, timeout, CancellationToken.None);
+
+    /// <summary>
+    /// If the value is a Promise
+    ///     1. If "Fulfilled" returns the value it was fulfilled with
+    ///     2. If "Rejected" throws "PromiseRejectedException" with the rejection reason
+    ///     3. If "Pending" throws "OperationCanceledException" if cancellation is requested
+    /// Else
+    ///     returns the value intact
+    /// </summary>
+    /// <param name="value">value to unwrap</param>
+    /// <param name="cancellationToken">cancellation token to observe</param>
+    /// <returns>inner value if Promise the value itself otherwise</returns>
+    public static JsValue UnwrapIfPromise(this JsValue value, CancellationToken cancellationToken)
+        => UnwrapIfPromiseCore(value, Timeout.InfiniteTimeSpan, cancellationToken);
+
+    private static JsValue UnwrapIfPromiseCore(JsValue value, TimeSpan timeout, CancellationToken cancellationToken)
     {
         if (value is JsPromise promise)
         {
@@ -684,6 +702,8 @@ public static class JsValueExtensions
 
                 while (promise.State == PromiseState.Pending)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
+
                     engine.RunAvailableContinuations();
 
                     if (promise.State != PromiseState.Pending)
@@ -700,12 +720,12 @@ public static class JsValueExtensions
                         }
 
                         var waitTime = remaining < pollInterval ? remaining : pollInterval;
-                        completedEvent.Wait(waitTime);
+                        completedEvent.Wait(waitTime, cancellationToken);
                     }
                     else
                     {
                         // No timeout - just poll
-                        completedEvent.Wait(pollInterval);
+                        completedEvent.Wait(pollInterval, cancellationToken);
                     }
                 }
 
