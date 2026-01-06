@@ -181,7 +181,7 @@ public class AsyncTests
         engine.SetValue("asyncWork", new Func<Task>(() => Task.Delay(100)));
 
         var result = engine.Evaluate("async function hello() {return await asyncTestMethod(async () =>{ await asyncWork(); })} hello();");
-        result = result.UnwrapIfPromise();
+        result = result.UnwrapIfPromise(TimeSpan.FromSeconds(30));
 
         Assert.Equal("Hello World", result);
     }
