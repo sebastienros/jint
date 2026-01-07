@@ -16,16 +16,13 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
 {
     internal AsyncGeneratorState _asyncGeneratorState;
     private ExecutionContext _asyncGeneratorContext;
-#pragma warning disable CS0649 // Field is never assigned to, and will always have its default value
-    private readonly JsValue? _generatorBrand;
-#pragma warning restore CS0649 // Field is never assigned to, and will always have its default value
     private JintStatementList _generatorBody = null!;
 
     /// <summary>
     /// Queue of pending next/return/throw requests.
     /// Each request has a PromiseCapability that resolves when the request completes.
     /// </summary>
-    internal List<AsyncGeneratorRequest> _asyncGeneratorQueue = [];
+    private readonly List<AsyncGeneratorRequest> _asyncGeneratorQueue = [];
 
     /// <summary>
     /// The promise capability of the currently executing request.
@@ -40,28 +37,21 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
     internal JsValue? _suspendedValue;
     internal object? _lastYieldNode;
     internal Dictionary<object, JsValue>? _yieldNodeValues;
-    internal Iterator.IteratorInstance? _delegatingIterator;
+    internal IteratorInstance? _delegatingIterator;
     internal object? _delegatingYieldNode;
     internal CompletionType _delegationResumeType;
-    internal ObjectInstance? _delegationInnerResult;
     internal bool _returnRequested;
     internal CompletionType _resumeCompletionType;
 
-    // Await tracking (from AsyncFunctionInstance)
-    internal object? _lastAwaitNode;
-    internal JsValue? _resumeValue;
-    internal bool _resumeWithThrow;
-    internal Dictionary<object, JsValue>? _completedAwaits;
-
     // Finally block tracking (shared by both)
-    internal CompletionType _pendingCompletionType;
-    internal JsValue? _pendingCompletionValue;
-    internal object? _currentFinallyStatement;
+    private CompletionType _pendingCompletionType;
+    private JsValue? _pendingCompletionValue;
+    public object? _currentFinallyStatement;
 
     /// <summary>
     /// Unified dictionary for all suspend data (for-of loops, destructuring patterns, etc.).
     /// </summary>
-    internal Dictionary<object, SuspendData>? _suspendData;
+    private Dictionary<object, SuspendData>? _suspendData;
 
     // ISuspendable implementation
     bool ISuspendable.IsSuspended => _asyncGeneratorState == AsyncGeneratorState.SuspendedYield || _asyncGeneratorState == AsyncGeneratorState.AwaitingReturn;
@@ -74,7 +64,7 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
 
     JsValue? ISuspendable.SuspendedValue => _suspendedValue;
 
-    object? ISuspendable.LastSuspensionNode => _lastYieldNode ?? _lastAwaitNode;
+    object? ISuspendable.LastSuspensionNode => _lastYieldNode;
 
     bool ISuspendable.ReturnRequested => _returnRequested;
 
@@ -403,26 +393,6 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
     public void ClearSuspendData(object key)
     {
         _suspendData?.Remove(key);
-    }
-
-    /// <summary>
-    /// Closes all pending destructuring iterators.
-    /// </summary>
-    internal void CloseAllDestructuringIterators(CompletionType completionType)
-    {
-        if (_suspendData is null)
-        {
-            return;
-        }
-
-        foreach (var kvp in _suspendData)
-        {
-            if (kvp.Value is DestructuringSuspendData data && !data.Done)
-            {
-                data.Iterator?.Close(completionType);
-                data.Done = true;
-            }
-        }
     }
 
     /// <summary>

@@ -28,20 +28,9 @@ internal abstract class SuspendData
 internal sealed class DestructuringSuspendData : SuspendData
 {
     /// <summary>
-    /// The current element index in the destructuring pattern.
-    /// </summary>
-    public uint ElementIndex { get; set; }
-
-    /// <summary>
     /// Whether the iterator has been exhausted (done=true).
     /// </summary>
     public bool Done { get; set; }
-
-    /// <summary>
-    /// Values already retrieved from the iterator for each element position.
-    /// Used when resuming to avoid calling next() again.
-    /// </summary>
-    public JsValue[]? RetrievedValues { get; set; }
 }
 
 /// <summary>
@@ -76,11 +65,6 @@ internal sealed class ForLoopSuspendData : SuspendData
     /// The saved values of loop variables (let bindings in for loop init).
     /// </summary>
     public Dictionary<Key, JsValue>? BoundValues { get; set; }
-
-    /// <summary>
-    /// The accumulated result value (v) from previous iterations.
-    /// </summary>
-    public JsValue AccumulatedValue { get; set; } = JsValue.Undefined;
 }
 
 /// <summary>
@@ -94,22 +78,7 @@ internal sealed class ForAwaitSuspendData : SuspendData
     public ObjectInstance? ResolvedIteratorResult { get; set; }
 
     /// <summary>
-    /// The current value being processed (from the iterator result).
-    /// </summary>
-    public JsValue? CurrentValue { get; set; }
-
-    /// <summary>
     /// The accumulated result value (v) from previous iterations.
     /// </summary>
     public JsValue AccumulatedValue { get; set; } = JsValue.Undefined;
-
-    /// <summary>
-    /// The iteration environment for lexical bindings (let/const in for-of).
-    /// </summary>
-    public DeclarativeEnvironment? IterationEnv { get; set; }
-
-    /// <summary>
-    /// Whether we are awaiting the next() call result.
-    /// </summary>
-    public bool AwaitingNext { get; set; }
 }

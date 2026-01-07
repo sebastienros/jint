@@ -106,7 +106,7 @@ internal sealed class GeneratorInstance : ObjectInstance, ISuspendable
     /// Keys are Jint expression/statement instances (not AST nodes) to avoid collisions
     /// when the same script runs on multiple Engine instances.
     /// </summary>
-    internal Dictionary<object, SuspendData>? _suspendData;
+    private Dictionary<object, SuspendData>? _suspendData;
 
     // ISuspendable implementation
     bool ISuspendable.IsSuspended => _generatorState == GeneratorState.SuspendedYield;
@@ -349,27 +349,5 @@ internal sealed class GeneratorInstance : ObjectInstance, ISuspendable
     public void ClearSuspendData(object key)
     {
         _suspendData?.Remove(key);
-    }
-
-    /// <summary>
-    /// Closes all pending destructuring iterators.
-    /// Called when generator.return() is invoked to properly close iterators
-    /// that were suspended mid-destructuring.
-    /// </summary>
-    internal void CloseAllDestructuringIterators(CompletionType completionType)
-    {
-        if (_suspendData is null)
-        {
-            return;
-        }
-
-        foreach (var kvp in _suspendData)
-        {
-            if (kvp.Value is DestructuringSuspendData data && !data.Done)
-            {
-                data.Iterator?.Close(completionType);
-                data.Done = true;
-            }
-        }
     }
 }
