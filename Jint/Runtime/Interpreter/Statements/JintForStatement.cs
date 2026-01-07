@@ -85,7 +85,7 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
         ForLoopSuspendData? suspendData = null;
         if (resumingInLoop && _boundNames != null)
         {
-            suspendable?.TryGetSuspendData<ForLoopSuspendData>(this, out suspendData);
+            suspendable?.SuspendData.TryGet(this, out suspendData);
         }
 
         if (_boundNames != null)
@@ -162,7 +162,7 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                     // CreatePerIterationEnvironment may have created new environments during the loop
                     var currentEnv = engine.ExecutionContext.LexicalEnvironment;
 
-                    var data = suspendable.GetOrCreateSuspendData<ForLoopSuspendData>(this);
+                    var data = suspendable.SuspendData.GetOrCreate<ForLoopSuspendData>(this);
                     data.BoundValues ??= new Dictionary<Key, JsValue>();
                     for (var i = 0; i < _boundNames.Count; i++)
                     {
@@ -174,7 +174,7 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                 else if (!context.IsSuspended())
                 {
                     // Clear suspend data on normal completion
-                    suspendable?.ClearSuspendData(this);
+                    suspendable?.SuspendData.Clear(this);
                 }
 
                 loopEnv!.DisposeResources(completion);

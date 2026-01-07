@@ -41,12 +41,6 @@ internal interface ISuspendable
     bool ReturnRequested { get; }
 
     /// <summary>
-    /// The completion type used when resuming (Normal, Return, Throw).
-    /// Used by yield/await expressions to determine how to handle resumption.
-    /// </summary>
-    CompletionType ResumeCompletionType { get; }
-
-    /// <summary>
     /// Tracks the pending completion type when suspended in a finally block.
     /// </summary>
     CompletionType PendingCompletionType { get; set; }
@@ -63,19 +57,8 @@ internal interface ISuspendable
     object? CurrentFinallyStatement { get; set; }
 
     /// <summary>
-    /// Gets or creates suspend data of the specified type (for constructs like for loops).
-    /// Keys should be Jint expression/statement instances to avoid collisions across engines.
+    /// Dictionary for tracking state of loops, destructuring, etc. during async execution.
+    /// Keyed by Jint expression/statement instances (not AST nodes) to avoid collisions.
     /// </summary>
-    T GetOrCreateSuspendData<T>(object key) where T : SuspendData, new();
-
-    /// <summary>
-    /// Tries to get existing suspend data of the specified type.
-    /// Returns true if suspend data exists for the given key.
-    /// </summary>
-    bool TryGetSuspendData<T>(object key, out T? data) where T : SuspendData;
-
-    /// <summary>
-    /// Clears suspend data for the given key when the construct completes.
-    /// </summary>
-    void ClearSuspendData(object key);
+    SuspendDataDictionary SuspendData { get; }
 }

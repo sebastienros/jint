@@ -44,14 +44,9 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
     internal CompletionType _resumeCompletionType;
 
     // Finally block tracking (shared by both)
-    private CompletionType _pendingCompletionType;
-    private JsValue? _pendingCompletionValue;
     public object? _currentFinallyStatement;
 
-    /// <summary>
-    /// Unified dictionary for all suspend data (for-of loops, destructuring patterns, etc.).
-    /// </summary>
-    private Dictionary<object, SuspendData>? _suspendData;
+    public SuspendDataDictionary SuspendData { get; } = new();
 
     // ISuspendable implementation
     bool ISuspendable.IsSuspended => _asyncGeneratorState == AsyncGeneratorState.SuspendedYield || _asyncGeneratorState == AsyncGeneratorState.AwaitingReturn;
@@ -68,19 +63,9 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
 
     bool ISuspendable.ReturnRequested => _returnRequested;
 
-    CompletionType ISuspendable.ResumeCompletionType => _resumeCompletionType;
+    CompletionType ISuspendable.PendingCompletionType { get; set; }
 
-    CompletionType ISuspendable.PendingCompletionType
-    {
-        get => _pendingCompletionType;
-        set => _pendingCompletionType = value;
-    }
-
-    JsValue? ISuspendable.PendingCompletionValue
-    {
-        get => _pendingCompletionValue;
-        set => _pendingCompletionValue = value;
-    }
+    JsValue? ISuspendable.PendingCompletionValue { get; set; }
 
     object? ISuspendable.CurrentFinallyStatement
     {
@@ -343,56 +328,6 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
 
         // Attach handlers
         PromiseOperations.PerformPromiseThen(_engine, promise, onFulfilled, onRejected, null!);
-    }
-
-    /// <summary>
-    /// Gets or creates suspend data of the specified type.
-    /// </summary>
-    public T GetOrCreateSuspendData<T>(object key, Iterator.IteratorInstance iterator) where T : SuspendData, new()
-    {
-        _suspendData ??= new Dictionary<object, SuspendData>();
-        if (!_suspendData.TryGetValue(key, out var data))
-        {
-            data = new T { Iterator = iterator };
-            _suspendData[key] = data;
-        }
-        return (T) data;
-    }
-
-    /// <summary>
-    /// Gets or creates suspend data of the specified type (for constructs without iterators).
-    /// </summary>
-    public T GetOrCreateSuspendData<T>(object key) where T : SuspendData, new()
-    {
-        _suspendData ??= [];
-        if (!_suspendData.TryGetValue(key, out var data))
-        {
-            data = new T();
-            _suspendData[key] = data;
-        }
-        return (T) data;
-    }
-
-    /// <summary>
-    /// Tries to get existing suspend data of the specified type.
-    /// </summary>
-    public bool TryGetSuspendData<T>(object key, out T? data) where T : SuspendData
-    {
-        if (_suspendData?.TryGetValue(key, out var baseData) == true && baseData is T typedData)
-        {
-            data = typedData;
-            return true;
-        }
-        data = default;
-        return false;
-    }
-
-    /// <summary>
-    /// Clears suspend data for the given key when the construct completes.
-    /// </summary>
-    public void ClearSuspendData(object key)
-    {
-        _suspendData?.Remove(key);
     }
 
     /// <summary>

@@ -82,3 +82,50 @@ internal sealed class ForAwaitSuspendData : SuspendData
     /// </summary>
     public JsValue AccumulatedValue { get; set; } = JsValue.Undefined;
 }
+
+internal sealed class SuspendDataDictionary
+{
+    /// <summary>
+    /// Unified dictionary for all suspend data (for-of loops, destructuring patterns, etc.).
+    /// </summary>
+    private Dictionary<object, SuspendData>? _suspendData;
+
+    /// <summary>
+    /// Gets or creates suspend data of the specified type (for constructs without iterators).
+    /// </summary>
+    public T GetOrCreate<T>(object key, IteratorInstance? iteratorInstance = null) where T : SuspendData, new()
+    {
+        _suspendData ??= [];
+        if (!_suspendData.TryGetValue(key, out var data))
+        {
+            data = new T
+            {
+                Iterator = iteratorInstance,
+            };
+            _suspendData[key] = data;
+        }
+        return (T) data;
+    }
+
+    /// <summary>
+    /// Tries to get existing suspend data of the specified type.
+    /// </summary>
+    public bool TryGet<T>(object key, out T? data) where T : SuspendData
+    {
+        if (_suspendData?.TryGetValue(key, out var baseData) == true && baseData is T d)
+        {
+            data = d;
+            return true;
+        }
+        data = null;
+        return false;
+    }
+
+    /// <summary>
+    /// Clears suspend data for the given key when the construct completes.
+    /// </summary>
+    public void Clear(object key)
+    {
+        _suspendData?.Remove(key);
+    }
+}

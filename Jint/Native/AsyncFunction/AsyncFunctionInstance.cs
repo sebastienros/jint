@@ -59,11 +59,7 @@ internal sealed class AsyncFunctionInstance : ISuspendable
     /// </summary>
     internal bool _isResuming;
 
-    /// <summary>
-    /// Dictionary for tracking state of loops, destructuring, etc. during async execution.
-    /// Keyed by Jint expression/statement instances (not AST nodes) to avoid collisions.
-    /// </summary>
-    private Dictionary<object, SuspendData>? _suspendData;
+    public SuspendDataDictionary SuspendData { get; } = new();
 
     /// <summary>
     /// Stores the resolved values of completed await expressions.
@@ -71,22 +67,6 @@ internal sealed class AsyncFunctionInstance : ISuspendable
     /// return their cached values instead of re-suspending.
     /// </summary>
     internal Dictionary<object, JsValue>? _completedAwaits;
-
-    /// <summary>
-    /// Tracks the pending completion type when suspended in a finally block.
-    /// </summary>
-    internal CompletionType _pendingCompletionType;
-
-    /// <summary>
-    /// Tracks the pending completion value when suspended in a finally block.
-    /// </summary>
-    internal JsValue? _pendingCompletionValue;
-
-    /// <summary>
-    /// The try statement whose finally block we're currently executing.
-    /// Used to properly resume execution in finally blocks.
-    /// </summary>
-    internal object? _currentFinallyStatement;
 
     // ISuspendable implementation
     bool ISuspendable.IsSuspended => _state == AsyncFunctionState.SuspendedAwait;
@@ -103,63 +83,21 @@ internal sealed class AsyncFunctionInstance : ISuspendable
 
     bool ISuspendable.ReturnRequested => false; // Async functions don't have return() like generators
 
-    CompletionType ISuspendable.ResumeCompletionType => _resumeWithThrow ? CompletionType.Throw : CompletionType.Normal;
-
-    CompletionType ISuspendable.PendingCompletionType
-    {
-        get => _pendingCompletionType;
-        set => _pendingCompletionType = value;
-    }
-
-    JsValue? ISuspendable.PendingCompletionValue
-    {
-        get => _pendingCompletionValue;
-        set => _pendingCompletionValue = value;
-    }
-
-    object? ISuspendable.CurrentFinallyStatement
-    {
-        get => _currentFinallyStatement;
-        set => _currentFinallyStatement = value;
-    }
+    /// <summary>
+    /// Tracks the pending completion type when suspended in a finally block.
+    /// </summary>
+    CompletionType ISuspendable.PendingCompletionType { get; set; }
 
     /// <summary>
-    /// Gets or creates suspend data of the specified type (for constructs like for loops).
-    /// Keys should be Jint expression/statement instances (this) to avoid collisions across engines.
+    /// Tracks the pending completion value when suspended in a finally block.
     /// </summary>
-    public T GetOrCreateSuspendData<T>(object key) where T : SuspendData, new()
-    {
-        _suspendData ??= [];
-        if (!_suspendData.TryGetValue(key, out var data))
-        {
-            data = new T();
-            _suspendData[key] = data;
-        }
-        return (T) data;
-    }
+    JsValue? ISuspendable.PendingCompletionValue { get; set; }
 
     /// <summary>
-    /// Tries to get existing suspend data of the specified type.
-    /// Returns true if suspend data exists for the given key.
+    /// The try statement whose finally block we're currently executing.
+    /// Used to properly resume execution in finally blocks.
     /// </summary>
-    public bool TryGetSuspendData<T>(object key, out T? data) where T : SuspendData
-    {
-        if (_suspendData?.TryGetValue(key, out var baseData) == true && baseData is T typedData)
-        {
-            data = typedData;
-            return true;
-        }
-        data = default;
-        return false;
-    }
-
-    /// <summary>
-    /// Clears suspend data for the given key when the construct completes.
-    /// </summary>
-    public void ClearSuspendData(object key)
-    {
-        _suspendData?.Remove(key);
-    }
+    object? ISuspendable.CurrentFinallyStatement { get; set; }
 }
 
 /// <summary>

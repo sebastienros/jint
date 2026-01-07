@@ -92,7 +92,7 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
         var resuming = false;
         if (generator is not null && generator._isResuming)
         {
-            if (generator.TryGetSuspendData<DestructuringSuspendData>(pattern, out suspendData))
+            if (generator.SuspendData.TryGet(pattern, out suspendData))
             {
                 resuming = true;
             }
@@ -117,7 +117,7 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                     suspendData.Done = true;
                     iterator?.Close(CompletionType.Return);
                 }
-                generator.ClearSuspendData(pattern);
+                generator.SuspendData.Clear(pattern);
                 // Signal return request - callers check _returnRequested flag
                 generator._returnRequested = true;
                 generator._suspendedValue = generator._nextValue ?? JsValue.Undefined;
@@ -138,7 +138,7 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                 // Save the iterator for potential yield inside this pattern
                 if (generator is not null && iterator is not null)
                 {
-                    suspendData = generator.GetOrCreateSuspendData<DestructuringSuspendData>(pattern, iterator);
+                    suspendData = generator.SuspendData.GetOrCreate<DestructuringSuspendData>(pattern, iterator);
                 }
             }
         }
@@ -205,7 +205,7 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                             done = true;
                             iterator.Close(CompletionType.Return);
                         }
-                        generator.ClearSuspendData(pattern);
+                        generator.SuspendData.Clear(pattern);
                         close = false; // Already closed
                         return JsValue.Undefined;
                     }
@@ -259,7 +259,7 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                                 done = true;
                                 iterator.Close(CompletionType.Return);
                             }
-                            generator.ClearSuspendData(pattern);
+                            generator.SuspendData.Clear(pattern);
                             close = false; // Already closed
                             return JsValue.Undefined;
                         }
@@ -341,7 +341,7 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                                 done = true;
                                 iterator.Close(CompletionType.Return);
                             }
-                            generator.ClearSuspendData(pattern);
+                            generator.SuspendData.Clear(pattern);
                             close = false; // Already closed
                             return JsValue.Undefined;
                         }
@@ -384,7 +384,7 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                         done = true; // Prevent double-close in finally
                         iterator.Close(CompletionType.Return);
                     }
-                    generator.ClearSuspendData(pattern);
+                    generator.SuspendData.Clear(pattern);
                     close = false; // Prevent double-close in finally
                     return JsValue.Undefined;
                 }
@@ -392,13 +392,13 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
 
             close = true;
             // Clear suspend data on normal completion
-            generator?.ClearSuspendData(pattern);
+            generator?.SuspendData.Clear(pattern);
         }
         catch
         {
             completionType = CompletionType.Throw;
             // Clear suspend data on error
-            generator?.ClearSuspendData(pattern);
+            generator?.SuspendData.Clear(pattern);
             throw;
         }
         finally
