@@ -42,10 +42,15 @@ public abstract partial class Test262Test
             var delay = (int)TypeConverter.ToNumber(args.At(1));
             if (callback is ICallable callable)
             {
-                Task.Run(async () =>
+                _ = Task.Run(async () =>
                 {
                     await Task.Delay(delay);
-                    callable.Call(JsValue.Undefined, Arguments.Empty);
+                    // Queue callback to event loop instead of calling directly from background thread
+                    // to avoid race conditions with concurrent JavaScript execution
+                    engine.AddToEventLoop(() =>
+                    {
+                        callable.Call(JsValue.Undefined, Arguments.Empty);
+                    });
                 });
             }
             return JsValue.Undefined;
