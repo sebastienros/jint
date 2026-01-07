@@ -46,7 +46,7 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
     // Finally block tracking (shared by both)
     public object? _currentFinallyStatement;
 
-    public SuspendDataDictionary SuspendData { get; } = new();
+    public SuspendDataDictionary Data { get; } = new();
 
     // ISuspendable implementation
     bool ISuspendable.IsSuspended => _asyncGeneratorState == AsyncGeneratorState.SuspendedYield || _asyncGeneratorState == AsyncGeneratorState.AwaitingReturn;

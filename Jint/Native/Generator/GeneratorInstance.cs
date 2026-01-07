@@ -101,7 +101,7 @@ internal sealed class GeneratorInstance : ObjectInstance, ISuspendable
     /// </summary>
     internal object? _currentFinallyStatement;
 
-    public SuspendDataDictionary SuspendData { get; } = new();
+    public SuspendDataDictionary Data { get; } = new();
 
     // ISuspendable implementation
     bool ISuspendable.IsSuspended => _generatorState == GeneratorState.SuspendedYield;

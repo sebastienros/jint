@@ -59,7 +59,7 @@ internal sealed class AsyncFunctionInstance : ISuspendable
     /// </summary>
     internal bool _isResuming;
 
-    public SuspendDataDictionary SuspendData { get; } = new();
+    public SuspendDataDictionary Data { get; } = new();
 
     /// <summary>
     /// Stores the resolved values of completed await expressions.

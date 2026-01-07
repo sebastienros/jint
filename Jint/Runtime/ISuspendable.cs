@@ -60,5 +60,5 @@ internal interface ISuspendable
     /// Dictionary for tracking state of loops, destructuring, etc. during async execution.
     /// Keyed by Jint expression/statement instances (not AST nodes) to avoid collisions.
     /// </summary>
-    SuspendDataDictionary SuspendData { get; }
+    SuspendDataDictionary Data { get; }
 }
