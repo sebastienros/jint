@@ -101,12 +101,7 @@ internal sealed class GeneratorInstance : ObjectInstance, ISuspendable
     /// </summary>
     internal object? _currentFinallyStatement;
 
-    /// <summary>
-    /// Unified dictionary for all suspend data (for-of loops, destructuring patterns, etc.).
-    /// Keys are Jint expression/statement instances (not AST nodes) to avoid collisions
-    /// when the same script runs on multiple Engine instances.
-    /// </summary>
-    internal Dictionary<object, SuspendData>? _suspendData;
+    public SuspendDataDictionary Data { get; } = new();
 
     // ISuspendable implementation
     bool ISuspendable.IsSuspended => _generatorState == GeneratorState.SuspendedYield;
@@ -116,6 +111,12 @@ internal sealed class GeneratorInstance : ObjectInstance, ISuspendable
         get => _isResuming;
         set => _isResuming = value;
     }
+
+    JsValue? ISuspendable.SuspendedValue => _suspendedValue;
+
+    object? ISuspendable.LastSuspensionNode => _lastYieldNode;
+
+    bool ISuspendable.ReturnRequested => _returnRequested;
 
     CompletionType ISuspendable.PendingCompletionType
     {
@@ -288,80 +289,5 @@ internal sealed class GeneratorInstance : ObjectInstance, ISuspendable
         }
 
         return _generatorState;
-    }
-
-    /// <summary>
-    /// Gets or creates suspend data of the specified type.
-    /// Keys should be Jint expression/statement instances (this) to avoid collisions across engines.
-    /// </summary>
-    public T GetOrCreateSuspendData<T>(object key, IteratorInstance iterator) where T : SuspendData, new()
-    {
-        _suspendData ??= new Dictionary<object, SuspendData>();
-        if (!_suspendData.TryGetValue(key, out var data))
-        {
-            data = new T { Iterator = iterator };
-            _suspendData[key] = data;
-        }
-        return (T) data;
-    }
-
-    /// <summary>
-    /// Gets or creates suspend data of the specified type (for constructs without iterators).
-    /// Keys should be Jint expression/statement instances (this) to avoid collisions across engines.
-    /// </summary>
-    public T GetOrCreateSuspendData<T>(object key) where T : SuspendData, new()
-    {
-        _suspendData ??= [];
-        if (!_suspendData.TryGetValue(key, out var data))
-        {
-            data = new T();
-            _suspendData[key] = data;
-        }
-        return (T) data;
-    }
-
-    /// <summary>
-    /// Tries to get existing suspend data of the specified type.
-    /// Returns true if suspend data exists for the given key.
-    /// </summary>
-    public bool TryGetSuspendData<T>(object key, out T? data) where T : SuspendData
-    {
-        if (_suspendData?.TryGetValue(key, out var baseData) == true)
-        {
-            data = (T) baseData;
-            return true;
-        }
-        data = default;
-        return false;
-    }
-
-    /// <summary>
-    /// Clears suspend data for the given key when the construct completes.
-    /// </summary>
-    public void ClearSuspendData(object key)
-    {
-        _suspendData?.Remove(key);
-    }
-
-    /// <summary>
-    /// Closes all pending destructuring iterators.
-    /// Called when generator.return() is invoked to properly close iterators
-    /// that were suspended mid-destructuring.
-    /// </summary>
-    internal void CloseAllDestructuringIterators(CompletionType completionType)
-    {
-        if (_suspendData is null)
-        {
-            return;
-        }
-
-        foreach (var kvp in _suspendData)
-        {
-            if (kvp.Value is DestructuringSuspendData data && !data.Done)
-            {
-                data.Iterator?.Close(completionType);
-                data.Done = true;
-            }
-        }
     }
 }

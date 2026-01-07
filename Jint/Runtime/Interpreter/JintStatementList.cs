@@ -4,7 +4,6 @@ using Jint.Native;
 using Jint.Native.Error;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Statements;
-using Jint.Native.AsyncFunction;
 
 namespace Jint.Runtime.Interpreter;
 
@@ -18,12 +17,9 @@ internal sealed class JintStatementList
     private Pair[]? _jintStatements;
     private bool _initialized;
     private uint _index;
-    private readonly bool _generator;
 
-    public JintStatementList(IFunction function)
-        : this((FunctionBody) function.Body)
+    public JintStatementList(IFunction function) : this((FunctionBody) function.Body)
     {
-        _generator = function.Generator;
     }
 
     public JintStatementList(BlockStatement blockStatement)
@@ -100,40 +96,26 @@ internal sealed class JintStatementList
                     c = new Completion(CompletionType.Return, pair.Value, pair.Statement._statement);
                 }
 
-                // Check for generator suspension - works for both the main generator body and nested blocks
-                var gen = context.Engine.ExecutionContext.Generator;
+                // Check for suspension (generator yield or async await)
+                var suspendable = context.Engine.ExecutionContext.Suspendable;
                 if (context.IsSuspended())
                 {
-                    // Don't increment _index - we'll re-execute this statement on resume
-                    // The yield tracking (_yieldIndex) handles knowing which yield to resume from
+                    // Save position for resume - we'll re-execute this statement on resume
+                    // The yield/await tracking handles knowing which suspension point to resume from
                     _index = i;
-                    // Use the suspended value from the generator, as the statement's completion value
+                    // Use the suspended value, as the statement's completion value
                     // might be different (e.g., variable declarations return Empty, not the yielded value)
-                    var suspendedValue = gen?._suspendedValue ?? c.Value;
-                    // Return directly - don't fall through to the reset below
+                    var suspendedValue = suspendable?.SuspendedValue ?? c.Value;
                     return new Completion(CompletionType.Return, suspendedValue, pair.Statement._statement);
                 }
 
-                // Check for generator return request (from generator.return() call)
-                if (gen?._returnRequested == true)
+                // Check for return request (from generator.return() call)
+                if (suspendable?.ReturnRequested == true)
                 {
                     Reset();
-                    var returnValue = gen._suspendedValue ?? c.Value;
+                    var returnValue = suspendable.SuspendedValue ?? c.Value;
                     return new Completion(CompletionType.Return, returnValue, pair.Statement._statement);
                 }
-
-                // Check for async function suspension at await
-                var asyncFn = context.Engine.ExecutionContext.AsyncFunction;
-                if (asyncFn?._state == AsyncFunctionState.SuspendedAwait)
-                {
-                    // Save position for resume
-                    _index = i;
-                    // Return - the promise reaction will resume execution later
-                    return new Completion(CompletionType.Return, JsValue.Undefined, pair.Statement._statement);
-                }
-
-                // With node-based yield tracking, we don't need to reset state between statements
-                // Each yield node is uniquely identified, so no per-statement cleanup is needed
 
                 if (c.Type != CompletionType.Normal)
                 {

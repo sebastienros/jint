@@ -21,6 +21,26 @@ internal interface ISuspendable
     bool IsResuming { get; set; }
 
     /// <summary>
+    /// The value yielded/awaited when suspended.
+    /// For generators: the yielded value
+    /// For async functions: the resume value from awaited promise
+    /// </summary>
+    JsValue? SuspendedValue { get; }
+
+    /// <summary>
+    /// The AST node where execution last suspended (yield or await expression).
+    /// Unified property for tracking suspension location across all suspendable types.
+    /// </summary>
+    object? LastSuspensionNode { get; }
+
+    /// <summary>
+    /// Signals that an early return was requested (e.g., generator.return() was called).
+    /// For generators: true when generator.return() was called
+    /// For async functions/generators: typically false
+    /// </summary>
+    bool ReturnRequested { get; }
+
+    /// <summary>
     /// Tracks the pending completion type when suspended in a finally block.
     /// </summary>
     CompletionType PendingCompletionType { get; set; }
@@ -37,19 +57,8 @@ internal interface ISuspendable
     object? CurrentFinallyStatement { get; set; }
 
     /// <summary>
-    /// Gets or creates suspend data of the specified type (for constructs like for loops).
-    /// Keys should be Jint expression/statement instances to avoid collisions across engines.
+    /// Dictionary for tracking state of loops, destructuring, etc. during async execution.
+    /// Keyed by Jint expression/statement instances (not AST nodes) to avoid collisions.
     /// </summary>
-    T GetOrCreateSuspendData<T>(object key) where T : SuspendData, new();
-
-    /// <summary>
-    /// Tries to get existing suspend data of the specified type.
-    /// Returns true if suspend data exists for the given key.
-    /// </summary>
-    bool TryGetSuspendData<T>(object key, out T? data) where T : SuspendData;
-
-    /// <summary>
-    /// Clears suspend data for the given key when the construct completes.
-    /// </summary>
-    void ClearSuspendData(object key);
+    SuspendDataDictionary Data { get; }
 }

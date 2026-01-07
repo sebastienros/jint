@@ -16,16 +16,13 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
 {
     internal AsyncGeneratorState _asyncGeneratorState;
     private ExecutionContext _asyncGeneratorContext;
-#pragma warning disable CS0649 // Field is never assigned to, and will always have its default value
-    private readonly JsValue? _generatorBrand;
-#pragma warning restore CS0649 // Field is never assigned to, and will always have its default value
     private JintStatementList _generatorBody = null!;
 
     /// <summary>
     /// Queue of pending next/return/throw requests.
     /// Each request has a PromiseCapability that resolves when the request completes.
     /// </summary>
-    internal List<AsyncGeneratorRequest> _asyncGeneratorQueue = [];
+    private readonly List<AsyncGeneratorRequest> _asyncGeneratorQueue = [];
 
     /// <summary>
     /// The promise capability of the currently executing request.
@@ -40,28 +37,16 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
     internal JsValue? _suspendedValue;
     internal object? _lastYieldNode;
     internal Dictionary<object, JsValue>? _yieldNodeValues;
-    internal Iterator.IteratorInstance? _delegatingIterator;
+    internal IteratorInstance? _delegatingIterator;
     internal object? _delegatingYieldNode;
     internal CompletionType _delegationResumeType;
-    internal ObjectInstance? _delegationInnerResult;
     internal bool _returnRequested;
     internal CompletionType _resumeCompletionType;
 
-    // Await tracking (from AsyncFunctionInstance)
-    internal object? _lastAwaitNode;
-    internal JsValue? _resumeValue;
-    internal bool _resumeWithThrow;
-    internal Dictionary<object, JsValue>? _completedAwaits;
-
     // Finally block tracking (shared by both)
-    internal CompletionType _pendingCompletionType;
-    internal JsValue? _pendingCompletionValue;
-    internal object? _currentFinallyStatement;
+    public object? _currentFinallyStatement;
 
-    /// <summary>
-    /// Unified dictionary for all suspend data (for-of loops, destructuring patterns, etc.).
-    /// </summary>
-    internal Dictionary<object, SuspendData>? _suspendData;
+    public SuspendDataDictionary Data { get; } = new();
 
     // ISuspendable implementation
     bool ISuspendable.IsSuspended => _asyncGeneratorState == AsyncGeneratorState.SuspendedYield || _asyncGeneratorState == AsyncGeneratorState.AwaitingReturn;
@@ -72,17 +57,15 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
         set => _isResuming = value;
     }
 
-    CompletionType ISuspendable.PendingCompletionType
-    {
-        get => _pendingCompletionType;
-        set => _pendingCompletionType = value;
-    }
+    JsValue? ISuspendable.SuspendedValue => _suspendedValue;
 
-    JsValue? ISuspendable.PendingCompletionValue
-    {
-        get => _pendingCompletionValue;
-        set => _pendingCompletionValue = value;
-    }
+    object? ISuspendable.LastSuspensionNode => _lastYieldNode;
+
+    bool ISuspendable.ReturnRequested => _returnRequested;
+
+    CompletionType ISuspendable.PendingCompletionType { get; set; }
+
+    JsValue? ISuspendable.PendingCompletionValue { get; set; }
 
     object? ISuspendable.CurrentFinallyStatement
     {
@@ -345,76 +328,6 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
 
         // Attach handlers
         PromiseOperations.PerformPromiseThen(_engine, promise, onFulfilled, onRejected, null!);
-    }
-
-    /// <summary>
-    /// Gets or creates suspend data of the specified type.
-    /// </summary>
-    public T GetOrCreateSuspendData<T>(object key, Iterator.IteratorInstance iterator) where T : SuspendData, new()
-    {
-        _suspendData ??= new Dictionary<object, SuspendData>();
-        if (!_suspendData.TryGetValue(key, out var data))
-        {
-            data = new T { Iterator = iterator };
-            _suspendData[key] = data;
-        }
-        return (T) data;
-    }
-
-    /// <summary>
-    /// Gets or creates suspend data of the specified type (for constructs without iterators).
-    /// </summary>
-    public T GetOrCreateSuspendData<T>(object key) where T : SuspendData, new()
-    {
-        _suspendData ??= [];
-        if (!_suspendData.TryGetValue(key, out var data))
-        {
-            data = new T();
-            _suspendData[key] = data;
-        }
-        return (T) data;
-    }
-
-    /// <summary>
-    /// Tries to get existing suspend data of the specified type.
-    /// </summary>
-    public bool TryGetSuspendData<T>(object key, out T? data) where T : SuspendData
-    {
-        if (_suspendData?.TryGetValue(key, out var baseData) == true)
-        {
-            data = (T) baseData;
-            return true;
-        }
-        data = default;
-        return false;
-    }
-
-    /// <summary>
-    /// Clears suspend data for the given key when the construct completes.
-    /// </summary>
-    public void ClearSuspendData(object key)
-    {
-        _suspendData?.Remove(key);
-    }
-
-    /// <summary>
-    /// Closes all pending destructuring iterators.
-    /// </summary>
-    internal void CloseAllDestructuringIterators(CompletionType completionType)
-    {
-        if (_suspendData is null)
-        {
-            return;
-        }
-
-        foreach (var kvp in _suspendData)
-        {
-            if (kvp.Value is DestructuringSuspendData data && !data.Done)
-            {
-                data.Iterator?.Close(completionType);
-                data.Done = true;
-            }
-        }
     }
 
     /// <summary>

@@ -28,20 +28,9 @@ internal abstract class SuspendData
 internal sealed class DestructuringSuspendData : SuspendData
 {
     /// <summary>
-    /// The current element index in the destructuring pattern.
-    /// </summary>
-    public uint ElementIndex { get; set; }
-
-    /// <summary>
     /// Whether the iterator has been exhausted (done=true).
     /// </summary>
     public bool Done { get; set; }
-
-    /// <summary>
-    /// Values already retrieved from the iterator for each element position.
-    /// Used when resuming to avoid calling next() again.
-    /// </summary>
-    public JsValue[]? RetrievedValues { get; set; }
 }
 
 /// <summary>
@@ -76,11 +65,6 @@ internal sealed class ForLoopSuspendData : SuspendData
     /// The saved values of loop variables (let bindings in for loop init).
     /// </summary>
     public Dictionary<Key, JsValue>? BoundValues { get; set; }
-
-    /// <summary>
-    /// The accumulated result value (v) from previous iterations.
-    /// </summary>
-    public JsValue AccumulatedValue { get; set; } = JsValue.Undefined;
 }
 
 /// <summary>
@@ -94,22 +78,54 @@ internal sealed class ForAwaitSuspendData : SuspendData
     public ObjectInstance? ResolvedIteratorResult { get; set; }
 
     /// <summary>
-    /// The current value being processed (from the iterator result).
-    /// </summary>
-    public JsValue? CurrentValue { get; set; }
-
-    /// <summary>
     /// The accumulated result value (v) from previous iterations.
     /// </summary>
     public JsValue AccumulatedValue { get; set; } = JsValue.Undefined;
+}
+
+internal sealed class SuspendDataDictionary
+{
+    /// <summary>
+    /// Unified dictionary for all suspend data (for-of loops, destructuring patterns, etc.).
+    /// </summary>
+    private Dictionary<object, SuspendData>? _suspendData;
 
     /// <summary>
-    /// The iteration environment for lexical bindings (let/const in for-of).
+    /// Gets or creates suspend data of the specified type (for constructs without iterators).
     /// </summary>
-    public DeclarativeEnvironment? IterationEnv { get; set; }
+    public T GetOrCreate<T>(object key, IteratorInstance? iteratorInstance = null) where T : SuspendData, new()
+    {
+        _suspendData ??= [];
+        if (!_suspendData.TryGetValue(key, out var data))
+        {
+            data = new T
+            {
+                Iterator = iteratorInstance,
+            };
+            _suspendData[key] = data;
+        }
+        return (T) data;
+    }
 
     /// <summary>
-    /// Whether we are awaiting the next() call result.
+    /// Tries to get existing suspend data of the specified type.
     /// </summary>
-    public bool AwaitingNext { get; set; }
+    public bool TryGet<T>(object key, out T? data) where T : SuspendData
+    {
+        if (_suspendData?.TryGetValue(key, out var baseData) == true && baseData is T d)
+        {
+            data = d;
+            return true;
+        }
+        data = null;
+        return false;
+    }
+
+    /// <summary>
+    /// Clears suspend data for the given key when the construct completes.
+    /// </summary>
+    public void Clear(object key)
+    {
+        _suspendData?.Remove(key);
+    }
 }

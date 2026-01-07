@@ -68,23 +68,15 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
         // Check if we're resuming from a yield/await inside this for statement
         // If resuming from body, test, or update, skip initialization to avoid resetting loop variables
         // If resuming from init expression, we must re-execute init to complete pending nested awaits
-        var generator = engine.ExecutionContext.Generator;
-        var asyncFn = engine.ExecutionContext.AsyncFunction;
-        var asyncGenerator = engine.ExecutionContext.AsyncGenerator;
+        var suspendable = engine.ExecutionContext.Suspendable;
 
+        // Get the resume node from the unified interface
         Node? resumeNode = null;
-        if (generator is not null && generator._isResuming && generator._lastYieldNode is Node yieldNode)
+        if (suspendable is { IsResuming: true, LastSuspensionNode: not null })
         {
-            resumeNode = yieldNode;
-        }
-        else if (asyncGenerator is not null && asyncGenerator._isResuming && asyncGenerator._lastYieldNode is Node asyncYieldNode)
-        {
-            resumeNode = asyncYieldNode;
-        }
-        else if (asyncFn is not null && asyncFn._isResuming && asyncFn._lastAwaitNode is JintExpression awaitExpr
-            && awaitExpr._expression is Node awaitNode)
-        {
-            resumeNode = awaitNode;
+            // LastSuspensionNode could be a Node directly (yield) or a JintExpression (await)
+            resumeNode = suspendable.LastSuspensionNode as Node
+                ?? (suspendable.LastSuspensionNode as JintExpression)?._expression as Node;
         }
 
         // Only skip init when resuming from body/test/update, NOT from init
@@ -93,18 +85,7 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
         ForLoopSuspendData? suspendData = null;
         if (resumingInLoop && _boundNames != null)
         {
-            if (generator is not null)
-            {
-                generator.TryGetSuspendData<ForLoopSuspendData>(this, out suspendData);
-            }
-            else if (asyncGenerator is not null)
-            {
-                asyncGenerator.TryGetSuspendData<ForLoopSuspendData>(this, out suspendData);
-            }
-            else if (asyncFn is not null)
-            {
-                asyncFn.TryGetSuspendData<ForLoopSuspendData>(this, out suspendData);
-            }
+            suspendable?.Data.TryGet(this, out suspendData);
         }
 
         if (_boundNames != null)
@@ -175,52 +156,25 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
             if (oldEnv is not null)
             {
                 // Save loop variable values if generator/async function is suspended (don't save on normal completion)
-                if (context.IsSuspended() && _boundNames != null)
+                if (context.IsSuspended() && _boundNames != null && suspendable is not null)
                 {
                     // Use the CURRENT lexical environment, not loopEnv, because
                     // CreatePerIterationEnvironment may have created new environments during the loop
                     var currentEnv = engine.ExecutionContext.LexicalEnvironment;
 
-                    if (generator is not null)
+                    var data = suspendable.Data.GetOrCreate<ForLoopSuspendData>(this);
+                    data.BoundValues ??= new Dictionary<Key, JsValue>();
+                    for (var i = 0; i < _boundNames.Count; i++)
                     {
-                        var data = generator.GetOrCreateSuspendData<ForLoopSuspendData>(this);
-                        data.BoundValues ??= new Dictionary<Key, JsValue>();
-                        for (var i = 0; i < _boundNames.Count; i++)
-                        {
-                            var name = _boundNames[i];
-                            var value = currentEnv.GetBindingValue(name, strict: false);
-                            data.BoundValues[name] = value;
-                        }
-                    }
-                    else if (asyncGenerator is not null)
-                    {
-                        var data = asyncGenerator.GetOrCreateSuspendData<ForLoopSuspendData>(this);
-                        data.BoundValues ??= new Dictionary<Key, JsValue>();
-                        for (var i = 0; i < _boundNames.Count; i++)
-                        {
-                            var name = _boundNames[i];
-                            var value = currentEnv.GetBindingValue(name, strict: false);
-                            data.BoundValues[name] = value;
-                        }
-                    }
-                    else if (asyncFn is not null)
-                    {
-                        var data = asyncFn.GetOrCreateSuspendData<ForLoopSuspendData>(this);
-                        data.BoundValues ??= new Dictionary<Key, JsValue>();
-                        for (var i = 0; i < _boundNames.Count; i++)
-                        {
-                            var name = _boundNames[i];
-                            var value = currentEnv.GetBindingValue(name, strict: false);
-                            data.BoundValues[name] = value;
-                        }
+                        var name = _boundNames[i];
+                        var value = currentEnv.GetBindingValue(name, strict: false);
+                        data.BoundValues[name] = value;
                     }
                 }
                 else if (!context.IsSuspended())
                 {
                     // Clear suspend data on normal completion
-                    generator?.ClearSuspendData(this);
-                    asyncGenerator?.ClearSuspendData(this);
-                    asyncFn?.ClearSuspendData(this);
+                    suspendable?.Data.Clear(this);
                 }
 
                 loopEnv!.DisposeResources(completion);
@@ -285,11 +239,11 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
 
         while (true)
         {
-            var asyncFn = context.Engine.ExecutionContext.AsyncFunction;
-
             // Only clear completed awaits cache when starting a NEW iteration, not when resuming.
             // When resuming from a nested await (e.g., "for (; await await await x;)"),
             // we need the cached values of already-completed awaits to continue evaluation.
+            // Note: _completedAwaits is async-specific, so we access AsyncFunction directly here
+            var asyncFn = context.Engine.ExecutionContext.AsyncFunction;
             if (asyncFn is null || !asyncFn._isResuming)
             {
                 asyncFn?._completedAwaits?.Clear();
@@ -319,11 +273,11 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                 v = result.Value;
             }
 
-            // Check for generator suspension - if the generator is suspended, we need to exit the loop
+            // Check for suspension - if suspended, we need to exit the loop
+            var suspendable = context.Engine.ExecutionContext.Suspendable;
             if (context.IsSuspended())
             {
-                var generator = context.Engine.ExecutionContext.Generator;
-                var suspendedValue = generator?._suspendedValue ?? result.Value;
+                var suspendedValue = suspendable?.SuspendedValue ?? result.Value;
                 return new Completion(CompletionType.Return, suspendedValue, ((JintStatement) this)._statement);
             }
 
@@ -350,19 +304,17 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                 debugHandler?.OnStep(_increment._expression);
                 _increment.Evaluate(context);
 
-                // Check for generator suspension in update expression (e.g., yield in the update)
+                // Check for suspension in update expression (e.g., yield in the update)
                 if (context.IsSuspended())
                 {
-                    var generator = context.Engine.ExecutionContext.Generator;
-                    var suspendedValue = generator?._suspendedValue ?? JsValue.Undefined;
+                    var suspendedValue = suspendable?.SuspendedValue ?? JsValue.Undefined;
                     return new Completion(CompletionType.Return, suspendedValue, ((JintStatement) this)._statement);
                 }
 
-                // Check for generator return request
-                var gen = context.Engine.ExecutionContext.Generator;
-                if (gen?._returnRequested == true)
+                // Check for return request (e.g., generator.return() was called)
+                if (suspendable?.ReturnRequested == true)
                 {
-                    var returnValue = gen._suspendedValue ?? JsValue.Undefined;
+                    var returnValue = suspendable.SuspendedValue ?? JsValue.Undefined;
                     return new Completion(CompletionType.Return, returnValue, ((JintStatement) this)._statement);
                 }
             }

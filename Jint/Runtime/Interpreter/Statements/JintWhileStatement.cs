@@ -28,13 +28,12 @@ internal sealed class JintWhileStatement : JintStatement<WhileStatement>
         var v = JsValue.Undefined;
         while (true)
         {
-            var asyncFn = context.Engine.ExecutionContext.AsyncFunction;
-
             // Only clear completed awaits cache when starting a NEW iteration, not when resuming.
             // When resuming from a nested await (e.g., "while (await await await x)"),
             // we need the cached values of already-completed awaits to continue evaluation.
             // When starting fresh (not resuming), clear the cache to ensure expressions like
             // "while (await p)" evaluate p fresh each time even if p changes.
+            var asyncFn = context.Engine.ExecutionContext.AsyncFunction;
             if (asyncFn is null || !asyncFn._isResuming)
             {
                 asyncFn?._completedAwaits?.Clear();
@@ -47,12 +46,11 @@ internal sealed class JintWhileStatement : JintStatement<WhileStatement>
 
             var jsValue = _test.GetValue(context);
 
-            // Check for async/generator suspension after evaluating the test expression
+            // Check for suspension after evaluating the test expression
+            var suspendable = context.Engine.ExecutionContext.Suspendable;
             if (context.IsSuspended())
             {
-                var generator = context.Engine.ExecutionContext.Generator;
-                asyncFn = context.Engine.ExecutionContext.AsyncFunction;
-                var suspendedValue = generator?._suspendedValue ?? asyncFn?._resumeValue ?? JsValue.Undefined;
+                var suspendedValue = suspendable?.SuspendedValue ?? JsValue.Undefined;
                 return new Completion(CompletionType.Return, suspendedValue, _statement);
             }
 
@@ -68,11 +66,10 @@ internal sealed class JintWhileStatement : JintStatement<WhileStatement>
                 v = completion.Value;
             }
 
-            // Check for generator suspension - if the generator is suspended, we need to exit the loop
+            // Check for suspension - if suspended, we need to exit the loop
             if (context.IsSuspended())
             {
-                var generator = context.Engine.ExecutionContext.Generator;
-                var suspendedValue = generator?._suspendedValue ?? completion.Value;
+                var suspendedValue = suspendable?.SuspendedValue ?? completion.Value;
                 return new Completion(CompletionType.Return, suspendedValue, _statement);
             }
 
