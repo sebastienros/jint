@@ -577,6 +577,70 @@ public class AsyncTests
         Assert.False(callbackExecuted, "Promise callback should not have executed yet");
     }
 
+    [Fact]
+    public void WrappedAsyncFunctionsShouldExecuteConcurrently()
+    {
+        // #2199: https://github.com/sebastienros/jint/issues/2199
+        // When async functions wrap other async functions, they should execute concurrently
+        // not sequentially. All wrapped tasks should start before any complete.
+        var engine = new Engine();
+
+        engine.Execute("""
+            var log = [];
+            var callbacks = [];
+
+            // Simulate an async operation that resolves via callback
+            function asyncOperation(id) {
+                return new Promise(function(resolve) {
+                    log.push('AsyncOp ' + id + ' registered');
+                    callbacks.push({ id: id, resolve: resolve });
+                });
+            }
+
+            // Simple async function
+            async function simpleAsync(id) {
+                log.push('SimpleAsync ' + id + ' start');
+                var result = await asyncOperation(id);
+                log.push('SimpleAsync ' + id + ' got result: ' + result);
+                return result;
+            }
+
+            // Wrapped async function - the scenario from issue #2199
+            async function wrappedAsync(id) {
+                log.push('WrappedAsync ' + id + ' start');
+                var result = await simpleAsync(id);
+                log.push('WrappedAsync ' + id + ' got result: ' + result);
+                return result;
+            }
+
+            // Create promises for wrapped async calls
+            var p1 = wrappedAsync('A');
+            var p2 = wrappedAsync('B');
+            var p3 = wrappedAsync('C');
+            """);
+
+        // All 3 async operations should have registered callbacks concurrently
+        var callbacks = engine.Evaluate("callbacks").AsArray();
+        Assert.Equal(3, (int) callbacks.Length);
+
+        var log = engine.Evaluate("log").AsArray();
+        var logStrings = log.Select(x => x.AsString()).ToArray();
+
+        // Verify all wrapped/simple tasks started and registered before any completed
+        Assert.Contains("WrappedAsync A start", logStrings);
+        Assert.Contains("WrappedAsync B start", logStrings);
+        Assert.Contains("WrappedAsync C start", logStrings);
+        Assert.Contains("SimpleAsync A start", logStrings);
+        Assert.Contains("SimpleAsync B start", logStrings);
+        Assert.Contains("SimpleAsync C start", logStrings);
+        Assert.Contains("AsyncOp A registered", logStrings);
+        Assert.Contains("AsyncOp B registered", logStrings);
+        Assert.Contains("AsyncOp C registered", logStrings);
+
+        // None should have completed yet (no "got result" messages)
+        Assert.DoesNotContain(logStrings, s => s.Contains("got result"));
+    }
+
     class TestAsyncClass
     {
         private readonly ConcurrentBag<string> _values = new();
