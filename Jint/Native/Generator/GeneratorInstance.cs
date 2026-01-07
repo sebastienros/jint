@@ -117,6 +117,14 @@ internal sealed class GeneratorInstance : ObjectInstance, ISuspendable
         set => _isResuming = value;
     }
 
+    JsValue? ISuspendable.SuspendedValue => _suspendedValue;
+
+    object? ISuspendable.LastSuspensionNode => _lastYieldNode;
+
+    bool ISuspendable.ReturnRequested => _returnRequested;
+
+    CompletionType ISuspendable.ResumeCompletionType => _resumeCompletionType;
+
     CompletionType ISuspendable.PendingCompletionType
     {
         get => _pendingCompletionType;

@@ -72,6 +72,14 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
         set => _isResuming = value;
     }
 
+    JsValue? ISuspendable.SuspendedValue => _suspendedValue;
+
+    object? ISuspendable.LastSuspensionNode => _lastYieldNode ?? _lastAwaitNode;
+
+    bool ISuspendable.ReturnRequested => _returnRequested;
+
+    CompletionType ISuspendable.ResumeCompletionType => _resumeCompletionType;
+
     CompletionType ISuspendable.PendingCompletionType
     {
         get => _pendingCompletionType;

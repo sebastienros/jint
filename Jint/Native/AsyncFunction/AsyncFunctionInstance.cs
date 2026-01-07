@@ -97,6 +97,14 @@ internal sealed class AsyncFunctionInstance : ISuspendable
         set => _isResuming = value;
     }
 
+    JsValue? ISuspendable.SuspendedValue => _resumeValue;
+
+    object? ISuspendable.LastSuspensionNode => _lastAwaitNode;
+
+    bool ISuspendable.ReturnRequested => false; // Async functions don't have return() like generators
+
+    CompletionType ISuspendable.ResumeCompletionType => _resumeWithThrow ? CompletionType.Throw : CompletionType.Normal;
+
     CompletionType ISuspendable.PendingCompletionType
     {
         get => _pendingCompletionType;

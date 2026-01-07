@@ -18,12 +18,9 @@ internal sealed class JintStatementList
     private Pair[]? _jintStatements;
     private bool _initialized;
     private uint _index;
-    private readonly bool _generator;
 
-    public JintStatementList(IFunction function)
-        : this((FunctionBody) function.Body)
+    public JintStatementList(IFunction function) : this((FunctionBody) function.Body)
     {
-        _generator = function.Generator;
     }
 
     public JintStatementList(BlockStatement blockStatement)
