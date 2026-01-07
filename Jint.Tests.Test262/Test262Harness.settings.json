@@ -12,8 +12,7 @@
     "regexp-v-flag",
     "source-phase-imports",
     "tail-call-optimization",
-    "Temporal",
-    "u180e"
+    "Temporal"
   ],
   "ExcludedFlags": [
     "CanBlockIsFalse"
