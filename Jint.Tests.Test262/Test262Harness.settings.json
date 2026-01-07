@@ -5,7 +5,6 @@
   "Namespace": "Jint.Tests.Test262",
   "Parallel": true,
   "ExcludedFeatures": [
-    "decorators",
     "import-defer",
     "regexp-lookbehind",
     "regexp-modifiers",
