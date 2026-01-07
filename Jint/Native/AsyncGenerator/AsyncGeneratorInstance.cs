@@ -378,9 +378,9 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
     /// </summary>
     public bool TryGetSuspendData<T>(object key, out T? data) where T : SuspendData
     {
-        if (_suspendData?.TryGetValue(key, out var baseData) == true)
+        if (_suspendData?.TryGetValue(key, out var baseData) == true && baseData is T typedData)
         {
-            data = (T) baseData;
+            data = typedData;
             return true;
         }
         data = default;

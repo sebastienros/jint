@@ -1,5 +1,4 @@
 using Jint.Native;
-using Jint.Native.AsyncFunction;
 using Jint.Runtime.Environments;
 using Range = Acornima.Range;
 
@@ -31,31 +30,29 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
     protected override Completion ExecuteInternal(EvaluationContext context)
     {
         var engine = context.Engine;
-        var generator = engine.ExecutionContext.Generator;
-        var asyncFunction = engine.ExecutionContext.AsyncFunction;
+        var suspendable = engine.ExecutionContext.Suspendable;
 
-        // Check if we're resuming from inside the catch or finally block (generators)
+        // Check if we're resuming from inside the catch or finally block
         // If so, skip the try block and go directly to the appropriate block
-        if (generator is not null && generator._isResuming && generator._lastYieldNode is Node yieldNode)
+        if (suspendable is { IsResuming: true, LastSuspensionNode: Node suspensionNode })
         {
-            if (_statement.Handler is not null && IsNodeInsideRange(yieldNode, _statement.Handler.Range))
+            if (_statement.Handler is not null && IsNodeInsideRange(suspensionNode, _statement.Handler.Range))
             {
                 // Resuming from inside catch block - execute catch directly
-                return ExecuteCatchResume(context, engine);
+                return ExecuteCatchResume(context);
             }
-            if (_statement.Finalizer is not null && IsNodeInsideRange(yieldNode, _statement.Finalizer.Range))
+            if (_statement.Finalizer is not null && IsNodeInsideRange(suspensionNode, _statement.Finalizer.Range))
             {
                 // Resuming from inside finally block - execute finally directly
-                return ExecuteFinallyResume(context, engine);
+                return ExecuteFinallyResume(context, suspendable);
             }
         }
 
-        // Check if we're resuming from inside the finally block (async functions)
-        if (asyncFunction is not null && asyncFunction._isResuming &&
-            ReferenceEquals(asyncFunction._currentFinallyStatement, this))
+        // Check if we're resuming from inside the finally block (async functions use CurrentFinallyStatement)
+        if (suspendable is { IsResuming: true } && ReferenceEquals(suspendable.CurrentFinallyStatement, this))
         {
             // Resuming from inside finally block - execute finally directly
-            return ExecuteAsyncFinallyResume(context, asyncFunction);
+            return ExecuteFinallyResume(context, suspendable);
         }
 
         var b = _block.Execute(context);
@@ -77,25 +74,17 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
             // Save the pending completion before running finally
             // This is needed because if finally yields/awaits, we need to remember the
             // original completion (throw/return) to restore after finally completes
-            if (b.Type == CompletionType.Throw || b.Type == CompletionType.Return)
+            if (suspendable is not null && (b.Type == CompletionType.Throw || b.Type == CompletionType.Return))
             {
-                if (generator is not null)
-                {
-                    generator._pendingCompletionType = b.Type;
-                    generator._pendingCompletionValue = b.Value;
-                    generator._currentFinallyStatement = _statement;
-                }
-                if (asyncFunction is not null)
-                {
-                    asyncFunction._pendingCompletionType = b.Type;
-                    asyncFunction._pendingCompletionValue = b.Value;
-                    asyncFunction._currentFinallyStatement = this;
-                }
+                suspendable.PendingCompletionType = b.Type;
+                suspendable.PendingCompletionValue = b.Value;
+                suspendable.CurrentFinallyStatement = this;
             }
 
             // Clear _returnRequested before running finally block.
             // Per ECMAScript spec, a return in the finally block supersedes any pending return.
             // If we don't clear this, the finally block's statements will incorrectly use _suspendedValue.
+            var generator = engine.ExecutionContext.Generator;
             if (generator is not null)
             {
                 generator._returnRequested = false;
@@ -103,23 +92,19 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
 
             var f = _finalizer.Execute(context);
 
-            // Check for async suspension in finally
-            if (asyncFunction is not null && context.IsSuspended())
+            // Check for suspension in finally
+            if (context.IsSuspended())
             {
                 // Suspended in finally - the pending completion is preserved
                 return f;
             }
 
             // Clear the pending completion tracking if we completed normally
-            if (generator is not null && ReferenceEquals(generator._currentFinallyStatement, _statement))
+            if (suspendable is not null && ReferenceEquals(suspendable.CurrentFinallyStatement, this))
             {
-                generator._currentFinallyStatement = null;
-            }
-            if (asyncFunction is not null && ReferenceEquals(asyncFunction._currentFinallyStatement, this))
-            {
-                asyncFunction._currentFinallyStatement = null;
-                asyncFunction._pendingCompletionType = CompletionType.Normal;
-                asyncFunction._pendingCompletionValue = null;
+                suspendable.CurrentFinallyStatement = null;
+                suspendable.PendingCompletionType = CompletionType.Normal;
+                suspendable.PendingCompletionValue = null;
             }
 
             if (f.Type == CompletionType.Normal)
@@ -138,7 +123,7 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
         return range.Start <= node.Range.Start && node.Range.End <= range.End;
     }
 
-    private Completion ExecuteCatchResume(EvaluationContext context, Engine engine)
+    private Completion ExecuteCatchResume(EvaluationContext context)
     {
         // Initialize catch block if needed
         if (_catch is null && _statement.Handler is not null)
@@ -154,7 +139,7 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
         // Execute catch block (it will resume from the saved position)
         var b = _catch.Execute(context);
 
-        // If a generator is suspended (yield), don't run the finally yet
+        // If suspended (yield/await), don't run the finally yet
         if (context.IsSuspended())
         {
             return b;
@@ -173,45 +158,7 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
         return b.UpdateEmpty(JsValue.Undefined);
     }
 
-    private Completion ExecuteFinallyResume(EvaluationContext context, Engine engine)
-    {
-        var generator = engine.ExecutionContext.Generator;
-
-        // Execute finally block (it will resume from the saved position)
-        var f = _finalizer!.Execute(context);
-
-        // If a generator is suspended (yield), don't process the pending completion yet
-        if (context.IsSuspended())
-        {
-            return f;
-        }
-
-        // After finally completes normally, restore the pending completion
-        if (f.Type == CompletionType.Normal && generator is not null)
-        {
-            var pendingType = generator._pendingCompletionType;
-            var pendingValue = generator._pendingCompletionValue;
-
-            // Clear the pending completion
-            generator._pendingCompletionType = CompletionType.Normal;
-            generator._pendingCompletionValue = null;
-            generator._currentFinallyStatement = null;
-
-            if (pendingType == CompletionType.Throw)
-            {
-                return new Completion(CompletionType.Throw, pendingValue ?? JsValue.Undefined, _statement);
-            }
-
-            if (pendingType == CompletionType.Return)
-            {
-                return new Completion(CompletionType.Return, pendingValue ?? JsValue.Undefined, _statement);
-            }
-        }
-
-        return f.UpdateEmpty(JsValue.Undefined);
-    }
-
-    private Completion ExecuteAsyncFinallyResume(EvaluationContext context, AsyncFunctionInstance asyncFunction)
+    private Completion ExecuteFinallyResume(EvaluationContext context, ISuspendable suspendable)
     {
         // Execute finally block (it will resume from the saved position)
         var f = _finalizer!.Execute(context);
@@ -225,13 +172,13 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
         // After finally completes normally, restore the pending completion
         if (f.Type == CompletionType.Normal)
         {
-            var pendingType = asyncFunction._pendingCompletionType;
-            var pendingValue = asyncFunction._pendingCompletionValue;
+            var pendingType = suspendable.PendingCompletionType;
+            var pendingValue = suspendable.PendingCompletionValue;
 
             // Clear the pending completion
-            asyncFunction._pendingCompletionType = CompletionType.Normal;
-            asyncFunction._pendingCompletionValue = null;
-            asyncFunction._currentFinallyStatement = null;
+            suspendable.PendingCompletionType = CompletionType.Normal;
+            suspendable.PendingCompletionValue = null;
+            suspendable.CurrentFinallyStatement = null;
 
             if (pendingType == CompletionType.Throw)
             {

@@ -330,13 +330,13 @@ internal sealed class GeneratorInstance : ObjectInstance, ISuspendable
 
     /// <summary>
     /// Tries to get existing suspend data of the specified type.
-    /// Returns true if suspend data exists for the given key.
+    /// Returns true if suspend data exists for the given key and is of type T.
     /// </summary>
     public bool TryGetSuspendData<T>(object key, out T? data) where T : SuspendData
     {
-        if (_suspendData?.TryGetValue(key, out var baseData) == true)
+        if (_suspendData?.TryGetValue(key, out var baseData) == true && baseData is T typedData)
         {
-            data = (T) baseData;
+            data = typedData;
             return true;
         }
         data = default;
