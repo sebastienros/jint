@@ -3889,4 +3889,70 @@ try {
         list.Should().HaveCount(1);
         list[0].Should().Be(null);
     }
+
+    // GitHub issue #2173 - Type resolution should use runtime type when declared type has indexer
+    private class WrapperWithIndexer
+    {
+        private readonly Dictionary<string, object> _properties = new();
+
+        public object this[string key]
+        {
+            get => _properties.TryGetValue(key, out var value) ? value : null!;
+            set => _properties[key] = value;
+        }
+    }
+
+    private class GeometryWrapperWithProperty : WrapperWithIndexer
+    {
+        public double X { get; set; }
+        public double Y { get; set; }
+    }
+
+    private class FeatureWithBaseTypeProperty
+    {
+        public WrapperWithIndexer Geometry { get; set; } = new GeometryWrapperWithProperty { X = 10.5, Y = 20.5 };
+    }
+
+    [Fact]
+    public void ShouldAccessDerivedTypePropertyWhenDeclaredTypeHasIndexer()
+    {
+        // GitHub issue #2173: When a property is declared with a base type that has an indexer,
+        // but the actual runtime value is a derived type with a property, the property should be accessible
+        var engine = new Engine();
+        var feature = new FeatureWithBaseTypeProperty();
+        engine.SetValue("feature", feature);
+
+        // Should access the X property from GeometryWrapperWithProperty, not the indexer from WrapperWithIndexer
+        var result = engine.Evaluate("feature.Geometry.x").AsNumber();
+        Assert.Equal(10.5, result);
+
+        var resultY = engine.Evaluate("feature.Geometry.y").AsNumber();
+        Assert.Equal(20.5, resultY);
+    }
+
+    [Fact]
+    public void ShouldStillAccessIndexerWhenPropertyDoesNotExist()
+    {
+        // Ensure the indexer still works when the property doesn't exist on the derived type
+        var engine = new Engine();
+        var feature = new FeatureWithBaseTypeProperty();
+        ((GeometryWrapperWithProperty) feature.Geometry)["customKey"] = "customValue";
+        engine.SetValue("feature", feature);
+
+        var result = engine.Evaluate("feature.Geometry.customKey");
+        Assert.Equal("customValue", result.AsString());
+    }
+
+    [Fact]
+    public void ShouldSetDerivedTypePropertyWhenDeclaredTypeHasIndexer()
+    {
+        var engine = new Engine(cfg => cfg.AllowClrWrite());
+        var feature = new FeatureWithBaseTypeProperty();
+        engine.SetValue("feature", feature);
+
+        engine.Evaluate("feature.Geometry.x = 99.9");
+
+        var geometry = (GeometryWrapperWithProperty) feature.Geometry;
+        Assert.Equal(99.9, geometry.X);
+    }
 }
