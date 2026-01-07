@@ -144,7 +144,20 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
         if (arrayWrapperType is not null)
         {
-            result = (ArrayLikeWrapper) Activator.CreateInstance(arrayWrapperType, engine, target, type)!;
+            // Activator.CreateInstance may fail in trimmed/AOT scenarios where the constructor
+            // was removed by the linker - fall back to the non-generic ListWrapper in that case
+            try
+            {
+                result = (ArrayLikeWrapper) Activator.CreateInstance(arrayWrapperType, engine, target, type)!;
+            }
+            catch (MissingMethodException)
+            {
+                // Constructor was trimmed, fall back to non-generic wrapper
+                if (target is IList list)
+                {
+                    result = new ListWrapper(engine, list, type);
+                }
+            }
         }
         else if (target is IList list)
         {
