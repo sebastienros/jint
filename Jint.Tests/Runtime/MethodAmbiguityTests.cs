@@ -116,6 +116,49 @@ public class MethodAmbiguityTests : IDisposable
 			");
     }
 
+    [Fact]
+    public void ShouldSelectTypeReferenceOverloadCorrectly()
+    {
+        var engine = new Engine(cfg => cfg.AllowClr());
+        engine.SetValue("Player", TypeReference.CreateTypeReference<Player>(engine));
+        engine.SetValue("DamageClass", TypeReference.CreateTypeReference<DamageClass>(engine));
+
+        var damageClassInstance = new DamageClass();
+        engine.SetValue("damageClassInstance", damageClassInstance);
+
+        // When passing a TypeReference, should select the TypeReference overload
+        var typeRefResult = engine.Evaluate("Player.GetArmorPenetration(DamageClass);");
+        Assert.Equal("TypeReference", typeRefResult.AsString());
+
+        // When passing a domain object instance, should select the domain class overload
+        var instanceResult = engine.Evaluate("Player.GetArmorPenetration(damageClassInstance);");
+        Assert.Equal("DamageClass", instanceResult.AsString());
+    }
+
+    [Fact]
+    public void ShouldSelectCorrectExtensionMethodOverloadForTypeReference()
+    {
+        var engine = new Engine(cfg => cfg
+            .AllowClr()
+            .AddExtensionMethods(typeof(PlayerExtensions)));
+
+        engine.SetValue("DamageClass", TypeReference.CreateTypeReference<DamageClass>(engine));
+
+        var player = new Player();
+        engine.SetValue("player", player);
+
+        var damageClassInstance = new DamageClass();
+        engine.SetValue("damageClassInstance", damageClassInstance);
+
+        // When calling extension method with TypeReference, should select TypeReference overload
+        var typeRefResult = engine.Evaluate("player.GetPenetration(DamageClass);");
+        Assert.Equal("TypeReference:10", typeRefResult.AsString());
+
+        // When calling extension method with instance, should select DamageClass overload
+        var instanceResult = engine.Evaluate("player.GetPenetration(damageClassInstance);");
+        Assert.Equal("DamageClass:20", instanceResult.AsString());
+    }
+
     private struct Class1
     {
         public static string Print(ExpandoObject eo) => nameof(Class1) + "." + nameof(ExpandoObject);
@@ -143,4 +186,27 @@ public class MethodAmbiguityTests : IDisposable
 
         public void Print(object a) => Console.WriteLine("Print(object a): " + a);
     }
+}
+
+public class Player
+{
+    // Static methods for testing overload resolution
+    public static string GetArmorPenetration(TypeReference damageClass) => "TypeReference";
+    public static string GetArmorPenetration(Type damageClass) => "Type";
+    public static string GetArmorPenetration(DamageClass damageClass) => "DamageClass";
+
+    // Variant that only takes Type (for testing explicit Type parameter)
+    public static string GetArmorPenetrationForType(Type damageClass) => "Type";
+}
+
+public class DamageClass
+{
+    public string Name { get; set; } = "Default";
+}
+
+public static class PlayerExtensions
+{
+    public static string GetPenetration(this Player player, TypeReference damageClass) => "TypeReference:10";
+    public static string GetPenetration(this Player player, Type damageClass) => "Type:15";
+    public static string GetPenetration(this Player player, DamageClass damageClass) => "DamageClass:20";
 }
