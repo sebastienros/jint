@@ -49,6 +49,12 @@ public class JavaScriptException : JintException
 
     public string GetJavaScriptErrorString() => _jsErrorException.ToString();
 
+    /// <summary>
+    /// Returns this exception as the base exception.
+    /// The inner exception is a private implementation detail and should not be exposed.
+    /// </summary>
+    public override Exception GetBaseException() => this;
+
     public JavaScriptException SetJavaScriptCallstack(Engine engine, in SourceLocation location, bool overwriteExisting = false)
     {
         _jsErrorException.SetCallstack(engine, location, overwriteExisting);
