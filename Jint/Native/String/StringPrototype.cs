@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
+using Jint.Native.Intl;
 using Jint.Native.Json;
 using Jint.Native.Object;
 using Jint.Native.RegExp;
@@ -717,7 +718,7 @@ internal sealed class StringPrototype : StringInstance
         }
         else
         {
-            var captures = System.Array.Empty<string>();
+            string[] captures = [];
             replStr = RegExpPrototype.GetSubstitution(searchString, thisString.ToString(), position, captures, Undefined, TypeConverter.ToString(replaceValue));
         }
 
@@ -807,7 +808,7 @@ internal sealed class StringPrototype : StringInstance
             }
             else
             {
-                var captures = System.Array.Empty<string>();
+                string[] captures = [];
                 replacement = RegExpPrototype.GetSubstitution(searchString, thisString, position, captures, Undefined, TypeConverter.ToString(replaceValue));
             }
 
@@ -878,21 +879,22 @@ internal sealed class StringPrototype : StringInstance
         return _engine.Invoke(rx, GlobalSymbolRegistry.MatchAll, [s]);
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-string.prototype.localecompare
+    /// https://tc39.es/ecma402/#sup-string.prototype.localecompare
+    /// </summary>
     private JsValue LocaleCompare(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
 
         var s = TypeConverter.ToString(thisObject);
         var that = TypeConverter.ToString(arguments.At(0));
+        var locales = arguments.At(1);
+        var options = arguments.At(2);
 
-        var culture = Engine.Options.Culture;
-
-        if (arguments.Length > 1 && arguments[1].IsString())
-        {
-            culture = CultureInfo.GetCultureInfo(arguments.At(1).AsString());
-        }
-
-        return culture.CompareInfo.Compare(s.Normalize(NormalizationForm.FormKD), that.Normalize(NormalizationForm.FormKD));
+        // Use Intl.Collator for locale-aware comparison
+        var collator = (JsCollator) Engine.Realm.Intrinsics.Collator.Construct([locales, options], Engine.Realm.Intrinsics.Collator);
+        return collator.Compare(s, that);
     }
 
     /// <summary>

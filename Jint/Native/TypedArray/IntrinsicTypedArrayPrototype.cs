@@ -1447,6 +1447,13 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
             return JsString.Empty;
         }
 
+        // Per ECMA-402, pass locales and options to element's toLocaleString
+        var locales = arguments.At(0);
+        var options = arguments.At(1);
+        var invokeArgs = !locales.IsUndefined() || !options.IsUndefined()
+            ? new[] { locales, options }
+            : System.Array.Empty<JsValue>();
+
         using var r = new ValueStringBuilder();
         for (uint k = 0; k < len; k++)
         {
@@ -1456,7 +1463,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
             }
             if (array.TryGetValue(k, out var nextElement) && !nextElement.IsNullOrUndefined())
             {
-                var s = TypeConverter.ToString(Invoke(nextElement, "toLocaleString", []));
+                var s = TypeConverter.ToString(Invoke(nextElement, "toLocaleString", invokeArgs));
                 r.Append(s);
             }
         }

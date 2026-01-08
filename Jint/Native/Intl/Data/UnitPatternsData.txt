@@ -1,0 +1,24 @@
+[en]
+kilometer-per-hour_short={0} km/h
+kilometer-per-hour_narrow={0}km/h
+kilometer-per-hour_long={0} kilometers per hour
+
+[de]
+kilometer-per-hour_short={0} km/h
+kilometer-per-hour_narrow={0} km/h
+kilometer-per-hour_long={0} Kilometer pro Stunde
+
+[ja]
+kilometer-per-hour_short={0} km/h
+kilometer-per-hour_narrow={0}km/h
+kilometer-per-hour_long=時速 {0} キロメートル
+
+[ko]
+kilometer-per-hour_short={0}km/h
+kilometer-per-hour_narrow={0}km/h
+kilometer-per-hour_long=시속 {0}킬로미터
+
+[zh]
+kilometer-per-hour_short={0} 公里/小時
+kilometer-per-hour_narrow={0}公里/小時
+kilometer-per-hour_long=每小時 {0} 公里

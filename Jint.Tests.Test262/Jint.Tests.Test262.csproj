@@ -7,6 +7,7 @@
     <IsPackable>false</IsPackable>
     <NoWarn>$(NoWarn);CS8002</NoWarn>
     <GeneratedTestSuiteDir>Generated</GeneratedTestSuiteDir>
+    <ICU4NSuppressNuGetBuildTasksPackVersionWarnings>true</ICU4NSuppressNuGetBuildTasksPackVersionWarnings>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,6 +17,7 @@
   <ItemGroup>
     <PackageReference Include="Acornima.Extras" />
     <PackageReference Include="GitHubActionsTestLogger" />
+    <PackageReference Include="ICU4N" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="NUnit" />

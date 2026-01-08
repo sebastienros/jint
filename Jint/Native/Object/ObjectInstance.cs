@@ -1380,11 +1380,10 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     /// </summary>
     internal static JsObject OrdinaryObjectCreate(Engine engine, ObjectInstance? proto)
     {
-        var prototype = new JsObject(engine)
+        return new JsObject(engine)
         {
             _prototype = proto
         };
-        return prototype;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

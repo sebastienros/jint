@@ -1,40 +1,39 @@
 # CLAUDE.md
 
-**Current development**: Target against main branch and compare changes against it.
+Important: Use JetBrains Rider MCP server when available
+Important: Never pass "--no-build" option to dotnet test, build or run - always ensure you are working with the latest compiled code.
+Important: Run tests in Release mode for faster feedback loop.
+Important: If you make changes to Test262Harness.settings.json you need to delete folder Jint.Tests.Test262\Generated before building.
+Important: Unstead of out pattern, prefer using custom readonly record structs and destructuring when value tuples would be needed
 
 ## Build & Test Commands
 
 ### Building
 ```bash
 # Build entire solution
-dotnet build --configuration Release
+dotnet build --configuration Release --verbosity q
 
 # Build specific project
-dotnet build --configuration Release Jint/Jint.csproj
+dotnet build --configuration Release --verbosity q Jint/Jint.csproj
 ```
-
-Important: Never use --no-build - always ensure you are working with the latest compiled code.
 
 ### Testing
 ```bash
 # Run all tests
-dotnet test --configuration Release
+dotnet test --configuration Release --verbosity m
 
 # Run specific test project
-dotnet test --configuration Release Jint.Tests/Jint.Tests.csproj
+dotnet test --configuration Release --verbosity m Jint.Tests/Jint.Tests.csproj
 
 # Run specific test class
-dotnet test --configuration Release --filter "FullyQualifiedName~Jint.Tests.Runtime.EngineTests"
+dotnet test --configuration Release --verbosity m --filter "FullyQualifiedName~Jint.Tests.Runtime.EngineTests"
 
 # Run specific test method
-dotnet test --configuration Release --filter "FullyQualifiedName~Jint.Tests.Runtime.EngineTests.CanEvaluateScripts"
+dotnet test --configuration Release --verbosity m --filter "FullyQualifiedName~Jint.Tests.Runtime.EngineTests.CanEvaluateScripts"
 
 # Run Test262 conformance tests
-dotnet test --configuration Release Jint.Tests.Test262/Jint.Tests.Test262.csproj
+dotnet test --configuration Release --verbosity m Jint.Tests.Test262/Jint.Tests.Test262.csproj
 ```
-
-Important: Run tests in Release mode for faster feedback loop.
-Important: If you make changes to Test262Harness.settings.json you need to delete folder Jint.Tests.Test262\Generated before building.
 
 ## Requirements
 
@@ -179,7 +178,7 @@ The Jint REPL (Read-Eval-Print Loop) is useful for quickly testing JavaScript co
 ### Running the REPL
 ```bash
 # Build the REPL
-dotnet build Jint.Repl --configuration Release
+dotnet build Jint.Repl --configuration Release --verbosity q
 
 # Run the REPL
 dotnet run --project Jint.Repl --configuration Release
