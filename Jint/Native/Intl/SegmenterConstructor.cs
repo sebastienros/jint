@@ -1,7 +1,11 @@
+#pragma warning disable CA1859 // Use concrete types when possible for improved performance -- ClrFunction requires JsValue
+
+using System.Globalization;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Interop;
 
 namespace Jint.Native.Intl;
 
@@ -11,6 +15,8 @@ namespace Jint.Native.Intl;
 internal sealed class SegmenterConstructor : Constructor
 {
     private static readonly JsString _functionName = new("Segmenter");
+    private static readonly string[] LocaleMatcherValues = ["lookup", "best fit"];
+    private static readonly string[] GranularityValues = ["grapheme", "word", "sentence"];
 
     public SegmenterConstructor(
         Engine engine,
@@ -24,10 +30,115 @@ internal sealed class SegmenterConstructor : Constructor
         _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
     }
 
-    public SegmenterPrototype PrototypeObject { get; }
+    protected override void Initialize()
+    {
+        const PropertyFlag PropertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
+        var properties = new PropertyDictionary(1, checkExistingKeys: false)
+        {
+            ["supportedLocalesOf"] = new(new ClrFunction(Engine, "supportedLocalesOf", SupportedLocalesOf, 1, PropertyFlag.Configurable), PropertyFlags)
+        };
+        SetProperties(properties);
+    }
 
+    private SegmenterPrototype PrototypeObject { get; }
+
+    /// <summary>
+    /// Called when Intl.Segmenter is invoked without `new`.
+    /// </summary>
+    protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
+    {
+        return Construct(arguments, this);
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-intl.segmenter
+    /// </summary>
     public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {
-        throw new NotImplementedException();
+        var locales = arguments.At(0);
+        var options = arguments.At(1);
+
+        // Get options object
+        var optionsObj = IntlUtilities.CoerceOptionsToObject(_engine, options);
+
+        // Validate localeMatcher option
+        GetStringOption(optionsObj, "localeMatcher", LocaleMatcherValues, "best fit");
+
+        // Resolve locale
+        var requestedLocales = IntlUtilities.CanonicalizeLocaleList(_engine, locales);
+        var availableLocales = IntlUtilities.GetAvailableLocales();
+        var resolved = IntlUtilities.ResolveLocale(_engine, availableLocales, requestedLocales, options, []);
+
+        // Get granularity option
+        var granularity = GetStringOption(optionsObj, "granularity", GranularityValues, "grapheme");
+
+        // Get CultureInfo for the locale
+        var culture = IntlUtilities.GetCultureInfo(resolved.Locale) ?? CultureInfo.InvariantCulture;
+
+        return new JsSegmenter(
+            _engine,
+            PrototypeObject,
+            resolved.Locale,
+            granularity,
+            culture);
+    }
+
+    private string GetStringOption(ObjectInstance options, string property, string[]? values, string fallback)
+    {
+        var value = options.Get(property);
+        if (value.IsUndefined())
+        {
+            return fallback;
+        }
+
+        var stringValue = TypeConverter.ToString(value);
+
+        if (values != null && values.Length > 0)
+        {
+            var found = false;
+            foreach (var allowed in values)
+            {
+                if (string.Equals(stringValue, allowed, StringComparison.Ordinal))
+                {
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found)
+            {
+                Throw.RangeError(_realm, $"Invalid value '{stringValue}' for option '{property}'");
+            }
+        }
+
+        return stringValue;
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-intl.segmenter.supportedlocalesof
+    /// </summary>
+    private JsValue SupportedLocalesOf(JsValue thisObject, JsCallArguments arguments)
+    {
+        var locales = arguments.At(0);
+        var options = arguments.At(1);
+
+        var requestedLocales = IntlUtilities.CanonicalizeLocaleList(_engine, locales);
+        var availableLocales = IntlUtilities.GetAvailableLocales();
+
+        // Validate localeMatcher option
+        var optionsObj = IntlUtilities.CoerceOptionsToObject(_engine, options);
+        GetStringOption(optionsObj, "localeMatcher", LocaleMatcherValues, "best fit");
+
+        var supported = new List<JsValue>();
+        foreach (var locale in requestedLocales)
+        {
+            var bestAvailable = IntlUtilities.BestAvailableLocale(availableLocales, locale);
+            if (bestAvailable != null)
+            {
+                supported.Add(locale);
+            }
+        }
+
+        return new JsArray(_engine, supported.ToArray());
     }
 }

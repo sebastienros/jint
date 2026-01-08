@@ -1,5 +1,5 @@
 {
-  "SuiteGitSha": "9079aeefcefcd55b0e994fb8bda51e06827337bd",
+  "SuiteGitSha": "f85c9511a380b9abb2877c42cc47e8fce06d56c5",
   //"SuiteDirectory": "//mnt/c/work/test262",
   "TargetPath": "./Generated",
   "Namespace": "Jint.Tests.Test262",
@@ -18,8 +18,7 @@
     "CanBlockIsFalse"
   ],
   "ExcludedDirectories": [
-    "annexB",
-    "intl402"
+    "annexB"
   ],
   "ExcludedFiles": [
 

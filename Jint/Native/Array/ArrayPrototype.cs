@@ -1313,6 +1313,7 @@ public sealed class ArrayPrototype : ArrayInstance
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.tolocalestring
+    /// https://tc39.es/ecma402/#sup-array.prototype.tolocalestring
     /// </summary>
     private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
     {
@@ -1330,6 +1331,13 @@ public sealed class ArrayPrototype : ArrayInstance
             return JsString.Empty;
         }
 
+        // Per ECMA-402, pass locales and options to element's toLocaleString
+        var locales = arguments.At(0);
+        var options = arguments.At(1);
+        var invokeArgs = !locales.IsUndefined() || !options.IsUndefined()
+            ? new[] { locales, options }
+            : System.Array.Empty<JsValue>();
+
         using var r = new ValueStringBuilder();
         for (uint k = 0; k < len; k++)
         {
@@ -1339,7 +1347,7 @@ public sealed class ArrayPrototype : ArrayInstance
             }
             if (array.TryGetValue(k, out var nextElement) && !nextElement.IsNullOrUndefined())
             {
-                var s = TypeConverter.ToString(Invoke(nextElement, "toLocaleString", []));
+                var s = TypeConverter.ToString(Invoke(nextElement, "toLocaleString", invokeArgs));
                 r.Append(s);
             }
         }

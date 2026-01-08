@@ -1,5 +1,5 @@
-#pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of prototype methods return JsValue
-
+using System.Globalization;
+using System.Linq;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -26,19 +26,22 @@ internal sealed class IntlInstance : ObjectInstance
 
     protected override void Initialize()
     {
-        // TODO check length
-        var properties = new PropertyDictionary(10, checkExistingKeys: false)
+        const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
+
+        var properties = new PropertyDictionary(13, checkExistingKeys: false)
         {
-            ["Collator"] = new(_realm.Intrinsics.Collator, false, false, true),
-            ["DateTimeFormat"] = new(_realm.Intrinsics.DateTimeFormat, false, false, true),
-            ["DisplayNames"] = new(_realm.Intrinsics.DisplayNames, false, false, true),
-            ["ListFormat"] = new(_realm.Intrinsics.ListFormat, false, false, true),
-            ["Locale"] = new(_realm.Intrinsics.Locale, false, false, true),
-            ["NumberFormat"] = new(_realm.Intrinsics.NumberFormat, false, false, true),
-            ["PluralRules"] = new(_realm.Intrinsics.PluralRules, false, false, true),
-            ["RelativeTimeFormat"] = new(_realm.Intrinsics.RelativeTimeFormat, false, false, true),
-            ["Segmenter"] = new(_realm.Intrinsics.Segmenter, false, false, true),
-            ["getCanonicalLocales "] = new(new ClrFunction(Engine, "getCanonicalLocales ", GetCanonicalLocales, 1, PropertyFlag.Configurable), true, false, true),
+            ["Collator"] = new(_realm.Intrinsics.Collator, PropertyFlags),
+            ["DateTimeFormat"] = new(_realm.Intrinsics.DateTimeFormat, PropertyFlags),
+            ["DisplayNames"] = new(_realm.Intrinsics.DisplayNames, PropertyFlags),
+            ["DurationFormat"] = new(_realm.Intrinsics.DurationFormat, PropertyFlags),
+            ["ListFormat"] = new(_realm.Intrinsics.ListFormat, PropertyFlags),
+            ["Locale"] = new(_realm.Intrinsics.Locale, PropertyFlags),
+            ["NumberFormat"] = new(_realm.Intrinsics.NumberFormat, PropertyFlags),
+            ["PluralRules"] = new(_realm.Intrinsics.PluralRules, PropertyFlags),
+            ["RelativeTimeFormat"] = new(_realm.Intrinsics.RelativeTimeFormat, PropertyFlags),
+            ["Segmenter"] = new(_realm.Intrinsics.Segmenter, PropertyFlags),
+            ["getCanonicalLocales"] = new(new ClrFunction(Engine, "getCanonicalLocales", GetCanonicalLocales, 1, PropertyFlag.Configurable), PropertyFlags),
+            ["supportedValuesOf"] = new(new ClrFunction(Engine, "supportedValuesOf", SupportedValuesOf, 1, PropertyFlag.Configurable), PropertyFlags),
         };
         SetProperties(properties);
 
@@ -49,8 +52,291 @@ internal sealed class IntlInstance : ObjectInstance
         SetSymbols(symbols);
     }
 
-    private JsValue GetCanonicalLocales(JsValue thisObject, JsCallArguments arguments)
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-intl.getcanonicallocales
+    /// </summary>
+    private JsArray GetCanonicalLocales(JsValue thisObject, JsCallArguments arguments)
     {
-        return new JsArray(_engine);
+        var locales = arguments.At(0);
+        return new JsArray(_engine, IntlUtilities.CanonicalizeLocaleList(_engine, locales).Select(x => new JsString(x)).ToArray<JsValue>());
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-intl.supportedvaluesof
+    /// </summary>
+    private JsValue SupportedValuesOf(JsValue thisObject, JsCallArguments arguments)
+    {
+        var key = TypeConverter.ToString(arguments.At(0));
+
+        string[] values;
+        switch (key)
+        {
+            case "calendar":
+                values = GetSupportedCalendars();
+                break;
+            case "collation":
+                values = GetSupportedCollations();
+                break;
+            case "currency":
+                values = GetSupportedCurrencies();
+                break;
+            case "numberingSystem":
+                values = GetSupportedNumberingSystems();
+                break;
+            case "timeZone":
+                values = GetSupportedTimeZones();
+                break;
+            case "unit":
+                values = GetSupportedUnits();
+                break;
+            default:
+                Throw.RangeError(_realm, $"Invalid key: {key}");
+                return Undefined;
+        }
+
+        // Sort values alphabetically
+        System.Array.Sort(values, StringComparer.Ordinal);
+
+        var result = new JsArray(_engine, (uint) values.Length);
+        for (var i = 0; i < values.Length; i++)
+        {
+            result.SetIndexValue((uint) i, values[i], updateLength: true);
+        }
+
+        return result;
+    }
+
+    private static string[] GetSupportedCalendars()
+    {
+        // Return commonly supported calendar types
+        // https://tc39.es/ecma402/#sec-availablecalendars
+        return new[]
+        {
+            "buddhist",
+            "chinese",
+            "coptic",
+            "dangi",
+            "ethioaa",
+            "ethiopic",
+            "gregory",
+            "hebrew",
+            "indian",
+            "islamic",
+            "islamic-civil",
+            "islamic-rgsa",
+            "islamic-tbla",
+            "islamic-umalqura",
+            "iso8601",
+            "japanese",
+            "persian",
+            "roc"
+        };
+    }
+
+    private static string[] GetSupportedCollations()
+    {
+        // Return commonly supported collation types
+        // https://tc39.es/ecma402/#sec-availablecollations
+        return new[]
+        {
+            "big5han",
+            "compat",
+            "dict",
+            "direct",
+            "ducet",
+            "emoji",
+            "eor",
+            "gb2312",
+            "phonebk",
+            "phonetic",
+            "pinyin",
+            "reformed",
+            "search",
+            "searchjl",
+            "standard",
+            "stroke",
+            "trad",
+            "unihan",
+            "zhuyin"
+        };
+    }
+
+    private static string[] GetSupportedCurrencies()
+    {
+        // Return ISO 4217 currency codes
+        var currencies = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var culture in CultureInfo.GetCultures(CultureTypes.SpecificCultures))
+        {
+            try
+            {
+                var region = new RegionInfo(culture.Name);
+                currencies.Add(region.ISOCurrencySymbol);
+            }
+            catch
+            {
+                // Skip cultures without region info
+            }
+        }
+
+        var result = new string[currencies.Count];
+        currencies.CopyTo(result);
+        return result;
+    }
+
+    private static string[] GetSupportedNumberingSystems()
+    {
+        // Return commonly supported numbering systems
+        // https://tc39.es/ecma402/#sec-availablenumberingsystems
+        return new[]
+        {
+            "adlm",
+            "ahom",
+            "arab",
+            "arabext",
+            "bali",
+            "beng",
+            "bhks",
+            "brah",
+            "cakm",
+            "cham",
+            "deva",
+            "fullwide",
+            "gong",
+            "gonm",
+            "gujr",
+            "guru",
+            "hanidec",
+            "hmng",
+            "java",
+            "kali",
+            "khmr",
+            "knda",
+            "lana",
+            "lanatham",
+            "laoo",
+            "latn",
+            "lepc",
+            "limb",
+            "mathbold",
+            "mathdbl",
+            "mathmono",
+            "mathsanb",
+            "mathsans",
+            "mlym",
+            "modi",
+            "mong",
+            "mroo",
+            "mtei",
+            "mymr",
+            "mymrshan",
+            "mymrtlng",
+            "newa",
+            "nkoo",
+            "olck",
+            "orya",
+            "osma",
+            "rohg",
+            "saur",
+            "shrd",
+            "sind",
+            "sinh",
+            "sora",
+            "sund",
+            "takr",
+            "talu",
+            "tamldec",
+            "telu",
+            "thai",
+            "tibt",
+            "tirh",
+            "vaii",
+            "wara",
+            "wcho"
+        };
+    }
+
+    private static string[] GetSupportedTimeZones()
+    {
+        // Return available IANA time zone names
+        var timeZones = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var tz in TimeZoneInfo.GetSystemTimeZones())
+        {
+#if NET6_0_OR_GREATER
+            // Convert Windows time zone IDs to IANA format where possible
+            if (TimeZoneInfo.TryConvertWindowsIdToIanaId(tz.Id, out var ianaId))
+            {
+                timeZones.Add(ianaId);
+            }
+            else
+            {
+                timeZones.Add(tz.Id);
+            }
+#else
+            timeZones.Add(tz.Id);
+#endif
+        }
+
+        // Always include UTC
+        timeZones.Add("UTC");
+
+        var result = new string[timeZones.Count];
+        timeZones.CopyTo(result);
+        return result;
+    }
+
+    private static string[] GetSupportedUnits()
+    {
+        // Return sanctioned simple unit identifiers
+        // https://tc39.es/ecma402/#table-sanctioned-single-unit-identifiers
+        return new[]
+        {
+            "acre",
+            "bit",
+            "byte",
+            "celsius",
+            "centimeter",
+            "day",
+            "degree",
+            "fahrenheit",
+            "fluid-ounce",
+            "foot",
+            "gallon",
+            "gigabit",
+            "gigabyte",
+            "gram",
+            "hectare",
+            "hour",
+            "inch",
+            "kilobit",
+            "kilobyte",
+            "kilogram",
+            "kilometer",
+            "liter",
+            "megabit",
+            "megabyte",
+            "meter",
+            "microsecond",
+            "mile",
+            "mile-scandinavian",
+            "milliliter",
+            "millimeter",
+            "millisecond",
+            "minute",
+            "month",
+            "nanosecond",
+            "ounce",
+            "percent",
+            "petabyte",
+            "pound",
+            "second",
+            "stone",
+            "terabit",
+            "terabyte",
+            "week",
+            "yard",
+            "year"
+        };
     }
 }

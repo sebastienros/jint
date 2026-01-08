@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Numerics;
 using System.Text;
+using Jint.Native.Intl;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -53,9 +54,12 @@ internal sealed class BigIntPrototype : Prototype
         var options = arguments.At(1);
 
         var x = ThisBigIntValue(thisObject);
-        //var numberFormat = (NumberFormat) Construct(_realm.Intrinsics.NumberFormat, new[] {  locales, options });
-        // numberFormat.FormatNumeric(x);
-        return x._value.ToString("R", CultureInfo.InvariantCulture);
+
+        // Use Intl.NumberFormat for locale-aware formatting
+        var numberFormat = (JsNumberFormat) Engine.Realm.Intrinsics.NumberFormat.Construct([locales, options], Engine.Realm.Intrinsics.NumberFormat);
+
+        // Use BigInteger overload to avoid precision loss
+        return numberFormat.Format(x._value);
     }
 
     /// <summary>

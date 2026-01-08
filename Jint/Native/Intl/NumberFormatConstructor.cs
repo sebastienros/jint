@@ -1,7 +1,9 @@
+using System.Globalization;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Interop;
 
 namespace Jint.Native.Intl;
 
@@ -11,6 +13,18 @@ namespace Jint.Native.Intl;
 internal sealed class NumberFormatConstructor : Constructor
 {
     private static readonly JsString _functionName = new("NumberFormat");
+    private static readonly string[] LocaleMatcherValues = ["lookup", "best fit"];
+    private static readonly string[] StyleValues = ["decimal", "percent", "currency", "unit"];
+    private static readonly string[] CurrencyDisplayValues = ["code", "symbol", "narrowSymbol", "name"];
+    private static readonly string[] CurrencySignValues = ["standard", "accounting"];
+    private static readonly string[] UnitDisplayValues = ["short", "narrow", "long"];
+    private static readonly string[] NotationValues = ["standard", "scientific", "engineering", "compact"];
+    private static readonly string[] CompactDisplayValues = ["short", "long"];
+    private static readonly string[] SignDisplayValues = ["auto", "never", "always", "exceptZero", "negative"];
+    private static readonly string[] UseGroupingValues = ["auto", "always", "min2", "true", "false"];
+    private static readonly string[] RoundingModeValues = ["ceil", "floor", "expand", "trunc", "halfCeil", "halfFloor", "halfExpand", "halfTrunc", "halfEven"];
+    private static readonly string[] RoundingPriorityValues = ["auto", "morePrecision", "lessPrecision"];
+    private static readonly string[] TrailingZeroDisplayValues = ["auto", "stripIfInteger"];
 
     public NumberFormatConstructor(
         Engine engine,
@@ -24,18 +38,26 @@ internal sealed class NumberFormatConstructor : Constructor
         _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
     }
 
-    public NumberFormatPrototype PrototypeObject { get; }
-
-    public object LocaleData { get; private set; } = null!;
-    public object AvailableLocales { get; private set; } = null!;
-    public object RelevantExtensionKeys { get; private set; } = null!;
-
-
     protected override void Initialize()
     {
-        LocaleData = new object();
-        AvailableLocales = new object();
-        RelevantExtensionKeys = new object();
+        const PropertyFlag PropertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
+        var properties = new PropertyDictionary(1, checkExistingKeys: false)
+        {
+            ["supportedLocalesOf"] = new(new ClrFunction(Engine, "supportedLocalesOf", SupportedLocalesOf, 1, PropertyFlag.Configurable), PropertyFlags)
+        };
+        SetProperties(properties);
+    }
+
+    public NumberFormatPrototype PrototypeObject { get; }
+
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-intl.numberformat
+    /// Called when Intl.NumberFormat is invoked without `new`.
+    /// </summary>
+    protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
+    {
+        // Per spec: If NewTarget is undefined, let newTarget be the active function object
+        return Construct(arguments, this);
     }
 
     /// <summary>
@@ -46,321 +68,459 @@ internal sealed class NumberFormatConstructor : Constructor
         var locales = arguments.At(0);
         var options = arguments.At(1);
 
-        if (newTarget.IsUndefined())
+        // Get options object
+        var optionsObj = IntlUtilities.CoerceOptionsToObject(_engine, options);
+
+        // 1. Read options in spec-defined order
+        // Read localeMatcher first (per spec order)
+        var localeMatcher = GetStringOption(optionsObj, "localeMatcher", LocaleMatcherValues, "best fit");
+
+        // Read numberingSystem option (and validate it)
+        var numberingSystemValue = optionsObj.Get("numberingSystem");
+        string? numberingSystem = null;
+        if (!numberingSystemValue.IsUndefined())
         {
-            newTarget = this;
+            numberingSystem = TypeConverter.ToString(numberingSystemValue);
+            if (string.IsNullOrEmpty(numberingSystem) || !IsValidNumberingSystem(numberingSystem))
+            {
+                Throw.RangeError(_realm, $"Invalid numberingSystem: {numberingSystem}");
+            }
         }
 
-        var numberFormat = OrdinaryCreateFromConstructor<JsObject, object>(
-            newTarget,
-            static intrinsics => intrinsics.NumberFormat.PrototypeObject,
-            static (engine, _, _) => new JsObject(engine));
+        // Resolve locale using already-read localeMatcher
+        var requestedLocales = IntlUtilities.CanonicalizeLocaleList(_engine, locales);
+        var availableLocales = IntlUtilities.GetAvailableLocales();
+        var resolvedLocale = ResolveNumberFormatLocale(_engine, availableLocales, requestedLocales, localeMatcher);
 
-        InitializeNumberFormat(numberFormat, locales, options);
-        return numberFormat;
-    }
+        // SetNumberFormatUnitOptions - read style, currency, currencyDisplay, currencySign, unit, unitDisplay
+        var style = GetStringOption(optionsObj, "style", StyleValues, "decimal");
 
-    /// <summary>
-    /// https://tc39.es/ecma402/#sec-initializenumberformat
-    /// </summary>
-    private JsObject InitializeNumberFormat(JsObject numberFormat, JsValue locales, JsValue opts)
-    {
-        var requestedLocales = CanonicalizeLocaleList(locales);
-        var options = CoerceOptionsToObject(opts);
-        var opt = new JsObject(_engine);
-
-        var matcher = GetOption(options, "localeMatcher", OptionType.String, new JsValue[] { "lookup", "best fit" }, "best fit");
-        opt["localeMatcher"] = matcher;
-
-        var numberingSystem = GetOption(options, "numberingSystem", OptionType.String, [], Undefined);
-        if (!numberingSystem.IsUndefined())
+        // Read currency option (always read, validate if style is currency)
+        var currencyValue = optionsObj.Get("currency");
+        string? currency = null;
+        if (!currencyValue.IsUndefined())
         {
-            // If numberingSystem does not match the Unicode Locale Identifier type nonterminal, throw a RangeError exception.
+            currency = TypeConverter.ToString(currencyValue).ToUpperInvariant();
+            if (!IsWellFormedCurrencyCode(currency))
+            {
+                Throw.RangeError(_realm, $"Invalid currency code: {currency}");
+            }
+        }
+        else if (string.Equals(style, "currency", StringComparison.Ordinal))
+        {
+            Throw.TypeError(_realm, "Currency code is required with currency style");
         }
 
-        opt["nu"] = numberingSystem;
-        var localeData = LocaleData;
-        var r = ResolveLocale(_engine.Realm.Intrinsics.NumberFormat.AvailableLocales, requestedLocales, opt, _engine.Realm.Intrinsics.NumberFormat.RelevantExtensionKeys, localeData);
-        numberFormat["Locale"] = r["locale"];
-        numberFormat["DataLocale"] = r["dataLocale"];
-        numberFormat["NumberingSystem"] = r["nu"];
-        SetNumberFormatUnitOptions(numberFormat, options);
+        // Read currencyDisplay option (always read)
+        var currencyDisplay = GetStringOption(optionsObj, "currencyDisplay", CurrencyDisplayValues, "symbol");
 
-        int mnfdDefault;
-        int mxfdDefault;
-        var style = numberFormat["Style"];
-        if (style == "currency")
+        // Read currencySign option (always read)
+        var currencySign = GetStringOption(optionsObj, "currencySign", CurrencySignValues, "standard");
+
+        // Read unit option (always read, validate if style is unit)
+        var unitValue = optionsObj.Get("unit");
+        string? unit = null;
+        if (!unitValue.IsUndefined())
         {
-            var currency = numberFormat["Currency"];
-            var cDigits = CurrencyDigits(currency);
-            mnfdDefault = cDigits;
-            mxfdDefault = cDigits;
+            unit = TypeConverter.ToString(unitValue);
+            if (!IsWellFormedUnitIdentifier(unit))
+            {
+                Throw.RangeError(_realm, $"Invalid unit: {unit}");
+            }
+        }
+        else if (string.Equals(style, "unit", StringComparison.Ordinal))
+        {
+            Throw.TypeError(_realm, "Unit is required with unit style");
+        }
+
+        // Read unitDisplay option (always read)
+        var unitDisplay = GetStringOption(optionsObj, "unitDisplay", UnitDisplayValues, "short");
+
+        // Read notation option
+        var notation = GetStringOption(optionsObj, "notation", NotationValues, "standard");
+
+        var isCurrency = string.Equals(style, "currency", StringComparison.Ordinal);
+        var isPercent = string.Equals(style, "percent", StringComparison.Ordinal);
+        var isCompact = string.Equals(notation, "compact", StringComparison.Ordinal);
+
+        // SetNumberFormatDigitOptions - digit options in spec order
+        var minimumIntegerDigits = GetNumberOption(optionsObj, "minimumIntegerDigits", 1, 21, 1);
+
+        // Determine default fraction digits based on style and notation
+        // Per spec: currency-specific digits only apply when notation is "standard"
+        var isStandardNotation = string.Equals(notation, "standard", StringComparison.Ordinal);
+        int minFracDefault, maxFracDefault;
+        if (isCurrency && isStandardNotation)
+        {
+            // Only use currency-specific digits for standard notation
+            minFracDefault = maxFracDefault = GetCurrencyDigits(currency!);
+        }
+        else if (isPercent)
+        {
+            minFracDefault = maxFracDefault = 0;
+        }
+        else if (isCompact)
+        {
+            // Compact notation uses 0 fraction digits by default
+            minFracDefault = maxFracDefault = 0;
         }
         else
         {
-            mnfdDefault = 0;
-            mxfdDefault = style == "percent" ? 0 : 3;
+            // Scientific, engineering, and other notations (even with currency style)
+            minFracDefault = 0;
+            maxFracDefault = 3;
         }
 
-        var notation = GetOption(options, "notation", OptionType.String, new JsValue[] { "standard", "scientific", "engineering", "compact" }, "standard");
-        numberFormat["Notation"] = notation;
-        SetNumberFormatDigitOptions(numberFormat, options, mnfdDefault, mxfdDefault, notation.ToString());
+        // Per spec: fractionDigits range is 0-100
+        var minimumFractionDigits = GetNumberOption(optionsObj, "minimumFractionDigits", 0, 100, minFracDefault);
+        // Per spec: maximumFractionDigits minimum is 0, fallback is max(mnfd, mxfdDefault)
+        var maximumFractionDigits = GetNumberOption(optionsObj, "maximumFractionDigits", 0, 100, System.Math.Max(minimumFractionDigits, maxFracDefault));
 
-        var compactDisplay = GetOption(options, "compactDisplay", OptionType.String, new JsValue[] { "short", "long" }, "short");
-        if (notation == "compact")
+        // Per spec: if mnfd > mxfd, adjust mnfd down to mxfd
+        if (minimumFractionDigits > maximumFractionDigits)
         {
-            numberFormat["CompactDisplay"] = compactDisplay;
+            minimumFractionDigits = maximumFractionDigits;
         }
 
-        var useGrouping = GetOption(options, "useGrouping", OptionType.Boolean, System.Array.Empty<JsValue>(), JsBoolean.True);
-        numberFormat["UseGrouping"] = useGrouping;
-        var signDisplay = GetOption(options, "signDisplay", OptionType.String, new JsValue[] { "auto", "never", "always", "exceptZero" }, "auto");
-        numberFormat["SignDisplay"] = signDisplay;
+        // Significant digits options - read in order (must only read each property once)
+        var minSigDigitsValue = optionsObj.Get("minimumSignificantDigits");
+        var maxSigDigitsValue = optionsObj.Get("maximumSignificantDigits");
 
-        return numberFormat;
-    }
+        int? minimumSignificantDigits = null;
+        int? maximumSignificantDigits = null;
 
-    /// <summary>
-    /// https://tc39.es/ecma402/#sec-resolvelocale
-    /// </summary>
-    private JsObject ResolveLocale(object availableLocales, JsArray requestedLocales, JsObject options, object relevantExtensionKeys, object localeData)
-    {
-        // TODO
-        var result = new JsObject(_engine);
-        return result;
-    }
-
-    /// <summary>
-    /// https://tc39.es/ecma402/#sec-setnfdigitoptions
-    /// </summary>
-    private static void SetNumberFormatDigitOptions(JsObject numberFormat, ObjectInstance options, int mnfdDefault, int mxfdDefault, string notation)
-    {
-        // TODO
-    }
-
-    /// <summary>
-    /// https://tc39.es/ecma402/#sec-currencydigits
-    /// </summary>
-    private static int CurrencyDigits(JsValue currency)
-    {
-        // TODO
-        return 2;
-    }
-
-    /// <summary>
-    /// https://tc39.es/ecma402/#sec-setnumberformatunitoptions
-    /// </summary>
-    private void SetNumberFormatUnitOptions(JsObject intlObj, JsValue options)
-    {
-        var style = GetOption(options, "style", OptionType.String, new JsValue[] { "decimal", "percent", "currency", "unit" }, "decimal");
-        intlObj["Style"] = style;
-        var currency = GetOption(options, "currency", OptionType.String, [], Undefined);
-        if (currency.IsUndefined())
+        // If either significant digits option is present, use significant digits mode
+        if (!minSigDigitsValue.IsUndefined() || !maxSigDigitsValue.IsUndefined())
         {
-            if (style == "currency")
+            minimumSignificantDigits = GetNumberOptionFromValue(minSigDigitsValue, "minimumSignificantDigits", 1, 21, 1);
+            maximumSignificantDigits = GetNumberOptionFromValue(maxSigDigitsValue, "maximumSignificantDigits", minimumSignificantDigits.Value, 21, 21);
+        }
+
+        // Rounding options in spec order
+        var roundingIncrement = GetRoundingIncrementOption(optionsObj);
+        var roundingMode = GetStringOption(optionsObj, "roundingMode", RoundingModeValues, "halfExpand");
+        var roundingPriority = GetStringOption(optionsObj, "roundingPriority", RoundingPriorityValues, "auto");
+        var trailingZeroDisplay = GetStringOption(optionsObj, "trailingZeroDisplay", TrailingZeroDisplayValues, "auto");
+
+        // Remaining options in spec order
+        var compactDisplay = GetStringOption(optionsObj, "compactDisplay", CompactDisplayValues, "short");
+        var useGrouping = GetUseGroupingOption(optionsObj, notation);
+        var signDisplay = GetStringOption(optionsObj, "signDisplay", SignDisplayValues, "auto");
+
+        // Validate roundingIncrement constraints
+        if (roundingIncrement > 1)
+        {
+            // roundingIncrement > 1 with roundingPriority != "auto" is TypeError
+            if (!string.Equals(roundingPriority, "auto", StringComparison.Ordinal))
             {
-                Throw.TypeError(_realm, "No currency found when style currency requested");
+                Throw.TypeError(_realm, "roundingIncrement cannot be used with roundingPriority other than 'auto'");
+            }
+
+            // roundingIncrement > 1 with significantDigits is TypeError
+            if (minimumSignificantDigits.HasValue || maximumSignificantDigits.HasValue)
+            {
+                Throw.TypeError(_realm, "roundingIncrement cannot be used with significantDigits");
+            }
+
+            // roundingIncrement > 1 requires min == max fraction digits
+            if (minimumFractionDigits != maximumFractionDigits)
+            {
+                Throw.RangeError(_realm, "roundingIncrement requires minimumFractionDigits to equal maximumFractionDigits");
             }
         }
-        else if (!IsWellFormedCurrencyCode(currency))
+
+        // Get NumberFormatInfo for the locale
+        var culture = IntlUtilities.GetCultureInfo(resolvedLocale) ?? CultureInfo.InvariantCulture;
+        var numberFormatInfo = (NumberFormatInfo) culture.NumberFormat.Clone();
+
+        // Apply digit options - .NET NumberFormatInfo only supports 0-99, so clamp
+        var clampedMaxFractionDigits = System.Math.Min(maximumFractionDigits, 99);
+        numberFormatInfo.NumberDecimalDigits = clampedMaxFractionDigits;
+        numberFormatInfo.CurrencyDecimalDigits = clampedMaxFractionDigits;
+        numberFormatInfo.PercentDecimalDigits = clampedMaxFractionDigits;
+
+        // Apply currency if specified
+        if (currency != null && string.Equals(currencyDisplay, "code", StringComparison.Ordinal))
         {
-            Throw.RangeError(_realm, "Invalid currency code");
+            numberFormatInfo.CurrencySymbol = currency;
         }
 
-        var currencyDisplay = GetOption(options, "currencyDisplay", OptionType.String, new JsValue[] { "code", "symbol", "narrowSymbol", "name" }, "symbol");
-        var currencySign = GetOption(options, "currencySign", OptionType.String, new JsValue[] { "standard", "accounting" }, "standard");
-        var unit = GetOption(options, "unit", OptionType.String, [], Undefined);
-
-        if (unit.IsUndefined())
-        {
-            if (style == "unit")
-            {
-                Throw.TypeError(_realm, "No unit found when style unit requested");
-            }
-        }
-        else if (!IsWellFormedUnitIdentifier(unit))
-        {
-            Throw.RangeError(_realm, "Invalid unit");
-        }
-
-        var unitDisplay = GetOption(options, "unitDisplay", OptionType.String, new JsValue[] { "short", "narrow", "long" }, "short");
-        if (style == "currency")
-        {
-            intlObj["Currency"] = currency.ToString().ToUpperInvariant();
-            intlObj["CurrencyDisplay"] = currencyDisplay;
-            intlObj["CurrencySign"] = currencySign;
-        }
-
-        if (style == "unit")
-        {
-            intlObj["Unit"] = unit;
-            intlObj["UnitDisplay"] = unitDisplay;
-        }
+        return new JsNumberFormat(
+            _engine,
+            PrototypeObject,
+            resolvedLocale,
+            style,
+            currency,
+            currencyDisplay,
+            currencySign,
+            unit,
+            unitDisplay,
+            notation,
+            compactDisplay,
+            signDisplay,
+            useGrouping,
+            minimumIntegerDigits,
+            minimumFractionDigits,
+            maximumFractionDigits,
+            minimumSignificantDigits,
+            maximumSignificantDigits,
+            roundingMode,
+            roundingPriority,
+            roundingIncrement,
+            trailingZeroDisplay,
+            numberFormatInfo,
+            culture);
     }
 
-    /// <summary>
-    /// https://tc39.es/ecma402/#sec-iswellformedunitidentifier
-    /// </summary>
-    private static bool IsWellFormedUnitIdentifier(JsValue unitIdentifier)
+    private static bool IsValidNumberingSystem(string numberingSystem)
     {
-        var value = unitIdentifier.ToString();
-        if (IsSanctionedSingleUnitIdentifier(value))
-        {
-            return true;
-        }
-
-        var i = value.IndexOf("-per-", StringComparison.Ordinal);
-        if (i == -1 || value.IndexOf("-per-", i + 1, StringComparison.Ordinal) != -1)
+        // Basic validation: must be 3-8 lowercase alphanumeric characters
+        if (numberingSystem.Length < 3 || numberingSystem.Length > 8)
         {
             return false;
         }
 
-        var numerator = value.Substring(0, i);
-        var denominator = value.Substring(i + 5);
-        if (IsSanctionedSingleUnitIdentifier(numerator) && IsSanctionedSingleUnitIdentifier(denominator))
+        foreach (var c in numberingSystem)
+        {
+            if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private string GetStringOption(ObjectInstance options, string property, string[]? values, string fallback)
+    {
+        var value = options.Get(property);
+        if (value.IsUndefined())
+        {
+            return fallback;
+        }
+
+        var stringValue = TypeConverter.ToString(value);
+
+        if (values != null && values.Length > 0)
+        {
+            var found = false;
+            foreach (var allowed in values)
+            {
+                if (string.Equals(stringValue, allowed, StringComparison.Ordinal))
+                {
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found)
+            {
+                Throw.RangeError(_realm, $"Invalid value '{stringValue}' for option '{property}'");
+            }
+        }
+
+        return stringValue;
+    }
+
+    private static bool GetBooleanOption(ObjectInstance options, string property, bool fallback)
+    {
+        var value = options.Get(property);
+        if (value.IsUndefined())
+        {
+            return fallback;
+        }
+
+        return TypeConverter.ToBoolean(value);
+    }
+
+    private string GetUseGroupingOption(ObjectInstance options, string notation)
+    {
+        var value = options.Get("useGrouping");
+        if (value.IsUndefined())
+        {
+            // Default depends on notation: compact => "min2", otherwise => "auto"
+            return string.Equals(notation, "compact", StringComparison.Ordinal) ? "min2" : "auto";
+        }
+
+        // Handle boolean values
+        if (value.IsBoolean())
+        {
+            return TypeConverter.ToBoolean(value) ? "always" : "false";
+        }
+
+        // Handle string values
+        var stringValue = TypeConverter.ToString(value);
+
+        // Per spec: strings "true" and "false" should return default ("auto")
+        if (string.Equals(stringValue, "true", StringComparison.Ordinal) ||
+            string.Equals(stringValue, "false", StringComparison.Ordinal))
+        {
+            return "auto";
+        }
+
+        // Handle falsy values (0, null, "") - they all convert to "false"
+        if (value.IsNull() || (value.IsNumber() && TypeConverter.ToNumber(value) == 0) ||
+            (value.IsString() && stringValue.Length == 0))
+        {
+            return "false";
+        }
+
+        // Validate against allowed string values (auto, always, min2)
+        if (string.Equals(stringValue, "auto", StringComparison.Ordinal) ||
+            string.Equals(stringValue, "always", StringComparison.Ordinal) ||
+            string.Equals(stringValue, "min2", StringComparison.Ordinal))
+        {
+            return stringValue;
+        }
+
+        Throw.RangeError(_realm, $"Invalid value '{stringValue}' for option 'useGrouping'");
+        return "auto"; // Never reached
+    }
+
+    private static readonly int[] ValidRoundingIncrements = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 2500, 5000];
+
+    private int GetRoundingIncrementOption(ObjectInstance options)
+    {
+        var value = options.Get("roundingIncrement");
+        if (value.IsUndefined())
+        {
+            return 1;
+        }
+
+        var number = TypeConverter.ToNumber(value);
+        if (double.IsNaN(number) || double.IsInfinity(number))
+        {
+            Throw.RangeError(_realm, "roundingIncrement must be a finite number");
+        }
+
+        var intValue = (int) System.Math.Floor(number);
+
+        // Must be one of the valid values
+        if (!System.Array.Exists(ValidRoundingIncrements, v => v == intValue))
+        {
+            Throw.RangeError(_realm, $"Invalid roundingIncrement value: {intValue}");
+        }
+
+        return intValue;
+    }
+
+    private int GetNumberOption(ObjectInstance options, string property, int minimum, int maximum, int fallback)
+    {
+        var value = options.Get(property);
+        return GetNumberOptionFromValue(value, property, minimum, maximum, fallback);
+    }
+
+    private int GetNumberOptionFromValue(JsValue value, string property, int minimum, int maximum, int fallback)
+    {
+        if (value.IsUndefined())
+        {
+            return fallback;
+        }
+
+        var number = TypeConverter.ToNumber(value);
+        if (double.IsNaN(number))
+        {
+            Throw.RangeError(_realm, $"Invalid number for option '{property}'");
+        }
+
+        var intValue = (int) System.Math.Floor(number);
+        if (intValue < minimum || intValue > maximum)
+        {
+            Throw.RangeError(_realm, $"Value {intValue} for option '{property}' is out of range [{minimum}, {maximum}]");
+        }
+
+        return intValue;
+    }
+
+    private static int GetCurrencyDigits(string currency)
+    {
+        // Most currencies use 2 decimal places
+        // Some exceptions:
+        return currency switch
+        {
+            "BHD" or "IQD" or "JOD" or "KWD" or "LYD" or "OMR" or "TND" => 3, // 3 decimal places
+            "BIF" or "CLP" or "DJF" or "GNF" or "ISK" or "JPY" or "KMF" or
+            "KRW" or "PYG" or "RWF" or "UGX" or "UYI" or "VND" or "VUV" or
+            "XAF" or "XOF" or "XPF" => 0, // 0 decimal places
+            _ => 2 // Default 2 decimal places
+        };
+    }
+
+    private static bool IsWellFormedCurrencyCode(string currency)
+    {
+        // Per spec: currency code must be exactly 3 ASCII letters (A-Z, a-z)
+        return currency.Length == 3 &&
+               IsAsciiLetter(currency[0]) &&
+               IsAsciiLetter(currency[1]) &&
+               IsAsciiLetter(currency[2]);
+    }
+
+    private static bool IsAsciiLetter(char c)
+    {
+        return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+    }
+
+    private static readonly HashSet<string> SanctionedUnits = new(StringComparer.Ordinal)
+    {
+        "acre", "bit", "byte", "celsius", "centimeter", "day", "degree",
+        "fahrenheit", "fluid-ounce", "foot", "gallon", "gigabit", "gigabyte",
+        "gram", "hectare", "hour", "inch", "kilobit", "kilobyte", "kilogram",
+        "kilometer", "liter", "megabit", "megabyte", "meter", "microsecond",
+        "mile", "mile-scandinavian", "milliliter", "millimeter", "millisecond",
+        "minute", "month", "nanosecond", "ounce", "percent", "petabyte",
+        "pound", "second", "stone", "terabit", "terabyte", "week", "yard", "year"
+    };
+
+    private static bool IsWellFormedUnitIdentifier(string unit)
+    {
+        if (SanctionedUnits.Contains(unit))
         {
             return true;
+        }
+
+        // Check for compound unit (e.g., "mile-per-hour")
+        var perIndex = unit.IndexOf("-per-", StringComparison.Ordinal);
+        if (perIndex > 0)
+        {
+            var numerator = unit.Substring(0, perIndex);
+            var denominator = unit.Substring(perIndex + 5);
+            return SanctionedUnits.Contains(numerator) && SanctionedUnits.Contains(denominator);
         }
 
         return false;
     }
 
-    private static readonly HashSet<string> _sanctionedSingleUnitIdentifiers = new(StringComparer.Ordinal)
+    private static string ResolveNumberFormatLocale(Engine engine, HashSet<string> availableLocales, List<string> requestedLocales, string localeMatcher)
     {
-        "acre",
-        "bit",
-        "byte",
-        "celsius",
-        "centimeter",
-        "day",
-        "degree",
-        "fahrenheit",
-        "fluid-ounce",
-        "foot",
-        "gallon",
-        "gigabit",
-        "gigabyte",
-        "gram",
-        "hectare",
-        "hour",
-        "inch",
-        "kilobit",
-        "kilobyte",
-        "kilogram",
-        "kilometer",
-        "liter",
-        "megabit",
-        "megabyte",
-        "meter",
-        "microsecond",
-        "mile",
-        "mile-scandinavian",
-        "milliliter",
-        "millimeter",
-        "millisecond",
-        "minute",
-        "month",
-        "nanosecond",
-        "ounce",
-        "percent",
-        "petabyte",
-        "pound",
-        "second",
-        "stone",
-        "terabit",
-        "terabyte",
-        "week",
-        "yard",
-        "year",
-    };
-
-    /// <summary>
-    /// https://tc39.es/ecma402/#sec-issanctionedsingleunitidentifier
-    /// </summary>
-    private static bool IsSanctionedSingleUnitIdentifier(string unitIdentifier) => _sanctionedSingleUnitIdentifiers.Contains(unitIdentifier);
-
-    /// <summary>
-    /// https://tc39.es/ecma402/#sec-iswellformedcurrencycode
-    /// </summary>
-    private static bool IsWellFormedCurrencyCode(JsValue currency)
-    {
-        var value = currency.ToString();
-        return value.Length == 3 && char.IsLetter(value[0]) && char.IsLetter(value[1]) && char.IsLetter(value[2]);
+        var resolved = IntlUtilities.ResolveLocale(engine, availableLocales, requestedLocales, localeMatcher, []);
+        return resolved.Locale;
     }
 
     /// <summary>
-    /// https://tc39.es/ecma402/#sec-coerceoptionstoobject
+    /// https://tc39.es/ecma402/#sec-intl.numberformat.supportedlocalesof
     /// </summary>
-    private ObjectInstance CoerceOptionsToObject(JsValue options)
+    private JsArray SupportedLocalesOf(JsValue thisObject, JsCallArguments arguments)
     {
-        if (options.IsUndefined())
+        var locales = arguments.At(0);
+        var options = arguments.At(1);
+
+        var requestedLocales = IntlUtilities.CanonicalizeLocaleList(_engine, locales);
+        var availableLocales = IntlUtilities.GetAvailableLocales();
+
+        // Validate localeMatcher option
+        var optionsObj = IntlUtilities.CoerceOptionsToObject(_engine, options);
+        GetStringOption(optionsObj, "localeMatcher", LocaleMatcherValues, "best fit");
+
+        List<JsValue> supported = [];
+        foreach (var locale in requestedLocales)
         {
-            return OrdinaryObjectCreate(_engine, null);
-        }
-
-        return TypeConverter.ToObject(_realm, options);
-    }
-
-    /// <summary>
-    /// https://tc39.es/ecma402/#sec-canonicalizelocalelist
-    /// </summary>
-    private JsArray CanonicalizeLocaleList(JsValue locales)
-    {
-        return new JsArray(_engine);
-        // TODO
-    }
-
-    private enum OptionType
-    {
-        Boolean,
-        Number,
-        String
-    }
-
-    /// <summary>
-    /// https://tc39.es/ecma402/#sec-getoption
-    /// </summary>
-    private JsValue GetOption<T>(JsValue options, string property, OptionType type, T[] values, T defaultValue) where T : JsValue
-    {
-        var value = options.Get(property);
-        if (value.IsUndefined())
-        {
-            if (defaultValue == "required")
+            var bestAvailable = IntlUtilities.BestAvailableLocale(availableLocales, locale);
+            if (bestAvailable != null)
             {
-                Throw.RangeError(_realm, "Required value missing");
+                supported.Add(locale);
             }
-
-            return defaultValue;
         }
 
-        switch (type)
-        {
-            case OptionType.Boolean:
-                value = TypeConverter.ToBoolean(value);
-                break;
-            case OptionType.Number:
-                {
-                    var number = TypeConverter.ToNumber(value);
-                    if (double.IsNaN(number))
-                    {
-                        Throw.RangeError(_realm, "Invalid number value");
-                    }
-                    value = number;
-                    break;
-                }
-            case OptionType.String:
-                value = TypeConverter.ToString(value);
-                break;
-            default:
-                Throw.ArgumentOutOfRangeException(nameof(type), "Unknown type");
-                break;
-        }
-
-        if (values.Length > 0 && System.Array.IndexOf(values, value) == -1)
-        {
-            Throw.RangeError(_realm, "Value not part of list");
-        }
-
-        return value;
+        return new JsArray(_engine, supported.ToArray());
     }
 }

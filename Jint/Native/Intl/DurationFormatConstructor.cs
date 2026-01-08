@@ -1,3 +1,5 @@
+#pragma warning disable CA1859 // Use concrete types when possible for improved performance -- ClrFunction requires JsValue
+
 using System.Globalization;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -8,26 +10,23 @@ using Jint.Runtime.Interop;
 namespace Jint.Native.Intl;
 
 /// <summary>
-/// https://tc39.es/ecma402/#sec-intl-displaynames-constructor
+/// https://tc39.es/proposal-intl-duration-format/
 /// </summary>
-internal sealed class DisplayNamesConstructor : Constructor
+internal sealed class DurationFormatConstructor : Constructor
 {
-    private static readonly JsString _functionName = new("DisplayNames");
-    private static readonly HashSet<string> LocaleMatcherValues = ["lookup", "best fit"];
-    private static readonly HashSet<string> TypeValues = ["language", "region", "script", "currency", "calendar", "dateTimeField"];
-    private static readonly HashSet<string> StyleValues = ["long", "short", "narrow"];
-    private static readonly HashSet<string> FallbackValues = ["code", "none"];
-    private static readonly HashSet<string> LanguageDisplayValues = ["dialect", "standard"];
+    private static readonly JsString _functionName = new("DurationFormat");
+    private static readonly string[] LocaleMatcherValues = ["lookup", "best fit"];
+    private static readonly string[] StyleValues = ["long", "short", "narrow", "digital"];
 
-    public DisplayNamesConstructor(
+    public DurationFormatConstructor(
         Engine engine,
         Realm realm,
         FunctionPrototype functionPrototype,
         ObjectPrototype objectPrototype) : base(engine, realm, _functionName)
     {
         _prototype = functionPrototype;
-        PrototypeObject = new DisplayNamesPrototype(engine, realm, this, objectPrototype);
-        _length = new PropertyDescriptor(2, PropertyFlag.Configurable);
+        PrototypeObject = new DurationFormatPrototype(engine, realm, this, objectPrototype);
+        _length = new PropertyDescriptor(JsNumber.PositiveZero, PropertyFlag.Configurable);
         _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
     }
 
@@ -41,10 +40,10 @@ internal sealed class DisplayNamesConstructor : Constructor
         SetProperties(properties);
     }
 
-    public DisplayNamesPrototype PrototypeObject { get; }
+    public DurationFormatPrototype PrototypeObject { get; }
 
     /// <summary>
-    /// Called when Intl.DisplayNames is invoked without `new`.
+    /// Called when Intl.DurationFormat is invoked without `new`.
     /// </summary>
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
@@ -52,18 +51,12 @@ internal sealed class DisplayNamesConstructor : Constructor
     }
 
     /// <summary>
-    /// https://tc39.es/ecma402/#sec-intl.displaynames
+    /// https://tc39.es/proposal-intl-duration-format/#sec-intl.durationformat
     /// </summary>
     public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {
         var locales = arguments.At(0);
         var options = arguments.At(1);
-
-        // options is required
-        if (options.IsUndefined())
-        {
-            Throw.TypeError(_realm, "Options argument is required");
-        }
 
         // Get options object
         var optionsObj = IntlUtilities.CoerceOptionsToObject(_engine, options);
@@ -74,45 +67,23 @@ internal sealed class DisplayNamesConstructor : Constructor
         // Resolve locale
         var requestedLocales = IntlUtilities.CanonicalizeLocaleList(_engine, locales);
         var availableLocales = IntlUtilities.GetAvailableLocales();
-        var resolvedLocale = ResolveDisplayNamesLocale(_engine, availableLocales, requestedLocales, optionsObj);
-
-        // Get type option (required)
-        var typeValue = optionsObj.Get("type");
-        if (typeValue.IsUndefined())
-        {
-            Throw.TypeError(_realm, "Required option 'type' is undefined");
-        }
-
-        var type = GetStringOption(optionsObj, "type", TypeValues, "");
+        var resolved = IntlUtilities.ResolveLocale(_engine, availableLocales, requestedLocales, options, []);
 
         // Get style option
-        var style = GetStringOption(optionsObj, "style", StyleValues, "long");
-
-        // Get fallback option
-        var fallback = GetStringOption(optionsObj, "fallback", FallbackValues, "code");
-
-        // Get languageDisplay option (only valid for type: "language")
-        string? languageDisplay = null;
-        if (string.Equals(type, "language", StringComparison.Ordinal))
-        {
-            languageDisplay = GetStringOption(optionsObj, "languageDisplay", LanguageDisplayValues, "dialect");
-        }
+        var style = GetStringOption(optionsObj, "style", StyleValues, "short");
 
         // Get CultureInfo for the locale
-        var culture = IntlUtilities.GetCultureInfo(resolvedLocale) ?? CultureInfo.InvariantCulture;
+        var culture = IntlUtilities.GetCultureInfo(resolved.Locale) ?? CultureInfo.InvariantCulture;
 
-        return new JsDisplayNames(
+        return new JsDurationFormat(
             _engine,
             PrototypeObject,
-            resolvedLocale,
-            type,
+            resolved.Locale,
             style,
-            fallback,
-            languageDisplay,
             culture);
     }
 
-    private string GetStringOption(ObjectInstance options, string property, HashSet<string> values, string fallback)
+    private string GetStringOption(ObjectInstance options, string property, string[]? values, string fallback)
     {
         var value = options.Get(property);
         if (value.IsUndefined())
@@ -122,9 +93,19 @@ internal sealed class DisplayNamesConstructor : Constructor
 
         var stringValue = TypeConverter.ToString(value);
 
-        if (values != null && values.Count > 0)
+        if (values != null && values.Length > 0)
         {
-            if (!values.Contains(stringValue))
+            var found = false;
+            foreach (var allowed in values)
+            {
+                if (string.Equals(stringValue, allowed, StringComparison.Ordinal))
+                {
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found)
             {
                 Throw.RangeError(_realm, $"Invalid value '{stringValue}' for option '{property}'");
             }
@@ -133,16 +114,10 @@ internal sealed class DisplayNamesConstructor : Constructor
         return stringValue;
     }
 
-    private static string ResolveDisplayNamesLocale(Engine engine, HashSet<string> availableLocales, List<string> requestedLocales, ObjectInstance options)
-    {
-        var resolved = IntlUtilities.ResolveLocale(engine, availableLocales, requestedLocales, options, []);
-        return resolved.Locale;
-    }
-
     /// <summary>
-    /// https://tc39.es/ecma402/#sec-intl.displaynames.supportedlocalesof
+    /// https://tc39.es/proposal-intl-duration-format/#sec-intl.durationformat.supportedlocalesof
     /// </summary>
-    private JsArray SupportedLocalesOf(JsValue thisObject, JsCallArguments arguments)
+    private JsValue SupportedLocalesOf(JsValue thisObject, JsCallArguments arguments)
     {
         var locales = arguments.At(0);
         var options = arguments.At(1);
@@ -154,7 +129,7 @@ internal sealed class DisplayNamesConstructor : Constructor
         var optionsObj = IntlUtilities.CoerceOptionsToObject(_engine, options);
         GetStringOption(optionsObj, "localeMatcher", LocaleMatcherValues, "best fit");
 
-        List<JsValue> supported = [];
+        var supported = new List<JsValue>();
         foreach (var locale in requestedLocales)
         {
             var bestAvailable = IntlUtilities.BestAvailableLocale(availableLocales, locale);
