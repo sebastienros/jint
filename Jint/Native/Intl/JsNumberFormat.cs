@@ -178,9 +178,8 @@ internal sealed class JsNumberFormat : ObjectInstance
             : "0";
         var mantissaStr = mantissa.ToString(mantissaFormat, NumberFormatInfo);
 
-        // Format exponent with sign
-        var expSign = exponent >= 0 ? "+" : "";
-        return $"{mantissaStr}E{expSign}{exponent}";
+        // Format exponent (no plus sign for positive exponents per spec)
+        return $"{mantissaStr}E{exponent}";
     }
 
     private string FormatEngineering(double value)
@@ -204,47 +203,147 @@ internal sealed class JsNumberFormat : ObjectInstance
             : "0";
         var mantissaStr = mantissa.ToString(mantissaFormat, NumberFormatInfo);
 
-        // Format exponent with sign
-        var expSign = engineeringExponent >= 0 ? "+" : "";
-        return $"{mantissaStr}E{expSign}{engineeringExponent}";
+        // Format exponent (no plus sign for positive exponents per spec)
+        return $"{mantissaStr}E{engineeringExponent}";
     }
 
     private string FormatCompact(double value)
     {
-        // Simplified compact notation - just use K, M, B, T suffixes
+        // Handle special values first
+        if (double.IsNaN(value))
+        {
+            return NumberFormatInfo.NaNSymbol;
+        }
+
+        if (double.IsPositiveInfinity(value))
+        {
+            return NumberFormatInfo.PositiveInfinitySymbol;
+        }
+
+        if (double.IsNegativeInfinity(value))
+        {
+            return NumberFormatInfo.NegativeSign + NumberFormatInfo.PositiveInfinitySymbol;
+        }
+
         var absValue = System.Math.Abs(value);
+        var isNegative = value < 0;
+        var isLong = string.Equals(CompactDisplay, "long", StringComparison.Ordinal);
+
+        // For values less than 1000, use regular decimal formatting with compact rules
+        // Compact notation uses 2 significant digits by default
+        if (absValue < 1000)
+        {
+            // Format with 2-3 significant figures for compact notation
+            // For values >= 100, show all digits (no decimal places)
+            // For values < 100, show 2 significant figures
+            if (absValue == 0)
+            {
+                return "0";
+            }
+
+            var magnitude = (int) System.Math.Floor(System.Math.Log10(absValue));
+            // For values >= 100 (magnitude >= 2), show all integer digits
+            // For smaller values, use 2 significant digits
+            var sigFigs = magnitude >= 2 ? magnitude + 1 : 2;
+            var decimalPlaces = sigFigs - magnitude - 1;
+
+            double rounded;
+            if (decimalPlaces >= 0)
+            {
+                rounded = ApplyRounding(absValue, decimalPlaces);
+            }
+            else
+            {
+                var roundingDivisor = System.Math.Pow(10, -decimalPlaces);
+                rounded = ApplyRounding(absValue / roundingDivisor, 0) * roundingDivisor;
+            }
+
+            // Format the result
+            string smallResult;
+            if (decimalPlaces <= 0)
+            {
+                smallResult = rounded.ToString("F0", CultureInfo.InvariantCulture);
+            }
+            else
+            {
+                // Format with required decimal places, but don't pad with zeros unnecessarily
+                var formatted = rounded.ToString("F" + decimalPlaces, CultureInfo.InvariantCulture);
+                // Trim trailing zeros after decimal, keeping at least one decimal place if needed
+                if (formatted.Contains('.'))
+                {
+                    formatted = formatted.TrimEnd('0');
+                    if (formatted.Length > 0 && formatted[formatted.Length - 1] == '.')
+                    {
+                        formatted = formatted.Substring(0, formatted.Length - 1);
+                    }
+                }
+                smallResult = formatted;
+            }
+
+            return isNegative ? "-" + smallResult : smallResult;
+        }
+
+        // For larger values, use compact suffixes
         string suffix;
+        string longSuffix;
         double divisor;
 
         if (absValue >= 1_000_000_000_000)
         {
             suffix = "T";
+            longSuffix = " trillion";
             divisor = 1_000_000_000_000;
         }
         else if (absValue >= 1_000_000_000)
         {
             suffix = "B";
+            longSuffix = " billion";
             divisor = 1_000_000_000;
         }
         else if (absValue >= 1_000_000)
         {
             suffix = "M";
+            longSuffix = " million";
             divisor = 1_000_000;
-        }
-        else if (absValue >= 1_000)
-        {
-            suffix = "K";
-            divisor = 1_000;
         }
         else
         {
-            return FormatDecimal(value);
+            suffix = "K";
+            longSuffix = " thousand";
+            divisor = 1_000;
         }
 
-        var compactValue = value / divisor;
-        compactValue = ApplyRounding(compactValue, MaximumFractionDigits);
-        var formatted = compactValue.ToString("0.##", NumberFormatInfo);
-        return formatted + suffix;
+        var compactValue = absValue / divisor;
+        // Use 2 significant figures for compact notation
+        var compactMagnitude = (int) System.Math.Floor(System.Math.Log10(compactValue));
+        var compactDecimalPlaces = 1 - compactMagnitude; // For 2 sig figs
+
+        if (compactDecimalPlaces > 0)
+        {
+            compactValue = ApplyRounding(compactValue, compactDecimalPlaces);
+        }
+        else
+        {
+            compactValue = ApplyRounding(compactValue, 0);
+        }
+
+        string compactFormatted;
+        if (compactDecimalPlaces > 0)
+        {
+            compactFormatted = compactValue.ToString("F" + compactDecimalPlaces, CultureInfo.InvariantCulture);
+            // Trim trailing zeros
+            if (compactFormatted.Contains('.'))
+            {
+                compactFormatted = compactFormatted.TrimEnd('0').TrimEnd('.');
+            }
+        }
+        else
+        {
+            compactFormatted = compactValue.ToString("F0", CultureInfo.InvariantCulture);
+        }
+
+        var result = compactFormatted + (isLong ? longSuffix : suffix);
+        return isNegative ? "-" + result : result;
     }
 
     /// <summary>
@@ -299,23 +398,35 @@ internal sealed class JsNumberFormat : ObjectInstance
 
     private static double RoundHalfCeil(double value)
     {
+        // halfCeil: ties go toward positive infinity (ceiling)
         var floor = System.Math.Floor(value);
-        var fraction = value - floor;
-        if (fraction > 0.5 || (fraction == 0.5 && value >= 0))
+        var ceil = System.Math.Ceiling(value);
+        var distToFloor = value - floor;
+        var distToCeil = ceil - value;
+
+        // Round to nearest, with ties going to ceiling
+        if (distToFloor < distToCeil)
         {
-            return floor + 1;
+            return floor;
         }
-        return floor;
+        // distToCeil <= distToFloor means we're at midpoint or closer to ceiling
+        return ceil;
     }
 
     private static double RoundHalfFloor(double value)
     {
+        // halfFloor: ties go toward negative infinity (floor)
         var floor = System.Math.Floor(value);
-        var fraction = value - floor;
-        if (fraction > 0.5 || (fraction == 0.5 && value < 0))
+        var ceil = System.Math.Ceiling(value);
+        var distToFloor = value - floor;
+        var distToCeil = ceil - value;
+
+        // Round to nearest, with ties going to floor
+        if (distToCeil < distToFloor)
         {
-            return floor + 1;
+            return ceil;
         }
+        // distToFloor <= distToCeil means we're at midpoint or closer to floor
         return floor;
     }
 
@@ -588,9 +699,13 @@ internal sealed class JsNumberFormat : ObjectInstance
 
     private string FormatToSignificantDigits(double value, int minSigDigits, int maxSigDigits)
     {
+        // Check for negative zero (1.0 / -0 == -Infinity)
+        var isNegativeZero = value == 0 && 1.0 / value == double.NegativeInfinity;
+
         if (value == 0)
         {
-            return minSigDigits > 1 ? "0." + new string('0', minSigDigits - 1) : "0";
+            var zeroResult = minSigDigits > 1 ? "0." + new string('0', minSigDigits - 1) : "0";
+            return isNegativeZero ? "-" + zeroResult : zeroResult;
         }
 
         var isNegative = value < 0;
@@ -928,6 +1043,12 @@ internal sealed class JsNumberFormat : ObjectInstance
             return parts;
         }
 
+        // Handle notation first
+        if (!string.Equals(Notation, "standard", StringComparison.Ordinal))
+        {
+            return FormatNotationToParts(value);
+        }
+
         // Handle different styles
         return Style switch
         {
@@ -936,6 +1057,99 @@ internal sealed class JsNumberFormat : ObjectInstance
             "unit" => FormatUnitToParts(value),
             _ => FormatDecimalToParts(value)
         };
+    }
+
+    private List<NumberFormatPart> FormatNotationToParts(double value)
+    {
+        var parts = new List<NumberFormatPart>();
+
+        var isNegative = value < 0;
+        if (isNegative)
+        {
+            parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
+            value = System.Math.Abs(value);
+        }
+        else if (ShouldShowPlusSign(value))
+        {
+            parts.Add(new NumberFormatPart("plusSign", NumberFormatInfo.PositiveSign));
+        }
+
+        if (value == 0)
+        {
+            parts.Add(new NumberFormatPart("integer", "0"));
+            parts.Add(new NumberFormatPart("exponentSeparator", "E"));
+            parts.Add(new NumberFormatPart("exponentInteger", "0"));
+            return parts;
+        }
+
+        int exponent;
+        double mantissa;
+
+        if (string.Equals(Notation, "engineering", StringComparison.Ordinal))
+        {
+            // Engineering notation uses exponents that are multiples of 3
+            var rawExponent = (int) System.Math.Floor(System.Math.Log10(value));
+            exponent = (int) (System.Math.Floor(rawExponent / 3.0) * 3);
+            mantissa = value / System.Math.Pow(10, exponent);
+        }
+        else
+        {
+            // Scientific notation
+            exponent = (int) System.Math.Floor(System.Math.Log10(value));
+            mantissa = value / System.Math.Pow(10, exponent);
+        }
+
+        // Round the mantissa
+        mantissa = ApplyRounding(mantissa, MaximumFractionDigits);
+
+        // Split mantissa into integer and fraction
+        var integerPart = (long) System.Math.Truncate(mantissa);
+        var fractionValue = mantissa - integerPart;
+
+        // Add integer part
+        parts.Add(new NumberFormatPart("integer", integerPart.ToString(CultureInfo.InvariantCulture)));
+
+        // Add fraction part if needed
+        if (MinimumFractionDigits > 0 || (fractionValue > 0 && MaximumFractionDigits > 0))
+        {
+            parts.Add(new NumberFormatPart("decimal", NumberFormatInfo.NumberDecimalSeparator));
+
+            var fractionDigits = MaximumFractionDigits > 0 ? MaximumFractionDigits : MinimumFractionDigits;
+            var multiplier = System.Math.Pow(10, fractionDigits);
+            var fractionInt = (long) System.Math.Round(fractionValue * multiplier);
+            var fractionStr = fractionInt.ToString(CultureInfo.InvariantCulture).PadLeft(fractionDigits, '0');
+
+            // Trim trailing zeros above minimum
+            if (fractionStr.Length > MinimumFractionDigits)
+            {
+                var trimEnd = fractionStr.Length;
+                while (trimEnd > MinimumFractionDigits && fractionStr[trimEnd - 1] == '0')
+                {
+                    trimEnd--;
+                }
+                fractionStr = fractionStr.Substring(0, trimEnd);
+            }
+
+            if (fractionStr.Length > 0)
+            {
+                parts.Add(new NumberFormatPart("fraction", fractionStr));
+            }
+        }
+
+        // Add exponent separator
+        parts.Add(new NumberFormatPart("exponentSeparator", "E"));
+
+        // Add exponent sign if negative
+        if (exponent < 0)
+        {
+            parts.Add(new NumberFormatPart("exponentMinusSign", NumberFormatInfo.NegativeSign));
+            exponent = System.Math.Abs(exponent);
+        }
+
+        // Add exponent integer
+        parts.Add(new NumberFormatPart("exponentInteger", exponent.ToString(CultureInfo.InvariantCulture)));
+
+        return parts;
     }
 
     private List<NumberFormatPart> FormatDecimalToParts(double value)
