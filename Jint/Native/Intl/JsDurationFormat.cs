@@ -15,12 +15,62 @@ internal sealed class JsDurationFormat : ObjectInstance
         DurationFormatPrototype prototype,
         string locale,
         string style,
-        CultureInfo cultureInfo) : base(engine)
+        string numberingSystem,
+        CultureInfo cultureInfo,
+        // Unit styles
+        string yearsStyle,
+        string monthsStyle,
+        string weeksStyle,
+        string daysStyle,
+        string hoursStyle,
+        string minutesStyle,
+        string secondsStyle,
+        string millisecondsStyle,
+        string microsecondsStyle,
+        string nanosecondsStyle,
+        // Unit displays
+        string yearsDisplay,
+        string monthsDisplay,
+        string weeksDisplay,
+        string daysDisplay,
+        string hoursDisplay,
+        string minutesDisplay,
+        string secondsDisplay,
+        string millisecondsDisplay,
+        string microsecondsDisplay,
+        string nanosecondsDisplay,
+        // Fractional digits
+        int? fractionalDigits) : base(engine)
     {
         _prototype = prototype;
         Locale = locale;
         Style = style;
+        NumberingSystem = numberingSystem;
         CultureInfo = cultureInfo;
+
+        YearsStyle = yearsStyle;
+        MonthsStyle = monthsStyle;
+        WeeksStyle = weeksStyle;
+        DaysStyle = daysStyle;
+        HoursStyle = hoursStyle;
+        MinutesStyle = minutesStyle;
+        SecondsStyle = secondsStyle;
+        MillisecondsStyle = millisecondsStyle;
+        MicrosecondsStyle = microsecondsStyle;
+        NanosecondsStyle = nanosecondsStyle;
+
+        YearsDisplay = yearsDisplay;
+        MonthsDisplay = monthsDisplay;
+        WeeksDisplay = weeksDisplay;
+        DaysDisplay = daysDisplay;
+        HoursDisplay = hoursDisplay;
+        MinutesDisplay = minutesDisplay;
+        SecondsDisplay = secondsDisplay;
+        MillisecondsDisplay = millisecondsDisplay;
+        MicrosecondsDisplay = microsecondsDisplay;
+        NanosecondsDisplay = nanosecondsDisplay;
+
+        FractionalDigits = fractionalDigits;
     }
 
     /// <summary>
@@ -34,9 +84,41 @@ internal sealed class JsDurationFormat : ObjectInstance
     internal string Style { get; }
 
     /// <summary>
+    /// The numbering system.
+    /// </summary>
+    internal string NumberingSystem { get; }
+
+    /// <summary>
     /// The .NET CultureInfo for locale-specific formatting.
     /// </summary>
     internal CultureInfo CultureInfo { get; }
+
+    // Unit styles
+    internal string YearsStyle { get; }
+    internal string MonthsStyle { get; }
+    internal string WeeksStyle { get; }
+    internal string DaysStyle { get; }
+    internal string HoursStyle { get; }
+    internal string MinutesStyle { get; }
+    internal string SecondsStyle { get; }
+    internal string MillisecondsStyle { get; }
+    internal string MicrosecondsStyle { get; }
+    internal string NanosecondsStyle { get; }
+
+    // Unit displays
+    internal string YearsDisplay { get; }
+    internal string MonthsDisplay { get; }
+    internal string WeeksDisplay { get; }
+    internal string DaysDisplay { get; }
+    internal string HoursDisplay { get; }
+    internal string MinutesDisplay { get; }
+    internal string SecondsDisplay { get; }
+    internal string MillisecondsDisplay { get; }
+    internal string MicrosecondsDisplay { get; }
+    internal string NanosecondsDisplay { get; }
+
+    // Fractional digits for sub-second units
+    internal int? FractionalDigits { get; }
 
     /// <summary>
     /// Formats a duration object.
@@ -53,7 +135,7 @@ internal sealed class JsDurationFormat : ObjectInstance
         return FormatNonDigital(duration);
     }
 
-    private static string FormatDigital(DurationRecord duration)
+    private string FormatDigital(DurationRecord duration)
     {
         var sb = new StringBuilder();
 
@@ -71,10 +153,13 @@ internal sealed class JsDurationFormat : ObjectInstance
         var microseconds = duration.Microseconds;
         var nanoseconds = duration.Nanoseconds;
 
-        // Add hours if we have days or hours
-        if (duration.Days > 0 || hours > 0)
+        // Add hours if we have days or hours, or if hoursDisplay is "always"
+        var showHours = duration.Days > 0 || hours > 0 ||
+                        string.Equals(HoursDisplay, "always", StringComparison.Ordinal);
+
+        if (showHours)
         {
-            if (duration.Days > 0)
+            if (duration.Days > 0 || string.Equals(HoursStyle, "2-digit", StringComparison.Ordinal))
             {
                 sb.Append(hours.ToString("D2", CultureInfo.InvariantCulture));
             }
@@ -86,7 +171,7 @@ internal sealed class JsDurationFormat : ObjectInstance
         }
 
         // Minutes (with leading zero if hours shown)
-        if (duration.Days > 0 || hours > 0)
+        if (showHours || string.Equals(MinutesStyle, "2-digit", StringComparison.Ordinal))
         {
             sb.Append(minutes.ToString("D2", CultureInfo.InvariantCulture));
         }
@@ -99,14 +184,32 @@ internal sealed class JsDurationFormat : ObjectInstance
         sb.Append(seconds.ToString("D2", CultureInfo.InvariantCulture));
 
         // Add fractional seconds if needed
-        if (milliseconds > 0 || microseconds > 0 || nanoseconds > 0)
+        if (milliseconds > 0 || microseconds > 0 || nanoseconds > 0 || FractionalDigits.HasValue)
         {
             var totalNanos = milliseconds * 1_000_000 + microseconds * 1000 + nanoseconds;
-            var fraction = totalNanos.ToString("D9", CultureInfo.InvariantCulture).TrimEnd('0');
-            if (fraction.Length > 0)
+
+            if (FractionalDigits.HasValue)
             {
-                sb.Append('.');
-                sb.Append(fraction);
+                var digits = FractionalDigits.Value;
+                if (digits > 0)
+                {
+                    var fraction = totalNanos.ToString("D9", CultureInfo.InvariantCulture);
+                    sb.Append('.');
+                    var len = System.Math.Min(digits, fraction.Length);
+                    for (var i = 0; i < len; i++)
+                    {
+                        sb.Append(fraction[i]);
+                    }
+                }
+            }
+            else if (totalNanos > 0)
+            {
+                var fraction = totalNanos.ToString("D9", CultureInfo.InvariantCulture).TrimEnd('0');
+                if (fraction.Length > 0)
+                {
+                    sb.Append('.');
+                    sb.Append(fraction);
+                }
             }
         }
 
@@ -116,71 +219,70 @@ internal sealed class JsDurationFormat : ObjectInstance
     private string FormatNonDigital(DurationRecord duration)
     {
         var parts = new List<string>();
-        var isEnglish = Locale.StartsWith("en", StringComparison.OrdinalIgnoreCase);
 
         // Years
-        if (duration.Years != 0)
+        if (ShouldShowUnit(duration.Years, YearsDisplay))
         {
-            parts.Add(FormatUnit(duration.Years, "year", "years", "yr", "y"));
+            parts.Add(FormatUnit(duration.Years, "year", "years", "yr", "y", YearsStyle));
         }
 
         // Months
-        if (duration.Months != 0)
+        if (ShouldShowUnit(duration.Months, MonthsDisplay))
         {
-            parts.Add(FormatUnit(duration.Months, "month", "months", "mo", "mo"));
+            parts.Add(FormatUnit(duration.Months, "month", "months", "mo", "mo", MonthsStyle));
         }
 
         // Weeks
-        if (duration.Weeks != 0)
+        if (ShouldShowUnit(duration.Weeks, WeeksDisplay))
         {
-            parts.Add(FormatUnit(duration.Weeks, "week", "weeks", "wk", "w"));
+            parts.Add(FormatUnit(duration.Weeks, "week", "weeks", "wk", "w", WeeksStyle));
         }
 
         // Days
-        if (duration.Days != 0)
+        if (ShouldShowUnit(duration.Days, DaysDisplay))
         {
-            parts.Add(FormatUnit(duration.Days, "day", "days", "day", "d"));
+            parts.Add(FormatUnit(duration.Days, "day", "days", "day", "d", DaysStyle));
         }
 
         // Hours
-        if (duration.Hours != 0)
+        if (ShouldShowUnit(duration.Hours, HoursDisplay))
         {
-            parts.Add(FormatUnit(duration.Hours, "hour", "hours", "hr", "h"));
+            parts.Add(FormatUnit(duration.Hours, "hour", "hours", "hr", "h", HoursStyle));
         }
 
         // Minutes
-        if (duration.Minutes != 0)
+        if (ShouldShowUnit(duration.Minutes, MinutesDisplay))
         {
-            parts.Add(FormatUnit(duration.Minutes, "minute", "minutes", "min", "m"));
+            parts.Add(FormatUnit(duration.Minutes, "minute", "minutes", "min", "m", MinutesStyle));
         }
 
         // Seconds
-        if (duration.Seconds != 0)
+        if (ShouldShowUnit(duration.Seconds, SecondsDisplay))
         {
-            parts.Add(FormatUnit(duration.Seconds, "second", "seconds", "sec", "s"));
+            parts.Add(FormatUnit(duration.Seconds, "second", "seconds", "sec", "s", SecondsStyle));
         }
 
         // Milliseconds
-        if (duration.Milliseconds != 0)
+        if (ShouldShowUnit(duration.Milliseconds, MillisecondsDisplay))
         {
-            parts.Add(FormatUnit(duration.Milliseconds, "millisecond", "milliseconds", "ms", "ms"));
+            parts.Add(FormatUnit(duration.Milliseconds, "millisecond", "milliseconds", "ms", "ms", MillisecondsStyle));
         }
 
         // Microseconds
-        if (duration.Microseconds != 0)
+        if (ShouldShowUnit(duration.Microseconds, MicrosecondsDisplay))
         {
-            parts.Add(FormatUnit(duration.Microseconds, "microsecond", "microseconds", "μs", "μs"));
+            parts.Add(FormatUnit(duration.Microseconds, "microsecond", "microseconds", "μs", "μs", MicrosecondsStyle));
         }
 
         // Nanoseconds
-        if (duration.Nanoseconds != 0)
+        if (ShouldShowUnit(duration.Nanoseconds, NanosecondsDisplay))
         {
-            parts.Add(FormatUnit(duration.Nanoseconds, "nanosecond", "nanoseconds", "ns", "ns"));
+            parts.Add(FormatUnit(duration.Nanoseconds, "nanosecond", "nanoseconds", "ns", "ns", NanosecondsStyle));
         }
 
         if (parts.Count == 0)
         {
-            return FormatUnit(0, "second", "seconds", "sec", "s");
+            return FormatUnit(0, "second", "seconds", "sec", "s", SecondsStyle);
         }
 
         // Join parts based on style
@@ -195,6 +297,7 @@ internal sealed class JsDurationFormat : ObjectInstance
             return parts[0];
         }
 
+        var isEnglish = Locale.StartsWith("en", StringComparison.OrdinalIgnoreCase);
         if (parts.Count == 2 && isEnglish && string.Equals(Style, "long", StringComparison.Ordinal))
         {
             return $"{parts[0]} and {parts[1]}";
@@ -204,16 +307,37 @@ internal sealed class JsDurationFormat : ObjectInstance
         return string.Join(", ", parts);
     }
 
-    private string FormatUnit(long value, string singularLong, string pluralLong, string shortForm, string narrowForm)
+    private static bool ShouldShowUnit(long value, string display)
+    {
+        if (string.Equals(display, "always", StringComparison.Ordinal))
+        {
+            return true;
+        }
+        // "auto" - only show if non-zero
+        return value != 0;
+    }
+
+    private static string FormatUnit(long value, string singularLong, string pluralLong, string shortForm, string narrowForm, string unitStyle)
     {
         var isPlural = System.Math.Abs(value) != 1;
 
-        return Style switch
+        // Handle numeric and 2-digit styles
+        if (string.Equals(unitStyle, "numeric", StringComparison.Ordinal))
+        {
+            return value.ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (string.Equals(unitStyle, "2-digit", StringComparison.Ordinal))
+        {
+            return value.ToString("D2", CultureInfo.InvariantCulture);
+        }
+
+        return unitStyle switch
         {
             "long" => $"{value} {(isPlural ? pluralLong : singularLong)}",
             "short" => $"{value} {shortForm}",
             "narrow" => $"{value}{narrowForm}",
-            _ => $"{value} {(isPlural ? pluralLong : singularLong)}"
+            _ => $"{value} {shortForm}" // Default to short
         };
     }
 
@@ -237,12 +361,130 @@ internal sealed class JsDurationFormat : ObjectInstance
             result.SetIndexValue(index++, part, updateLength: true);
         }
 
-        // For simplicity, format the whole string and return as a single literal
-        // A full implementation would break down into individual parts
-        var formatted = Format(duration);
-        AddPart("literal", formatted);
+        void AddUnitParts(long unitValue, string unitName, string display, string unitStyle)
+        {
+            if (!ShouldShowUnit(unitValue, display))
+            {
+                return;
+            }
+
+            // Add separator if not first
+            if (index > 0)
+            {
+                AddPart("literal", " ");
+            }
+
+            // Add integer part
+            string valueStr;
+            if (string.Equals(unitStyle, "2-digit", StringComparison.Ordinal))
+            {
+                valueStr = unitValue.ToString("D2", CultureInfo.InvariantCulture);
+            }
+            else
+            {
+                valueStr = unitValue.ToString(CultureInfo.InvariantCulture);
+            }
+
+            AddPart("integer", valueStr, unitName);
+
+            // Add unit label for non-numeric styles
+            if (!string.Equals(unitStyle, "numeric", StringComparison.Ordinal) &&
+                !string.Equals(unitStyle, "2-digit", StringComparison.Ordinal))
+            {
+                AddPart("literal", " ");
+                var label = GetUnitLabel(unitValue, unitName, unitStyle);
+                AddPart("unit", label, unitName);
+            }
+        }
+
+        // Add parts for each unit
+        AddUnitParts(duration.Years, "year", YearsDisplay, YearsStyle);
+        AddUnitParts(duration.Months, "month", MonthsDisplay, MonthsStyle);
+        AddUnitParts(duration.Weeks, "week", WeeksDisplay, WeeksStyle);
+        AddUnitParts(duration.Days, "day", DaysDisplay, DaysStyle);
+        AddUnitParts(duration.Hours, "hour", HoursDisplay, HoursStyle);
+        AddUnitParts(duration.Minutes, "minute", MinutesDisplay, MinutesStyle);
+        AddUnitParts(duration.Seconds, "second", SecondsDisplay, SecondsStyle);
+        AddUnitParts(duration.Milliseconds, "millisecond", MillisecondsDisplay, MillisecondsStyle);
+        AddUnitParts(duration.Microseconds, "microsecond", MicrosecondsDisplay, MicrosecondsStyle);
+        AddUnitParts(duration.Nanoseconds, "nanosecond", NanosecondsDisplay, NanosecondsStyle);
+
+        // If no parts, add zero seconds
+        if (index == 0)
+        {
+            AddPart("integer", "0", "second");
+            AddPart("literal", " ");
+            AddPart("unit", GetUnitLabel(0, "second", SecondsStyle), "second");
+        }
 
         return result;
+    }
+
+    private static string GetUnitLabel(long value, string unitName, string style)
+    {
+        var isPlural = System.Math.Abs(value) != 1;
+        var isLong = string.Equals(style, "long", StringComparison.Ordinal);
+        var isShort = string.Equals(style, "short", StringComparison.Ordinal);
+        var isNarrow = string.Equals(style, "narrow", StringComparison.Ordinal);
+
+        if (string.Equals(unitName, "year", StringComparison.Ordinal))
+        {
+            if (isLong) return isPlural ? "years" : "year";
+            if (isShort) return "yr";
+            if (isNarrow) return "y";
+        }
+        else if (string.Equals(unitName, "month", StringComparison.Ordinal))
+        {
+            if (isLong) return isPlural ? "months" : "month";
+            return "mo"; // short and narrow
+        }
+        else if (string.Equals(unitName, "week", StringComparison.Ordinal))
+        {
+            if (isLong) return isPlural ? "weeks" : "week";
+            if (isShort) return "wk";
+            if (isNarrow) return "w";
+        }
+        else if (string.Equals(unitName, "day", StringComparison.Ordinal))
+        {
+            if (isLong) return isPlural ? "days" : "day";
+            if (isShort) return "day";
+            if (isNarrow) return "d";
+        }
+        else if (string.Equals(unitName, "hour", StringComparison.Ordinal))
+        {
+            if (isLong) return isPlural ? "hours" : "hour";
+            if (isShort) return "hr";
+            if (isNarrow) return "h";
+        }
+        else if (string.Equals(unitName, "minute", StringComparison.Ordinal))
+        {
+            if (isLong) return isPlural ? "minutes" : "minute";
+            if (isShort) return "min";
+            if (isNarrow) return "m";
+        }
+        else if (string.Equals(unitName, "second", StringComparison.Ordinal))
+        {
+            if (isLong) return isPlural ? "seconds" : "second";
+            if (isShort) return "sec";
+            if (isNarrow) return "s";
+        }
+        else if (string.Equals(unitName, "millisecond", StringComparison.Ordinal))
+        {
+            if (isLong) return isPlural ? "milliseconds" : "millisecond";
+            return "ms";
+        }
+        else if (string.Equals(unitName, "microsecond", StringComparison.Ordinal))
+        {
+            if (isLong) return isPlural ? "microseconds" : "microsecond";
+            return "μs";
+        }
+        else if (string.Equals(unitName, "nanosecond", StringComparison.Ordinal))
+        {
+            if (isLong) return isPlural ? "nanoseconds" : "nanosecond";
+            return "ns";
+        }
+
+        return unitName;
     }
 
     [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]

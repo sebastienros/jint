@@ -91,20 +91,79 @@ internal sealed class DurationFormatPrototype : Prototype
         var result = OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
 
         result.Set("locale", durationFormat.Locale);
+        result.Set("numberingSystem", durationFormat.NumberingSystem);
         result.Set("style", durationFormat.Style);
-        result.Set("numberingSystem", "latn");
+
+        // Unit styles
+        result.Set("years", durationFormat.YearsStyle);
+        result.Set("yearsDisplay", durationFormat.YearsDisplay);
+        result.Set("months", durationFormat.MonthsStyle);
+        result.Set("monthsDisplay", durationFormat.MonthsDisplay);
+        result.Set("weeks", durationFormat.WeeksStyle);
+        result.Set("weeksDisplay", durationFormat.WeeksDisplay);
+        result.Set("days", durationFormat.DaysStyle);
+        result.Set("daysDisplay", durationFormat.DaysDisplay);
+        result.Set("hours", durationFormat.HoursStyle);
+        result.Set("hoursDisplay", durationFormat.HoursDisplay);
+        result.Set("minutes", durationFormat.MinutesStyle);
+        result.Set("minutesDisplay", durationFormat.MinutesDisplay);
+        result.Set("seconds", durationFormat.SecondsStyle);
+        result.Set("secondsDisplay", durationFormat.SecondsDisplay);
+        result.Set("milliseconds", durationFormat.MillisecondsStyle);
+        result.Set("millisecondsDisplay", durationFormat.MillisecondsDisplay);
+        result.Set("microseconds", durationFormat.MicrosecondsStyle);
+        result.Set("microsecondsDisplay", durationFormat.MicrosecondsDisplay);
+        result.Set("nanoseconds", durationFormat.NanosecondsStyle);
+        result.Set("nanosecondsDisplay", durationFormat.NanosecondsDisplay);
+
+        // Fractional digits
+        if (durationFormat.FractionalDigits.HasValue)
+        {
+            result.Set("fractionalDigits", durationFormat.FractionalDigits.Value);
+        }
 
         return result;
     }
 
+    private static readonly string[] DurationProperties =
+    [
+        "years", "months", "weeks", "days", "hours", "minutes",
+        "seconds", "milliseconds", "microseconds", "nanoseconds"
+    ];
+
     private JsDurationFormat.DurationRecord ToDurationRecord(JsValue value)
     {
+        // Per spec: if input is a string, try to parse it as a duration
+        if (value.IsString())
+        {
+            // String durations not yet supported - throw RangeError
+            Throw.RangeError(_realm, "Duration string parsing is not supported");
+        }
+
         if (!value.IsObject())
         {
             Throw.TypeError(_realm, "Duration must be an object");
         }
 
         var obj = value.AsObject();
+
+        // Check if at least one duration property is defined and not undefined
+        var hasDefinedProperty = false;
+        foreach (var prop in DurationProperties)
+        {
+            var propValue = obj.Get(prop);
+            if (!propValue.IsUndefined())
+            {
+                hasDefinedProperty = true;
+                break;
+            }
+        }
+
+        if (!hasDefinedProperty)
+        {
+            Throw.TypeError(_realm, "Duration must have at least one duration property defined");
+        }
+
         var record = new JsDurationFormat.DurationRecord();
 
         record.Years = GetDurationComponent(obj, "years");
@@ -118,10 +177,45 @@ internal sealed class DurationFormatPrototype : Prototype
         record.Microseconds = GetDurationComponent(obj, "microseconds");
         record.Nanoseconds = GetDurationComponent(obj, "nanoseconds");
 
-        // Validate that not all components are zero or that the duration is valid
-        // (For now we allow any combination)
+        // Validate the duration record per spec (IsValidDurationRecord)
+        ValidateDurationRecord(record);
 
         return record;
+    }
+
+    private void ValidateDurationRecord(JsDurationFormat.DurationRecord record)
+    {
+        const long MaxYearsMonthsWeeks = 4294967296L; // 2^32
+
+        // Check if years, months, weeks are in valid range
+        if (System.Math.Abs(record.Years) >= MaxYearsMonthsWeeks)
+        {
+            Throw.RangeError(_realm, "years value out of range");
+        }
+        if (System.Math.Abs(record.Months) >= MaxYearsMonthsWeeks)
+        {
+            Throw.RangeError(_realm, "months value out of range");
+        }
+        if (System.Math.Abs(record.Weeks) >= MaxYearsMonthsWeeks)
+        {
+            Throw.RangeError(_realm, "weeks value out of range");
+        }
+
+        // Check for mixed positive and negative values
+        var hasPositive = record.Years > 0 || record.Months > 0 || record.Weeks > 0 ||
+                         record.Days > 0 || record.Hours > 0 || record.Minutes > 0 ||
+                         record.Seconds > 0 || record.Milliseconds > 0 ||
+                         record.Microseconds > 0 || record.Nanoseconds > 0;
+
+        var hasNegative = record.Years < 0 || record.Months < 0 || record.Weeks < 0 ||
+                         record.Days < 0 || record.Hours < 0 || record.Minutes < 0 ||
+                         record.Seconds < 0 || record.Milliseconds < 0 ||
+                         record.Microseconds < 0 || record.Nanoseconds < 0;
+
+        if (hasPositive && hasNegative)
+        {
+            Throw.RangeError(_realm, "Duration cannot have mixed positive and negative values");
+        }
     }
 
     private long GetDurationComponent(ObjectInstance obj, string property)

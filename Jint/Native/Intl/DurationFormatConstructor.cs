@@ -17,6 +17,10 @@ internal sealed class DurationFormatConstructor : Constructor
     private static readonly JsString _functionName = new("DurationFormat");
     private static readonly string[] LocaleMatcherValues = ["lookup", "best fit"];
     private static readonly string[] StyleValues = ["long", "short", "narrow", "digital"];
+    private static readonly string[] UnitStyleValues = ["long", "short", "narrow"];
+    private static readonly string[] UnitStyleWithNumericValues = ["long", "short", "narrow", "numeric", "2-digit"];
+    private static readonly string[] SubSecondStyleValues = ["long", "short", "narrow", "numeric"];
+    private static readonly string[] DisplayValues = ["auto", "always"];
 
     public DurationFormatConstructor(
         Engine engine,
@@ -47,7 +51,8 @@ internal sealed class DurationFormatConstructor : Constructor
     /// </summary>
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
-        return Construct(arguments, this);
+        Throw.TypeError(_realm, "Constructor Intl.DurationFormat requires 'new'");
+        return Undefined;
     }
 
     /// <summary>
@@ -64,13 +69,114 @@ internal sealed class DurationFormatConstructor : Constructor
         // Validate localeMatcher option
         GetStringOption(optionsObj, "localeMatcher", LocaleMatcherValues, "best fit");
 
+        // Get numberingSystem option
+        var numberingSystem = GetStringOption(optionsObj, "numberingSystem", null, "latn");
+
         // Resolve locale
         var requestedLocales = IntlUtilities.CanonicalizeLocaleList(_engine, locales);
         var availableLocales = IntlUtilities.GetAvailableLocales();
         var resolved = IntlUtilities.ResolveLocale(_engine, availableLocales, requestedLocales, options, []);
 
-        // Get style option
+        // Get style option (must be read before unit options per spec)
         var style = GetStringOption(optionsObj, "style", StyleValues, "short");
+
+        // Determine base style based on overall style
+        var baseStyle = style switch
+        {
+            "digital" => "numeric",
+            _ => style // "long", "short", "narrow"
+        };
+        var isDigital = string.Equals(style, "digital", StringComparison.Ordinal);
+
+        // Helper to check if a style is numeric-like
+        bool IsNumericLike(string s) =>
+            string.Equals(s, "numeric", StringComparison.Ordinal) ||
+            string.Equals(s, "2-digit", StringComparison.Ordinal);
+
+        // Helper to check if a style is numeric-like or fractional (for sub-second units)
+        bool IsNumericLikeOrFractional(string s) =>
+            IsNumericLike(s) ||
+            string.Equals(s, "fractional", StringComparison.Ordinal);
+
+        // Get unit style options with cascading defaults per spec (GetDurationUnitOptions)
+        // Years/months/weeks/days use long/short/narrow styles only
+        var yearsStyle = GetStringOption(optionsObj, "years", UnitStyleValues, isDigital ? "short" : baseStyle);
+        var yearsDisplay = GetStringOption(optionsObj, "yearsDisplay", DisplayValues, "auto");
+
+        var monthsStyle = GetStringOption(optionsObj, "months", UnitStyleValues, isDigital ? "short" : baseStyle);
+        var monthsDisplay = GetStringOption(optionsObj, "monthsDisplay", DisplayValues, "auto");
+
+        var weeksStyle = GetStringOption(optionsObj, "weeks", UnitStyleValues, isDigital ? "short" : baseStyle);
+        var weeksDisplay = GetStringOption(optionsObj, "weeksDisplay", DisplayValues, "auto");
+
+        var daysStyle = GetStringOption(optionsObj, "days", UnitStyleValues, isDigital ? "short" : baseStyle);
+        var daysDisplay = GetStringOption(optionsObj, "daysDisplay", DisplayValues, "auto");
+
+        // Hours can use numeric/2-digit
+        var hoursDefault = isDigital ? "numeric" : baseStyle;
+        var hoursStyle = GetStringOption(optionsObj, "hours", UnitStyleWithNumericValues, hoursDefault);
+        var hoursDisplay = GetStringOption(optionsObj, "hoursDisplay", DisplayValues, "auto");
+        var prevStyle = hoursStyle;
+
+        // Minutes/seconds: default to 2-digit if previous is numeric-like
+        // Per spec: if previous is numeric/2-digit, current cannot be long/short/narrow
+        var minutesDefault = IsNumericLike(prevStyle) ? "2-digit" : (isDigital ? "numeric" : baseStyle);
+        var minutesStyle = GetStringOption(optionsObj, "minutes", UnitStyleWithNumericValues, minutesDefault);
+        var minutesDisplay = GetStringOption(optionsObj, "minutesDisplay", DisplayValues, "auto");
+        if (IsNumericLike(prevStyle) && !IsNumericLike(minutesStyle))
+        {
+            Throw.RangeError(_realm, "minutes style must be numeric or 2-digit when hours uses numeric or 2-digit");
+        }
+        prevStyle = minutesStyle;
+
+        var secondsDefault = IsNumericLike(prevStyle) ? "2-digit" : (isDigital ? "numeric" : baseStyle);
+        var secondsStyle = GetStringOption(optionsObj, "seconds", UnitStyleWithNumericValues, secondsDefault);
+        var secondsDisplay = GetStringOption(optionsObj, "secondsDisplay", DisplayValues, "auto");
+        if (IsNumericLike(prevStyle) && !IsNumericLike(secondsStyle))
+        {
+            Throw.RangeError(_realm, "seconds style must be numeric or 2-digit when minutes uses numeric or 2-digit");
+        }
+        prevStyle = secondsStyle;
+
+        // Sub-second units: default to numeric if previous is numeric-like
+        var millisecondsDefault = IsNumericLike(prevStyle) ? "numeric" : (isDigital ? "numeric" : baseStyle);
+        var millisecondsStyle = GetStringOption(optionsObj, "milliseconds", SubSecondStyleValues, millisecondsDefault);
+        var millisecondsDisplay = GetStringOption(optionsObj, "millisecondsDisplay", DisplayValues, "auto");
+        if (IsNumericLike(prevStyle) && !IsNumericLikeOrFractional(millisecondsStyle))
+        {
+            Throw.RangeError(_realm, "milliseconds style must be numeric when seconds uses numeric or 2-digit");
+        }
+        prevStyle = millisecondsStyle;
+
+        var microsecondsDefault = IsNumericLike(prevStyle) ? "numeric" : (isDigital ? "numeric" : baseStyle);
+        var microsecondsStyle = GetStringOption(optionsObj, "microseconds", SubSecondStyleValues, microsecondsDefault);
+        var microsecondsDisplay = GetStringOption(optionsObj, "microsecondsDisplay", DisplayValues, "auto");
+        if (IsNumericLikeOrFractional(prevStyle) && !IsNumericLikeOrFractional(microsecondsStyle))
+        {
+            Throw.RangeError(_realm, "microseconds style must be numeric when milliseconds uses numeric");
+        }
+        prevStyle = microsecondsStyle;
+
+        var nanosecondsDefault = IsNumericLike(prevStyle) ? "numeric" : (isDigital ? "numeric" : baseStyle);
+        var nanosecondsStyle = GetStringOption(optionsObj, "nanoseconds", SubSecondStyleValues, nanosecondsDefault);
+        var nanosecondsDisplay = GetStringOption(optionsObj, "nanosecondsDisplay", DisplayValues, "auto");
+        if (IsNumericLikeOrFractional(prevStyle) && !IsNumericLikeOrFractional(nanosecondsStyle))
+        {
+            Throw.RangeError(_realm, "nanoseconds style must be numeric when microseconds uses numeric");
+        }
+
+        // Get fractionalDigits option
+        int? fractionalDigits = null;
+        var fractionalDigitsValue = optionsObj.Get("fractionalDigits");
+        if (!fractionalDigitsValue.IsUndefined())
+        {
+            var fd = TypeConverter.ToNumber(fractionalDigitsValue);
+            if (double.IsNaN(fd) || fd < 0 || fd > 9)
+            {
+                Throw.RangeError(_realm, "fractionalDigits must be between 0 and 9");
+            }
+            fractionalDigits = (int) System.Math.Floor(fd);
+        }
 
         // Get CultureInfo for the locale
         var culture = IntlUtilities.GetCultureInfo(resolved.Locale) ?? CultureInfo.InvariantCulture;
@@ -80,7 +186,32 @@ internal sealed class DurationFormatConstructor : Constructor
             PrototypeObject,
             resolved.Locale,
             style,
-            culture);
+            numberingSystem,
+            culture,
+            // Unit styles
+            yearsStyle,
+            monthsStyle,
+            weeksStyle,
+            daysStyle,
+            hoursStyle,
+            minutesStyle,
+            secondsStyle,
+            millisecondsStyle,
+            microsecondsStyle,
+            nanosecondsStyle,
+            // Unit displays
+            yearsDisplay,
+            monthsDisplay,
+            weeksDisplay,
+            daysDisplay,
+            hoursDisplay,
+            minutesDisplay,
+            secondsDisplay,
+            millisecondsDisplay,
+            microsecondsDisplay,
+            nanosecondsDisplay,
+            // Fractional digits
+            fractionalDigits);
     }
 
     private string GetStringOption(ObjectInstance options, string property, string[]? values, string fallback)
