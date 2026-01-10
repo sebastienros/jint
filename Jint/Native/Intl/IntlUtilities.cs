@@ -21,6 +21,181 @@ internal static class IntlUtilities
         TimeSpan.FromMilliseconds(100));
 
     /// <summary>
+    /// Grandfathered tags that map to canonical forms.
+    /// From IANA Language Subtag Registry / BCP 47.
+    /// </summary>
+    private static readonly Dictionary<string, string> GrandfatheredTags = new(StringComparer.OrdinalIgnoreCase)
+    {
+        // Regular grandfathered tags
+        { "art-lojban", "jbo" },
+        { "cel-gaulish", "xtg" },
+        { "no-bok", "nb" },
+        { "no-nyn", "nn" },
+        { "zh-guoyu", "zh" },
+        { "zh-hakka", "hak" },
+        { "zh-min", "nan" },
+        { "zh-min-nan", "nan" },
+        { "zh-xiang", "hsn" },
+        // Sign language grandfathered tags
+        { "sgn-BE-FR", "sfb" },
+        { "sgn-BE-NL", "vgt" },
+        { "sgn-BR", "bzs" },
+        { "sgn-CH-DE", "sgg" },
+        { "sgn-CO", "csn" },
+        { "sgn-DE", "gsg" },
+        { "sgn-DK", "dsl" },
+        { "sgn-ES", "ssp" },
+        { "sgn-FR", "fsl" },
+        { "sgn-GB", "bfi" },
+        { "sgn-GR", "gss" },
+        { "sgn-IE", "isg" },
+        { "sgn-IT", "ise" },
+        { "sgn-JP", "jsl" },
+        { "sgn-MX", "mfs" },
+        { "sgn-NI", "ncs" },
+        { "sgn-NL", "dse" },
+        { "sgn-NO", "nsl" },
+        { "sgn-PT", "psr" },
+        { "sgn-SE", "swl" },
+        { "sgn-US", "ase" },
+        { "sgn-ZA", "sfs" },
+    };
+
+    /// <summary>
+    /// Language aliases from CLDR supplemental/languageAlias.xml.
+    /// Maps deprecated/legacy language codes to their canonical replacements.
+    /// </summary>
+    private static readonly Dictionary<string, string> LanguageAliases = new(StringComparer.OrdinalIgnoreCase)
+    {
+        // ISO 639-3 to macrolanguage mappings
+        { "cmn", "zh" },           // Mandarin Chinese -> Chinese
+        { "arb", "ar" },           // Standard Arabic -> Arabic
+        { "swh", "sw" },           // Swahili -> Swahili macrolanguage
+        { "zsm", "ms" },           // Standard Malay -> Malay
+
+        // Legacy/deprecated codes
+        { "ji", "yi" },            // Yiddish (legacy)
+        { "iw", "he" },            // Hebrew (legacy ISO 639-1)
+        { "in", "id" },            // Indonesian (legacy ISO 639-1)
+        { "jw", "jv" },            // Javanese (legacy)
+        { "mo", "ro" },            // Moldavian (now Romanian)
+        { "tl", "fil" },           // Tagalog -> Filipino (debatable, but per CLDR)
+        { "sh", "sr-Latn" },       // Serbo-Croatian -> Serbian Latin
+
+        // Other mappings
+        { "aar", "aa" },
+        { "abk", "ab" },
+        { "afr", "af" },
+        { "aka", "ak" },
+        { "amh", "am" },
+        { "ara", "ar" },
+        { "aze", "az" },
+        { "bel", "be" },
+        { "ben", "bn" },
+        { "bod", "bo" },
+        { "bos", "bs" },
+        { "bul", "bg" },
+        { "cat", "ca" },
+        { "ces", "cs" },
+        { "cym", "cy" },
+        { "dan", "da" },
+        { "deu", "de" },
+        { "ell", "el" },
+        { "eng", "en" },
+        { "est", "et" },
+        { "eus", "eu" },
+        { "fas", "fa" },
+        { "fin", "fi" },
+        { "fra", "fr" },
+        { "gle", "ga" },
+        { "glg", "gl" },
+        { "guj", "gu" },
+        { "heb", "he" },
+        { "hin", "hi" },
+        { "hrv", "hr" },
+        { "hun", "hu" },
+        { "hye", "hy" },
+        { "ind", "id" },
+        { "isl", "is" },
+        { "ita", "it" },
+        { "jav", "jv" },
+        { "jpn", "ja" },
+        { "kan", "kn" },
+        { "kat", "ka" },
+        { "kaz", "kk" },
+        { "khm", "km" },
+        { "kor", "ko" },
+        { "lao", "lo" },
+        { "lat", "la" },
+        { "lav", "lv" },
+        { "lit", "lt" },
+        { "mal", "ml" },
+        { "mar", "mr" },
+        { "mkd", "mk" },
+        { "mlt", "mt" },
+        { "mon", "mn" },
+        { "msa", "ms" },
+        { "mya", "my" },
+        { "nep", "ne" },
+        { "nld", "nl" },
+        { "nor", "no" },
+        { "pan", "pa" },
+        { "pol", "pl" },
+        { "por", "pt" },
+        { "pus", "ps" },
+        { "ron", "ro" },
+        { "rus", "ru" },
+        { "sin", "si" },
+        { "slk", "sk" },
+        { "slv", "sl" },
+        { "som", "so" },
+        { "spa", "es" },
+        { "sqi", "sq" },
+        { "srp", "sr" },
+        { "swa", "sw" },
+        { "swe", "sv" },
+        { "tam", "ta" },
+        { "tel", "te" },
+        { "tha", "th" },
+        { "tur", "tr" },
+        { "ukr", "uk" },
+        { "urd", "ur" },
+        { "uzb", "uz" },
+        { "vie", "vi" },
+        { "yid", "yi" },
+        { "zho", "zh" },
+        { "zul", "zu" },
+    };
+
+    /// <summary>
+    /// Region aliases from CLDR supplemental/territoryAlias.xml.
+    /// Maps deprecated/legacy region codes to their canonical replacements.
+    /// </summary>
+    private static readonly Dictionary<string, string> RegionAliases = new(StringComparer.OrdinalIgnoreCase)
+    {
+        // Historical region codes that have been replaced
+        { "DD", "DE" },    // East Germany -> Germany
+        { "YD", "YE" },    // South Yemen -> Yemen
+        { "AN", "CW" },    // Netherlands Antilles -> Curacao (simplified)
+        { "CS", "RS" },    // Serbia and Montenegro -> Serbia
+        { "YU", "RS" },    // Yugoslavia -> Serbia
+        { "TP", "TL" },    // East Timor (old) -> Timor-Leste
+        { "ZR", "CD" },    // Zaire -> Democratic Republic of Congo
+        { "BU", "MM" },    // Burma -> Myanmar
+        { "SU", "RU" },    // Soviet Union -> Russia (simplified)
+        { "FX", "FR" },    // Metropolitan France -> France
+    };
+
+    /// <summary>
+    /// T extension value aliases for deprecated values.
+    /// From CLDR supplemental/alias.xml (tvalueAlias).
+    /// </summary>
+    private static readonly Dictionary<string, string> TValueAliases = new(StringComparer.OrdinalIgnoreCase)
+    {
+        { "names", "prprname" },  // m0-names -> m0-prprname
+    };
+
+    /// <summary>
     /// https://tc39.es/ecma402/#sec-canonicalizelocalelist
     /// </summary>
     internal static List<string> CanonicalizeLocaleList(Engine engine, JsValue locales)
@@ -168,56 +343,366 @@ internal static class IntlUtilities
     /// </summary>
     private static string CanonicalizeUnicodeLocaleId(string locale)
     {
-        // Extract and preserve unicode extensions (-u-...)
-        string? unicodeExtension = null;
-        var uIndex = locale.IndexOf("-u-", StringComparison.OrdinalIgnoreCase);
-        if (uIndex >= 0)
+        // 1. Check grandfathered tags first (highest priority)
+        if (GrandfatheredTags.TryGetValue(locale, out var grandfatheredReplacement))
         {
-            // Find where the extension ends (at the next singleton or end of string)
-            var extensionEnd = locale.Length;
-            for (var i = uIndex + 3; i < locale.Length - 1; i++)
-            {
-                if (locale[i] == '-' && i + 2 < locale.Length && locale[i + 2] == '-')
-                {
-                    // Found another singleton (single char followed by -)
-                    extensionEnd = i;
-                    break;
-                }
-            }
-            unicodeExtension = locale.Substring(uIndex, extensionEnd - uIndex);
-            var basePart = locale.Substring(0, uIndex);
-            var suffixPart = extensionEnd < locale.Length ? locale.Substring(extensionEnd) : "";
-            locale = basePart + suffixPart;
+            return grandfatheredReplacement;
         }
 
-        // Try to map to a CultureInfo and back to get canonical form
-        string canonicalBase;
-        try
+        // 2. Parse the locale into components
+        var parsed = ParseLanguageTag(locale);
+
+        // 3. Apply language aliasing
+        if (parsed.Language != null && LanguageAliases.TryGetValue(parsed.Language, out var langReplacement))
         {
-            var culture = GetCultureInfo(locale);
-            if (culture != null && !string.IsNullOrEmpty(culture.Name))
+            // Handle complex replacements like "sh" -> "sr-Latn"
+            if (langReplacement.Contains('-'))
             {
-                // Use the culture's name which is the canonical BCP 47 tag
-                canonicalBase = culture.Name;
+                var replacementParts = langReplacement.Split('-');
+                parsed.Language = replacementParts[0];
+                // Add script from replacement if not already present
+                if (replacementParts.Length > 1 && parsed.Script == null)
+                {
+                    parsed.Script = replacementParts[1];
+                }
             }
             else
             {
-                canonicalBase = CanonicalizeLanguageTag(locale);
+                parsed.Language = langReplacement;
             }
         }
-        catch
+
+        // 4. Apply region aliasing
+        if (parsed.Region != null && RegionAliases.TryGetValue(parsed.Region, out var regionReplacement))
         {
-            // Fall through to manual canonicalization
-            canonicalBase = CanonicalizeLanguageTag(locale);
+            parsed.Region = regionReplacement;
         }
 
-        // Re-append unicode extension if present
-        if (unicodeExtension != null)
+        // 5. Sort variant subtags alphabetically (per ECMA-402)
+        if (parsed.Variants != null && parsed.Variants.Count > 1)
         {
-            return canonicalBase + unicodeExtension.ToLowerInvariant();
+            parsed.Variants.Sort(StringComparer.OrdinalIgnoreCase);
         }
 
-        return canonicalBase;
+        // 6. Canonicalize extensions
+        CanonicalizeExtensions(parsed);
+
+        // 7. Build canonical tag
+        return BuildCanonicalTag(parsed);
+    }
+
+    /// <summary>
+    /// Parses a BCP 47 language tag into its components.
+    /// </summary>
+    private static ParsedLanguageTag ParseLanguageTag(string tag)
+    {
+        var result = new ParsedLanguageTag();
+        var parts = tag.Split('-');
+        var index = 0;
+
+        if (parts.Length == 0)
+        {
+            return result;
+        }
+
+        // Language subtag (first part)
+        result.Language = parts[index++].ToLowerInvariant();
+
+        // Subsequent parts
+        while (index < parts.Length)
+        {
+            var part = parts[index];
+            var partLower = part.ToLowerInvariant();
+
+            // Check for singleton (extension indicator)
+            if (part.Length == 1)
+            {
+                // Start of extension sequence
+                var extensionType = partLower[0];
+                var extensionParts = new List<string> { partLower };
+                index++;
+
+                if (extensionType == 'x')
+                {
+                    // Private use extension: collect ALL remaining parts
+                    while (index < parts.Length)
+                    {
+                        extensionParts.Add(parts[index].ToLowerInvariant());
+                        index++;
+                    }
+                }
+                else
+                {
+                    // Other extensions: collect until next singleton or end
+                    while (index < parts.Length && parts[index].Length != 1)
+                    {
+                        extensionParts.Add(parts[index].ToLowerInvariant());
+                        index++;
+                    }
+                }
+
+                result.Extensions ??= new List<ExtensionSubtag>();
+                result.Extensions.Add(new ExtensionSubtag { Type = extensionType, Parts = extensionParts });
+            }
+            else if (part.Length == 4 && char.IsLetter(part[0]) && result.Script == null && result.Region == null && (result.Variants == null || result.Variants.Count == 0))
+            {
+                // Script subtag (4 letters, title case)
+                result.Script = char.ToUpperInvariant(part[0]) + partLower.Substring(1);
+                index++;
+            }
+            else if ((part.Length == 2 && char.IsLetter(part[0])) || (part.Length == 3 && char.IsDigit(part[0])))
+            {
+                // Region subtag (2 letters uppercase or 3 digits)
+                if (result.Region == null && (result.Variants == null || result.Variants.Count == 0))
+                {
+                    result.Region = part.Length == 2 ? part.ToUpperInvariant() : part;
+                    index++;
+                }
+                else
+                {
+                    // It's a variant
+                    result.Variants ??= new List<string>();
+                    result.Variants.Add(partLower);
+                    index++;
+                }
+            }
+            else
+            {
+                // Variant subtag (5-8 alphanumeric, 4 starting with digit, or unknown)
+                result.Variants ??= new List<string>();
+                result.Variants.Add(partLower);
+                index++;
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Canonicalizes extensions (u, t, x, etc.).
+    /// </summary>
+    private static void CanonicalizeExtensions(ParsedLanguageTag parsed)
+    {
+        if (parsed.Extensions == null)
+        {
+            return;
+        }
+
+        for (var i = 0; i < parsed.Extensions.Count; i++)
+        {
+            var ext = parsed.Extensions[i];
+            var type = ext.Type;
+            var parts = ext.Parts;
+
+            if (type == 't' && parts.Count > 1)
+            {
+                // T extension: canonicalize tlang and tfield subtags
+                var newParts = new List<string> { "t" };
+                var tfields = new List<KeyValueParts>();
+                string? currentKey = null;
+                var currentValues = new List<string>();
+                var tlangParts = new List<string>();
+                var inTlang = true;
+
+                for (var j = 1; j < parts.Count; j++)
+                {
+                    var part = parts[j];
+
+                    // tkey is exactly 2 chars, first is alpha, second is digit
+                    if (part.Length == 2 && char.IsLetter(part[0]) && char.IsDigit(part[1]))
+                    {
+                        // This is a tkey
+                        inTlang = false;
+
+                        if (currentKey != null)
+                        {
+                            tfields.Add(new KeyValueParts { Key = currentKey, Values = currentValues });
+                            currentValues = new List<string>();
+                        }
+                        currentKey = part;
+                    }
+                    else if (inTlang)
+                    {
+                        // Part of tlang
+                        tlangParts.Add(part);
+                    }
+                    else
+                    {
+                        // Part of tvalue - apply value aliasing
+                        if (TValueAliases.TryGetValue(part, out var alias))
+                        {
+                            currentValues.Add(alias);
+                        }
+                        else
+                        {
+                            currentValues.Add(part);
+                        }
+                    }
+                }
+
+                // Save last tfield
+                if (currentKey != null)
+                {
+                    tfields.Add(new KeyValueParts { Key = currentKey, Values = currentValues });
+                }
+
+                // Canonicalize tlang if present
+                if (tlangParts.Count > 0)
+                {
+                    // Apply language aliasing to tlang
+                    if (LanguageAliases.TryGetValue(tlangParts[0], out var tlangReplacement))
+                    {
+                        tlangParts[0] = tlangReplacement;
+                    }
+                    foreach (var tlp in tlangParts)
+                    {
+                        newParts.Add(tlp);
+                    }
+                }
+
+                // Sort tfields alphabetically by tkey
+                tfields.Sort((a, b) => string.Compare(a.Key, b.Key, StringComparison.Ordinal));
+
+                // Add sorted tfields
+                foreach (var kv in tfields)
+                {
+                    newParts.Add(kv.Key);
+                    newParts.AddRange(kv.Values);
+                }
+
+                parsed.Extensions[i] = new ExtensionSubtag { Type = type, Parts = newParts };
+            }
+            else if (type == 'u')
+            {
+                // U extension: sort keywords alphabetically
+                var newParts = new List<string> { "u" };
+                var attributes = new List<string>();
+                var keywords = new List<KeyValueParts>();
+                string? currentKey = null;
+                var currentValues = new List<string>();
+
+                for (var j = 1; j < parts.Count; j++)
+                {
+                    var part = parts[j];
+
+                    // ukey is exactly 2 chars, both alpha
+                    if (part.Length == 2 && char.IsLetter(part[0]) && char.IsLetter(part[1]) && currentKey == null && keywords.Count == 0 && attributes.Count == 0 && j == 1)
+                    {
+                        // Could be first keyword key
+                        currentKey = part;
+                    }
+                    else if (part.Length == 2 && char.IsLetter(part[0]) && char.IsLetter(part[1]))
+                    {
+                        // This is a ukey
+                        if (currentKey != null)
+                        {
+                            keywords.Add(new KeyValueParts { Key = currentKey, Values = currentValues });
+                            currentValues = new List<string>();
+                        }
+                        currentKey = part;
+                    }
+                    else if (currentKey == null)
+                    {
+                        // Attribute (before any keywords)
+                        attributes.Add(part);
+                    }
+                    else
+                    {
+                        // Part of uvalue
+                        currentValues.Add(part);
+                    }
+                }
+
+                // Save last keyword
+                if (currentKey != null)
+                {
+                    keywords.Add(new KeyValueParts { Key = currentKey, Values = currentValues });
+                }
+
+                // Add sorted attributes
+                attributes.Sort(StringComparer.Ordinal);
+                newParts.AddRange(attributes);
+
+                // Sort keywords alphabetically by key
+                keywords.Sort((a, b) => string.Compare(a.Key, b.Key, StringComparison.Ordinal));
+
+                // Add sorted keywords
+                foreach (var kv in keywords)
+                {
+                    newParts.Add(kv.Key);
+                    newParts.AddRange(kv.Values);
+                }
+
+                parsed.Extensions[i] = new ExtensionSubtag { Type = type, Parts = newParts };
+            }
+        }
+
+        // Sort extensions by singleton (t before u before x, etc.)
+        parsed.Extensions.Sort((a, b) => a.Type.CompareTo(b.Type));
+    }
+
+    /// <summary>
+    /// Builds a canonical BCP 47 tag from parsed components.
+    /// </summary>
+    private static string BuildCanonicalTag(ParsedLanguageTag parsed)
+    {
+        var result = new List<string>();
+
+        // Language
+        if (parsed.Language != null)
+        {
+            result.Add(parsed.Language);
+        }
+
+        // Script
+        if (parsed.Script != null)
+        {
+            result.Add(parsed.Script);
+        }
+
+        // Region
+        if (parsed.Region != null)
+        {
+            result.Add(parsed.Region);
+        }
+
+        // Variants (already sorted)
+        if (parsed.Variants != null)
+        {
+            result.AddRange(parsed.Variants);
+        }
+
+        // Extensions (already sorted)
+        if (parsed.Extensions != null)
+        {
+            foreach (var ext in parsed.Extensions)
+            {
+                result.AddRange(ext.Parts);
+            }
+        }
+
+        return string.Join("-", result);
+    }
+
+    private sealed class ParsedLanguageTag
+    {
+        public string? Language { get; set; }
+        public string? Script { get; set; }
+        public string? Region { get; set; }
+        public List<string>? Variants { get; set; }
+        public List<ExtensionSubtag>? Extensions { get; set; }
+    }
+
+    private sealed class ExtensionSubtag
+    {
+        public char Type { get; set; }
+        public List<string> Parts { get; set; } = new List<string>();
+    }
+
+    private sealed class KeyValueParts
+    {
+        public string Key { get; set; } = "";
+        public List<string> Values { get; set; } = new List<string>();
     }
 
     /// <summary>
