@@ -5,6 +5,21 @@ using Jint.Native.Object;
 namespace Jint.Native.Intl;
 
 /// <summary>
+/// Represents a part of a formatted number for formatToParts.
+/// </summary>
+internal readonly struct NumberFormatPart
+{
+    public string Type { get; }
+    public string Value { get; }
+
+    public NumberFormatPart(string type, string value)
+    {
+        Type = type;
+        Value = value;
+    }
+}
+
+/// <summary>
 /// https://tc39.es/ecma402/#sec-numberformat-objects
 /// Represents an Intl.NumberFormat instance with locale-aware number formatting.
 /// </summary>
@@ -244,6 +259,10 @@ internal sealed class JsNumberFormat : ObjectInstance
 
         var multiplier = System.Math.Pow(10, decimalPlaces);
         var scaled = value * multiplier;
+
+        // Fix floating point precision issues by rounding to a reasonable number of decimal places
+        // This handles cases like 1.15 * 100 = 114.99999999999999
+        scaled = System.Math.Round(scaled, 10);
 
         // Apply rounding increment if specified
         if (RoundingIncrement > 1)
@@ -582,17 +601,21 @@ internal sealed class JsNumberFormat : ObjectInstance
         var decimalPlaces = maxSigDigits - magnitude - 1;
 
         // Round to the required number of significant digits
+        // Apply rounding to the ORIGINAL value (with sign) for directional rounding modes
         double rounded;
         if (decimalPlaces >= 0)
         {
-            rounded = ApplyRounding(absValue, decimalPlaces);
+            rounded = ApplyRounding(value, decimalPlaces);
         }
         else
         {
             // Need to round to whole numbers or higher
             var divisor = System.Math.Pow(10, -decimalPlaces);
-            rounded = ApplyRounding(absValue / divisor, 0) * divisor;
+            rounded = ApplyRounding(value / divisor, 0) * divisor;
         }
+
+        // After rounding, take absolute value for formatting
+        rounded = System.Math.Abs(rounded);
 
         // Format the result
         string result;
@@ -874,6 +897,470 @@ internal sealed class JsNumberFormat : ObjectInstance
             "fahrenheit" => "°F",
             "percent" => "%",
             _ => unit
+        };
+    }
+
+    /// <summary>
+    /// Formats a number and returns an array of parts.
+    /// https://tc39.es/ecma402/#sec-partitionnumberpattern
+    /// </summary>
+    internal List<NumberFormatPart> FormatToParts(double value)
+    {
+        var parts = new List<NumberFormatPart>();
+
+        // Handle special values
+        if (double.IsNaN(value))
+        {
+            parts.Add(new NumberFormatPart("nan", NumberFormatInfo.NaNSymbol));
+            return parts;
+        }
+
+        if (double.IsPositiveInfinity(value))
+        {
+            parts.Add(new NumberFormatPart("infinity", NumberFormatInfo.PositiveInfinitySymbol));
+            return parts;
+        }
+
+        if (double.IsNegativeInfinity(value))
+        {
+            parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
+            parts.Add(new NumberFormatPart("infinity", NumberFormatInfo.PositiveInfinitySymbol));
+            return parts;
+        }
+
+        // Handle different styles
+        return Style switch
+        {
+            "currency" => FormatCurrencyToParts(value),
+            "percent" => FormatPercentToParts(value),
+            "unit" => FormatUnitToParts(value),
+            _ => FormatDecimalToParts(value)
+        };
+    }
+
+    private List<NumberFormatPart> FormatDecimalToParts(double value)
+    {
+        var parts = new List<NumberFormatPart>();
+
+        // Handle sign
+        var isNegative = value < 0;
+        if (isNegative)
+        {
+            parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
+            value = System.Math.Abs(value);
+        }
+        else if (ShouldShowPlusSign(value))
+        {
+            parts.Add(new NumberFormatPart("plusSign", NumberFormatInfo.PositiveSign));
+        }
+
+        // Handle significant digits if specified
+        if (MinimumSignificantDigits.HasValue || MaximumSignificantDigits.HasValue)
+        {
+            FormatWithSignificantDigitsToParts(parts, value);
+            return parts;
+        }
+
+        // Apply rounding
+        value = ApplyRounding(value, MaximumFractionDigits);
+
+        // Split into integer and fraction parts
+        var integerPart = (long) System.Math.Truncate(value);
+        var fractionValue = value - integerPart;
+
+        // Format integer part with grouping
+        FormatIntegerToParts(parts, integerPart);
+
+        // Format fraction part if needed
+        if (MinimumFractionDigits > 0 || (fractionValue > 0 && MaximumFractionDigits > 0))
+        {
+            parts.Add(new NumberFormatPart("decimal", NumberFormatInfo.NumberDecimalSeparator));
+            FormatFractionToParts(parts, fractionValue);
+        }
+
+        return parts;
+    }
+
+    /// <summary>
+    /// Formats a number with significant digits and adds parts to the list.
+    /// </summary>
+    private void FormatWithSignificantDigitsToParts(List<NumberFormatPart> parts, double value)
+    {
+        if (value == 0)
+        {
+            var minSigDigits = MinimumSignificantDigits ?? 1;
+            if (minSigDigits > 1)
+            {
+                parts.Add(new NumberFormatPart("integer", "0"));
+                parts.Add(new NumberFormatPart("decimal", NumberFormatInfo.NumberDecimalSeparator));
+                parts.Add(new NumberFormatPart("fraction", new string('0', minSigDigits - 1)));
+            }
+            else
+            {
+                parts.Add(new NumberFormatPart("integer", "0"));
+            }
+            return;
+        }
+
+        var minSig = MinimumSignificantDigits ?? 1;
+        var maxSig = MaximumSignificantDigits ?? 21;
+
+        // Get the order of magnitude
+        var magnitude = (int) System.Math.Floor(System.Math.Log10(value));
+        var decimalPlaces = maxSig - magnitude - 1;
+
+        // Round to the required number of significant digits
+        double rounded;
+        if (decimalPlaces >= 0)
+        {
+            rounded = ApplyRounding(value, decimalPlaces);
+        }
+        else
+        {
+            // Need to round to whole numbers or higher
+            var divisor = System.Math.Pow(10, -decimalPlaces);
+            rounded = ApplyRounding(value / divisor, 0) * divisor;
+        }
+
+        // Get integer and fraction parts from rounded value
+        var integerPart = (long) System.Math.Truncate(rounded);
+        var fractionValue = rounded - integerPart;
+
+        // Calculate actual significant digits we have
+        var intStr = integerPart.ToString(CultureInfo.InvariantCulture);
+        var currentSigDigits = intStr.TrimStart('0').Length;
+        if (currentSigDigits == 0) currentSigDigits = 1;
+
+        // Format integer part with grouping
+        FormatIntegerToParts(parts, integerPart);
+
+        // Calculate fraction digits needed
+        var fractionDigitsNeeded = 0;
+        if (decimalPlaces > 0)
+        {
+            fractionDigitsNeeded = decimalPlaces;
+        }
+
+        // Ensure minimum significant digits
+        var zerosToAdd = minSig - currentSigDigits;
+        if (zerosToAdd > fractionDigitsNeeded)
+        {
+            fractionDigitsNeeded = zerosToAdd;
+        }
+
+        // Add fraction if needed
+        if (fractionDigitsNeeded > 0 || fractionValue > 0)
+        {
+            parts.Add(new NumberFormatPart("decimal", NumberFormatInfo.NumberDecimalSeparator));
+
+            // Format fraction
+            var fractionDigits = System.Math.Max(fractionDigitsNeeded, decimalPlaces > 0 ? decimalPlaces : 0);
+            if (fractionDigits > 0)
+            {
+                var multiplier = System.Math.Pow(10, fractionDigits);
+                var fractionInt = (long) System.Math.Round(fractionValue * multiplier);
+                var fractionStr = fractionInt.ToString(CultureInfo.InvariantCulture).PadLeft(fractionDigits, '0');
+                parts.Add(new NumberFormatPart("fraction", fractionStr));
+            }
+            else if (zerosToAdd > 0)
+            {
+                parts.Add(new NumberFormatPart("fraction", new string('0', zerosToAdd)));
+            }
+        }
+        else if (zerosToAdd > 0)
+        {
+            // Need to add trailing zeros to meet minSig requirement
+            parts.Add(new NumberFormatPart("decimal", NumberFormatInfo.NumberDecimalSeparator));
+            parts.Add(new NumberFormatPart("fraction", new string('0', zerosToAdd)));
+        }
+    }
+
+    private void FormatIntegerToParts(List<NumberFormatPart> parts, long integerValue)
+    {
+        var intStr = integerValue.ToString(CultureInfo.InvariantCulture);
+
+        // Pad with zeros if needed
+        if (intStr.Length < MinimumIntegerDigits)
+        {
+            intStr = intStr.PadLeft(MinimumIntegerDigits, '0');
+        }
+
+        var digitCount = intStr.Length;
+        var applyGrouping = ShouldApplyGrouping(digitCount);
+
+        if (!applyGrouping)
+        {
+            parts.Add(new NumberFormatPart("integer", intStr));
+            return;
+        }
+
+        // Add grouped integer parts
+        var groupSeparator = NumberFormatInfo.NumberGroupSeparator;
+        var groupSize = 3;
+        var position = intStr.Length % groupSize;
+        if (position == 0) position = groupSize;
+
+        var currentGroup = intStr.Substring(0, position);
+        parts.Add(new NumberFormatPart("integer", currentGroup));
+
+        while (position < intStr.Length)
+        {
+            parts.Add(new NumberFormatPart("group", groupSeparator));
+            parts.Add(new NumberFormatPart("integer", intStr.Substring(position, groupSize)));
+            position += groupSize;
+        }
+    }
+
+    private void FormatFractionToParts(List<NumberFormatPart> parts, double fractionValue)
+    {
+        // Convert fraction to string with required precision
+        var fractionDigits = MaximumFractionDigits;
+        if (fractionDigits == 0 && MinimumFractionDigits > 0)
+        {
+            fractionDigits = MinimumFractionDigits;
+        }
+
+        var multiplier = System.Math.Pow(10, fractionDigits);
+        var fractionInt = (long) System.Math.Round(fractionValue * multiplier);
+        var fractionStr = fractionInt.ToString(CultureInfo.InvariantCulture).PadLeft(fractionDigits, '0');
+
+        // Trim trailing zeros if above minimum
+        if (fractionStr.Length > MinimumFractionDigits)
+        {
+            var trimEnd = fractionStr.Length;
+            while (trimEnd > MinimumFractionDigits && fractionStr[trimEnd - 1] == '0')
+            {
+                trimEnd--;
+            }
+            fractionStr = fractionStr.Substring(0, trimEnd);
+        }
+
+        // Ensure minimum fraction digits
+        if (fractionStr.Length < MinimumFractionDigits)
+        {
+            fractionStr = fractionStr.PadRight(MinimumFractionDigits, '0');
+        }
+
+        if (fractionStr.Length > 0)
+        {
+            parts.Add(new NumberFormatPart("fraction", fractionStr));
+        }
+    }
+
+    private List<NumberFormatPart> FormatCurrencyToParts(double value)
+    {
+        var parts = new List<NumberFormatPart>();
+        var isNegative = value < 0;
+        var absValue = System.Math.Abs(value);
+
+        // Get currency symbol
+        var currencySymbol = NumberFormatInfo.CurrencySymbol;
+
+        // Determine pattern based on locale
+        // Common patterns: $n, n$, $ n, n $
+        var pattern = isNegative ? NumberFormatInfo.CurrencyNegativePattern : NumberFormatInfo.CurrencyPositivePattern;
+
+        // Apply rounding
+        absValue = ApplyRounding(absValue, MaximumFractionDigits > 0 ? MaximumFractionDigits : 2);
+
+        // Split value
+        var integerPart = (long) System.Math.Truncate(absValue);
+        var fractionValue = absValue - integerPart;
+
+        // Build parts based on pattern
+        // Positive patterns: 0=$n, 1=n$, 2=$ n, 3=n $
+        // Negative patterns vary widely
+        if (isNegative)
+        {
+            BuildCurrencyNegativeParts(parts, pattern, currencySymbol, integerPart, fractionValue);
+        }
+        else
+        {
+            BuildCurrencyPositiveParts(parts, pattern, currencySymbol, integerPart, fractionValue);
+        }
+
+        return parts;
+    }
+
+    private void BuildCurrencyPositiveParts(List<NumberFormatPart> parts, int pattern, string symbol, long integerPart, double fractionValue)
+    {
+        switch (pattern)
+        {
+            case 0: // $n
+                parts.Add(new NumberFormatPart("currency", symbol));
+                FormatIntegerToParts(parts, integerPart);
+                AddFractionPartsIfNeeded(parts, fractionValue);
+                break;
+            case 1: // n$
+                FormatIntegerToParts(parts, integerPart);
+                AddFractionPartsIfNeeded(parts, fractionValue);
+                parts.Add(new NumberFormatPart("currency", symbol));
+                break;
+            case 2: // $ n
+                parts.Add(new NumberFormatPart("currency", symbol));
+                parts.Add(new NumberFormatPart("literal", " "));
+                FormatIntegerToParts(parts, integerPart);
+                AddFractionPartsIfNeeded(parts, fractionValue);
+                break;
+            case 3: // n $
+                FormatIntegerToParts(parts, integerPart);
+                AddFractionPartsIfNeeded(parts, fractionValue);
+                parts.Add(new NumberFormatPart("literal", " "));
+                parts.Add(new NumberFormatPart("currency", symbol));
+                break;
+            default:
+                parts.Add(new NumberFormatPart("currency", symbol));
+                FormatIntegerToParts(parts, integerPart);
+                AddFractionPartsIfNeeded(parts, fractionValue);
+                break;
+        }
+    }
+
+    private void BuildCurrencyNegativeParts(List<NumberFormatPart> parts, int pattern, string symbol, long integerPart, double fractionValue)
+    {
+        // Simplified - just add minus sign at start for most patterns
+        switch (pattern)
+        {
+            case 0: // ($n)
+                parts.Add(new NumberFormatPart("literal", "("));
+                parts.Add(new NumberFormatPart("currency", symbol));
+                FormatIntegerToParts(parts, integerPart);
+                AddFractionPartsIfNeeded(parts, fractionValue);
+                parts.Add(new NumberFormatPart("literal", ")"));
+                break;
+            case 1: // -$n
+                parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
+                parts.Add(new NumberFormatPart("currency", symbol));
+                FormatIntegerToParts(parts, integerPart);
+                AddFractionPartsIfNeeded(parts, fractionValue);
+                break;
+            default:
+                parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
+                parts.Add(new NumberFormatPart("currency", symbol));
+                FormatIntegerToParts(parts, integerPart);
+                AddFractionPartsIfNeeded(parts, fractionValue);
+                break;
+        }
+    }
+
+    private void AddFractionPartsIfNeeded(List<NumberFormatPart> parts, double fractionValue)
+    {
+        var minFrac = MinimumFractionDigits > 0 ? MinimumFractionDigits : 2;
+        if (minFrac > 0 || fractionValue > 0)
+        {
+            parts.Add(new NumberFormatPart("decimal", NumberFormatInfo.CurrencyDecimalSeparator));
+            FormatFractionToParts(parts, fractionValue);
+        }
+    }
+
+    private List<NumberFormatPart> FormatPercentToParts(double value)
+    {
+        var parts = new List<NumberFormatPart>();
+        var isNegative = value < 0;
+
+        // Multiply by 100 for percent
+        var percentValue = System.Math.Abs(value) * 100;
+        percentValue = ApplyRounding(percentValue, MaximumFractionDigits);
+
+        // Get the percent pattern to determine symbol position and spacing
+        var pattern = isNegative ? NumberFormatInfo.PercentNegativePattern : NumberFormatInfo.PercentPositivePattern;
+
+        // Determine if symbol comes before or after, and if there's spacing
+        // Positive patterns: 0="n %", 1="n%", 2="%n", 3="% n"
+        var symbolAfter = pattern == 0 || pattern == 1;
+        var hasSpace = pattern == 0 || pattern == 3;
+
+        if (!symbolAfter)
+        {
+            // Symbol before number
+            parts.Add(new NumberFormatPart("percentSign", NumberFormatInfo.PercentSymbol));
+            if (hasSpace)
+            {
+                parts.Add(new NumberFormatPart("literal", " "));
+            }
+        }
+
+        if (isNegative)
+        {
+            parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
+        }
+        else if (ShouldShowPlusSign(value))
+        {
+            parts.Add(new NumberFormatPart("plusSign", NumberFormatInfo.PositiveSign));
+        }
+
+        var integerPart = (long) System.Math.Truncate(percentValue);
+        var fractionValue = percentValue - integerPart;
+
+        FormatIntegerToParts(parts, integerPart);
+
+        if (MinimumFractionDigits > 0 || (fractionValue > 0 && MaximumFractionDigits > 0))
+        {
+            parts.Add(new NumberFormatPart("decimal", NumberFormatInfo.NumberDecimalSeparator));
+            FormatFractionToParts(parts, fractionValue);
+        }
+
+        if (symbolAfter)
+        {
+            // Symbol after number
+            if (hasSpace)
+            {
+                parts.Add(new NumberFormatPart("literal", " "));
+            }
+            parts.Add(new NumberFormatPart("percentSign", NumberFormatInfo.PercentSymbol));
+        }
+
+        return parts;
+    }
+
+    private List<NumberFormatPart> FormatUnitToParts(double value)
+    {
+        var parts = new List<NumberFormatPart>();
+        var isNegative = value < 0;
+
+        if (isNegative)
+        {
+            parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
+            value = System.Math.Abs(value);
+        }
+        else if (ShouldShowPlusSign(value))
+        {
+            parts.Add(new NumberFormatPart("plusSign", NumberFormatInfo.PositiveSign));
+        }
+
+        value = ApplyRounding(value, MaximumFractionDigits);
+
+        var integerPart = (long) System.Math.Truncate(value);
+        var fractionValue = value - integerPart;
+
+        FormatIntegerToParts(parts, integerPart);
+
+        if (MinimumFractionDigits > 0 || (fractionValue > 0 && MaximumFractionDigits > 0))
+        {
+            parts.Add(new NumberFormatPart("decimal", NumberFormatInfo.NumberDecimalSeparator));
+            FormatFractionToParts(parts, fractionValue);
+        }
+
+        // Add space and unit
+        var unitDisplay = UnitDisplay ?? "short";
+        var unitStr = Unit ?? "";
+        var unitSuffix = GetUnitSuffix(unitStr, unitDisplay, value);
+
+        parts.Add(new NumberFormatPart("literal", " "));
+        parts.Add(new NumberFormatPart("unit", unitSuffix));
+
+        return parts;
+    }
+
+    private bool ShouldShowPlusSign(double value)
+    {
+        if (value <= 0) return false;
+
+        return SignDisplay switch
+        {
+            "always" => true,
+            "exceptZero" => value != 0,
+            _ => false
         };
     }
 }

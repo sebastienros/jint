@@ -179,14 +179,18 @@ internal sealed class NumberFormatPrototype : Prototype
             number = TypeConverter.ToNumber(value);
         }
 
-        var formatted = numberFormat.Format(number);
+        // Get parts from the number format
+        var parts = numberFormat.FormatToParts(number);
 
-        // Return a simple implementation with one part
-        var result = new JsArray(Engine, 1);
-        var part = ObjectInstance.OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
-        part.Set("type", double.IsNaN(number) ? "nan" : "integer");
-        part.Set("value", formatted);
-        result.SetIndexValue(0, part, updateLength: true);
+        // Convert to JsArray of objects
+        var result = new JsArray(Engine, (uint) parts.Count);
+        for (var i = 0; i < parts.Count; i++)
+        {
+            var partObj = ObjectInstance.OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
+            partObj.Set("type", parts[i].Type);
+            partObj.Set("value", parts[i].Value);
+            result.SetIndexValue((uint) i, partObj, updateLength: true);
+        }
 
         return result;
     }
