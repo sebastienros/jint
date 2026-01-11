@@ -63,8 +63,8 @@ internal sealed class DurationFormatConstructor : Constructor
         var locales = arguments.At(0);
         var options = arguments.At(1);
 
-        // Get options object
-        var optionsObj = IntlUtilities.CoerceOptionsToObject(_engine, options);
+        // Get options object (strict - throws TypeError for non-object)
+        var optionsObj = IntlUtilities.GetOptionsObject(_engine, options);
 
         // Validate localeMatcher option
         GetStringOption(optionsObj, "localeMatcher", LocaleMatcherValues, "best fit");

@@ -48,7 +48,8 @@ internal sealed class DisplayNamesConstructor : Constructor
     /// </summary>
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
-        return Construct(arguments, this);
+        Throw.TypeError(_realm, "Constructor Intl.DisplayNames requires 'new'");
+        return Undefined;
     }
 
     /// <summary>

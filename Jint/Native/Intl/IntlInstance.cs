@@ -108,8 +108,9 @@ internal sealed class IntlInstance : ObjectInstance
 
     private static string[] GetSupportedCalendars()
     {
-        // Return commonly supported calendar types
+        // Return calendar types that DateTimeFormat supports
         // https://tc39.es/ecma402/#sec-availablecalendars
+        // Must include all from CLDR that we support in DateTimeFormat
         return new[]
         {
             "buddhist",
@@ -137,6 +138,7 @@ internal sealed class IntlInstance : ObjectInstance
     {
         // Return commonly supported collation types
         // https://tc39.es/ecma402/#sec-availablecollations
+        // Note: "standard" and "search" are special values and must NOT be included
         return new[]
         {
             "big5han",
@@ -151,9 +153,7 @@ internal sealed class IntlInstance : ObjectInstance
             "phonetic",
             "pinyin",
             "reformed",
-            "search",
             "searchjl",
-            "standard",
             "stroke",
             "trad",
             "unihan",
@@ -186,8 +186,9 @@ internal sealed class IntlInstance : ObjectInstance
 
     private static string[] GetSupportedNumberingSystems()
     {
-        // Return commonly supported numbering systems
+        // Return all numbering systems with simple digit mappings
         // https://tc39.es/ecma402/#sec-availablenumberingsystems
+        // Must include all from Table 10: Numbering systems with simple digit mappings
         return new[]
         {
             "adlm",
@@ -201,6 +202,7 @@ internal sealed class IntlInstance : ObjectInstance
             "cakm",
             "cham",
             "deva",
+            "diak",
             "fullwide",
             "gong",
             "gonm",
@@ -208,8 +210,10 @@ internal sealed class IntlInstance : ObjectInstance
             "guru",
             "hanidec",
             "hmng",
+            "hmnp",
             "java",
             "kali",
+            "kawi",
             "khmr",
             "knda",
             "lana",
@@ -231,6 +235,7 @@ internal sealed class IntlInstance : ObjectInstance
             "mymr",
             "mymrshan",
             "mymrtlng",
+            "nagm",
             "newa",
             "nkoo",
             "olck",
@@ -238,6 +243,7 @@ internal sealed class IntlInstance : ObjectInstance
             "osma",
             "rohg",
             "saur",
+            "segment",
             "shrd",
             "sind",
             "sinh",

@@ -86,11 +86,13 @@ internal sealed class LocaleConstructor : Constructor
         var script = GetScriptOption(optionsObj, parsedLocale.Script);
 
         // Build the canonical locale string
-        var canonicalLocale = BuildLocaleString(language, script, region, calendar, caseFirst, collation, hourCycle, numberingSystem, numeric);
-        var baseName = BuildBaseName(language, script, region);
+        var variants = parsedLocale.Variants;
+        var canonicalLocale = BuildLocaleString(language, script, region, variants, calendar, caseFirst, collation, hourCycle, numberingSystem, numeric);
+        var baseName = BuildBaseName(language, script, region, variants);
 
-        // Get CultureInfo
-        var cultureInfo = IntlUtilities.GetCultureInfo(baseName) ?? CultureInfo.InvariantCulture;
+        // Get CultureInfo (without variants for .NET compatibility)
+        var cultureBaseName = BuildBaseName(language, script, region);
+        var cultureInfo = IntlUtilities.GetCultureInfo(cultureBaseName) ?? CultureInfo.InvariantCulture;
 
         return new JsLocale(
             _engine,
@@ -100,6 +102,7 @@ internal sealed class LocaleConstructor : Constructor
             language!,
             script,
             region,
+            variants.ToArray(),
             calendar,
             caseFirst,
             collation,
@@ -350,6 +353,13 @@ internal sealed class LocaleConstructor : Constructor
             index++;
         }
 
+        // Variants (optional, 5-8 alphanum or 4 chars starting with digit)
+        while (index < parts.Length && IsVariantSubtag(parts[index]))
+        {
+            result.Variants.Add(parts[index].ToLowerInvariant());
+            index++;
+        }
+
         // Parse extensions (starting with -u- for Unicode)
         while (index < parts.Length)
         {
@@ -431,7 +441,52 @@ internal sealed class LocaleConstructor : Constructor
         return true;
     }
 
-    private static string BuildBaseName(string? language, string? script, string? region)
+    /// <summary>
+    /// Checks if a string is a valid variant subtag.
+    /// Variant subtags are 5-8 alphanumerics OR 4 chars starting with a digit.
+    /// </summary>
+    private static bool IsVariantSubtag(string s)
+    {
+        if (string.IsNullOrEmpty(s))
+        {
+            return false;
+        }
+
+        // Single character is an extension singleton, not a variant
+        if (s.Length == 1)
+        {
+            return false;
+        }
+
+        // 4 characters starting with digit
+        if (s.Length == 4 && char.IsDigit(s[0]))
+        {
+            return IsAllAlphanumeric(s);
+        }
+
+        // 5-8 alphanumeric characters
+        if (s.Length >= 5 && s.Length <= 8)
+        {
+            return IsAllAlphanumeric(s);
+        }
+
+        return false;
+    }
+
+    private static bool IsAllAlphanumeric(string s)
+    {
+        foreach (var c in s)
+        {
+            if (!char.IsLetterOrDigit(c))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static string BuildBaseName(string? language, string? script, string? region, List<string>? variants = null)
     {
         var parts = new List<string>();
 
@@ -450,6 +505,11 @@ internal sealed class LocaleConstructor : Constructor
             parts.Add(region!);
         }
 
+        if (variants != null)
+        {
+            parts.AddRange(variants);
+        }
+
         return string.Join("-", parts);
     }
 
@@ -457,6 +517,7 @@ internal sealed class LocaleConstructor : Constructor
         string? language,
         string? script,
         string? region,
+        List<string>? variants,
         string? calendar,
         string? caseFirst,
         string? collation,
@@ -464,7 +525,7 @@ internal sealed class LocaleConstructor : Constructor
         string? numberingSystem,
         bool? numeric)
     {
-        var baseName = BuildBaseName(language, script, region);
+        var baseName = BuildBaseName(language, script, region, variants);
 
         // Build Unicode extension if any options are set
         var extensions = new List<string>();
@@ -512,6 +573,7 @@ internal sealed class LocaleConstructor : Constructor
         public string? Language { get; set; }
         public string? Script { get; set; }
         public string? Region { get; set; }
+        public List<string> Variants { get; } = new();
         public string? Calendar { get; set; }
         public string? CaseFirst { get; set; }
         public string? Collation { get; set; }

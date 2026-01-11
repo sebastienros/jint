@@ -1033,6 +1033,29 @@ internal static class IntlUtilities
     }
 
     /// <summary>
+    /// https://tc39.es/ecma402/#sec-getoptionsobject
+    /// Stricter than CoerceOptionsToObject - throws TypeError for non-object values.
+    /// </summary>
+    internal static ObjectInstance GetOptionsObject(Engine engine, JsValue options)
+    {
+        // 1. If options is undefined, return OrdinaryObjectCreate(null).
+        if (options.IsUndefined())
+        {
+            return ObjectInstance.OrdinaryObjectCreate(engine, null);
+        }
+
+        // 2. If options is an Object, return options.
+        if (options.IsObject())
+        {
+            return options.AsObject();
+        }
+
+        // 3. Throw a TypeError exception.
+        Throw.TypeError(engine.Realm, "Options must be an object or undefined");
+        return null!;
+    }
+
+    /// <summary>
     /// https://tc39.es/ecma402/#sec-getoption
     /// </summary>
     internal static JsValue GetOption(

@@ -46,7 +46,8 @@ internal sealed class ListFormatConstructor : Constructor
     /// </summary>
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
-        return Construct(arguments, this);
+        Throw.TypeError(_realm, "Constructor Intl.ListFormat requires 'new'");
+        return Undefined;
     }
 
     /// <summary>
@@ -57,8 +58,8 @@ internal sealed class ListFormatConstructor : Constructor
         var locales = arguments.At(0);
         var options = arguments.At(1);
 
-        // Get options object
-        var optionsObj = IntlUtilities.CoerceOptionsToObject(_engine, options);
+        // Get options object (strict - throws TypeError for non-object)
+        var optionsObj = IntlUtilities.GetOptionsObject(_engine, options);
 
         // Validate localeMatcher option
         GetStringOption(optionsObj, "localeMatcher", LocaleMatcherValues, "best fit");

@@ -46,7 +46,8 @@ internal sealed class RelativeTimeFormatConstructor : Constructor
     /// </summary>
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
-        return Construct(arguments, this);
+        Throw.TypeError(_realm, "Constructor Intl.RelativeTimeFormat requires 'new'");
+        return Undefined;
     }
 
     /// <summary>
@@ -57,7 +58,7 @@ internal sealed class RelativeTimeFormatConstructor : Constructor
         var locales = arguments.At(0);
         var options = arguments.At(1);
 
-        // Get options object
+        // Get options object (lenient - converts to object)
         var optionsObj = IntlUtilities.CoerceOptionsToObject(_engine, options);
 
         // Validate localeMatcher option

@@ -65,6 +65,11 @@ internal sealed class JsLocale : ObjectInstance
     internal bool? Numeric { get; }
 
     /// <summary>
+    /// The variant subtags, if present.
+    /// </summary>
+    internal string[] Variants { get; }
+
+    /// <summary>
     /// The associated .NET CultureInfo.
     /// </summary>
     internal CultureInfo CultureInfo { get; }
@@ -77,6 +82,7 @@ internal sealed class JsLocale : ObjectInstance
         string language,
         string? script,
         string? region,
+        string[] variants,
         string? calendar,
         string? caseFirst,
         string? collation,
@@ -91,6 +97,7 @@ internal sealed class JsLocale : ObjectInstance
         Language = language;
         Script = script;
         Region = region;
+        Variants = variants;
         Calendar = calendar;
         CaseFirst = caseFirst;
         Collation = collation;

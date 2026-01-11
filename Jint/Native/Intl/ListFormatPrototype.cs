@@ -106,6 +106,17 @@ internal sealed class ListFormatPrototype : Prototype
 
         var list = new List<string>();
 
+        // Handle strings - iterate over each character
+        if (iterable.IsString())
+        {
+            var str = TypeConverter.ToString(iterable);
+            foreach (var c in str)
+            {
+                list.Add(c.ToString());
+            }
+            return list.ToArray();
+        }
+
         // Handle array-like objects
         if (iterable is JsArray jsArray)
         {

@@ -100,6 +100,11 @@ internal sealed class LocalePrototype : Prototype
             Undefined,
             AccessorFlags));
 
+        SetAccessor("variants", new GetSetPropertyDescriptor(
+            new ClrFunction(Engine, "get variants", GetVariants, 0, LengthFlags),
+            Undefined,
+            AccessorFlags));
+
         var symbols = new SymbolDictionary(1)
         {
             [GlobalSymbolRegistry.ToStringTag] = new("Intl.Locale", PropertyFlag.Configurable)
@@ -264,6 +269,23 @@ internal sealed class LocalePrototype : Prototype
     {
         var locale = ValidateLocale(thisObject);
         return locale.Script ?? Undefined;
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-Intl.Locale.prototype.variants
+    /// </summary>
+    private JsArray GetVariants(JsValue thisObject, JsCallArguments arguments)
+    {
+        var locale = ValidateLocale(thisObject);
+        var variants = locale.Variants;
+
+        var result = new JsArray(Engine, (uint) variants.Length);
+        for (var i = 0; i < variants.Length; i++)
+        {
+            result.SetIndexValue((uint) i, variants[i], updateLength: true);
+        }
+
+        return result;
     }
 
     private JsValue GetFirstDayOfWeek(JsValue thisObject, JsCallArguments arguments)
