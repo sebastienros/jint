@@ -1,3 +1,4 @@
+using Jint.Native.Date;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -118,14 +119,25 @@ internal sealed class DateTimeFormatPrototype : Prototype
         }
 
         var timeValue = TypeConverter.ToNumber(value);
-        if (double.IsNaN(timeValue) || double.IsInfinity(timeValue))
+        DatePresentation presentation = timeValue;
+        presentation = presentation.TimeClip();
+
+        if (presentation.IsNaN)
         {
             Throw.RangeError(_realm, "Invalid time value");
         }
 
-        // Convert milliseconds since epoch to DateTime
-        var epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        return epoch.AddMilliseconds(timeValue).ToLocalTime();
+        // Clamp to .NET DateTime range if necessary
+        if (presentation.Value < JsDate.Min)
+        {
+            return DateTime.MinValue;
+        }
+        if (presentation.Value > JsDate.Max)
+        {
+            return DateTime.MaxValue;
+        }
+
+        return presentation.ToDateTime().ToLocalTime();
     }
 
     /// <summary>
@@ -284,36 +296,57 @@ internal sealed class DateTimeFormatPrototype : Prototype
         var start = ToDateTimeForRange(startDate);
         var end = ToDateTimeForRange(endDate);
 
-        // Format both dates
+        // Get parts for both dates
+        var startParts = dateTimeFormat.FormatToParts(start);
+        var endParts = dateTimeFormat.FormatToParts(end);
+
+        // Check if dates are practically equal (same formatted output)
         var startFormatted = dateTimeFormat.Format(start);
         var endFormatted = dateTimeFormat.Format(end);
 
         var result = new JsArray(Engine);
         uint index = 0;
 
-        // Add start date parts with source "startRange"
-        var startPart = ObjectInstance.OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
-        startPart.Set("type", "literal");
-        startPart.Set("value", startFormatted);
-        startPart.Set("source", "startRange");
-        result.SetIndexValue(index++, startPart, updateLength: true);
-
-        // If dates are different, add separator and end date
-        if (!string.Equals(startFormatted, endFormatted, StringComparison.Ordinal))
+        if (string.Equals(startFormatted, endFormatted, StringComparison.Ordinal))
         {
+            // Dates are practically equal - return parts with source "shared"
+            foreach (var part in startParts)
+            {
+                var partObj = OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
+                partObj.Set("type", part.Type);
+                partObj.Set("value", part.Value);
+                partObj.Set("source", "shared");
+                result.SetIndexValue(index++, partObj, updateLength: true);
+            }
+        }
+        else
+        {
+            // Add start date parts with source "startRange"
+            foreach (var part in startParts)
+            {
+                var partObj = OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
+                partObj.Set("type", part.Type);
+                partObj.Set("value", part.Value);
+                partObj.Set("source", "startRange");
+                result.SetIndexValue(index++, partObj, updateLength: true);
+            }
+
             // Add separator
-            var separator = ObjectInstance.OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
+            var separator = OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
             separator.Set("type", "literal");
             separator.Set("value", " – ");
             separator.Set("source", "shared");
             result.SetIndexValue(index++, separator, updateLength: true);
 
             // Add end date parts with source "endRange"
-            var endPart = ObjectInstance.OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
-            endPart.Set("type", "literal");
-            endPart.Set("value", endFormatted);
-            endPart.Set("source", "endRange");
-            result.SetIndexValue(index++, endPart, updateLength: true);
+            foreach (var part in endParts)
+            {
+                var partObj = OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
+                partObj.Set("type", part.Type);
+                partObj.Set("value", part.Value);
+                partObj.Set("source", "endRange");
+                result.SetIndexValue(index++, partObj, updateLength: true);
+            }
         }
 
         return result;
@@ -333,17 +366,24 @@ internal sealed class DateTimeFormatPrototype : Prototype
         }
 
         var timeValue = TypeConverter.ToNumber(value);
-        if (double.IsNaN(timeValue))
-        {
-            Throw.RangeError(_realm, "Invalid time value");
-        }
-        if (double.IsInfinity(timeValue))
+        DatePresentation presentation = timeValue;
+        presentation = presentation.TimeClip();
+
+        if (presentation.IsNaN)
         {
             Throw.RangeError(_realm, "Invalid time value");
         }
 
-        // Convert milliseconds since epoch to DateTime
-        var epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        return epoch.AddMilliseconds(timeValue).ToLocalTime();
+        // Clamp to .NET DateTime range if necessary
+        if (presentation.Value < JsDate.Min)
+        {
+            return DateTime.MinValue;
+        }
+        if (presentation.Value > JsDate.Max)
+        {
+            return DateTime.MaxValue;
+        }
+
+        return presentation.ToDateTime().ToLocalTime();
     }
 }

@@ -426,6 +426,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     {
         var hasDate = false;
         var hasTime = false;
+        var dateSeparator = DateTimeFormatInfo.DateSeparator;
 
         // Weekday (first, if present)
         if (Weekday != null)
@@ -446,7 +447,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         {
             if (result.Count > 0 && hasDate)
             {
-                result.Add(new DateTimePart("literal", "/"));
+                result.Add(new DateTimePart("literal", dateSeparator));
             }
             var yearValue = Year switch
             {
@@ -463,7 +464,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         {
             if (result.Count > 0 && hasDate)
             {
-                result.Add(new DateTimePart("literal", "/"));
+                result.Add(new DateTimePart("literal", dateSeparator));
             }
             var format = Month switch
             {
@@ -483,7 +484,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         {
             if (result.Count > 0 && hasDate)
             {
-                result.Add(new DateTimePart("literal", "/"));
+                result.Add(new DateTimePart("literal", dateSeparator));
             }
             var format = Day switch
             {
