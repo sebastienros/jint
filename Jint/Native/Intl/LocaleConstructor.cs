@@ -87,7 +87,7 @@ internal sealed class LocaleConstructor : Constructor
 
         // Build the canonical locale string
         var variants = parsedLocale.Variants;
-        var canonicalLocale = BuildLocaleString(language, script, region, variants, calendar, caseFirst, collation, hourCycle, numberingSystem, numeric);
+        var canonicalLocale = BuildLocaleString(language, script, region, variants, calendar, caseFirst, collation, hourCycle, numberingSystem, numeric, parsedLocale.OtherUnicodeExtensions, parsedLocale.OtherExtensions);
         var baseName = BuildBaseName(language, script, region, variants);
 
         // Get CultureInfo (without variants for .NET compatibility)
@@ -363,49 +363,88 @@ internal sealed class LocaleConstructor : Constructor
             index++;
         }
 
-        // Parse extensions (starting with -u- for Unicode)
+        // Parse extensions
+        var otherExtensionsParts = new List<string>();
         while (index < parts.Length)
         {
-            if (parts[index].Length == 1 && char.ToLowerInvariant(parts[index][0]) == 'u')
+            if (parts[index].Length == 1)
             {
-                // Unicode extension
-                index++;
-                while (index < parts.Length && parts[index].Length != 1)
+                var singleton = char.ToLowerInvariant(parts[index][0]);
+                if (singleton == 'u')
                 {
-                    var key = parts[index].ToLowerInvariant();
+                    // Unicode extension
                     index++;
-
-                    if (index < parts.Length && parts[index].Length != 1 && parts[index].Length >= 2)
+                    while (index < parts.Length && parts[index].Length != 1)
                     {
-                        var value = parts[index].ToLowerInvariant();
+                        var key = parts[index].ToLowerInvariant();
                         index++;
 
+                        // Check if this key has a value (next part is not a singleton and is 3+ chars for type values)
+                        string? value = null;
+                        if (index < parts.Length && parts[index].Length != 1 && parts[index].Length >= 3)
+                        {
+                            value = parts[index].ToLowerInvariant();
+                            index++;
+                        }
+
+                        var handled = false;
                         switch (key)
                         {
                             case "ca":
-                                result.Calendar = value;
+                                if (value != null) { result.Calendar = value; handled = true; }
                                 break;
                             case "co":
-                                result.Collation = value;
+                                if (value != null) { result.Collation = value; handled = true; }
                                 break;
                             case "hc":
-                                result.HourCycle = value;
+                                if (value != null) { result.HourCycle = value; handled = true; }
                                 break;
                             case "kf":
-                                result.CaseFirst = value;
+                                if (value != null) { result.CaseFirst = value; handled = true; }
                                 break;
                             case "kn":
-                                result.Numeric = string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
+                                if (value != null)
+                                {
+                                    result.Numeric = string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
+                                }
+                                else
+                                {
+                                    result.Numeric = true;
+                                }
+                                handled = true;
                                 break;
                             case "nu":
-                                result.NumberingSystem = value;
+                                if (value != null) { result.NumberingSystem = value; handled = true; }
                                 break;
                         }
+
+                        // Store unhandled unicode extension key/value pairs
+                        if (!handled)
+                        {
+                            if (value != null)
+                            {
+                                result.OtherUnicodeExtensions.Add(key + "-" + value);
+                            }
+                            else
+                            {
+                                result.OtherUnicodeExtensions.Add(key);
+                            }
+                        }
                     }
-                    else if (string.Equals(key, "kn", StringComparison.Ordinal))
+                }
+                else
+                {
+                    // Other extension (t, x, or other singleton)
+                    var extStart = index;
+                    index++;
+                    while (index < parts.Length && parts[index].Length != 1)
                     {
-                        // -u-kn without value means true
-                        result.Numeric = true;
+                        index++;
+                    }
+                    // Collect all parts for this extension
+                    for (var i = extStart; i < index; i++)
+                    {
+                        otherExtensionsParts.Add(parts[i].ToLowerInvariant());
                     }
                 }
             }
@@ -413,6 +452,11 @@ internal sealed class LocaleConstructor : Constructor
             {
                 index++;
             }
+        }
+
+        if (otherExtensionsParts.Count > 0)
+        {
+            result.OtherExtensions = "-" + string.Join("-", otherExtensionsParts);
         }
 
         return result;
@@ -526,49 +570,64 @@ internal sealed class LocaleConstructor : Constructor
         string? collation,
         string? hourCycle,
         string? numberingSystem,
-        bool? numeric)
+        bool? numeric,
+        List<string>? otherUnicodeExtensions = null,
+        string? otherExtensions = null)
     {
         var baseName = BuildBaseName(language, script, region, variants);
 
         // Build Unicode extension if any options are set
-        var extensions = new List<string>();
+        var unicodeExtParts = new List<string>();
 
         if (!string.IsNullOrEmpty(calendar))
         {
-            extensions.Add("ca-" + calendar);
+            unicodeExtParts.Add("ca-" + calendar);
         }
 
         if (!string.IsNullOrEmpty(collation))
         {
-            extensions.Add("co-" + collation);
+            unicodeExtParts.Add("co-" + collation);
         }
 
         if (!string.IsNullOrEmpty(hourCycle))
         {
-            extensions.Add("hc-" + hourCycle);
+            unicodeExtParts.Add("hc-" + hourCycle);
         }
 
         if (!string.IsNullOrEmpty(caseFirst))
         {
-            extensions.Add("kf-" + caseFirst);
+            unicodeExtParts.Add("kf-" + caseFirst);
         }
 
         if (numeric.HasValue)
         {
-            extensions.Add("kn-" + (numeric.Value ? "true" : "false"));
+            unicodeExtParts.Add("kn-" + (numeric.Value ? "true" : "false"));
         }
 
         if (!string.IsNullOrEmpty(numberingSystem))
         {
-            extensions.Add("nu-" + numberingSystem);
+            unicodeExtParts.Add("nu-" + numberingSystem);
         }
 
-        if (extensions.Count > 0)
+        // Add other unicode extensions that were not recognized
+        if (otherUnicodeExtensions != null && otherUnicodeExtensions.Count > 0)
         {
-            return baseName + "-u-" + string.Join("-", extensions);
+            unicodeExtParts.AddRange(otherUnicodeExtensions);
         }
 
-        return baseName;
+        var result = baseName;
+        if (unicodeExtParts.Count > 0)
+        {
+            result += "-u-" + string.Join("-", unicodeExtParts);
+        }
+
+        // Add other extensions (transformed, private use, etc.)
+        if (!string.IsNullOrEmpty(otherExtensions))
+        {
+            result += otherExtensions;
+        }
+
+        return result;
     }
 
     private sealed class ParsedLocale
@@ -583,5 +642,13 @@ internal sealed class LocaleConstructor : Constructor
         public string? HourCycle { get; set; }
         public string? NumberingSystem { get; set; }
         public bool? Numeric { get; set; }
+        /// <summary>
+        /// Stores unrecognized unicode extension keys/values (e.g., "co" without value, "attr", etc.)
+        /// </summary>
+        public List<string> OtherUnicodeExtensions { get; } = new();
+        /// <summary>
+        /// Stores other extensions (transformed -t-, private use -x-, and other singletons)
+        /// </summary>
+        public string? OtherExtensions { get; set; }
     }
 }

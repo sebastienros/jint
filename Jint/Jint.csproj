@@ -39,7 +39,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Native/Intl/Data/IntlLikelySubtags.json"/>
+    <EmbeddedResource Include="Native/Intl/Data/LikelySubtags.txt"/>
   </ItemGroup>
 
   <ItemGroup>

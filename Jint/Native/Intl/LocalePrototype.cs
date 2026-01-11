@@ -1,3 +1,4 @@
+using Jint.Native.Intl.Data;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -135,43 +136,8 @@ internal sealed class LocalePrototype : Prototype
     {
         var locale = ValidateLocale(thisObject);
 
-        // Try to maximize using CultureInfo
-        var culture = locale.CultureInfo;
-        var maximizedName = locale.Locale;
-
-        // If the locale doesn't have a region, try to add one
-        if (string.IsNullOrEmpty(locale.Region))
-        {
-            // Use the default region for the language if available
-            try
-            {
-                var specificCulture = System.Globalization.CultureInfo.CreateSpecificCulture(locale.Language);
-                if (!string.IsNullOrEmpty(specificCulture.Name) && specificCulture.Name.Contains('-'))
-                {
-                    var parts = specificCulture.Name.Split('-');
-                    if (parts.Length >= 2)
-                    {
-                        maximizedName = locale.Language;
-                        if (!string.IsNullOrEmpty(locale.Script))
-                        {
-                            maximizedName += "-" + locale.Script;
-                        }
-                        maximizedName += "-" + parts[parts.Length - 1].ToUpperInvariant();
-
-                        // Add back any extensions
-                        if (locale.Locale.Contains("-u-", StringComparison.Ordinal))
-                        {
-                            var extIndex = locale.Locale.IndexOf("-u-", StringComparison.Ordinal);
-                            maximizedName += locale.Locale.Substring(extIndex);
-                        }
-                    }
-                }
-            }
-            catch
-            {
-                // Keep the original
-            }
-        }
+        // Use CLDR likely subtags algorithm
+        var maximizedName = LikelySubtags.AddLikelySubtags(locale.Locale);
 
         // Create new locale with maximized name
         return _constructor.Construct([new JsString(maximizedName)], _constructor);
@@ -184,20 +150,8 @@ internal sealed class LocalePrototype : Prototype
     {
         var locale = ValidateLocale(thisObject);
 
-        // Minimize by removing script and region if they are the defaults
-        var minimizedName = locale.Language;
-
-        // Keep script only if it's non-default for the language
-        // Keep region only if necessary
-        // For simplicity, just return the language
-        // A full implementation would use CLDR likely subtags data
-
-        // Add back any extensions
-        if (locale.Locale.Contains("-u-", StringComparison.Ordinal))
-        {
-            var extIndex = locale.Locale.IndexOf("-u-", StringComparison.Ordinal);
-            minimizedName += locale.Locale.Substring(extIndex);
-        }
+        // Use CLDR likely subtags algorithm
+        var minimizedName = LikelySubtags.RemoveLikelySubtags(locale.Locale);
 
         return _constructor.Construct([new JsString(minimizedName)], _constructor);
     }
