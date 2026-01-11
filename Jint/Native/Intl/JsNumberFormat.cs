@@ -853,7 +853,144 @@ internal sealed class JsNumberFormat : ObjectInstance
 
     private string FormatCurrency(double value)
     {
-        return value.ToString("C", NumberFormatInfo);
+        // Handle significant digits if specified
+        if (MinimumSignificantDigits.HasValue || MaximumSignificantDigits.HasValue)
+        {
+            return FormatCurrencyWithSignificantDigits(value);
+        }
+
+        // Check for negative zero (1.0 / -0 == -Infinity)
+        var isNegativeZero = value == 0 && double.IsNegativeInfinity(1.0 / value);
+        var isNegative = value < 0 || isNegativeZero;
+        var absValue = System.Math.Abs(value);
+
+        // Apply rounding
+        var fractionDigits = MaximumFractionDigits > 0 ? MaximumFractionDigits : 2;
+        absValue = ApplyRounding(absValue, fractionDigits);
+
+        // Check if rounded value displays as zero
+        var displaysAsZero = absValue < System.Math.Pow(10, -fractionDigits) / 2;
+
+        // Determine if we should show a sign and what kind
+        var showNegativeSign = isNegative;
+        var showPositiveSign = false;
+        var useAccountingFormat = string.Equals(CurrencySign, "accounting", StringComparison.Ordinal);
+
+        // Handle signDisplay
+        switch (SignDisplay)
+        {
+            case "always":
+                showPositiveSign = !isNegative;
+                break;
+            case "exceptZero":
+                // For exceptZero, don't show sign if the displayed value is zero
+                showPositiveSign = !isNegative && !displaysAsZero;
+                showNegativeSign = isNegative && !displaysAsZero;
+                break;
+            case "negative":
+                showPositiveSign = false;
+                break;
+            case "never":
+                showNegativeSign = false;
+                showPositiveSign = false;
+                break;
+        }
+
+        // Format the absolute value
+        var symbol = NumberFormatInfo.CurrencySymbol;
+
+        // Build the number part
+        var integerPart = (long) System.Math.Truncate(absValue);
+        var fractionValue = absValue - integerPart;
+
+        // Format integer with grouping
+        var intStr = integerPart.ToString(CultureInfo.InvariantCulture);
+        var digitCount = intStr.Length;
+        if (ShouldApplyGrouping(digitCount))
+        {
+            intStr = ApplyGroupingToString(intStr);
+        }
+
+        // Format fraction
+        var fractionStr = "";
+        if (fractionDigits > 0)
+        {
+            var multiplier = System.Math.Pow(10, fractionDigits);
+            var fractionInt = (long) System.Math.Round(fractionValue * multiplier);
+            fractionStr = NumberFormatInfo.CurrencyDecimalSeparator +
+                         fractionInt.ToString(CultureInfo.InvariantCulture).PadLeft(fractionDigits, '0');
+        }
+
+        var numberPart = intStr + fractionStr;
+
+        // Build result based on pattern
+        string result;
+        if (showNegativeSign)
+        {
+            if (useAccountingFormat)
+            {
+                // Accounting format uses parentheses for negative
+                result = $"({symbol}{numberPart})";
+            }
+            else
+            {
+                // Standard format uses minus sign
+                result = $"-{symbol}{numberPart}";
+            }
+        }
+        else if (showPositiveSign)
+        {
+            result = $"+{symbol}{numberPart}";
+        }
+        else
+        {
+            result = $"{symbol}{numberPart}";
+        }
+
+        return result;
+    }
+
+    private string FormatCurrencyWithSignificantDigits(double value)
+    {
+        var isNegative = value < 0;
+        var isZero = value == 0;
+        var absValue = System.Math.Abs(value);
+
+        // Format using significant digits
+        var formatted = FormatToSignificantDigits(absValue, MinimumSignificantDigits ?? 1, MaximumSignificantDigits ?? 21);
+
+        var symbol = NumberFormatInfo.CurrencySymbol;
+        var useAccountingFormat = string.Equals(CurrencySign, "accounting", StringComparison.Ordinal);
+
+        // Determine sign display
+        var showNegativeSign = isNegative && !isZero;
+        var showPositiveSign = false;
+
+        switch (SignDisplay)
+        {
+            case "always":
+                showPositiveSign = !isNegative;
+                break;
+            case "exceptZero":
+                showPositiveSign = !isNegative && !isZero;
+                showNegativeSign = isNegative && !isZero;
+                break;
+            case "never":
+                showNegativeSign = false;
+                break;
+        }
+
+        if (showNegativeSign)
+        {
+            return useAccountingFormat ? $"({symbol}{formatted})" : $"-{symbol}{formatted}";
+        }
+
+        if (showPositiveSign)
+        {
+            return $"+{symbol}{formatted}";
+        }
+
+        return $"{symbol}{formatted}";
     }
 
     private string FormatPercent(double value)
