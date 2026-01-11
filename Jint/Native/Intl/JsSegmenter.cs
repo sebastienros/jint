@@ -11,7 +11,7 @@ internal sealed class JsSegmenter : ObjectInstance
 {
     internal JsSegmenter(
         Engine engine,
-        SegmenterPrototype prototype,
+        ObjectInstance prototype,
         string locale,
         string granularity,
         CultureInfo cultureInfo) : base(engine)

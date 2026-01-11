@@ -12,7 +12,7 @@ internal sealed class JsListFormat : ObjectInstance
 {
     internal JsListFormat(
         Engine engine,
-        ListFormatPrototype prototype,
+        ObjectInstance prototype,
         string locale,
         string type,
         string style,

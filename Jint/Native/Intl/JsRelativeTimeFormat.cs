@@ -11,7 +11,7 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
 {
     internal JsRelativeTimeFormat(
         Engine engine,
-        RelativeTimeFormatPrototype prototype,
+        ObjectInstance prototype,
         string locale,
         string style,
         string numeric,

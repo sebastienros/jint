@@ -160,9 +160,12 @@ internal sealed class DateTimeFormatConstructor : Constructor
         var culture = IntlUtilities.GetCultureInfo(resolvedLocale) ?? CultureInfo.InvariantCulture;
         var dateTimeFormatInfo = (DateTimeFormatInfo) culture.DateTimeFormat.Clone();
 
+        // Get prototype from newTarget (for cross-realm construction)
+        var proto = GetPrototypeFromConstructor(newTarget, static intrinsics => intrinsics.DateTimeFormat.PrototypeObject);
+
         return new JsDateTimeFormat(
             _engine,
-            PrototypeObject,
+            proto,
             resolvedLocale,
             calendar,
             numberingSystem,

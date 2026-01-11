@@ -245,9 +245,12 @@ internal sealed class NumberFormatConstructor : Constructor
             numberFormatInfo.CurrencySymbol = currency;
         }
 
+        // Get prototype from newTarget (for cross-realm construction)
+        var proto = GetPrototypeFromConstructor(newTarget, static intrinsics => intrinsics.NumberFormat.PrototypeObject);
+
         return new JsNumberFormat(
             _engine,
-            PrototypeObject,
+            proto,
             resolvedLocale,
             style,
             currency,

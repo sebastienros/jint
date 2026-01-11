@@ -11,7 +11,7 @@ internal sealed class JsPluralRules : ObjectInstance
 {
     internal JsPluralRules(
         Engine engine,
-        PluralRulesPrototype prototype,
+        ObjectInstance prototype,
         string locale,
         string pluralRuleType,
         string notation,

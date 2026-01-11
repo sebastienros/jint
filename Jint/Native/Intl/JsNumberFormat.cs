@@ -27,7 +27,7 @@ internal sealed class JsNumberFormat : ObjectInstance
 {
     internal JsNumberFormat(
         Engine engine,
-        NumberFormatPrototype prototype,
+        ObjectInstance prototype,
         string locale,
         string style,
         string? currency,

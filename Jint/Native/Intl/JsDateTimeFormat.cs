@@ -12,7 +12,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
 {
     internal JsDateTimeFormat(
         Engine engine,
-        DateTimeFormatPrototype prototype,
+        ObjectInstance prototype,
         string locale,
         string? calendar,
         string? numberingSystem,

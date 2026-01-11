@@ -96,9 +96,12 @@ internal sealed class PluralRulesConstructor : Constructor
         // Get CultureInfo for the locale
         var culture = IntlUtilities.GetCultureInfo(resolvedLocale) ?? CultureInfo.InvariantCulture;
 
+        // Get prototype from newTarget (for cross-realm construction)
+        var proto = GetPrototypeFromConstructor(newTarget, static intrinsics => intrinsics.PluralRules.PrototypeObject);
+
         return new JsPluralRules(
             _engine,
-            PrototypeObject,
+            proto,
             resolvedLocale,
             type,
             notation,

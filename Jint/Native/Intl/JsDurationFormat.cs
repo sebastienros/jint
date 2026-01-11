@@ -12,7 +12,7 @@ internal sealed class JsDurationFormat : ObjectInstance
 {
     internal JsDurationFormat(
         Engine engine,
-        DurationFormatPrototype prototype,
+        ObjectInstance prototype,
         string locale,
         string style,
         string numberingSystem,

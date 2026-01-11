@@ -94,9 +94,12 @@ internal sealed class LocaleConstructor : Constructor
         var cultureBaseName = BuildBaseName(language, script, region);
         var cultureInfo = IntlUtilities.GetCultureInfo(cultureBaseName) ?? CultureInfo.InvariantCulture;
 
+        // Get prototype from newTarget (for cross-realm construction)
+        var proto = GetPrototypeFromConstructor(newTarget, static intrinsics => intrinsics.Locale.PrototypeObject);
+
         return new JsLocale(
             _engine,
-            PrototypeObject,
+            proto,
             canonicalLocale,
             baseName,
             language!,

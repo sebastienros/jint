@@ -78,9 +78,12 @@ internal sealed class ListFormatConstructor : Constructor
         // Get CultureInfo for the locale
         var culture = IntlUtilities.GetCultureInfo(resolvedLocale) ?? CultureInfo.InvariantCulture;
 
+        // Get prototype from newTarget (for cross-realm construction)
+        var proto = GetPrototypeFromConstructor(newTarget, static intrinsics => intrinsics.ListFormat.PrototypeObject);
+
         return new JsListFormat(
             _engine,
-            PrototypeObject,
+            proto,
             resolvedLocale,
             type,
             style,

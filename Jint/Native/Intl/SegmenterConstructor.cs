@@ -76,9 +76,12 @@ internal sealed class SegmenterConstructor : Constructor
         // Get CultureInfo for the locale
         var culture = IntlUtilities.GetCultureInfo(resolved.Locale) ?? CultureInfo.InvariantCulture;
 
+        // Get prototype from newTarget (for cross-realm construction)
+        var proto = GetPrototypeFromConstructor(newTarget, static intrinsics => intrinsics.Segmenter.PrototypeObject);
+
         return new JsSegmenter(
             _engine,
-            PrototypeObject,
+            proto,
             resolved.Locale,
             granularity,
             culture);

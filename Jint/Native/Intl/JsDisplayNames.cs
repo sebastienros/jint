@@ -11,7 +11,7 @@ internal sealed class JsDisplayNames : ObjectInstance
 {
     internal JsDisplayNames(
         Engine engine,
-        DisplayNamesPrototype prototype,
+        ObjectInstance prototype,
         string locale,
         string type,
         string style,

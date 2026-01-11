@@ -181,9 +181,12 @@ internal sealed class DurationFormatConstructor : Constructor
         // Get CultureInfo for the locale
         var culture = IntlUtilities.GetCultureInfo(resolved.Locale) ?? CultureInfo.InvariantCulture;
 
+        // Get prototype from newTarget (for cross-realm construction)
+        var proto = GetPrototypeFromConstructor(newTarget, static intrinsics => intrinsics.DurationFormat.PrototypeObject);
+
         return new JsDurationFormat(
             _engine,
-            PrototypeObject,
+            proto,
             resolved.Locale,
             style,
             numberingSystem,

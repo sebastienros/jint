@@ -11,7 +11,7 @@ internal sealed class JsCollator : ObjectInstance
 {
     internal JsCollator(
         Engine engine,
-        CollatorPrototype prototype,
+        ObjectInstance prototype,
         string locale,
         string usage,
         string sensitivity,

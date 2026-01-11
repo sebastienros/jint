@@ -78,9 +78,12 @@ internal sealed class RelativeTimeFormatConstructor : Constructor
         // Get CultureInfo for the locale
         var culture = IntlUtilities.GetCultureInfo(resolvedLocale) ?? CultureInfo.InvariantCulture;
 
+        // Get prototype from newTarget (for cross-realm construction)
+        var proto = GetPrototypeFromConstructor(newTarget, static intrinsics => intrinsics.RelativeTimeFormat.PrototypeObject);
+
         return new JsRelativeTimeFormat(
             _engine,
-            PrototypeObject,
+            proto,
             resolvedLocale,
             style,
             numeric,

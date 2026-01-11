@@ -98,9 +98,12 @@ internal sealed class CollatorConstructor : Constructor
         // Map sensitivity to CompareOptions
         var compareOptions = MapSensitivityToCompareOptions(sensitivity, ignorePunctuation);
 
+        // Get prototype from newTarget (for cross-realm construction)
+        var proto = GetPrototypeFromConstructor(newTarget, static intrinsics => intrinsics.Collator.PrototypeObject);
+
         return new JsCollator(
             _engine,
-            PrototypeObject,
+            proto,
             resolvedLocale,
             usage,
             sensitivity,

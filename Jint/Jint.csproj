@@ -39,6 +39,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Native/Intl/Data/IntlLikelySubtags.json"/>
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Acornima" />
     <PackageReference Include="Meziantou.Analyzer" PrivateAssets="all" />
   </ItemGroup>
