@@ -104,52 +104,10 @@
     // special casing data
     "built-ins/**/special_casing*.js",
 
-    // failing tests in new test suite
-    "language/expressions/dynamic-import/eval-export-dflt-expr-gen-anon.js",
-    "language/expressions/dynamic-import/eval-export-dflt-expr-gen-named.js",
-
     // eval-code arguments bindings in direct eval
     "language/eval-code/direct/*-arguments-*.js",
-
-    // eval-code indirect always-non-strict
-    "language/eval-code/indirect/always-non-strict.js",
-
-    // destructuring with object literal property references
-    "language/expressions/assignment/dstr/array-elem-put-obj-literal-prop-ref-init.js",
-    "language/expressions/assignment/dstr/array-elem-put-obj-literal-prop-ref-init-active.js",
-    "language/expressions/assignment/dstr/obj-prop-elem-target-obj-literal-prop-ref-init.js",
-    "language/expressions/assignment/dstr/obj-prop-elem-target-obj-literal-prop-ref-init-active.js",
-    "language/statements/for-of/dstr/array-elem-put-obj-literal-prop-ref-init.js",
-    "language/statements/for-of/dstr/array-elem-put-obj-literal-prop-ref-init-active.js",
-    "language/statements/for-of/dstr/obj-prop-elem-target-obj-literal-prop-ref-init.js",
-    "language/statements/for-of/dstr/obj-prop-elem-target-obj-literal-prop-ref-init-active.js",
-
-    // assignment to null/undefined base reference
-    "language/expressions/assignment/target-member-computed-reference-null.js",
-    "language/expressions/assignment/target-member-computed-reference-undefined.js",
-    "language/expressions/assignment/target-member-identifier-reference-null.js",
-    "language/expressions/assignment/target-member-identifier-reference-undefined.js",
-    "language/expressions/assignment/target-super-computed-reference-null.js",
-    "language/expressions/assignment/target-super-identifier-reference-null.js",
-    "language/expressions/delete/super-property-null-base.js",
-
     // dynamic import attributes abrupt return
     "language/expressions/dynamic-import/import-attributes/2nd-param-evaluation-abrupt-return.js",
-
-    // method forbidden extensions
-    "language/expressions/object/method-definition/forbidden-ext/b1/meth-forbidden-ext-direct-access-prop-arguments.js",
-    "language/expressions/object/method-definition/forbidden-ext/b1/meth-forbidden-ext-direct-access-prop-caller.js",
-
-    // statement list completion value
-    "language/statementList/eval-block-with-statment-block.js",
-
-    // function statement
-    "language/statements/function/S13_A12_T2.js",
-
-    // module namespace export ambiguity resolution
-    "language/module-code/ambiguous-export-bindings/namespace-unambiguous-if-import-star-as-and-export.js",
-    "language/module-code/ambiguous-export-bindings/namespace-unambiguous-if-export-star-as-from-and-import-star-as-and-export.js",
-
     // TLA with complex module graph - dynamic import inside TLA module doesn't settle
     // when module has both static and dynamic imports with cyclic dependencies
     "language/module-code/top-level-await/module-graphs-does-not-hang.js",

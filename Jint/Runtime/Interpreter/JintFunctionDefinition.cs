@@ -357,6 +357,15 @@ internal sealed class JintFunctionDefinition
                 ? new HashSet<Key>(state.ParameterBindings)
                 : new HashSet<Key>();
 
+            // Add function names first (they take precedence over var declarations with same name)
+            foreach (var fn in state.FunctionNames)
+            {
+                if (instantiatedVarNames.Add(fn))
+                {
+                    varsToInitialize.Add(new State.VariableValuePair(Name: fn, InitialValue: null));
+                }
+            }
+
             for (var i = 0; i < state.VarNames?.Count; i++)
             {
                 var n = state.VarNames[i];
@@ -371,6 +380,22 @@ internal sealed class JintFunctionDefinition
             var instantiatedVarNames = state.VarNames != null
                 ? new HashSet<Key>(state.ParameterBindings)
                 : null;
+
+            // Add function names first (they take precedence over var declarations with same name)
+            foreach (var fn in state.FunctionNames)
+            {
+                if (instantiatedVarNames?.Add(fn) != false)
+                {
+                    instantiatedVarNames ??= new HashSet<Key>();
+                    instantiatedVarNames.Add(fn);
+                    JsValue? initialValue = null;
+                    if (!state.ParameterBindings.Contains(fn))
+                    {
+                        initialValue = JsValue.Undefined;
+                    }
+                    varsToInitialize.Add(new State.VariableValuePair(Name: fn, InitialValue: initialValue));
+                }
+            }
 
             for (var i = 0; i < state.VarNames?.Count; i++)
             {

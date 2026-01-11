@@ -28,6 +28,8 @@ internal abstract class JintExpression
             return (JsValue) result;
         }
 
+        // Set LastSyntaxElement for proper error location if GetValue throws
+        context.LastSyntaxElement = _expression;
         return context.Engine.GetValue(reference, returnReferenceToPool: true);
     }
 

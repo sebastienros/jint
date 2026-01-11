@@ -180,7 +180,7 @@ internal sealed class GeneratorInstance : ObjectInstance, ISuspendable
         _suspendedValue = null;
 
         var context = _engine._activeEvaluationContext;
-        return ResumeExecution(genContext, context!);
+        return ResumeExecution(genContext, context ?? new EvaluationContext(_engine));
     }
 
     /// <summary>

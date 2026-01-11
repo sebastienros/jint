@@ -36,9 +36,12 @@ internal sealed class JintIdentifierExpression : JintExpression
         var engine = context.Engine;
         var env = engine.ExecutionContext.LexicalEnvironment;
         var strict = StrictModeScope.IsStrictModeCode;
-        var identifierEnvironment = JintEnvironment.TryGetIdentifierEnvironmentWithBinding(env, _identifier, out var temp)
-            ? temp
-            : JsValue.Undefined;
+
+        if (!JintEnvironment.TryGetIdentifierEnvironmentWithBinding(env, _identifier, out var identifierEnvironment))
+        {
+            // Binding not found - create unresolvable reference
+            return engine._referencePool.Rent(JsUnresolvableReference.Instance, _identifier.Value, strict, thisValue: null);
+        }
 
         return engine._referencePool.Rent(identifierEnvironment, _identifier.Value, strict, thisValue: null);
     }
@@ -72,7 +75,7 @@ internal sealed class JintIdentifierExpression : JintExpression
         }
         else
         {
-            var reference = engine._referencePool.Rent(JsValue.Undefined, identifier.Value, strict, thisValue: null);
+            var reference = engine._referencePool.Rent(JsUnresolvableReference.Instance, identifier.Value, strict, thisValue: null);
             value = engine.GetValue(reference, returnReferenceToPool: true);
         }
 

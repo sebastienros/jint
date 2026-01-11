@@ -154,7 +154,15 @@ internal sealed class JintStatementList
             }
         }
 
-        return c.UpdateEmpty(lastValue).UpdateEmpty(JsValue.Undefined);
+        // Only apply the final UpdateEmpty(Undefined) at program/script level or function body level.
+        // Nested block statements should return empty completion to not override the previous statement's value.
+        // _statement is null for Program/Script, or is a FunctionBody for function bodies.
+        var result = c.UpdateEmpty(lastValue);
+        if (_statement is null or FunctionBody)
+        {
+            result = result.UpdateEmpty(JsValue.Undefined);
+        }
+        return result;
     }
 
     internal static Completion HandleException(EvaluationContext context, Exception exception, JintStatement? s)

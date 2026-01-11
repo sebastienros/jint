@@ -32,6 +32,9 @@ internal enum InternalTypes
     // our native array
     Array = 16384,
 
+    // Special marker for unresolvable reference base (distinct from undefined value)
+    Unresolvable = 32768,
+
     Primitive = Boolean | String | Number | Integer | BigInt | Symbol,
     InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Array | Module
 }

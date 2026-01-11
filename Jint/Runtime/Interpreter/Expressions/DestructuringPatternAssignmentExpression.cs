@@ -311,6 +311,39 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                 }
                 else if (left is AssignmentPattern assignmentPattern)
                 {
+                    // Per ECMAScript spec (IteratorDestructuringAssignmentEvaluation):
+                    // 1. If DestructuringAssignmentTarget is neither ObjectLiteral nor ArrayLiteral, evaluate lref first
+                    // 2. Then get the value from iterator
+                    // 3. Then apply initializer if value is undefined
+                    // 4. Then PutValue(lref, v)
+
+                    Reference? memberReference = null;
+                    if (assignmentPattern.Left is MemberExpression memberExpr)
+                    {
+                        close = true;
+                        memberReference = GetReferenceFromMember(context, memberExpr);
+
+                        // Check for generator suspension after evaluating member expression
+                        if (context.IsSuspended())
+                        {
+                            close = false;
+                            return JsValue.Undefined;
+                        }
+
+                        // Check for generator return request
+                        if (generator?._returnRequested == true)
+                        {
+                            if (!done && iterator is not null)
+                            {
+                                done = true;
+                                iterator.Close(CompletionType.Return);
+                            }
+                            generator.Data.Clear(pattern);
+                            close = false;
+                            return JsValue.Undefined;
+                        }
+                    }
+
                     JsValue value;
                     if (arrayOperations != null)
                     {
@@ -347,7 +380,11 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                         }
                     }
 
-                    if (assignmentPattern.Left is Identifier leftIdentifier)
+                    if (memberReference is not null)
+                    {
+                        AssignToReference(engine, memberReference, value, environment);
+                    }
+                    else if (assignmentPattern.Left is Identifier leftIdentifier)
                     {
                         if (assignmentPattern.Right.IsFunctionDefinition())
                         {
@@ -448,6 +485,18 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                 processedProperties?.Add(sourceKey);
                 if (p.Value is AssignmentPattern assignmentPattern)
                 {
+                    // Per ECMAScript spec (KeyedDestructuringAssignmentEvaluation):
+                    // If target is MemberExpression, evaluate lref first, then get value
+                    Reference? memberReference = null;
+                    if (assignmentPattern.Left is MemberExpression memberExpr)
+                    {
+                        memberReference = GetReferenceFromMember(context, memberExpr);
+                        if (context.IsSuspended())
+                        {
+                            return JsValue.Undefined;
+                        }
+                    }
+
                     var value = source.Get(sourceKey);
                     if (value.IsUndefined())
                     {
@@ -465,20 +514,25 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                         value = completion;
                     }
 
-                    if (assignmentPattern.Left is DestructuringPattern bp)
+                    if (memberReference is not null)
+                    {
+                        AssignToReference(context.Engine, memberReference, value, environment);
+                    }
+                    else if (assignmentPattern.Left is DestructuringPattern bp)
                     {
                         ProcessPatterns(context, bp, value, environment);
-                        continue;
                     }
-
-                    var target = assignmentPattern.Left as Identifier ?? identifier;
-
-                    if (assignmentPattern.Right.IsFunctionDefinition())
+                    else
                     {
-                        ((Function) value).SetFunctionName(target!.Name);
-                    }
+                        var target = assignmentPattern.Left as Identifier ?? identifier;
 
-                    AssignToIdentifier(context.Engine, target!.Name, value, environment, checkReference);
+                        if (assignmentPattern.Right.IsFunctionDefinition())
+                        {
+                            ((Function) value).SetFunctionName(target!.Name);
+                        }
+
+                        AssignToIdentifier(context.Engine, target!.Name, value, environment, checkReference);
+                    }
                 }
                 else if (p.Value is DestructuringPattern dp)
                 {

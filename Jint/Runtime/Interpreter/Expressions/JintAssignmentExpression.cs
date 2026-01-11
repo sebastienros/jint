@@ -510,6 +510,8 @@ internal sealed class JintAssignmentExpression : JintExpression
                 return rval;
             }
 
+            // Set LastSyntaxElement for proper error location if PutValue throws
+            context.LastSyntaxElement = _left._expression;
             engine.PutValue(lref, rval);
             engine._referencePool.Return(lref);
             return rval;
