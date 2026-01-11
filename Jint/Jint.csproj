@@ -40,6 +40,8 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Native/Intl/Data/LikelySubtags.txt"/>
+    <EmbeddedResource Include="Native/Intl/Data/LocaleData.txt"/>
+    <EmbeddedResource Include="Native/Intl/Data/WeekData.txt"/>
   </ItemGroup>
 
   <ItemGroup>

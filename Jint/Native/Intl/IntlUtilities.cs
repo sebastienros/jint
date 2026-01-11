@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using Jint.Native.Intl.Data;
 using Jint.Native.Object;
 using Jint.Runtime;
 
@@ -344,7 +345,13 @@ internal static class IntlUtilities
     private static string CanonicalizeUnicodeLocaleId(string locale)
     {
         // 1. Check grandfathered tags first (highest priority)
-        if (GrandfatheredTags.TryGetValue(locale, out var grandfatheredReplacement))
+        // Use LocaleData first, then fallback to hardcoded dictionary
+        if (LocaleData.TagMappings.TryGetValue(locale, out var grandfatheredReplacement))
+        {
+            return grandfatheredReplacement;
+        }
+
+        if (GrandfatheredTags.TryGetValue(locale, out grandfatheredReplacement))
         {
             return grandfatheredReplacement;
         }
@@ -353,41 +360,83 @@ internal static class IntlUtilities
         var parsed = ParseLanguageTag(locale);
 
         // 3. Apply language aliasing
-        if (parsed.Language != null && LanguageAliases.TryGetValue(parsed.Language, out var langReplacement))
+        if (parsed.Language != null)
         {
-            // Handle complex replacements like "sh" -> "sr-Latn"
-            if (langReplacement.Contains('-'))
+            // First try complex language mappings (may add script/region)
+            if (LocaleData.ComplexLanguageMappings.TryGetValue(parsed.Language, out var complexMapping))
             {
-                var replacementParts = langReplacement.Split('-');
-                parsed.Language = replacementParts[0];
-                // Add script from replacement if not already present
-                if (replacementParts.Length > 1 && parsed.Script == null)
+                parsed.Language = complexMapping.Language;
+                if (parsed.Script == null && complexMapping.Script != null)
                 {
-                    parsed.Script = replacementParts[1];
+                    parsed.Script = complexMapping.Script;
+                }
+
+                if (parsed.Region == null && complexMapping.Region != null)
+                {
+                    parsed.Region = complexMapping.Region;
                 }
             }
-            else
+            // Then try simple language mappings from LocaleData
+            else if (LocaleData.LanguageMappings.TryGetValue(parsed.Language, out var langReplacement))
             {
                 parsed.Language = langReplacement;
             }
+            // Fallback to hardcoded aliases
+            else if (LanguageAliases.TryGetValue(parsed.Language, out langReplacement))
+            {
+                // Handle complex replacements like "sh" -> "sr-Latn"
+                if (langReplacement.Contains('-'))
+                {
+                    var replacementParts = langReplacement.Split('-');
+                    parsed.Language = replacementParts[0];
+                    // Add script from replacement if not already present
+                    if (replacementParts.Length > 1 && parsed.Script == null)
+                    {
+                        parsed.Script = replacementParts[1];
+                    }
+                }
+                else
+                {
+                    parsed.Language = langReplacement;
+                }
+            }
         }
 
-        // 4. Apply region aliasing
-        if (parsed.Region != null && RegionAliases.TryGetValue(parsed.Region, out var regionReplacement))
+        // 4. Apply region aliasing (LocaleData first, then fallback)
+        if (parsed.Region != null)
         {
-            parsed.Region = regionReplacement;
+            if (LocaleData.RegionMappings.TryGetValue(parsed.Region, out var regionReplacement))
+            {
+                parsed.Region = regionReplacement;
+            }
+            else if (RegionAliases.TryGetValue(parsed.Region, out regionReplacement))
+            {
+                parsed.Region = regionReplacement;
+            }
         }
 
-        // 5. Sort variant subtags alphabetically (per ECMA-402)
+        // 5. Apply variant aliasing from CLDR data
+        if (parsed.Variants != null && parsed.Variants.Count > 0)
+        {
+            for (var i = 0; i < parsed.Variants.Count; i++)
+            {
+                if (LocaleData.VariantMappings.TryGetValue(parsed.Variants[i], out var variantMapping))
+                {
+                    parsed.Variants[i] = variantMapping.Replacement;
+                }
+            }
+        }
+
+        // 6. Sort variant subtags alphabetically (per ECMA-402)
         if (parsed.Variants != null && parsed.Variants.Count > 1)
         {
             parsed.Variants.Sort(StringComparer.OrdinalIgnoreCase);
         }
 
-        // 6. Canonicalize extensions
+        // 7. Canonicalize extensions
         CanonicalizeExtensions(parsed);
 
-        // 7. Build canonical tag
+        // 8. Build canonical tag
         return BuildCanonicalTag(parsed);
     }
 
@@ -549,11 +598,16 @@ internal static class IntlUtilities
                 // Canonicalize tlang if present
                 if (tlangParts.Count > 0)
                 {
-                    // Apply language aliasing to tlang
-                    if (LanguageAliases.TryGetValue(tlangParts[0], out var tlangReplacement))
+                    // Apply language aliasing to tlang (try LocaleData first, then fallback)
+                    if (LocaleData.LanguageMappings.TryGetValue(tlangParts[0], out var tlangReplacement))
                     {
                         tlangParts[0] = tlangReplacement;
                     }
+                    else if (LanguageAliases.TryGetValue(tlangParts[0], out tlangReplacement))
+                    {
+                        tlangParts[0] = tlangReplacement;
+                    }
+
                     foreach (var tlp in tlangParts)
                     {
                         newParts.Add(tlp);
@@ -617,6 +671,21 @@ internal static class IntlUtilities
                 if (currentKey != null)
                 {
                     keywords.Add(new KeyValueParts { Key = currentKey, Values = currentValues });
+                }
+
+                // Apply Unicode value aliasing from CLDR data
+                foreach (var kw in keywords)
+                {
+                    if (LocaleData.UnicodeMappings.TryGetValue(kw.Key, out var valueAliases))
+                    {
+                        for (var k = 0; k < kw.Values.Count; k++)
+                        {
+                            if (valueAliases.TryGetValue(kw.Values[k], out var aliasedValue))
+                            {
+                                kw.Values[k] = aliasedValue;
+                            }
+                        }
+                    }
                 }
 
                 // Add sorted attributes

@@ -389,33 +389,26 @@ internal sealed class LocalePrototype : Prototype
     private JsObject GetWeekInfo(JsValue thisObject, JsCallArguments arguments)
     {
         var locale = ValidateLocale(thisObject);
-        var culture = locale.CultureInfo;
+        var region = locale.Region;
 
         var result = OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
 
-        // First day of week (1=Monday, 7=Sunday)
-        var firstDay = culture.DateTimeFormat.FirstDayOfWeek;
-        var firstDayNum = firstDay switch
-        {
-            DayOfWeek.Monday => 1,
-            DayOfWeek.Tuesday => 2,
-            DayOfWeek.Wednesday => 3,
-            DayOfWeek.Thursday => 4,
-            DayOfWeek.Friday => 5,
-            DayOfWeek.Saturday => 6,
-            DayOfWeek.Sunday => 7,
-            _ => 1
-        };
+        // First day of week (1=Monday, 7=Sunday) from CLDR data
+        var firstDayNum = WeekData.GetFirstDayOfWeek(region);
         result.Set("firstDay", firstDayNum);
 
-        // Weekend days - typically Saturday and Sunday for most locales
-        var weekend = new JsArray(Engine, 2);
-        weekend.SetIndexValue(0, 6, updateLength: true); // Saturday
-        weekend.SetIndexValue(1, 7, updateLength: true); // Sunday
+        // Weekend days from CLDR data
+        var weekendDays = WeekData.GetWeekend(region);
+        var weekend = new JsArray(Engine, (uint) weekendDays.Length);
+        for (var i = 0; i < weekendDays.Length; i++)
+        {
+            weekend.SetIndexValue((uint) i, weekendDays[i], updateLength: true);
+        }
         result.Set("weekend", weekend);
 
-        // Minimal days in first week (typically 1 or 4)
-        result.Set("minimalDays", 1);
+        // Minimal days in first week from CLDR data
+        var minimalDays = WeekData.GetMinDays(region);
+        result.Set("minimalDays", minimalDays);
 
         return result;
     }
