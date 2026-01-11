@@ -8,6 +8,8 @@
     <NoWarn>$(NoWarn);CS8002</NoWarn>
     <GeneratedTestSuiteDir>Generated</GeneratedTestSuiteDir>
     <ICU4NSuppressNuGetBuildTasksPackVersionWarnings>true</ICU4NSuppressNuGetBuildTasksPackVersionWarnings>
+    <SettingsFile>Test262Harness.settings.json</SettingsFile>
+    <SettingsHashFile>$(GeneratedTestSuiteDir)\.settings.hash</SettingsHashFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -34,24 +36,50 @@
   </ItemGroup>
 
   <!-- Based on the idea presented at https://mhut.ch/journal/2015/06/30/build-time-code-generation-in-msbuild -->
-  <Target Name="GenerateTestSuite" DependsOnTargets="_GenerateTestSuite" BeforeTargets="BeforeBuild" Condition="!Exists($([System.IO.Path]::Combine($(MSBuildThisFileDirectory), $(GeneratedTestSuiteDir))))">
-    <ItemGroup>
-      <Compile Include="$(GeneratedTestSuiteDir)\**\*.cs" />
-    </ItemGroup>
+  
+  <!-- Check if settings file has changed by comparing hash and regenerate if needed -->
+  <Target Name="GenerateTestSuite" BeforeTargets="BeforeBuild">
+    <PropertyGroup>
+      <_SettingsHashFilePath>$([System.IO.Path]::Combine($(MSBuildThisFileDirectory), $(SettingsHashFile)))</_SettingsHashFilePath>
+      <_SettingsFilePath>$([System.IO.Path]::Combine($(MSBuildThisFileDirectory), $(SettingsFile)))</_SettingsFilePath>
+      <_GeneratedDirPath>$([System.IO.Path]::Combine($(MSBuildThisFileDirectory), $(GeneratedTestSuiteDir)))</_GeneratedDirPath>
+    </PropertyGroup>
+    
+    <!-- Compute current settings file hash -->
+    <GetFileHash Files="$(_SettingsFilePath)" Algorithm="SHA256">
+      <Output TaskParameter="Hash" PropertyName="_CurrentSettingsHash" />
+    </GetFileHash>
+    
+    <!-- Read stored hash if it exists -->
+    <ReadLinesFromFile File="$(_SettingsHashFilePath)" Condition="Exists('$(_SettingsHashFilePath)')">
+      <Output TaskParameter="Lines" PropertyName="_StoredSettingsHash" />
+    </ReadLinesFromFile>
+    
+    <!-- Determine if regeneration is needed -->
+    <PropertyGroup>
+      <_NeedsRegeneration>false</_NeedsRegeneration>
+      <_NeedsRegeneration Condition="!Exists('$(_GeneratedDirPath)')">true</_NeedsRegeneration>
+      <_NeedsRegeneration Condition="'$(_CurrentSettingsHash)' != '$(_StoredSettingsHash)'">true</_NeedsRegeneration>
+    </PropertyGroup>
+    
+    <Message Text="Settings hash: current=$(_CurrentSettingsHash), stored=$(_StoredSettingsHash)" Importance="low" />
+    <Message Text="Test262 settings changed - regenerating test suite..." Importance="high" Condition="'$(_NeedsRegeneration)' == 'true' AND Exists('$(_GeneratedDirPath)')" />
+    
+    <!-- Delete existing generated folder if settings changed -->
+    <RemoveDir Directories="$(_GeneratedDirPath)" Condition="'$(_NeedsRegeneration)' == 'true' AND Exists('$(_GeneratedDirPath)')" />
+    
+    <!-- Run generation if needed -->
+    <Exec Command="dotnet tool restore" Condition="'$(_NeedsRegeneration)' == 'true'" />
+    <Exec Command="dotnet test262 generate" Condition="'$(_NeedsRegeneration)' == 'true'" />
+    
+    <!-- Store the new hash after successful generation -->
+    <WriteLinesToFile File="$(_SettingsHashFilePath)" Lines="$(_CurrentSettingsHash)" Overwrite="true" Condition="'$(_NeedsRegeneration)' == 'true'" />
   </Target>
 
-  <Target Name="_GenerateTestSuite">
-    <Exec Command="dotnet tool restore" />
-    <Exec Command="dotnet test262 generate" />
-  </Target>
-
-  <Target Name="DeleteTestSuite" DependsOnTargets="_DeleteTestSuite" AfterTargets="AfterClean" Condition="Exists($([System.IO.Path]::Combine($(MSBuildThisFileDirectory), $(GeneratedTestSuiteDir))))">
-    <RemoveDir Directories="$(GeneratedTestSuiteDir)" />
-  </Target>
-
-  <Target Name="_DeleteTestSuite">
+  <Target Name="DeleteTestSuite" AfterTargets="AfterClean" Condition="Exists($([System.IO.Path]::Combine($(MSBuildThisFileDirectory), $(GeneratedTestSuiteDir))))">
     <ItemGroup>
       <Compile Remove="$(GeneratedTestSuiteDir)\**\*.cs" />
     </ItemGroup>
+    <RemoveDir Directories="$(GeneratedTestSuiteDir)" />
   </Target>
 </Project>
