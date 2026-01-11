@@ -229,121 +229,410 @@ internal sealed class JsNumberFormat : ObjectInstance
         var isNegative = value < 0;
         var isLong = string.Equals(CompactDisplay, "long", StringComparison.Ordinal);
 
-        // For values less than 1000, use regular decimal formatting with compact rules
-        // Compact notation uses 2 significant digits by default
-        if (absValue < 1000)
+        // Get locale-specific compact patterns
+        var lang = Locale.Split('-')[0];
+        var patterns = Data.CompactPatterns.GetPatterns(lang);
+        var threshold = patterns.GetThreshold(isLong);
+
+        // For values below threshold, use regular decimal formatting
+        if (absValue < threshold)
         {
-            // Format with 2-3 significant figures for compact notation
-            // For values >= 100, show all digits (no decimal places)
-            // For values < 100, show 2 significant figures
-            if (absValue == 0)
-            {
-                return "0";
-            }
-
-            var magnitude = (int) System.Math.Floor(System.Math.Log10(absValue));
-            // For values >= 100 (magnitude >= 2), show all integer digits
-            // For smaller values, use 2 significant digits
-            var sigFigs = magnitude >= 2 ? magnitude + 1 : 2;
-            var decimalPlaces = sigFigs - magnitude - 1;
-
-            double rounded;
-            if (decimalPlaces >= 0)
-            {
-                rounded = ApplyRounding(absValue, decimalPlaces);
-            }
-            else
-            {
-                var roundingDivisor = System.Math.Pow(10, -decimalPlaces);
-                rounded = ApplyRounding(absValue / roundingDivisor, 0) * roundingDivisor;
-            }
-
-            // Format the result
-            string smallResult;
-            if (decimalPlaces <= 0)
-            {
-                smallResult = rounded.ToString("F0", CultureInfo.InvariantCulture);
-            }
-            else
-            {
-                // Format with required decimal places, but don't pad with zeros unnecessarily
-                var formatted = rounded.ToString("F" + decimalPlaces, CultureInfo.InvariantCulture);
-                // Trim trailing zeros after decimal, keeping at least one decimal place if needed
-                if (formatted.Contains('.'))
-                {
-                    formatted = formatted.TrimEnd('0');
-                    if (formatted.Length > 0 && formatted[formatted.Length - 1] == '.')
-                    {
-                        formatted = formatted.Substring(0, formatted.Length - 1);
-                    }
-                }
-                smallResult = formatted;
-            }
-
-            return isNegative ? "-" + smallResult : smallResult;
+            return FormatCompactSmallValue(value, absValue, isNegative);
         }
 
-        // For larger values, use compact suffixes
+        // Determine the appropriate compact unit
         string suffix;
         string longSuffix;
         double divisor;
 
+        // For East Asian languages (ja, ko, zh), use different divisors
+        var divisorMillion = patterns.DivisorMillion;
+        var divisorBillion = patterns.DivisorBillion;
+
         if (absValue >= 1_000_000_000_000)
         {
-            suffix = "T";
-            longSuffix = " trillion";
+            suffix = patterns.ShortTrillion;
+            longSuffix = patterns.LongTrillion;
             divisor = 1_000_000_000_000;
         }
-        else if (absValue >= 1_000_000_000)
+        else if (absValue >= divisorBillion)
         {
-            suffix = "B";
-            longSuffix = " billion";
-            divisor = 1_000_000_000;
+            suffix = patterns.ShortBillion;
+            longSuffix = patterns.LongBillion;
+            divisor = divisorBillion;
         }
-        else if (absValue >= 1_000_000)
+        else if (absValue >= divisorMillion)
         {
-            suffix = "M";
-            longSuffix = " million";
-            divisor = 1_000_000;
+            suffix = patterns.ShortMillion;
+            longSuffix = patterns.LongMillion;
+            divisor = divisorMillion;
+        }
+        else if (absValue >= 1000)
+        {
+            var thousandSuffix = isLong ? patterns.LongThousand : patterns.ShortThousand;
+            if (string.IsNullOrEmpty(thousandSuffix))
+            {
+                // No thousand suffix for this locale/mode, use small value formatting
+                return FormatCompactSmallValue(value, absValue, isNegative);
+            }
+            suffix = patterns.ShortThousand;
+            longSuffix = patterns.LongThousand;
+            divisor = 1000;
         }
         else
         {
-            suffix = "K";
-            longSuffix = " thousand";
-            divisor = 1_000;
+            // Below compact threshold but above small value handling
+            return FormatCompactSmallValue(value, absValue, isNegative);
+        }
+
+        // If suffix is empty, don't use compact notation
+        var actualSuffix = isLong ? longSuffix : suffix;
+        if (string.IsNullOrEmpty(actualSuffix))
+        {
+            return FormatCompactSmallValue(value, absValue, isNegative);
         }
 
         var compactValue = absValue / divisor;
+
         // Use 2 significant figures for compact notation
-        var compactMagnitude = (int) System.Math.Floor(System.Math.Log10(compactValue));
+        var compactMagnitude = compactValue >= 1 ? (int) System.Math.Floor(System.Math.Log10(compactValue)) : 0;
         var compactDecimalPlaces = 1 - compactMagnitude; // For 2 sig figs
-
-        if (compactDecimalPlaces > 0)
+        if (compactDecimalPlaces < 0)
         {
-            compactValue = ApplyRounding(compactValue, compactDecimalPlaces);
-        }
-        else
-        {
-            compactValue = ApplyRounding(compactValue, 0);
+            compactDecimalPlaces = 0;
         }
 
+        compactValue = ApplyRounding(compactValue, compactDecimalPlaces);
+
+        // Format the number part using locale's decimal separator
         string compactFormatted;
-        if (compactDecimalPlaces > 0)
+        if (compactDecimalPlaces > 0 && compactValue != System.Math.Floor(compactValue))
         {
-            compactFormatted = compactValue.ToString("F" + compactDecimalPlaces, CultureInfo.InvariantCulture);
-            // Trim trailing zeros
-            if (compactFormatted.Contains('.'))
+            compactFormatted = compactValue.ToString("F" + compactDecimalPlaces, NumberFormatInfo);
+            // Trim trailing zeros after decimal
+            var decSep = NumberFormatInfo.NumberDecimalSeparator;
+            if (compactFormatted.Contains(decSep))
             {
-                compactFormatted = compactFormatted.TrimEnd('0').TrimEnd('.');
+                compactFormatted = compactFormatted.TrimEnd('0');
+                if (compactFormatted.EndsWith(decSep, StringComparison.Ordinal))
+                {
+                    compactFormatted = compactFormatted.Substring(0, compactFormatted.Length - decSep.Length);
+                }
             }
         }
         else
         {
-            compactFormatted = compactValue.ToString("F0", CultureInfo.InvariantCulture);
+            compactFormatted = ((long) compactValue).ToString(NumberFormatInfo);
         }
 
-        var result = compactFormatted + (isLong ? longSuffix : suffix);
-        return isNegative ? "-" + result : result;
+        // Build result with appropriate spacing
+        string result;
+        if (isLong)
+        {
+            result = compactFormatted + " " + actualSuffix;
+        }
+        else
+        {
+            // Short format: some locales use non-breaking space
+            result = compactFormatted + "\u00a0" + actualSuffix;
+        }
+
+        return isNegative ? NumberFormatInfo.NegativeSign + result : result;
+    }
+
+    private string FormatCompactSmallValue(double value, double absValue, bool isNegative)
+    {
+        if (absValue == 0)
+        {
+            return "0";
+        }
+
+        // For values >= 1, format with locale's grouping/decimal separators
+        if (absValue >= 1)
+        {
+            var magnitude = (int) System.Math.Floor(System.Math.Log10(absValue));
+
+            // Determine decimal places based on magnitude
+            int decimalPlaces;
+            if (magnitude >= 4)
+            {
+                // 10000+ - no decimals, use grouping
+                decimalPlaces = 0;
+            }
+            else if (magnitude >= 2)
+            {
+                // 100-9999 - no decimals
+                decimalPlaces = 0;
+            }
+            else
+            {
+                // 1-99 - use 2 significant figures
+                decimalPlaces = 1 - magnitude;
+            }
+
+            var rounded = ApplyRounding(absValue, decimalPlaces);
+
+            string formatted;
+            if (decimalPlaces <= 0)
+            {
+                // Use grouping only for numbers with 5+ digits (10000+)
+                if (rounded >= 10000)
+                {
+                    formatted = rounded.ToString("#,##0", NumberFormatInfo);
+                }
+                else
+                {
+                    formatted = ((long) rounded).ToString(CultureInfo.InvariantCulture);
+                }
+            }
+            else
+            {
+                formatted = rounded.ToString("F" + decimalPlaces, NumberFormatInfo);
+                // Trim trailing zeros
+                var decSep = NumberFormatInfo.NumberDecimalSeparator;
+                if (formatted.Contains(decSep))
+                {
+                    formatted = formatted.TrimEnd('0');
+                    if (formatted.EndsWith(decSep, StringComparison.Ordinal))
+                    {
+                        formatted = formatted.Substring(0, formatted.Length - decSep.Length);
+                    }
+                }
+            }
+
+            return isNegative ? NumberFormatInfo.NegativeSign + formatted : formatted;
+        }
+
+        // For values < 1
+        var smallMagnitude = (int) System.Math.Floor(System.Math.Log10(absValue));
+        var smallDecimalPlaces = 1 - smallMagnitude; // 2 sig figs
+
+        var smallRounded = ApplyRounding(absValue, smallDecimalPlaces);
+        var smallFormatted = smallRounded.ToString("F" + smallDecimalPlaces, NumberFormatInfo);
+
+        // Trim trailing zeros but keep at least required precision
+        var sep = NumberFormatInfo.NumberDecimalSeparator;
+        if (smallFormatted.Contains(sep))
+        {
+            smallFormatted = smallFormatted.TrimEnd('0');
+            if (smallFormatted.EndsWith(sep, StringComparison.Ordinal))
+            {
+                smallFormatted = smallFormatted.Substring(0, smallFormatted.Length - sep.Length);
+            }
+        }
+
+        return isNegative ? NumberFormatInfo.NegativeSign + smallFormatted : smallFormatted;
+    }
+
+    private List<NumberFormatPart> FormatCompactToParts(double value)
+    {
+        var parts = new List<NumberFormatPart>();
+
+        // Handle special values
+        if (double.IsNaN(value))
+        {
+            parts.Add(new NumberFormatPart("nan", NumberFormatInfo.NaNSymbol));
+            return parts;
+        }
+
+        if (double.IsPositiveInfinity(value))
+        {
+            parts.Add(new NumberFormatPart("infinity", NumberFormatInfo.PositiveInfinitySymbol));
+            return parts;
+        }
+
+        if (double.IsNegativeInfinity(value))
+        {
+            parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
+            parts.Add(new NumberFormatPart("infinity", NumberFormatInfo.PositiveInfinitySymbol));
+            return parts;
+        }
+
+        var absValue = System.Math.Abs(value);
+        var isNegative = value < 0;
+        var isLong = string.Equals(CompactDisplay, "long", StringComparison.Ordinal);
+
+        // Handle sign
+        if (isNegative)
+        {
+            parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
+        }
+
+        // Get locale-specific compact patterns
+        var lang = Locale.Split('-')[0];
+        var patterns = Data.CompactPatterns.GetPatterns(lang);
+        var threshold = patterns.GetThreshold(isLong);
+
+        // For values below threshold, format as regular decimal parts
+        if (absValue < threshold || absValue == 0)
+        {
+            AddDecimalParts(parts, absValue);
+            return parts;
+        }
+
+        // Determine the appropriate compact unit
+        string? compactSuffix = null;
+        double divisor = 1;
+
+        var divisorMillion = patterns.DivisorMillion;
+        var divisorBillion = patterns.DivisorBillion;
+
+        if (absValue >= 1_000_000_000_000)
+        {
+            compactSuffix = isLong ? patterns.LongTrillion : patterns.ShortTrillion;
+            divisor = 1_000_000_000_000;
+        }
+        else if (absValue >= divisorBillion)
+        {
+            compactSuffix = isLong ? patterns.LongBillion : patterns.ShortBillion;
+            divisor = divisorBillion;
+        }
+        else if (absValue >= divisorMillion)
+        {
+            compactSuffix = isLong ? patterns.LongMillion : patterns.ShortMillion;
+            divisor = divisorMillion;
+        }
+        else if (absValue >= 1000)
+        {
+            var thousandSuffix = isLong ? patterns.LongThousand : patterns.ShortThousand;
+            if (!string.IsNullOrEmpty(thousandSuffix))
+            {
+                compactSuffix = thousandSuffix;
+                divisor = 1000;
+            }
+        }
+
+        // If no compact suffix, format as decimal parts
+        if (string.IsNullOrEmpty(compactSuffix))
+        {
+            AddDecimalParts(parts, absValue);
+            return parts;
+        }
+
+        var compactValue = absValue / divisor;
+
+        // Round to 2 significant figures
+        var compactMagnitude = compactValue >= 1 ? (int) System.Math.Floor(System.Math.Log10(compactValue)) : 0;
+        var compactDecimalPlaces = 1 - compactMagnitude;
+        if (compactDecimalPlaces < 0)
+        {
+            compactDecimalPlaces = 0;
+        }
+
+        compactValue = ApplyRounding(compactValue, compactDecimalPlaces);
+
+        // Add integer part
+        var integerPart = (long) System.Math.Truncate(compactValue);
+        parts.Add(new NumberFormatPart("integer", integerPart.ToString(CultureInfo.InvariantCulture)));
+
+        // Add decimal part if needed
+        var fractionValue = compactValue - integerPart;
+        if (compactDecimalPlaces > 0 && fractionValue > 0.00001)
+        {
+            parts.Add(new NumberFormatPart("decimal", NumberFormatInfo.NumberDecimalSeparator));
+
+            var multiplier = System.Math.Pow(10, compactDecimalPlaces);
+            var fractionInt = (long) System.Math.Round(fractionValue * multiplier);
+            var fractionStr = fractionInt.ToString(CultureInfo.InvariantCulture);
+
+            // Trim trailing zeros
+            fractionStr = fractionStr.TrimEnd('0');
+            if (fractionStr.Length > 0)
+            {
+                parts.Add(new NumberFormatPart("fraction", fractionStr));
+            }
+        }
+
+        // Add literal space and compact suffix
+        if (isLong)
+        {
+            parts.Add(new NumberFormatPart("literal", " "));
+        }
+        else
+        {
+            parts.Add(new NumberFormatPart("literal", "\u00a0")); // Non-breaking space for short format
+        }
+
+        parts.Add(new NumberFormatPart("compact", compactSuffix!));
+
+        return parts;
+    }
+
+    private void AddDecimalParts(List<NumberFormatPart> parts, double value)
+    {
+        if (value == 0)
+        {
+            parts.Add(new NumberFormatPart("integer", "0"));
+            return;
+        }
+
+        var magnitude = value >= 1 ? (int) System.Math.Floor(System.Math.Log10(value)) : 0;
+        int decimalPlaces;
+
+        if (magnitude >= 4)
+        {
+            decimalPlaces = 0;
+        }
+        else if (magnitude >= 2)
+        {
+            decimalPlaces = 0;
+        }
+        else if (value >= 1)
+        {
+            decimalPlaces = 1 - magnitude;
+        }
+        else
+        {
+            var smallMagnitude = (int) System.Math.Floor(System.Math.Log10(value));
+            decimalPlaces = 1 - smallMagnitude;
+        }
+
+        var rounded = ApplyRounding(value, decimalPlaces);
+
+        // Add integer part
+        var integerPart = (long) System.Math.Truncate(rounded);
+        var intStr = integerPart.ToString(CultureInfo.InvariantCulture);
+
+        // Add grouping for large numbers
+        if (rounded >= 10000)
+        {
+            intStr = integerPart.ToString("#,##0", NumberFormatInfo);
+            // Parse groups and add as separate parts
+            var groups = intStr.Split(new[] { NumberFormatInfo.NumberGroupSeparator }, StringSplitOptions.None);
+            for (var i = 0; i < groups.Length; i++)
+            {
+                if (i > 0)
+                {
+                    parts.Add(new NumberFormatPart("group", NumberFormatInfo.NumberGroupSeparator));
+                }
+                parts.Add(new NumberFormatPart("integer", groups[i]));
+            }
+        }
+        else
+        {
+            parts.Add(new NumberFormatPart("integer", intStr));
+        }
+
+        // Add decimal part if needed
+        if (decimalPlaces > 0)
+        {
+            var fractionValue = rounded - integerPart;
+            if (fractionValue > 0.00001)
+            {
+                parts.Add(new NumberFormatPart("decimal", NumberFormatInfo.NumberDecimalSeparator));
+
+                var multiplier = System.Math.Pow(10, decimalPlaces);
+                var fractionInt = (long) System.Math.Round(fractionValue * multiplier);
+                var fractionStr = fractionInt.ToString(CultureInfo.InvariantCulture).PadLeft(decimalPlaces, '0');
+
+                // Trim trailing zeros
+                fractionStr = fractionStr.TrimEnd('0');
+                if (fractionStr.Length > 0)
+                {
+                    parts.Add(new NumberFormatPart("fraction", fractionStr));
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -1198,6 +1487,12 @@ internal sealed class JsNumberFormat : ObjectInstance
 
     private List<NumberFormatPart> FormatNotationToParts(double value)
     {
+        // Handle compact notation separately
+        if (string.Equals(Notation, "compact", StringComparison.Ordinal))
+        {
+            return FormatCompactToParts(value);
+        }
+
         var parts = new List<NumberFormatPart>();
 
         var isNegative = value < 0;
