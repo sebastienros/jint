@@ -91,14 +91,16 @@ internal sealed class DateTimeFormatPrototype : Prototype
         var dateValue = arguments.At(0);
         var dateTime = ToDateTime(dateValue);
 
-        // For now, return a simple implementation that returns the whole formatted string as one part
-        var formatted = dateTimeFormat.Format(dateTime);
+        var parts = dateTimeFormat.FormatToParts(dateTime);
+        var result = new JsArray(Engine, (uint) parts.Count);
 
-        var result = new JsArray(Engine, 1);
-        var part = OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
-        part.Set("type", "literal");
-        part.Set("value", formatted);
-        result.SetIndexValue(0, part, updateLength: true);
+        for (var i = 0; i < parts.Count; i++)
+        {
+            var partObj = OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
+            partObj.Set("type", parts[i].Type);
+            partObj.Set("value", parts[i].Value);
+            result.SetIndexValue((uint) i, partObj, updateLength: true);
+        }
 
         return result;
     }
