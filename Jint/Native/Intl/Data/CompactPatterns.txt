@@ -8,6 +8,7 @@ long_million=million
 long_billion=billion
 long_trillion=trillion
 threshold=1000
+short_space=false
 
 [de]
 short_thousand=

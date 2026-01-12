@@ -333,8 +333,15 @@ internal sealed class JsNumberFormat : ObjectInstance
         }
         else
         {
-            // Short format: some locales use non-breaking space
-            result = compactFormatted + "\u00a0" + actualSuffix;
+            // Short format: spacing depends on locale
+            if (patterns.ShortSpace)
+            {
+                result = compactFormatted + "\u00a0" + actualSuffix;
+            }
+            else
+            {
+                result = compactFormatted + actualSuffix;
+            }
         }
 
         return isNegative ? NumberFormatInfo.NegativeSign + result : result;
@@ -543,15 +550,16 @@ internal sealed class JsNumberFormat : ObjectInstance
             }
         }
 
-        // Add literal space and compact suffix
+        // Add literal space and compact suffix (only if there's a space)
         if (isLong)
         {
             parts.Add(new NumberFormatPart("literal", " "));
         }
-        else
+        else if (patterns.ShortSpace)
         {
             parts.Add(new NumberFormatPart("literal", "\u00a0")); // Non-breaking space for short format
         }
+        // For short format without space, we don't add a literal part
 
         parts.Add(new NumberFormatPart("compact", compactSuffix!));
 
@@ -842,11 +850,22 @@ internal sealed class JsNumberFormat : ObjectInstance
         var unitDisplay = UnitDisplay ?? "short";
         var unitStr = Unit ?? "";
         var unitSuffix = GetUnitSuffix(unitStr, unitDisplay, (double) value);
+
+        // Narrow display has no space between number and unit
+        if (string.Equals(unitDisplay, "narrow", StringComparison.Ordinal))
+        {
+            return $"{formattedNumber}{unitSuffix}";
+        }
+
         return $"{formattedNumber} {unitSuffix}";
     }
 
     private string FormatDecimal(double value)
     {
+        // Check if value is negative (including -0)
+        var isNegative = value < 0 || double.IsNegativeInfinity(1 / value);
+        var absValue = System.Math.Abs(value);
+
         // Handle significant digits and roundingPriority
         if (MinimumSignificantDigits.HasValue || MaximumSignificantDigits.HasValue)
         {
@@ -854,7 +873,33 @@ internal sealed class JsNumberFormat : ObjectInstance
         }
 
         // Apply rounding based on MaximumFractionDigits
-        value = ApplyRounding(value, MaximumFractionDigits);
+        absValue = ApplyRounding(absValue, MaximumFractionDigits);
+        var displaysAsZero = absValue == 0;
+
+        // Determine if we should show a sign based on signDisplay
+        var showNegativeSign = isNegative;
+        var showPositiveSign = false;
+
+        switch (SignDisplay)
+        {
+            case "always":
+                showPositiveSign = !isNegative;
+                break;
+            case "exceptZero":
+                showPositiveSign = !isNegative && !displaysAsZero;
+                showNegativeSign = isNegative && !displaysAsZero;
+                break;
+            case "negative":
+                showPositiveSign = false;
+                showNegativeSign = isNegative && !displaysAsZero;
+                break;
+            case "never":
+                showNegativeSign = false;
+                showPositiveSign = false;
+                break;
+        }
+
+        value = absValue;
 
         // Build custom format string that respects min integer digits, min/max fraction digits
         // e.g., MinimumIntegerDigits=3, MinimumFractionDigits=1, MaximumFractionDigits=3 -> "000.0##"
@@ -907,7 +952,20 @@ internal sealed class JsNumberFormat : ObjectInstance
             format = $"{integerPart}.{fractionPart}";
         }
 
-        return value.ToString(format, NumberFormatInfo);
+        var formatted = value.ToString(format, NumberFormatInfo);
+
+        // Apply sign based on signDisplay
+        if (showNegativeSign)
+        {
+            return NumberFormatInfo.NegativeSign + formatted;
+        }
+
+        if (showPositiveSign)
+        {
+            return NumberFormatInfo.PositiveSign + formatted;
+        }
+
+        return formatted;
     }
 
     private string FormatWithSignificantDigits(double value)
@@ -1358,6 +1416,13 @@ internal sealed class JsNumberFormat : ObjectInstance
 
         // Get unit abbreviation based on display
         var unitSuffix = GetUnitSuffix(unitStr, unitDisplay, value);
+
+        // Narrow display has no space between number and unit
+        if (string.Equals(unitDisplay, "narrow", StringComparison.Ordinal))
+        {
+            return $"{formattedNumber}{unitSuffix}";
+        }
+
         return $"{formattedNumber} {unitSuffix}";
     }
 
@@ -1367,6 +1432,26 @@ internal sealed class JsNumberFormat : ObjectInstance
         var isPlural = System.Math.Abs(value) != 1;
         var isLong = string.Equals(display, "long", StringComparison.Ordinal);
         var isNarrow = string.Equals(display, "narrow", StringComparison.Ordinal);
+
+        // Handle compound units like "kilometer-per-hour"
+        var perIndex = unit.IndexOf("-per-", StringComparison.Ordinal);
+        if (perIndex > 0)
+        {
+            var numerator = unit.Substring(0, perIndex);
+            var denominator = unit.Substring(perIndex + 5);
+
+            var numSuffix = GetUnitSuffix(numerator, display, value);
+            var denomSuffix = GetUnitSuffix(denominator, display, 1); // Always singular for denominator
+
+            if (isLong)
+            {
+                return $"{numSuffix} per {denomSuffix}";
+            }
+            else
+            {
+                return $"{numSuffix}/{denomSuffix}";
+            }
+        }
 
         if (isLong)
         {
@@ -1416,9 +1501,9 @@ internal sealed class JsNumberFormat : ObjectInstance
             "foot" => "ft",
             "inch" => "in",
             "yard" => "yd",
-            "second" => isNarrow ? "s" : "sec",
-            "minute" => isNarrow ? "m" : "min",
-            "hour" => isNarrow ? "h" : "hr",
+            "second" => "s",
+            "minute" => "min",
+            "hour" => "h",
             "day" => isNarrow ? "d" : "day",
             "week" => isNarrow ? "w" : "wk",
             "month" => isNarrow ? "M" : "mo",
@@ -1452,19 +1537,36 @@ internal sealed class JsNumberFormat : ObjectInstance
         // Handle special values
         if (double.IsNaN(value))
         {
+            // For signDisplay "always", NaN gets a plus sign
+            if (string.Equals(SignDisplay, "always", StringComparison.Ordinal))
+            {
+                parts.Add(new NumberFormatPart("plusSign", NumberFormatInfo.PositiveSign));
+            }
             parts.Add(new NumberFormatPart("nan", NumberFormatInfo.NaNSymbol));
             return parts;
         }
 
         if (double.IsPositiveInfinity(value))
         {
+            // For signDisplay "always" or "exceptZero", show plus sign (infinity is never zero)
+            if (string.Equals(SignDisplay, "always", StringComparison.Ordinal) ||
+                string.Equals(SignDisplay, "exceptZero", StringComparison.Ordinal))
+            {
+                parts.Add(new NumberFormatPart("plusSign", NumberFormatInfo.PositiveSign));
+            }
             parts.Add(new NumberFormatPart("infinity", NumberFormatInfo.PositiveInfinitySymbol));
             return parts;
         }
 
         if (double.IsNegativeInfinity(value))
         {
-            parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
+            // For signDisplay "negative", always show the minus sign (infinity is never zero)
+            // For "never", don't show the sign
+            // For "auto" (default), show the minus sign
+            if (!string.Equals(SignDisplay, "never", StringComparison.Ordinal))
+            {
+                parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
+            }
             parts.Add(new NumberFormatPart("infinity", NumberFormatInfo.PositiveInfinitySymbol));
             return parts;
         }
@@ -1589,16 +1691,47 @@ internal sealed class JsNumberFormat : ObjectInstance
         var parts = new List<NumberFormatPart>();
 
         // Handle sign
-        var isNegative = value < 0;
-        if (isNegative)
+        var isNegative = value < 0 || double.IsNegativeInfinity(1 / value); // Handles -0
+        var absValue = System.Math.Abs(value);
+
+        // Apply rounding first to determine if value displays as zero
+        absValue = ApplyRounding(absValue, MaximumFractionDigits);
+        var displaysAsZero = absValue == 0;
+
+        // Determine if we should show a sign based on signDisplay
+        var showNegativeSign = isNegative;
+        var showPositiveSign = false;
+
+        switch (SignDisplay)
+        {
+            case "always":
+                showPositiveSign = !isNegative;
+                break;
+            case "exceptZero":
+                showPositiveSign = !isNegative && !displaysAsZero;
+                showNegativeSign = isNegative && !displaysAsZero;
+                break;
+            case "negative":
+                showPositiveSign = false;
+                // For "negative" signDisplay, only show negative sign for truly negative, non-zero display
+                showNegativeSign = isNegative && !displaysAsZero;
+                break;
+            case "never":
+                showNegativeSign = false;
+                showPositiveSign = false;
+                break;
+        }
+
+        if (showNegativeSign)
         {
             parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
-            value = System.Math.Abs(value);
         }
-        else if (ShouldShowPlusSign(value))
+        else if (showPositiveSign)
         {
             parts.Add(new NumberFormatPart("plusSign", NumberFormatInfo.PositiveSign));
         }
+
+        value = absValue;
 
         // Handle significant digits if specified
         if (MinimumSignificantDigits.HasValue || MaximumSignificantDigits.HasValue)
@@ -1607,8 +1740,7 @@ internal sealed class JsNumberFormat : ObjectInstance
             return parts;
         }
 
-        // Apply rounding
-        value = ApplyRounding(value, MaximumFractionDigits);
+        // Value is already rounded
 
         // Split into integer and fraction parts
         var integerPart = (long) System.Math.Truncate(value);
@@ -1796,29 +1928,70 @@ internal sealed class JsNumberFormat : ObjectInstance
     private List<NumberFormatPart> FormatCurrencyToParts(double value)
     {
         var parts = new List<NumberFormatPart>();
-        var isNegative = value < 0;
+        var isNegative = value < 0 || double.IsNegativeInfinity(1 / value); // Handles -0
         var absValue = System.Math.Abs(value);
 
         // Get currency symbol
         var currencySymbol = NumberFormatInfo.CurrencySymbol;
 
-        // Determine pattern based on locale
-        // Common patterns: $n, n$, $ n, n $
-        var pattern = isNegative ? NumberFormatInfo.CurrencyNegativePattern : NumberFormatInfo.CurrencyPositivePattern;
+        // Apply rounding first to determine if value displays as zero
+        var fractionDigits = MaximumFractionDigits > 0 ? MaximumFractionDigits : 2;
+        absValue = ApplyRounding(absValue, fractionDigits);
+        var displaysAsZero = absValue == 0;
 
-        // Apply rounding
-        absValue = ApplyRounding(absValue, MaximumFractionDigits > 0 ? MaximumFractionDigits : 2);
+        // Determine if we should show a negative sign based on signDisplay
+        var showNegativeSign = isNegative;
+        var showPositiveSign = false;
+        var useAccountingFormat = string.Equals(CurrencySign, "accounting", StringComparison.Ordinal);
+
+        switch (SignDisplay)
+        {
+            case "always":
+                showPositiveSign = !isNegative;
+                break;
+            case "exceptZero":
+                showPositiveSign = !isNegative && !displaysAsZero;
+                showNegativeSign = isNegative && !displaysAsZero;
+                break;
+            case "negative":
+                showPositiveSign = false;
+                // For "negative" signDisplay, only show negative sign for truly negative, non-zero display
+                showNegativeSign = isNegative && !displaysAsZero;
+                break;
+            case "never":
+                showNegativeSign = false;
+                showPositiveSign = false;
+                break;
+        }
 
         // Split value
         var integerPart = (long) System.Math.Truncate(absValue);
         var fractionValue = absValue - integerPart;
 
-        // Build parts based on pattern
-        // Positive patterns: 0=$n, 1=n$, 2=$ n, 3=n $
-        // Negative patterns vary widely
-        if (isNegative)
+        // Determine pattern based on locale (use positive pattern as base)
+        var pattern = NumberFormatInfo.CurrencyPositivePattern;
+
+        // Build parts based on sign display and format
+        if (showNegativeSign)
         {
-            BuildCurrencyNegativeParts(parts, pattern, currencySymbol, integerPart, fractionValue);
+            if (useAccountingFormat)
+            {
+                // Accounting format uses parentheses: ($n)
+                parts.Add(new NumberFormatPart("literal", "("));
+                BuildCurrencyPositiveParts(parts, pattern, currencySymbol, integerPart, fractionValue);
+                parts.Add(new NumberFormatPart("literal", ")"));
+            }
+            else
+            {
+                // Standard format uses minus sign
+                parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
+                BuildCurrencyPositiveParts(parts, pattern, currencySymbol, integerPart, fractionValue);
+            }
+        }
+        else if (showPositiveSign)
+        {
+            parts.Add(new NumberFormatPart("plusSign", NumberFormatInfo.PositiveSign));
+            BuildCurrencyPositiveParts(parts, pattern, currencySymbol, integerPart, fractionValue);
         }
         else
         {
@@ -1862,33 +2035,6 @@ internal sealed class JsNumberFormat : ObjectInstance
         }
     }
 
-    private void BuildCurrencyNegativeParts(List<NumberFormatPart> parts, int pattern, string symbol, long integerPart, double fractionValue)
-    {
-        // Simplified - just add minus sign at start for most patterns
-        switch (pattern)
-        {
-            case 0: // ($n)
-                parts.Add(new NumberFormatPart("literal", "("));
-                parts.Add(new NumberFormatPart("currency", symbol));
-                FormatIntegerToParts(parts, integerPart);
-                AddFractionPartsIfNeeded(parts, fractionValue);
-                parts.Add(new NumberFormatPart("literal", ")"));
-                break;
-            case 1: // -$n
-                parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
-                parts.Add(new NumberFormatPart("currency", symbol));
-                FormatIntegerToParts(parts, integerPart);
-                AddFractionPartsIfNeeded(parts, fractionValue);
-                break;
-            default:
-                parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
-                parts.Add(new NumberFormatPart("currency", symbol));
-                FormatIntegerToParts(parts, integerPart);
-                AddFractionPartsIfNeeded(parts, fractionValue);
-                break;
-        }
-    }
-
     private void AddFractionPartsIfNeeded(List<NumberFormatPart> parts, double fractionValue)
     {
         var minFrac = MinimumFractionDigits > 0 ? MinimumFractionDigits : 2;
@@ -1902,14 +2048,38 @@ internal sealed class JsNumberFormat : ObjectInstance
     private List<NumberFormatPart> FormatPercentToParts(double value)
     {
         var parts = new List<NumberFormatPart>();
-        var isNegative = value < 0;
+        var isNegative = value < 0 || double.IsNegativeInfinity(1 / value); // Handles -0
 
         // Multiply by 100 for percent
         var percentValue = System.Math.Abs(value) * 100;
         percentValue = ApplyRounding(percentValue, MaximumFractionDigits);
+        var displaysAsZero = percentValue == 0;
+
+        // Determine if we should show a sign based on signDisplay
+        var showNegativeSign = isNegative;
+        var showPositiveSign = false;
+
+        switch (SignDisplay)
+        {
+            case "always":
+                showPositiveSign = !isNegative;
+                break;
+            case "exceptZero":
+                showPositiveSign = !isNegative && !displaysAsZero;
+                showNegativeSign = isNegative && !displaysAsZero;
+                break;
+            case "negative":
+                showPositiveSign = false;
+                showNegativeSign = isNegative && !displaysAsZero;
+                break;
+            case "never":
+                showNegativeSign = false;
+                showPositiveSign = false;
+                break;
+        }
 
         // Get the percent pattern to determine symbol position and spacing
-        var pattern = isNegative ? NumberFormatInfo.PercentNegativePattern : NumberFormatInfo.PercentPositivePattern;
+        var pattern = NumberFormatInfo.PercentPositivePattern;
 
         // Determine if symbol comes before or after, and if there's spacing
         // Positive patterns: 0="n %", 1="n%", 2="%n", 3="% n"
@@ -1926,11 +2096,11 @@ internal sealed class JsNumberFormat : ObjectInstance
             }
         }
 
-        if (isNegative)
+        if (showNegativeSign)
         {
             parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
         }
-        else if (ShouldShowPlusSign(value))
+        else if (showPositiveSign)
         {
             parts.Add(new NumberFormatPart("plusSign", NumberFormatInfo.PositiveSign));
         }
@@ -1962,22 +2132,47 @@ internal sealed class JsNumberFormat : ObjectInstance
     private List<NumberFormatPart> FormatUnitToParts(double value)
     {
         var parts = new List<NumberFormatPart>();
-        var isNegative = value < 0;
+        var isNegative = value < 0 || double.IsNegativeInfinity(1 / value); // Handles -0
+        var absValue = System.Math.Abs(value);
 
-        if (isNegative)
+        // Apply rounding first to determine if value displays as zero
+        absValue = ApplyRounding(absValue, MaximumFractionDigits);
+        var displaysAsZero = absValue == 0;
+
+        // Determine if we should show a sign based on signDisplay
+        var showNegativeSign = isNegative;
+        var showPositiveSign = false;
+
+        switch (SignDisplay)
+        {
+            case "always":
+                showPositiveSign = !isNegative;
+                break;
+            case "exceptZero":
+                showPositiveSign = !isNegative && !displaysAsZero;
+                showNegativeSign = isNegative && !displaysAsZero;
+                break;
+            case "negative":
+                showPositiveSign = false;
+                showNegativeSign = isNegative && !displaysAsZero;
+                break;
+            case "never":
+                showNegativeSign = false;
+                showPositiveSign = false;
+                break;
+        }
+
+        if (showNegativeSign)
         {
             parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
-            value = System.Math.Abs(value);
         }
-        else if (ShouldShowPlusSign(value))
+        else if (showPositiveSign)
         {
             parts.Add(new NumberFormatPart("plusSign", NumberFormatInfo.PositiveSign));
         }
 
-        value = ApplyRounding(value, MaximumFractionDigits);
-
-        var integerPart = (long) System.Math.Truncate(value);
-        var fractionValue = value - integerPart;
+        var integerPart = (long) System.Math.Truncate(absValue);
+        var fractionValue = absValue - integerPart;
 
         FormatIntegerToParts(parts, integerPart);
 
@@ -1990,9 +2185,13 @@ internal sealed class JsNumberFormat : ObjectInstance
         // Add space and unit
         var unitDisplay = UnitDisplay ?? "short";
         var unitStr = Unit ?? "";
-        var unitSuffix = GetUnitSuffix(unitStr, unitDisplay, value);
+        var unitSuffix = GetUnitSuffix(unitStr, unitDisplay, absValue);
 
-        parts.Add(new NumberFormatPart("literal", " "));
+        // Only add literal space for short and long, not narrow
+        if (!string.Equals(unitDisplay, "narrow", StringComparison.Ordinal))
+        {
+            parts.Add(new NumberFormatPart("literal", " "));
+        }
         parts.Add(new NumberFormatPart("unit", unitSuffix));
 
         return parts;

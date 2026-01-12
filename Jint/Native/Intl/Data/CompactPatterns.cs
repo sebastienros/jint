@@ -160,6 +160,9 @@ internal static class CompactPatterns
                             currentData.DivisorBillion = divBillion;
                         }
                         break;
+                    case "short_space":
+                        currentData.ShortSpace = !string.Equals(value, "false", StringComparison.OrdinalIgnoreCase);
+                        break;
                 }
             }
 
@@ -187,6 +190,7 @@ internal static class CompactPatterns
         public long? ThresholdLong { get; set; }
         public long DivisorMillion { get; set; } = 1_000_000;
         public long DivisorBillion { get; set; } = 1_000_000_000;
+        public bool ShortSpace { get; set; } = true; // Default to true (has space)
 
         /// <summary>
         /// Gets the threshold to use based on display mode.
