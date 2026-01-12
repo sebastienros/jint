@@ -86,6 +86,12 @@ internal sealed class CollatorConstructor : Constructor
         var numeric = GetNumericOption(optionsObj, uNumeric);
         var caseFirst = GetCaseFirstOption(optionsObj, uCaseFirst);
 
+        // Build locale with unicode extensions - include extension if it was present AND final value matches
+        var finalLocale = BuildLocaleWithExtensions(resolvedLocale,
+            collation, uCollation,
+            numeric, uNumeric,
+            caseFirst, uCaseFirst);
+
         // Get CompareInfo for the locale
         var culture = IntlUtilities.GetCultureInfo(resolvedLocale) ?? CultureInfo.InvariantCulture;
 
@@ -104,7 +110,7 @@ internal sealed class CollatorConstructor : Constructor
         return new JsCollator(
             _engine,
             proto,
-            resolvedLocale,
+            finalLocale,
             usage,
             sensitivity,
             ignorePunctuation,
@@ -113,6 +119,47 @@ internal sealed class CollatorConstructor : Constructor
             caseFirst,
             compareInfo,
             compareOptions);
+    }
+
+    private static string BuildLocaleWithExtensions(string baseLocale,
+        string collation, string? uCollation,
+        bool numeric, bool? uNumeric,
+        string caseFirst, string? uCaseFirst)
+    {
+        // Include extension if: (1) extension was present in locale AND (2) final value equals extension value
+        var extensions = new List<string>();
+
+        // Add collation extension if extension was present and final value matches
+        if (uCollation != null &&
+            string.Equals(collation, uCollation, StringComparison.Ordinal) &&
+            !string.Equals(collation, "default", StringComparison.Ordinal))
+        {
+            extensions.Add("co-" + collation);
+        }
+
+        // Add kn (numeric) extension if extension was present and final value matches extension value
+        // Per spec: canonical form is just "kn" for true, don't include for false (default)
+        if (uNumeric.HasValue && numeric == uNumeric.Value && numeric)
+        {
+            extensions.Add("kn");
+        }
+
+        // Add kf (caseFirst) extension if extension was present and final value matches
+        if (uCaseFirst != null &&
+            string.Equals(caseFirst, uCaseFirst, StringComparison.Ordinal) &&
+            !string.Equals(caseFirst, "false", StringComparison.Ordinal))
+        {
+            extensions.Add("kf-" + caseFirst);
+        }
+
+        if (extensions.Count == 0)
+        {
+            return baseLocale;
+        }
+
+        // Sort extensions alphabetically (co, kf, kn order)
+        extensions.Sort(StringComparer.Ordinal);
+        return baseLocale + "-u-" + string.Join("-", extensions);
     }
 
     private string GetStringOption(ObjectInstance options, string property, HashSet<string> values, string fallback)
@@ -218,32 +265,18 @@ internal sealed class CollatorConstructor : Constructor
         }
     }
 
-    // Valid collation types that are supported across locales
-    // Note: "standard" and "search" from -u-co- extension are NOT valid collation types
-    // and should be ignored per ECMA-402.
-    private static readonly HashSet<string> SupportedCollationTypes =
-    [
-        "default", "big5han", "compat", "dict", "direct", "ducet", "emoji", "eor",
-        "gb2312", "phonebk", "phonetic", "pinyin", "reformed", "searchjl", "stroke",
-        "trad", "unihan", "zhuyin"
-    ];
-
     private static string GetCollationOption(ObjectInstance options, string? unicodeExtension)
     {
         var value = options.Get("collation");
         if (!value.IsUndefined())
         {
-            var collationValue = TypeConverter.ToString(value);
-            // Options explicitly passed override unicode extensions and are accepted
-            return collationValue;
+            // Accept any collation value from options (even if we can't really implement it)
+            return TypeConverter.ToString(value);
         }
 
-        // Unicode extension value should be validated - only use if it's a known supported collation
-        if (unicodeExtension != null && SupportedCollationTypes.Contains(unicodeExtension))
-        {
-            return unicodeExtension;
-        }
-
+        // Unicode extension collation types are not supported by .NET's CompareInfo,
+        // so we always fall back to "default" when no explicit option is provided.
+        // Note: "standard" and "search" are explicitly disallowed by ECMA-402.
         return "default";
     }
 
@@ -273,12 +306,9 @@ internal sealed class CollatorConstructor : Constructor
             return stringValue;
         }
 
-        if (unicodeExtension != null)
+        if (unicodeExtension != null && CaseFirstValues.Contains(unicodeExtension))
         {
-            if (CaseFirstValues.Contains(unicodeExtension))
-            {
-                return unicodeExtension;
-            }
+            return unicodeExtension;
         }
 
         return "false";

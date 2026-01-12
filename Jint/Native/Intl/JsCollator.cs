@@ -84,13 +84,36 @@ internal sealed class JsCollator : ObjectInstance
     /// </summary>
     internal int Compare(string x, string y)
     {
+        // Normalize strings to NFC form so that canonically equivalent strings compare as equal
+        // For example: "ö" (U+00F6) should equal "o\u0308" (o + combining umlaut)
+        x = x.Normalize(System.Text.NormalizationForm.FormC);
+        y = y.Normalize(System.Text.NormalizationForm.FormC);
+
         if (Numeric)
         {
             // Use natural sort comparison for numeric strings
             return NaturalStringCompare(x, y);
         }
 
-        return CompareInfo.Compare(x, y, CompareOptions);
+        var result = CompareInfo.Compare(x, y, CompareOptions);
+
+        // Some locales (like Thai) inherently ignore punctuation/symbols in comparison.
+        // If ignorePunctuation is false and the result is 0 but strings differ, check if the
+        // difference is only in punctuation/symbols (by removing them and comparing).
+        if (result == 0 && !IgnorePunctuation && !string.Equals(x, y, System.StringComparison.Ordinal))
+        {
+            // Strip all punctuation/symbols and see if what remains is equal
+            var xStripped = StripPunctuation(x);
+            var yStripped = StripPunctuation(y);
+            if (string.Equals(xStripped, yStripped, System.StringComparison.Ordinal))
+            {
+                // The difference is only in punctuation/symbols which should not be ignored
+                result = string.CompareOrdinal(x, y);
+            }
+        }
+
+        // Normalize result to -1, 0, or 1 (ECMA-402 only guarantees sign, but tests expect these values)
+        return result < 0 ? -1 : result > 0 ? 1 : 0;
     }
 
     /// <summary>
@@ -123,19 +146,41 @@ internal sealed class JsCollator : ObjectInstance
 #endif
 
                 int numCompare = xNum.CompareTo(yNum);
-                if (numCompare != 0) return numCompare;
+                if (numCompare != 0) return numCompare < 0 ? -1 : 1;
             }
             else
             {
                 // Compare single characters using locale settings
                 int charCompare = CompareInfo.Compare(x, xi, 1, y, yi, 1, CompareOptions);
-                if (charCompare != 0) return charCompare;
+                if (charCompare != 0) return charCompare < 0 ? -1 : 1;
                 xi++;
                 yi++;
             }
         }
 
         // Handle remaining characters
-        return (x.Length - xi).CompareTo(y.Length - yi);
+        int lengthDiff = (x.Length - xi).CompareTo(y.Length - yi);
+        return lengthDiff < 0 ? -1 : lengthDiff > 0 ? 1 : 0;
+    }
+
+    /// <summary>
+    /// Strips punctuation and symbol characters from a string.
+    /// </summary>
+    private static string StripPunctuation(string s)
+    {
+        if (string.IsNullOrEmpty(s))
+        {
+            return s;
+        }
+
+        var sb = new System.Text.StringBuilder(s.Length);
+        foreach (var c in s)
+        {
+            if (!char.IsPunctuation(c) && !char.IsSymbol(c) && !char.IsWhiteSpace(c))
+            {
+                sb.Append(c);
+            }
+        }
+        return sb.ToString();
     }
 }
