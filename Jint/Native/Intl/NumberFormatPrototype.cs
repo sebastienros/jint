@@ -284,6 +284,17 @@ internal sealed class NumberFormatPrototype : Prototype
 
     private double ToRangeNumber(JsValue value)
     {
+        // Handle BigInt values - convert to double
+        if (value is JsBigInt bigInt)
+        {
+            return (double) bigInt._value;
+        }
+
+        if (value is BigIntInstance bigIntInstance)
+        {
+            return (double) bigIntInstance.BigIntData._value;
+        }
+
         var number = TypeConverter.ToNumber(value);
         if (double.IsNaN(number))
         {

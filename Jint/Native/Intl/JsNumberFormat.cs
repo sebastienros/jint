@@ -851,13 +851,19 @@ internal sealed class JsNumberFormat : ObjectInstance
         var unitStr = Unit ?? "";
         var unitSuffix = GetUnitSuffix(unitStr, unitDisplay, (double) value);
 
-        // Narrow display has no space between number and unit
-        if (string.Equals(unitDisplay, "narrow", StringComparison.Ordinal))
+        // Determine if we need a space before the unit
+        // Narrow display never has space; percent/degree units don't have space
+        var needsSpace = !string.Equals(unitDisplay, "narrow", StringComparison.Ordinal) &&
+                        !string.Equals(unitStr, "percent", StringComparison.Ordinal) &&
+                        !string.Equals(unitStr, "celsius", StringComparison.Ordinal) &&
+                        !string.Equals(unitStr, "fahrenheit", StringComparison.Ordinal);
+
+        if (needsSpace)
         {
-            return $"{formattedNumber}{unitSuffix}";
+            return $"{formattedNumber} {unitSuffix}";
         }
 
-        return $"{formattedNumber} {unitSuffix}";
+        return $"{formattedNumber}{unitSuffix}";
     }
 
     private string FormatDecimal(double value)
@@ -1060,42 +1066,59 @@ internal sealed class JsNumberFormat : ObjectInstance
 
         // Get the order of magnitude
         var magnitude = (int) System.Math.Floor(System.Math.Log10(absValue));
-        var decimalPlaces = maxSigDigits - magnitude - 1;
 
-        // Round to the required number of significant digits
-        // Apply rounding to the ORIGINAL value (with sign) for directional rounding modes
+        // Round to max significant digits first
+        var decimalPlacesForRounding = maxSigDigits - magnitude - 1;
         double rounded;
-        if (decimalPlaces >= 0)
+        if (decimalPlacesForRounding >= 0)
         {
-            rounded = ApplyRounding(value, decimalPlaces);
+            rounded = ApplyRounding(value, decimalPlacesForRounding);
         }
         else
         {
             // Need to round to whole numbers or higher
-            var divisor = System.Math.Pow(10, -decimalPlaces);
+            var divisor = System.Math.Pow(10, -decimalPlacesForRounding);
             rounded = ApplyRounding(value / divisor, 0) * divisor;
         }
 
         // After rounding, take absolute value for formatting
         rounded = System.Math.Abs(rounded);
 
-        // Format the result
+        // For the actual formatting, format with max precision
+        // then trim unnecessary trailing zeros beyond minSigDigits
         string result;
-        if (decimalPlaces <= 0)
+        if (decimalPlacesForRounding <= 0)
         {
             result = rounded.ToString("F0", CultureInfo.InvariantCulture);
         }
         else
         {
-            var formatSpec = "F" + decimalPlaces;
+            // Format with max precision, then we'll trim
+            var formatSpec = "F" + decimalPlacesForRounding;
             result = rounded.ToString(formatSpec, CultureInfo.InvariantCulture);
+
+            // Trim trailing zeros beyond minSigDigits
+            if (result.Contains('.'))
+            {
+                var currentSigDigits = CountSignificantDigits(result);
+                while (currentSigDigits > minSigDigits && result[result.Length - 1] == '0' && result.Contains('.'))
+                {
+                    result = result.Substring(0, result.Length - 1);
+                    currentSigDigits = CountSignificantDigits(result);
+                }
+                // Remove trailing decimal point if no fraction left
+                if (result[result.Length - 1] == '.')
+                {
+                    result = result.Substring(0, result.Length - 1);
+                }
+            }
         }
 
         // Ensure minimum significant digits (add trailing zeros if needed)
-        var currentSigDigits = CountSignificantDigits(result);
-        if (currentSigDigits < minSigDigits)
+        var finalSigDigits = CountSignificantDigits(result);
+        if (finalSigDigits < minSigDigits)
         {
-            var zerosToAdd = minSigDigits - currentSigDigits;
+            var zerosToAdd = minSigDigits - finalSigDigits;
             if (!result.Contains('.'))
             {
                 result += "." + new string('0', zerosToAdd);
@@ -1417,13 +1440,19 @@ internal sealed class JsNumberFormat : ObjectInstance
         // Get unit abbreviation based on display
         var unitSuffix = GetUnitSuffix(unitStr, unitDisplay, value);
 
-        // Narrow display has no space between number and unit
-        if (string.Equals(unitDisplay, "narrow", StringComparison.Ordinal))
+        // Determine if we need a space before the unit
+        // Narrow display never has space; percent/degree units don't have space
+        var needsSpace = !string.Equals(unitDisplay, "narrow", StringComparison.Ordinal) &&
+                        !string.Equals(unitStr, "percent", StringComparison.Ordinal) &&
+                        !string.Equals(unitStr, "celsius", StringComparison.Ordinal) &&
+                        !string.Equals(unitStr, "fahrenheit", StringComparison.Ordinal);
+
+        if (needsSpace)
         {
-            return $"{formattedNumber}{unitSuffix}";
+            return $"{formattedNumber} {unitSuffix}";
         }
 
-        return $"{formattedNumber} {unitSuffix}";
+        return $"{formattedNumber}{unitSuffix}";
     }
 
     private static string GetUnitSuffix(string unit, string display, double value)
@@ -2187,8 +2216,14 @@ internal sealed class JsNumberFormat : ObjectInstance
         var unitStr = Unit ?? "";
         var unitSuffix = GetUnitSuffix(unitStr, unitDisplay, absValue);
 
-        // Only add literal space for short and long, not narrow
-        if (!string.Equals(unitDisplay, "narrow", StringComparison.Ordinal))
+        // Determine if we need a space before the unit
+        // Narrow display never has space; percent/degree units don't have space
+        var needsSpace = !string.Equals(unitDisplay, "narrow", StringComparison.Ordinal) &&
+                        !string.Equals(unitStr, "percent", StringComparison.Ordinal) &&
+                        !string.Equals(unitStr, "celsius", StringComparison.Ordinal) &&
+                        !string.Equals(unitStr, "fahrenheit", StringComparison.Ordinal);
+
+        if (needsSpace)
         {
             parts.Add(new NumberFormatPart("literal", " "));
         }
