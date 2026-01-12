@@ -149,96 +149,97 @@ internal sealed class DateTimeFormatPrototype : Prototype
 
         var result = OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
 
-        result.Set("locale", dateTimeFormat.Locale);
+        // Use CreateDataPropertyOrThrow to avoid prototype chain setters
+        result.CreateDataPropertyOrThrow("locale", dateTimeFormat.Locale);
 
         if (dateTimeFormat.Calendar != null)
         {
-            result.Set("calendar", dateTimeFormat.Calendar);
+            result.CreateDataPropertyOrThrow("calendar", dateTimeFormat.Calendar);
         }
         else
         {
-            result.Set("calendar", "gregory");
+            result.CreateDataPropertyOrThrow("calendar", "gregory");
         }
 
-        result.Set("numberingSystem", dateTimeFormat.NumberingSystem ?? "latn");
+        result.CreateDataPropertyOrThrow("numberingSystem", dateTimeFormat.NumberingSystem ?? "latn");
 
         if (dateTimeFormat.TimeZone != null)
         {
-            result.Set("timeZone", dateTimeFormat.TimeZone);
+            result.CreateDataPropertyOrThrow("timeZone", dateTimeFormat.TimeZone);
         }
 
         // hourCycle and hour12 should only be returned if hour is present
         if (dateTimeFormat.HourCycle != null && dateTimeFormat.Hour != null)
         {
-            result.Set("hourCycle", dateTimeFormat.HourCycle);
-            result.Set("hour12", string.Equals(dateTimeFormat.HourCycle, "h11", StringComparison.Ordinal) ||
+            result.CreateDataPropertyOrThrow("hourCycle", dateTimeFormat.HourCycle);
+            result.CreateDataPropertyOrThrow("hour12", string.Equals(dateTimeFormat.HourCycle, "h11", StringComparison.Ordinal) ||
                                  string.Equals(dateTimeFormat.HourCycle, "h12", StringComparison.Ordinal));
         }
 
         if (dateTimeFormat.DateStyle != null)
         {
-            result.Set("dateStyle", dateTimeFormat.DateStyle);
+            result.CreateDataPropertyOrThrow("dateStyle", dateTimeFormat.DateStyle);
         }
 
         if (dateTimeFormat.TimeStyle != null)
         {
-            result.Set("timeStyle", dateTimeFormat.TimeStyle);
+            result.CreateDataPropertyOrThrow("timeStyle", dateTimeFormat.TimeStyle);
         }
 
         // Component options
         if (dateTimeFormat.Weekday != null)
         {
-            result.Set("weekday", dateTimeFormat.Weekday);
+            result.CreateDataPropertyOrThrow("weekday", dateTimeFormat.Weekday);
         }
 
         if (dateTimeFormat.Era != null)
         {
-            result.Set("era", dateTimeFormat.Era);
+            result.CreateDataPropertyOrThrow("era", dateTimeFormat.Era);
         }
 
         if (dateTimeFormat.Year != null)
         {
-            result.Set("year", dateTimeFormat.Year);
+            result.CreateDataPropertyOrThrow("year", dateTimeFormat.Year);
         }
 
         if (dateTimeFormat.Month != null)
         {
-            result.Set("month", dateTimeFormat.Month);
+            result.CreateDataPropertyOrThrow("month", dateTimeFormat.Month);
         }
 
         if (dateTimeFormat.Day != null)
         {
-            result.Set("day", dateTimeFormat.Day);
+            result.CreateDataPropertyOrThrow("day", dateTimeFormat.Day);
         }
 
         if (dateTimeFormat.DayPeriod != null)
         {
-            result.Set("dayPeriod", dateTimeFormat.DayPeriod);
+            result.CreateDataPropertyOrThrow("dayPeriod", dateTimeFormat.DayPeriod);
         }
 
         if (dateTimeFormat.Hour != null)
         {
-            result.Set("hour", dateTimeFormat.Hour);
+            result.CreateDataPropertyOrThrow("hour", dateTimeFormat.Hour);
         }
 
         if (dateTimeFormat.Minute != null)
         {
-            result.Set("minute", dateTimeFormat.Minute);
+            result.CreateDataPropertyOrThrow("minute", dateTimeFormat.Minute);
         }
 
         if (dateTimeFormat.Second != null)
         {
-            result.Set("second", dateTimeFormat.Second);
+            result.CreateDataPropertyOrThrow("second", dateTimeFormat.Second);
         }
 
         if (dateTimeFormat.FractionalSecondDigits.HasValue)
         {
-            result.Set("fractionalSecondDigits", dateTimeFormat.FractionalSecondDigits.Value);
+            result.CreateDataPropertyOrThrow("fractionalSecondDigits", dateTimeFormat.FractionalSecondDigits.Value);
         }
 
         if (dateTimeFormat.TimeZoneName != null)
         {
-            result.Set("timeZoneName", dateTimeFormat.TimeZoneName);
+            result.CreateDataPropertyOrThrow("timeZoneName", dateTimeFormat.TimeZoneName);
         }
 
         return result;

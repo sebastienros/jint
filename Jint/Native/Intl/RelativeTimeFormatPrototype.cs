@@ -116,10 +116,10 @@ internal sealed class RelativeTimeFormatPrototype : Prototype
 
         var result = OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
 
-        result.Set("locale", relativeTimeFormat.Locale);
-        result.Set("style", relativeTimeFormat.Style);
-        result.Set("numeric", relativeTimeFormat.Numeric);
-        result.Set("numberingSystem", "latn");
+        result.CreateDataPropertyOrThrow("locale", relativeTimeFormat.Locale);
+        result.CreateDataPropertyOrThrow("style", relativeTimeFormat.Style);
+        result.CreateDataPropertyOrThrow("numeric", relativeTimeFormat.Numeric);
+        result.CreateDataPropertyOrThrow("numberingSystem", "latn");
 
         return result;
     }

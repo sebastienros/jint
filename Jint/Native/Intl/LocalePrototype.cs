@@ -378,7 +378,7 @@ internal sealed class LocalePrototype : Prototype
         // Determine text direction
         // RTL languages include Arabic, Hebrew, Persian, Urdu, etc.
         var isRtl = culture.TextInfo.IsRightToLeft;
-        result.Set("direction", isRtl ? "rtl" : "ltr");
+        result.CreateDataPropertyOrThrow("direction", isRtl ? "rtl" : "ltr");
 
         return result;
     }
@@ -395,7 +395,7 @@ internal sealed class LocalePrototype : Prototype
 
         // First day of week (1=Monday, 7=Sunday) from CLDR data
         var firstDayNum = WeekData.GetFirstDayOfWeek(region);
-        result.Set("firstDay", firstDayNum);
+        result.CreateDataPropertyOrThrow("firstDay", firstDayNum);
 
         // Weekend days from CLDR data
         var weekendDays = WeekData.GetWeekend(region);
@@ -404,11 +404,11 @@ internal sealed class LocalePrototype : Prototype
         {
             weekend.SetIndexValue((uint) i, weekendDays[i], updateLength: true);
         }
-        result.Set("weekend", weekend);
+        result.CreateDataPropertyOrThrow("weekend", weekend);
 
         // Minimal days in first week from CLDR data
         var minimalDays = WeekData.GetMinDays(region);
-        result.Set("minimalDays", minimalDays);
+        result.CreateDataPropertyOrThrow("minimalDays", minimalDays);
 
         return result;
     }

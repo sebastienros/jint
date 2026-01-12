@@ -77,8 +77,8 @@ internal sealed class SegmenterPrototype : Prototype
 
         var result = OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
 
-        result.Set("locale", segmenter.Locale);
-        result.Set("granularity", segmenter.Granularity);
+        result.CreateDataPropertyOrThrow("locale", segmenter.Locale);
+        result.CreateDataPropertyOrThrow("granularity", segmenter.Granularity);
 
         return result;
     }

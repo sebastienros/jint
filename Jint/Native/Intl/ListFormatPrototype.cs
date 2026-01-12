@@ -87,9 +87,9 @@ internal sealed class ListFormatPrototype : Prototype
 
         var result = OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
 
-        result.Set("locale", listFormat.Locale);
-        result.Set("type", listFormat.ListType);
-        result.Set("style", listFormat.Style);
+        result.CreateDataPropertyOrThrow("locale", listFormat.Locale);
+        result.CreateDataPropertyOrThrow("type", listFormat.ListType);
+        result.CreateDataPropertyOrThrow("style", listFormat.Style);
 
         return result;
     }

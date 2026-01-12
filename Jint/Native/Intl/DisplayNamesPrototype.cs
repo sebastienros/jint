@@ -205,14 +205,14 @@ internal sealed class DisplayNamesPrototype : Prototype
 
         var result = OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
 
-        result.Set("locale", displayNames.Locale);
-        result.Set("type", displayNames.DisplayType);
-        result.Set("style", displayNames.Style);
-        result.Set("fallback", displayNames.Fallback);
+        result.CreateDataPropertyOrThrow("locale", displayNames.Locale);
+        result.CreateDataPropertyOrThrow("type", displayNames.DisplayType);
+        result.CreateDataPropertyOrThrow("style", displayNames.Style);
+        result.CreateDataPropertyOrThrow("fallback", displayNames.Fallback);
 
         if (displayNames.LanguageDisplay != null)
         {
-            result.Set("languageDisplay", displayNames.LanguageDisplay);
+            result.CreateDataPropertyOrThrow("languageDisplay", displayNames.LanguageDisplay);
         }
 
         return result;

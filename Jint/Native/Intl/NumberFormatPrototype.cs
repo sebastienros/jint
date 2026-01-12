@@ -104,59 +104,60 @@ internal sealed class NumberFormatPrototype : Prototype
 
         var result = ObjectInstance.OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
 
-        result.Set("locale", numberFormat.Locale);
-        result.Set("numberingSystem", "latn"); // Default to Latin numerals
-        result.Set("style", numberFormat.Style);
+        // Use CreateDataPropertyOrThrow to avoid prototype chain setters
+        result.CreateDataPropertyOrThrow("locale", numberFormat.Locale);
+        result.CreateDataPropertyOrThrow("numberingSystem", "latn"); // Default to Latin numerals
+        result.CreateDataPropertyOrThrow("style", numberFormat.Style);
 
         if (string.Equals(numberFormat.Style, "currency", StringComparison.Ordinal))
         {
-            result.Set("currency", numberFormat.Currency ?? "");
-            result.Set("currencyDisplay", numberFormat.CurrencyDisplay ?? "symbol");
-            result.Set("currencySign", numberFormat.CurrencySign ?? "standard");
+            result.CreateDataPropertyOrThrow("currency", numberFormat.Currency ?? "");
+            result.CreateDataPropertyOrThrow("currencyDisplay", numberFormat.CurrencyDisplay ?? "symbol");
+            result.CreateDataPropertyOrThrow("currencySign", numberFormat.CurrencySign ?? "standard");
         }
 
         if (string.Equals(numberFormat.Style, "unit", StringComparison.Ordinal))
         {
-            result.Set("unit", numberFormat.Unit ?? "");
-            result.Set("unitDisplay", numberFormat.UnitDisplay ?? "short");
+            result.CreateDataPropertyOrThrow("unit", numberFormat.Unit ?? "");
+            result.CreateDataPropertyOrThrow("unitDisplay", numberFormat.UnitDisplay ?? "short");
         }
 
-        result.Set("minimumIntegerDigits", numberFormat.MinimumIntegerDigits);
-        result.Set("minimumFractionDigits", numberFormat.MinimumFractionDigits);
-        result.Set("maximumFractionDigits", numberFormat.MaximumFractionDigits);
+        result.CreateDataPropertyOrThrow("minimumIntegerDigits", numberFormat.MinimumIntegerDigits);
+        result.CreateDataPropertyOrThrow("minimumFractionDigits", numberFormat.MinimumFractionDigits);
+        result.CreateDataPropertyOrThrow("maximumFractionDigits", numberFormat.MaximumFractionDigits);
 
         // Include significant digits options if they were specified
         if (numberFormat.MinimumSignificantDigits.HasValue)
         {
-            result.Set("minimumSignificantDigits", numberFormat.MinimumSignificantDigits.Value);
+            result.CreateDataPropertyOrThrow("minimumSignificantDigits", numberFormat.MinimumSignificantDigits.Value);
         }
         if (numberFormat.MaximumSignificantDigits.HasValue)
         {
-            result.Set("maximumSignificantDigits", numberFormat.MaximumSignificantDigits.Value);
+            result.CreateDataPropertyOrThrow("maximumSignificantDigits", numberFormat.MaximumSignificantDigits.Value);
         }
 
         // Per spec, useGrouping can be "auto", "always", "min2", or false (boolean)
         if (string.Equals(numberFormat.UseGrouping, "false", StringComparison.Ordinal))
         {
-            result.Set("useGrouping", false);
+            result.CreateDataPropertyOrThrow("useGrouping", false);
         }
         else
         {
-            result.Set("useGrouping", numberFormat.UseGrouping);
+            result.CreateDataPropertyOrThrow("useGrouping", numberFormat.UseGrouping);
         }
-        result.Set("notation", numberFormat.Notation);
+        result.CreateDataPropertyOrThrow("notation", numberFormat.Notation);
 
         // compactDisplay is only included when notation is "compact"
         if (string.Equals(numberFormat.Notation, "compact", StringComparison.Ordinal))
         {
-            result.Set("compactDisplay", numberFormat.CompactDisplay);
+            result.CreateDataPropertyOrThrow("compactDisplay", numberFormat.CompactDisplay);
         }
 
-        result.Set("signDisplay", numberFormat.SignDisplay);
-        result.Set("roundingMode", numberFormat.RoundingMode);
-        result.Set("roundingPriority", numberFormat.RoundingPriority);
-        result.Set("roundingIncrement", numberFormat.RoundingIncrement);
-        result.Set("trailingZeroDisplay", numberFormat.TrailingZeroDisplay);
+        result.CreateDataPropertyOrThrow("signDisplay", numberFormat.SignDisplay);
+        result.CreateDataPropertyOrThrow("roundingMode", numberFormat.RoundingMode);
+        result.CreateDataPropertyOrThrow("roundingPriority", numberFormat.RoundingPriority);
+        result.CreateDataPropertyOrThrow("roundingIncrement", numberFormat.RoundingIncrement);
+        result.CreateDataPropertyOrThrow("trailingZeroDisplay", numberFormat.TrailingZeroDisplay);
 
         return result;
     }

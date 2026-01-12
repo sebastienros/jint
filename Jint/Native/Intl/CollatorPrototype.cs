@@ -90,13 +90,13 @@ internal sealed class CollatorPrototype : Prototype
 
         var result = OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
 
-        result.Set("locale", collator.Locale);
-        result.Set("usage", collator.Usage);
-        result.Set("sensitivity", collator.Sensitivity);
-        result.Set("ignorePunctuation", collator.IgnorePunctuation);
-        result.Set("collation", collator.Collation);
-        result.Set("numeric", collator.Numeric);
-        result.Set("caseFirst", collator.CaseFirst);
+        result.CreateDataPropertyOrThrow("locale", collator.Locale);
+        result.CreateDataPropertyOrThrow("usage", collator.Usage);
+        result.CreateDataPropertyOrThrow("sensitivity", collator.Sensitivity);
+        result.CreateDataPropertyOrThrow("ignorePunctuation", collator.IgnorePunctuation);
+        result.CreateDataPropertyOrThrow("collation", collator.Collation);
+        result.CreateDataPropertyOrThrow("numeric", collator.Numeric);
+        result.CreateDataPropertyOrThrow("caseFirst", collator.CaseFirst);
 
         return result;
     }

@@ -72,27 +72,35 @@ internal sealed class DateTimeFormatConstructor : Constructor
         // Get options object
         var optionsObj = IntlUtilities.CoerceOptionsToObject(_engine, options);
 
-        // Validate localeMatcher option first (must be done before other processing)
-        GetStringOption(optionsObj, "localeMatcher", LocaleMatcherValues, null);
+        // Step 5: Get localeMatcher option first
+        var localeMatcher = GetStringOption(optionsObj, "localeMatcher", LocaleMatcherValues, "best fit") ?? "best fit";
 
-        // Resolve locale
+        // Resolve locale (uses pre-read localeMatcher)
         var requestedLocales = IntlUtilities.CanonicalizeLocaleList(_engine, locales);
         var availableLocales = IntlUtilities.GetAvailableLocales();
-        var resolvedLocale = ResolveDateTimeFormatLocale(_engine, availableLocales, requestedLocales, optionsObj);
+        var resolved = IntlUtilities.ResolveLocale(_engine, availableLocales, requestedLocales, localeMatcher, []);
+        var resolvedLocale = resolved.Locale;
 
-        // Get options
+        // Step 7: Get calendar option (between localeMatcher and hour12)
         var calendar = GetUnicodeExtensionOption(optionsObj, "calendar");
-        var numberingSystem = GetUnicodeExtensionOption(optionsObj, "numberingSystem");
-        var timeZone = GetTimeZoneOption(optionsObj);
-        var hourCycle = GetStringOption(optionsObj, "hourCycle", HourCycleValues, null);
 
-        // Handle hour12 option - it overrides hourCycle
+        // Step 10: Get numberingSystem option
+        var numberingSystem = GetUnicodeExtensionOption(optionsObj, "numberingSystem");
+
+        // Step 13: Get hour12 option
         var hour12Value = optionsObj.Get("hour12");
         bool? hour12 = null;
         if (!hour12Value.IsUndefined())
         {
             hour12 = TypeConverter.ToBoolean(hour12Value);
-            // hour12 takes precedence over hourCycle
+        }
+
+        // Step 14: Get hourCycle option
+        var hourCycle = GetStringOption(optionsObj, "hourCycle", HourCycleValues, null);
+
+        // hour12 takes precedence over hourCycle
+        if (hour12.HasValue)
+        {
             if (hour12.Value)
             {
                 hourCycle = "h12";
@@ -103,49 +111,42 @@ internal sealed class DateTimeFormatConstructor : Constructor
             }
         }
 
+        // Step 29: Get timeZone option
+        var timeZone = GetTimeZoneOption(optionsObj);
+
+        // Step 36: Get component options in order (per Table 7 of ECMA-402)
+        // Order: weekday, era, year, month, day, dayPeriod, hour, minute, second, fractionalSecondDigits, timeZoneName
+        var weekday = GetStringOption(optionsObj, "weekday", WeekdayValues, null);
+        var era = GetStringOption(optionsObj, "era", EraValues, null);
+        var year = GetStringOption(optionsObj, "year", YearValues, null);
+        var month = GetStringOption(optionsObj, "month", MonthValues, null);
+        var day = GetStringOption(optionsObj, "day", DayValues, null);
+        var dayPeriod = GetStringOption(optionsObj, "dayPeriod", DayPeriodValues, null);
+        var hour = GetStringOption(optionsObj, "hour", HourValues, null);
+        var minute = GetStringOption(optionsObj, "minute", MinuteValues, null);
+        var second = GetStringOption(optionsObj, "second", SecondValues, null);
+        var fractionalSecondDigits = GetNumberOption(optionsObj, "fractionalSecondDigits", 1, 3, null);
+        var timeZoneName = GetStringOption(optionsObj, "timeZoneName", TimeZoneNameValues, null);
+
+        // Step 37: Get formatMatcher option
+        GetStringOption(optionsObj, "formatMatcher", FormatMatcherValues, null);
+
         // Date/time style options
         var dateStyle = GetStringOption(optionsObj, "dateStyle", DateStyleValues, null);
         var timeStyle = GetStringOption(optionsObj, "timeStyle", TimeStyleValues, null);
 
-        // Component options (only used if dateStyle/timeStyle not specified)
-        string? weekday = null, era = null, year = null, month = null, day = null;
-        string? dayPeriod = null, hour = null, minute = null, second = null;
-        int? fractionalSecondDigits = null;
-        string? timeZoneName = null;
-
+        // If dateStyle or timeStyle is specified, component options must NOT be specified
         if (dateStyle != null || timeStyle != null)
         {
-            // If dateStyle or timeStyle is specified, component options must NOT be specified
-            // https://tc39.es/ecma402/#sec-initializedatetimeformat step 35
-            var componentOptions = new[]
+            if (weekday != null || era != null || year != null || month != null ||
+                day != null || dayPeriod != null || hour != null || minute != null ||
+                second != null || fractionalSecondDigits != null || timeZoneName != null)
             {
-                "weekday", "era", "year", "month", "day", "dayPeriod",
-                "hour", "minute", "second", "fractionalSecondDigits", "timeZoneName"
-            };
-
-            foreach (var option in componentOptions)
-            {
-                var value = optionsObj.Get(option);
-                if (!value.IsUndefined())
-                {
-                    Throw.TypeError(_realm, $"Can't set option {option} when dateStyle or timeStyle is used");
-                }
+                Throw.TypeError(_realm, "Can't set date/time component options when dateStyle or timeStyle is used");
             }
         }
         else
         {
-            weekday = GetStringOption(optionsObj, "weekday", WeekdayValues, null);
-            era = GetStringOption(optionsObj, "era", EraValues, null);
-            year = GetStringOption(optionsObj, "year", YearValues, null);
-            month = GetStringOption(optionsObj, "month", MonthValues, null);
-            day = GetStringOption(optionsObj, "day", DayValues, null);
-            dayPeriod = GetStringOption(optionsObj, "dayPeriod", DayPeriodValues, null);
-            hour = GetStringOption(optionsObj, "hour", HourValues, null);
-            minute = GetStringOption(optionsObj, "minute", MinuteValues, null);
-            second = GetStringOption(optionsObj, "second", SecondValues, null);
-            fractionalSecondDigits = GetNumberOption(optionsObj, "fractionalSecondDigits", 1, 3, null);
-            timeZoneName = GetStringOption(optionsObj, "timeZoneName", TimeZoneNameValues, null);
-
             // If no options specified, use default date format
             if (weekday == null && era == null && year == null && month == null &&
                 day == null && hour == null && minute == null && second == null)
@@ -237,18 +238,15 @@ internal sealed class DateTimeFormatConstructor : Constructor
         }
 
         var number = TypeConverter.ToNumber(value);
-        if (double.IsNaN(number))
+
+        // Per spec: check NaN and bounds BEFORE flooring
+        if (double.IsNaN(number) || number < minimum || number > maximum)
         {
-            Throw.RangeError(_realm, $"Invalid number for option '{property}'");
+            Throw.RangeError(_realm, $"Invalid value for option '{property}'");
         }
 
-        var intValue = (int) System.Math.Floor(number);
-        if (intValue < minimum || intValue > maximum)
-        {
-            Throw.RangeError(_realm, $"Value {intValue} for option '{property}' is out of range [{minimum}, {maximum}]");
-        }
-
-        return intValue;
+        // Return floor(value)
+        return (int) System.Math.Floor(number);
     }
 
     private string? GetTimeZoneOption(ObjectInstance options)
@@ -265,6 +263,13 @@ internal sealed class DateTimeFormatConstructor : Constructor
         if (string.Equals(timeZone, "UTC", StringComparison.OrdinalIgnoreCase))
         {
             return "UTC";
+        }
+
+        // Check for offset time zones like "+03", "-07:30", "+05:45"
+        var canonicalOffset = TryParseOffsetTimeZone(timeZone);
+        if (canonicalOffset != null)
+        {
+            return canonicalOffset;
         }
 
         // Try to find the time zone
@@ -289,10 +294,74 @@ internal sealed class DateTimeFormatConstructor : Constructor
         return null;
     }
 
-    private static string ResolveDateTimeFormatLocale(Engine engine, IReadOnlyCollection<string> availableLocales, List<string> requestedLocales, ObjectInstance options)
+    /// <summary>
+    /// Parses and canonicalizes an offset time zone string.
+    /// Valid formats: "+HH", "-HH", "+HH:MM", "-HH:MM", "+HHMM", "-HHMM"
+    /// Returns canonical form like "+03:00" or "-07:30", or null if not a valid offset.
+    /// </summary>
+    private static string? TryParseOffsetTimeZone(string timeZone)
     {
-        var resolved = IntlUtilities.ResolveLocale(engine, availableLocales, requestedLocales, options, []);
-        return resolved.Locale;
+        if (string.IsNullOrEmpty(timeZone) || timeZone.Length < 3)
+        {
+            return null;
+        }
+
+        var sign = timeZone[0];
+        if (sign != '+' && sign != '-')
+        {
+            return null;
+        }
+
+        var len = timeZone.Length;
+        int hours;
+        int minutes = 0;
+
+        // Parse based on format with strict position validation
+        if (len == 3)
+        {
+            // "+HH" or "-HH" format - positions 1,2 must be digits
+            if (!char.IsDigit(timeZone[1]) || !char.IsDigit(timeZone[2]))
+            {
+                return null;
+            }
+            hours = (timeZone[1] - '0') * 10 + (timeZone[2] - '0');
+        }
+        else if (len == 5)
+        {
+            // "+HHMM" format - positions 1,2,3,4 must all be digits
+            if (!char.IsDigit(timeZone[1]) || !char.IsDigit(timeZone[2]) ||
+                !char.IsDigit(timeZone[3]) || !char.IsDigit(timeZone[4]))
+            {
+                return null;
+            }
+            hours = (timeZone[1] - '0') * 10 + (timeZone[2] - '0');
+            minutes = (timeZone[3] - '0') * 10 + (timeZone[4] - '0');
+        }
+        else if (len == 6 && timeZone[3] == ':')
+        {
+            // "+HH:MM" format - positions 1,2 and 4,5 must be digits, position 3 is ':'
+            if (!char.IsDigit(timeZone[1]) || !char.IsDigit(timeZone[2]) ||
+                !char.IsDigit(timeZone[4]) || !char.IsDigit(timeZone[5]))
+            {
+                return null;
+            }
+            hours = (timeZone[1] - '0') * 10 + (timeZone[2] - '0');
+            minutes = (timeZone[4] - '0') * 10 + (timeZone[5] - '0');
+        }
+        else
+        {
+            return null;
+        }
+
+        // Validate ranges: hours 0-23, minutes 0-59
+        // Note: ECMA-402 allows offsets up to ±23:59
+        if (hours > 23 || minutes > 59)
+        {
+            return null;
+        }
+
+        // Return canonical form: ±HH:MM
+        return $"{sign}{hours:D2}:{minutes:D2}";
     }
 
     /// <summary>

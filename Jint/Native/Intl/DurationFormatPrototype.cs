@@ -90,36 +90,36 @@ internal sealed class DurationFormatPrototype : Prototype
 
         var result = OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
 
-        result.Set("locale", durationFormat.Locale);
-        result.Set("numberingSystem", durationFormat.NumberingSystem);
-        result.Set("style", durationFormat.Style);
+        result.CreateDataPropertyOrThrow("locale", durationFormat.Locale);
+        result.CreateDataPropertyOrThrow("numberingSystem", durationFormat.NumberingSystem);
+        result.CreateDataPropertyOrThrow("style", durationFormat.Style);
 
         // Unit styles
-        result.Set("years", durationFormat.YearsStyle);
-        result.Set("yearsDisplay", durationFormat.YearsDisplay);
-        result.Set("months", durationFormat.MonthsStyle);
-        result.Set("monthsDisplay", durationFormat.MonthsDisplay);
-        result.Set("weeks", durationFormat.WeeksStyle);
-        result.Set("weeksDisplay", durationFormat.WeeksDisplay);
-        result.Set("days", durationFormat.DaysStyle);
-        result.Set("daysDisplay", durationFormat.DaysDisplay);
-        result.Set("hours", durationFormat.HoursStyle);
-        result.Set("hoursDisplay", durationFormat.HoursDisplay);
-        result.Set("minutes", durationFormat.MinutesStyle);
-        result.Set("minutesDisplay", durationFormat.MinutesDisplay);
-        result.Set("seconds", durationFormat.SecondsStyle);
-        result.Set("secondsDisplay", durationFormat.SecondsDisplay);
-        result.Set("milliseconds", durationFormat.MillisecondsStyle);
-        result.Set("millisecondsDisplay", durationFormat.MillisecondsDisplay);
-        result.Set("microseconds", durationFormat.MicrosecondsStyle);
-        result.Set("microsecondsDisplay", durationFormat.MicrosecondsDisplay);
-        result.Set("nanoseconds", durationFormat.NanosecondsStyle);
-        result.Set("nanosecondsDisplay", durationFormat.NanosecondsDisplay);
+        result.CreateDataPropertyOrThrow("years", durationFormat.YearsStyle);
+        result.CreateDataPropertyOrThrow("yearsDisplay", durationFormat.YearsDisplay);
+        result.CreateDataPropertyOrThrow("months", durationFormat.MonthsStyle);
+        result.CreateDataPropertyOrThrow("monthsDisplay", durationFormat.MonthsDisplay);
+        result.CreateDataPropertyOrThrow("weeks", durationFormat.WeeksStyle);
+        result.CreateDataPropertyOrThrow("weeksDisplay", durationFormat.WeeksDisplay);
+        result.CreateDataPropertyOrThrow("days", durationFormat.DaysStyle);
+        result.CreateDataPropertyOrThrow("daysDisplay", durationFormat.DaysDisplay);
+        result.CreateDataPropertyOrThrow("hours", durationFormat.HoursStyle);
+        result.CreateDataPropertyOrThrow("hoursDisplay", durationFormat.HoursDisplay);
+        result.CreateDataPropertyOrThrow("minutes", durationFormat.MinutesStyle);
+        result.CreateDataPropertyOrThrow("minutesDisplay", durationFormat.MinutesDisplay);
+        result.CreateDataPropertyOrThrow("seconds", durationFormat.SecondsStyle);
+        result.CreateDataPropertyOrThrow("secondsDisplay", durationFormat.SecondsDisplay);
+        result.CreateDataPropertyOrThrow("milliseconds", durationFormat.MillisecondsStyle);
+        result.CreateDataPropertyOrThrow("millisecondsDisplay", durationFormat.MillisecondsDisplay);
+        result.CreateDataPropertyOrThrow("microseconds", durationFormat.MicrosecondsStyle);
+        result.CreateDataPropertyOrThrow("microsecondsDisplay", durationFormat.MicrosecondsDisplay);
+        result.CreateDataPropertyOrThrow("nanoseconds", durationFormat.NanosecondsStyle);
+        result.CreateDataPropertyOrThrow("nanosecondsDisplay", durationFormat.NanosecondsDisplay);
 
         // Fractional digits
         if (durationFormat.FractionalDigits.HasValue)
         {
-            result.Set("fractionalDigits", durationFormat.FractionalDigits.Value);
+            result.CreateDataPropertyOrThrow("fractionalDigits", durationFormat.FractionalDigits.Value);
         }
 
         return result;

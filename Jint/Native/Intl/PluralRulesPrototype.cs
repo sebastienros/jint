@@ -109,12 +109,12 @@ internal sealed class PluralRulesPrototype : Prototype
         var result = OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
 
         // Properties in spec-defined order
-        result.Set("locale", pluralRules.Locale);
-        result.Set("type", pluralRules.PluralRuleType);
-        result.Set("notation", pluralRules.Notation);
-        result.Set("minimumIntegerDigits", pluralRules.MinimumIntegerDigits);
-        result.Set("minimumFractionDigits", pluralRules.MinimumFractionDigits);
-        result.Set("maximumFractionDigits", pluralRules.MaximumFractionDigits);
+        result.CreateDataPropertyOrThrow("locale", pluralRules.Locale);
+        result.CreateDataPropertyOrThrow("type", pluralRules.PluralRuleType);
+        result.CreateDataPropertyOrThrow("notation", pluralRules.Notation);
+        result.CreateDataPropertyOrThrow("minimumIntegerDigits", pluralRules.MinimumIntegerDigits);
+        result.CreateDataPropertyOrThrow("minimumFractionDigits", pluralRules.MinimumFractionDigits);
+        result.CreateDataPropertyOrThrow("maximumFractionDigits", pluralRules.MaximumFractionDigits);
 
         // Return plural categories
         var categories = pluralRules.GetPluralCategories();
@@ -123,13 +123,13 @@ internal sealed class PluralRulesPrototype : Prototype
         {
             categoriesArray.SetIndexValue((uint) i, categories[i], updateLength: true);
         }
-        result.Set("pluralCategories", categoriesArray);
+        result.CreateDataPropertyOrThrow("pluralCategories", categoriesArray);
 
         // Rounding options
-        result.Set("roundingIncrement", pluralRules.RoundingIncrement);
-        result.Set("roundingMode", pluralRules.RoundingMode);
-        result.Set("roundingPriority", pluralRules.RoundingPriority);
-        result.Set("trailingZeroDisplay", pluralRules.TrailingZeroDisplay);
+        result.CreateDataPropertyOrThrow("roundingIncrement", pluralRules.RoundingIncrement);
+        result.CreateDataPropertyOrThrow("roundingMode", pluralRules.RoundingMode);
+        result.CreateDataPropertyOrThrow("roundingPriority", pluralRules.RoundingPriority);
+        result.CreateDataPropertyOrThrow("trailingZeroDisplay", pluralRules.TrailingZeroDisplay);
 
         return result;
     }
