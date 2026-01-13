@@ -230,7 +230,19 @@ internal sealed class NumberFormatConstructor : Constructor
         }
 
         // Get NumberFormatInfo for the locale
-        var culture = IntlUtilities.GetCultureInfo(resolvedLocale) ?? CultureInfo.InvariantCulture;
+        // Try the first requested locale first (e.g., "zh-TW") before falling back to resolved locale (e.g., "zh")
+        // This ensures we get locale-specific data like NaN symbols from the exact requested locale
+        CultureInfo culture;
+        if (requestedLocales.Count > 0)
+        {
+            culture = IntlUtilities.GetCultureInfo(requestedLocales[0])
+                      ?? IntlUtilities.GetCultureInfo(resolvedLocale)
+                      ?? CultureInfo.InvariantCulture;
+        }
+        else
+        {
+            culture = IntlUtilities.GetCultureInfo(resolvedLocale) ?? CultureInfo.InvariantCulture;
+        }
         var numberFormatInfo = (NumberFormatInfo) culture.NumberFormat.Clone();
 
         // Apply digit options - .NET NumberFormatInfo only supports 0-99, so clamp
@@ -239,10 +251,72 @@ internal sealed class NumberFormatConstructor : Constructor
         numberFormatInfo.CurrencyDecimalDigits = clampedMaxFractionDigits;
         numberFormatInfo.PercentDecimalDigits = clampedMaxFractionDigits;
 
-        // Apply currency if specified
-        if (currency != null && string.Equals(currencyDisplay, "code", StringComparison.Ordinal))
+        // Apply currency symbol based on currencyDisplay option
+        if (currency != null)
         {
-            numberFormatInfo.CurrencySymbol = currency;
+            numberFormatInfo.CurrencySymbol = currencyDisplay switch
+            {
+                "code" => currency, // e.g., "USD"
+                "symbol" => GetLocaleAwareCurrencySymbol(currency, resolvedLocale), // e.g., "$" or "US$" depending on locale
+                "narrowSymbol" => GetCurrencyNarrowSymbol(currency), // e.g., "$"
+                "name" => GetCurrencyName(currency), // e.g., "US dollars"
+                _ => GetLocaleAwareCurrencySymbol(currency, resolvedLocale)
+            };
+        }
+
+        // Resolve numbering system with proper fallback logic
+        // 1. If options.numberingSystem is a supported system, use it
+        // 2. Otherwise, fall back to locale extension if supported
+        // 3. Otherwise, use default "latn"
+        string? localeNumberingSystem = null;
+        foreach (var loc in requestedLocales)
+        {
+            localeNumberingSystem = ExtractNumberingSystemFromLocale(loc);
+            if (localeNumberingSystem != null)
+            {
+                break;
+            }
+        }
+
+        string resolvedNumberingSystem;
+        bool numberingSystemFromOptions = false;
+
+        if (numberingSystem != null && IsSupportedNumberingSystem(numberingSystem))
+        {
+            // Options value is valid and supported - use it
+            resolvedNumberingSystem = numberingSystem;
+            numberingSystemFromOptions = true;
+        }
+        else if (localeNumberingSystem != null && IsSupportedNumberingSystem(localeNumberingSystem))
+        {
+            // Fall back to locale extension value
+            resolvedNumberingSystem = localeNumberingSystem;
+        }
+        else
+        {
+            // Default to "latn"
+            resolvedNumberingSystem = "latn";
+        }
+
+        // Adjust the resolved locale based on numbering system source
+        var finalResolvedLocale = resolvedLocale;
+        if (localeNumberingSystem != null)
+        {
+            if (numberingSystemFromOptions && !string.Equals(numberingSystem, localeNumberingSystem, StringComparison.OrdinalIgnoreCase))
+            {
+                // Options overrode locale extension - remove nu from resolved locale
+                finalResolvedLocale = RemoveNumberingSystemFromLocale(resolvedLocale);
+            }
+            else if (!IsSupportedNumberingSystem(localeNumberingSystem))
+            {
+                // Locale extension was invalid - remove it
+                finalResolvedLocale = RemoveNumberingSystemFromLocale(resolvedLocale);
+            }
+            else
+            {
+                // Locale extension is used - ensure it's in the resolved locale
+                finalResolvedLocale = EnsureNumberingSystemInLocale(resolvedLocale, resolvedNumberingSystem);
+            }
         }
 
         // Get prototype from newTarget (for cross-realm construction)
@@ -251,7 +325,8 @@ internal sealed class NumberFormatConstructor : Constructor
         return new JsNumberFormat(
             _engine,
             proto,
-            resolvedLocale,
+            finalResolvedLocale,
+            resolvedNumberingSystem,
             style,
             currency,
             currencyDisplay,
@@ -275,6 +350,81 @@ internal sealed class NumberFormatConstructor : Constructor
             culture);
     }
 
+    private static string? ExtractNumberingSystemFromLocale(string locale)
+    {
+        // Look for -u-nu-xxx pattern
+        const string marker = "-u-";
+        var uIndex = locale.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        if (uIndex == -1)
+        {
+            return null;
+        }
+
+        // Parse the unicode extension to find 'nu' key
+        var extensionStart = uIndex + marker.Length;
+        var i = extensionStart;
+
+        while (i < locale.Length)
+        {
+            // Find the key
+            var keyStart = i;
+            while (i < locale.Length && locale[i] != '-')
+            {
+                i++;
+            }
+            var key = locale.Substring(keyStart, i - keyStart);
+
+            // If we hit another singleton (single char key), we've left the Unicode extension
+            if (key.Length == 1 && key[0] != 'u')
+            {
+                break;
+            }
+
+            // Move past the hyphen
+            if (i < locale.Length && locale[i] == '-')
+            {
+                i++;
+            }
+
+            // Check if this is a 2-letter key (like 'nu', 'ca', etc.)
+            if (key.Length == 2)
+            {
+                // Get the value (continue until we hit a 2-letter key or end)
+                var valueStart = i;
+                var valueEnd = i;
+
+                while (i < locale.Length)
+                {
+                    var partStart = i;
+                    while (i < locale.Length && locale[i] != '-')
+                    {
+                        i++;
+                    }
+                    var part = locale.Substring(partStart, i - partStart);
+
+                    // 2-letter part = next key, single-letter = singleton (end of extension)
+                    if (part.Length == 2 || part.Length == 1)
+                    {
+                        break;
+                    }
+
+                    valueEnd = i;
+                    if (i < locale.Length && locale[i] == '-')
+                    {
+                        i++;
+                    }
+                }
+
+                if (string.Equals(key, "nu", StringComparison.OrdinalIgnoreCase) && valueEnd > valueStart)
+                {
+                    return locale.Substring(valueStart, valueEnd - valueStart).ToLowerInvariant();
+                }
+            }
+        }
+
+        return null;
+    }
+
     private static bool IsValidNumberingSystem(string numberingSystem)
     {
         // Basic validation: must be 3-8 lowercase alphanumeric characters
@@ -292,6 +442,134 @@ internal sealed class NumberFormatConstructor : Constructor
         }
 
         return true;
+    }
+
+    private static bool IsSupportedNumberingSystem(string numberingSystem)
+    {
+        // Check if the numbering system is actually supported (has digit mappings)
+        return Data.NumberingSystemData.Digits.ContainsKey(numberingSystem);
+    }
+
+    private static string RemoveNumberingSystemFromLocale(string locale)
+    {
+        // Remove the -u-nu-xxx part from the locale
+        var uIndex = locale.IndexOf("-u-", StringComparison.OrdinalIgnoreCase);
+        if (uIndex == -1)
+        {
+            return locale;
+        }
+
+        // Find and remove the nu key-value pair
+        var extensionStart = uIndex + 3;
+        var result = new System.Text.StringBuilder(locale.Substring(0, uIndex));
+        var i = extensionStart;
+        var hasOtherExtensions = false;
+
+        while (i < locale.Length)
+        {
+            var keyStart = i;
+            while (i < locale.Length && locale[i] != '-')
+            {
+                i++;
+            }
+            var key = locale.Substring(keyStart, i - keyStart);
+
+            // Single char means we've hit another singleton extension
+            if (key.Length == 1)
+            {
+#pragma warning disable CA1846
+                result.Append(locale.Substring(keyStart - 1));
+#pragma warning restore CA1846
+                break;
+            }
+
+            if (i < locale.Length && locale[i] == '-')
+            {
+                i++;
+            }
+
+            if (key.Length == 2)
+            {
+                // Get the value
+                var valueStart = i;
+                while (i < locale.Length)
+                {
+                    var partStart = i;
+                    while (i < locale.Length && locale[i] != '-')
+                    {
+                        i++;
+                    }
+                    var part = locale.Substring(partStart, i - partStart);
+
+                    if (part.Length == 2 || part.Length == 1)
+                    {
+                        break;
+                    }
+
+                    if (i < locale.Length && locale[i] == '-')
+                    {
+                        i++;
+                    }
+                }
+
+                // Skip the nu key, keep others
+                if (!string.Equals(key, "nu", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!hasOtherExtensions)
+                    {
+                        result.Append("-u-");
+                        hasOtherExtensions = true;
+                    }
+                    else
+                    {
+                        result.Append('-');
+                    }
+                    var len = i - keyStart - (i < locale.Length && locale[i - 1] == '-' ? 1 : 0);
+#pragma warning disable CA1846
+                    result.Append(locale.Substring(keyStart, len));
+#pragma warning restore CA1846
+                }
+            }
+        }
+
+        return result.ToString();
+    }
+
+    private static string EnsureNumberingSystemInLocale(string locale, string numberingSystem)
+    {
+        // Check if locale already has the numbering system extension
+        var uIndex = locale.IndexOf("-u-", StringComparison.OrdinalIgnoreCase);
+        if (uIndex == -1)
+        {
+            // No Unicode extension - add it
+            return locale + "-u-nu-" + numberingSystem;
+        }
+
+        // Check if nu is already present with the correct value
+        var nuPattern = "-nu-" + numberingSystem;
+        if (locale.Contains(nuPattern, StringComparison.OrdinalIgnoreCase))
+        {
+            return locale;
+        }
+
+        // Has -u- but not nu - add nu
+        var nuIndex = locale.IndexOf("-nu-", StringComparison.OrdinalIgnoreCase);
+        if (nuIndex == -1)
+        {
+            // Insert nu after -u-
+            return locale.Insert(uIndex + 3, "nu-" + numberingSystem + "-");
+        }
+
+        // nu exists with different value - replace it
+        var valueStart = nuIndex + 4;
+        var valueEnd = valueStart;
+        while (valueEnd < locale.Length && locale[valueEnd] != '-')
+        {
+            valueEnd++;
+        }
+#pragma warning disable CA1845
+        return locale.Substring(0, valueStart) + numberingSystem + locale.Substring(valueEnd);
+#pragma warning restore CA1845
     }
 
     private string GetStringOption(ObjectInstance options, string property, string[]? values, string fallback)
@@ -446,6 +724,125 @@ internal sealed class NumberFormatConstructor : Constructor
             "KRW" or "PYG" or "RWF" or "UGX" or "UYI" or "VND" or "VUV" or
             "XAF" or "XOF" or "XPF" => 0, // 0 decimal places
             _ => 2 // Default 2 decimal places
+        };
+    }
+
+    /// <summary>
+    /// Gets the locale-aware currency symbol for a currency code.
+    /// Some locales display foreign currencies with a country code prefix (e.g., "US$" for USD in zh-TW).
+    /// </summary>
+    private static string GetLocaleAwareCurrencySymbol(string currency, string locale)
+    {
+        // Get the base language and region from the locale
+        var parts = locale.Split('-');
+        var lang = parts[0];
+        var region = parts.Length > 1 ? parts[parts.Length - 1] : "";
+
+        // Check if this is a foreign currency that needs a prefix
+        // zh-TW and ko-KR display USD as "US$" to distinguish from local currency
+        if (string.Equals(currency, "USD", StringComparison.Ordinal))
+        {
+            // In Taiwan, Korea, and Chinese locales (except Hong Kong), USD is displayed as "US$"
+            if (string.Equals(region, "TW", StringComparison.Ordinal) ||
+                string.Equals(region, "KR", StringComparison.Ordinal) ||
+                (string.Equals(lang, "zh", StringComparison.Ordinal) && !string.Equals(region, "HK", StringComparison.Ordinal)))
+            {
+                return "US$";
+            }
+        }
+
+        // For other cases, use the standard symbol
+        return GetCurrencySymbol(currency);
+    }
+
+    /// <summary>
+    /// Gets the currency symbol for a currency code.
+    /// </summary>
+    private static string GetCurrencySymbol(string currency)
+    {
+        return currency switch
+        {
+            "USD" => "$",
+            "EUR" => "€",
+            "GBP" => "£",
+            "JPY" => "¥",
+            "CNY" => "¥",
+            "KRW" => "₩",
+            "INR" => "₹",
+            "RUB" => "₽",
+            "BRL" => "R$",
+            "CAD" => "CA$",
+            "AUD" => "A$",
+            "CHF" => "CHF",
+            "HKD" => "HK$",
+            "SGD" => "S$",
+            "SEK" => "kr",
+            "NOK" => "kr",
+            "DKK" => "kr",
+            "MXN" => "MX$",
+            "NZD" => "NZ$",
+            "ZAR" => "R",
+            "TWD" => "NT$",
+            "THB" => "฿",
+            "PLN" => "zł",
+            "TRY" => "₺",
+            "ILS" => "₪",
+            "AED" => "د.إ",
+            "SAR" => "﷼",
+            "PHP" => "₱",
+            "MYR" => "RM",
+            "IDR" => "Rp",
+            "CZK" => "Kč",
+            "HUF" => "Ft",
+            _ => currency // Fall back to the code itself
+        };
+    }
+
+    /// <summary>
+    /// Gets the narrow currency symbol (usually same as regular symbol).
+    /// </summary>
+    private static string GetCurrencyNarrowSymbol(string currency)
+    {
+        // For most currencies, narrow symbol is the same as regular symbol
+        // Some exceptions exist but they're relatively rare
+        return currency switch
+        {
+            "USD" => "$",
+            "EUR" => "€",
+            "GBP" => "£",
+            "JPY" => "¥",
+            "CNY" => "¥",
+            "CAD" => "$", // Narrow: $ instead of CA$
+            "AUD" => "$", // Narrow: $ instead of A$
+            "HKD" => "$", // Narrow: $ instead of HK$
+            "SGD" => "$", // Narrow: $ instead of S$
+            "NZD" => "$", // Narrow: $ instead of NZ$
+            "MXN" => "$", // Narrow: $ instead of MX$
+            "TWD" => "$", // Narrow: $ instead of NT$
+            _ => GetCurrencySymbol(currency)
+        };
+    }
+
+    /// <summary>
+    /// Gets the currency name for a currency code.
+    /// </summary>
+    private static string GetCurrencyName(string currency)
+    {
+        return currency switch
+        {
+            "USD" => "US dollars",
+            "EUR" => "euros",
+            "GBP" => "British pounds",
+            "JPY" => "Japanese yen",
+            "CNY" => "Chinese yuan",
+            "KRW" => "South Korean won",
+            "INR" => "Indian rupees",
+            "RUB" => "Russian rubles",
+            "BRL" => "Brazilian reals",
+            "CAD" => "Canadian dollars",
+            "AUD" => "Australian dollars",
+            "CHF" => "Swiss francs",
+            _ => currency // Fall back to the code
         };
     }
 

@@ -1562,7 +1562,10 @@ internal static class IntlUtilities
         {
             // Remove Unicode extensions before creating CultureInfo
             var cultureTag = RemoveUnicodeExtensions(locale);
-            return CultureInfo.GetCultureInfo(cultureTag);
+            // Use new CultureInfo() instead of GetCultureInfo() to get correct locale-specific
+            // data. GetCultureInfo returns a cached read-only culture that may have different
+            // NumberFormatInfo patterns (e.g., CurrencyNegativePattern).
+            return new CultureInfo(cultureTag);
         }
         catch (CultureNotFoundException)
         {

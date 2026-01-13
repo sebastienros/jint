@@ -29,6 +29,7 @@ internal sealed class JsNumberFormat : ObjectInstance
         Engine engine,
         ObjectInstance prototype,
         string locale,
+        string numberingSystem,
         string style,
         string? currency,
         string? currencyDisplay,
@@ -53,6 +54,7 @@ internal sealed class JsNumberFormat : ObjectInstance
     {
         _prototype = prototype;
         Locale = locale;
+        NumberingSystem = numberingSystem;
         Style = style;
         Currency = currency;
         CurrencyDisplay = currencyDisplay;
@@ -77,6 +79,7 @@ internal sealed class JsNumberFormat : ObjectInstance
     }
 
     internal string Locale { get; }
+    internal string NumberingSystem { get; }
     internal string Style { get; }
     internal string? Currency { get; }
     internal string? CurrencyDisplay { get; }
@@ -122,6 +125,14 @@ internal sealed class JsNumberFormat : ObjectInstance
     /// Formats a number according to the formatter's locale and options.
     /// </summary>
     internal string Format(double value)
+    {
+        var result = FormatCore(value);
+
+        // Apply numbering system digit transliteration
+        return Data.NumberingSystemData.TransliterateDigits(result, NumberingSystem);
+    }
+
+    private string FormatCore(double value)
     {
         // Handle notation first (scientific, engineering, compact)
         if (!string.Equals(Notation, "standard", StringComparison.Ordinal))
@@ -755,13 +766,16 @@ internal sealed class JsNumberFormat : ObjectInstance
             return Format((double) value);
         }
 
-        return Style switch
+        var result = Style switch
         {
             "currency" => FormatCurrencyBigInt(value),
             "percent" => FormatPercentBigInt(value),
             "unit" => FormatUnitBigInt(value),
             _ => FormatDecimalBigInt(value)
         };
+
+        // Apply numbering system digit transliteration
+        return Data.NumberingSystemData.TransliterateDigits(result, NumberingSystem);
     }
 
     private string FormatDecimalBigInt(BigInteger value)
@@ -881,6 +895,7 @@ internal sealed class JsNumberFormat : ObjectInstance
         // Apply rounding based on MaximumFractionDigits
         absValue = ApplyRounding(absValue, MaximumFractionDigits);
         var displaysAsZero = absValue == 0;
+        var isNaN = double.IsNaN(value);
 
         // Determine if we should show a sign based on signDisplay
         var showNegativeSign = isNegative;
@@ -889,10 +904,12 @@ internal sealed class JsNumberFormat : ObjectInstance
         switch (SignDisplay)
         {
             case "always":
+                // NaN still gets a plus sign for "always"
                 showPositiveSign = !isNegative;
                 break;
             case "exceptZero":
-                showPositiveSign = !isNegative && !displaysAsZero;
+                // NaN never gets a sign for exceptZero (NaN is not a number, neither zero nor non-zero)
+                showPositiveSign = !isNegative && !displaysAsZero && !isNaN;
                 showNegativeSign = isNegative && !displaysAsZero;
                 break;
             case "negative":
@@ -1258,7 +1275,9 @@ internal sealed class JsNumberFormat : ObjectInstance
                 showNegativeSign = isNegative && !displaysAsZero;
                 break;
             case "negative":
+                // For negative, only show negative sign for truly negative, non-zero display
                 showPositiveSign = false;
+                showNegativeSign = isNegative && !displaysAsZero;
                 break;
             case "never":
                 showNegativeSign = false;
@@ -1293,31 +1312,146 @@ internal sealed class JsNumberFormat : ObjectInstance
 
         var numberPart = intStr + fractionStr;
 
-        // Build result based on pattern
+        // Build result based on locale's currency pattern
+        // CurrencyPositivePattern: 0=$n, 1=n$, 2=$ n, 3=n $
+        // Use non-breaking space (U+00A0) per CLDR conventions
+        var pattern = NumberFormatInfo.CurrencyPositivePattern;
+        const string Nbsp = " ";
+        string formattedCurrency;
+
+        switch (pattern)
+        {
+            case 0: // $n
+                formattedCurrency = symbol + numberPart;
+                break;
+            case 1: // n$
+                formattedCurrency = numberPart + symbol;
+                break;
+            case 2: // $ n
+                formattedCurrency = symbol + Nbsp + numberPart;
+                break;
+            case 3: // n $
+            default:
+                formattedCurrency = numberPart + Nbsp + symbol;
+                break;
+        }
+
+        // Apply sign based on signDisplay
         string result;
         if (showNegativeSign)
         {
             if (useAccountingFormat)
             {
-                // Accounting format uses parentheses for negative
-                result = $"({symbol}{numberPart})";
+                // Use CLDR-based accounting format (parentheses for most locales)
+                result = FormatAccountingNegativeCurrency(numberPart, symbol);
             }
             else
             {
-                // Standard format uses minus sign
-                result = $"-{symbol}{numberPart}";
+                // Standard format uses minus sign before everything
+                result = $"-{formattedCurrency}";
             }
         }
         else if (showPositiveSign)
         {
-            result = $"+{symbol}{numberPart}";
+            result = $"+{formattedCurrency}";
         }
         else
         {
-            result = $"{symbol}{numberPart}";
+            result = formattedCurrency;
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Formats a negative currency value for accounting format using CLDR-based patterns.
+    /// </summary>
+    private string FormatAccountingNegativeCurrency(string numberPart, string symbol)
+    {
+        // CLDR accounting patterns vary by locale:
+        // - English, Japanese, Korean, Chinese locales use parentheses
+        // - German, French, and other European locales use minus sign (same as standard)
+        // Check if locale uses parentheses for accounting
+        if (UsesParenthesesForAccounting())
+        {
+            // Use parentheses matching the positive pattern position:
+            // Positive pattern 0 ($n) → Accounting uses "($n)"
+            // Positive pattern 1 (n$) → Accounting uses "(n$)"
+            // Positive pattern 2 ($ n) → Accounting uses "($ n)"
+            // Positive pattern 3 (n $) → Accounting uses "(n $)"
+            var posPattern = NumberFormatInfo.CurrencyPositivePattern;
+            const string Nbsp = "\u00A0"; // Non-breaking space
+
+            return posPattern switch
+            {
+                0 => $"({symbol}{numberPart})", // ($n)
+                1 => $"({numberPart}{symbol})", // (n$)
+                2 => $"({symbol}{Nbsp}{numberPart})", // ($ n)
+                3 => $"({numberPart}{Nbsp}{symbol})", // (n $)
+                _ => $"({symbol}{numberPart})"
+            };
+        }
+
+        // Fall back to standard negative currency format (minus sign)
+        return FormatNegativeCurrency(numberPart, symbol);
+    }
+
+    /// <summary>
+    /// Determines if the current locale uses parentheses for accounting format.
+    /// Based on CLDR accounting currency patterns.
+    /// </summary>
+    private bool UsesParenthesesForAccounting()
+    {
+        // Get the base language from the locale
+        var locale = Locale ?? "en";
+        var dashIndex = locale.IndexOf('-');
+        var lang = dashIndex > 0 ? locale.Substring(0, dashIndex) : locale;
+
+        // Locales that use parentheses for accounting per CLDR:
+        // - English (en), Japanese (ja), Korean (ko), Chinese (zh)
+        // Other locales (de, fr, es, etc.) use minus sign
+        return lang switch
+        {
+            "en" => true,
+            "ja" => true,
+            "ko" => true,
+            "zh" => true,
+            _ => false
+        };
+    }
+
+    /// <summary>
+    /// Formats a negative currency value according to the locale's CurrencyNegativePattern.
+    /// Uses non-breaking space (U+00A0) per CLDR conventions.
+    /// </summary>
+    private string FormatNegativeCurrency(string numberPart, string symbol)
+    {
+        // CurrencyNegativePattern values:
+        // 0: ($n), 1: -$n, 2: $-n, 3: $n-, 4: (n$), 5: -n$, 6: n-$, 7: n$-
+        // 8: -n $, 9: -$ n, 10: n $-, 11: $ n-, 12: $ -n, 13: n- $, 14: ($ n), 15: (n $)
+        var negPattern = NumberFormatInfo.CurrencyNegativePattern;
+        const string Nbsp = " "; // Non-breaking space
+
+        return negPattern switch
+        {
+            0 => $"({symbol}{numberPart})",
+            1 => $"-{symbol}{numberPart}",
+            2 => $"{symbol}-{numberPart}",
+            3 => $"{symbol}{numberPart}-",
+            4 => $"({numberPart}{symbol})",
+            5 => $"-{numberPart}{symbol}",
+            6 => $"{numberPart}-{symbol}",
+            7 => $"{numberPart}{symbol}-",
+            8 => $"-{numberPart}{Nbsp}{symbol}",
+            9 => $"-{symbol}{Nbsp}{numberPart}",
+            10 => $"{numberPart}{Nbsp}{symbol}-",
+            11 => $"{symbol}{Nbsp}{numberPart}-",
+            12 => $"{symbol}{Nbsp}-{numberPart}",
+            13 => $"{numberPart}-{Nbsp}{symbol}",
+            14 => $"({symbol}{Nbsp}{numberPart})",
+            15 => $"({numberPart}{Nbsp}{symbol})",
+            _ => $"-{symbol}{numberPart}"
+        };
     }
 
     private string FormatCurrencyWithSignificantDigits(double value)
@@ -1331,6 +1465,28 @@ internal sealed class JsNumberFormat : ObjectInstance
 
         var symbol = NumberFormatInfo.CurrencySymbol;
         var useAccountingFormat = string.Equals(CurrencySign, "accounting", StringComparison.Ordinal);
+
+        // Build currency string based on locale pattern
+        var posPattern = NumberFormatInfo.CurrencyPositivePattern;
+        string formattedCurrency;
+
+        const string Nbsp = "\u00A0"; // Non-breaking space per CLDR
+        switch (posPattern)
+        {
+            case 0: // $n
+                formattedCurrency = symbol + formatted;
+                break;
+            case 1: // n$
+                formattedCurrency = formatted + symbol;
+                break;
+            case 2: // $ n
+                formattedCurrency = symbol + Nbsp + formatted;
+                break;
+            case 3: // n $
+            default:
+                formattedCurrency = formatted + Nbsp + symbol;
+                break;
+        }
 
         // Determine sign display
         var showNegativeSign = isNegative && !isZero;
@@ -1352,15 +1508,19 @@ internal sealed class JsNumberFormat : ObjectInstance
 
         if (showNegativeSign)
         {
-            return useAccountingFormat ? $"({symbol}{formatted})" : $"-{symbol}{formatted}";
+            if (useAccountingFormat)
+            {
+                return FormatNegativeCurrency(formatted, symbol);
+            }
+            return $"-{formattedCurrency}";
         }
 
         if (showPositiveSign)
         {
-            return $"+{symbol}{formatted}";
+            return $"+{formattedCurrency}";
         }
 
-        return $"{symbol}{formatted}";
+        return formattedCurrency;
     }
 
     private string FormatPercent(double value)
@@ -2005,10 +2165,8 @@ internal sealed class JsNumberFormat : ObjectInstance
         {
             if (useAccountingFormat)
             {
-                // Accounting format uses parentheses: ($n)
-                parts.Add(new NumberFormatPart("literal", "("));
-                BuildCurrencyPositiveParts(parts, pattern, currencySymbol, integerPart, fractionValue);
-                parts.Add(new NumberFormatPart("literal", ")"));
+                // Use CLDR-based accounting format (parentheses for most locales)
+                BuildAccountingCurrencyNegativeParts(parts, currencySymbol, integerPart, fractionValue);
             }
             else
             {
@@ -2030,8 +2188,190 @@ internal sealed class JsNumberFormat : ObjectInstance
         return parts;
     }
 
+    /// <summary>
+    /// Builds currency parts for accounting format (negative values with parentheses).
+    /// </summary>
+    private void BuildAccountingCurrencyNegativeParts(List<NumberFormatPart> parts, string symbol, long integerPart, double fractionValue)
+    {
+        // Check if locale uses parentheses for accounting
+        if (UsesParenthesesForAccounting())
+        {
+            // Use parentheses matching the positive pattern position
+            var posPattern = NumberFormatInfo.CurrencyPositivePattern;
+            const string Nbsp = "\u00A0"; // Non-breaking space
+
+            switch (posPattern)
+            {
+                case 0: // $n → ($n)
+                    parts.Add(new NumberFormatPart("literal", "("));
+                    parts.Add(new NumberFormatPart("currency", symbol));
+                    FormatIntegerToParts(parts, integerPart);
+                    AddFractionPartsIfNeeded(parts, fractionValue);
+                    parts.Add(new NumberFormatPart("literal", ")"));
+                    break;
+                case 1: // n$ → (n$)
+                    parts.Add(new NumberFormatPart("literal", "("));
+                    FormatIntegerToParts(parts, integerPart);
+                    AddFractionPartsIfNeeded(parts, fractionValue);
+                    parts.Add(new NumberFormatPart("currency", symbol));
+                    parts.Add(new NumberFormatPart("literal", ")"));
+                    break;
+                case 2: // $ n → ($ n)
+                    parts.Add(new NumberFormatPart("literal", "("));
+                    parts.Add(new NumberFormatPart("currency", symbol));
+                    parts.Add(new NumberFormatPart("literal", Nbsp));
+                    FormatIntegerToParts(parts, integerPart);
+                    AddFractionPartsIfNeeded(parts, fractionValue);
+                    parts.Add(new NumberFormatPart("literal", ")"));
+                    break;
+                case 3: // n $ → (n $)
+                default:
+                    parts.Add(new NumberFormatPart("literal", "("));
+                    FormatIntegerToParts(parts, integerPart);
+                    AddFractionPartsIfNeeded(parts, fractionValue);
+                    parts.Add(new NumberFormatPart("literal", Nbsp));
+                    parts.Add(new NumberFormatPart("currency", symbol));
+                    parts.Add(new NumberFormatPart("literal", ")"));
+                    break;
+            }
+        }
+        else
+        {
+            // Fall back to standard negative currency pattern (minus sign)
+            BuildCurrencyNegativeParts(parts, symbol, integerPart, fractionValue);
+        }
+    }
+
+    /// <summary>
+    /// Builds currency parts for negative values using the locale's CurrencyNegativePattern.
+    /// </summary>
+    private void BuildCurrencyNegativeParts(List<NumberFormatPart> parts, string symbol, long integerPart, double fractionValue)
+    {
+        var negPattern = NumberFormatInfo.CurrencyNegativePattern;
+        const string Nbsp = "\u00A0"; // Non-breaking space per CLDR
+
+        switch (negPattern)
+        {
+            case 0: // ($n)
+                parts.Add(new NumberFormatPart("literal", "("));
+                parts.Add(new NumberFormatPart("currency", symbol));
+                FormatIntegerToParts(parts, integerPart);
+                AddFractionPartsIfNeeded(parts, fractionValue);
+                parts.Add(new NumberFormatPart("literal", ")"));
+                break;
+            case 1: // -$n
+                parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
+                parts.Add(new NumberFormatPart("currency", symbol));
+                FormatIntegerToParts(parts, integerPart);
+                AddFractionPartsIfNeeded(parts, fractionValue);
+                break;
+            case 2: // $-n
+                parts.Add(new NumberFormatPart("currency", symbol));
+                parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
+                FormatIntegerToParts(parts, integerPart);
+                AddFractionPartsIfNeeded(parts, fractionValue);
+                break;
+            case 3: // $n-
+                parts.Add(new NumberFormatPart("currency", symbol));
+                FormatIntegerToParts(parts, integerPart);
+                AddFractionPartsIfNeeded(parts, fractionValue);
+                parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
+                break;
+            case 4: // (n$)
+                parts.Add(new NumberFormatPart("literal", "("));
+                FormatIntegerToParts(parts, integerPart);
+                AddFractionPartsIfNeeded(parts, fractionValue);
+                parts.Add(new NumberFormatPart("currency", symbol));
+                parts.Add(new NumberFormatPart("literal", ")"));
+                break;
+            case 5: // -n$
+                parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
+                FormatIntegerToParts(parts, integerPart);
+                AddFractionPartsIfNeeded(parts, fractionValue);
+                parts.Add(new NumberFormatPart("currency", symbol));
+                break;
+            case 6: // n-$
+                FormatIntegerToParts(parts, integerPart);
+                AddFractionPartsIfNeeded(parts, fractionValue);
+                parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
+                parts.Add(new NumberFormatPart("currency", symbol));
+                break;
+            case 7: // n$-
+                FormatIntegerToParts(parts, integerPart);
+                AddFractionPartsIfNeeded(parts, fractionValue);
+                parts.Add(new NumberFormatPart("currency", symbol));
+                parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
+                break;
+            case 8: // -n $
+                parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
+                FormatIntegerToParts(parts, integerPart);
+                AddFractionPartsIfNeeded(parts, fractionValue);
+                parts.Add(new NumberFormatPart("literal", Nbsp));
+                parts.Add(new NumberFormatPart("currency", symbol));
+                break;
+            case 9: // -$ n
+                parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
+                parts.Add(new NumberFormatPart("currency", symbol));
+                parts.Add(new NumberFormatPart("literal", Nbsp));
+                FormatIntegerToParts(parts, integerPart);
+                AddFractionPartsIfNeeded(parts, fractionValue);
+                break;
+            case 10: // n $-
+                FormatIntegerToParts(parts, integerPart);
+                AddFractionPartsIfNeeded(parts, fractionValue);
+                parts.Add(new NumberFormatPart("literal", Nbsp));
+                parts.Add(new NumberFormatPart("currency", symbol));
+                parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
+                break;
+            case 11: // $ n-
+                parts.Add(new NumberFormatPart("currency", symbol));
+                parts.Add(new NumberFormatPart("literal", Nbsp));
+                FormatIntegerToParts(parts, integerPart);
+                AddFractionPartsIfNeeded(parts, fractionValue);
+                parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
+                break;
+            case 12: // $ -n
+                parts.Add(new NumberFormatPart("currency", symbol));
+                parts.Add(new NumberFormatPart("literal", Nbsp));
+                parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
+                FormatIntegerToParts(parts, integerPart);
+                AddFractionPartsIfNeeded(parts, fractionValue);
+                break;
+            case 13: // n- $
+                FormatIntegerToParts(parts, integerPart);
+                AddFractionPartsIfNeeded(parts, fractionValue);
+                parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
+                parts.Add(new NumberFormatPart("literal", Nbsp));
+                parts.Add(new NumberFormatPart("currency", symbol));
+                break;
+            case 14: // ($ n)
+                parts.Add(new NumberFormatPart("literal", "("));
+                parts.Add(new NumberFormatPart("currency", symbol));
+                parts.Add(new NumberFormatPart("literal", Nbsp));
+                FormatIntegerToParts(parts, integerPart);
+                AddFractionPartsIfNeeded(parts, fractionValue);
+                parts.Add(new NumberFormatPart("literal", ")"));
+                break;
+            case 15: // (n $)
+                parts.Add(new NumberFormatPart("literal", "("));
+                FormatIntegerToParts(parts, integerPart);
+                AddFractionPartsIfNeeded(parts, fractionValue);
+                parts.Add(new NumberFormatPart("literal", Nbsp));
+                parts.Add(new NumberFormatPart("currency", symbol));
+                parts.Add(new NumberFormatPart("literal", ")"));
+                break;
+            default:
+                parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
+                parts.Add(new NumberFormatPart("currency", symbol));
+                FormatIntegerToParts(parts, integerPart);
+                AddFractionPartsIfNeeded(parts, fractionValue);
+                break;
+        }
+    }
+
     private void BuildCurrencyPositiveParts(List<NumberFormatPart> parts, int pattern, string symbol, long integerPart, double fractionValue)
     {
+        const string Nbsp = "\u00A0"; // Non-breaking space per CLDR
         switch (pattern)
         {
             case 0: // $n
@@ -2046,14 +2386,14 @@ internal sealed class JsNumberFormat : ObjectInstance
                 break;
             case 2: // $ n
                 parts.Add(new NumberFormatPart("currency", symbol));
-                parts.Add(new NumberFormatPart("literal", " "));
+                parts.Add(new NumberFormatPart("literal", Nbsp));
                 FormatIntegerToParts(parts, integerPart);
                 AddFractionPartsIfNeeded(parts, fractionValue);
                 break;
             case 3: // n $
                 FormatIntegerToParts(parts, integerPart);
                 AddFractionPartsIfNeeded(parts, fractionValue);
-                parts.Add(new NumberFormatPart("literal", " "));
+                parts.Add(new NumberFormatPart("literal", Nbsp));
                 parts.Add(new NumberFormatPart("currency", symbol));
                 break;
             default:

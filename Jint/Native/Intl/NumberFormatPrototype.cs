@@ -106,7 +106,7 @@ internal sealed class NumberFormatPrototype : Prototype
 
         // Use CreateDataPropertyOrThrow to avoid prototype chain setters
         result.CreateDataPropertyOrThrow("locale", numberFormat.Locale);
-        result.CreateDataPropertyOrThrow("numberingSystem", "latn"); // Default to Latin numerals
+        result.CreateDataPropertyOrThrow("numberingSystem", numberFormat.NumberingSystem);
         result.CreateDataPropertyOrThrow("style", numberFormat.Style);
 
         if (string.Equals(numberFormat.Style, "currency", StringComparison.Ordinal))
