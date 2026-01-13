@@ -65,6 +65,11 @@ internal sealed class JsLocale : ObjectInstance
     internal bool? Numeric { get; }
 
     /// <summary>
+    /// The first day of week from Unicode extension (fw), if present.
+    /// </summary>
+    internal string? FirstDayOfWeek { get; }
+
+    /// <summary>
     /// The variant subtags, if present.
     /// </summary>
     internal string[] Variants { get; }
@@ -89,6 +94,7 @@ internal sealed class JsLocale : ObjectInstance
         string? hourCycle,
         string? numberingSystem,
         bool? numeric,
+        string? firstDayOfWeek,
         CultureInfo cultureInfo) : base(engine)
     {
         _prototype = prototype;
@@ -104,6 +110,7 @@ internal sealed class JsLocale : ObjectInstance
         HourCycle = hourCycle;
         NumberingSystem = numberingSystem;
         Numeric = numeric;
+        FirstDayOfWeek = firstDayOfWeek;
         CultureInfo = cultureInfo;
     }
 }

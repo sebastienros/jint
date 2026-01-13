@@ -227,41 +227,33 @@ internal sealed class LocalePrototype : Prototype
 
     /// <summary>
     /// https://tc39.es/ecma402/#sec-Intl.Locale.prototype.variants
+    /// Returns hyphen-separated variants string or undefined if no variants.
     /// </summary>
-    private JsArray GetVariants(JsValue thisObject, JsCallArguments arguments)
+    private JsValue GetVariants(JsValue thisObject, JsCallArguments arguments)
     {
         var locale = ValidateLocale(thisObject);
         var variants = locale.Variants;
 
-        var result = new JsArray(Engine, (uint) variants.Length);
-        for (var i = 0; i < variants.Length; i++)
+        if (variants.Length == 0)
         {
-            result.SetIndexValue((uint) i, variants[i], updateLength: true);
+            return Undefined;
         }
 
-        return result;
+        return string.Join("-", variants);
     }
 
     private JsValue GetFirstDayOfWeek(JsValue thisObject, JsCallArguments arguments)
     {
         var locale = ValidateLocale(thisObject);
-        var culture = locale.CultureInfo;
 
-        // Get first day of week from culture
-        var firstDay = culture.DateTimeFormat.FirstDayOfWeek;
-
-        // Return day number (1=Monday, 7=Sunday per ECMA-402)
-        return firstDay switch
+        // Return the firstDayOfWeek value from the locale if set
+        if (!string.IsNullOrEmpty(locale.FirstDayOfWeek))
         {
-            DayOfWeek.Monday => 1,
-            DayOfWeek.Tuesday => 2,
-            DayOfWeek.Wednesday => 3,
-            DayOfWeek.Thursday => 4,
-            DayOfWeek.Friday => 5,
-            DayOfWeek.Saturday => 6,
-            DayOfWeek.Sunday => 7,
-            _ => 1 // Default to Monday
-        };
+            return locale.FirstDayOfWeek;
+        }
+
+        // If not explicitly set, return undefined per spec
+        return Undefined;
     }
 
     /// <summary>

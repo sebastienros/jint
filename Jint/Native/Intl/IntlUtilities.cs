@@ -23,25 +23,20 @@ internal static class IntlUtilities
 
     /// <summary>
     /// Grandfathered tags that map to canonical forms.
-    /// From IANA Language Subtag Registry / BCP 47.
+    /// Only includes regular grandfathered tags that are valid per UTS35.
+    /// See https://unicode.org/reports/tr35/#BCP_47_Conformance
     /// </summary>
     private static readonly Dictionary<string, string> GrandfatheredTags = new(StringComparer.OrdinalIgnoreCase)
     {
-        // Regular grandfathered tags
+        // Regular grandfathered tags that are valid per UTS35
         { "art-lojban", "jbo" },
         { "cel-gaulish", "xtg" },
-        { "no-bok", "nb" },
-        { "no-nyn", "nn" },
         { "zh-guoyu", "zh" },
         { "zh-hakka", "hak" },
-        { "zh-min", "nan" },
-        { "zh-min-nan", "nan" },
         { "zh-xiang", "hsn" },
-        // Sign language grandfathered tags
-        { "sgn-BE-FR", "sfb" },
-        { "sgn-BE-NL", "vgt" },
+        // Sign language tags with single region code (sgn-XX -> valid language code)
+        // These are in CLDR aliasData as type="language"
         { "sgn-BR", "bzs" },
-        { "sgn-CH-DE", "sgg" },
         { "sgn-CO", "csn" },
         { "sgn-DE", "gsg" },
         { "sgn-DK", "dsl" },
@@ -60,6 +55,10 @@ internal static class IntlUtilities
         { "sgn-SE", "swl" },
         { "sgn-US", "ase" },
         { "sgn-ZA", "sfs" },
+        // Note: The following are NOT included because they are invalid per UTS35:
+        // - no-bok, no-nyn, zh-min, zh-min-nan (regularGrandfatheredNonUTS35)
+        // - All irregular grandfathered tags (i-*, en-gb-oed)
+        // - Sign language grandfathered tags with compound regions (sgn-XX-XX like sgn-be-fr)
     };
 
     /// <summary>
@@ -292,6 +291,7 @@ internal static class IntlUtilities
 
     /// <summary>
     /// https://tc39.es/ecma402/#sec-isstructurallyvalidlanguagetag
+    /// Per UTS 35, validates Unicode BCP 47 Locale Identifiers.
     /// </summary>
     internal static bool IsStructurallyValidLanguageTag(string locale)
     {
@@ -300,9 +300,431 @@ internal static class IntlUtilities
             return false;
         }
 
-        // Simple validation - accept valid BCP 47 tags
-        // For production, this should be more comprehensive
-        return LanguageTagPattern.IsMatch(locale);
+        // Check for invalid characters (non-ASCII, null, whitespace, underscore)
+        foreach (var c in locale)
+        {
+            if (c > 127 || c == '\0' || char.IsWhiteSpace(c) || c == '_')
+            {
+                return false;
+            }
+        }
+
+        // Basic check: only ASCII letters, digits, and hyphens
+        if (!LanguageTagPattern.IsMatch(locale))
+        {
+            return false;
+        }
+
+        var parts = locale.Split('-');
+        if (parts.Length == 0 || parts[0].Length == 0)
+        {
+            return false;
+        }
+
+        // First part must be a valid language subtag (2-3 or 5-8 alpha) or grandfathered
+        var firstPart = parts[0];
+
+        // Check for private use only tags ("x-...")
+        if (string.Equals(firstPart, "x", StringComparison.OrdinalIgnoreCase))
+        {
+            // Private use only is invalid in UTS35
+            return false;
+        }
+
+        // Check for extension singleton in first place ("u", "t", etc.)
+        if (firstPart.Length == 1)
+        {
+            return false;
+        }
+
+        // Check for region code in first place (3 digits like "419")
+        if (firstPart.Length == 3 && char.IsDigit(firstPart[0]))
+        {
+            return false;
+        }
+
+        // First part must be all letters (language subtag)
+        foreach (var c in firstPart)
+        {
+            if (!char.IsLetter(c))
+            {
+                return false;
+            }
+        }
+
+        // Language subtag length: 2-3 or 5-8 letters (4 is script, not allowed as first)
+        if (firstPart.Length == 4 || firstPart.Length > 8)
+        {
+            return false;
+        }
+
+        // Track seen singletons for duplicate detection
+        var seenSingletons = new HashSet<char>();
+        var seenVariants = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var inExtension = false;
+        var extensionType = '\0';
+        var extensionHasSubtag = false;
+        var hasScript = false;
+        var hasRegion = false;
+
+        for (var i = 1; i < parts.Length; i++)
+        {
+            var part = parts[i];
+
+            if (part.Length == 0)
+            {
+                return false; // Empty subtag (double hyphen)
+            }
+
+            // Check for singleton (extension marker)
+            if (part.Length == 1)
+            {
+                var singleton = char.ToLowerInvariant(part[0]);
+
+                // If we're in private use extension (x-), single chars are just content, not new singletons
+                if (inExtension && extensionType == 'x')
+                {
+                    extensionHasSubtag = true;
+                    continue;
+                }
+
+                // Extension must have at least one subtag after it
+                if (inExtension && !extensionHasSubtag)
+                {
+                    return false;
+                }
+
+                // Check for duplicate singleton
+                if (seenSingletons.Contains(singleton))
+                {
+                    return false;
+                }
+                seenSingletons.Add(singleton);
+
+                inExtension = true;
+                extensionType = singleton;
+                extensionHasSubtag = false;
+                continue;
+            }
+
+            if (inExtension)
+            {
+                extensionHasSubtag = true;
+
+                // Private use extension (x-) accepts any subtags, no format validation needed
+                if (extensionType == 'x')
+                {
+                    continue;
+                }
+
+                if (extensionType == 'u')
+                {
+                    // Unicode extension: ukey must be 2 chars (alphanum + alpha)
+                    if (part.Length == 2)
+                    {
+                        if (!char.IsLetterOrDigit(part[0]) || !char.IsLetter(part[1]))
+                        {
+                            return false;
+                        }
+                    }
+                }
+                else if (extensionType == 't')
+                {
+                    // Transformed extension validation is complex, handled separately below
+                }
+            }
+            else
+            {
+                // Not in extension - check for script, region, variant
+
+                if (part.Length == 4 && char.IsLetter(part[0]))
+                {
+                    // Could be script subtag (4 letters) or variant (4 chars starting with digit)
+                    var isAllLetters = true;
+                    foreach (var c in part)
+                    {
+                        if (!char.IsLetter(c))
+                        {
+                            isAllLetters = false;
+                            break;
+                        }
+                    }
+
+                    if (isAllLetters)
+                    {
+                        // Script subtag
+                        if (hasScript || hasRegion || seenVariants.Count > 0)
+                        {
+                            // Script must come before region and variants
+                            // And only one script allowed
+                            return false;
+                        }
+                        hasScript = true;
+                    }
+                    else if (char.IsDigit(part[0]))
+                    {
+                        // 4-char variant starting with digit
+                        var partLower = part.ToLowerInvariant();
+                        if (seenVariants.Contains(partLower))
+                        {
+                            return false; // Duplicate variant
+                        }
+                        seenVariants.Add(partLower);
+                    }
+                    else
+                    {
+                        // 4-char alphanumeric but not script and not starting with digit - invalid
+                        return false;
+                    }
+                }
+                else if ((part.Length == 2 && char.IsLetter(part[0])) ||
+                         (part.Length == 3 && char.IsDigit(part[0])))
+                {
+                    // Region subtag (2 letters or 3 digits)
+                    if (hasRegion)
+                    {
+                        // Only one region allowed
+                        return false;
+                    }
+                    hasRegion = true;
+                }
+                else if (part.Length == 4 && char.IsDigit(part[0]))
+                {
+                    // Variant subtag (4 chars starting with digit, e.g., "1996", "1994")
+                    var partLower = part.ToLowerInvariant();
+                    if (seenVariants.Contains(partLower))
+                    {
+                        return false; // Duplicate variant
+                    }
+                    seenVariants.Add(partLower);
+                }
+                else if (part.Length >= 5 && part.Length <= 8)
+                {
+                    // Variant subtag (5-8 alphanumeric)
+                    var partLower = part.ToLowerInvariant();
+                    if (seenVariants.Contains(partLower))
+                    {
+                        return false; // Duplicate variant
+                    }
+                    seenVariants.Add(partLower);
+                }
+                else
+                {
+                    // Invalid subtag length for non-extension position
+                    // 3-letter alpha subtags would be extlang (not allowed in UTS35)
+                    // Other lengths are invalid
+                    return false;
+                }
+            }
+        }
+
+        // Extension must have at least one subtag
+        if (inExtension && !extensionHasSubtag)
+        {
+            return false;
+        }
+
+        // Validate T extension structure if present
+        if (!ValidateTransformedExtension(locale))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Validates the structure of a transformed extension (-t-).
+    /// </summary>
+    private static bool ValidateTransformedExtension(string locale)
+    {
+        var tIndex = locale.IndexOf("-t-", StringComparison.OrdinalIgnoreCase);
+        if (tIndex < 0)
+        {
+            return true; // No T extension
+        }
+
+        // Find the end of the T extension (next singleton or end of string)
+        var endIndex = locale.Length;
+        for (var i = tIndex + 3; i < locale.Length - 1; i++)
+        {
+            if (locale[i] == '-' && i + 2 < locale.Length && locale[i + 2] == '-' && char.IsLetterOrDigit(locale[i + 1]))
+            {
+                var nextChar = locale[i + 1];
+                if (char.IsLetter(nextChar) && nextChar != 'x' && nextChar != 'X')
+                {
+                    // Found another singleton (not x)
+                    endIndex = i;
+                    break;
+                }
+                else if (nextChar == 'x' || nextChar == 'X')
+                {
+                    // Private use starts
+                    endIndex = i;
+                    break;
+                }
+            }
+        }
+
+        var tExtension = locale.Substring(tIndex + 3, endIndex - tIndex - 3);
+        if (string.IsNullOrEmpty(tExtension))
+        {
+            return false; // Empty T extension
+        }
+
+        var parts = tExtension.Split('-');
+        if (parts.Length == 0 || parts[0].Length == 0)
+        {
+            return false;
+        }
+
+        // Parse T extension: [tlang] [tfield]*
+        // tlang = unicode_language_subtag (2-3 or 5-8 alpha) ["-" unicode_script_subtag] ["-" unicode_region_subtag] *("-" unicode_variant_subtag)
+        // tfield = tkey tvalue+
+        // tkey = alpha digit
+        // tvalue = 3-8 alphanum
+
+        var index = 0;
+        var inTlang = true;
+        var tlangHasLanguage = false;
+        var tlangHasScript = false;
+        var tlangHasRegion = false;
+        var currentTKeyHasValue = true; // Start true since we don't have a key yet
+
+        while (index < parts.Length)
+        {
+            var part = parts[index];
+
+            // Check if this is a tkey (alpha + digit, 2 chars)
+            if (part.Length == 2 && char.IsLetter(part[0]) && char.IsDigit(part[1]))
+            {
+                // Entering tfield
+                if (!currentTKeyHasValue)
+                {
+                    return false; // Previous tkey had no tvalue
+                }
+                inTlang = false;
+                currentTKeyHasValue = false;
+                index++;
+                continue;
+            }
+
+            if (inTlang)
+            {
+                // Validate tlang component
+                if (!tlangHasLanguage)
+                {
+                    // First part must be language subtag (2-3 or 5-8 alpha)
+                    if (!IsValidTLangLanguage(part))
+                    {
+                        return false;
+                    }
+                    tlangHasLanguage = true;
+                }
+                else if (!tlangHasScript && part.Length == 4 && IsAllLetters(part))
+                {
+                    // Script subtag (4 alpha)
+                    tlangHasScript = true;
+                }
+                else if (part.Length == 4 && char.IsDigit(part[0]))
+                {
+                    // 4-char variant starting with digit (e.g., "1994")
+                    // Must come after script/region checks
+                }
+                else if (!tlangHasRegion && ((part.Length == 2 && IsAllLetters(part)) || (part.Length == 3 && IsAllDigits(part))))
+                {
+                    // Region subtag (2 alpha or 3 digit)
+                    tlangHasRegion = true;
+                }
+                else if (IsValidVariant(part))
+                {
+                    // Variant subtag (5-8 alphanum or 4 starting with digit)
+                    // OK
+                }
+                else
+                {
+                    // Invalid tlang component (could be extlang which is not allowed)
+                    return false;
+                }
+            }
+            else
+            {
+                // Validate tvalue (3-8 alphanum)
+                if (part.Length < 3 || part.Length > 8)
+                {
+                    return false;
+                }
+                foreach (var c in part)
+                {
+                    if (!char.IsLetterOrDigit(c))
+                    {
+                        return false;
+                    }
+                }
+                currentTKeyHasValue = true;
+            }
+
+            index++;
+        }
+
+        // Final check: if we ended with a tkey, it must have had a tvalue
+        if (!inTlang && !currentTKeyHasValue)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool IsValidTLangLanguage(string part)
+    {
+        // Language subtag must be 2-3 or 5-8 alpha characters
+        // 4-letter would be a script, not language
+        if (part.Length < 2 || part.Length == 4 || part.Length > 8)
+        {
+            return false;
+        }
+        return IsAllLetters(part);
+    }
+
+    private static bool IsValidVariant(string part)
+    {
+        // Variant is 5-8 alphanum, or 4 chars starting with digit
+        if (part.Length >= 5 && part.Length <= 8)
+        {
+            foreach (var c in part)
+            {
+                if (!char.IsLetterOrDigit(c)) return false;
+            }
+            return true;
+        }
+        if (part.Length == 4 && char.IsDigit(part[0]))
+        {
+            foreach (var c in part)
+            {
+                if (!char.IsLetterOrDigit(c)) return false;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    private static bool IsAllLetters(string part)
+    {
+        foreach (var c in part)
+        {
+            if (!char.IsLetter(c)) return false;
+        }
+        return true;
+    }
+
+    private static bool IsAllDigits(string part)
+    {
+        foreach (var c in part)
+        {
+            if (!char.IsDigit(c)) return false;
+        }
+        return true;
     }
 
     /// <summary>
@@ -608,9 +1030,57 @@ internal static class IntlUtilities
                         tlangParts[0] = tlangReplacement;
                     }
 
-                    foreach (var tlp in tlangParts)
+                    // Parse tlang structure: language[-script][-region][-variant]*
+                    // and sort variant subtags alphabetically
+                    var tlangPrefix = new List<string>();
+                    var tlangVariants = new List<string>();
+
+                    for (var k = 0; k < tlangParts.Count; k++)
                     {
-                        newParts.Add(tlp);
+                        var part = tlangParts[k];
+                        if (k == 0)
+                        {
+                            // Language subtag
+                            tlangPrefix.Add(part);
+                        }
+                        else if (part.Length == 4 && char.IsLetter(part[0]) && tlangVariants.Count == 0)
+                        {
+                            // Script subtag (4 letters before any variants)
+                            tlangPrefix.Add(part);
+                        }
+                        else if ((part.Length == 2 && char.IsLetter(part[0])) || (part.Length == 3 && char.IsDigit(part[0])))
+                        {
+                            // Region subtag (2 alpha or 3 digit)
+                            if (tlangVariants.Count == 0)
+                            {
+                                tlangPrefix.Add(part);
+                            }
+                            else
+                            {
+                                // Treat as variant if we already have variants
+                                tlangVariants.Add(part);
+                            }
+                        }
+                        else
+                        {
+                            // Variant subtag
+                            tlangVariants.Add(part);
+                        }
+                    }
+
+                    // Sort variants alphabetically
+                    tlangVariants.Sort(StringComparer.Ordinal);
+
+                    // Add prefix parts
+                    foreach (var p in tlangPrefix)
+                    {
+                        newParts.Add(p);
+                    }
+
+                    // Add sorted variants
+                    foreach (var v in tlangVariants)
+                    {
+                        newParts.Add(v);
                     }
                 }
 
@@ -678,14 +1148,33 @@ internal static class IntlUtilities
                 {
                     if (LocaleData.UnicodeMappings.TryGetValue(kw.Key, out var valueAliases))
                     {
-                        for (var k = 0; k < kw.Values.Count; k++)
+                        // First try looking up the full joined value (for hyphenated aliases like "ethiopic-amete-alem")
+                        var fullValue = string.Join("-", kw.Values);
+                        if (valueAliases.TryGetValue(fullValue, out var aliasedValue))
                         {
-                            if (valueAliases.TryGetValue(kw.Values[k], out var aliasedValue))
+                            // Replace all parts with the new value (may also be hyphenated)
+                            kw.Values.Clear();
+                            foreach (var part in aliasedValue.Split('-'))
                             {
-                                kw.Values[k] = aliasedValue;
+                                kw.Values.Add(part);
+                            }
+                        }
+                        else
+                        {
+                            // Fall back to looking up individual parts
+                            for (var k = 0; k < kw.Values.Count; k++)
+                            {
+                                if (valueAliases.TryGetValue(kw.Values[k], out aliasedValue))
+                                {
+                                    kw.Values[k] = aliasedValue;
+                                }
                             }
                         }
                     }
+
+                    // Per UTS 35 §3.2.1: Any type value "true" is removed
+                    // This means if the only value is "true", just keep the key
+                    kw.Values.RemoveAll(v => string.Equals(v, "true", StringComparison.OrdinalIgnoreCase));
                 }
 
                 // Add sorted attributes
