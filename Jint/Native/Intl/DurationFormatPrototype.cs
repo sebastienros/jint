@@ -188,15 +188,16 @@ internal sealed class DurationFormatPrototype : Prototype
         const long MaxYearsMonthsWeeks = 4294967296L; // 2^32
 
         // Check if years, months, weeks are in valid range
-        if (System.Math.Abs(record.Years) >= MaxYearsMonthsWeeks)
+        // Use a helper to avoid overflow with long.MinValue
+        if (IsAbsGreaterOrEqual(record.Years, MaxYearsMonthsWeeks))
         {
             Throw.RangeError(_realm, "years value out of range");
         }
-        if (System.Math.Abs(record.Months) >= MaxYearsMonthsWeeks)
+        if (IsAbsGreaterOrEqual(record.Months, MaxYearsMonthsWeeks))
         {
             Throw.RangeError(_realm, "months value out of range");
         }
-        if (System.Math.Abs(record.Weeks) >= MaxYearsMonthsWeeks)
+        if (IsAbsGreaterOrEqual(record.Weeks, MaxYearsMonthsWeeks))
         {
             Throw.RangeError(_realm, "weeks value out of range");
         }
@@ -233,5 +234,19 @@ internal sealed class DurationFormatPrototype : Prototype
         }
 
         return (long) System.Math.Truncate(number);
+    }
+
+    /// <summary>
+    /// Checks if |value| >= threshold without overflow for long.MinValue.
+    /// </summary>
+    private static bool IsAbsGreaterOrEqual(long value, long threshold)
+    {
+        // Handle long.MinValue specially to avoid overflow
+        if (value == long.MinValue)
+        {
+            // |long.MinValue| = 2^63, which is always >= any practical threshold
+            return true;
+        }
+        return System.Math.Abs(value) >= threshold;
     }
 }
