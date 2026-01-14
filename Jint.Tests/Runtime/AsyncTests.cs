@@ -641,6 +641,71 @@ public class AsyncTests
         Assert.DoesNotContain(logStrings, s => s.Contains("got result"));
     }
 
+    [Fact]
+    public void ShouldAllowReassigningLetVariableInAsyncDoWhileLoop()
+    {
+        // Reproduces issue where reassigning a let variable inside an async do-while loop
+        // throws a TDZ error on the second iteration
+        var engine = new Engine();
+        
+        var script = @"
+        async function getItems() {
+            return Promise.resolve([1, 2, 3]);
+        }
+
+        async function main() {
+            let iteration = 0;
+            
+            do {
+                let items = await getItems();
+                
+                items = await getItems();  // Should NOT throw TDZ error on 2nd loop iteration
+                
+                iteration++;
+            } while (iteration < 2);
+            
+            return 'success';
+        }
+        
+        main();
+        ";
+        
+        var result = engine.Evaluate(script).UnwrapIfPromise();
+        Assert.Equal("success", result.ToString());
+    }
+    
+    [Fact]
+    public void ShouldAllowReassigningLetVariableInAsyncWhileLoop()
+    {
+        // Same issue but with while loop
+        var engine = new Engine();
+        
+        var script = @"
+        async function getItems() {
+            return Promise.resolve([1, 2, 3]);
+        }
+
+        async function main() {
+            let iteration = 0;
+            
+            while (iteration < 2) {
+                let items = await getItems();
+                
+                items = await getItems();  // Should NOT throw TDZ error on 2nd loop iteration
+                
+                iteration++;
+            }
+            
+            return 'success';
+        }
+        
+        main();
+        ";
+        
+        var result = engine.Evaluate(script).UnwrapIfPromise();
+        Assert.Equal("success", result.ToString());
+    }
+
     class TestAsyncClass
     {
         private readonly ConcurrentBag<string> _values = new();

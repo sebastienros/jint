@@ -83,6 +83,30 @@ internal sealed class ForAwaitSuspendData : SuspendData
     public JsValue AccumulatedValue { get; set; } = JsValue.Undefined;
 }
 
+/// <summary>
+/// Stores the state of a do-while loop when an async function awaits inside it.
+/// Saves block-scoped variable values so they can be restored when resuming.
+/// </summary>
+internal sealed class DoWhileLoopSuspendData : SuspendData
+{
+    /// <summary>
+    /// The saved values of block-scoped variables (let/const bindings in loop body).
+    /// </summary>
+    public Dictionary<Key, JsValue>? BlockBoundValues { get; set; }
+}
+
+/// <summary>
+/// Stores the state of a while loop when an async function awaits inside it.
+/// Saves block-scoped variable values so they can be restored when resuming.
+/// </summary>
+internal sealed class WhileLoopSuspendData : SuspendData
+{
+    /// <summary>
+    /// The saved values of block-scoped variables (let/const bindings in loop body).
+    /// </summary>
+    public Dictionary<Key, JsValue>? BlockBoundValues { get; set; }
+}
+
 internal sealed class SuspendDataDictionary
 {
     /// <summary>
