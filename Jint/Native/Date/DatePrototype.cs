@@ -303,9 +303,9 @@ internal sealed class DatePrototype : Prototype
             optionsObj.Get("minute").IsUndefined() &&
             optionsObj.Get("second").IsUndefined())
         {
-            // Set default timeStyle to "full" if no time options provided
+            // Set default timeStyle to "medium" (time without timezone) if no time options provided
             var newOptions = ObjectInstance.OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
-            newOptions.Set("timeStyle", "full");
+            newOptions.Set("timeStyle", "medium");
             options = newOptions;
         }
 

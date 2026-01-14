@@ -205,9 +205,10 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         var weekdayPatterns = new[] { "dddd, ", "dddd,", "dddd ", "dddd", "ddd, ", "ddd,", "ddd ", "ddd" };
         foreach (var wp in weekdayPatterns)
         {
-            if (result.Contains(wp, StringComparison.Ordinal))
+            var idx = result.IndexOf(wp, StringComparison.Ordinal);
+            if (idx >= 0)
             {
-                result = result.Replace(wp, "", StringComparison.Ordinal);
+                result = result.Remove(idx, wp.Length);
                 break;
             }
         }
@@ -245,15 +246,18 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     private string FormatTimeStyle(DateTime dateTime)
     {
         // Determine if we should use 12 or 24 hour format
-        var use12Hour = HourCycle == null ||
-                       string.Equals(HourCycle, "h11", StringComparison.Ordinal) ||
-                       string.Equals(HourCycle, "h12", StringComparison.Ordinal);
-
-        // Default to 12-hour for en locales if hourCycle not specified
-        var lang = Locale.Split('-')[0].ToLowerInvariant();
-        if (HourCycle == null && string.Equals(lang, "en", StringComparison.Ordinal))
+        bool use12Hour;
+        if (HourCycle != null)
         {
-            use12Hour = true;
+            // Explicit hourCycle takes precedence
+            use12Hour = string.Equals(HourCycle, "h11", StringComparison.Ordinal) ||
+                       string.Equals(HourCycle, "h12", StringComparison.Ordinal);
+        }
+        else
+        {
+            // Derive from locale - English uses 12-hour, most others use 24-hour
+            var lang = Locale.Split('-')[0].ToLowerInvariant();
+            use12Hour = string.Equals(lang, "en", StringComparison.Ordinal);
         }
 
         var timeZoneSuffix = "";
@@ -280,19 +284,19 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         {
             "full" => use12Hour
                 ? dateTime.ToString("h:mm:ss", CultureInfo) + " " + GetDayPeriod(dateTime.Hour) + timeZoneSuffix
-                : dateTime.ToString("H:mm:ss", CultureInfo) + timeZoneSuffix,
+                : dateTime.ToString("HH:mm:ss", CultureInfo) + timeZoneSuffix,
             "long" => use12Hour
                 ? dateTime.ToString("h:mm:ss", CultureInfo) + " " + GetDayPeriod(dateTime.Hour) + timeZoneSuffix
-                : dateTime.ToString("H:mm:ss", CultureInfo) + timeZoneSuffix,
+                : dateTime.ToString("HH:mm:ss", CultureInfo) + timeZoneSuffix,
             "medium" => use12Hour
                 ? dateTime.ToString("h:mm:ss", CultureInfo) + " " + GetDayPeriod(dateTime.Hour)
-                : dateTime.ToString("H:mm:ss", CultureInfo),
+                : dateTime.ToString("HH:mm:ss", CultureInfo),
             "short" => use12Hour
                 ? dateTime.ToString("h:mm", CultureInfo) + " " + GetDayPeriod(dateTime.Hour)
-                : dateTime.ToString("H:mm", CultureInfo),
+                : dateTime.ToString("HH:mm", CultureInfo),
             _ => use12Hour
                 ? dateTime.ToString("h:mm", CultureInfo) + " " + GetDayPeriod(dateTime.Hour)
-                : dateTime.ToString("H:mm", CultureInfo),
+                : dateTime.ToString("HH:mm", CultureInfo),
         };
     }
 
