@@ -1,5 +1,8 @@
 using Jint.Native;
+using Jint.Native.AsyncFunction;
+using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Expressions;
+using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Runtime.Interpreter.Statements;
 
@@ -26,6 +29,35 @@ internal sealed class JintWhileStatement : JintStatement<WhileStatement>
     protected override Completion ExecuteInternal(EvaluationContext context)
     {
         var v = JsValue.Undefined;
+        var engine = context.Engine;
+
+        // Check if we're resuming from inside the loop body
+        // If so, we need to handle the lexical environment carefully because
+        // the saved context may have a block environment from a previous iteration.
+        var suspendableForResume = engine.ExecutionContext.Suspendable;
+        var resumingInLoop = false;
+        Environment? preBodyEnv = null;
+
+        if (suspendableForResume is { IsResuming: true, LastSuspensionNode: not null })
+        {
+            var resumeNode = suspendableForResume.LastSuspensionNode as Node
+                ?? (suspendableForResume.LastSuspensionNode as JintExpression)?._expression as Node;
+
+            if (resumeNode != null && IsNodeInsideLoopBody(resumeNode))
+            {
+                resumingInLoop = true;
+                // The current lexical environment might be a block environment from a previous iteration.
+                // We need to restore the environment that was active before the block was created.
+                // This is the outer environment of the current environment (if it's a declarative environment).
+                var currentEnv = engine.ExecutionContext.LexicalEnvironment;
+                if (currentEnv is DeclarativeEnvironment declEnv)
+                {
+                    // Save the outer environment to use for subsequent iterations
+                    preBodyEnv = declEnv._outerEnv;
+                }
+            }
+        }
+
         while (true)
         {
             // Only clear completed awaits cache when starting a NEW iteration, not when resuming.
@@ -33,10 +65,19 @@ internal sealed class JintWhileStatement : JintStatement<WhileStatement>
             // we need the cached values of already-completed awaits to continue evaluation.
             // When starting fresh (not resuming), clear the cache to ensure expressions like
             // "while (await p)" evaluate p fresh each time even if p changes.
-            var asyncFn = context.Engine.ExecutionContext.AsyncFunction;
+            var asyncFn = context.Engine.ExecutionContext.Suspendable as AsyncFunctionInstance;
             if (asyncFn is null || !asyncFn._isResuming)
             {
                 asyncFn?._completedAwaits?.Clear();
+            }
+
+            // If we're resuming from inside the loop body and we've identified the pre-body environment,
+            // restore it before executing the body or test. This ensures that when the block creates a new
+            // environment for the current iteration, it uses the correct outer environment.
+            if (resumingInLoop && preBodyEnv is not null)
+            {
+                engine.UpdateLexicalEnvironment(preBodyEnv);
+                resumingInLoop = false; // Only restore once
             }
 
             if (context.DebugMode)
@@ -86,5 +127,33 @@ internal sealed class JintWhileStatement : JintStatement<WhileStatement>
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Checks if the given node is inside this while statement's body or test expression.
+    /// Used to determine if we're resuming from a yield/await inside the loop.
+    /// </summary>
+    private bool IsNodeInsideLoopBody(Node node)
+    {
+        var nodeRange = node.Range;
+        var bodyRange = _statement.Body.Range;
+
+        // Check if inside body
+        if (bodyRange.Start <= nodeRange.Start && nodeRange.End <= bodyRange.End)
+        {
+            return true;
+        }
+
+        // Check if inside test expression
+        if (_statement.Test != null)
+        {
+            var testRange = _statement.Test.Range;
+            if (testRange.Start <= nodeRange.Start && nodeRange.End <= testRange.End)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
