@@ -54,8 +54,15 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
                 && suspendData?.BlockEnvironment is not null)
             {
                 blockEnv = suspendData.BlockEnvironment;
-                // OuterEnvironment should be captured on suspension; fall back to current env if missing.
-                oldEnv = suspendData.OuterEnvironment ?? engine.ExecutionContext.LexicalEnvironment;
+                if (suspendData.OuterEnvironment is null)
+                {
+                    // OuterEnvironment should be captured on suspension; fall back to current env if missing.
+                    oldEnv = engine.ExecutionContext.LexicalEnvironment;
+                }
+                else
+                {
+                    oldEnv = suspendData.OuterEnvironment;
+                }
                 if (!ReferenceEquals(engine.ExecutionContext.LexicalEnvironment, blockEnv))
                 {
                     engine.UpdateLexicalEnvironment(blockEnv);
@@ -94,10 +101,7 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
             else
             {
                 blockValue = blockEnv.DisposeResources(blockValue);
-                if (suspendable?.Data.TryGet(this, out BlockSuspendData? _) == true)
-                {
-                    suspendable.Data.Clear(this);
-                }
+                suspendable?.Data.Clear(this);
             }
         }
 
