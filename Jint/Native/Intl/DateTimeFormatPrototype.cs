@@ -115,7 +115,13 @@ internal sealed class DateTimeFormatPrototype : Prototype
 
         if (value is JsDate jsDate)
         {
-            return jsDate.ToDateTime();
+            // ECMA-402 requires formatting in local time unless a specific timezone is provided
+            var dt = jsDate.ToDateTime();
+            if (dt.Kind == DateTimeKind.Utc || dt.Kind == DateTimeKind.Unspecified)
+            {
+                dt = dt.ToLocalTime();
+            }
+            return dt;
         }
 
         var timeValue = TypeConverter.ToNumber(value);
@@ -141,6 +147,25 @@ internal sealed class DateTimeFormatPrototype : Prototype
     }
 
     /// <summary>
+    /// Gets the default hour cycle for a locale.
+    /// Most locales use h12, but some use h23 (24-hour format without leading zero for midnight).
+    /// </summary>
+    private static string GetDefaultHourCycle(string locale)
+    {
+        // Most English-speaking locales use 12-hour format
+        var lang = locale.Split('-')[0].ToLowerInvariant();
+
+        // 24-hour format locales
+        if (lang is "de" or "fr" or "it" or "es" or "pt" or "nl" or "ru" or "pl" or "sv" or "da" or "nb" or "fi")
+        {
+            return "h23";
+        }
+
+        // Default to 12-hour format
+        return "h12";
+    }
+
+    /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.datetimeformat.prototype.resolvedoptions
     /// </summary>
     private JsObject ResolvedOptions(JsValue thisObject, JsCallArguments arguments)
@@ -163,17 +188,17 @@ internal sealed class DateTimeFormatPrototype : Prototype
 
         result.CreateDataPropertyOrThrow("numberingSystem", dateTimeFormat.NumberingSystem ?? "latn");
 
-        if (dateTimeFormat.TimeZone != null)
-        {
-            result.CreateDataPropertyOrThrow("timeZone", dateTimeFormat.TimeZone);
-        }
+        // timeZone is always present - use local timezone if not specified
+        result.CreateDataPropertyOrThrow("timeZone", dateTimeFormat.TimeZone ?? TimeZoneInfo.Local.Id);
 
-        // hourCycle and hour12 should only be returned if hour is present
-        if (dateTimeFormat.HourCycle != null && dateTimeFormat.Hour != null)
+        // hourCycle and hour12 should be returned if hour is present
+        if (dateTimeFormat.Hour != null)
         {
-            result.CreateDataPropertyOrThrow("hourCycle", dateTimeFormat.HourCycle);
-            result.CreateDataPropertyOrThrow("hour12", string.Equals(dateTimeFormat.HourCycle, "h11", StringComparison.Ordinal) ||
-                                 string.Equals(dateTimeFormat.HourCycle, "h12", StringComparison.Ordinal));
+            // Use provided hourCycle or derive default from locale
+            var hourCycle = dateTimeFormat.HourCycle ?? GetDefaultHourCycle(dateTimeFormat.Locale);
+            result.CreateDataPropertyOrThrow("hourCycle", hourCycle);
+            result.CreateDataPropertyOrThrow("hour12", string.Equals(hourCycle, "h11", StringComparison.Ordinal) ||
+                                 string.Equals(hourCycle, "h12", StringComparison.Ordinal));
         }
 
         if (dateTimeFormat.DateStyle != null)
@@ -212,6 +237,7 @@ internal sealed class DateTimeFormatPrototype : Prototype
             result.CreateDataPropertyOrThrow("day", dateTimeFormat.Day);
         }
 
+        // dayPeriod comes after day and before hour per ECMA-402 spec order
         if (dateTimeFormat.DayPeriod != null)
         {
             result.CreateDataPropertyOrThrow("dayPeriod", dateTimeFormat.DayPeriod);

@@ -147,9 +147,10 @@ internal sealed class DateTimeFormatConstructor : Constructor
         }
         else
         {
-            // If no options specified, use default date format
+            // If no date/time component options specified, use default date format
+            // Note: dayPeriod, fractionalSecondDigits, and timeZoneName don't prevent defaults
             if (weekday == null && era == null && year == null && month == null &&
-                day == null && hour == null && minute == null && second == null)
+                day == null && dayPeriod == null && hour == null && minute == null && second == null)
             {
                 year = "numeric";
                 month = "numeric";

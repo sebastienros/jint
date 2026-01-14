@@ -83,6 +83,12 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     /// </summary>
     internal string Format(DateTime dateTime)
     {
+        // Convert to specified timezone if one was provided
+        if (TimeZone != null)
+        {
+            dateTime = ConvertToTimeZone(dateTime, TimeZone);
+        }
+
         // If dateStyle or timeStyle is specified, use those
         if (DateStyle != null || TimeStyle != null)
         {
@@ -91,6 +97,34 @@ internal sealed class JsDateTimeFormat : ObjectInstance
 
         // Otherwise build format from component options
         return FormatWithComponents(dateTime);
+    }
+
+    private static DateTime ConvertToTimeZone(DateTime dateTime, string timeZoneId)
+    {
+        if (string.Equals(timeZoneId, "UTC", StringComparison.OrdinalIgnoreCase))
+        {
+            // Convert to UTC
+            if (dateTime.Kind == DateTimeKind.Local)
+            {
+                return dateTime.ToUniversalTime();
+            }
+            return DateTime.SpecifyKind(dateTime, DateTimeKind.Utc);
+        }
+
+        try
+        {
+            var timeZone = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+            if (dateTime.Kind == DateTimeKind.Local)
+            {
+                dateTime = dateTime.ToUniversalTime();
+            }
+            return TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(dateTime, DateTimeKind.Utc), timeZone);
+        }
+        catch
+        {
+            // If timezone lookup fails, return as-is
+            return dateTime;
+        }
     }
 
     private string FormatWithStyles(DateTime dateTime)
@@ -124,31 +158,147 @@ internal sealed class JsDateTimeFormat : ObjectInstance
 
         if (DateStyle != null)
         {
-            var format = DateStyle switch
+            return DateStyle switch
             {
-                "full" => "D",  // Full date pattern
-                "long" => "D",  // Long date pattern
-                "medium" => "d", // Short date pattern (medium in JS)
-                "short" => "d",  // Short date pattern
-                _ => "d"
+                "full" => dateTime.ToString("D", CultureInfo), // Full date pattern (includes weekday)
+                "long" => FormatLongDate(dateTime),  // Long date without weekday
+                "medium" => FormatMediumDate(dateTime), // Medium date (same as long for most locales)
+                "short" => FormatShortDate(dateTime), // Short date (numeric)
+                _ => dateTime.ToString("d", CultureInfo)
             };
-            return dateTime.ToString(format, CultureInfo);
         }
 
         if (TimeStyle != null)
         {
-            var format = TimeStyle switch
-            {
-                "full" => "T",   // Long time pattern
-                "long" => "T",   // Long time pattern
-                "medium" => "T", // Long time pattern
-                "short" => "t",  // Short time pattern
-                _ => "t"
-            };
-            return dateTime.ToString(format, CultureInfo);
+            return FormatTimeStyle(dateTime);
         }
 
         return dateTime.ToString("G", CultureInfo);
+    }
+
+    /// <summary>
+    /// Formats a date in long style (without weekday), e.g., "May 1, 1886"
+    /// </summary>
+    private string FormatLongDate(DateTime dateTime)
+    {
+        // Use MMMM d, yyyy for en-US style, or locale-appropriate pattern
+        var lang = Locale.Split('-')[0].ToLowerInvariant();
+        if (string.Equals(lang, "en", StringComparison.Ordinal))
+        {
+            return dateTime.ToString("MMMM d, yyyy", CultureInfo);
+        }
+        // For other locales, use the long date pattern without weekday
+        var longPattern = CultureInfo.DateTimeFormat.LongDatePattern;
+        // Remove weekday-related format specifiers manually
+        var modifiedPattern = RemoveWeekdayFromPattern(longPattern);
+        if (string.IsNullOrEmpty(modifiedPattern))
+        {
+            return dateTime.ToString("MMMM d, yyyy", CultureInfo);
+        }
+        return dateTime.ToString(modifiedPattern, CultureInfo);
+    }
+
+    private static string RemoveWeekdayFromPattern(string pattern)
+    {
+        // Remove dddd or ddd followed by optional comma/space
+        var result = pattern;
+        var weekdayPatterns = new[] { "dddd, ", "dddd,", "dddd ", "dddd", "ddd, ", "ddd,", "ddd ", "ddd" };
+        foreach (var wp in weekdayPatterns)
+        {
+            if (result.Contains(wp, StringComparison.Ordinal))
+            {
+                result = result.Replace(wp, "", StringComparison.Ordinal);
+                break;
+            }
+        }
+        return result.Trim().TrimStart(',').Trim();
+    }
+
+    /// <summary>
+    /// Formats a date in medium style, e.g., "May 1, 1886"
+    /// </summary>
+    private string FormatMediumDate(DateTime dateTime)
+    {
+        // Medium is typically the same as long for most locales
+        return FormatLongDate(dateTime);
+    }
+
+    /// <summary>
+    /// Formats a date in short style, e.g., "5/1/86"
+    /// </summary>
+    private string FormatShortDate(DateTime dateTime)
+    {
+        // Use locale's short date pattern but with 2-digit year
+        var lang = Locale.Split('-')[0].ToLowerInvariant();
+        if (string.Equals(lang, "en", StringComparison.Ordinal))
+        {
+            // US style: M/d/yy with literal slash separator
+            return dateTime.ToString("M'/'d'/'yy", CultureInfo);
+        }
+        // For other locales, use the short date pattern
+        return dateTime.ToString("d", CultureInfo);
+    }
+
+    /// <summary>
+    /// Formats time using timeStyle, respecting hourCycle
+    /// </summary>
+    private string FormatTimeStyle(DateTime dateTime)
+    {
+        // Determine if we should use 12 or 24 hour format
+        var use12Hour = HourCycle == null ||
+                       string.Equals(HourCycle, "h11", StringComparison.Ordinal) ||
+                       string.Equals(HourCycle, "h12", StringComparison.Ordinal);
+
+        // Default to 12-hour for en locales if hourCycle not specified
+        var lang = Locale.Split('-')[0].ToLowerInvariant();
+        if (HourCycle == null && string.Equals(lang, "en", StringComparison.Ordinal))
+        {
+            use12Hour = true;
+        }
+
+        var timeZoneSuffix = "";
+        if (string.Equals(TimeStyle, "full", StringComparison.Ordinal))
+        {
+            if (!string.IsNullOrEmpty(TimeZone) && string.Equals(TimeZone, "UTC", StringComparison.OrdinalIgnoreCase))
+            {
+                timeZoneSuffix = " Coordinated Universal Time";
+            }
+            else
+            {
+                timeZoneSuffix = " " + TimeZoneInfo.Local.DisplayName;
+            }
+        }
+        else if (string.Equals(TimeStyle, "long", StringComparison.Ordinal))
+        {
+            if (!string.IsNullOrEmpty(TimeZone) && string.Equals(TimeZone, "UTC", StringComparison.OrdinalIgnoreCase))
+            {
+                timeZoneSuffix = " UTC";
+            }
+        }
+
+        return TimeStyle switch
+        {
+            "full" => use12Hour
+                ? dateTime.ToString("h:mm:ss", CultureInfo) + " " + GetDayPeriod(dateTime.Hour) + timeZoneSuffix
+                : dateTime.ToString("H:mm:ss", CultureInfo) + timeZoneSuffix,
+            "long" => use12Hour
+                ? dateTime.ToString("h:mm:ss", CultureInfo) + " " + GetDayPeriod(dateTime.Hour) + timeZoneSuffix
+                : dateTime.ToString("H:mm:ss", CultureInfo) + timeZoneSuffix,
+            "medium" => use12Hour
+                ? dateTime.ToString("h:mm:ss", CultureInfo) + " " + GetDayPeriod(dateTime.Hour)
+                : dateTime.ToString("H:mm:ss", CultureInfo),
+            "short" => use12Hour
+                ? dateTime.ToString("h:mm", CultureInfo) + " " + GetDayPeriod(dateTime.Hour)
+                : dateTime.ToString("H:mm", CultureInfo),
+            _ => use12Hour
+                ? dateTime.ToString("h:mm", CultureInfo) + " " + GetDayPeriod(dateTime.Hour)
+                : dateTime.ToString("H:mm", CultureInfo),
+        };
+    }
+
+    private static string GetDayPeriod(int hour)
+    {
+        return hour < 12 ? "AM" : "PM";
     }
 
     private string FormatWithComponents(DateTime dateTime)
@@ -218,23 +368,23 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             });
         }
 
-        // Minute
+        // Minute - for time components, "numeric" typically uses 2-digit padding in most locales
         if (Minute != null)
         {
             parts.Add(Minute switch
             {
-                "numeric" => "m",
+                "numeric" => "mm",
                 "2-digit" => "mm",
                 _ => "mm"
             });
         }
 
-        // Second
+        // Second - for time components, "numeric" typically uses 2-digit padding in most locales
         if (Second != null)
         {
             parts.Add(Second switch
             {
-                "numeric" => "s",
+                "numeric" => "ss",
                 "2-digit" => "ss",
                 _ => "ss"
             });
@@ -246,8 +396,10 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             parts.Add(new string('f', FractionalSecondDigits.Value));
         }
 
-        // Day period (AM/PM)
-        if (Hour != null && string.Equals(GetHourFormat(), "h12", StringComparison.Ordinal))
+        // Day period (AM/PM) - only add "tt" if using 12-hour format with hour specified
+        // and DayPeriod is not explicitly specified (DayPeriod uses extended periods)
+        var needsAmPm = Hour != null && string.Equals(GetHourFormat(), "h12", StringComparison.Ordinal) && DayPeriod == null;
+        if (needsAmPm)
         {
             parts.Add("tt");
         }
@@ -267,6 +419,21 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             });
         }
 
+        // Handle DayPeriod option (extended day periods like "in the morning")
+        if (DayPeriod != null)
+        {
+            // If only dayPeriod is specified (no other components), just return the day period
+            if (parts.Count == 0)
+            {
+                return GetExtendedDayPeriod(dateTime.Hour);
+            }
+
+            // Otherwise, format with other components and append day period
+            var formatString = BuildFormatString(parts);
+            var formatted = dateTime.ToString(formatString, CultureInfo);
+            return formatted + " " + GetExtendedDayPeriod(dateTime.Hour);
+        }
+
         if (parts.Count == 0)
         {
             // Default format if no components specified
@@ -274,8 +441,8 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         }
 
         // Join parts with appropriate separators
-        var formatString = BuildFormatString(parts);
-        return dateTime.ToString(formatString, CultureInfo);
+        var formatString2 = BuildFormatString(parts);
+        return dateTime.ToString(formatString2, CultureInfo);
     }
 
     private string GetHourFormat()
@@ -376,7 +543,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             }
             else
             {
-                if (firstChar is 'h' or 'H')
+                if (firstChar is 'h' or 'H' or 'm' or 's' or 'f')
                 {
                     hasTime = true;
                 }
@@ -389,7 +556,16 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             result.Append(part);
         }
 
-        return result.ToString();
+        var formatString = result.ToString();
+
+        // In .NET, single character format strings are interpreted as standard format specifiers
+        // We need to prefix with % to indicate it's a custom format
+        if (formatString.Length == 1)
+        {
+            return "%" + formatString;
+        }
+
+        return formatString;
     }
 
     /// <summary>
@@ -566,13 +742,17 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             result.Add(new DateTimePart("fractionalSecond", dateTime.ToString(format, CultureInfo)));
         }
 
-        // Day period (AM/PM)
-        if (Hour != null && string.Equals(GetHourFormat(), "h12", StringComparison.Ordinal))
+        // Day period (AM/PM or extended day periods)
+        if (DayPeriod != null)
         {
-            result.Add(new DateTimePart("literal", " "));
-            result.Add(new DateTimePart("dayPeriod", dateTime.ToString("tt", CultureInfo)));
+            // Extended day periods like "in the morning", "noon", etc.
+            if (result.Count > 0)
+            {
+                result.Add(new DateTimePart("literal", " "));
+            }
+            result.Add(new DateTimePart("dayPeriod", GetExtendedDayPeriod(dateTime.Hour)));
         }
-        else if (DayPeriod != null)
+        else if (Hour != null && string.Equals(GetHourFormat(), "h12", StringComparison.Ordinal))
         {
             result.Add(new DateTimePart("literal", " "));
             result.Add(new DateTimePart("dayPeriod", dateTime.ToString("tt", CultureInfo)));
@@ -591,6 +771,56 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             var formatted = dateTime.ToString("G", CultureInfo);
             result.Add(new DateTimePart("literal", formatted));
         }
+    }
+
+    /// <summary>
+    /// Gets the extended day period string based on the hour and dayPeriod style.
+    /// CLDR defines: night1 (21:00-05:59), morning1 (06:00-11:59), noon (12:00),
+    /// afternoon1 (12:01-17:59), evening1 (18:00-20:59)
+    /// </summary>
+    private string GetExtendedDayPeriod(int hour)
+    {
+        // For English locale (en), use CLDR day period names
+        // Other locales would need locale-specific data
+        var lang = Locale.Split('-')[0];
+
+        if (string.Equals(lang, "en", StringComparison.OrdinalIgnoreCase))
+        {
+            return DayPeriod switch
+            {
+                "long" => hour switch
+                {
+                    >= 0 and < 6 => "at night",
+                    >= 6 and < 12 => "in the morning",
+                    12 => "noon",
+                    > 12 and < 18 => "in the afternoon",
+                    >= 18 and < 21 => "in the evening",
+                    _ => "at night"
+                },
+                "short" => hour switch
+                {
+                    >= 0 and < 6 => "at night",
+                    >= 6 and < 12 => "in the morning",
+                    12 => "noon",
+                    > 12 and < 18 => "in the afternoon",
+                    >= 18 and < 21 => "in the evening",
+                    _ => "at night"
+                },
+                "narrow" => hour switch
+                {
+                    >= 0 and < 6 => "at night",
+                    >= 6 and < 12 => "in the morning",
+                    12 => "n",
+                    > 12 and < 18 => "in the afternoon",
+                    >= 18 and < 21 => "in the evening",
+                    _ => "at night"
+                },
+                _ => hour < 12 ? "AM" : "PM"
+            };
+        }
+
+        // Default: use AM/PM
+        return hour < 12 ? "AM" : "PM";
     }
 
     internal readonly struct DateTimePart
