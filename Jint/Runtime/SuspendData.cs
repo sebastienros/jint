@@ -83,6 +83,22 @@ internal sealed class ForAwaitSuspendData : SuspendData
     public JsValue AccumulatedValue { get; set; } = JsValue.Undefined;
 }
 
+/// <summary>
+/// Stores the state of a block with lexical bindings when execution suspends within it.
+/// </summary>
+internal sealed class BlockSuspendData : SuspendData
+{
+    /// <summary>
+    /// The block environment to reuse when resuming.
+    /// </summary>
+    public DeclarativeEnvironment? BlockEnvironment { get; set; }
+
+    /// <summary>
+    /// The outer environment to restore after the block completes.
+    /// </summary>
+    public Jint.Runtime.Environments.Environment? OuterEnvironment { get; set; }
+}
+
 internal sealed class SuspendDataDictionary
 {
     /// <summary>

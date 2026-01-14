@@ -1,3 +1,4 @@
+using Jint.Runtime;
 using Jint.Runtime.Environments;
 using Environment = Jint.Runtime.Environments.Environment;
 
@@ -45,12 +46,27 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
         DeclarativeEnvironment? blockEnv = null;
         Environment? oldEnv = null;
         var engine = context.Engine;
+        var suspendable = engine.ExecutionContext.Suspendable;
         if (_lexicalDeclarations.Declarations.Count > 0)
         {
-            oldEnv = engine.ExecutionContext.LexicalEnvironment;
-            blockEnv = JintEnvironment.NewDeclarativeEnvironment(engine, engine.ExecutionContext.LexicalEnvironment);
-            JintStatementList.BlockDeclarationInstantiation(blockEnv, _lexicalDeclarations);
-            engine.UpdateLexicalEnvironment(blockEnv);
+            if (suspendable is { IsResuming: true }
+                && suspendable.Data.TryGet(this, out BlockSuspendData? suspendData)
+                && suspendData?.BlockEnvironment is not null)
+            {
+                blockEnv = suspendData.BlockEnvironment;
+                oldEnv = suspendData.OuterEnvironment ?? blockEnv._outerEnv;
+                if (!ReferenceEquals(engine.ExecutionContext.LexicalEnvironment, blockEnv))
+                {
+                    engine.UpdateLexicalEnvironment(blockEnv);
+                }
+            }
+            else
+            {
+                oldEnv = engine.ExecutionContext.LexicalEnvironment;
+                blockEnv = JintEnvironment.NewDeclarativeEnvironment(engine, engine.ExecutionContext.LexicalEnvironment);
+                JintStatementList.BlockDeclarationInstantiation(blockEnv, _lexicalDeclarations);
+                engine.UpdateLexicalEnvironment(blockEnv);
+            }
         }
 
         Completion blockValue;
@@ -65,7 +81,20 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
 
         if (blockEnv != null)
         {
-            blockValue = blockEnv.DisposeResources(blockValue);
+            if (context.IsSuspended())
+            {
+                if (suspendable is not null)
+                {
+                    var data = suspendable.Data.GetOrCreate<BlockSuspendData>(this);
+                    data.BlockEnvironment = blockEnv;
+                    data.OuterEnvironment = oldEnv;
+                }
+            }
+            else
+            {
+                blockValue = blockEnv.DisposeResources(blockValue);
+                suspendable?.Data.Clear(this);
+            }
         }
 
         if (oldEnv is not null)
