@@ -203,6 +203,36 @@ public class AsyncTests
         Assert.Equal("Hello World", result);
     }
 
+    [Fact]
+    public void ShouldAllowLetReassignmentInsideAsyncLoop()
+    {
+        Engine engine = new(options => { options.ExperimentalFeatures = ExperimentalFeature.TaskInterop; });
+        var script = """
+        async function getItems() {
+            return Promise.resolve([1, 2, 3]);
+        }
+
+        async function main() {
+            let iteration = 0;
+            do {
+                let items = await getItems();
+                items = await getItems();
+                iteration++;
+            } while (iteration < 2);
+            return 'success';
+        }
+
+        export { main };
+        """;
+
+        engine.Modules.Add("test", script);
+        var module = engine.Modules.Import("test");
+        var main = module.Get("main");
+        var result = engine.Invoke(main).UnwrapIfPromise();
+
+        Assert.Equal("success", result);
+    }
+
 #if !NETFRAMEWORK
 
     [Fact]
