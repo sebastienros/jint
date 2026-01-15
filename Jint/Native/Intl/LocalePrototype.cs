@@ -385,8 +385,17 @@ internal sealed class LocalePrototype : Prototype
 
         var result = OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
 
-        // First day of week (1=Monday, 7=Sunday) from CLDR data
-        var firstDayNum = WeekData.GetFirstDayOfWeek(region);
+        // First day of week (1=Monday, 7=Sunday)
+        // Use fw extension if present, otherwise from CLDR data
+        int firstDayNum;
+        if (locale.FirstDayOfWeek != null)
+        {
+            firstDayNum = ConvertDayNameToNumber(locale.FirstDayOfWeek);
+        }
+        else
+        {
+            firstDayNum = WeekData.GetFirstDayOfWeek(region);
+        }
         result.CreateDataPropertyOrThrow("firstDay", firstDayNum);
 
         // Weekend days from CLDR data
@@ -398,10 +407,24 @@ internal sealed class LocalePrototype : Prototype
         }
         result.CreateDataPropertyOrThrow("weekend", weekend);
 
-        // Minimal days in first week from CLDR data
-        var minimalDays = WeekData.GetMinDays(region);
-        result.CreateDataPropertyOrThrow("minimalDays", minimalDays);
-
         return result;
+    }
+
+    /// <summary>
+    /// Converts a day name abbreviation (mon, tue, wed, etc.) to a number (1-7).
+    /// </summary>
+    private static int ConvertDayNameToNumber(string dayName)
+    {
+        return dayName.ToLowerInvariant() switch
+        {
+            "mon" => 1,
+            "tue" => 2,
+            "wed" => 3,
+            "thu" => 4,
+            "fri" => 5,
+            "sat" => 6,
+            "sun" => 7,
+            _ => 1 // Default to Monday
+        };
     }
 }

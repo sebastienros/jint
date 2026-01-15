@@ -90,7 +90,7 @@ internal sealed class LocaleConstructor : Constructor
         var numberingSystem = GetUnicodeExtensionOption(optionsObj, "numberingSystem", parsedLocale.NumberingSystem);
 
         // Build the canonical locale string
-        var canonicalLocale = BuildLocaleString(language, script, region, variants, calendar, caseFirst, collation, firstDayOfWeek, hourCycle, numberingSystem, numeric, parsedLocale.OtherUnicodeExtensions, parsedLocale.OtherExtensions);
+        var canonicalLocale = BuildLocaleString(language, script, region, variants, parsedLocale.Attributes, calendar, caseFirst, collation, firstDayOfWeek, hourCycle, numberingSystem, numeric, parsedLocale.OtherUnicodeExtensions, parsedLocale.OtherExtensions);
         var baseName = BuildBaseName(language, script, region, variants);
 
         // Get CultureInfo (without variants for .NET compatibility)
@@ -148,6 +148,11 @@ internal sealed class LocaleConstructor : Constructor
         var value = options.Get(property);
         if (value.IsUndefined())
         {
+            // Also canonicalize the fallback value (from parsed tag)
+            if (fallback != null)
+            {
+                return CanonicalizeUnicodeExtensionValue(property, fallback);
+            }
             return fallback;
         }
 
@@ -159,7 +164,42 @@ internal sealed class LocaleConstructor : Constructor
             Throw.RangeError(_realm, $"Invalid value '{stringValue}' for option '{property}'");
         }
 
+        // Canonicalize using Unicode mappings (e.g., "islamicc" → "islamic-civil")
+        stringValue = CanonicalizeUnicodeExtensionValue(property, stringValue);
+
         return stringValue;
+    }
+
+    /// <summary>
+    /// Canonicalizes a Unicode extension value using CLDR data.
+    /// Maps the property name to its Unicode extension key (e.g., "calendar" → "ca").
+    /// </summary>
+    private static string CanonicalizeUnicodeExtensionValue(string property, string value)
+    {
+        // Map property names to Unicode extension keys
+        var unicodeKey = property switch
+        {
+            "calendar" => "ca",
+            "collation" => "co",
+            "numberingSystem" => "nu",
+            _ => null
+        };
+
+        if (unicodeKey == null)
+        {
+            return value;
+        }
+
+        // Look up the mapping in UnicodeMappings
+        if (Data.LocaleData.UnicodeMappings.TryGetValue(unicodeKey, out var mappings))
+        {
+            if (mappings.TryGetValue(value, out var canonicalValue))
+            {
+                return canonicalValue;
+            }
+        }
+
+        return value;
     }
 
     /// <summary>
@@ -558,7 +598,6 @@ internal sealed class LocaleConstructor : Constructor
         }
 
         // Parse extensions
-        var otherExtensionsParts = new List<string>();
         while (index < parts.Length)
         {
             if (parts[index].Length == 1)
@@ -568,8 +607,30 @@ internal sealed class LocaleConstructor : Constructor
                 {
                     // Unicode extension
                     index++;
+
+                    // First, collect any attributes (3-8 alphanumeric parts before any 2-char key)
+                    while (index < parts.Length && parts[index].Length >= 3 && parts[index].Length <= 8 && parts[index].Length != 1)
+                    {
+                        // If this is a 2-char part, it's a key, not an attribute
+                        if (parts[index].Length == 2)
+                        {
+                            break;
+                        }
+                        result.Attributes.Add(parts[index].ToLowerInvariant());
+                        index++;
+                    }
+
+                    // Then process key-value pairs
                     while (index < parts.Length && parts[index].Length != 1)
                     {
+                        // Keys are exactly 2 characters
+                        if (parts[index].Length != 2)
+                        {
+                            // Unexpected format - skip
+                            index++;
+                            continue;
+                        }
+
                         var key = parts[index].ToLowerInvariant();
                         index++;
 
@@ -585,13 +646,34 @@ internal sealed class LocaleConstructor : Constructor
                         switch (key)
                         {
                             case "ca":
-                                if (value != null) { result.Calendar = value; handled = true; }
+                                // Calendar can have multi-part values (e.g., islamic-civil)
+                                // Only use first occurrence (duplicate keys: first wins)
+                                if (value != null)
+                                {
+                                    var calendarValue = CollectMultiPartValue(parts, ref index, value);
+                                    if (result.Calendar == null)
+                                    {
+                                        result.Calendar = calendarValue;
+                                    }
+                                    handled = true;
+                                }
                                 break;
                             case "co":
-                                if (value != null) { result.Collation = value; handled = true; }
+                                // Collation can have multi-part values
+                                // Only use first occurrence (duplicate keys: first wins)
+                                if (value != null)
+                                {
+                                    var collationValue = CollectMultiPartValue(parts, ref index, value);
+                                    if (result.Collation == null)
+                                    {
+                                        result.Collation = collationValue;
+                                    }
+                                    handled = true;
+                                }
                                 break;
                             case "fw":
                                 // FirstDayOfWeek can have multi-part values (e.g., frank-yung-fong-tang)
+                                // Only use first occurrence (duplicate keys: first wins)
                                 if (value != null)
                                 {
                                     // Collect additional value parts
@@ -606,40 +688,65 @@ internal sealed class LocaleConstructor : Constructor
                                         fwParts.Add(parts[index].ToLowerInvariant());
                                         index++;
                                     }
-                                    result.FirstDayOfWeek = string.Join("-", fwParts);
+                                    if (result.FirstDayOfWeek == null)
+                                    {
+                                        result.FirstDayOfWeek = string.Join("-", fwParts);
+                                    }
                                     handled = true;
                                 }
                                 break;
                             case "hc":
-                                if (value != null) { result.HourCycle = value; handled = true; }
+                                // Only use first occurrence (duplicate keys: first wins)
+                                if (value != null && result.HourCycle == null)
+                                {
+                                    result.HourCycle = value;
+                                }
+                                handled = value != null;
                                 break;
                             case "kf":
                                 // Per UTS35, "true" value is canonicalized to empty string (just "kf")
-                                if (value != null)
+                                // Only use first occurrence (duplicate keys: first wins)
+                                if (result.CaseFirst == null)
                                 {
-                                    result.CaseFirst = string.Equals(value, "true", StringComparison.OrdinalIgnoreCase) ? "" : value;
-                                    handled = true;
+                                    if (value != null)
+                                    {
+                                        result.CaseFirst = string.Equals(value, "true", StringComparison.OrdinalIgnoreCase) ? "" : value;
+                                    }
+                                    else
+                                    {
+                                        // kf without value means "true" which canonicalizes to empty string
+                                        result.CaseFirst = "";
+                                    }
                                 }
-                                else
-                                {
-                                    // kf without value means "true" which canonicalizes to empty string
-                                    result.CaseFirst = "";
-                                    handled = true;
-                                }
+                                handled = true;
                                 break;
                             case "kn":
-                                if (value != null)
+                                // Only use first occurrence (duplicate keys: first wins)
+                                if (!result.Numeric.HasValue)
                                 {
-                                    result.Numeric = string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
-                                }
-                                else
-                                {
-                                    result.Numeric = true;
+                                    if (value != null)
+                                    {
+                                        result.Numeric = string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
+                                    }
+                                    else
+                                    {
+                                        result.Numeric = true;
+                                    }
                                 }
                                 handled = true;
                                 break;
                             case "nu":
-                                if (value != null) { result.NumberingSystem = value; handled = true; }
+                                // Numbering system can have multi-part values
+                                // Only use first occurrence (duplicate keys: first wins)
+                                if (value != null)
+                                {
+                                    var nuValue = CollectMultiPartValue(parts, ref index, value);
+                                    if (result.NumberingSystem == null)
+                                    {
+                                        result.NumberingSystem = nuValue;
+                                    }
+                                    handled = true;
+                                }
                                 break;
                         }
 
@@ -659,29 +766,38 @@ internal sealed class LocaleConstructor : Constructor
                 }
                 else
                 {
-                    // Other extension (t, x, or other singleton)
-                    var extStart = index;
-                    index++;
-                    while (index < parts.Length && parts[index].Length != 1)
+                    // Other extension (a-w, y) or private use (x)
+                    index++; // Skip the singleton
+
+                    var extParts = new List<string>();
+                    if (singleton == 'x')
                     {
-                        index++;
+                        // Private use extension: consume ALL remaining parts
+                        // (in private use, single-char parts are data, not singletons)
+                        while (index < parts.Length)
+                        {
+                            extParts.Add(parts[index].ToLowerInvariant());
+                            index++;
+                        }
                     }
-                    // Collect all parts for this extension
-                    for (var i = extStart; i < index; i++)
+                    else
                     {
-                        otherExtensionsParts.Add(parts[i].ToLowerInvariant());
+                        // Regular extension: collect until next singleton
+                        while (index < parts.Length && parts[index].Length != 1)
+                        {
+                            extParts.Add(parts[index].ToLowerInvariant());
+                            index++;
+                        }
                     }
+
+                    // Store this extension as (singleton, content)
+                    result.OtherExtensions.Add(new ExtensionEntry(singleton, string.Join("-", extParts)));
                 }
             }
             else
             {
                 index++;
             }
-        }
-
-        if (otherExtensionsParts.Count > 0)
-        {
-            result.OtherExtensions = "-" + string.Join("-", otherExtensionsParts);
         }
 
         return result;
@@ -758,6 +874,42 @@ internal sealed class LocaleConstructor : Constructor
         return true;
     }
 
+    /// <summary>
+    /// Gets the key (first 2-char subtag) from a Unicode extension part like "ca-gregory" or "kn".
+    /// </summary>
+    private static string GetUnicodeExtensionKey(string part)
+    {
+        var dashIndex = part.IndexOf('-');
+        return dashIndex > 0 ? part.Substring(0, dashIndex) : part;
+    }
+
+    /// <summary>
+    /// Collects multi-part Unicode extension values (e.g., "islamic-civil" for calendar).
+    /// Values are 3-8 alphanumeric characters, and 2-char parts indicate a new key.
+    /// </summary>
+    private static string CollectMultiPartValue(string[] parts, ref int index, string firstValue)
+    {
+        var valueParts = new List<string> { firstValue };
+
+        while (index < parts.Length && parts[index].Length >= 3 && parts[index].Length <= 8)
+        {
+            // A 2-char part would be a new key, so stop
+            if (parts[index].Length == 2)
+            {
+                break;
+            }
+            // A 1-char part is a singleton (next extension), so stop
+            if (parts[index].Length == 1)
+            {
+                break;
+            }
+            valueParts.Add(parts[index].ToLowerInvariant());
+            index++;
+        }
+
+        return string.Join("-", valueParts);
+    }
+
     private static string BuildBaseName(string? language, string? script, string? region, List<string>? variants = null)
     {
         var parts = new List<string>();
@@ -790,6 +942,7 @@ internal sealed class LocaleConstructor : Constructor
         string? script,
         string? region,
         List<string>? variants,
+        List<string>? attributes,
         string? calendar,
         string? caseFirst,
         string? collation,
@@ -798,14 +951,25 @@ internal sealed class LocaleConstructor : Constructor
         string? numberingSystem,
         bool? numeric,
         List<string>? otherUnicodeExtensions = null,
-        string? otherExtensions = null)
+        List<ExtensionEntry>? otherExtensions = null)
     {
         var baseName = BuildBaseName(language, script, region, variants);
 
-        // Build Unicode extension if any options are set
-        // Order: ca, co, fw, hc, kf, kn, nu (alphabetical)
+        // Collect all extensions for sorting
+        var allExtensions = new List<ExtensionEntry>();
+
+        // Build Unicode extension content if any options are set
         var unicodeExtParts = new List<string>();
 
+        // Add sorted attributes first (they come before key-value pairs)
+        if (attributes != null && attributes.Count > 0)
+        {
+            var sortedAttributes = new List<string>(attributes);
+            sortedAttributes.Sort(StringComparer.Ordinal);
+            unicodeExtParts.AddRange(sortedAttributes);
+        }
+
+        // Add key-value pairs
         if (!string.IsNullOrEmpty(calendar))
         {
             unicodeExtParts.Add("ca-" + calendar);
@@ -820,7 +984,6 @@ internal sealed class LocaleConstructor : Constructor
         {
             if (firstDayOfWeek.Length == 0)
             {
-                // Empty string means just "fw" with no value (boolean true)
                 unicodeExtParts.Add("fw");
             }
             else
@@ -838,7 +1001,6 @@ internal sealed class LocaleConstructor : Constructor
         {
             if (caseFirst.Length == 0)
             {
-                // Empty string means just "kf" (canonicalized from "kf-true")
                 unicodeExtParts.Add("kf");
             }
             else
@@ -851,12 +1013,10 @@ internal sealed class LocaleConstructor : Constructor
         {
             if (numeric.Value)
             {
-                // Per UTS35, "true" value is removed, so just "kn" without a value
                 unicodeExtParts.Add("kn");
             }
             else
             {
-                // Explicit false needs "kn-false"
                 unicodeExtParts.Add("kn-false");
             }
         }
@@ -872,16 +1032,50 @@ internal sealed class LocaleConstructor : Constructor
             unicodeExtParts.AddRange(otherUnicodeExtensions);
         }
 
-        var result = baseName;
-        if (unicodeExtParts.Count > 0)
+        // Sort Unicode extension key-value pairs alphabetically by key
+        var attrCount = (attributes?.Count ?? 0);
+        if (unicodeExtParts.Count > attrCount)
         {
-            result += "-u-" + string.Join("-", unicodeExtParts);
+            var keyValuePairs = unicodeExtParts.GetRange(attrCount, unicodeExtParts.Count - attrCount);
+            keyValuePairs.Sort((a, b) =>
+            {
+                var keyA = GetUnicodeExtensionKey(a);
+                var keyB = GetUnicodeExtensionKey(b);
+                return string.Compare(keyA, keyB, StringComparison.Ordinal);
+            });
+            unicodeExtParts.RemoveRange(attrCount, unicodeExtParts.Count - attrCount);
+            unicodeExtParts.AddRange(keyValuePairs);
         }
 
-        // Add other extensions (transformed, private use, etc.)
-        if (!string.IsNullOrEmpty(otherExtensions))
+        // Add the Unicode extension to the list if it has content
+        if (unicodeExtParts.Count > 0)
         {
-            result += otherExtensions;
+            allExtensions.Add(new ExtensionEntry('u', string.Join("-", unicodeExtParts)));
+        }
+
+        // Add other extensions
+        if (otherExtensions != null)
+        {
+            allExtensions.AddRange(otherExtensions);
+        }
+
+        // Sort extensions: alphabetically by singleton, but 'x' (private use) always comes last
+        allExtensions.Sort((a, b) =>
+        {
+            if (a.Singleton == 'x' && b.Singleton != 'x') return 1;
+            if (b.Singleton == 'x' && a.Singleton != 'x') return -1;
+            return a.Singleton.CompareTo(b.Singleton);
+        });
+
+        // Build the result
+        var result = baseName;
+        foreach (var ext in allExtensions)
+        {
+            result += "-" + ext.Singleton;
+            if (!string.IsNullOrEmpty(ext.Content))
+            {
+                result += "-" + ext.Content;
+            }
         }
 
         return result;
@@ -893,6 +1087,10 @@ internal sealed class LocaleConstructor : Constructor
         public string? Script { get; set; }
         public string? Region { get; set; }
         public List<string> Variants { get; } = new();
+        /// <summary>
+        /// Unicode extension attributes (3-8 alphanumeric subtags before any keys).
+        /// </summary>
+        public List<string> Attributes { get; } = new();
         public string? Calendar { get; set; }
         public string? CaseFirst { get; set; }
         public string? Collation { get; set; }
@@ -901,12 +1099,25 @@ internal sealed class LocaleConstructor : Constructor
         public string? NumberingSystem { get; set; }
         public bool? Numeric { get; set; }
         /// <summary>
-        /// Stores unrecognized unicode extension keys/values (e.g., "co" without value, "attr", etc.)
+        /// Stores unrecognized unicode extension keys/values (e.g., "cu-eur", etc.)
         /// </summary>
         public List<string> OtherUnicodeExtensions { get; } = new();
         /// <summary>
-        /// Stores other extensions (transformed -t-, private use -x-, and other singletons)
+        /// Stores other extensions as (singleton, content) pairs for sorting.
+        /// e.g., ('a', "bar"), ('x', "u-foo")
         /// </summary>
-        public string? OtherExtensions { get; set; }
+        public List<ExtensionEntry> OtherExtensions { get; } = new();
+    }
+
+    private readonly struct ExtensionEntry
+    {
+        public ExtensionEntry(char singleton, string content)
+        {
+            Singleton = singleton;
+            Content = content;
+        }
+
+        public char Singleton { get; }
+        public string Content { get; }
     }
 }
