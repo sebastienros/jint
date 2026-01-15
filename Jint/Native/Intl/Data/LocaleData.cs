@@ -14,6 +14,8 @@ internal static class LocaleData
     private static Dictionary<string, ComplexLanguageMapping>? _complexLanguageMappings;
     private static Dictionary<string, string>? _regionMappings;
     private static Dictionary<string, VariantMapping>? _variantMappings;
+    private static Dictionary<string, string>? _languageVariantMappings;
+    private static Dictionary<string, string>? _scriptRegionMappings;
     private static Dictionary<string, Dictionary<string, string>>? _unicodeMappings;
     private static volatile bool _loaded;
 
@@ -78,6 +80,32 @@ internal static class LocaleData
     }
 
     /// <summary>
+    /// Language + variant mappings for grandfathered variants.
+    /// Key format: "language+variant" (e.g., "art+lojban"), Value: new language (e.g., "jbo").
+    /// </summary>
+    public static Dictionary<string, string> LanguageVariantMappings
+    {
+        get
+        {
+            EnsureLoaded();
+            return _languageVariantMappings!;
+        }
+    }
+
+    /// <summary>
+    /// Script + region mappings for deprecated regions (like SU).
+    /// Key format: "Script+Region" (e.g., "Armn+SU"), Value: new region (e.g., "AM").
+    /// </summary>
+    public static Dictionary<string, string> ScriptRegionMappings
+    {
+        get
+        {
+            EnsureLoaded();
+            return _scriptRegionMappings!;
+        }
+    }
+
+    /// <summary>
     /// Unicode extension value mappings, keyed by extension key (e.g., "ca", "tz").
     /// </summary>
     public static Dictionary<string, Dictionary<string, string>> UnicodeMappings
@@ -108,6 +136,8 @@ internal static class LocaleData
             _complexLanguageMappings = new Dictionary<string, ComplexLanguageMapping>(StringComparer.OrdinalIgnoreCase);
             _regionMappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             _variantMappings = new Dictionary<string, VariantMapping>(StringComparer.OrdinalIgnoreCase);
+            _languageVariantMappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            _scriptRegionMappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             _unicodeMappings = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
 
             var assembly = typeof(LocaleData).Assembly;
@@ -163,6 +193,14 @@ internal static class LocaleData
 
                     case "VARIANT_MAPPINGS":
                         ParseVariantMapping(key, value);
+                        break;
+
+                    case "LANGUAGE_VARIANT_MAPPINGS":
+                        _languageVariantMappings![key] = value;
+                        break;
+
+                    case "SCRIPT_REGION_MAPPINGS":
+                        _scriptRegionMappings![key] = value;
                         break;
 
                     case "UNICODE_MAPPINGS":

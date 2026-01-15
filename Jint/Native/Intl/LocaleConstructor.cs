@@ -67,6 +67,9 @@ internal sealed class LocaleConstructor : Constructor
             Throw.RangeError(_realm, $"Invalid language tag: {tagString}");
         }
 
+        // Check for grandfathered tags before parsing
+        tagString = CanonicalizeGrandfatheredTag(tagString);
+
         // 5. Let options be ? CoerceOptionsToObject(options).
         var optionsObj = IntlUtilities.CoerceOptionsToObject(_engine, options);
 
@@ -80,6 +83,28 @@ internal sealed class LocaleConstructor : Constructor
         var script = GetScriptOption(optionsObj, parsedLocale.Script);
         var region = GetRegionOption(optionsObj, parsedLocale.Region);
         var variants = GetVariantsOption(optionsObj, parsedLocale.Variants);
+
+        // Check if the combination of language+variants forms a grandfathered tag
+        // e.g., "cel" + variants=["gaulish"] should become "xtg"
+        var combinedTag = BuildBaseName(language, script, region, variants);
+        var canonicalizedCombined = CanonicalizeGrandfatheredTag(combinedTag);
+        if (!string.Equals(combinedTag, canonicalizedCombined, StringComparison.Ordinal))
+        {
+            // The combined tag was a grandfathered tag, re-parse it
+            var reparsed = ParseLanguageTag(canonicalizedCombined);
+            language = reparsed.Language;
+            script = reparsed.Script;
+            region = reparsed.Region;
+            variants = reparsed.Variants;
+        }
+
+        // Apply language+variant mappings for grandfathered variants (e.g., art+lojban → jbo)
+        // This handles cases like "art-lojban-fonipa" which should become "jbo-fonipa"
+        ApplyLanguageVariantMappings(ref language, ref variants);
+
+        // Apply variant aliasing (e.g., arevela → language:hy, aaland → region:AX)
+        ApplyVariantMappings(ref language, ref script, ref region, ref variants);
+
         var calendar = GetUnicodeExtensionOption(optionsObj, "calendar", parsedLocale.Calendar);
         var collation = GetUnicodeExtensionOption(optionsObj, "collation", parsedLocale.Collation);
         var firstDayOfWeek = GetFirstDayOfWeekOption(optionsObj, parsedLocale.FirstDayOfWeek);
@@ -232,7 +257,7 @@ internal sealed class LocaleConstructor : Constructor
             Throw.RangeError(_realm, $"Invalid value '{stringValue}' for option 'language'");
         }
 
-        return stringValue.ToLowerInvariant();
+        return CanonicalizeLanguage(stringValue.ToLowerInvariant());
     }
 
     /// <summary>
@@ -571,7 +596,7 @@ internal sealed class LocaleConstructor : Constructor
         // Language (required, 2-3 or 4-8 letters)
         if (index < parts.Length && parts[index].Length >= 2 && parts[index].Length <= 8 && IsAllLetters(parts[index]))
         {
-            result.Language = parts[index].ToLowerInvariant();
+            result.Language = CanonicalizeLanguage(parts[index].ToLowerInvariant());
             index++;
         }
 
@@ -586,7 +611,25 @@ internal sealed class LocaleConstructor : Constructor
         if (index < parts.Length && ((parts[index].Length == 2 && IsAllLetters(parts[index])) ||
                                      (parts[index].Length == 3 && IsAllDigits(parts[index]))))
         {
-            result.Region = parts[index].ToUpperInvariant();
+            var region = parts[index].ToUpperInvariant();
+
+            // Apply region aliasing (e.g., numeric codes like 554 → NZ)
+            if (Data.LocaleData.RegionMappings.TryGetValue(region, out var regionReplacement))
+            {
+                region = regionReplacement;
+            }
+
+            // Apply script-sensitive region aliasing (e.g., Armn + SU → AM)
+            if (result.Script != null)
+            {
+                var scriptRegionKey = result.Script + "+" + region;
+                if (Data.LocaleData.ScriptRegionMappings.TryGetValue(scriptRegionKey, out var scriptRegionReplacement))
+                {
+                    region = scriptRegionReplacement;
+                }
+            }
+
+            result.Region = region;
             index++;
         }
 
@@ -1119,5 +1162,111 @@ internal sealed class LocaleConstructor : Constructor
 
         public char Singleton { get; }
         public string Content { get; }
+    }
+
+    /// <summary>
+    /// Canonicalizes grandfathered tags using CLDR data.
+    /// </summary>
+    private static string CanonicalizeGrandfatheredTag(string tag)
+    {
+        if (Data.LocaleData.TagMappings.TryGetValue(tag, out var replacement))
+        {
+            return replacement;
+        }
+        return tag;
+    }
+
+    /// <summary>
+    /// Canonicalizes a language subtag using CLDR data.
+    /// </summary>
+    private static string CanonicalizeLanguage(string language)
+    {
+        // Check simple language mappings (e.g., "mo" → "ro", "cmn" → "zh")
+        if (Data.LocaleData.LanguageMappings.TryGetValue(language, out var replacement))
+        {
+            return replacement;
+        }
+        return language;
+    }
+
+    /// <summary>
+    /// Applies variant aliasing per CLDR variantAlias rules.
+    /// For example:
+    /// - arevela → changes language to "hy" (and removes the variant)
+    /// - aaland → changes region to "AX" (and removes the variant)
+    /// - heploc → changes to variant "alalc97"
+    /// </summary>
+    private static void ApplyVariantMappings(ref string? language, ref string? script, ref string? region, ref List<string> variants)
+    {
+        if (variants.Count == 0)
+        {
+            return;
+        }
+
+        var changed = false;
+        var newVariants = new List<string>(variants.Count);
+
+        foreach (var variant in variants)
+        {
+            if (Data.LocaleData.VariantMappings.TryGetValue(variant, out var mapping))
+            {
+                changed = true;
+                switch (mapping.Type)
+                {
+                    case "language":
+                        language = mapping.Replacement;
+                        // Variant is removed (not added to newVariants)
+                        break;
+                    case "region":
+                        region = mapping.Replacement;
+                        // Variant is removed (not added to newVariants)
+                        break;
+                    case "variant":
+                        // Replace with the new variant name
+                        newVariants.Add(mapping.Replacement);
+                        break;
+                }
+            }
+            else
+            {
+                newVariants.Add(variant);
+            }
+        }
+
+        if (changed)
+        {
+            // Sort variants again after substitutions
+            newVariants.Sort(StringComparer.Ordinal);
+            variants = newVariants;
+        }
+    }
+
+    /// <summary>
+    /// Applies language+variant mappings for grandfathered variants.
+    /// For example, "art" + "lojban" → "jbo" (with "lojban" removed from variants).
+    /// </summary>
+    private static void ApplyLanguageVariantMappings(ref string? language, ref List<string> variants)
+    {
+        if (language == null || variants.Count == 0)
+        {
+            return;
+        }
+
+        // Check each variant to see if language+variant forms a grandfathered pattern
+        for (var i = 0; i < variants.Count; i++)
+        {
+            var key = language + "+" + variants[i];
+            if (Data.LocaleData.LanguageVariantMappings.TryGetValue(key, out var newLanguage))
+            {
+                // Found a match - update language and remove the variant
+                var newVariants = new List<string>(variants);
+                newVariants.RemoveAt(i);
+                language = newLanguage;
+                variants = newVariants;
+                // Recursively check for more mappings (unlikely but spec-compliant)
+                ApplyLanguageVariantMappings(ref language, ref variants);
+                return;
+            }
+        }
     }
 }

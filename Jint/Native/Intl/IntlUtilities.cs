@@ -208,9 +208,10 @@ internal static class IntlUtilities
 
         var seen = new List<string>();
 
-        // 2. If Type(locales) is String, then let O be CreateArrayFromList(« locales »)
+        // 2. If Type(locales) is String or locales has an [[InitializedLocale]] internal slot, then
+        //    let O be CreateArrayFromList(« locales »)
         ObjectInstance o;
-        if (locales.IsString())
+        if (locales.IsString() || locales is JsLocale)
         {
             o = new JsArray(engine, [locales]);
         }

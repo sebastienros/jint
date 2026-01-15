@@ -702,6 +702,20 @@ arevmda=language,hyw
 heploc=variant,alalc97
 polytoni=variant,polyton
 
+[LANGUAGE_VARIANT_MAPPINGS]
+art+lojban=jbo
+cel+gaulish=xtg
+zh+guoyu=zh
+zh+hakka=hak
+zh+xiang=hsn
+
+[SCRIPT_REGION_MAPPINGS]
+Armn+SU=AM
+Cyrl+SU=RU
+Latn+SU=RU
+Geor+SU=GE
+Arab+SU=UZ
+
 [UNICODE_MAPPINGS]
 ca:ethiopic-amete-alem=ethioaa
 ca:islamicc=islamic-civil
