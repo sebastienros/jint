@@ -45,6 +45,8 @@ internal sealed class JsNumberFormat : ObjectInstance
         int maximumFractionDigits,
         int? minimumSignificantDigits,
         int? maximumSignificantDigits,
+        bool minimumSignificantDigitsExplicit,
+        bool maximumSignificantDigitsExplicit,
         string roundingMode,
         string roundingPriority,
         int roundingIncrement,
@@ -70,6 +72,8 @@ internal sealed class JsNumberFormat : ObjectInstance
         MaximumFractionDigits = maximumFractionDigits;
         MinimumSignificantDigits = minimumSignificantDigits;
         MaximumSignificantDigits = maximumSignificantDigits;
+        MinimumSignificantDigitsExplicit = minimumSignificantDigitsExplicit;
+        MaximumSignificantDigitsExplicit = maximumSignificantDigitsExplicit;
         RoundingMode = roundingMode;
         RoundingPriority = roundingPriority;
         RoundingIncrement = roundingIncrement;
@@ -114,6 +118,8 @@ internal sealed class JsNumberFormat : ObjectInstance
     internal int MaximumFractionDigits { get; }
     internal int? MinimumSignificantDigits { get; }
     internal int? MaximumSignificantDigits { get; }
+    internal bool MinimumSignificantDigitsExplicit { get; }
+    internal bool MaximumSignificantDigitsExplicit { get; }
     internal string RoundingMode { get; }
     internal string RoundingPriority { get; }
     internal int RoundingIncrement { get; }
@@ -241,8 +247,7 @@ internal sealed class JsNumberFormat : ObjectInstance
         var isLong = string.Equals(CompactDisplay, "long", StringComparison.Ordinal);
 
         // Get locale-specific compact patterns
-        var lang = Locale.Split('-')[0];
-        var patterns = Data.CompactPatterns.GetPatterns(lang);
+        var patterns = Data.CompactPatterns.GetPatterns(Locale);
         var threshold = patterns.GetThreshold(isLong);
 
         // For values below threshold, use regular decimal formatting
@@ -340,7 +345,15 @@ internal sealed class JsNumberFormat : ObjectInstance
         string result;
         if (isLong)
         {
-            result = compactFormatted + " " + actualSuffix;
+            // Long format: spacing depends on locale
+            if (patterns.LongSpace)
+            {
+                result = compactFormatted + " " + actualSuffix;
+            }
+            else
+            {
+                result = compactFormatted + actualSuffix;
+            }
         }
         else
         {
@@ -477,8 +490,7 @@ internal sealed class JsNumberFormat : ObjectInstance
         }
 
         // Get locale-specific compact patterns
-        var lang = Locale.Split('-')[0];
-        var patterns = Data.CompactPatterns.GetPatterns(lang);
+        var patterns = Data.CompactPatterns.GetPatterns(Locale);
         var threshold = patterns.GetThreshold(isLong);
 
         // For values below threshold, format as regular decimal parts
@@ -561,16 +573,16 @@ internal sealed class JsNumberFormat : ObjectInstance
             }
         }
 
-        // Add literal space and compact suffix (only if there's a space)
-        if (isLong)
+        // Add literal space and compact suffix (only if locale uses space)
+        if (isLong && patterns.LongSpace)
         {
             parts.Add(new NumberFormatPart("literal", " "));
         }
-        else if (patterns.ShortSpace)
+        else if (!isLong && patterns.ShortSpace)
         {
             parts.Add(new NumberFormatPart("literal", "\u00a0")); // Non-breaking space for short format
         }
-        // For short format without space, we don't add a literal part
+        // For formats without space, we don't add a literal part
 
         parts.Add(new NumberFormatPart("compact", compactSuffix!));
 
@@ -1001,30 +1013,127 @@ internal sealed class JsNumberFormat : ObjectInstance
         var minSigDigits = MinimumSignificantDigits ?? 1;
         var maxSigDigits = MaximumSignificantDigits ?? 21;
 
-        // Format based on roundingPriority
-        if (string.Equals(RoundingPriority, "lessPrecision", StringComparison.Ordinal))
+        // Format based on roundingPriority per ECMA-402 §15.5.14 RoundingDecisionForLeadingZeros
+        if (string.Equals(RoundingPriority, "lessPrecision", StringComparison.Ordinal) ||
+            string.Equals(RoundingPriority, "morePrecision", StringComparison.Ordinal))
         {
-            // Use whichever gives fewer digits
-            var fracDigitsResult = FormatWithFractionDigits(value);
             var sigDigitsResult = FormatToSignificantDigits(value, minSigDigits, maxSigDigits);
-
-            // Compare which result is "less precise" (shorter or with fewer significant figures)
-            var fracDigitsCount = CountSignificantDigits(fracDigitsResult);
-            var sigDigitsCount = CountSignificantDigits(sigDigitsResult);
-
-            return sigDigitsCount <= fracDigitsCount ? sigDigitsResult : fracDigitsResult;
-        }
-
-        if (string.Equals(RoundingPriority, "morePrecision", StringComparison.Ordinal))
-        {
-            // Use whichever gives more digits
             var fracDigitsResult = FormatWithFractionDigits(value);
-            var sigDigitsResult = FormatToSignificantDigits(value, minSigDigits, maxSigDigits);
 
-            var fracDigitsCount = CountSignificantDigits(fracDigitsResult);
+            // Parse both results back to numeric values to compare precision loss
+            var sigValue = ParseFormattedNumber(sigDigitsResult);
+            var fracValue = ParseFormattedNumber(fracDigitsResult);
+
+            // Calculate precision loss (distance from original value)
+            var sigPrecisionLoss = System.Math.Abs(value - sigValue);
+            var fracPrecisionLoss = System.Math.Abs(value - fracValue);
+
+            // Count displayed digits in each result
             var sigDigitsCount = CountSignificantDigits(sigDigitsResult);
+            var fracDigitsCount = CountSignificantDigits(fracDigitsResult);
 
-            return sigDigitsCount >= fracDigitsCount ? sigDigitsResult : fracDigitsResult;
+            // Determine if each result is constrained by explicit min/max
+            var sdHasExplicitMin = MinimumSignificantDigitsExplicit;
+            var sdHasExplicitMax = MaximumSignificantDigitsExplicit;
+
+            // Get the actual minimum constraint values for comparison
+            var sdMinConstraint = sdHasExplicitMin ? minSigDigits : 0;
+            // FD minimum is the number of fraction digits required (adds to total digits)
+            var fdMinConstraint = MinimumFractionDigits;
+
+            if (string.Equals(RoundingPriority, "morePrecision", StringComparison.Ordinal))
+            {
+                // morePrecision: prefer the result closer to original value
+                if (sigPrecisionLoss < fracPrecisionLoss - 1e-15)
+                {
+                    return sigDigitsResult;
+                }
+                if (fracPrecisionLoss < sigPrecisionLoss - 1e-15)
+                {
+                    return fracDigitsResult;
+                }
+
+                // When values are equal (tie):
+                // If only SD max is explicit (no explicit SD min), prefer FD (minimum-constrained)
+                if (sdHasExplicitMax && !sdHasExplicitMin)
+                {
+                    return fracDigitsResult;
+                }
+
+                // If SD has explicit max AND min, compare the constraint ranges to determine
+                // which allows more precision potential.
+                if (sdHasExplicitMax && sdHasExplicitMin)
+                {
+                    // Compare maximum constraints - larger max = allows more precision
+                    // SD max is in significant digits; FD max is fraction digits + 1 (for integer digit)
+                    var effectiveFdMax = MaximumFractionDigits + 1;
+                    if (maxSigDigits > effectiveFdMax)
+                    {
+                        return sigDigitsResult;
+                    }
+                    if (effectiveFdMax > maxSigDigits)
+                    {
+                        return fracDigitsResult;
+                    }
+                    // Maximums are equal - compare minimums
+                    // Higher minimum = requires more precision
+                    var effectiveFdMin = MinimumFractionDigits + 1;
+                    if (minSigDigits >= effectiveFdMin)
+                    {
+                        return sigDigitsResult;
+                    }
+                    return fracDigitsResult;
+                }
+
+                // Both have only minimums (no explicit max): prefer SD (the significant digits result)
+                // This follows the spec's preference for significant digits when constraints are equivalent
+                return sigDigitsResult;
+            }
+            else // lessPrecision
+            {
+                // lessPrecision: prefer the result farther from original value
+                if (sigPrecisionLoss > fracPrecisionLoss + 1e-15)
+                {
+                    return sigDigitsResult;
+                }
+                if (fracPrecisionLoss > sigPrecisionLoss + 1e-15)
+                {
+                    return fracDigitsResult;
+                }
+
+                // When values are equal (tie):
+                // If only SD max is explicit (no explicit SD min), prefer SD (no minimum constraint)
+                if (sdHasExplicitMax && !sdHasExplicitMin)
+                {
+                    return sigDigitsResult;
+                }
+
+                // If SD has explicit max AND min, compare constraint ranges
+                // For lessPrecision, prefer smaller max = less precision potential
+                if (sdHasExplicitMax && sdHasExplicitMin)
+                {
+                    var effectiveFdMax = MaximumFractionDigits + 1;
+                    if (maxSigDigits < effectiveFdMax)
+                    {
+                        return sigDigitsResult;
+                    }
+                    if (effectiveFdMax < maxSigDigits)
+                    {
+                        return fracDigitsResult;
+                    }
+                    // Maximums are equal - compare minimums
+                    // For lessPrecision, smaller minimum = less precision required
+                    var effectiveFdMin = MinimumFractionDigits + 1;
+                    if (minSigDigits <= effectiveFdMin)
+                    {
+                        return sigDigitsResult;
+                    }
+                    return fracDigitsResult;
+                }
+
+                // Default for lessPrecision: prefer FD (fraction digits result)
+                return fracDigitsResult;
+            }
         }
 
         // Default: use significant digits
@@ -1238,6 +1347,111 @@ internal sealed class JsNumberFormat : ObjectInstance
         return count == 0 ? 1 : count; // At least 1 for "0"
     }
 
+    /// <summary>
+    /// Parses a formatted number string back to a double value.
+    /// Used for comparing precision loss between different formatting approaches.
+    /// Handles non-ASCII digit systems (Arabic, Thai, etc.) and locale-specific decimal separators.
+    /// </summary>
+    private double ParseFormattedNumber(string formatted)
+    {
+        // Use the locale's decimal separator to properly identify decimal vs grouping
+        var decimalSeparator = NumberFormatInfo.NumberDecimalSeparator;
+
+        // Build a clean numeric string by extracting digits and decimal point
+        var sb = new System.Text.StringBuilder(formatted.Length);
+        var hasDecimal = false;
+        var isNegative = false;
+
+        for (var i = 0; i < formatted.Length; i++)
+        {
+            var c = formatted[i];
+
+            // Handle negative sign (various forms)
+            if ((c == '-' || c == '\u2212') && sb.Length == 0) // ASCII minus or Unicode minus
+            {
+                isNegative = true;
+                continue;
+            }
+
+            // Check if this position matches the locale's decimal separator
+            if (!hasDecimal && decimalSeparator.Length > 0 && i + decimalSeparator.Length <= formatted.Length)
+            {
+                var match = true;
+                for (var j = 0; j < decimalSeparator.Length; j++)
+                {
+                    if (formatted[i + j] != decimalSeparator[j])
+                    {
+                        match = false;
+                        break;
+                    }
+                }
+                if (match)
+                {
+                    sb.Append('.');
+                    hasDecimal = true;
+                    i += decimalSeparator.Length - 1;
+                    continue;
+                }
+            }
+
+            // Handle other decimal separators (. or Arabic decimal ٫)
+            if ((c == '.' || c == '٫' || c == '\u066B') && !hasDecimal)
+            {
+                sb.Append('.');
+                hasDecimal = true;
+                continue;
+            }
+
+            // Skip grouping separators (likely . or , or space depending on locale)
+            if (c == ',' || c == ' ' || c == '\u00A0' || c == '\u202F') // Also handle narrow no-break space
+            {
+                continue;
+            }
+
+            // Handle ASCII digits 0-9
+            if (c >= '0' && c <= '9')
+            {
+                sb.Append(c);
+                continue;
+            }
+
+            // Handle Arabic-Indic digits ٠-٩ (U+0660 to U+0669)
+            if (c >= '\u0660' && c <= '\u0669')
+            {
+                sb.Append((char) ('0' + (c - '\u0660')));
+                continue;
+            }
+
+            // Handle Extended Arabic-Indic digits ۰-۹ (U+06F0 to U+06F9)
+            if (c >= '\u06F0' && c <= '\u06F9')
+            {
+                sb.Append((char) ('0' + (c - '\u06F0')));
+                continue;
+            }
+
+            // Handle other numeric systems using char.GetNumericValue
+            var numericValue = char.GetNumericValue(c);
+            if (numericValue >= 0 && numericValue <= 9)
+            {
+                sb.Append((char) ('0' + (int) numericValue));
+            }
+            // Skip grouping separators, currency symbols, etc.
+        }
+
+        if (sb.Length == 0)
+        {
+            return 0;
+        }
+
+        if (double.TryParse(sb.ToString(), System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out var result))
+        {
+            return isNegative ? -result : result;
+        }
+
+        return 0;
+    }
+
     private string FormatCurrency(double value)
     {
         // Handle significant digits if specified
@@ -1251,8 +1465,8 @@ internal sealed class JsNumberFormat : ObjectInstance
         var isNegative = value < 0 || isNegativeZero;
         var absValue = System.Math.Abs(value);
 
-        // Apply rounding
-        var fractionDigits = MaximumFractionDigits > 0 ? MaximumFractionDigits : 2;
+        // Apply rounding - use MaximumFractionDigits directly (constructor sets appropriate defaults)
+        var fractionDigits = MaximumFractionDigits;
         absValue = ApplyRounding(absValue, fractionDigits);
 
         // Check if rounded value displays as zero

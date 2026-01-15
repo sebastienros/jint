@@ -154,9 +154,9 @@ internal sealed class NumberFormatPrototype : Prototype
         }
 
         result.CreateDataPropertyOrThrow("signDisplay", numberFormat.SignDisplay);
+        result.CreateDataPropertyOrThrow("roundingIncrement", numberFormat.RoundingIncrement);
         result.CreateDataPropertyOrThrow("roundingMode", numberFormat.RoundingMode);
         result.CreateDataPropertyOrThrow("roundingPriority", numberFormat.RoundingPriority);
-        result.CreateDataPropertyOrThrow("roundingIncrement", numberFormat.RoundingIncrement);
         result.CreateDataPropertyOrThrow("trailingZeroDisplay", numberFormat.TrailingZeroDisplay);
 
         return result;
@@ -219,10 +219,11 @@ internal sealed class NumberFormatPrototype : Prototype
         var startFormatted = numberFormat.Format(startNum);
         var endFormatted = numberFormat.Format(endNum);
 
-        // If the numbers are the same when formatted, return just one
+        // If the numbers are the same when formatted, return with approximately sign
         if (string.Equals(startFormatted, endFormatted, StringComparison.Ordinal))
         {
-            return startFormatted;
+            // Add approximately sign prefix
+            return $"~{startFormatted}";
         }
 
         // Return a range string with locale-appropriate separator
@@ -248,36 +249,65 @@ internal sealed class NumberFormatPrototype : Prototype
         var startNum = ToRangeNumber(start);
         var endNum = ToRangeNumber(end);
 
-        // Format both numbers
+        // Get parts for both numbers
+        var startParts = numberFormat.FormatToParts(startNum);
+        var endParts = numberFormat.FormatToParts(endNum);
+
+        // Check if formatted values are approximately equal
         var startFormatted = numberFormat.Format(startNum);
         var endFormatted = numberFormat.Format(endNum);
+        var approximatelyEqual = string.Equals(startFormatted, endFormatted, StringComparison.Ordinal);
 
         var result = new JsArray(Engine);
         uint index = 0;
 
-        // Add start number parts with source "startRange"
-        var startPart = ObjectInstance.OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
-        startPart.Set("type", "integer");
-        startPart.Set("value", startFormatted);
-        startPart.Set("source", "startRange");
-        result.SetIndexValue(index++, startPart, updateLength: true);
-
-        // If numbers are different, add separator and end number
-        if (!string.Equals(startFormatted, endFormatted, StringComparison.Ordinal))
+        if (approximatelyEqual)
         {
+            // Add approximately sign first
+            var approxPart = ObjectInstance.OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
+            approxPart.CreateDataPropertyOrThrow("type", "approximatelySign");
+            approxPart.CreateDataPropertyOrThrow("value", "~");
+            approxPart.CreateDataPropertyOrThrow("source", "shared");
+            result.SetIndexValue(index++, approxPart, updateLength: true);
+
+            // Add all parts with source "shared"
+            foreach (var part in startParts)
+            {
+                var partObj = ObjectInstance.OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
+                partObj.CreateDataPropertyOrThrow("type", part.Type);
+                partObj.CreateDataPropertyOrThrow("value", part.Value);
+                partObj.CreateDataPropertyOrThrow("source", "shared");
+                result.SetIndexValue(index++, partObj, updateLength: true);
+            }
+        }
+        else
+        {
+            // Add start parts with source "startRange"
+            foreach (var part in startParts)
+            {
+                var partObj = ObjectInstance.OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
+                partObj.CreateDataPropertyOrThrow("type", part.Type);
+                partObj.CreateDataPropertyOrThrow("value", part.Value);
+                partObj.CreateDataPropertyOrThrow("source", "startRange");
+                result.SetIndexValue(index++, partObj, updateLength: true);
+            }
+
             // Add separator
             var separator = ObjectInstance.OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
-            separator.Set("type", "literal");
-            separator.Set("value", " – ");
-            separator.Set("source", "shared");
+            separator.CreateDataPropertyOrThrow("type", "literal");
+            separator.CreateDataPropertyOrThrow("value", " – ");
+            separator.CreateDataPropertyOrThrow("source", "shared");
             result.SetIndexValue(index++, separator, updateLength: true);
 
-            // Add end number parts with source "endRange"
-            var endPart = ObjectInstance.OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
-            endPart.Set("type", "integer");
-            endPart.Set("value", endFormatted);
-            endPart.Set("source", "endRange");
-            result.SetIndexValue(index++, endPart, updateLength: true);
+            // Add end parts with source "endRange"
+            foreach (var part in endParts)
+            {
+                var partObj = ObjectInstance.OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
+                partObj.CreateDataPropertyOrThrow("type", part.Type);
+                partObj.CreateDataPropertyOrThrow("value", part.Value);
+                partObj.CreateDataPropertyOrThrow("source", "endRange");
+                result.SetIndexValue(index++, partObj, updateLength: true);
+            }
         }
 
         return result;

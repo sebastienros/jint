@@ -28,8 +28,24 @@ internal static class CompactPatterns
                 return data;
             }
 
+            // Handle Chinese script variants
+            // zh-TW, zh-Hant-TW, zh-Hant, zh-HK, zh-MO → Traditional Chinese (zh-TW patterns)
+            // zh-CN, zh-Hans-CN, zh-Hans, zh-SG → Simplified Chinese (zh patterns)
+            if (language!.StartsWith("zh", StringComparison.OrdinalIgnoreCase))
+            {
+                var isTraditional = language.Contains("-TW", StringComparison.OrdinalIgnoreCase) ||
+                                    language.Contains("-HK", StringComparison.OrdinalIgnoreCase) ||
+                                    language.Contains("-MO", StringComparison.OrdinalIgnoreCase) ||
+                                    language.Contains("-Hant", StringComparison.OrdinalIgnoreCase);
+                var zhKey = isTraditional ? "zh-TW" : "zh";
+                if (_patterns.TryGetValue(zhKey, out data))
+                {
+                    return data;
+                }
+            }
+
             // Try base language (e.g., "de" from "de-DE")
-            var dashIndex = language!.IndexOf('-');
+            var dashIndex = language.IndexOf('-');
             if (dashIndex > 0)
             {
                 var baseLang = language.Substring(0, dashIndex);
@@ -163,6 +179,9 @@ internal static class CompactPatterns
                     case "short_space":
                         currentData.ShortSpace = !string.Equals(value, "false", StringComparison.OrdinalIgnoreCase);
                         break;
+                    case "long_space":
+                        currentData.LongSpace = !string.Equals(value, "false", StringComparison.OrdinalIgnoreCase);
+                        break;
                 }
             }
 
@@ -191,6 +210,7 @@ internal static class CompactPatterns
         public long DivisorMillion { get; set; } = 1_000_000;
         public long DivisorBillion { get; set; } = 1_000_000_000;
         public bool ShortSpace { get; set; } = true; // Default to true (has space)
+        public bool LongSpace { get; set; } = true; // Default to true (has space)
 
         /// <summary>
         /// Gets the threshold to use based on display mode.

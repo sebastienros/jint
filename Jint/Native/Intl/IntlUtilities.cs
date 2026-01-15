@@ -1428,6 +1428,24 @@ internal static class IntlUtilities
                 }
             }
 
+            // Try expanded script form for Chinese regions
+            // zh-TW → zh-Hant-TW, zh-HK → zh-Hant-HK, zh-CN → zh-Hans-CN, etc.
+            if (candidate.StartsWith("zh-", StringComparison.OrdinalIgnoreCase) &&
+                !candidate.Contains("-Hant", StringComparison.OrdinalIgnoreCase) &&
+                !candidate.Contains("-Hans", StringComparison.OrdinalIgnoreCase))
+            {
+                var region = candidate.Substring(3);
+                var isTraditional = string.Equals(region, "TW", StringComparison.OrdinalIgnoreCase) ||
+                                    string.Equals(region, "HK", StringComparison.OrdinalIgnoreCase) ||
+                                    string.Equals(region, "MO", StringComparison.OrdinalIgnoreCase);
+                var script = isTraditional ? "Hant" : "Hans";
+                var expandedCandidate = $"zh-{script}-{region}";
+                if (ContainsLocale(availableLocales, expandedCandidate))
+                {
+                    return expandedCandidate;
+                }
+            }
+
             // b. Let pos be the character index of the last occurrence of "-" in candidate.
             var pos = candidate.LastIndexOf('-');
 

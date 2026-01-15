@@ -188,6 +188,8 @@ internal sealed class NumberFormatConstructor : Constructor
 
         int? minimumSignificantDigits = null;
         int? maximumSignificantDigits = null;
+        var minimumSignificantDigitsExplicit = !minSigDigitsValue.IsUndefined();
+        var maximumSignificantDigitsExplicit = !maxSigDigitsValue.IsUndefined();
 
         // If either significant digits option is present, use significant digits mode
         if (!minSigDigitsValue.IsUndefined() || !maxSigDigitsValue.IsUndefined())
@@ -342,6 +344,8 @@ internal sealed class NumberFormatConstructor : Constructor
             maximumFractionDigits,
             minimumSignificantDigits,
             maximumSignificantDigits,
+            minimumSignificantDigitsExplicit,
+            maximumSignificantDigitsExplicit,
             roundingMode,
             roundingPriority,
             roundingIncrement,
