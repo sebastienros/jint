@@ -66,22 +66,23 @@ internal sealed class DurationFormatConstructor : Constructor
         // Get options object (strict - throws TypeError for non-object)
         var optionsObj = IntlUtilities.GetOptionsObject(_engine, options);
 
-        // Validate localeMatcher option
-        GetStringOption(optionsObj, "localeMatcher", LocaleMatcherValues, "best fit");
+        // Per spec steps 5, 6, 13: Get options in the correct order
+        // Step 5: localeMatcher
+        var localeMatcher = GetStringOption(optionsObj, "localeMatcher", LocaleMatcherValues, "best fit");
 
-        // Get numberingSystem option and validate against Unicode type nonterminal
+        // Step 6: numberingSystem (must be read before style)
         var numberingSystem = GetNumberingSystemOption(optionsObj);
 
-        // Resolve locale
-        var requestedLocales = IntlUtilities.CanonicalizeLocaleList(_engine, locales);
-        var availableLocales = IntlUtilities.GetAvailableLocales();
-        var resolved = IntlUtilities.ResolveLocale(_engine, availableLocales, requestedLocales, options, []);
-
-        // Get style option (must be read before unit options per spec)
+        // Step 13: style (must be read after localeMatcher and numberingSystem, before unit options)
         var style = GetStringOption(optionsObj, "style", StyleValues, "short");
 
+        // Resolve locale (don't re-read localeMatcher from options)
+        var requestedLocales = IntlUtilities.CanonicalizeLocaleList(_engine, locales);
+        var availableLocales = IntlUtilities.GetAvailableLocales();
+        var resolved = IntlUtilities.ResolveLocale(_engine, availableLocales, requestedLocales, localeMatcher, []);
+
         // Determine base style based on overall style (for date units)
-        var baseDateStyle = style switch
+        var baseStyle = style switch
         {
             "digital" => "short",
             _ => style // "long", "short", "narrow"
@@ -109,17 +110,17 @@ internal sealed class DurationFormatConstructor : Constructor
             string.Equals(s, "fractional", StringComparison.Ordinal);
 
         // Get unit style options with cascading defaults per spec (GetDurationUnitOptions)
-        // Per Table 1: Years/months/weeks/days use baseDateStyle
-        var yearsStyle = GetStringOption(optionsObj, "years", UnitStyleValues, baseDateStyle);
+        // Per Table 1: Years/months/weeks/days use baseStyle
+        var yearsStyle = GetStringOption(optionsObj, "years", UnitStyleValues, baseStyle);
         var yearsDisplay = GetStringOption(optionsObj, "yearsDisplay", DisplayValues, "auto");
 
-        var monthsStyle = GetStringOption(optionsObj, "months", UnitStyleValues, baseDateStyle);
+        var monthsStyle = GetStringOption(optionsObj, "months", UnitStyleValues, baseStyle);
         var monthsDisplay = GetStringOption(optionsObj, "monthsDisplay", DisplayValues, "auto");
 
-        var weeksStyle = GetStringOption(optionsObj, "weeks", UnitStyleValues, baseDateStyle);
+        var weeksStyle = GetStringOption(optionsObj, "weeks", UnitStyleValues, baseStyle);
         var weeksDisplay = GetStringOption(optionsObj, "weeksDisplay", DisplayValues, "auto");
 
-        var daysStyle = GetStringOption(optionsObj, "days", UnitStyleValues, baseDateStyle);
+        var daysStyle = GetStringOption(optionsObj, "days", UnitStyleValues, baseStyle);
         var daysDisplay = GetStringOption(optionsObj, "daysDisplay", DisplayValues, "auto");
 
         // Per Table 1: Hours/minutes/seconds/sub-seconds use baseTimeStyle
