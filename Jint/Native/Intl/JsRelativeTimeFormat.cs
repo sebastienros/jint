@@ -13,12 +13,14 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
         Engine engine,
         ObjectInstance prototype,
         string locale,
+        string numberingSystem,
         string style,
         string numeric,
         CultureInfo cultureInfo) : base(engine)
     {
         _prototype = prototype;
         Locale = locale;
+        NumberingSystem = numberingSystem;
         Style = style;
         Numeric = numeric;
         CultureInfo = cultureInfo;
@@ -28,6 +30,11 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
     /// The locale used for formatting.
     /// </summary>
     internal string Locale { get; }
+
+    /// <summary>
+    /// The numbering system used for formatting digits.
+    /// </summary>
+    internal string NumberingSystem { get; }
 
     /// <summary>
     /// The style: "long", "short", or "narrow".
@@ -76,17 +83,17 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
         {
             if (isPast)
             {
-                return $"{formattedNumber} {unitName} ago";
+                return Data.NumberingSystemData.TransliterateDigits($"{formattedNumber} {unitName} ago", NumberingSystem);
             }
-            return $"in {formattedNumber} {unitName}";
+            return Data.NumberingSystemData.TransliterateDigits($"in {formattedNumber} {unitName}", NumberingSystem);
         }
 
         // For non-English, use a simple format
         if (isPast)
         {
-            return $"-{formattedNumber} {unitName}";
+            return Data.NumberingSystemData.TransliterateDigits($"-{formattedNumber} {unitName}", NumberingSystem);
         }
-        return $"+{formattedNumber} {unitName}";
+        return Data.NumberingSystemData.TransliterateDigits($"+{formattedNumber} {unitName}", NumberingSystem);
     }
 
     /// <summary>
@@ -124,14 +131,14 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
             if (isPast)
             {
                 // "X units ago"
-                AddNumberParts(engine, result, ref index, absValue, unit, CultureInfo);
+                AddNumberParts(engine, result, ref index, absValue, unit, CultureInfo, NumberingSystem);
                 AddLiteralPart(engine, result, ref index, $" {unitName} ago");
             }
             else
             {
                 // "in X units"
                 AddLiteralPart(engine, result, ref index, "in ");
-                AddNumberParts(engine, result, ref index, absValue, unit, CultureInfo);
+                AddNumberParts(engine, result, ref index, absValue, unit, CultureInfo, NumberingSystem);
                 AddLiteralPart(engine, result, ref index, $" {unitName}");
             }
         }
@@ -146,7 +153,7 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
             {
                 AddLiteralPart(engine, result, ref index, "+");
             }
-            AddNumberParts(engine, result, ref index, absValue, unit, CultureInfo);
+            AddNumberParts(engine, result, ref index, absValue, unit, CultureInfo, NumberingSystem);
             AddLiteralPart(engine, result, ref index, $" {unitName}");
         }
 
@@ -164,7 +171,7 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
     /// <summary>
     /// Adds number parts decomposed into integer and group separator parts.
     /// </summary>
-    private static void AddNumberParts(Engine engine, JsArray result, ref uint index, double value, string unit, CultureInfo cultureInfo)
+    private static void AddNumberParts(Engine engine, JsArray result, ref uint index, double value, string unit, CultureInfo cultureInfo, string numberingSystem)
     {
         var integerPart = (long) System.Math.Truncate(value);
         var fractionPart = value - integerPart;
@@ -177,7 +184,7 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
         if (intStr.Length <= groupSize)
         {
             // No grouping needed
-            AddIntegerPart(engine, result, ref index, intStr, unit);
+            AddIntegerPart(engine, result, ref index, Data.NumberingSystemData.TransliterateDigits(intStr, numberingSystem), unit);
         }
         else
         {
@@ -186,13 +193,13 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
             if (position == 0) position = groupSize;
 
             var currentGroup = intStr.Substring(0, position);
-            AddIntegerPart(engine, result, ref index, currentGroup, unit);
+            AddIntegerPart(engine, result, ref index, Data.NumberingSystemData.TransliterateDigits(currentGroup, numberingSystem), unit);
 
             while (position < intStr.Length)
             {
                 AddGroupPart(engine, result, ref index, groupSeparator, unit);
                 currentGroup = intStr.Substring(position, groupSize);
-                AddIntegerPart(engine, result, ref index, currentGroup, unit);
+                AddIntegerPart(engine, result, ref index, Data.NumberingSystemData.TransliterateDigits(currentGroup, numberingSystem), unit);
                 position += groupSize;
             }
         }
@@ -209,7 +216,7 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
             {
                 fractionStr = fractionStr.Substring(2);
             }
-            AddFractionPart(engine, result, ref index, fractionStr, unit);
+            AddFractionPart(engine, result, ref index, Data.NumberingSystemData.TransliterateDigits(fractionStr, numberingSystem), unit);
         }
     }
 

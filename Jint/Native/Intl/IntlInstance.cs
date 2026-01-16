@@ -186,80 +186,16 @@ internal sealed class IntlInstance : ObjectInstance
 
     private static string[] GetSupportedNumberingSystems()
     {
-        // Return all numbering systems with simple digit mappings
+        // Return all numbering systems with simple digit mappings from our data
         // https://tc39.es/ecma402/#sec-availablenumberingsystems
-        // Must include all from Table 10: Numbering systems with simple digit mappings
-        return new[]
+        var digits = Data.NumberingSystemData.Digits;
+        var result = new string[digits.Count];
+        var index = 0;
+        foreach (var key in digits.Keys)
         {
-            "adlm",
-            "ahom",
-            "arab",
-            "arabext",
-            "bali",
-            "beng",
-            "bhks",
-            "brah",
-            "cakm",
-            "cham",
-            "deva",
-            "diak",
-            "fullwide",
-            "gong",
-            "gonm",
-            "gujr",
-            "guru",
-            "hanidec",
-            "hmng",
-            "hmnp",
-            "java",
-            "kali",
-            "kawi",
-            "khmr",
-            "knda",
-            "lana",
-            "lanatham",
-            "laoo",
-            "latn",
-            "lepc",
-            "limb",
-            "mathbold",
-            "mathdbl",
-            "mathmono",
-            "mathsanb",
-            "mathsans",
-            "mlym",
-            "modi",
-            "mong",
-            "mroo",
-            "mtei",
-            "mymr",
-            "mymrshan",
-            "mymrtlng",
-            "nagm",
-            "newa",
-            "nkoo",
-            "olck",
-            "orya",
-            "osma",
-            "rohg",
-            "saur",
-            "segment",
-            "shrd",
-            "sind",
-            "sinh",
-            "sora",
-            "sund",
-            "takr",
-            "talu",
-            "tamldec",
-            "telu",
-            "thai",
-            "tibt",
-            "tirh",
-            "vaii",
-            "wara",
-            "wcho"
-        };
+            result[index++] = key;
+        }
+        return result;
     }
 
     private static string[] GetSupportedTimeZones()

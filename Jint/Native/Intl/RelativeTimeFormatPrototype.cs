@@ -119,7 +119,7 @@ internal sealed class RelativeTimeFormatPrototype : Prototype
         result.CreateDataPropertyOrThrow("locale", relativeTimeFormat.Locale);
         result.CreateDataPropertyOrThrow("style", relativeTimeFormat.Style);
         result.CreateDataPropertyOrThrow("numeric", relativeTimeFormat.Numeric);
-        result.CreateDataPropertyOrThrow("numberingSystem", "latn");
+        result.CreateDataPropertyOrThrow("numberingSystem", relativeTimeFormat.NumberingSystem);
 
         return result;
     }
