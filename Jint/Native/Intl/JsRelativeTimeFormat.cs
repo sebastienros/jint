@@ -52,18 +52,22 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
     internal CultureInfo CultureInfo { get; }
 
     /// <summary>
+    /// Gets the CLDR provider from engine options.
+    /// </summary>
+    private ICldrProvider CldrProvider => _engine.Options.Intl.CldrProvider;
+
+    /// <summary>
     /// Formats a relative time value.
     /// </summary>
     internal string Format(double value, string unit)
     {
-        var isEnglish = Locale.StartsWith("en", StringComparison.OrdinalIgnoreCase);
         var absValue = System.Math.Abs(value);
         // Handle negative zero: value < 0 is false for -0, so we check for negative infinity from 1/value
         var isPast = value < 0 || double.IsNegativeInfinity(1.0 / value);
         var intValue = (long) System.Math.Round(absValue);
 
         // Handle "auto" numeric - special phrases for -1, 0, 1
-        if (string.Equals(Numeric, "auto", StringComparison.Ordinal) && isEnglish)
+        if (string.Equals(Numeric, "auto", StringComparison.Ordinal))
         {
             var specialPhrase = GetSpecialPhrase(intValue, unit, isPast);
             if (specialPhrase != null)
@@ -75,10 +79,23 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
         // Format the number with grouping separators
         var formattedNumber = absValue.ToString("#,##0.###", CultureInfo);
 
-        // Get the unit name
+        // Try to get patterns from CLDR provider
+        var patterns = CldrProvider.GetRelativeTimePatterns(Locale, unit, Style);
+        if (patterns != null)
+        {
+            var plural = absValue != 1;
+            var pattern = isPast
+                ? (plural ? patterns.PastPlural : patterns.Past)
+                : (plural ? patterns.FuturePlural : patterns.Future);
+
+            var result = pattern.Replace("{0}", formattedNumber);
+            return Data.NumberingSystemData.TransliterateDigits(result, NumberingSystem);
+        }
+
+        // Fallback to hardcoded patterns
+        var isEnglish = Locale.StartsWith("en", StringComparison.OrdinalIgnoreCase);
         var unitName = GetUnitName(unit, absValue != 1);
 
-        // Construct the relative time string
         if (isEnglish)
         {
             if (isPast)
@@ -104,14 +121,13 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
         var result = new JsArray(engine);
         uint index = 0;
 
-        var isEnglish = Locale.StartsWith("en", StringComparison.OrdinalIgnoreCase);
         var absValue = System.Math.Abs(value);
         // Handle negative zero: value < 0 is false for -0, so we check for negative infinity from 1/value
         var isPast = value < 0 || double.IsNegativeInfinity(1.0 / value);
         var intValue = (long) System.Math.Round(absValue);
 
         // Handle "auto" numeric - special phrases
-        if (string.Equals(Numeric, "auto", StringComparison.Ordinal) && isEnglish)
+        if (string.Equals(Numeric, "auto", StringComparison.Ordinal))
         {
             var specialPhrase = GetSpecialPhrase(intValue, unit, isPast);
             if (specialPhrase != null)
@@ -124,6 +140,23 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
             }
         }
 
+        // Try to get patterns from CLDR provider
+        var patterns = CldrProvider.GetRelativeTimePatterns(Locale, unit, Style);
+        if (patterns != null)
+        {
+            var plural = absValue != 1;
+            var pattern = isPast
+                ? (plural ? patterns.PastPlural : patterns.Past)
+                : (plural ? patterns.FuturePlural : patterns.Future);
+
+            // Parse the pattern and create parts
+            // Pattern format: "in {0} days" or "{0} days ago"
+            FormatPatternToParts(engine, result, ref index, pattern, absValue, unit);
+            return result;
+        }
+
+        // Fallback to hardcoded patterns
+        var isEnglish = Locale.StartsWith("en", StringComparison.OrdinalIgnoreCase);
         var unitName = GetUnitName(unit, absValue != 1);
 
         if (isEnglish)
@@ -158,6 +191,38 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Formats a pattern like "in {0} days" or "{0} days ago" to parts.
+    /// </summary>
+    private void FormatPatternToParts(Engine engine, JsArray result, ref uint index, string pattern, double value, string unit)
+    {
+        const string placeholder = "{0}";
+        var placeholderIndex = pattern.IndexOf(placeholder, StringComparison.Ordinal);
+
+        if (placeholderIndex < 0)
+        {
+            // No placeholder found, treat as literal
+            AddLiteralPart(engine, result, ref index, pattern);
+            return;
+        }
+
+        // Add literal before placeholder
+        if (placeholderIndex > 0)
+        {
+            AddLiteralPart(engine, result, ref index, pattern.Substring(0, placeholderIndex));
+        }
+
+        // Add number parts
+        AddNumberParts(engine, result, ref index, value, unit, CultureInfo, NumberingSystem);
+
+        // Add literal after placeholder
+        var afterPlaceholder = placeholderIndex + placeholder.Length;
+        if (afterPlaceholder < pattern.Length)
+        {
+            AddLiteralPart(engine, result, ref index, pattern.Substring(afterPlaceholder));
+        }
     }
 
     private static void AddLiteralPart(Engine engine, JsArray result, ref uint index, string value)
@@ -256,8 +321,21 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
         result.SetIndexValue(index++, part, updateLength: true);
     }
 
-    private static string? GetSpecialPhrase(long value, string unit, bool isPast)
+    private string? GetSpecialPhrase(long value, string unit, bool isPast)
     {
+        // Try to get special phrase from CLDR provider
+        var phrase = CldrProvider.GetRelativeTimeSpecialPhrase(Locale, unit, (int) value, isPast, Style);
+        if (phrase != null)
+        {
+            return phrase;
+        }
+
+        // Fallback to hardcoded English phrases
+        if (!Locale.StartsWith("en", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
         // English special phrases per CLDR
         // second/minute/hour only have special form for 0
         // day/week/month/quarter/year have special forms for -1, 0, 1

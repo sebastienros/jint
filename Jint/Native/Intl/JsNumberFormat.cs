@@ -128,6 +128,11 @@ internal sealed class JsNumberFormat : ObjectInstance
     internal CultureInfo CultureInfo { get; }
 
     /// <summary>
+    /// Gets the CLDR provider from engine options.
+    /// </summary>
+    private ICldrProvider CldrProvider => _engine.Options.Intl.CldrProvider;
+
+    /// <summary>
     /// Formats a number according to the formatter's locale and options.
     /// </summary>
     internal string Format(double value)

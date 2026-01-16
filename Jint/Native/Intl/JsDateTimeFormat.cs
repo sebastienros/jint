@@ -79,6 +79,11 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     internal CultureInfo CultureInfo { get; }
 
     /// <summary>
+    /// Gets the CLDR provider from engine options.
+    /// </summary>
+    private ICldrProvider CldrProvider => _engine.Options.Intl.CldrProvider;
+
+    /// <summary>
     /// Formats a date according to the formatter's locale and options.
     /// </summary>
     internal string Format(DateTime dateTime)

@@ -511,14 +511,14 @@ public class Options
     public class IntlOptions
     {
         /// <summary>
-        /// Custom CLDR provider for locale data. If null, uses DefaultCldrProvider
+        /// CLDR provider for locale data. Defaults to DefaultCldrProvider
         /// which provides basic English (en-US, en-GB) support.
         /// </summary>
         /// <remarks>
         /// Set this to a custom ICldrProvider implementation (e.g., ICU-based provider)
         /// to enable full locale support for the Intl API.
         /// </remarks>
-        public ICldrProvider? CldrProvider { get; set; }
+        public ICldrProvider CldrProvider { get; set; } = DefaultCldrProvider.Instance;
     }
 }
 

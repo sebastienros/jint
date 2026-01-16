@@ -48,7 +48,7 @@ internal sealed class JsListFormat : ObjectInstance
     /// <summary>
     /// Gets the CLDR provider from engine options.
     /// </summary>
-    private ICldrProvider CldrProvider => _engine.Options.Intl.CldrProvider ?? DefaultCldrProvider.Instance;
+    private ICldrProvider CldrProvider => _engine.Options.Intl.CldrProvider;
 
     /// <summary>
     /// Formats a list of strings according to the locale and options.

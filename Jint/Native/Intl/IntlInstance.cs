@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Linq;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
@@ -23,6 +22,11 @@ internal sealed class IntlInstance : ObjectInstance
         _realm = realm;
         _prototype = objectPrototype;
     }
+
+    /// <summary>
+    /// Gets the CLDR provider from engine options.
+    /// </summary>
+    private ICldrProvider CldrProvider => _engine.Options.Intl.CldrProvider;
 
     protected override void Initialize()
     {
@@ -106,161 +110,81 @@ internal sealed class IntlInstance : ObjectInstance
         return result;
     }
 
-    private static string[] GetSupportedCalendars()
+    private string[] GetSupportedCalendars()
     {
-        // Return calendar types that DateTimeFormat supports
-        // https://tc39.es/ecma402/#sec-availablecalendars
-        // Must include all from CLDR that we support in DateTimeFormat
-        return new[]
+        // Use CLDR provider for supported calendars
+        var calendars = CldrProvider.GetSupportedCalendars();
+        var result = new string[calendars.Count];
+        var i = 0;
+        foreach (var calendar in calendars)
         {
-            "buddhist",
-            "chinese",
-            "coptic",
-            "dangi",
-            "ethioaa",
-            "ethiopic",
-            "gregory",
-            "hebrew",
-            "indian",
-            "islamic",
-            "islamic-civil",
-            "islamic-rgsa",
-            "islamic-tbla",
-            "islamic-umalqura",
-            "iso8601",
-            "japanese",
-            "persian",
-            "roc"
-        };
-    }
-
-    private static string[] GetSupportedCollations()
-    {
-        // Return commonly supported collation types
-        // https://tc39.es/ecma402/#sec-availablecollations
-        // Note: "standard" and "search" are special values and must NOT be included
-        return new[]
-        {
-            "big5han",
-            "compat",
-            "dict",
-            "direct",
-            "ducet",
-            "emoji",
-            "eor",
-            "gb2312",
-            "phonebk",
-            "phonetic",
-            "pinyin",
-            "reformed",
-            "searchjl",
-            "stroke",
-            "trad",
-            "unihan",
-            "zhuyin"
-        };
-    }
-
-    private static string[] GetSupportedCurrencies()
-    {
-        // Return ISO 4217 currency codes
-        var currencies = new HashSet<string>(StringComparer.Ordinal);
-
-        foreach (var culture in CultureInfo.GetCultures(CultureTypes.SpecificCultures))
-        {
-            try
-            {
-                var region = new RegionInfo(culture.Name);
-                currencies.Add(region.ISOCurrencySymbol);
-            }
-            catch
-            {
-                // Skip cultures without region info
-            }
+            result[i++] = calendar;
         }
+        return result;
+    }
 
+    private string[] GetSupportedCollations()
+    {
+        // Use CLDR provider for supported collations
+        var collations = CldrProvider.GetSupportedCollations();
+        var result = new string[collations.Count];
+        var i = 0;
+        foreach (var collation in collations)
+        {
+            result[i++] = collation;
+        }
+        return result;
+    }
+
+    private string[] GetSupportedCurrencies()
+    {
+        // Use CLDR provider for supported currencies
+        var currencies = CldrProvider.GetSupportedCurrencies();
         var result = new string[currencies.Count];
-        currencies.CopyTo(result);
-        return result;
-    }
-
-    private static string[] GetSupportedNumberingSystems()
-    {
-        // Return all numbering systems with simple digit mappings from our data
-        // https://tc39.es/ecma402/#sec-availablenumberingsystems
-        var digits = Data.NumberingSystemData.Digits;
-        var result = new string[digits.Count];
-        var index = 0;
-        foreach (var key in digits.Keys)
+        var i = 0;
+        foreach (var currency in currencies)
         {
-            result[index++] = key;
+            result[i++] = currency;
         }
         return result;
     }
 
-    private static string[] GetSupportedTimeZones()
+    private string[] GetSupportedNumberingSystems()
     {
-        // Return IANA time zone names from our comprehensive database
-        var allZones = Data.TimeZoneData.GetAllTimeZones();
-        var result = new string[allZones.Count];
-        for (var i = 0; i < allZones.Count; i++)
+        // Use CLDR provider for supported numbering systems
+        var systems = CldrProvider.GetSupportedNumberingSystems();
+        var result = new string[systems.Count];
+        var i = 0;
+        foreach (var system in systems)
         {
-            result[i] = allZones[i];
+            result[i++] = system;
         }
         return result;
     }
 
-    private static string[] GetSupportedUnits()
+    private string[] GetSupportedTimeZones()
     {
-        // Return sanctioned simple unit identifiers
-        // https://tc39.es/ecma402/#table-sanctioned-single-unit-identifiers
-        return new[]
+        // Use CLDR provider for supported time zones
+        var zones = CldrProvider.GetSupportedTimeZones();
+        var result = new string[zones.Count];
+        var i = 0;
+        foreach (var zone in zones)
         {
-            "acre",
-            "bit",
-            "byte",
-            "celsius",
-            "centimeter",
-            "day",
-            "degree",
-            "fahrenheit",
-            "fluid-ounce",
-            "foot",
-            "gallon",
-            "gigabit",
-            "gigabyte",
-            "gram",
-            "hectare",
-            "hour",
-            "inch",
-            "kilobit",
-            "kilobyte",
-            "kilogram",
-            "kilometer",
-            "liter",
-            "megabit",
-            "megabyte",
-            "meter",
-            "microsecond",
-            "mile",
-            "mile-scandinavian",
-            "milliliter",
-            "millimeter",
-            "millisecond",
-            "minute",
-            "month",
-            "nanosecond",
-            "ounce",
-            "percent",
-            "petabyte",
-            "pound",
-            "second",
-            "stone",
-            "terabit",
-            "terabyte",
-            "week",
-            "yard",
-            "year"
-        };
+            result[i++] = zone;
+        }
+        return result;
+    }
+
+    private string[] GetSupportedUnits()
+    {
+        // Use CLDR provider for supported units
+        var units = CldrProvider.GetSupportedUnits();
+        var result = new string[units.Count];
+        var i = 0;
+        foreach (var unit in units)
+        {
+            result[i++] = unit;
+        }
+        return result;
     }
 }
