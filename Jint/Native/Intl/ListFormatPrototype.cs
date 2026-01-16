@@ -124,7 +124,12 @@ internal sealed class ListFormatPrototype : Prototype
             for (uint i = 0; i < length; i++)
             {
                 var element = jsArray.Get(i);
-                list.Add(TypeConverter.ToString(element));
+                // Per ECMA-402 13.5.2 step 5.a: If Type(next) is not String, throw a TypeError
+                if (!element.IsString())
+                {
+                    Throw.TypeError(_realm, "Iterable yielded a non-String value");
+                }
+                list.Add(element.AsString());
             }
         }
         else if (iterable.IsObject())
@@ -163,7 +168,16 @@ internal sealed class ListFormatPrototype : Prototype
                             }
 
                             var value = next.AsObject().Get("value");
-                            list.Add(TypeConverter.ToString(value));
+                            // Per ECMA-402 13.5.2 step 5.a: If Type(next) is not String, then
+                            // i. Let error be ThrowCompletion(a newly created TypeError object).
+                            // ii. Return ? IteratorClose(iteratorRecord, error).
+                            if (!value.IsString())
+                            {
+                                // Call IteratorClose before throwing
+                                IteratorClose(iteratorInstance);
+                                Throw.TypeError(_realm, "Iterable yielded a non-String value");
+                            }
+                            list.Add(value.AsString());
                         }
                         else
                         {
@@ -179,7 +193,12 @@ internal sealed class ListFormatPrototype : Prototype
                 for (ulong i = 0; i < length; i++)
                 {
                     var element = obj.Get(i.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                    list.Add(TypeConverter.ToString(element));
+                    // Per ECMA-402 13.5.2 step 5.a: If Type(next) is not String, throw a TypeError
+                    if (!element.IsString())
+                    {
+                        Throw.TypeError(_realm, "Iterable yielded a non-String value");
+                    }
+                    list.Add(element.AsString());
                 }
             }
         }
@@ -189,5 +208,27 @@ internal sealed class ListFormatPrototype : Prototype
         }
 
         return list.ToArray();
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-iteratorclose
+    /// Calls the iterator's return method if it exists.
+    /// </summary>
+    private static void IteratorClose(ObjectInstance iterator)
+    {
+        // 1. Let return be ? GetMethod(iterator, "return").
+        var returnMethod = iterator.Get("return");
+
+        // 2. If return is undefined, return NormalCompletion(empty).
+        if (returnMethod.IsUndefined() || returnMethod.IsNull())
+        {
+            return;
+        }
+
+        // 3. Call return method
+        if (returnMethod is ICallable callable)
+        {
+            callable.Call(iterator, []);
+        }
     }
 }

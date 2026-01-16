@@ -61,19 +61,20 @@ internal sealed class ListFormatConstructor : Constructor
         // Get options object (strict - throws TypeError for non-object)
         var optionsObj = IntlUtilities.GetOptionsObject(_engine, options);
 
-        // Validate localeMatcher option
-        GetStringOption(optionsObj, "localeMatcher", LocaleMatcherValues, "best fit");
+        // Per ECMA-402 13.1.1: Get options in the correct order
+        // Step 8: localeMatcher
+        var localeMatcher = GetStringOption(optionsObj, "localeMatcher", LocaleMatcherValues, "best fit");
 
-        // Resolve locale
-        var requestedLocales = IntlUtilities.CanonicalizeLocaleList(_engine, locales);
-        var availableLocales = IntlUtilities.GetAvailableLocales();
-        var resolvedLocale = ResolveListFormatLocale(_engine, availableLocales, requestedLocales, optionsObj);
-
-        // Get type option
+        // Step 10: type
         var type = GetStringOption(optionsObj, "type", TypeValues, "conjunction");
 
-        // Get style option
+        // Step 12: style
         var style = GetStringOption(optionsObj, "style", StyleValues, "long");
+
+        // Resolve locale (don't re-read localeMatcher from options)
+        var requestedLocales = IntlUtilities.CanonicalizeLocaleList(_engine, locales);
+        var availableLocales = IntlUtilities.GetAvailableLocales();
+        var resolvedLocale = ResolveListFormatLocale(_engine, availableLocales, requestedLocales, localeMatcher);
 
         // Get CultureInfo for the locale
         var culture = IntlUtilities.GetCultureInfo(resolvedLocale) ?? CultureInfo.InvariantCulture;
@@ -111,9 +112,9 @@ internal sealed class ListFormatConstructor : Constructor
         return stringValue;
     }
 
-    private static string ResolveListFormatLocale(Engine engine, HashSet<string> availableLocales, List<string> requestedLocales, ObjectInstance options)
+    private static string ResolveListFormatLocale(Engine engine, HashSet<string> availableLocales, List<string> requestedLocales, string localeMatcher)
     {
-        var resolved = IntlUtilities.ResolveLocale(engine, availableLocales, requestedLocales, options, []);
+        var resolved = IntlUtilities.ResolveLocale(engine, availableLocales, requestedLocales, localeMatcher, []);
         return resolved.Locale;
     }
 
