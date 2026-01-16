@@ -377,21 +377,26 @@ public sealed class DefaultCldrProvider : ICldrProvider
             return null;
         }
 
-        // Common currency names
-        return code.ToUpperInvariant() switch
+        // Look up currency name from .NET culture data by finding a culture that uses this currency
+        var upperCode = code.ToUpperInvariant();
+        foreach (var culture in CultureInfo.GetCultures(CultureTypes.SpecificCultures))
         {
-            "USD" => "US Dollar",
-            "EUR" => "Euro",
-            "GBP" => "British Pound",
-            "JPY" => "Japanese Yen",
-            "CNY" => "Chinese Yuan",
-            "AUD" => "Australian Dollar",
-            "CAD" => "Canadian Dollar",
-            "CHF" => "Swiss Franc",
-            "INR" => "Indian Rupee",
-            "KRW" => "South Korean Won",
-            _ => null
-        };
+            try
+            {
+                var region = new RegionInfo(culture.Name);
+                if (string.Equals(region.ISOCurrencySymbol, upperCode, StringComparison.OrdinalIgnoreCase))
+                {
+                    return region.CurrencyEnglishName;
+                }
+            }
+            catch
+            {
+                // Skip cultures without region info
+            }
+        }
+
+        // Don't provide fallback - only return names for currencies we actually know about
+        return null;
     }
 
     // === Locale Data ===
@@ -453,11 +458,14 @@ public sealed class DefaultCldrProvider : ICldrProvider
 
     public IReadOnlyCollection<string> GetSupportedCalendars()
     {
+        // Only return calendars that are fully supported per ECMA-402 and Intl.Era-monthcode spec
+        // Note: "islamic" and "islamic-rgsa" are excluded because they require specific
+        // DateTimeFormat support that maps them back correctly (not aliased to islamic-civil)
         return new[]
         {
             "buddhist", "chinese", "coptic", "dangi", "ethioaa", "ethiopic",
-            "gregory", "hebrew", "indian", "islamic", "islamic-civil",
-            "islamic-rgsa", "islamic-tbla", "islamic-umalqura", "iso8601",
+            "gregory", "hebrew", "indian", "islamic-civil",
+            "islamic-tbla", "islamic-umalqura", "iso8601",
             "japanese", "persian", "roc"
         };
     }
@@ -480,7 +488,18 @@ public sealed class DefaultCldrProvider : ICldrProvider
             try
             {
                 var region = new RegionInfo(culture.Name);
-                currencies.Add(region.ISOCurrencySymbol);
+                var currencyCode = region.ISOCurrencySymbol;
+
+                // Filter out invalid currency codes (must be 3 uppercase ASCII letters)
+                // Some cultures have placeholder codes like "¤¤" or "XXX"
+                if (currencyCode.Length == 3 &&
+                    IsUpperAsciiLetter(currencyCode[0]) &&
+                    IsUpperAsciiLetter(currencyCode[1]) &&
+                    IsUpperAsciiLetter(currencyCode[2]) &&
+                    !string.Equals(currencyCode, "XXX", StringComparison.Ordinal)) // XXX is "no currency"
+                {
+                    currencies.Add(currencyCode);
+                }
             }
             catch
             {
@@ -519,6 +538,11 @@ public sealed class DefaultCldrProvider : ICldrProvider
     private static bool IsEnglish(string locale)
     {
         return locale.StartsWith("en", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsUpperAsciiLetter(char c)
+    {
+        return c >= 'A' && c <= 'Z';
     }
 
     private static string RemoveExtensions(string locale)

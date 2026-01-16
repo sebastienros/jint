@@ -162,55 +162,37 @@ internal sealed class JsDisplayNames : ObjectInstance
 
     private string? GetCurrencyDisplayName(string code)
     {
-        // Common currency names
-        var name = code.ToUpperInvariant() switch
-        {
-            "USD" => "US Dollar",
-            "EUR" => "Euro",
-            "GBP" => "British Pound",
-            "JPY" => "Japanese Yen",
-            "CNY" => "Chinese Yuan",
-            "CHF" => "Swiss Franc",
-            "AUD" => "Australian Dollar",
-            "CAD" => "Canadian Dollar",
-            "HKD" => "Hong Kong Dollar",
-            "SGD" => "Singapore Dollar",
-            "SEK" => "Swedish Krona",
-            "KRW" => "South Korean Won",
-            "NOK" => "Norwegian Krone",
-            "NZD" => "New Zealand Dollar",
-            "INR" => "Indian Rupee",
-            "MXN" => "Mexican Peso",
-            "TWD" => "New Taiwan Dollar",
-            "ZAR" => "South African Rand",
-            "BRL" => "Brazilian Real",
-            "DKK" => "Danish Krone",
-            "PLN" => "Polish Zloty",
-            "THB" => "Thai Baht",
-            "ILS" => "Israeli New Shekel",
-            "IDR" => "Indonesian Rupiah",
-            "CZK" => "Czech Koruna",
-            "AED" => "UAE Dirham",
-            "TRY" => "Turkish Lira",
-            "HUF" => "Hungarian Forint",
-            "CLP" => "Chilean Peso",
-            "SAR" => "Saudi Riyal",
-            "PHP" => "Philippine Peso",
-            "MYR" => "Malaysian Ringgit",
-            "COP" => "Colombian Peso",
-            "RUB" => "Russian Ruble",
-            "RON" => "Romanian Leu",
-            "PEN" => "Peruvian Sol",
-            "BGN" => "Bulgarian Lev",
-            _ => null
-        };
+        // Use CLDR provider to get currency display name
+        var cldrProvider = _engine.Options.Intl.CldrProvider;
+        var name = cldrProvider.GetCurrencyDisplayName(Locale, code);
 
         return name ?? GetFallbackValue(code);
     }
 
     private string? GetCalendarDisplayName(string code)
     {
-        var name = code.ToLowerInvariant() switch
+        var normalizedCode = code.ToLowerInvariant();
+
+        // Only return display names for calendars we actually support
+        // This ensures consistency with Intl.supportedValuesOf("calendar")
+        var supportedCalendars = _engine.Options.Intl.CldrProvider.GetSupportedCalendars();
+        var isSupported = false;
+        foreach (var supported in supportedCalendars)
+        {
+            if (string.Equals(supported, normalizedCode, StringComparison.OrdinalIgnoreCase) ||
+                (string.Equals(normalizedCode, "gregorian", StringComparison.Ordinal) && string.Equals(supported, "gregory", StringComparison.Ordinal)))
+            {
+                isSupported = true;
+                break;
+            }
+        }
+
+        if (!isSupported)
+        {
+            return GetFallbackValue(code);
+        }
+
+        var name = normalizedCode switch
         {
             "gregory" or "gregorian" => "Gregorian Calendar",
             "buddhist" => "Buddhist Calendar",
@@ -221,11 +203,9 @@ internal sealed class JsDisplayNames : ObjectInstance
             "ethiopic" => "Ethiopic Calendar",
             "hebrew" => "Hebrew Calendar",
             "indian" => "Indian National Calendar",
-            "islamic" => "Islamic Calendar",
             "islamic-umalqura" => "Islamic (Umm al-Qura) Calendar",
             "islamic-tbla" => "Islamic (tabular, Thursday epoch) Calendar",
             "islamic-civil" => "Islamic (civil) Calendar",
-            "islamic-rgsa" => "Islamic (Saudi Arabia) Calendar",
             "iso8601" => "ISO-8601 Calendar",
             "japanese" => "Japanese Calendar",
             "persian" => "Persian Calendar",
