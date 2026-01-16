@@ -46,6 +46,11 @@ internal sealed class JsListFormat : ObjectInstance
     internal CultureInfo CultureInfo { get; }
 
     /// <summary>
+    /// Gets the CLDR provider from engine options.
+    /// </summary>
+    private ICldrProvider CldrProvider => _engine.Options.Intl.CldrProvider ?? DefaultCldrProvider.Instance;
+
+    /// <summary>
     /// Formats a list of strings according to the locale and options.
     /// </summary>
     internal string Format(string[] list)
@@ -99,7 +104,19 @@ internal sealed class JsListFormat : ObjectInstance
     /// </summary>
     private void GetSeparators(out string separator, out string twoItemSeparator, out string finalSeparator)
     {
-        // These are simplified English patterns - a full implementation would use CLDR data
+        // Try to get patterns from CLDR provider
+        var patterns = CldrProvider.GetListPatterns(Locale, ListType, Style);
+        if (patterns != null)
+        {
+            // Extract separators from CLDR patterns
+            // Patterns are in format "{0}, {1}" or "{0} and {1}"
+            separator = ExtractSeparatorFromPattern(patterns.Middle);
+            twoItemSeparator = ExtractSeparatorFromPattern(patterns.Two);
+            finalSeparator = ExtractSeparatorFromPattern(patterns.End);
+            return;
+        }
+
+        // Fallback to hardcoded patterns
         var isEnglish = Locale.StartsWith("en", StringComparison.OrdinalIgnoreCase);
 
         separator = ", ";
@@ -136,6 +153,29 @@ internal sealed class JsListFormat : ObjectInstance
             }
             // short and long: use default ", " separators
         }
+    }
+
+    /// <summary>
+    /// Extracts the separator string from a CLDR pattern like "{0}, {1}" or "{0} and {1}".
+    /// </summary>
+    private static string ExtractSeparatorFromPattern(string pattern)
+    {
+        // Pattern format: "{0}SEPARATOR{1}"
+        const string placeholder0 = "{0}";
+        const string placeholder1 = "{1}";
+
+        var idx0 = pattern.IndexOf(placeholder0, StringComparison.Ordinal);
+        var idx1 = pattern.IndexOf(placeholder1, StringComparison.Ordinal);
+
+        if (idx0 >= 0 && idx1 > idx0)
+        {
+            // Extract the text between {0} and {1}
+            var start = idx0 + placeholder0.Length;
+            return pattern.Substring(start, idx1 - start);
+        }
+
+        // Fallback if pattern doesn't match expected format
+        return ", ";
     }
 
     /// <summary>
