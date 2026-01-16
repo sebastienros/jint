@@ -84,6 +84,15 @@ internal sealed class DateTimeFormatConstructor : Constructor
         // Step 7: Get calendar option (between localeMatcher and hour12)
         var calendar = GetUnicodeExtensionOption(optionsObj, "calendar");
 
+        // If calendar not in options, check locale's unicode extension (-u-ca-)
+        if (calendar == null)
+        {
+            calendar = ExtractUnicodeExtensionFromLocale(requestedLocales.Count > 0 ? requestedLocales[0] : "", "ca");
+        }
+
+        // Canonicalize calendar aliases per ECMA-402
+        calendar = CanonicalizeCalendar(calendar);
+
         // Step 10: Get numberingSystem option
         var numberingSystem = GetUnicodeExtensionOption(optionsObj, "numberingSystem");
 
@@ -98,12 +107,20 @@ internal sealed class DateTimeFormatConstructor : Constructor
         // Step 14: Get hourCycle option
         var hourCycle = GetStringOption(optionsObj, "hourCycle", HourCycleValues, null);
 
+        // If hourCycle not in options, check locale's unicode extension (-u-hc-)
+        if (hourCycle == null)
+        {
+            hourCycle = ExtractUnicodeExtensionValue(requestedLocales, "hc", HourCycleValues);
+        }
+
         // hour12 takes precedence over hourCycle
         if (hour12.HasValue)
         {
             if (hour12.Value)
             {
-                hourCycle = "h12";
+                // Japanese locale uses h11, all others use h12 for 12-hour format
+                var lang = resolvedLocale.Split('-')[0].ToLowerInvariant();
+                hourCycle = string.Equals(lang, "ja", StringComparison.Ordinal) ? "h11" : "h12";
             }
             else
             {
@@ -260,7 +277,8 @@ internal sealed class DateTimeFormatConstructor : Constructor
 
         var timeZone = TypeConverter.ToString(value);
 
-        // Validate and canonicalize time zone
+        // Validate and canonicalize time zone using IANA database
+        // Per ECMA-402, only IANA timezone identifiers are allowed
         if (string.Equals(timeZone, "UTC", StringComparison.OrdinalIgnoreCase))
         {
             return "UTC";
@@ -273,24 +291,15 @@ internal sealed class DateTimeFormatConstructor : Constructor
             return canonicalOffset;
         }
 
-        // Try to find the time zone
-        try
+        // Look up in our IANA timezone database (case-insensitive)
+        // This is the only source of valid timezone names per ECMA-402
+        var canonicalId = Data.TimeZoneData.FindCanonical(timeZone);
+        if (canonicalId != null)
         {
-#if NET6_0_OR_GREATER
-            if (TimeZoneInfo.TryFindSystemTimeZoneById(timeZone, out _))
-            {
-                return timeZone;
-            }
-#else
-            TimeZoneInfo.FindSystemTimeZoneById(timeZone);
-            return timeZone;
-#endif
-        }
-        catch
-        {
-            // Invalid time zone
+            return canonicalId;
         }
 
+        // Not a valid IANA timezone identifier
         Throw.RangeError(_realm, $"Invalid time zone: {timeZone}");
         return null;
     }
@@ -391,5 +400,130 @@ internal sealed class DateTimeFormatConstructor : Constructor
         }
 
         return new JsArray(_engine, supported.ToArray());
+    }
+
+    /// <summary>
+    /// Canonicalizes calendar names per ECMA-402.
+    /// Converts deprecated/alias names to their canonical forms.
+    /// Per ECMA-402, "islamic" and "islamic-rgsa" should fallback to a valid calendar
+    /// from AvailableCalendars (like "islamic-civil").
+    /// </summary>
+    private static string? CanonicalizeCalendar(string? calendar)
+    {
+        if (calendar == null)
+        {
+            return null;
+        }
+
+        // Calendar alias and fallback mappings per Unicode CLDR and ECMA-402
+        return calendar.ToLowerInvariant() switch
+        {
+            "ethiopic-amete-alem" => "ethioaa",
+            "islamicc" => "islamic-civil",
+            // Per ECMA-402 §11.1.2, "islamic" and "islamic-rgsa" are deprecated
+            // and should fallback to a valid calendar from AvailableCalendars
+            "islamic" => "islamic-civil",
+            "islamic-rgsa" => "islamic-civil",
+            _ => calendar.ToLowerInvariant()
+        };
+    }
+
+    /// <summary>
+    /// Extracts a unicode extension value from the locale list.
+    /// For example, extracts "h11" from "de-u-hc-h11" when key is "hc".
+    /// </summary>
+    private static string? ExtractUnicodeExtensionValue(List<string> locales, string key, HashSet<string>? validValues)
+    {
+        foreach (var locale in locales)
+        {
+            var value = ExtractUnicodeExtensionFromLocale(locale, key);
+            if (value != null)
+            {
+                // Validate against allowed values if provided
+                if (validValues == null || validValues.Contains(value))
+                {
+                    return value;
+                }
+            }
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Extracts a specific unicode extension value from a single locale string.
+    /// </summary>
+    private static string? ExtractUnicodeExtensionFromLocale(string locale, string key)
+    {
+        // Look for -u- marker
+        var uIndex = locale.IndexOf("-u-", StringComparison.OrdinalIgnoreCase);
+        if (uIndex == -1)
+        {
+            return null;
+        }
+
+        // Parse the unicode extension looking for the key
+        var extensionStart = uIndex + 3;
+        var i = extensionStart;
+
+        while (i < locale.Length)
+        {
+            // Find the key (2 characters)
+            var keyStart = i;
+            while (i < locale.Length && locale[i] != '-')
+            {
+                i++;
+            }
+
+            var currentKey = locale.Substring(keyStart, i - keyStart);
+
+            // Move past the '-' if present
+            if (i < locale.Length && locale[i] == '-')
+            {
+                i++;
+            }
+
+            // Check if this is a 2-character key (not a singleton for next extension)
+            if (currentKey.Length == 2)
+            {
+                // Find the value(s) - collect until next key or end
+                var valueStart = i;
+                while (i < locale.Length)
+                {
+                    var partStart = i;
+                    while (i < locale.Length && locale[i] != '-')
+                    {
+                        i++;
+                    }
+
+                    var part = locale.Substring(partStart, i - partStart);
+
+                    // If this part is a 2-char key or 1-char singleton, stop
+                    if (part.Length == 2 || part.Length == 1)
+                    {
+                        break;
+                    }
+
+                    // Move past '-' if present
+                    if (i < locale.Length && locale[i] == '-')
+                    {
+                        i++;
+                    }
+                }
+
+                var value = locale.Substring(valueStart, i - valueStart).TrimEnd('-');
+
+                if (string.Equals(currentKey, key, StringComparison.OrdinalIgnoreCase) && value.Length > 0)
+                {
+                    return value.ToLowerInvariant();
+                }
+            }
+            else if (currentKey.Length == 1)
+            {
+                // This is a singleton starting a new extension type, stop parsing unicode extension
+                break;
+            }
+        }
+
+        return null;
     }
 }

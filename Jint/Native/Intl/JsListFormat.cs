@@ -61,11 +61,11 @@ internal sealed class JsListFormat : ObjectInstance
         }
 
         // Get separators based on type and style
-        GetSeparators(out var separator, out var finalSeparator);
+        GetSeparators(out var separator, out var twoItemSeparator, out var finalSeparator);
 
         if (list.Length == 2)
         {
-            return $"{list[0]}{finalSeparator}{list[1]}";
+            return $"{list[0]}{twoItemSeparator}{list[1]}";
         }
 
         // For 3+ items: "A, B, and C" or "A, B, or C"
@@ -91,40 +91,50 @@ internal sealed class JsListFormat : ObjectInstance
 
     /// <summary>
     /// Gets the separators based on type and style.
+    /// CLDR list patterns use different templates based on position:
+    /// - start: "{0}, {1}" (first two items)
+    /// - middle: "{0}, {1}" (middle items)
+    /// - end: "{0}, and {1}" (last two items)
+    /// - two: "{0} and {1}" (exactly two items - no comma before "and")
     /// </summary>
-    private void GetSeparators(out string separator, out string finalSeparator)
+    private void GetSeparators(out string separator, out string twoItemSeparator, out string finalSeparator)
     {
         // These are simplified English patterns - a full implementation would use CLDR data
         var isEnglish = Locale.StartsWith("en", StringComparison.OrdinalIgnoreCase);
 
         separator = ", ";
+        twoItemSeparator = ", ";
         finalSeparator = ", ";
 
         if (string.Equals(ListType, "conjunction", StringComparison.Ordinal))
         {
             if (string.Equals(Style, "long", StringComparison.Ordinal))
             {
+                twoItemSeparator = isEnglish ? " and " : ", ";
                 finalSeparator = isEnglish ? ", and " : ", ";
             }
             else if (string.Equals(Style, "short", StringComparison.Ordinal))
             {
+                twoItemSeparator = isEnglish ? " & " : ", ";
                 finalSeparator = isEnglish ? ", & " : ", ";
             }
+            // narrow: use default ", " separators
         }
         else if (string.Equals(ListType, "disjunction", StringComparison.Ordinal))
         {
-            if (string.Equals(Style, "long", StringComparison.Ordinal) || string.Equals(Style, "short", StringComparison.Ordinal))
-            {
-                finalSeparator = isEnglish ? ", or " : ", ";
-            }
+            // All disjunction styles use " or " / ", or " for English
+            twoItemSeparator = isEnglish ? " or " : ", ";
+            finalSeparator = isEnglish ? ", or " : ", ";
         }
         else if (string.Equals(ListType, "unit", StringComparison.Ordinal))
         {
             if (string.Equals(Style, "narrow", StringComparison.Ordinal))
             {
                 separator = " ";
+                twoItemSeparator = " ";
                 finalSeparator = " ";
             }
+            // short and long: use default ", " separators
         }
     }
 
@@ -141,7 +151,11 @@ internal sealed class JsListFormat : ObjectInstance
             return result;
         }
 
-        GetSeparators(out var separator, out var finalSeparator);
+        GetSeparators(out var separator, out var twoItemSeparator, out var finalSeparator);
+
+        // For 2 items, use twoItemSeparator
+        // For 3+ items, use separator for middle, finalSeparator for last
+        var actualSeparator = list.Length == 2 ? twoItemSeparator : finalSeparator;
 
         for (var i = 0; i < list.Length; i++)
         {
@@ -156,7 +170,17 @@ internal sealed class JsListFormat : ObjectInstance
             {
                 var literalPart = ObjectInstance.OrdinaryObjectCreate(engine, engine.Realm.Intrinsics.Object.PrototypeObject);
                 literalPart.Set("type", "literal");
-                literalPart.Set("value", i == list.Length - 2 ? finalSeparator : separator);
+                // For 2-item lists, use twoItemSeparator; for 3+ items, use separator (middle) or finalSeparator (end)
+                string sep;
+                if (list.Length == 2)
+                {
+                    sep = twoItemSeparator;
+                }
+                else
+                {
+                    sep = i == list.Length - 2 ? finalSeparator : separator;
+                }
+                literalPart.Set("value", sep);
                 result.SetIndexValue(index++, literalPart, updateLength: false);
             }
         }

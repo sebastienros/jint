@@ -132,40 +132,15 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         // When both dateStyle and timeStyle are specified, combine them appropriately
         if (DateStyle != null && TimeStyle != null)
         {
-            // Use "F" format for full date/time, "G" for mixed
-            var dateIsLong = string.Equals(DateStyle, "full", StringComparison.Ordinal) ||
-                             string.Equals(DateStyle, "long", StringComparison.Ordinal);
-            var timeIsLong = string.Equals(TimeStyle, "full", StringComparison.Ordinal) ||
-                             string.Equals(TimeStyle, "long", StringComparison.Ordinal) ||
-                             string.Equals(TimeStyle, "medium", StringComparison.Ordinal);
-
-            if (dateIsLong && timeIsLong)
-            {
-                // Full date + long time
-                return dateTime.ToString("F", CultureInfo);
-            }
-            else if (dateIsLong)
-            {
-                // Full date + short time
-                return dateTime.ToString("f", CultureInfo);
-            }
-            else
-            {
-                // Short date + time
-                return dateTime.ToString("G", CultureInfo);
-            }
+            // Format date and time separately and combine with ", "
+            var datePart = FormatDateStyleOnly(dateTime);
+            var timePart = FormatTimeStyle(dateTime);
+            return $"{datePart}, {timePart}";
         }
 
         if (DateStyle != null)
         {
-            return DateStyle switch
-            {
-                "full" => dateTime.ToString("D", CultureInfo), // Full date pattern (includes weekday)
-                "long" => FormatLongDate(dateTime),  // Long date without weekday
-                "medium" => FormatMediumDate(dateTime), // Medium date (same as long for most locales)
-                "short" => FormatShortDate(dateTime), // Short date (numeric)
-                _ => dateTime.ToString("d", CultureInfo)
-            };
+            return FormatDateStyleOnly(dateTime);
         }
 
         if (TimeStyle != null)
@@ -174,6 +149,18 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         }
 
         return dateTime.ToString("G", CultureInfo);
+    }
+
+    private string FormatDateStyleOnly(DateTime dateTime)
+    {
+        return DateStyle switch
+        {
+            "full" => dateTime.ToString("D", CultureInfo), // Full date pattern (includes weekday)
+            "long" => FormatLongDate(dateTime),  // Long date without weekday
+            "medium" => FormatMediumDate(dateTime), // Medium date (same as long for most locales)
+            "short" => FormatShortDate(dateTime), // Short date (numeric)
+            _ => dateTime.ToString("d", CultureInfo)
+        };
     }
 
     /// <summary>
@@ -594,12 +581,137 @@ internal sealed class JsDateTimeFormat : ObjectInstance
 
     private void FormatStyleToParts(DateTime dateTime, List<DateTimePart> result)
     {
-        // For style-based formatting, parse the formatted output
-        var formatted = FormatWithStyles(dateTime);
+        // For style-based formatting, decompose into proper parts
+        // Map styles to component options and use component-based parts generation
+        var hasDate = DateStyle != null;
+        var hasTime = TimeStyle != null;
 
-        // Simple approach: return the whole string as literal
-        // A full implementation would parse locale patterns
-        result.Add(new DateTimePart("literal", formatted));
+        if (hasDate)
+        {
+            FormatDateStyleToParts(dateTime, result);
+        }
+
+        if (hasDate && hasTime)
+        {
+            // Add separator between date and time
+            result.Add(new DateTimePart("literal", ", "));
+        }
+
+        if (hasTime)
+        {
+            FormatTimeStyleToParts(dateTime, result);
+        }
+    }
+
+    private void FormatDateStyleToParts(DateTime dateTime, List<DateTimePart> result)
+    {
+        var style = DateStyle;
+
+        // Full: weekday, month, day, year
+        // Long: month, day, year
+        // Medium: month, day, year (abbreviated)
+        // Short: month/day/year (numeric)
+
+        if (string.Equals(style, "full", StringComparison.Ordinal))
+        {
+            result.Add(new DateTimePart("weekday", dateTime.ToString("dddd", CultureInfo)));
+            result.Add(new DateTimePart("literal", ", "));
+        }
+
+        if (string.Equals(style, "full", StringComparison.Ordinal) ||
+            string.Equals(style, "long", StringComparison.Ordinal))
+        {
+            result.Add(new DateTimePart("month", dateTime.ToString("MMMM", CultureInfo)));
+            result.Add(new DateTimePart("literal", " "));
+            result.Add(new DateTimePart("day", dateTime.Day.ToString(CultureInfo)));
+            result.Add(new DateTimePart("literal", ", "));
+            result.Add(new DateTimePart("year", dateTime.Year.ToString(CultureInfo)));
+        }
+        else if (string.Equals(style, "medium", StringComparison.Ordinal))
+        {
+            result.Add(new DateTimePart("month", dateTime.ToString("MMM", CultureInfo)));
+            result.Add(new DateTimePart("literal", " "));
+            result.Add(new DateTimePart("day", dateTime.Day.ToString(CultureInfo)));
+            result.Add(new DateTimePart("literal", ", "));
+            result.Add(new DateTimePart("year", dateTime.Year.ToString(CultureInfo)));
+        }
+        else // short
+        {
+            result.Add(new DateTimePart("month", dateTime.Month.ToString(CultureInfo)));
+            result.Add(new DateTimePart("literal", "/"));
+            result.Add(new DateTimePart("day", dateTime.Day.ToString(CultureInfo)));
+            result.Add(new DateTimePart("literal", "/"));
+            result.Add(new DateTimePart("year", (dateTime.Year % 100).ToString("D2", CultureInfo)));
+        }
+    }
+
+    private void FormatTimeStyleToParts(DateTime dateTime, List<DateTimePart> result)
+    {
+        var style = TimeStyle;
+        var use12Hour = IsUsing12HourFormat();
+        var hour = use12Hour ? (dateTime.Hour % 12 == 0 ? 12 : dateTime.Hour % 12) : dateTime.Hour;
+
+        // Hour
+        result.Add(new DateTimePart("hour", hour.ToString(CultureInfo)));
+
+        // Minute (always for time styles)
+        result.Add(new DateTimePart("literal", ":"));
+        result.Add(new DateTimePart("minute", dateTime.Minute.ToString("D2", CultureInfo)));
+
+        // Second (for medium, long, full)
+        if (!string.Equals(style, "short", StringComparison.Ordinal))
+        {
+            result.Add(new DateTimePart("literal", ":"));
+            result.Add(new DateTimePart("second", dateTime.Second.ToString("D2", CultureInfo)));
+        }
+
+        // Day period (AM/PM) for 12-hour format
+        if (use12Hour)
+        {
+            result.Add(new DateTimePart("literal", " "));
+            result.Add(new DateTimePart("dayPeriod", dateTime.Hour < 12 ? "AM" : "PM"));
+        }
+
+        // Time zone name (for long and full)
+        if (string.Equals(style, "full", StringComparison.Ordinal))
+        {
+            result.Add(new DateTimePart("literal", " "));
+            result.Add(new DateTimePart("timeZoneName", GetTimeZoneDisplayName(true)));
+        }
+        else if (string.Equals(style, "long", StringComparison.Ordinal))
+        {
+            result.Add(new DateTimePart("literal", " "));
+            result.Add(new DateTimePart("timeZoneName", GetTimeZoneDisplayName(false)));
+        }
+    }
+
+    private bool IsUsing12HourFormat()
+    {
+        // Check hourCycle first
+        if (HourCycle != null)
+        {
+            return string.Equals(HourCycle, "h11", StringComparison.Ordinal) ||
+                   string.Equals(HourCycle, "h12", StringComparison.Ordinal);
+        }
+
+        // Default based on locale - US uses 12-hour, most others use 24-hour
+        var lang = Locale.Split('-')[0].ToLowerInvariant();
+        return string.Equals(lang, "en", StringComparison.Ordinal);
+    }
+
+    private string GetTimeZoneDisplayName(bool longName)
+    {
+        if (TimeZone != null)
+        {
+            if (string.Equals(TimeZone, "UTC", StringComparison.OrdinalIgnoreCase))
+            {
+                return longName ? "Coordinated Universal Time" : "UTC";
+            }
+            // For other timezones, use the ID or a short form
+            var parts = TimeZone.Split('/');
+            return longName ? TimeZone : parts[parts.Length - 1];
+        }
+        return longName ? TimeZoneInfo.Local.DisplayName : TimeZoneInfo.Local.Id;
     }
 
     private void FormatComponentsToParts(DateTime dateTime, List<DateTimePart> result)
@@ -704,37 +816,27 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             hasTime = true;
         }
 
-        // Minute
+        // Minute - for time components, "numeric" typically uses 2-digit padding in most locales
         if (Minute != null)
         {
             if (result.Count > 0 && hasTime)
             {
                 result.Add(new DateTimePart("literal", ":"));
             }
-            var format = Minute switch
-            {
-                "numeric" => "%m",  // Use % for single character
-                "2-digit" => "mm",
-                _ => "mm"
-            };
-            result.Add(new DateTimePart("minute", dateTime.ToString(format, CultureInfo)));
+            // Per ECMA-402, minute and second use 2-digit format for both "numeric" and "2-digit"
+            result.Add(new DateTimePart("minute", dateTime.Minute.ToString("D2", CultureInfo)));
             hasTime = true;
         }
 
-        // Second
+        // Second - for time components, "numeric" typically uses 2-digit padding in most locales
         if (Second != null)
         {
             if (result.Count > 0 && hasTime)
             {
                 result.Add(new DateTimePart("literal", ":"));
             }
-            var format = Second switch
-            {
-                "numeric" => "%s",  // Use % for single character
-                "2-digit" => "ss",
-                _ => "ss"
-            };
-            result.Add(new DateTimePart("second", dateTime.ToString(format, CultureInfo)));
+            // Per ECMA-402, minute and second use 2-digit format for both "numeric" and "2-digit"
+            result.Add(new DateTimePart("second", dateTime.Second.ToString("D2", CultureInfo)));
             hasTime = true;
         }
 
@@ -742,7 +844,8 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         if (FractionalSecondDigits.HasValue && FractionalSecondDigits.Value > 0)
         {
             result.Add(new DateTimePart("literal", "."));
-            var format = new string('f', FractionalSecondDigits.Value);
+            // Use % prefix for single-character format to prevent it being interpreted as standard format
+            var format = FractionalSecondDigits.Value == 1 ? "%f" : new string('f', FractionalSecondDigits.Value);
             result.Add(new DateTimePart("fractionalSecond", dateTime.ToString(format, CultureInfo)));
         }
 

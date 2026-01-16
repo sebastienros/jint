@@ -1,5 +1,6 @@
 # CLAUDE.md
 
+Important: Use JetBrains Rider MCP server when available
 Important: Never pass "--no-build" option to dotnet test, build or run - always ensure you are working with the latest compiled code.
 Important: Run tests in Release mode for faster feedback loop.
 Important: If you make changes to Test262Harness.settings.json you need to delete folder Jint.Tests.Test262\Generated before building.

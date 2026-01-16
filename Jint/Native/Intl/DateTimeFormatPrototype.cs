@@ -161,7 +161,13 @@ internal sealed class DateTimeFormatPrototype : Prototype
             return "h23";
         }
 
-        // Default to 12-hour format
+        // Japanese uses h11 for 12-hour format (0-11 instead of 1-12)
+        if (string.Equals(lang, "ja", StringComparison.Ordinal))
+        {
+            return "h11";
+        }
+
+        // Default to 12-hour format h12 (1-12)
         return "h12";
     }
 
@@ -189,7 +195,9 @@ internal sealed class DateTimeFormatPrototype : Prototype
         result.CreateDataPropertyOrThrow("numberingSystem", dateTimeFormat.NumberingSystem ?? "latn");
 
         // timeZone is always present - use local timezone if not specified
-        result.CreateDataPropertyOrThrow("timeZone", dateTimeFormat.TimeZone ?? TimeZoneInfo.Local.Id);
+        // Convert Windows timezone IDs to IANA format per ECMA-402
+        var timeZoneId = dateTimeFormat.TimeZone ?? TimeZoneInfo.Local.Id;
+        result.CreateDataPropertyOrThrow("timeZone", ToIanaTimeZoneId(timeZoneId));
 
         // hourCycle and hour12 should be returned if hour is present
         if (dateTimeFormat.Hour != null)
@@ -389,6 +397,11 @@ internal sealed class DateTimeFormatPrototype : Prototype
                 // Invalid date
                 Throw.RangeError(_realm, "Invalid time value");
             }
+            // ECMA-402 requires formatting in local time unless a specific timezone is provided
+            if (dt.Kind == DateTimeKind.Utc || dt.Kind == DateTimeKind.Unspecified)
+            {
+                dt = dt.ToLocalTime();
+            }
             return dt;
         }
 
@@ -412,5 +425,63 @@ internal sealed class DateTimeFormatPrototype : Prototype
         }
 
         return presentation.ToDateTime().ToLocalTime();
+    }
+
+    /// <summary>
+    /// Converts a timezone ID to IANA format.
+    /// Windows uses names like "FLE Standard Time" but ECMA-402 requires IANA names like "Europe/Helsinki".
+    /// </summary>
+    private static string ToIanaTimeZoneId(string timeZoneId)
+    {
+        // UTC is already valid
+        if (string.Equals(timeZoneId, "UTC", StringComparison.OrdinalIgnoreCase))
+        {
+            return "UTC";
+        }
+
+        // Offset timezones are already valid (e.g., "+03:00")
+        if (timeZoneId.Length > 0 && (timeZoneId[0] == '+' || timeZoneId[0] == '-'))
+        {
+            return timeZoneId;
+        }
+
+#if NET6_0_OR_GREATER
+        // Try to convert Windows ID to IANA
+        if (TimeZoneInfo.TryConvertWindowsIdToIanaId(timeZoneId, out var ianaId))
+        {
+            return ianaId;
+        }
+#endif
+
+        // Check if it's already an IANA ID (contains '/')
+        if (timeZoneId.Contains('/'))
+        {
+            return timeZoneId;
+        }
+
+        // Fallback: try to get the IANA ID from the TimeZoneInfo
+        try
+        {
+            var tz = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+#if NET6_0_OR_GREATER
+            // On .NET 6+, check if HasIanaId is available
+            if (tz.HasIanaId)
+            {
+                return tz.Id;
+            }
+            // Try conversion again with the found timezone
+            if (TimeZoneInfo.TryConvertWindowsIdToIanaId(tz.Id, out ianaId))
+            {
+                return ianaId;
+            }
+#endif
+        }
+        catch
+        {
+            // Ignore errors
+        }
+
+        // Last resort: return as-is (won't pass validation but better than crashing)
+        return timeZoneId;
     }
 }

@@ -264,31 +264,13 @@ internal sealed class IntlInstance : ObjectInstance
 
     private static string[] GetSupportedTimeZones()
     {
-        // Return available IANA time zone names
-        var timeZones = new HashSet<string>(StringComparer.Ordinal);
-
-        foreach (var tz in TimeZoneInfo.GetSystemTimeZones())
+        // Return IANA time zone names from our comprehensive database
+        var allZones = Data.TimeZoneData.GetAllTimeZones();
+        var result = new string[allZones.Count];
+        for (var i = 0; i < allZones.Count; i++)
         {
-#if NET6_0_OR_GREATER
-            // Convert Windows time zone IDs to IANA format where possible
-            if (TimeZoneInfo.TryConvertWindowsIdToIanaId(tz.Id, out var ianaId))
-            {
-                timeZones.Add(ianaId);
-            }
-            else
-            {
-                timeZones.Add(tz.Id);
-            }
-#else
-            timeZones.Add(tz.Id);
-#endif
+            result[i] = allZones[i];
         }
-
-        // Always include UTC
-        timeZones.Add("UTC");
-
-        var result = new string[timeZones.Count];
-        timeZones.CopyTo(result);
         return result;
     }
 
