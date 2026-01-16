@@ -95,12 +95,14 @@ internal static class TimeZoneData
         "Australia/Lindeman", "Australia/Lord_Howe", "Australia/Melbourne",
         "Australia/Perth", "Australia/Sydney",
         "CET", "CST6CDT", "EET", "EST", "EST5EDT",
-        "Etc/GMT", "Etc/GMT+1", "Etc/GMT+10", "Etc/GMT+11", "Etc/GMT+12",
+        // Note: "Etc/GMT" and "Etc/UTC" are NOT included because they canonicalize to "UTC"
+        // per ECMA-402 section 6.4.2 CanonicalizeTimeZoneName step 3
+        "Etc/GMT+1", "Etc/GMT+10", "Etc/GMT+11", "Etc/GMT+12",
         "Etc/GMT+2", "Etc/GMT+3", "Etc/GMT+4", "Etc/GMT+5", "Etc/GMT+6",
         "Etc/GMT+7", "Etc/GMT+8", "Etc/GMT+9", "Etc/GMT-1", "Etc/GMT-10",
         "Etc/GMT-11", "Etc/GMT-12", "Etc/GMT-13", "Etc/GMT-14", "Etc/GMT-2",
         "Etc/GMT-3", "Etc/GMT-4", "Etc/GMT-5", "Etc/GMT-6", "Etc/GMT-7",
-        "Etc/GMT-8", "Etc/GMT-9", "Etc/UTC",
+        "Etc/GMT-8", "Etc/GMT-9",
         "Europe/Andorra", "Europe/Astrakhan", "Europe/Athens", "Europe/Belgrade",
         "Europe/Berlin", "Europe/Brussels", "Europe/Bucharest", "Europe/Budapest",
         "Europe/Chisinau", "Europe/Dublin", "Europe/Gibraltar", "Europe/Helsinki",
@@ -175,8 +177,8 @@ internal static class TimeZoneData
         "Cuba",
         "Egypt",
         "Eire",
-        "Etc/GMT+0", "Etc/GMT-0", "Etc/GMT0", "Etc/Greenwich", "Etc/UCT",
-        "Etc/Universal", "Etc/Zulu",
+        // Note: Etc/GMT+0, Etc/GMT-0, Etc/GMT0, Etc/Greenwich, Etc/UCT, Etc/Universal, Etc/Zulu
+        // are NOT included because they canonicalize to "UTC" per ECMA-402
         "Europe/Amsterdam", "Europe/Belfast", "Europe/Bratislava", "Europe/Busingen",
         "Europe/Copenhagen", "Europe/Guernsey", "Europe/Isle_of_Man", "Europe/Jersey",
         "Europe/Kiev", "Europe/Ljubljana", "Europe/Luxembourg", "Europe/Mariehamn",
@@ -185,7 +187,7 @@ internal static class TimeZoneData
         "Europe/Tiraspol", "Europe/Uzhgorod", "Europe/Vaduz", "Europe/Vatican",
         "Europe/Zagreb", "Europe/Zaporozhye",
         "GB", "GB-Eire",
-        "GMT", "GMT+0", "GMT-0", "GMT0", "Greenwich",
+        // Note: GMT, GMT+0, GMT-0, GMT0, Greenwich are NOT included because they canonicalize to "UTC"
         "Hongkong",
         "Iceland",
         "Indian/Antananarivo", "Indian/Christmas", "Indian/Cocos", "Indian/Comoro",
@@ -205,13 +207,12 @@ internal static class TimeZoneData
         "ROC", "ROK",
         "Singapore",
         "Turkey",
-        "UCT",
+        // Note: UCT is NOT included because it canonicalizes to "UTC"
         "US/Alaska", "US/Aleutian", "US/Arizona", "US/Central", "US/East-Indiana",
         "US/Eastern", "US/Hawaii", "US/Indiana-Starke", "US/Michigan", "US/Mountain",
         "US/Pacific", "US/Samoa",
-        "Universal",
-        "W-SU",
-        "Zulu"
+        // Note: Universal and Zulu are NOT included because they canonicalize to "UTC"
+        "W-SU"
     ];
 
     /// <summary>

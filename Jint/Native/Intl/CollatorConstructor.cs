@@ -270,13 +270,27 @@ internal sealed class CollatorConstructor : Constructor
         var value = options.Get("collation");
         if (!value.IsUndefined())
         {
-            // Accept any collation value from options (even if we can't really implement it)
-            return TypeConverter.ToString(value);
+            var collation = TypeConverter.ToString(value);
+
+            // Per ECMA-402: "standard" and "search" collations are explicitly disallowed
+            // They should fall back to "default"
+            if (string.Equals(collation, "standard", StringComparison.Ordinal) ||
+                string.Equals(collation, "search", StringComparison.Ordinal))
+            {
+                return "default";
+            }
+
+            return collation;
         }
 
-        // Unicode extension collation types are not supported by .NET's CompareInfo,
-        // so we always fall back to "default" when no explicit option is provided.
-        // Note: "standard" and "search" are explicitly disallowed by ECMA-402.
+        // Check unicode extension, but also disallow "standard" and "search"
+        if (unicodeExtension != null &&
+            !string.Equals(unicodeExtension, "standard", StringComparison.Ordinal) &&
+            !string.Equals(unicodeExtension, "search", StringComparison.Ordinal))
+        {
+            return unicodeExtension;
+        }
+
         return "default";
     }
 

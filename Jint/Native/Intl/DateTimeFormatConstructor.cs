@@ -94,7 +94,7 @@ internal sealed class DateTimeFormatConstructor : Constructor
         calendar = CanonicalizeCalendar(calendar);
 
         // Step 10: Get numberingSystem option
-        var numberingSystem = GetUnicodeExtensionOption(optionsObj, "numberingSystem");
+        var numberingSystem = GetNumberingSystemOption(optionsObj, requestedLocales);
 
         // Step 13: Get hour12 option
         var hour12Value = optionsObj.Get("hour12");
@@ -245,6 +245,46 @@ internal sealed class DateTimeFormatConstructor : Constructor
         }
 
         return stringValue;
+    }
+
+    private string? GetNumberingSystemOption(ObjectInstance options, List<string> requestedLocales)
+    {
+        var value = options.Get("numberingSystem");
+        string? requestedNS = null;
+
+        if (!value.IsUndefined())
+        {
+            requestedNS = TypeConverter.ToString(value);
+
+            // Validate against pattern
+            if (!IntlUtilities.IsValidUnicodeExtensionValue(requestedNS))
+            {
+                Throw.RangeError(_realm, $"Invalid value '{requestedNS}' for option 'numberingSystem'");
+            }
+        }
+        else if (requestedLocales.Count > 0)
+        {
+            // Check for unicode extension -u-nu-
+            requestedNS = ExtractUnicodeExtensionFromLocale(requestedLocales[0], "nu");
+        }
+
+        // Validate against supported numbering systems
+        // Only return numbering systems we actually support (have digit mappings for)
+        if (requestedNS != null)
+        {
+            var supported = _engine.Options.Intl.CldrProvider.GetSupportedNumberingSystems();
+            foreach (var ns in supported)
+            {
+                if (string.Equals(ns, requestedNS, StringComparison.OrdinalIgnoreCase))
+                {
+                    return ns; // Return canonical form
+                }
+            }
+            // Unsupported numbering system - fall back to null (will use locale default)
+            return null;
+        }
+
+        return null;
     }
 
     private int? GetNumberOption(ObjectInstance options, string property, int minimum, int maximum, int? fallback)
