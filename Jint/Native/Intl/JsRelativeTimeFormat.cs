@@ -51,7 +51,8 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
     {
         var isEnglish = Locale.StartsWith("en", StringComparison.OrdinalIgnoreCase);
         var absValue = System.Math.Abs(value);
-        var isPast = value < 0;
+        // Handle negative zero: value < 0 is false for -0, so we check for negative infinity from 1/value
+        var isPast = value < 0 || double.IsNegativeInfinity(1.0 / value);
         var intValue = (long) System.Math.Round(absValue);
 
         // Handle "auto" numeric - special phrases for -1, 0, 1
@@ -64,8 +65,8 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
             }
         }
 
-        // Format the number
-        var formattedNumber = absValue.ToString(CultureInfo);
+        // Format the number with grouping separators
+        var formattedNumber = absValue.ToString("#,##0.###", CultureInfo);
 
         // Get the unit name
         var unitName = GetUnitName(unit, absValue != 1);
@@ -98,7 +99,8 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
 
         var isEnglish = Locale.StartsWith("en", StringComparison.OrdinalIgnoreCase);
         var absValue = System.Math.Abs(value);
-        var isPast = value < 0;
+        // Handle negative zero: value < 0 is false for -0, so we check for negative infinity from 1/value
+        var isPast = value < 0 || double.IsNegativeInfinity(1.0 / value);
         var intValue = (long) System.Math.Round(absValue);
 
         // Handle "auto" numeric - special phrases
@@ -115,7 +117,6 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
             }
         }
 
-        var formattedNumber = absValue.ToString(CultureInfo);
         var unitName = GetUnitName(unit, absValue != 1);
 
         if (isEnglish)
@@ -123,18 +124,15 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
             if (isPast)
             {
                 // "X units ago"
-                AddIntegerPart(engine, result, ref index, formattedNumber, unit);
-                AddLiteralPart(engine, result, ref index, " ");
-                AddLiteralPart(engine, result, ref index, unitName);
-                AddLiteralPart(engine, result, ref index, " ago");
+                AddNumberParts(engine, result, ref index, absValue, unit, CultureInfo);
+                AddLiteralPart(engine, result, ref index, $" {unitName} ago");
             }
             else
             {
                 // "in X units"
                 AddLiteralPart(engine, result, ref index, "in ");
-                AddIntegerPart(engine, result, ref index, formattedNumber, unit);
-                AddLiteralPart(engine, result, ref index, " ");
-                AddLiteralPart(engine, result, ref index, unitName);
+                AddNumberParts(engine, result, ref index, absValue, unit, CultureInfo);
+                AddLiteralPart(engine, result, ref index, $" {unitName}");
             }
         }
         else
@@ -148,9 +146,8 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
             {
                 AddLiteralPart(engine, result, ref index, "+");
             }
-            AddIntegerPart(engine, result, ref index, formattedNumber, unit);
-            AddLiteralPart(engine, result, ref index, " ");
-            AddLiteralPart(engine, result, ref index, unitName);
+            AddNumberParts(engine, result, ref index, absValue, unit, CultureInfo);
+            AddLiteralPart(engine, result, ref index, $" {unitName}");
         }
 
         return result;
@@ -164,6 +161,58 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
         result.SetIndexValue(index++, part, updateLength: true);
     }
 
+    /// <summary>
+    /// Adds number parts decomposed into integer and group separator parts.
+    /// </summary>
+    private static void AddNumberParts(Engine engine, JsArray result, ref uint index, double value, string unit, CultureInfo cultureInfo)
+    {
+        var integerPart = (long) System.Math.Truncate(value);
+        var fractionPart = value - integerPart;
+
+        // Format integer part with grouping
+        var intStr = integerPart.ToString(CultureInfo.InvariantCulture);
+        var groupSeparator = cultureInfo.NumberFormat.NumberGroupSeparator;
+        var groupSize = 3;
+
+        if (intStr.Length <= groupSize)
+        {
+            // No grouping needed
+            AddIntegerPart(engine, result, ref index, intStr, unit);
+        }
+        else
+        {
+            // Add grouped integer parts
+            var position = intStr.Length % groupSize;
+            if (position == 0) position = groupSize;
+
+            var currentGroup = intStr.Substring(0, position);
+            AddIntegerPart(engine, result, ref index, currentGroup, unit);
+
+            while (position < intStr.Length)
+            {
+                AddGroupPart(engine, result, ref index, groupSeparator, unit);
+                currentGroup = intStr.Substring(position, groupSize);
+                AddIntegerPart(engine, result, ref index, currentGroup, unit);
+                position += groupSize;
+            }
+        }
+
+        // Handle fraction part if present
+        if (fractionPart > 0)
+        {
+            var decimalSeparator = cultureInfo.NumberFormat.NumberDecimalSeparator;
+            AddDecimalPart(engine, result, ref index, decimalSeparator, unit);
+
+            // Format fraction digits (up to 3)
+            var fractionStr = fractionPart.ToString("0.###", CultureInfo.InvariantCulture);
+            if (fractionStr.StartsWith("0.", StringComparison.Ordinal))
+            {
+                fractionStr = fractionStr.Substring(2);
+            }
+            AddFractionPart(engine, result, ref index, fractionStr, unit);
+        }
+    }
+
     private static void AddIntegerPart(Engine engine, JsArray result, ref uint index, string value, string unit)
     {
         var part = OrdinaryObjectCreate(engine, engine.Realm.Intrinsics.Object.PrototypeObject);
@@ -173,9 +222,38 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
         result.SetIndexValue(index++, part, updateLength: true);
     }
 
+    private static void AddGroupPart(Engine engine, JsArray result, ref uint index, string value, string unit)
+    {
+        var part = OrdinaryObjectCreate(engine, engine.Realm.Intrinsics.Object.PrototypeObject);
+        part.Set("type", "group");
+        part.Set("value", value);
+        part.Set("unit", unit);
+        result.SetIndexValue(index++, part, updateLength: true);
+    }
+
+    private static void AddDecimalPart(Engine engine, JsArray result, ref uint index, string value, string unit)
+    {
+        var part = OrdinaryObjectCreate(engine, engine.Realm.Intrinsics.Object.PrototypeObject);
+        part.Set("type", "decimal");
+        part.Set("value", value);
+        part.Set("unit", unit);
+        result.SetIndexValue(index++, part, updateLength: true);
+    }
+
+    private static void AddFractionPart(Engine engine, JsArray result, ref uint index, string value, string unit)
+    {
+        var part = OrdinaryObjectCreate(engine, engine.Realm.Intrinsics.Object.PrototypeObject);
+        part.Set("type", "fraction");
+        part.Set("value", value);
+        part.Set("unit", unit);
+        result.SetIndexValue(index++, part, updateLength: true);
+    }
+
     private static string? GetSpecialPhrase(long value, string unit, bool isPast)
     {
-        // English special phrases for common cases
+        // English special phrases per CLDR
+        // second/minute/hour only have special form for 0
+        // day/week/month/quarter/year have special forms for -1, 0, 1
         if (value == 0)
         {
             return unit switch
@@ -198,9 +276,6 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
             {
                 return unit switch
                 {
-                    "second" => "1 second ago",
-                    "minute" => "1 minute ago",
-                    "hour" => "1 hour ago",
                     "day" => "yesterday",
                     "week" => "last week",
                     "month" => "last month",
@@ -211,9 +286,6 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
             }
             return unit switch
             {
-                "second" => "in 1 second",
-                "minute" => "in 1 minute",
-                "hour" => "in 1 hour",
                 "day" => "tomorrow",
                 "week" => "next week",
                 "month" => "next month",
