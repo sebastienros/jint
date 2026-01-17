@@ -1,5 +1,5 @@
 {
-  "SuiteGitSha": "9079aeefcefcd55b0e994fb8bda51e06827337bd",
+  "SuiteGitSha": "f85c9511a380b9abb2877c42cc47e8fce06d56c5",
   //"SuiteDirectory": "//mnt/c/work/test262",
   "TargetPath": "./Generated",
   "Namespace": "Jint.Tests.Test262",
@@ -18,8 +18,7 @@
     "CanBlockIsFalse"
   ],
   "ExcludedDirectories": [
-    "annexB",
-    "intl402"
+    "annexB"
   ],
   "ExcludedFiles": [
 
@@ -153,7 +152,147 @@
 
     // TLA with complex module graph - dynamic import inside TLA module doesn't settle
     // when module has both static and dynamic imports with cyclic dependencies
-    "language/module-code/top-level-await/module-graphs-does-not-hang.js"
+    "language/module-code/top-level-await/module-graphs-does-not-hang.js",
+
+    // === INTL402 EXCLUSIONS ===
+    // The following tests require full CLDR locale data support which is not available in the default provider.
+    // Many of these tests require non-English locales (Spanish, Polish, German, Chinese, etc.) or
+    // advanced features like formatRange, calendar-specific formatting, or complex locale canonicalization.
+
+    // Collator - German phonebook collation and locale-specific collation data
+    "intl402/Collator/ignore-invalid-unicode-ext-values.js",
+    "intl402/Collator/prototype/compare/non-normative-phonebook.js",
+    "intl402/Collator/prototype/resolvedOptions/resolved-collation-unicode-extensions-and-options.js",
+    "intl402/Collator/unicode-ext-seq-in-private-tag.js",
+    "intl402/Collator/unicode-ext-value-collation.js",
+    "intl402/Collator/usage-de.js",
+
+    // Array/Date - locale-specific toLocaleString behavior
+    "intl402/Array/prototype/toLocaleString/invoke-element-tolocalestring.js",
+    "intl402/Date/prototype/returns-same-results-as-DateTimeFormat.js",
+    "intl402/Date/prototype/throws-same-exceptions-as-DateTimeFormat.js",
+    "intl402/Date/prototype/toLocaleString/default-options-object-prototype.js",
+
+    // DateTimeFormat - formatRange, calendar-specific, timezone, era formatting
+    "intl402/DateTimeFormat/canonicalize-timezone.js",
+    "intl402/DateTimeFormat/canonicalize-utc-timezone.js",
+    "intl402/DateTimeFormat/date-time-options.js",
+    "intl402/DateTimeFormat/prototype/format/numbering-system.js",
+    "intl402/DateTimeFormat/prototype/format/offset-timezone-gmt-same.js",
+    "intl402/DateTimeFormat/prototype/format/proleptic-gregorian-calendar.js",
+    "intl402/DateTimeFormat/prototype/format/related-year-zh.js",
+    "intl402/DateTimeFormat/prototype/formatRange/en-US.js",
+    "intl402/DateTimeFormat/prototype/formatRangeToParts/chinese-calendar-dates.js",
+    "intl402/DateTimeFormat/prototype/formatRangeToParts/dangi-calendar-dates.js",
+    "intl402/DateTimeFormat/prototype/formatRangeToParts/en-US.js",
+    "intl402/DateTimeFormat/prototype/formatRangeToParts/pattern-on-calendar.js",
+    "intl402/DateTimeFormat/prototype/formatToParts/chinese-calendar-dates.js",
+    "intl402/DateTimeFormat/prototype/formatToParts/era.js",
+    "intl402/DateTimeFormat/prototype/formatToParts/lunisolar-leap-months.js",
+    "intl402/DateTimeFormat/prototype/formatToParts/offset-timezone-correct.js",
+    "intl402/DateTimeFormat/prototype/formatToParts/pattern-on-calendar.js",
+    "intl402/DateTimeFormat/prototype/formatToParts/related-year.js",
+    "intl402/DateTimeFormat/prototype/formatToParts/related-year-zh.js",
+    "intl402/DateTimeFormat/prototype/resolvedOptions/hourCycle-timeStyle.js",
+    "intl402/DateTimeFormat/prototype/resolvedOptions/offset-timezone-change.js",
+    "intl402/DateTimeFormat/prototype/resolvedOptions/resolved-calendar-unicode-extensions-and-options.js",
+    "intl402/DateTimeFormat/prototype/resolvedOptions/resolved-hour-cycle-unicode-extensions-and-options.js",
+    "intl402/DateTimeFormat/prototype/resolvedOptions/resolved-locale-with-hc-unicode.js",
+    "intl402/DateTimeFormat/prototype/resolvedOptions/resolved-numbering-system-unicode-extensions-and-options.js",
+    "intl402/DateTimeFormat/timezone-case-insensitive.js",
+
+    // DisplayNames - error propagation edge cases and locale-specific display names
+    "intl402/DisplayNames/ctor-custom-get-prototype-poison-throws.js",
+    "intl402/DisplayNames/locales-length-poison-throws.js",
+    "intl402/DisplayNames/locales-length-tolength-throws.js",
+    "intl402/DisplayNames/locales-symbol-length.js",
+    "intl402/DisplayNames/prototype/of/type-calendar-invalid.js",
+    "intl402/DisplayNames/prototype/of/type-language-invalid.js",
+    "intl402/DisplayNames/prototype/resolvedOptions/return-object.js",
+
+    // DurationFormat - formatting with specific styles and locales
+    "intl402/DurationFormat/constructor-options-defaults.js",
+    "intl402/DurationFormat/prototype/format/duration-out-of-range-2.js",
+    "intl402/DurationFormat/prototype/format/duration-out-of-range-3.js",
+    "intl402/DurationFormat/prototype/format/fractions-of-subsecond-units-en.js",
+    "intl402/DurationFormat/prototype/format/mixed-non-numeric-styles-es.js",
+    "intl402/DurationFormat/prototype/format/mixed-short-and-numeric.js",
+    "intl402/DurationFormat/prototype/format/negative-durationstyle-long-en.js",
+    "intl402/DurationFormat/prototype/format/numeric-hour-with-zero-minutes-and-non-zero-seconds.js",
+    "intl402/DurationFormat/prototype/format/numeric-hour-with-zero-minutes-and-non-zero-seconds-with-auto-display.js",
+    "intl402/DurationFormat/prototype/format/numeric-hour-with-zero-minutes-and-non-zero-seconds-with-auto-display-and-zero-fractional.js",
+    "intl402/DurationFormat/prototype/format/precision-exact-mathematical-values.js",
+    "intl402/DurationFormat/prototype/format/rounding-mode-trunc-for-seconds.js",
+    "intl402/DurationFormat/prototype/format/style-digital-largenumber-en.js",
+    "intl402/DurationFormat/prototype/format/style-long-en.js",
+    "intl402/DurationFormat/prototype/formatToParts/formatToParts-style-digital-en.js",
+    "intl402/DurationFormat/prototype/formatToParts/formatToParts-style-long-en.js",
+    "intl402/DurationFormat/prototype/formatToParts/invalid-arguments-throws.js",
+    "intl402/DurationFormat/prototype/formatToParts/negative-duration-formatToParts-style-digital-en.js",
+    "intl402/DurationFormat/prototype/formatToParts/negative-duration-formatToParts-style-long-en.js",
+    "intl402/DurationFormat/prototype/resolvedOptions/resolved-numbering-system-unicode-extensions-and-options.js",
+
+    // Locale canonicalization - variant/region aliasing requires CLDR data
+    "intl402/Intl/getCanonicalLocales/complex-region-subtag-replacement.js",
+    "intl402/Intl/getCanonicalLocales/non-iana-canon.js",
+    "intl402/Intl/getCanonicalLocales/preferred-variant.js",
+    "intl402/Locale/reject-duplicate-variants-in-tlang.js",
+
+    // ListFormat - Spanish locale patterns
+    "intl402/ListFormat/prototype/format/es-es-long.js",
+    "intl402/ListFormat/prototype/format/es-es-short.js",
+    "intl402/ListFormat/prototype/formatToParts/es-es-long.js",
+    "intl402/ListFormat/prototype/formatToParts/es-es-short.js",
+
+    // NumberFormat - locale-specific unit formatting and formatRange
+    "intl402/NumberFormat/prototype/format/format-significant-digits.js",
+    "intl402/NumberFormat/prototype/format/unit-de-DE.js",
+    "intl402/NumberFormat/prototype/format/unit-ja-JP.js",
+    "intl402/NumberFormat/prototype/format/unit-ko-KR.js",
+    "intl402/NumberFormat/prototype/format/unit-zh-TW.js",
+    "intl402/NumberFormat/prototype/format/useGrouping-extended-en-IN.js",
+    "intl402/NumberFormat/prototype/format/value-decimal-string.js",
+    "intl402/NumberFormat/prototype/formatRange/en-US.js",
+    "intl402/NumberFormat/prototype/formatRange/pt-PT.js",
+    "intl402/NumberFormat/prototype/formatRangeToParts/en-US.js",
+    "intl402/NumberFormat/prototype/formatToParts/unit-de-DE.js",
+    "intl402/NumberFormat/prototype/formatToParts/unit-ja-JP.js",
+    "intl402/NumberFormat/prototype/formatToParts/unit-ko-KR.js",
+    "intl402/NumberFormat/prototype/formatToParts/unit-zh-TW.js",
+
+    // PluralRules - plural category ordering and notation handling
+    "intl402/PluralRules/prototype/resolvedOptions/order.js",
+    "intl402/PluralRules/prototype/resolvedOptions/plural-categories-order.js",
+    "intl402/PluralRules/prototype/select/notation.js",
+
+    // RelativeTimeFormat - Polish locale patterns
+    "intl402/RelativeTimeFormat/prototype/format/pl-pl-style-long.js",
+    "intl402/RelativeTimeFormat/prototype/format/pl-pl-style-narrow.js",
+    "intl402/RelativeTimeFormat/prototype/format/pl-pl-style-short.js",
+    "intl402/RelativeTimeFormat/prototype/formatToParts/pl-pl-style-long.js",
+    "intl402/RelativeTimeFormat/prototype/formatToParts/pl-pl-style-narrow.js",
+    "intl402/RelativeTimeFormat/prototype/formatToParts/pl-pl-style-short.js",
+
+    // Segmenter - segment iteration and containing method
+    "intl402/Segmenter/prototype/segment/containing/branding.js",
+    "intl402/Segmenter/prototype/segment/containing/breakable-input.js",
+    "intl402/Segmenter/prototype/segment/containing/unbreakable-input.js",
+    "intl402/Segmenter/prototype/segment/segment-tostring.js",
+
+    // String - Turkish/Lithuanian/Azeri locale-specific case conversions
+    "intl402/String/prototype/toLocaleLowerCase/capital_I_with_dot.js",
+    "intl402/String/prototype/toLocaleLowerCase/special_casing_Azeri.js",
+    "intl402/String/prototype/toLocaleLowerCase/special_casing_Lithuanian.js",
+    "intl402/String/prototype/toLocaleLowerCase/special_casing_Turkish.js",
+    "intl402/String/prototype/toLocaleLowerCase/validates-all-locale-identifiers.js",
+    "intl402/String/prototype/toLocaleUpperCase/validates-all-locale-identifiers.js",
+
+    // supportedValuesOf - currencies accepted by DisplayNames check
+    "intl402/Intl/supportedValuesOf/currencies-accepted-by-DisplayNames.js",
+
+    // Misc intl402 tests requiring full locale support
+    "intl402/fallback-locales-are-supported.js",
+    "intl402/supportedLocalesOf-consistent-with-resolvedOptions.js"
 
   ]
 }

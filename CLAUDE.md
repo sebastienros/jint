@@ -1,6 +1,9 @@
 # CLAUDE.md
 
-**Current development**: Target against main branch and compare changes against it.
+Important: Use JetBrains Rider MCP server when available
+Important: Never pass "--no-build" option to dotnet test, build or run - always ensure you are working with the latest compiled code.
+Important: Run tests in Release mode for faster feedback loop.
+Important: If you make changes to Test262Harness.settings.json you need to delete folder Jint.Tests.Test262\Generated before building.
 
 ## Build & Test Commands
 
@@ -12,8 +15,6 @@ dotnet build --configuration Release
 # Build specific project
 dotnet build --configuration Release Jint/Jint.csproj
 ```
-
-Important: Never use --no-build - always ensure you are working with the latest compiled code.
 
 ### Testing
 ```bash
@@ -32,9 +33,6 @@ dotnet test --configuration Release --filter "FullyQualifiedName~Jint.Tests.Runt
 # Run Test262 conformance tests
 dotnet test --configuration Release Jint.Tests.Test262/Jint.Tests.Test262.csproj
 ```
-
-Important: Run tests in Release mode for faster feedback loop.
-Important: If you make changes to Test262Harness.settings.json you need to delete folder Jint.Tests.Test262\Generated before building.
 
 ## Requirements
 

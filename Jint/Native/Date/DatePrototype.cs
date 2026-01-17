@@ -3,6 +3,7 @@
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Jint.Native.Intl;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -211,6 +212,7 @@ internal sealed class DatePrototype : Prototype
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.tolocalestring
+    /// https://tc39.es/ecma402/#sup-date.prototype.tolocalestring
     /// </summary>
     private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
     {
@@ -221,11 +223,32 @@ internal sealed class DatePrototype : Prototype
             return "Invalid Date";
         }
 
-        return ToLocalTime(dateInstance).ToString("F", Engine.Options.Culture);
+        var locales = arguments.At(0);
+        var options = arguments.At(1);
+
+        // Create options with dateStyle and timeStyle if not already specified
+        var optionsObj = IntlUtilities.CoerceOptionsToObject(Engine, options);
+        if (optionsObj.Get("dateStyle").IsUndefined() && optionsObj.Get("timeStyle").IsUndefined() &&
+            optionsObj.Get("year").IsUndefined() && optionsObj.Get("month").IsUndefined() &&
+            optionsObj.Get("day").IsUndefined() && optionsObj.Get("weekday").IsUndefined() &&
+            optionsObj.Get("hour").IsUndefined() && optionsObj.Get("minute").IsUndefined() &&
+            optionsObj.Get("second").IsUndefined())
+        {
+            // Set default dateStyle and timeStyle to "full" if no options provided
+            var newOptions = ObjectInstance.OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
+            newOptions.Set("dateStyle", "full");
+            newOptions.Set("timeStyle", "medium");
+            options = newOptions;
+        }
+
+        // Use Intl.DateTimeFormat for locale-aware formatting
+        var dateTimeFormat = (JsDateTimeFormat) Engine.Realm.Intrinsics.DateTimeFormat.Construct([locales, options], Engine.Realm.Intrinsics.DateTimeFormat);
+        return dateTimeFormat.Format(ToLocalTime(dateInstance));
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.tolocaledatestring
+    /// https://tc39.es/ecma402/#sup-date.prototype.tolocaledatestring
     /// </summary>
     private JsValue ToLocaleDateString(JsValue thisObject, JsCallArguments arguments)
     {
@@ -236,11 +259,30 @@ internal sealed class DatePrototype : Prototype
             return "Invalid Date";
         }
 
-        return ToLocalTime(dateInstance).ToString("D", Engine.Options.Culture);
+        var locales = arguments.At(0);
+        var options = arguments.At(1);
+
+        // Create options with dateStyle if not already specified
+        var optionsObj = IntlUtilities.CoerceOptionsToObject(Engine, options);
+        if (optionsObj.Get("dateStyle").IsUndefined() &&
+            optionsObj.Get("year").IsUndefined() &&
+            optionsObj.Get("month").IsUndefined() &&
+            optionsObj.Get("day").IsUndefined())
+        {
+            // Set default dateStyle to "full" if no date options provided
+            var newOptions = ObjectInstance.OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
+            newOptions.Set("dateStyle", "full");
+            options = newOptions;
+        }
+
+        // Use Intl.DateTimeFormat for locale-aware formatting
+        var dateTimeFormat = (JsDateTimeFormat) Engine.Realm.Intrinsics.DateTimeFormat.Construct([locales, options], Engine.Realm.Intrinsics.DateTimeFormat);
+        return dateTimeFormat.Format(ToLocalTime(dateInstance));
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.tolocaletimestring
+    /// https://tc39.es/ecma402/#sup-date.prototype.tolocaletimestring
     /// </summary>
     private JsValue ToLocaleTimeString(JsValue thisObject, JsCallArguments arguments)
     {
@@ -251,7 +293,25 @@ internal sealed class DatePrototype : Prototype
             return "Invalid Date";
         }
 
-        return ToLocalTime(dateInstance).ToString("T", Engine.Options.Culture);
+        var locales = arguments.At(0);
+        var options = arguments.At(1);
+
+        // Create options with timeStyle if not already specified
+        var optionsObj = IntlUtilities.CoerceOptionsToObject(Engine, options);
+        if (optionsObj.Get("timeStyle").IsUndefined() &&
+            optionsObj.Get("hour").IsUndefined() &&
+            optionsObj.Get("minute").IsUndefined() &&
+            optionsObj.Get("second").IsUndefined())
+        {
+            // Set default timeStyle to "medium" (time without timezone) if no time options provided
+            var newOptions = ObjectInstance.OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
+            newOptions.Set("timeStyle", "medium");
+            options = newOptions;
+        }
+
+        // Use Intl.DateTimeFormat for locale-aware formatting
+        var dateTimeFormat = (JsDateTimeFormat) Engine.Realm.Intrinsics.DateTimeFormat.Construct([locales, options], Engine.Realm.Intrinsics.DateTimeFormat);
+        return dateTimeFormat.Format(ToLocalTime(dateInstance));
     }
 
     private JsValue GetTime(JsValue thisObject, JsCallArguments arguments)
