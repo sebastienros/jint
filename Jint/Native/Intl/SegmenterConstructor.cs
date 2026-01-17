@@ -62,16 +62,17 @@ internal sealed class SegmenterConstructor : Constructor
         // Get options object (strict - throws TypeError for non-object)
         var optionsObj = IntlUtilities.GetOptionsObject(_engine, options);
 
-        // Validate localeMatcher option
-        GetStringOption(optionsObj, "localeMatcher", LocaleMatcherValues, "best fit");
+        // Per spec: Get options in the correct order
+        // Step 6: localeMatcher
+        var localeMatcher = GetStringOption(optionsObj, "localeMatcher", LocaleMatcherValues, "best fit");
 
-        // Resolve locale
+        // Step 11: granularity
+        var granularity = GetStringOption(optionsObj, "granularity", GranularityValues, "grapheme");
+
+        // Resolve locale (don't re-read localeMatcher from options)
         var requestedLocales = IntlUtilities.CanonicalizeLocaleList(_engine, locales);
         var availableLocales = IntlUtilities.GetAvailableLocales();
-        var resolved = IntlUtilities.ResolveLocale(_engine, availableLocales, requestedLocales, options, []);
-
-        // Get granularity option
-        var granularity = GetStringOption(optionsObj, "granularity", GranularityValues, "grapheme");
+        var resolved = IntlUtilities.ResolveLocale(_engine, availableLocales, requestedLocales, localeMatcher, []);
 
         // Get CultureInfo for the locale
         var culture = IntlUtilities.GetCultureInfo(resolved.Locale) ?? CultureInfo.InvariantCulture;

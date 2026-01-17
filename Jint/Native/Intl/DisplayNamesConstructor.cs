@@ -69,35 +69,35 @@ internal sealed class DisplayNamesConstructor : Constructor
         // Get options object
         var optionsObj = IntlUtilities.CoerceOptionsToObject(_engine, options);
 
-        // Validate localeMatcher option
-        GetStringOption(optionsObj, "localeMatcher", LocaleMatcherValues, "best fit");
+        // Per spec: Get options in the correct order
+        // Step 8: localeMatcher
+        var localeMatcher = GetStringOption(optionsObj, "localeMatcher", LocaleMatcherValues, "best fit");
 
-        // Resolve locale
-        var requestedLocales = IntlUtilities.CanonicalizeLocaleList(_engine, locales);
-        var availableLocales = IntlUtilities.GetAvailableLocales();
-        var resolvedLocale = ResolveDisplayNamesLocale(_engine, availableLocales, requestedLocales, optionsObj);
+        // Step 11: style (comes before type per spec)
+        var style = GetStringOption(optionsObj, "style", StyleValues, "long");
 
-        // Get type option (required)
+        // Step 13: type (required)
         var typeValue = optionsObj.Get("type");
         if (typeValue.IsUndefined())
         {
             Throw.TypeError(_realm, "Required option 'type' is undefined");
         }
-
         var type = GetStringOption(optionsObj, "type", TypeValues, "");
 
-        // Get style option
-        var style = GetStringOption(optionsObj, "style", StyleValues, "long");
-
-        // Get fallback option
+        // Step 15: fallback
         var fallback = GetStringOption(optionsObj, "fallback", FallbackValues, "code");
 
-        // Get languageDisplay option (only valid for type: "language")
+        // Step 17: languageDisplay (only valid for type: "language")
         string? languageDisplay = null;
         if (string.Equals(type, "language", StringComparison.Ordinal))
         {
             languageDisplay = GetStringOption(optionsObj, "languageDisplay", LanguageDisplayValues, "dialect");
         }
+
+        // Resolve locale (don't re-read localeMatcher from options)
+        var requestedLocales = IntlUtilities.CanonicalizeLocaleList(_engine, locales);
+        var availableLocales = IntlUtilities.GetAvailableLocales();
+        var resolvedLocale = ResolveDisplayNamesLocale(_engine, availableLocales, requestedLocales, localeMatcher);
 
         // Get CultureInfo for the locale
         var culture = IntlUtilities.GetCultureInfo(resolvedLocale) ?? CultureInfo.InvariantCulture;
@@ -137,9 +137,9 @@ internal sealed class DisplayNamesConstructor : Constructor
         return stringValue;
     }
 
-    private static string ResolveDisplayNamesLocale(Engine engine, HashSet<string> availableLocales, List<string> requestedLocales, ObjectInstance options)
+    private static string ResolveDisplayNamesLocale(Engine engine, HashSet<string> availableLocales, List<string> requestedLocales, string localeMatcher)
     {
-        var resolved = IntlUtilities.ResolveLocale(engine, availableLocales, requestedLocales, options, []);
+        var resolved = IntlUtilities.ResolveLocale(engine, availableLocales, requestedLocales, localeMatcher, []);
         return resolved.Locale;
     }
 

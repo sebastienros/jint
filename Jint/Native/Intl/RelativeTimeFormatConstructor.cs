@@ -61,10 +61,11 @@ internal sealed class RelativeTimeFormatConstructor : Constructor
         // Get options object (lenient - converts to object)
         var optionsObj = IntlUtilities.CoerceOptionsToObject(_engine, options);
 
-        // Validate localeMatcher option
-        GetStringOption(optionsObj, "localeMatcher", LocaleMatcherValues, "best fit");
+        // Per spec: Get options in the correct order
+        // Step 5: localeMatcher
+        var localeMatcher = GetStringOption(optionsObj, "localeMatcher", LocaleMatcherValues, "best fit");
 
-        // Read numberingSystem option (and validate it)
+        // Step 7: numberingSystem (read and validate)
         // Per spec, the value must be syntactically valid as a Unicode numbering system identifier
         // If not supported, we fall back to "latn" - we don't throw for valid-but-unsupported values
         var numberingSystemValue = optionsObj.Get("numberingSystem");
@@ -78,16 +79,16 @@ internal sealed class RelativeTimeFormatConstructor : Constructor
             }
         }
 
-        // Resolve locale
-        var requestedLocales = IntlUtilities.CanonicalizeLocaleList(_engine, locales);
-        var availableLocales = IntlUtilities.GetAvailableLocales();
-        var resolvedLocale = ResolveRelativeTimeFormatLocale(_engine, availableLocales, requestedLocales, optionsObj);
-
-        // Get style option
+        // Step 16: style
         var style = GetStringOption(optionsObj, "style", StyleValues, "long");
 
-        // Get numeric option
+        // Step 18: numeric
         var numeric = GetStringOption(optionsObj, "numeric", NumericValues, "always");
+
+        // Resolve locale (don't re-read localeMatcher from options)
+        var requestedLocales = IntlUtilities.CanonicalizeLocaleList(_engine, locales);
+        var availableLocales = IntlUtilities.GetAvailableLocales();
+        var resolvedLocale = ResolveRelativeTimeFormatLocale(_engine, availableLocales, requestedLocales, localeMatcher);
 
         // Resolve numbering system with proper fallback logic
         string? localeNumberingSystem = null;
@@ -334,9 +335,9 @@ internal sealed class RelativeTimeFormatConstructor : Constructor
         return stringValue;
     }
 
-    private static string ResolveRelativeTimeFormatLocale(Engine engine, HashSet<string> availableLocales, List<string> requestedLocales, ObjectInstance options)
+    private static string ResolveRelativeTimeFormatLocale(Engine engine, HashSet<string> availableLocales, List<string> requestedLocales, string localeMatcher)
     {
-        var resolved = IntlUtilities.ResolveLocale(engine, availableLocales, requestedLocales, options, []);
+        var resolved = IntlUtilities.ResolveLocale(engine, availableLocales, requestedLocales, localeMatcher, []);
         return resolved.Locale;
     }
 
