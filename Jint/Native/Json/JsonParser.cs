@@ -8,6 +8,35 @@ using Jint.Runtime;
 
 namespace Jint.Native.Json;
 
+/// <summary>
+/// Represents a parse node for tracking source text positions.
+/// Used for the JSON.parse source text access proposal.
+/// </summary>
+internal sealed class JsonParseNode
+{
+    public int Start { get; set; }
+    public int End { get; set; }
+    public bool IsPrimitive { get; set; }
+    public JsValue? OriginalValue { get; set; }
+    public List<JsonParseNode>? Elements { get; set; }
+    public Dictionary<string, JsonParseNode>? Entries { get; set; }
+}
+
+/// <summary>
+/// Result of parsing JSON with source information.
+/// </summary>
+internal readonly struct JsonParseResult
+{
+    public JsonParseResult(JsValue value, JsonParseNode? node)
+    {
+        Value = value;
+        Node = node;
+    }
+
+    public JsValue Value { get; }
+    public JsonParseNode? Node { get; }
+}
+
 public sealed class JsonParser
 {
     private readonly Engine _engine;
@@ -706,6 +735,214 @@ public sealed class JsonParser
             ThrowError(_lookahead, Messages.UnexpectedToken, _lookahead.Text);
         }
         return jsv;
+    }
+
+    /// <summary>
+    /// Parses JSON and returns both the value and source tracking information.
+    /// Used for the JSON.parse source text access proposal.
+    /// </summary>
+    internal JsonParseResult ParseWithSourceInfo(string code)
+    {
+        _source = code;
+        _index = 0;
+        _length = _source.Length;
+        _lookahead = null!;
+
+        State state = new State();
+
+        Peek(ref state);
+        var result = ParseJsonValueWithSourceInfo(ref state);
+
+        Peek(ref state);
+
+        if (_lookahead.Type != Tokens.EOF)
+        {
+            ThrowError(_lookahead, Messages.UnexpectedToken, _lookahead.Text);
+        }
+        return result;
+    }
+
+    private JsonParseResult ParseJsonValueWithSourceInfo(ref State state)
+    {
+        Tokens type = _lookahead.Type;
+        switch (type)
+        {
+            case Tokens.NullLiteral:
+            case Tokens.BooleanLiteral:
+            case Tokens.String:
+            case Tokens.Number:
+                var token = Lex(ref state);
+                var node = new JsonParseNode
+                {
+                    Start = token.Range.Start,
+                    End = token.Range.End,
+                    IsPrimitive = true,
+                    OriginalValue = token.Value
+                };
+                return new JsonParseResult(token.Value, node);
+            case Tokens.Punctuator:
+                if (_lookahead.FirstCharacter == '[')
+                {
+                    return ParseJsonArrayWithSourceInfo(ref state);
+                }
+                if (_lookahead.FirstCharacter == '{')
+                {
+                    return ParseJsonObjectWithSourceInfo(ref state);
+                }
+                ThrowUnexpected(Lex(ref state));
+                break;
+        }
+
+        ThrowUnexpected(Lex(ref state));
+        return new JsonParseResult(JsValue.Null, null);
+    }
+
+    private JsonParseResult ParseJsonArrayWithSourceInfo(ref State state)
+    {
+        if ((++state.CurrentDepth) > _maxDepth)
+        {
+            ThrowDepthLimitReached(_lookahead);
+        }
+
+        var startPos = _lookahead.Range.Start;
+        var elements = new List<JsonParseNode>();
+        List<JsValue>? valueList = null;
+
+        Expect(ref state, '[');
+
+        int bufferIndex = 0;
+        JsArray? result = null;
+
+        JsValue[] buffer = ArrayPool<JsValue>.Shared.Rent(16);
+        try
+        {
+            while (!Match(']'))
+            {
+                var elementResult = ParseJsonValueWithSourceInfo(ref state);
+                buffer[bufferIndex++] = elementResult.Value;
+                if (elementResult.Node != null)
+                {
+                    elements.Add(elementResult.Node);
+                }
+
+                if (!Match(']'))
+                {
+                    Expect(ref state, ',');
+                }
+
+                if (bufferIndex >= buffer.Length)
+                {
+                    if (valueList is null)
+                    {
+                        valueList = new List<JsValue>(buffer);
+                    }
+                    else
+                    {
+                        valueList.AddRange(buffer);
+                    }
+                    bufferIndex = 0;
+                }
+            }
+
+            if (bufferIndex > 0)
+            {
+                if (valueList is null)
+                {
+                    var data = new JsValue[bufferIndex];
+                    System.Array.Copy(buffer, data, length: bufferIndex);
+                    result = new JsArray(_engine, data);
+                }
+                else
+                {
+                    for (var i = 0; i < bufferIndex; ++i)
+                    {
+                        valueList.Add(buffer[i]);
+                    }
+                }
+            }
+            else if (valueList is null)
+            {
+                result = new JsArray(_engine);
+            }
+        }
+        finally
+        {
+            ArrayPool<JsValue>.Shared.Return(buffer);
+        }
+
+        Expect(ref state, ']');
+        var endPos = _index;
+        state.CurrentDepth--;
+
+        var arrayValue = result ?? new JsArray(_engine, valueList!.ToArray());
+        var arrayNode = new JsonParseNode
+        {
+            Start = startPos,
+            End = endPos,
+            IsPrimitive = false,
+            Elements = elements
+        };
+
+        return new JsonParseResult(arrayValue, arrayNode);
+    }
+
+    private JsonParseResult ParseJsonObjectWithSourceInfo(ref State state)
+    {
+        if ((++state.CurrentDepth) > _maxDepth)
+        {
+            ThrowDepthLimitReached(_lookahead);
+        }
+
+        var startPos = _lookahead.Range.Start;
+        var entries = new Dictionary<string, JsonParseNode>(StringComparer.Ordinal);
+
+        Expect(ref state, '{');
+
+        var obj = new JsObject(_engine);
+
+        while (!Match('}'))
+        {
+            Tokens type = _lookahead.Type;
+            if (type != Tokens.String)
+            {
+                ThrowUnexpected(Lex(ref state));
+            }
+
+            var nameToken = Lex(ref state);
+            var name = nameToken.Text;
+            if (PropertyNameContainsInvalidCharacters(name))
+            {
+                ThrowError(nameToken, Messages.InvalidCharacter);
+            }
+
+            Expect(ref state, ':');
+            var valueResult = ParseJsonValueWithSourceInfo(ref state);
+            obj.FastSetDataProperty(name, valueResult.Value);
+
+            if (valueResult.Node != null)
+            {
+                entries[name] = valueResult.Node;
+            }
+
+            if (!Match('}'))
+            {
+                Expect(ref state, ',');
+            }
+        }
+
+        Expect(ref state, '}');
+        var endPos = _index;
+        state.CurrentDepth--;
+
+        var objectNode = new JsonParseNode
+        {
+            Start = startPos,
+            End = endPos,
+            IsPrimitive = false,
+            Entries = entries
+        };
+
+        return new JsonParseResult(obj, objectNode);
     }
 
     [StructLayout(LayoutKind.Auto)]

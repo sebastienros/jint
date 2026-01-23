@@ -1,6 +1,7 @@
 using System.Diagnostics.Contracts;
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -661,31 +662,91 @@ public static class JsValueExtensions
     /// <param name="timeout">timeout to wait</param>
     /// <returns>inner value if Promise the value itself otherwise</returns>
     public static JsValue UnwrapIfPromise(this JsValue value, TimeSpan timeout)
+        => UnwrapIfPromiseCore(value, timeout, CancellationToken.None);
+
+    /// <summary>
+    /// If the value is a Promise
+    ///     1. If "Fulfilled" returns the value it was fulfilled with
+    ///     2. If "Rejected" throws "PromiseRejectedException" with the rejection reason
+    ///     3. If "Pending" throws "OperationCanceledException" if cancellation is requested
+    /// Else
+    ///     returns the value intact
+    /// </summary>
+    /// <param name="value">value to unwrap</param>
+    /// <param name="cancellationToken">cancellation token to observe</param>
+    /// <returns>inner value if Promise the value itself otherwise</returns>
+    public static JsValue UnwrapIfPromise(this JsValue value, CancellationToken cancellationToken)
+        => UnwrapIfPromiseCore(value, Timeout.InfiniteTimeSpan, cancellationToken);
+
+    private static JsValue UnwrapIfPromiseCore(JsValue value, TimeSpan timeout, CancellationToken cancellationToken)
     {
         if (value is JsPromise promise)
         {
             var engine = promise.Engine;
             var completedEvent = promise.CompletedEvent;
+            var eventLoop = engine.EventLoop;
 
-            engine.RunAvailableContinuations();
-            if (!completedEvent.Wait(timeout))
+            // Mark this thread as the one waiting on the promise. This prevents
+            // background threads (from Task completions) from executing JavaScript
+            // continuations - only this waiting thread is allowed to process them.
+            var previousWaitingThreadId = eventLoop._waitingThreadId;
+            eventLoop._waitingThreadId = System.Environment.CurrentManagedThreadId;
+
+            try
             {
-                Throw.PromiseRejectedException($"Timeout of {timeout} reached");
+                // Process continuations and poll with short intervals to handle
+                // continuations added by background tasks (like setTimeout callbacks)
+                var hasTimeout = timeout > TimeSpan.Zero;
+                var deadline = hasTimeout ? DateTime.UtcNow + timeout : DateTime.MaxValue;
+                var pollInterval = TimeSpan.FromMilliseconds(10);
+
+                while (promise.State == PromiseState.Pending)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    engine.RunAvailableContinuations();
+
+                    if (promise.State != PromiseState.Pending)
+                    {
+                        break;
+                    }
+
+                    if (hasTimeout)
+                    {
+                        var remaining = deadline - DateTime.UtcNow;
+                        if (remaining <= TimeSpan.Zero)
+                        {
+                            Throw.PromiseRejectedException($"Timeout of {timeout} reached");
+                        }
+
+                        var waitTime = remaining < pollInterval ? remaining : pollInterval;
+                        completedEvent.Wait(waitTime, cancellationToken);
+                    }
+                    else
+                    {
+                        // No timeout - just poll
+                        completedEvent.Wait(pollInterval, cancellationToken);
+                    }
+                }
+
+                switch (promise.State)
+                {
+                    case PromiseState.Pending:
+                        Throw.InvalidOperationException("'UnwrapIfPromise' called before Promise was settled");
+                        return null;
+                    case PromiseState.Fulfilled:
+                        return promise.Value;
+                    case PromiseState.Rejected:
+                        Throw.PromiseRejectedException(promise.Value);
+                        return null;
+                    default:
+                        Throw.ArgumentOutOfRangeException();
+                        return null;
+                }
             }
-
-            switch (promise.State)
+            finally
             {
-                case PromiseState.Pending:
-                    Throw.InvalidOperationException("'UnwrapIfPromise' called before Promise was settled");
-                    return null;
-                case PromiseState.Fulfilled:
-                    return promise.Value;
-                case PromiseState.Rejected:
-                    Throw.PromiseRejectedException(promise.Value);
-                    return null;
-                default:
-                    Throw.ArgumentOutOfRangeException();
-                    return null;
+                eventLoop._waitingThreadId = previousWaitingThreadId;
             }
         }
 

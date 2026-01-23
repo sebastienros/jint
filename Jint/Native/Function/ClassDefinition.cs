@@ -166,6 +166,13 @@ internal sealed class ClassDefinition
 
                 var target = !isStatic ? proto : F;
                 var element = ClassElementEvaluation(engine, target, e);
+
+                // Check for generator suspension after evaluating class element
+                if (engine.ExecutionContext.Suspended)
+                {
+                    return JsValue.Undefined;
+                }
+
                 if (element is PrivateElement privateElement)
                 {
                     var container = !isStatic ? instancePrivateMethods : staticPrivateMethods;
@@ -257,6 +264,12 @@ internal sealed class ClassDefinition
     private static ClassFieldDefinition ClassFieldDefinitionEvaluation(Engine engine, ObjectInstance homeObject, PropertyDefinition fieldDefinition)
     {
         var name = fieldDefinition.GetKey(engine);
+
+        // Check for generator suspension after evaluating computed property key
+        if (engine.ExecutionContext.Suspended)
+        {
+            return new ClassFieldDefinition { Name = JsValue.Undefined, Initializer = null };
+        }
 
         ScriptFunction? initializer = null;
         if (fieldDefinition.Value is not null)
@@ -366,16 +379,32 @@ internal sealed class ClassDefinition
         var intrinsics = engine.Realm.Intrinsics;
 
         var value = method.TryGetKey(engine);
+
+        // Check for generator suspension after evaluating computed property key
+        if (engine.ExecutionContext.Suspended)
+        {
+            return null;
+        }
+
         var propKey = TypeConverter.ToPropertyKey(value);
         var env = engine.ExecutionContext.LexicalEnvironment;
         var privateEnv = engine.ExecutionContext.PrivateEnvironment;
 
         if (function.Generator)
         {
-            var closure = intrinsics.Function.OrdinaryFunctionCreate(intrinsics.GeneratorFunction.PrototypeObject, definition, definition.ThisMode, env, privateEnv);
+            Prototype functionPrototype = function.Async
+                ? intrinsics.AsyncGeneratorFunction.PrototypeObject
+                : intrinsics.GeneratorFunction.PrototypeObject;
+
+            var closure = intrinsics.Function.OrdinaryFunctionCreate(functionPrototype!, definition, definition.ThisMode, env, privateEnv);
             closure.MakeMethod(obj);
             closure.SetFunctionName(propKey);
-            var prototype = ObjectInstance.OrdinaryObjectCreate(engine, intrinsics.GeneratorFunction.PrototypeObject.PrototypeObject);
+
+            ObjectInstance closurePrototype = function.Async
+                ? intrinsics.AsyncGeneratorFunction.PrototypeObject.PrototypeObject
+                : intrinsics.GeneratorFunction.PrototypeObject.PrototypeObject;
+
+            var prototype = ObjectInstance.OrdinaryObjectCreate(engine, closurePrototype);
             closure.DefinePropertyOrThrow(CommonProperties.Prototype, new PropertyDescriptor(prototype, PropertyFlag.Writable));
             return DefineMethodProperty(obj, propKey, closure, enumerable);
         }

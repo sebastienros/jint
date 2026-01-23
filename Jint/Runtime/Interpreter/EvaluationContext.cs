@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using Jint.Native.Generator;
 
 namespace Jint.Runtime.Interpreter;
 
@@ -26,6 +27,25 @@ internal sealed class EvaluationContext
 
     public readonly Engine Engine;
     public bool DebugMode => Engine._isDebugMode;
+
+    /// <summary>
+    /// Returns true if the generator is suspended (yielded) or a return was requested.
+    /// This is the combined check that should be used after evaluating sub-expressions.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool IsGeneratorAborted()
+    {
+        var generator = Engine.ExecutionContext.Generator;
+        return generator is not null &&
+               (generator._generatorState == GeneratorState.SuspendedYield || generator._returnRequested);
+    }
+
+    /// <summary>
+    /// Returns true if execution is suspended (generator at yield or async function at await).
+    /// Use this after evaluating expressions that may suspend.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool IsSuspended() => Engine?.ExecutionContext.IsSuspended == true;
 
     public Node LastSyntaxElement
     {

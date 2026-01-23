@@ -70,6 +70,14 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
                 if (declaration.Init != null)
                 {
                     value = declaration.Init.GetValue(context).Clone();
+
+                    // Check for generator suspension after evaluating initializer
+                    if (context.IsSuspended())
+                    {
+                        engine._referencePool.Return(lhs);
+                        return new Completion(CompletionType.Normal, value, _statement);
+                    }
+
                     if (declaration.Init._expression.IsFunctionDefinition())
                     {
                         ((Function) value).SetFunctionName(lhs.ReferencedName);
@@ -89,12 +97,24 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
 
                     var value = declaration.Init.GetValue(context);
 
+                    // Check for generator suspension after evaluating initializer
+                    if (context.IsSuspended())
+                    {
+                        return new Completion(CompletionType.Normal, value, _statement);
+                    }
+
                     DestructuringPatternAssignmentExpression.ProcessPatterns(
                         context,
                         declaration.LeftPattern,
                         value,
                         environment,
                         checkPatternPropertyReference: _statement.Kind != VariableDeclarationKind.Var);
+
+                    // Check for async/generator suspension after processing patterns
+                    if (context.IsSuspended())
+                    {
+                        return new Completion(CompletionType.Normal, JsValue.Undefined, _statement);
+                    }
                 }
                 else if (declaration.LeftIdentifierExpression == null
                          || JintAssignmentExpression.SimpleAssignmentExpression.AssignToIdentifier(
@@ -108,6 +128,13 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
                     lhs.AssertValid(engine.Realm);
 
                     var value = declaration.Init.GetValue(context).Clone();
+
+                    // Check for generator suspension after evaluating initializer
+                    if (context.IsSuspended())
+                    {
+                        engine._referencePool.Return(lhs);
+                        return new Completion(CompletionType.Normal, value, _statement);
+                    }
 
                     if (declaration.Init._expression.IsFunctionDefinition())
                     {

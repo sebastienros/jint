@@ -61,7 +61,9 @@ public sealed class FunctionConstructor : Constructor
         }
         else
         {
-            return InstantiateGeneratorFunctionObject(functionDeclaration, scope, privateEnv);
+            return function.Async
+                ? InstantiateAsyncGeneratorFunctionObject(functionDeclaration, scope, privateEnv)
+                : InstantiateGeneratorFunctionObject(functionDeclaration, scope, privateEnv);
         }
     }
 
@@ -129,6 +131,34 @@ public sealed class FunctionConstructor : Constructor
         F.SetFunctionName(name);
 
         var prototype = OrdinaryObjectCreate(_engine, _realm.Intrinsics.GeneratorFunction.PrototypeObject.PrototypeObject);
+        F.DefinePropertyOrThrow(CommonProperties.Prototype, new PropertyDescriptor(prototype, PropertyFlag.Writable));
+
+        return F;
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-runtime-semantics-instantiateasyncgeneratorfunctionobject
+    /// </summary>
+    private ScriptFunction InstantiateAsyncGeneratorFunctionObject(
+        JintFunctionDefinition functionDeclaration,
+        Environment scope,
+        PrivateEnvironment? privateScope)
+    {
+        var thisMode = functionDeclaration.Strict || _engine._isStrict
+            ? FunctionThisMode.Strict
+            : FunctionThisMode.Global;
+
+        var name = functionDeclaration.Function.Id?.Name ?? "default";
+        var F = OrdinaryFunctionCreate(
+            _realm.Intrinsics.AsyncGeneratorFunction.PrototypeObject,
+            functionDeclaration,
+            thisMode,
+            scope,
+            privateScope);
+
+        F.SetFunctionName(name);
+
+        var prototype = OrdinaryObjectCreate(_engine, _realm.Intrinsics.AsyncGeneratorFunction.PrototypeObject.PrototypeObject);
         F.DefinePropertyOrThrow(CommonProperties.Prototype, new PropertyDescriptor(prototype, PropertyFlag.Writable));
 
         return F;

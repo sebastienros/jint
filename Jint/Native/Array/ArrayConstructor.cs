@@ -2,8 +2,10 @@
 
 using System.Collections;
 using Jint.Native.Function;
+using Jint.Native.Generator;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
+using Jint.Native.Promise;
 using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -32,9 +34,10 @@ public sealed class ArrayConstructor : Constructor
 
     protected override void Initialize()
     {
-        var properties = new PropertyDictionary(3, checkExistingKeys: false)
+        var properties = new PropertyDictionary(4, checkExistingKeys: false)
         {
             ["from"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunction(Engine, "from", From, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable)),
+            ["fromAsync"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunction(Engine, "fromAsync", FromAsync, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable)),
             ["isArray"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunction(Engine, "isArray", IsArray, 1), PropertyFlag.NonEnumerable)),
             ["of"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunction(Engine, "of", Of, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable))
         };
@@ -88,6 +91,407 @@ public sealed class ArrayConstructor : Constructor
 
         var source = ArrayOperations.For(_realm, items, forWrite: false);
         return ConstructArrayFromArrayLike(thisObject, source, callable, thisArg);
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-array.fromasync
+    /// </summary>
+    private JsValue FromAsync(JsValue thisObject, JsCallArguments arguments)
+    {
+        var asyncItems = arguments.At(0);
+        var mapfn = arguments.At(1);
+        var thisArg = arguments.At(2);
+
+        // 1. Let C be the this value.
+        var c = thisObject;
+
+        // 2. Let promiseCapability be ! NewPromiseCapability(%Promise%).
+        var promiseCapability = PromiseConstructor.NewPromiseCapability(_engine, _realm.Intrinsics.Promise);
+
+        // 3. Let fromAsyncClosure be a new Abstract Closure with no parameters that captures C, mapfn, and thisArg
+        //    and performs the following steps when called:
+        // 4. Perform ! Call(fromAsyncClosure, undefined).
+        // The closure is called synchronously per spec (step 4)
+        FromAsyncClosure(c, asyncItems, mapfn, thisArg, promiseCapability);
+
+        // 5. Return promiseCapability.[[Promise]].
+        return promiseCapability.PromiseInstance;
+    }
+
+    private void FromAsyncClosure(JsValue c, JsValue asyncItems, JsValue mapfn, JsValue thisArg, PromiseCapability promiseCapability)
+    {
+        try
+        {
+            FromAsyncClosureImpl(c, asyncItems, mapfn, thisArg, promiseCapability);
+        }
+        catch (JavaScriptException e)
+        {
+            promiseCapability.Reject.Call(Undefined, e.Error);
+        }
+    }
+
+    private void FromAsyncClosureImpl(JsValue c, JsValue asyncItems, JsValue mapfn, JsValue thisArg, PromiseCapability promiseCapability)
+    {
+        // a. If mapfn is undefined, let mapping be false.
+        // b. Else,
+        //    i. If IsCallable(mapfn) is false, throw a TypeError exception.
+        //    ii. Let mapping be true.
+        ICallable? callable = null;
+        if (!mapfn.IsUndefined())
+        {
+            if (mapfn is not ICallable mapCallable)
+            {
+                Throw.TypeError(_realm, $"{mapfn} is not a function");
+                return;
+            }
+            callable = mapCallable;
+        }
+
+        // c. Let usingAsyncIterator be ? GetMethod(asyncItems, @@asyncIterator).
+        if (asyncItems.IsNullOrUndefined())
+        {
+            Throw.TypeError(_realm, "Cannot convert undefined or null to object");
+            return;
+        }
+
+        var usingAsyncIterator = GetMethod(_realm, asyncItems, GlobalSymbolRegistry.AsyncIterator);
+
+        // d. If usingAsyncIterator is undefined, then
+        //    i. Let usingSyncIterator be ? GetMethod(asyncItems, @@iterator).
+        ICallable? usingSyncIterator = null;
+        if (usingAsyncIterator is null)
+        {
+            usingSyncIterator = GetMethod(_realm, asyncItems, GlobalSymbolRegistry.Iterator);
+        }
+
+        // e. If usingAsyncIterator is not undefined or usingSyncIterator is not undefined, then
+        if (usingAsyncIterator is not null || usingSyncIterator is not null)
+        {
+            FromAsyncWithIterator(c, asyncItems, callable, thisArg, promiseCapability, usingAsyncIterator, usingSyncIterator);
+        }
+        else
+        {
+            // f. Else,
+            //    i. NOTE: asyncItems is neither an AsyncIterable nor an Iterable so assume it is an array-like object.
+            FromAsyncWithArrayLike(c, asyncItems, callable, thisArg, promiseCapability);
+        }
+    }
+
+    private void FromAsyncWithIterator(
+        JsValue c,
+        JsValue asyncItems,
+        ICallable? callable,
+        JsValue thisArg,
+        PromiseCapability promiseCapability,
+        ICallable? usingAsyncIterator,
+        ICallable? usingSyncIterator)
+    {
+        // ii. Let iteratorRecord be ? GetIterator(asyncItems, async).
+        // We'll handle both async and sync iterators
+        ObjectInstance instance;
+        if (!ReferenceEquals(this, c) && c is IConstructor constructor)
+        {
+            instance = constructor.Construct([], c);
+        }
+        else
+        {
+            instance = ArrayCreate(0);
+        }
+
+        var target = ArrayOperations.For(instance, forWrite: true);
+
+        if (usingAsyncIterator is not null)
+        {
+            // Use async iterator directly - GetIterator with Async hint handles the wrapping
+            var iterator = asyncItems.GetIterator(_realm, GeneratorKind.Async, usingAsyncIterator);
+            FromAsyncIteratorLoop(iterator.Instance, target, callable, thisArg, promiseCapability, 0);
+        }
+        else if (usingSyncIterator is not null)
+        {
+            // Wrap sync iterator in async wrapper
+            var syncIterator = asyncItems.GetIterator(_realm, GeneratorKind.Sync, usingSyncIterator);
+            var asyncIterator = new AsyncFromSyncIterator(_engine, syncIterator);
+            FromAsyncIteratorLoop(asyncIterator, target, callable, thisArg, promiseCapability, 0);
+        }
+    }
+
+    private void FromAsyncIteratorLoop(
+        ObjectInstance iterator,
+        ArrayOperations target,
+        ICallable? callable,
+        JsValue thisArg,
+        PromiseCapability promiseCapability,
+        ulong k)
+    {
+        try
+        {
+            // Get next method and call it
+            var nextMethod = iterator.Get(CommonProperties.Next);
+            if (nextMethod is not ICallable nextCallable)
+            {
+                promiseCapability.Reject.Call(Undefined, _realm.Intrinsics.TypeError.Construct("Iterator next is not a function"));
+                return;
+            }
+
+            var next = nextCallable.Call(iterator, Arguments.Empty);
+
+            // The result should be a promise (or wrap it in one)
+            var promiseResolve = _realm.Intrinsics.Promise.PromiseResolve(next);
+
+            var capturedK = k;
+            var onFulfilled = new ClrFunction(_engine, "", (_, args) =>
+            {
+                var iterResult = args.At(0);
+                if (iterResult is not ObjectInstance iterResultObj)
+                {
+                    promiseCapability.Reject.Call(Undefined, _realm.Intrinsics.TypeError.Construct("Iterator result is not an object"));
+                    return Undefined;
+                }
+
+                var done = TypeConverter.ToBoolean(iterResultObj.Get(CommonProperties.Done));
+                var value = iterResultObj.Get(CommonProperties.Value);
+                if (done)
+                {
+                    // Iteration complete
+                    target.SetLength(capturedK);
+                    promiseCapability.Resolve.Call(Undefined, target.Target);
+                    return Undefined;
+                }
+
+                ProcessAsyncIteratorValue(value, target, callable, thisArg, promiseCapability, capturedK, () =>
+                {
+                    // Queue next iteration to prevent stack overflow
+                    _engine.AddToEventLoop(() => FromAsyncIteratorLoop(iterator, target, callable, thisArg, promiseCapability, capturedK + 1));
+                });
+                return Undefined;
+            }, 1, PropertyFlag.Configurable);
+
+            var onRejected = new ClrFunction(_engine, "", (_, args) =>
+            {
+                promiseCapability.Reject.Call(Undefined, args);
+                return Undefined;
+            }, 1, PropertyFlag.Configurable);
+
+            PromiseOperations.PerformPromiseThen(_engine, (JsPromise) promiseResolve, onFulfilled, onRejected, null!);
+        }
+        catch (JavaScriptException e)
+        {
+            promiseCapability.Reject.Call(Undefined, e.Error);
+        }
+    }
+
+    private void ProcessAsyncIteratorValue(
+        JsValue value,
+        ArrayOperations target,
+        ICallable? callable,
+        JsValue thisArg,
+        PromiseCapability promiseCapability,
+        ulong k,
+        Action continueLoop)
+    {
+        // Await the value
+        var valuePromise = _realm.Intrinsics.Promise.PromiseResolve(value);
+
+        var onFulfilled = new ClrFunction(_engine, "", (_, args) =>
+        {
+            var resolvedValue = args.At(0);
+            ProcessMappedValue(resolvedValue, target, callable, thisArg, promiseCapability, k, continueLoop);
+            return Undefined;
+        }, 1, PropertyFlag.Configurable);
+
+        var onRejected = new ClrFunction(_engine, "", (_, args) =>
+        {
+            promiseCapability.Reject.Call(Undefined, args);
+            return Undefined;
+        }, 1, PropertyFlag.Configurable);
+
+        PromiseOperations.PerformPromiseThen(_engine, (JsPromise) valuePromise, onFulfilled, onRejected, null!);
+    }
+
+    private void ProcessMappedValue(
+        JsValue value,
+        ArrayOperations target,
+        ICallable? callable,
+        JsValue thisArg,
+        PromiseCapability promiseCapability,
+        ulong k,
+        Action continueLoop)
+    {
+        try
+        {
+            if (callable is not null)
+            {
+                // Apply mapfn
+                var mappedValue = callable.Call(thisArg, value, k);
+
+                // Await the mapped value
+                var mappedPromise = _realm.Intrinsics.Promise.PromiseResolve(mappedValue);
+
+                var onFulfilled = new ClrFunction(_engine, "", (_, args) =>
+                {
+                    var resolvedMapped = args.At(0);
+                    target.CreateDataPropertyOrThrow(k, resolvedMapped);
+                    // Queue continuation to prevent stack overflow
+                    _engine.AddToEventLoop(continueLoop);
+                    return Undefined;
+                }, 1, PropertyFlag.Configurable);
+
+                var onRejected = new ClrFunction(_engine, "", (_, args) =>
+                {
+                    promiseCapability.Reject.Call(Undefined, args);
+                    return Undefined;
+                }, 1, PropertyFlag.Configurable);
+
+                PromiseOperations.PerformPromiseThen(_engine, (JsPromise) mappedPromise, onFulfilled, onRejected, null!);
+            }
+            else
+            {
+                target.CreateDataPropertyOrThrow(k, value);
+                // Queue continuation to prevent stack overflow
+                _engine.AddToEventLoop(continueLoop);
+            }
+        }
+        catch (JavaScriptException e)
+        {
+            promiseCapability.Reject.Call(Undefined, e.Error);
+        }
+    }
+
+    private void FromAsyncWithArrayLike(
+        JsValue c,
+        JsValue asyncItems,
+        ICallable? callable,
+        JsValue thisArg,
+        PromiseCapability promiseCapability)
+    {
+        try
+        {
+            // ii. Let arrayLike be ! ToObject(asyncItems).
+            var arrayLike = TypeConverter.ToObject(_realm, asyncItems);
+
+            // iii. Let len be ? LengthOfArrayLike(arrayLike).
+            var len = arrayLike.GetLength();
+
+            // iv. If IsConstructor(C) is true, then
+            //     1. Let A be ? Construct(C, « 𝔽(len) »).
+            // v. Else,
+            //     1. Let A be ? ArrayCreate(len).
+            ObjectInstance a;
+            if (!ReferenceEquals(c, this) && c is IConstructor constructor)
+            {
+                a = constructor.Construct([len], c);
+            }
+            else
+            {
+                a = ArrayCreate(len);
+            }
+
+            var target = ArrayOperations.For(a, forWrite: true);
+            FromAsyncArrayLikeLoop(arrayLike, target, callable, thisArg, promiseCapability, 0, len);
+        }
+        catch (JavaScriptException e)
+        {
+            promiseCapability.Reject.Call(Undefined, e.Error);
+        }
+    }
+
+    private void FromAsyncArrayLikeLoop(
+        ObjectInstance arrayLike,
+        ArrayOperations target,
+        ICallable? callable,
+        JsValue thisArg,
+        PromiseCapability promiseCapability,
+        ulong k,
+        ulong len)
+    {
+        if (k >= len)
+        {
+            // Done
+            target.SetLength(len);
+            promiseCapability.Resolve.Call(Undefined, target.Target);
+            return;
+        }
+
+        try
+        {
+            // Get the value at k
+            var pk = k;
+            var kValue = arrayLike.Get(pk);
+
+            // Await the value
+            var valuePromise = _realm.Intrinsics.Promise.PromiseResolve(kValue);
+
+            var capturedK = k;
+            var onFulfilled = new ClrFunction(_engine, "", (_, args) =>
+            {
+                var resolvedValue = args.At(0);
+                ProcessArrayLikeMappedValue(arrayLike, resolvedValue, target, callable, thisArg, promiseCapability, capturedK, len);
+                return Undefined;
+            }, 1, PropertyFlag.Configurable);
+
+            var onRejected = new ClrFunction(_engine, "", (_, args) =>
+            {
+                promiseCapability.Reject.Call(Undefined, args);
+                return Undefined;
+            }, 1, PropertyFlag.Configurable);
+
+            PromiseOperations.PerformPromiseThen(_engine, (JsPromise) valuePromise, onFulfilled, onRejected, null!);
+        }
+        catch (JavaScriptException e)
+        {
+            promiseCapability.Reject.Call(Undefined, e.Error);
+        }
+    }
+
+    private void ProcessArrayLikeMappedValue(
+        ObjectInstance arrayLike,
+        JsValue value,
+        ArrayOperations target,
+        ICallable? callable,
+        JsValue thisArg,
+        PromiseCapability promiseCapability,
+        ulong k,
+        ulong len)
+    {
+        try
+        {
+            if (callable is not null)
+            {
+                // Apply mapfn
+                var mappedValue = callable.Call(thisArg, value, k);
+
+                // Await the mapped value
+                var mappedPromise = _realm.Intrinsics.Promise.PromiseResolve(mappedValue);
+
+                var capturedK = k;
+                var onFulfilled = new ClrFunction(_engine, "", (_, args) =>
+                {
+                    var resolvedMapped = args.At(0);
+                    target.CreateDataPropertyOrThrow(capturedK, resolvedMapped);
+                    // Queue next iteration to prevent stack overflow
+                    _engine.AddToEventLoop(() => FromAsyncArrayLikeLoop(arrayLike, target, callable, thisArg, promiseCapability, capturedK + 1, len));
+                    return Undefined;
+                }, 1, PropertyFlag.Configurable);
+
+                var onRejected = new ClrFunction(_engine, "", (_, args) =>
+                {
+                    promiseCapability.Reject.Call(Undefined, args);
+                    return Undefined;
+                }, 1, PropertyFlag.Configurable);
+
+                PromiseOperations.PerformPromiseThen(_engine, (JsPromise) mappedPromise, onFulfilled, onRejected, null!);
+            }
+            else
+            {
+                target.CreateDataPropertyOrThrow(k, value);
+                // Queue next iteration to prevent stack overflow
+                _engine.AddToEventLoop(() => FromAsyncArrayLikeLoop(arrayLike, target, callable, thisArg, promiseCapability, k + 1, len));
+            }
+        }
+        catch (JavaScriptException e)
+        {
+            promiseCapability.Reject.Call(Undefined, e.Error);
+        }
     }
 
     private ObjectInstance ConstructArrayFromArrayLike(

@@ -83,6 +83,12 @@ internal sealed class JintAssignmentExpression : JintExpression
                 case Operator.AdditionAssignment:
                     {
                         var rval = _right.GetValue(context);
+                        if (context.IsSuspended())
+                        {
+                            engine._referencePool.Return(lref);
+                            return rval;
+                        }
+
                         if (AreIntegerOperands(originalLeftValue, rval))
                         {
                             newLeftValue = (long) originalLeftValue.AsInteger() + rval.AsInteger();
@@ -119,6 +125,12 @@ internal sealed class JintAssignmentExpression : JintExpression
                 case Operator.SubtractionAssignment:
                     {
                         var rval = _right.GetValue(context);
+                        if (context.IsSuspended())
+                        {
+                            engine._referencePool.Return(lref);
+                            return rval;
+                        }
+
                         if (AreIntegerOperands(originalLeftValue, rval))
                         {
                             newLeftValue = JsNumber.Create(originalLeftValue.AsInteger() - rval.AsInteger());
@@ -139,6 +151,12 @@ internal sealed class JintAssignmentExpression : JintExpression
                 case Operator.MultiplicationAssignment:
                     {
                         var rval = _right.GetValue(context);
+                        if (context.IsSuspended())
+                        {
+                            engine._referencePool.Return(lref);
+                            return rval;
+                        }
+
                         if (AreIntegerOperands(originalLeftValue, rval))
                         {
                             newLeftValue = (long) originalLeftValue.AsInteger() * rval.AsInteger();
@@ -163,6 +181,12 @@ internal sealed class JintAssignmentExpression : JintExpression
                 case Operator.DivisionAssignment:
                     {
                         var rval = _right.GetValue(context);
+                        if (context.IsSuspended())
+                        {
+                            engine._referencePool.Return(lref);
+                            return rval;
+                        }
+
                         newLeftValue = Divide(context, originalLeftValue, rval);
                         break;
                     }
@@ -170,6 +194,12 @@ internal sealed class JintAssignmentExpression : JintExpression
                 case Operator.RemainderAssignment:
                     {
                         var rval = _right.GetValue(context);
+                        if (context.IsSuspended())
+                        {
+                            engine._referencePool.Return(lref);
+                            return rval;
+                        }
+
                         newLeftValue = Remainder(context, originalLeftValue, rval);
                         break;
                     }
@@ -177,6 +207,12 @@ internal sealed class JintAssignmentExpression : JintExpression
                 case Operator.BitwiseAndAssignment:
                     {
                         var rval = _right.GetValue(context);
+                        if (context.IsSuspended())
+                        {
+                            engine._referencePool.Return(lref);
+                            return rval;
+                        }
+
                         newLeftValue = TypeConverter.ToInt32(originalLeftValue) & TypeConverter.ToInt32(rval);
                         break;
                     }
@@ -184,6 +220,12 @@ internal sealed class JintAssignmentExpression : JintExpression
                 case Operator.BitwiseOrAssignment:
                     {
                         var rval = _right.GetValue(context);
+                        if (context.IsSuspended())
+                        {
+                            engine._referencePool.Return(lref);
+                            return rval;
+                        }
+
                         newLeftValue = TypeConverter.ToInt32(originalLeftValue) | TypeConverter.ToInt32(rval);
                         break;
                     }
@@ -191,6 +233,12 @@ internal sealed class JintAssignmentExpression : JintExpression
                 case Operator.BitwiseXorAssignment:
                     {
                         var rval = _right.GetValue(context);
+                        if (context.IsSuspended())
+                        {
+                            engine._referencePool.Return(lref);
+                            return rval;
+                        }
+
                         newLeftValue = TypeConverter.ToInt32(originalLeftValue) ^ TypeConverter.ToInt32(rval);
                         break;
                     }
@@ -198,6 +246,12 @@ internal sealed class JintAssignmentExpression : JintExpression
                 case Operator.LeftShiftAssignment:
                     {
                         var rval = _right.GetValue(context);
+                        if (context.IsSuspended())
+                        {
+                            engine._referencePool.Return(lref);
+                            return rval;
+                        }
+
                         newLeftValue = TypeConverter.ToInt32(originalLeftValue) << (int) (TypeConverter.ToUint32(rval) & 0x1F);
                         break;
                     }
@@ -205,6 +259,12 @@ internal sealed class JintAssignmentExpression : JintExpression
                 case Operator.RightShiftAssignment:
                     {
                         var rval = _right.GetValue(context);
+                        if (context.IsSuspended())
+                        {
+                            engine._referencePool.Return(lref);
+                            return rval;
+                        }
+
                         newLeftValue = TypeConverter.ToInt32(originalLeftValue) >> (int) (TypeConverter.ToUint32(rval) & 0x1F);
                         break;
                     }
@@ -212,6 +272,12 @@ internal sealed class JintAssignmentExpression : JintExpression
                 case Operator.UnsignedRightShiftAssignment:
                     {
                         var rval = _right.GetValue(context);
+                        if (context.IsSuspended())
+                        {
+                            engine._referencePool.Return(lref);
+                            return rval;
+                        }
+
                         newLeftValue = (uint) TypeConverter.ToInt32(originalLeftValue) >> (int) (TypeConverter.ToUint32(rval) & 0x1F);
                         break;
                     }
@@ -220,10 +286,17 @@ internal sealed class JintAssignmentExpression : JintExpression
                     {
                         if (!originalLeftValue.IsNullOrUndefined())
                         {
+                            engine._referencePool.Return(lref);
                             return originalLeftValue;
                         }
 
                         var rval = NamedEvaluation(context, _right);
+                        if (context.IsSuspended())
+                        {
+                            engine._referencePool.Return(lref);
+                            return rval;
+                        }
+
                         newLeftValue = rval;
                         break;
                     }
@@ -232,10 +305,17 @@ internal sealed class JintAssignmentExpression : JintExpression
                     {
                         if (!TypeConverter.ToBoolean(originalLeftValue))
                         {
+                            engine._referencePool.Return(lref);
                             return originalLeftValue;
                         }
 
                         var rval = NamedEvaluation(context, _right);
+                        if (context.IsSuspended())
+                        {
+                            engine._referencePool.Return(lref);
+                            return rval;
+                        }
+
                         newLeftValue = rval;
                         break;
                     }
@@ -244,10 +324,17 @@ internal sealed class JintAssignmentExpression : JintExpression
                     {
                         if (TypeConverter.ToBoolean(originalLeftValue))
                         {
+                            engine._referencePool.Return(lref);
                             return originalLeftValue;
                         }
 
                         var rval = NamedEvaluation(context, _right);
+                        if (context.IsSuspended())
+                        {
+                            engine._referencePool.Return(lref);
+                            return rval;
+                        }
+
                         newLeftValue = rval;
                         break;
                     }
@@ -255,6 +342,12 @@ internal sealed class JintAssignmentExpression : JintExpression
                 case Operator.ExponentiationAssignment:
                     {
                         var rval = _right.GetValue(context);
+                        if (context.IsSuspended())
+                        {
+                            engine._referencePool.Return(lref);
+                            return rval;
+                        }
+
                         if (!originalLeftValue.IsBigInt() && !rval.IsBigInt())
                         {
                             newLeftValue = JsNumber.Create(Math.Pow(TypeConverter.ToNumber(originalLeftValue), TypeConverter.ToNumber(rval)));
@@ -410,6 +503,13 @@ internal sealed class JintAssignmentExpression : JintExpression
 
             var rval = _right.GetValue(context);
 
+            // If generator suspended or return requested during right-hand side evaluation, don't assign
+            if (context.IsGeneratorAborted())
+            {
+                engine._referencePool.Return(lref);
+                return rval;
+            }
+
             engine.PutValue(lref, rval);
             engine._referencePool.Return(lref);
             return rval;
@@ -437,6 +537,12 @@ internal sealed class JintAssignmentExpression : JintExpression
 
                 var completion = right.GetValue(context);
                 if (context.IsAbrupt())
+                {
+                    return completion;
+                }
+
+                // If generator suspended or return requested during right-hand side evaluation, don't assign
+                if (context.IsGeneratorAborted())
                 {
                     return completion;
                 }

@@ -283,55 +283,55 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
 
         var relativeTarget = TypeConverter.ToIntegerOrInfinity(target);
 
-        long to;
+        long targetIndex;
         if (double.IsNegativeInfinity(relativeTarget))
         {
-            to = 0;
+            targetIndex = 0;
         }
         else if (relativeTarget < 0)
         {
-            to = (long) System.Math.Max(len + relativeTarget, 0);
+            targetIndex = (long) System.Math.Max(len + relativeTarget, 0);
         }
         else
         {
-            to = (long) System.Math.Min(relativeTarget, len);
+            targetIndex = (long) System.Math.Min(relativeTarget, len);
         }
 
         var relativeStart = TypeConverter.ToIntegerOrInfinity(start);
 
-        long from;
+        long startIndex;
         if (double.IsNegativeInfinity(relativeStart))
         {
-            from = 0;
+            startIndex = 0;
         }
         else if (relativeStart < 0)
         {
-            from = (long) System.Math.Max(len + relativeStart, 0);
+            startIndex = (long) System.Math.Max(len + relativeStart, 0);
         }
         else
         {
-            from = (long) System.Math.Min(relativeStart, len);
+            startIndex = (long) System.Math.Min(relativeStart, len);
         }
 
         var relativeEnd = end.IsUndefined()
             ? len
             : TypeConverter.ToIntegerOrInfinity(end);
 
-        long final;
+        long endIndex;
         if (double.IsNegativeInfinity(relativeEnd))
         {
-            final = 0;
+            endIndex = 0;
         }
         else if (relativeEnd < 0)
         {
-            final = (long) System.Math.Max(len + relativeEnd, 0);
+            endIndex = (long) System.Math.Max(len + relativeEnd, 0);
         }
         else
         {
-            final = (long) System.Math.Min(relativeEnd, len);
+            endIndex = (long) System.Math.Min(relativeEnd, len);
         }
 
-        var count = System.Math.Min(final - from, len - to);
+        var count = System.Math.Min(endIndex - startIndex, len - targetIndex);
 
         if (count > 0)
         {
@@ -345,11 +345,13 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
             }
 
             len = taRecord.TypedArrayLength;
+            count = System.Math.Min(count, System.Math.Min(len - startIndex, len - targetIndex));
+
             var elementSize = o._arrayElementType.GetElementSize();
             var byteOffset = o._byteOffset;
             var bufferByteLimit = len * elementSize + byteOffset;
-            var toByteIndex = to * elementSize + byteOffset;
-            var fromByteIndex = from * elementSize + byteOffset;
+            var toByteIndex = targetIndex * elementSize + byteOffset;
+            var fromByteIndex = startIndex * elementSize + byteOffset;
             var countBytes = count * elementSize;
 
             int direction;

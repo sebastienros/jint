@@ -36,4 +36,39 @@ internal class AsyncTestClass
 
         throw new Exception("Task threw exception");
     }
+
+#if !NETFRAMEWORK
+    public async ValueTask<string> ReturnDelayedValueTaskAsync()
+    {
+        await Task.Delay(100).ConfigureAwait(false);
+
+        return TestString;
+    }
+
+    public ValueTask<string> ReturnCompletedValueTask()
+    {
+        return ValueTask.FromResult(TestString);
+    }
+
+    public ValueTask<string> ReturnCancelledValueTask(CancellationToken token)
+    {
+        return ValueTask.FromCanceled<string>(token);
+    }
+
+    public async ValueTask<string> ThrowAfterDelayValueTaskAsync()
+    {
+        await Task.Delay(100).ConfigureAwait(false);
+
+        throw new Exception("ValueTask threw exception");
+    }
+
+    public async IAsyncEnumerable<string> AsyncEnumerable()
+    {
+        yield return "Hello";
+        await Task.Delay(10).ConfigureAwait(false);
+        yield return " ";
+        await Task.Delay(10).ConfigureAwait(false);
+        yield return "World";
+    }
+#endif
 }

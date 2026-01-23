@@ -64,6 +64,30 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
         Environment? oldEnv = null;
         DeclarativeEnvironment? loopEnv = null;
         var engine = context.Engine;
+
+        // Check if we're resuming from a yield/await inside this for statement
+        // If resuming from body, test, or update, skip initialization to avoid resetting loop variables
+        // If resuming from init expression, we must re-execute init to complete pending nested awaits
+        var suspendable = engine.ExecutionContext.Suspendable;
+
+        // Get the resume node from the unified interface
+        Node? resumeNode = null;
+        if (suspendable is { IsResuming: true, LastSuspensionNode: not null })
+        {
+            // LastSuspensionNode could be a Node directly (yield) or a JintExpression (await)
+            resumeNode = suspendable.LastSuspensionNode as Node
+                ?? (suspendable.LastSuspensionNode as JintExpression)?._expression as Node;
+        }
+
+        // Only skip init when resuming from body/test/update, NOT from init
+        var resumingInLoop = resumeNode is not null && IsNodeInsideForStatementExcludingInit(resumeNode);
+
+        ForLoopSuspendData? suspendData = null;
+        if (resumingInLoop && _boundNames != null)
+        {
+            suspendable?.Data.TryGet(this, out suspendData);
+        }
+
         if (_boundNames != null)
         {
             oldEnv = engine.ExecutionContext.LexicalEnvironment;
@@ -73,7 +97,8 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
             for (var i = 0; i < _boundNames.Count; i++)
             {
                 var name = _boundNames[i];
-                if (kind == VariableDeclarationKind.Const)
+                // const, using, and await using all create immutable bindings
+                if (kind is VariableDeclarationKind.Const or VariableDeclarationKind.Using or VariableDeclarationKind.AwaitUsing)
                 {
                     loopEnvRec.CreateImmutableBinding(name);
                 }
@@ -84,18 +109,43 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
             }
 
             engine.UpdateLexicalEnvironment(loopEnv);
+
+            // Restore loop variable values if resuming
+            if (resumingInLoop && suspendData?.BoundValues is not null)
+            {
+                foreach (var kvp in suspendData.BoundValues)
+                {
+                    loopEnvRec.InitializeBinding(kvp.Key, kvp.Value, DisposeHint.Normal);
+                }
+            }
         }
 
         var completion = Completion.Empty();
         try
         {
-            if (_initExpression != null)
+            // Skip initialization if resuming from inside the loop (body, test, or update)
+            if (!resumingInLoop)
             {
-                _initExpression?.GetValue(context);
-            }
-            else
-            {
-                _initStatement?.Execute(context);
+                if (_initExpression != null)
+                {
+                    _initExpression?.GetValue(context);
+
+                    // Check for async suspension in init expression
+                    if (context.IsSuspended())
+                    {
+                        return new Completion(CompletionType.Return, JsValue.Undefined, _statement);
+                    }
+                }
+                else
+                {
+                    _initStatement?.Execute(context);
+
+                    // Check for async suspension in init statement
+                    if (context.IsSuspended())
+                    {
+                        return new Completion(CompletionType.Return, JsValue.Undefined, _statement);
+                    }
+                }
             }
 
             completion = ForBodyEvaluation(context);
@@ -105,10 +155,72 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
         {
             if (oldEnv is not null)
             {
+                // Save loop variable values if generator/async function is suspended (don't save on normal completion)
+                if (context.IsSuspended() && _boundNames != null && suspendable is not null)
+                {
+                    // Use the CURRENT lexical environment, not loopEnv, because
+                    // CreatePerIterationEnvironment may have created new environments during the loop
+                    var currentEnv = engine.ExecutionContext.LexicalEnvironment;
+
+                    var data = suspendable.Data.GetOrCreate<ForLoopSuspendData>(this);
+                    data.BoundValues ??= new Dictionary<Key, JsValue>();
+                    for (var i = 0; i < _boundNames.Count; i++)
+                    {
+                        var name = _boundNames[i];
+                        var value = currentEnv.GetBindingValue(name, strict: false);
+                        data.BoundValues[name] = value;
+                    }
+                }
+                else if (!context.IsSuspended())
+                {
+                    // Clear suspend data on normal completion
+                    suspendable?.Data.Clear(this);
+                }
+
                 loopEnv!.DisposeResources(completion);
                 engine.UpdateLexicalEnvironment(oldEnv);
             }
         }
+    }
+
+    /// <summary>
+    /// Checks if the given node is inside this for statement's body, test, or update (but NOT init).
+    /// Used to determine if we're resuming from a yield/await inside the loop.
+    /// When resuming from init, we must re-execute init to complete nested awaits.
+    /// When resuming from body/test/update, we skip init to avoid resetting variables.
+    /// </summary>
+    private bool IsNodeInsideForStatementExcludingInit(Node node)
+    {
+        var nodeRange = node.Range;
+
+        // Check if inside body
+        var bodyRange = _statement.Body.Range;
+        if (bodyRange.Start <= nodeRange.Start && nodeRange.End <= bodyRange.End)
+        {
+            return true;
+        }
+
+        // Check if inside test expression
+        if (_statement.Test != null)
+        {
+            var testRange = _statement.Test.Range;
+            if (testRange.Start <= nodeRange.Start && nodeRange.End <= testRange.End)
+            {
+                return true;
+            }
+        }
+
+        // Check if inside update expression
+        if (_statement.Update != null)
+        {
+            var updateRange = _statement.Update.Range;
+            if (updateRange.Start <= nodeRange.Start && nodeRange.End <= updateRange.End)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -127,11 +239,29 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
 
         while (true)
         {
+            // Only clear completed awaits cache when starting a NEW iteration, not when resuming.
+            // When resuming from a nested await (e.g., "for (; await await await x;)"),
+            // we need the cached values of already-completed awaits to continue evaluation.
+            // Note: _completedAwaits is async-specific, so we access AsyncFunction directly here
+            var asyncFn = context.Engine.ExecutionContext.AsyncFunction;
+            if (asyncFn is null || !asyncFn._isResuming)
+            {
+                asyncFn?._completedAwaits?.Clear();
+            }
+
             if (_test != null)
             {
                 debugHandler?.OnStep(_test._expression);
 
-                if (!TypeConverter.ToBoolean(_test.GetValue(context)))
+                var testValue = _test.GetValue(context);
+
+                // Check for async suspension in test expression
+                if (context.IsSuspended())
+                {
+                    return new Completion(CompletionType.Return, JsValue.Undefined, ((JintStatement) this)._statement);
+                }
+
+                if (!TypeConverter.ToBoolean(testValue))
                 {
                     return new Completion(CompletionType.Normal, v, ((JintStatement) this)._statement);
                 }
@@ -141,6 +271,14 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
             if (!result.Value.IsEmpty)
             {
                 v = result.Value;
+            }
+
+            // Check for suspension - if suspended, we need to exit the loop
+            var suspendable = context.Engine.ExecutionContext.Suspendable;
+            if (context.IsSuspended())
+            {
+                var suspendedValue = suspendable?.SuspendedValue ?? result.Value;
+                return new Completion(CompletionType.Return, suspendedValue, ((JintStatement) this)._statement);
             }
 
             if (result.Type == CompletionType.Break && (context.Target == null || string.Equals(context.Target, _statement?.LabelSet?.Name, StringComparison.Ordinal)))
@@ -165,6 +303,20 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
             {
                 debugHandler?.OnStep(_increment._expression);
                 _increment.Evaluate(context);
+
+                // Check for suspension in update expression (e.g., yield in the update)
+                if (context.IsSuspended())
+                {
+                    var suspendedValue = suspendable?.SuspendedValue ?? JsValue.Undefined;
+                    return new Completion(CompletionType.Return, suspendedValue, ((JintStatement) this)._statement);
+                }
+
+                // Check for return request (e.g., generator.return() was called)
+                if (suspendable?.ReturnRequested == true)
+                {
+                    var returnValue = suspendable.SuspendedValue ?? JsValue.Undefined;
+                    return new Completion(CompletionType.Return, returnValue, ((JintStatement) this)._statement);
+                }
             }
         }
     }

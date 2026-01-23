@@ -41,6 +41,12 @@ internal sealed class NullishCoalescingExpression : JintExpression
     {
         var left = _left.GetValue(context);
 
+        // Check for generator suspension after evaluating left operand
+        if (context.IsSuspended())
+        {
+            return left;
+        }
+
         return !left.IsNullOrUndefined()
             ? left
             : _constant ?? _right!.GetValue(context);

@@ -3,6 +3,7 @@ using Jint.Native.AggregateError;
 using Jint.Native.Array;
 using Jint.Native.ArrayBuffer;
 using Jint.Native.AsyncFunction;
+using Jint.Native.AsyncGenerator;
 using Jint.Native.Atomics;
 using Jint.Native.BigInt;
 using Jint.Native.Boolean;
@@ -68,7 +69,11 @@ public sealed partial class Intrinsics
     private ReflectInstance? _reflect;
     private EvalFunction? _eval;
     private DateConstructor? _date;
-    private IteratorPrototype? _iteratorPrototype;
+    private IteratorConstructor? _iteratorConstructor;
+    private IteratorHelperPrototype? _iteratorHelperPrototype;
+    private WrapForValidIteratorPrototype? _wrapForValidIteratorPrototype;
+    private AsyncIteratorPrototype? _asyncIteratorPrototype;
+    private AsyncFromSyncIteratorPrototype? _asyncFromSyncIteratorPrototype;
     private MathInstance? _math;
     private JsonInstance? _json;
     private SymbolConstructor? _symbol;
@@ -225,8 +230,22 @@ public sealed partial class Intrinsics
     internal PromiseConstructor Promise =>
         _promise ??= new PromiseConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
-    internal IteratorPrototype IteratorPrototype =>
-        _iteratorPrototype ??= new IteratorPrototype(_engine, _realm, Object.PrototypeObject);
+    internal IteratorConstructor Iterator =>
+        _iteratorConstructor ??= new IteratorConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    internal IteratorPrototype IteratorPrototype => Iterator.PrototypeObject;
+
+    internal IteratorHelperPrototype IteratorHelperPrototype =>
+        _iteratorHelperPrototype ??= new IteratorHelperPrototype(_engine, _realm, IteratorPrototype);
+
+    internal WrapForValidIteratorPrototype WrapForValidIteratorPrototype =>
+        _wrapForValidIteratorPrototype ??= new WrapForValidIteratorPrototype(_engine, _realm, IteratorPrototype);
+
+    internal AsyncIteratorPrototype AsyncIteratorPrototype =>
+        _asyncIteratorPrototype ??= new AsyncIteratorPrototype(_engine, _realm, Object.PrototypeObject);
+
+    internal AsyncFromSyncIteratorPrototype AsyncFromSyncIteratorPrototype =>
+        _asyncFromSyncIteratorPrototype ??= new AsyncFromSyncIteratorPrototype(_engine, _realm, AsyncIteratorPrototype);
 
     internal StringConstructor String =>
         _string ??= new StringConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
@@ -274,7 +293,7 @@ public sealed partial class Intrinsics
         _generatorFunction ??= new GeneratorFunctionConstructor(_engine, _realm, Function.PrototypeObject, IteratorPrototype);
 
     internal AsyncGeneratorFunctionConstructor AsyncGeneratorFunction =>
-        _asyncGeneratorFunction ??= new AsyncGeneratorFunctionConstructor(_engine, _realm, AsyncFunction.PrototypeObject, IteratorPrototype);
+        _asyncGeneratorFunction ??= new AsyncGeneratorFunctionConstructor(_engine, _realm, Function.PrototypeObject, AsyncIteratorPrototype);
 
     public EvalFunction Eval =>
         _eval ??= new EvalFunction(_engine, _realm, Function.PrototypeObject);

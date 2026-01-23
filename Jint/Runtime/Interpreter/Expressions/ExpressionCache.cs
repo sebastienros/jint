@@ -86,6 +86,13 @@ internal sealed class ExpressionCache
         for (uint i = 0; i < (uint) expressions.Length; i++)
         {
             targetArray[i] = GetValue(context, expressions[i])!;
+
+            // Check for generator suspension after each expression evaluation
+            // This is needed because yield expressions return normally instead of throwing
+            if (context.IsSuspended())
+            {
+                return;
+            }
         }
     }
 
@@ -147,6 +154,14 @@ internal sealed class ExpressionCache
             if (expression is JintSpreadExpression jse)
             {
                 jse.GetValueAndCheckIterator(context, out var objectInstance, out var iterator);
+
+                // If generator suspended during spread expression evaluation, stop processing
+                // The iterator will be null because we haven't started iteration yet
+                if (context.IsSuspended())
+                {
+                    return;
+                }
+
                 // optimize for array unless someone has touched the iterator
                 if (objectInstance is JsArray { HasOriginalIterator: true } ai)
                 {
@@ -166,6 +181,12 @@ internal sealed class ExpressionCache
             else
             {
                 target.Add(GetValue(context, expression)!);
+
+                // Check for generator suspension after each expression evaluation
+                if (context.IsSuspended())
+                {
+                    return;
+                }
             }
         }
     }

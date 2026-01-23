@@ -40,13 +40,18 @@ public partial class ObjectInstance
         // If the host is a web browser, then
         // Perform ? HostEnsureCanAddPrivateElement(O).
 
+        if (!Extensible)
+        {
+            Throw.TypeError(_engine.Realm, "Object is not extensible");
+        }
+
         var entry = PrivateElementFind(method.Key);
         if (entry is not null)
         {
             Throw.TypeError(_engine.Realm, "Already present");
         }
 
-        _privateElements ??= new Dictionary<PrivateName, PrivateElement>();
+        _privateElements ??= [];
         _privateElements.Add(method.Key, method);
     }
 
@@ -58,13 +63,18 @@ public partial class ObjectInstance
         // If the host is a web browser, then
         // Perform ? HostEnsureCanAddPrivateElement(O).
 
+        if (!Extensible)
+        {
+            Throw.TypeError(_engine.Realm, "Object is not extensible");
+        }
+
         var entry = PrivateElementFind(property);
         if (entry is not null)
         {
             Throw.TypeError(_engine.Realm, "Already present");
         }
 
-        _privateElements ??= new Dictionary<PrivateName, PrivateElement>();
+        _privateElements ??= [];
         _privateElements.Add(property, new PrivateElement { Key = property, Kind = PrivateElementKind.Field, Value = value });
     }
 

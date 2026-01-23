@@ -274,14 +274,132 @@ internal sealed class StringPrototype : StringInstance
     {
         TypeConverter.RequireObjectCoercible(_engine, thisObject);
         var s = TypeConverter.ToString(thisObject);
-        return new JsString(s.ToLower(CultureInfo.InvariantCulture));
+        return ToLowerCaseWithSpecialCasing(s, CultureInfo.InvariantCulture);
     }
 
     private JsValue ToLowerCase(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(_engine, thisObject);
         var s = TypeConverter.ToString(thisObject);
-        return s.ToLowerInvariant();
+        return ToLowerCaseWithSpecialCasing(s, CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// Converts string to lowercase with Unicode special casing rules.
+    /// Handles Final_Sigma context for Greek capital sigma (U+03A3).
+    /// https://unicode.org/reports/tr21/tr21-5.html#SpecialCasing
+    /// </summary>
+    private static string ToLowerCaseWithSpecialCasing(string s, CultureInfo culture)
+    {
+        const char GreekCapitalSigma = '\u03A3';
+
+        // Fast path: if no Greek capital sigma, use standard lowercase
+        if (s.IndexOf(GreekCapitalSigma) < 0)
+        {
+            return s.ToLower(culture);
+        }
+
+        // Need to handle Final_Sigma context
+        var result = new char[s.Length];
+        for (var i = 0; i < s.Length; i++)
+        {
+            var c = s[i];
+            if (c == GreekCapitalSigma)
+            {
+                // Check if this is a Final_Sigma context
+                // Final_Sigma: preceded by cased letter (skipping Case_Ignorable), not followed by cased letter (skipping Case_Ignorable)
+                result[i] = IsFinalSigmaContext(s, i) ? '\u03C2' : '\u03C3';
+            }
+            else
+            {
+                result[i] = char.ToLower(c, culture);
+            }
+        }
+
+        return new string(result);
+    }
+
+    /// <summary>
+    /// Determines if the character at the given position is in a Final_Sigma context.
+    /// Final_Sigma: C is preceded by a sequence consisting of a cased letter and then zero or more Case_Ignorable characters,
+    /// and C is NOT followed by a sequence consisting of zero or more Case_Ignorable characters and then a cased letter.
+    /// https://unicode.org/reports/tr21/tr21-5.html#Context
+    /// </summary>
+    private static bool IsFinalSigmaContext(string s, int index)
+    {
+        // Check backward: must find a cased letter (skipping Case_Ignorable)
+        var foundCasedBefore = false;
+        for (var i = index - 1; i >= 0; i--)
+        {
+            var c = s[i];
+            if (IsCased(c))
+            {
+                foundCasedBefore = true;
+                break;
+            }
+            if (!IsCaseIgnorable(c))
+            {
+                break;
+            }
+        }
+
+        if (!foundCasedBefore)
+        {
+            return false;
+        }
+
+        // Check forward: must NOT find a cased letter (skipping Case_Ignorable)
+        for (var i = index + 1; i < s.Length; i++)
+        {
+            var c = s[i];
+            if (IsCased(c))
+            {
+                return false; // Found cased letter after, so NOT Final_Sigma
+            }
+            if (!IsCaseIgnorable(c))
+            {
+                break;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Checks if a character is "cased" (has uppercase or lowercase property).
+    /// A character is cased if it has the Lowercase or Uppercase property, or has General_Category=Titlecase_Letter.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsCased(char c)
+    {
+        // Cased = Lowercase OR Uppercase OR General_Category=Lt
+        return char.IsLetter(c) && (char.IsLower(c) || char.IsUpper(c) || CharUnicodeInfo.GetUnicodeCategory(c) == UnicodeCategory.TitlecaseLetter);
+    }
+
+    /// <summary>
+    /// Checks if a character is Case_Ignorable.
+    /// Case_Ignorable characters include: Mn (Nonspacing_Mark), Me (Enclosing_Mark), Cf (Format),
+    /// Lm (Modifier_Letter), Sk (Modifier_Symbol), and characters with Word_Break property MidLetter, MidNumLet, or Single_Quote.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsCaseIgnorable(char c)
+    {
+        var category = CharUnicodeInfo.GetUnicodeCategory(c);
+        return category == UnicodeCategory.NonSpacingMark ||      // Mn
+               category == UnicodeCategory.EnclosingMark ||       // Me
+               category == UnicodeCategory.Format ||              // Cf (includes U+180E Mongolian Vowel Separator)
+               category == UnicodeCategory.ModifierLetter ||      // Lm
+               category == UnicodeCategory.ModifierSymbol ||      // Sk
+               c == '\u0027' ||                                   // APOSTROPHE (Word_Break=Single_Quote)
+               c == '\u00B7' ||                                   // MIDDLE DOT (Word_Break=MidLetter)
+               c == '\u0387' ||                                   // GREEK ANO TELEIA (Word_Break=MidLetter)
+               c == '\u05F4' ||                                   // HEBREW PUNCTUATION GERSHAYIM (Word_Break=MidLetter)
+               c == '\u2019' ||                                   // RIGHT SINGLE QUOTATION MARK (Word_Break=Single_Quote)
+               c == '\u2027' ||                                   // HYPHENATION POINT (Word_Break=MidLetter)
+               c == '\uFE13' ||                                   // PRESENTATION FORM FOR VERTICAL COLON (Word_Break=MidLetter)
+               c == '\uFE55' ||                                   // SMALL COLON (Word_Break=MidLetter)
+               c == '\uFF07' ||                                   // FULLWIDTH APOSTROPHE (Word_Break=MidNumLet)
+               c == '\uFF1A';                                     // FULLWIDTH COLON (Word_Break=MidLetter)
     }
 
     private static int ToIntegerSupportInfinity(JsValue numberVal)
@@ -565,7 +683,9 @@ internal sealed class StringPrototype : StringInstance
         var searchValue = arguments.At(0);
         var replaceValue = arguments.At(1);
 
-        if (!searchValue.IsNullOrUndefined())
+        // 2. If searchValue is neither undefined nor null, then
+        // Note: spec requires checking if searchValue IS an object, not just not-null/undefined
+        if (searchValue is ObjectInstance)
         {
             var replacer = GetMethod(_realm, searchValue, GlobalSymbolRegistry.Replace);
             if (replacer != null)
@@ -617,7 +737,9 @@ internal sealed class StringPrototype : StringInstance
         var searchValue = arguments.At(0);
         var replaceValue = arguments.At(1);
 
-        if (!searchValue.IsNullOrUndefined())
+        // 2. If searchValue is neither undefined nor null, then
+        // Note: spec requires checking if searchValue IS an object, not just not-null/undefined
+        if (searchValue is ObjectInstance)
         {
             if (searchValue.IsRegExp())
             {
@@ -730,7 +852,9 @@ internal sealed class StringPrototype : StringInstance
         TypeConverter.RequireObjectCoercible(_engine, thisObject);
 
         var regex = arguments.At(0);
-        if (!regex.IsNullOrUndefined())
+        // 2. If regexp is neither undefined nor null, then
+        // Note: spec requires checking if regexp IS an object, not just not-null/undefined
+        if (regex is ObjectInstance)
         {
             if (regex.IsRegExp())
             {

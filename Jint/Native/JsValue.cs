@@ -84,9 +84,16 @@ public abstract partial class JsValue : IEquatable<JsValue>
                 if (method is null)
                 {
                     var syncMethod = obj.GetMethod(GlobalSymbolRegistry.Iterator);
+                    if (syncMethod is null)
+                    {
+                        iterator = null;
+                        return false;
+                    }
                     var syncIteratorRecord = obj.GetIterator(realm, GeneratorKind.Sync, syncMethod);
-                    // TODO async CreateAsyncFromSyncIterator(syncIteratorRecord);
-                    Throw.NotImplementedException("async");
+                    // CreateAsyncFromSyncIterator - wrap the sync iterator in an async adapter
+                    var asyncFromSync = new AsyncFromSyncIterator(obj.Engine, syncIteratorRecord);
+                    iterator = new IteratorInstance.ObjectIterator(asyncFromSync);
+                    return true;
                 }
             }
             else
@@ -145,16 +152,18 @@ public abstract partial class JsValue : IEquatable<JsValue>
 
     internal static JsValue ConvertTaskToPromise(Engine engine, Task task)
     {
-        var (promise, resolve, reject) = engine.RegisterPromise();
+        // Use RegisterPromiseWithClrValue to ensure FromObject is called on the main thread,
+        // not on the background thread that completes the Task.
+        var (promise, resolveClr, rejectClr) = engine.RegisterPromiseWithClrValue();
         task = task.ContinueWith(continuationAction =>
             {
                 if (continuationAction.IsFaulted)
                 {
-                    reject(FromObject(engine, continuationAction.Exception));
+                    rejectClr(continuationAction.Exception);
                 }
                 else if (continuationAction.IsCanceled)
                 {
-                    reject(FromObject(engine, new ExecutionCanceledException()));
+                    rejectClr(new ExecutionCanceledException());
                 }
                 else
                 {
@@ -162,18 +171,18 @@ public abstract partial class JsValue : IEquatable<JsValue>
                     // See https://github.com/sebastienros/jint/pull/1567#issuecomment-1681987702
                     if (Task.CompletedTask.Equals(continuationAction))
                     {
-                        resolve(FromObject(engine, JsValue.Undefined));
+                        resolveClr(Undefined);
                         return;
                     }
 
                     var result = continuationAction.GetType().GetProperty(nameof(Task<object>.Result));
                     if (result is not null)
                     {
-                        resolve(FromObject(engine, result.GetValue(continuationAction)));
+                        resolveClr(result.GetValue(continuationAction));
                     }
                     else
                     {
-                        resolve(FromObject(engine, JsValue.Undefined));
+                        resolveClr(Undefined);
                     }
                 }
             },
@@ -300,6 +309,28 @@ public abstract partial class JsValue : IEquatable<JsValue>
         }
 
         return target.OrdinaryHasInstance(this);
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-getmethod
+    /// </summary>
+    internal static ICallable? GetMethod(Realm realm, JsValue v, JsValue p)
+    {
+        // GetMethod uses GetV which converts primitives to objects
+        // https://tc39.es/ecma262/#sec-getv
+        var target = v is ObjectInstance obj ? obj : TypeConverter.ToObject(realm, v);
+        var jsValue = target.Get(p, v);
+        if (jsValue.IsNullOrUndefined())
+        {
+            return null;
+        }
+
+        var callable = jsValue as ICallable;
+        if (callable is null)
+        {
+            Throw.TypeError(realm, $"Value returned for property '{p}' of object is not a function");
+        }
+        return callable;
     }
 
     public override string ToString()

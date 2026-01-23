@@ -80,7 +80,12 @@ public sealed class TypeReference : Constructor, IObjectWrapper
             {
                 var constructors = _constructorCache.GetOrAdd(
                     referenceType,
-                    t => MethodDescriptor.Build(t.GetConstructors(BindingFlags.Public | BindingFlags.Instance)));
+                    t =>
+                    {
+                        List<ConstructorInfo> constructors = [.. t.GetConstructors(BindingFlags.Public | BindingFlags.Instance)];
+                        constructors.RemoveAll(x => !engine.Options.Interop.TypeResolver.MemberFilter(x));
+                        return MethodDescriptor.Build(constructors);
+                    });
 
                 Func<MethodDescriptor, MethodResolverState, JsCallArguments> argumentProvider = static (method, state) =>
                 {

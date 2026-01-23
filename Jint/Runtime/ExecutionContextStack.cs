@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using Jint.Collections;
+using Jint.Native.AsyncGenerator;
 using Jint.Native.Generator;
 using Jint.Runtime.Environments;
 using Environment = Jint.Runtime.Environments.Environment;
@@ -45,6 +46,15 @@ internal sealed class ExecutionContextStack
         var size = _stack._size;
         ref var executionContext = ref array[size - 1];
         executionContext = executionContext.UpdateGenerator(newEnv);
+        return ref executionContext;
+    }
+
+    public ref readonly ExecutionContext ReplaceTopAsyncGenerator(AsyncGeneratorInstance newEnv)
+    {
+        var array = _stack._array;
+        var size = _stack._size;
+        ref var executionContext = ref array[size - 1];
+        executionContext = executionContext.UpdateAsyncGenerator(newEnv);
         return ref executionContext;
     }
 

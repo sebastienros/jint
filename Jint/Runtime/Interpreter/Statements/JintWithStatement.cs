@@ -1,3 +1,4 @@
+using Jint.Native;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Expressions;
 
@@ -44,6 +45,6 @@ internal sealed class JintWithStatement : JintStatement<WithStatement>
             engine.UpdateLexicalEnvironment(oldEnv);
         }
 
-        return c;
+        return c.UpdateEmpty(JsValue.Undefined);
     }
 }

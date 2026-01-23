@@ -36,7 +36,7 @@ and many more.
 - ✔ Default, rest and spread
 - ✔ Enhanced object literals
 - ✔ `for...of`
-- ❌ Generators
+- ✔ Generators
 - ✔ Template strings
 - ✔ Lexical scoping of variables (let and const)
 - ✔ Map and Set
@@ -61,10 +61,11 @@ and many more.
 ####  ECMAScript 2017
 
 - ✔ `Object.values`, `Object.entries` and `Object.getOwnPropertyDescriptors`
-- ❌ Shared memory and atomics
+- ✔ Shared memory and atomics
 
 #### ECMAScript 2018
 
+- ✔ Asynchronous iteration
 - ✔ `Promise.prototype.finally`
 - ✔ RegExp named capture groups
 - ✔ Rest/spread operators for object literals (`...identifier`)
@@ -122,7 +123,7 @@ and many more.
 #### ECMAScript 2024
 
 - ✔ ArrayBuffer enhancements - `ArrayBuffer.prototype.resize` and `ArrayBuffer.prototype.transfer`
-- ❌ `Atomics.waitAsync` 
+- ✔ `Atomics.waitAsync` 
 - ✔ Ensuring that strings are well-formed - `String.prototype.ensureWellFormed` and `String.prototype.isWellFormed`
 - ✔ Grouping synchronous iterables - `Object.groupBy` and `Map.groupBy`
 - ✔ `Promise.withResolvers`
@@ -131,19 +132,24 @@ and many more.
 #### ECMAScript 2025
 
 - ✔ 16-bit floating point numbers (float16), Requires NET 8 or higher, `Float16Array`, `Math.f16round()`
+- ✔ Array.fromAsync
 - ✔ Import attributes
-- ❌ Iterator helper methods 
+- ✔ Iterator helper methods 
 - ✔ JSON modules
 - ✔ `Promise.try`
-- ❌ `RegExp.escape()`
+- ✔ `RegExp.escape()`
 - ❌ Regular expression pattern modifiers (inline flags)
 - ❌ Duplicate named capture groups
 - ✔ Set methods (`intersection`, `union`, `difference`, `symmetricDifference`, `isSubsetOf`, `isSupersetOf`, `isDisjointFrom`)
 
-#### ECMAScript Stage 3 or earlier (no version yet)
+#### ECMAScript proposals (no version yet)
 
 - ✔ `Error.isError`
 - ✔ Explicit Resource Management (`using` and `await using`)
+- ✔ Immutable Arraybuffers
+- ✔ Iterator Sequencing
+- ✔ Joint Iteration
+- ✔ JSON.parse source text access
 - ✔ `Math.sumPrecise`
 - ✔ `ShadowRealm`
 - ✔ `Uint8Array` to/from base64

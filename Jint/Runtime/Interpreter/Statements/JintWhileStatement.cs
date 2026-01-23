@@ -28,12 +28,32 @@ internal sealed class JintWhileStatement : JintStatement<WhileStatement>
         var v = JsValue.Undefined;
         while (true)
         {
+            // Only clear completed awaits cache when starting a NEW iteration, not when resuming.
+            // When resuming from a nested await (e.g., "while (await await await x)"),
+            // we need the cached values of already-completed awaits to continue evaluation.
+            // When starting fresh (not resuming), clear the cache to ensure expressions like
+            // "while (await p)" evaluate p fresh each time even if p changes.
+            var asyncFn = context.Engine.ExecutionContext.AsyncFunction;
+            if (asyncFn is null || !asyncFn._isResuming)
+            {
+                asyncFn?._completedAwaits?.Clear();
+            }
+
             if (context.DebugMode)
             {
                 context.Engine.Debugger.OnStep(_test._expression);
             }
 
             var jsValue = _test.GetValue(context);
+
+            // Check for suspension after evaluating the test expression
+            var suspendable = context.Engine.ExecutionContext.Suspendable;
+            if (context.IsSuspended())
+            {
+                var suspendedValue = suspendable?.SuspendedValue ?? JsValue.Undefined;
+                return new Completion(CompletionType.Return, suspendedValue, _statement);
+            }
+
             if (!TypeConverter.ToBoolean(jsValue))
             {
                 return new Completion(CompletionType.Normal, v, _statement);
@@ -44,6 +64,13 @@ internal sealed class JintWhileStatement : JintStatement<WhileStatement>
             if (!completion.Value.IsEmpty)
             {
                 v = completion.Value;
+            }
+
+            // Check for suspension - if suspended, we need to exit the loop
+            if (context.IsSuspended())
+            {
+                var suspendedValue = suspendable?.SuspendedValue ?? completion.Value;
+                return new Completion(CompletionType.Return, suspendedValue, _statement);
             }
 
             if (completion.Type != CompletionType.Continue || !string.Equals(context.Target, _labelSetName, StringComparison.Ordinal))

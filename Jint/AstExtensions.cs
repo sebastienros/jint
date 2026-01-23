@@ -77,10 +77,16 @@ public static class AstExtensions
             or NodeType.ArrowFunctionExpression
             or NodeType.FunctionExpression
             or NodeType.YieldExpression
-            or NodeType.TemplateLiteral)
+            or NodeType.TemplateLiteral
+            or NodeType.ArrayExpression
+            or NodeType.ObjectExpression)
         {
             var context = engine._activeEvaluationContext ?? new EvaluationContext(engine);
-            return JintExpression.Build(expression).GetValue(context);
+            var result = JintExpression.Build(expression).GetValue(context);
+
+            // If the expression suspended the generator (e.g., yield in computed property name),
+            // return the value. The caller should check ExecutionContext.Suspended.
+            return result;
         }
 
         return JsValue.Undefined;

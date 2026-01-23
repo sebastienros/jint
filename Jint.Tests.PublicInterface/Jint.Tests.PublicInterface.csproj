@@ -4,7 +4,7 @@
     <TargetFrameworks>net10.0</TargetFrameworks>
     <TargetFrameworks Condition="'$(OS)' == 'Windows_NT'">$(TargetFrameworks);net472</TargetFrameworks>
     <IsPackable>false</IsPackable>
-    <NoWarn>612</NoWarn>
+    <NoWarn>$(NoWarn);612;xUnit1051</NoWarn>
     <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
     <OutputType>Exe</OutputType>
   </PropertyGroup>
@@ -18,19 +18,23 @@
     <PackageReference Include="Acornima.Extras" />
     <PackageReference Include="FluentAssertions" />
     <PackageReference Include="Flurl.Http.Signed" />
+    <PackageReference Include="GitHubActionsTestLogger" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="MongoDB.Bson.signed" />
     <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="NodaTime" />
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
     <PackageReference Include="SourceMaps" />
-    <PackageReference Include="System.Text.Json" Condition="!$([MSBuild]::IsTargetFrameworkCompatible($(TargetFramework), 'net8.0'))" />
-    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.v3.mtp-off" />
     <PackageReference Include="xunit.runner.visualstudio" />
   </ItemGroup>
 
   <ItemGroup>
     <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net472'">
+    <PackageReference Include="System.Text.Json" />
   </ItemGroup>
 
 </Project>

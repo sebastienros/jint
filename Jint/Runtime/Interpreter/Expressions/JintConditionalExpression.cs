@@ -15,7 +15,15 @@ internal sealed class JintConditionalExpression : JintExpression
 
     protected override object EvaluateInternal(EvaluationContext context)
     {
-        return TypeConverter.ToBoolean(_test.GetValue(context))
+        var testValue = _test.GetValue(context);
+
+        // Check for generator suspension after evaluating test
+        if (context.IsSuspended())
+        {
+            return testValue;
+        }
+
+        return TypeConverter.ToBoolean(testValue)
             ? _consequent.GetValue(context)
             : _alternate.GetValue(context);
     }

@@ -1393,22 +1393,6 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         return GetMethod(_engine.Realm, this, property);
     }
 
-    internal static ICallable? GetMethod(Realm realm, JsValue v, JsValue p)
-    {
-        var jsValue = v.Get(p);
-        if (jsValue.IsNullOrUndefined())
-        {
-            return null;
-        }
-
-        var callable = jsValue as ICallable;
-        if (callable is null)
-        {
-            Throw.TypeError(realm, $"Value returned for property '{p}' of object is not a function");
-        }
-        return callable;
-    }
-
     internal ICallable? GetDisposeMethod(DisposeHint hint)
     {
         if (hint == DisposeHint.Async)
@@ -1458,7 +1442,8 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                 var desc = GetOwnProperty(key);
                 if (desc.Enumerable)
                 {
-                    target.CreateDataProperty(key, UnwrapJsValue(desc, this));
+                    var propValue = Get(key);
+                    target.CreateDataProperty(key, propValue);
                 }
             }
         }

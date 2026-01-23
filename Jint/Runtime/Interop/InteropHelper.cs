@@ -89,6 +89,25 @@ internal sealed class InteropHelper
     private static int CalculateMethodParameterScore(Engine engine, ParameterInfo parameter, JsValue parameterValue)
     {
         var paramType = parameter.ParameterType;
+
+        // Special case: if parameter expects a JsValue-derived type (e.g., TypeReference),
+        // check if the argument is of that exact type before calling ToObject().
+        // This is important because ToObject() unwraps TypeReference to System.Type,
+        // losing the original wrapper type information needed for overload resolution.
+        if (typeof(JsValue).IsAssignableFrom(paramType))
+        {
+            var jsValueType = parameterValue.GetType();
+            if (jsValueType == paramType)
+            {
+                return 0; // Exact match
+            }
+
+            if (paramType.IsAssignableFrom(jsValueType))
+            {
+                return 1; // Is-a relationship
+            }
+        }
+
         var objectValue = parameterValue.ToObject();
         var objectValueType = objectValue?.GetType();
 

@@ -20,22 +20,22 @@ internal sealed record ResolvedBinding(Module Module, string BindingName)
 public abstract class CyclicModule : Module
 {
     private Completion? _evalError;
-    private int _dfsIndex;
     private int _dfsAncestorIndex;
     internal HashSet<ModuleRequest> _requestedModules;
     private CyclicModule _cycleRoot;
     protected bool _hasTLA;
     private bool _asyncEvaluation;
     private PromiseCapability _topLevelCapability;
-    private readonly List<CyclicModule> _asyncParentModules;
+    private readonly List<CyclicModule> _asyncParentModules = [];
     private int _asyncEvalOrder;
     private int _pendingAsyncDependencies;
 
     internal JsValue _evalResult;
     private SourceLocation _abnormalCompletionLocation;
 
-    internal CyclicModule(Engine engine, Realm realm, string location, bool async) : base(engine, realm, location)
+    internal CyclicModule(Engine engine, Realm realm, string location, bool isAsync) : base(engine, realm, location)
     {
+        _hasTLA = isAsync;
     }
 
     internal ModuleStatus Status { get; private set; }
@@ -70,7 +70,6 @@ public abstract class CyclicModule : Module
                 }
 
                 m.Status = ModuleStatus.Unlinked;
-                m._dfsIndex = -1;
                 m._dfsAncestorIndex = -1;
             }
 
@@ -100,21 +99,28 @@ public abstract class CyclicModule : Module
     {
         var module = this;
 
-        if (module.Status != ModuleStatus.Linked &&
-            module.Status != ModuleStatus.EvaluatingAsync &&
-            module.Status != ModuleStatus.Evaluated)
-        {
-            Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state");
-        }
-
+        // https://tc39.es/ecma262/#sec-moduleevaluation
+        // Step 4: If module.[[Status]] is either evaluating-async or evaluated, set module to module.[[CycleRoot]].
         if (module.Status is ModuleStatus.EvaluatingAsync or ModuleStatus.Evaluated)
         {
             module = module._cycleRoot;
         }
 
+        // Step 5: If module.[[TopLevelCapability]] is not empty, return module.[[TopLevelCapability]].[[Promise]].
+        // This handles re-entrant calls (e.g., a module importing itself during evaluation).
         if (module._topLevelCapability is not null)
         {
             return module._topLevelCapability.PromiseInstance;
+        }
+
+        // Step 3 (assertion): Assert: module.[[Status]] is one of linked, evaluating-async, or evaluated.
+        // Note: The spec only allows these statuses for a NEW evaluation. If we reach here, the module
+        // must be ready to start evaluation (Linked) or in a valid async/evaluated state.
+        if (module.Status != ModuleStatus.Linked &&
+            module.Status != ModuleStatus.EvaluatingAsync &&
+            module.Status != ModuleStatus.Evaluated)
+        {
+            Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state");
         }
 
         var stack = new Stack<CyclicModule>();
@@ -186,7 +192,7 @@ public abstract class CyclicModule : Module
         }
 
         Status = ModuleStatus.Linking;
-        _dfsIndex = index;
+        var moduleIndex = index;
         _dfsAncestorIndex = index;
         index++;
         stack.Push(this);
@@ -229,12 +235,12 @@ public abstract class CyclicModule : Module
             Throw.InvalidOperationException("Error while linking module: Recursive dependency detected");
         }
 
-        if (_dfsAncestorIndex > _dfsIndex)
+        if (_dfsAncestorIndex > moduleIndex)
         {
             Throw.InvalidOperationException("Error while linking module: Recursive dependency detected");
         }
 
-        if (_dfsIndex == _dfsAncestorIndex)
+        if (moduleIndex == _dfsAncestorIndex)
         {
             while (true)
             {
@@ -276,7 +282,8 @@ public abstract class CyclicModule : Module
         }
 
         Status = ModuleStatus.Evaluating;
-        _dfsIndex = index;
+
+        var moduleIndex = index;
         _dfsAncestorIndex = index;
         _pendingAsyncDependencies = 0;
         index++;
@@ -335,7 +342,6 @@ public abstract class CyclicModule : Module
         }
 
         Completion completion;
-
         if (_pendingAsyncDependencies > 0 || _hasTLA)
         {
             if (_asyncEvaluation)
@@ -347,12 +353,15 @@ public abstract class CyclicModule : Module
             _asyncEvalOrder = asyncEvalOrder++;
             if (_pendingAsyncDependencies == 0)
             {
+                // No pending dependencies, execute immediately
                 completion = ExecuteAsyncModule();
             }
             else
             {
-                // This is not in the specifications, but it's unclear whether 16.2.1.5.2.1.13 "Otherwise" should mean "Else" for 12 or "In other cases"..
-                completion = ExecuteModule();
+                // Has pending async dependencies - don't execute yet.
+                // The module will be executed by AsyncModuleExecutionFulfilled
+                // when all dependencies complete.
+                completion = new Completion(CompletionType.Normal, index, default);
             }
         }
         else
@@ -365,12 +374,12 @@ public abstract class CyclicModule : Module
             Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state (not found exactly once in stack)");
         }
 
-        if (_dfsAncestorIndex > _dfsIndex)
+        if (_dfsAncestorIndex > moduleIndex)
         {
             Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state (mismatch DFS ancestor index)");
         }
 
-        if (_dfsIndex == _dfsAncestorIndex)
+        if (moduleIndex == _dfsAncestorIndex)
         {
             var done = false;
             while (!done)
@@ -419,8 +428,19 @@ public abstract class CyclicModule : Module
 
         var capability = PromiseConstructor.NewPromiseCapability(_engine, _realm.Intrinsics.Promise);
 
-        var onFullfilled = new ClrFunction(_engine, "fulfilled", AsyncModuleExecutionFulfilled, 1, PropertyFlag.Configurable);
-        var onRejected = new ClrFunction(_engine, "rejected", AsyncModuleExecutionRejected, 1, PropertyFlag.Configurable);
+        // The handlers capture 'this' module - they don't receive it as an argument
+        var module = this;
+        var onFullfilled = new ClrFunction(_engine, "fulfilled", (thisObj, args) =>
+        {
+            AsyncModuleExecutionFulfilled(module);
+            return Undefined;
+        }, 0, PropertyFlag.Configurable);
+
+        var onRejected = new ClrFunction(_engine, "rejected", (thisObj, args) =>
+        {
+            AsyncModuleExecutionRejected(module, args.At(0));
+            return Undefined;
+        }, 1, PropertyFlag.Configurable);
 
         PromiseOperations.PerformPromiseThen(_engine, (JsPromise) capability.PromiseInstance, onFullfilled, onRejected, null);
 
@@ -431,9 +451,8 @@ public abstract class CyclicModule : Module
     /// <summary>
     /// https://tc39.es/ecma262/#sec-async-module-execution-fulfilled
     /// </summary>
-    private static JsValue AsyncModuleExecutionFulfilled(JsValue thisObject, JsCallArguments arguments)
+    private static void AsyncModuleExecutionFulfilled(CyclicModule module)
     {
-        var module = (CyclicModule) arguments.At(0);
         if (module.Status == ModuleStatus.Evaluated)
         {
             if (module._evalError is not null)
@@ -441,7 +460,7 @@ public abstract class CyclicModule : Module
                 Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state");
             }
 
-            return Undefined;
+            return;
         }
 
         if (module.Status != ModuleStatus.EvaluatingAsync ||
@@ -450,6 +469,9 @@ public abstract class CyclicModule : Module
         {
             Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state");
         }
+
+        module._asyncEvaluation = false;
+        module.Status = ModuleStatus.Evaluated;
 
         if (module._topLevelCapability is not null)
         {
@@ -481,7 +503,7 @@ public abstract class CyclicModule : Module
                 var result = m.ExecuteModule();
                 if (result.Type != CompletionType.Normal)
                 {
-                    AsyncModuleExecutionRejected(Undefined, [m, result.Value]);
+                    AsyncModuleExecutionRejected(m, result.Value);
                 }
                 else
                 {
@@ -498,18 +520,13 @@ public abstract class CyclicModule : Module
                 }
             }
         }
-
-        return Undefined;
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-async-module-execution-rejected
     /// </summary>
-    private static JsValue AsyncModuleExecutionRejected(JsValue thisObject, JsCallArguments arguments)
+    private static void AsyncModuleExecutionRejected(CyclicModule module, JsValue error)
     {
-        var module = (SourceTextModule) arguments.At(0);
-        var error = arguments.At(1);
-
         if (module.Status == ModuleStatus.Evaluated)
         {
             if (module._evalError is null)
@@ -517,7 +534,7 @@ public abstract class CyclicModule : Module
                 Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state");
             }
 
-            return Undefined;
+            return;
         }
 
         if (module.Status != ModuleStatus.EvaluatingAsync ||
@@ -530,13 +547,6 @@ public abstract class CyclicModule : Module
         module._evalError = new Completion(CompletionType.Throw, error, default);
         module.Status = ModuleStatus.Evaluated;
 
-        var asyncParentModules = module._asyncParentModules;
-        for (var i = 0; i < asyncParentModules.Count; i++)
-        {
-            var m = asyncParentModules[i];
-            AsyncModuleExecutionRejected(thisObject, [m, error]);
-        }
-
         if (module._topLevelCapability is not null)
         {
             if (module._cycleRoot is null)
@@ -547,7 +557,12 @@ public abstract class CyclicModule : Module
             module._topLevelCapability.Reject.Call(Undefined, error);
         }
 
-        return Undefined;
+        var asyncParentModules = module._asyncParentModules;
+        for (var i = 0; i < asyncParentModules.Count; i++)
+        {
+            var m = asyncParentModules[i];
+            AsyncModuleExecutionRejected(m, error);
+        }
     }
 
     /// <summary>

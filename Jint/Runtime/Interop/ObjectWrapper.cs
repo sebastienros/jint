@@ -144,7 +144,20 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
         if (arrayWrapperType is not null)
         {
-            result = (ArrayLikeWrapper) Activator.CreateInstance(arrayWrapperType, engine, target, type)!;
+            // Activator.CreateInstance may fail in trimmed/AOT scenarios where the constructor
+            // was removed by the linker - fall back to the non-generic ListWrapper in that case
+            try
+            {
+                result = (ArrayLikeWrapper) Activator.CreateInstance(arrayWrapperType, engine, target, type)!;
+            }
+            catch (MissingMethodException)
+            {
+                // Constructor was trimmed, fall back to non-generic wrapper
+                if (target is IList list)
+                {
+                    result = new ListWrapper(engine, list, type);
+                }
+            }
         }
         else if (target is IList list)
         {
@@ -174,6 +187,25 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             {
                 // can try utilize fast path
                 var accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, ClrType, member, mustBeReadable: false, mustBeWritable: true);
+                var actualType = Target.GetType();
+                if (ClrType != actualType)
+                {
+                    // When the declared type differs from the actual runtime type:
+                    // If only an indexer was found, check if the runtime type has a direct property/field/method
+                    // that should take precedence over the indexer
+                    if (accessor is IndexerAccessor)
+                    {
+                        var runtimeAccessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, actualType, member, mustBeReadable: false, mustBeWritable: true);
+                        if (runtimeAccessor is not IndexerAccessor && runtimeAccessor != ConstantValueAccessor.NullAccessor)
+                        {
+                            accessor = runtimeAccessor;
+                        }
+                    }
+                    else if (ReferenceEquals(accessor, ConstantValueAccessor.NullAccessor))
+                    {
+                        accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, actualType, member, mustBeReadable: false, mustBeWritable: true);
+                    }
+                }
 
                 if (ReferenceEquals(accessor, ConstantValueAccessor.NullAccessor))
                 {
@@ -410,9 +442,26 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         }
 
         var accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, ClrType, member, mustBeReadable, mustBeWritable);
-        if (accessor == ConstantValueAccessor.NullAccessor && ClrType != Target.GetType())
+        var actualType = Target.GetType();
+        if (ClrType != actualType)
         {
-            accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, Target.GetType(), member, mustBeReadable, mustBeWritable);
+            // When the declared type differs from the actual runtime type:
+            // - If no accessor was found, fall back to the runtime type (original behavior)
+            // - If only an indexer was found, check if the runtime type has a direct property/field/method
+            //   that should take precedence over the indexer
+            if (accessor == ConstantValueAccessor.NullAccessor)
+            {
+                accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, actualType, member, mustBeReadable, mustBeWritable);
+            }
+            else if (accessor is IndexerAccessor)
+            {
+                var runtimeAccessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, actualType, member, mustBeReadable, mustBeWritable);
+                if (runtimeAccessor is not IndexerAccessor && runtimeAccessor != ConstantValueAccessor.NullAccessor)
+                {
+                    // Prefer direct property/field/method from runtime type over indexer from declared type
+                    accessor = runtimeAccessor;
+                }
+            }
         }
         var descriptor = accessor.CreatePropertyDescriptor(_engine, Target, member, enumerable: !isDictionary);
         if (!isDictionary

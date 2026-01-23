@@ -326,7 +326,7 @@ myarr[0](0);
     {
         var engine = new Engine(options =>
         {
-            options.TimeoutInterval(TimeSpan.FromMilliseconds(100));
+            options.TimeoutInterval(TimeSpan.FromMilliseconds(1000));
         });
         var myApi = new MyApi();
 
@@ -337,7 +337,7 @@ myarr[0](0);
         foreach (var callback in dataReceivedCallbacks)
         {
             engine.Invoke(callback.Value, "Data Received #1");
-            Thread.Sleep(101);
+            Thread.Sleep(200);
             engine.Invoke(callback.Value, "Data Received #2");
         }
     }

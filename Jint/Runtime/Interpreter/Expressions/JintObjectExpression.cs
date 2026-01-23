@@ -77,12 +77,11 @@ internal sealed class JintObjectExpression : JintExpression
             var property = properties[i];
             if (property is Acornima.Ast.ObjectProperty p)
             {
-                if (p.Key is Literal literal)
+                if (!p.Computed && p.Key is Literal literal)
                 {
                     propName = AstExtensions.LiteralKeyToString(literal);
                 }
-
-                if (!p.Computed && p.Key is Identifier identifier)
+                else if (!p.Computed && p.Key is Identifier identifier)
                 {
                     propName = identifier.Name;
                     _canBuildFast &= !string.Equals(propName, "__proto__", StringComparison.Ordinal);
@@ -134,14 +133,22 @@ internal sealed class JintObjectExpression : JintExpression
     /// <summary>
     /// Version that can safely build plain object with only normal init/data fields fast.
     /// </summary>
-    private JsObject BuildObjectFast(EvaluationContext context)
+    private JsValue BuildObjectFast(EvaluationContext context)
     {
-        var obj = new JsObject(context.Engine);
+        var engine = context.Engine;
+        var obj = new JsObject(engine);
         var properties = new PropertyDictionary(_properties.Length, checkExistingKeys: true);
         for (var i = 0; i < _properties.Length; i++)
         {
             var objectProperty = _properties[i];
             var propValue = _valueExpressions.GetValue(context, i);
+
+            // Check for generator suspension after each property evaluation
+            if (context.IsSuspended())
+            {
+                return JsValue.Undefined;
+            }
+
             properties[objectProperty!._key!] = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
         }
 
@@ -164,7 +171,15 @@ internal sealed class JintObjectExpression : JintExpression
             if (objectProperty is null)
             {
                 // spread
-                if (_valueExpressions.GetValue(context, i) is ObjectInstance source)
+                var spreadValue = _valueExpressions.GetValue(context, i);
+
+                // Check for generator suspension
+                if (context.IsSuspended())
+                {
+                    return JsValue.Undefined;
+                }
+
+                if (spreadValue is ObjectInstance source)
                 {
                     source.CopyDataProperties(obj, excludedItems: null);
                 }
@@ -189,12 +204,25 @@ internal sealed class JintObjectExpression : JintExpression
                     return value;
                 }
 
+                // Check for generator suspension after evaluating computed property key
+                if (context.IsSuspended())
+                {
+                    return value;
+                }
+
                 propName = TypeConverter.ToPropertyKey(value);
             }
 
             if (property.Kind == PropertyKind.Init)
             {
                 var propValue = _valueExpressions.GetValue(context, i)!;
+
+                // Check for generator suspension
+                if (context.IsSuspended())
+                {
+                    return JsValue.Undefined;
+                }
+
                 if (string.Equals(objectProperty._key, "__proto__", StringComparison.Ordinal) && !objectProperty._value.Computed && !objectProperty._value.Shorthand)
                 {
                     if (propValue.IsObject() || propValue.IsNull())
