@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
+using Jint.Native.Intl;
 using Jint.Native.Number.Dtoa;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -49,6 +50,7 @@ internal sealed class NumberPrototype : NumberInstance
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-number.prototype.tolocalestring
+    /// https://tc39.es/ecma402/#sup-number.prototype.tolocalestring
     /// </summary>
     private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
     {
@@ -57,52 +59,14 @@ internal sealed class NumberPrototype : NumberInstance
             Throw.TypeError(_realm);
         }
 
-        var m = TypeConverter.ToNumber(thisObject);
+        var x = TypeConverter.ToNumber(thisObject);
 
-        if (double.IsNaN(m))
-        {
-            return "NaN";
-        }
+        // Use Intl.NumberFormat if available
+        var locales = arguments.At(0);
+        var options = arguments.At(1);
 
-        if (m == 0)
-        {
-            return JsString.NumberZeroString;
-        }
-
-        if (m < 0)
-        {
-            return "-" + ToLocaleString(-m, arguments);
-        }
-
-        if (double.IsPositiveInfinity(m) || m >= double.MaxValue)
-        {
-            return "Infinity";
-        }
-
-        if (double.IsNegativeInfinity(m) || m <= -double.MaxValue)
-        {
-            return "-Infinity";
-        }
-
-        var numberFormat = (NumberFormatInfo) Engine.Options.Culture.NumberFormat.Clone();
-
-        try
-        {
-            if (arguments.Length > 0 && arguments[0].IsString())
-            {
-                var cultureArgument = arguments[0].ToString();
-                numberFormat = (NumberFormatInfo) CultureInfo.GetCultureInfo(cultureArgument).NumberFormat.Clone();
-            }
-
-            int decDigitCount = NumberIntlHelper.GetDecimalDigitCount(m);
-            numberFormat.NumberDecimalDigits = decDigitCount;
-        }
-        catch (CultureNotFoundException)
-        {
-            Throw.RangeError(_realm, "Incorrect locale information provided");
-        }
-
-        return m.ToString("n", numberFormat);
+        var numberFormat = (Intl.JsNumberFormat) Engine.Realm.Intrinsics.NumberFormat.Construct([locales, options], Engine.Realm.Intrinsics.NumberFormat);
+        return numberFormat.Format(x);
     }
 
     private JsValue ValueOf(JsValue thisObject, JsCallArguments arguments)
