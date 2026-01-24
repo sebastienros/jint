@@ -34,8 +34,10 @@ internal sealed class IntlInstance : ObjectInstance
 
         var properties = new PropertyDictionary(4, checkExistingKeys: false)
         {
+            ["Collator"] = new(_realm.Intrinsics.Collator, PropertyFlags),
             ["Locale"] = new(_realm.Intrinsics.Locale, PropertyFlags),
             ["NumberFormat"] = new(_realm.Intrinsics.NumberFormat, PropertyFlags),
+            ["PluralRules"] = new(_realm.Intrinsics.PluralRules, PropertyFlags),
             ["getCanonicalLocales"] = new(new ClrFunction(Engine, "getCanonicalLocales", GetCanonicalLocales, 1, PropertyFlag.Configurable), PropertyFlags),
             ["supportedValuesOf"] = new(new ClrFunction(Engine, "supportedValuesOf", SupportedValuesOf, 1, PropertyFlag.Configurable), PropertyFlags),
         };
