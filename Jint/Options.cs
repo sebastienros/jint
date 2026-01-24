@@ -11,6 +11,7 @@ using Jint.Runtime.Debugger;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Modules;
 using Jint.Runtime.CallStack;
+using Jint.Native.Intl;
 
 namespace Jint;
 
@@ -56,6 +57,11 @@ public class Options
     /// Module options
     /// </summary>
     public ModuleOptions Modules { get; } = new();
+
+    /// <summary>
+    /// Internationalization (Intl) options.
+    /// </summary>
+    public IntlOptions Intl { get; } = new();
 
     /// <summary>
     /// Whether the code should be always considered to be in strict mode. Can improve performance.
@@ -497,6 +503,22 @@ public class Options
         /// defaults to 64.
         /// </summary>
         public int MaxParseDepth { get; set; } = 64;
+    }
+
+    /// <summary>
+    /// Internationalization (Intl) API related customization.
+    /// </summary>
+    public class IntlOptions
+    {
+        /// <summary>
+        /// CLDR provider for locale data. Set this to enable full locale support for the Intl API.
+        /// Defaults to null. Will be set to DefaultCldrProvider in a future PR.
+        /// </summary>
+        /// <remarks>
+        /// Set this to a custom ICldrProvider implementation (e.g., ICU-based provider)
+        /// to enable full locale support for the Intl API.
+        /// </remarks>
+        public ICldrProvider? CldrProvider { get; set; }
     }
 }
 
