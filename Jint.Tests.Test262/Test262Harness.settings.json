@@ -11,8 +11,7 @@
     "regexp-unicode-property-escapes",
     "regexp-v-flag",
     "source-phase-imports",
-    "tail-call-optimization",
-    "Temporal"
+    "tail-call-optimization"
   ],
   "ExcludedFlags": [
     "CanBlockIsFalse"
@@ -225,7 +224,12 @@
     "intl402/supportedLocalesOf-consistent-with-resolvedOptions.js",
 
     // Performance: This test iterates through all locales with all constructors - very slow
-    "intl402/supportedLocalesOf-unicode-extensions-ignored.js"
+    "intl402/supportedLocalesOf-unicode-extensions-ignored.js",
+
+    // === TEMPORAL EXCLUSIONS ===
+    // Temporal API is being implemented incrementally.
+    // Tests will be enabled as each type is implemented.
+    "built-ins/Temporal/**/*.js"
 
   ]
 }
