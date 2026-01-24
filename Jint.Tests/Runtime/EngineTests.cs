@@ -1850,9 +1850,10 @@ var prep = function (fn) { fn(); };
                     equal('Mon Jun 01 2015 05:00:00 GMT-0700 (Pacific Standard Time)', d.toString());
                     equal('Mon Jun 01 2015', d.toDateString());
                     equal('05:00:00 GMT-0700 (Pacific Standard Time)', d.toTimeString());
-                    equal('lundi 1 juin 2015 05:00:00', d.toLocaleString());
-                    equal('lundi 1 juin 2015', d.toLocaleDateString());
-                    equal('05:00:00', d.toLocaleTimeString());
+                    // ECMA-402 compliant: numeric defaults used when no options specified
+                    equal('1/6/2015 5:00:00', d.toLocaleString());
+                    equal('1/6/2015', d.toLocaleDateString());
+                    equal('5:00:00', d.toLocaleTimeString());
             ");
     }
 
