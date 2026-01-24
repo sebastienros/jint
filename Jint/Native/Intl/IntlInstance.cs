@@ -32,8 +32,9 @@ internal sealed class IntlInstance : ObjectInstance
     {
         const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
 
-        var properties = new PropertyDictionary(3, checkExistingKeys: false)
+        var properties = new PropertyDictionary(4, checkExistingKeys: false)
         {
+            ["Collator"] = new(_realm.Intrinsics.Collator, PropertyFlags),
             ["Locale"] = new(_realm.Intrinsics.Locale, PropertyFlags),
             ["getCanonicalLocales"] = new(new ClrFunction(Engine, "getCanonicalLocales", GetCanonicalLocales, 1, PropertyFlag.Configurable), PropertyFlags),
             ["supportedValuesOf"] = new(new ClrFunction(Engine, "supportedValuesOf", SupportedValuesOf, 1, PropertyFlag.Configurable), PropertyFlags),
