@@ -3,6 +3,7 @@
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Jint.Native.Intl;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -211,6 +212,7 @@ internal sealed class DatePrototype : Prototype
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.tolocalestring
+    /// https://tc39.es/ecma402/#sup-date.prototype.tolocalestring
     /// </summary>
     private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
     {
@@ -221,11 +223,37 @@ internal sealed class DatePrototype : Prototype
             return "Invalid Date";
         }
 
-        return ToLocalTime(dateInstance).ToString("F", Engine.Options.Culture);
+        var locales = arguments.At(0);
+        var options = arguments.At(1);
+
+        // Per ECMA-402 ToDateTimeOptions("any", "all"):
+        // If no date/time options are specified, use default numeric components
+        var optionsObj = IntlUtilities.CoerceOptionsToObject(Engine, options);
+        var needDefaults = NeedDateTimeDefaults(optionsObj, checkDate: true, checkTime: true);
+
+        if (needDefaults)
+        {
+            // Add default date and time components per spec
+            // Use null prototype per ToDateTimeOptions step 2: ObjectCreate(options)
+            var newOptions = ObjectInstance.OrdinaryObjectCreate(Engine, null);
+            CopyOptions(optionsObj, newOptions);
+            newOptions.Set("year", "numeric");
+            newOptions.Set("month", "numeric");
+            newOptions.Set("day", "numeric");
+            newOptions.Set("hour", "numeric");
+            newOptions.Set("minute", "numeric");
+            newOptions.Set("second", "numeric");
+            options = newOptions;
+        }
+
+        // Use Intl.DateTimeFormat for locale-aware formatting
+        var dateTimeFormat = (JsDateTimeFormat) Engine.Realm.Intrinsics.DateTimeFormat.Construct([locales, options], Engine.Realm.Intrinsics.DateTimeFormat);
+        return dateTimeFormat.Format(ToLocalTime(dateInstance));
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.tolocaledatestring
+    /// https://tc39.es/ecma402/#sup-date.prototype.tolocaledatestring
     /// </summary>
     private JsValue ToLocaleDateString(JsValue thisObject, JsCallArguments arguments)
     {
@@ -236,11 +264,34 @@ internal sealed class DatePrototype : Prototype
             return "Invalid Date";
         }
 
-        return ToLocalTime(dateInstance).ToString("D", Engine.Options.Culture);
+        var locales = arguments.At(0);
+        var options = arguments.At(1);
+
+        // Per ECMA-402 ToDateTimeOptions("date", "date"):
+        // If no date options are specified, use default numeric date components
+        var optionsObj = IntlUtilities.CoerceOptionsToObject(Engine, options);
+        var needDefaults = NeedDateTimeDefaults(optionsObj, checkDate: true, checkTime: false);
+
+        if (needDefaults)
+        {
+            // Add default date components per spec
+            // Use null prototype per ToDateTimeOptions step 2: ObjectCreate(options)
+            var newOptions = ObjectInstance.OrdinaryObjectCreate(Engine, null);
+            CopyOptions(optionsObj, newOptions);
+            newOptions.Set("year", "numeric");
+            newOptions.Set("month", "numeric");
+            newOptions.Set("day", "numeric");
+            options = newOptions;
+        }
+
+        // Use Intl.DateTimeFormat for locale-aware formatting
+        var dateTimeFormat = (JsDateTimeFormat) Engine.Realm.Intrinsics.DateTimeFormat.Construct([locales, options], Engine.Realm.Intrinsics.DateTimeFormat);
+        return dateTimeFormat.Format(ToLocalTime(dateInstance));
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.tolocaletimestring
+    /// https://tc39.es/ecma402/#sup-date.prototype.tolocaletimestring
     /// </summary>
     private JsValue ToLocaleTimeString(JsValue thisObject, JsCallArguments arguments)
     {
@@ -251,7 +302,96 @@ internal sealed class DatePrototype : Prototype
             return "Invalid Date";
         }
 
-        return ToLocalTime(dateInstance).ToString("T", Engine.Options.Culture);
+        var locales = arguments.At(0);
+        var options = arguments.At(1);
+
+        // Per ECMA-402 ToDateTimeOptions("time", "time"):
+        // If no time options are specified, use default numeric time components
+        var optionsObj = IntlUtilities.CoerceOptionsToObject(Engine, options);
+        var needDefaults = NeedDateTimeDefaults(optionsObj, checkDate: false, checkTime: true);
+
+        if (needDefaults)
+        {
+            // Add default time components per spec
+            // Use null prototype per ToDateTimeOptions step 2: ObjectCreate(options)
+            var newOptions = ObjectInstance.OrdinaryObjectCreate(Engine, null);
+            CopyOptions(optionsObj, newOptions);
+            newOptions.Set("hour", "numeric");
+            newOptions.Set("minute", "numeric");
+            newOptions.Set("second", "numeric");
+            options = newOptions;
+        }
+
+        // Use Intl.DateTimeFormat for locale-aware formatting
+        var dateTimeFormat = (JsDateTimeFormat) Engine.Realm.Intrinsics.DateTimeFormat.Construct([locales, options], Engine.Realm.Intrinsics.DateTimeFormat);
+        return dateTimeFormat.Format(ToLocalTime(dateInstance));
+    }
+
+    /// <summary>
+    /// Checks if default date/time options should be applied per ECMA-402 ToDateTimeOptions.
+    /// Returns true if no relevant options are specified and dateStyle/timeStyle are not present.
+    /// </summary>
+    private static bool NeedDateTimeDefaults(ObjectInstance options, bool checkDate, bool checkTime)
+    {
+        // If dateStyle or timeStyle is present, don't add defaults
+        if (!options.Get("dateStyle").IsUndefined() || !options.Get("timeStyle").IsUndefined())
+        {
+            return false;
+        }
+
+        // Check date-related properties
+        if (checkDate)
+        {
+            if (!options.Get("weekday").IsUndefined() ||
+                !options.Get("year").IsUndefined() ||
+                !options.Get("month").IsUndefined() ||
+                !options.Get("day").IsUndefined() ||
+                !options.Get("era").IsUndefined())
+            {
+                return false;
+            }
+        }
+
+        // Check time-related properties
+        if (checkTime)
+        {
+            if (!options.Get("dayPeriod").IsUndefined() ||
+                !options.Get("hour").IsUndefined() ||
+                !options.Get("minute").IsUndefined() ||
+                !options.Get("second").IsUndefined() ||
+                !options.Get("fractionalSecondDigits").IsUndefined())
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Copies all defined options from source to target, preserving user-specified values.
+    /// </summary>
+    private static void CopyOptions(ObjectInstance source, ObjectInstance target)
+    {
+        // Copy all options that should be preserved (general + date/time components)
+        var optionsToCopy = new[]
+        {
+            // General options
+            "localeMatcher", "formatMatcher", "calendar", "numberingSystem", "timeZone", "hourCycle", "hour12",
+            "dateStyle", "timeStyle",
+            // Date components
+            "weekday", "era", "year", "month", "day",
+            // Time components
+            "dayPeriod", "hour", "minute", "second", "fractionalSecondDigits"
+        };
+        foreach (var option in optionsToCopy)
+        {
+            var value = source.Get(option);
+            if (!value.IsUndefined())
+            {
+                target.Set(option, value);
+            }
+        }
     }
 
     private JsValue GetTime(JsValue thisObject, JsCallArguments arguments)

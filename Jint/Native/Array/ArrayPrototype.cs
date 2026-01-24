@@ -1330,6 +1330,11 @@ public sealed class ArrayPrototype : ArrayInstance
             return JsString.Empty;
         }
 
+        // Per ECMA-402, always pass locales and options to element's toLocaleString
+        var locales = arguments.At(0);
+        var options = arguments.At(1);
+        var invokeArgs = new[] { locales, options };
+
         using var r = new ValueStringBuilder();
         for (uint k = 0; k < len; k++)
         {
@@ -1339,7 +1344,7 @@ public sealed class ArrayPrototype : ArrayInstance
             }
             if (array.TryGetValue(k, out var nextElement) && !nextElement.IsNullOrUndefined())
             {
-                var s = TypeConverter.ToString(Invoke(nextElement, "toLocaleString", []));
+                var s = TypeConverter.ToString(Invoke(nextElement, "toLocaleString", invokeArgs));
                 r.Append(s);
             }
         }

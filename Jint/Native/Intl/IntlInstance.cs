@@ -35,6 +35,7 @@ internal sealed class IntlInstance : ObjectInstance
         var properties = new PropertyDictionary(4, checkExistingKeys: false)
         {
             ["Collator"] = new(_realm.Intrinsics.Collator, PropertyFlags),
+            ["DateTimeFormat"] = new(_realm.Intrinsics.DateTimeFormat, PropertyFlags),
             ["Locale"] = new(_realm.Intrinsics.Locale, PropertyFlags),
             ["NumberFormat"] = new(_realm.Intrinsics.NumberFormat, PropertyFlags),
             ["PluralRules"] = new(_realm.Intrinsics.PluralRules, PropertyFlags),
