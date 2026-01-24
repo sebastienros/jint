@@ -1,5 +1,5 @@
 {
-  "SuiteGitSha": "9079aeefcefcd55b0e994fb8bda51e06827337bd",
+  "SuiteGitSha": "f85c9511a380b9abb2877c42cc47e8fce06d56c5",
   //"SuiteDirectory": "//mnt/c/work/test262",
   "TargetPath": "./Generated",
   "Namespace": "Jint.Tests.Test262",
@@ -18,8 +18,7 @@
     "CanBlockIsFalse"
   ],
   "ExcludedDirectories": [
-    "annexB",
-    "intl402"
+    "annexB"
   ],
   "ExcludedFiles": [
 
@@ -153,7 +152,80 @@
 
     // TLA with complex module graph - dynamic import inside TLA module doesn't settle
     // when module has both static and dynamic imports with cyclic dependencies
-    "language/module-code/top-level-await/module-graphs-does-not-hang.js"
+    "language/module-code/top-level-await/module-graphs-does-not-hang.js",
+
+    // === INTL402 EXCLUSIONS ===
+    // The following tests require full CLDR locale data support which is not available in the default provider.
+    // Many of these tests require non-English locales (Spanish, Polish, German, Chinese, etc.) or
+    // advanced features like formatRange, calendar-specific formatting, or complex locale canonicalization.
+
+    // Collator - German phonebook collation and locale-specific collation data
+    "intl402/Collator/prototype/compare/non-normative-phonebook.js",
+    "intl402/Collator/prototype/resolvedOptions/resolved-collation-unicode-extensions-and-options.js",
+    "intl402/Collator/unicode-ext-seq-in-private-tag.js",
+    "intl402/Collator/unicode-ext-value-collation.js",
+    "intl402/Collator/usage-de.js",
+
+    // DateTimeFormat - hanidec numbering system has different AM/PM behavior in ICU/CLDR
+    "intl402/DateTimeFormat/prototype/format/numbering-system.js",
+
+    // DateTimeFormat - Chinese/Dangi calendar date range issues (.NET ChineseLunisolarCalendar limitations)
+    "intl402/DateTimeFormat/prototype/formatRangeToParts/chinese-calendar-dates.js",
+    "intl402/DateTimeFormat/prototype/formatRangeToParts/dangi-calendar-dates.js",
+    "intl402/DateTimeFormat/prototype/formatToParts/chinese-calendar-dates.js",
+
+    // DisplayNames - locale-specific display names and Symbol edge cases
+    "intl402/DisplayNames/locales-symbol-length.js",
+
+    // DurationFormat - formatting with specific styles and locales
+    "intl402/DurationFormat/prototype/format/duration-out-of-range-3.js",
+    "intl402/DurationFormat/prototype/format/duration-out-of-range-4.js",
+    // Requires Spanish unit patterns (ICU4N doesn't include unit data, only core locale data)
+    "intl402/DurationFormat/prototype/format/mixed-non-numeric-styles-es.js",
+    "intl402/DurationFormat/prototype/format/precision-exact-mathematical-values.js",
+    "intl402/DurationFormat/prototype/resolvedOptions/resolved-numbering-system-unicode-extensions-and-options.js",
+
+    // Locale canonicalization - variant/region aliasing requires CLDR data
+    "intl402/Intl/getCanonicalLocales/complex-region-subtag-replacement.js",
+    "intl402/Intl/getCanonicalLocales/non-iana-canon.js",
+    "intl402/Intl/getCanonicalLocales/preferred-variant.js",
+    "intl402/Locale/reject-duplicate-variants-in-tlang.js",
+
+    // NumberFormat - locale-specific formatting and formatRange
+    "intl402/NumberFormat/prototype/format/format-significant-digits.js",
+    "intl402/NumberFormat/prototype/format/useGrouping-extended-en-IN.js",
+    "intl402/NumberFormat/prototype/format/value-decimal-string.js",
+    // formatRange requires locale-specific CLDR range patterns and part collapsing
+    "intl402/NumberFormat/prototype/formatRange/en-US.js",
+    "intl402/NumberFormat/prototype/formatRange/pt-PT.js",
+    "intl402/NumberFormat/prototype/formatRangeToParts/en-US.js",
+    // Unit formatting formatToParts not yet implemented
+    "intl402/NumberFormat/prototype/formatToParts/unit-de-DE.js",
+    "intl402/NumberFormat/prototype/formatToParts/unit-ja-JP.js",
+    "intl402/NumberFormat/prototype/formatToParts/unit-ko-KR.js",
+    "intl402/NumberFormat/prototype/formatToParts/unit-zh-TW.js",
+
+    // PluralRules - plural categories require full CLDR data, notation requires compact support
+    "intl402/PluralRules/prototype/resolvedOptions/plural-categories-order.js",
+    "intl402/PluralRules/prototype/select/notation.js",
+
+    // String - Turkish/Lithuanian/Azeri locale-specific case conversions
+    "intl402/String/prototype/toLocaleLowerCase/capital_I_with_dot.js",
+    "intl402/String/prototype/toLocaleLowerCase/special_casing_Azeri.js",
+    "intl402/String/prototype/toLocaleLowerCase/special_casing_Lithuanian.js",
+    "intl402/String/prototype/toLocaleLowerCase/special_casing_Turkish.js",
+    "intl402/String/prototype/toLocaleLowerCase/validates-all-locale-identifiers.js",
+    "intl402/String/prototype/toLocaleUpperCase/validates-all-locale-identifiers.js",
+
+    // supportedValuesOf - currencies accepted by DisplayNames check
+    "intl402/Intl/supportedValuesOf/currencies-accepted-by-DisplayNames.js",
+
+    // Misc intl402 tests requiring full locale support
+    "intl402/fallback-locales-are-supported.js",
+    "intl402/supportedLocalesOf-consistent-with-resolvedOptions.js",
+
+    // Performance: This test iterates through all locales with all constructors - very slow
+    "intl402/supportedLocalesOf-unicode-extensions-ignored.js"
 
   ]
 }

@@ -22,6 +22,8 @@ public abstract partial class Test262Test
             cfg.EnableModules(new Test262ModuleLoader(State.Test262Stream.Options.FileSystem, relativePath));
             cfg.ExperimentalFeatures = ExperimentalFeature.All;
             cfg.TimeoutInterval(TimeSpan.FromSeconds(30));
+            // Use ICU-based CLDR provider for better Intl support
+            cfg.Intl.CldrProvider = IcuCldrProvider.Instance;
         });
 
         if (file.Flags.Contains("raw"))

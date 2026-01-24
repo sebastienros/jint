@@ -1,7 +1,10 @@
+#pragma warning disable CA1859 // Use concrete types when possible for improved performance -- prototype methods return JsValue
+
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Interop;
 
 namespace Jint.Native.Intl;
 
@@ -24,9 +27,14 @@ internal sealed class SegmenterPrototype : Prototype
 
     protected override void Initialize()
     {
-        var properties = new PropertyDictionary(2, checkExistingKeys: false)
+        const PropertyFlag LengthFlags = PropertyFlag.Configurable;
+        const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
+
+        var properties = new PropertyDictionary(3, checkExistingKeys: false)
         {
-            ["constructor"] = new PropertyDescriptor(_constructor, true, false, true),
+            ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
+            ["segment"] = new PropertyDescriptor(new ClrFunction(Engine, "segment", Segment, 1, LengthFlags), PropertyFlags),
+            ["resolvedOptions"] = new PropertyDescriptor(new ClrFunction(Engine, "resolvedOptions", ResolvedOptions, 0, LengthFlags), PropertyFlags),
         };
         SetProperties(properties);
 
@@ -35,5 +43,43 @@ internal sealed class SegmenterPrototype : Prototype
             [GlobalSymbolRegistry.ToStringTag] = new("Intl.Segmenter", PropertyFlag.Configurable)
         };
         SetSymbols(symbols);
+    }
+
+    private JsSegmenter ValidateSegmenter(JsValue thisObject)
+    {
+        if (thisObject is JsSegmenter segmenter)
+        {
+            return segmenter;
+        }
+
+        Throw.TypeError(_realm, "Value is not an Intl.Segmenter");
+        return null!; // Never reached
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-intl.segmenter.prototype.segment
+    /// </summary>
+    private JsValue Segment(JsValue thisObject, JsCallArguments arguments)
+    {
+        var segmenter = ValidateSegmenter(thisObject);
+        var input = arguments.At(0);
+
+        var stringInput = TypeConverter.ToString(input);
+        return segmenter.Segment(_engine, stringInput);
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-intl.segmenter.prototype.resolvedoptions
+    /// </summary>
+    private JsValue ResolvedOptions(JsValue thisObject, JsCallArguments arguments)
+    {
+        var segmenter = ValidateSegmenter(thisObject);
+
+        var result = OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
+
+        result.CreateDataPropertyOrThrow("locale", segmenter.Locale);
+        result.CreateDataPropertyOrThrow("granularity", segmenter.Granularity);
+
+        return result;
     }
 }
