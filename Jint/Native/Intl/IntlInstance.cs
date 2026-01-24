@@ -32,13 +32,18 @@ internal sealed class IntlInstance : ObjectInstance
     {
         const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
 
-        var properties = new PropertyDictionary(4, checkExistingKeys: false)
+        var properties = new PropertyDictionary(13, checkExistingKeys: false)
         {
             ["Collator"] = new(_realm.Intrinsics.Collator, PropertyFlags),
             ["DateTimeFormat"] = new(_realm.Intrinsics.DateTimeFormat, PropertyFlags),
+            ["DisplayNames"] = new(_realm.Intrinsics.DisplayNames, PropertyFlags),
+            ["DurationFormat"] = new(_realm.Intrinsics.DurationFormat, PropertyFlags),
+            ["ListFormat"] = new(_realm.Intrinsics.ListFormat, PropertyFlags),
             ["Locale"] = new(_realm.Intrinsics.Locale, PropertyFlags),
             ["NumberFormat"] = new(_realm.Intrinsics.NumberFormat, PropertyFlags),
             ["PluralRules"] = new(_realm.Intrinsics.PluralRules, PropertyFlags),
+            ["RelativeTimeFormat"] = new(_realm.Intrinsics.RelativeTimeFormat, PropertyFlags),
+            ["Segmenter"] = new(_realm.Intrinsics.Segmenter, PropertyFlags),
             ["getCanonicalLocales"] = new(new ClrFunction(Engine, "getCanonicalLocales", GetCanonicalLocales, 1, PropertyFlag.Configurable), PropertyFlags),
             ["supportedValuesOf"] = new(new ClrFunction(Engine, "supportedValuesOf", SupportedValuesOf, 1, PropertyFlag.Configurable), PropertyFlags),
         };

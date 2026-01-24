@@ -303,7 +303,26 @@ internal sealed class DateTimeFormatPrototype : Prototype
 
         // timeZone is always present - use local timezone if not specified
         // Convert Windows timezone IDs to IANA format per ECMA-402
-        var timeZoneId = dateTimeFormat.TimeZone ?? TimeZoneInfo.Local.Id;
+        string timeZoneId;
+        if (dateTimeFormat.TimeZone != null)
+        {
+            // User explicitly specified timezone - preserve as-is
+            timeZoneId = dateTimeFormat.TimeZone;
+        }
+        else
+        {
+            // Default timezone from system - canonicalize Etc/UTC variants to UTC
+            timeZoneId = TimeZoneInfo.Local.Id;
+            // On Linux, TimeZoneInfo.Local.Id often returns "Etc/UTC" which should be
+            // canonicalized to "UTC" for default timezone (but preserved if user-specified)
+            if (string.Equals(timeZoneId, "Etc/UTC", StringComparison.Ordinal) ||
+                string.Equals(timeZoneId, "Etc/UCT", StringComparison.Ordinal) ||
+                string.Equals(timeZoneId, "Etc/Universal", StringComparison.Ordinal) ||
+                string.Equals(timeZoneId, "Etc/Zulu", StringComparison.Ordinal))
+            {
+                timeZoneId = "UTC";
+            }
+        }
         result.CreateDataPropertyOrThrow("timeZone", ToIanaTimeZoneId(timeZoneId));
 
         // hourCycle and hour12 should be returned if hour is present OR if timeStyle is set

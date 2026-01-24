@@ -8,6 +8,7 @@ public sealed partial class Intrinsics
     private CollatorConstructor? _collator;
     private DateTimeFormatConstructor? _dateTimeFormat;
     private DisplayNamesConstructor? _displayNames;
+    private DurationFormatConstructor? _durationFormat;
     private ListFormatConstructor? _listFormat;
     private LocaleConstructor? _locale;
     private NumberFormatConstructor? _numberFormat;
@@ -26,6 +27,9 @@ public sealed partial class Intrinsics
 
     internal DisplayNamesConstructor DisplayNames =>
         _displayNames ??= new DisplayNamesConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    internal DurationFormatConstructor DurationFormat =>
+        _durationFormat ??= new DurationFormatConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
     internal ListFormatConstructor ListFormat =>
         _listFormat ??= new ListFormatConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
