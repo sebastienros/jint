@@ -1,3 +1,5 @@
+using System.Threading;
+
 namespace Jint.Native.Intl.Data;
 
 /// <summary>
@@ -6,7 +8,7 @@ namespace Jint.Native.Intl.Data;
 /// </summary>
 internal static class LocaleData
 {
-    private static readonly object _lock = new object();
+    private static readonly Lock _lock = new();
     private static Dictionary<string, string>? _tagMappings;
     private static Dictionary<string, string>? _languageMappings;
     private static Dictionary<string, ComplexLanguageMapping>? _complexLanguageMappings;

@@ -1,3 +1,5 @@
+using System.Threading;
+
 namespace Jint.Native.Intl.Data;
 
 /// <summary>
@@ -8,7 +10,7 @@ internal static class TimeZoneData
 {
     // Lazy initialization to avoid startup cost
     private static Dictionary<string, string>? _caseInsensitiveLookup;
-    private static readonly object _lock = new();
+    private static readonly Lock _lock = new();
 
     /// <summary>
     /// Canonical IANA timezone identifiers (Zone names only - primary identifiers).

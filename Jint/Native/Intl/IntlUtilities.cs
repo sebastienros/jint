@@ -195,6 +195,22 @@ internal static class IntlUtilities
         { "names", "prprname" },  // m0-names -> m0-prprname
     };
 
+    private static readonly Lazy<HashSet<string>> AllCultures = new(() =>
+    {
+        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var culture in CultureInfo.GetCultures(CultureTypes.AllCultures))
+        {
+            if (!string.IsNullOrEmpty(culture.Name))
+            {
+                result.Add(culture.Name);
+            }
+        }
+
+        return result;
+    });
+
+    internal static readonly Lazy<CultureInfo[]> SpecificCultures = new(() => CultureInfo.GetCultures(CultureTypes.SpecificCultures));
+
     /// <summary>
     /// https://tc39.es/ecma402/#sec-canonicalizelocalelist
     /// </summary>
@@ -1314,7 +1330,7 @@ internal static class IntlUtilities
     /// </summary>
     internal static ResolvedLocale ResolveLocale(
         Engine engine,
-        IReadOnlyCollection<string> availableLocales,
+        HashSet<string> availableLocales,
         List<string> requestedLocales,
         JsValue options,
         string[] relevantExtensionKeys)
@@ -1330,7 +1346,7 @@ internal static class IntlUtilities
     /// </summary>
     internal static ResolvedLocale ResolveLocale(
         Engine engine,
-        IReadOnlyCollection<string> availableLocales,
+        HashSet<string> availableLocales,
         List<string> requestedLocales,
         string localeMatcher,
         string[] relevantExtensionKeys)
@@ -1340,7 +1356,7 @@ internal static class IntlUtilities
 
     private static ResolvedLocale ResolveLocaleCore(
         Engine engine,
-        IReadOnlyCollection<string> availableLocales,
+        HashSet<string> availableLocales,
         List<string> requestedLocales,
         string matcher,
         string[] relevantExtensionKeys)
@@ -1367,7 +1383,7 @@ internal static class IntlUtilities
     /// <summary>
     /// https://tc39.es/ecma402/#sec-lookupmatcher
     /// </summary>
-    internal static MatcherResult LookupMatcher(Engine engine, IReadOnlyCollection<string> availableLocales, List<string> requestedLocales)
+    internal static MatcherResult LookupMatcher(Engine engine, HashSet<string> availableLocales, List<string> requestedLocales)
     {
         // 1. For each element locale of requestedLocales, do
         foreach (var locale in requestedLocales)
@@ -1393,7 +1409,7 @@ internal static class IntlUtilities
     /// https://tc39.es/ecma402/#sec-bestfitmatcher
     /// For now, this delegates to LookupMatcher. A proper implementation would use more sophisticated matching.
     /// </summary>
-    internal static MatcherResult BestFitMatcher(Engine engine, IReadOnlyCollection<string> availableLocales, List<string> requestedLocales)
+    internal static MatcherResult BestFitMatcher(Engine engine, HashSet<string> availableLocales, List<string> requestedLocales)
     {
         // For now, use the same algorithm as LookupMatcher
         // A production implementation would use locale distance algorithms
@@ -1403,7 +1419,7 @@ internal static class IntlUtilities
     /// <summary>
     /// https://tc39.es/ecma402/#sec-bestavailablelocale
     /// </summary>
-    internal static string? BestAvailableLocale(IReadOnlyCollection<string> availableLocales, string locale)
+    internal static string? BestAvailableLocale(HashSet<string> availableLocales, string locale)
     {
         // 1. Let candidate be locale.
         var candidate = locale;
@@ -1466,7 +1482,7 @@ internal static class IntlUtilities
         }
     }
 
-    private static bool ContainsLocale(IReadOnlyCollection<string> locales, string locale)
+    private static bool ContainsLocale(HashSet<string> locales, string locale)
     {
         foreach (var l in locales)
         {
@@ -1492,19 +1508,7 @@ internal static class IntlUtilities
     /// <summary>
     /// Gets a set of available locales from .NET's CultureInfo.
     /// </summary>
-    internal static HashSet<string> GetAvailableLocales()
-    {
-        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var culture in CultureInfo.GetCultures(CultureTypes.AllCultures))
-        {
-            if (!string.IsNullOrEmpty(culture.Name))
-            {
-                result.Add(culture.Name);
-            }
-        }
-
-        return result;
-    }
+    internal static HashSet<string> GetAvailableLocales() => AllCultures.Value;
 
     /// <summary>
     /// Removes Unicode locale extension sequences from a language tag.

@@ -456,7 +456,7 @@ public sealed class DefaultCldrProvider : ICldrProvider
 
         // Look up currency name from .NET culture data by finding a culture that uses this currency
         var upperCode = code.ToUpperInvariant();
-        foreach (var culture in CultureInfo.GetCultures(CultureTypes.SpecificCultures))
+        foreach (var culture in IntlUtilities.SpecificCultures.Value)
         {
             try
             {
@@ -597,7 +597,7 @@ public sealed class DefaultCldrProvider : ICldrProvider
     public IReadOnlyCollection<string> GetSupportedCurrencies()
     {
         var currencies = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var culture in CultureInfo.GetCultures(CultureTypes.SpecificCultures))
+        foreach (var culture in IntlUtilities.SpecificCultures.Value)
         {
             try
             {

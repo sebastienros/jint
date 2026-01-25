@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Globalization;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -864,8 +865,8 @@ internal sealed class NumberFormatConstructor : Constructor
         return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
     }
 
-    private static readonly HashSet<string> SanctionedUnits = new(StringComparer.Ordinal)
-    {
+    private static readonly StringSearchValues SanctionedUnits = new(
+    [
         "acre", "bit", "byte", "celsius", "centimeter", "day", "degree",
         "fahrenheit", "fluid-ounce", "foot", "gallon", "gigabit", "gigabyte",
         "gram", "hectare", "hour", "inch", "kilobit", "kilobyte", "kilogram",
@@ -873,7 +874,7 @@ internal sealed class NumberFormatConstructor : Constructor
         "mile", "mile-scandinavian", "milliliter", "millimeter", "millisecond",
         "minute", "month", "nanosecond", "ounce", "percent", "petabyte",
         "pound", "second", "stone", "terabit", "terabyte", "week", "yard", "year"
-    };
+    ], StringComparison.Ordinal);
 
     private static bool IsWellFormedUnitIdentifier(string unit)
     {

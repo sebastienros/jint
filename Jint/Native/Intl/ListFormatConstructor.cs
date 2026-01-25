@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Globalization;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -13,9 +14,9 @@ namespace Jint.Native.Intl;
 internal sealed class ListFormatConstructor : Constructor
 {
     private static readonly JsString _functionName = new("ListFormat");
-    private static readonly HashSet<string> LocaleMatcherValues = ["lookup", "best fit"];
-    private static readonly HashSet<string> TypeValues = ["conjunction", "disjunction", "unit"];
-    private static readonly HashSet<string> StyleValues = ["long", "short", "narrow"];
+    private static readonly StringSearchValues LocaleMatcherValues = new(["lookup", "best fit"], StringComparison.Ordinal);
+    private static readonly StringSearchValues TypeValues = new(["conjunction", "disjunction", "unit"], StringComparison.Ordinal);
+    private static readonly StringSearchValues StyleValues = new(["long", "short", "narrow"], StringComparison.Ordinal);
 
     public ListFormatConstructor(
         Engine engine,
@@ -91,7 +92,7 @@ internal sealed class ListFormatConstructor : Constructor
             culture);
     }
 
-    private string GetStringOption(ObjectInstance options, string property, HashSet<string> values, string fallback)
+    private string GetStringOption(ObjectInstance options, string property, in StringSearchValues values, string fallback)
     {
         var value = options.Get(property);
         if (value.IsUndefined())
@@ -101,12 +102,9 @@ internal sealed class ListFormatConstructor : Constructor
 
         var stringValue = TypeConverter.ToString(value);
 
-        if (values != null && values.Count > 0)
+        if (!values.Contains(stringValue))
         {
-            if (!values.Contains(stringValue))
-            {
-                Throw.RangeError(_realm, $"Invalid value '{stringValue}' for option '{property}'");
-            }
+            Throw.RangeError(_realm, $"Invalid value '{stringValue}' for option '{property}'");
         }
 
         return stringValue;

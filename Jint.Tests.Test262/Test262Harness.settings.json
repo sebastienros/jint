@@ -180,10 +180,7 @@
 
     // Misc intl402 tests requiring full locale support
     "intl402/fallback-locales-are-supported.js",
-    "intl402/supportedLocalesOf-consistent-with-resolvedOptions.js",
-
-    // Performance: This test iterates through all locales with all constructors - very slow
-    "intl402/supportedLocalesOf-unicode-extensions-ignored.js"
+    "intl402/supportedLocalesOf-consistent-with-resolvedOptions.js"
 
   ]
 }

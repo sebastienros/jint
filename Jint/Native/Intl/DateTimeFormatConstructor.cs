@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Globalization;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -13,29 +14,29 @@ namespace Jint.Native.Intl;
 internal sealed class DateTimeFormatConstructor : Constructor
 {
     private static readonly JsString _functionName = new("DateTimeFormat");
-    private static readonly HashSet<string> LocaleMatcherValues = ["lookup", "best fit"];
-    private static readonly HashSet<string> FormatMatcherValues = ["basic", "best fit"];
-    private static readonly HashSet<string> WeekdayValues = ["long", "short", "narrow"];
-    private static readonly HashSet<string> EraValues = ["long", "short", "narrow"];
-    private static readonly HashSet<string> YearValues = ["numeric", "2-digit"];
-    private static readonly HashSet<string> MonthValues = ["numeric", "2-digit", "long", "short", "narrow"];
-    private static readonly HashSet<string> DayValues = ["numeric", "2-digit"];
-    private static readonly HashSet<string> DayPeriodValues = ["long", "short", "narrow"];
-    private static readonly HashSet<string> HourValues = ["numeric", "2-digit"];
-    private static readonly HashSet<string> MinuteValues = ["numeric", "2-digit"];
-    private static readonly HashSet<string> SecondValues = ["numeric", "2-digit"];
-    private static readonly HashSet<string> TimeZoneNameValues = ["long", "short", "shortOffset", "longOffset", "shortGeneric", "longGeneric"];
-    private static readonly HashSet<string> HourCycleValues = ["h11", "h12", "h23", "h24"];
-    private static readonly HashSet<string> DateStyleValues = ["full", "long", "medium", "short"];
-    private static readonly HashSet<string> TimeStyleValues = ["full", "long", "medium", "short"];
+    private static readonly StringSearchValues LocaleMatcherValues = new(["lookup", "best fit"], StringComparison.Ordinal);
+    private static readonly StringSearchValues FormatMatcherValues = new(["basic", "best fit"], StringComparison.Ordinal);
+    private static readonly StringSearchValues WeekdayValues = new(["long", "short", "narrow"], StringComparison.Ordinal);
+    private static readonly StringSearchValues EraValues = new(["long", "short", "narrow"], StringComparison.Ordinal);
+    private static readonly StringSearchValues YearValues = new(["numeric", "2-digit"], StringComparison.Ordinal);
+    private static readonly StringSearchValues MonthValues = new(["numeric", "2-digit", "long", "short", "narrow"], StringComparison.Ordinal);
+    private static readonly StringSearchValues DayValues = new(["numeric", "2-digit"], StringComparison.Ordinal);
+    private static readonly StringSearchValues DayPeriodValues = new(["long", "short", "narrow"], StringComparison.Ordinal);
+    private static readonly StringSearchValues HourValues = new(["numeric", "2-digit"], StringComparison.Ordinal);
+    private static readonly StringSearchValues MinuteValues = new(["numeric", "2-digit"], StringComparison.Ordinal);
+    private static readonly StringSearchValues SecondValues = new(["numeric", "2-digit"], StringComparison.Ordinal);
+    private static readonly StringSearchValues TimeZoneNameValues = new(["long", "short", "shortOffset", "longOffset", "shortGeneric", "longGeneric"], StringComparison.Ordinal);
+    private static readonly StringSearchValues HourCycleValues = new(["h11", "h12", "h23", "h24"], StringComparison.Ordinal);
+    private static readonly StringSearchValues DateStyleValues = new(["full", "long", "medium", "short"], StringComparison.Ordinal);
+    private static readonly StringSearchValues TimeStyleValues = new(["full", "long", "medium", "short"], StringComparison.Ordinal);
 
     // Supported calendars per ECMA-402 and Unicode CLDR
-    private static readonly HashSet<string> SupportedCalendars =
+    private static readonly StringSearchValues SupportedCalendars = new(
     [
         "buddhist", "chinese", "coptic", "dangi", "ethioaa", "ethiopic",
         "gregory", "hebrew", "indian", "islamic", "islamic-civil", "islamic-rgsa",
         "islamic-tbla", "islamic-umalqura", "iso8601", "japanese", "persian", "roc"
-    ];
+    ], StringComparison.Ordinal);
 
     public DateTimeFormatConstructor(
         Engine engine,
@@ -355,7 +356,7 @@ internal sealed class DateTimeFormatConstructor : Constructor
             culture);
     }
 
-    private string? GetStringOption(ObjectInstance options, string property, HashSet<string> values, string? fallback)
+    private string? GetStringOption(ObjectInstance options, string property, in StringSearchValues values, string? fallback)
     {
         var value = options.Get(property);
         if (value.IsUndefined())
@@ -365,12 +366,9 @@ internal sealed class DateTimeFormatConstructor : Constructor
 
         var stringValue = TypeConverter.ToString(value);
 
-        if (values != null && values.Count > 0)
+        if (!values.Contains(stringValue))
         {
-            if (!values.Contains(stringValue))
-            {
-                Throw.RangeError(_realm, $"Invalid value '{stringValue}' for option '{property}'");
-            }
+            Throw.RangeError(_realm, $"Invalid value '{stringValue}' for option '{property}'");
         }
 
         return stringValue;
