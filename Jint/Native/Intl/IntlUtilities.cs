@@ -1281,51 +1281,6 @@ internal static class IntlUtilities
     }
 
     /// <summary>
-    /// Manually canonicalize a language tag according to BCP 47 rules.
-    /// </summary>
-    private static string CanonicalizeLanguageTag(string tag)
-    {
-        var parts = tag.Split('-');
-        if (parts.Length == 0)
-        {
-            return tag;
-        }
-
-        var result = new List<string>();
-
-        // Language subtag (first part) - lowercase
-        result.Add(parts[0].ToLowerInvariant());
-
-        for (var i = 1; i < parts.Length; i++)
-        {
-            var part = parts[i];
-
-            if (part.Length == 4 && char.IsLetter(part[0]))
-            {
-                // Script subtag - title case
-                result.Add(char.ToUpperInvariant(part[0]) + part.Substring(1).ToLowerInvariant());
-            }
-            else if (part.Length == 2 && char.IsLetter(part[0]))
-            {
-                // Region subtag (2 letters) - uppercase
-                result.Add(part.ToUpperInvariant());
-            }
-            else if (part.Length == 3 && char.IsDigit(part[0]))
-            {
-                // Region subtag (3 digits) - as is
-                result.Add(part);
-            }
-            else
-            {
-                // Singleton, variant, or extension subtag - lowercase
-                result.Add(part.ToLowerInvariant());
-            }
-        }
-
-        return string.Join("-", result);
-    }
-
-    /// <summary>
     /// https://tc39.es/ecma402/#sec-resolvelocale
     /// </summary>
     internal static ResolvedLocale ResolveLocale(

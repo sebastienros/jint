@@ -89,6 +89,10 @@ internal sealed class DisposeCapability
                         {
                             result = result.UnwrapIfPromise(_engine.Options.Constraints.PromiseTimeout);
                         }
+                        catch (PromiseRejectedException e)
+                        {
+                            exception = new JavaScriptException(e.RejectedValue);
+                        }
                         catch (JavaScriptException e)
                         {
                             exception = e;

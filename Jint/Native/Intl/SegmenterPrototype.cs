@@ -1,5 +1,3 @@
-#pragma warning disable CA1859 // Use concrete types when possible for improved performance -- prototype methods return JsValue
-
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -59,7 +57,7 @@ internal sealed class SegmenterPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.segmenter.prototype.segment
     /// </summary>
-    private JsValue Segment(JsValue thisObject, JsCallArguments arguments)
+    private JsSegments Segment(JsValue thisObject, JsCallArguments arguments)
     {
         var segmenter = ValidateSegmenter(thisObject);
         var input = arguments.At(0);
@@ -71,7 +69,7 @@ internal sealed class SegmenterPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.segmenter.prototype.resolvedoptions
     /// </summary>
-    private JsValue ResolvedOptions(JsValue thisObject, JsCallArguments arguments)
+    private JsObject ResolvedOptions(JsValue thisObject, JsCallArguments arguments)
     {
         var segmenter = ValidateSegmenter(thisObject);
 

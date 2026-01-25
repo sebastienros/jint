@@ -393,46 +393,6 @@ internal sealed class DateTimeFormatConstructor : Constructor
         return stringValue;
     }
 
-    private string? GetNumberingSystemOption(ObjectInstance options, List<string> requestedLocales)
-    {
-        var value = options.Get("numberingSystem");
-        string? requestedNS = null;
-
-        if (!value.IsUndefined())
-        {
-            requestedNS = TypeConverter.ToString(value);
-
-            // Validate against pattern
-            if (!IntlUtilities.IsValidUnicodeExtensionValue(requestedNS))
-            {
-                Throw.RangeError(_realm, $"Invalid value '{requestedNS}' for option 'numberingSystem'");
-            }
-        }
-        else if (requestedLocales.Count > 0)
-        {
-            // Check for unicode extension -u-nu-
-            requestedNS = ExtractUnicodeExtensionFromLocale(requestedLocales[0], "nu");
-        }
-
-        // Validate against supported numbering systems
-        // Only return numbering systems we actually support (have digit mappings for)
-        if (requestedNS != null)
-        {
-            var supported = _engine.Options.Intl.CldrProvider.GetSupportedNumberingSystems();
-            foreach (var ns in supported)
-            {
-                if (string.Equals(ns, requestedNS, StringComparison.OrdinalIgnoreCase))
-                {
-                    return ns; // Return canonical form
-                }
-            }
-            // Unsupported numbering system - fall back to null (will use locale default)
-            return null;
-        }
-
-        return null;
-    }
-
     private int? GetNumberOption(ObjectInstance options, string property, int minimum, int maximum, int? fallback)
     {
         var value = options.Get(property);
@@ -663,27 +623,6 @@ internal sealed class DateTimeFormatConstructor : Constructor
             "islamic-rgsa" => "islamic-civil",
             _ => calendar.ToLowerInvariant()
         };
-    }
-
-    /// <summary>
-    /// Extracts a unicode extension value from the locale list.
-    /// For example, extracts "h11" from "de-u-hc-h11" when key is "hc".
-    /// </summary>
-    private static string? ExtractUnicodeExtensionValue(List<string> locales, string key, HashSet<string>? validValues)
-    {
-        foreach (var locale in locales)
-        {
-            var value = ExtractUnicodeExtensionFromLocale(locale, key);
-            if (value != null)
-            {
-                // Validate against allowed values if provided
-                if (validValues == null || validValues.Contains(value))
-                {
-                    return value;
-                }
-            }
-        }
-        return null;
     }
 
     /// <summary>

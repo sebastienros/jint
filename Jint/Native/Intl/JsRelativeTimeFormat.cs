@@ -312,42 +312,6 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
         }
     }
 
-    private static void AddIntegerPart(Engine engine, JsArray result, ref uint index, string value, string unit)
-    {
-        var part = OrdinaryObjectCreate(engine, engine.Realm.Intrinsics.Object.PrototypeObject);
-        part.Set("type", "integer");
-        part.Set("value", value);
-        part.Set("unit", unit);
-        result.SetIndexValue(index++, part, updateLength: true);
-    }
-
-    private static void AddGroupPart(Engine engine, JsArray result, ref uint index, string value, string unit)
-    {
-        var part = OrdinaryObjectCreate(engine, engine.Realm.Intrinsics.Object.PrototypeObject);
-        part.Set("type", "group");
-        part.Set("value", value);
-        part.Set("unit", unit);
-        result.SetIndexValue(index++, part, updateLength: true);
-    }
-
-    private static void AddDecimalPart(Engine engine, JsArray result, ref uint index, string value, string unit)
-    {
-        var part = OrdinaryObjectCreate(engine, engine.Realm.Intrinsics.Object.PrototypeObject);
-        part.Set("type", "decimal");
-        part.Set("value", value);
-        part.Set("unit", unit);
-        result.SetIndexValue(index++, part, updateLength: true);
-    }
-
-    private static void AddFractionPart(Engine engine, JsArray result, ref uint index, string value, string unit)
-    {
-        var part = OrdinaryObjectCreate(engine, engine.Realm.Intrinsics.Object.PrototypeObject);
-        part.Set("type", "fraction");
-        part.Set("value", value);
-        part.Set("unit", unit);
-        result.SetIndexValue(index++, part, updateLength: true);
-    }
-
     private string? GetSpecialPhrase(long value, string unit, bool isPast)
     {
         // Try to get special phrase from CLDR provider

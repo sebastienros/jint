@@ -105,53 +105,6 @@ internal sealed class DateTimeFormatPrototype : Prototype
         return result;
     }
 
-    private DateTime ToDateTime(JsValue value)
-    {
-        if (value.IsUndefined())
-        {
-            return DateTime.Now;
-        }
-
-        if (value is JsDate jsDate)
-        {
-            // Check if date is within .NET DateTime range
-            if (!jsDate.DateTimeRangeValid)
-            {
-                // Date is outside .NET range - return min/max based on sign
-                return jsDate.DateValue < 0 ? DateTime.MinValue : DateTime.MaxValue;
-            }
-
-            // ECMA-402 requires formatting in local time unless a specific timezone is provided
-            var dt = jsDate.ToDateTime();
-            if (dt.Kind == DateTimeKind.Utc || dt.Kind == DateTimeKind.Unspecified)
-            {
-                dt = dt.ToLocalTime();
-            }
-            return dt;
-        }
-
-        var timeValue = TypeConverter.ToNumber(value);
-        DatePresentation presentation = timeValue;
-        presentation = presentation.TimeClip();
-
-        if (presentation.IsNaN)
-        {
-            Throw.RangeError(_realm, "Invalid time value");
-        }
-
-        // Clamp to .NET DateTime range if necessary
-        if (presentation.Value < JsDate.Min)
-        {
-            return DateTime.MinValue;
-        }
-        if (presentation.Value > JsDate.Max)
-        {
-            return DateTime.MaxValue;
-        }
-
-        return presentation.ToDateTime().ToLocalTime();
-    }
-
     /// <summary>
     /// Converts a JavaScript value to DateTime, returning the original JavaScript year
     /// when the date is outside .NET DateTime range (for proper era formatting).

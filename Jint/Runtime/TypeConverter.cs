@@ -613,8 +613,7 @@ public static class TypeConverter
     {
         if (!TryStringToBigInt(str, out var result))
         {
-            // TODO: this doesn't seem a JS syntax error, use a dedicated exception type?
-            throw new SyntaxError("CannotConvertToBigInt", " Cannot convert " + str + " to a BigInt").ToException();
+            Throw.SyntaxErrorNoEngine("Cannot convert " + str + " to a BigInt");
         }
 
         return result;

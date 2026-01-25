@@ -1411,9 +1411,9 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                             method.Call(this);
                             promiseCapability.Resolve.Call(Undefined, Undefined);
                         }
-                        catch
+                        catch (JavaScriptException e)
                         {
-                            promiseCapability.Reject.Call(Undefined, Undefined);
+                            promiseCapability.Reject.Call(Undefined, e.Error);
                         }
                         return promiseCapability.PromiseInstance;
                     };

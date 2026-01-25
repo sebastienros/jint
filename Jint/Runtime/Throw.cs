@@ -65,6 +65,12 @@ internal static class Throw
     }
 
     [DoesNotReturn]
+    public static void SyntaxErrorNoEngine(string? message = null)
+    {
+        throw new SyntaxErrorException(message);
+    }
+
+    [DoesNotReturn]
     public static void TypeErrorNoEngine(string? message = null, Node? source = null)
     {
         throw new TypeErrorException(message, source);
