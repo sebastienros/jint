@@ -34,7 +34,6 @@ dotnet test --configuration Release Jint.Tests.Test262/Jint.Tests.Test262.csproj
 ```
 
 Important: Run tests in Release mode for faster feedback loop.
-Important: If you make changes to Test262Harness.settings.json you need to delete folder Jint.Tests.Test262\Generated before building.
 
 ## Requirements
 
