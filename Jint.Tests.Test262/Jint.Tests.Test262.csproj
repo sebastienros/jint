@@ -36,7 +36,7 @@
   </ItemGroup>
 
   <!-- Based on the idea presented at https://mhut.ch/journal/2015/06/30/build-time-code-generation-in-msbuild -->
-  
+
   <!-- Check if settings file has changed by comparing hash and regenerate if needed -->
   <Target Name="GenerateTestSuite" BeforeTargets="BeforeBuild">
     <PropertyGroup>
@@ -74,6 +74,13 @@
     
     <!-- Store the new hash after successful generation -->
     <WriteLinesToFile File="$(_SettingsHashFilePath)" Lines="$(_CurrentSettingsHash)" Overwrite="true" Condition="'$(_NeedsRegeneration)' == 'true'" />
+  </Target>
+
+  <Target Name="IncludeGeneratedTestSuite" BeforeTargets="CoreCompile" DependsOnTargets="GenerateTestSuite">
+    <ItemGroup>
+      <Compile Remove="$(GeneratedTestSuiteDir)\**\*.cs" />
+      <Compile Include="$(GeneratedTestSuiteDir)\**\*.cs" />
+    </ItemGroup>
   </Target>
 
   <Target Name="DeleteTestSuite" AfterTargets="AfterClean" Condition="Exists($([System.IO.Path]::Combine($(MSBuildThisFileDirectory), $(GeneratedTestSuiteDir))))">
