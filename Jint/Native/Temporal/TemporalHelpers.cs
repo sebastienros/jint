@@ -243,6 +243,30 @@ internal static class TemporalHelpers
     }
 
     /// <summary>
+    /// Converts a duration to total nanoseconds (excluding calendar units).
+    /// Only valid for durations without years, months, or weeks.
+    /// </summary>
+    public static System.Numerics.BigInteger TotalDurationNanoseconds(DurationRecord duration)
+    {
+        const long nsPerDay = 86_400_000_000_000L;
+        const long nsPerHour = 3_600_000_000_000L;
+        const long nsPerMinute = 60_000_000_000L;
+        const long nsPerSecond = 1_000_000_000L;
+        const long nsPerMs = 1_000_000L;
+        const long nsPerUs = 1_000L;
+
+        var total = (System.Numerics.BigInteger) (duration.Days * nsPerDay);
+        total += (System.Numerics.BigInteger) (duration.Hours * nsPerHour);
+        total += (System.Numerics.BigInteger) (duration.Minutes * nsPerMinute);
+        total += (System.Numerics.BigInteger) (duration.Seconds * nsPerSecond);
+        total += (System.Numerics.BigInteger) (duration.Milliseconds * nsPerMs);
+        total += (System.Numerics.BigInteger) (duration.Microseconds * nsPerUs);
+        total += (System.Numerics.BigInteger) duration.Nanoseconds;
+
+        return total;
+    }
+
+    /// <summary>
     /// Gets the singular form of a temporal unit name.
     /// </summary>
     public static string ToSingularUnit(string unit)
