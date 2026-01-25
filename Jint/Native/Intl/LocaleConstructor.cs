@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Globalization;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -12,8 +13,8 @@ namespace Jint.Native.Intl;
 internal sealed class LocaleConstructor : Constructor
 {
     private static readonly JsString _functionName = new("Locale");
-    private static readonly HashSet<string>? CaseFirstValues = ["upper", "lower", "false"];
-    private static readonly HashSet<string>? HourCycleValues = ["h11", "h12", "h23", "h24"];
+    private static readonly StringSearchValues CaseFirstValues = new(["upper", "lower", "false"], StringComparison.Ordinal);
+    private static readonly StringSearchValues HourCycleValues = new(["h11", "h12", "h23", "h24"], StringComparison.Ordinal);
 
     public LocaleConstructor(
         Engine engine,
@@ -144,7 +145,7 @@ internal sealed class LocaleConstructor : Constructor
             cultureInfo);
     }
 
-    private string? GetOptionString(ObjectInstance options, string property, string? fallback, HashSet<string>? allowedValues = null)
+    private string? GetOptionString(ObjectInstance options, string property, string? fallback, in StringSearchValues allowedValues)
     {
         var value = options.Get(property);
         if (value.IsUndefined())
@@ -154,12 +155,9 @@ internal sealed class LocaleConstructor : Constructor
 
         var stringValue = TypeConverter.ToString(value);
 
-        if (allowedValues != null && allowedValues.Count > 0)
+        if (!allowedValues.Contains(stringValue))
         {
-            if (!allowedValues.Contains(stringValue))
-            {
-                Throw.RangeError(_realm, $"Invalid value '{stringValue}' for option '{property}'");
-            }
+            Throw.RangeError(_realm, $"Invalid value '{stringValue}' for option '{property}'");
         }
 
         return stringValue;

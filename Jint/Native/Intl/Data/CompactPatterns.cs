@@ -1,3 +1,5 @@
+using System.Threading;
+
 namespace Jint.Native.Intl.Data;
 
 /// <summary>
@@ -6,7 +8,7 @@ namespace Jint.Native.Intl.Data;
 /// </summary>
 internal static class CompactPatterns
 {
-    private static readonly object _lock = new object();
+    private static readonly Lock _lock = new();
     private static Dictionary<string, LocaleCompactData>? _patterns;
     private static volatile bool _loaded;
 

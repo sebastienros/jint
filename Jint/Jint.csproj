@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <NeutralLanguage>en-US</NeutralLanguage>
-    <TargetFrameworks>net462;netstandard2.0;netstandard2.1;net8.0</TargetFrameworks>
+    <TargetFrameworks>net462;netstandard2.0;netstandard2.1;net8.0;net10.0</TargetFrameworks>
 
     <AssemblyOriginatorKeyFile>Jint.snk</AssemblyOriginatorKeyFile>
     <SignAssembly>true</SignAssembly>
@@ -18,6 +18,9 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
 
     <NoWarn>$(NoWarn);1591</NoWarn>
+
+    <!-- TODO AOT improvements -->
+    <NoWarn>$(NoWarn);IL3050;IL2080;IL2075;IL2072;IL2070;IL2069;IL2067;IL2060;</NoWarn>
 
     <IsAotCompatible Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">true</IsAotCompatible>
 

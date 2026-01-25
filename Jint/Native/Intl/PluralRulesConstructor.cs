@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Globalization;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -13,12 +14,12 @@ namespace Jint.Native.Intl;
 internal sealed class PluralRulesConstructor : Constructor
 {
     private static readonly JsString _functionName = new("PluralRules");
-    private static readonly HashSet<string> LocaleMatcherValues = ["lookup", "best fit"];
-    private static readonly HashSet<string> TypeValues = ["cardinal", "ordinal"];
-    private static readonly HashSet<string> NotationValues = ["standard", "scientific", "engineering", "compact"];
-    private static readonly HashSet<string> RoundingModeValues = ["ceil", "floor", "expand", "trunc", "halfCeil", "halfFloor", "halfExpand", "halfTrunc", "halfEven"];
-    private static readonly HashSet<string> RoundingPriorityValues = ["auto", "morePrecision", "lessPrecision"];
-    private static readonly HashSet<string> TrailingZeroDisplayValues = ["auto", "stripIfInteger"];
+    private static readonly StringSearchValues LocaleMatcherValues = new(["lookup", "best fit"], StringComparison.Ordinal);
+    private static readonly StringSearchValues TypeValues = new(["cardinal", "ordinal"], StringComparison.Ordinal);
+    private static readonly StringSearchValues NotationValues = new(["standard", "scientific", "engineering", "compact"], StringComparison.Ordinal);
+    private static readonly StringSearchValues RoundingModeValues = new(["ceil", "floor", "expand", "trunc", "halfCeil", "halfFloor", "halfExpand", "halfTrunc", "halfEven"], StringComparison.Ordinal);
+    private static readonly StringSearchValues RoundingPriorityValues = new(["auto", "morePrecision", "lessPrecision"], StringComparison.Ordinal);
+    private static readonly StringSearchValues TrailingZeroDisplayValues = new(["auto", "stripIfInteger"], StringComparison.Ordinal);
 
     public PluralRulesConstructor(
         Engine engine,
@@ -143,7 +144,7 @@ internal sealed class PluralRulesConstructor : Constructor
             culture);
     }
 
-    private string GetStringOption(ObjectInstance options, string property, HashSet<string> values, string fallback)
+    private string GetStringOption(ObjectInstance options, string property, in StringSearchValues values, string fallback)
     {
         var value = options.Get(property);
         if (value.IsUndefined())
@@ -153,12 +154,9 @@ internal sealed class PluralRulesConstructor : Constructor
 
         var stringValue = TypeConverter.ToString(value);
 
-        if (values != null && values.Count > 0)
+        if (!values.Contains(stringValue))
         {
-            if (!values.Contains(stringValue))
-            {
-                Throw.RangeError(_realm, $"Invalid value '{stringValue}' for option '{property}'");
-            }
+            Throw.RangeError(_realm, $"Invalid value '{stringValue}' for option '{property}'");
         }
 
         return stringValue;

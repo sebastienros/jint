@@ -1,4 +1,4 @@
-using System.Reflection;
+using System.Threading;
 
 namespace Jint.Native.Intl.Data;
 
@@ -8,7 +8,7 @@ namespace Jint.Native.Intl.Data;
 /// </summary>
 internal static class RelativeTimePatternsData
 {
-    private static readonly object _lock = new();
+    private static readonly Lock _lock = new();
     private static Dictionary<string, LocaleRelativeTimeData>? _data;
     private static volatile bool _loaded;
 

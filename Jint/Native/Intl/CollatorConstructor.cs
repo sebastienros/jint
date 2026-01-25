@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Globalization;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -13,17 +14,17 @@ namespace Jint.Native.Intl;
 internal sealed class CollatorConstructor : Constructor
 {
     private static readonly JsString _functionName = new("Collator");
-    private static readonly HashSet<string> LocaleMatcherValues = ["lookup", "best fit"];
-    private static readonly HashSet<string> UsageValues = ["sort", "search"];
-    private static readonly HashSet<string> SensitivityValues = ["base", "accent", "case", "variant"];
-    private static readonly HashSet<string> CaseFirstValues = ["upper", "lower", "false"];
+    private static readonly StringSearchValues LocaleMatcherValues = new(["lookup", "best fit"], StringComparison.Ordinal);
+    private static readonly StringSearchValues UsageValues = new(["sort", "search"], StringComparison.Ordinal);
+    private static readonly StringSearchValues SensitivityValues = new(["base", "accent", "case", "variant"], StringComparison.Ordinal);
+    private static readonly StringSearchValues CaseFirstValues = new(["upper", "lower", "false"], StringComparison.Ordinal);
 
     // Valid collation types per CLDR (excluding "standard" and "search" which are special)
-    private static readonly HashSet<string> ValidCollationTypes = [
+    private static readonly StringSearchValues ValidCollationTypes = new([
         "big5han", "compat", "dict", "direct", "ducet", "emoji", "eor",
         "gb2312", "phonebk", "phonebook", "phonetic", "pinyin", "reformed",
         "searchjl", "stroke", "trad", "unihan", "zhuyin", "default"
-    ];
+    ], StringComparison.Ordinal);
 
     public CollatorConstructor(
         Engine engine,
@@ -169,7 +170,7 @@ internal sealed class CollatorConstructor : Constructor
         return baseLocale + "-u-" + string.Join("-", extensions);
     }
 
-    private string GetStringOption(ObjectInstance options, string property, HashSet<string> values, string fallback)
+    private string GetStringOption(ObjectInstance options, string property, in StringSearchValues values, string fallback)
     {
         var value = options.Get(property);
         if (value.IsUndefined())
@@ -179,12 +180,9 @@ internal sealed class CollatorConstructor : Constructor
 
         var stringValue = TypeConverter.ToString(value);
 
-        if (values != null && values.Count > 0)
+        if (!values.Contains(stringValue))
         {
-            if (!values.Contains(stringValue))
-            {
-                Throw.RangeError(_realm, $"Invalid value '{stringValue}' for option '{property}'");
-            }
+            Throw.RangeError(_realm, $"Invalid value '{stringValue}' for option '{property}'");
         }
 
         return stringValue;

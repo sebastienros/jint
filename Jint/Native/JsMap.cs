@@ -9,12 +9,12 @@ namespace Jint.Native;
 public sealed class JsMap : ObjectInstance, IEnumerable<KeyValuePair<JsValue, JsValue>>
 {
     private readonly Realm _realm;
-    internal readonly OrderedDictionary<JsValue, JsValue> _map;
+    internal readonly JintOrderedDictionary<JsValue, JsValue> _map;
 
     public JsMap(Engine engine, Realm realm) : base(engine)
     {
         _realm = realm;
-        _map = new OrderedDictionary<JsValue, JsValue>(SameValueZeroComparer.Instance);
+        _map = new JintOrderedDictionary<JsValue, JsValue>(SameValueZeroComparer.Instance);
     }
 
     public override PropertyDescriptor GetOwnProperty(JsValue property)

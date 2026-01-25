@@ -200,7 +200,7 @@ public abstract partial class JsValue : IEquatable<JsValue>
                         return;
                     }
 
-                    var result = continuationAction.GetType().GetProperty(nameof(Task<object>.Result));
+                    var result = continuationAction.GetType().GetProperty(nameof(Task<>.Result));
                     if (result is not null)
                     {
                         resolveClr(result.GetValue(continuationAction));
