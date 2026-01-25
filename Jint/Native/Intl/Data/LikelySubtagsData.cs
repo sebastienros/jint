@@ -1,5 +1,3 @@
-using System.IO;
-
 namespace Jint.Native.Intl.Data;
 
 /// <summary>

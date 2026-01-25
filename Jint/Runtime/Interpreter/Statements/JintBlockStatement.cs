@@ -1,4 +1,3 @@
-using Jint.Runtime;
 using Jint.Runtime.Environments;
 using Environment = Jint.Runtime.Environments.Environment;
 

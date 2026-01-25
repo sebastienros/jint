@@ -40,7 +40,7 @@ internal sealed class JintIdentifierExpression : JintExpression
         if (!JintEnvironment.TryGetIdentifierEnvironmentWithBinding(env, _identifier, out var identifierEnvironment))
         {
             // Binding not found - create unresolvable reference
-            return engine._referencePool.Rent(JsUnresolvableReference.Instance, _identifier.Value, strict, thisValue: null);
+            return engine._referencePool.Rent(Reference.Unresolvable, _identifier.Value, strict, thisValue: null);
         }
 
         return engine._referencePool.Rent(identifierEnvironment, _identifier.Value, strict, thisValue: null);
@@ -75,7 +75,7 @@ internal sealed class JintIdentifierExpression : JintExpression
         }
         else
         {
-            var reference = engine._referencePool.Rent(JsUnresolvableReference.Instance, identifier.Value, strict, thisValue: null);
+            var reference = engine._referencePool.Rent(Reference.Unresolvable, identifier.Value, strict, thisValue: null);
             value = engine.GetValue(reference, returnReferenceToPool: true);
         }
 

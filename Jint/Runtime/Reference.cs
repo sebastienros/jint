@@ -11,6 +11,8 @@ namespace Jint.Runtime;
 /// </summary>
 public sealed class Reference
 {
+    internal static readonly JsValue Unresolvable = new JsString("[[Unresolvable]]");
+
     private JsValue _base;
     private JsValue _referencedName;
     internal bool _strict;
@@ -59,7 +61,7 @@ public sealed class Reference
     public bool IsUnresolvableReference
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        get => _base._type == InternalTypes.Unresolvable;
+        get => ReferenceEquals(_base, Unresolvable);
     }
 
     public bool IsSuperReference => _thisValue is not null;
@@ -69,7 +71,7 @@ public sealed class Reference
     public bool IsPropertyReference
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        get => _base._type != InternalTypes.Unresolvable && (_base._type & InternalTypes.ObjectEnvironmentRecord) == InternalTypes.Empty;
+        get => !ReferenceEquals(_base, Unresolvable) && (_base._type & InternalTypes.ObjectEnvironmentRecord) == InternalTypes.Empty;
     }
 
     public JsValue ThisValue

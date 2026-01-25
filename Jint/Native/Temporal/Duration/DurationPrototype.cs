@@ -1,5 +1,3 @@
-using System.Globalization;
-using System.Text;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;

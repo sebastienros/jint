@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
-using Jint.Native.Intl;
 using Jint.Native.Number.Dtoa;
 using Jint.Native.Object;
 using Jint.Runtime;
