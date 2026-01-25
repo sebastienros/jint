@@ -1,6 +1,7 @@
 #pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of prototype methods return JsValue
 
 using System.Globalization;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Jint.Native.Intl;
@@ -42,7 +43,7 @@ internal sealed class DatePrototype : Prototype
         const PropertyFlag lengthFlags = PropertyFlag.Configurable;
         const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
 
-        var properties = new PropertyDictionary(50, checkExistingKeys: false)
+        var properties = new PropertyDictionary(51, checkExistingKeys: false)
         {
             ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
             ["toString"] = new PropertyDescriptor(new ClrFunction(Engine, "toString", ToString, 0, lengthFlags), propertyFlags),
@@ -89,7 +90,8 @@ internal sealed class DatePrototype : Prototype
             ["setUTCFullYear"] = new PropertyDescriptor(new ClrFunction(Engine, "setUTCFullYear", SetUTCFullYear, 3, lengthFlags), propertyFlags),
             ["toUTCString"] = new PropertyDescriptor(new ClrFunction(Engine, "toUTCString", ToUtcString, 0, lengthFlags), propertyFlags),
             ["toISOString"] = new PropertyDescriptor(new ClrFunction(Engine, "toISOString", ToISOString, 0, lengthFlags), propertyFlags),
-            ["toJSON"] = new PropertyDescriptor(new ClrFunction(Engine, "toJSON", ToJson, 1, lengthFlags), propertyFlags)
+            ["toJSON"] = new PropertyDescriptor(new ClrFunction(Engine, "toJSON", ToJson, 1, lengthFlags), propertyFlags),
+            ["toTemporalInstant"] = new PropertyDescriptor(new ClrFunction(Engine, "toTemporalInstant", ToTemporalInstant, 0, lengthFlags), propertyFlags)
         };
         SetProperties(properties);
 
@@ -975,6 +977,30 @@ internal sealed class DatePrototype : Prototype
         }
 
         return Invoke(o, "toISOString", Arguments.Empty);
+    }
+
+    /// <summary>
+    /// https://tc39.es/proposal-temporal/#sec-date.prototype.totemporalinstant
+    /// </summary>
+    private JsValue ToTemporalInstant(JsValue thisObject, JsCallArguments arguments)
+    {
+        // 1. Let dateObject be the this value.
+        // 2. Perform ? RequireInternalSlot(dateObject, [[DateValue]]).
+        var tv = ThisTimeValue(thisObject);
+
+        // 3. Let t be dateObject.[[DateValue]].
+        // 4. Let ns be ? NumberToBigInt(t) × ℤ(10**6).
+        if (tv.IsNaN)
+        {
+            Throw.RangeError(_realm, "Invalid time value");
+            return default;
+        }
+
+        // Convert milliseconds to nanoseconds (multiply by 10^6)
+        var epochNanoseconds = new BigInteger(tv.Value) * 1_000_000;
+
+        // 5. Return ! CreateTemporalInstant(ns).
+        return _realm.Intrinsics.TemporalInstant.Construct(epochNanoseconds);
     }
 
     private const int HoursPerDay = 24;

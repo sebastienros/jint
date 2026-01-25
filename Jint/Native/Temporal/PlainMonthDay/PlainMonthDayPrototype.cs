@@ -25,29 +25,30 @@ internal sealed class PlainMonthDayPrototype : Prototype
 
     protected override void Initialize()
     {
-        var properties = new PropertyDictionary(1, checkExistingKeys: false)
+        const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
+        const PropertyFlag LengthFlags = PropertyFlag.Configurable;
+
+        var properties = new PropertyDictionary(11, checkExistingKeys: false)
         {
             ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
+            ["with"] = new(new ClrFunction(Engine, "with", With, 1, LengthFlags), PropertyFlags),
+            ["equals"] = new(new ClrFunction(Engine, "equals", Equals, 1, LengthFlags), PropertyFlags),
+            ["toString"] = new(new ClrFunction(Engine, "toString", ToTemporalString, 0, LengthFlags), PropertyFlags),
+            ["toJSON"] = new(new ClrFunction(Engine, "toJSON", ToJSON, 0, LengthFlags), PropertyFlags),
+            ["toLocaleString"] = new(new ClrFunction(Engine, "toLocaleString", ToLocaleString, 0, LengthFlags), PropertyFlags),
+            ["valueOf"] = new(new ClrFunction(Engine, "valueOf", ValueOf, 0, LengthFlags), PropertyFlags),
+            ["toPlainDate"] = new(new ClrFunction(Engine, "toPlainDate", ToPlainDate, 1, LengthFlags), PropertyFlags),
+            ["calendarId"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get calendarId", GetCalendarId, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
+            ["monthCode"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get monthCode", GetMonthCode, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
+            ["day"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get day", GetDay, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
         };
         SetProperties(properties);
-
-        DefineAccessor("calendarId", GetCalendarId);
-        DefineAccessor("monthCode", GetMonthCode);
-        DefineAccessor("day", GetDay);
 
         var symbols = new SymbolDictionary(1)
         {
             [GlobalSymbolRegistry.ToStringTag] = new("Temporal.PlainMonthDay", PropertyFlag.Configurable)
         };
         SetSymbols(symbols);
-    }
-
-    private void DefineAccessor(string name, Func<JsValue, JsCallArguments, JsValue> getter)
-    {
-        SetProperty(name, new GetSetPropertyDescriptor(
-            new ClrFunction(Engine, $"get {name}", getter, 0, PropertyFlag.Configurable),
-            Undefined,
-            PropertyFlag.Configurable));
     }
 
     private JsPlainMonthDay ValidatePlainMonthDay(JsValue thisObject)
@@ -58,7 +59,266 @@ internal sealed class PlainMonthDayPrototype : Prototype
         return null!;
     }
 
+    // Getters
     private JsString GetCalendarId(JsValue thisObject, JsCallArguments arguments) => new JsString(ValidatePlainMonthDay(thisObject).Calendar);
     private JsString GetMonthCode(JsValue thisObject, JsCallArguments arguments) => new JsString($"M{ValidatePlainMonthDay(thisObject).IsoDate.Month:D2}");
     private JsNumber GetDay(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainMonthDay(thisObject).IsoDate.Day);
+
+    /// <summary>
+    /// https://tc39.es/proposal-temporal/#sec-temporal.plainmonthday.prototype.with
+    /// </summary>
+    private JsPlainMonthDay With(JsValue thisObject, JsCallArguments arguments)
+    {
+        var md = ValidatePlainMonthDay(thisObject);
+        var temporalMonthDayLike = arguments.At(0);
+        var optionsArg = arguments.At(1);
+
+        if (!temporalMonthDayLike.IsObject())
+        {
+            Throw.TypeError(_realm, "with argument must be an object");
+        }
+
+        var obj = temporalMonthDayLike.AsObject();
+
+        // Reject Temporal objects (IsPartialTemporalObject step 2)
+        // Only plain objects are allowed, not Temporal types
+        if (obj is JsPlainDate or JsPlainDateTime or JsPlainMonthDay or JsPlainTime or JsPlainYearMonth or JsZonedDateTime or JsDuration or JsInstant)
+        {
+            Throw.TypeError(_realm, "with argument must be a plain object, not a Temporal object");
+        }
+
+        // RejectObjectWithCalendarOrTimeZone - check for calendar and timeZone properties first
+        var calendarProperty = obj.Get("calendar");
+        if (!calendarProperty.IsUndefined())
+        {
+            Throw.TypeError(_realm, "calendar property not supported");
+        }
+
+        var timeZoneProperty = obj.Get("timeZone");
+        if (!timeZoneProperty.IsUndefined())
+        {
+            Throw.TypeError(_realm, "timeZone property not supported");
+        }
+
+        // Read and convert properties in strict alphabetical order per spec: day, month, monthCode, year
+        // 1. day
+        var dayProp = obj.Get("day");
+        var day = dayProp.IsUndefined() ? md.IsoDate.Day : TemporalHelpers.ToPositiveIntegerWithTruncation(_realm, dayProp);
+
+        // 2. month
+        var monthProp = obj.Get("month");
+        var month = monthProp.IsUndefined() ? md.IsoDate.Month : TemporalHelpers.ToPositiveIntegerWithTruncation(_realm, monthProp);
+
+        // 3. monthCode - read but don't validate yet
+        var monthCodeProp = obj.Get("monthCode");
+        string? monthCode = null;
+        if (!monthCodeProp.IsUndefined())
+        {
+            // monthCode must be a string (per spec)
+            // Handle objects specially: call ToPrimitive and ensure result is a string
+            if (monthCodeProp.IsObject())
+            {
+                var primitive = TypeConverter.ToPrimitive(monthCodeProp, Types.String);
+                if (!primitive.IsString())
+                {
+                    Throw.TypeError(_realm, "monthCode must be a string");
+                }
+                monthCode = primitive.ToString();
+            }
+            else if (monthCodeProp.IsString())
+            {
+                monthCode = TypeConverter.ToString(monthCodeProp);
+            }
+            else
+            {
+                // Number, BigInt, Boolean, Null - reject; Symbol throws from ToString
+                if (monthCodeProp.Type != Types.Symbol)
+                {
+                    Throw.TypeError(_realm, "monthCode must be a string");
+                }
+                monthCode = TypeConverter.ToString(monthCodeProp);
+            }
+        }
+
+        // 4. year (read but use reference year for PlainMonthDay)
+        var yearProp = obj.Get("year");
+        var year = yearProp.IsUndefined() ? md.IsoDate.Year : TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearProp);
+
+        // Validate that at least one temporal field was provided (IsPartialTemporalObject)
+        if (dayProp.IsUndefined() && monthProp.IsUndefined() && monthCodeProp.IsUndefined() && yearProp.IsUndefined())
+        {
+            Throw.TypeError(_realm, "with argument must have at least one temporal property");
+        }
+
+        // Read options BEFORE any validation (per spec)
+        var overflow = TemporalHelpers.GetOverflowOption(_realm, optionsArg);
+
+        // NOW validate monthCode (after options are read)
+        int? monthFromCode = null;
+        if (monthCode is not null)
+        {
+            monthFromCode = TemporalHelpers.ParseMonthCode(_realm, monthCode);
+
+            // For ISO 8601 calendar: validate monthCode is valid (01-12, no leap months)
+            if (monthCode.Length == 4 && monthCode[3] == 'L')
+            {
+                Throw.RangeError(_realm, $"Leap months are not valid for ISO 8601 calendar: {monthCode}");
+            }
+
+            if (monthFromCode.Value < 1 || monthFromCode.Value > 12)
+            {
+                Throw.RangeError(_realm, $"Month {monthFromCode.Value} is not valid for ISO 8601 calendar");
+            }
+        }
+
+        // Validate month/monthCode consistency
+        if (monthFromCode.HasValue && !monthProp.IsUndefined() && month != monthFromCode.Value)
+        {
+            Throw.RangeError(_realm, "month and monthCode must match");
+        }
+
+        // Use monthCode if provided
+        if (monthFromCode.HasValue)
+        {
+            month = monthFromCode.Value;
+        }
+
+        // Validate using the provided year (important for leap day validation)
+        var date = TemporalHelpers.RegulateIsoDate(year, month, day, overflow);
+        if (date is null)
+        {
+            Throw.RangeError(_realm, "Invalid month-day");
+        }
+
+        // Choose reference year for result (per spec: not the same as the validation year)
+        // Use 1972 (a leap year) to ensure Feb 29 is always valid
+        var referenceYear = 1972;
+        var resultDate = new IsoDate(referenceYear, date.Value.Month, date.Value.Day);
+
+        return _constructor.Construct(resultDate, md.Calendar);
+    }
+
+    /// <summary>
+    /// https://tc39.es/proposal-temporal/#sec-temporal.plainmonthday.prototype.equals
+    /// </summary>
+    private JsBoolean Equals(JsValue thisObject, JsCallArguments arguments)
+    {
+        var md = ValidatePlainMonthDay(thisObject);
+        var other = _constructor.ToTemporalMonthDay(arguments.At(0), "constrain");
+
+        return md.IsoDate.Year == other.IsoDate.Year &&
+               md.IsoDate.Month == other.IsoDate.Month &&
+               md.IsoDate.Day == other.IsoDate.Day &&
+               string.Equals(md.Calendar, other.Calendar, StringComparison.Ordinal)
+            ? JsBoolean.True
+            : JsBoolean.False;
+    }
+
+    /// <summary>
+    /// https://tc39.es/proposal-temporal/#sec-temporal.plainmonthday.prototype.tostring
+    /// </summary>
+    private JsString ToTemporalString(JsValue thisObject, JsCallArguments arguments)
+    {
+        var md = ValidatePlainMonthDay(thisObject);
+        var optionsValue = arguments.At(0);
+        var options = TemporalHelpers.GetOptionsObject(_realm, optionsValue);
+        var showCalendar = GetCalendarNameOption(options);
+
+        // Include the reference year when calendar is shown
+        // Per spec: YYYY-MM-DD format with calendar annotation
+        var includeYear = string.Equals(showCalendar, "always", StringComparison.Ordinal) ||
+                          string.Equals(showCalendar, "critical", StringComparison.Ordinal) ||
+                          (string.Equals(showCalendar, "auto", StringComparison.Ordinal) &&
+                           !string.Equals(md.Calendar, "iso8601", StringComparison.Ordinal));
+
+        string result;
+        if (includeYear)
+        {
+            // Add critical flag (!) if showCalendar is "critical"
+            var criticalFlag = string.Equals(showCalendar, "critical", StringComparison.Ordinal) ? "!" : "";
+            result = $"{md.IsoDate.Year:D4}-{md.IsoDate.Month:D2}-{md.IsoDate.Day:D2}[{criticalFlag}u-ca={md.Calendar}]";
+        }
+        else
+        {
+            result = $"{md.IsoDate.Month:D2}-{md.IsoDate.Day:D2}";
+        }
+
+        return new JsString(result);
+    }
+
+    /// <summary>
+    /// https://tc39.es/proposal-temporal/#sec-temporal.plainmonthday.prototype.tojson
+    /// </summary>
+    private JsString ToJSON(JsValue thisObject, JsCallArguments arguments)
+    {
+        var md = ValidatePlainMonthDay(thisObject);
+        return new JsString($"{md.IsoDate.Month:D2}-{md.IsoDate.Day:D2}");
+    }
+
+    /// <summary>
+    /// https://tc39.es/proposal-temporal/#sec-temporal.plainmonthday.prototype.tolocalestring
+    /// </summary>
+    private JsString ToLocaleString(JsValue thisObject, JsCallArguments arguments)
+    {
+        var md = ValidatePlainMonthDay(thisObject);
+        // For now, just return MM-DD format
+        return new JsString($"{md.IsoDate.Month:D2}-{md.IsoDate.Day:D2}");
+    }
+
+    /// <summary>
+    /// https://tc39.es/proposal-temporal/#sec-temporal.plainmonthday.prototype.valueof
+    /// </summary>
+    private JsValue ValueOf(JsValue thisObject, JsCallArguments arguments)
+    {
+        Throw.TypeError(_realm, "Temporal.PlainMonthDay cannot be converted to a primitive value");
+        return Undefined;
+    }
+
+    /// <summary>
+    /// https://tc39.es/proposal-temporal/#sec-temporal.plainmonthday.prototype.toplaindate
+    /// </summary>
+    private JsPlainDate ToPlainDate(JsValue thisObject, JsCallArguments arguments)
+    {
+        var md = ValidatePlainMonthDay(thisObject);
+        var item = arguments.At(0);
+
+        if (!item.IsObject())
+        {
+            Throw.TypeError(_realm, "toPlainDate requires an object argument");
+        }
+
+        var obj = item.AsObject();
+        var yearProp = obj.Get("year");
+        if (yearProp.IsUndefined())
+        {
+            Throw.TypeError(_realm, "year is required");
+        }
+
+        var year = TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearProp);
+        var date = TemporalHelpers.RegulateIsoDate(year, md.IsoDate.Month, md.IsoDate.Day, "constrain");
+        if (date is null)
+        {
+            Throw.RangeError(_realm, "Invalid date");
+        }
+
+        return _engine.Realm.Intrinsics.TemporalPlainDate.Construct(date.Value, md.Calendar);
+    }
+
+    private string GetCalendarNameOption(ObjectInstance? options)
+    {
+        if (options is null)
+            return "auto";
+
+        var calendarName = options.Get("calendarName");
+        if (calendarName.IsUndefined())
+            return "auto";
+
+        var value = TypeConverter.ToString(calendarName);
+        if (!TemporalHelpers.IsValidCalendarNameOption(value))
+        {
+            Throw.RangeError(_realm, $"Invalid calendarName option: {value}");
+        }
+        return value;
+    }
+
 }

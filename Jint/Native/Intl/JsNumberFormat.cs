@@ -7,17 +7,7 @@ namespace Jint.Native.Intl;
 /// <summary>
 /// Represents a part of a formatted number for formatToParts.
 /// </summary>
-internal readonly struct NumberFormatPart
-{
-    public string Type { get; }
-    public string Value { get; }
-
-    public NumberFormatPart(string type, string value)
-    {
-        Type = type;
-        Value = value;
-    }
-}
+internal readonly record struct NumberFormatPart(string Type, string Value);
 
 /// <summary>
 /// https://tc39.es/ecma402/#sec-numberformat-objects

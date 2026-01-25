@@ -1150,17 +1150,7 @@ internal sealed class LocaleConstructor : Constructor
         public List<ExtensionEntry> OtherExtensions { get; } = new();
     }
 
-    private readonly struct ExtensionEntry
-    {
-        public ExtensionEntry(char singleton, string content)
-        {
-            Singleton = singleton;
-            Content = content;
-        }
-
-        public char Singleton { get; }
-        public string Content { get; }
-    }
+    private readonly record struct ExtensionEntry(char Singleton, string Content);
 
     /// <summary>
     /// Canonicalizes grandfathered tags using CLDR data.
