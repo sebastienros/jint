@@ -40,6 +40,31 @@ public abstract partial class JsValue : IEquatable<JsValue>
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     internal virtual bool IsConstructor => false;
 
+    // Temporal type checks
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    internal virtual bool IsTemporalDuration => false;
+
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    internal virtual bool IsTemporalInstant => false;
+
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    internal virtual bool IsTemporalPlainDate => false;
+
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    internal virtual bool IsTemporalPlainDateTime => false;
+
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    internal virtual bool IsTemporalPlainMonthDay => false;
+
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    internal virtual bool IsTemporalPlainTime => false;
+
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    internal virtual bool IsTemporalPlainYearMonth => false;
+
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    internal virtual bool IsTemporalZonedDateTime => false;
+
     internal bool IsEmpty => ReferenceEquals(this, JsEmpty.Instance);
 
     [Pure]

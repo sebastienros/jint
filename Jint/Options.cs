@@ -12,6 +12,7 @@ using Jint.Runtime.Descriptors;
 using Jint.Runtime.Modules;
 using Jint.Runtime.CallStack;
 using Jint.Native.Intl;
+using Jint.Native.Temporal;
 
 namespace Jint;
 
@@ -62,6 +63,11 @@ public class Options
     /// Internationalization (Intl) options.
     /// </summary>
     public IntlOptions Intl { get; } = new();
+
+    /// <summary>
+    /// Temporal API options.
+    /// </summary>
+    public TemporalOptions Temporal { get; } = new();
 
     /// <summary>
     /// Whether the code should be always considered to be in strict mode. Can improve performance.
@@ -519,6 +525,22 @@ public class Options
         /// to enable full locale support for the Intl API.
         /// </remarks>
         public ICldrProvider CldrProvider { get; set; } = DefaultCldrProvider.Instance;
+    }
+
+    /// <summary>
+    /// Temporal API related customization.
+    /// </summary>
+    public class TemporalOptions
+    {
+        /// <summary>
+        /// Time zone provider for Temporal operations. Defaults to DefaultTimeZoneProvider
+        /// which uses .NET TimeZoneInfo for basic IANA time zone support.
+        /// </summary>
+        /// <remarks>
+        /// Set this to a custom ITimeZoneProvider implementation (e.g., using TimeZoneConverter or NodaTime)
+        /// for full IANA time zone support and better Windows compatibility.
+        /// </remarks>
+        public ITimeZoneProvider TimeZoneProvider { get; set; } = DefaultTimeZoneProvider.Instance;
     }
 }
 
