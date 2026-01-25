@@ -125,7 +125,10 @@ internal sealed class HoistingScope
                             {
                                 if (string.Equals(ie.ImportName, "*", StringComparison.Ordinal))
                                 {
-                                    localExportEntries.Add(ee);
+                                    // Per ECMAScript 16.2.1.7.1 step 10.b.ii:
+                                    // This is a re-export of an imported module namespace object.
+                                    // Create an indirect export entry with ImportName: all ("*")
+                                    indirectExportEntries.Add(new(ee.ExportName, ie.ModuleRequest, "*", null));
                                 }
                                 else
                                 {

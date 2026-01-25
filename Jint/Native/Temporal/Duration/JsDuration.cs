@@ -1,5 +1,4 @@
 using Jint.Native.Object;
-using Jint.Runtime;
 
 namespace Jint.Native.Temporal;
 

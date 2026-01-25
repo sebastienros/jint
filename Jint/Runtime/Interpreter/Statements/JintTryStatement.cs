@@ -109,7 +109,9 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
 
             if (f.Type == CompletionType.Normal)
             {
-                return b;
+                // Per spec: If F.[[type]] is normal, let F be B.
+                // And step 6: If F.[[value]] is empty, return undefined
+                return b.UpdateEmpty(JsValue.Undefined);
             }
 
             return f.UpdateEmpty(JsValue.Undefined);

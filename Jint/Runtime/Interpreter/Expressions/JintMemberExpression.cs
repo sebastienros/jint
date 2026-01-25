@@ -110,15 +110,6 @@ internal sealed class JintMemberExpression : JintExpression
         }
 
         var property = _determinedProperty ?? _propertyExpression!.GetValue(context);
-        if (baseValue.IsNullOrUndefined())
-        {
-            // we can use base data types securely, object evaluation can mess things up
-            var referenceName = property.IsPrimitive()
-                ? TypeConverter.ToString(property)
-                : _determinedProperty?.ToString() ?? baseReferenceName?.ToString();
-
-            TypeConverter.CheckObjectCoercible(engine, baseValue, _memberExpression.Property, referenceName!);
-        }
 
         if (property.IsPrivateName())
         {
@@ -136,5 +127,35 @@ internal sealed class JintMemberExpression : JintExpression
         var privEnv = engine.ExecutionContext.PrivateEnvironment;
         var privateName = privEnv!.ResolvePrivateIdentifier(privateIdentifier.ToString());
         return engine._referencePool.Rent(baseValue, privateName!, strict: true, thisValue: null);
+    }
+
+    /// <summary>
+    /// Override GetValue to provide proper error location when base is null/undefined.
+    /// For read operations, the error should be thrown with the property node's location.
+    /// </summary>
+    public override JsValue GetValue(EvaluationContext context)
+    {
+        var result = Evaluate(context);
+        if (result is not Reference reference)
+        {
+            return (JsValue) result;
+        }
+
+        // Check if base is null/undefined before calling Engine.GetValue
+        // This ensures the error has the correct location (the property access)
+        // Per ECMAScript spec, ToObject(base) must happen before ToPropertyKey(property),
+        // so we must NOT try to convert property to string for the error message if it's an object.
+        if (reference.Base.IsNullOrUndefined())
+        {
+            var property = reference.ReferencedName;
+            // Only use property for error message if it's already a primitive (won't trigger ToPropertyKey)
+            var referenceName = property.IsPrimitive()
+                ? TypeConverter.ToString(property)
+                : null;
+
+            TypeConverter.CheckObjectCoercible(context.Engine, reference.Base, _memberExpression.Property, referenceName);
+        }
+
+        return context.Engine.GetValue(reference, returnReferenceToPool: true);
     }
 }

@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-
 namespace Jint.Native.Intl.Data;
 
 /// <summary>

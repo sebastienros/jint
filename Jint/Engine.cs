@@ -980,7 +980,7 @@ public sealed partial class Engine : IDisposable
         {
             if (env is null)
             {
-                return new Reference(JsValue.Undefined, name, strict);
+                return new Reference(Reference.Unresolvable, name, strict);
             }
 
             if (env.HasBinding(key))

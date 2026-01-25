@@ -1011,7 +1011,7 @@ public static class TypeConverter
         Engine engine,
         JsValue o,
         Node sourceNode,
-        string referenceName)
+        string? referenceName)
     {
         if (!engine._referenceResolver.CheckCoercible(o))
         {
@@ -1024,7 +1024,7 @@ public static class TypeConverter
         Engine engine,
         JsValue o,
         Node sourceNode,
-        string referencedName)
+        string? referencedName)
     {
         referencedName ??= "unknown";
         var message = $"Cannot read property '{referencedName}' of {o}";
