@@ -17,7 +17,7 @@ internal static class IntlUtilities
     // Extensions use single-character singletons like -u- for Unicode extensions
     // Full spec: https://www.rfc-editor.org/rfc/bcp/bcp47.txt
     private static readonly Regex LanguageTagPattern = new(
-        @"^[a-zA-Z]{2,8}(?:-[a-zA-Z0-9]{1,8})*$",
+        "^[a-zA-Z]{2,8}(?:-[a-zA-Z0-9]{1,8})*$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant,
         TimeSpan.FromMilliseconds(100));
 
@@ -1428,7 +1428,7 @@ internal static class IntlUtilities
         while (true)
         {
             // a. If availableLocales contains candidate, return candidate.
-            if (ContainsLocale(availableLocales, candidate))
+            if (availableLocales.Contains(candidate))
             {
                 return candidate;
             }
@@ -1438,7 +1438,7 @@ internal static class IntlUtilities
             if (culture != null)
             {
                 var cultureName = culture.Name;
-                if (ContainsLocale(availableLocales, cultureName))
+                if (availableLocales.Contains(cultureName))
                 {
                     return cultureName;
                 }
@@ -1456,7 +1456,7 @@ internal static class IntlUtilities
                                     string.Equals(region, "MO", StringComparison.OrdinalIgnoreCase);
                 var script = isTraditional ? "Hant" : "Hans";
                 var expandedCandidate = $"zh-{script}-{region}";
-                if (ContainsLocale(availableLocales, expandedCandidate))
+                if (availableLocales.Contains(expandedCandidate))
                 {
                     return expandedCandidate;
                 }
@@ -1480,19 +1480,6 @@ internal static class IntlUtilities
             // e. Let candidate be the substring of candidate from position 0 to position pos.
             candidate = candidate.Substring(0, pos);
         }
-    }
-
-    private static bool ContainsLocale(HashSet<string> locales, string locale)
-    {
-        foreach (var l in locales)
-        {
-            if (string.Equals(l, locale, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>
@@ -1660,16 +1647,12 @@ internal static class IntlUtilities
         }
 
         // 3. Convert value based on type
-        switch (type)
+        value = type switch
         {
-            case OptionType.Boolean:
-                value = TypeConverter.ToBoolean(value) ? JsBoolean.True : JsBoolean.False;
-                break;
-
-            case OptionType.String:
-                value = TypeConverter.ToJsString(value);
-                break;
-        }
+            OptionType.Boolean => TypeConverter.ToBoolean(value) ? JsBoolean.True : JsBoolean.False,
+            OptionType.String => TypeConverter.ToJsString(value),
+            _ => value
+        };
 
         // 4. If values is not empty and value is not in values, throw RangeError
         if (values != null && values.Length > 0)
