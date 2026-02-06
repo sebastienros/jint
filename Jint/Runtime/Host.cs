@@ -258,6 +258,18 @@ public class Host
     }
 
     /// <summary>
+    /// https://tc39.es/ecma262/#sec-hostpromiserejectiontracker
+    /// Called when a promise is rejected without a handler, or when a handler is
+    /// added to a previously unhandled rejected promise.
+    /// </summary>
+    /// <param name="promise">The promise that was rejected.</param>
+    /// <param name="operation">Whether the promise was rejected ("reject") or a handler was added ("handle").</param>
+    internal virtual void HostPromiseRejectionTracker(JsPromise promise, PromiseRejectionOperation operation)
+    {
+        Engine.OnPromiseRejectionTracker(promise, operation);
+    }
+
+    /// <summary>
     /// https://tc39.es/ecma262/#sec-hostenqueuepromisejob
     /// </summary>
     internal void HostEnqueuePromiseJob(Action job, Realm realm)

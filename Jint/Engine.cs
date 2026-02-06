@@ -556,6 +556,15 @@ public sealed partial class Engine : IDisposable
         _eventLoop.Enqueue(continuation);
     }
 
+    /// <summary>
+    /// Called by the host when a promise rejection is tracked/untracked.
+    /// Raises the <see cref="AdvancedOperations.PromiseRejectionTracker"/> event.
+    /// </summary>
+    internal void OnPromiseRejectionTracker(JsPromise promise, PromiseRejectionOperation operation)
+    {
+        Advanced.RaisePromiseRejectionTracker(promise, operation);
+    }
+
     internal void AddToKeptObjects(JsValue target)
     {
         _agent.AddToKeptObjects(target);

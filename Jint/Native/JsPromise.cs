@@ -13,7 +13,45 @@ internal sealed class JsPromise : ObjectInstance
 
     // valid only in settled state (Fulfilled or Rejected)
     internal JsValue Value { get; private set; } = null!;
-    internal ManualResetEventSlim CompletedEvent { get; } = new();
+
+    /// <summary>
+    /// Lazily allocated ManualResetEventSlim, only created when someone actually
+    /// calls UnwrapIfPromise() and needs to wait. This avoids allocating an OS
+    /// synchronization primitive for every promise (most are never polled).
+    /// </summary>
+    private ManualResetEventSlim? _completedEvent;
+
+    /// <summary>
+    /// Gets or creates the completed event for synchronous waiting.
+    /// Thread-safe via Interlocked.CompareExchange.
+    /// </summary>
+    internal ManualResetEventSlim CompletedEvent
+    {
+        get
+        {
+            if (_completedEvent is not null)
+            {
+                return _completedEvent;
+            }
+
+            var newEvent = new ManualResetEventSlim(State != PromiseState.Pending);
+            var existing = Interlocked.CompareExchange(ref _completedEvent, newEvent, null);
+            if (existing is not null)
+            {
+                // Another thread created it first, dispose ours
+                newEvent.Dispose();
+                return existing;
+            }
+
+            return newEvent;
+        }
+    }
+
+    /// <summary>
+    /// Whether this promise has been observed by a reject handler.
+    /// Used by HostPromiseRejectionTracker per TC39 spec.
+    /// </summary>
+    internal bool PromiseIsHandled { get; set; }
 
     internal List<PromiseReaction> PromiseRejectReactions = new();
     internal List<PromiseReaction> PromiseFulfillReactions = new();
@@ -128,10 +166,13 @@ internal sealed class JsPromise : ObjectInstance
         var reactions = PromiseRejectReactions;
         PromiseRejectReactions = new List<PromiseReaction>();
         PromiseFulfillReactions.Clear();
-        CompletedEvent.Set();
+        _completedEvent?.Set();
 
-        // Note that this part is skipped because there is no tracking yet
         // 7. If promise.[[PromiseIsHandled]] is false, perform HostPromiseRejectionTracker(promise, "reject").
+        if (!PromiseIsHandled)
+        {
+            _engine._host.HostPromiseRejectionTracker(this, PromiseRejectionOperation.Reject);
+        }
 
         return PromiseOperations.TriggerPromiseReactions(_engine, reactions, reason);
     }
@@ -148,7 +189,7 @@ internal sealed class JsPromise : ObjectInstance
         var reactions = PromiseFulfillReactions;
         PromiseFulfillReactions = new List<PromiseReaction>();
         PromiseRejectReactions.Clear();
-        CompletedEvent.Set();
+        _completedEvent?.Set();
 
         return PromiseOperations.TriggerPromiseReactions(_engine, reactions, result);
     }

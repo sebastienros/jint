@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Threading;
 
 namespace Jint.Runtime;
 
@@ -8,9 +9,11 @@ internal sealed record EventLoop
 
     /// <summary>
     /// Tracks whether we are currently processing the event loop.
-    /// Used to prevent re-entrant calls from causing stack overflow.
+    /// Uses Interlocked.CompareExchange for atomic check-then-set to prevent
+    /// TOCTOU race conditions between checking and setting.
+    /// 0 = not processing, 1 = processing.
     /// </summary>
-    private volatile bool _isProcessing;
+    private int _isProcessing;
 
     /// <summary>
     /// Tracks the thread ID of the thread that is currently waiting on a promise.
@@ -38,14 +41,14 @@ internal sealed record EventLoop
             return;
         }
 
-        // Prevent re-entrant calls which can cause stack overflow.
-        // If we're already processing, the outer loop will handle any new events.
-        if (_isProcessing)
+        // Atomically check and set _isProcessing to prevent re-entrant calls
+        // which can cause stack overflow. If we're already processing, the outer
+        // loop will handle any new events.
+        if (Interlocked.CompareExchange(ref _isProcessing, 1, 0) != 0)
         {
             return;
         }
 
-        _isProcessing = true;
         try
         {
             while (_events.TryDequeue(out var nextContinuation))
@@ -56,7 +59,7 @@ internal sealed record EventLoop
         }
         finally
         {
-            _isProcessing = false;
+            Interlocked.Exchange(ref _isProcessing, 0);
         }
     }
 }
