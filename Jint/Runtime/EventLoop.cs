@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Jint.Runtime;
 
@@ -23,11 +24,78 @@ internal sealed record EventLoop
     /// </summary>
     internal volatile int _waitingThreadId = -1;
 
+    /// <summary>
+    /// Async wake signal used by <see cref="WaitForEventAsync"/> to release the thread
+    /// while waiting for events. Set by <see cref="Enqueue"/> when new work arrives.
+    /// Uses TaskCompletionSource&lt;bool&gt; for compatibility with netstandard2.0/net462.
+    /// </summary>
+    private volatile TaskCompletionSource<bool>? _eventAvailable;
+
     public bool IsEmpty => _events.IsEmpty;
 
     public void Enqueue(Action continuation)
     {
         _events.Enqueue(continuation);
+
+        // Wake any async waiter. Atomically steal the TCS and signal it.
+        // This ensures the async loop in WaitForEventAsync wakes up promptly
+        // when new work is enqueued (e.g., from a Task.ContinueWith callback).
+        Interlocked.Exchange(ref _eventAvailable, null)?.TrySetResult(true);
+    }
+
+    /// <summary>
+    /// Waits asynchronously for events to be enqueued, releasing the current thread.
+    /// Used by the async API path (EvaluateAsync/ExecuteAsync/InvokeAsync) to avoid
+    /// blocking a thread during IO-bound operations. During the wait, zero threads
+    /// are consumed.
+    /// </summary>
+    /// <param name="cancellationToken">Token to observe for cancellation.</param>
+    /// <returns>A task that completes when events are available or cancellation is requested.</returns>
+    public Task WaitForEventAsync(CancellationToken cancellationToken)
+    {
+        // Fast path: already have events queued
+        if (!_events.IsEmpty)
+        {
+            return Task.CompletedTask;
+        }
+
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        // Atomically register our TCS. If another waiter is already registered,
+        // check whether it's stale (completed/cancelled from a prior timeout).
+        var previous = Interlocked.CompareExchange(ref _eventAvailable, tcs, null);
+        if (previous is not null)
+        {
+            if (!previous.Task.IsCompleted)
+            {
+                // Active waiter exists — events may already be pending.
+                return Task.CompletedTask;
+            }
+
+            // Previous TCS is stale (cancelled/completed). Try to replace it with ours.
+            if (Interlocked.CompareExchange(ref _eventAvailable, tcs, previous) != previous)
+            {
+                // Enqueue cleared it concurrently — events are likely available.
+                return Task.CompletedTask;
+            }
+
+            // Successfully replaced stale TCS, fall through to double-check.
+        }
+
+        // Double-check after registration to close the race window where an event
+        // was enqueued between our IsEmpty check and the CompareExchange.
+        if (!_events.IsEmpty)
+        {
+            Interlocked.Exchange(ref _eventAvailable, null);
+            return Task.CompletedTask;
+        }
+
+        if (cancellationToken.CanBeCanceled)
+        {
+            cancellationToken.Register(static state => ((TaskCompletionSource<bool>) state!).TrySetCanceled(), tcs);
+        }
+
+        return tcs.Task;
     }
 
     public void RunAvailableContinuations()

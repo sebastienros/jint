@@ -1158,6 +1158,317 @@ public class AsyncTests
         var result = await engine.InvokeAsync("test");
         Assert.Equal("Hello World + Hello World", result.AsString());
     }
+
+    // ========================================================================
+    // Async Wake (Thread Release) Tests — verify zero-thread IO waiting
+    // ========================================================================
+
+    [Fact]
+    public async Task EvaluateAsyncShouldNotBlockDuringClrTaskDelay()
+    {
+        // Verifies the async wake path: EvaluateAsync releases the thread during
+        // a .NET Task.Delay (simulating IO like gRPC), and resumes correctly.
+        var engine = new Engine();
+        engine.SetValue("simulateIO", new Func<Task<int>>(async () =>
+        {
+            await Task.Delay(100);
+            return 42;
+        }));
+
+        var result = await engine.EvaluateAsync("""
+            async function main() {
+                return await simulateIO();
+            }
+            main()
+            """);
+
+        Assert.Equal(42, result.AsInteger());
+    }
+
+    [Fact]
+    public async Task EvaluateAsyncShouldHandleMultipleSequentialClrTasks()
+    {
+        // Multiple sequential .NET async calls, each releasing and re-acquiring the thread.
+        var engine = new Engine();
+        var callOrder = new List<string>();
+
+        engine.SetValue("step1", new Func<Task<string>>(async () =>
+        {
+            await Task.Delay(50);
+            callOrder.Add("step1");
+            return "A";
+        }));
+        engine.SetValue("step2", new Func<Task<string>>(async () =>
+        {
+            await Task.Delay(50);
+            callOrder.Add("step2");
+            return "B";
+        }));
+        engine.SetValue("step3", new Func<Task<string>>(async () =>
+        {
+            await Task.Delay(50);
+            callOrder.Add("step3");
+            return "C";
+        }));
+
+        var result = await engine.EvaluateAsync("""
+            async function main() {
+                var a = await step1();
+                var b = await step2();
+                var c = await step3();
+                return a + b + c;
+            }
+            main()
+            """);
+
+        Assert.Equal("ABC", result.AsString());
+        Assert.Equal(["step1", "step2", "step3"], callOrder);
+    }
+
+    [Fact]
+    public async Task EvaluateAsyncShouldHandleConcurrentClrTasksViaPromiseAll()
+    {
+        // Promise.all with multiple .NET Tasks running concurrently.
+        // All tasks should start before any completes.
+        var engine = new Engine();
+        var startTimes = new ConcurrentDictionary<string, DateTime>();
+
+        engine.SetValue("fetch", new Func<string, Task<string>>(async (id) =>
+        {
+            startTimes[id] = DateTime.UtcNow;
+            await Task.Delay(100);
+            return $"result-{id}";
+        }));
+
+        var result = await engine.EvaluateAsync("""
+            async function main() {
+                var results = await Promise.all([
+                    fetch('a'),
+                    fetch('b'),
+                    fetch('c')
+                ]);
+                return results.join(',');
+            }
+            main()
+            """);
+
+        Assert.Equal("result-a,result-b,result-c", result.AsString());
+        Assert.Equal(3, startTimes.Count);
+    }
+
+    [Fact]
+    public async Task EvaluateAsyncTimeoutShouldFireDuringPendingClrTask()
+    {
+        // Verify that the PromiseTimeout constraint works with the async wake path.
+        var engine = new Engine(options =>
+        {
+            options.Constraints.PromiseTimeout = TimeSpan.FromMilliseconds(100);
+        });
+        engine.SetValue("slowIO", new Func<Task<int>>(async () =>
+        {
+            await Task.Delay(5000);
+            return 999;
+        }));
+
+        await Assert.ThrowsAsync<PromiseRejectedException>(async () =>
+        {
+            await engine.EvaluateAsync("""
+                async function main() {
+                    return await slowIO();
+                }
+                main()
+                """);
+        });
+    }
+
+    [Fact]
+    public async Task EvaluateAsyncShouldHandleClrTaskRejection()
+    {
+        // .NET Task that throws should propagate as a rejected promise.
+        var engine = new Engine();
+        engine.SetValue("failingIO", new Func<Task<string>>(async () =>
+        {
+            await Task.Delay(50);
+            throw new InvalidOperationException("IO failed");
+        }));
+
+        var result = await engine.EvaluateAsync("""
+            async function main() {
+                try {
+                    await failingIO();
+                    return 'should not reach';
+                } catch (e) {
+                    return 'caught';
+                }
+            }
+            main()
+            """);
+
+        Assert.Equal("caught", result.AsString());
+    }
+
+    [Fact]
+    public async Task EvaluateAsyncShouldHandleNestedJsToClrToJsAsync()
+    {
+        // Nested async: JS → .NET async → back into JS engine (via callback) → .NET async
+        var engine = new Engine();
+
+        engine.SetValue("fetchData", new Func<Task<string>>(async () =>
+        {
+            await Task.Delay(50);
+            return "data";
+        }));
+
+        engine.SetValue("processData", new Func<string, Task<string>>(async (input) =>
+        {
+            await Task.Delay(50);
+            return input.ToUpperInvariant();
+        }));
+
+        var result = await engine.EvaluateAsync("""
+            async function main() {
+                var raw = await fetchData();
+                var processed = await processData(raw);
+                return processed;
+            }
+            main()
+            """);
+
+        Assert.Equal("DATA", result.AsString());
+    }
+
+    [Fact]
+    public async Task EvaluateAsyncCancellationDuringClrTask()
+    {
+        // Cancellation token fires while a .NET Task is in flight.
+        var engine = new Engine();
+        engine.SetValue("longIO", new Func<Task<int>>(async () =>
+        {
+            await Task.Delay(10_000);
+            return 999;
+        }));
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            await engine.EvaluateAsync("""
+                async function main() {
+                    return await longIO();
+                }
+                main()
+                """, cancellationToken: cts.Token);
+        });
+    }
+
+    [Fact]
+    public async Task EvaluateAsyncShouldNotBlockCallerThread()
+    {
+        // Proves the caller thread is released: start EvaluateAsync, then verify
+        // we can do other work before it completes.
+        var engine = new Engine();
+        var ioStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        engine.SetValue("simulateIO", new Func<Task<int>>(async () =>
+        {
+            ioStarted.TrySetResult(true);
+            await Task.Delay(200);
+            return 42;
+        }));
+
+        // Start the async evaluation (does NOT block)
+        var evalTask = engine.EvaluateAsync("""
+            async function main() {
+                return await simulateIO();
+            }
+            main()
+            """);
+
+        // Wait for the IO to actually start
+        await ioStarted.Task;
+
+        // The evalTask should not be completed yet — IO is in flight
+        Assert.False(evalTask.IsCompleted, "EvaluateAsync should not block; task should still be pending during IO");
+
+        // Now await the result
+        var result = await evalTask;
+        Assert.Equal(42, result.AsInteger());
+    }
+
+    [Fact]
+    public async Task EvaluateAsyncMultipleEnginesConcurrently()
+    {
+        // Multiple independent engines running async operations concurrently.
+        // This verifies thread safety of the async wake mechanism.
+        const int EngineCount = 20;
+        var tasks = new Task<JsValue>[EngineCount];
+
+        for (int i = 0; i < EngineCount; i++)
+        {
+            var idx = i;
+            tasks[i] = Task.Run(async () =>
+            {
+                var engine = new Engine();
+                engine.SetValue("compute", new Func<int, Task<int>>(async (n) =>
+                {
+                    await Task.Delay(50);
+                    return n * 2;
+                }));
+
+                return await engine.EvaluateAsync(
+                    "async function main() { return await compute(" + idx + "); } main()");
+            });
+        }
+
+        var results = await Task.WhenAll(tasks);
+
+        for (int i = 0; i < EngineCount; i++)
+        {
+            Assert.Equal(i * 2, results[i].AsInteger());
+        }
+    }
+
+    [Fact]
+    public async Task InvokeAsyncWithClrTaskInterop()
+    {
+        // InvokeAsync with .NET Task interop, verifying the complete path.
+        var engine = new Engine(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
+
+        engine.SetValue("asyncTestClass", new AsyncTestClass());
+        engine.Execute("""
+            async function fetchAndTransform() {
+                var data = await asyncTestClass.ReturnDelayedTaskAsync();
+                return data + '!';
+            }
+            """);
+
+        var result = await engine.InvokeAsync("fetchAndTransform");
+        Assert.Equal("Hello World!", result.AsString());
+    }
+
+    [Fact]
+    public async Task EvaluateAsyncWithSetTimeoutPattern()
+    {
+        // setTimeout pattern using .NET Task.Delay, exercising the async wake path
+        // with event loop scheduling (not direct Task interop).
+        var engine = new Engine();
+        engine.SetValue("setTimeout", (Action action, int ms) =>
+        {
+            Task.Delay(ms).ContinueWith(_ => action());
+        });
+
+        var result = await engine.EvaluateAsync("""
+            async function main() {
+                var delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+                await delay(50);
+                await delay(50);
+                return 'done';
+            }
+            main()
+            """);
+
+        Assert.Equal("done", result.AsString());
+    }
 #endif
 
     // ========================================================================

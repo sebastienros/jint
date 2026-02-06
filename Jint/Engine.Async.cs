@@ -12,6 +12,8 @@ public partial class Engine
     /// <summary>
     /// Evaluates JavaScript code asynchronously, properly awaiting any promises.
     /// This is the non-blocking alternative to Evaluate() + UnwrapIfPromise().
+    /// During IO-bound operations (e.g., .NET Tasks awaited from JS), the calling
+    /// thread is released and zero threads are consumed until work is available.
     /// </summary>
     /// <param name="code">The JavaScript code to evaluate.</param>
     /// <param name="source">Optional source identifier for debugging.</param>
@@ -79,8 +81,8 @@ public partial class Engine
     }
 
     /// <summary>
-    /// Core async unwrap: if the result is a JsPromise, uses a TaskCompletionSource
-    /// to await its settlement without blocking a thread.
+    /// Core async unwrap: if the result is a JsPromise, awaits its settlement
+    /// without blocking any thread. For non-promise values, returns synchronously.
     /// </summary>
     private Task<JsValue> UnwrapResultAsync(JsValue result, CancellationToken cancellationToken)
     {
@@ -89,8 +91,9 @@ public partial class Engine
             return Task.FromResult(result);
         }
 
-        // Fast path: already settled
+        // Fast path: process any queued microtasks and check if already settled
         RunAvailableContinuations();
+
         if (promise.State == PromiseState.Fulfilled)
         {
             return Task.FromResult(promise.Value);
@@ -101,97 +104,88 @@ public partial class Engine
             return Task.FromException<JsValue>(new PromiseRejectedException(promise.Value));
         }
 
-        // Pending: use TaskCompletionSource for non-blocking await.
-        // We still need to pump the event loop since Jint is single-threaded.
-        var tcs = new TaskCompletionSource<JsValue>(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        if (cancellationToken.CanBeCanceled)
-        {
-            cancellationToken.Register(() => tcs.TrySetCanceled(cancellationToken));
-        }
-
-        // Set up a poll loop that runs on the thread pool.
-        // We pump the event loop from the polling thread, which is safe
-        // because _waitingThreadId ensures only the designated thread can run JS.
-        _ = Task.Run(() => PollPromiseCompletion(promise, tcs, cancellationToken), cancellationToken);
-
-        return tcs.Task;
+        // Slow path: promise is pending, use truly async waiting.
+        // No thread is consumed during the wait — the event loop wake signal
+        // will resume execution when new work arrives (e.g., from Task.ContinueWith).
+        return AwaitPromiseSettlementAsync(promise, cancellationToken);
     }
 
     /// <summary>
-    /// Polls the promise for completion, pumping the event loop until settled.
-    /// Runs on a thread pool thread to avoid blocking the caller.
+    /// Truly async promise settlement loop. Releases the thread between event loop
+    /// processing cycles. When a .NET Task completes (e.g., gRPC IO), its ContinueWith
+    /// callback enqueues work on the event loop and signals the wake, causing this method
+    /// to resume on a thread pool thread, process the JS continuation, and either complete
+    /// or go back to sleep if another await is hit.
     /// </summary>
-    private void PollPromiseCompletion(JsPromise promise, TaskCompletionSource<JsValue> tcs, CancellationToken cancellationToken)
+    private async Task<JsValue> AwaitPromiseSettlementAsync(JsPromise promise, CancellationToken cancellationToken)
     {
         var eventLoop = _eventLoop;
-        var previousWaitingThreadId = eventLoop._waitingThreadId;
-        eventLoop._waitingThreadId = Environment.CurrentManagedThreadId;
+        var timeout = Options.Constraints.PromiseTimeout;
+        var hasTimeout = timeout > TimeSpan.Zero;
+
+        // Build an effective CancellationToken that respects both user cancellation
+        // and the PromiseTimeout constraint. This ensures WaitForEventAsync wakes up
+        // when the timeout expires, even if no events have been enqueued.
+        CancellationTokenSource? ownedCts = null;
+        CancellationToken effectiveCt;
+
+        if (hasTimeout && cancellationToken.CanBeCanceled)
+        {
+            ownedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            ownedCts.CancelAfter(timeout);
+            effectiveCt = ownedCts.Token;
+        }
+        else if (hasTimeout)
+        {
+            ownedCts = new CancellationTokenSource(timeout);
+            effectiveCt = ownedCts.Token;
+        }
+        else
+        {
+            effectiveCt = cancellationToken;
+        }
 
         try
         {
-            var timeout = Options.Constraints.PromiseTimeout;
-            var hasTimeout = timeout > TimeSpan.Zero;
-            var deadline = hasTimeout ? DateTime.UtcNow + timeout : DateTime.MaxValue;
-            var pollInterval = TimeSpan.FromMilliseconds(1);
-
             while (promise.State == PromiseState.Pending)
             {
-                if (cancellationToken.IsCancellationRequested)
+                effectiveCt.ThrowIfCancellationRequested();
+
+                // Truly async wait — releases the thread back to the pool.
+                // Zero threads consumed while waiting for IO to complete.
+                await eventLoop.WaitForEventAsync(effectiveCt).ConfigureAwait(false);
+
+                // Woke up — take ownership of the event loop for this processing cycle.
+                // Setting _waitingThreadId prevents any other thread from processing
+                // JavaScript continuations while we're running.
+                var previousWaitingThreadId = eventLoop._waitingThreadId;
+                eventLoop._waitingThreadId = Environment.CurrentManagedThreadId;
+                try
                 {
-                    tcs.TrySetCanceled(cancellationToken);
-                    return;
+                    RunAvailableContinuations();
                 }
-
-                RunAvailableContinuations();
-
-                if (promise.State != PromiseState.Pending)
+                finally
                 {
-                    break;
-                }
-
-                if (hasTimeout)
-                {
-                    var remaining = deadline - DateTime.UtcNow;
-                    if (remaining <= TimeSpan.Zero)
-                    {
-                        tcs.TrySetException(new PromiseRejectedException($"Timeout of {timeout} reached"));
-                        return;
-                    }
-
-                    var waitTime = remaining < pollInterval ? remaining : pollInterval;
-                    promise.CompletedEvent.Wait(waitTime, cancellationToken);
-                }
-                else
-                {
-                    promise.CompletedEvent.Wait(pollInterval, cancellationToken);
+                    eventLoop._waitingThreadId = previousWaitingThreadId;
                 }
             }
-
-            switch (promise.State)
-            {
-                case PromiseState.Fulfilled:
-                    tcs.TrySetResult(promise.Value);
-                    break;
-                case PromiseState.Rejected:
-                    tcs.TrySetException(new PromiseRejectedException(promise.Value));
-                    break;
-                default:
-                    tcs.TrySetException(new InvalidOperationException("Promise is still pending after polling completed"));
-                    break;
-            }
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (hasTimeout && ownedCts!.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
         {
-            tcs.TrySetCanceled(cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            tcs.TrySetException(ex);
+            // The timeout CTS fired, not the user's cancellation token.
+            // Translate to PromiseRejectedException to match sync API behavior.
+            throw new PromiseRejectedException($"Timeout of {timeout} reached");
         }
         finally
         {
-            eventLoop._waitingThreadId = previousWaitingThreadId;
+            ownedCts?.Dispose();
         }
+
+        return promise.State switch
+        {
+            PromiseState.Fulfilled => promise.Value,
+            PromiseState.Rejected => throw new PromiseRejectedException(promise.Value),
+            _ => throw new InvalidOperationException("Promise is still pending after async loop completed")
+        };
     }
 }
