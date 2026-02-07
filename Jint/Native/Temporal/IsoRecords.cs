@@ -139,22 +139,6 @@ internal readonly record struct IsoDate(int Year, int Month, int Day)
     /// </summary>
     public int DaysInMonth() => IsoDateInMonth(Year, Month);
 
-    /// <summary>
-    /// Returns the number of weeks in the year (52 or 53).
-    /// </summary>
-    public int WeeksInYear()
-    {
-        // A year has 53 weeks if:
-        // - Jan 1 is Thursday, or
-        // - Jan 1 is Wednesday and it's a leap year
-        var jan1Dow = new IsoDate(Year, 1, 1).DayOfWeek();
-        if (jan1Dow == 4)
-            return 53;
-        if (jan1Dow == 3 && IsLeapYear(Year))
-            return 53;
-        return 52;
-    }
-
     public override string ToString() => $"{Year:D4}-{Month:D2}-{Day:D2}";
 }
 
@@ -257,8 +241,6 @@ internal readonly record struct IsoDateTime(IsoDate Date, IsoTime Time)
     {
     }
 
-    public bool IsValid() => Date.IsValid() && Time.IsValid();
-
     public override string ToString() => $"{Date}T{Time}";
 }
 
@@ -279,8 +261,6 @@ internal readonly record struct DurationRecord(
     double Microseconds,
     double Nanoseconds)
 {
-    public static readonly DurationRecord Zero = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-
     /// <summary>
     /// Returns the sign of this duration (-1, 0, or 1).
     /// </summary>
@@ -348,26 +328,6 @@ internal readonly record struct TimeDuration
     {
         _nanoseconds = nanoseconds;
     }
-
-    public TimeDuration(double days, double hours, double minutes, double seconds,
-        double milliseconds, double microseconds, double nanoseconds)
-    {
-        _nanoseconds = (BigInteger) (days * 86_400_000_000_000.0) +
-                       (BigInteger) (hours * 3_600_000_000_000.0) +
-                       (BigInteger) (minutes * 60_000_000_000.0) +
-                       (BigInteger) (seconds * 1_000_000_000.0) +
-                       (BigInteger) (milliseconds * 1_000_000.0) +
-                       (BigInteger) (microseconds * 1_000.0) +
-                       (BigInteger) nanoseconds;
-    }
-
-    public BigInteger TotalNanoseconds => _nanoseconds;
-
-    public int Sign() => _nanoseconds.Sign;
-
-    public TimeDuration Negated() => new(-_nanoseconds);
-
-    public TimeDuration Abs() => new(BigInteger.Abs(_nanoseconds));
 
     public static TimeDuration operator +(TimeDuration a, TimeDuration b) =>
         new(a._nanoseconds + b._nanoseconds);

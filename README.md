@@ -152,6 +152,7 @@ and many more.
 - ✔ JSON.parse source text access
 - ✔ `Math.sumPrecise`
 - ✔ `ShadowRealm`
+- ✔ `Temporal`
 - ✔ `Uint8Array` to/from base64
 - ✔ `Upsert`
 

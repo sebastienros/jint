@@ -57,7 +57,7 @@ internal sealed class JsZonedDateTime : ObjectInstance
         }
 
         // Convert days to date
-        var date = EpochDaysToIsoDate(days);
+        var date = TemporalHelpers.DaysToIsoDate(days);
 
         // Convert remaining nanoseconds to time
         var hour = (int) (remaining / nsPerHour);
@@ -73,25 +73,6 @@ internal sealed class JsZonedDateTime : ObjectInstance
 
         _cachedIsoDateTime = new IsoDateTime(date, new IsoTime(hour, minute, second, millisecond, microsecond, nanosecond));
         return _cachedIsoDateTime.Value;
-    }
-
-    private static IsoDate EpochDaysToIsoDate(long days)
-    {
-        // Algorithm to convert days since Unix epoch to ISO date
-        // Based on Howard Hinnant's algorithm
-        days += 719468; // Shift epoch from 1970-01-01 to 0000-03-01
-
-        var era = (days >= 0 ? days : days - 146096) / 146097;
-        var doe = days - era * 146097; // day of era [0, 146096]
-        var yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365; // year of era [0, 399]
-        var y = yoe + era * 400;
-        var doy = doe - (365 * yoe + yoe / 4 - yoe / 100); // day of year [0, 365]
-        var mp = (5 * doy + 2) / 153; // month index [0, 11]
-        var d = doy - (153 * mp + 2) / 5 + 1; // day [1, 31]
-        var m = mp < 10 ? mp + 3 : mp - 9; // month [1, 12]
-        y += m <= 2 ? 1 : 0;
-
-        return new IsoDate((int) y, (int) m, (int) d);
     }
 
     internal override bool IsTemporalZonedDateTime => true;

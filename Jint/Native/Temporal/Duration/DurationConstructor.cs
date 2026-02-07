@@ -46,6 +46,11 @@ internal sealed class DurationConstructor : Constructor
     private JsDuration From(JsValue thisObject, JsCallArguments arguments)
     {
         var item = arguments.At(0);
+        // If item is already a Duration, create a copy (spec requires a new object)
+        if (item is JsDuration duration)
+        {
+            return Construct(duration.DurationRecord);
+        }
         return ToTemporalDuration(item);
     }
 
@@ -56,31 +61,108 @@ internal sealed class DurationConstructor : Constructor
     {
         var one = ToTemporalDuration(arguments.At(0));
         var two = ToTemporalDuration(arguments.At(1));
+        var options = arguments.At(2);
 
-        // For durations without calendar units, we can compare directly
-        // by converting to total nanoseconds
+        var optionsObj = TemporalHelpers.GetOptionsObject(_realm, options);
+        var relativeToResult = TemporalHelpers.GetTemporalRelativeToOption(_engine, _realm, optionsObj);
+
         var d1 = one.DurationRecord;
         var d2 = two.DurationRecord;
 
-        // Check if either duration has calendar units (years, months, weeks)
-        if (d1.Years != 0 || d1.Months != 0 || d1.Weeks != 0 ||
-            d2.Years != 0 || d2.Months != 0 || d2.Weeks != 0)
+        // Step 5: If all components are equal, return +0
+        if (d1.Years == d2.Years && d1.Months == d2.Months && d1.Weeks == d2.Weeks &&
+            d1.Days == d2.Days && d1.Hours == d2.Hours && d1.Minutes == d2.Minutes &&
+            d1.Seconds == d2.Seconds && d1.Milliseconds == d2.Milliseconds &&
+            d1.Microseconds == d2.Microseconds && d1.Nanoseconds == d2.Nanoseconds)
         {
-            // Comparison with calendar units requires a relativeTo argument
-            var options = arguments.At(2);
-            if (options.IsUndefined() || options.IsNull())
-            {
-                Throw.RangeError(_realm, "A relativeTo option is required for comparing durations with calendar units");
-            }
-            // TODO: Implement relativeTo comparison
-            Throw.TypeError(_realm, "Duration comparison with calendar units is not yet fully implemented");
+            return JsNumber.PositiveZero;
         }
 
-        // Compare time-only durations
-        var ns1 = TemporalHelpers.TotalDurationNanoseconds(d1);
-        var ns2 = TemporalHelpers.TotalDurationNanoseconds(d2);
+        var zonedRelativeTo = relativeToResult.ZonedRelativeTo;
+        var plainRelativeTo = relativeToResult.PlainRelativeTo;
 
-        return JsNumber.Create(ns1.CompareTo(ns2));
+        // Step 9-10: DefaultTemporalLargestUnit
+        var largestUnit1 = TemporalHelpers.DefaultTemporalLargestUnit(d1);
+        var largestUnit2 = TemporalHelpers.DefaultTemporalLargestUnit(d2);
+
+        // Step 11: ToInternalDurationRecord for each
+        var timeDuration1 = TemporalHelpers.TimeDurationFromComponents(d1);
+        var timeDuration2 = TemporalHelpers.TimeDurationFromComponents(d2);
+
+        // Step 7: If zonedRelativeTo is not undefined and either largest unit is a date unit
+        var isDateUnit1 = IsDateUnit(largestUnit1);
+        var isDateUnit2 = IsDateUnit(largestUnit2);
+
+        if (zonedRelativeTo is not null && (isDateUnit1 || isDateUnit2))
+        {
+            var timeZone = zonedRelativeTo.TimeZone;
+            var calendar = zonedRelativeTo.Calendar;
+            var provider = _engine.Options.Temporal.TimeZoneProvider;
+            var after1 = TemporalHelpers.AddZonedDateTime(_realm, provider, zonedRelativeTo.EpochNanoseconds, timeZone, calendar, d1, "constrain");
+            var after2 = TemporalHelpers.AddZonedDateTime(_realm, provider, zonedRelativeTo.EpochNanoseconds, timeZone, calendar, d2, "constrain");
+            return JsNumber.Create(after1.CompareTo(after2));
+        }
+
+        // Step 8: If IsCalendarUnit for either largest unit
+        double days1, days2;
+        if (TemporalHelpers.IsCalendarUnit(largestUnit1) || TemporalHelpers.IsCalendarUnit(largestUnit2))
+        {
+            if (plainRelativeTo is null)
+            {
+                Throw.RangeError(_realm, "Duration comparison with calendar units requires relativeTo");
+            }
+            days1 = DateDurationDays(d1, plainRelativeTo);
+            days2 = DateDurationDays(d2, plainRelativeTo);
+        }
+        else
+        {
+            days1 = d1.Days;
+            days2 = d2.Days;
+        }
+
+        // Step 12-13: Add24HourDaysToTimeDuration (with maxTimeDuration check)
+        var td1 = TemporalHelpers.Add24HourDaysToTimeDurationChecked(_realm, timeDuration1, days1);
+        var td2 = TemporalHelpers.Add24HourDaysToTimeDurationChecked(_realm, timeDuration2, days2);
+
+        // Step 14: CompareTimeDuration
+        return JsNumber.Create(td1.CompareTo(td2));
+    }
+
+    /// <summary>
+    /// Returns whether a unit is a date category unit (year, month, week, day).
+    /// </summary>
+    private static bool IsDateUnit(string unit)
+    {
+        return unit is "year" or "month" or "week" or "day";
+    }
+
+    /// <summary>
+    /// DateDurationDays ( dateDuration, plainRelativeTo )
+    /// https://tc39.es/proposal-temporal/#sec-temporal-datedurationdays
+    /// Converts calendar units of a duration into a number of days.
+    /// </summary>
+    private double DateDurationDays(DurationRecord duration, JsPlainDate plainRelativeTo)
+    {
+        // Create a duration with only years/months/weeks (days=0)
+        var yearsMonthsWeeksDuration = new DurationRecord(
+            duration.Years, duration.Months, duration.Weeks, 0,
+            0, 0, 0, 0, 0, 0);
+
+        // If no calendar components, just return days
+        if (yearsMonthsWeeksDuration.Years == 0 && yearsMonthsWeeksDuration.Months == 0 && yearsMonthsWeeksDuration.Weeks == 0)
+        {
+            return duration.Days;
+        }
+
+        // Add years/months/weeks to get the later date
+        var later = TemporalHelpers.CalendarDateAdd(_realm, plainRelativeTo.Calendar, plainRelativeTo.IsoDate, yearsMonthsWeeksDuration, "constrain");
+
+        // Compute epoch days difference
+        var epochDays1 = TemporalHelpers.IsoDateToDays(plainRelativeTo.IsoDate.Year, plainRelativeTo.IsoDate.Month, plainRelativeTo.IsoDate.Day);
+        var epochDays2 = TemporalHelpers.IsoDateToDays(later.Year, later.Month, later.Day);
+        var yearsMonthsWeeksInDays = epochDays2 - epochDays1;
+
+        return duration.Days + yearsMonthsWeeksInDays;
     }
 
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
@@ -112,7 +194,7 @@ internal sealed class DurationConstructor : Constructor
             Throw.RangeError(_realm, "Invalid duration");
         }
 
-        return Construct(record);
+        return Construct(record, newTarget);
     }
 
     private double ToIntegerIfIntegral(JsValue value, string name)
@@ -137,7 +219,8 @@ internal sealed class DurationConstructor : Constructor
             Throw.RangeError(_realm, $"Duration {name} must be an integer");
         }
 
-        return number;
+        // Mathematical values don't have -0
+        return number == 0 ? 0 : number;
     }
 
     /// <summary>
@@ -156,6 +239,11 @@ internal sealed class DurationConstructor : Constructor
             if (parsed is null)
             {
                 Throw.RangeError(_realm, "Invalid duration string");
+            }
+            // Validate parsed duration is within valid range (years/months/weeks < 2^32, etc.)
+            if (!TemporalHelpers.IsValidDuration(parsed.Value))
+            {
+                Throw.RangeError(_realm, "Invalid duration");
             }
             return Construct(parsed.Value);
         }
@@ -177,59 +265,53 @@ internal sealed class DurationConstructor : Constructor
 
     private DurationRecord ToDurationRecord(ObjectInstance obj)
     {
-        var years = GetDurationProperty(obj, "years");
-        var months = GetDurationProperty(obj, "months");
-        var weeks = GetDurationProperty(obj, "weeks");
-        var days = GetDurationProperty(obj, "days");
-        var hours = GetDurationProperty(obj, "hours");
-        var minutes = GetDurationProperty(obj, "minutes");
-        var seconds = GetDurationProperty(obj, "seconds");
-        var milliseconds = GetDurationProperty(obj, "milliseconds");
-        var microseconds = GetDurationProperty(obj, "microseconds");
-        var nanoseconds = GetDurationProperty(obj, "nanoseconds");
+        // Properties must be read in alphabetical order per spec
+        // https://tc39.es/proposal-temporal/#sec-temporal-totemporaldurationrecord
+        var hasAny = false;
+        var days = GetDurationProperty(obj, "days", ref hasAny);
+        var hours = GetDurationProperty(obj, "hours", ref hasAny);
+        var microseconds = GetDurationProperty(obj, "microseconds", ref hasAny);
+        var milliseconds = GetDurationProperty(obj, "milliseconds", ref hasAny);
+        var minutes = GetDurationProperty(obj, "minutes", ref hasAny);
+        var months = GetDurationProperty(obj, "months", ref hasAny);
+        var nanoseconds = GetDurationProperty(obj, "nanoseconds", ref hasAny);
+        var seconds = GetDurationProperty(obj, "seconds", ref hasAny);
+        var weeks = GetDurationProperty(obj, "weeks", ref hasAny);
+        var years = GetDurationProperty(obj, "years", ref hasAny);
 
         // At least one property must be defined
-        if (years == 0 && months == 0 && weeks == 0 && days == 0 &&
-            hours == 0 && minutes == 0 && seconds == 0 &&
-            milliseconds == 0 && microseconds == 0 && nanoseconds == 0)
+        if (!hasAny)
         {
-            // Check if any property was actually present
-            var hasAny = obj.HasProperty("years") || obj.HasProperty("months") ||
-                         obj.HasProperty("weeks") || obj.HasProperty("days") ||
-                         obj.HasProperty("hours") || obj.HasProperty("minutes") ||
-                         obj.HasProperty("seconds") || obj.HasProperty("milliseconds") ||
-                         obj.HasProperty("microseconds") || obj.HasProperty("nanoseconds");
-            if (!hasAny)
-            {
-                Throw.TypeError(_realm, "Duration object must have at least one temporal property");
-            }
+            Throw.TypeError(_realm, "Duration object must have at least one temporal property");
         }
 
         return new DurationRecord(years, months, weeks, days, hours, minutes, seconds, milliseconds, microseconds, nanoseconds);
     }
 
-    private double GetDurationProperty(ObjectInstance obj, string name)
+    private double GetDurationProperty(ObjectInstance obj, string name, ref bool hasAny)
     {
         var value = obj.Get(name);
         if (value.IsUndefined())
             return 0;
 
-        var number = TypeConverter.ToNumber(value);
-        if (double.IsNaN(number) || double.IsInfinity(number))
-        {
-            Throw.RangeError(_realm, $"Duration {name} must be a finite number");
-        }
+        hasAny = true;
 
-        if (number != System.Math.Truncate(number))
-        {
-            Throw.RangeError(_realm, $"Duration {name} must be an integer");
-        }
-
-        return number;
+        // Use ToIntegerIfIntegral to ensure proper valueOf access and validation
+        return TemporalHelpers.ToIntegerIfIntegral(_realm, value);
     }
 
-    internal JsDuration Construct(DurationRecord duration)
+    internal JsDuration Construct(DurationRecord duration, JsValue? newTarget = null)
     {
-        return new JsDuration(_engine, PrototypeObject, duration);
+        if (!TemporalHelpers.IsValidDuration(duration))
+        {
+            Throw.RangeError(_realm, "Invalid duration");
+        }
+
+        // OrdinaryCreateFromConstructor for subclassing support
+        var proto = newTarget is null
+            ? PrototypeObject
+            : _realm.Intrinsics.Function.GetPrototypeFromConstructor(newTarget, static intrinsics => intrinsics.TemporalDuration.PrototypeObject);
+
+        return new JsDuration(_engine, proto, duration);
     }
 }

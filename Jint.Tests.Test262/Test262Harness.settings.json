@@ -12,7 +12,6 @@
     "regexp-v-flag",
     "source-phase-imports",
     "tail-call-optimization",
-    "Temporal",
     "Intl.Era-monthcode"
   ],
   "ExcludedFlags": [
@@ -185,6 +184,21 @@
 
     // misc features that require investigation
     "intl402/NumberFormat/prototype/format/numbering-systems.js",
-    "intl402/Intl/supportedValuesOf/numberingSystems-with-simple-digit-mappings.js"
+    "intl402/Intl/supportedValuesOf/numberingSystems-with-simple-digit-mappings.js",
+
+    // Temporal
+    "intl402/Temporal/Duration/**/*.js",
+    "intl402/Temporal/Instant/**/*.js",
+    "intl402/Temporal/PlainDate/**/*.js",
+    "intl402/Temporal/PlainDateTime/**/*.js",
+    "intl402/Temporal/PlainMonthDay/**/*.js",
+    "intl402/Temporal/PlainTime/**/*.js",
+    "intl402/Temporal/PlainYearMonth/**/*.js",
+    "intl402/Temporal/ZonedDateTime/**/*.js",
+    "intl402/DateTimeFormat/**/*temporal*.js",
+    "intl402/DurationFormat/**/*temporal*.js",
+    "intl402/DateTimeFormat/prototype/formatRange/to-datetime-formattable-with-different-arg-kinds.js",
+    "intl402/DateTimeFormat/prototype/formatRangeToParts/to-datetime-formattable-with-different-arg-kinds.js",
+    "intl402/DateTimeFormat/prototype/formatToParts/dangi-calendar-dates.js"
   ]
 }

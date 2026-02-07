@@ -71,11 +71,18 @@ internal sealed class TemporalNow : ObjectInstance
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.now.plaindatetime
     /// </summary>
-    private JsValue PlainDateTime(JsValue thisObject, JsCallArguments arguments)
+    private JsPlainDateTime PlainDateTime(JsValue thisObject, JsCallArguments arguments)
     {
-        // TODO: Implement with calendar support
-        Throw.TypeError(_realm, "Temporal.Now.plainDateTime is not yet implemented");
-        return Undefined;
+        var calendarLike = arguments.At(0);
+        var temporalTimeZoneLike = arguments.At(1);
+
+        var calendar = ToTemporalCalendarIdentifier(calendarLike);
+        var timeZoneId = ToTemporalTimeZoneIdentifier(temporalTimeZoneLike);
+
+        var epochNs = SystemUTCEpochNanoseconds();
+        var isoDateTime = GetIsoDateTimeFor(timeZoneId, epochNs);
+
+        return new JsPlainDateTime(_engine, _realm.Intrinsics.TemporalPlainDateTime.PrototypeObject, isoDateTime, calendar);
     }
 
     /// <summary>
@@ -83,10 +90,7 @@ internal sealed class TemporalNow : ObjectInstance
     /// </summary>
     private JsPlainDateTime PlainDateTimeISO(JsValue thisObject, JsCallArguments arguments)
     {
-        var timeZone = arguments.At(0);
-        var timeZoneId = timeZone.IsUndefined()
-            ? _engine.Options.Temporal.TimeZoneProvider.GetDefaultTimeZone()
-            : TypeConverter.ToString(timeZone);
+        var timeZoneId = ToTemporalTimeZoneIdentifier(arguments.At(0));
 
         var epochNs = SystemUTCEpochNanoseconds();
         var isoDateTime = GetIsoDateTimeFor(timeZoneId, epochNs);
@@ -97,11 +101,17 @@ internal sealed class TemporalNow : ObjectInstance
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.now.zoneddatetime
     /// </summary>
-    private JsValue ZonedDateTime(JsValue thisObject, JsCallArguments arguments)
+    private JsZonedDateTime ZonedDateTime(JsValue thisObject, JsCallArguments arguments)
     {
-        // TODO: Implement with calendar support
-        Throw.TypeError(_realm, "Temporal.Now.zonedDateTime is not yet implemented");
-        return Undefined;
+        var calendarLike = arguments.At(0);
+        var temporalTimeZoneLike = arguments.At(1);
+
+        var calendar = ToTemporalCalendarIdentifier(calendarLike);
+        var timeZoneId = ToTemporalTimeZoneIdentifier(temporalTimeZoneLike);
+
+        var epochNs = SystemUTCEpochNanoseconds();
+
+        return new JsZonedDateTime(_engine, _realm.Intrinsics.TemporalZonedDateTime.PrototypeObject, epochNs, timeZoneId, calendar);
     }
 
     /// <summary>
@@ -109,10 +119,7 @@ internal sealed class TemporalNow : ObjectInstance
     /// </summary>
     private JsZonedDateTime ZonedDateTimeISO(JsValue thisObject, JsCallArguments arguments)
     {
-        var timeZone = arguments.At(0);
-        var timeZoneId = timeZone.IsUndefined()
-            ? _engine.Options.Temporal.TimeZoneProvider.GetDefaultTimeZone()
-            : TypeConverter.ToString(timeZone);
+        var timeZoneId = ToTemporalTimeZoneIdentifier(arguments.At(0));
 
         var epochNs = SystemUTCEpochNanoseconds();
 
@@ -122,11 +129,18 @@ internal sealed class TemporalNow : ObjectInstance
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.now.plaindate
     /// </summary>
-    private JsValue PlainDate(JsValue thisObject, JsCallArguments arguments)
+    private JsPlainDate PlainDate(JsValue thisObject, JsCallArguments arguments)
     {
-        // TODO: Implement with calendar support
-        Throw.TypeError(_realm, "Temporal.Now.plainDate is not yet implemented");
-        return Undefined;
+        var calendarLike = arguments.At(0);
+        var temporalTimeZoneLike = arguments.At(1);
+
+        var calendar = ToTemporalCalendarIdentifier(calendarLike);
+        var timeZoneId = ToTemporalTimeZoneIdentifier(temporalTimeZoneLike);
+
+        var epochNs = SystemUTCEpochNanoseconds();
+        var isoDateTime = GetIsoDateTimeFor(timeZoneId, epochNs);
+
+        return new JsPlainDate(_engine, _realm.Intrinsics.TemporalPlainDate.PrototypeObject, isoDateTime.Date, calendar);
     }
 
     /// <summary>
@@ -134,10 +148,7 @@ internal sealed class TemporalNow : ObjectInstance
     /// </summary>
     private JsPlainDate PlainDateISO(JsValue thisObject, JsCallArguments arguments)
     {
-        var timeZone = arguments.At(0);
-        var timeZoneId = timeZone.IsUndefined()
-            ? _engine.Options.Temporal.TimeZoneProvider.GetDefaultTimeZone()
-            : TypeConverter.ToString(timeZone);
+        var timeZoneId = ToTemporalTimeZoneIdentifier(arguments.At(0));
 
         var epochNs = SystemUTCEpochNanoseconds();
         var isoDateTime = GetIsoDateTimeFor(timeZoneId, epochNs);
@@ -150,10 +161,7 @@ internal sealed class TemporalNow : ObjectInstance
     /// </summary>
     private JsPlainTime PlainTimeISO(JsValue thisObject, JsCallArguments arguments)
     {
-        var timeZone = arguments.At(0);
-        var timeZoneId = timeZone.IsUndefined()
-            ? _engine.Options.Temporal.TimeZoneProvider.GetDefaultTimeZone()
-            : TypeConverter.ToString(timeZone);
+        var timeZoneId = ToTemporalTimeZoneIdentifier(arguments.At(0));
 
         var epochNs = SystemUTCEpochNanoseconds();
         var isoDateTime = GetIsoDateTimeFor(timeZoneId, epochNs);
@@ -181,66 +189,30 @@ internal sealed class TemporalNow : ObjectInstance
         var offsetNs = provider.GetOffsetNanosecondsFor(timeZoneId, epochNs);
         var localNs = epochNs + offsetNs;
 
-        return EpochNanosecondsToIsoDateTime(localNs);
+        return TemporalHelpers.EpochNanosecondsToIsoDateTime(localNs);
     }
 
     /// <summary>
-    /// Converts nanoseconds since epoch to ISO date-time components.
+    /// Validates and canonicalizes a calendar identifier.
+    /// https://tc39.es/proposal-temporal/#sec-temporal-totemporalcalendar
     /// </summary>
-    private static IsoDateTime EpochNanosecondsToIsoDateTime(BigInteger localNs)
+    private string ToTemporalCalendarIdentifier(JsValue calendarLike)
     {
-        const long nsPerDay = 86_400_000_000_000L;
-        const long nsPerHour = 3_600_000_000_000L;
-        const long nsPerMinute = 60_000_000_000L;
-        const long nsPerSecond = 1_000_000_000L;
-        const long nsPerMs = 1_000_000L;
-        const long nsPerUs = 1_000L;
+        return TemporalHelpers.ToTemporalCalendarIdentifier(_realm, calendarLike);
+    }
 
-        // Days since Unix epoch
-        var days = (long) (localNs / nsPerDay);
-        var remaining = (long) (localNs % nsPerDay);
-        if (remaining < 0)
+    /// <summary>
+    /// Extracts and validates a time zone identifier.
+    /// For Temporal.Now, undefined means the system default time zone.
+    /// </summary>
+    private string ToTemporalTimeZoneIdentifier(JsValue timeZoneLike)
+    {
+        if (timeZoneLike.IsUndefined())
         {
-            days--;
-            remaining += nsPerDay;
+            return _engine.Options.Temporal.TimeZoneProvider.GetDefaultTimeZone();
         }
 
-        // Convert days to date
-        var date = EpochDaysToIsoDate(days);
-
-        // Convert remaining nanoseconds to time
-        var hour = (int) (remaining / nsPerHour);
-        remaining %= nsPerHour;
-        var minute = (int) (remaining / nsPerMinute);
-        remaining %= nsPerMinute;
-        var second = (int) (remaining / nsPerSecond);
-        remaining %= nsPerSecond;
-        var millisecond = (int) (remaining / nsPerMs);
-        remaining %= nsPerMs;
-        var microsecond = (int) (remaining / nsPerUs);
-        var nanosecond = (int) (remaining % nsPerUs);
-
-        return new IsoDateTime(date, new IsoTime(hour, minute, second, millisecond, microsecond, nanosecond));
+        return TemporalHelpers.ToTemporalTimeZoneIdentifier(_engine, _realm, timeZoneLike);
     }
 
-    /// <summary>
-    /// Converts days since Unix epoch to ISO date.
-    /// </summary>
-    private static IsoDate EpochDaysToIsoDate(long days)
-    {
-        // Algorithm based on Howard Hinnant's algorithm
-        days += 719468; // Shift epoch from 1970-01-01 to 0000-03-01
-
-        var era = (days >= 0 ? days : days - 146096) / 146097;
-        var doe = days - era * 146097;
-        var yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
-        var y = yoe + era * 400;
-        var doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-        var mp = (5 * doy + 2) / 153;
-        var d = doy - (153 * mp + 2) / 5 + 1;
-        var m = mp < 10 ? mp + 3 : mp - 9;
-        y += m <= 2 ? 1 : 0;
-
-        return new IsoDate((int) y, (int) m, (int) d);
-    }
 }

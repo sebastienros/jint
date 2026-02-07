@@ -1579,15 +1579,5 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         return hour < 12 ? "AM" : "PM";
     }
 
-    internal readonly struct DateTimePart
-    {
-        public DateTimePart(string type, string value)
-        {
-            Type = type;
-            Value = value;
-        }
-
-        public string Type { get; }
-        public string Value { get; }
-    }
+    internal readonly record struct DateTimePart(string Type, string Value);
 }

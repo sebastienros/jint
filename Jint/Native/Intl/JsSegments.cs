@@ -238,17 +238,7 @@ internal sealed class JsSegments : ObjectInstance
         return segments;
     }
 
-    private readonly struct GraphemeInfo
-    {
-        public readonly string Text;
-        public readonly int Index;
-
-        public GraphemeInfo(string text, int index)
-        {
-            Text = text;
-            Index = index;
-        }
-    }
+    private readonly record struct GraphemeInfo(string Text, int Index);
 
     private static List<SegmentData> ComputeSentenceSegments(string input)
     {

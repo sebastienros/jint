@@ -32,7 +32,6 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
     private static readonly BigInteger NanosecondsPerTick = 100;
     private static readonly BigInteger NanosecondsPerMillisecond = 1_000_000;
     private static readonly BigInteger NanosecondsPerSecond = 1_000_000_000;
-    private static readonly BigInteger TicksPerNanosecond = 1; // actually 0.01, but we divide by 100
 
     // Unix epoch in .NET ticks
     private static readonly long UnixEpochTicks = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc).Ticks;
@@ -59,6 +58,7 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
         ["Europe/London"] = "GMT Standard Time",
         ["Europe/Dublin"] = "GMT Standard Time",
         ["Europe/Paris"] = "Romance Standard Time",
+        ["CET"] = "Romance Standard Time", // IANA backward compatibility link
         ["Europe/Berlin"] = "W. Europe Standard Time",
         ["Europe/Rome"] = "W. Europe Standard Time",
         ["Europe/Madrid"] = "Romance Standard Time",
@@ -126,6 +126,14 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
             return 0;
         }
 
+        // For offset-based time zones (e.g., +01:00, -05:30), return the parsed offset directly
+        // This handles sub-minute precision that .NET TimeZoneInfo doesn't support
+        var parsedOffset = ParseOffsetString(timeZoneId);
+        if (parsedOffset.HasValue)
+        {
+            return (long) parsedOffset.Value.TotalMilliseconds * 1_000_000L;
+        }
+
         var tz = ResolveTimeZone(timeZoneId);
         if (tz is null)
         {
@@ -159,6 +167,16 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
             var utcInstant = DateTimeToEpochNanoseconds(
                 year, month, day, hour, minute, second, millisecond, microsecond, nanosecond, TimeSpan.Zero);
             return [utcInstant];
+        }
+
+        // Handle offset-based time zones (e.g., +01:00, -05:30)
+        // Per spec, GetPossibleEpochNanoseconds for offset timezones returns a single instant
+        var parsedOffset = ParseOffsetString(timeZoneId);
+        if (parsedOffset.HasValue)
+        {
+            var offsetInstant = DateTimeToEpochNanoseconds(
+                year, month, day, hour, minute, second, millisecond, microsecond, nanosecond, parsedOffset.Value);
+            return [offsetInstant];
         }
 
         var tz = ResolveTimeZone(timeZoneId);
@@ -197,6 +215,7 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
                     results[i] = DateTimeToEpochNanoseconds(
                         year, month, day, hour, minute, second, millisecond, microsecond, nanosecond, offsets[i]);
                 }
+
                 // Sort by offset (earlier offset = later instant)
                 System.Array.Sort(results, (a, b) => b.CompareTo(a));
                 return results;
@@ -353,6 +372,49 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
     /// <inheritdoc />
     public bool IsValidTimeZone(string timeZoneId)
     {
+        if (string.IsNullOrEmpty(timeZoneId))
+            return false;
+
+        // Check for offset strings
+        // Valid formats: +HH (3 chars), +HH:MM (6 chars), or +HHMM (5 chars) - no seconds allowed
+        if (timeZoneId.Length >= 3 && (timeZoneId[0] == '+' || timeZoneId[0] == '-'))
+        {
+            // Check if it's a valid HH, HH:MM, or HHMM format (no seconds allowed)
+            if (timeZoneId.Length == 3 && char.IsDigit(timeZoneId[1]) && char.IsDigit(timeZoneId[2]))
+            {
+                // +HH format (hour only)
+                var parsedOffset = ParseOffsetString(timeZoneId);
+                if (parsedOffset.HasValue)
+                {
+                    var totalMinutes = System.Math.Abs(parsedOffset.Value.TotalMinutes);
+                    return totalMinutes <= 23 * 60 + 59;
+                }
+            }
+            else if (timeZoneId.Length == 6 && timeZoneId[3] == ':')
+            {
+                // +HH:MM format
+                var parsedOffset = ParseOffsetString(timeZoneId);
+                if (parsedOffset.HasValue)
+                {
+                    var totalMinutes = System.Math.Abs(parsedOffset.Value.TotalMinutes);
+                    return totalMinutes <= 23 * 60 + 59;
+                }
+            }
+            else if (timeZoneId.Length == 5 && char.IsDigit(timeZoneId[3]))
+            {
+                // +HHMM format
+                var parsedOffset = ParseOffsetString(timeZoneId);
+                if (parsedOffset.HasValue)
+                {
+                    var totalMinutes = System.Math.Abs(parsedOffset.Value.TotalMinutes);
+                    return totalMinutes <= 23 * 60 + 59;
+                }
+            }
+
+            // Any other format starting with +/- is an offset with invalid precision
+            return false;
+        }
+
         return ResolveTimeZone(timeZoneId) is not null;
     }
 
@@ -369,6 +431,52 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
             timeZoneId.Equals("GMT", StringComparison.OrdinalIgnoreCase))
         {
             return "UTC";
+        }
+
+        // Handle offset strings
+        // Valid formats: +HH (3 chars), +HH:MM (6 chars), or +HHMM (5 chars) - no seconds allowed
+        if (timeZoneId.Length >= 3 && (timeZoneId[0] == '+' || timeZoneId[0] == '-'))
+        {
+            // Check if it's a valid HH, HH:MM, or HHMM format (no seconds allowed)
+            if (timeZoneId.Length == 3 && char.IsDigit(timeZoneId[1]) && char.IsDigit(timeZoneId[2]))
+            {
+                // +HH format - canonicalize to +HH:00
+                var parsedOffset = ParseOffsetString(timeZoneId);
+                if (parsedOffset.HasValue)
+                {
+                    var totalMinutes = System.Math.Abs(parsedOffset.Value.TotalMinutes);
+                    if (totalMinutes <= 23 * 60 + 59)
+                        return $"{timeZoneId}:00";
+                }
+            }
+            else if (timeZoneId.Length == 6 && timeZoneId[3] == ':')
+            {
+                // +HH:MM format
+                var parsedOffset = ParseOffsetString(timeZoneId);
+                if (parsedOffset.HasValue)
+                {
+                    var totalMinutes = System.Math.Abs(parsedOffset.Value.TotalMinutes);
+                    if (totalMinutes <= 23 * 60 + 59)
+                        return timeZoneId;
+                }
+            }
+            else if (timeZoneId.Length == 5 && char.IsDigit(timeZoneId[3]))
+            {
+                // +HHMM format - canonicalize to +HH:MM
+                var parsedOffset = ParseOffsetString(timeZoneId);
+                if (parsedOffset.HasValue)
+                {
+                    var totalMinutes = System.Math.Abs(parsedOffset.Value.TotalMinutes);
+                    if (totalMinutes <= 23 * 60 + 59)
+                    {
+                        // Insert colon between hours and minutes
+                        return $"{timeZoneId.Substring(0, 3)}:{timeZoneId.Substring(3)}";
+                    }
+                }
+            }
+
+            // Any other format starting with +/- is an offset with invalid precision
+            return null;
         }
 
         var tz = ResolveTimeZone(timeZoneId);
@@ -460,6 +568,28 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
                 return TimeZoneInfo.Utc;
             }
 
+            // Handle offset strings (e.g., +01:00, -05:30, +01:30:00)
+            var offset = ParseOffsetString(id);
+            if (offset.HasValue)
+            {
+                // .NET TimeZoneInfo only supports whole minute offsets, but we need to allow
+                // seconds precision for Temporal. We'll create a custom TimeZoneInfo with
+                // the offset rounded to minutes, but GetOffsetNanosecondsFor will return the exact offset.
+                //
+                // IMPORTANT: TimeZoneInfo.CreateCustomTimeZone only accepts offsets within ±14 hours,
+                // but ISO 8601/Temporal allows ±23:59. We clamp to ±14 hours for the TimeZoneInfo,
+                // but GetOffsetNanosecondsFor will still return the actual parsed offset.
+                var totalMinutes = (int) offset.Value.TotalMinutes;
+                const int MaxOffsetMinutes = 14 * 60; // ±14 hours
+                if (totalMinutes > MaxOffsetMinutes)
+                    totalMinutes = MaxOffsetMinutes;
+                else if (totalMinutes < -MaxOffsetMinutes)
+                    totalMinutes = -MaxOffsetMinutes;
+
+                var roundedOffset = TimeSpan.FromMinutes(totalMinutes);
+                return TimeZoneInfo.CreateCustomTimeZone(id, roundedOffset, id, id);
+            }
+
             // Try direct lookup first
             try
             {
@@ -486,6 +616,72 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
 
             return null;
         });
+    }
+
+    /// <summary>
+    /// Parses an offset string like "+01:00" or "-05:30" to a TimeSpan.
+    /// </summary>
+    private static TimeSpan? ParseOffsetString(string input)
+    {
+        if (string.IsNullOrEmpty(input) || input.Length < 3)
+            return null;
+
+        // Check for +/- prefix
+        var sign = input[0];
+        if (sign != '+' && sign != '-')
+            return null;
+
+        var isNegative = sign == '-';
+
+        // Parse HH, HH:MM, or HHMM format
+        int hours, minutes = 0, seconds = 0;
+
+        if (input.Length == 3)
+        {
+            // +HH format (hour only)
+            if (!int.TryParse(input.AsSpan(1, 2), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out hours))
+            {
+                return null;
+            }
+        }
+        else if (input.Length >= 6 && input[3] == ':')
+        {
+            // +HH:MM format
+            if (!int.TryParse(input.AsSpan(1, 2), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out hours) ||
+                !int.TryParse(input.AsSpan(4, 2), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out minutes))
+            {
+                return null;
+            }
+
+            // Check for optional seconds +HH:MM:SS
+            if (input.Length >= 9 && input[6] == ':')
+            {
+                if (!int.TryParse(input.AsSpan(7, 2), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out seconds))
+                {
+                    return null;
+                }
+            }
+        }
+        else if (input.Length >= 5)
+        {
+            // +HHMM format
+            if (!int.TryParse(input.AsSpan(1, 2), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out hours) ||
+                !int.TryParse(input.AsSpan(3, 2), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out minutes))
+            {
+                return null;
+            }
+        }
+        else
+        {
+            return null;
+        }
+
+        // Validate range
+        if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59 || seconds < 0 || seconds > 59)
+            return null;
+
+        var offset = new TimeSpan(hours, minutes, seconds);
+        return isNegative ? -offset : offset;
     }
 
     private static BigInteger DateTimeToEpochNanoseconds(
@@ -515,21 +711,8 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
 
     private static long DaysSinceEpoch(int year, int month, int day)
     {
-        // Algorithm to calculate days since Unix epoch (1970-01-01)
-        // Based on the proleptic Gregorian calendar
-
-        // Adjust for months before March
-        int a = (14 - month) / 12;
-        int y = year - a;
-        int m = month + 12 * a - 3;
-
-        // Calculate Julian day number
-        long jdn = day + (153 * m + 2) / 5 + 365L * y + y / 4 - y / 100 + y / 400 - 32045;
-
-        // Unix epoch Julian day number
-        const long UnixEpochJdn = 2440588; // 1970-01-01
-
-        return jdn - UnixEpochJdn;
+        // Use the same algorithm as TemporalHelpers.IsoDateToDays for consistency
+        return TemporalHelpers.IsoDateToDays(year, month, day);
     }
 
     private static DateTime GetTransitionDateTime(TimeZoneInfo.TransitionTime transition, int year)
