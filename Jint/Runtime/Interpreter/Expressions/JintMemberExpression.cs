@@ -141,6 +141,22 @@ internal sealed class JintMemberExpression : JintExpression
             return (JsValue) result;
         }
 
+        // Fast path for string character access: str[intIndex]
+        if (_memberExpression.Computed
+            && reference.Base is JsString str
+            && reference.ReferencedName is JsNumber num
+            && num.IsInteger())
+        {
+            context.Engine._referencePool.Return(reference);
+            var index = num.AsInteger();
+            if ((uint) index < (uint) str.Length)
+            {
+                return JsString.Create(str[index]);
+            }
+
+            return JsValue.Undefined;
+        }
+
         // Check if base is null/undefined before calling Engine.GetValue
         // This ensures the error has the correct location (the property access)
         // Per ECMAScript spec, ToObject(base) must happen before ToPropertyKey(property),

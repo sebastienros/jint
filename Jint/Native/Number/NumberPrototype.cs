@@ -377,12 +377,25 @@ internal sealed class NumberPrototype : NumberInstance
 
     internal static string ToBase(long n, int radix)
     {
-        const string Digits = "0123456789abcdefghijklmnopqrstuvwxyz";
         if (n == 0)
         {
             return "0";
         }
 
+        // Cache hex strings for small integers (covers common byte range)
+        if (radix == 16 && n is > 0 and <= 0xFF)
+        {
+            return s_hexCache[n] ??= ToBaseCore(n, radix);
+        }
+
+        return ToBaseCore(n, radix);
+    }
+
+    private static readonly string?[] s_hexCache = new string?[256];
+
+    private static string ToBaseCore(long n, int radix)
+    {
+        const string Digits = "0123456789abcdefghijklmnopqrstuvwxyz";
         var sb = new ValueStringBuilder(stackalloc char[64]);
         while (n > 0)
         {
