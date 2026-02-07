@@ -29,9 +29,8 @@ internal sealed class SymbolPrototype : Prototype
     {
         const PropertyFlag lengthFlags = PropertyFlag.Configurable;
         const PropertyFlag propertyFlags = PropertyFlag.Configurable;
-        SetProperties(new PropertyDictionary(5, checkExistingKeys: false)
+        SetProperties(new PropertyDictionary(4, checkExistingKeys: false)
         {
-            ["length"] = new PropertyDescriptor(JsNumber.PositiveZero, propertyFlags),
             ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.Configurable | PropertyFlag.Writable),
             ["description"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "description", Description, 0, lengthFlags), Undefined, propertyFlags),
             ["toString"] = new PropertyDescriptor(new ClrFunction(Engine, "toString", ToSymbolString, 0, lengthFlags), PropertyFlag.Configurable | PropertyFlag.Writable),

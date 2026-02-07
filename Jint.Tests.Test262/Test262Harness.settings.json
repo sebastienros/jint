@@ -117,11 +117,8 @@
     // Many of these tests require non-English locales (Spanish, Polish, German, Chinese, etc.) or
     // advanced features like formatRange, calendar-specific formatting, or complex locale canonicalization.
 
-    // Collator - German phonebook collation and locale-specific collation data
+    // Collator - German phonebook collation
     "intl402/Collator/prototype/compare/non-normative-phonebook.js",
-    "intl402/Collator/prototype/resolvedOptions/resolved-collation-unicode-extensions-and-options.js",
-    "intl402/Collator/unicode-ext-seq-in-private-tag.js",
-    "intl402/Collator/unicode-ext-value-collation.js",
     "intl402/Collator/usage-de.js",
 
     // DateTimeFormat - hanidec numbering system has different AM/PM behavior in ICU/CLDR
@@ -131,9 +128,6 @@
     "intl402/DateTimeFormat/prototype/formatRangeToParts/chinese-calendar-dates.js",
     "intl402/DateTimeFormat/prototype/formatRangeToParts/dangi-calendar-dates.js",
     "intl402/DateTimeFormat/prototype/formatToParts/chinese-calendar-dates.js",
-
-    // DisplayNames - locale-specific display names and Symbol edge cases
-    "intl402/DisplayNames/locales-symbol-length.js",
 
     // DurationFormat - formatting with specific styles and locales
     "intl402/DurationFormat/prototype/format/duration-out-of-range-3.js",
@@ -163,8 +157,7 @@
     "intl402/NumberFormat/prototype/formatToParts/unit-ko-KR.js",
     "intl402/NumberFormat/prototype/formatToParts/unit-zh-TW.js",
 
-    // PluralRules - plural categories require full CLDR data, notation requires compact support
-    "intl402/PluralRules/prototype/resolvedOptions/plural-categories-order.js",
+    // PluralRules - notation requires compact support
     "intl402/PluralRules/prototype/select/notation.js",
 
     // String - Turkish/Lithuanian/Azeri locale-specific case conversions
@@ -172,8 +165,6 @@
     "intl402/String/prototype/toLocaleLowerCase/special_casing_Azeri.js",
     "intl402/String/prototype/toLocaleLowerCase/special_casing_Lithuanian.js",
     "intl402/String/prototype/toLocaleLowerCase/special_casing_Turkish.js",
-    "intl402/String/prototype/toLocaleLowerCase/validates-all-locale-identifiers.js",
-    "intl402/String/prototype/toLocaleUpperCase/validates-all-locale-identifiers.js",
 
     // supportedValuesOf - currencies accepted by DisplayNames check
     "intl402/Intl/supportedValuesOf/currencies-accepted-by-DisplayNames.js",

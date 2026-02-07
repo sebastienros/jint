@@ -236,19 +236,16 @@ internal sealed class StringPrototype : StringInstance
     {
         TypeConverter.RequireObjectCoercible(_engine, thisObject);
         var s = TypeConverter.ToString(thisObject);
+
+        // https://tc39.es/ecma402/#sup-string.prototype.tolocaleuppercase
+        // 1. Let requestedLocales be ? CanonicalizeLocaleList(locales).
+        var requestedLocales = IntlUtilities.CanonicalizeLocaleList(_engine, arguments.At(0));
         var culture = CultureInfo.InvariantCulture;
-        if (arguments.Length > 0 && arguments[0].IsString())
+        if (requestedLocales.Count > 0)
         {
-            try
-            {
-                var cultureArgument = arguments[0].ToString();
-                culture = CultureInfo.GetCultureInfo(cultureArgument);
-            }
-            catch (CultureNotFoundException)
-            {
-                Throw.RangeError(_realm, "Incorrect culture information provided");
-            }
+            culture = IntlUtilities.GetCultureInfo(requestedLocales[0]) ?? CultureInfo.InvariantCulture;
         }
+
         if (string.Equals("lt", culture.Name, StringComparison.OrdinalIgnoreCase))
         {
             s = StringInlHelper.LithuanianStringProcessor(s);
@@ -275,7 +272,17 @@ internal sealed class StringPrototype : StringInstance
     {
         TypeConverter.RequireObjectCoercible(_engine, thisObject);
         var s = TypeConverter.ToString(thisObject);
-        return ToLowerCaseWithSpecialCasing(s, CultureInfo.InvariantCulture);
+
+        // https://tc39.es/ecma402/#sup-string.prototype.tolocalelowercase
+        // 1. Let requestedLocales be ? CanonicalizeLocaleList(locales).
+        var requestedLocales = IntlUtilities.CanonicalizeLocaleList(_engine, arguments.At(0));
+        var culture = CultureInfo.InvariantCulture;
+        if (requestedLocales.Count > 0)
+        {
+            culture = IntlUtilities.GetCultureInfo(requestedLocales[0]) ?? CultureInfo.InvariantCulture;
+        }
+
+        return ToLowerCaseWithSpecialCasing(s, culture);
     }
 
     private JsValue ToLowerCase(JsValue thisObject, JsCallArguments arguments)

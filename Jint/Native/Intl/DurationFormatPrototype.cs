@@ -1,3 +1,4 @@
+using System.Numerics;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -184,7 +185,6 @@ internal sealed class DurationFormatPrototype : Prototype
     private void ValidateDurationRecord(JsDurationFormat.DurationRecord record)
     {
         const double MaxYearsMonthsWeeks = 4294967296.0; // 2^32
-        const double MaxSafeInteger = 9007199254740992.0; // 2^53
 
         // Check if years, months, weeks are in valid range
         if (System.Math.Abs(record.Years) >= MaxYearsMonthsWeeks)
@@ -203,16 +203,21 @@ internal sealed class DurationFormatPrototype : Prototype
         // Per spec: normalizedSeconds = days × 86400 + hours × 3600 + minutes × 60 + seconds +
         //   milliseconds × 10^-3 + microseconds × 10^-6 + nanoseconds × 10^-9
         // If abs(normalizedSeconds) >= 2^53, throw RangeError
-        var normalizedSeconds =
-            record.Days * 86400 +
-            record.Hours * 3600 +
-            record.Minutes * 60 +
-            record.Seconds +
-            record.Milliseconds * 1e-3 +
-            record.Microseconds * 1e-6 +
-            record.Nanoseconds * 1e-9;
+        // Use BigInteger arithmetic to avoid double precision loss.
+        // Compute totalNanoseconds = normalizedSeconds × 10^9 (exact integer arithmetic)
+        var totalNanoseconds =
+            new BigInteger(record.Days) * 86_400_000_000_000 +
+            new BigInteger(record.Hours) * 3_600_000_000_000 +
+            new BigInteger(record.Minutes) * 60_000_000_000 +
+            new BigInteger(record.Seconds) * 1_000_000_000 +
+            new BigInteger(record.Milliseconds) * 1_000_000 +
+            new BigInteger(record.Microseconds) * 1_000 +
+            new BigInteger(record.Nanoseconds);
 
-        if (System.Math.Abs(normalizedSeconds) >= MaxSafeInteger)
+        // maxTimeDuration = 2^53 × 10^9 - 1 (the maximum valid total nanoseconds)
+        // abs(totalNanoseconds) >= 2^53 × 10^9 means normalizedSeconds >= 2^53
+        BigInteger maxTimeDuration = ((BigInteger) 1 << 53) * 1_000_000_000;
+        if (BigInteger.Abs(totalNanoseconds) >= maxTimeDuration)
         {
             Throw.RangeError(_realm, "Duration time values out of range");
         }

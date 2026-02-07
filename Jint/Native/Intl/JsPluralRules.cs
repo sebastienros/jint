@@ -151,12 +151,18 @@ internal sealed class JsPluralRules : ObjectInstance
             // French - "one" for 0 and 1, "many" for multiples of 1 million with no fraction
             "fr" => SelectFrenchCardinal(i, v),
 
-            // Portuguese - "one" for 0 and 1
-            "pt" => (i == 0 || i == 1) ? "one" : "other",
+            // Portuguese, Persian - "one" for 0 and 1
+            "pt" or "fa" => (i == 0 || i == 1) ? "one" : "other",
 
             // Spanish, Italian - "one" for 1
             "es" or "it" =>
                 (i == 1 && v == 0) ? "one" : "other",
+
+            // Manx (gv)
+            "gv" => SelectManxCardinal(i, v),
+
+            // Slovenian (sl)
+            "sl" => SelectSlovenianCardinal(i, v),
 
             // Russian, Ukrainian, Polish - complex rules
             "ru" or "uk" => SelectSlavicCardinal(i, v),
@@ -286,6 +292,71 @@ internal sealed class JsPluralRules : ObjectInstance
         return "other";
     }
 
+    /// <summary>
+    /// Manx (gv) cardinal plural rules from CLDR.
+    /// one: v = 0 and i % 10 = 1
+    /// two: v = 0 and i % 10 = 2
+    /// few: v = 0 and i % 20 = 0
+    /// many: v != 0
+    /// other: everything else
+    /// </summary>
+    private static string SelectManxCardinal(long i, int v)
+    {
+        if (v != 0)
+        {
+            return "many";
+        }
+
+        var mod10 = i % 10;
+        var mod20 = i % 20;
+
+        if (mod10 == 1)
+        {
+            return "one";
+        }
+
+        if (mod10 == 2)
+        {
+            return "two";
+        }
+
+        if (mod20 == 0)
+        {
+            return "few";
+        }
+
+        return "other";
+    }
+
+    /// <summary>
+    /// Slovenian (sl) cardinal plural rules from CLDR.
+    /// one: v = 0 and i % 100 = 1
+    /// two: v = 0 and i % 100 = 2
+    /// few: v = 0 and i % 100 = 3..4 OR v != 0
+    /// other: everything else
+    /// </summary>
+    private static string SelectSlovenianCardinal(long i, int v)
+    {
+        var mod100 = i % 100;
+
+        if (v == 0 && mod100 == 1)
+        {
+            return "one";
+        }
+
+        if (v == 0 && mod100 == 2)
+        {
+            return "two";
+        }
+
+        if ((v == 0 && mod100 >= 3 && mod100 <= 4) || v != 0)
+        {
+            return "few";
+        }
+
+        return "other";
+    }
+
     private static string SelectArabicCardinal(long i)
     {
         if (i == 0)
@@ -375,7 +446,9 @@ internal sealed class JsPluralRules : ObjectInstance
         return lang switch
         {
             "ar" => new[] { "zero", "one", "two", "few", "many", "other" },
+            "gv" => new[] { "one", "two", "few", "many", "other" },
             "ru" or "uk" or "pl" => new[] { "one", "few", "many", "other" },
+            "sl" => new[] { "one", "two", "few", "other" },
             // French and Portuguese have "many" for compact notation (large numbers)
             "fr" or "pt" => new[] { "one", "many", "other" },
             "zh" or "ja" or "ko" or "vi" => new[] { "other" },
