@@ -26,6 +26,24 @@ internal sealed class CollatorConstructor : Constructor
         "searchjl", "stroke", "trad", "unihan", "zhuyin", "default"
     ], StringComparison.Ordinal);
 
+    // Locale-specific supported collation types (from CLDR)
+    // Only locales with non-default collation support are listed
+    private static readonly Dictionary<string, HashSet<string>> LocaleCollationSupport = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["ar"] = new(StringComparer.Ordinal) { "default", "compat", "eor" },
+        ["da"] = new(StringComparer.Ordinal) { "default", "eor" },
+        ["de"] = new(StringComparer.Ordinal) { "default", "phonebk", "eor" },
+        ["en"] = new(StringComparer.Ordinal) { "default", "ducet", "emoji", "eor" },
+        ["es"] = new(StringComparer.Ordinal) { "default", "trad", "eor" },
+        ["hi"] = new(StringComparer.Ordinal) { "default", "direct", "eor" },
+        ["ja"] = new(StringComparer.Ordinal) { "default", "unihan", "eor" },
+        ["ko"] = new(StringComparer.Ordinal) { "default", "searchjl", "unihan", "eor" },
+        ["ln"] = new(StringComparer.Ordinal) { "default", "phonetic", "eor" },
+        ["si"] = new(StringComparer.Ordinal) { "default", "dict", "eor" },
+        ["sv"] = new(StringComparer.Ordinal) { "default", "reformed", "eor" },
+        ["zh"] = new(StringComparer.Ordinal) { "default", "big5han", "gb2312", "pinyin", "stroke", "unihan", "zhuyin", "eor" },
+    };
+
     public CollatorConstructor(
         Engine engine,
         Realm realm,
@@ -90,7 +108,7 @@ internal sealed class CollatorConstructor : Constructor
         // Get options (options override unicode extensions)
         var usage = GetStringOption(optionsObj, "usage", UsageValues, "sort");
         var sensitivity = GetSensitivity(optionsObj);
-        var collation = GetCollationOption(optionsObj, uCollation);
+        var collation = GetCollationOption(optionsObj, uCollation, resolvedLocale);
         var numeric = GetNumericOption(optionsObj, uNumeric);
         var caseFirst = GetCaseFirstOption(optionsObj, uCaseFirst);
 
@@ -224,13 +242,18 @@ internal sealed class CollatorConstructor : Constructor
         numeric = null;
         caseFirst = null;
 
-        var uIndex = locale.IndexOf("-u-", StringComparison.Ordinal);
+        // Only search for -u- before the private-use section (-x-)
+        var xIndex = locale.IndexOf("-x-", StringComparison.OrdinalIgnoreCase);
+        var searchRange = xIndex >= 0 ? locale.Substring(0, xIndex) : locale;
+        var uIndex = searchRange.IndexOf("-u-", StringComparison.Ordinal);
         if (uIndex < 0)
         {
             return;
         }
 
-        var parts = locale.Substring(uIndex + 3).Split('-');
+        // Extract the -u- extension content (up to private-use or next singleton)
+        var extensionContent = (xIndex >= 0 ? locale.Substring(uIndex + 3, xIndex - uIndex - 3) : locale.Substring(uIndex + 3));
+        var parts = extensionContent.Split('-');
         for (var i = 0; i < parts.Length; i++)
         {
             var key = parts[i];
@@ -270,40 +293,63 @@ internal sealed class CollatorConstructor : Constructor
         }
     }
 
-    private static string GetCollationOption(ObjectInstance options, string? unicodeExtension)
+    private static string GetCollationOption(ObjectInstance options, string? unicodeExtension, string resolvedLocale)
     {
+        // Get the language code for locale-specific collation support
+        var langCode = resolvedLocale;
+        var dashIdx = resolvedLocale.IndexOf('-');
+        if (dashIdx > 0)
+        {
+            langCode = resolvedLocale.Substring(0, dashIdx);
+        }
+
         var value = options.Get("collation");
         if (!value.IsUndefined())
         {
             var collation = TypeConverter.ToString(value);
 
             // Per ECMA-402: "standard" and "search" collations are explicitly disallowed
-            // They should fall back to "default"
             if (string.Equals(collation, "standard", StringComparison.Ordinal) ||
                 string.Equals(collation, "search", StringComparison.Ordinal))
             {
-                return "default";
+                // Fall through to check unicode extension
             }
-
-            // Validate against known collation types - ignore invalid values
-            if (!ValidCollationTypes.Contains(collation))
+            // Validate against known collation types AND locale-specific support
+            else if (ValidCollationTypes.Contains(collation) && IsCollationSupportedForLocale(langCode, collation))
             {
-                return "default";
+                return collation;
             }
-
-            return collation;
+            // Options value is not supported - fall through to check unicode extension
         }
 
         // Check unicode extension, but disallow "standard", "search", and invalid values
         if (unicodeExtension != null &&
             !string.Equals(unicodeExtension, "standard", StringComparison.Ordinal) &&
             !string.Equals(unicodeExtension, "search", StringComparison.Ordinal) &&
-            ValidCollationTypes.Contains(unicodeExtension))
+            ValidCollationTypes.Contains(unicodeExtension) &&
+            IsCollationSupportedForLocale(langCode, unicodeExtension))
         {
             return unicodeExtension;
         }
 
         return "default";
+    }
+
+    private static bool IsCollationSupportedForLocale(string language, string collation)
+    {
+        if (string.Equals(collation, "default", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        // If we have explicit locale data, check against it
+        if (LocaleCollationSupport.TryGetValue(language, out var supported))
+        {
+            return supported.Contains(collation);
+        }
+
+        // For unlisted locales, only "default" and "eor" are universally supported
+        return string.Equals(collation, "eor", StringComparison.Ordinal);
     }
 
     private static bool GetNumericOption(ObjectInstance options, bool? unicodeExtension)
