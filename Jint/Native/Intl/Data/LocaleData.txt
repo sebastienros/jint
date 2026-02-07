@@ -694,12 +694,16 @@ WK=UM
 YD=YE
 YU=RS
 ZR=CD
+810=RU
+NT=SA
+SU=RU
+AN=CW
 
 [VARIANT_MAPPINGS]
 aaland=region,AX
 arevela=language,hy
 arevmda=language,hyw
-heploc=variant,alalc97
+heploc=variant,alalc97,prefix:hepburn
 polytoni=variant,polyton
 
 [LANGUAGE_VARIANT_MAPPINGS]
@@ -715,6 +719,13 @@ Cyrl+SU=RU
 Latn+SU=RU
 Geor+SU=GE
 Arab+SU=UZ
+Armn+810=AM
+Cyrl+810=RU
+Latn+810=RU
+Geor+810=GE
+Arab+810=UZ
+Cyrl+CS=RS
+Latn+CS=RS
 
 [UNICODE_MAPPINGS]
 ca:ethiopic-amete-alem=ethioaa

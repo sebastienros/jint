@@ -611,20 +611,22 @@ internal sealed class LocaleConstructor : Constructor
         {
             var region = parts[index].ToUpperInvariant();
 
-            // Apply region aliasing (e.g., numeric codes like 554 → NZ)
-            if (Data.LocaleData.RegionMappings.TryGetValue(region, out var regionReplacement))
-            {
-                region = regionReplacement;
-            }
-
-            // Apply script-sensitive region aliasing (e.g., Armn + SU → AM)
+            // Apply script-sensitive region aliasing first (e.g., Armn + SU → AM)
+            var scriptRegionResolved = false;
             if (result.Script != null)
             {
                 var scriptRegionKey = result.Script + "+" + region;
                 if (Data.LocaleData.ScriptRegionMappings.TryGetValue(scriptRegionKey, out var scriptRegionReplacement))
                 {
                     region = scriptRegionReplacement;
+                    scriptRegionResolved = true;
                 }
+            }
+
+            // Fall back to simple region aliasing (e.g., numeric codes like 554 → NZ)
+            if (!scriptRegionResolved && Data.LocaleData.RegionMappings.TryGetValue(region, out var regionReplacement))
+            {
+                region = regionReplacement;
             }
 
             result.Region = region;

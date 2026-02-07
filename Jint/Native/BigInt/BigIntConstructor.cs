@@ -90,7 +90,7 @@ internal sealed class BigIntConstructor : Constructor
     {
         if (TypeConverter.IsIntegralNumber(value._value))
         {
-            return JsBigInt.Create((long) value._value);
+            return JsBigInt.Create(new BigInteger(value._value));
         }
 
         Throw.RangeError(_realm, "The number " + value + " cannot be converted to a BigInt because it is not an integer");

@@ -30,14 +30,18 @@ internal sealed class CollatorConstructor : Constructor
     // Only locales with non-default collation support are listed
     private static readonly Dictionary<string, HashSet<string>> LocaleCollationSupport = new(StringComparer.OrdinalIgnoreCase)
     {
+        ["ar"] = new(StringComparer.Ordinal) { "default", "compat", "eor" },
+        ["da"] = new(StringComparer.Ordinal) { "default", "eor" },
         ["de"] = new(StringComparer.Ordinal) { "default", "phonebk", "eor" },
+        ["en"] = new(StringComparer.Ordinal) { "default", "ducet", "emoji", "eor" },
         ["es"] = new(StringComparer.Ordinal) { "default", "trad", "eor" },
-        ["zh"] = new(StringComparer.Ordinal) { "default", "big5han", "gb2312", "pinyin", "stroke", "unihan", "zhuyin", "eor" },
+        ["hi"] = new(StringComparer.Ordinal) { "default", "direct", "eor" },
         ["ja"] = new(StringComparer.Ordinal) { "default", "unihan", "eor" },
         ["ko"] = new(StringComparer.Ordinal) { "default", "searchjl", "unihan", "eor" },
+        ["ln"] = new(StringComparer.Ordinal) { "default", "phonetic", "eor" },
+        ["si"] = new(StringComparer.Ordinal) { "default", "dict", "eor" },
         ["sv"] = new(StringComparer.Ordinal) { "default", "reformed", "eor" },
-        ["da"] = new(StringComparer.Ordinal) { "default", "eor" },
-        ["ar"] = new(StringComparer.Ordinal) { "default", "compat", "eor" },
+        ["zh"] = new(StringComparer.Ordinal) { "default", "big5han", "gb2312", "pinyin", "stroke", "unihan", "zhuyin", "eor" },
     };
 
     public CollatorConstructor(

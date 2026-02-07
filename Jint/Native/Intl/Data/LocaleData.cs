@@ -238,14 +238,20 @@ internal static class LocaleData
 
     private static void ParseVariantMapping(string key, string value)
     {
-        // Format: type,replacement
-        var commaIndex = value.IndexOf(',');
-        if (commaIndex > 0)
+        // Format: type,replacement[,prefix:variant]
+        var parts = value.Split(',');
+        if (parts.Length >= 2)
         {
-            _variantMappings![key] = new VariantMapping(
-                value.Substring(0, commaIndex),
-                value.Substring(commaIndex + 1)
-            );
+            string? prefix = null;
+            for (var i = 2; i < parts.Length; i++)
+            {
+                if (parts[i].StartsWith("prefix:", StringComparison.Ordinal))
+                {
+                    prefix = parts[i].Substring(7);
+                }
+            }
+
+            _variantMappings![key] = new VariantMapping(parts[0], parts[1], prefix);
         }
     }
 
@@ -284,13 +290,19 @@ internal static class LocaleData
 
     internal readonly struct VariantMapping
     {
-        public VariantMapping(string type, string replacement)
+        public VariantMapping(string type, string replacement, string? prefix = null)
         {
             Type = type;
             Replacement = replacement;
+            Prefix = prefix;
         }
 
         public string Type { get; }
         public string Replacement { get; }
+
+        /// <summary>
+        /// Optional prefix variant that should be removed when this alias is applied.
+        /// </summary>
+        public string? Prefix { get; }
     }
 }

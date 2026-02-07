@@ -1,5 +1,6 @@
 using System.Globalization;
 using Jint.Native.Function;
+using Jint.Native.Intl.Data;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -68,8 +69,8 @@ internal sealed class DurationFormatConstructor : Constructor
         // Step 5: localeMatcher
         var localeMatcher = GetStringOption(optionsObj, "localeMatcher", LocaleMatcherValues, "best fit");
 
-        // Step 6: numberingSystem (must be read before style)
-        var numberingSystem = GetNumberingSystemOption(optionsObj);
+        // Step 6: numberingSystem option (must be read before style)
+        var numberingSystemOption = GetNumberingSystemOption(optionsObj);
 
         // Step 13: style (must be read after localeMatcher and numberingSystem, before unit options)
         var style = GetStringOption(optionsObj, "style", StyleValues, "short");
@@ -78,6 +79,23 @@ internal sealed class DurationFormatConstructor : Constructor
         var requestedLocales = IntlUtilities.CanonicalizeLocaleList(_engine, locales);
         var availableLocales = IntlUtilities.GetAvailableLocales();
         var resolved = IntlUtilities.ResolveLocale(_engine, availableLocales, requestedLocales, localeMatcher, []);
+
+        // Parse -u-nu- extension from the first requested locale
+        string? extensionNu = null;
+        if (requestedLocales.Count > 0)
+        {
+            extensionNu = ParseNumberingSystemExtension(requestedLocales[0]);
+        }
+
+        // Resolve numbering system: option overrides extension; validate both
+        var numberingSystem = ResolveNumberingSystem(numberingSystemOption, extensionNu);
+
+        // Build resolved locale: include -u-nu- extension when resolved value matches extension value
+        var resolvedLocale = resolved.Locale;
+        if (extensionNu != null && string.Equals(numberingSystem, extensionNu, StringComparison.Ordinal))
+        {
+            resolvedLocale = resolved.Locale + "-u-nu-" + numberingSystem;
+        }
 
         // Determine base style based on overall style (for date units)
         var baseStyle = style switch
@@ -197,7 +215,7 @@ internal sealed class DurationFormatConstructor : Constructor
         return new JsDurationFormat(
             _engine,
             proto,
-            resolved.Locale,
+            resolvedLocale,
             style,
             numberingSystem,
             culture,
@@ -255,12 +273,12 @@ internal sealed class DurationFormatConstructor : Constructor
         return stringValue;
     }
 
-    private string GetNumberingSystemOption(ObjectInstance options)
+    private string? GetNumberingSystemOption(ObjectInstance options)
     {
         var value = options.Get("numberingSystem");
         if (value.IsUndefined())
         {
-            return "latn"; // Default
+            return null;
         }
 
         var stringValue = TypeConverter.ToString(value);
@@ -273,6 +291,48 @@ internal sealed class DurationFormatConstructor : Constructor
         }
 
         return stringValue;
+    }
+
+    private static string? ParseNumberingSystemExtension(string locale)
+    {
+        // Only search for -u- before the private-use section (-x-)
+        var xIndex = locale.IndexOf("-x-", StringComparison.OrdinalIgnoreCase);
+        var searchRange = xIndex >= 0 ? locale.Substring(0, xIndex) : locale;
+        var uIndex = searchRange.IndexOf("-u-", StringComparison.Ordinal);
+        if (uIndex < 0)
+        {
+            return null;
+        }
+
+        var extensionContent = xIndex >= 0 ? locale.Substring(uIndex + 3, xIndex - uIndex - 3) : locale.Substring(uIndex + 3);
+        var parts = extensionContent.Split('-');
+        for (var i = 0; i < parts.Length; i++)
+        {
+            if (string.Equals(parts[i], "nu", StringComparison.Ordinal) && i + 1 < parts.Length && parts[i + 1].Length >= 3)
+            {
+                return parts[i + 1];
+            }
+        }
+
+        return null;
+    }
+
+    private static string ResolveNumberingSystem(string? optionValue, string? extensionValue)
+    {
+        // Options override extension
+        if (optionValue != null && NumberingSystemData.Digits.ContainsKey(optionValue))
+        {
+            return optionValue;
+        }
+
+        // Extension fallback
+        if (extensionValue != null && NumberingSystemData.Digits.ContainsKey(extensionValue))
+        {
+            return extensionValue;
+        }
+
+        // Default
+        return "latn";
     }
 
     /// <summary>
