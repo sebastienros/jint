@@ -1,5 +1,5 @@
 {
-  "SuiteGitSha": "f85c9511a380b9abb2877c42cc47e8fce06d56c5",
+  "SuiteGitSha": "f2d59ea6e4b2f6f87de9f0d18a41d73782b6a9bc",
   //"SuiteDirectory": "//mnt/c/work/test262",
   "TargetPath": "./Generated",
   "Namespace": "Jint.Tests.Test262",
@@ -12,7 +12,8 @@
     "regexp-v-flag",
     "source-phase-imports",
     "tail-call-optimization",
-    "Temporal"
+    "Temporal",
+    "Intl.Era-monthcode"
   ],
   "ExcludedFlags": [
     "CanBlockIsFalse"
@@ -180,7 +181,10 @@
 
     // Misc intl402 tests requiring full locale support
     "intl402/fallback-locales-are-supported.js",
-    "intl402/supportedLocalesOf-consistent-with-resolvedOptions.js"
+    "intl402/supportedLocalesOf-consistent-with-resolvedOptions.js",
 
+    // misc features that require investigation
+    "intl402/NumberFormat/prototype/format/numbering-systems.js",
+    "intl402/Intl/supportedValuesOf/numberingSystems-with-simple-digit-mappings.js"
   ]
 }

@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Globalization;
+using System.Text;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -22,7 +23,6 @@ internal sealed class NumberFormatConstructor : Constructor
     private static readonly string[] NotationValues = ["standard", "scientific", "engineering", "compact"];
     private static readonly string[] CompactDisplayValues = ["short", "long"];
     private static readonly string[] SignDisplayValues = ["auto", "never", "always", "exceptZero", "negative"];
-    private static readonly string[] UseGroupingValues = ["auto", "always", "min2", "true", "false"];
     private static readonly string[] RoundingModeValues = ["ceil", "floor", "expand", "trunc", "halfCeil", "halfFloor", "halfExpand", "halfTrunc", "halfEven"];
     private static readonly string[] RoundingPriorityValues = ["auto", "morePrecision", "lessPrecision"];
     private static readonly string[] TrailingZeroDisplayValues = ["auto", "stripIfInteger"];
@@ -466,7 +466,8 @@ internal sealed class NumberFormatConstructor : Constructor
 
         // Find and remove the nu key-value pair
         var extensionStart = uIndex + 3;
-        var result = new System.Text.StringBuilder(locale.Substring(0, uIndex));
+        var result = new ValueStringBuilder();
+        result.Append(locale.AsSpan(0, uIndex));
         var i = extensionStart;
         var hasOtherExtensions = false;
 
@@ -482,9 +483,7 @@ internal sealed class NumberFormatConstructor : Constructor
             // Single char means we've hit another singleton extension
             if (key.Length == 1)
             {
-#pragma warning disable CA1846
-                result.Append(locale.Substring(keyStart - 1));
-#pragma warning restore CA1846
+                result.Append(locale.AsSpan(keyStart - 1));
                 break;
             }
 
@@ -530,9 +529,7 @@ internal sealed class NumberFormatConstructor : Constructor
                         result.Append('-');
                     }
                     var len = i - keyStart - (i < locale.Length && locale[i - 1] == '-' ? 1 : 0);
-#pragma warning disable CA1846
-                    result.Append(locale.Substring(keyStart, len));
-#pragma warning restore CA1846
+                    result.Append(locale.AsSpan(keyStart, len));
                 }
             }
         }
@@ -606,17 +603,6 @@ internal sealed class NumberFormatConstructor : Constructor
         }
 
         return stringValue;
-    }
-
-    private static bool GetBooleanOption(ObjectInstance options, string property, bool fallback)
-    {
-        var value = options.Get(property);
-        if (value.IsUndefined())
-        {
-            return fallback;
-        }
-
-        return TypeConverter.ToBoolean(value);
     }
 
     private string GetUseGroupingOption(ObjectInstance options, string notation)

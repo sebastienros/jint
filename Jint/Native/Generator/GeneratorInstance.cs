@@ -237,6 +237,13 @@ internal sealed class GeneratorInstance : ObjectInstance, ISuspendable
         var result = _generatorBody.Execute(context);
         _engine.LeaveExecutionContext();
 
+        // https://tc39.es/ecma262/#sec-generatorstart step 4.i-j
+        // Dispose resources when generator body completes (not when yielding)
+        if (_generatorState != GeneratorState.SuspendedYield)
+        {
+            result = genContext.LexicalEnvironment.DisposeResources(result);
+        }
+
         ObjectInstance? resultValue = null;
         if (result.Type == CompletionType.Normal)
         {

@@ -1,5 +1,3 @@
-#pragma warning disable CA1859 // Use concrete types when possible for improved performance -- prototype methods return JsValue
-
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -72,7 +70,7 @@ internal sealed class DurationFormatPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-intl-duration-format/#sec-intl.durationformat.prototype.formattoparts
     /// </summary>
-    private JsValue FormatToParts(JsValue thisObject, JsCallArguments arguments)
+    private JsArray FormatToParts(JsValue thisObject, JsCallArguments arguments)
     {
         var durationFormat = ValidateDurationFormat(thisObject);
         var duration = arguments.At(0);
@@ -84,7 +82,7 @@ internal sealed class DurationFormatPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-intl-duration-format/#sec-intl.durationformat.prototype.resolvedoptions
     /// </summary>
-    private JsValue ResolvedOptions(JsValue thisObject, JsCallArguments arguments)
+    private JsObject ResolvedOptions(JsValue thisObject, JsCallArguments arguments)
     {
         var durationFormat = ValidateDurationFormat(thisObject);
 

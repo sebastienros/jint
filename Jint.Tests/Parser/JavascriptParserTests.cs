@@ -177,6 +177,6 @@ public class JavascriptParserTests
     [InlineData("-.-")]
     public void ShouldThrowParseErrorExceptionForInvalidCode(string code)
     {
-        Assert.Throws<SyntaxErrorException>(() => new Parser().ParseScript(code));
+        Assert.Throws<Acornima.SyntaxErrorException>(() => new Parser().ParseScript(code));
     }
 }

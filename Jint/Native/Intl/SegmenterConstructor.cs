@@ -1,5 +1,3 @@
-#pragma warning disable CA1859 // Use concrete types when possible for improved performance -- ClrFunction requires JsValue
-
 using System.Globalization;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -122,7 +120,7 @@ internal sealed class SegmenterConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.segmenter.supportedlocalesof
     /// </summary>
-    private JsValue SupportedLocalesOf(JsValue thisObject, JsCallArguments arguments)
+    private JsArray SupportedLocalesOf(JsValue thisObject, JsCallArguments arguments)
     {
         var locales = arguments.At(0);
         var options = arguments.At(1);
