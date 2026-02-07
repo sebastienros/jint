@@ -1471,6 +1471,219 @@ public class AsyncTests
     }
 #endif
 
+#if !NETFRAMEWORK
+    // ========================================================================
+    // Engine Reuse & State Recovery Edge Cases
+    // ========================================================================
+
+    [Fact]
+    public async Task SequentialEvaluateAsyncOnSameEngineShouldWork()
+    {
+        // Exercises the stale TCS recovery path in EventLoop.WaitForEventAsync.
+        // After the first EvaluateAsync completes, the event loop's _eventAvailable
+        // TCS has been consumed. The second call must detect the stale/null TCS and
+        // install a fresh one without hanging or busy-looping.
+        var engine = new Engine();
+        engine.SetValue("io", new Func<int, Task<int>>(async (n) =>
+        {
+            await Task.Delay(50);
+            return n * 10;
+        }));
+
+        var r1 = await engine.EvaluateAsync("(async () => await io(1))()");
+        Assert.Equal(10, r1.AsInteger());
+
+        var r2 = await engine.EvaluateAsync("(async () => await io(2))()");
+        Assert.Equal(20, r2.AsInteger());
+
+        var r3 = await engine.EvaluateAsync("(async () => await io(3))()");
+        Assert.Equal(30, r3.AsInteger());
+    }
+
+    [Fact]
+    public async Task MixedSyncThenAsyncOnSameEngineShouldWork()
+    {
+        // Sync Evaluate+UnwrapIfPromise sets _waitingThreadId during the spin-wait.
+        // A subsequent EvaluateAsync must not be blocked by a leftover _waitingThreadId
+        // from the sync path. This tests the handoff between the two execution models.
+        var engine = new Engine();
+        engine.SetValue("io", new Func<Task<string>>(async () =>
+        {
+            await Task.Delay(50);
+            return "hello";
+        }));
+
+        // Sync path first
+        var syncResult = engine.Evaluate("(async () => await io())()").UnwrapIfPromise();
+        Assert.Equal("hello", syncResult.AsString());
+
+        // Async path on same engine
+        var asyncResult = await engine.EvaluateAsync("(async () => await io())()");
+        Assert.Equal("hello", asyncResult.AsString());
+
+        // Back to sync to verify no contamination
+        var syncResult2 = engine.Evaluate("(async () => await io())()").UnwrapIfPromise();
+        Assert.Equal("hello", syncResult2.AsString());
+    }
+
+    [Fact]
+    public async Task EngineReusableAfterEvaluateAsyncTimeout()
+    {
+        // If EvaluateAsync hits PromiseTimeout, the CancellationTokenSource fires
+        // and the TCS in WaitForEventAsync gets cancelled (stale). The engine must
+        // remain usable for subsequent calls — the stale TCS must be detected and
+        // replaced on the next EvaluateAsync invocation.
+        var engine = new Engine(options =>
+        {
+            options.Constraints.PromiseTimeout = TimeSpan.FromMilliseconds(50);
+        });
+        engine.SetValue("slowIO", new Func<Task<int>>(async () =>
+        {
+            await Task.Delay(10_000);
+            return 999;
+        }));
+        engine.SetValue("fastIO", new Func<Task<int>>(async () =>
+        {
+            await Task.Delay(10);
+            return 42;
+        }));
+
+        // First call should time out
+        await Assert.ThrowsAsync<PromiseRejectedException>(async () =>
+        {
+            await engine.EvaluateAsync("(async () => await slowIO())()");
+        });
+
+        // Increase timeout for recovery
+        engine.Options.Constraints.PromiseTimeout = TimeSpan.FromSeconds(5);
+
+        // Engine should still work
+        var result = await engine.EvaluateAsync("(async () => await fastIO())()");
+        Assert.Equal(42, result.AsInteger());
+    }
+
+    [Fact]
+    public async Task EngineReusableAfterEvaluateAsyncCancellation()
+    {
+        // CancellationToken fires during a pending EvaluateAsync. The TCS in
+        // WaitForEventAsync gets cancelled. Verify the engine is still usable.
+        var engine = new Engine();
+        engine.SetValue("slowIO", new Func<Task<int>>(async () =>
+        {
+            await Task.Delay(10_000);
+            return 999;
+        }));
+        engine.SetValue("fastIO", new Func<Task<int>>(async () =>
+        {
+            await Task.Delay(10);
+            return 7;
+        }));
+
+        using (var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(50)))
+        {
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            {
+                await engine.EvaluateAsync("(async () => await slowIO())()", cancellationToken: cts.Token);
+            });
+        }
+
+        // Engine must still be usable after cancellation
+        var result = await engine.EvaluateAsync("(async () => await fastIO())()");
+        Assert.Equal(7, result.AsInteger());
+    }
+
+    // ========================================================================
+    // Error Propagation Edge Cases
+    // ========================================================================
+
+    [Fact]
+    public async Task EvaluateAsyncShouldPropagateUncaughtClrTaskFailure()
+    {
+        // A .NET Task that throws, with NO try/catch in JS, should surface
+        // as PromiseRejectedException to the .NET caller via EvaluateAsync.
+        var engine = new Engine();
+        engine.SetValue("failingIO", new Func<Task<string>>(async () =>
+        {
+            await Task.Delay(50);
+            throw new InvalidOperationException("backend error");
+        }));
+
+        var ex = await Assert.ThrowsAsync<PromiseRejectedException>(async () =>
+        {
+            await engine.EvaluateAsync("(async () => await failingIO())()");
+        });
+
+        Assert.Contains("backend error", ex.Message);
+    }
+
+    [Fact]
+    public async Task EvaluateAsyncShouldThrowJavaScriptExceptionForSyncThrow()
+    {
+        // A synchronous throw happens during Evaluate() inside EvaluateAsync,
+        // before any promise is created. This must propagate as JavaScriptException,
+        // NOT PromiseRejectedException.
+        var engine = new Engine();
+
+        await Assert.ThrowsAsync<JavaScriptException>(async () =>
+        {
+            await engine.EvaluateAsync("throw new Error('sync boom')");
+        });
+    }
+
+    // ========================================================================
+    // Void Task & Prepared<Script> Edge Cases
+    // ========================================================================
+
+    [Fact]
+    public async Task EvaluateAsyncWithVoidTaskShouldResolveUndefined()
+    {
+        // Func<Task> (no return value) goes through a different reflection
+        // path in ConvertTaskToPromise — there's no Task<T>.Result property.
+        // The promise should resolve with undefined, not throw or return a
+        // wrapped VoidTaskResult.
+        var engine = new Engine();
+        var sideEffect = false;
+
+        engine.SetValue("doWork", new Func<Task>(async () =>
+        {
+            await Task.Delay(50);
+            sideEffect = true;
+        }));
+
+        var result = await engine.EvaluateAsync("(async () => { await doWork(); return 'done'; })()");
+        Assert.Equal("done", result.AsString());
+        Assert.True(sideEffect, "Side effect from void Task should have executed");
+    }
+
+    [Fact]
+    public async Task EvaluateAsyncWithPreparedScriptShouldWork()
+    {
+        // Tests the EvaluateAsync(Prepared<Script>) overload which has its own
+        // code path and was previously untested.
+        var engine = new Engine();
+        engine.SetValue("io", new Func<Task<int>>(async () =>
+        {
+            await Task.Delay(50);
+            return 42;
+        }));
+
+        var script = Engine.PrepareScript("(async () => await io())()");
+        var result = await engine.EvaluateAsync(script);
+        Assert.Equal(42, result.AsInteger());
+    }
+
+    [Fact]
+    public async Task EvaluateAsyncFastPathForAlreadyResolvedPromise()
+    {
+        // Promise.resolve(42) is already settled after microtask processing.
+        // UnwrapResultAsync should take the fast path (State == Fulfilled)
+        // and never enter AwaitPromiseSettlementAsync.
+        var engine = new Engine();
+        var result = await engine.EvaluateAsync("Promise.resolve(42)");
+        Assert.Equal(42, result.AsInteger());
+    }
+#endif
+
     // ========================================================================
     // Chained Promise Tests
     // ========================================================================
