@@ -133,8 +133,8 @@ public class DateTests
         var momentJs = EngineTests.GetEmbeddedFile("moment.js");
         _engine.Execute(momentJs);
 
-        var parsedDate = _engine.Evaluate("moment().format('yyyy')").ToString();
-        Assert.Equal(DateTime.Now.Year.ToString(),parsedDate);
+        var parsedDate = _engine.Evaluate("moment().format('YYYY')").ToString();
+        Assert.Equal(DateTime.Now.Year.ToString(), parsedDate);
     }
 
     [Fact]

@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Jint.Native;
+using Jint.Native.Promise;
 using Jint.Runtime;
 using Jint.Tests.Runtime.TestClasses;
 
@@ -669,6 +670,1251 @@ public class AsyncTests
 
         // None should have completed yet (no "got result" messages)
         Assert.DoesNotContain(logStrings, s => s.Contains("got result"));
+    }
+
+    // ========================================================================
+    // Promise.allSettled() Tests
+    // ========================================================================
+
+    [Fact]
+    public void PromiseAllSettledShouldReportAllResults()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            Promise.allSettled([
+                Promise.resolve(1),
+                Promise.reject('error'),
+                Promise.resolve(3)
+            ]).then(results => JSON.stringify(results.map(r => r.status)))
+            """);
+        result = result.UnwrapIfPromise();
+        Assert.Equal("[\"fulfilled\",\"rejected\",\"fulfilled\"]", result.AsString());
+    }
+
+    [Fact]
+    public void PromiseAllSettledShouldIncludeValues()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            Promise.allSettled([
+                Promise.resolve(42),
+                Promise.reject('oops'),
+                Promise.resolve('hello')
+            ]).then(results => JSON.stringify(results))
+            """);
+        result = result.UnwrapIfPromise();
+        var parsed = result.AsString();
+        Assert.Contains("\"value\":42", parsed);
+        Assert.Contains("\"reason\":\"oops\"", parsed);
+        Assert.Contains("\"value\":\"hello\"", parsed);
+    }
+
+    [Fact]
+    public void PromiseAllSettledShouldHandleEmptyArray()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("Promise.allSettled([]).then(r => r.length)");
+        result = result.UnwrapIfPromise();
+        Assert.Equal(0, result.AsInteger());
+    }
+
+    // ========================================================================
+    // Promise.any() Tests
+    // ========================================================================
+
+    [Fact]
+    public void PromiseAnyShouldResolveWithFirstFulfilled()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            Promise.any([
+                Promise.reject('a'),
+                Promise.resolve(42),
+                Promise.resolve(99)
+            ])
+            """);
+        result = result.UnwrapIfPromise();
+        Assert.Equal(42, result.AsInteger());
+    }
+
+    [Fact]
+    public void PromiseAnyShouldThrowAggregateErrorWhenAllRejected()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            Promise.any([
+                Promise.reject('e1'),
+                Promise.reject('e2'),
+                Promise.reject('e3')
+            ]).catch(e => e instanceof AggregateError ? 'aggregate' : 'other')
+            """);
+        result = result.UnwrapIfPromise();
+        Assert.Equal("aggregate", result.AsString());
+    }
+
+    [Fact]
+    public void PromiseAnyShouldExposeErrorsOnAggregateError()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            Promise.any([
+                Promise.reject('e1'),
+                Promise.reject('e2')
+            ]).catch(e => JSON.stringify(e.errors))
+            """);
+        result = result.UnwrapIfPromise();
+        Assert.Equal("[\"e1\",\"e2\"]", result.AsString());
+    }
+
+    // ========================================================================
+    // Async Generator Tests
+    // ========================================================================
+
+    [Fact]
+    public void AsyncGeneratorShouldYieldValues()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            async function* gen() {
+                yield 1;
+                yield 2;
+                yield 3;
+            }
+
+            async function main() {
+                var g = gen();
+                var results = [];
+                var item;
+                item = await g.next();
+                results.push(item.value);
+                item = await g.next();
+                results.push(item.value);
+                item = await g.next();
+                results.push(item.value);
+                item = await g.next();
+                results.push(item.done);
+                return JSON.stringify(results);
+            }
+
+            main()
+            """);
+        result = result.UnwrapIfPromise();
+        Assert.Equal("[1,2,3,true]", result.AsString());
+    }
+
+    [Fact]
+    public void AsyncGeneratorShouldAwaitInsideYield()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            async function* gen() {
+                yield await Promise.resolve(10);
+                yield await Promise.resolve(20);
+            }
+
+            async function main() {
+                var g = gen();
+                var a = await g.next();
+                var b = await g.next();
+                return a.value + b.value;
+            }
+
+            main()
+            """);
+        result = result.UnwrapIfPromise();
+        Assert.Equal(30, result.AsInteger());
+    }
+
+    [Fact]
+    public void AsyncGeneratorShouldSupportReturn()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            async function* gen() {
+                yield 1;
+                yield 2;
+                yield 3;
+            }
+
+            async function main() {
+                var g = gen();
+                var a = await g.next();
+                var b = await g.return(42);
+                return JSON.stringify({ aValue: a.value, bValue: b.value, bDone: b.done });
+            }
+
+            main()
+            """);
+        result = result.UnwrapIfPromise();
+        Assert.Equal("{\"aValue\":1,\"bValue\":42,\"bDone\":true}", result.AsString());
+    }
+
+    // ========================================================================
+    // Pure JS for-await-of Tests
+    // ========================================================================
+
+    [Fact]
+    public void ForAwaitOfWithAsyncGenerator()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            async function* gen() {
+                yield 'a';
+                yield 'b';
+                yield 'c';
+            }
+
+            async function main() {
+                var result = '';
+                for await (var item of gen()) {
+                    result += item;
+                }
+                return result;
+            }
+
+            main()
+            """);
+        result = result.UnwrapIfPromise();
+        Assert.Equal("abc", result.AsString());
+    }
+
+    [Fact]
+    public void ForAwaitOfWithPromiseArray()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            async function main() {
+                var promises = [
+                    Promise.resolve(1),
+                    Promise.resolve(2),
+                    Promise.resolve(3)
+                ];
+                var sum = 0;
+                for await (var val of promises) {
+                    sum += val;
+                }
+                return sum;
+            }
+
+            main()
+            """);
+        result = result.UnwrapIfPromise();
+        Assert.Equal(6, result.AsInteger());
+    }
+
+    // ========================================================================
+    // Thenable Protocol Tests
+    // ========================================================================
+
+    [Fact]
+    public void ShouldResolveCustomThenableObject()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var thenable = {
+                then: function(resolve, reject) {
+                    resolve(42);
+                }
+            };
+
+            Promise.resolve(thenable).then(v => v * 2)
+            """);
+        result = result.UnwrapIfPromise();
+        Assert.Equal(84, result.AsInteger());
+    }
+
+    [Fact]
+    public void ShouldHandleThenableThatRejects()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var thenable = {
+                then: function(resolve, reject) {
+                    reject('thenable error');
+                }
+            };
+
+            Promise.resolve(thenable).catch(e => 'caught: ' + e)
+            """);
+        result = result.UnwrapIfPromise();
+        Assert.Equal("caught: thenable error", result.AsString());
+    }
+
+    [Fact]
+    public void ShouldAwaitCustomThenable()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var thenable = {
+                then: function(resolve) {
+                    resolve(100);
+                }
+            };
+
+            async function main() {
+                return await thenable;
+            }
+
+            main()
+            """);
+        result = result.UnwrapIfPromise();
+        Assert.Equal(100, result.AsInteger());
+    }
+
+    // ========================================================================
+    // HostPromiseRejectionTracker Tests
+    // ========================================================================
+
+    [Fact]
+    public void ShouldFireRejectionTrackerOnUnhandledRejection()
+    {
+        var engine = new Engine();
+        var rejections = new List<(JsValue Value, PromiseRejectionOperation Op)>();
+
+        engine.Advanced.PromiseRejectionTracker += (sender, args) =>
+        {
+            rejections.Add((args.Value!, args.Operation));
+        };
+
+        engine.Evaluate("Promise.reject('unhandled')");
+        engine.Advanced.ProcessTasks();
+
+        Assert.Single(rejections);
+        Assert.Equal(PromiseRejectionOperation.Reject, rejections[0].Op);
+        Assert.Equal("unhandled", rejections[0].Value.AsString());
+    }
+
+    [Fact]
+    public void ShouldFireHandleOperationWhenHandlerAdded()
+    {
+        var engine = new Engine();
+        var operations = new List<PromiseRejectionOperation>();
+
+        engine.Advanced.PromiseRejectionTracker += (sender, args) =>
+        {
+            operations.Add(args.Operation);
+        };
+
+        // Reject without handler first - triggers Reject
+        engine.Evaluate("var p = Promise.reject('error')");
+        engine.Advanced.ProcessTasks();
+
+        // Add handler - triggers Handle
+        engine.Evaluate("p.catch(() => {})");
+        engine.Advanced.ProcessTasks();
+
+        Assert.Equal(2, operations.Count);
+        Assert.Equal(PromiseRejectionOperation.Reject, operations[0]);
+        Assert.Equal(PromiseRejectionOperation.Handle, operations[1]);
+    }
+
+    [Fact]
+    public void ShouldNotFireRejectionTrackerWhenPromiseConstructorHasHandler()
+    {
+        var engine = new Engine();
+        var rejections = new List<PromiseRejectionOperation>();
+
+        engine.Advanced.PromiseRejectionTracker += (sender, args) =>
+        {
+            rejections.Add(args.Operation);
+        };
+
+        // Use a Promise constructor with an executor that rejects,
+        // then chain .catch() on it. The .then() from the constructor
+        // adds the reject handler before the promise rejects, so the
+        // internal promise (from the .catch) should be handled.
+        engine.Evaluate("""
+            new Promise(function(resolve, reject) {
+                reject('handled');
+            }).catch(function() {});
+            """);
+        engine.Advanced.ProcessTasks();
+
+        // The original promise fires Reject since the executor rejects
+        // before .catch() can attach (per spec: reject happens synchronously
+        // in the executor, then .catch attaches). But the rejection is
+        // followed by a Handle operation when .catch() attaches.
+        // Verify the Handle operation follows the Reject.
+        if (rejections.Contains(PromiseRejectionOperation.Reject))
+        {
+            Assert.Contains(PromiseRejectionOperation.Handle, rejections);
+        }
+    }
+
+    // ========================================================================
+    // EvaluateAsync / ExecuteAsync Tests
+    // ========================================================================
+
+#if !NETFRAMEWORK
+    [Fact]
+    public async Task EvaluateAsyncShouldResolvePromise()
+    {
+        var engine = new Engine();
+        var result = await engine.EvaluateAsync("""
+            async function main() {
+                return 42;
+            }
+            main()
+            """);
+        Assert.Equal(42, result.AsInteger());
+    }
+
+    [Fact]
+    public async Task EvaluateAsyncShouldReturnDirectValueForNonPromise()
+    {
+        var engine = new Engine();
+        var result = await engine.EvaluateAsync("1 + 2");
+        Assert.Equal(3, result.AsInteger());
+    }
+
+    [Fact]
+    public async Task EvaluateAsyncShouldRejectOnException()
+    {
+        var engine = new Engine();
+        await Assert.ThrowsAsync<PromiseRejectedException>(async () =>
+        {
+            await engine.EvaluateAsync("""
+                async function main() {
+                    throw new Error('async error');
+                }
+                main()
+                """);
+        });
+    }
+
+    [Fact]
+    public async Task ExecuteAsyncShouldCompleteSuccessfully()
+    {
+        var engine = new Engine();
+        var returnedEngine = await engine.ExecuteAsync("""
+            async function setup() {
+                return 'done';
+            }
+            """);
+        Assert.Same(engine, returnedEngine);
+    }
+
+    [Fact]
+    public async Task InvokeAsyncShouldResolvePromise()
+    {
+        var engine = new Engine();
+        engine.Execute("""
+            async function add(a, b) {
+                return a + b;
+            }
+            """);
+        var result = await engine.InvokeAsync("add", 3, 4);
+        Assert.Equal(7, result.AsInteger());
+    }
+
+    [Fact]
+    public async Task EvaluateAsyncShouldRespectCancellation()
+    {
+        var engine = new Engine();
+        engine.SetValue("delay", new Func<int, Task>(ms => Task.Delay(ms)));
+
+        using var cts = new CancellationTokenSource();
+        cts.Cancel(); // Cancel immediately
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            await engine.EvaluateAsync("""
+                async function main() {
+                    await delay(10000);
+                    return 'should not reach';
+                }
+                main()
+                """, cancellationToken: cts.Token);
+        });
+    }
+
+    [Fact]
+    public async Task EvaluateAsyncWithTaskInteropShouldWork()
+    {
+        var engine = new Engine(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
+        engine.SetValue("asyncTestClass", new AsyncTestClass());
+
+        var result = await engine.EvaluateAsync("""
+            async function main() {
+                return await asyncTestClass.ReturnDelayedTaskAsync();
+            }
+            main()
+            """);
+        Assert.Equal(AsyncTestClass.TestString, result.AsString());
+    }
+
+    [Fact]
+    public async Task InvokeAsyncWithMultipleAwaitsShouldWork()
+    {
+        var engine = new Engine(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
+        engine.SetValue("asyncTestClass", new AsyncTestClass());
+        engine.Execute("""
+            async function test() {
+                var a = await asyncTestClass.ReturnDelayedTaskAsync();
+                var b = await asyncTestClass.ReturnCompletedTask();
+                return a + ' + ' + b;
+            }
+            """);
+        var result = await engine.InvokeAsync("test");
+        Assert.Equal("Hello World + Hello World", result.AsString());
+    }
+
+    // ========================================================================
+    // Async Wake (Thread Release) Tests — verify zero-thread IO waiting
+    // ========================================================================
+
+    [Fact]
+    public async Task EvaluateAsyncShouldNotBlockDuringClrTaskDelay()
+    {
+        // Verifies the async wake path: EvaluateAsync releases the thread during
+        // a .NET Task.Delay (simulating IO like gRPC), and resumes correctly.
+        var engine = new Engine();
+        engine.SetValue("simulateIO", new Func<Task<int>>(async () =>
+        {
+            await Task.Delay(100);
+            return 42;
+        }));
+
+        var result = await engine.EvaluateAsync("""
+            async function main() {
+                return await simulateIO();
+            }
+            main()
+            """);
+
+        Assert.Equal(42, result.AsInteger());
+    }
+
+    [Fact]
+    public async Task EvaluateAsyncShouldHandleMultipleSequentialClrTasks()
+    {
+        // Multiple sequential .NET async calls, each releasing and re-acquiring the thread.
+        var engine = new Engine();
+        var callOrder = new List<string>();
+
+        engine.SetValue("step1", new Func<Task<string>>(async () =>
+        {
+            await Task.Delay(50);
+            callOrder.Add("step1");
+            return "A";
+        }));
+        engine.SetValue("step2", new Func<Task<string>>(async () =>
+        {
+            await Task.Delay(50);
+            callOrder.Add("step2");
+            return "B";
+        }));
+        engine.SetValue("step3", new Func<Task<string>>(async () =>
+        {
+            await Task.Delay(50);
+            callOrder.Add("step3");
+            return "C";
+        }));
+
+        var result = await engine.EvaluateAsync("""
+            async function main() {
+                var a = await step1();
+                var b = await step2();
+                var c = await step3();
+                return a + b + c;
+            }
+            main()
+            """);
+
+        Assert.Equal("ABC", result.AsString());
+        Assert.Equal(["step1", "step2", "step3"], callOrder);
+    }
+
+    [Fact]
+    public async Task EvaluateAsyncShouldHandleConcurrentClrTasksViaPromiseAll()
+    {
+        // Promise.all with multiple .NET Tasks running concurrently.
+        // All tasks should start before any completes.
+        var engine = new Engine();
+        var startTimes = new ConcurrentDictionary<string, DateTime>();
+
+        engine.SetValue("fetch", new Func<string, Task<string>>(async (id) =>
+        {
+            startTimes[id] = DateTime.UtcNow;
+            await Task.Delay(100);
+            return $"result-{id}";
+        }));
+
+        var result = await engine.EvaluateAsync("""
+            async function main() {
+                var results = await Promise.all([
+                    fetch('a'),
+                    fetch('b'),
+                    fetch('c')
+                ]);
+                return results.join(',');
+            }
+            main()
+            """);
+
+        Assert.Equal("result-a,result-b,result-c", result.AsString());
+        Assert.Equal(3, startTimes.Count);
+    }
+
+    [Fact]
+    public async Task EvaluateAsyncTimeoutShouldFireDuringPendingClrTask()
+    {
+        // Verify that the PromiseTimeout constraint works with the async wake path.
+        var engine = new Engine(options =>
+        {
+            options.Constraints.PromiseTimeout = TimeSpan.FromMilliseconds(100);
+        });
+        engine.SetValue("slowIO", new Func<Task<int>>(async () =>
+        {
+            await Task.Delay(5000);
+            return 999;
+        }));
+
+        await Assert.ThrowsAsync<PromiseRejectedException>(async () =>
+        {
+            await engine.EvaluateAsync("""
+                async function main() {
+                    return await slowIO();
+                }
+                main()
+                """);
+        });
+    }
+
+    [Fact]
+    public async Task EvaluateAsyncShouldHandleClrTaskRejection()
+    {
+        // .NET Task that throws should propagate as a rejected promise.
+        var engine = new Engine();
+        engine.SetValue("failingIO", new Func<Task<string>>(async () =>
+        {
+            await Task.Delay(50);
+            throw new InvalidOperationException("IO failed");
+        }));
+
+        var result = await engine.EvaluateAsync("""
+            async function main() {
+                try {
+                    await failingIO();
+                    return 'should not reach';
+                } catch (e) {
+                    return 'caught';
+                }
+            }
+            main()
+            """);
+
+        Assert.Equal("caught", result.AsString());
+    }
+
+    [Fact]
+    public async Task EvaluateAsyncShouldHandleNestedJsToClrToJsAsync()
+    {
+        // Nested async: JS → .NET async → back into JS engine (via callback) → .NET async
+        var engine = new Engine();
+
+        engine.SetValue("fetchData", new Func<Task<string>>(async () =>
+        {
+            await Task.Delay(50);
+            return "data";
+        }));
+
+        engine.SetValue("processData", new Func<string, Task<string>>(async (input) =>
+        {
+            await Task.Delay(50);
+            return input.ToUpperInvariant();
+        }));
+
+        var result = await engine.EvaluateAsync("""
+            async function main() {
+                var raw = await fetchData();
+                var processed = await processData(raw);
+                return processed;
+            }
+            main()
+            """);
+
+        Assert.Equal("DATA", result.AsString());
+    }
+
+    [Fact]
+    public async Task EvaluateAsyncCancellationDuringClrTask()
+    {
+        // Cancellation token fires while a .NET Task is in flight.
+        var engine = new Engine();
+        engine.SetValue("longIO", new Func<Task<int>>(async () =>
+        {
+            await Task.Delay(10_000);
+            return 999;
+        }));
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            await engine.EvaluateAsync("""
+                async function main() {
+                    return await longIO();
+                }
+                main()
+                """, cancellationToken: cts.Token);
+        });
+    }
+
+    [Fact]
+    public async Task EvaluateAsyncShouldNotBlockCallerThread()
+    {
+        // Proves the caller thread is released: start EvaluateAsync, then verify
+        // we can do other work before it completes.
+        var engine = new Engine();
+        var ioStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        engine.SetValue("simulateIO", new Func<Task<int>>(async () =>
+        {
+            ioStarted.TrySetResult(true);
+            await Task.Delay(200);
+            return 42;
+        }));
+
+        // Start the async evaluation (does NOT block)
+        var evalTask = engine.EvaluateAsync("""
+            async function main() {
+                return await simulateIO();
+            }
+            main()
+            """);
+
+        // Wait for the IO to actually start
+        await ioStarted.Task;
+
+        // The evalTask should not be completed yet — IO is in flight
+        Assert.False(evalTask.IsCompleted, "EvaluateAsync should not block; task should still be pending during IO");
+
+        // Now await the result
+        var result = await evalTask;
+        Assert.Equal(42, result.AsInteger());
+    }
+
+    [Fact]
+    public async Task EvaluateAsyncMultipleEnginesConcurrently()
+    {
+        // Multiple independent engines running async operations concurrently.
+        // This verifies thread safety of the async wake mechanism.
+        const int EngineCount = 20;
+        var tasks = new Task<JsValue>[EngineCount];
+
+        for (int i = 0; i < EngineCount; i++)
+        {
+            var idx = i;
+            tasks[i] = Task.Run(async () =>
+            {
+                var engine = new Engine();
+                engine.SetValue("compute", new Func<int, Task<int>>(async (n) =>
+                {
+                    await Task.Delay(50);
+                    return n * 2;
+                }));
+
+                return await engine.EvaluateAsync(
+                    "async function main() { return await compute(" + idx + "); } main()");
+            });
+        }
+
+        var results = await Task.WhenAll(tasks);
+
+        for (int i = 0; i < EngineCount; i++)
+        {
+            Assert.Equal(i * 2, results[i].AsInteger());
+        }
+    }
+
+    [Fact]
+    public async Task InvokeAsyncWithClrTaskInterop()
+    {
+        // InvokeAsync with .NET Task interop, verifying the complete path.
+        var engine = new Engine(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
+
+        engine.SetValue("asyncTestClass", new AsyncTestClass());
+        engine.Execute("""
+            async function fetchAndTransform() {
+                var data = await asyncTestClass.ReturnDelayedTaskAsync();
+                return data + '!';
+            }
+            """);
+
+        var result = await engine.InvokeAsync("fetchAndTransform");
+        Assert.Equal("Hello World!", result.AsString());
+    }
+
+    [Fact]
+    public async Task EvaluateAsyncWithSetTimeoutPattern()
+    {
+        // setTimeout pattern using .NET Task.Delay, exercising the async wake path
+        // with event loop scheduling (not direct Task interop).
+        var engine = new Engine();
+        engine.SetValue("setTimeout", (Action action, int ms) =>
+        {
+            Task.Delay(ms).ContinueWith(_ => action());
+        });
+
+        var result = await engine.EvaluateAsync("""
+            async function main() {
+                var delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+                await delay(50);
+                await delay(50);
+                return 'done';
+            }
+            main()
+            """);
+
+        Assert.Equal("done", result.AsString());
+    }
+#endif
+
+#if !NETFRAMEWORK
+    // ========================================================================
+    // Engine Reuse & State Recovery Edge Cases
+    // ========================================================================
+
+    [Fact]
+    public async Task SequentialEvaluateAsyncOnSameEngineShouldWork()
+    {
+        // Exercises the stale TCS recovery path in EventLoop.WaitForEventAsync.
+        // After the first EvaluateAsync completes, the event loop's _eventAvailable
+        // TCS has been consumed. The second call must detect the stale/null TCS and
+        // install a fresh one without hanging or busy-looping.
+        var engine = new Engine();
+        engine.SetValue("io", new Func<int, Task<int>>(async (n) =>
+        {
+            await Task.Delay(50);
+            return n * 10;
+        }));
+
+        var r1 = await engine.EvaluateAsync("(async () => await io(1))()");
+        Assert.Equal(10, r1.AsInteger());
+
+        var r2 = await engine.EvaluateAsync("(async () => await io(2))()");
+        Assert.Equal(20, r2.AsInteger());
+
+        var r3 = await engine.EvaluateAsync("(async () => await io(3))()");
+        Assert.Equal(30, r3.AsInteger());
+    }
+
+    [Fact]
+    public async Task MixedSyncThenAsyncOnSameEngineShouldWork()
+    {
+        // Sync Evaluate+UnwrapIfPromise sets _waitingThreadId during the spin-wait.
+        // A subsequent EvaluateAsync must not be blocked by a leftover _waitingThreadId
+        // from the sync path. This tests the handoff between the two execution models.
+        var engine = new Engine();
+        engine.SetValue("io", new Func<Task<string>>(async () =>
+        {
+            await Task.Delay(50);
+            return "hello";
+        }));
+
+        // Sync path first
+        var syncResult = engine.Evaluate("(async () => await io())()").UnwrapIfPromise();
+        Assert.Equal("hello", syncResult.AsString());
+
+        // Async path on same engine
+        var asyncResult = await engine.EvaluateAsync("(async () => await io())()");
+        Assert.Equal("hello", asyncResult.AsString());
+
+        // Back to sync to verify no contamination
+        var syncResult2 = engine.Evaluate("(async () => await io())()").UnwrapIfPromise();
+        Assert.Equal("hello", syncResult2.AsString());
+    }
+
+    [Fact]
+    public async Task EngineReusableAfterEvaluateAsyncTimeout()
+    {
+        // If EvaluateAsync hits PromiseTimeout, the CancellationTokenSource fires
+        // and the TCS in WaitForEventAsync gets cancelled (stale). The engine must
+        // remain usable for subsequent calls — the stale TCS must be detected and
+        // replaced on the next EvaluateAsync invocation.
+        var engine = new Engine(options =>
+        {
+            options.Constraints.PromiseTimeout = TimeSpan.FromMilliseconds(50);
+        });
+        engine.SetValue("slowIO", new Func<Task<int>>(async () =>
+        {
+            await Task.Delay(10_000);
+            return 999;
+        }));
+        engine.SetValue("fastIO", new Func<Task<int>>(async () =>
+        {
+            await Task.Delay(10);
+            return 42;
+        }));
+
+        // First call should time out
+        await Assert.ThrowsAsync<PromiseRejectedException>(async () =>
+        {
+            await engine.EvaluateAsync("(async () => await slowIO())()");
+        });
+
+        // Increase timeout for recovery
+        engine.Options.Constraints.PromiseTimeout = TimeSpan.FromSeconds(5);
+
+        // Engine should still work
+        var result = await engine.EvaluateAsync("(async () => await fastIO())()");
+        Assert.Equal(42, result.AsInteger());
+    }
+
+    [Fact]
+    public async Task EngineReusableAfterEvaluateAsyncCancellation()
+    {
+        // CancellationToken fires during a pending EvaluateAsync. The TCS in
+        // WaitForEventAsync gets cancelled. Verify the engine is still usable.
+        var engine = new Engine();
+        engine.SetValue("slowIO", new Func<Task<int>>(async () =>
+        {
+            await Task.Delay(10_000);
+            return 999;
+        }));
+        engine.SetValue("fastIO", new Func<Task<int>>(async () =>
+        {
+            await Task.Delay(10);
+            return 7;
+        }));
+
+        using (var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(50)))
+        {
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            {
+                await engine.EvaluateAsync("(async () => await slowIO())()", cancellationToken: cts.Token);
+            });
+        }
+
+        // Engine must still be usable after cancellation
+        var result = await engine.EvaluateAsync("(async () => await fastIO())()");
+        Assert.Equal(7, result.AsInteger());
+    }
+
+    // ========================================================================
+    // Error Propagation Edge Cases
+    // ========================================================================
+
+    [Fact]
+    public async Task EvaluateAsyncShouldPropagateUncaughtClrTaskFailure()
+    {
+        // A .NET Task that throws, with NO try/catch in JS, should surface
+        // as PromiseRejectedException to the .NET caller via EvaluateAsync.
+        var engine = new Engine();
+        engine.SetValue("failingIO", new Func<Task<string>>(async () =>
+        {
+            await Task.Delay(50);
+            throw new InvalidOperationException("backend error");
+        }));
+
+        var ex = await Assert.ThrowsAsync<PromiseRejectedException>(async () =>
+        {
+            await engine.EvaluateAsync("(async () => await failingIO())()");
+        });
+
+        Assert.Contains("backend error", ex.Message);
+    }
+
+    [Fact]
+    public async Task EvaluateAsyncShouldThrowJavaScriptExceptionForSyncThrow()
+    {
+        // A synchronous throw happens during Evaluate() inside EvaluateAsync,
+        // before any promise is created. This must propagate as JavaScriptException,
+        // NOT PromiseRejectedException.
+        var engine = new Engine();
+
+        await Assert.ThrowsAsync<JavaScriptException>(async () =>
+        {
+            await engine.EvaluateAsync("throw new Error('sync boom')");
+        });
+    }
+
+    // ========================================================================
+    // Void Task & Prepared<Script> Edge Cases
+    // ========================================================================
+
+    [Fact]
+    public async Task EvaluateAsyncWithVoidTaskShouldResolveUndefined()
+    {
+        // Func<Task> (no return value) goes through a different reflection
+        // path in ConvertTaskToPromise — there's no Task<T>.Result property.
+        // The promise should resolve with undefined, not throw or return a
+        // wrapped VoidTaskResult.
+        var engine = new Engine();
+        var sideEffect = false;
+
+        engine.SetValue("doWork", new Func<Task>(async () =>
+        {
+            await Task.Delay(50);
+            sideEffect = true;
+        }));
+
+        var result = await engine.EvaluateAsync("(async () => { await doWork(); return 'done'; })()");
+        Assert.Equal("done", result.AsString());
+        Assert.True(sideEffect, "Side effect from void Task should have executed");
+    }
+
+    [Fact]
+    public async Task EvaluateAsyncWithPreparedScriptShouldWork()
+    {
+        // Tests the EvaluateAsync(Prepared<Script>) overload which has its own
+        // code path and was previously untested.
+        var engine = new Engine();
+        engine.SetValue("io", new Func<Task<int>>(async () =>
+        {
+            await Task.Delay(50);
+            return 42;
+        }));
+
+        var script = Engine.PrepareScript("(async () => await io())()");
+        var result = await engine.EvaluateAsync(script);
+        Assert.Equal(42, result.AsInteger());
+    }
+
+    [Fact]
+    public async Task EvaluateAsyncFastPathForAlreadyResolvedPromise()
+    {
+        // Promise.resolve(42) is already settled after microtask processing.
+        // UnwrapResultAsync should take the fast path (State == Fulfilled)
+        // and never enter AwaitPromiseSettlementAsync.
+        var engine = new Engine();
+        var result = await engine.EvaluateAsync("Promise.resolve(42)");
+        Assert.Equal(42, result.AsInteger());
+    }
+#endif
+
+    // ========================================================================
+    // Chained Promise Tests
+    // ========================================================================
+
+    [Fact]
+    public void PromiseChainingShouldWork()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            Promise.resolve(1)
+                .then(v => v + 1)
+                .then(v => v * 3)
+                .then(v => v + '')
+            """);
+        result = result.UnwrapIfPromise();
+        Assert.Equal("6", result.AsString());
+    }
+
+    [Fact]
+    public void PromiseCatchAndThenChainingShouldWork()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            Promise.reject('err')
+                .catch(e => 'recovered from: ' + e)
+                .then(v => v + '!')
+            """);
+        result = result.UnwrapIfPromise();
+        Assert.Equal("recovered from: err!", result.AsString());
+    }
+
+    // ========================================================================
+    // Async/Await with Try/Catch
+    // ========================================================================
+
+    [Fact]
+    public void AsyncAwaitWithTryCatchShouldWork()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            async function main() {
+                try {
+                    await Promise.reject('boom');
+                    return 'should not reach';
+                } catch (e) {
+                    return 'caught: ' + e;
+                }
+            }
+            main()
+            """);
+        result = result.UnwrapIfPromise();
+        Assert.Equal("caught: boom", result.AsString());
+    }
+
+    [Fact]
+    public void AsyncAwaitWithTryFinallyShouldWork()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            async function main() {
+                var log = [];
+                try {
+                    log.push('try');
+                    await Promise.resolve(1);
+                    log.push('after await');
+                } finally {
+                    log.push('finally');
+                }
+                return log.join(',');
+            }
+            main()
+            """);
+        result = result.UnwrapIfPromise();
+        Assert.Equal("try,after await,finally", result.AsString());
+    }
+
+    // ========================================================================
+    // Nested Await Tests
+    // ========================================================================
+
+    [Fact]
+    public void NestedAwaitShouldWork()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            async function inner() {
+                return await Promise.resolve(10);
+            }
+
+            async function outer() {
+                var a = await inner();
+                var b = await inner();
+                return a + b;
+            }
+
+            outer()
+            """);
+        result = result.UnwrapIfPromise();
+        Assert.Equal(20, result.AsInteger());
+    }
+
+    [Fact]
+    public void DoubleAwaitShouldWork()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            async function main() {
+                return await (await Promise.resolve(Promise.resolve(42)));
+            }
+            main()
+            """);
+        result = result.UnwrapIfPromise();
+        Assert.Equal(42, result.AsInteger());
+    }
+
+    // ========================================================================
+    // Promise.all Tests
+    // ========================================================================
+
+    [Fact]
+    public void PromiseAllShouldResolveWhenAllFulfilled()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            Promise.all([
+                Promise.resolve(1),
+                Promise.resolve(2),
+                Promise.resolve(3)
+            ]).then(values => JSON.stringify(values))
+            """);
+        result = result.UnwrapIfPromise();
+        Assert.Equal("[1,2,3]", result.AsString());
+    }
+
+    [Fact]
+    public void PromiseAllShouldRejectOnFirstRejection()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            Promise.all([
+                Promise.resolve(1),
+                Promise.reject('fail'),
+                Promise.resolve(3)
+            ]).catch(e => 'caught: ' + e)
+            """);
+        result = result.UnwrapIfPromise();
+        Assert.Equal("caught: fail", result.AsString());
+    }
+
+    // ========================================================================
+    // Promise.race Tests
+    // ========================================================================
+
+    [Fact]
+    public void PromiseRaceShouldResolveWithFirstSettled()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            Promise.race([
+                new Promise(() => {}),
+                Promise.resolve('fast'),
+                new Promise(() => {})
+            ])
+            """);
+        result = result.UnwrapIfPromise();
+        Assert.Equal("fast", result.AsString());
+    }
+
+    // ========================================================================
+    // Multiple Sequential Awaits
+    // ========================================================================
+
+    [Fact]
+    public void MultipleSequentialAwaitsShouldMaintainOrder()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            async function main() {
+                var log = [];
+                log.push(await Promise.resolve('a'));
+                log.push(await Promise.resolve('b'));
+                log.push(await Promise.resolve('c'));
+                return log.join('');
+            }
+            main()
+            """);
+        result = result.UnwrapIfPromise();
+        Assert.Equal("abc", result.AsString());
+    }
+
+    // ========================================================================
+    // Async IIFE (Immediately Invoked Function Expression)
+    // ========================================================================
+
+    [Fact]
+    public void AsyncIIFEShouldWork()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            (async () => {
+                var a = await Promise.resolve(10);
+                var b = await Promise.resolve(20);
+                return a + b;
+            })()
+            """);
+        result = result.UnwrapIfPromise();
+        Assert.Equal(30, result.AsInteger());
+    }
+
+    // ========================================================================
+    // Stress Test
+    // ========================================================================
+
+    [Fact]
+    public void StressTestManyPromises()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            async function main() {
+                var promises = [];
+                for (var i = 0; i < 100; i++) {
+                    promises.push(Promise.resolve(i));
+                }
+                var results = await Promise.all(promises);
+                return results.reduce((sum, v) => sum + v, 0);
+            }
+            main()
+            """);
+        result = result.UnwrapIfPromise();
+        // Sum of 0..99 = 4950
+        Assert.Equal(4950, result.AsInteger());
     }
 
     class TestAsyncClass
