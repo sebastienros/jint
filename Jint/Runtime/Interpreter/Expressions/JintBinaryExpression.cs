@@ -127,6 +127,10 @@ internal abstract class JintBinaryExpression : JintExpression
                 result = new GreaterBinaryExpression(expression);
                 break;
             case Operator.Addition:
+                if (TryBuildStringConcatenation(expression, out var concatExpr))
+                {
+                    return concatExpr;
+                }
                 result = new PlusBinaryExpression(expression);
                 break;
             case Operator.Subtraction:
@@ -199,6 +203,59 @@ internal abstract class JintBinaryExpression : JintExpression
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Detects left-recursive chains of '+' operations that include at least one string literal,
+    /// and flattens them into a single StringConcatenationExpression to avoid intermediate allocations.
+    /// </summary>
+    private static bool TryBuildStringConcatenation(
+        NonLogicalBinaryExpression expression,
+        [NotNullWhen(true)] out JintExpression? result)
+    {
+        result = null;
+
+        // Only optimize chains of 3+ operands (at least 2 nested additions)
+        if (expression.Left is not NonLogicalBinaryExpression { Operator: Operator.Addition })
+        {
+            return false;
+        }
+
+        // Collect all operands by walking the left-recursive chain
+        var operands = new List<Expression>();
+        CollectAdditionOperands(expression, operands);
+
+        // Must have at least one string literal to guarantee string concatenation semantics
+        var hasStringLiteral = false;
+        foreach (var operand in operands)
+        {
+            if (operand is Literal { Value: string })
+            {
+                hasStringLiteral = true;
+                break;
+            }
+        }
+
+        if (!hasStringLiteral)
+        {
+            return false;
+        }
+
+        result = new StringConcatenationExpression(expression, operands.ToArray());
+        return true;
+    }
+
+    private static void CollectAdditionOperands(Expression expression, List<Expression> operands)
+    {
+        if (expression is NonLogicalBinaryExpression { Operator: Operator.Addition } binary)
+        {
+            CollectAdditionOperands(binary.Left, operands);
+            operands.Add(binary.Right);
+        }
+        else
+        {
+            operands.Add(expression);
+        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -342,6 +399,90 @@ internal abstract class JintBinaryExpression : JintExpression
             }
 
             return result;
+        }
+    }
+
+    /// <summary>
+    /// Optimized expression for chains of string concatenation (e.g., a + b + c + d).
+    /// Evaluates all operands and concatenates in a single pass using a ValueStringBuilder,
+    /// avoiding intermediate JsString allocations.
+    /// </summary>
+    private sealed class StringConcatenationExpression : JintExpression
+    {
+        private readonly Expression[] _operandExpressions;
+        private JintExpression[]? _operands;
+
+        public StringConcatenationExpression(Expression expression, Expression[] operandExpressions)
+            : base(expression)
+        {
+            _operandExpressions = operandExpressions;
+        }
+
+        private void EnsureInitialized()
+        {
+            if (_operands is not null)
+            {
+                return;
+            }
+
+            _operands = new JintExpression[_operandExpressions.Length];
+            for (var i = 0; i < _operandExpressions.Length; i++)
+            {
+                _operands[i] = Build(_operandExpressions[i]);
+            }
+        }
+
+        protected override object EvaluateInternal(EvaluationContext context)
+        {
+            EnsureInitialized();
+
+            var operands = _operands!;
+            var count = operands.Length;
+
+            // Fast path for small chains — use string.Concat overloads
+            if (count == 3)
+            {
+                var v0 = operands[0].GetValue(context);
+                if (context.IsSuspended()) return JsValue.Undefined;
+                var v1 = operands[1].GetValue(context);
+                if (context.IsSuspended()) return JsValue.Undefined;
+                var v2 = operands[2].GetValue(context);
+                if (context.IsSuspended()) return JsValue.Undefined;
+
+                return JsString.Create(string.Concat(
+                    TypeConverter.ToString(TypeConverter.ToPrimitive(v0)),
+                    TypeConverter.ToString(TypeConverter.ToPrimitive(v1)),
+                    TypeConverter.ToString(TypeConverter.ToPrimitive(v2))));
+            }
+
+            if (count == 4)
+            {
+                var v0 = operands[0].GetValue(context);
+                if (context.IsSuspended()) return JsValue.Undefined;
+                var v1 = operands[1].GetValue(context);
+                if (context.IsSuspended()) return JsValue.Undefined;
+                var v2 = operands[2].GetValue(context);
+                if (context.IsSuspended()) return JsValue.Undefined;
+                var v3 = operands[3].GetValue(context);
+                if (context.IsSuspended()) return JsValue.Undefined;
+
+                return JsString.Create(string.Concat(
+                    TypeConverter.ToString(TypeConverter.ToPrimitive(v0)),
+                    TypeConverter.ToString(TypeConverter.ToPrimitive(v1)),
+                    TypeConverter.ToString(TypeConverter.ToPrimitive(v2)),
+                    TypeConverter.ToString(TypeConverter.ToPrimitive(v3))));
+            }
+
+            // General path for 5+ operands
+            var strings = new string[count];
+            for (var i = 0; i < count; i++)
+            {
+                var val = operands[i].GetValue(context);
+                if (context.IsSuspended()) return JsValue.Undefined;
+                strings[i] = TypeConverter.ToString(TypeConverter.ToPrimitive(val));
+            }
+
+            return JsString.Create(string.Concat(strings));
         }
     }
 
