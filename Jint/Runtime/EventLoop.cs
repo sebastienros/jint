@@ -92,7 +92,8 @@ internal sealed record EventLoop
 
         if (cancellationToken.CanBeCanceled)
         {
-            cancellationToken.Register(static state => ((TaskCompletionSource<bool>) state!).TrySetCanceled(), tcs);
+            var ctr = cancellationToken.Register(static state => ((TaskCompletionSource<bool>) state!).TrySetCanceled(), tcs);
+            _ = tcs.Task.ContinueWith(static (_, state) => ((CancellationTokenRegistration) state!).Dispose(), ctr, TaskScheduler.Default);
         }
 
         return tcs.Task;
