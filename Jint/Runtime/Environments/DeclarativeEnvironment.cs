@@ -16,17 +16,51 @@ internal class DeclarativeEnvironment : Environment
     internal readonly bool _catchEnvironment;
     private DisposeCapability? _disposeCapability;
 
+    // Fixed-slot binding storage for qualifying functions
+    internal Binding[]? _slots;
+    internal Key[]? _slotNames;
+
     public DeclarativeEnvironment(Engine engine, bool catchEnvironment = false) : base(engine)
     {
         _catchEnvironment = catchEnvironment;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private int SlotIndexOf(Key name)
+    {
+        var slotNames = _slotNames!;
+        for (var i = 0; i < slotNames.Length; i++)
+        {
+            if (slotNames[i] == name) return i;
+        }
+        return -1;
+    }
+
     internal sealed override bool HasBinding(BindingName name) => HasBinding(name.Key);
 
-    internal sealed override bool HasBinding(Key name) => _dictionary is not null && _dictionary.ContainsKey(name);
+    internal sealed override bool HasBinding(Key name)
+    {
+        if (_slots is not null)
+        {
+            return SlotIndexOf(name) >= 0;
+        }
+        return _dictionary is not null && _dictionary.ContainsKey(name);
+    }
 
     internal override bool TryGetBinding(BindingName name, bool strict, [NotNullWhen(true)] out JsValue? value)
     {
+        if (_slots is not null)
+        {
+            var index = SlotIndexOf(name.Key);
+            if (index >= 0)
+            {
+                value = _slots[index].Value;
+                return value is not null;
+            }
+            value = null;
+            return false;
+        }
+
         if (_dictionary?.TryGetValue(name.Key, out var binding) == true)
         {
             value = binding.Value;
@@ -39,6 +73,19 @@ internal class DeclarativeEnvironment : Environment
 
     internal void CreateMutableBindingAndInitialize(Key name, bool canBeDeleted, JsValue value, DisposeHint hint)
     {
+        if (_slots is not null)
+        {
+            var index = SlotIndexOf(name);
+            if (index >= 0)
+            {
+                _slots[index] = new Binding(value, canBeDeleted, mutable: true, strict: false);
+                if (hint != DisposeHint.Normal)
+                {
+                    HandleDisposal(value, hint);
+                }
+                return;
+            }
+        }
         _dictionary ??= new HybridDictionary<Binding>();
         _dictionary[name] = new Binding(value, canBeDeleted, mutable: true, strict: false);
         if (hint != DisposeHint.Normal)
@@ -49,6 +96,19 @@ internal class DeclarativeEnvironment : Environment
 
     internal void CreateImmutableBindingAndInitialize(Key name, bool strict, JsValue value, DisposeHint hint)
     {
+        if (_slots is not null)
+        {
+            var index = SlotIndexOf(name);
+            if (index >= 0)
+            {
+                _slots[index] = new Binding(value, canBeDeleted: false, mutable: false, strict);
+                if (hint != DisposeHint.Normal)
+                {
+                    HandleDisposal(value, hint);
+                }
+                return;
+            }
+        }
         _dictionary ??= new HybridDictionary<Binding>();
         _dictionary[name] = new Binding(value, canBeDeleted: false, mutable: false, strict);
         if (hint != DisposeHint.Normal)
@@ -59,18 +119,50 @@ internal class DeclarativeEnvironment : Environment
 
     internal sealed override void CreateMutableBinding(Key name, bool canBeDeleted = false)
     {
+        if (_slots is not null)
+        {
+            var index = SlotIndexOf(name);
+            if (index >= 0)
+            {
+                _slots[index] = new Binding(null!, canBeDeleted, mutable: true, strict: false);
+                return;
+            }
+        }
         _dictionary ??= new HybridDictionary<Binding>();
         _dictionary.CreateMutableBinding(name, canBeDeleted);
     }
 
     internal sealed override void CreateImmutableBinding(Key name, bool strict = true)
     {
+        if (_slots is not null)
+        {
+            var index = SlotIndexOf(name);
+            if (index >= 0)
+            {
+                _slots[index] = new Binding(null!, canBeDeleted: false, mutable: false, strict);
+                return;
+            }
+        }
         _dictionary ??= new HybridDictionary<Binding>();
         _dictionary.CreateImmutableBinding(name, strict);
     }
 
     internal sealed override void InitializeBinding(Key name, JsValue value, DisposeHint hint)
     {
+        if (_slots is not null)
+        {
+            var index = SlotIndexOf(name);
+            if (index >= 0)
+            {
+                ref var binding = ref _slots[index];
+                _slots[index] = binding.ChangeValue(value);
+                if (hint != DisposeHint.Normal)
+                {
+                    HandleDisposal(value, hint);
+                }
+                return;
+            }
+        }
         _dictionary ??= new HybridDictionary<Binding>();
         _dictionary.SetOrUpdateValue(name, static (current, value) => current.ChangeValue(value), value);
         if (hint != DisposeHint.Normal)
@@ -83,6 +175,32 @@ internal class DeclarativeEnvironment : Environment
 
     internal sealed override void SetMutableBinding(Key name, JsValue value, bool strict)
     {
+        if (_slots is not null)
+        {
+            var index = SlotIndexOf(name);
+            if (index >= 0)
+            {
+                ref var slot = ref _slots[index];
+                if (slot.Strict)
+                {
+                    strict = true;
+                }
+                if (!slot.IsInitialized())
+                {
+                    ThrowUninitializedBindingError(name);
+                }
+                if (slot.Mutable)
+                {
+                    _slots[index] = slot.ChangeValue(value);
+                }
+                else if (strict)
+                {
+                    Throw.TypeError(_engine.Realm, "Assignment to constant variable.");
+                }
+                return;
+            }
+        }
+
         _dictionary ??= new HybridDictionary<Binding>();
 
         ref var binding = ref _dictionary.GetValueRefOrNullRef(name);
@@ -123,9 +241,24 @@ internal class DeclarativeEnvironment : Environment
 
     internal override JsValue GetBindingValue(Key name, bool strict)
     {
-        if (_dictionary is not null && _dictionary.TryGetValue(name, out var binding) && binding.IsInitialized())
+        if (_slots is not null)
         {
-            return binding.Value;
+            var index = SlotIndexOf(name);
+            if (index >= 0)
+            {
+                ref var binding = ref _slots[index];
+                if (binding.IsInitialized())
+                {
+                    return binding.Value;
+                }
+                ThrowUninitializedBindingError(name);
+                return null!;
+            }
+        }
+
+        if (_dictionary is not null && _dictionary.TryGetValue(name, out var dBinding) && dBinding.IsInitialized())
+        {
+            return dBinding.Value;
         }
 
         ThrowUninitializedBindingError(name);
@@ -140,18 +273,32 @@ internal class DeclarativeEnvironment : Environment
 
     internal sealed override bool DeleteBinding(Key name)
     {
-        if (_dictionary is null || !_dictionary.TryGetValue(name, out var binding))
+        if (_slots is not null)
+        {
+            var index = SlotIndexOf(name);
+            if (index >= 0)
+            {
+                ref var binding = ref _slots[index];
+                if (!binding.CanBeDeleted)
+                {
+                    return false;
+                }
+                _slots[index] = default;
+                return true;
+            }
+        }
+
+        if (_dictionary is null || !_dictionary.TryGetValue(name, out var dBinding))
         {
             return true;
         }
 
-        if (!binding.CanBeDeleted)
+        if (!dBinding.CanBeDeleted)
         {
             return false;
         }
 
         _dictionary.Remove(name);
-
         return true;
     }
 
@@ -161,21 +308,34 @@ internal class DeclarativeEnvironment : Environment
 
     internal sealed override JsValue WithBaseObject() => Undefined;
 
-    internal sealed override bool HasBindings() => _dictionary?.Count > 0;
+    internal sealed override bool HasBindings() => _slots is not null || _dictionary?.Count > 0;
 
     /// <inheritdoc />
     internal sealed override string[] GetAllBindingNames()
     {
-        if (_dictionary is null)
+        var slotCount = _slotNames?.Length ?? 0;
+        var dictCount = _dictionary?.Count ?? 0;
+        var total = slotCount + dictCount;
+        if (total == 0)
         {
             return [];
         }
 
-        var keys = new string[_dictionary.Count];
+        var keys = new string[total];
         var n = 0;
-        foreach (var entry in _dictionary)
+        if (_slotNames is not null)
         {
-            keys[n++] = entry.Key;
+            for (var i = 0; i < _slotNames.Length; i++)
+            {
+                keys[n++] = _slotNames[i];
+            }
+        }
+        if (_dictionary is not null)
+        {
+            foreach (var entry in _dictionary)
+            {
+                keys[n++] = entry.Key;
+            }
         }
 
         return keys;
