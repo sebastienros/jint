@@ -317,7 +317,7 @@ public sealed class DefaultCldrProvider : ICldrProvider
         return null;
     }
 
-    public string[]? GetMonthNames(string locale, string style)
+    public string[]? GetMonthNames(string locale, string style, string? calendar)
     {
         try
         {
@@ -355,7 +355,7 @@ public sealed class DefaultCldrProvider : ICldrProvider
         }
     }
 
-    public string[]? GetDayPeriods(string locale, string style)
+    public string[]? GetDayPeriods(string locale, string style, string? calendar)
     {
         try
         {
@@ -368,7 +368,7 @@ public sealed class DefaultCldrProvider : ICldrProvider
         }
     }
 
-    public string[]? GetEraNames(string locale, string style)
+    public string[]? GetEraNames(string locale, string style, string? calendar)
     {
         if (!IsEnglish(locale))
         {
@@ -385,67 +385,6 @@ public sealed class DefaultCldrProvider : ICldrProvider
     }
 
     // === Display Names ===
-
-    public string? GetLanguageDisplayName(string locale, string code)
-    {
-        if (!IsEnglish(locale))
-        {
-            return null;
-        }
-
-        try
-        {
-            var culture = new CultureInfo(code);
-            return culture.EnglishName;
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    public string? GetRegionDisplayName(string locale, string code)
-    {
-        if (!IsEnglish(locale))
-        {
-            return null;
-        }
-
-        try
-        {
-            var region = new RegionInfo(code);
-            return region.EnglishName;
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    public string? GetScriptDisplayName(string locale, string code)
-    {
-        if (!IsEnglish(locale))
-        {
-            return null;
-        }
-
-        // Common script names
-        return code.ToUpperInvariant() switch
-        {
-            "LATN" => "Latin",
-            "CYRL" => "Cyrillic",
-            "ARAB" => "Arabic",
-            "HANS" => "Simplified Chinese",
-            "HANT" => "Traditional Chinese",
-            "DEVA" => "Devanagari",
-            "GREK" => "Greek",
-            "HEBR" => "Hebrew",
-            "JPAN" => "Japanese",
-            "KORE" => "Korean",
-            "THAI" => "Thai",
-            _ => null
-        };
-    }
 
     public string? GetCurrencyDisplayName(string locale, string code)
     {

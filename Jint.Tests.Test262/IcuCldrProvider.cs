@@ -271,66 +271,19 @@ public sealed class IcuCldrProvider : ICldrProvider
     public DateTimePatterns? GetDateTimePatterns(string locale, string? dateStyle, string? timeStyle)
         => _fallback.GetDateTimePatterns(locale, dateStyle, timeStyle);
 
-    public string[]? GetMonthNames(string locale, string style)
-        => _fallback.GetMonthNames(locale, style);
+    public string[]? GetMonthNames(string locale, string style, string? calendar)
+        => _fallback.GetMonthNames(locale, style, calendar);
 
     public string[]? GetWeekdayNames(string locale, string style)
         => _fallback.GetWeekdayNames(locale, style);
 
-    public string[]? GetDayPeriods(string locale, string style)
-        => _fallback.GetDayPeriods(locale, style);
+    public string[]? GetDayPeriods(string locale, string style, string? calendar)
+        => _fallback.GetDayPeriods(locale, style, calendar);
 
-    public string[]? GetEraNames(string locale, string style)
-        => _fallback.GetEraNames(locale, style);
+    public string[]? GetEraNames(string locale, string style, string? calendar)
+        => _fallback.GetEraNames(locale, style, calendar);
 
     // === Display Names ===
-
-    public string? GetLanguageDisplayName(string locale, string code)
-    {
-        try
-        {
-            var displayLocale = new UCultureInfo(locale);
-            var codeLocale = new UCultureInfo(code);
-            var result = codeLocale.GetDisplayLanguage(displayLocale);
-            return string.IsNullOrEmpty(result) ? _fallback.GetLanguageDisplayName(locale, code) : result;
-        }
-        catch
-        {
-            return _fallback.GetLanguageDisplayName(locale, code);
-        }
-    }
-
-    public string? GetRegionDisplayName(string locale, string code)
-    {
-        try
-        {
-            var displayLocale = new UCultureInfo(locale);
-            // Create a locale with just the region
-            var codeLocale = new UCultureInfo("und-" + code);
-            var result = codeLocale.GetDisplayCountry(displayLocale);
-            return string.IsNullOrEmpty(result) ? _fallback.GetRegionDisplayName(locale, code) : result;
-        }
-        catch
-        {
-            return _fallback.GetRegionDisplayName(locale, code);
-        }
-    }
-
-    public string? GetScriptDisplayName(string locale, string code)
-    {
-        try
-        {
-            var displayLocale = new UCultureInfo(locale);
-            // Create a locale with just the script
-            var codeLocale = new UCultureInfo("und-" + code);
-            var result = codeLocale.GetDisplayScript(displayLocale);
-            return string.IsNullOrEmpty(result) ? _fallback.GetScriptDisplayName(locale, code) : result;
-        }
-        catch
-        {
-            return _fallback.GetScriptDisplayName(locale, code);
-        }
-    }
 
     public string? GetCurrencyDisplayName(string locale, string code)
         => _fallback.GetCurrencyDisplayName(locale, code);

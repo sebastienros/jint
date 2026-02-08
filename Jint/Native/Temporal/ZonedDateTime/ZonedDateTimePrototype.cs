@@ -111,20 +111,26 @@ internal sealed class ZonedDateTimePrototype : Prototype
 
     private JsValue GetEra(JsValue thisObject, JsCallArguments arguments)
     {
-        ValidateZonedDateTime(thisObject);
-        // ISO 8601 calendar doesn't have eras
-        return Undefined;
+        var zdt = ValidateZonedDateTime(thisObject);
+        var isoDateTime = zdt.GetIsoDateTime();
+        var era = TemporalHelpers.CalendarEra(zdt.Calendar, isoDateTime.Year);
+        return era is not null ? new JsString(era) : Undefined;
     }
 
     private JsValue GetEraYear(JsValue thisObject, JsCallArguments arguments)
     {
-        ValidateZonedDateTime(thisObject);
-        // ISO 8601 calendar doesn't have eras
-        return Undefined;
+        var zdt = ValidateZonedDateTime(thisObject);
+        var isoDateTime = zdt.GetIsoDateTime();
+        var eraYear = TemporalHelpers.CalendarEraYear(zdt.Calendar, isoDateTime.Year);
+        return eraYear.HasValue ? JsNumber.Create(eraYear.Value) : Undefined;
     }
 
-    private JsNumber GetYear(JsValue thisObject, JsCallArguments arguments) =>
-        JsNumber.Create(ValidateZonedDateTime(thisObject).GetIsoDateTime().Year);
+    private JsNumber GetYear(JsValue thisObject, JsCallArguments arguments)
+    {
+        var zdt = ValidateZonedDateTime(thisObject);
+        var isoDateTime = zdt.GetIsoDateTime();
+        return JsNumber.Create(TemporalHelpers.CalendarYear(zdt.Calendar, isoDateTime.Year));
+    }
 
     private JsNumber GetMonth(JsValue thisObject, JsCallArguments arguments) =>
         JsNumber.Create(ValidateZonedDateTime(thisObject).GetIsoDateTime().Month);
@@ -182,16 +188,26 @@ internal sealed class ZonedDateTimePrototype : Prototype
     private JsNumber GetDayOfYear(JsValue thisObject, JsCallArguments arguments) =>
         JsNumber.Create(ValidateZonedDateTime(thisObject).GetIsoDateTime().Date.DayOfYear());
 
-    private JsNumber GetWeekOfYear(JsValue thisObject, JsCallArguments arguments)
+    private JsValue GetWeekOfYear(JsValue thisObject, JsCallArguments arguments)
     {
         var zdt = ValidateZonedDateTime(thisObject);
+        if (!string.Equals(zdt.Calendar, "iso8601", StringComparison.Ordinal))
+        {
+            return Undefined;
+        }
+
         var date = zdt.GetIsoDateTime().Date;
         return JsNumber.Create(date.WeekOfYear());
     }
 
-    private JsNumber GetYearOfWeek(JsValue thisObject, JsCallArguments arguments)
+    private JsValue GetYearOfWeek(JsValue thisObject, JsCallArguments arguments)
     {
         var zdt = ValidateZonedDateTime(thisObject);
+        if (!string.Equals(zdt.Calendar, "iso8601", StringComparison.Ordinal))
+        {
+            return Undefined;
+        }
+
         var date = zdt.GetIsoDateTime().Date;
         return JsNumber.Create(date.YearOfWeek());
     }
@@ -243,11 +259,9 @@ internal sealed class ZonedDateTimePrototype : Prototype
             Throw.RangeError(_realm, "Start of day is outside the valid range");
         }
 
-        // Get start of next day
+        // Get start of next day using GetStartOfDay per spec
         var nextDay = AddDays(zdt.GetIsoDateTime().Date, 1);
-        var nextDayInstants = provider.GetPossibleInstantsFor(zdt.TimeZone,
-            nextDay.Year, nextDay.Month, nextDay.Day, 0, 0, 0, 0, 0, 0);
-        var startOfNextDay = nextDayInstants.Length > 0 ? nextDayInstants[0] : startOfDay + TemporalHelpers.NanosecondsPerDay;
+        var startOfNextDay = TemporalHelpers.GetStartOfDay(_realm, provider, zdt.TimeZone, nextDay);
 
         if (!InstantConstructor.IsValidEpochNanoseconds(startOfNextDay))
         {
@@ -479,24 +493,23 @@ internal sealed class ZonedDateTimePrototype : Prototype
         // https://tc39.es/proposal-temporal/#sec-temporal.zoneddatetime.prototype.withplaintime
         var zdt = ValidateZonedDateTime(thisObject);
         var plainTimeLike = arguments.At(0);
+        var provider = _engine.Options.Temporal.TimeZoneProvider;
 
-        IsoTime time;
+        BigInteger epochNs;
         if (plainTimeLike.IsUndefined())
         {
-            // Step 6: If plainTimeLike is undefined, let plainTime be start of day
-            time = new IsoTime(0, 0, 0, 0, 0, 0);
+            // Step 7: If plainTimeLike is undefined, let epochNs be GetStartOfDay
+            var current = zdt.GetIsoDateTime();
+            epochNs = TemporalHelpers.GetStartOfDay(_realm, provider, zdt.TimeZone, current.Date);
         }
         else
         {
-            // Step 8: Let plainTime be ? ToTemporalTime(plainTimeLike)
+            // Step 8-9: Let plainTime be ToTemporalTime, then GetEpochNanosecondsFor with compatible
             var plainTime = _realm.Intrinsics.TemporalPlainTime.ToTemporalTime(plainTimeLike, "constrain");
-            time = plainTime.IsoTime;
+            var current = zdt.GetIsoDateTime();
+            var newDateTime = new IsoDateTime(current.Date, plainTime.IsoTime);
+            epochNs = GetInstantFor(provider, zdt.TimeZone, newDateTime, "compatible");
         }
-
-        var current = zdt.GetIsoDateTime();
-        var newDateTime = new IsoDateTime(current.Date, time);
-        var provider = _engine.Options.Temporal.TimeZoneProvider;
-        var epochNs = GetInstantFor(provider, zdt.TimeZone, newDateTime, "compatible");
 
         // Validate result is within valid Temporal range
         if (!InstantConstructor.IsValidEpochNanoseconds(epochNs))
@@ -674,25 +687,9 @@ internal sealed class ZonedDateTimePrototype : Prototype
             var dateStart = isoDateTime.Date;
             var dateEnd = AddDays(dateStart, 1);
 
-            // Get start of current day in this timezone
-            var startInstants = provider.GetPossibleInstantsFor(timeZone,
-                dateStart.Year, dateStart.Month, dateStart.Day, 0, 0, 0, 0, 0, 0);
-            var startNs = startInstants.Length > 0 ? startInstants[0] : thisNs - (BigInteger) isoDateTime.Time.TotalNanoseconds();
-
-            if (!InstantConstructor.IsValidEpochNanoseconds(startNs))
-            {
-                Throw.RangeError(_realm, "Start of day is outside the valid range");
-            }
-
-            // Get start of next day in this timezone
-            var endInstants = provider.GetPossibleInstantsFor(timeZone,
-                dateEnd.Year, dateEnd.Month, dateEnd.Day, 0, 0, 0, 0, 0, 0);
-            var endNs = endInstants.Length > 0 ? endInstants[0] : startNs + TemporalHelpers.NanosecondsPerDay;
-
-            if (!InstantConstructor.IsValidEpochNanoseconds(endNs))
-            {
-                Throw.RangeError(_realm, "Start of next day is outside the valid range");
-            }
+            // Get start of current day and next day using GetStartOfDay per spec
+            var startNs = TemporalHelpers.GetStartOfDay(_realm, provider, timeZone, dateStart);
+            var endNs = TemporalHelpers.GetStartOfDay(_realm, provider, timeZone, dateEnd);
 
             // Calculate day length (may not be exactly 24 hours due to DST)
             var dayLengthNs = (long) (endNs - startNs);
@@ -863,7 +860,7 @@ internal sealed class ZonedDateTimePrototype : Prototype
         var otherZdt = _constructor.ToTemporalZonedDateTime(other, Undefined);
 
         var sameEpoch = zdt.EpochNanoseconds == otherZdt.EpochNanoseconds;
-        var sameTimeZone = string.Equals(zdt.TimeZone, otherZdt.TimeZone, StringComparison.OrdinalIgnoreCase);
+        var sameTimeZone = TemporalHelpers.TimeZoneEquals(_engine, zdt.TimeZone, otherZdt.TimeZone);
         var sameCalendar = string.Equals(zdt.Calendar, otherZdt.Calendar, StringComparison.Ordinal);
 
         return sameEpoch && sameTimeZone && sameCalendar ? JsBoolean.True : JsBoolean.False;
@@ -1071,10 +1068,39 @@ internal sealed class ZonedDateTimePrototype : Prototype
         return new JsString(FormatZonedDateTime(zdt, "auto", "auto", "auto", null));
     }
 
-    private JsString ToLocaleString(JsValue thisObject, JsCallArguments arguments)
+    /// <summary>
+    /// https://tc39.es/proposal-temporal/#sup-temporal.zoneddatetime.prototype.tolocalestring
+    /// </summary>
+    private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
     {
         var zdt = ValidateZonedDateTime(thisObject);
-        return new JsString(FormatZonedDateTime(zdt, "auto", "auto", "auto", null));
+        var locales = arguments.At(0);
+        var options = arguments.At(1);
+
+        // Per spec: CreateDateTimeFormat with required=~any~, defaults=~all~, toLocaleStringTimeZone=ZDT.[[TimeZone]]
+        // Uses ZonedDateTime defaults which include timeZoneName: "short"
+        // This will throw TypeError if user passes a timeZone option
+        var dtf = _realm.Intrinsics.DateTimeFormat.CreateDateTimeFormat(
+            locales, options, required: Intl.DateTimeRequired.Any, defaults: Intl.DateTimeDefaults.ZonedDateTime,
+            toLocaleStringTimeZone: zdt.TimeZone);
+
+        // Calendar mismatch check per spec
+        var cal = zdt.Calendar;
+        if (!string.Equals(cal, "iso8601", StringComparison.Ordinal) &&
+            dtf.Calendar != null && !string.Equals(cal, dtf.Calendar, StringComparison.Ordinal))
+        {
+            Throw.RangeError(_realm, $"Calendar mismatch: ZonedDateTime uses '{cal}' but DateTimeFormat uses '{dtf.Calendar}'");
+        }
+
+        // Per spec: create instant from ZDT's epoch nanoseconds and format it
+        // The DTF was created with ZDT's timezone, so the instant will be formatted in that timezone
+        const long nsPerTick = 100;
+        var ticks = (long) (zdt.EpochNanoseconds / nsPerTick);
+        var unixEpochTicks = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc).Ticks;
+        var totalTicks = unixEpochTicks + ticks;
+        var dateTime = new DateTime(totalTicks, DateTimeKind.Utc);
+
+        return dtf.Format(dateTime);
     }
 
     private JsValue ValueOf(JsValue thisObject, JsCallArguments arguments)
@@ -1126,29 +1152,10 @@ internal sealed class ZonedDateTimePrototype : Prototype
         return result;
     }
 
-    private static BigInteger GetStartOfDayInstant(JsZonedDateTime zdt, ITimeZoneProvider provider)
+    private BigInteger GetStartOfDayInstant(JsZonedDateTime zdt, ITimeZoneProvider provider)
     {
         var dt = zdt.GetIsoDateTime();
-        var possibleInstants = provider.GetPossibleInstantsFor(zdt.TimeZone,
-            dt.Year, dt.Month, dt.Day, 0, 0, 0, 0, 0, 0);
-
-        if (possibleInstants.Length > 0)
-        {
-            return possibleInstants[0];
-        }
-
-        // Gap at midnight - find the instant after the gap
-        var startDateTime = new IsoDateTime(dt.Date, new IsoTime(1, 0, 0, 0, 0, 0));
-        var afterGapInstants = provider.GetPossibleInstantsFor(zdt.TimeZone,
-            startDateTime.Year, startDateTime.Month, startDateTime.Day,
-            1, 0, 0, 0, 0, 0);
-
-        if (afterGapInstants.Length > 0)
-        {
-            return afterGapInstants[0] - TemporalHelpers.NanosecondsPerHour;
-        }
-
-        return zdt.EpochNanoseconds - (BigInteger) dt.Time.TotalNanoseconds();
+        return TemporalHelpers.GetStartOfDay(_realm, provider, zdt.TimeZone, dt.Date);
     }
 
     private static IsoDate AddDays(IsoDate date, int days)
@@ -1292,7 +1299,7 @@ internal sealed class ZonedDateTimePrototype : Prototype
         }
 
         // Step 12-13: For date units, timezones must match
-        if (!string.Equals(zonedDateTime.TimeZone, other.TimeZone, StringComparison.Ordinal))
+        if (!TemporalHelpers.TimeZoneEquals(_engine, zonedDateTime.TimeZone, other.TimeZone))
         {
             Throw.RangeError(_realm, "Time zones must match for ZonedDateTime difference with date units");
         }
@@ -1500,41 +1507,7 @@ internal sealed class ZonedDateTimePrototype : Prototype
 
     private BigInteger GetInstantFor(ITimeZoneProvider provider, string timeZone, IsoDateTime dateTime, string disambiguation)
     {
-        var possibleInstants = provider.GetPossibleInstantsFor(timeZone,
-            dateTime.Year, dateTime.Month, dateTime.Day,
-            dateTime.Hour, dateTime.Minute, dateTime.Second,
-            dateTime.Millisecond, dateTime.Microsecond, dateTime.Nanosecond);
-
-        if (possibleInstants.Length == 1)
-        {
-            return possibleInstants[0];
-        }
-
-        if (possibleInstants.Length == 0)
-        {
-            // Gap
-            if (string.Equals(disambiguation, "reject", StringComparison.Ordinal))
-            {
-                Throw.RangeError(_realm, "The specified date-time does not exist in the time zone (gap)");
-            }
-
-            var localNs = IsoDateTimeToNanoseconds(dateTime);
-            var standardOffset = provider.GetOffsetNanosecondsFor(timeZone, BigInteger.Zero);
-            return localNs - standardOffset;
-        }
-
-        // Ambiguous
-        if (string.Equals(disambiguation, "reject", StringComparison.Ordinal))
-        {
-            Throw.RangeError(_realm, "The specified date-time is ambiguous in the time zone (overlap)");
-        }
-
-        if (string.Equals(disambiguation, "later", StringComparison.Ordinal))
-        {
-            return possibleInstants[possibleInstants.Length - 1];
-        }
-
-        return possibleInstants[0];
+        return TemporalHelpers.GetEpochNanosecondsFor(_realm, provider, timeZone, dateTime, disambiguation);
     }
 
     private static BigInteger IsoDateTimeToNanoseconds(IsoDateTime dateTime)

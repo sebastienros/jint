@@ -24,6 +24,8 @@ public abstract partial class Test262Test
             cfg.TimeoutInterval(TimeSpan.FromSeconds(30));
             // Use ICU-based CLDR provider for better Intl support
             cfg.Intl.CldrProvider = IcuCldrProvider.Instance;
+            // Use NodaTime for accurate IANA timezone support (sub-minute offsets, historical DST)
+            cfg.Temporal.TimeZoneProvider = NodaTimeZoneProvider.Instance;
         });
 
         if (file.Flags.Contains("raw"))

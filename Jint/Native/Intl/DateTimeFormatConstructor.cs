@@ -9,6 +9,18 @@ using Jint.Runtime.Interop;
 namespace Jint.Native.Intl;
 
 /// <summary>
+/// Per spec CreateDateTimeFormat 'required' parameter.
+/// https://tc39.es/proposal-temporal/#sec-createdatetimeformat
+/// </summary>
+internal enum DateTimeRequired { Date, Time, YearMonth, MonthDay, Any }
+
+/// <summary>
+/// Per spec CreateDateTimeFormat 'defaults' parameter.
+/// https://tc39.es/proposal-temporal/#sec-createdatetimeformat
+/// </summary>
+internal enum DateTimeDefaults { Date, Time, YearMonth, MonthDay, ZonedDateTime, All }
+
+/// <summary>
 /// https://tc39.es/ecma402/#sec-intl-datetimeformat-constructor
 /// </summary>
 internal sealed class DateTimeFormatConstructor : Constructor
@@ -77,6 +89,23 @@ internal sealed class DateTimeFormatConstructor : Constructor
     {
         var locales = arguments.At(0);
         var options = arguments.At(1);
+        return CreateDateTimeFormat(locales, options, newTarget);
+    }
+
+    /// <summary>
+    /// CreateDateTimeFormat per spec, with optional required/defaults/toLocaleStringTimeZone parameters
+    /// for Temporal toLocaleString support.
+    /// https://tc39.es/proposal-temporal/#sec-createdatetimeformat
+    /// </summary>
+    internal JsDateTimeFormat CreateDateTimeFormat(
+        JsValue locales,
+        JsValue options,
+        JsValue? newTarget = null,
+        DateTimeRequired required = DateTimeRequired.Any,
+        DateTimeDefaults defaults = DateTimeDefaults.Date,
+        string? toLocaleStringTimeZone = null)
+    {
+        newTarget ??= this;
 
         // Get options object
         var optionsObj = IntlUtilities.CoerceOptionsToObject(_engine, options);
@@ -277,8 +306,31 @@ internal sealed class DateTimeFormatConstructor : Constructor
             preserveHourCycleExt ? extHourCycle : null,
             preserveNumberingSystemExt ? extNumberingSystem : null);
 
-        // Step 29: Get timeZone option
-        var timeZone = GetTimeZoneOption(optionsObj);
+        // Step 29: Get timeZone option (read once to avoid double property access)
+        var timeZoneValue = optionsObj.Get("timeZone");
+        string? timeZone;
+        if (timeZoneValue.IsUndefined())
+        {
+            if (toLocaleStringTimeZone != null)
+            {
+                // Per ECMA-402 CanonicalizeTimeZoneName, resolve to primary identifier for formatting
+                // (Temporal preserves non-primary names in timeZoneId, but Intl canonicalizes to primary)
+                var provider = _engine.Options.Temporal.TimeZoneProvider;
+                timeZone = provider.GetPrimaryTimeZoneIdentifier(toLocaleStringTimeZone) ?? toLocaleStringTimeZone;
+            }
+            else
+            {
+                timeZone = null; // Will use system default
+            }
+        }
+        else
+        {
+            if (toLocaleStringTimeZone != null)
+            {
+                Throw.TypeError(_realm, "TimeZone option is not allowed when formatting a Temporal.ZonedDateTime");
+            }
+            timeZone = ValidateAndCanonicalizeTimeZone(TypeConverter.ToString(timeZoneValue));
+        }
 
         // Step 36: Get component options in order (per Table 7 of ECMA-402)
         // Order: weekday, era, year, month, day, dayPeriod, hour, minute, second, fractionalSecondDigits, timeZoneName
@@ -293,6 +345,13 @@ internal sealed class DateTimeFormatConstructor : Constructor
         var second = GetStringOption(optionsObj, "second", SecondValues, null);
         var fractionalSecondDigits = GetNumberOption(optionsObj, "fractionalSecondDigits", 1, 3, null);
         var timeZoneName = GetStringOption(optionsObj, "timeZoneName", TimeZoneNameValues, null);
+
+        // Track whether user explicitly specified any core component option (before defaults are applied).
+        // Per spec, era and timeZoneName are supplementary options - they don't participate in
+        // overlap checking for Temporal types or prevent defaults from being applied.
+        var hasExplicitFormatComponents = weekday != null || year != null ||
+            month != null || day != null || dayPeriod != null || hour != null ||
+            minute != null || second != null || fractionalSecondDigits != null;
 
         // Step 37: Get formatMatcher option
         GetStringOption(optionsObj, "formatMatcher", FormatMatcherValues, null);
@@ -310,18 +369,106 @@ internal sealed class DateTimeFormatConstructor : Constructor
             {
                 Throw.TypeError(_realm, "Can't set date/time component options when dateStyle or timeStyle is used");
             }
+
+            // Per spec: required=~date~/~year-month~/~month-day~ + timeStyle → TypeError
+            //           required=~time~ + dateStyle → TypeError
+            if ((required == DateTimeRequired.Date || required == DateTimeRequired.YearMonth || required == DateTimeRequired.MonthDay)
+                && timeStyle != null)
+            {
+                Throw.TypeError(_realm, "timeStyle is not allowed when formatting a date-only Temporal type");
+            }
+            if (required == DateTimeRequired.Time && dateStyle != null)
+            {
+                Throw.TypeError(_realm, "dateStyle is not allowed when formatting a time-only Temporal type");
+            }
         }
         else
         {
-            // If no date/time component options specified, use default date format
-            // Note: dayPeriod, fractionalSecondDigits, and timeZoneName don't prevent defaults
-            if (weekday == null && era == null && year == null && month == null &&
-                day == null && dayPeriod == null && hour == null && minute == null && second == null)
+            // Determine needDefaults based on required parameter per spec GetDateTimeFormat
+            var needDefaults = true;
+            switch (required)
             {
-                year = "numeric";
-                month = "numeric";
-                day = "numeric";
+                case DateTimeRequired.Date:
+                    if (weekday != null || year != null || month != null || day != null)
+                        needDefaults = false;
+                    break;
+                case DateTimeRequired.Time:
+                    if (dayPeriod != null || hour != null || minute != null || second != null || fractionalSecondDigits != null)
+                        needDefaults = false;
+                    break;
+                case DateTimeRequired.YearMonth:
+                    if (year != null || month != null)
+                        needDefaults = false;
+                    break;
+                case DateTimeRequired.MonthDay:
+                    if (month != null || day != null)
+                        needDefaults = false;
+                    break;
+                case DateTimeRequired.Any:
+                    if (weekday != null || year != null || month != null || day != null ||
+                        dayPeriod != null || hour != null || minute != null || second != null || fractionalSecondDigits != null)
+                        needDefaults = false;
+                    break;
             }
+
+            if (needDefaults)
+            {
+                // Apply defaults based on defaults parameter per spec
+                switch (defaults)
+                {
+                    case DateTimeDefaults.Date:
+                        year = "numeric";
+                        month = "numeric";
+                        day = "numeric";
+                        break;
+                    case DateTimeDefaults.Time:
+                        hour = "numeric";
+                        minute = "numeric";
+                        second = "numeric";
+                        break;
+                    case DateTimeDefaults.YearMonth:
+                        year = "numeric";
+                        month = "numeric";
+                        break;
+                    case DateTimeDefaults.MonthDay:
+                        month = "numeric";
+                        day = "numeric";
+                        break;
+                    case DateTimeDefaults.ZonedDateTime:
+                    case DateTimeDefaults.All:
+                        year = "numeric";
+                        month = "numeric";
+                        day = "numeric";
+                        hour = "numeric";
+                        minute = "numeric";
+                        second = "numeric";
+                        if (defaults == DateTimeDefaults.ZonedDateTime && timeZoneName == null)
+                        {
+                            timeZoneName = "short";
+                        }
+                        break;
+                }
+            }
+        }
+
+        // Per spec GetDateTimeFormat: filter out irrelevant components based on required.
+        // For time-only types, date components should not appear in the format.
+        // For date-only types, time components should not appear.
+        if (required == DateTimeRequired.Time)
+        {
+            weekday = null;
+            era = null;
+            year = null;
+            month = null;
+            day = null;
+        }
+        else if (required is DateTimeRequired.Date or DateTimeRequired.YearMonth or DateTimeRequired.MonthDay)
+        {
+            dayPeriod = null;
+            hour = null;
+            minute = null;
+            second = null;
+            fractionalSecondDigits = null;
         }
 
         // Get DateTimeFormatInfo for the locale
@@ -330,6 +477,10 @@ internal sealed class DateTimeFormatConstructor : Constructor
 
         // Get prototype from newTarget (for cross-realm construction)
         var proto = GetPrototypeFromConstructor(newTarget, static intrinsics => intrinsics.DateTimeFormat.PrototypeObject);
+
+        // Resolve default calendar from locale if not explicitly specified
+        // Per ECMA-402, the calendar is always resolved - defaults to "gregory" for most locales
+        calendar ??= GetDefaultCalendarForLocale(culture);
 
         return new JsDateTimeFormat(
             _engine,
@@ -352,6 +503,7 @@ internal sealed class DateTimeFormatConstructor : Constructor
             second,
             fractionalSecondDigits,
             timeZoneName,
+            hasExplicitFormatComponents,
             dateTimeFormatInfo,
             culture);
     }
@@ -421,8 +573,11 @@ internal sealed class DateTimeFormatConstructor : Constructor
             return null;
         }
 
-        var timeZone = TypeConverter.ToString(value);
+        return ValidateAndCanonicalizeTimeZone(TypeConverter.ToString(value));
+    }
 
+    private string ValidateAndCanonicalizeTimeZone(string timeZone)
+    {
         // Validate and canonicalize time zone using IANA database
         // Per ECMA-402, only IANA timezone identifiers are allowed
         if (string.Equals(timeZone, "UTC", StringComparison.OrdinalIgnoreCase))
@@ -447,7 +602,7 @@ internal sealed class DateTimeFormatConstructor : Constructor
 
         // Not a valid IANA timezone identifier
         Throw.RangeError(_realm, $"Invalid time zone: {timeZone}");
-        return null;
+        return null!;
     }
 
     /// <summary>
@@ -552,6 +707,26 @@ internal sealed class DateTimeFormatConstructor : Constructor
         }
 
         return new JsArray(_engine, supported.ToArray());
+    }
+
+    /// <summary>
+    /// Gets the default calendar for a locale. Per ECMA-402, most locales use "gregory".
+    /// Japanese locale uses "japanese", Thai uses "buddhist", etc.
+    /// </summary>
+    private static string GetDefaultCalendarForLocale(CultureInfo culture)
+    {
+        var calendarName = culture.Calendar.GetType().Name;
+        return calendarName switch
+        {
+            "JapaneseCalendar" => "japanese",
+            "ThaiBuddhistCalendar" => "buddhist",
+            "KoreanCalendar" => "korean",
+            "TaiwanCalendar" => "roc",
+            "HijriCalendar" or "UmAlQuraCalendar" => "islamic",
+            "HebrewCalendar" => "hebrew",
+            "PersianCalendar" => "persian",
+            _ => "gregory"
+        };
     }
 
     /// <summary>

@@ -203,6 +203,9 @@ internal sealed class ZonedDateTimeConstructor : Constructor
 
         var day = TemporalHelpers.ToPositiveIntegerWithTruncation(_realm, dayValue);
 
+        // 2.5. era/eraYear - read for era-supporting calendars (alphabetically between day and hour)
+        var eraYear = TemporalHelpers.ReadEraFields(_realm, obj, calendar);
+
         // 3. hour - read and convert immediately
         var hourValue = obj.Get("hour");
         var hour = hourValue.IsUndefined() ? 0 : TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, hourValue);
@@ -302,14 +305,23 @@ internal sealed class ZonedDateTimeConstructor : Constructor
 
         var timeZone = ToTemporalTimeZoneIdentifier(timeZoneProp);
 
-        // 13. year - read and convert immediately (TYPE validation happens here)
-        var yearValue = obj.Get("year");
-        if (yearValue.IsUndefined())
+        // 13. year - use eraYear if computed, otherwise read from property
+        int year;
+        if (eraYear.HasValue)
         {
-            Throw.TypeError(_realm, "Missing required property: year");
+            year = eraYear.Value;
+            obj.Get("year");
         }
+        else
+        {
+            var yearValue = obj.Get("year");
+            if (yearValue.IsUndefined())
+            {
+                Throw.TypeError(_realm, "Missing required property: year");
+            }
 
-        var year = TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearValue);
+            year = TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearValue);
+        }
 
         // 14-16. Read options AFTER all fields(but BEFORE algorithmic validation)
         // Alphabetical order: disambiguation, offset, overflow
@@ -418,10 +430,56 @@ internal sealed class ZonedDateTimeConstructor : Constructor
 
         var timeZone = ToTemporalTimeZoneIdentifier(new JsString(result.TimeZone));
 
-        // Convert to epoch nanoseconds
-        var epochNs = GetEpochFromIsoDateTime(result.DateTime.Value, timeZone, disambiguation, result.OffsetNanoseconds, result.HasUtcDesignator, offsetOption);
+        // Per spec ToTemporalZonedDateTime steps 15-21:
+        // Determine offsetBehaviour
+        string offsetBehaviour;
+        if (result.HasUtcDesignator)
+        {
+            offsetBehaviour = "exact";
+        }
+        else if (result.OffsetNanoseconds.HasValue)
+        {
+            offsetBehaviour = "option";
+        }
+        else
+        {
+            offsetBehaviour = "wall";
+        }
 
-        return Construct(epochNs, timeZone, result.Calendar ?? "iso8601");
+        // Per spec step 3/12: For strings, matchBehaviour = ~match-minutes~
+        // Unless offset has sub-minute precision (seconds), then ~match-exactly~
+        var matchBehaviour = result.OffsetHasSubMinutePrecision ? "match-exactly" : "match-minutes";
+
+        var offsetNs = result.OffsetNanoseconds ?? 0;
+
+        var provider = _engine.Options.Temporal.TimeZoneProvider;
+        var isoDateTime = result.DateTime.Value;
+
+        BigInteger epochNs;
+        if (result.TimeIsStartOfDay)
+        {
+            // Per spec InterpretISODateTimeOffset step 1: time is ~start-of-day~
+            epochNs = TemporalHelpers.GetStartOfDay(_realm, provider, timeZone, isoDateTime.Date);
+        }
+        else
+        {
+            // Convert to epoch nanoseconds using the spec's InterpretISODateTimeOffset
+            epochNs = TemporalHelpers.InterpretISODateTimeOffset(
+                _realm,
+                provider,
+                isoDateTime.Date,
+                isoDateTime.Time,
+                offsetBehaviour,
+                offsetNs,
+                timeZone,
+                disambiguation,
+                offsetOption,
+                matchBehaviour);
+        }
+
+        var calendarId = result.Calendar ?? "iso8601";
+        var canonicalCalendar = TemporalHelpers.CanonicalizeCalendar(calendarId) ?? calendarId;
+        return Construct(epochNs, timeZone, canonicalCalendar);
     }
 
     private BigInteger GetEpochFromIsoDateTime(IsoDateTime dateTime, string timeZone, string disambiguation, long? offsetNs, bool hasUtcDesignator, string offsetOption)
@@ -549,89 +607,7 @@ internal sealed class ZonedDateTimeConstructor : Constructor
 
     private BigInteger GetInstantFor(ITimeZoneProvider provider, string timeZone, IsoDateTime dateTime, string disambiguation)
     {
-        var possibleInstants = provider.GetPossibleInstantsFor(timeZone,
-            dateTime.Year, dateTime.Month, dateTime.Day,
-            dateTime.Hour, dateTime.Minute, dateTime.Second,
-            dateTime.Millisecond, dateTime.Microsecond, dateTime.Nanosecond);
-
-        // Per spec GetPossibleEpochNanoseconds, validate each possible instant is within valid range
-        // https://tc39.es/proposal-temporal/#sec-temporal-getpossibleepochnanoseconds step 4
-        foreach (var instant in possibleInstants)
-        {
-            if (!InstantConstructor.IsValidEpochNanoseconds(instant))
-            {
-                Throw.RangeError(_realm, "Instant is outside the valid range");
-            }
-        }
-
-        if (possibleInstants.Length == 1)
-        {
-            return possibleInstants[0];
-        }
-
-        if (possibleInstants.Length == 0)
-        {
-            // Gap (spring forward) - time doesn't exist
-            if (string.Equals(disambiguation, "reject", StringComparison.Ordinal))
-            {
-                Throw.RangeError(_realm, "The specified date-time does not exist in the time zone (gap)");
-            }
-
-            // Find the transition point
-            var localNs = IsoDateTimeToNanoseconds(dateTime);
-
-            if (string.Equals(disambiguation, "earlier", StringComparison.Ordinal))
-            {
-                // Use the instant just before the gap
-                // Subtract one nanosecond from where the gap starts
-                var beforeGap = provider.GetPossibleInstantsFor(timeZone,
-                    dateTime.Year, dateTime.Month, dateTime.Day,
-                    dateTime.Hour - 1, dateTime.Minute, dateTime.Second,
-                    dateTime.Millisecond, dateTime.Microsecond, dateTime.Nanosecond);
-                if (beforeGap.Length > 0)
-                {
-                    return beforeGap[beforeGap.Length - 1];
-                }
-            }
-
-            // Default to 'compatible' or 'later' - use the instant after the gap
-            // The gap is typically 1 hour, so add 1 hour to the local time
-            var afterGapDateTime = AddHoursToIsoDateTime(dateTime, 1);
-            var afterGapInstants = provider.GetPossibleInstantsFor(timeZone,
-                afterGapDateTime.Year, afterGapDateTime.Month, afterGapDateTime.Day,
-                afterGapDateTime.Hour, afterGapDateTime.Minute, afterGapDateTime.Second,
-                afterGapDateTime.Millisecond, afterGapDateTime.Microsecond, afterGapDateTime.Nanosecond);
-
-            if (afterGapInstants.Length > 0)
-            {
-                return afterGapInstants[0];
-            }
-
-            // Fallback: estimate the instant
-            var standardOffset = provider.GetOffsetNanosecondsFor(timeZone, BigInteger.Zero);
-            return localNs - standardOffset;
-        }
-
-        // Ambiguous (fall back) - multiple possible instants
-        if (string.Equals(disambiguation, "reject", StringComparison.Ordinal))
-        {
-            Throw.RangeError(_realm, "The specified date-time is ambiguous in the time zone (overlap)");
-        }
-
-        if (string.Equals(disambiguation, "earlier", StringComparison.Ordinal))
-        {
-            // Use the earlier instant (before the clocks were set back)
-            return possibleInstants[0];
-        }
-
-        if (string.Equals(disambiguation, "later", StringComparison.Ordinal))
-        {
-            // Use the later instant (after the clocks were set back)
-            return possibleInstants[possibleInstants.Length - 1];
-        }
-
-        // Default 'compatible' - use the earlier instant (same as 'earlier')
-        return possibleInstants[0];
+        return TemporalHelpers.GetEpochNanosecondsFor(_realm, provider, timeZone, dateTime, disambiguation);
     }
 
     private static IsoDateTime AddHoursToIsoDateTime(IsoDateTime dateTime, int hours)
@@ -697,7 +673,7 @@ internal sealed class ZonedDateTimeConstructor : Constructor
             var dateResult = TemporalHelpers.ParseIsoDate(datePart);
             if (dateResult is null)
             {
-                return new ParsedZonedDateTimeResult(null, null, null, null, false, "Invalid date");
+                return new ParsedZonedDateTimeResult(null, null, null, null, false, false, false, "Invalid date");
             }
 
             // Default time to 00:00:00
@@ -740,15 +716,15 @@ internal sealed class ZonedDateTimeConstructor : Constructor
             // Validate: No junk after the last bracket annotation
             if (lastBracketEnd >= 0 && lastBracketEnd + 1 < input.Length)
             {
-                return new ParsedZonedDateTimeResult(null, null, null, null, false, "Unexpected characters after valid content");
+                return new ParsedZonedDateTimeResult(null, null, null, null, false, false, false, "Unexpected characters after valid content");
             }
 
             if (parsedTimeZone is null)
             {
-                return new ParsedZonedDateTimeResult(null, null, null, null, false, "ZonedDateTime string must include timezone annotation");
+                return new ParsedZonedDateTimeResult(null, null, null, null, false, false, false, "ZonedDateTime string must include timezone annotation");
             }
 
-            return new ParsedZonedDateTimeResult(parsedDateTime, parsedTimeZone, parsedCalendar, null, false, null);
+            return new ParsedZonedDateTimeResult(parsedDateTime, parsedTimeZone, parsedCalendar, null, false, false, true, null);
         }
 
         var dateString = input.Substring(0, tIndex);
@@ -757,7 +733,7 @@ internal sealed class ZonedDateTimeConstructor : Constructor
         var date = TemporalHelpers.ParseIsoDate(dateString);
         if (date is null)
         {
-            return new ParsedZonedDateTimeResult(null, null, null, null, false, "Invalid date");
+            return new ParsedZonedDateTimeResult(null, null, null, null, false, false, false, "Invalid date");
         }
 
         // Parse time and extract offset/time zone/calendar
@@ -767,6 +743,7 @@ internal sealed class ZonedDateTimeConstructor : Constructor
         string? timeZone = null;
         string? calendar = null;
         long? offsetNs = null;
+        var offsetHasSubMinutePrecision = false;
 
         // Find where time ends
         for (var i = 0; i < remainder.Length; i++)
@@ -801,7 +778,7 @@ internal sealed class ZonedDateTimeConstructor : Constructor
         var time = TemporalHelpers.ParseIsoTime(timeString);
         if (time is null)
         {
-            return new ParsedZonedDateTimeResult(null, null, null, null, false, "Invalid time");
+            return new ParsedZonedDateTimeResult(null, null, null, null, false, false, false, "Invalid time");
         }
 
         // Parse offset if present
@@ -827,8 +804,14 @@ internal sealed class ZonedDateTimeConstructor : Constructor
             offsetNs = TemporalHelpers.ParseOffsetString(offsetStr);
             if (offsetNs is null)
             {
-                return new ParsedZonedDateTimeResult(null, null, null, null, false, "Invalid offset");
+                return new ParsedZonedDateTimeResult(null, null, null, null, false, false, false, "Invalid offset");
             }
+
+            // Per spec: detect sub-minute precision in offset string
+            // UTCOffset[+SubMinutePrecision] with more than one MinuteSecond means it has seconds
+            // Format: ±HH:MM (6 chars) = minute precision, ±HH:MM:SS or longer = sub-minute precision
+            // Also handle ±HHMM (5 chars) vs ±HHMMSS (7 chars)
+            offsetHasSubMinutePrecision = HasOffsetSubMinutePrecision(offsetStr);
         }
 
         // Parse bracket annotations
@@ -844,7 +827,7 @@ internal sealed class ZonedDateTimeConstructor : Constructor
             var endBracket = remainder.IndexOf(']', pos);
             if (endBracket < 0)
             {
-                return new ParsedZonedDateTimeResult(null, null, null, null, false, "Unclosed bracket");
+                return new ParsedZonedDateTimeResult(null, null, null, null, false, false, false, "Unclosed bracket");
             }
 
             var annotation = remainder.Substring(pos + 1, endBracket - pos - 1);
@@ -859,7 +842,7 @@ internal sealed class ZonedDateTimeConstructor : Constructor
                 var key = content.Substring(0, equalsIndex);
                 if (!TemporalHelpers.IsLowercaseAnnotationKey(key))
                 {
-                    return new ParsedZonedDateTimeResult(null, null, null, null, false, "Annotation keys must be lowercase");
+                    return new ParsedZonedDateTimeResult(null, null, null, null, false, false, false, "Annotation keys must be lowercase");
                 }
 
                 if (content.StartsWith("u-ca=", StringComparison.Ordinal))
@@ -879,7 +862,7 @@ internal sealed class ZonedDateTimeConstructor : Constructor
                 else if (isCritical)
                 {
                     // Unknown key annotation with critical flag
-                    return new ParsedZonedDateTimeResult(null, null, null, null, false, "Critical unknown annotation");
+                    return new ParsedZonedDateTimeResult(null, null, null, null, false, false, false, "Critical unknown annotation");
                 }
                 // Non-critical unknown annotations are accepted but ignored
             }
@@ -889,7 +872,7 @@ internal sealed class ZonedDateTimeConstructor : Constructor
                 timeZoneCount++;
                 if (timeZoneCount > 1)
                 {
-                    return new ParsedZonedDateTimeResult(null, null, null, null, false, "Multiple time zone annotations");
+                    return new ParsedZonedDateTimeResult(null, null, null, null, false, false, false, "Multiple time zone annotations");
                 }
 
                 timeZone = content;
@@ -901,19 +884,19 @@ internal sealed class ZonedDateTimeConstructor : Constructor
         // Validate: Multiple calendar annotations with any critical flag is invalid
         if (calendarCount > 1 && hasCriticalCalendar)
         {
-            return new ParsedZonedDateTimeResult(null, null, null, null, false, "Multiple calendar annotations with critical flag");
+            return new ParsedZonedDateTimeResult(null, null, null, null, false, false, false, "Multiple calendar annotations with critical flag");
         }
 
         // Validate: No junk after the last bracket annotation
         if (pos < remainder.Length)
         {
-            return new ParsedZonedDateTimeResult(null, null, null, null, false, "Unexpected characters after valid content");
+            return new ParsedZonedDateTimeResult(null, null, null, null, false, false, false, "Unexpected characters after valid content");
         }
 
         // ZonedDateTime requires a time zone
         if (timeZone is null)
         {
-            return new ParsedZonedDateTimeResult(null, null, null, null, false, "ZonedDateTime string must include a time zone");
+            return new ParsedZonedDateTimeResult(null, null, null, null, false, false, false, "ZonedDateTime string must include a time zone");
         }
 
         var dateTime = new IsoDateTime(date.Value, time.Value);
@@ -923,7 +906,7 @@ internal sealed class ZonedDateTimeConstructor : Constructor
         // For offset="use", only the resulting instant needs to be valid
         // For offset="prefer"/"reject", the wall-clock datetime needs to be valid (checked via CheckISODaysRange)
 
-        return new ParsedZonedDateTimeResult(dateTime, timeZone, calendar, offsetNs, hasUtcDesignator, null);
+        return new ParsedZonedDateTimeResult(dateTime, timeZone, calendar, offsetNs, hasUtcDesignator, offsetHasSubMinutePrecision, false, null);
     }
 
     /// <summary>
@@ -944,12 +927,15 @@ internal sealed class ZonedDateTimeConstructor : Constructor
         // If the whole string is just a timezone identifier (IANA name or UTC offset), accept it
         var bracketStart = input.IndexOf('[');
         var hasDateTimeSeparator = false;
-        for (var i = 4; i < input.Length; i++)
+        if (input.Length > 4 && char.IsDigit(input[0]))
         {
-            if (input[i] == 'T' || input[i] == 't')
+            for (var i = 4; i < input.Length; i++)
             {
-                hasDateTimeSeparator = true;
-                break;
+                if (input[i] == 'T' || input[i] == 't')
+                {
+                    hasDateTimeSeparator = true;
+                    break;
+                }
             }
         }
 
@@ -1088,7 +1074,26 @@ internal sealed class ZonedDateTimeConstructor : Constructor
     }
 
     /// <summary>
-    /// Checks if an annotation key is valid (lowercase letters, digits, and hyphens only).
+    /// Per spec: determines if an offset string has sub-minute precision (contains seconds).
+    /// Used to set matchBehaviour to ~match-exactly~ vs ~match-minutes~.
+    /// https://tc39.es/proposal-temporal/#sec-temporal-totemporalzoneddatetime step 23-24
     /// </summary>
-    private readonly record struct ParsedZonedDateTimeResult(IsoDateTime? DateTime, string? TimeZone, string? Calendar, long? OffsetNanoseconds, bool HasUtcDesignator, string? Error);
+    private static bool HasOffsetSubMinutePrecision(string offsetStr)
+    {
+        // ±HH (3 chars) or ±HH:MM (6 chars) or ±HHMM (5 chars) = minute precision
+        // ±HH:MM:SS (9+ chars) or ±HHMMSS (7 chars) = sub-minute precision
+        if (offsetStr.Length <= 3)
+            return false; // ±HH
+
+        if (offsetStr[3] == ':')
+        {
+            // Colon format: ±HH:MM = 6 chars, ±HH:MM:SS = 9+ chars
+            return offsetStr.Length > 6;
+        }
+
+        // No-colon format: ±HHMM = 5 chars, ±HHMMSS = 7 chars
+        return offsetStr.Length > 5;
+    }
+
+    private readonly record struct ParsedZonedDateTimeResult(IsoDateTime? DateTime, string? TimeZone, string? Calendar, long? OffsetNanoseconds, bool HasUtcDesignator, bool OffsetHasSubMinutePrecision, bool TimeIsStartOfDay, string? Error);
 }

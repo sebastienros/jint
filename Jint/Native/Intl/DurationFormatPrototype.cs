@@ -1,6 +1,7 @@
 using System.Numerics;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
+using Jint.Native.Temporal;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -135,8 +136,30 @@ internal sealed class DurationFormatPrototype : Prototype
         // Per spec: if input is a string, try to parse it as a duration
         if (value.IsString())
         {
-            // String durations not yet supported - throw RangeError
-            Throw.RangeError(_realm, "Duration string parsing is not supported");
+            var parsed = TemporalHelpers.ParseDuration(value.ToString());
+            if (parsed is null)
+            {
+                Throw.RangeError(_realm, "Invalid duration string");
+                return default;
+            }
+
+            var dr = parsed.Value;
+            var record = new JsDurationFormat.DurationRecord
+            {
+                Years = dr.Years,
+                Months = dr.Months,
+                Weeks = dr.Weeks,
+                Days = dr.Days,
+                Hours = dr.Hours,
+                Minutes = dr.Minutes,
+                Seconds = dr.Seconds,
+                Milliseconds = dr.Milliseconds,
+                Microseconds = dr.Microseconds,
+                Nanoseconds = dr.Nanoseconds,
+            };
+
+            ValidateDurationRecord(record);
+            return record;
         }
 
         if (!value.IsObject())
@@ -145,6 +168,28 @@ internal sealed class DurationFormatPrototype : Prototype
         }
 
         var obj = value.AsObject();
+
+        // Fast path for Temporal.Duration objects - read internal slots directly
+        if (obj is JsDuration jsDuration)
+        {
+            var dr = jsDuration.DurationRecord;
+            var record = new JsDurationFormat.DurationRecord
+            {
+                Years = dr.Years,
+                Months = dr.Months,
+                Weeks = dr.Weeks,
+                Days = dr.Days,
+                Hours = dr.Hours,
+                Minutes = dr.Minutes,
+                Seconds = dr.Seconds,
+                Milliseconds = dr.Milliseconds,
+                Microseconds = dr.Microseconds,
+                Nanoseconds = dr.Nanoseconds,
+            };
+
+            ValidateDurationRecord(record);
+            return record;
+        }
 
         // Check if at least one duration property is defined and not undefined
         var hasDefinedProperty = false;
@@ -163,23 +208,25 @@ internal sealed class DurationFormatPrototype : Prototype
             Throw.TypeError(_realm, "Duration must have at least one duration property defined");
         }
 
-        var record = new JsDurationFormat.DurationRecord();
+        {
+            var record = new JsDurationFormat.DurationRecord();
 
-        record.Years = GetDurationComponent(obj, "years");
-        record.Months = GetDurationComponent(obj, "months");
-        record.Weeks = GetDurationComponent(obj, "weeks");
-        record.Days = GetDurationComponent(obj, "days");
-        record.Hours = GetDurationComponent(obj, "hours");
-        record.Minutes = GetDurationComponent(obj, "minutes");
-        record.Seconds = GetDurationComponent(obj, "seconds");
-        record.Milliseconds = GetDurationComponent(obj, "milliseconds");
-        record.Microseconds = GetDurationComponent(obj, "microseconds");
-        record.Nanoseconds = GetDurationComponent(obj, "nanoseconds");
+            record.Years = GetDurationComponent(obj, "years");
+            record.Months = GetDurationComponent(obj, "months");
+            record.Weeks = GetDurationComponent(obj, "weeks");
+            record.Days = GetDurationComponent(obj, "days");
+            record.Hours = GetDurationComponent(obj, "hours");
+            record.Minutes = GetDurationComponent(obj, "minutes");
+            record.Seconds = GetDurationComponent(obj, "seconds");
+            record.Milliseconds = GetDurationComponent(obj, "milliseconds");
+            record.Microseconds = GetDurationComponent(obj, "microseconds");
+            record.Nanoseconds = GetDurationComponent(obj, "nanoseconds");
 
-        // Validate the duration record per spec (IsValidDurationRecord)
-        ValidateDurationRecord(record);
+            // Validate the duration record per spec (IsValidDurationRecord)
+            ValidateDurationRecord(record);
 
-        return record;
+            return record;
+        }
     }
 
     private void ValidateDurationRecord(JsDurationFormat.DurationRecord record)

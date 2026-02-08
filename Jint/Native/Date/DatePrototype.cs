@@ -249,8 +249,9 @@ internal sealed class DatePrototype : Prototype
         }
 
         // Use Intl.DateTimeFormat for locale-aware formatting
+        // Pass UTC time; DTF handles timezone conversion based on its timeZone option
         var dateTimeFormat = (JsDateTimeFormat) Engine.Realm.Intrinsics.DateTimeFormat.Construct([locales, options], Engine.Realm.Intrinsics.DateTimeFormat);
-        return dateTimeFormat.Format(ToLocalTime(dateInstance));
+        return dateTimeFormat.Format(dateInstance.ToDateTime());
     }
 
     /// <summary>
@@ -287,8 +288,9 @@ internal sealed class DatePrototype : Prototype
         }
 
         // Use Intl.DateTimeFormat for locale-aware formatting
+        // Pass UTC time; DTF handles timezone conversion based on its timeZone option
         var dateTimeFormat = (JsDateTimeFormat) Engine.Realm.Intrinsics.DateTimeFormat.Construct([locales, options], Engine.Realm.Intrinsics.DateTimeFormat);
-        return dateTimeFormat.Format(ToLocalTime(dateInstance));
+        return dateTimeFormat.Format(dateInstance.ToDateTime());
     }
 
     /// <summary>
@@ -325,8 +327,9 @@ internal sealed class DatePrototype : Prototype
         }
 
         // Use Intl.DateTimeFormat for locale-aware formatting
+        // Pass UTC time; DTF handles timezone conversion based on its timeZone option
         var dateTimeFormat = (JsDateTimeFormat) Engine.Realm.Intrinsics.DateTimeFormat.Construct([locales, options], Engine.Realm.Intrinsics.DateTimeFormat);
-        return dateTimeFormat.Format(ToLocalTime(dateInstance));
+        return dateTimeFormat.Format(dateInstance.ToDateTime());
     }
 
     /// <summary>
@@ -341,14 +344,13 @@ internal sealed class DatePrototype : Prototype
             return false;
         }
 
-        // Check date-related properties
+        // Check date-related properties (era is intentionally not checked per spec)
         if (checkDate)
         {
             if (!options.Get("weekday").IsUndefined() ||
                 !options.Get("year").IsUndefined() ||
                 !options.Get("month").IsUndefined() ||
-                !options.Get("day").IsUndefined() ||
-                !options.Get("era").IsUndefined())
+                !options.Get("day").IsUndefined())
             {
                 return false;
             }
@@ -384,7 +386,7 @@ internal sealed class DatePrototype : Prototype
             // Date components
             "weekday", "era", "year", "month", "day",
             // Time components
-            "dayPeriod", "hour", "minute", "second", "fractionalSecondDigits"
+            "dayPeriod", "hour", "minute", "second", "fractionalSecondDigits", "timeZoneName"
         };
         foreach (var option in optionsToCopy)
         {

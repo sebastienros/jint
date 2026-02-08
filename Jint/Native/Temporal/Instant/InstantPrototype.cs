@@ -811,13 +811,26 @@ internal sealed class InstantPrototype : Prototype
     }
 
     /// <summary>
-    /// https://tc39.es/proposal-temporal/#sec-temporal.instant.prototype.tolocalestring
+    /// https://tc39.es/proposal-temporal/#sup-temporal.instant.prototype.tolocalestring
     /// </summary>
-    private JsString ToLocaleString(JsValue thisObject, JsCallArguments arguments)
+    private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
     {
         var instant = ValidateInstant(thisObject);
-        // For now, just return the ISO string representation
-        return new JsString(FormatInstant(instant.EpochNanoseconds, "UTC", -1));
+        var locales = arguments.At(0);
+        var options = arguments.At(1);
+
+        // Per spec: CreateDateTimeFormat with required=~any~, defaults=~all~
+        var dtf = _realm.Intrinsics.DateTimeFormat.CreateDateTimeFormat(
+            locales, options, required: Intl.DateTimeRequired.Any, defaults: Intl.DateTimeDefaults.All);
+
+        // Convert epoch nanoseconds to UTC DateTime (DTF will convert to its timezone)
+        const long nsPerTick = 100;
+        var ticks = (long) (instant.EpochNanoseconds / nsPerTick);
+        var unixEpochTicks = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc).Ticks;
+        var totalTicks = unixEpochTicks + ticks;
+        var dateTime = new DateTime(totalTicks, DateTimeKind.Utc);
+
+        return dtf.Format(dateTime);
     }
 
     /// <summary>

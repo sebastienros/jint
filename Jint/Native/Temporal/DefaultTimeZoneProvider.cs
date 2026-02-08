@@ -59,6 +59,14 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
         ["Europe/Dublin"] = "GMT Standard Time",
         ["Europe/Paris"] = "Romance Standard Time",
         ["CET"] = "Romance Standard Time", // IANA backward compatibility link
+        ["EET"] = "FLE Standard Time", // Eastern European Time (UTC+2)
+        ["MET"] = "Romance Standard Time", // Middle European Time (UTC+1)
+        ["WET"] = "GMT Standard Time", // Western European Time (UTC+0)
+        ["America/Ciudad_Juarez"] = "US Mountain Standard Time", // Added in TZDB 2022g
+        ["Antarctica/Troll"] = "W. Europe Standard Time", // UTC+0/+2 (approximation)
+        ["Antarctica/Vostok"] = "Qyzylorda Standard Time", // UTC+5 (since Dec 2023)
+        ["Asia/Urumqi"] = "Central Asia Standard Time", // UTC+6
+        ["Asia/Kashgar"] = "Central Asia Standard Time", // Link to Asia/Urumqi
         ["Europe/Berlin"] = "W. Europe Standard Time",
         ["Europe/Rome"] = "W. Europe Standard Time",
         ["Europe/Madrid"] = "Romance Standard Time",
@@ -112,6 +120,10 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
         ["GMT"] = "UTC",
     };
 
+    // Case-insensitive lookup mapping IANA IDs to their canonical casing.
+    // Built from IanaToWindows keys at static init time.
+    private static readonly Dictionary<string, string> IanaCanonicalCasing = BuildCanonicalCasingDict();
+
     /// <summary>
     /// Singleton instance of the default provider.
     /// </summary>
@@ -140,13 +152,16 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
             throw new ArgumentException($"Unknown time zone: {timeZoneId}", nameof(timeZoneId));
         }
 
-        var epochTicks = (long) (epochNanoseconds / NanosecondsPerTick) + UnixEpochTicks;
+        var bigTicks = epochNanoseconds / NanosecondsPerTick + UnixEpochTicks;
 
-        // Clamp to valid .NET DateTime range
-        if (epochTicks < DateTime.MinValue.Ticks)
+        // Clamp to valid .NET DateTime range (using BigInteger comparison to avoid overflow)
+        long epochTicks;
+        if (bigTicks < DateTime.MinValue.Ticks)
             epochTicks = DateTime.MinValue.Ticks;
-        if (epochTicks > DateTime.MaxValue.Ticks)
+        else if (bigTicks > DateTime.MaxValue.Ticks)
             epochTicks = DateTime.MaxValue.Ticks;
+        else
+            epochTicks = (long) bigTicks;
 
         var utcDateTime = new DateTime(epochTicks, DateTimeKind.Utc);
         var offset = tz.GetUtcOffset(utcDateTime);
@@ -216,8 +231,8 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
                         year, month, day, hour, minute, second, millisecond, microsecond, nanosecond, offsets[i]);
                 }
 
-                // Sort by offset (earlier offset = later instant)
-                System.Array.Sort(results, (a, b) => b.CompareTo(a));
+                // Sort ascending (earliest epoch nanosecond first) per spec
+                System.Array.Sort(results);
                 return results;
             }
 
@@ -257,13 +272,13 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
             return null;
         }
 
-        var epochTicks = (long) (epochNanoseconds / NanosecondsPerTick) + UnixEpochTicks;
-        if (epochTicks < DateTime.MinValue.Ticks || epochTicks > DateTime.MaxValue.Ticks)
+        var bigTicksNext = epochNanoseconds / NanosecondsPerTick + UnixEpochTicks;
+        if (bigTicksNext < DateTime.MinValue.Ticks || bigTicksNext > DateTime.MaxValue.Ticks)
         {
             return null;
         }
 
-        var currentUtc = new DateTime(epochTicks, DateTimeKind.Utc);
+        var currentUtc = new DateTime((long) bigTicksNext, DateTimeKind.Utc);
 
         // Find the next transition - this is an approximation
         foreach (var rule in adjustmentRules)
@@ -325,13 +340,13 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
             return null;
         }
 
-        var epochTicks = (long) (epochNanoseconds / NanosecondsPerTick) + UnixEpochTicks;
-        if (epochTicks < DateTime.MinValue.Ticks || epochTicks > DateTime.MaxValue.Ticks)
+        var bigTicksPrev = epochNanoseconds / NanosecondsPerTick + UnixEpochTicks;
+        if (bigTicksPrev < DateTime.MinValue.Ticks || bigTicksPrev > DateTime.MaxValue.Ticks)
         {
             return null;
         }
 
-        var currentUtc = new DateTime(epochTicks, DateTimeKind.Utc);
+        var currentUtc = new DateTime((long) bigTicksPrev, DateTimeKind.Utc);
         BigInteger? lastTransition = null;
 
         foreach (var rule in adjustmentRules)
@@ -424,13 +439,54 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
         if (string.IsNullOrEmpty(timeZoneId))
             return null;
 
-        // Handle UTC variants
-        if (timeZoneId.Equals("UTC", StringComparison.OrdinalIgnoreCase) ||
-            timeZoneId.Equals("Etc/UTC", StringComparison.OrdinalIgnoreCase) ||
-            timeZoneId.Equals("Etc/GMT", StringComparison.OrdinalIgnoreCase) ||
-            timeZoneId.Equals("GMT", StringComparison.OrdinalIgnoreCase))
+        // Handle UTC variants - preserve the original identifier per spec
+        // TimeZoneEquals handles comparing different UTC names
+        if (timeZoneId.Equals("UTC", StringComparison.OrdinalIgnoreCase))
         {
             return "UTC";
+        }
+
+        if (timeZoneId.Equals("Etc/UTC", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Etc/UTC";
+        }
+
+        if (timeZoneId.Equals("Etc/GMT", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Etc/GMT";
+        }
+
+        if (timeZoneId.Equals("GMT", StringComparison.OrdinalIgnoreCase))
+        {
+            return "GMT";
+        }
+
+        // Handle Etc/GMT+N and Etc/GMT-N timezone identifiers (case-insensitive)
+        // These are IANA names, not offset strings. Valid: Etc/GMT-0..Etc/GMT-14, Etc/GMT+0..Etc/GMT+12
+        // Invalid: zero-padded like Etc/GMT-01, Etc/GMT+00, out of range like Etc/GMT-24
+        if (timeZoneId.StartsWith("Etc/GMT", StringComparison.OrdinalIgnoreCase) && timeZoneId.Length > 7)
+        {
+            var suffix = timeZoneId.Substring(7);
+            if ((suffix[0] == '+' || suffix[0] == '-') && suffix.Length >= 2 && suffix.Length <= 3)
+            {
+                // Reject zero-padded: if 2 digits and first is 0 (e.g., +01, -09, +00)
+                if (suffix.Length == 3 && suffix[1] == '0')
+                {
+                    return null;
+                }
+
+                if (int.TryParse(suffix.AsSpan(1), System.Globalization.NumberStyles.Integer,
+                        System.Globalization.CultureInfo.InvariantCulture, out var offset))
+                {
+                    var maxOffset = suffix[0] == '-' ? 14 : 12;
+                    if (offset >= 0 && offset <= maxOffset)
+                    {
+                        return $"Etc/GMT{suffix}";
+                    }
+                }
+            }
+
+            return null;
         }
 
         // Handle offset strings
@@ -490,10 +546,10 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
         }
 
         // On Windows, try to find IANA ID
-        // First check if input was already IANA
-        if (IanaToWindows.ContainsKey(timeZoneId))
+        // First check if input was already IANA (case-insensitive match)
+        if (IanaCanonicalCasing.TryGetValue(timeZoneId, out var canonicalIana))
         {
-            return timeZoneId;
+            return canonicalIana;
         }
 
         // Try reverse lookup
@@ -557,6 +613,63 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
         return local.Id;
     }
 
+    /// <summary>
+    /// Gets the primary IANA identifier for a timezone, resolving aliases.
+    /// E.g., "Asia/Calcutta" → "Asia/Kolkata", "America/Atka" → "America/Adak".
+    /// </summary>
+    public string? GetPrimaryTimeZoneIdentifier(string timeZoneId)
+    {
+        if (string.IsNullOrEmpty(timeZoneId))
+        {
+            return null;
+        }
+
+        // UTC variants all map to "UTC"
+        if (timeZoneId.Equals("UTC", StringComparison.OrdinalIgnoreCase) ||
+            timeZoneId.Equals("Etc/UTC", StringComparison.OrdinalIgnoreCase) ||
+            timeZoneId.Equals("Etc/GMT", StringComparison.OrdinalIgnoreCase) ||
+            timeZoneId.Equals("Etc/UCT", StringComparison.OrdinalIgnoreCase) ||
+            timeZoneId.Equals("Etc/GMT0", StringComparison.OrdinalIgnoreCase) ||
+            timeZoneId.Equals("Etc/GMT+0", StringComparison.OrdinalIgnoreCase) ||
+            timeZoneId.Equals("Etc/GMT-0", StringComparison.OrdinalIgnoreCase) ||
+            timeZoneId.Equals("Etc/Greenwich", StringComparison.OrdinalIgnoreCase) ||
+            timeZoneId.Equals("Etc/Universal", StringComparison.OrdinalIgnoreCase) ||
+            timeZoneId.Equals("Etc/Zulu", StringComparison.OrdinalIgnoreCase) ||
+            timeZoneId.Equals("UCT", StringComparison.OrdinalIgnoreCase) ||
+            timeZoneId.Equals("GMT", StringComparison.OrdinalIgnoreCase) ||
+            timeZoneId.Equals("GMT+0", StringComparison.OrdinalIgnoreCase) ||
+            timeZoneId.Equals("GMT-0", StringComparison.OrdinalIgnoreCase) ||
+            timeZoneId.Equals("GMT0", StringComparison.OrdinalIgnoreCase) ||
+            timeZoneId.Equals("Greenwich", StringComparison.OrdinalIgnoreCase) ||
+            timeZoneId.Equals("Universal", StringComparison.OrdinalIgnoreCase) ||
+            timeZoneId.Equals("Zulu", StringComparison.OrdinalIgnoreCase))
+        {
+            return "UTC";
+        }
+
+        // Offset strings are their own primary identifier
+        if (timeZoneId.Length >= 3 && (timeZoneId[0] == '+' || timeZoneId[0] == '-'))
+        {
+            return CanonicalizeTimeZone(timeZoneId);
+        }
+
+#if NET6_0_OR_GREATER
+        // Use .NET's IANA→Windows mapping to find the primary identifier
+        // Both "Asia/Calcutta" and "Asia/Kolkata" map to "India Standard Time"
+        // Then convert back to get the primary IANA name
+        if (TimeZoneInfo.TryConvertIanaIdToWindowsId(timeZoneId, out var windowsId))
+        {
+            if (TimeZoneInfo.TryConvertWindowsIdToIanaId(windowsId, out var primaryId))
+            {
+                return primaryId;
+            }
+        }
+#endif
+
+        // Fallback: resolve and return canonicalized form
+        return CanonicalizeTimeZone(timeZoneId);
+    }
+
     private TimeZoneInfo? ResolveTimeZone(string timeZoneId)
     {
         return _timeZoneCache.GetOrAdd(timeZoneId, id =>
@@ -590,6 +703,13 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
                 return TimeZoneInfo.CreateCustomTimeZone(id, roundedOffset, id, id);
             }
 
+            // On Windows, .NET resolves non-IANA identifiers (Java abbreviations like ACT, BST, etc.)
+            // Reject identifiers that don't follow IANA naming conventions
+            if (!IsValidIanaIdentifier(id))
+            {
+                return null;
+            }
+
             // Try direct lookup first
             try
             {
@@ -600,7 +720,7 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
                 // Continue to mapping
             }
 
-            // Try IANA to Windows mapping
+            // Try IANA to Windows mapping (case-insensitive via dictionary comparer)
             if (IsWindowsPlatform() &&
                 IanaToWindows.TryGetValue(id, out var windowsId))
             {
@@ -613,6 +733,17 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
                     // Continue
                 }
             }
+
+#if NET6_0_OR_GREATER
+            // Case-insensitive fallback: try all system timezones
+            foreach (var systemTz in TimeZoneInfo.GetSystemTimeZones())
+            {
+                if (string.Equals(systemTz.Id, id, StringComparison.OrdinalIgnoreCase))
+                {
+                    return systemTz;
+                }
+            }
+#endif
 
             return null;
         });
@@ -709,11 +840,63 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
         return totalNs;
     }
 
+    private static Dictionary<string, string> BuildCanonicalCasingDict()
+    {
+        var dict = new Dictionary<string, string>(IanaToWindows.Count, StringComparer.OrdinalIgnoreCase);
+        foreach (var key in IanaToWindows.Keys)
+        {
+            dict[key] = key;
+        }
+
+#if NET6_0_OR_GREATER
+        // Also add system timezone IDs (on .NET 6+ these include IANA IDs)
+        foreach (var tz in TimeZoneInfo.GetSystemTimeZones())
+        {
+            if (!dict.ContainsKey(tz.Id))
+            {
+                dict[tz.Id] = tz.Id;
+            }
+        }
+#endif
+
+        return dict;
+    }
+
     private static long DaysSinceEpoch(int year, int month, int day)
     {
         // Use the same algorithm as TemporalHelpers.IsoDateToDays for consistency
         return TemporalHelpers.IsoDateToDays(year, month, day);
     }
+
+    /// <summary>
+    /// Validates that a timezone identifier follows IANA naming conventions.
+    /// Rejects Java/ICU-specific abbreviations like ACT, BST, JST that .NET may resolve.
+    /// </summary>
+    private static bool IsValidIanaIdentifier(string id)
+    {
+        // IDs containing '/' are Area/Location format (always valid IANA)
+        if (id.Contains('/'))
+        {
+            return true;
+        }
+
+        // IDs containing digits with letters (like EST5EDT, CST6CDT) are IANA compound TZ names
+        // Known single-word IANA identifiers (Zone and Link names from TZDB)
+        return s_validSingleWordIanaIds.Contains(id);
+    }
+
+    private static readonly HashSet<string> s_validSingleWordIanaIds = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "CET", "CST6CDT", "EET", "EST", "EST5EDT", "HST",
+        "MET", "MST", "MST7MDT", "PST8PDT", "WET",
+        "GMT", "GMT0", "GMT+0", "GMT-0", "UTC", "UCT",
+        "Universal", "Greenwich", "Zulu", "W-SU",
+        "Cuba", "Egypt", "Eire", "GB", "GB-Eire",
+        "Hongkong", "Iceland", "Iran", "Israel", "Jamaica",
+        "Japan", "Kwajalein", "Libya", "NZ", "NZ-CHAT",
+        "Navajo", "PRC", "Poland", "Portugal", "ROC", "ROK",
+        "Singapore", "Turkey",
+    };
 
     private static DateTime GetTransitionDateTime(TimeZoneInfo.TransitionTime transition, int year)
     {

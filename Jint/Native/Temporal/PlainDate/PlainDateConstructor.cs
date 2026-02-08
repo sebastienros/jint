@@ -89,7 +89,7 @@ internal sealed class PlainDateConstructor : Constructor
 
     private JsPlainDate ToTemporalDateFromObjectWithOptions(ObjectInstance obj, JsValue options)
     {
-        // Read and convert properties in alphabetical order per spec: calendar, day, month, monthCode, year
+        // Read and convert properties in alphabetical order per spec: calendar, day, era, eraYear, month, monthCode, year
         // Each property must be fully read and converted before moving to the next
 
         // 1. calendar
@@ -110,6 +110,9 @@ internal sealed class PlainDateConstructor : Constructor
         }
 
         var day = TemporalHelpers.ToPositiveIntegerWithTruncation(_realm, dayValue);
+
+        // 2.5. era/eraYear - read for era-supporting calendars (alphabetically between day and month)
+        var eraYear = TemporalHelpers.ReadEraFields(_realm, obj, calendar);
 
         // 3. month - read and convert immediately
         var monthValue = obj.Get("month");
@@ -167,14 +170,25 @@ internal sealed class PlainDateConstructor : Constructor
             month = monthFromCode;
         }
 
-        // 5. year - read and convert immediately (TYPE validation happens here)
-        var yearValue = obj.Get("year");
-        if (yearValue.IsUndefined())
+        // 5. year - use eraYear if computed, otherwise read from property
+        int year;
+        if (eraYear.HasValue)
         {
-            Throw.TypeError(_realm, "Missing required property: year");
+            // Year was already computed from era/eraYear
+            year = eraYear.Value;
+            // Still read the year property for observable side effects, but don't require it
+            obj.Get("year");
         }
+        else
+        {
+            var yearValue = obj.Get("year");
+            if (yearValue.IsUndefined())
+            {
+                Throw.TypeError(_realm, "Missing required property: year");
+            }
 
-        var year = TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearValue);
+            year = TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearValue);
+        }
 
         // 6. Read options AFTER all fields (but BEFORE algorithmic validation)
         var overflow = TemporalHelpers.GetOverflowOption(_realm, options);
@@ -344,6 +358,9 @@ internal sealed class PlainDateConstructor : Constructor
 
         var day = TemporalHelpers.ToPositiveIntegerWithTruncation(_realm, dayValue);
 
+        // 2.5. era/eraYear - read for era-supporting calendars
+        var eraYear = TemporalHelpers.ReadEraFields(_realm, obj, calendar);
+
         // 3. month - read and convert immediately
         var monthValue = obj.Get("month");
         int month = 0;
@@ -400,14 +417,23 @@ internal sealed class PlainDateConstructor : Constructor
             }
         }
 
-        // 5. year - read and convert immediately
-        var yearValue = obj.Get("year");
-        if (yearValue.IsUndefined())
+        // 5. year - use eraYear if computed, otherwise read from property
+        int year;
+        if (eraYear.HasValue)
         {
-            Throw.TypeError(_realm, "Missing required property: year");
+            year = eraYear.Value;
+            obj.Get("year");
         }
+        else
+        {
+            var yearValue = obj.Get("year");
+            if (yearValue.IsUndefined())
+            {
+                Throw.TypeError(_realm, "Missing required property: year");
+            }
 
-        var year = TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearValue);
+            year = TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearValue);
+        }
 
         // Validate: both month and monthCode provided - they must match
         if (month != 0 && monthFromCode.HasValue && month != monthFromCode.Value)

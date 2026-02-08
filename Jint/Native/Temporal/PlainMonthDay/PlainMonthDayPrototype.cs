@@ -153,6 +153,13 @@ internal sealed class PlainMonthDayPrototype : Prototype
         // Read options BEFORE any validation (per spec)
         var overflow = TemporalHelpers.GetOverflowOption(_realm, optionsArg);
 
+        // For non-ISO calendars, monthCode is required when month is provided
+        if (!string.Equals(md.Calendar, "iso8601", StringComparison.Ordinal) &&
+            !monthProp.IsUndefined() && monthCodeProp.IsUndefined())
+        {
+            Throw.TypeError(_realm, "monthCode is required for non-ISO calendars");
+        }
+
         // NOW validate monthCode (after options are read)
         int? monthFromCode = null;
         if (monthCode is not null)
@@ -224,19 +231,32 @@ internal sealed class PlainMonthDayPrototype : Prototype
         var options = TemporalHelpers.GetOptionsObject(_realm, optionsValue);
         var showCalendar = GetCalendarNameOption(options);
 
-        // Include the reference year when calendar is shown
-        // Per spec: YYYY-MM-DD format with calendar annotation
-        var includeYear = string.Equals(showCalendar, "always", StringComparison.Ordinal) ||
-                          string.Equals(showCalendar, "critical", StringComparison.Ordinal) ||
-                          (string.Equals(showCalendar, "auto", StringComparison.Ordinal) &&
-                           !string.Equals(md.Calendar, "iso8601", StringComparison.Ordinal));
+        // For non-ISO calendars, always include the year (month-day alone is ambiguous)
+        // The year is needed regardless of calendarName option
+        var isNonIsoCalendar = !string.Equals(md.Calendar, "iso8601", StringComparison.Ordinal);
+
+        // Include the calendar annotation based on the calendarName option
+        var includeCalendar = string.Equals(showCalendar, "always", StringComparison.Ordinal) ||
+                              string.Equals(showCalendar, "critical", StringComparison.Ordinal) ||
+                              (string.Equals(showCalendar, "auto", StringComparison.Ordinal) && isNonIsoCalendar);
+
+        // Include year for non-ISO calendar or when calendar annotation is shown
+        var includeYear = isNonIsoCalendar || includeCalendar;
 
         string result;
         if (includeYear)
         {
-            // Add critical flag (!) if showCalendar is "critical"
-            var criticalFlag = string.Equals(showCalendar, "critical", StringComparison.Ordinal) ? "!" : "";
-            result = $"{md.IsoDate.Year:D4}-{md.IsoDate.Month:D2}-{md.IsoDate.Day:D2}[{criticalFlag}u-ca={md.Calendar}]";
+            var yearStr = TemporalHelpers.PadIsoYear(md.IsoDate.Year);
+            if (includeCalendar)
+            {
+                // Add critical flag (!) if showCalendar is "critical"
+                var criticalFlag = string.Equals(showCalendar, "critical", StringComparison.Ordinal) ? "!" : "";
+                result = $"{yearStr}-{md.IsoDate.Month:D2}-{md.IsoDate.Day:D2}[{criticalFlag}u-ca={md.Calendar}]";
+            }
+            else
+            {
+                result = $"{yearStr}-{md.IsoDate.Month:D2}-{md.IsoDate.Day:D2}";
+            }
         }
         else
         {
@@ -252,17 +272,38 @@ internal sealed class PlainMonthDayPrototype : Prototype
     private JsString ToJSON(JsValue thisObject, JsCallArguments arguments)
     {
         var md = ValidatePlainMonthDay(thisObject);
+        // toJSON uses "auto" for calendarName: include year+calendar for non-ISO
+        if (!string.Equals(md.Calendar, "iso8601", StringComparison.Ordinal))
+        {
+            var yearStr = TemporalHelpers.PadIsoYear(md.IsoDate.Year);
+            return new JsString($"{yearStr}-{md.IsoDate.Month:D2}-{md.IsoDate.Day:D2}[u-ca={md.Calendar}]");
+        }
+
         return new JsString($"{md.IsoDate.Month:D2}-{md.IsoDate.Day:D2}");
     }
 
     /// <summary>
-    /// https://tc39.es/proposal-temporal/#sec-temporal.plainmonthday.prototype.tolocalestring
+    /// https://tc39.es/proposal-temporal/#sup-temporal.plainmonthday.prototype.tolocalestring
     /// </summary>
-    private JsString ToLocaleString(JsValue thisObject, JsCallArguments arguments)
+    private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
     {
         var md = ValidatePlainMonthDay(thisObject);
-        // For now, just return MM-DD format
-        return new JsString($"{md.IsoDate.Month:D2}-{md.IsoDate.Day:D2}");
+        var locales = arguments.At(0);
+        var options = arguments.At(1);
+
+        // Per spec: CreateDateTimeFormat with required=~date~, defaults=~date~
+        // But for PlainMonthDay, we use month-day specific defaults (no year)
+        var dtf = _realm.Intrinsics.DateTimeFormat.CreateDateTimeFormat(
+            locales, options, required: Intl.DateTimeRequired.Date, defaults: Intl.DateTimeDefaults.MonthDay);
+
+        // Calendar mismatch check: PlainMonthDay calendar must match DTF calendar exactly
+        var cal = md.Calendar;
+        if (dtf.Calendar != null && !string.Equals(cal, dtf.Calendar, StringComparison.Ordinal))
+        {
+            Throw.RangeError(_realm, $"Calendar mismatch: PlainMonthDay uses '{cal}' but DateTimeFormat uses '{dtf.Calendar}'");
+        }
+
+        return dtf.Format(new DateTime(md.IsoDate.Year, md.IsoDate.Month, md.IsoDate.Day, 12, 0, 0, DateTimeKind.Unspecified), isPlain: true);
     }
 
     /// <summary>
@@ -288,13 +329,27 @@ internal sealed class PlainMonthDayPrototype : Prototype
         }
 
         var obj = item.AsObject();
-        var yearProp = obj.Get("year");
-        if (yearProp.IsUndefined())
+
+        // Read era/eraYear for era-supporting calendars (alphabetically before year)
+        var eraYear = TemporalHelpers.ReadEraFields(_realm, obj, md.Calendar);
+
+        int year;
+        if (eraYear.HasValue)
         {
-            Throw.TypeError(_realm, "year is required");
+            year = eraYear.Value;
+            obj.Get("year");
+        }
+        else
+        {
+            var yearProp = obj.Get("year");
+            if (yearProp.IsUndefined())
+            {
+                Throw.TypeError(_realm, "year is required");
+            }
+
+            year = TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearProp);
         }
 
-        var year = TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearProp);
         var date = TemporalHelpers.RegulateIsoDate(year, md.IsoDate.Month, md.IsoDate.Day, "constrain");
         if (date is null)
         {

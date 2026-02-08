@@ -204,6 +204,9 @@ internal sealed class PlainMonthDayConstructor : Constructor
 
         var day = TemporalHelpers.ToPositiveIntegerWithTruncation(_realm, dayValue);
 
+        // 2.5. era/eraYear - read for era-supporting calendars (alphabetically between day and month)
+        var eraYear = TemporalHelpers.ReadEraFields(_realm, obj, calendar);
+
         // 3. month - read and convert immediately
         var monthValue = obj.Get("month");
         int month = 0;
@@ -249,9 +252,20 @@ internal sealed class PlainMonthDayConstructor : Constructor
             monthFromCode = TemporalHelpers.ParseMonthCode(_realm, monthCodeStr);
         }
 
-        // 5. year - read and convert immediately (TYPE validation happens here)
-        var yearValue = obj.Get("year");
-        var year = yearValue.IsUndefined() ? 1972 : TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearValue);
+        // 5. year - use eraYear if computed, otherwise read from property
+        int year;
+        var yearExplicitlyProvided = eraYear.HasValue;
+        if (eraYear.HasValue)
+        {
+            year = eraYear.Value;
+            obj.Get("year");
+        }
+        else
+        {
+            var yearValue = obj.Get("year");
+            yearExplicitlyProvided = !yearValue.IsUndefined();
+            year = yearValue.IsUndefined() ? 1972 : TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearValue);
+        }
 
         // 6. Read options.overflow AFTER all fields (but BEFORE algorithmic validation)
         var overflow = optionsValue.IsUndefined() ? "constrain" : TemporalHelpers.GetOverflowOption(_realm, optionsValue);
@@ -272,6 +286,13 @@ internal sealed class PlainMonthDayConstructor : Constructor
         }
 
         // Now validate and combine month/monthCode
+        // For non-ISO calendars, monthCode is required unless year is explicitly provided
+        // (month alone is ambiguous in calendars with leap months)
+        if (!string.Equals(calendar, "iso8601", StringComparison.Ordinal) && monthCodeStr is null && !yearExplicitlyProvided)
+        {
+            Throw.TypeError(_realm, "monthCode is required for non-ISO calendars when year is not provided");
+        }
+
         // Validate: both month and monthCode provided - they must match
         if (month != 0 && monthFromCode.HasValue && month != monthFromCode.Value)
         {
@@ -317,7 +338,15 @@ internal sealed class PlainMonthDayConstructor : Constructor
             // Annotation parsing error
             return null;
         }
-        // Note: calendar is ignored for PlainMonthDay (always uses iso8601)
+        // If a calendar annotation is present and it's not iso8601, reject the string
+        if (calendar is not null)
+        {
+            var canonical = TemporalHelpers.CanonicalizeCalendar(calendar);
+            if (canonical is null || !string.Equals(canonical, "iso8601", StringComparison.Ordinal))
+            {
+                return null;
+            }
+        }
 
         // PlainMonthDay cannot have UTC designator
         if (coreString.Contains('Z'))
