@@ -46,7 +46,7 @@ public sealed class ClrFunction : Function, IEquatable<ClrFunction>
         {
             if (_engine.Options.Interop.ExceptionHandler(e))
             {
-                Throw.JavaScriptException(_realm.Intrinsics.Error, e.Message);
+                Throw.FromClrException(_engine, e);
             }
             else
             {

@@ -207,6 +207,20 @@ public static class OptionsExtensions
         return options;
     }
 
+    /// <summary>
+    /// Sets a decorator function that is called after a JavaScript error object is created from a CLR exception.
+    /// The decorator can add custom properties, modify the error message, or enrich the error with additional context.
+    /// This is only called when <see cref="CatchClrExceptions(Options)"/> is enabled and the exception is caught.
+    /// </summary>
+    /// <param name="options">The engine options.</param>
+    /// <param name="decorator">A function that receives the engine, the created error object, and the original CLR exception.</param>
+    /// <returns>The options instance for fluent configuration.</returns>
+    public static Options DecorateClrExceptionErrors(this Options options, Options.ClrExceptionErrorDecoratorDelegate decorator)
+    {
+        options.Interop.ClrExceptionErrorDecorator = decorator;
+        return options;
+    }
+
     public static Options Constraint(this Options options, Constraint constraint)
     {
         if (constraint != null)

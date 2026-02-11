@@ -30,6 +30,8 @@ public class Options
 
     public delegate bool ExceptionHandlerDelegate(Exception exception);
 
+    public delegate void ClrExceptionErrorDecoratorDelegate(Engine engine, ObjectInstance error, Exception exception);
+
     public delegate string? BuildCallStackDelegate(string shortDescription, SourceLocation location, string[]? arguments);
 
     public delegate string SerializeToJsonDelegate(object? target, string space, string? currentIndent);
@@ -337,6 +339,13 @@ public class Options
         /// to JS errors that can be caught by the script.
         /// </summary>
         public ExceptionHandlerDelegate ExceptionHandler { get; set; } = _defaultExceptionHandler;
+
+        /// <summary>
+        /// Called after a JavaScript error object is created from a CLR exception (when <see cref="ExceptionHandler"/> returns true).
+        /// Allows decorating the error object with additional properties or modifying its state.
+        /// The decorator receives the engine instance, the created error object, and the original CLR exception.
+        /// </summary>
+        public ClrExceptionErrorDecoratorDelegate? ClrExceptionErrorDecorator { get; set; }
 
         /// <summary>
         /// Assemblies to allow scripts to call CLR types directly like <example>System.IO.File</example>.

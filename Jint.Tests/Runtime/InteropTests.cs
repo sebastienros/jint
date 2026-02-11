@@ -2319,6 +2319,134 @@ public partial class InteropTests : IDisposable
     }
 
     [Fact]
+    public void ShouldDecorateClrExceptionErrors()
+    {
+        var exceptionMessage = "Test exception";
+        var decoratorCalled = false;
+        Exception capturedOriginalException = null;
+
+        var engine = new Engine(options =>
+        {
+            options.CatchClrExceptions();
+            options.DecorateClrExceptionErrors((engine, error, clrException) =>
+            {
+                decoratorCalled = true;
+                capturedOriginalException = clrException;
+                
+                // Add custom property
+                error.Set("clrType", clrException.GetType().FullName);
+                error.Set("customProperty", "decorated");
+                
+                // Modify existing property
+                var currentMessage = error.Get("message").ToString();
+                error.Set("message", $"[Decorated] {currentMessage}");
+            });
+        });
+
+        engine.SetValue("throwException", new Action(() => { throw new InvalidOperationException(exceptionMessage); }));
+
+        var result = engine.Evaluate(@"
+            let caughtError;
+            try {
+                throwException();
+            } catch(e) {
+                caughtError = e;
+            }
+            caughtError;
+        ");
+
+        Assert.True(decoratorCalled, "Decorator should have been called");
+        Assert.NotNull(capturedOriginalException);
+        Assert.IsType<InvalidOperationException>(capturedOriginalException);
+        Assert.Equal(exceptionMessage, capturedOriginalException.Message);
+        
+        var errorObject = result.AsObject();
+        Assert.Equal("decorated", errorObject.Get("customProperty").AsString());
+        Assert.Equal("System.InvalidOperationException", errorObject.Get("clrType").AsString());
+        Assert.Equal($"[Decorated] {exceptionMessage}", errorObject.Get("message").AsString());
+    }
+
+    [Fact]
+    public void ShouldDecorateClrExceptionErrorsFromMemberCalls()
+    {
+        var decoratorCallCount = 0;
+
+        var engine = new Engine(options =>
+        {
+            options.AllowClr();
+            options.CatchClrExceptions();
+            options.DecorateClrExceptionErrors((engine, error, clrException) =>
+            {
+                decoratorCallCount++;
+                error.Set("exceptionType", clrException.GetType().Name);
+            });
+        });
+
+        engine.SetValue("instance", new MemberExceptionTest(false));
+
+        engine.Execute(@"
+            try {
+                instance.ThrowingFunction();
+            } catch(e) {
+                if (e.exceptionType !== 'InvalidOperationException') {
+                    throw new Error('Expected exceptionType to be InvalidOperationException');
+                }
+            }
+        ");
+
+        Assert.Equal(1, decoratorCallCount);
+    }
+
+    [Fact]
+    public void ShouldNotCallDecoratorWhenExceptionNotCaught()
+    {
+        var decoratorCalled = false;
+
+        var engine = new Engine(options =>
+        {
+            options.CatchClrExceptions(e => e is NotSupportedException);
+            options.DecorateClrExceptionErrors((engine, error, clrException) =>
+            {
+                decoratorCalled = true;
+            });
+        });
+
+        engine.SetValue("throwException", new Action(() => { throw new InvalidOperationException(); }));
+
+        // Should throw because InvalidOperationException is not caught
+        Assert.Throws<InvalidOperationException>(() => engine.Evaluate("throwException()"));
+        Assert.False(decoratorCalled, "Decorator should not be called when exception is not caught");
+    }
+
+    [Fact]
+    public void DecoratorCanAccessEngineContext()
+    {
+        var engine = new Engine(options =>
+        {
+            options.CatchClrExceptions();
+            options.DecorateClrExceptionErrors((engine, error, clrException) =>
+            {
+                // Decorator can access engine and add context from it
+                error.Set("hasRealm", engine.Realm != null);
+                error.Set("timestamp", DateTime.UtcNow.ToString("o"));
+            });
+        });
+
+        engine.SetValue("throwException", new Action(() => { throw new Exception("test"); }));
+
+        var result = engine.Evaluate(@"
+            try {
+                throwException();
+            } catch(e) {
+                return { hasRealm: e.hasRealm, hasTimestamp: e.timestamp !== undefined };
+            }
+        ").AsObject();
+
+        Assert.True(result.Get("hasRealm").AsBoolean());
+        Assert.True(result.Get("hasTimestamp").AsBoolean());
+    }
+
+    [Fact]
     public void ArrayFromShouldConvertListToArrayLike()
     {
         var list = new List<Person>
