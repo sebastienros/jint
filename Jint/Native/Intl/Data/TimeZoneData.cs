@@ -65,13 +65,14 @@ internal static class TimeZoneData
         "America/St_Johns", "America/Swift_Current", "America/Tegucigalpa",
         "America/Thule", "America/Tijuana", "America/Toronto", "America/Vancouver",
         "America/Whitehorse", "America/Winnipeg", "America/Yakutat",
-        "America/Yellowknife",
+        // Note: America/Yellowknife is a Link to America/Edmonton since IANA TZDB 2022b
         "Antarctica/Casey", "Antarctica/Davis", "Antarctica/Macquarie",
         "Antarctica/Mawson", "Antarctica/Palmer", "Antarctica/Rothera",
         "Antarctica/Troll",
         "Asia/Almaty", "Asia/Amman", "Asia/Anadyr", "Asia/Aqtau", "Asia/Aqtobe",
         "Asia/Ashgabat", "Asia/Atyrau", "Asia/Baghdad", "Asia/Baku", "Asia/Bangkok",
-        "Asia/Barnaul", "Asia/Beirut", "Asia/Bishkek", "Asia/Chita", "Asia/Choibalsan",
+        "Asia/Barnaul", "Asia/Beirut", "Asia/Bishkek", "Asia/Chita",
+        // Note: Asia/Choibalsan is a Link to Asia/Ulaanbaatar since IANA TZDB 2022b
         "Asia/Colombo", "Asia/Damascus", "Asia/Dhaka", "Asia/Dili", "Asia/Dubai",
         "Asia/Dushanbe", "Asia/Famagusta", "Asia/Gaza", "Asia/Hebron",
         "Asia/Ho_Chi_Minh", "Asia/Hong_Kong", "Asia/Hovd", "Asia/Irkutsk",
@@ -94,7 +95,8 @@ internal static class TimeZoneData
         "Australia/Darwin", "Australia/Eucla", "Australia/Hobart",
         "Australia/Lindeman", "Australia/Lord_Howe", "Australia/Melbourne",
         "Australia/Perth", "Australia/Sydney",
-        "CET", "CST6CDT", "EET", "EST", "EST5EDT",
+        // Note: CET, CST6CDT, EET, EST, EST5EDT, HST, MET, MST, MST7MDT, PST8PDT, WET
+        // are Links in modern IANA TZDB (canonical-tz) - not included in supportedValuesOf
         // Note: Etc/GMT and Etc/UTC are NOT canonical - they are valid identifiers
         // but canonicalize to UTC for supportedValuesOf purposes
         "Etc/GMT+1", "Etc/GMT+10", "Etc/GMT+11", "Etc/GMT+12",
@@ -113,10 +115,7 @@ internal static class TimeZoneData
         "Europe/Simferopol", "Europe/Sofia", "Europe/Tallinn", "Europe/Tirane",
         "Europe/Ulyanovsk", "Europe/Vienna", "Europe/Vilnius", "Europe/Volgograd",
         "Europe/Warsaw", "Europe/Zurich",
-        "HST",
         "Indian/Chagos", "Indian/Maldives", "Indian/Mauritius",
-        "MET", "MST", "MST7MDT",
-        "PST8PDT",
         "Pacific/Apia", "Pacific/Auckland", "Pacific/Bougainville",
         "Pacific/Chatham", "Pacific/Easter", "Pacific/Efate", "Pacific/Fakaofo",
         "Pacific/Fiji", "Pacific/Galapagos", "Pacific/Gambier",
@@ -126,8 +125,7 @@ internal static class TimeZoneData
         "Pacific/Noumea", "Pacific/Pago_Pago", "Pacific/Palau", "Pacific/Pitcairn",
         "Pacific/Port_Moresby", "Pacific/Rarotonga", "Pacific/Tahiti",
         "Pacific/Tarawa", "Pacific/Tongatapu",
-        "UTC",
-        "WET"
+        "UTC"
     ];
 
     /// <summary>
@@ -183,13 +181,12 @@ internal static class TimeZoneData
         "America/St_Johns", "America/Swift_Current", "America/Tegucigalpa",
         "America/Thule", "America/Tijuana", "America/Toronto", "America/Vancouver",
         "America/Whitehorse", "America/Winnipeg", "America/Yakutat",
-        "America/Yellowknife",
         "Antarctica/Casey", "Antarctica/Davis", "Antarctica/Macquarie",
         "Antarctica/Mawson", "Antarctica/Palmer", "Antarctica/Rothera",
         "Antarctica/Troll",
         "Asia/Almaty", "Asia/Amman", "Asia/Anadyr", "Asia/Aqtau", "Asia/Aqtobe",
         "Asia/Ashgabat", "Asia/Atyrau", "Asia/Baghdad", "Asia/Baku", "Asia/Bangkok",
-        "Asia/Barnaul", "Asia/Beirut", "Asia/Bishkek", "Asia/Chita", "Asia/Choibalsan",
+        "Asia/Barnaul", "Asia/Beirut", "Asia/Bishkek", "Asia/Chita",
         "Asia/Colombo", "Asia/Damascus", "Asia/Dhaka", "Asia/Dili", "Asia/Dubai",
         "Asia/Dushanbe", "Asia/Famagusta", "Asia/Gaza", "Asia/Hebron",
         "Asia/Ho_Chi_Minh", "Asia/Hong_Kong", "Asia/Hovd", "Asia/Irkutsk",
@@ -212,7 +209,6 @@ internal static class TimeZoneData
         "Australia/Darwin", "Australia/Eucla", "Australia/Hobart",
         "Australia/Lindeman", "Australia/Lord_Howe", "Australia/Melbourne",
         "Australia/Perth", "Australia/Sydney",
-        "CET", "CST6CDT", "EET", "EST", "EST5EDT",
         // Per ECMA-402 2024 spec, Etc/GMT and Etc/UTC should be preserved (not canonicalized to UTC)
         // when returned in resolvedOptions().timeZone
         "Etc/GMT", "Etc/UTC",
@@ -232,10 +228,7 @@ internal static class TimeZoneData
         "Europe/Simferopol", "Europe/Sofia", "Europe/Tallinn", "Europe/Tirane",
         "Europe/Ulyanovsk", "Europe/Vienna", "Europe/Vilnius", "Europe/Volgograd",
         "Europe/Warsaw", "Europe/Zurich",
-        "HST",
         "Indian/Chagos", "Indian/Maldives", "Indian/Mauritius",
-        "MET", "MST", "MST7MDT",
-        "PST8PDT",
         "Pacific/Apia", "Pacific/Auckland", "Pacific/Bougainville",
         "Pacific/Chatham", "Pacific/Easter", "Pacific/Efate", "Pacific/Fakaofo",
         "Pacific/Fiji", "Pacific/Galapagos", "Pacific/Gambier",
@@ -246,9 +239,11 @@ internal static class TimeZoneData
         "Pacific/Port_Moresby", "Pacific/Rarotonga", "Pacific/Tahiti",
         "Pacific/Tarawa", "Pacific/Tongatapu",
         "UTC",
-        "WET",
 
         // IANA TZDB Link names (aliases - must also be supported)
+        // POSIX-style zones (Links in canonical-tz IANA TZDB)
+        "CET", "CST6CDT", "EET", "EST", "EST5EDT", "HST",
+        "MET", "MST", "MST7MDT", "PST8PDT", "WET",
         "Africa/Accra", "Africa/Addis_Ababa", "Africa/Asmara", "Africa/Asmera",
         "Africa/Bamako", "Africa/Bangui", "Africa/Banjul", "Africa/Blantyre",
         "Africa/Brazzaville", "Africa/Bujumbura", "Africa/Conakry", "Africa/Dakar",
@@ -273,12 +268,12 @@ internal static class TimeZoneData
         "America/Santa_Isabel", "America/Shiprock", "America/St_Barthelemy",
         "America/St_Kitts", "America/St_Lucia", "America/St_Thomas",
         "America/St_Vincent", "America/Thunder_Bay", "America/Tortola",
-        "America/Virgin",
+        "America/Virgin", "America/Yellowknife",
         "Antarctica/DumontDUrville", "Antarctica/McMurdo", "Antarctica/South_Pole",
         "Antarctica/Syowa", "Antarctica/Vostok",
         "Arctic/Longyearbyen",
         "Asia/Aden", "Asia/Ashkhabad", "Asia/Bahrain", "Asia/Brunei",
-        "Asia/Calcutta", "Asia/Chongqing", "Asia/Chungking", "Asia/Dacca",
+        "Asia/Calcutta", "Asia/Choibalsan", "Asia/Chongqing", "Asia/Chungking", "Asia/Dacca",
         "Asia/Harbin", "Asia/Istanbul", "Asia/Kashgar", "Asia/Katmandu",
         "Asia/Kuala_Lumpur", "Asia/Kuwait", "Asia/Macao", "Asia/Muscat",
         "Asia/Phnom_Penh", "Asia/Rangoon", "Asia/Saigon", "Asia/Tel_Aviv",

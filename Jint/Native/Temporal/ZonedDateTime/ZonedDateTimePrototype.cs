@@ -1129,7 +1129,7 @@ internal sealed class ZonedDateTimePrototype : Prototype
         // Add offset
         if (!string.Equals(showOffset, "never", StringComparison.Ordinal))
         {
-            var offsetStr = TemporalHelpers.FormatOffsetString(zdt.OffsetNanoseconds);
+            var offsetStr = TemporalHelpers.FormatOffsetRounded(zdt.OffsetNanoseconds);
             result += offsetStr;
         }
 
@@ -1500,6 +1500,48 @@ internal sealed class ZonedDateTimePrototype : Prototype
             }
 
             return epochNs;
+        }
+
+        if (offsetNs.HasValue && string.Equals(offsetOption, "reject", StringComparison.Ordinal))
+        {
+            // In "reject" mode, the provided offset must exactly match the actual offset
+            var possibleInstants = provider.GetPossibleInstantsFor(
+                timeZone,
+                dateTime.Year, dateTime.Month, dateTime.Day,
+                dateTime.Hour, dateTime.Minute, dateTime.Second,
+                dateTime.Millisecond, dateTime.Microsecond, dateTime.Nanosecond);
+
+            foreach (var instant in possibleInstants)
+            {
+                var actualOffset = provider.GetOffsetNanosecondsFor(timeZone, instant);
+                if (actualOffset == offsetNs.Value)
+                {
+                    return instant;
+                }
+            }
+
+            Throw.RangeError(_realm, "Offset does not match any possible offset for this wall time");
+        }
+
+        if (offsetNs.HasValue && string.Equals(offsetOption, "prefer", StringComparison.Ordinal))
+        {
+            // In "prefer" mode, use the provided offset if it matches, otherwise disambiguate
+            var possibleInstants = provider.GetPossibleInstantsFor(
+                timeZone,
+                dateTime.Year, dateTime.Month, dateTime.Day,
+                dateTime.Hour, dateTime.Minute, dateTime.Second,
+                dateTime.Millisecond, dateTime.Microsecond, dateTime.Nanosecond);
+
+            foreach (var instant in possibleInstants)
+            {
+                var actualOffset = provider.GetOffsetNanosecondsFor(timeZone, instant);
+                if (actualOffset == offsetNs.Value)
+                {
+                    return instant;
+                }
+            }
+
+            // No match - fall through to normal disambiguation
         }
 
         return GetInstantFor(provider, timeZone, dateTime, disambiguation);

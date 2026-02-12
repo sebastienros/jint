@@ -463,6 +463,12 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
 
         // Handle Etc/GMT+N and Etc/GMT-N timezone identifiers (case-insensitive)
         // These are IANA names, not offset strings. Valid: Etc/GMT-0..Etc/GMT-14, Etc/GMT+0..Etc/GMT+12
+        // Handle Etc/GMT0 (IANA Link name, no sign)
+        if (timeZoneId.Equals("Etc/GMT0", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Etc/GMT0";
+        }
+
         // Invalid: zero-padded like Etc/GMT-01, Etc/GMT+00, out of range like Etc/GMT-24
         if (timeZoneId.StartsWith("Etc/GMT", StringComparison.OrdinalIgnoreCase) && timeZoneId.Length > 7)
         {

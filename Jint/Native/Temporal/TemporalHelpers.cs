@@ -275,7 +275,22 @@ internal static class TemporalHelpers
     }
 
     /// <summary>
-    /// Formats an offset in nanoseconds as an ISO 8601 offset string.
+    /// FormatDateTimeUTCOffsetRounded: Rounds offset to nearest minute and formats as ±HH:MM.
+    /// Used by ZonedDateTime.toString() and Instant.toString() per the Temporal spec.
+    /// </summary>
+    public static string FormatOffsetRounded(long offsetNanoseconds)
+    {
+        // Round to nearest minute (halfExpand)
+        var sign = offsetNanoseconds >= 0 ? "+" : "-";
+        var absNs = System.Math.Abs(offsetNanoseconds);
+        var totalMinutes = (absNs + NanosecondsPerMinute / 2) / NanosecondsPerMinute;
+        var hours = totalMinutes / 60;
+        var minutes = totalMinutes % 60;
+        return $"{sign}{hours:D2}:{minutes:D2}";
+    }
+
+    /// <summary>
+    /// Formats an offset in nanoseconds as an ISO 8601 offset string (full precision).
     /// </summary>
     public static string FormatOffsetString(long offsetNanoseconds)
     {
@@ -1566,6 +1581,186 @@ internal static class TemporalHelpers
             "roc" => "roc",
             _ => null // Unsupported calendar
         };
+    }
+
+    /// <summary>
+    /// Converts calendar-system year/month/day to ISO year/month/day.
+    /// For non-ISO calendars, the input fields are in the calendar's system
+    /// and need to be converted to the proleptic Gregorian (ISO 8601) calendar.
+    /// </summary>
+    public static IsoDate? CalendarDateToISO(Realm realm, string calendar, int year, int month, int day, string overflow)
+    {
+        if (calendar is "iso8601" or "gregory")
+        {
+            return RegulateIsoDate(year, month, day, overflow);
+        }
+
+        if (calendar is "islamic-civil")
+        {
+            return IslamicCivilDateToISO(year, month, day, overflow);
+        }
+
+        if (calendar is "islamic-tbla")
+        {
+            return IslamicTblaDateToISO(year, month, day, overflow);
+        }
+
+        // For other calendars, fall back to treating fields as ISO (best effort)
+        return RegulateIsoDate(year, month, day, overflow);
+    }
+
+    /// <summary>
+    /// For PlainMonthDay without an explicit year: finds a calendar year such that
+    /// converting (calendarYear, month, day) to ISO produces an ISO date with the given
+    /// ISO reference year (typically 1972).
+    /// </summary>
+    internal static int FindCalendarReferenceYear(string calendar, int isoReferenceYear, int month, int day)
+    {
+        if (calendar is "islamic-civil" or "islamic-tbla")
+        {
+            // Approximate Islamic year for a given ISO year
+            var approxYear = (int) ((isoReferenceYear - 622.0) * 33.0 / 32.0);
+
+            // Try years around the approximation to find one mapping to the ISO reference year
+            for (var y = approxYear - 1; y <= approxYear + 1; y++)
+            {
+                var isoDate = CalendarDateToISO(null!, calendar, y, month, day, "constrain");
+                if (isoDate?.Year == isoReferenceYear)
+                {
+                    return y;
+                }
+            }
+
+            return approxYear;
+        }
+
+        // Default: assume calendar year ≈ ISO year
+        return isoReferenceYear;
+    }
+
+    /// <summary>
+    /// Returns the number of days in a given month of the Islamic Civil (tabular) calendar.
+    /// Odd months have 30 days, even months have 29 days.
+    /// Month 12 has 30 days in leap years.
+    /// </summary>
+    private static int IslamicCivilDaysInMonth(int year, int month)
+    {
+        if (month <= 0 || month > 12)
+        {
+            return 0;
+        }
+
+        // Odd months (1, 3, 5, 7, 9, 11) have 30 days
+        // Even months (2, 4, 6, 8, 10) have 29 days
+        // Month 12 has 30 days in leap years, 29 otherwise
+        if (month % 2 == 1)
+        {
+            return 30;
+        }
+
+        if (month == 12 && IsIslamicCivilLeapYear(year))
+        {
+            return 30;
+        }
+
+        return 29;
+    }
+
+    /// <summary>
+    /// Returns whether the given year is a leap year in the Islamic Civil calendar.
+    /// Uses the 30-year cycle: years 2, 5, 7, 10, 13, 16, 18, 21, 24, 26, 29 are leap years.
+    /// </summary>
+    private static bool IsIslamicCivilLeapYear(int year)
+    {
+        return (14 + 11 * year) % 30 < 11;
+    }
+
+    /// <summary>
+    /// Converts an Islamic Civil (tabular) calendar date to ISO date via Julian Day Number.
+    /// The Islamic Civil calendar uses a fixed 30-year cycle with known leap year positions.
+    /// Epoch: July 16, 622 CE Julian (civil epoch, Friday).
+    /// </summary>
+    private static IsoDate? IslamicCivilDateToISO(int year, int month, int day, string overflow)
+    {
+        // Validate/constrain in the Islamic calendar system first
+        if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
+        {
+            month = Clamp(month, 1, 12);
+            day = Clamp(day, 1, IslamicCivilDaysInMonth(year, month));
+        }
+        else // "reject"
+        {
+            if (month < 1 || month > 12 || day < 1 || day > IslamicCivilDaysInMonth(year, month))
+            {
+                return null;
+            }
+        }
+
+        // Convert to Julian Day Number
+        // Formula from Calendrical Calculations (Reingold & Dershowitz)
+        var jdn = IslamicToJulianDay(year, month, day, 1948439L);
+        return JulianDayToISO(jdn);
+    }
+
+    /// <summary>
+    /// Converts an Islamic Tabular (Thursday epoch) calendar date to ISO date via Julian Day Number.
+    /// Similar to Islamic Civil but with a different epoch (Thursday instead of Friday).
+    /// </summary>
+    private static IsoDate? IslamicTblaDateToISO(int year, int month, int day, string overflow)
+    {
+        // Same leap year and month structure as Islamic Civil
+        if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
+        {
+            month = Clamp(month, 1, 12);
+            day = Clamp(day, 1, IslamicCivilDaysInMonth(year, month));
+        }
+        else
+        {
+            if (month < 1 || month > 12 || day < 1 || day > IslamicCivilDaysInMonth(year, month))
+            {
+                return null;
+            }
+        }
+
+        // Islamic Tabular uses Thursday epoch (1 day earlier than Civil)
+        var jdn = IslamicToJulianDay(year, month, day, 1948438L);
+        return JulianDayToISO(jdn);
+    }
+
+    /// <summary>
+    /// Computes the Julian Day Number for an Islamic calendar date with the given epoch.
+    /// </summary>
+    private static long IslamicToJulianDay(int year, int month, int day, long epoch)
+    {
+        var monthDays = (long) System.Math.Ceiling(29.5001 * (month - 1));
+        var yearDays = (year - 1) * 354L + (long) System.Math.Floor((3.0 + 11.0 * year) / 30.0);
+        return monthDays + yearDays + day + epoch;
+    }
+
+    /// <summary>
+    /// Converts a Julian Day Number to an ISO (proleptic Gregorian) date.
+    /// Uses the standard algorithm for JDN to Gregorian conversion.
+    /// </summary>
+    private static IsoDate? JulianDayToISO(long jdn)
+    {
+        // Algorithm from Meeus, "Astronomical Algorithms"
+        var a = jdn + 32044L;
+        var b = (4 * a + 3) / 146097;
+        var c = a - 146097 * b / 4;
+        var d = (4 * c + 3) / 1461;
+        var e = c - 1461 * d / 4;
+        var m = (5 * e + 2) / 153;
+
+        var isoDay = (int) (e - (153 * m + 2) / 5 + 1);
+        var isoMonth = (int) (m + 3 - 12 * (m / 10));
+        var isoYear = (int) (100 * b + d - 4800 + m / 10);
+
+        if (!IsValidIsoDateTime(isoYear, isoMonth, isoDay))
+        {
+            return null;
+        }
+
+        return new IsoDate(isoYear, isoMonth, isoDay);
     }
 
     /// <summary>
@@ -5054,7 +5249,13 @@ internal static class TemporalHelpers
         var intermediateDateTime = new IsoDateTime(intermediateDate, startDateTime.Time);
 
         // Step 6: Get epoch nanoseconds for intermediate
-        var intermediateNs = GetEpochNanosecondsFor(realm, timeZoneProvider, timeZone, intermediateDateTime, "compatible");
+        // Per spec (issue #3141): when the intermediate datetime equals the start datetime,
+        // use ns1 directly to avoid re-disambiguation during DST fall-back
+        var intermediateNs = (intermediateDate.Year == startDateTime.Year &&
+                              intermediateDate.Month == startDateTime.Month &&
+                              intermediateDate.Day == startDateTime.Day)
+            ? ns1
+            : GetEpochNanosecondsFor(realm, timeZoneProvider, timeZone, intermediateDateTime, "compatible");
 
         // Step 7: Compute time difference from actual epoch nanoseconds
         var timeDifference = TimeDurationFromEpochNanosecondsDifference(ns2, intermediateNs);

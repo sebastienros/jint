@@ -113,7 +113,20 @@ internal sealed class NodaTimeZoneProvider : ITimeZoneProvider
         }
         catch (ArgumentOutOfRangeException)
         {
-            return [];
+            // Date is outside NodaTime's representable range.
+            // Use the offset from the boundary instant (no DST at these extremes).
+            try
+            {
+                var boundaryInstant = year > 0
+                    ? Instant.FromUnixTimeTicks(NodaMaxTicks)
+                    : Instant.FromUnixTimeTicks(NodaMinTicks);
+                var offset = zone.GetUtcOffset(boundaryInstant);
+                return [LocalToEpochNanoseconds(year, month, day, hour, minute, second, millisecond, microsecond, nanosecond, offset)];
+            }
+            catch
+            {
+                return [];
+            }
         }
     }
 
@@ -134,10 +147,16 @@ internal sealed class NodaTimeZoneProvider : ITimeZoneProvider
         var instant = EpochNanosecondsToInstant(epochNanoseconds);
         var interval = zone.GetZoneInterval(instant);
 
-        // If the current interval has an end, that's the next transition
-        if (interval.HasEnd)
+        // Find the next transition where the UTC offset actually changes
+        // (skip rule changes that only affect abbreviation/DST flag but not offset)
+        while (interval.HasEnd)
         {
-            return InstantToEpochNanoseconds(interval.End);
+            var nextInterval = zone.GetZoneInterval(interval.End);
+            if (nextInterval.WallOffset != interval.WallOffset)
+            {
+                return InstantToEpochNanoseconds(interval.End);
+            }
+            interval = nextInterval;
         }
 
         return null;
@@ -160,10 +179,26 @@ internal sealed class NodaTimeZoneProvider : ITimeZoneProvider
         var instant = EpochNanosecondsToInstant(epochNanoseconds);
         var interval = zone.GetZoneInterval(instant);
 
-        // If the current interval has a start, that's the previous transition
-        if (interval.HasStart)
+        // Find the previous transition where the UTC offset actually changed
+        // (skip rule changes that only affect abbreviation/DST flag but not offset)
+        while (interval.HasStart)
         {
-            return InstantToEpochNanoseconds(interval.Start);
+            var transitionNs = InstantToEpochNanoseconds(interval.Start);
+            var prevInstant = interval.Start - Duration.FromNanoseconds(1);
+            var prevInterval = zone.GetZoneInterval(prevInstant);
+
+            // Check nanosecond precision: transition+1ns should find this transition,
+            // but exactly at or before this transition should look further back
+            var isAtOrBefore = epochNanoseconds <= transitionNs;
+
+            if (!isAtOrBefore && prevInterval.WallOffset != interval.WallOffset)
+            {
+                // This transition changed the offset and we're after it
+                return transitionNs;
+            }
+
+            // Skip this transition - either it's a no-op or we're at/before it
+            interval = prevInterval;
         }
 
         return null;
@@ -197,6 +232,10 @@ internal sealed class NodaTimeZoneProvider : ITimeZoneProvider
             return "Etc/GMT";
         if (timeZoneId.Equals("GMT", StringComparison.OrdinalIgnoreCase))
             return "GMT";
+
+        // Handle Etc/GMT0 (IANA Link name, no sign)
+        if (timeZoneId.Equals("Etc/GMT0", StringComparison.OrdinalIgnoreCase))
+            return "Etc/GMT0";
 
         // Handle Etc/GMT+N and Etc/GMT-N
         if (timeZoneId.StartsWith("Etc/GMT", StringComparison.OrdinalIgnoreCase) && timeZoneId.Length > 7)
@@ -234,7 +273,13 @@ internal sealed class NodaTimeZoneProvider : ITimeZoneProvider
 
     public IReadOnlyCollection<string> GetAvailableTimeZones()
     {
-        return TzdbProvider.Ids.OrderBy(x => x, StringComparer.Ordinal).ToList();
+        // Only return primary/canonical IDs (where CanonicalIdMap maps them to themselves)
+        // This ensures supportedValuesOf('timeZone') returns only distinct canonical IDs
+        return TzdbSource.CanonicalIdMap
+            .Where(kvp => string.Equals(kvp.Key, kvp.Value, StringComparison.Ordinal))
+            .Select(kvp => kvp.Key)
+            .OrderBy(x => x, StringComparer.Ordinal)
+            .ToList();
     }
 
     public string GetDefaultTimeZone()
@@ -322,12 +367,41 @@ internal sealed class NodaTimeZoneProvider : ITimeZoneProvider
         }
     }
 
+    // NodaTime's Instant tick range (from NodaTime source)
+    private const long NodaMinTicks = -3776735808000000000L;
+    private const long NodaMaxTicks = 2534023007999999999L;
+
     private static Instant EpochNanosecondsToInstant(BigInteger epochNanoseconds)
     {
-        // NodaTime Instant supports nanosecond precision
-        var ticks = (long)(epochNanoseconds / NanosecondsPerTick);
-        // NodaTime epoch is same as Unix epoch for Instant.FromUnixTimeTicks
-        return Instant.FromUnixTimeTicks(ticks);
+        // NodaTime Instant has tick (100ns) precision, not nanosecond.
+        // Use floor division (toward negative infinity) so that sub-tick differences
+        // near transition boundaries map to the correct tick:
+        // e.g., transition_ns - 1 must map to the tick BEFORE the transition.
+        // BigInteger.DivRem truncates toward zero, which gives wrong results for negative values.
+        var ticks = FloorDiv(epochNanoseconds, NanosecondsPerTick);
+
+        // Clamp to NodaTime's Instant tick range (Temporal limits can exceed it)
+        if (ticks > NodaMaxTicks)
+        {
+            return Instant.FromUnixTimeTicks(NodaMaxTicks);
+        }
+        if (ticks < NodaMinTicks)
+        {
+            return Instant.FromUnixTimeTicks(NodaMinTicks);
+        }
+
+        return Instant.FromUnixTimeTicks((long)ticks);
+    }
+
+    private static BigInteger FloorDiv(BigInteger a, BigInteger b)
+    {
+        var (quotient, remainder) = BigInteger.DivRem(a, b);
+        // Adjust when remainder is non-zero and signs differ
+        if (remainder != 0 && (remainder < 0) != (b < 0))
+        {
+            quotient--;
+        }
+        return quotient;
     }
 
     private static BigInteger InstantToEpochNanoseconds(Instant instant)

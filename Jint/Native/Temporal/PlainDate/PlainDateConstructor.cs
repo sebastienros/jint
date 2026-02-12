@@ -193,8 +193,8 @@ internal sealed class PlainDateConstructor : Constructor
         // 6. Read options AFTER all fields (but BEFORE algorithmic validation)
         var overflow = TemporalHelpers.GetOverflowOption(_realm, options);
 
-        // NOW validate monthCode suitability (ISO calendar checks) - after year type validation AND options reading
-        if (monthCodeStr is not null)
+        // Validate monthCode suitability - only for ISO/Gregorian calendars
+        if (monthCodeStr is not null && TemporalHelpers.IsGregorianBasedCalendar(calendar))
         {
             // For ISO 8601 calendar: validate monthCode is valid (01-12, no leap months)
             if (monthCodeStr.Length == 4 && monthCodeStr[3] == 'L')
@@ -213,7 +213,7 @@ internal sealed class PlainDateConstructor : Constructor
             Throw.TypeError(_realm, "month or monthCode is required");
         }
 
-        var date = TemporalHelpers.RegulateIsoDate(year, month, day, overflow);
+        var date = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, day, overflow);
         if (date is null)
         {
             Throw.RangeError(_realm, "Invalid date");
@@ -452,7 +452,7 @@ internal sealed class PlainDateConstructor : Constructor
             Throw.TypeError(_realm, "month or monthCode is required");
         }
 
-        var date = TemporalHelpers.RegulateIsoDate(year, month, day, overflow);
+        var date = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, day, overflow);
         if (date is null)
         {
             Throw.RangeError(_realm, "Invalid date");

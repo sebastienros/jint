@@ -787,17 +787,8 @@ internal sealed class InstantPrototype : Prototype
 
     private static void FormatOffset(ref ValueStringBuilder sb, long offsetNs)
     {
-        var sign = offsetNs >= 0 ? '+' : '-';
-        offsetNs = System.Math.Abs(offsetNs);
-
-        var hours = offsetNs / 3_600_000_000_000L;
-        offsetNs %= 3_600_000_000_000L;
-        var minutes = offsetNs / 60_000_000_000L;
-
-        sb.Append(sign);
-        sb.Append(hours.ToString("D2", CultureInfo.InvariantCulture));
-        sb.Append(':');
-        sb.Append(minutes.ToString("D2", CultureInfo.InvariantCulture));
+        // Use FormatDateTimeUTCOffsetRounded: round to nearest minute, format as ±HH:MM
+        sb.Append(TemporalHelpers.FormatOffsetRounded(offsetNs));
     }
 
 

@@ -160,13 +160,13 @@ internal sealed class PlainMonthDayConstructor : Constructor
         if (item.IsString())
         {
             var str = item.ToString();
-            var parsed = ParseMonthDayString(str);
+            var parsed = ParseMonthDayString(str, out var parsedCalendar);
             if (parsed is null)
             {
                 Throw.RangeError(_realm, "Invalid month-day string");
             }
 
-            return Construct(parsed.Value, "iso8601");
+            return Construct(parsed.Value, parsedCalendar);
         }
 
         if (item.IsObject())
@@ -270,8 +270,8 @@ internal sealed class PlainMonthDayConstructor : Constructor
         // 6. Read options.overflow AFTER all fields (but BEFORE algorithmic validation)
         var overflow = optionsValue.IsUndefined() ? "constrain" : TemporalHelpers.GetOverflowOption(_realm, optionsValue);
 
-        // NOW validate monthCode suitability (ISO calendar checks) - after year type validation AND options reading
-        if (monthCodeStr is not null)
+        // Validate monthCode suitability - only for ISO/Gregorian calendars
+        if (monthCodeStr is not null && TemporalHelpers.IsGregorianBasedCalendar(calendar))
         {
             // For ISO 8601 calendar: validate monthCode is valid (01-12, no leap months)
             if (monthCodeStr.Length == 4 && monthCodeStr[3] == 'L')
@@ -310,6 +310,24 @@ internal sealed class PlainMonthDayConstructor : Constructor
             Throw.TypeError(_realm, "month or monthCode is required");
         }
 
+        // For non-ISO calendars, convert calendar year/month/day to ISO
+        if (!TemporalHelpers.IsGregorianBasedCalendar(calendar))
+        {
+            // When year is not explicitly provided, find the calendar year that maps to ISO 1972
+            var calendarYear = yearExplicitlyProvided
+                ? year
+                : TemporalHelpers.FindCalendarReferenceYear(calendar, 1972, month, day);
+
+            var calDate = TemporalHelpers.CalendarDateToISO(_realm, calendar, calendarYear, month, day, overflow);
+            if (calDate is null)
+            {
+                Throw.RangeError(_realm, "Invalid month-day");
+            }
+
+            // The converted ISO date becomes the reference date
+            return Construct(calDate.Value, calendar);
+        }
+
         // Use input year for validation, but always use 1972 as reference year in result
         // Per spec (calendar.html CalendarMonthDayToISOReferenceDate):
         // "The reference year is always 1972"
@@ -323,8 +341,10 @@ internal sealed class PlainMonthDayConstructor : Constructor
         return Construct(new IsoDate(1972, date.Value.Month, date.Value.Day), calendar);
     }
 
-    private static IsoDate? ParseMonthDayString(string input)
+    private static IsoDate? ParseMonthDayString(string input, out string parsedCalendar)
     {
+        parsedCalendar = "iso8601";
+
         // Empty strings are invalid
         if (string.IsNullOrEmpty(input))
         {
@@ -338,14 +358,17 @@ internal sealed class PlainMonthDayConstructor : Constructor
             // Annotation parsing error
             return null;
         }
-        // If a calendar annotation is present and it's not iso8601, reject the string
+        // Canonicalize calendar annotation if present
+        var hasNonIsoCalendar = false;
         if (calendar is not null)
         {
             var canonical = TemporalHelpers.CanonicalizeCalendar(calendar);
-            if (canonical is null || !string.Equals(canonical, "iso8601", StringComparison.Ordinal))
+            if (canonical is null)
             {
-                return null;
+                return null; // Invalid calendar
             }
+            parsedCalendar = canonical;
+            hasNonIsoCalendar = !string.Equals(canonical, "iso8601", StringComparison.Ordinal);
         }
 
         // PlainMonthDay cannot have UTC designator
@@ -397,6 +420,7 @@ internal sealed class PlainMonthDayConstructor : Constructor
                     var date = TemporalHelpers.RegulateIsoDate(1972, month, day, "reject");
                     if (date is not null)
                     {
+                        if (hasNonIsoCalendar) return null;
                         return date.Value;
                     }
                 }
@@ -410,6 +434,7 @@ internal sealed class PlainMonthDayConstructor : Constructor
                 var date = TemporalHelpers.RegulateIsoDate(1972, month, day, "reject");
                 if (date is not null)
                 {
+                    if (hasNonIsoCalendar) return null;
                     return date.Value;
                 }
             }
@@ -424,6 +449,7 @@ internal sealed class PlainMonthDayConstructor : Constructor
             var date = TemporalHelpers.RegulateIsoDate(1972, month, day, "reject");
             if (date is not null)
             {
+                if (hasNonIsoCalendar) return null;
                 return date.Value;
             }
         }
@@ -456,6 +482,7 @@ internal sealed class PlainMonthDayConstructor : Constructor
                         var date = TemporalHelpers.RegulateIsoDate(1972, month, day, "reject");
                         if (date is not null)
                         {
+                            if (hasNonIsoCalendar) return null;
                             return date.Value;
                         }
                     }
@@ -464,15 +491,22 @@ internal sealed class PlainMonthDayConstructor : Constructor
         }
 
         // Try parsing as full date and extract month-day
-        return TryParseFullDateAsMonthDay(coreString);
+        return TryParseFullDateAsMonthDay(coreString, hasNonIsoCalendar);
     }
 
-    private static IsoDate? TryParseFullDateAsMonthDay(string input)
+    private static IsoDate? TryParseFullDateAsMonthDay(string input, bool hasNonIsoCalendar)
     {
         var parsed = TemporalHelpers.ParseIsoDate(input);
         if (parsed is not null)
         {
-            // For PlainMonthDay, we only extract month and day — year range validation is not needed
+            // For non-iso8601 calendars, the parsed year is used for calendar conversion
+            // so it must be within valid ISO limits
+            if (hasNonIsoCalendar && !TemporalHelpers.IsValidIsoDateTime(parsed.Value.Year, parsed.Value.Month, parsed.Value.Day))
+            {
+                return null;
+            }
+
+            // For PlainMonthDay, we only extract month and day — year range validation is not needed for iso8601
             // Use 1972 as reference year (leap year, so Feb 29 is valid)
             return new IsoDate(1972, parsed.Value.Month, parsed.Value.Day);
         }

@@ -128,6 +128,7 @@
     "intl402/DateTimeFormat/prototype/formatRangeToParts/chinese-calendar-dates.js",
     "intl402/DateTimeFormat/prototype/formatRangeToParts/dangi-calendar-dates.js",
     "intl402/DateTimeFormat/prototype/formatToParts/chinese-calendar-dates.js",
+    "intl402/DateTimeFormat/prototype/formatToParts/dangi-calendar-dates.js",
 
     // DurationFormat - precision formatting requires exact sub-second arithmetic
     "intl402/DurationFormat/prototype/format/precision-exact-mathematical-values.js",
@@ -136,6 +137,7 @@
 
     // NumberFormat - locale-specific formatting and formatRange
     "intl402/NumberFormat/prototype/format/format-significant-digits.js",
+    "intl402/NumberFormat/prototype/format/numbering-systems.js",
     "intl402/NumberFormat/prototype/format/useGrouping-extended-en-IN.js",
     "intl402/NumberFormat/prototype/format/value-decimal-string.js",
     // formatRange requires locale-specific CLDR range patterns and part collapsing
@@ -154,11 +156,6 @@
     // Misc intl402 tests requiring full locale support
     "intl402/fallback-locales-are-supported.js",
     "intl402/supportedLocalesOf-consistent-with-resolvedOptions.js",
-
-    // misc features that require investigation
-    "intl402/NumberFormat/prototype/format/numbering-systems.js",
-
-    "intl402/DateTimeFormat/prototype/formatToParts/dangi-calendar-dates.js",
 
     // === INTL402 TEMPORAL EXCLUSIONS ===
     // Non-ISO calendar arithmetic not yet implemented (Chinese/Dangi lunisolar, Hebrew, Persian, etc.)

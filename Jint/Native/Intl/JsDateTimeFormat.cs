@@ -766,11 +766,11 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         {
             if (string.Equals(TimeStyle, "full", StringComparison.Ordinal))
             {
-                timeZoneSuffix = " " + GetTimeZoneDisplayName(true);
+                timeZoneSuffix = " " + GetTimeZoneDisplayName(dateTime, longName: true, generic: false);
             }
             else if (string.Equals(TimeStyle, "long", StringComparison.Ordinal))
             {
-                timeZoneSuffix = " " + GetTimeZoneDisplayName(false);
+                timeZoneSuffix = " " + GetTimeZoneDisplayName(dateTime, longName: false, generic: false);
             }
         }
 
@@ -1421,17 +1421,17 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             if (string.Equals(style, "full", StringComparison.Ordinal))
             {
                 result.Add(new DateTimePart("literal", " "));
-                result.Add(new DateTimePart("timeZoneName", GetTimeZoneDisplayName(true)));
+                result.Add(new DateTimePart("timeZoneName", GetTimeZoneDisplayName(dateTime, longName: true, generic: false)));
             }
             else if (string.Equals(style, "long", StringComparison.Ordinal))
             {
                 result.Add(new DateTimePart("literal", " "));
-                result.Add(new DateTimePart("timeZoneName", GetTimeZoneDisplayName(false)));
+                result.Add(new DateTimePart("timeZoneName", GetTimeZoneDisplayName(dateTime, longName: false, generic: false)));
             }
         }
     }
 
-    private string GetTimeZoneDisplayName(bool longName)
+    private string GetTimeZoneDisplayName(DateTime utcDateTime, bool longName, bool generic)
     {
         if (TimeZone != null)
         {
@@ -1447,21 +1447,37 @@ internal sealed class JsDateTimeFormat : ObjectInstance
                 return FormatGmtOffset(offset.Value, longName);
             }
 
+            // Try CLDR metazone data first (provides locale-correct names)
+            var isDst = false;
+            try
+            {
+                var tzInfo = TimeZoneInfo.FindSystemTimeZoneById(TimeZone);
+                isDst = tzInfo.IsDaylightSavingTime(DateTime.SpecifyKind(utcDateTime, DateTimeKind.Utc));
+            }
+            catch
+            {
+                // If timezone not found, isDst stays false
+            }
+
+            var cldrName = Data.MetaZoneData.GetDisplayName(TimeZone, isDst, longName, generic);
+            if (cldrName != null)
+            {
+                return cldrName;
+            }
+
+            // Fallback to .NET TimeZoneInfo names
             try
             {
                 var tzInfo = TimeZoneInfo.FindSystemTimeZoneById(TimeZone);
                 if (longName)
                 {
-                    // Use StandardName for the "long" display (e.g., "Central European Standard Time")
-                    return tzInfo.StandardName;
+                    return isDst ? tzInfo.DaylightName : tzInfo.StandardName;
                 }
-                // For short name, use the last part of the IANA ID (e.g., "Vienna" from "Europe/Vienna")
                 var parts = TimeZone.Split('/');
                 return parts[parts.Length - 1].Replace('_', ' ');
             }
             catch
             {
-                // Fallback if timezone ID not found
                 var parts = TimeZone.Split('/');
                 return longName ? TimeZone : parts[parts.Length - 1];
             }
@@ -1500,15 +1516,21 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     /// </summary>
     private string GetFormattedTimeZoneName(DateTime dateTime)
     {
-        if (string.Equals(TimeZoneName, "long", StringComparison.Ordinal) ||
-            string.Equals(TimeZoneName, "longGeneric", StringComparison.Ordinal))
+        if (string.Equals(TimeZoneName, "long", StringComparison.Ordinal))
         {
-            return GetTimeZoneDisplayName(true);
+            return GetTimeZoneDisplayName(dateTime, longName: true, generic: false);
         }
-        if (string.Equals(TimeZoneName, "short", StringComparison.Ordinal) ||
-            string.Equals(TimeZoneName, "shortGeneric", StringComparison.Ordinal))
+        if (string.Equals(TimeZoneName, "longGeneric", StringComparison.Ordinal))
         {
-            return GetTimeZoneDisplayName(false);
+            return GetTimeZoneDisplayName(dateTime, longName: true, generic: true);
+        }
+        if (string.Equals(TimeZoneName, "short", StringComparison.Ordinal))
+        {
+            return GetTimeZoneDisplayName(dateTime, longName: false, generic: false);
+        }
+        if (string.Equals(TimeZoneName, "shortGeneric", StringComparison.Ordinal))
+        {
+            return GetTimeZoneDisplayName(dateTime, longName: false, generic: true);
         }
         if (string.Equals(TimeZoneName, "longOffset", StringComparison.Ordinal))
         {
@@ -1518,7 +1540,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         {
             return "GMT" + dateTime.ToString("zzz", CultureInfo);
         }
-        return GetTimeZoneDisplayName(false);
+        return GetTimeZoneDisplayName(dateTime, longName: false, generic: false);
     }
 
     private void FormatComponentsToParts(DateTime dateTime, List<DateTimePart> result, int? originalYear = null)

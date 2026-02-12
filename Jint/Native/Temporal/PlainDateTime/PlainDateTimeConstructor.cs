@@ -388,13 +388,13 @@ internal sealed class PlainDateTimeConstructor : Constructor
             Throw.TypeError(_realm, "month or monthCode is required");
         }
 
-        // Validate year range only (month/day will be validated by RegulateIsoDate based on overflow)
-        if (year < -271821 || year > 275760)
+        // Validate year range for ISO calendars only (non-ISO will validate during conversion)
+        if (TemporalHelpers.IsGregorianBasedCalendar(calendar) && (year < -271821 || year > 275760))
         {
             Throw.RangeError(_realm, "Date is outside valid range");
         }
 
-        var date = TemporalHelpers.RegulateIsoDate(year, month, day, overflow);
+        var date = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, day, overflow);
         if (date is null)
         {
             Throw.RangeError(_realm, "Invalid date");
