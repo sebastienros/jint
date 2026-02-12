@@ -5,6 +5,7 @@ using Jint.Native.AsyncFunction;
 using Jint.Native.AsyncGenerator;
 using Jint.Native.Generator;
 using Jint.Native.Promise;
+using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Runtime.Interpreter;
@@ -266,6 +267,14 @@ internal sealed class JintFunctionDefinition
         public List<VariableValuePair>? VarsToInitialize;
         public bool NeedsEvalContext;
 
+        // Fixed-slot optimization fields
+        public bool UseFixedSlots;
+        public Key[]? SlotNames;
+        public int ParameterSlotCount;
+        public bool CanUseFastFDI;
+        public bool EnvironmentMayEscape;
+        public Binding[]? _cachedSlots;
+
         internal readonly record struct VariableValuePair(Key Name, JsValue? InitialValue);
     }
 
@@ -418,6 +427,34 @@ internal sealed class JintFunctionDefinition
         if (hoistingScope._lexicalDeclarations != null)
         {
             state.LexicalDeclarations = DeclarationCacheBuilder.Build(hoistingScope._lexicalDeclarations);
+        }
+
+        // Fixed-slot qualification: use array-based binding storage for simple functions
+        if (state.IsSimpleParameterList
+            && !state.HasDuplicates
+            && !state.HasParameterExpressions
+            && !state.NeedsEvalContext
+            && !state.ArgumentsObjectNeeded
+            && state.LexicalDeclarations is null
+            && state.FunctionsToInitialize is null)
+        {
+            var totalSlots = state.ParameterNames.Length + varsToInitialize.Count;
+            if (totalSlots is > 0 and <= 16)
+            {
+                var slotNames = new Key[totalSlots];
+                state.ParameterNames.CopyTo(slotNames, 0);
+                for (var i = 0; i < varsToInitialize.Count; i++)
+                {
+                    slotNames[state.ParameterNames.Length + i] = varsToInitialize[i].Name;
+                }
+
+                state.SlotNames = slotNames;
+                state.ParameterSlotCount = state.ParameterNames.Length;
+                state.UseFixedSlots = true;
+                state.CanUseFastFDI = true;
+                state.EnvironmentMayEscape = EnvironmentEscapeAstVisitor.MayEscape(function)
+                    || function.Generator || function.Async;
+            }
         }
 
         return state;
@@ -667,6 +704,52 @@ Start:
                         }
 
                         break;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Checks if a function's per-call environment may escape (be captured by closures).
+    /// If true, the environment cannot be pooled/cached for reuse.
+    /// </summary>
+    internal static class EnvironmentEscapeAstVisitor
+    {
+        internal static bool MayEscape(IFunction function)
+        {
+            var body = function.Body;
+            if (IsCapturing(body))
+            {
+                return true;
+            }
+            return MayEscape(body);
+        }
+
+        internal static bool IsCapturing(Node node)
+        {
+            return node.Type is NodeType.FunctionDeclaration
+                or NodeType.FunctionExpression
+                or NodeType.ArrowFunctionExpression
+                or NodeType.ClassDeclaration
+                or NodeType.ClassExpression
+                or NodeType.WithStatement;
+        }
+
+        internal static bool MayEscape(Node node)
+        {
+            foreach (var childNode in node.ChildNodes)
+            {
+                if (IsCapturing(childNode))
+                {
+                    return true;
+                }
+
+                // Don't recurse into nested function bodies (they have their own scope)
+                if (!childNode.ChildNodes.IsEmpty() && MayEscape(childNode))
+                {
+                    return true;
                 }
             }
 

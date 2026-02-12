@@ -20,6 +20,7 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
     private List<Key>? _boundNames;
 
     private bool _shouldCreatePerIterationEnvironment;
+    private bool _canReuseIterationEnvironment;
 
     public JintForStatement(ForStatement statement) : base(statement)
     {
@@ -41,6 +42,13 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                 }
                 _initStatement = new JintVariableDeclaration(d);
                 _shouldCreatePerIterationEnvironment = d.Kind == VariableDeclarationKind.Let;
+
+                // If no closures in the loop body/test/update capture the iteration environment,
+                // we can reuse the same environment each iteration instead of allocating a new one
+                if (_shouldCreatePerIterationEnvironment)
+                {
+                    _canReuseIterationEnvironment = !ForLoopMayCapture(_statement);
+                }
             }
             else
             {
@@ -230,7 +238,7 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
     {
         var v = JsValue.Undefined;
 
-        if (_shouldCreatePerIterationEnvironment)
+        if (_shouldCreatePerIterationEnvironment && !_canReuseIterationEnvironment)
         {
             CreatePerIterationEnvironment(context);
         }
@@ -294,7 +302,7 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                 }
             }
 
-            if (_shouldCreatePerIterationEnvironment)
+            if (_shouldCreatePerIterationEnvironment && !_canReuseIterationEnvironment)
             {
                 CreatePerIterationEnvironment(context);
             }
@@ -319,6 +327,46 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Checks if any part of the for-loop (init, test, update, body) contains closures
+    /// that could capture the per-iteration environment.
+    /// </summary>
+    private static bool ForLoopMayCapture(ForStatement statement)
+    {
+        // Check init declarators (e.g., for (let i = 0, f = function() { return i }; ...))
+        if (statement.Init is VariableDeclaration vd)
+        {
+            foreach (var decl in vd.Declarations)
+            {
+                if (decl.Init is not null)
+                {
+                    if (JintFunctionDefinition.EnvironmentEscapeAstVisitor.IsCapturing(decl.Init)
+                        || JintFunctionDefinition.EnvironmentEscapeAstVisitor.MayEscape(decl.Init))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        if (statement.Test is not null
+            && (JintFunctionDefinition.EnvironmentEscapeAstVisitor.IsCapturing(statement.Test)
+                || JintFunctionDefinition.EnvironmentEscapeAstVisitor.MayEscape(statement.Test)))
+        {
+            return true;
+        }
+
+        if (statement.Update is not null
+            && (JintFunctionDefinition.EnvironmentEscapeAstVisitor.IsCapturing(statement.Update)
+                || JintFunctionDefinition.EnvironmentEscapeAstVisitor.MayEscape(statement.Update)))
+        {
+            return true;
+        }
+
+        return JintFunctionDefinition.EnvironmentEscapeAstVisitor.IsCapturing(statement.Body)
+            || JintFunctionDefinition.EnvironmentEscapeAstVisitor.MayEscape(statement.Body);
     }
 
     private void CreatePerIterationEnvironment(EvaluationContext context)
