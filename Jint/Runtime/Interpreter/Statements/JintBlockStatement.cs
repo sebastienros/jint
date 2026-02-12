@@ -93,16 +93,7 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
                         // Create new environment with fixed-slot storage
                         blockEnv = JintEnvironment.NewDeclarativeEnvironment(engine, oldEnv);
                         blockEnv._slotNames = blockState.SlotNames;
-                        var cached = Interlocked.Exchange(ref blockState._cachedSlots, null);
-                        if (cached is not null)
-                        {
-                            blockState.SlotTemplates.AsSpan().CopyTo(cached);
-                            blockEnv._slots = cached;
-                        }
-                        else
-                        {
-                            blockEnv._slots = (Binding[]) blockState.SlotTemplates!.Clone();
-                        }
+                        blockEnv._slots = (Binding[]) blockState.SlotTemplates!.Clone();
                     }
                 }
                 else
@@ -138,15 +129,13 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
             }
             else
             {
-                // Return environment or slot array to cache for reuse
+                // Return environment to cache for reuse (only when no closures capture it)
                 if (blockState.CanReuseEnvironment && blockEnv._slots is not null)
                 {
                     Interlocked.Exchange(ref blockState._cachedEnv, blockEnv);
                 }
-                else if (blockState.SlotNames is not null && blockEnv._slots is not null)
-                {
-                    Interlocked.Exchange(ref blockState._cachedSlots, blockEnv._slots);
-                }
+                // When CanReuseEnvironment is false, closures may reference blockEnv._slots,
+                // so we must NOT cache the array — it would alias and get corrupted on reuse.
 
                 blockValue = blockEnv.DisposeResources(blockValue);
                 suspendable?.Data.Clear(this);
@@ -225,8 +214,7 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
         /// </summary>
         public readonly bool CanReuseEnvironment;
 
-        // Cached slot array and environment for reuse (thread-safe via Interlocked.Exchange)
-        public Binding[]? _cachedSlots;
+        // Cached environment for reuse (thread-safe via Interlocked.Exchange)
         public DeclarativeEnvironment? _cachedEnv;
 
         public BlockState(DeclarationCache declarationCache, BlockStatement blockStatement)

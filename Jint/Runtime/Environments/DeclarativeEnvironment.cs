@@ -40,9 +40,9 @@ internal class DeclarativeEnvironment : Environment
 
     internal sealed override bool HasBinding(Key name)
     {
-        if (_slots is not null)
+        if (_slots is not null && SlotIndexOf(name) >= 0)
         {
-            return SlotIndexOf(name) >= 0;
+            return true;
         }
         return _dictionary is not null && _dictionary.ContainsKey(name);
     }
@@ -57,8 +57,6 @@ internal class DeclarativeEnvironment : Environment
                 value = _slots[index].Value;
                 return value is not null;
             }
-            value = null;
-            return false;
         }
 
         if (_dictionary?.TryGetValue(name.Key, out var binding) == true)
