@@ -72,7 +72,11 @@ internal sealed class PlainYearMonthPrototype : Prototype
 
     // Getters
     private JsString GetCalendarId(JsValue thisObject, JsCallArguments arguments) => new JsString(ValidatePlainYearMonth(thisObject).Calendar);
-    private JsNumber GetYear(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainYearMonth(thisObject).IsoDate.Year);
+    private JsNumber GetYear(JsValue thisObject, JsCallArguments arguments)
+    {
+        var ym = ValidatePlainYearMonth(thisObject);
+        return JsNumber.Create(TemporalHelpers.CalendarYear(ym.Calendar, ym.IsoDate.Year));
+    }
     private JsNumber GetMonth(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainYearMonth(thisObject).IsoDate.Month);
     private JsString GetMonthCode(JsValue thisObject, JsCallArguments arguments) => new JsString($"M{ValidatePlainYearMonth(thisObject).IsoDate.Month:D2}");
     private JsNumber GetDaysInMonth(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainYearMonth(thisObject).IsoDate.DaysInMonth());
@@ -85,13 +89,15 @@ internal sealed class PlainYearMonthPrototype : Prototype
     private JsBoolean GetInLeapYear(JsValue thisObject, JsCallArguments arguments) => IsoDate.IsLeapYear(ValidatePlainYearMonth(thisObject).IsoDate.Year) ? JsBoolean.True : JsBoolean.False;
     private JsValue GetEraYear(JsValue thisObject, JsCallArguments arguments)
     {
-        ValidatePlainYearMonth(thisObject);
-        return Undefined; // ISO calendar has no era
+        var ym = ValidatePlainYearMonth(thisObject);
+        var eraYear = TemporalHelpers.CalendarEraYear(ym.Calendar, ym.IsoDate.Year);
+        return eraYear.HasValue ? JsNumber.Create(eraYear.Value) : Undefined;
     }
     private JsValue GetEra(JsValue thisObject, JsCallArguments arguments)
     {
-        ValidatePlainYearMonth(thisObject);
-        return Undefined; // ISO calendar has no era
+        var ym = ValidatePlainYearMonth(thisObject);
+        var era = TemporalHelpers.CalendarEra(ym.Calendar, ym.IsoDate.Year);
+        return era is not null ? new JsString(era) : Undefined;
     }
 
     /// <summary>
@@ -316,6 +322,13 @@ internal sealed class PlainYearMonthPrototype : Prototype
     {
         var ym = ValidatePlainYearMonth(thisObject);
         var other = _constructor.ToTemporalYearMonth(arguments.At(0), "constrain");
+
+        // Calendar equality check (before reading options per spec)
+        if (!string.Equals(ym.Calendar, other.Calendar, StringComparison.Ordinal))
+        {
+            Throw.RangeError(_realm, "Calendars must match for year-month difference operations");
+        }
+
         var optionsArg = arguments.At(1);
 
         // Only year and month units allowed for PlainYearMonth
@@ -350,6 +363,13 @@ internal sealed class PlainYearMonthPrototype : Prototype
     {
         var ym = ValidatePlainYearMonth(thisObject);
         var other = _constructor.ToTemporalYearMonth(arguments.At(0), "constrain");
+
+        // Calendar equality check (before reading options per spec)
+        if (!string.Equals(ym.Calendar, other.Calendar, StringComparison.Ordinal))
+        {
+            Throw.RangeError(_realm, "Calendars must match for year-month difference operations");
+        }
+
         var optionsArg = arguments.At(1);
 
         // Only year and month units allowed for PlainYearMonth
@@ -493,24 +513,32 @@ internal sealed class PlainYearMonthPrototype : Prototype
         var options = TemporalHelpers.GetOptionsObject(_realm, optionsValue);
         var showCalendar = GetCalendarNameOption(options);
 
-        // Include the reference day when calendar is shown
-        // Per spec: YYYY-MM-DD format with calendar annotation
-        var includeDay = string.Equals(showCalendar, "always", StringComparison.Ordinal) ||
-                         string.Equals(showCalendar, "critical", StringComparison.Ordinal) ||
-                         (string.Equals(showCalendar, "auto", StringComparison.Ordinal) &&
-                          !string.Equals(ym.Calendar, "iso8601", StringComparison.Ordinal));
+        // For non-ISO calendars, always include the reference day (year-month alone is ambiguous)
+        var isNonIsoCalendar = !string.Equals(ym.Calendar, "iso8601", StringComparison.Ordinal);
 
-        var year = ym.IsoDate.Year;
-        var yearStr = (year < 0 || year > 9999)
-            ? $"{(year >= 0 ? '+' : '-')}{System.Math.Abs(year):D6}"
-            : $"{year:D4}";
+        // Include the calendar annotation based on the calendarName option
+        var includeCalendar = string.Equals(showCalendar, "always", StringComparison.Ordinal) ||
+                              string.Equals(showCalendar, "critical", StringComparison.Ordinal) ||
+                              (string.Equals(showCalendar, "auto", StringComparison.Ordinal) && isNonIsoCalendar);
+
+        // Include reference day for non-ISO calendar or when calendar annotation is shown
+        var includeDay = isNonIsoCalendar || includeCalendar;
+
+        var yearStr = TemporalHelpers.PadIsoYear(ym.IsoDate.Year);
 
         string result;
         if (includeDay)
         {
-            // Add critical flag (!) if showCalendar is "critical"
-            var criticalFlag = string.Equals(showCalendar, "critical", StringComparison.Ordinal) ? "!" : "";
-            result = $"{yearStr}-{ym.IsoDate.Month:D2}-{ym.IsoDate.Day:D2}[{criticalFlag}u-ca={ym.Calendar}]";
+            if (includeCalendar)
+            {
+                // Add critical flag (!) if showCalendar is "critical"
+                var criticalFlag = string.Equals(showCalendar, "critical", StringComparison.Ordinal) ? "!" : "";
+                result = $"{yearStr}-{ym.IsoDate.Month:D2}-{ym.IsoDate.Day:D2}[{criticalFlag}u-ca={ym.Calendar}]";
+            }
+            else
+            {
+                result = $"{yearStr}-{ym.IsoDate.Month:D2}-{ym.IsoDate.Day:D2}";
+            }
         }
         else
         {
@@ -526,25 +554,38 @@ internal sealed class PlainYearMonthPrototype : Prototype
     private JsString ToJSON(JsValue thisObject, JsCallArguments arguments)
     {
         var ym = ValidatePlainYearMonth(thisObject);
-        var year = ym.IsoDate.Year;
-        var yearStr = (year < 0 || year > 9999)
-            ? $"{(year >= 0 ? '+' : '-')}{System.Math.Abs(year):D6}"
-            : $"{year:D4}";
+        var yearStr = TemporalHelpers.PadIsoYear(ym.IsoDate.Year);
+        // toJSON uses "auto" for calendarName: include day+calendar for non-ISO
+        if (!string.Equals(ym.Calendar, "iso8601", StringComparison.Ordinal))
+        {
+            return new JsString($"{yearStr}-{ym.IsoDate.Month:D2}-{ym.IsoDate.Day:D2}[u-ca={ym.Calendar}]");
+        }
+
         return new JsString($"{yearStr}-{ym.IsoDate.Month:D2}");
     }
 
     /// <summary>
-    /// https://tc39.es/proposal-temporal/#sec-temporal.plainyearmonth.prototype.tolocalestring
+    /// https://tc39.es/proposal-temporal/#sup-temporal.plainyearmonth.prototype.tolocalestring
     /// </summary>
-    private JsString ToLocaleString(JsValue thisObject, JsCallArguments arguments)
+    private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
     {
         var ym = ValidatePlainYearMonth(thisObject);
-        // For now, just return ISO format
-        var year = ym.IsoDate.Year;
-        var yearStr = (year < 0 || year > 9999)
-            ? $"{(year >= 0 ? '+' : '-')}{System.Math.Abs(year):D6}"
-            : $"{year:D4}";
-        return new JsString($"{yearStr}-{ym.IsoDate.Month:D2}");
+        var locales = arguments.At(0);
+        var options = arguments.At(1);
+
+        // Per spec: CreateDateTimeFormat with required=~date~, defaults=~date~
+        // But for PlainYearMonth, we use year-month specific defaults (no day)
+        var dtf = _realm.Intrinsics.DateTimeFormat.CreateDateTimeFormat(
+            locales, options, required: Intl.DateTimeRequired.Date, defaults: Intl.DateTimeDefaults.YearMonth);
+
+        // Calendar mismatch check: PlainYearMonth calendar must match DTF calendar exactly
+        var cal = ym.Calendar;
+        if (dtf.Calendar != null && !string.Equals(cal, dtf.Calendar, StringComparison.Ordinal))
+        {
+            Throw.RangeError(_realm, $"Calendar mismatch: PlainYearMonth uses '{cal}' but DateTimeFormat uses '{dtf.Calendar}'");
+        }
+
+        return dtf.Format(new DateTime(ym.IsoDate.Year, ym.IsoDate.Month, ym.IsoDate.Day, 12, 0, 0, DateTimeKind.Unspecified), isPlain: true);
     }
 
     /// <summary>

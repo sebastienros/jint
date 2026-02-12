@@ -528,12 +528,21 @@ internal sealed class PlainTimePrototype : Prototype
     }
 
     /// <summary>
-    /// https://tc39.es/proposal-temporal/#sec-temporal.plaintime.prototype.tolocalestring
+    /// https://tc39.es/proposal-temporal/#sup-temporal.plaintime.prototype.tolocalestring
     /// </summary>
-    private JsString ToLocaleString(JsValue thisObject, JsCallArguments arguments)
+    private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
     {
         var plainTime = ValidatePlainTime(thisObject);
-        return new JsString(FormatTime(plainTime.IsoTime, -1));
+        var locales = arguments.At(0);
+        var options = arguments.At(1);
+
+        // Per spec: CreateDateTimeFormat with required=~time~, defaults=~time~
+        var dtf = _realm.Intrinsics.DateTimeFormat.CreateDateTimeFormat(
+            locales, options, required: Intl.DateTimeRequired.Time, defaults: Intl.DateTimeDefaults.Time);
+
+        // Format: use 1970-01-01 as reference date, Unspecified kind (plain = no TZ adjustment)
+        var t = plainTime.IsoTime;
+        return dtf.Format(new DateTime(1970, 1, 1, t.Hour, t.Minute, t.Second, t.Millisecond, DateTimeKind.Unspecified), isPlain: true);
     }
 
     /// <summary>

@@ -31,6 +31,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         string? second,
         int? fractionalSecondDigits,
         string? timeZoneName,
+        bool hasExplicitFormatComponents,
         DateTimeFormatInfo dateTimeFormatInfo,
         CultureInfo cultureInfo) : base(engine)
     {
@@ -53,6 +54,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         Second = second;
         FractionalSecondDigits = fractionalSecondDigits;
         TimeZoneName = timeZoneName;
+        HasExplicitFormatComponents = hasExplicitFormatComponents;
         DateTimeFormatInfo = dateTimeFormatInfo;
         CultureInfo = cultureInfo;
     }
@@ -75,6 +77,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     internal string? Second { get; }
     internal int? FractionalSecondDigits { get; }
     internal string? TimeZoneName { get; }
+    internal bool HasExplicitFormatComponents { get; }
     internal DateTimeFormatInfo DateTimeFormatInfo { get; }
     internal CultureInfo CultureInfo { get; }
 
@@ -88,7 +91,8 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     /// </summary>
     /// <param name="dateTime">The .NET DateTime to format</param>
     /// <param name="originalYear">Optional original JavaScript year (for dates outside .NET DateTime range)</param>
-    internal string Format(DateTime dateTime, int? originalYear = null)
+    /// <param name="isPlain">If true, skip timezone conversion (for plain Temporal types)</param>
+    internal string Format(DateTime dateTime, int? originalYear = null, bool isPlain = false)
     {
         // For Chinese and Dangi calendars, use FormatToParts to get consistent output
         // This ensures the special part types (relatedYear, yearName) are properly handled
@@ -101,7 +105,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
 
         if (isLunisolarCalendar || hasEra)
         {
-            var parts = FormatToParts(dateTime, originalYear);
+            var parts = FormatToParts(dateTime, originalYear, isPlain);
             var sb = new StringBuilder();
             foreach (var part in parts)
             {
@@ -111,9 +115,21 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         }
 
         // Convert to specified timezone if one was provided
-        if (TimeZone != null)
+        // For plain Temporal types (isPlain=true), skip timezone conversion since
+        // they represent wall-clock time, not an absolute point in time
+        if (!isPlain)
         {
-            dateTime = ConvertToTimeZone(dateTime, TimeZone);
+            if (TimeZone != null)
+            {
+                dateTime = ConvertToTimeZone(dateTime, TimeZone);
+            }
+            else if (dateTime.Kind == DateTimeKind.Utc)
+            {
+                // No explicit timezone: convert UTC to engine's default timezone
+                // (not system ToLocalTime which ignores engine's configured timezone)
+                var defaultTz = _engine.Options.TimeSystem.DefaultTimeZone;
+                dateTime = TimeZoneInfo.ConvertTimeFromUtc(dateTime, defaultTz);
+            }
         }
 
         string result;
@@ -121,7 +137,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         // If dateStyle or timeStyle is specified, use those
         if (DateStyle != null || TimeStyle != null)
         {
-            result = FormatWithStyles(dateTime);
+            result = FormatWithStyles(dateTime, isPlain);
         }
         else
         {
@@ -240,7 +256,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         }
 
         // Get era names from CLDR provider if available
-        var eraNames = CldrProvider.GetEraNames(Locale, style);
+        var eraNames = CldrProvider.GetEraNames(Locale, style, calendar);
 
         // Use original year for era calculation if the date was clamped
         var effectiveYear = originalYear ?? dateTime.Year;
@@ -635,14 +651,14 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         hasDate = true;
     }
 
-    private string FormatWithStyles(DateTime dateTime)
+    private string FormatWithStyles(DateTime dateTime, bool isPlain = false)
     {
         // When both dateStyle and timeStyle are specified, combine them appropriately
         if (DateStyle != null && TimeStyle != null)
         {
             // Format date and time separately and combine with ", "
             var datePart = FormatDateStyleOnly(dateTime);
-            var timePart = FormatTimeStyle(dateTime);
+            var timePart = FormatTimeStyle(dateTime, isPlain);
             return $"{datePart}, {timePart}";
         }
 
@@ -653,7 +669,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
 
         if (TimeStyle != null)
         {
-            return FormatTimeStyle(dateTime);
+            return FormatTimeStyle(dateTime, isPlain);
         }
 
         return dateTime.ToString("G", CultureInfo);
@@ -738,60 +754,37 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     /// <summary>
     /// Formats time using timeStyle, respecting hourCycle
     /// </summary>
-    private string FormatTimeStyle(DateTime dateTime)
+    private string FormatTimeStyle(DateTime dateTime, bool isPlain = false)
     {
-        // Determine if we should use 12 or 24 hour format
-        bool use12Hour;
-        if (HourCycle != null)
+        // Use ComputeHourValue to handle all hour cycles correctly
+        // Style-based formatting always pads 24-hour values (e.g., "05:00:00" not "5:00:00")
+        ComputeHourValue(dateTime.Hour, out var hourStr, out var use12Hour, padByDefault: true);
+
+        // Plain Temporal types should not show timeZoneName
+        var timeZoneSuffix = "";
+        if (!isPlain)
         {
-            // Explicit hourCycle takes precedence
-            use12Hour = string.Equals(HourCycle, "h11", StringComparison.Ordinal) ||
-                       string.Equals(HourCycle, "h12", StringComparison.Ordinal);
-        }
-        else
-        {
-            // Derive from locale - English uses 12-hour, most others use 24-hour
-            var lang = Locale.Split('-')[0].ToLowerInvariant();
-            use12Hour = string.Equals(lang, "en", StringComparison.Ordinal);
+            if (string.Equals(TimeStyle, "full", StringComparison.Ordinal))
+            {
+                timeZoneSuffix = " " + GetTimeZoneDisplayName(dateTime, longName: true, generic: false);
+            }
+            else if (string.Equals(TimeStyle, "long", StringComparison.Ordinal))
+            {
+                timeZoneSuffix = " " + GetTimeZoneDisplayName(dateTime, longName: false, generic: false);
+            }
         }
 
-        var timeZoneSuffix = "";
-        if (string.Equals(TimeStyle, "full", StringComparison.Ordinal))
-        {
-            if (!string.IsNullOrEmpty(TimeZone) && string.Equals(TimeZone, "UTC", StringComparison.OrdinalIgnoreCase))
-            {
-                timeZoneSuffix = " Coordinated Universal Time";
-            }
-            else
-            {
-                timeZoneSuffix = " " + TimeZoneInfo.Local.DisplayName;
-            }
-        }
-        else if (string.Equals(TimeStyle, "long", StringComparison.Ordinal))
-        {
-            if (!string.IsNullOrEmpty(TimeZone) && string.Equals(TimeZone, "UTC", StringComparison.OrdinalIgnoreCase))
-            {
-                timeZoneSuffix = " UTC";
-            }
-        }
+        var minuteStr = dateTime.Minute.ToString("D2", CultureInfo.InvariantCulture);
+        var secondStr = dateTime.Second.ToString("D2", CultureInfo.InvariantCulture);
+        var dayPeriod = use12Hour ? " " + GetDayPeriod(dateTime.Hour) : "";
 
         return TimeStyle switch
         {
-            "full" => use12Hour
-                ? dateTime.ToString("h:mm:ss", CultureInfo) + " " + GetDayPeriod(dateTime.Hour) + timeZoneSuffix
-                : dateTime.ToString("HH:mm:ss", CultureInfo) + timeZoneSuffix,
-            "long" => use12Hour
-                ? dateTime.ToString("h:mm:ss", CultureInfo) + " " + GetDayPeriod(dateTime.Hour) + timeZoneSuffix
-                : dateTime.ToString("HH:mm:ss", CultureInfo) + timeZoneSuffix,
-            "medium" => use12Hour
-                ? dateTime.ToString("h:mm:ss", CultureInfo) + " " + GetDayPeriod(dateTime.Hour)
-                : dateTime.ToString("HH:mm:ss", CultureInfo),
-            "short" => use12Hour
-                ? dateTime.ToString("h:mm", CultureInfo) + " " + GetDayPeriod(dateTime.Hour)
-                : dateTime.ToString("HH:mm", CultureInfo),
-            _ => use12Hour
-                ? dateTime.ToString("h:mm", CultureInfo) + " " + GetDayPeriod(dateTime.Hour)
-                : dateTime.ToString("HH:mm", CultureInfo),
+            "full" => hourStr + ":" + minuteStr + ":" + secondStr + dayPeriod + timeZoneSuffix,
+            "long" => hourStr + ":" + minuteStr + ":" + secondStr + dayPeriod + timeZoneSuffix,
+            "medium" => hourStr + ":" + minuteStr + ":" + secondStr + dayPeriod,
+            "short" => hourStr + ":" + minuteStr + dayPeriod,
+            _ => hourStr + ":" + minuteStr + dayPeriod,
         };
     }
 
@@ -862,16 +855,14 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             }
         }
 
-        // Hour
+        // Hour - use pre-computed value to handle all hour cycles (h11/h12/h23/h24)
+        bool hourUse12Hour = false;
         if (Hour != null)
         {
-            var use12Hour = string.Equals(GetHourFormat(), "h12", StringComparison.Ordinal);
-            parts.Add(Hour switch
-            {
-                "numeric" => use12Hour ? "h" : "H",
-                "2-digit" => use12Hour ? "hh" : "HH",
-                _ => use12Hour ? "h" : "H"
-            });
+            ComputeHourValue(dateTime.Hour, out var hourStr, out var use12Hr);
+            hourUse12Hour = use12Hr;
+            // Use escaped literal in format string so .NET outputs our pre-computed value
+            parts.Add("'" + hourStr + "'");
         }
 
         // Minute - for time components, "numeric" typically uses 2-digit padding in most locales
@@ -904,25 +895,17 @@ internal sealed class JsDateTimeFormat : ObjectInstance
 
         // Day period (AM/PM) - only add "tt" if using 12-hour format with hour specified
         // and DayPeriod is not explicitly specified (DayPeriod uses extended periods)
-        var needsAmPm = Hour != null && string.Equals(GetHourFormat(), "h12", StringComparison.Ordinal) && DayPeriod == null;
+        var needsAmPm = Hour != null && hourUse12Hour && DayPeriod == null;
         if (needsAmPm)
         {
             parts.Add("tt");
         }
 
-        // Time zone name
+        // Time zone name - compute the display name directly (not via .NET format specifier)
+        string? timeZoneNameStr = null;
         if (TimeZoneName != null)
         {
-            parts.Add(TimeZoneName switch
-            {
-                "long" => "zzz",
-                "short" => "zzz",
-                "shortOffset" => "zzz",
-                "longOffset" => "zzz",
-                "shortGeneric" => "zzz",
-                "longGeneric" => "zzz",
-                _ => "zzz"
-            });
+            timeZoneNameStr = GetFormattedTimeZoneName(dateTime);
         }
 
         // Handle DayPeriod option (extended day periods like "in the morning")
@@ -959,10 +942,15 @@ internal sealed class JsDateTimeFormat : ObjectInstance
                 }
             }
 
-            return formatted + " " + GetExtendedDayPeriod(dateTime.Hour);
+            var dayPeriodResult = formatted + " " + GetExtendedDayPeriod(dateTime.Hour);
+            if (timeZoneNameStr != null)
+            {
+                dayPeriodResult += " " + timeZoneNameStr;
+            }
+            return dayPeriodResult;
         }
 
-        if (parts.Count == 0 && eraValue == null)
+        if (parts.Count == 0 && eraValue == null && timeZoneNameStr == null)
         {
             // Default format if no components specified
             return dateTime.ToString("G", CultureInfo);
@@ -993,6 +981,19 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             }
         }
 
+        // Append timezone name if specified
+        if (timeZoneNameStr != null)
+        {
+            if (result.Length > 0)
+            {
+                result += " " + timeZoneNameStr;
+            }
+            else
+            {
+                result = timeZoneNameStr;
+            }
+        }
+
         return result;
     }
 
@@ -1019,6 +1020,77 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         return timePattern.Contains('H') ? "h24" : "h12";
     }
 
+    /// <summary>
+    /// Computes the formatted hour string based on the hourCycle, hour option, and actual hour value.
+    /// Returns the formatted hour string and whether AM/PM should be shown.
+    /// Per ECMA-402: h11=0-11 (12hr), h12=1-12 (12hr), h23=0-23 (24hr), h24=1-24 (24hr).
+    /// 24-hour formats always pad to 2 digits; 12-hour formats pad only for "2-digit" option.
+    /// </summary>
+    /// <summary>
+    /// Computes the formatted hour value based on HourCycle and locale defaults.
+    /// </summary>
+    /// <param name="hour">The 0-23 hour value</param>
+    /// <param name="hourStr">Output: formatted hour string</param>
+    /// <param name="use12Hour">Output: whether 12-hour format is used (needs AM/PM)</param>
+    /// <param name="padByDefault">If true, always pad h23/h24 hours (used by style-based formatting)</param>
+    private void ComputeHourValue(int hour, out string hourStr, out bool use12Hour, bool padByDefault = false)
+    {
+        int hourValue;
+
+        if (string.Equals(HourCycle, "h11", StringComparison.Ordinal))
+        {
+            hourValue = hour % 12; // 0-11
+            use12Hour = true;
+        }
+        else if (string.Equals(HourCycle, "h24", StringComparison.Ordinal))
+        {
+            hourValue = hour == 0 ? 24 : hour; // 1-24
+            use12Hour = false;
+        }
+        else if (string.Equals(HourCycle, "h23", StringComparison.Ordinal))
+        {
+            hourValue = hour; // 0-23
+            use12Hour = false;
+        }
+        else if (string.Equals(HourCycle, "h12", StringComparison.Ordinal))
+        {
+            hourValue = hour % 12 == 0 ? 12 : hour % 12; // 1-12
+            use12Hour = true;
+        }
+        else
+        {
+            // No explicit hourCycle - derive from locale using CLDR defaults
+            // (not from .NET CultureInfo which may reflect system user overrides)
+            var defaultHc = DateTimeFormatPrototype.GetDefaultHourCycle(Locale);
+            if (string.Equals(defaultHc, "h11", StringComparison.Ordinal))
+            {
+                hourValue = hour % 12; // 0-11
+                use12Hour = true;
+            }
+            else if (string.Equals(defaultHc, "h23", StringComparison.Ordinal))
+            {
+                hourValue = hour; // 0-23
+                use12Hour = false;
+            }
+            else if (string.Equals(defaultHc, "h24", StringComparison.Ordinal))
+            {
+                hourValue = hour == 0 ? 24 : hour; // 1-24
+                use12Hour = false;
+            }
+            else
+            {
+                // h12 default
+                hourValue = hour % 12 == 0 ? 12 : hour % 12; // 1-12
+                use12Hour = true;
+            }
+        }
+
+        // Per ECMA-402: 24-hour formats (h23, h24) always pad to 2 digits.
+        // 12-hour formats only pad when Hour option is "2-digit".
+        var pad = !use12Hour || string.Equals(Hour, "2-digit", StringComparison.Ordinal);
+        hourStr = pad ? hourValue.ToString("D2", CultureInfo.InvariantCulture) : hourValue.ToString(CultureInfo.InvariantCulture);
+    }
+
     private string BuildFormatString(List<string> parts)
     {
         // Simple join - a more sophisticated implementation would use
@@ -1038,21 +1110,23 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             }
 
             var firstChar = part[0];
+            // Escaped literals starting with ' are pre-computed hour values (treated as time component)
+            var isHourLiteral = firstChar == '\'';
 
             if (result.Length > 0)
             {
                 // Add separator based on what we're joining
-                if (firstChar is 'h' or 'H' or 'm' or 's' or 'f' or 't')
+                if (firstChar is 'h' or 'H' or 'm' or 's' or 'f' or 't' || isHourLiteral)
                 {
                     if (!hasTime)
                     {
                         if (hasDate)
                         {
-                            result.Append(' ');
+                            result.Append("', '"); // Literal ", " between date and time
                         }
                         hasTime = true;
                     }
-                    else if (firstChar is not 't' and not 'f')
+                    else if (firstChar is not 't' and not 'f' and not '\'')
                     {
                         result.Append(':');
                     }
@@ -1102,7 +1176,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             }
             else
             {
-                if (firstChar is 'h' or 'H' or 'm' or 's' or 'f')
+                if (firstChar is 'h' or 'H' or 'm' or 's' or 'f' || isHourLiteral)
                 {
                     hasTime = true;
                 }
@@ -1132,12 +1206,23 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     /// </summary>
     /// <param name="dateTime">The .NET DateTime to format</param>
     /// <param name="originalYear">Optional original JavaScript year (for dates outside .NET DateTime range)</param>
-    internal List<DateTimePart> FormatToParts(DateTime dateTime, int? originalYear = null)
+    /// <param name="isPlain">If true, skip timezone conversion (for plain Temporal types)</param>
+    internal List<DateTimePart> FormatToParts(DateTime dateTime, int? originalYear = null, bool isPlain = false)
     {
         // Convert to specified timezone if one was provided
-        if (TimeZone != null)
+        // For plain Temporal types (isPlain=true), skip timezone conversion
+        if (!isPlain)
         {
-            dateTime = ConvertToTimeZone(dateTime, TimeZone);
+            if (TimeZone != null)
+            {
+                dateTime = ConvertToTimeZone(dateTime, TimeZone);
+            }
+            else if (dateTime.Kind == DateTimeKind.Utc)
+            {
+                // No explicit timezone: convert UTC to engine's default timezone
+                var defaultTz = _engine.Options.TimeSystem.DefaultTimeZone;
+                dateTime = TimeZoneInfo.ConvertTimeFromUtc(dateTime, defaultTz);
+            }
         }
 
         var result = new List<DateTimePart>();
@@ -1145,7 +1230,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         if (DateStyle != null || TimeStyle != null)
         {
             // For style-based formatting, use a simpler approach
-            FormatStyleToParts(dateTime, result, originalYear);
+            FormatStyleToParts(dateTime, result, originalYear, isPlain);
         }
         else
         {
@@ -1169,7 +1254,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         return result;
     }
 
-    private void FormatStyleToParts(DateTime dateTime, List<DateTimePart> result, int? originalYear)
+    private void FormatStyleToParts(DateTime dateTime, List<DateTimePart> result, int? originalYear, bool isPlain = false)
     {
         // For style-based formatting, decompose into proper parts
         // Map styles to component options and use component-based parts generation
@@ -1189,7 +1274,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
 
         if (hasTime)
         {
-            FormatTimeStyleToParts(dateTime, result);
+            FormatTimeStyleToParts(dateTime, result, isPlain);
         }
     }
 
@@ -1304,14 +1389,13 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         }
     }
 
-    private void FormatTimeStyleToParts(DateTime dateTime, List<DateTimePart> result)
+    private void FormatTimeStyleToParts(DateTime dateTime, List<DateTimePart> result, bool isPlain = false)
     {
         var style = TimeStyle;
-        var use12Hour = IsUsing12HourFormat();
-        var hour = use12Hour ? (dateTime.Hour % 12 == 0 ? 12 : dateTime.Hour % 12) : dateTime.Hour;
+        ComputeHourValue(dateTime.Hour, out var hourStr, out var use12Hour, padByDefault: true);
 
         // Hour
-        result.Add(new DateTimePart("hour", hour.ToString(CultureInfo)));
+        result.Add(new DateTimePart("hour", hourStr));
 
         // Minute (always for time styles)
         result.Add(new DateTimePart("literal", ":"));
@@ -1331,34 +1415,23 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             result.Add(new DateTimePart("dayPeriod", dateTime.Hour < 12 ? "AM" : "PM"));
         }
 
-        // Time zone name (for long and full)
-        if (string.Equals(style, "full", StringComparison.Ordinal))
+        // Time zone name (for long and full) - omit for plain Temporal types
+        if (!isPlain)
         {
-            result.Add(new DateTimePart("literal", " "));
-            result.Add(new DateTimePart("timeZoneName", GetTimeZoneDisplayName(true)));
-        }
-        else if (string.Equals(style, "long", StringComparison.Ordinal))
-        {
-            result.Add(new DateTimePart("literal", " "));
-            result.Add(new DateTimePart("timeZoneName", GetTimeZoneDisplayName(false)));
+            if (string.Equals(style, "full", StringComparison.Ordinal))
+            {
+                result.Add(new DateTimePart("literal", " "));
+                result.Add(new DateTimePart("timeZoneName", GetTimeZoneDisplayName(dateTime, longName: true, generic: false)));
+            }
+            else if (string.Equals(style, "long", StringComparison.Ordinal))
+            {
+                result.Add(new DateTimePart("literal", " "));
+                result.Add(new DateTimePart("timeZoneName", GetTimeZoneDisplayName(dateTime, longName: false, generic: false)));
+            }
         }
     }
 
-    private bool IsUsing12HourFormat()
-    {
-        // Check hourCycle first
-        if (HourCycle != null)
-        {
-            return string.Equals(HourCycle, "h11", StringComparison.Ordinal) ||
-                   string.Equals(HourCycle, "h12", StringComparison.Ordinal);
-        }
-
-        // Default based on locale - US uses 12-hour, most others use 24-hour
-        var lang = Locale.Split('-')[0].ToLowerInvariant();
-        return string.Equals(lang, "en", StringComparison.Ordinal);
-    }
-
-    private string GetTimeZoneDisplayName(bool longName)
+    private string GetTimeZoneDisplayName(DateTime utcDateTime, bool longName, bool generic)
     {
         if (TimeZone != null)
         {
@@ -1366,11 +1439,108 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             {
                 return longName ? "Coordinated Universal Time" : "UTC";
             }
-            // For other timezones, use the ID or a short form
-            var parts = TimeZone.Split('/');
-            return longName ? TimeZone : parts[parts.Length - 1];
+
+            // Handle offset timezone format like "+00:00", "+03:00", "-07:30"
+            var offset = TryParseOffset(TimeZone);
+            if (offset.HasValue)
+            {
+                return FormatGmtOffset(offset.Value, longName);
+            }
+
+            // Try CLDR metazone data first (provides locale-correct names)
+            var isDst = false;
+            try
+            {
+                var tzInfo = TimeZoneInfo.FindSystemTimeZoneById(TimeZone);
+                isDst = tzInfo.IsDaylightSavingTime(DateTime.SpecifyKind(utcDateTime, DateTimeKind.Utc));
+            }
+            catch
+            {
+                // If timezone not found, isDst stays false
+            }
+
+            var cldrName = Data.MetaZoneData.GetDisplayName(TimeZone, isDst, longName, generic);
+            if (cldrName != null)
+            {
+                return cldrName;
+            }
+
+            // Fallback to .NET TimeZoneInfo names
+            try
+            {
+                var tzInfo = TimeZoneInfo.FindSystemTimeZoneById(TimeZone);
+                if (longName)
+                {
+                    return isDst ? tzInfo.DaylightName : tzInfo.StandardName;
+                }
+                var parts = TimeZone.Split('/');
+                return parts[parts.Length - 1].Replace('_', ' ');
+            }
+            catch
+            {
+                var parts = TimeZone.Split('/');
+                return longName ? TimeZone : parts[parts.Length - 1];
+            }
         }
-        return longName ? TimeZoneInfo.Local.DisplayName : TimeZoneInfo.Local.Id;
+        return longName ? TimeZoneInfo.Local.StandardName : TimeZoneInfo.Local.Id;
+    }
+
+    /// <summary>
+    /// Formats a GMT offset display name. Short: "GMT+1", Long: "GMT+01:00".
+    /// </summary>
+    private static string FormatGmtOffset(TimeSpan offset, bool longName)
+    {
+        if (offset == TimeSpan.Zero)
+        {
+            return "GMT";
+        }
+
+        var sign = offset < TimeSpan.Zero ? "-" : "+";
+        var absOffset = offset < TimeSpan.Zero ? offset.Negate() : offset;
+
+        if (longName)
+        {
+            return $"GMT{sign}{absOffset.Hours:D2}:{absOffset.Minutes:D2}";
+        }
+
+        if (absOffset.Minutes == 0)
+        {
+            return $"GMT{sign}{absOffset.Hours}";
+        }
+
+        return $"GMT{sign}{absOffset.Hours}:{absOffset.Minutes:D2}";
+    }
+
+    /// <summary>
+    /// Gets the formatted timezone name based on the TimeZoneName option.
+    /// </summary>
+    private string GetFormattedTimeZoneName(DateTime dateTime)
+    {
+        if (string.Equals(TimeZoneName, "long", StringComparison.Ordinal))
+        {
+            return GetTimeZoneDisplayName(dateTime, longName: true, generic: false);
+        }
+        if (string.Equals(TimeZoneName, "longGeneric", StringComparison.Ordinal))
+        {
+            return GetTimeZoneDisplayName(dateTime, longName: true, generic: true);
+        }
+        if (string.Equals(TimeZoneName, "short", StringComparison.Ordinal))
+        {
+            return GetTimeZoneDisplayName(dateTime, longName: false, generic: false);
+        }
+        if (string.Equals(TimeZoneName, "shortGeneric", StringComparison.Ordinal))
+        {
+            return GetTimeZoneDisplayName(dateTime, longName: false, generic: true);
+        }
+        if (string.Equals(TimeZoneName, "longOffset", StringComparison.Ordinal))
+        {
+            return "GMT" + dateTime.ToString("zzz", CultureInfo);
+        }
+        if (string.Equals(TimeZoneName, "shortOffset", StringComparison.Ordinal))
+        {
+            return "GMT" + dateTime.ToString("zzz", CultureInfo);
+        }
+        return GetTimeZoneDisplayName(dateTime, longName: false, generic: false);
     }
 
     private void FormatComponentsToParts(DateTime dateTime, List<DateTimePart> result, int? originalYear = null)
@@ -1443,21 +1613,17 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             }
         }
 
-        // Hour
+        // Hour - use pre-computed value to handle all hour cycles (h11/h12/h23/h24)
+        bool hourUse12Hour = false;
         if (Hour != null)
         {
             if (result.Count > 0)
             {
                 result.Add(new DateTimePart("literal", hasDate ? ", " : ""));
             }
-            var use12Hour = string.Equals(GetHourFormat(), "h12", StringComparison.Ordinal);
-            var format = Hour switch
-            {
-                "numeric" => use12Hour ? "%h" : "%H",  // Use % for single character
-                "2-digit" => use12Hour ? "hh" : "HH",
-                _ => use12Hour ? "%h" : "%H"
-            };
-            result.Add(new DateTimePart("hour", dateTime.ToString(format, CultureInfo)));
+            ComputeHourValue(dateTime.Hour, out var hourStr, out var use12Hr);
+            hourUse12Hour = use12Hr;
+            result.Add(new DateTimePart("hour", hourStr));
             hasTime = true;
         }
 
@@ -1508,7 +1674,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             }
             result.Add(new DateTimePart("dayPeriod", GetExtendedDayPeriod(dateTime.Hour)));
         }
-        else if (Hour != null && string.Equals(GetHourFormat(), "h12", StringComparison.Ordinal))
+        else if (Hour != null && hourUse12Hour)
         {
             result.Add(new DateTimePart("literal", " "));
             result.Add(new DateTimePart("dayPeriod", dateTime.ToString("tt", CultureInfo)));
@@ -1518,7 +1684,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         if (TimeZoneName != null)
         {
             result.Add(new DateTimePart("literal", " "));
-            result.Add(new DateTimePart("timeZoneName", dateTime.ToString("zzz", CultureInfo)));
+            result.Add(new DateTimePart("timeZoneName", GetFormattedTimeZoneName(dateTime)));
         }
 
         // If no parts were added, use default format

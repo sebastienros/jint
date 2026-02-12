@@ -222,7 +222,7 @@ internal sealed class PlainDateTimeConstructor : Constructor
                 Throw.RangeError(_realm, "Invalid date-time string");
             }
 
-            return Construct(parsed.DateTime.Value, "iso8601");
+            return Construct(parsed.DateTime.Value, TemporalHelpers.ExtractCalendarIdentifierFromString(str));
         }
 
         if (item.IsObject())
@@ -260,6 +260,9 @@ internal sealed class PlainDateTimeConstructor : Constructor
         }
 
         var day = TemporalHelpers.ToPositiveIntegerWithTruncation(_realm, dayValue);
+
+        // 2.5. era/eraYear - read for era-supporting calendars (alphabetically between day and hour)
+        var eraYear = TemporalHelpers.ReadEraFields(_realm, obj, calendar);
 
         // 3. hour - read and convert immediately
         var hourValue = obj.Get("hour");
@@ -330,14 +333,23 @@ internal sealed class PlainDateTimeConstructor : Constructor
         var secondValue = obj.Get("second");
         var second = secondValue.IsUndefined() ? 0 : TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, secondValue);
 
-        // 11. year - read and convert immediately (TYPE validation happens here)
-        var yearValue = obj.Get("year");
-        if (yearValue.IsUndefined())
+        // 11. year - use eraYear if computed, otherwise read from property
+        int year;
+        if (eraYear.HasValue)
         {
-            Throw.TypeError(_realm, "Missing required property: year");
+            year = eraYear.Value;
+            obj.Get("year");
         }
+        else
+        {
+            var yearValue = obj.Get("year");
+            if (yearValue.IsUndefined())
+            {
+                Throw.TypeError(_realm, "Missing required property: year");
+            }
 
-        var year = TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearValue);
+            year = TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearValue);
+        }
 
         // 12. Read options.overflow AFTER all fields (but BEFORE algorithmic validation)
         var overflow = optionsValue.IsUndefined() ? "constrain" : TemporalHelpers.GetOverflowOption(_realm, optionsValue);
@@ -376,13 +388,13 @@ internal sealed class PlainDateTimeConstructor : Constructor
             Throw.TypeError(_realm, "month or monthCode is required");
         }
 
-        // Validate year range only (month/day will be validated by RegulateIsoDate based on overflow)
-        if (year < -271821 || year > 275760)
+        // Validate year range for ISO calendars only (non-ISO will validate during conversion)
+        if (TemporalHelpers.IsGregorianBasedCalendar(calendar) && (year < -271821 || year > 275760))
         {
             Throw.RangeError(_realm, "Date is outside valid range");
         }
 
-        var date = TemporalHelpers.RegulateIsoDate(year, month, day, overflow);
+        var date = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, day, overflow);
         if (date is null)
         {
             Throw.RangeError(_realm, "Invalid date");

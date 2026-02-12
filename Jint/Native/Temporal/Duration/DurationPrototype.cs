@@ -1562,12 +1562,30 @@ internal sealed class DurationPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.duration.prototype.tolocalestring
     /// </summary>
-    private JsString ToLocaleString(JsValue thisObject, JsCallArguments arguments)
+    private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
     {
         var duration = ValidateDuration(thisObject);
-        // For now, just return the ISO string representation
-        // Full Intl.DurationFormat integration would require more work
-        return new JsString(TemporalHelpers.FormatDuration(duration.DurationRecord));
+        var locales = arguments.At(0);
+        var options = arguments.At(1);
+
+        // Per spec: new Intl.DurationFormat(locales, options).format(this)
+        var durationFormat = (Intl.JsDurationFormat) _realm.Intrinsics.DurationFormat.Construct([locales, options], Undefined);
+        // Convert Temporal DurationRecord to Intl DurationRecord
+        var dr = duration.DurationRecord;
+        var intlRecord = new Intl.JsDurationFormat.DurationRecord
+        {
+            Years = dr.Years,
+            Months = dr.Months,
+            Weeks = dr.Weeks,
+            Days = dr.Days,
+            Hours = dr.Hours,
+            Minutes = dr.Minutes,
+            Seconds = dr.Seconds,
+            Milliseconds = dr.Milliseconds,
+            Microseconds = dr.Microseconds,
+            Nanoseconds = dr.Nanoseconds,
+        };
+        return durationFormat.Format(intlRecord);
     }
 
     /// <summary>

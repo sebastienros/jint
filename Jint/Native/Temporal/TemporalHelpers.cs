@@ -13,6 +13,19 @@ namespace Jint.Native.Temporal;
 /// </summary>
 internal static class TemporalHelpers
 {
+    /// <summary>
+    /// Formats an ISO year as 4-digit (0000-9999) or 6-digit with sign prefix.
+    /// </summary>
+    internal static string PadIsoYear(int year)
+    {
+        if (year < 0 || year > 9999)
+        {
+            return $"{(year >= 0 ? '+' : '-')}{System.Math.Abs(year):D6}";
+        }
+
+        return $"{year:D4}";
+    }
+
     // Polyfill for Math.Clamp which doesn't exist in netstandard2.0
     private static int Clamp(int value, int min, int max)
     {
@@ -262,7 +275,22 @@ internal static class TemporalHelpers
     }
 
     /// <summary>
-    /// Formats an offset in nanoseconds as an ISO 8601 offset string.
+    /// FormatDateTimeUTCOffsetRounded: Rounds offset to nearest minute and formats as ±HH:MM.
+    /// Used by ZonedDateTime.toString() and Instant.toString() per the Temporal spec.
+    /// </summary>
+    public static string FormatOffsetRounded(long offsetNanoseconds)
+    {
+        // Round to nearest minute (halfExpand)
+        var sign = offsetNanoseconds >= 0 ? "+" : "-";
+        var absNs = System.Math.Abs(offsetNanoseconds);
+        var totalMinutes = (absNs + NanosecondsPerMinute / 2) / NanosecondsPerMinute;
+        var hours = totalMinutes / 60;
+        var minutes = totalMinutes % 60;
+        return $"{sign}{hours:D2}:{minutes:D2}";
+    }
+
+    /// <summary>
+    /// Formats an offset in nanoseconds as an ISO 8601 offset string (full precision).
     /// </summary>
     public static string FormatOffsetString(long offsetNanoseconds)
     {
@@ -1257,8 +1285,10 @@ internal static class TemporalHelpers
     }
 
     /// <summary>
-    /// Validates a time zone ID against the provider and returns the canonical form.
+    /// Validates a time zone ID against the provider and returns the case-corrected form.
+    /// Per spec, returns [[Identifier]] (not [[PrimaryIdentifier]]).
     /// Throws RangeError if the ID is not a valid time zone.
+    /// https://tc39.es/proposal-temporal/#sec-temporal-totemporaltimezoneidentifier
     /// </summary>
     public static string ValidateTimeZoneId(Engine engine, Realm realm, string timeZoneId)
     {
@@ -1275,6 +1305,37 @@ internal static class TemporalHelpers
         }
 
         return timeZoneId;
+    }
+
+    /// <summary>
+    /// Compares two time zone identifiers for equality per TC39 TimeZoneEquals.
+    /// Resolves IANA aliases to their primary identifiers before comparing.
+    /// https://tc39.es/proposal-temporal/#sec-timezoneequals
+    /// </summary>
+    public static bool TimeZoneEquals(Engine engine, string one, string two)
+    {
+        if (string.Equals(one, two, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var provider = engine.Options.Temporal.TimeZoneProvider;
+        var primary1 = provider.GetPrimaryTimeZoneIdentifier(one);
+        var primary2 = provider.GetPrimaryTimeZoneIdentifier(two);
+        if (primary1 is not null && primary2 is not null)
+        {
+            return string.Equals(primary1, primary2, StringComparison.OrdinalIgnoreCase);
+        }
+
+        // Fallback: compare canonicalized forms
+        var canonical1 = provider.CanonicalizeTimeZone(one);
+        var canonical2 = provider.CanonicalizeTimeZone(two);
+        if (canonical1 is not null && canonical2 is not null)
+        {
+            return string.Equals(canonical1, canonical2, StringComparison.OrdinalIgnoreCase);
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -1319,15 +1380,19 @@ internal static class TemporalHelpers
         }
 
         // Check if this looks like an ISO datetime string (contains T/t separator)
-        // T must be at position >= 4 to be a date-time separator (after YYYY year portion)
-        // This avoids treating timezone names like "UTC" as ISO datetime strings
+        // ISO datetime strings start with digits (year portion): "2024-07-02T..."
+        // IANA timezone names start with letters: "Asia/Kolkata", "America/Los_Angeles"
+        // Only look for T separator if the input starts with a digit (indicating a date)
         var tPos = -1;
-        for (var i = 4; i < input.Length; i++)
+        if (input.Length > 4 && char.IsDigit(input[0]))
         {
-            if (input[i] == 'T' || input[i] == 't')
+            for (var i = 4; i < input.Length; i++)
             {
-                tPos = i;
-                break;
+                if (input[i] == 'T' || input[i] == 't')
+                {
+                    tPos = i;
+                    break;
+                }
             }
         }
 
@@ -1491,11 +1556,412 @@ internal static class TemporalHelpers
         // Check if it's a valid calendar ID and return canonical form
         var lower = ToAsciiLowerCase(calendar);
 
-        // Only iso8601 is supported for now
-        if (string.Equals(lower, "iso8601", StringComparison.Ordinal))
-            return "iso8601";
+        // Map of known calendar identifiers to their canonical forms
+        // https://tc39.es/ecma402/#sec-availablecalendars
+        return lower switch
+        {
+            "iso8601" => "iso8601",
+            "gregory" or "gregorian" => "gregory",
+            "buddhist" => "buddhist",
+            "chinese" => "chinese",
+            "coptic" => "coptic",
+            "dangi" => "dangi",
+            "ethioaa" or "ethiopic-amete-alem" => "ethioaa",
+            "ethiopic" => "ethiopic",
+            "hebrew" => "hebrew",
+            "indian" => "indian",
+            "islamic" => "islamic",
+            "islamic-civil" => "islamic-civil",
+            "islamic-rgsa" => "islamic-rgsa",
+            "islamic-tbla" => "islamic-tbla",
+            "islamic-umalqura" => "islamic-umalqura",
+            "islamicc" => "islamic-civil",
+            "japanese" => "japanese",
+            "persian" => "persian",
+            "roc" => "roc",
+            _ => null // Unsupported calendar
+        };
+    }
 
-        return null; // Unsupported calendar
+    /// <summary>
+    /// Converts calendar-system year/month/day to ISO year/month/day.
+    /// For non-ISO calendars, the input fields are in the calendar's system
+    /// and need to be converted to the proleptic Gregorian (ISO 8601) calendar.
+    /// </summary>
+    public static IsoDate? CalendarDateToISO(Realm realm, string calendar, int year, int month, int day, string overflow)
+    {
+        if (calendar is "iso8601" or "gregory")
+        {
+            return RegulateIsoDate(year, month, day, overflow);
+        }
+
+        if (calendar is "islamic-civil")
+        {
+            return IslamicCivilDateToISO(year, month, day, overflow);
+        }
+
+        if (calendar is "islamic-tbla")
+        {
+            return IslamicTblaDateToISO(year, month, day, overflow);
+        }
+
+        // For other calendars, fall back to treating fields as ISO (best effort)
+        return RegulateIsoDate(year, month, day, overflow);
+    }
+
+    /// <summary>
+    /// For PlainMonthDay without an explicit year: finds a calendar year such that
+    /// converting (calendarYear, month, day) to ISO produces an ISO date with the given
+    /// ISO reference year (typically 1972).
+    /// </summary>
+    internal static int FindCalendarReferenceYear(string calendar, int isoReferenceYear, int month, int day)
+    {
+        if (calendar is "islamic-civil" or "islamic-tbla")
+        {
+            // Approximate Islamic year for a given ISO year
+            var approxYear = (int) ((isoReferenceYear - 622.0) * 33.0 / 32.0);
+
+            // Try years around the approximation to find one mapping to the ISO reference year
+            for (var y = approxYear - 1; y <= approxYear + 1; y++)
+            {
+                var isoDate = CalendarDateToISO(null!, calendar, y, month, day, "constrain");
+                if (isoDate?.Year == isoReferenceYear)
+                {
+                    return y;
+                }
+            }
+
+            return approxYear;
+        }
+
+        // Default: assume calendar year ≈ ISO year
+        return isoReferenceYear;
+    }
+
+    /// <summary>
+    /// Returns the number of days in a given month of the Islamic Civil (tabular) calendar.
+    /// Odd months have 30 days, even months have 29 days.
+    /// Month 12 has 30 days in leap years.
+    /// </summary>
+    private static int IslamicCivilDaysInMonth(int year, int month)
+    {
+        if (month <= 0 || month > 12)
+        {
+            return 0;
+        }
+
+        // Odd months (1, 3, 5, 7, 9, 11) have 30 days
+        // Even months (2, 4, 6, 8, 10) have 29 days
+        // Month 12 has 30 days in leap years, 29 otherwise
+        if (month % 2 == 1)
+        {
+            return 30;
+        }
+
+        if (month == 12 && IsIslamicCivilLeapYear(year))
+        {
+            return 30;
+        }
+
+        return 29;
+    }
+
+    /// <summary>
+    /// Returns whether the given year is a leap year in the Islamic Civil calendar.
+    /// Uses the 30-year cycle: years 2, 5, 7, 10, 13, 16, 18, 21, 24, 26, 29 are leap years.
+    /// </summary>
+    private static bool IsIslamicCivilLeapYear(int year)
+    {
+        return (14 + 11 * year) % 30 < 11;
+    }
+
+    /// <summary>
+    /// Converts an Islamic Civil (tabular) calendar date to ISO date via Julian Day Number.
+    /// The Islamic Civil calendar uses a fixed 30-year cycle with known leap year positions.
+    /// Epoch: July 16, 622 CE Julian (civil epoch, Friday).
+    /// </summary>
+    private static IsoDate? IslamicCivilDateToISO(int year, int month, int day, string overflow)
+    {
+        // Validate/constrain in the Islamic calendar system first
+        if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
+        {
+            month = Clamp(month, 1, 12);
+            day = Clamp(day, 1, IslamicCivilDaysInMonth(year, month));
+        }
+        else // "reject"
+        {
+            if (month < 1 || month > 12 || day < 1 || day > IslamicCivilDaysInMonth(year, month))
+            {
+                return null;
+            }
+        }
+
+        // Convert to Julian Day Number
+        // Formula from Calendrical Calculations (Reingold & Dershowitz)
+        var jdn = IslamicToJulianDay(year, month, day, 1948439L);
+        return JulianDayToISO(jdn);
+    }
+
+    /// <summary>
+    /// Converts an Islamic Tabular (Thursday epoch) calendar date to ISO date via Julian Day Number.
+    /// Similar to Islamic Civil but with a different epoch (Thursday instead of Friday).
+    /// </summary>
+    private static IsoDate? IslamicTblaDateToISO(int year, int month, int day, string overflow)
+    {
+        // Same leap year and month structure as Islamic Civil
+        if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
+        {
+            month = Clamp(month, 1, 12);
+            day = Clamp(day, 1, IslamicCivilDaysInMonth(year, month));
+        }
+        else
+        {
+            if (month < 1 || month > 12 || day < 1 || day > IslamicCivilDaysInMonth(year, month))
+            {
+                return null;
+            }
+        }
+
+        // Islamic Tabular uses Thursday epoch (1 day earlier than Civil)
+        var jdn = IslamicToJulianDay(year, month, day, 1948438L);
+        return JulianDayToISO(jdn);
+    }
+
+    /// <summary>
+    /// Computes the Julian Day Number for an Islamic calendar date with the given epoch.
+    /// </summary>
+    private static long IslamicToJulianDay(int year, int month, int day, long epoch)
+    {
+        var monthDays = (long) System.Math.Ceiling(29.5001 * (month - 1));
+        var yearDays = (year - 1) * 354L + (long) System.Math.Floor((3.0 + 11.0 * year) / 30.0);
+        return monthDays + yearDays + day + epoch;
+    }
+
+    /// <summary>
+    /// Converts a Julian Day Number to an ISO (proleptic Gregorian) date.
+    /// Uses the standard algorithm for JDN to Gregorian conversion.
+    /// </summary>
+    private static IsoDate? JulianDayToISO(long jdn)
+    {
+        // Algorithm from Meeus, "Astronomical Algorithms"
+        var a = jdn + 32044L;
+        var b = (4 * a + 3) / 146097;
+        var c = a - 146097 * b / 4;
+        var d = (4 * c + 3) / 1461;
+        var e = c - 1461 * d / 4;
+        var m = (5 * e + 2) / 153;
+
+        var isoDay = (int) (e - (153 * m + 2) / 5 + 1);
+        var isoMonth = (int) (m + 3 - 12 * (m / 10));
+        var isoYear = (int) (100 * b + d - 4800 + m / 10);
+
+        if (!IsValidIsoDateTime(isoYear, isoMonth, isoDay))
+        {
+            return null;
+        }
+
+        return new IsoDate(isoYear, isoMonth, isoDay);
+    }
+
+    /// <summary>
+    /// Returns true if the calendar uses the same Gregorian (proleptic) arithmetic as iso8601.
+    /// These calendars differ only in era/epoch, not in month/day/year calculations.
+    /// </summary>
+    internal static bool IsGregorianBasedCalendar(string calendar)
+    {
+        return calendar is "iso8601" or "gregory" or "japanese" or "roc" or "buddhist";
+    }
+
+    /// <summary>
+    /// Returns true if the calendar supports era/eraYear fields.
+    /// </summary>
+    internal static bool CalendarUsesEras(string calendar)
+    {
+        return calendar is "gregory" or "japanese" or "roc" or "buddhist" or "coptic" or "ethiopic" or "ethioaa" or "indian"
+            or "hebrew" or "islamic-civil" or "islamic-tbla" or "islamic-umalqura" or "persian";
+    }
+
+    /// <summary>
+    /// Returns the era string for a given calendar and ISO year, or null if not supported.
+    /// </summary>
+    internal static string? CalendarEra(string calendar, int isoYear)
+    {
+        switch (calendar)
+        {
+            case "gregory":
+                return isoYear >= 1 ? "ce" : "bce";
+            case "roc":
+                return isoYear >= 1912 ? "minguo" : "before-roc";
+            case "buddhist":
+                return "be";
+            case "japanese":
+                // Simplified: use CE/BCE for years outside specific eras
+                if (isoYear >= 2019) return "reiwa";
+                if (isoYear >= 1989) return "heisei";
+                if (isoYear >= 1926) return "showa";
+                if (isoYear >= 1912) return "taisho";
+                if (isoYear >= 1868) return "meiji";
+                return isoYear >= 1 ? "ce" : "bce";
+            default:
+                return null;
+        }
+    }
+
+    /// <summary>
+    /// Returns the eraYear for a given calendar and ISO year, or null if not supported.
+    /// </summary>
+    internal static int? CalendarEraYear(string calendar, int isoYear)
+    {
+        switch (calendar)
+        {
+            case "gregory":
+                return isoYear >= 1 ? isoYear : 1 - isoYear;
+            case "roc":
+                return isoYear >= 1912 ? isoYear - 1911 : 1912 - isoYear;
+            case "buddhist":
+                return isoYear + 543;
+            case "japanese":
+                if (isoYear >= 2019) return isoYear - 2018;
+                if (isoYear >= 1989) return isoYear - 1988;
+                if (isoYear >= 1926) return isoYear - 1925;
+                if (isoYear >= 1912) return isoYear - 1911;
+                if (isoYear >= 1868) return isoYear - 1867;
+                return isoYear >= 1 ? isoYear : 1 - isoYear;
+            default:
+                return null;
+        }
+    }
+
+    /// <summary>
+    /// Returns the calendar-specific year for Gregorian-based calendars.
+    /// For non-Gregorian-based calendars, returns the ISO year unchanged (best effort).
+    /// </summary>
+    internal static int CalendarYear(string calendar, int isoYear)
+    {
+        switch (calendar)
+        {
+            case "gregory":
+                return isoYear;
+            case "roc":
+                return isoYear - 1911;
+            case "buddhist":
+                return isoYear + 543;
+            case "japanese":
+                return isoYear; // Japanese year getter returns ISO year
+            default:
+                return isoYear;
+        }
+    }
+
+    /// <summary>
+    /// Reads era and eraYear properties from a property bag for era-supporting calendars.
+    /// Returns the computed year if era/eraYear are present, or null if they should be ignored.
+    /// Throws TypeError if only one of era/eraYear is present.
+    /// Throws RangeError if eraYear is invalid (Infinity, NaN, etc.).
+    /// </summary>
+    internal static int? ReadEraFields(Realm realm, ObjectInstance obj, string calendar)
+    {
+        if (!CalendarUsesEras(calendar))
+        {
+            // For calendars that don't use eras, era/eraYear are not read at all
+            return null;
+        }
+
+        var eraValue = obj.Get("era");
+        var eraYearValue = obj.Get("eraYear");
+
+        var hasEra = !eraValue.IsUndefined();
+        var hasEraYear = !eraYearValue.IsUndefined();
+
+        if (hasEra && hasEraYear)
+        {
+            // Convert era to string
+            var era = TypeConverter.ToString(eraValue);
+            // Convert eraYear to integer (this throws RangeError for Infinity/NaN)
+            var eraYear = ToIntegerWithTruncationAsInt(realm, eraYearValue);
+
+            // Compute year from era + eraYear using calendar-specific era mapping
+            return ComputeYearFromEra(realm, calendar, era, eraYear);
+        }
+
+        if (hasEra || hasEraYear)
+        {
+            // Only one of era/eraYear is present - this is an error
+            Throw.TypeError(realm, "Both era and eraYear must be provided together");
+        }
+
+        // Neither era nor eraYear present
+        return null;
+    }
+
+    /// <summary>
+    /// Computes the ISO year from a calendar-specific era and eraYear.
+    /// Throws RangeError if the era is not valid for the given calendar.
+    /// </summary>
+    private static int ComputeYearFromEra(Realm realm, string calendar, string era, int eraYear)
+    {
+        switch (calendar)
+        {
+            case "gregory":
+                if (era is "gregory" or "ce" or "ad")
+                    return eraYear;
+                if (era is "gregory-inverse" or "bce" or "bc")
+                    return 1 - eraYear;
+                break;
+            case "japanese":
+                if (era is "reiwa" or "heisei" or "showa" or "taisho" or "meiji" or "ce" or "bce")
+                    return eraYear; // simplified
+                break;
+            case "roc":
+                if (era is "minguo" or "roc")
+                    return eraYear;
+                if (era is "before-roc" or "before-roc-inverse")
+                    return 1 - eraYear;
+                break;
+            case "buddhist":
+                if (era is "buddhist" or "be")
+                    return eraYear;
+                break;
+            case "coptic":
+                if (era is "coptic" or "era1")
+                    return eraYear;
+                if (era is "coptic-inverse" or "era0")
+                    return 1 - eraYear;
+                break;
+            case "ethiopic":
+                if (era is "ethiopic" or "incar" or "era1")
+                    return eraYear;
+                if (era is "ethiopic-inverse" or "era0")
+                    return 1 - eraYear;
+                if (era is "ethioaa" or "mundi")
+                    return eraYear; // different epoch
+                break;
+            case "ethioaa":
+                if (era is "ethioaa" or "mundi")
+                    return eraYear;
+                break;
+            case "indian":
+                if (era is "saka" or "indian")
+                    return eraYear;
+                break;
+            case "hebrew":
+                if (era is "am" or "hebrew")
+                    return eraYear;
+                break;
+            case "islamic-civil":
+            case "islamic-tbla":
+            case "islamic-umalqura":
+                if (era is "islamic" or "ah")
+                    return eraYear;
+                break;
+            case "persian":
+                if (era is "persian" or "ap")
+                    return eraYear;
+                break;
+        }
+
+        Throw.RangeError(realm, $"Invalid era '{era}' for calendar '{calendar}'");
+        return 0;
     }
 
     /// <summary>
@@ -1623,7 +2089,7 @@ internal static class TemporalHelpers
     /// Extracts the calendar annotation from an ISO date/datetime string.
     /// Returns the calendar ID if found and valid, empty string if found but invalid, null if not found.
     /// </summary>
-    private static string? ExtractCalendarFromIsoString(string input)
+    internal static string? ExtractCalendarFromIsoString(string input)
     {
         // Look for [u-ca=...] annotation
         var bracketStart = input.IndexOf('[');
@@ -1643,19 +2109,33 @@ internal static class TemporalHelpers
                 var calendarStart = ucaIndex + 5;
                 var calendarValue = annotation.Substring(calendarStart);
                 var lower = ToAsciiLowerCase(calendarValue);
-                if (string.Equals(lower, "iso8601", StringComparison.Ordinal))
-                {
-                    return "iso8601";
-                }
 
-                // Other calendars not supported - return empty string to indicate "found but invalid"
-                return string.Empty;
+                // Return the extracted calendar value for canonicalization
+                return lower;
             }
 
             bracketStart = input.IndexOf('[', bracketEnd);
         }
 
         return null; // No calendar annotation found
+    }
+
+    /// <summary>
+    /// Extracts and canonicalizes the calendar from a string, defaulting to "iso8601".
+    /// </summary>
+    internal static string ExtractCalendarIdentifierFromString(string input)
+    {
+        var extracted = ExtractCalendarFromIsoString(input);
+        if (extracted is not null)
+        {
+            var canonical = CanonicalizeCalendar(extracted);
+            if (canonical is not null)
+            {
+                return canonical;
+            }
+        }
+
+        return "iso8601";
     }
 
     /// <summary>
@@ -1730,8 +2210,8 @@ internal static class TemporalHelpers
     /// </summary>
     public static IsoDate CalendarDateAdd(Realm? realm, string calendar, IsoDate isoDate, DurationRecord duration, string overflow)
     {
-        // For ISO calendar
-        if (string.Equals(calendar, "iso8601", StringComparison.Ordinal))
+        // For ISO calendar and Gregorian-based calendars (they share the same arithmetic)
+        if (IsGregorianBasedCalendar(calendar))
         {
             // Step 1: Add years and months, then balance
             var balanced = BalanceISOYearMonth(
@@ -3498,12 +3978,15 @@ internal static class TemporalHelpers
         }
 
         // Step 2: Read all other fields in alphabetical order
-        // Property keys in alphabetical order: day, hour, microsecond, millisecond, minute,
+        // Property keys in alphabetical order: day, era, eraYear, hour, microsecond, millisecond, minute,
         // month, monthCode, nanosecond, offset, second, timeZone, year
 
         // day - to-positive-integer-with-truncation
         var dayValue = fields.Get("day");
         int? day = dayValue.IsUndefined() ? null : ToPositiveIntegerWithTruncation(realm, dayValue);
+
+        // era/eraYear - read for era-supporting calendars (alphabetically between day and hour)
+        var eraYear = ReadEraFields(realm, fields, calendar);
 
         // hour - to-integer-with-truncation
         var hourValue = fields.Get("hour");
@@ -3597,11 +4080,20 @@ internal static class TemporalHelpers
                 engine, realm, timeZoneValue);
         }
 
-        // year - to-integer-with-truncation
-        var yearValue = fields.Get("year");
-        int? year = yearValue.IsUndefined()
-            ? null
-            : (int) ToIntegerWithTruncation(realm, yearValue);
+        // year - use eraYear if computed, otherwise read from property
+        int? year;
+        if (eraYear.HasValue)
+        {
+            year = eraYear.Value;
+            fields.Get("year");
+        }
+        else
+        {
+            var yearValue = fields.Get("year");
+            year = yearValue.IsUndefined()
+                ? null
+                : (int) ToIntegerWithTruncation(realm, yearValue);
+        }
 
         return new RelativeToFields(calendar, day, hour, microsecond, millisecond, minute,
             month, monthCode, nanosecond, offset, second, timeZone, year);
@@ -4580,6 +5072,69 @@ internal static class TemporalHelpers
     }
 
     /// <summary>
+    /// GetStartOfDay ( timeZone, isoDate )
+    /// https://tc39.es/proposal-temporal/#sec-temporal-getstartofday
+    /// Determines the exact time that corresponds to the first valid wall-clock time on the given date in the given timezone.
+    /// </summary>
+    public static BigInteger GetStartOfDay(
+        Realm realm,
+        ITimeZoneProvider provider,
+        string timeZone,
+        IsoDate isoDate)
+    {
+        // Step 1: Let isoDateTime be CombineISODateAndTimeRecord(isoDate, MidnightTimeRecord())
+        var midnight = new IsoDateTime(isoDate, new IsoTime(0, 0, 0, 0, 0, 0));
+
+        // Step 2: Let possibleEpochNs be GetPossibleEpochNanoseconds(timeZone, isoDateTime)
+        var possibleEpochNs = GetPossibleEpochNanoseconds(realm, provider, timeZone, midnight);
+
+        // Step 3: If possibleEpochNs is not empty, return possibleEpochNs[0]
+        if (possibleEpochNs.Length > 0)
+        {
+            return possibleEpochNs[0];
+        }
+
+        // Step 5: Midnight is in a DST gap. Find the first valid local time after midnight.
+        // The transition instant that creates the gap IS the start of day.
+        // Search for the transition near UTC midnight for this date.
+        var utcMidnightNs = (BigInteger) IsoDateToDays(isoDate.Year, isoDate.Month, isoDate.Day) * NanosecondsPerDay;
+
+        // Search from 24 hours before UTC midnight to cover all possible timezone offsets (max ±14h)
+        var searchFrom = utcMidnightNs - NanosecondsPerDay;
+        var transition = provider.GetNextTransition(timeZone, searchFrom);
+
+        // Find the transition whose new local time lands on our target date
+        while (transition.HasValue && transition.Value < utcMidnightNs + NanosecondsPerDay)
+        {
+            // Get the offset AFTER the transition
+            var offsetAfter = provider.GetOffsetNanosecondsFor(timeZone, transition.Value);
+            var localNsAfter = transition.Value + offsetAfter;
+
+            // Check if the local time after transition is on our target date and >= 00:00
+            var localDays = localNsAfter / NanosecondsPerDay;
+            var localTimeNs = localNsAfter - localDays * NanosecondsPerDay;
+            if (localTimeNs < 0)
+            {
+                localDays--;
+                localTimeNs += NanosecondsPerDay;
+            }
+
+            var targetDays = (BigInteger) IsoDateToDays(isoDate.Year, isoDate.Month, isoDate.Day);
+            if (localDays == targetDays)
+            {
+                return transition.Value;
+            }
+
+            // Move to next transition
+            transition = provider.GetNextTransition(timeZone, transition.Value);
+        }
+
+        // Fallback: should not reach here for valid timezones
+        Throw.RangeError(realm, "Could not determine start of day");
+        return BigInteger.Zero;
+    }
+
+    /// <summary>
     /// GetISODateTimeFor ( timeZone, epochNanoseconds )
     /// Converts epoch nanoseconds to an ISO date-time in the given timezone.
     /// Based on logic from JsZonedDateTime.GetIsoDateTime().
@@ -4694,7 +5249,13 @@ internal static class TemporalHelpers
         var intermediateDateTime = new IsoDateTime(intermediateDate, startDateTime.Time);
 
         // Step 6: Get epoch nanoseconds for intermediate
-        var intermediateNs = GetEpochNanosecondsFor(realm, timeZoneProvider, timeZone, intermediateDateTime, "compatible");
+        // Per spec (issue #3141): when the intermediate datetime equals the start datetime,
+        // use ns1 directly to avoid re-disambiguation during DST fall-back
+        var intermediateNs = (intermediateDate.Year == startDateTime.Year &&
+                              intermediateDate.Month == startDateTime.Month &&
+                              intermediateDate.Day == startDateTime.Day)
+            ? ns1
+            : GetEpochNanosecondsFor(realm, timeZoneProvider, timeZone, intermediateDateTime, "compatible");
 
         // Step 7: Compute time difference from actual epoch nanoseconds
         var timeDifference = TimeDurationFromEpochNanosecondsDifference(ns2, intermediateNs);
@@ -5703,8 +6264,8 @@ internal static class TemporalHelpers
             return new DurationRecord(0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
         }
 
-        // Step 3: For ISO calendar
-        if (!string.Equals(calendar, "iso8601", StringComparison.Ordinal))
+        // Step 3: For ISO and Gregorian-based calendars (same arithmetic)
+        if (!IsGregorianBasedCalendar(calendar))
         {
             throw new NotSupportedException($"Calendar '{calendar}' not yet supported");
         }

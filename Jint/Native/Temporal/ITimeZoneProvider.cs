@@ -80,4 +80,11 @@ public interface ITimeZoneProvider
     /// Gets the system's default time zone identifier.
     /// </summary>
     string GetDefaultTimeZone();
+
+    /// <summary>
+    /// Resolves a time zone alias to its primary IANA identifier.
+    /// E.g., "Asia/Calcutta" → "Asia/Kolkata", "US/Eastern" → "America/New_York".
+    /// Returns null if the time zone ID is not recognized.
+    /// </summary>
+    string? GetPrimaryTimeZoneIdentifier(string timeZoneId);
 }

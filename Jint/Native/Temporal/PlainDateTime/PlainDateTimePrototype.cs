@@ -95,17 +95,23 @@ internal sealed class PlainDateTimePrototype : Prototype
 
     private JsValue GetEra(JsValue thisObject, JsCallArguments arguments)
     {
-        ValidatePlainDateTime(thisObject);
-        return Undefined;
+        var pdt = ValidatePlainDateTime(thisObject);
+        var era = TemporalHelpers.CalendarEra(pdt.Calendar, pdt.IsoDateTime.Year);
+        return era is not null ? new JsString(era) : Undefined;
     }
 
     private JsValue GetEraYear(JsValue thisObject, JsCallArguments arguments)
     {
-        ValidatePlainDateTime(thisObject);
-        return Undefined;
+        var pdt = ValidatePlainDateTime(thisObject);
+        var eraYear = TemporalHelpers.CalendarEraYear(pdt.Calendar, pdt.IsoDateTime.Year);
+        return eraYear.HasValue ? JsNumber.Create(eraYear.Value) : Undefined;
     }
 
-    private JsNumber GetYear(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainDateTime(thisObject).IsoDateTime.Year);
+    private JsNumber GetYear(JsValue thisObject, JsCallArguments arguments)
+    {
+        var pdt = ValidatePlainDateTime(thisObject);
+        return JsNumber.Create(TemporalHelpers.CalendarYear(pdt.Calendar, pdt.IsoDateTime.Year));
+    }
     private JsNumber GetMonth(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainDateTime(thisObject).IsoDateTime.Month);
     private JsString GetMonthCode(JsValue thisObject, JsCallArguments arguments) => new JsString($"M{ValidatePlainDateTime(thisObject).IsoDateTime.Month:D2}");
     private JsNumber GetDay(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainDateTime(thisObject).IsoDateTime.Day);
@@ -117,8 +123,17 @@ internal sealed class PlainDateTimePrototype : Prototype
     private JsNumber GetNanosecond(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainDateTime(thisObject).IsoDateTime.Nanosecond);
     private JsNumber GetDayOfWeek(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainDateTime(thisObject).IsoDateTime.Date.DayOfWeek());
     private JsNumber GetDayOfYear(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainDateTime(thisObject).IsoDateTime.Date.DayOfYear());
-    private JsNumber GetWeekOfYear(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainDateTime(thisObject).IsoDateTime.Date.WeekOfYear());
-    private JsNumber GetYearOfWeek(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainDateTime(thisObject).IsoDateTime.Date.YearOfWeek());
+    private JsValue GetWeekOfYear(JsValue thisObject, JsCallArguments arguments)
+    {
+        var pdt = ValidatePlainDateTime(thisObject);
+        return string.Equals(pdt.Calendar, "iso8601", StringComparison.Ordinal) ? JsNumber.Create(pdt.IsoDateTime.Date.WeekOfYear()) : Undefined;
+    }
+
+    private JsValue GetYearOfWeek(JsValue thisObject, JsCallArguments arguments)
+    {
+        var pdt = ValidatePlainDateTime(thisObject);
+        return string.Equals(pdt.Calendar, "iso8601", StringComparison.Ordinal) ? JsNumber.Create(pdt.IsoDateTime.Date.YearOfWeek()) : Undefined;
+    }
 
     private JsNumber GetDaysInWeek(JsValue thisObject, JsCallArguments arguments)
     {
@@ -369,11 +384,6 @@ internal sealed class PlainDateTimePrototype : Prototype
         // Use ToTemporalCalendarIdentifier for spec-compliant conversion (handles Temporal objects)
         var calendar = TemporalHelpers.ToTemporalCalendarIdentifier(_realm, calendarArg);
 
-        if (!string.Equals(calendar, "iso8601", StringComparison.Ordinal))
-        {
-            Throw.RangeError(_realm, $"Unsupported calendar: {calendar}");
-        }
-
         return _constructor.Construct(plainDateTime.IsoDateTime, calendar);
     }
 
@@ -451,6 +461,13 @@ internal sealed class PlainDateTimePrototype : Prototype
     {
         var plainDateTime = ValidatePlainDateTime(thisObject);
         var other = _constructor.ToTemporalDateTime(arguments.At(0), "constrain");
+
+        // Calendar equality check (before reading options per spec)
+        if (!string.Equals(plainDateTime.Calendar, other.Calendar, StringComparison.Ordinal))
+        {
+            Throw.RangeError(_realm, "Calendars must match for date-time difference operations");
+        }
+
         var optionsArg = arguments.At(1);
 
         // All temporal units allowed for PlainDateTime operations
@@ -485,6 +502,13 @@ internal sealed class PlainDateTimePrototype : Prototype
     {
         var plainDateTime = ValidatePlainDateTime(thisObject);
         var other = _constructor.ToTemporalDateTime(arguments.At(0), "constrain");
+
+        // Calendar equality check (before reading options per spec)
+        if (!string.Equals(plainDateTime.Calendar, other.Calendar, StringComparison.Ordinal))
+        {
+            Throw.RangeError(_realm, "Calendars must match for date-time difference operations");
+        }
+
         var optionsArg = arguments.At(1);
 
         // All temporal units allowed for PlainDateTime operations
@@ -867,12 +891,29 @@ internal sealed class PlainDateTimePrototype : Prototype
     }
 
     /// <summary>
-    /// https://tc39.es/proposal-temporal/#sec-temporal.plaindatetime.prototype.tolocalestring
+    /// https://tc39.es/proposal-temporal/#sup-temporal.plaindatetime.prototype.tolocalestring
     /// </summary>
-    private JsString ToLocaleString(JsValue thisObject, JsCallArguments arguments)
+    private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
     {
         var plainDateTime = ValidatePlainDateTime(thisObject);
-        return new JsString(FormatDateTime(plainDateTime.IsoDateTime, plainDateTime.Calendar));
+        var locales = arguments.At(0);
+        var options = arguments.At(1);
+
+        // Per spec: CreateDateTimeFormat with required=~any~, defaults=~all~
+        var dtf = _realm.Intrinsics.DateTimeFormat.CreateDateTimeFormat(
+            locales, options, required: Intl.DateTimeRequired.Any, defaults: Intl.DateTimeDefaults.All);
+
+        // Calendar mismatch check: if not iso8601 and not matching DTF calendar → RangeError
+        var cal = plainDateTime.Calendar;
+        if (!string.Equals(cal, "iso8601", StringComparison.Ordinal) &&
+            dtf.Calendar != null && !string.Equals(cal, dtf.Calendar, StringComparison.Ordinal))
+        {
+            Throw.RangeError(_realm, $"Calendar mismatch: PlainDateTime uses '{cal}' but DateTimeFormat uses '{dtf.Calendar}'");
+        }
+
+        var d = plainDateTime.IsoDateTime.Date;
+        var t = plainDateTime.IsoDateTime.Time;
+        return dtf.Format(new DateTime(d.Year, d.Month, d.Day, t.Hour, t.Minute, t.Second, t.Millisecond, DateTimeKind.Unspecified), isPlain: true);
     }
 
     /// <summary>
@@ -968,62 +1009,7 @@ internal sealed class PlainDateTimePrototype : Prototype
 
     private System.Numerics.BigInteger GetEpochFromDateTime(IsoDateTime dateTime, string timeZone, string disambiguation)
     {
-        var provider = _engine.Options.Temporal.TimeZoneProvider;
-        var localNs = IsoDateTimeToNanoseconds(dateTime);
-
-        var possibleInstants = provider.GetPossibleInstantsFor(timeZone,
-            dateTime.Year, dateTime.Month, dateTime.Day,
-            dateTime.Hour, dateTime.Minute, dateTime.Second,
-            dateTime.Millisecond, dateTime.Microsecond, dateTime.Nanosecond);
-
-        if (possibleInstants.Length == 1)
-        {
-            return possibleInstants[0];
-        }
-
-        if (possibleInstants.Length == 0)
-        {
-            // Gap - use disambiguation
-            var before = provider.GetPossibleInstantsFor(timeZone,
-                dateTime.Year, dateTime.Month, dateTime.Day,
-                0, 0, 0, 0, 0, 0);
-            if (before.Length > 0)
-            {
-                var instant = before[before.Length - 1];
-                var offsetBefore = provider.GetOffsetNanosecondsFor(timeZone, instant);
-                var offsetAfter = provider.GetOffsetNanosecondsFor(timeZone, instant + 1);
-
-                switch (disambiguation)
-                {
-                    case "compatible":
-                    case "later":
-                        return localNs - offsetAfter;
-                    case "earlier":
-                        return localNs - offsetBefore;
-                    case "reject":
-                        Throw.RangeError(_realm, "No such time exists in this time zone (gap)");
-                        break;
-                }
-            }
-
-            // Fallback
-            return localNs;
-        }
-
-        // Ambiguous (fold/overlap)
-        switch (disambiguation)
-        {
-            case "compatible":
-            case "earlier":
-                return possibleInstants[0];
-            case "later":
-                return possibleInstants[possibleInstants.Length - 1];
-            case "reject":
-                Throw.RangeError(_realm, "Time is ambiguous in this time zone (overlap)");
-                break;
-        }
-
-        return possibleInstants[0];
+        return TemporalHelpers.GetEpochNanosecondsFor(_realm, _engine.Options.Temporal.TimeZoneProvider, timeZone, dateTime, disambiguation);
     }
 
     private static System.Numerics.BigInteger IsoDateTimeToNanoseconds(IsoDateTime dateTime)

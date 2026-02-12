@@ -189,7 +189,7 @@ internal sealed class PlainYearMonthConstructor : Constructor
         if (item.IsString())
         {
             var str = item.ToString();
-            var parsed = ParseYearMonthString(str);
+            var parsed = ParseYearMonthString(str, out var parsedCalendar);
             if (parsed is null)
             {
                 Throw.RangeError(_realm, "Invalid year-month string");
@@ -200,7 +200,10 @@ internal sealed class PlainYearMonthConstructor : Constructor
                 Throw.RangeError(_realm, "Year-month is outside the representable range");
             }
 
-            return Construct(parsed.Value, "iso8601");
+            // Per spec: ISOYearMonthFromFields uses day=1 for the ISO calendar reference day.
+            // Non-iso8601 calendars preserve the parsed day as the reference ISO day.
+            var refDay = string.Equals(parsedCalendar, "iso8601", StringComparison.Ordinal) ? 1 : parsed.Value.Day;
+            return Construct(new IsoDate(parsed.Value.Year, parsed.Value.Month, refDay), parsedCalendar);
         }
 
         if (item.IsObject())
@@ -231,7 +234,10 @@ internal sealed class PlainYearMonthConstructor : Constructor
             calendar = TemporalHelpers.ToTemporalCalendarIdentifier(_realm, calendarValue);
         }
 
-        // 2. month - read and convert immediately
+        // 2. era/eraYear - read for era-supporting calendars (alphabetically between calendar and month)
+        var eraYear = TemporalHelpers.ReadEraFields(_realm, obj, calendar);
+
+        // 3. month - read and convert immediately
         var monthValue = obj.Get("month");
         int month = 0;
         if (!monthValue.IsUndefined())
@@ -239,7 +245,7 @@ internal sealed class PlainYearMonthConstructor : Constructor
             month = TemporalHelpers.ToPositiveIntegerWithTruncation(_realm, monthValue);
         }
 
-        // 3. monthCode - read and convert immediately, validate well-formedness
+        // 4. monthCode - read and convert immediately, validate well-formedness
         var monthCodeValue = obj.Get("monthCode");
         string? monthCodeStr = null;
         int? monthFromCode = null;
@@ -284,20 +290,29 @@ internal sealed class PlainYearMonthConstructor : Constructor
             month = monthFromCode.Value;
         }
 
-        // 4. year - read and convert immediately (TYPE validation happens here)
-        var yearValue = obj.Get("year");
-        if (yearValue.IsUndefined())
+        // 5. year - use eraYear if computed, otherwise read from property
+        int year;
+        if (eraYear.HasValue)
         {
-            Throw.TypeError(_realm, "Missing required property: year");
+            year = eraYear.Value;
+            obj.Get("year");
+        }
+        else
+        {
+            var yearValue = obj.Get("year");
+            if (yearValue.IsUndefined())
+            {
+                Throw.TypeError(_realm, "Missing required property: year");
+            }
+
+            year = TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearValue);
         }
 
-        var year = TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearValue);
-
-        // 5. Read options AFTER all fields (but BEFORE algorithmic validation)
+        // 6. Read options AFTER all fields (but BEFORE algorithmic validation)
         var overflow = TemporalHelpers.GetOverflowOption(_realm, options);
 
-        // NOW validate monthCode suitability (ISO calendar checks) - after year type validation AND options reading
-        if (monthCodeStr is not null)
+        // Validate monthCode suitability - only for ISO/Gregorian calendars
+        if (monthCodeStr is not null && TemporalHelpers.IsGregorianBasedCalendar(calendar))
         {
             // For ISO 8601 calendar: validate monthCode is valid (01-12, no leap months)
             if (monthCodeStr.Length == 4 && monthCodeStr[3] == 'L')
@@ -317,7 +332,19 @@ internal sealed class PlainYearMonthConstructor : Constructor
             Throw.TypeError(_realm, "month or monthCode is required");
         }
 
-        // Validate month range
+        // For non-ISO calendars, convert calendar year/month to ISO
+        if (!TemporalHelpers.IsGregorianBasedCalendar(calendar))
+        {
+            var date = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, 1, overflow);
+            if (date is null)
+            {
+                Throw.RangeError(_realm, "Invalid year-month");
+            }
+
+            return Construct(date.Value, calendar);
+        }
+
+        // Validate month range (ISO calendars)
         if (month < 1 || month > 12)
         {
             if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
@@ -357,7 +384,10 @@ internal sealed class PlainYearMonthConstructor : Constructor
             calendar = TemporalHelpers.ToTemporalCalendarIdentifier(_realm, calendarValue);
         }
 
-        // 2. month - read and convert immediately
+        // 2. era/eraYear - read for era-supporting calendars (alphabetically between calendar and month)
+        var eraYear = TemporalHelpers.ReadEraFields(_realm, obj, calendar);
+
+        // 3. month - read and convert immediately
         var monthValue = obj.Get("month");
         int month = 0;
         if (!monthValue.IsUndefined())
@@ -365,7 +395,7 @@ internal sealed class PlainYearMonthConstructor : Constructor
             month = TemporalHelpers.ToPositiveIntegerWithTruncation(_realm, monthValue);
         }
 
-        // 3. monthCode - read and convert immediately, validate well-formedness
+        // 4. monthCode - read and convert immediately, validate well-formedness
         var monthCodeValue = obj.Get("monthCode");
         string? monthCodeStr = null;
         int? monthFromCode = null;
@@ -410,17 +440,26 @@ internal sealed class PlainYearMonthConstructor : Constructor
             month = monthFromCode.Value;
         }
 
-        // 4. year - read and convert immediately (TYPE validation happens here)
-        var yearValue = obj.Get("year");
-        if (yearValue.IsUndefined())
+        // 5. year - use eraYear if computed, otherwise read from property
+        int year;
+        if (eraYear.HasValue)
         {
-            Throw.TypeError(_realm, "Missing required property: year");
+            year = eraYear.Value;
+            obj.Get("year");
+        }
+        else
+        {
+            var yearValue = obj.Get("year");
+            if (yearValue.IsUndefined())
+            {
+                Throw.TypeError(_realm, "Missing required property: year");
+            }
+
+            year = TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearValue);
         }
 
-        var year = TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearValue);
-
-        // NOW validate monthCode suitability(ISO calendar checks) - after year type validation
-        if (monthCodeStr is not null)
+        // Validate monthCode suitability - only for ISO/Gregorian calendars
+        if (monthCodeStr is not null && TemporalHelpers.IsGregorianBasedCalendar(calendar))
         {
             // For ISO 8601 calendar: validate monthCode is valid (01-12, no leap months)
             if (monthCodeStr.Length == 4 && monthCodeStr[3] == 'L')
@@ -442,7 +481,19 @@ internal sealed class PlainYearMonthConstructor : Constructor
 
         // Note: overflow option is already read in From() method before calling this method, per spec
 
-        // Validate month range
+        // For non-ISO calendars, convert calendar year/month to ISO
+        if (!TemporalHelpers.IsGregorianBasedCalendar(calendar))
+        {
+            var date = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, 1, overflow);
+            if (date is null)
+            {
+                Throw.RangeError(_realm, "Invalid year-month");
+            }
+
+            return Construct(date.Value, calendar);
+        }
+
+        // Validate month range (ISO calendars)
         if (month < 1 || month > 12)
         {
             if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
@@ -464,8 +515,10 @@ internal sealed class PlainYearMonthConstructor : Constructor
         return Construct(new IsoDate(year, month, 1), calendar);
     }
 
-    private static IsoDate? ParseYearMonthString(string input)
+    private static IsoDate? ParseYearMonthString(string input, out string parsedCalendar)
     {
+        parsedCalendar = "iso8601";
+
         // Empty strings are invalid
         if (string.IsNullOrEmpty(input))
         {
@@ -479,7 +532,21 @@ internal sealed class PlainYearMonthConstructor : Constructor
             // Annotation parsing error
             return null;
         }
-        // Note: calendar is ignored for PlainYearMonth (always uses iso8601)
+
+        // Canonicalize calendar annotation if present
+        if (calendar is not null)
+        {
+            var canonical = TemporalHelpers.CanonicalizeCalendar(calendar);
+            if (canonical is null)
+            {
+                return null; // Invalid calendar
+            }
+            parsedCalendar = canonical;
+        }
+
+        // Per spec: DateSpecYearMonth (YYYY-MM) with non-iso8601 calendar annotation is invalid.
+        // Only full date formats (AnnotatedDateTime) support non-iso8601 calendars.
+        var hasNonIsoCalendar = calendar is not null && !string.Equals(parsedCalendar, "iso8601", StringComparison.Ordinal);
 
         // Check for negative zero year
         var firstDash = coreString.IndexOf('-', 1);
@@ -551,6 +618,7 @@ internal sealed class PlainYearMonthConstructor : Constructor
                                 return null;
                             }
 
+                            if (hasNonIsoCalendar) return null;
                             if (month >= 1 && month <= 12)
                             {
                                 return new IsoDate(year, month, 1);
@@ -559,6 +627,7 @@ internal sealed class PlainYearMonthConstructor : Constructor
                         // Other suffix (like '[' for annotations) - also valid
                         else
                         {
+                            if (hasNonIsoCalendar) return null;
                             if (month >= 1 && month <= 12)
                             {
                                 return new IsoDate(year, month, 1);
@@ -568,6 +637,7 @@ internal sealed class PlainYearMonthConstructor : Constructor
                     else
                     {
                         // No suffix - just YYYY-MM
+                        if (hasNonIsoCalendar) return null;
                         if (month >= 1 && month <= 12)
                         {
                             return new IsoDate(year, month, 1);
@@ -606,6 +676,7 @@ internal sealed class PlainYearMonthConstructor : Constructor
                         int.TryParse(monthStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var month) &&
                         month >= 1 && month <= 12)
                     {
+                        if (hasNonIsoCalendar) return null;
                         return new IsoDate(year, month, 1);
                     }
                 }
@@ -619,17 +690,18 @@ internal sealed class PlainYearMonthConstructor : Constructor
                         int.TryParse(monthStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var month) &&
                         month >= 1 && month <= 12)
                     {
+                        if (hasNonIsoCalendar) return null;
                         return new IsoDate(year, month, 1);
                     }
                 }
             }
         }
 
-        // Try parsing as full date and extract year/month
+        // Try parsing as full date and extract year/month (preserve day as reference day per spec)
         var parsed = TemporalHelpers.ParseIsoDate(coreString);
         if (parsed is not null)
         {
-            return new IsoDate(parsed.Value.Year, parsed.Value.Month, 1);
+            return parsed.Value;
         }
 
         // Try parsing date-time string
@@ -651,7 +723,7 @@ internal sealed class PlainYearMonthConstructor : Constructor
                     return null;
                 }
 
-                return new IsoDate(parsed.Value.Year, parsed.Value.Month, 1);
+                return parsed.Value;
             }
         }
 

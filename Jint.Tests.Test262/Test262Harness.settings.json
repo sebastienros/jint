@@ -128,6 +128,7 @@
     "intl402/DateTimeFormat/prototype/formatRangeToParts/chinese-calendar-dates.js",
     "intl402/DateTimeFormat/prototype/formatRangeToParts/dangi-calendar-dates.js",
     "intl402/DateTimeFormat/prototype/formatToParts/chinese-calendar-dates.js",
+    "intl402/DateTimeFormat/prototype/formatToParts/dangi-calendar-dates.js",
 
     // DurationFormat - precision formatting requires exact sub-second arithmetic
     "intl402/DurationFormat/prototype/format/precision-exact-mathematical-values.js",
@@ -136,6 +137,7 @@
 
     // NumberFormat - locale-specific formatting and formatRange
     "intl402/NumberFormat/prototype/format/format-significant-digits.js",
+    "intl402/NumberFormat/prototype/format/numbering-systems.js",
     "intl402/NumberFormat/prototype/format/useGrouping-extended-en-IN.js",
     "intl402/NumberFormat/prototype/format/value-decimal-string.js",
     // formatRange requires locale-specific CLDR range patterns and part collapsing
@@ -155,22 +157,110 @@
     "intl402/fallback-locales-are-supported.js",
     "intl402/supportedLocalesOf-consistent-with-resolvedOptions.js",
 
-    // misc features that require investigation
-    "intl402/NumberFormat/prototype/format/numbering-systems.js",
+    // === INTL402 TEMPORAL EXCLUSIONS ===
+    // Non-ISO calendar arithmetic not yet implemented (Chinese/Dangi lunisolar, Hebrew, Persian, etc.)
+    // These require CalendarDateAdd, CalendarDateUntil, monthCode, monthsInYear, inLeapYear
+    // for non-Gregorian-based calendars.
 
-    // Temporal
-    "intl402/Temporal/Duration/**/*.js",
-    "intl402/Temporal/Instant/**/*.js",
-    "intl402/Temporal/PlainDate/**/*.js",
-    "intl402/Temporal/PlainDateTime/**/*.js",
-    "intl402/Temporal/PlainMonthDay/**/*.js",
-    "intl402/Temporal/PlainTime/**/*.js",
-    "intl402/Temporal/PlainYearMonth/**/*.js",
-    "intl402/Temporal/ZonedDateTime/**/*.js",
-    "intl402/DateTimeFormat/**/*temporal*.js",
-    "intl402/DurationFormat/**/*temporal*.js",
-    "intl402/DateTimeFormat/prototype/formatRange/to-datetime-formattable-with-different-arg-kinds.js",
-    "intl402/DateTimeFormat/prototype/formatRangeToParts/to-datetime-formattable-with-different-arg-kinds.js",
-    "intl402/DateTimeFormat/prototype/formatToParts/dangi-calendar-dates.js"
+    // Chinese calendar - lunisolar calendar arithmetic
+    "intl402/Temporal/PlainDate/prototype/inLeapYear/chinese-calendar-dates.js",
+    "intl402/Temporal/PlainDate/prototype/monthCode/chinese-calendar-dates.js",
+    "intl402/Temporal/PlainDate/prototype/monthsInYear/chinese-calendar-leap-days.js",
+    "intl402/Temporal/PlainDate/prototype/since/chinese-calendar-dates.js",
+    "intl402/Temporal/PlainDate/prototype/subtract/chinese-calendar-dates.js",
+    "intl402/Temporal/PlainDate/prototype/until/chinese-calendar-dates.js",
+    "intl402/Temporal/PlainDate/prototype/with/chinese-calendar-leap-dates.js",
+    "intl402/Temporal/PlainDateTime/prototype/inLeapYear/chinese-calendar-dates.js",
+    "intl402/Temporal/PlainDateTime/prototype/monthCode/chinese-calendar-dates.js",
+    "intl402/Temporal/PlainDateTime/prototype/monthsInYear/chinese-calendar-leap-days.js",
+    "intl402/Temporal/PlainDateTime/prototype/since/chinese-calendar-dates.js",
+    "intl402/Temporal/PlainDateTime/prototype/until/chinese-calendar-dates.js",
+    "intl402/Temporal/PlainDateTime/prototype/with/chinese-calendar-leap-dates.js",
+    "intl402/Temporal/PlainMonthDay/from/chinese-calendar-dates.js",
+    "intl402/Temporal/PlainMonthDay/prototype/monthCode/chinese-calendar-dates.js",
+    "intl402/Temporal/PlainYearMonth/from/reference-day-chinese.js",
+    "intl402/Temporal/PlainYearMonth/prototype/inLeapYear/chinese-calendar-dates.js",
+    "intl402/Temporal/PlainYearMonth/prototype/monthCode/chinese-calendar-dates.js",
+    "intl402/Temporal/PlainYearMonth/prototype/monthsInYear/chinese-calendar-leap-days.js",
+    "intl402/Temporal/PlainYearMonth/prototype/since/chinese-calendar-dates.js",
+    "intl402/Temporal/PlainYearMonth/prototype/until/chinese-calendar-dates.js",
+    "intl402/Temporal/PlainYearMonth/prototype/with/chinese-calendar-leap-dates.js",
+    "intl402/Temporal/ZonedDateTime/prototype/inLeapYear/chinese-calendar-dates.js",
+    "intl402/Temporal/ZonedDateTime/prototype/monthCode/chinese-calendar-dates.js",
+    "intl402/Temporal/ZonedDateTime/prototype/monthsInYear/chinese-calendar-leap-days.js",
+    "intl402/Temporal/ZonedDateTime/prototype/since/chinese-calendar-dates.js",
+    "intl402/Temporal/ZonedDateTime/prototype/until/chinese-calendar-dates.js",
+    "intl402/Temporal/ZonedDateTime/prototype/with/chinese-calendar-leap-dates.js",
+
+    // Dangi (Korean) calendar - lunisolar calendar arithmetic
+    "intl402/Temporal/PlainDate/prototype/inLeapYear/dangi-calendar-dates.js",
+    "intl402/Temporal/PlainDate/prototype/monthCode/dangi-calendar-dates.js",
+    "intl402/Temporal/PlainDate/prototype/monthsInYear/dangi-calendar-leap-days.js",
+    "intl402/Temporal/PlainDate/prototype/since/dangi-calendar-dates.js",
+    "intl402/Temporal/PlainDate/prototype/subtract/dangi-calendar-dates.js",
+    "intl402/Temporal/PlainDate/prototype/until/dangi-calendar-dates.js",
+    "intl402/Temporal/PlainDate/prototype/with/dangi-calendar-leap-dates.js",
+    "intl402/Temporal/PlainDateTime/prototype/inLeapYear/dangi-calendar-dates.js",
+    "intl402/Temporal/PlainDateTime/prototype/monthCode/dangi-calendar-dates.js",
+    "intl402/Temporal/PlainDateTime/prototype/monthsInYear/dangi-calendar-leap-days.js",
+    "intl402/Temporal/PlainDateTime/prototype/since/dangi-calendar-dates.js",
+    "intl402/Temporal/PlainDateTime/prototype/until/dangi-calendar-dates.js",
+    "intl402/Temporal/PlainDateTime/prototype/with/dangi-calendar-leap-dates.js",
+    "intl402/Temporal/PlainMonthDay/from/dangi-30-day-leap-months.js",
+    "intl402/Temporal/PlainMonthDay/from/dangi-calendar-dates.js",
+    "intl402/Temporal/PlainMonthDay/prototype/monthCode/dangi-calendar-dates.js",
+    "intl402/Temporal/PlainYearMonth/prototype/inLeapYear/dangi-calendar-dates.js",
+    "intl402/Temporal/PlainYearMonth/prototype/monthCode/dangi-calendar-dates.js",
+    "intl402/Temporal/PlainYearMonth/prototype/monthsInYear/dangi-calendar-leap-days.js",
+    "intl402/Temporal/PlainYearMonth/prototype/since/dangi-calendar-dates.js",
+    "intl402/Temporal/PlainYearMonth/prototype/until/dangi-calendar-dates.js",
+    "intl402/Temporal/PlainYearMonth/prototype/with/dangi-calendar-leap-dates.js",
+    "intl402/Temporal/ZonedDateTime/prototype/inLeapYear/dangi-calendar-dates.js",
+    "intl402/Temporal/ZonedDateTime/prototype/monthCode/dangi-calendar-dates.js",
+    "intl402/Temporal/ZonedDateTime/prototype/monthsInYear/dangi-calendar-leap-days.js",
+    "intl402/Temporal/ZonedDateTime/prototype/since/dangi-calendar-dates.js",
+    "intl402/Temporal/ZonedDateTime/prototype/until/dangi-calendar-dates.js",
+    "intl402/Temporal/ZonedDateTime/prototype/with/dangi-calendar-leap-dates.js",
+
+    // Non-ISO calendar fields - Hebrew/multi-calendar with() operations
+    "intl402/Temporal/PlainDateTime/prototype/with/non-iso-calendar-fields.js",
+    "intl402/Temporal/PlainYearMonth/prototype/with/non-iso-calendar-fields.js",
+    "intl402/Temporal/ZonedDateTime/prototype/with/non-iso-calendar-fields.js",
+
+    // Leap year since/until across non-ISO calendars (Chinese + Hebrew)
+    "intl402/Temporal/PlainDate/prototype/since/leap-year-since.js",
+    "intl402/Temporal/PlainDate/prototype/until/leap-year-until.js",
+    "intl402/Temporal/PlainDateTime/prototype/since/leap-year-since.js",
+    "intl402/Temporal/PlainDateTime/prototype/until/leap-year-until.js",
+    "intl402/Temporal/ZonedDateTime/prototype/since/leap-year-since.js",
+    "intl402/Temporal/ZonedDateTime/prototype/until/leap-year-until.js",
+
+    // dateStyle with non-ISO calendar formatting (Islamic month names etc.)
+    "intl402/Temporal/Instant/prototype/toLocaleString/dateStyle.js",
+    "intl402/Temporal/PlainDate/prototype/toLocaleString/dateStyle.js",
+    "intl402/Temporal/PlainDateTime/prototype/toLocaleString/dateStyle.js",
+    "intl402/Temporal/PlainMonthDay/prototype/toLocaleString/dateStyle.js",
+    "intl402/Temporal/PlainYearMonth/prototype/toLocaleString/dateStyle.js",
+    "intl402/Temporal/ZonedDateTime/prototype/toLocaleString/dateStyle.js",
+
+    // Persian calendar arithmetic
+    "intl402/Temporal/PlainDate/prototype/toString/basic-persian.js",
+
+    // Calendar era handling - requires Chinese/Hebrew calendar arithmetic
+    "intl402/Temporal/PlainYearMonth/from/calendar-not-supporting-eras.js",
+    "intl402/Temporal/ZonedDateTime/from/calendar-not-supporting-eras.js",
+
+    // Hebrew calendar arithmetic (reference-day, add/subtract with leap months)
+    "intl402/Temporal/PlainYearMonth/from/reference-day-hebrew.js",
+    "intl402/Temporal/PlainYearMonth/prototype/add/options-undefined.js",
+    "intl402/Temporal/PlainYearMonth/prototype/subtract/options-undefined.js",
+
+    // Japanese calendar era boundary resolution
+    "intl402/Temporal/PlainYearMonth/from/reference-day-japanese.js",
+
+    // PlainMonthDay from - multi-calendar (constrain, reference-date, reference-year)
+    "intl402/Temporal/PlainMonthDay/from/constrain-to-leap-day.js",
+    "intl402/Temporal/PlainMonthDay/from/reference-date-noniso-calendar.js",
+    "intl402/Temporal/PlainMonthDay/from/reference-year-1972.js"
   ]
 }

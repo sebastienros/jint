@@ -89,8 +89,9 @@ public interface ICldrProvider
     /// </summary>
     /// <param name="locale">The locale identifier.</param>
     /// <param name="style">Style: "long", "short", "narrow", or "numeric".</param>
+    /// <param name="calendar">Calendar identifier (e.g., "gregory", "buddhist"), or null for default.</param>
     /// <returns>Array of 12 month names (January-December) or null if not available.</returns>
-    string[]? GetMonthNames(string locale, string style);
+    string[]? GetMonthNames(string locale, string style, string? calendar);
 
     /// <summary>
     /// Gets weekday names for a locale.
@@ -105,42 +106,20 @@ public interface ICldrProvider
     /// </summary>
     /// <param name="locale">The locale identifier.</param>
     /// <param name="style">Style: "long", "short", or "narrow".</param>
+    /// <param name="calendar">Calendar identifier (e.g., "gregory", "buddhist"), or null for default.</param>
     /// <returns>Array of day period names or null if not available.</returns>
-    string[]? GetDayPeriods(string locale, string style);
+    string[]? GetDayPeriods(string locale, string style, string? calendar);
 
     /// <summary>
     /// Gets era names for a locale.
     /// </summary>
     /// <param name="locale">The locale identifier.</param>
     /// <param name="style">Style: "long", "short", or "narrow".</param>
+    /// <param name="calendar">Calendar identifier (e.g., "gregory", "japanese"), or null for default.</param>
     /// <returns>Array of era names or null if not available.</returns>
-    string[]? GetEraNames(string locale, string style);
+    string[]? GetEraNames(string locale, string style, string? calendar);
 
     // === Display Names ===
-
-    /// <summary>
-    /// Gets the display name for a language code.
-    /// </summary>
-    /// <param name="locale">The locale for localization.</param>
-    /// <param name="code">The language code to get the name for.</param>
-    /// <returns>Display name or null if not available.</returns>
-    string? GetLanguageDisplayName(string locale, string code);
-
-    /// <summary>
-    /// Gets the display name for a region code.
-    /// </summary>
-    /// <param name="locale">The locale for localization.</param>
-    /// <param name="code">The region code to get the name for.</param>
-    /// <returns>Display name or null if not available.</returns>
-    string? GetRegionDisplayName(string locale, string code);
-
-    /// <summary>
-    /// Gets the display name for a script code.
-    /// </summary>
-    /// <param name="locale">The locale for localization.</param>
-    /// <param name="code">The script code to get the name for.</param>
-    /// <returns>Display name or null if not available.</returns>
-    string? GetScriptDisplayName(string locale, string code);
 
     /// <summary>
     /// Gets the display name for a currency code.
