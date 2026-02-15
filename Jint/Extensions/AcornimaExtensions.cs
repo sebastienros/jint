@@ -4,27 +4,15 @@ namespace Jint;
 
 internal static class AcornimaExtensions
 {
-    public static Script ParseScriptGuarded(this Parser parser, Realm realm, string code, string? source = null, bool strict = false)
-    {
-        try
-        {
-            return parser.ParseScript(code, source, strict);
-        }
-        catch (ParseErrorException e)
-        {
-            Throw.SyntaxError(realm, e.Message, ToLocation(e, source));
-            return default;
-        }
-    }
-
-    public static Script ParseScriptGuarded(this Parser parser, Realm realm, string code, Position sourceOffset, string? source = null, bool strict = false)
+    public static Script ParseScriptGuarded(this Parser parser, Realm realm, string code, Position sourceOffset = default, string? source = null, bool strict = false)
     {
         var padding = CreateSourceOffsetPadding(sourceOffset);
-        var paddedCode = padding + code;
 
         try
         {
-            return parser.ParseScript(paddedCode, padding.Length, code.Length, source, strict);
+            return padding.Length > 0
+                ? parser.ParseScript(padding + code, padding.Length, code.Length, source, strict)
+                : parser.ParseScript(code, source, strict);
         }
         catch (ParseErrorException e)
         {

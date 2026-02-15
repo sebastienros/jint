@@ -26,9 +26,10 @@ public partial class Engine
         try
         {
             Script preparedScript;
-            if (options.ParsingOptions.SourceOffset is { } sourceOffset)
+            var sourceOffset = options.ParsingOptions.SourceOffset;
+            var padding = AcornimaExtensions.CreateSourceOffsetPadding(sourceOffset);
+            if (padding.Length > 0)
             {
-                var padding = AcornimaExtensions.CreateSourceOffsetPadding(sourceOffset);
                 var paddedCode = padding + code;
                 preparedScript = parser.ParseScript(paddedCode, padding.Length, code.Length, source, strict);
             }
