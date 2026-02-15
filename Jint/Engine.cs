@@ -654,7 +654,7 @@ public sealed partial class Engine : IDisposable
 
             if (baseValue.IsObject())
             {
-                var baseObj = Runtime.TypeConverter.ToObject(Realm, baseValue);
+                var baseObj = (ObjectInstance) baseValue;
 
                 if (reference.IsPrivateReference)
                 {
