@@ -171,7 +171,7 @@ public sealed class ArrayPrototype : ArrayInstance
             k++;
 
             // Check constraints periodically to prevent long-running operations
-            if (k % 10_000 == 0)
+            if (k > 0 && k % 10_000 == 0)
             {
                 _engine.Constraints.Check();
             }
@@ -241,7 +241,7 @@ public sealed class ArrayPrototype : ArrayInstance
         {
             operations.Set(i, value, throwOnError: false);
 
-            if ((i - k) % ConstraintCheckInterval == 0)
+            if (i > k && (i - k) % ConstraintCheckInterval == 0)
             {
                 _engine.Constraints.Check();
             }
@@ -1277,7 +1277,7 @@ public sealed class ArrayPrototype : ArrayInstance
             lower++;
 
             // Check constraints periodically to prevent long-running operations
-            if (lower % 10_000 == 0)
+            if (lower > 0 && lower % 10_000 == 0)
             {
                 _engine.Constraints.Check();
             }
@@ -1469,7 +1469,7 @@ public sealed class ArrayPrototype : ArrayInstance
             a[k++] = o.Get(from);
 
             // Check constraints periodically to prevent long-running operations
-            if (k % 10_000 == 0)
+            if (k > 0 && k % 10_000 == 0)
             {
                 _engine.Constraints.Check();
             }
