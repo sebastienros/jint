@@ -19,9 +19,7 @@ internal static class AcornimaExtensions
 
     public static Script ParseScriptGuarded(this Parser parser, Realm realm, string code, Position sourceOffset, string? source = null, bool strict = false)
     {
-        var lineOffset = sourceOffset.Line > 0 ? sourceOffset.Line - 1 : 0;
-        var columnOffset = sourceOffset.Column > 0 ? sourceOffset.Column : 0;
-        var padding = new string('\n', lineOffset) + new string(' ', columnOffset);
+        var padding = CreateSourceOffsetPadding(sourceOffset);
         var paddedCode = padding + code;
 
         try
@@ -33,6 +31,16 @@ internal static class AcornimaExtensions
             Throw.SyntaxError(realm, e.Message, ToLocation(e, source));
             return default;
         }
+    }
+
+    /// <summary>
+    /// Creates a padding string of newlines and spaces to shift parsed source positions by the given offset.
+    /// </summary>
+    internal static string CreateSourceOffsetPadding(Position sourceOffset)
+    {
+        var lineOffset = sourceOffset.Line > 0 ? sourceOffset.Line - 1 : 0;
+        var columnOffset = sourceOffset.Column > 0 ? sourceOffset.Column : 0;
+        return new string('\n', lineOffset) + new string(' ', columnOffset);
     }
 
     public static Module ParseModuleGuarded(this Parser parser, Engine engine, string code, string? source = null)

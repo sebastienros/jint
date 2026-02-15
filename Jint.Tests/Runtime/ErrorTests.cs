@@ -508,7 +508,7 @@ throw_error();
         });
 
         Assert.Equal(10, e.Location.Start.Line);
-        Assert.Equal(11, e.Location.Start.Column); // 5 (offset) + 6 (position of 'new Error')
+        Assert.Equal(11, e.Location.Start.Column); // 5 (column offset) + 6 (position of 'new Error' after 'throw ')
         Assert.Equal("test.json", e.Location.SourceFile);
         ContainsIgnoringNewLineDifferences("test.json:10:", e.JavaScriptStackTrace!);
     }
