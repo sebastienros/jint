@@ -169,6 +169,12 @@ public sealed class ArrayPrototype : ArrayInstance
         {
             a[k] = k == (ulong) actualIndex ? value : o.Get(k);
             k++;
+
+            // Check constraints periodically to prevent long-running operations
+            if (k % 10_000 == 0)
+            {
+                _engine.Constraints.Check();
+            }
         }
         return new JsArray(_engine, a);
     }
@@ -322,6 +328,12 @@ public sealed class ArrayPrototype : ArrayInstance
             from += direction;
             to += direction;
             count--;
+
+            // Check constraints periodically to prevent long-running operations
+            if (count % 10_000 == 0)
+            {
+                _engine.Constraints.Check();
+            }
         }
 
         return o;
@@ -1262,6 +1274,12 @@ public sealed class ArrayPrototype : ArrayInstance
             }
 
             lower++;
+
+            // Check constraints periodically to prevent long-running operations
+            if (lower % 10_000 == 0)
+            {
+                _engine.Constraints.Check();
+            }
         }
 
         return o.Target;
@@ -1448,6 +1466,12 @@ public sealed class ArrayPrototype : ArrayInstance
         {
             var from = len - k - 1;
             a[k++] = o.Get(from);
+
+            // Check constraints periodically to prevent long-running operations
+            if (k % 10_000 == 0)
+            {
+                _engine.Constraints.Check();
+            }
         }
         return new JsArray(_engine, a);
     }
