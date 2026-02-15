@@ -19,6 +19,8 @@ namespace Jint.Native.Array;
 /// </summary>
 public sealed class ArrayPrototype : ArrayInstance
 {
+    private const int ConstraintCheckInterval = 10_000;
+
     private readonly Realm _realm;
     private readonly ArrayConstructor _constructor;
     private readonly ObjectTraverseStack _joinStack;
@@ -169,6 +171,12 @@ public sealed class ArrayPrototype : ArrayInstance
         {
             a[k] = k == (ulong) actualIndex ? value : o.Get(k);
             k++;
+
+            // Check constraints periodically to prevent long-running operations
+            if (k > 0 && k % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
         }
         return new JsArray(_engine, a);
     }
@@ -229,9 +237,15 @@ public sealed class ArrayPrototype : ArrayInstance
             final = (ulong) System.Math.Min(relativeEnd, length);
         }
 
+        // Check constraints periodically to prevent memory exhaustion in large fills
         for (var i = k; i < final; ++i)
         {
             operations.Set(i, value, throwOnError: false);
+
+            if (i > k && (i - k) % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
         }
 
         return o;
@@ -290,6 +304,7 @@ public sealed class ArrayPrototype : ArrayInstance
         }
 
         var count = (long) System.Math.Min(final - from, len - to);
+        var initialCount = count;
 
         long direction = 1;
 
@@ -315,6 +330,12 @@ public sealed class ArrayPrototype : ArrayInstance
             from += direction;
             to += direction;
             count--;
+
+            // Check constraints periodically to prevent long-running operations
+            if ((initialCount - count) % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
         }
 
         return o;
@@ -1255,6 +1276,12 @@ public sealed class ArrayPrototype : ArrayInstance
             }
 
             lower++;
+
+            // Check constraints periodically to prevent long-running operations
+            if (lower > 0 && lower % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
         }
 
         return o.Target;
@@ -1441,6 +1468,12 @@ public sealed class ArrayPrototype : ArrayInstance
         {
             var from = len - k - 1;
             a[k++] = o.Get(from);
+
+            // Check constraints periodically to prevent long-running operations
+            if (k > 0 && k % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
         }
         return new JsArray(_engine, a);
     }
