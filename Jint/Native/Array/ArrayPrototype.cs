@@ -229,9 +229,16 @@ public sealed class ArrayPrototype : ArrayInstance
             final = (ulong) System.Math.Min(relativeEnd, length);
         }
 
+        // Check constraints periodically to prevent memory exhaustion in large fills
+        const int ConstraintCheckInterval = 10_000;
         for (var i = k; i < final; ++i)
         {
             operations.Set(i, value, throwOnError: false);
+
+            if ((i - k) % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
         }
 
         return o;
