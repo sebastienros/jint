@@ -362,7 +362,9 @@ public sealed partial class Engine : IDisposable
     public JsValue Evaluate(string code, string source, ScriptParsingOptions parsingOptions)
     {
         var parser = GetParserFor(parsingOptions);
-        var script = parser.ParseScriptGuarded(Realm, code, source, _isStrict);
+        var script = parsingOptions.SourceOffset is { } sourceOffset
+            ? parser.ParseScriptGuarded(Realm, code, sourceOffset, source, _isStrict)
+            : parser.ParseScriptGuarded(Realm, code, source, _isStrict);
         return Evaluate(new Prepared<Script>(script, parser.Options));
     }
 
@@ -393,7 +395,9 @@ public sealed partial class Engine : IDisposable
     public Engine Execute(string code, string source, ScriptParsingOptions parsingOptions)
     {
         var parser = GetParserFor(parsingOptions);
-        var script = parser.ParseScriptGuarded(Realm, code, source, _isStrict);
+        var script = parsingOptions.SourceOffset is { } sourceOffset
+            ? parser.ParseScriptGuarded(Realm, code, sourceOffset, source, _isStrict)
+            : parser.ParseScriptGuarded(Realm, code, source, _isStrict);
         return Execute(new Prepared<Script>(script, parser.Options));
     }
 

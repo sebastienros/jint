@@ -475,6 +475,86 @@ throw_error();
         Assert.Equal(ex.Location.Start.Column, 10);
     }
 
+    [Fact]
+    public void ShouldApplySourceOffsetToErrorLocation()
+    {
+        var parsingOptions = ScriptParsingOptions.Default with
+        {
+            SourceOffset = Position.From(234, 36)
+        };
+
+        var e = Assert.Throws<JavaScriptException>(() =>
+        {
+            var engine = new Engine();
+            engine.Execute("undeclaredVariable.property", "mapping-spec.json", parsingOptions);
+        });
+
+        Assert.Equal(234, e.Location.Start.Line);
+        Assert.Equal("mapping-spec.json", e.Location.SourceFile);
+    }
+
+    [Fact]
+    public void ShouldApplySourceOffsetToStackTrace()
+    {
+        var parsingOptions = ScriptParsingOptions.Default with
+        {
+            SourceOffset = Position.From(10, 5)
+        };
+
+        var e = Assert.Throws<JavaScriptException>(() =>
+        {
+            var engine = new Engine();
+            engine.Execute("throw new Error('test error');", "test.json", parsingOptions);
+        });
+
+        Assert.Equal(10, e.Location.Start.Line);
+        Assert.Equal(11, e.Location.Start.Column); // 5 (offset) + 6 (position of 'new Error')
+        Assert.Equal("test.json", e.Location.SourceFile);
+        ContainsIgnoringNewLineDifferences("test.json:10:", e.JavaScriptStackTrace!);
+    }
+
+    [Fact]
+    public void ShouldApplySourceOffsetWithEvaluate()
+    {
+        var parsingOptions = ScriptParsingOptions.Default with
+        {
+            SourceOffset = Position.From(100, 0)
+        };
+
+        var e = Assert.Throws<JavaScriptException>(() =>
+        {
+            var engine = new Engine();
+            engine.Evaluate("undeclaredVariable.property", "test.json", parsingOptions);
+        });
+
+        Assert.Equal(100, e.Location.Start.Line);
+        Assert.Equal("test.json", e.Location.SourceFile);
+    }
+
+    [Fact]
+    public void ShouldApplySourceOffsetWithPreparedScript()
+    {
+        var preparedScript = Engine.PrepareScript(
+            "undeclaredVariable.property",
+            source: "mapping-spec.json",
+            options: new ScriptPreparationOptions
+            {
+                ParsingOptions = ScriptParsingOptions.Default with
+                {
+                    SourceOffset = Position.From(50, 10)
+                }
+            });
+
+        var e = Assert.Throws<JavaScriptException>(() =>
+        {
+            var engine = new Engine();
+            engine.Execute(preparedScript);
+        });
+
+        Assert.Equal(50, e.Location.Start.Line);
+        Assert.Equal("mapping-spec.json", e.Location.SourceFile);
+    }
+
     private static void EqualIgnoringNewLineDifferences(string expected, string actual)
     {
         expected = expected.Replace("\r\n", "\n");

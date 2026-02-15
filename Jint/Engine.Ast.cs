@@ -25,7 +25,19 @@ public partial class Engine
 
         try
         {
-            var preparedScript = parser.ParseScript(code, source, strict);
+            Script preparedScript;
+            if (options.ParsingOptions.SourceOffset is { } sourceOffset)
+            {
+                var lineOffset = sourceOffset.Line > 0 ? sourceOffset.Line - 1 : 0;
+                var columnOffset = sourceOffset.Column > 0 ? sourceOffset.Column : 0;
+                var padding = new string('\n', lineOffset) + new string(' ', columnOffset);
+                var paddedCode = padding + code;
+                preparedScript = parser.ParseScript(paddedCode, padding.Length, code.Length, source, strict);
+            }
+            else
+            {
+                preparedScript = parser.ParseScript(code, source, strict);
+            }
             return new Prepared<Script>(preparedScript, parserOptions);
         }
         catch (Exception e)

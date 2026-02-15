@@ -56,6 +56,15 @@ public sealed record ScriptParsingOptions : IParsingOptions
     /// <inheritdoc/>
     public bool Tolerant { get; init; } = _defaultParserOptions.Tolerant;
 
+    /// <summary>
+    /// Gets or sets the source location offset to apply when parsing.
+    /// This allows mapping error locations back to the original source file
+    /// when the JavaScript code is embedded within a larger file (e.g., a JSON file).
+    /// The offset is 1-based for lines and 0-based for columns, matching the <see cref="Position"/> convention.
+    /// Defaults to <see langword="null"/> (no offset).
+    /// </summary>
+    public Position? SourceOffset { get; init; }
+
     internal ParserOptions ApplyTo(ParserOptions parserOptions, RegExpParseMode defaultRegExpParseMode, TimeSpan defaultRegexTimeout) => parserOptions with
     {
         AllowReturnOutsideFunction = AllowReturnOutsideFunction,

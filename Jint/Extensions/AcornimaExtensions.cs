@@ -17,6 +17,24 @@ internal static class AcornimaExtensions
         }
     }
 
+    public static Script ParseScriptGuarded(this Parser parser, Realm realm, string code, Position sourceOffset, string? source = null, bool strict = false)
+    {
+        var lineOffset = sourceOffset.Line > 0 ? sourceOffset.Line - 1 : 0;
+        var columnOffset = sourceOffset.Column > 0 ? sourceOffset.Column : 0;
+        var padding = new string('\n', lineOffset) + new string(' ', columnOffset);
+        var paddedCode = padding + code;
+
+        try
+        {
+            return parser.ParseScript(paddedCode, padding.Length, code.Length, source, strict);
+        }
+        catch (ParseErrorException e)
+        {
+            Throw.SyntaxError(realm, e.Message, ToLocation(e, source));
+            return default;
+        }
+    }
+
     public static Module ParseModuleGuarded(this Parser parser, Engine engine, string code, string? source = null)
     {
         try
