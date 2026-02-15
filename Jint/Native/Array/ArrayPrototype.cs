@@ -19,6 +19,8 @@ namespace Jint.Native.Array;
 /// </summary>
 public sealed class ArrayPrototype : ArrayInstance
 {
+    private const int ConstraintCheckInterval = 10_000;
+
     private readonly Realm _realm;
     private readonly ArrayConstructor _constructor;
     private readonly ObjectTraverseStack _joinStack;
@@ -171,7 +173,7 @@ public sealed class ArrayPrototype : ArrayInstance
             k++;
 
             // Check constraints periodically to prevent long-running operations
-            if (k > 0 && k % 10_000 == 0)
+            if (k > 0 && k % ConstraintCheckInterval == 0)
             {
                 _engine.Constraints.Check();
             }
@@ -236,7 +238,6 @@ public sealed class ArrayPrototype : ArrayInstance
         }
 
         // Check constraints periodically to prevent memory exhaustion in large fills
-        const int ConstraintCheckInterval = 10_000;
         for (var i = k; i < final; ++i)
         {
             operations.Set(i, value, throwOnError: false);
@@ -331,7 +332,7 @@ public sealed class ArrayPrototype : ArrayInstance
             count--;
 
             // Check constraints periodically to prevent long-running operations
-            if ((initialCount - count) % 10_000 == 0)
+            if ((initialCount - count) % ConstraintCheckInterval == 0)
             {
                 _engine.Constraints.Check();
             }
@@ -1277,7 +1278,7 @@ public sealed class ArrayPrototype : ArrayInstance
             lower++;
 
             // Check constraints periodically to prevent long-running operations
-            if (lower > 0 && lower % 10_000 == 0)
+            if (lower > 0 && lower % ConstraintCheckInterval == 0)
             {
                 _engine.Constraints.Check();
             }
@@ -1469,7 +1470,7 @@ public sealed class ArrayPrototype : ArrayInstance
             a[k++] = o.Get(from);
 
             // Check constraints periodically to prevent long-running operations
-            if (k > 0 && k % 10_000 == 0)
+            if (k > 0 && k % ConstraintCheckInterval == 0)
             {
                 _engine.Constraints.Check();
             }

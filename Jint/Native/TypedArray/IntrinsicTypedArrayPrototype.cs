@@ -20,6 +20,8 @@ namespace Jint.Native.TypedArray;
 /// </summary>
 internal sealed class IntrinsicTypedArrayPrototype : Prototype
 {
+    private const int ConstraintCheckInterval = 10_000;
+
     private readonly IntrinsicTypedArrayConstructor _constructor;
     private ClrFunction? _originalIteratorFunction;
 
@@ -378,7 +380,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
                     countBytes--;
 
                     // Check constraints periodically to prevent long-running operations
-                    if ((initialCountBytes - countBytes) % 10_000 == 0)
+                    if ((initialCountBytes - countBytes) % ConstraintCheckInterval == 0)
                     {
                         _engine.Constraints.Check();
                     }
@@ -506,7 +508,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
             o[i] = value;
 
             // Check constraints periodically to prevent memory exhaustion in large fills
-            if (i > k && (i - k) % 10_000 == 0)
+            if (i > k && (i - k) % ConstraintCheckInterval == 0)
             {
                 _engine.Constraints.Check();
             }
@@ -1011,7 +1013,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
             lower++;
 
             // Check constraints periodically to prevent long-running operations
-            if (lower > 0 && lower % 10_000 == 0)
+            if (lower > 0 && lower % ConstraintCheckInterval == 0)
             {
                 _engine.Constraints.Check();
             }
@@ -1527,7 +1529,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
             a[k++] = o.Get(from);
 
             // Check constraints periodically to prevent long-running operations
-            if (k > 0 && k % 10_000 == 0)
+            if (k > 0 && k % ConstraintCheckInterval == 0)
             {
                 _engine.Constraints.Check();
             }
@@ -1595,7 +1597,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
             k++;
 
             // Check constraints periodically to prevent long-running operations
-            if (k > 0 && k % 10_000 == 0)
+            if (k > 0 && k % ConstraintCheckInterval == 0)
             {
                 _engine.Constraints.Check();
             }
