@@ -322,6 +322,41 @@ myarr[0](0);
     }
 
     [Fact]
+    public void ShouldLimitTypedArraySizeForFill()
+    {
+        var engine = new Engine(o => o.MaxStatements(1_000).LimitMemory(4_000_000));
+        Assert.Throws<MemoryLimitExceededException>(() => engine.Evaluate("var arr = new Uint8Array(100000000); arr.fill(255);"));
+    }
+
+    [Fact]
+    public void ShouldLimitTypedArraySizeForCopyWithin()
+    {
+        var engine = new Engine(o => o.MaxStatements(1_000).LimitMemory(4_000_000));
+        Assert.Throws<MemoryLimitExceededException>(() => engine.Evaluate("var arr = new Uint8Array(100000000); arr[0] = 1; arr.copyWithin(1, 0);"));
+    }
+
+    [Fact]
+    public void ShouldLimitTypedArraySizeForReverse()
+    {
+        var engine = new Engine(o => o.MaxStatements(1_000).LimitMemory(4_000_000));
+        Assert.Throws<MemoryLimitExceededException>(() => engine.Evaluate("var arr = new Uint8Array(100000000); arr.reverse();"));
+    }
+
+    [Fact]
+    public void ShouldLimitTypedArraySizeForToReversed()
+    {
+        var engine = new Engine(o => o.MaxStatements(1_000).LimitMemory(4_000_000));
+        Assert.Throws<MemoryLimitExceededException>(() => engine.Evaluate("var arr = new Uint8Array(100000000); arr.toReversed();"));
+    }
+
+    [Fact]
+    public void ShouldLimitTypedArraySizeForWith()
+    {
+        var engine = new Engine(o => o.MaxStatements(1_000).LimitMemory(4_000_000));
+        Assert.Throws<MemoryLimitExceededException>(() => engine.Evaluate("var arr = new Uint8Array(100000000); arr.with(0, 1);"));
+    }
+
+    [Fact]
     public void ShouldConsiderConstraintsWhenCallingInvoke()
     {
         var engine = new Engine(options =>

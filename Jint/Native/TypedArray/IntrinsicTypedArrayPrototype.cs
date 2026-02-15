@@ -366,6 +366,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
                 direction = 1;
             }
 
+            var initialCountBytes = countBytes;
             while (countBytes > 0)
             {
                 if (fromByteIndex < bufferByteLimit && toByteIndex < bufferByteLimit)
@@ -375,6 +376,12 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
                     fromByteIndex += direction;
                     toByteIndex += direction;
                     countBytes--;
+
+                    // Check constraints periodically to prevent long-running operations
+                    if ((initialCountBytes - countBytes) % 10_000 == 0)
+                    {
+                        _engine.Constraints.Check();
+                    }
                 }
                 else
                 {
@@ -497,6 +504,12 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
         for (var i = k; i < endIndex; ++i)
         {
             o[i] = value;
+
+            // Check constraints periodically to prevent memory exhaustion in large fills
+            if (i > k && (i - k) % 10_000 == 0)
+            {
+                _engine.Constraints.Check();
+            }
         }
 
         return thisObject;
@@ -996,6 +1009,12 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
             o[upper] = lowerValue;
 
             lower++;
+
+            // Check constraints periodically to prevent long-running operations
+            if (lower > 0 && lower % 10_000 == 0)
+            {
+                _engine.Constraints.Check();
+            }
         }
 
         return o;
@@ -1506,6 +1525,12 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
         {
             var from = len - k - 1;
             a[k++] = o.Get(from);
+
+            // Check constraints periodically to prevent long-running operations
+            if (k > 0 && k % 10_000 == 0)
+            {
+                _engine.Constraints.Check();
+            }
         }
 
         return a;
@@ -1568,6 +1593,12 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
         {
             a[k] = k == (int) actualIndex ? value : o.Get(k);
             k++;
+
+            // Check constraints periodically to prevent long-running operations
+            if (k > 0 && k % 10_000 == 0)
+            {
+                _engine.Constraints.Check();
+            }
         }
 
         return a;
