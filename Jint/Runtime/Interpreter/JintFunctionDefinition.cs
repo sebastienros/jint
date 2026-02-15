@@ -483,8 +483,15 @@ internal sealed class JintFunctionDefinition
                 state.VarSlotCount = varsToInitialize.Count;
                 state.UseFixedSlots = true;
                 state.CanUseFastFDI = lexicalBindingCount == 0;
-                state.EnvironmentMayEscape = EnvironmentEscapeAstVisitor.MayEscape(function)
-                    || function.Generator || function.Async;
+
+                if (function.Generator || function.Async)
+                {
+                    state.EnvironmentMayEscape = true;
+                }
+                else
+                {
+                    state.EnvironmentMayEscape = EnvironmentEscapeAstVisitor.MayEscapeWithReferences(function, slotNames);
+                }
             }
         }
 
@@ -758,6 +765,24 @@ Start:
             return MayEscape(body);
         }
 
+        /// <summary>
+        /// Smarter escape analysis: checks if any closures in the function body actually reference
+        /// any of the specified slot variable names. If closures exist but don't reference any slot
+        /// variables, the environment can still be safely cached.
+        /// </summary>
+        internal static bool MayEscapeWithReferences(IFunction function, Key[] slotNames)
+        {
+            var body = function.Body;
+
+            // For concise arrows like x => y => x * y, the body itself is a closure
+            if (IsCapturing(body))
+            {
+                return ClosureReferencesAny(body, slotNames);
+            }
+
+            return ScanForCapturingReferences(body, slotNames);
+        }
+
         internal static bool IsCapturing(Node node)
         {
             if (node.Type is NodeType.FunctionDeclaration
@@ -793,6 +818,90 @@ Start:
                 // Safe to recurse: IsCapturing already caught function/class/eval/with nodes,
                 // so we only recurse into non-capturing nodes (blocks, if/else, loops, etc.)
                 if (!childNode.ChildNodes.IsEmpty() && MayEscape(childNode))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Scans the node tree for closures that reference any of the specified slot names.
+        /// When a closure is found, its body is searched for identifier references matching slot names.
+        /// eval() and with statements always cause escape (dynamic references can't be analyzed).
+        /// </summary>
+        private static bool ScanForCapturingReferences(Node node, Key[] slotNames)
+        {
+            foreach (var childNode in node.ChildNodes)
+            {
+                // eval() and with statement always capture — can't analyze dynamic references
+                if (childNode.Type == NodeType.WithStatement)
+                {
+                    return true;
+                }
+
+                if (childNode.Type == NodeType.CallExpression
+                    && ((CallExpression) childNode).Callee is Identifier { Name: "eval" })
+                {
+                    return true;
+                }
+
+                // Found a closure — check if it references any slot variables
+                if (childNode.Type is NodeType.FunctionDeclaration
+                    or NodeType.FunctionExpression
+                    or NodeType.ArrowFunctionExpression
+                    or NodeType.ClassDeclaration
+                    or NodeType.ClassExpression)
+                {
+                    if (ClosureReferencesAny(childNode, slotNames))
+                    {
+                        return true;
+                    }
+                    // Closure doesn't reference any slot vars — skip it
+                    continue;
+                }
+
+                // Recurse into non-capturing nodes (blocks, if/else, loops, etc.)
+                if (!childNode.ChildNodes.IsEmpty() && ScanForCapturingReferences(childNode, slotNames))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Checks if a closure node (function/arrow/class) references any of the specified names.
+        /// Walks the entire closure tree looking for matching identifiers, including nested functions
+        /// (since they can access outer variables through the scope chain).
+        /// </summary>
+        private static bool ClosureReferencesAny(Node closureNode, Key[] slotNames)
+        {
+            foreach (var childNode in closureNode.ChildNodes)
+            {
+                if (childNode.Type == NodeType.Identifier)
+                {
+                    var name = ((Identifier) childNode).Name;
+                    for (var i = 0; i < slotNames.Length; i++)
+                    {
+                        if (string.Equals(slotNames[i].Name, name, StringComparison.Ordinal))
+                        {
+                            return true;
+                        }
+                    }
+                    continue;
+                }
+
+                // eval() inside the closure can access any outer variable
+                if (childNode.Type == NodeType.CallExpression
+                    && ((CallExpression) childNode).Callee is Identifier { Name: "eval" })
+                {
+                    return true;
+                }
+
+                if (!childNode.ChildNodes.IsEmpty() && ClosureReferencesAny(childNode, slotNames))
                 {
                     return true;
                 }

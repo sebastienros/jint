@@ -3179,6 +3179,86 @@ x.test = {
         Assert.Equal(21d, result.AsNumber());
     }
 
+    [Fact]
+    public void ShouldAllowSlotCachingWhenClosureDoesNotReferenceSlotVars()
+    {
+        // Closure exists but doesn't reference any outer slot variables —
+        // environment can still be cached for reuse
+        var engine = new Engine();
+        var result = engine.Evaluate(@"
+            function process(x, y) {
+                var helper = function() { return 42; };
+                return x + y + helper();
+            }
+            process(1, 2) + process(3, 4);
+        ");
+        Assert.Equal(94d, result.AsNumber());
+    }
+
+    [Fact]
+    public void ShouldPreventSlotCachingWhenClosureReferencesSlotVar()
+    {
+        // Closure references outer slot variable — environment must escape
+        var engine = new Engine();
+        var result = engine.Evaluate(@"
+            function makeAdder(x) {
+                return function(y) { return x + y; };
+            }
+            var add5 = makeAdder(5);
+            var add10 = makeAdder(10);
+            add5(3) + add10(3);
+        ");
+        Assert.Equal(21d, result.AsNumber());
+    }
+
+    [Fact]
+    public void ShouldHandleNestedClosureReferencingOuterSlotVar()
+    {
+        // Deeply nested closure references outer function's slot variable
+        var engine = new Engine();
+        var result = engine.Evaluate(@"
+            function outer(x) {
+                return function middle() {
+                    return function inner() {
+                        return x;
+                    };
+                };
+            }
+            outer(42)()();
+        ");
+        Assert.Equal(42d, result.AsNumber());
+    }
+
+    [Fact]
+    public void ShouldAllowSlotCachingWhenClosureOnlyUsesGlobals()
+    {
+        // Closure uses global variable, not any slot variables
+        var engine = new Engine();
+        engine.Evaluate("var globalVal = 100;");
+        var result = engine.Evaluate(@"
+            function compute(a, b) {
+                var fn = function() { return globalVal; };
+                return a + b + fn();
+            }
+            compute(1, 2) + compute(3, 4);
+        ");
+        Assert.Equal(210d, result.AsNumber());
+    }
+
+    [Fact]
+    public void ShouldHandleConciseArrowReturningArrowWithClosure()
+    {
+        // Concise arrow x => y => x * y — body IS a closure that references slot var x
+        var engine = new Engine();
+        var result = engine.Evaluate(@"
+            var make = x => y => x * y;
+            var double = make(2);
+            var triple = make(3);
+            double(5) + triple(5);
+        ");
+        Assert.Equal(25d, result.AsNumber());
+    }
+
     private class Wrapper
     {
         public Testificate Test { get; set; }
