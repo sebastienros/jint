@@ -1296,28 +1296,47 @@ public sealed partial class Engine : IDisposable
         var declarations = configuration.LexicalDeclarations;
         if (declarations?.Declarations.Count > 0)
         {
-            var lexicalDeclarations = declarations.Value.Declarations;
-            var checkExistingKeys = (lexEnv._dictionary is not null && lexEnv._dictionary.Count > 0) || !declarations.Value.AllLexicalScoped;
-            var dictionary = lexEnv._dictionary ??= new HybridDictionary<Binding>(lexicalDeclarations.Count, checkExistingKeys);
-            dictionary.EnsureCapacity(dictionary.Count + lexicalDeclarations.Count);
-
-            for (var i = 0; i < lexicalDeclarations.Count; i++)
+            if (lexEnv._slots is not null)
             {
-                var declaration = lexicalDeclarations[i];
-                foreach (var bn in declaration.BoundNames)
+                // Fast path: lexical bindings go directly into pre-allocated slots
+                var lexOffset = configuration.ParameterSlotCount + configuration.VarSlotCount;
+                var lexicalDeclarations = declarations.Value.Declarations;
+                for (var i = 0; i < lexicalDeclarations.Count; i++)
                 {
-                    if (declaration.IsConstantDeclaration)
+                    var declaration = lexicalDeclarations[i];
+                    foreach (var bn in declaration.BoundNames)
                     {
-                        dictionary.CreateImmutableBinding(bn, strict);
-                    }
-                    else
-                    {
-                        dictionary.CreateMutableBinding(bn, canBeDeleted: false);
+                        lexEnv._slots[lexOffset++] = declaration.IsConstantDeclaration
+                            ? new Binding(null!, canBeDeleted: false, mutable: false, strict: true)
+                            : new Binding(null!, canBeDeleted: false, mutable: true, strict: false);
                     }
                 }
             }
+            else
+            {
+                var lexicalDeclarations = declarations.Value.Declarations;
+                var checkExistingKeys = (lexEnv._dictionary is not null && lexEnv._dictionary.Count > 0) || !declarations.Value.AllLexicalScoped;
+                var dictionary = lexEnv._dictionary ??= new HybridDictionary<Binding>(lexicalDeclarations.Count, checkExistingKeys);
+                dictionary.EnsureCapacity(dictionary.Count + lexicalDeclarations.Count);
 
-            dictionary.CheckExistingKeys = true;
+                for (var i = 0; i < lexicalDeclarations.Count; i++)
+                {
+                    var declaration = lexicalDeclarations[i];
+                    foreach (var bn in declaration.BoundNames)
+                    {
+                        if (declaration.IsConstantDeclaration)
+                        {
+                            dictionary.CreateImmutableBinding(bn, strict);
+                        }
+                        else
+                        {
+                            dictionary.CreateMutableBinding(bn, canBeDeleted: false);
+                        }
+                    }
+                }
+
+                dictionary.CheckExistingKeys = true;
+            }
         }
 
         if (configuration.FunctionsToInitialize != null)

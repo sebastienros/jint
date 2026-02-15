@@ -3082,6 +3082,103 @@ x.test = {
         Assert.True(beforeEvaluateTriggered);
     }
 
+    [Fact]
+    public void ShouldHandleFixedSlotFunctionWithLetConst()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate(@"
+            function compute(a, b) {
+                let sum = a + b;
+                const product = a * b;
+                let result = sum + product;
+                return result;
+            }
+            compute(3, 4);
+        ");
+        Assert.Equal(19d, result.AsNumber());
+    }
+
+    [Fact]
+    public void ShouldHandleFixedSlotFunctionWithConstReassignmentError()
+    {
+        var engine = new Engine();
+        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate(@"
+            function test(x) {
+                const y = x + 1;
+                y = 10;
+                return y;
+            }
+            test(5);
+        "));
+        Assert.Contains("constant", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ShouldHandleFixedSlotFunctionWithLetTemporalDeadZone()
+    {
+        var engine = new Engine();
+        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate(@"
+            function test() {
+                var x = y;
+                let y = 10;
+                return x;
+            }
+            test();
+        "));
+        Assert.Contains("has not been initialized", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ShouldHandleFixedSlotFunctionWithClosureOverLetConst()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate(@"
+            function makeCounter(start) {
+                let count = start;
+                const increment = 1;
+                return function() {
+                    count += increment;
+                    return count;
+                };
+            }
+            var counter = makeCounter(10);
+            counter() + counter() + counter();
+        ");
+        Assert.Equal(36d, result.AsNumber());
+    }
+
+    [Fact]
+    public void ShouldHandleFixedSlotFunctionWithMultipleLetDeclarations()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate(@"
+            function swap(a, b) {
+                let temp = a;
+                let x = b;
+                let y = temp;
+                return x * 100 + y;
+            }
+            swap(3, 7);
+        ");
+        Assert.Equal(703d, result.AsNumber());
+    }
+
+    [Fact]
+    public void ShouldHandleSlotCachingWithNonEscapingEnvironment()
+    {
+        // Function with let/const where environment doesn't escape (no closures)
+        // should benefit from slot caching across calls
+        var engine = new Engine();
+        var result = engine.Evaluate(@"
+            function add(a, b) {
+                let result = a + b;
+                return result;
+            }
+            add(1, 2) + add(3, 4) + add(5, 6);
+        ");
+        Assert.Equal(21d, result.AsNumber());
+    }
+
     private class Wrapper
     {
         public Testificate Test { get; set; }

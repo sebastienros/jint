@@ -271,6 +271,7 @@ internal sealed class JintFunctionDefinition
         public bool UseFixedSlots;
         public Key[]? SlotNames;
         public int ParameterSlotCount;
+        public int VarSlotCount;
         public bool CanUseFastFDI;
         public bool EnvironmentMayEscape;
         public Binding[]? _cachedSlots;
@@ -435,23 +436,53 @@ internal sealed class JintFunctionDefinition
             && !state.HasParameterExpressions
             && !state.NeedsEvalContext
             && !state.ArgumentsObjectNeeded
-            && state.LexicalDeclarations is null
             && state.FunctionsToInitialize is null)
         {
-            var totalSlots = state.ParameterNames.Length + varsToInitialize.Count;
-            if (totalSlots is > 0 and <= 16)
+            // Count lexical declaration bindings (let/const only, no function/class declarations)
+            var lexicalBindingCount = 0;
+            var lexDecls = state.LexicalDeclarations;
+            if (lexDecls is { AllLexicalScoped: true } ld)
+            {
+                foreach (var decl in ld.Declarations)
+                {
+                    lexicalBindingCount += decl.BoundNames.Length;
+                }
+            }
+            else if (lexDecls is not null)
+            {
+                // Has non-lexical declarations (function/class) — can't use fixed slots
+                lexicalBindingCount = -1;
+            }
+
+            var totalSlots = state.ParameterNames.Length + varsToInitialize.Count + lexicalBindingCount;
+            if (lexicalBindingCount >= 0 && totalSlots is > 0 and <= 16)
             {
                 var slotNames = new Key[totalSlots];
                 state.ParameterNames.CopyTo(slotNames, 0);
+                var varOffset = state.ParameterNames.Length;
                 for (var i = 0; i < varsToInitialize.Count; i++)
                 {
-                    slotNames[state.ParameterNames.Length + i] = varsToInitialize[i].Name;
+                    slotNames[varOffset + i] = varsToInitialize[i].Name;
+                }
+
+                // Add lexical declaration names (let/const)
+                if (lexicalBindingCount > 0)
+                {
+                    var lexOffset = varOffset + varsToInitialize.Count;
+                    foreach (var decl in lexDecls!.Value.Declarations)
+                    {
+                        foreach (var bn in decl.BoundNames)
+                        {
+                            slotNames[lexOffset++] = bn;
+                        }
+                    }
                 }
 
                 state.SlotNames = slotNames;
                 state.ParameterSlotCount = state.ParameterNames.Length;
+                state.VarSlotCount = varsToInitialize.Count;
                 state.UseFixedSlots = true;
-                state.CanUseFastFDI = true;
+                state.CanUseFastFDI = lexicalBindingCount == 0;
                 state.EnvironmentMayEscape = EnvironmentEscapeAstVisitor.MayEscape(function)
                     || function.Generator || function.Async;
             }
@@ -753,12 +784,14 @@ Start:
         {
             foreach (var childNode in node.ChildNodes)
             {
+                // Captures the environment — function/class/eval/with create closures over bindings
                 if (IsCapturing(childNode))
                 {
                     return true;
                 }
 
-                // Don't recurse into nested function bodies (they have their own scope)
+                // Safe to recurse: IsCapturing already caught function/class/eval/with nodes,
+                // so we only recurse into non-capturing nodes (blocks, if/else, loops, etc.)
                 if (!childNode.ChildNodes.IsEmpty() && MayEscape(childNode))
                 {
                     return true;

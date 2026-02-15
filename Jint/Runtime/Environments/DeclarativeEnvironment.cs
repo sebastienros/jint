@@ -54,7 +54,7 @@ internal class DeclarativeEnvironment : Environment
             if (index >= 0)
             {
                 value = _slots[index].Value;
-                return value is not null;
+                return true;
             }
         }
 
