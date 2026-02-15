@@ -63,6 +63,7 @@ public sealed class ScriptFunction : Function, IConstructor
         using (new StrictModeScope(strict, force: true))
         {
             FunctionEnvironment? funcEnv = null;
+            JintFunctionDefinition.State? state = null;
 
             try
             {
@@ -73,8 +74,8 @@ public sealed class ScriptFunction : Function, IConstructor
                     Throw.TypeError(calleeContext.Realm, $"Class constructor {_functionDefinition.Name} cannot be invoked without 'new'");
                 }
 
-                // Check if slot array can be cached after this call (state is already initialized by PrepareForOrdinaryCall)
-                var state = _functionDefinition.Initialize();
+                // Check if slot array can be cached after this call
+                state = _functionDefinition.Initialize();
                 if (state is { UseFixedSlots: true, EnvironmentMayEscape: false })
                 {
                     funcEnv = (FunctionEnvironment) calleeContext.LexicalEnvironment;
@@ -115,7 +116,7 @@ public sealed class ScriptFunction : Function, IConstructor
                 if (funcEnv?._slots is { } slots)
                 {
                     System.Array.Clear(slots, 0, slots.Length);
-                    Interlocked.Exchange(ref _functionDefinition.Initialize()._cachedSlots, slots);
+                    Interlocked.Exchange(ref state!._cachedSlots, slots);
                     funcEnv._slots = null;
                 }
                 _engine.LeaveExecutionContext();

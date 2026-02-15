@@ -1131,11 +1131,11 @@ public sealed partial class Engine : IDisposable
         // Fast path for simple functions with fixed-slot storage
         if (configuration.CanUseFastFDI && !_isDebugMode)
         {
-            var env = (FunctionEnvironment) ExecutionContext.LexicalEnvironment;
-            env.InitializeParameters(configuration.ParameterNames, false, argumentsList);
+            var fastEnv = (FunctionEnvironment) ExecutionContext.LexicalEnvironment;
+            fastEnv.InitializeParameters(configuration.ParameterNames, false, argumentsList);
 
             // Initialize var slots to Undefined
-            var slots = env._slots!;
+            var slots = fastEnv._slots!;
             var paramCount = configuration.ParameterSlotCount;
             for (var i = paramCount; i < slots.Length; i++)
             {
@@ -1147,7 +1147,7 @@ public sealed partial class Engine : IDisposable
 
         var calleeContext = ExecutionContext;
 
-        var env2 = (FunctionEnvironment) ExecutionContext.LexicalEnvironment;
+        var env = (FunctionEnvironment) ExecutionContext.LexicalEnvironment;
         var strict = _isStrict || StrictModeScope.IsStrictModeCode;
 
         var parameterNames = configuration.ParameterNames;
@@ -1161,7 +1161,7 @@ public sealed partial class Engine : IDisposable
 
         var canInitializeParametersOnDeclaration = simpleParameterList && !configuration.HasDuplicates;
         var arguments = canInitializeParametersOnDeclaration ? argumentsList : null;
-        env2.InitializeParameters(parameterNames, hasDuplicates, arguments);
+        env.InitializeParameters(parameterNames, hasDuplicates, arguments);
 
         JsArguments? ao = null;
         if (configuration.ArgumentsObjectNeeded || _isDebugMode)
@@ -1174,16 +1174,16 @@ public sealed partial class Engine : IDisposable
             {
                 // NOTE: mapped argument object is only provided for non-strict functions that don't have a rest parameter,
                 // any parameter default value initializers, or any destructured parameters.
-                ao = CreateMappedArgumentsObject(function, parameterNames, argumentsList, env2, configuration.HasRestParameter);
+                ao = CreateMappedArgumentsObject(function, parameterNames, argumentsList, env, configuration.HasRestParameter);
             }
 
             if (strict)
             {
-                env2.CreateImmutableBindingAndInitialize(KnownKeys.Arguments, strict: false, ao, DisposeHint.Normal);
+                env.CreateImmutableBindingAndInitialize(KnownKeys.Arguments, strict: false, ao, DisposeHint.Normal);
             }
             else
             {
-                env2.CreateMutableBindingAndInitialize(KnownKeys.Arguments, canBeDeleted: false, ao, DisposeHint.Normal);
+                env.CreateMutableBindingAndInitialize(KnownKeys.Arguments, canBeDeleted: false, ao, DisposeHint.Normal);
             }
         }
 
@@ -1198,13 +1198,13 @@ public sealed partial class Engine : IDisposable
         {
             // NOTE: Only a single lexical environment is needed for the parameters and top-level vars.
             var varsToInitialize = configuration.VarsToInitialize!;
-            if (env2._slots is not null)
+            if (env._slots is not null)
             {
                 // Fast path: vars go directly into pre-allocated slots
                 var paramCount = configuration.ParameterSlotCount;
                 for (var i = 0; i < varsToInitialize.Count; i++)
                 {
-                    env2._slots[paramCount + i] = new Binding(
+                    env._slots[paramCount + i] = new Binding(
                         JsValue.Undefined, canBeDeleted: false, mutable: true, strict: false);
                 }
             }
@@ -1213,11 +1213,11 @@ public sealed partial class Engine : IDisposable
                 for (var i = 0; i < varsToInitialize.Count; i++)
                 {
                     var pair = varsToInitialize[i];
-                    env2.CreateMutableBindingAndInitialize(pair.Name, canBeDeleted: false, JsValue.Undefined, DisposeHint.Normal);
+                    env.CreateMutableBindingAndInitialize(pair.Name, canBeDeleted: false, JsValue.Undefined, DisposeHint.Normal);
                 }
             }
 
-            varEnv = env2;
+            varEnv = env;
         }
         else
         {
@@ -1225,7 +1225,7 @@ public sealed partial class Engine : IDisposable
             // Create a separate environment (paramEnv) for parameter evaluation.
             // This is where eval'd vars during parameter initialization go.
             // Closures created during parameter evaluation capture this environment.
-            var paramEnv = JintEnvironment.NewDeclarativeEnvironment(this, env2);
+            var paramEnv = JintEnvironment.NewDeclarativeEnvironment(this, env);
 
             // Step 20.f and 20.g: Set BOTH VariableEnvironment AND LexicalEnvironment to paramEnv
             // before evaluating parameter defaults. This ensures:
@@ -1246,7 +1246,7 @@ public sealed partial class Engine : IDisposable
             // At this point, if hasParameterExpressions:
             // - VariableEnvironment = paramEnv (for eval vars during param init)
             // - LexicalEnvironment = paramEnv (for closures to capture)
-            env2.AddFunctionParameters(_activeEvaluationContext!, func.Function, argumentsList);
+            env.AddFunctionParameters(_activeEvaluationContext!, func.Function, argumentsList);
         }
 
         // After parameter initialization, switch VariableEnvironment to varEnv for body vars
@@ -1269,7 +1269,7 @@ public sealed partial class Engine : IDisposable
             for (var i = 0; i < varsToInitialize.Count; i++)
             {
                 var pair = varsToInitialize[i];
-                var initialValue = pair.InitialValue ?? env2.GetBindingValue(pair.Name, strict: false);
+                var initialValue = pair.InitialValue ?? env.GetBindingValue(pair.Name, strict: false);
                 varEnv.CreateMutableBindingAndInitialize(pair.Name, canBeDeleted: false, initialValue, DisposeHint.Normal);
             }
         }

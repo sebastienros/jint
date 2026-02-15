@@ -729,12 +729,24 @@ Start:
 
         internal static bool IsCapturing(Node node)
         {
-            return node.Type is NodeType.FunctionDeclaration
+            if (node.Type is NodeType.FunctionDeclaration
                 or NodeType.FunctionExpression
                 or NodeType.ArrowFunctionExpression
                 or NodeType.ClassDeclaration
                 or NodeType.ClassExpression
-                or NodeType.WithStatement;
+                or NodeType.WithStatement)
+            {
+                return true;
+            }
+
+            // Direct eval() can dynamically create closures that capture the environment
+            if (node.Type == NodeType.CallExpression
+                && ((CallExpression) node).Callee is Identifier { Name: "eval" })
+            {
+                return true;
+            }
+
+            return false;
         }
 
         internal static bool MayEscape(Node node)

@@ -25,7 +25,6 @@ internal class DeclarativeEnvironment : Environment
         _catchEnvironment = catchEnvironment;
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private int SlotIndexOf(Key name)
     {
         var slotNames = _slotNames!;

@@ -77,9 +77,7 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
                 if (blockState.SlotNames is not null)
                 {
                     // Try to reuse cached environment (only valid for same Engine)
-                    var cachedEnv = blockState.CanReuseEnvironment
-                        ? Interlocked.Exchange(ref blockState._cachedEnv, null)
-                        : null;
+                    var cachedEnv = Interlocked.Exchange(ref blockState._cachedEnv, null);
 
                     if (cachedEnv is not null && ReferenceEquals(cachedEnv._engine, engine))
                     {
@@ -129,13 +127,11 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
             }
             else
             {
-                // Return environment to cache for reuse (only when no closures capture it)
-                if (blockState.CanReuseEnvironment && blockEnv._slots is not null)
+                // Return environment to cache for reuse (slots only exist when CanReuseEnvironment=true)
+                if (blockEnv._slots is not null)
                 {
                     Interlocked.Exchange(ref blockState._cachedEnv, blockEnv);
                 }
-                // When CanReuseEnvironment is false, closures may reference blockEnv._slots,
-                // so we must NOT cache the array — it would alias and get corrupted on reuse.
 
                 blockValue = blockEnv.DisposeResources(blockValue);
                 suspendable?.Data.Clear(this);
@@ -237,7 +233,8 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
                     totalBindings += decl.BoundNames.Length;
                 }
 
-                if (eligible && totalBindings is > 0 and <= 16)
+                if (eligible && totalBindings is > 0 and <= 16
+                    && !JintFunctionDefinition.EnvironmentEscapeAstVisitor.MayEscape(blockStatement))
                 {
                     var slotNames = new Key[totalBindings];
                     var slotTemplates = new Binding[totalBindings];
@@ -255,9 +252,7 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
                     }
                     SlotNames = slotNames;
                     SlotTemplates = slotTemplates;
-
-                    // Environment can be reused when no closures capture block bindings
-                    CanReuseEnvironment = !JintFunctionDefinition.EnvironmentEscapeAstVisitor.MayEscape(blockStatement);
+                    CanReuseEnvironment = true;
                 }
             }
         }
