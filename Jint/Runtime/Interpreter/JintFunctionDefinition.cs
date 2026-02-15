@@ -5,6 +5,7 @@ using Jint.Native.AsyncFunction;
 using Jint.Native.AsyncGenerator;
 using Jint.Native.Generator;
 using Jint.Native.Promise;
+using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Runtime.Interpreter;
@@ -266,6 +267,15 @@ internal sealed class JintFunctionDefinition
         public List<VariableValuePair>? VarsToInitialize;
         public bool NeedsEvalContext;
 
+        // Fixed-slot optimization fields
+        public bool UseFixedSlots;
+        public Key[]? SlotNames;
+        public int ParameterSlotCount;
+        public int VarSlotCount;
+        public bool CanUseFastFDI;
+        public bool EnvironmentMayEscape;
+        public Binding[]? _cachedSlots;
+
         internal readonly record struct VariableValuePair(Key Name, JsValue? InitialValue);
     }
 
@@ -418,6 +428,71 @@ internal sealed class JintFunctionDefinition
         if (hoistingScope._lexicalDeclarations != null)
         {
             state.LexicalDeclarations = DeclarationCacheBuilder.Build(hoistingScope._lexicalDeclarations);
+        }
+
+        // Fixed-slot qualification: use array-based binding storage for simple functions
+        if (state.IsSimpleParameterList
+            && !state.HasDuplicates
+            && !state.HasParameterExpressions
+            && !state.NeedsEvalContext
+            && !state.ArgumentsObjectNeeded
+            && state.FunctionsToInitialize is null)
+        {
+            // Count lexical declaration bindings (let/const only, no function/class declarations)
+            var lexicalBindingCount = 0;
+            var lexDecls = state.LexicalDeclarations;
+            if (lexDecls is { AllLexicalScoped: true } ld)
+            {
+                foreach (var decl in ld.Declarations)
+                {
+                    lexicalBindingCount += decl.BoundNames.Length;
+                }
+            }
+            else if (lexDecls is not null)
+            {
+                // Has non-lexical declarations (function/class) — can't use fixed slots
+                lexicalBindingCount = -1;
+            }
+
+            var totalSlots = state.ParameterNames.Length + varsToInitialize.Count + lexicalBindingCount;
+            if (lexicalBindingCount >= 0 && totalSlots is > 0 and <= 16)
+            {
+                var slotNames = new Key[totalSlots];
+                state.ParameterNames.CopyTo(slotNames, 0);
+                var varOffset = state.ParameterNames.Length;
+                for (var i = 0; i < varsToInitialize.Count; i++)
+                {
+                    slotNames[varOffset + i] = varsToInitialize[i].Name;
+                }
+
+                // Add lexical declaration names (let/const)
+                if (lexicalBindingCount > 0)
+                {
+                    var lexOffset = varOffset + varsToInitialize.Count;
+                    foreach (var decl in lexDecls!.Value.Declarations)
+                    {
+                        foreach (var bn in decl.BoundNames)
+                        {
+                            slotNames[lexOffset++] = bn;
+                        }
+                    }
+                }
+
+                state.SlotNames = slotNames;
+                state.ParameterSlotCount = state.ParameterNames.Length;
+                state.VarSlotCount = varsToInitialize.Count;
+                state.UseFixedSlots = true;
+                state.CanUseFastFDI = lexicalBindingCount == 0;
+
+                if (function.Generator || function.Async)
+                {
+                    state.EnvironmentMayEscape = true;
+                }
+                else
+                {
+                    state.EnvironmentMayEscape = EnvironmentEscapeAstVisitor.MayEscapeWithReferences(function, slotNames);
+                }
+            }
         }
 
         return state;
@@ -667,6 +742,168 @@ Start:
                         }
 
                         break;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Checks if a function's per-call environment may escape (be captured by closures).
+    /// If true, the environment cannot be pooled/cached for reuse.
+    /// </summary>
+    internal static class EnvironmentEscapeAstVisitor
+    {
+        internal static bool MayEscape(IFunction function)
+        {
+            var body = function.Body;
+            if (IsCapturing(body))
+            {
+                return true;
+            }
+            return MayEscape(body);
+        }
+
+        /// <summary>
+        /// Smarter escape analysis: checks if any closures in the function body actually reference
+        /// any of the specified slot variable names. If closures exist but don't reference any slot
+        /// variables, the environment can still be safely cached.
+        /// </summary>
+        internal static bool MayEscapeWithReferences(IFunction function, Key[] slotNames)
+        {
+            var body = function.Body;
+
+            // For concise arrows like x => y => x * y, the body itself is a closure
+            if (IsCapturing(body))
+            {
+                return ClosureReferencesAny(body, slotNames);
+            }
+
+            return ScanForCapturingReferences(body, slotNames);
+        }
+
+        internal static bool IsCapturing(Node node)
+        {
+            if (node.Type is NodeType.FunctionDeclaration
+                or NodeType.FunctionExpression
+                or NodeType.ArrowFunctionExpression
+                or NodeType.ClassDeclaration
+                or NodeType.ClassExpression
+                or NodeType.WithStatement)
+            {
+                return true;
+            }
+
+            // Direct eval() can dynamically create closures that capture the environment
+            if (node.Type == NodeType.CallExpression
+                && ((CallExpression) node).Callee is Identifier { Name: "eval" })
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        internal static bool MayEscape(Node node)
+        {
+            foreach (var childNode in node.ChildNodes)
+            {
+                // Captures the environment — function/class/eval/with create closures over bindings
+                if (IsCapturing(childNode))
+                {
+                    return true;
+                }
+
+                // Safe to recurse: IsCapturing already caught function/class/eval/with nodes,
+                // so we only recurse into non-capturing nodes (blocks, if/else, loops, etc.)
+                if (!childNode.ChildNodes.IsEmpty() && MayEscape(childNode))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Scans the node tree for closures that reference any of the specified slot names.
+        /// When a closure is found, its body is searched for identifier references matching slot names.
+        /// eval() and with statements always cause escape (dynamic references can't be analyzed).
+        /// </summary>
+        private static bool ScanForCapturingReferences(Node node, Key[] slotNames)
+        {
+            foreach (var childNode in node.ChildNodes)
+            {
+                // eval() and with statement always capture — can't analyze dynamic references
+                if (childNode.Type == NodeType.WithStatement)
+                {
+                    return true;
+                }
+
+                if (childNode.Type == NodeType.CallExpression
+                    && ((CallExpression) childNode).Callee is Identifier { Name: "eval" })
+                {
+                    return true;
+                }
+
+                // Found a closure — check if it references any slot variables
+                if (childNode.Type is NodeType.FunctionDeclaration
+                    or NodeType.FunctionExpression
+                    or NodeType.ArrowFunctionExpression
+                    or NodeType.ClassDeclaration
+                    or NodeType.ClassExpression)
+                {
+                    if (ClosureReferencesAny(childNode, slotNames))
+                    {
+                        return true;
+                    }
+                    // Closure doesn't reference any slot vars — skip it
+                    continue;
+                }
+
+                // Recurse into non-capturing nodes (blocks, if/else, loops, etc.)
+                if (!childNode.ChildNodes.IsEmpty() && ScanForCapturingReferences(childNode, slotNames))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Checks if a closure node (function/arrow/class) references any of the specified names.
+        /// Walks the entire closure tree looking for matching identifiers, including nested functions
+        /// (since they can access outer variables through the scope chain).
+        /// </summary>
+        private static bool ClosureReferencesAny(Node closureNode, Key[] slotNames)
+        {
+            foreach (var childNode in closureNode.ChildNodes)
+            {
+                if (childNode.Type == NodeType.Identifier)
+                {
+                    var name = ((Identifier) childNode).Name;
+                    for (var i = 0; i < slotNames.Length; i++)
+                    {
+                        if (string.Equals(slotNames[i].Name, name, StringComparison.Ordinal))
+                        {
+                            return true;
+                        }
+                    }
+                    continue;
+                }
+
+                // eval() inside the closure can access any outer variable
+                if (childNode.Type == NodeType.CallExpression
+                    && ((CallExpression) childNode).Callee is Identifier { Name: "eval" })
+                {
+                    return true;
+                }
+
+                if (!childNode.ChildNodes.IsEmpty() && ClosureReferencesAny(childNode, slotNames))
+                {
+                    return true;
                 }
             }
 

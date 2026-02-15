@@ -105,6 +105,16 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
             return;
         }
 
+        if (_slots is not null)
+        {
+            for (uint i = 0; i < (uint) parameterNames.Length; i++)
+            {
+                var parameterValue = arguments?.At((int) i, Undefined) ?? Undefined;
+                _slots[i] = new Binding(parameterValue, canBeDeleted: false, mutable: true, strict: false);
+            }
+            return;
+        }
+
         var value = hasDuplicates ? Undefined : null;
         var directSet = !hasDuplicates && (_dictionary is null || _dictionary.Count == 0);
         _dictionary ??= new HybridDictionary<Binding>(parameterNames.Length, checkExistingKeys: !directSet);
