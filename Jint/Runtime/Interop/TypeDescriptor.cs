@@ -17,6 +17,7 @@ internal sealed class TypeDescriptor
     private static readonly PropertyInfo _listIndexer = typeof(IList).GetProperty("Item")!;
 
     private static readonly Type _genericDictionaryType = typeof(IDictionary<,>);
+    private static readonly Type _readOnlyGenericDictionaryType = typeof(IReadOnlyDictionary<,>);
     private static readonly Type _stringType = typeof(string);
 
     private readonly MethodInfo? _tryGetValueMethod;
@@ -176,13 +177,18 @@ internal sealed class TypeDescriptor
             var genericTypeDefinition = type.GetGenericTypeDefinition();
 
             // check if object has any generic dictionary signature that accepts string as key
-            var b = genericTypeDefinition == _genericDictionaryType;
-            if (b && type.GenericTypeArguments[0] == _stringType)
+            var isGenericDictionary = genericTypeDefinition == _genericDictionaryType;
+            var isReadOnlyGenericDictionary = genericTypeDefinition == _readOnlyGenericDictionaryType;
+            if ((isGenericDictionary || isReadOnlyGenericDictionary) && type.GenericTypeArguments[0] == _stringType)
             {
-                tryGetValueMethod = type.GetMethod("TryGetValue");
-                removeMethod = type.GetMethod("Remove");
-                keysAccessor = type.GetProperty("Keys");
-                valueType = type.GenericTypeArguments[1];
+                tryGetValueMethod ??= type.GetMethod("TryGetValue");
+                keysAccessor ??= type.GetProperty("Keys");
+                valueType ??= type.GenericTypeArguments[1];
+
+                if (isGenericDictionary)
+                {
+                    removeMethod ??= type.GetMethod("Remove");
+                }
             }
 
             isCollection |= genericTypeDefinition == typeof(IReadOnlyCollection<>) || genericTypeDefinition == typeof(ICollection<>);
@@ -190,7 +196,7 @@ internal sealed class TypeDescriptor
             {
                 integerIndexer ??= type.GetProperty("Item");
             }
-            isDictionary |= genericTypeDefinition == _genericDictionaryType;
+            isDictionary |= isGenericDictionary || isReadOnlyGenericDictionary;
         }
     }
 
