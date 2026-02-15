@@ -91,6 +91,25 @@ public partial class InteropTests : IDisposable
     }
 
     [Fact]
+    public void ReadOnlyDictionaryShouldNotBeTreatedAsArrayLike()
+    {
+        var engine = new Engine();
+
+        var dictionary = new ReadOnlyDictionary(new Dictionary<string, object>
+        {
+            { "foo", 5 },
+            { "bar", "A string" }
+        });
+        engine.SetValue(nameof(dictionary), dictionary);
+
+        var result = engine.Evaluate($"JSON.stringify({nameof(dictionary)})").AsString();
+        Assert.Equal("{\"foo\":5,\"bar\":\"A string\"}", result);
+
+        var keys = engine.Evaluate($"Object.keys({nameof(dictionary)})").AsArray();
+        Assert.Equal((uint) 2, keys.Length);
+    }
+
+    [Fact]
     public void EngineShouldRoundtripParsedJSONBackToStringCorrectly()
     {
         var engine = new Engine();
@@ -3653,6 +3672,28 @@ try {
                 SetInitial(new MetadataWrapper(), "metadata");
             }
         }
+    }
+
+    /// <summary>
+    /// A custom IReadOnlyDictionary that does NOT implement IDictionary, to verify it's treated as dictionary-like, not array-like.
+    /// </summary>
+    private class ReadOnlyDictionary : IReadOnlyDictionary<string, object>
+    {
+        private readonly Dictionary<string, object> _dictionary;
+
+        public ReadOnlyDictionary(Dictionary<string, object> dictionary)
+        {
+            _dictionary = dictionary;
+        }
+
+        public IEnumerator<KeyValuePair<string, object>> GetEnumerator() => _dictionary.GetEnumerator();
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+        public int Count => _dictionary.Count;
+        public bool ContainsKey(string key) => _dictionary.ContainsKey(key);
+        public bool TryGetValue(string key, out object value) => _dictionary.TryGetValue(key, out value!);
+        public object this[string key] => _dictionary[key];
+        public IEnumerable<string> Keys => _dictionary.Keys;
+        public IEnumerable<object> Values => _dictionary.Values;
     }
 
     [Fact]
