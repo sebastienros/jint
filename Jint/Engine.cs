@@ -346,7 +346,7 @@ public sealed partial class Engine : IDisposable
     /// </summary>
     public JsValue Evaluate(string code, string? source = null)
     {
-        var script = _defaultParser.ParseScriptGuarded(Realm, code, source ?? "<anonymous>", _isStrict);
+        var script = _defaultParser.ParseScriptGuarded(Realm, code, source: source ?? "<anonymous>", strict: _isStrict);
         return Evaluate(new Prepared<Script>(script, _defaultParser.Options));
     }
 
@@ -362,7 +362,7 @@ public sealed partial class Engine : IDisposable
     public JsValue Evaluate(string code, string source, ScriptParsingOptions parsingOptions)
     {
         var parser = GetParserFor(parsingOptions);
-        var script = parser.ParseScriptGuarded(Realm, code, source, _isStrict);
+        var script = parser.ParseScriptGuarded(Realm, code, parsingOptions.SourceOffset, source, _isStrict);
         return Evaluate(new Prepared<Script>(script, parser.Options));
     }
 
@@ -377,7 +377,7 @@ public sealed partial class Engine : IDisposable
     /// </summary>
     public Engine Execute(string code, string? source = null)
     {
-        var script = _defaultParser.ParseScriptGuarded(Realm, code, source ?? "<anonymous>", _isStrict);
+        var script = _defaultParser.ParseScriptGuarded(Realm, code, source: source ?? "<anonymous>", strict: _isStrict);
         return Execute(new Prepared<Script>(script, _defaultParser.Options));
     }
 
@@ -393,7 +393,7 @@ public sealed partial class Engine : IDisposable
     public Engine Execute(string code, string source, ScriptParsingOptions parsingOptions)
     {
         var parser = GetParserFor(parsingOptions);
-        var script = parser.ParseScriptGuarded(Realm, code, source, _isStrict);
+        var script = parser.ParseScriptGuarded(Realm, code, parsingOptions.SourceOffset, source, _isStrict);
         return Execute(new Prepared<Script>(script, parser.Options));
     }
 
