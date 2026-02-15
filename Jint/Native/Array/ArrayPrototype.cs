@@ -303,6 +303,7 @@ public sealed class ArrayPrototype : ArrayInstance
         }
 
         var count = (long) System.Math.Min(final - from, len - to);
+        var initialCount = count;
 
         long direction = 1;
 
@@ -330,7 +331,7 @@ public sealed class ArrayPrototype : ArrayInstance
             count--;
 
             // Check constraints periodically to prevent long-running operations
-            if (count % 10_000 == 0)
+            if ((initialCount - count) % 10_000 == 0)
             {
                 _engine.Constraints.Check();
             }
