@@ -95,6 +95,8 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                 }
             });
 
+            // toJSON should be writable, configurable, and non-enumerable to match JavaScript standard
+            // (e.g., Date.prototype.toJSON has these same flags)
             SetProperty("toJSON", new PropertyDescriptor(toJsonFunction, PropertyFlag.Writable | PropertyFlag.Configurable | PropertyFlag.NonEnumerable));
         }
     }

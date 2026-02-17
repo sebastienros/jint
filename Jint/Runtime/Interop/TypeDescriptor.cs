@@ -181,6 +181,7 @@ internal sealed class TypeDescriptor
         keysAccessor = null;
         valueType = null;
         // Find parameterless toJSON method to match JSON.stringify's expected signature
+        // Note: The method name uses camelCase (toJSON) to match the JavaScript specification
         toJsonMethod = type.GetMethod("toJSON", BindingFlags.Public | BindingFlags.Instance, null, Type.EmptyTypes, null);
 
         if (type.IsGenericType)
