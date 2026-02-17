@@ -280,6 +280,24 @@ public partial class InteropTests
         result.Should().Be("[{\"customName\":\"First\",\"customValue\":1},{\"customName\":\"Second\",\"customValue\":2}]");
     }
 
+    [Fact]
+    public void ToJsonMethodIsNotEnumerable()
+    {
+        // Verify that toJSON is non-enumerable like built-in JS toJSON methods
+        var engine = new Engine();
+
+        var obj = new TestObjectWithToJson { Name = "Test", Value = 42 };
+        engine.SetValue("testObj", obj);
+
+        // toJSON should not appear in Object.keys() since it's non-enumerable
+        var keys = engine.Evaluate("Object.keys(testObj)").ToString();
+        keys.Should().NotContain("toJSON");
+
+        // But it should exist on the object
+        var hasToJson = engine.Evaluate("typeof testObj.toJSON").AsString();
+        hasToJson.Should().Be("function");
+    }
+
     private class TestObjectWithToJson
     {
         public string Name { get; set; }

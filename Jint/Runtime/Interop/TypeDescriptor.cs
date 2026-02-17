@@ -180,7 +180,8 @@ internal sealed class TypeDescriptor
         removeMethod = null;
         keysAccessor = null;
         valueType = null;
-        toJsonMethod = type.GetMethod("toJSON", BindingFlags.Public | BindingFlags.Instance);
+        // Find parameterless toJSON method to match JSON.stringify's expected signature
+        toJsonMethod = type.GetMethod("toJSON", BindingFlags.Public | BindingFlags.Instance, null, Type.EmptyTypes, null);
 
         if (type.IsGenericType)
         {

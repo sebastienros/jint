@@ -95,7 +95,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                 }
             });
 
-            SetProperty("toJSON", new PropertyDescriptor(toJsonFunction, PropertyFlag.Writable | PropertyFlag.Configurable));
+            SetProperty("toJSON", new PropertyDescriptor(toJsonFunction, PropertyFlag.Writable | PropertyFlag.Configurable | PropertyFlag.NonEnumerable));
         }
     }
 
