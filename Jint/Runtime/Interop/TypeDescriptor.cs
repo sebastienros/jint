@@ -24,6 +24,7 @@ internal sealed class TypeDescriptor
     private readonly MethodInfo? _removeMethod;
     private readonly PropertyInfo? _keysAccessor;
     private readonly Type? _valueType;
+    private readonly MethodInfo? _toJsonMethod;
 
     private TypeDescriptor(
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.Interfaces)]
@@ -39,7 +40,8 @@ internal sealed class TypeDescriptor
             out _keysAccessor,
             out _valueType,
             out var lengthProperty,
-            out var integerIndexer);
+            out var integerIndexer,
+            out _toJsonMethod);
 
         IntegerIndexerProperty = integerIndexer;
         IsDictionary = _tryGetValueMethod is not null || isDictionary;
@@ -86,6 +88,8 @@ internal sealed class TypeDescriptor
 
     public PropertyInfo? KeysAccessor => _keysAccessor;
 
+    public MethodInfo? ToJsonMethod => _toJsonMethod;
+
     public static TypeDescriptor Get(
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.Interfaces)]
         Type type)
@@ -104,7 +108,8 @@ internal sealed class TypeDescriptor
         out PropertyInfo? keysAccessor,
         out Type? valueType,
         out PropertyInfo? lengthProperty,
-        out PropertyInfo? integerIndexer)
+        out PropertyInfo? integerIndexer,
+        out MethodInfo? toJsonMethod)
     {
         AnalyzeType(
             type,
@@ -116,7 +121,8 @@ internal sealed class TypeDescriptor
             out keysAccessor,
             out valueType,
             out lengthProperty,
-            out integerIndexer);
+            out integerIndexer,
+            out toJsonMethod);
 
         foreach (var t in type.GetInterfaces())
         {
@@ -131,7 +137,8 @@ internal sealed class TypeDescriptor
                 out var keysAccessorForSubType,
                 out var valueTypeForSubType,
                 out var lengthPropertyForSubType,
-                out var integerIndexerForSubType);
+                out var integerIndexerForSubType,
+                out var toJsonMethodForSubType);
 #pragma warning restore IL2072
 
             isCollection |= isCollectionForSubType;
@@ -144,6 +151,7 @@ internal sealed class TypeDescriptor
             valueType ??= valueTypeForSubType;
             lengthProperty ??= lengthPropertyForSubType;
             integerIndexer ??= integerIndexerForSubType;
+            toJsonMethod ??= toJsonMethodForSubType;
         }
     }
 
@@ -158,7 +166,8 @@ internal sealed class TypeDescriptor
         out PropertyInfo? keysAccessor,
         out Type? valueType,
         out PropertyInfo? lengthProperty,
-        out PropertyInfo? integerIndexer)
+        out PropertyInfo? integerIndexer,
+        out MethodInfo? toJsonMethod)
     {
         isCollection = typeof(ICollection).IsAssignableFrom(type);
         isEnumerable = typeof(IEnumerable).IsAssignableFrom(type);
@@ -171,6 +180,9 @@ internal sealed class TypeDescriptor
         removeMethod = null;
         keysAccessor = null;
         valueType = null;
+        // Find parameterless toJSON method to match JSON.stringify's expected signature
+        // Note: The method name uses camelCase (toJSON) to match the JavaScript specification
+        toJsonMethod = type.GetMethod("toJSON", BindingFlags.Public | BindingFlags.Instance, null, Type.EmptyTypes, null);
 
         if (type.IsGenericType)
         {
