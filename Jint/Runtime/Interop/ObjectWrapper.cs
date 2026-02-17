@@ -70,6 +70,33 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             }), PropertyFlag.NonEnumerable));
         }
 #endif
+
+        if (_typeDescriptor.ToJsonMethod is not null)
+        {
+            // Wrap the toJSON method in a ClrFunction with the expected signature for JSON.stringify
+            var toJsonFunction = new ClrFunction(engine, "toJSON", (thisObject, arguments) =>
+            {
+                var wrapper = thisObject as ObjectWrapper;
+                if (wrapper is null)
+                {
+                    return Undefined;
+                }
+
+                try
+                {
+                    // Call the CLR toJSON method with no arguments (as expected by JSON.stringify)
+                    var result = _typeDescriptor.ToJsonMethod.Invoke(wrapper.Target, null);
+                    return FromObject(engine, result);
+                }
+                catch (TargetInvocationException exception)
+                {
+                    Throw.MeaningfulException(engine, exception);
+                    return Undefined;
+                }
+            });
+
+            SetProperty("toJSON", new PropertyDescriptor(toJsonFunction, PropertyFlag.Writable | PropertyFlag.Configurable));
+        }
     }
 
     /// <summary>

@@ -237,4 +237,72 @@ public partial class InteropTests
         }
     }
 
+    [Fact]
+    public void CanStringifyClrObjectWithToJsonMethod()
+    {
+        // Test for GitHub issue: CLR class with toJSON method throws error on JSON.stringify
+        var engine = new Engine();
+
+        var obj = new TestObjectWithToJson { Name = "Test", Value = 42 };
+        engine.SetValue("testObj", obj);
+
+        var result = engine.Evaluate("JSON.stringify(testObj)").AsString();
+        // toJSON returns a string, so it gets double-quoted like any string value
+        result.Should().Be("\"custom:Test:42\"");
+    }
+
+    [Fact]
+    public void CanStringifyClrObjectWithToJsonMethodReturningObject()
+    {
+        // Test toJSON method that returns an object
+        var engine = new Engine();
+
+        var obj = new TestObjectWithToJsonReturningObject { Name = "Test", Value = 42 };
+        engine.SetValue("testObj", obj);
+
+        var result = engine.Evaluate("JSON.stringify(testObj)").AsString();
+        result.Should().Be("{\"customName\":\"Test\",\"customValue\":42}");
+    }
+
+    [Fact]
+    public void CanStringifyArrayOfClrObjectsWithToJsonMethod()
+    {
+        // Test that toJSON works in arrays
+        var engine = new Engine();
+
+        var arr = new[] {
+            new TestObjectWithToJsonReturningObject { Name = "First", Value = 1 },
+            new TestObjectWithToJsonReturningObject { Name = "Second", Value = 2 }
+        };
+        engine.SetValue("testArr", arr);
+
+        var result = engine.Evaluate("JSON.stringify(testArr)").AsString();
+        result.Should().Be("[{\"customName\":\"First\",\"customValue\":1},{\"customName\":\"Second\",\"customValue\":2}]");
+    }
+
+    private class TestObjectWithToJson
+    {
+        public string Name { get; set; }
+        public int Value { get; set; }
+
+        public string toJSON()
+        {
+            // toJSON that returns a string - the string itself will be serialized
+            return $"custom:{Name}:{Value}";
+        }
+    }
+
+    private class TestObjectWithToJsonReturningObject
+    {
+        public string Name { get; set; }
+        public int Value { get; set; }
+
+        public object toJSON()
+        {
+            // toJSON that returns an object - the object will be serialized
+            return new { customName = Name, customValue = Value };
+        }
+    }
+
+
 }
