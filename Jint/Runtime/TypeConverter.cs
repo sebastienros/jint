@@ -132,6 +132,13 @@ public static class TypeConverter
             return value;
         }
 
+        // fast path for Date objects - avoid expensive ToPrimitive chain
+        // (Symbol.toPrimitive lookup → exotic call → OrdinaryToPrimitive → valueOf)
+        if (value is JsDate jsDate)
+        {
+            return jsDate._dateValue.ToJsValue();
+        }
+
         var primValue = ToPrimitive(value, Types.Number);
         if (primValue.IsBigInt())
         {
