@@ -46,6 +46,30 @@ public partial class Engine
     }
 
     /// <summary>
+    /// Prepares a script for the engine that includes static analysis data to speed up execution during run-time.
+    /// </summary>
+    /// <remarks>
+    /// Returned instance is reusable and thread-safe. You should prepare scripts only once and then reuse them.
+    /// </remarks>
+    public static Prepared<Script> PrepareScript(Script script, ScriptPreparationOptions? options = null)
+    {
+        options ??= ScriptPreparationOptions.Default;
+
+        var astAnalyzer = new AstAnalyzer(options);
+        var parserOptions = options.GetParserOptions();
+
+        try
+        {
+            astAnalyzer.Visit(script);
+            return new Prepared<Script>(script, parserOptions);
+        }
+        catch (Exception e)
+        {
+            throw new ScriptPreparationException("Could not prepare script: " + e.Message, e);
+        }
+    }
+
+    /// <summary>
     /// Prepares a module for the engine that includes static analysis data to speed up execution during run-time.
     /// </summary>
     /// <remarks>
@@ -70,7 +94,31 @@ public partial class Engine
         }
     }
 
-    private sealed class AstAnalyzer
+    /// <summary>
+    /// Prepares a module for the engine that includes static analysis data to speed up execution during run-time.
+    /// </summary>
+    /// <remarks>
+    /// Returned instance is reusable and thread-safe. You should prepare modules only once and then reuse them.
+    /// </remarks>
+    public static Prepared<Module> PrepareModule(Module module, ModulePreparationOptions? options = null)
+    {
+        options ??= ModulePreparationOptions.Default;
+
+        var astAnalyzer = new AstAnalyzer(options);
+        var parserOptions = options.GetParserOptions();
+
+        try
+        {
+            astAnalyzer.Visit(module);
+            return new Prepared<Module>(module, parserOptions);
+        }
+        catch (Exception e)
+        {
+            throw new ScriptPreparationException("Could not prepare script: " + e.Message, e);
+        }
+    }
+
+    private sealed class AstAnalyzer : AstVisitor
     {
         private readonly IPreparationOptions<IParsingOptions> _preparationOptions;
         private readonly Dictionary<string, Environment.BindingName> _bindingNames = new(StringComparer.Ordinal);
@@ -81,6 +129,11 @@ public partial class Engine
         }
 
         public void NodeVisitor(Node node, OnNodeContext _)
+        {
+            Visit(node);
+        }
+
+        public override object? Visit(Node node)
         {
             switch (node.Type)
             {
@@ -165,6 +218,8 @@ public partial class Engine
                     node.UserData = JintBlockStatement.BuildState((BlockStatement) node);
                     break;
             }
+
+            return base.Visit(node);
         }
     }
 }
