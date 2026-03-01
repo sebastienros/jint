@@ -1,5 +1,6 @@
 using Jint.Native;
 using Jint.Native.Object;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 
 namespace Jint.Runtime.Interpreter.Expressions;
@@ -14,6 +15,8 @@ internal sealed class JintMemberExpression : JintExpression
     private JintExpression? _propertyExpression;
     private JsValue? _determinedProperty;
     private bool _initialized;
+    private ObjectInstance? _cachedReadObject;
+    private PropertyDescriptor? _cachedReadDescriptor;
 
     private static readonly JsValue _nullMarker = new JsString("NULL MARKER");
 
@@ -154,6 +157,32 @@ internal sealed class JintMemberExpression : JintExpression
             if (baseValue is ObjectInstance baseObject)
             {
                 context.LastSyntaxElement = _expression;
+
+                if (ReferenceEquals(baseObject, _cachedReadObject)
+                    && _cachedReadDescriptor is not null)
+                {
+                    return ObjectInstance.UnwrapJsValue(_cachedReadDescriptor, baseObject);
+                }
+
+                var ownDescriptor = baseObject.GetOwnProperty(determinedProperty);
+                if (!ReferenceEquals(ownDescriptor, PropertyDescriptor.Undefined))
+                {
+                    if (!ownDescriptor.Configurable)
+                    {
+                        _cachedReadObject = baseObject;
+                        _cachedReadDescriptor = ownDescriptor;
+                    }
+                    else
+                    {
+                        _cachedReadObject = null;
+                        _cachedReadDescriptor = null;
+                    }
+
+                    return ObjectInstance.UnwrapJsValue(ownDescriptor, baseObject);
+                }
+
+                _cachedReadObject = null;
+                _cachedReadDescriptor = null;
                 return baseObject.Get(determinedProperty, baseObject);
             }
         }
