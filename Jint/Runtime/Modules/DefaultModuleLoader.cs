@@ -116,7 +116,16 @@ public class DefaultModuleLoader : ModuleLoader
             */
             if (Uri.TryCreate(referencingModuleLocation, UriKind.Absolute, out var referencingLocation) ||
                 Uri.TryCreate(_basePath, referencingModuleLocation, out referencingLocation))
+            {
+                if (!Path.HasExtension(referencingLocation.LocalPath) && referencingLocation.LocalPath[^1] != '/')
+                {
+                    var uriBuilder = new UriBuilder(referencingLocation);
+                    uriBuilder.Path += '/';
+                    return uriBuilder.Uri;
+                }
+
                 return referencingLocation;
+            }
         }
         return _basePath;
     }

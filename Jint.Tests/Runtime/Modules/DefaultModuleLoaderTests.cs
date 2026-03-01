@@ -21,6 +21,20 @@ public class DefaultModuleLoaderTests
         Assert.Equal(SpecifierType.RelativeOrAbsolute, resolved.Type);
     }
 
+
+    [Fact]
+    public void ShouldResolveRelativeToReferencingModuleSpecifier()
+    {
+        var resolver = new DefaultModuleLoader("file:///project");
+
+        var resolved = resolver.Resolve("referencing-module", new ModuleRequest("./local-module-file.js", []));
+
+        Assert.Equal("./local-module-file.js", resolved.ModuleRequest.Specifier);
+        Assert.Equal("file:///project/referencing-module/local-module-file.js", resolved.Key);
+        Assert.Equal("file:///project/referencing-module/local-module-file.js", resolved.Uri?.AbsoluteUri);
+        Assert.Equal(SpecifierType.RelativeOrAbsolute, resolved.Type);
+    }
+
     [Theory]
     [InlineData("./../../other.js")]
     [InlineData("../../model/other.js")]
