@@ -449,6 +449,72 @@ var id = ns.Get("result").AsInteger();
 
 Note that you don't need to `EnableModules` if you only use modules created using `Engine.Modules.Add`.
 
+## Asynchronous Execution
+
+Jint supports non-blocking execution of JavaScript that involves `async`/`await` and Promises. This is important in ASP.NET Core and other environments where blocking a thread while waiting for I/O can cause thread-pool exhaustion.
+
+### EvaluateAsync / ExecuteAsync / InvokeAsync
+
+Use `EvaluateAsync` when you want to evaluate JavaScript code that may return a Promise (e.g., an `async` function call). The method awaits Promise settlement without blocking any thread — the calling thread is released back to the pool while I/O is in flight:
+
+```c#
+var engine = new Engine();
+
+// Expose an async .NET method to JavaScript
+engine.SetValue("fetchData", new Func<string, Task<string>>(async url =>
+{
+    using var client = new HttpClient();
+    return await client.GetStringAsync(url);
+}));
+
+// EvaluateAsync properly awaits the Promise returned by the async IIFE
+var result = await engine.EvaluateAsync("""
+    (async () => {
+        const data = await fetchData('https://example.com/api');
+        return data;
+    })()
+    """);
+
+Console.WriteLine(result.AsString());
+```
+
+`ExecuteAsync` and `InvokeAsync` follow the same pattern:
+
+```c#
+// Execute a script that may produce a Promise and await its completion
+await engine.ExecuteAsync("async function init() { ... } init()");
+
+// Invoke a named async function and await its result
+var value = await engine.InvokeAsync("myAsyncFunction", arg1, arg2);
+```
+
+By default, async execution respects `Options.Constraints.PromiseTimeout`. You can also pass a `CancellationToken`:
+
+```c#
+using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+var result = await engine.EvaluateAsync("(async () => await fetchData(url))()", cancellationToken: cts.Token);
+```
+
+### UnwrapIfPromiseAsync
+
+When you already hold a `JsValue` that may be a Promise — for example returned from `engine.Invoke(...)`, `value.Call(...)`, or a property access — use `UnwrapIfPromiseAsync` to await it without blocking:
+
+```c#
+// Obtain a JsValue that may be a Promise
+var jsValue = engine.Invoke("computeAsync", someArg);
+
+// Await it asynchronously (non-blocking)
+var result = await jsValue.UnwrapIfPromiseAsync();
+
+// With cancellation support
+using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+var result = await jsValue.UnwrapIfPromiseAsync(cts.Token);
+```
+
+If `jsValue` is not a Promise it is returned immediately. If it is a rejected Promise a `PromiseRejectedException` is thrown.
+
+The synchronous `UnwrapIfPromise` is still available for scenarios where blocking is acceptable (e.g., CPU-bound scripts with no I/O), but `UnwrapIfPromiseAsync` should be preferred in any `async` call chain.
+
 ## .NET Interoperability
 
 - Manipulate CLR objects from JavaScript, including:

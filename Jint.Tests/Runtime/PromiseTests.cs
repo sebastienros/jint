@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -618,5 +619,101 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
 
         var ex = Assert.Throws<PromiseRejectedException>(() => promise.UnwrapIfPromise(cts.Token));
         Assert.Equal("error!", ex.RejectedValue.AsString());
+    }
+
+    [Fact]
+    public async Task UnwrapIfPromiseAsync_ResolvesCorrectly()
+    {
+        Action<JsValue> resolveFunc = null!;
+
+        var engine = new Engine();
+        engine.SetValue("f", new Func<JsValue>(() =>
+        {
+            var (promise, resolve, _) = engine.RegisterPromise();
+            resolveFunc = resolve;
+            return promise;
+        }));
+
+        var promise = engine.Evaluate("f();");
+
+        resolveFunc(42);
+        var result = await promise.UnwrapIfPromiseAsync();
+        Assert.Equal(42, result.AsInteger());
+    }
+
+    [Fact]
+    public async Task UnwrapIfPromiseAsync_RejectsCorrectly()
+    {
+        Action<JsValue> rejectFunc = null!;
+
+        var engine = new Engine();
+        engine.SetValue("f", new Func<JsValue>(() =>
+        {
+            var (promise, _, reject) = engine.RegisterPromise();
+            rejectFunc = reject;
+            return promise;
+        }));
+
+        var promise = engine.Evaluate("f();");
+
+        rejectFunc("error!");
+
+        var ex = await Assert.ThrowsAsync<PromiseRejectedException>(async () => await promise.UnwrapIfPromiseAsync());
+        Assert.Equal("error!", ex.RejectedValue.AsString());
+    }
+
+    [Fact]
+    public async Task UnwrapIfPromiseAsync_NonPromiseReturnsValue()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("42");
+
+        var unwrapped = await result.UnwrapIfPromiseAsync();
+        Assert.Equal(42, unwrapped.AsInteger());
+    }
+
+    [Fact]
+    public async Task UnwrapIfPromiseAsync_WithCancellationToken_ThrowsOperationCanceledException()
+    {
+        var engine = new Engine();
+        engine.SetValue("f", new Func<JsValue>(() =>
+        {
+            var (promise, _, _) = engine.RegisterPromise();
+            return promise;
+        }));
+
+        var promise = engine.Evaluate("f();");
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await promise.UnwrapIfPromiseAsync(cts.Token));
+    }
+
+    [Fact]
+    public async Task UnwrapIfPromiseAsync_WithIOBoundTask_DoesNotBlockCallerThread()
+    {
+        var engine = new Engine();
+        var ioStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        engine.SetValue("simulateIO", new Func<Task<int>>(async () =>
+        {
+            ioStarted.TrySetResult(true);
+            await Task.Delay(100);
+            return 99;
+        }));
+
+        var jsPromise = engine.Evaluate("(async () => await simulateIO())()");
+
+        // Kick off the async unwrap (should not block)
+        var unwrapTask = jsPromise.UnwrapIfPromiseAsync();
+
+        // Wait for IO to start
+        await ioStarted.Task;
+
+        // The unwrap task should still be pending while IO is in flight
+        Assert.False(unwrapTask.IsCompleted, "UnwrapIfPromiseAsync should not block; task should still be pending during IO");
+
+        var result = await unwrapTask;
+        Assert.Equal(99, result.AsInteger());
     }
 }
