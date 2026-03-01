@@ -84,7 +84,7 @@ public partial class Engine
     /// Core async unwrap: if the result is a JsPromise, awaits its settlement
     /// without blocking any thread. For non-promise values, returns synchronously.
     /// </summary>
-    private Task<JsValue> UnwrapResultAsync(JsValue result, CancellationToken cancellationToken)
+    internal Task<JsValue> UnwrapResultAsync(JsValue result, CancellationToken cancellationToken)
     {
         if (result is not JsPromise promise)
         {

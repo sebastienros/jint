@@ -2,6 +2,7 @@ using System.Diagnostics.Contracts;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using System.Threading.Tasks;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -677,6 +678,28 @@ public static class JsValueExtensions
     /// <returns>inner value if Promise the value itself otherwise</returns>
     public static JsValue UnwrapIfPromise(this JsValue value, CancellationToken cancellationToken)
         => UnwrapIfPromiseCore(value, Timeout.InfiniteTimeSpan, cancellationToken);
+
+    /// <summary>
+    /// Asynchronously unwraps a <see cref="JsPromise"/> without blocking the calling thread.
+    /// If the value is a Promise:
+    ///     1. If "Fulfilled" returns the value it was fulfilled with
+    ///     2. If "Rejected" throws <see cref="PromiseRejectedException"/> with the rejection reason
+    ///     3. If "Pending" awaits settlement asynchronously
+    /// Else
+    ///     returns the value intact immediately.
+    /// </summary>
+    /// <param name="value">value to unwrap</param>
+    /// <param name="cancellationToken">cancellation token to observe</param>
+    /// <returns>A task that resolves to the inner value if the value is a Promise, or the value itself otherwise</returns>
+    public static Task<JsValue> UnwrapIfPromiseAsync(this JsValue value, CancellationToken cancellationToken = default)
+    {
+        if (value is JsPromise promise)
+        {
+            return promise.Engine.UnwrapResultAsync(value, cancellationToken);
+        }
+
+        return Task.FromResult(value);
+    }
 
     private static JsValue UnwrapIfPromiseCore(JsValue value, TimeSpan timeout, CancellationToken cancellationToken)
     {
