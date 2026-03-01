@@ -150,6 +150,21 @@ assertEqual(booleanCount, 1);
     }
 
     [Fact]
+    public void BoundFunctionCanBeUsedAsPropertyGetter()
+    {
+        var result = new Engine().Evaluate("""
+            const holder = {
+                x: 42,
+                getter() { return this.x; }
+            };
+            const target = {};
+            Object.defineProperty(target, "prop", { get: holder.getter.bind(holder) });
+            target.prop;
+            """);
+        Assert.Equal(42, result.AsInteger());
+    }
+
+    [Fact]
     public void BoundFunctionsCanBePassedToHost()
     {
         var engine = new Engine();
