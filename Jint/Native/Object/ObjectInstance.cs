@@ -419,6 +419,8 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             return Undefined;
         }
 
+        if (getter is Function.BindFunction bindFunction) return bindFunction._engine.Call(bindFunction, thisObject);
+
         var functionInstance = (Function.Function) getter;
         return functionInstance._engine.Call(functionInstance, thisObject);
     }
