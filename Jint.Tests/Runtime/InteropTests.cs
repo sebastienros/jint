@@ -2850,7 +2850,7 @@ public partial class InteropTests : IDisposable
     [InlineData("result1", "result2", "result3", "result4")]
     public void ObjectWrapperFrozenDictionaryShouldPreventDelete(params string[] names)
     {
-        var access = string.Join('.', names);
+        var access = string.Join(".", names);
 
         var engine = new Engine(cfg => cfg.Strict = true);
 
