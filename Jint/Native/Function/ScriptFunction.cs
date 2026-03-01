@@ -155,10 +155,23 @@ public sealed class ScriptFunction : Function, IConstructor
 
         if (kind == ConstructorKind.Base)
         {
-            thisArgument = OrdinaryCreateFromConstructor(
-                newTarget,
-                static intrinsics => intrinsics.Object.PrototypeObject,
-                static (Engine engine, Realm _, object? _) => new JsObject(engine));
+            if (ReferenceEquals(newTarget, this)
+                && _prototypeDescriptor is { } prototypeDescriptor
+                && !prototypeDescriptor.IsAccessorDescriptor())
+            {
+                var prototype = prototypeDescriptor.Value as ObjectInstance ?? _realm.Intrinsics.Object.PrototypeObject;
+                thisArgument = new JsObject(_engine)
+                {
+                    _prototype = prototype
+                };
+            }
+            else
+            {
+                thisArgument = OrdinaryCreateFromConstructor(
+                    newTarget,
+                    static intrinsics => intrinsics.Object.PrototypeObject,
+                    static (Engine engine, Realm _, object? _) => new JsObject(engine));
+            }
         }
 
         ref readonly var calleeContext = ref PrepareForOrdinaryCall(newTarget);
