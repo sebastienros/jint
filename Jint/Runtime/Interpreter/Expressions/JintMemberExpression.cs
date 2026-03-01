@@ -1,5 +1,6 @@
 using Jint.Native;
 using Jint.Native.Object;
+using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 
@@ -158,27 +159,30 @@ internal sealed class JintMemberExpression : JintExpression
             {
                 context.LastSyntaxElement = _expression;
 
-                if (ReferenceEquals(baseObject, _cachedReadObject)
-                    && _cachedReadDescriptor is not null)
+                if ((baseObject._type & InternalTypes.PlainObject) != InternalTypes.Empty)
                 {
-                    return ObjectInstance.UnwrapJsValue(_cachedReadDescriptor, baseObject);
-                }
-
-                var ownDescriptor = baseObject.GetOwnProperty(determinedProperty);
-                if (!ReferenceEquals(ownDescriptor, PropertyDescriptor.Undefined))
-                {
-                    if (!ownDescriptor.Configurable)
+                    if (ReferenceEquals(baseObject, _cachedReadObject)
+                        && _cachedReadDescriptor is not null)
                     {
-                        _cachedReadObject = baseObject;
-                        _cachedReadDescriptor = ownDescriptor;
-                    }
-                    else
-                    {
-                        _cachedReadObject = null;
-                        _cachedReadDescriptor = null;
+                        return ObjectInstance.UnwrapJsValue(_cachedReadDescriptor, baseObject);
                     }
 
-                    return ObjectInstance.UnwrapJsValue(ownDescriptor, baseObject);
+                    var ownDescriptor = baseObject.GetOwnProperty(determinedProperty);
+                    if (!ReferenceEquals(ownDescriptor, PropertyDescriptor.Undefined))
+                    {
+                        if (!ownDescriptor.Configurable)
+                        {
+                            _cachedReadObject = baseObject;
+                            _cachedReadDescriptor = ownDescriptor;
+                        }
+                        else
+                        {
+                            _cachedReadObject = null;
+                            _cachedReadDescriptor = null;
+                        }
+
+                        return ObjectInstance.UnwrapJsValue(ownDescriptor, baseObject);
+                    }
                 }
 
                 _cachedReadObject = null;
