@@ -66,6 +66,14 @@ public sealed class MapConstructor : Constructor
             Throw.TypeError(_realm);
         }
 
+        if (ReferenceEquals(newTarget, this))
+        {
+            return new JsMap(_engine, _realm)
+            {
+                _prototype = PrototypeObject
+            };
+        }
+
         var map = OrdinaryCreateFromConstructor(
             newTarget,
             static intrinsics => intrinsics.Map.PrototypeObject,

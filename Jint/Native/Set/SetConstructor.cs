@@ -88,6 +88,14 @@ public sealed class SetConstructor : Constructor
             Throw.TypeError(_engine.Realm);
         }
 
+        if (ReferenceEquals(newTarget, this))
+        {
+            return new JsSet(_engine)
+            {
+                _prototype = PrototypeObject
+            };
+        }
+
         var set = OrdinaryCreateFromConstructor(
             newTarget,
             static intrinsics => intrinsics.Set.PrototypeObject,

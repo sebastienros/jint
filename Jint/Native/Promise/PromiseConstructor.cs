@@ -76,10 +76,21 @@ internal sealed class PromiseConstructor : Constructor
             return null;
         }
 
-        var promise = OrdinaryCreateFromConstructor(
-            newTarget,
-            static intrinsics => intrinsics.Promise.PrototypeObject,
-            static (Engine engine, Realm _, object? _) => new JsPromise(engine));
+        JsPromise promise;
+        if (ReferenceEquals(newTarget, this))
+        {
+            promise = new JsPromise(_engine)
+            {
+                _prototype = PrototypeObject
+            };
+        }
+        else
+        {
+            promise = OrdinaryCreateFromConstructor(
+                newTarget,
+                static intrinsics => intrinsics.Promise.PrototypeObject,
+                static (Engine engine, Realm _, object? _) => new JsPromise(engine));
+        }
 
         var (resolve, reject) = promise.CreateResolvingFunctions();
         try

@@ -115,18 +115,20 @@ internal sealed class DateConstructor : Constructor
         // fast path is building default, new Date()
         if (arguments.Length == 0 || newTarget.IsUndefined())
         {
+            var now = (_timeSystem.GetUtcNow().DateTime - Epoch).TotalMilliseconds;
+
             // when newTarget is the built-in Date constructor, skip OrdinaryCreateFromConstructor
             // to avoid the GetPrototypeFromConstructor property lookup
             if (ReferenceEquals(newTarget, this))
             {
-                return new JsDate(_engine, (_timeSystem.GetUtcNow().DateTime - Epoch).TotalMilliseconds);
+                return new JsDate(_engine, now);
             }
 
             return OrdinaryCreateFromConstructor(
                 newTarget,
                 static intrinsics => intrinsics.Date.PrototypeObject,
                 static (engine, _, dateValue) => new JsDate(engine, dateValue),
-                (_timeSystem.GetUtcNow().DateTime - Epoch).TotalMilliseconds);
+                now);
         }
 
         return ConstructUnlikely(arguments, newTarget);
