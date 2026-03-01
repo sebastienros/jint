@@ -1,4 +1,7 @@
 using Jint.Native;
+using Jint.Native.Object;
+using Jint.Runtime;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 
 namespace Jint.Runtime.Interpreter.Expressions;
@@ -13,6 +16,8 @@ internal sealed class JintMemberExpression : JintExpression
     private JintExpression? _propertyExpression;
     private JsValue? _determinedProperty;
     private bool _initialized;
+    private ObjectInstance? _cachedReadObject;
+    private PropertyDescriptor? _cachedReadDescriptor;
 
     private static readonly JsValue _nullMarker = new JsString("NULL MARKER");
 
@@ -39,7 +44,7 @@ internal sealed class JintMemberExpression : JintExpression
         return property ?? _nullMarker;
     }
 
-    protected override object EvaluateInternal(EvaluationContext context)
+    private void EnsureInitialized()
     {
         if (!_initialized)
         {
@@ -55,6 +60,11 @@ internal sealed class JintMemberExpression : JintExpression
 
             _initialized = true;
         }
+    }
+
+    protected override object EvaluateInternal(EvaluationContext context)
+    {
+        EnsureInitialized();
 
         JsValue? actualThis = null;
         object? baseReferenceName = null;
@@ -135,6 +145,52 @@ internal sealed class JintMemberExpression : JintExpression
     /// </summary>
     public override JsValue GetValue(EvaluationContext context)
     {
+        EnsureInitialized();
+
+        // Fast path for common property reads (e.g. obj.prop) where we can avoid creating and resolving a Reference.
+        if (_propertyExpression is null
+            && _determinedProperty is JsString determinedProperty
+            && !_memberExpression.Optional
+            && !_objectExpression._expression.IsOptional()
+            && _objectExpression is not JintSuperExpression)
+        {
+            var baseValue = _objectExpression.GetValue(context);
+            if (baseValue is ObjectInstance baseObject)
+            {
+                context.LastSyntaxElement = _expression;
+
+                if ((baseObject._type & InternalTypes.PlainObject) != InternalTypes.Empty)
+                {
+                    if (ReferenceEquals(baseObject, _cachedReadObject)
+                        && _cachedReadDescriptor is not null)
+                    {
+                        return ObjectInstance.UnwrapJsValue(_cachedReadDescriptor, baseObject);
+                    }
+
+                    var ownDescriptor = baseObject.GetOwnProperty(determinedProperty);
+                    if (!ReferenceEquals(ownDescriptor, PropertyDescriptor.Undefined))
+                    {
+                        if (!ownDescriptor.Configurable)
+                        {
+                            _cachedReadObject = baseObject;
+                            _cachedReadDescriptor = ownDescriptor;
+                        }
+                        else
+                        {
+                            _cachedReadObject = null;
+                            _cachedReadDescriptor = null;
+                        }
+
+                        return ObjectInstance.UnwrapJsValue(ownDescriptor, baseObject);
+                    }
+                }
+
+                _cachedReadObject = null;
+                _cachedReadDescriptor = null;
+                return baseObject.Get(determinedProperty, baseObject);
+            }
+        }
+
         var result = Evaluate(context);
         if (result is not Reference reference)
         {

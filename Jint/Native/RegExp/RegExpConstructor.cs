@@ -394,6 +394,14 @@ public sealed class RegExpConstructor : Constructor
 
     private JsRegExp RegExpAlloc(JsValue newTarget)
     {
+        if (ReferenceEquals(newTarget, this))
+        {
+            return new JsRegExp(_engine)
+            {
+                _prototype = PrototypeObject
+            };
+        }
+
         var r = OrdinaryCreateFromConstructor(
             newTarget,
             static intrinsics => intrinsics.RegExp.PrototypeObject,
