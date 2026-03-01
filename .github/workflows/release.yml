@@ -28,10 +28,9 @@ jobs:
 
     - name: Pack with dotnet
       run: |
-        arrTag=(${GITHUB_REF//\// })
-        VERSION="${arrTag[2]}"
-        VERSION="${VERSION//v}"
-        echo "$VERSION"
+        # Strip leading 'v' if present
+        VERSION="${GITHUB_REF_NAME#v}"
+        echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
         dotnet pack Jint/Jint.csproj --output artifacts --configuration Release -p:Version=$VERSION -p:ContinuousIntegrationBuild=True
 
     - name: Push with dotnet
