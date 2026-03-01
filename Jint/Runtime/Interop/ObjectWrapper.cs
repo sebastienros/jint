@@ -249,6 +249,12 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                     return false;
                 }
 
+                if (!Extensible)
+                {
+                    // object is frozen/sealed, cannot add new properties
+                    return false;
+                }
+
                 accessor.SetValue(_engine, Target, member, value);
                 return true;
             }
@@ -279,6 +285,23 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         return true;
     }
 
+    public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
+    {
+        if (_typeDescriptor.IsStringKeyedGenericDictionary && property.IsString() && !TryGetProperty(property, out _))
+        {
+            // For dictionary-backed objects, GetOwnProperty returns fresh descriptors that are not stored
+            // in _properties. ValidateAndApplyPropertyDescriptor mutates descriptors in-place, so mutations
+            // (e.g. from Object.freeze/seal) would be lost without pre-storing the descriptor.
+            var current = GetOwnProperty(property);
+            if (current != PropertyDescriptor.Undefined)
+            {
+                SetProperty(property, current);
+            }
+        }
+
+        return base.DefineOwnProperty(property, desc);
+    }
+
     public override object ToObject() => Target;
 
     public override void RemoveOwnProperty(JsValue property)
@@ -287,6 +310,9 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         {
             _typeDescriptor.RemoveMethod.Invoke(Target, [jsString.ToString()]);
         }
+
+        // also remove from _properties cache to avoid stale entries
+        base.RemoveOwnProperty(property);
     }
 
     public override JsValue Get(JsValue property, JsValue receiver)
@@ -307,6 +333,13 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                 if (_typeDescriptor.IsStringKeyedGenericDictionary
                     && _typeDescriptor.TryGetValue(Target, property.ToString(), out var value))
                 {
+                    // Check stored properties first - frozen/sealed objects have descriptors in _properties
+                    // that must be respected to return the same (frozen) instance
+                    if (TryGetProperty(property, out var stored))
+                    {
+                        return UnwrapJsValue(stored, receiver);
+                    }
+
                     return FromObject(_engine, value);
                 }
             }
