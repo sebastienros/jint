@@ -9,6 +9,8 @@ namespace Jint.Runtime.Interpreter.Expressions;
 internal sealed class JintIdentifierExpression : JintExpression
 {
     private readonly Environment.BindingName _identifier;
+    private Environment? _cachedEnvironment;
+    private bool _cachedStrict;
 
     public JintIdentifierExpression(Identifier expression) : this(expression, new Environment.BindingName(expression.Name))
     {
@@ -37,10 +39,27 @@ internal sealed class JintIdentifierExpression : JintExpression
         var env = engine.ExecutionContext.LexicalEnvironment;
         var strict = StrictModeScope.IsStrictModeCode;
 
+        if (ReferenceEquals(env, _cachedEnvironment)
+            && _cachedStrict == strict
+            && env.HasBinding(_identifier))
+        {
+            return engine._referencePool.Rent(env, _identifier.Value, strict, thisValue: null);
+        }
+
         if (!JintEnvironment.TryGetIdentifierEnvironmentWithBinding(env, _identifier, out var identifierEnvironment))
         {
             // Binding not found - create unresolvable reference
             return engine._referencePool.Rent(Reference.Unresolvable, _identifier.Value, strict, thisValue: null);
+        }
+
+        if (ReferenceEquals(identifierEnvironment, env))
+        {
+            _cachedEnvironment = env;
+            _cachedStrict = strict;
+        }
+        else
+        {
+            _cachedEnvironment = null;
         }
 
         return engine._referencePool.Rent(identifierEnvironment, _identifier.Value, strict, thisValue: null);
@@ -60,14 +79,34 @@ internal sealed class JintIdentifierExpression : JintExpression
         var engine = context.Engine;
         var env = engine.ExecutionContext.LexicalEnvironment;
         var strict = StrictModeScope.IsStrictModeCode;
+        JsValue? value;
 
-        if (JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
-                env,
-                identifier,
-                strict,
-                out _,
-                out var value))
+        if (ReferenceEquals(env, _cachedEnvironment)
+            && _cachedStrict == strict
+            && env.TryGetBinding(identifier, strict, out value))
         {
+            if (value is null)
+            {
+                ThrowNotInitialized(engine);
+            }
+        }
+        else if (JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
+                     env,
+                     identifier,
+                     strict,
+                     out var identifierEnvironment,
+                     out value))
+        {
+            if (ReferenceEquals(identifierEnvironment, env))
+            {
+                _cachedEnvironment = env;
+                _cachedStrict = strict;
+            }
+            else
+            {
+                _cachedEnvironment = null;
+            }
+
             if (value is null)
             {
                 ThrowNotInitialized(engine);
