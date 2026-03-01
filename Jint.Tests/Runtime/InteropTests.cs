@@ -2843,6 +2843,49 @@ public partial class InteropTests : IDisposable
         Assert.False(wrapper.IsArrayLike);
     }
 
+    [Theory]
+    [InlineData("result")]
+    [InlineData("result1", "result2")]
+    [InlineData("result1", "result2", "result3")]
+    [InlineData("result1", "result2", "result3", "result4")]
+    public void ObjectWrapperFrozenDictionaryShouldPreventDelete(params string[] names)
+    {
+        var access = string.Join(".", names);
+
+        var engine = new Engine(cfg => cfg.Strict = true);
+
+        var context = new Dictionary<string, object>();
+        var temp = context;
+
+        for (var i = 0; i < names.Length - 1; i++)
+        {
+            var newStore = new Dictionary<string, object>();
+            temp[names[i]] = newStore;
+            temp = newStore;
+        }
+
+        temp[names[^1]] = "value";
+
+        engine.SetValue("context", context);
+
+        engine.Execute(
+            """
+            function freeze(obj) {
+              Object.freeze(obj);
+              Object.keys(obj).forEach(key => {
+                if (typeof obj[key] === 'object' && obj[key] !== null) {
+                  freeze(obj[key]);
+                }
+              });
+            }
+            freeze(context);
+            """
+        );
+
+        var ex = Assert.Throws<JavaScriptException>(() => engine.Execute($"delete context.{access}"));
+        Assert.StartsWith($"Cannot delete property '{names[^1]}'", ex.Message);
+    }
+
     [Fact]
     public void ShouldHandleCyclicReferences()
     {
