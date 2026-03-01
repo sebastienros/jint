@@ -419,8 +419,13 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             return Undefined;
         }
 
-        var functionInstance = (Function.Function) getter;
-        return functionInstance._engine.Call(functionInstance, thisObject);
+        if (!getter.IsCallable)
+        {
+            return Undefined;
+        }
+
+        var callable = (ICallable) getter;
+        return ((ObjectInstance) getter)._engine.Call(callable, thisObject, Arguments.Empty, null);
     }
 
     /// <summary>
