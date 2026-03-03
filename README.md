@@ -405,7 +405,7 @@ You can use modules to `import` and `export` variables from multiple script file
 var engine = new Engine(options =>
 {
     options.EnableModules(@"C:\Scripts");
-})
+});
 
 var ns = engine.Modules.Import("./my-module.js");
 
@@ -437,7 +437,7 @@ engine.Modules.Add("lib", builder => builder
 engine.Modules.Add("custom", @"
     import { MyClass, version } from 'lib';
     const x = new MyClass();
-    export const result as x.doSomething();
+    export const result = x.doSomething();
 ");
 
 // Import the user-defined module; this will execute the import chain
