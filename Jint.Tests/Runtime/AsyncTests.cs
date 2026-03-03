@@ -1917,6 +1917,58 @@ public class AsyncTests
         Assert.Equal(4950, result.AsInteger());
     }
 
+    // ========================================================================
+    // For-of loop with await inside body
+    // ========================================================================
+
+    [Fact]
+    public void AwaitInsideForOfLoopShouldReturnDistinctResults()
+    {
+        // Verifies that each await inside a for-of loop returns a distinct result based on
+        // the current iteration value, not a cached result from a prior iteration.
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            function fetch_async(url) {
+                return new Promise((resolve) => {
+                    resolve(`response for ${url}`);
+                });
+            }
+            (async function() {
+                var text = "";
+                text += await fetch_async("a") + "\n";
+                text += await fetch_async("b") + "\n";
+                text += await fetch_async("c") + "\n";
+                var urls = ["d", "e", "f"];
+                for (let url of urls) {
+                    text += await fetch_async(url) + "\n";
+                }
+                return text;
+            })()
+            """);
+        result = result.UnwrapIfPromise();
+        Assert.Equal("response for a\nresponse for b\nresponse for c\nresponse for d\nresponse for e\nresponse for f\n", result.AsString());
+    }
+
+    [Fact]
+    public void AwaitInsideForOfLoopShouldWorkWithVarBinding()
+    {
+        // Test with var (not let) binding in for-of loop
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            (async function() {
+                var results = [];
+                var items = [1, 2, 3];
+                for (var item of items) {
+                    var r = await Promise.resolve(item * 10);
+                    results.push(r);
+                }
+                return results.join(",");
+            })()
+            """);
+        result = result.UnwrapIfPromise();
+        Assert.Equal("10,20,30", result.AsString());
+    }
+
     class TestAsyncClass
     {
         private readonly ConcurrentBag<string> _values = new();

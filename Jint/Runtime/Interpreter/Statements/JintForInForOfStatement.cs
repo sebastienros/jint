@@ -241,6 +241,15 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         {
             while (true)
             {
+                // Clear completed awaits cache when starting a new iteration for async functions.
+                // This prevents stale cached await results from prior iterations being reused.
+                // Only clear when NOT resuming mid-iteration (resuming needs the cache intact).
+                var asyncFnLoop = engine.ExecutionContext.AsyncFunction;
+                if (asyncFnLoop is not null && !asyncFnLoop._isResuming)
+                {
+                    asyncFnLoop._completedAwaits?.Clear();
+                }
+
                 DeclarativeEnvironment? iterationEnv = null;
                 JsValue nextValue;
 
@@ -467,8 +476,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     return new Completion(status, nextValue, context.LastSyntaxElement);
                 }
 
-                // Before executing body, save state in case of yield (generators only, not async functions)
-                // ForOfSuspendData is generator-specific for sync for-of loops
+                // Before executing body, save state in case of yield/await suspension.
                 var generator = engine.ExecutionContext.Generator;
                 if (generator is not null)
                 {
@@ -476,6 +484,18 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     data.AccumulatedValue = v;
                     data.CurrentValue = nextValue;
                     data.IterationEnv = iterationEnv;
+                }
+
+                // For async functions with sync iterators, save state so that if an await
+                // in the body suspends execution, we can resume at the correct iteration
+                // without restarting the whole loop from scratch.
+                var asyncFnBody = engine.ExecutionContext.AsyncFunction;
+                if (iteratorKind == IteratorKind.Sync && asyncFnBody is not null)
+                {
+                    var asyncData = asyncFnBody.Data.GetOrCreate<ForOfSuspendData>(this, iteratorRecord);
+                    asyncData.AccumulatedValue = v;
+                    asyncData.CurrentValue = nextValue;
+                    asyncData.IterationEnv = iterationEnv;
                 }
 
                 var result = stmt.Execute(context);
