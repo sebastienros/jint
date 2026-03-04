@@ -295,46 +295,6 @@
 
     // Pre-existing date math issue: YearMonthDayFromDays off-by-one at negative year boundaries
     // with positive timezone offsets (getYear returns 0 instead of -1 for Dec 31, 1899 in UTC+N)
-    "annexB/built-ins/Date/prototype/getYear/return-value.js",
-
-    // Pre-existing Jint limitation: block-scoped function declarations create immutable bindings
-    // instead of mutable ones. `f = 123` inside `{ function f() {} }` throws "Assignment to
-    // constant variable" even though spec requires mutable binding via CreateMutableBinding.
-    "annexB/language/function-code/block-decl-func-block-scoping.js",
-    "annexB/language/function-code/switch-case-func-block-scoping.js",
-    "annexB/language/function-code/switch-dflt-func-block-scoping.js",
-    "annexB/language/global-code/block-decl-global-block-scoping.js",
-    "annexB/language/global-code/if-decl-else-decl-a-global-block-scoping.js",
-    "annexB/language/global-code/if-decl-else-decl-b-global-block-scoping.js",
-    "annexB/language/global-code/if-decl-else-stmt-global-block-scoping.js",
-    "annexB/language/global-code/if-decl-no-else-global-block-scoping.js",
-    "annexB/language/global-code/if-stmt-else-decl-global-block-scoping.js",
-    "annexB/language/global-code/switch-case-global-block-scoping.js",
-    "annexB/language/global-code/switch-dflt-global-block-scoping.js",
-
-    // Eval code AnnexB block-scoped function hoisting - requires implementing B.3.3 for eval()
-    // which adds var bindings for block-level function declarations in evaluated code
-    "annexB/language/eval-code/direct/func-block-decl-eval-func-block-scoping.js",
-    "annexB/language/eval-code/direct/func-switch-case-eval-func-block-scoping.js",
-    "annexB/language/eval-code/direct/func-switch-dflt-eval-func-block-scoping.js",
-    "annexB/language/eval-code/direct/global-block-decl-eval-global-block-scoping.js",
-    "annexB/language/eval-code/direct/global-if-decl-else-decl-a-eval-global-block-scoping.js",
-    "annexB/language/eval-code/direct/global-if-decl-else-decl-b-eval-global-block-scoping.js",
-    "annexB/language/eval-code/direct/global-if-decl-else-stmt-eval-global-block-scoping.js",
-    "annexB/language/eval-code/direct/global-if-decl-no-else-eval-global-block-scoping.js",
-    "annexB/language/eval-code/direct/global-if-stmt-else-decl-eval-global-block-scoping.js",
-    "annexB/language/eval-code/direct/global-switch-case-eval-global-block-scoping.js",
-    "annexB/language/eval-code/direct/global-switch-dflt-eval-global-block-scoping.js",
-    "annexB/language/eval-code/indirect/global-block-decl-eval-global-block-scoping.js",
-    "annexB/language/eval-code/indirect/global-if-decl-else-decl-a-eval-global-block-scoping.js",
-    "annexB/language/eval-code/indirect/global-if-decl-else-decl-b-eval-global-block-scoping.js",
-    "annexB/language/eval-code/indirect/global-if-decl-else-stmt-eval-global-block-scoping.js",
-    "annexB/language/eval-code/indirect/global-if-decl-no-else-eval-global-block-scoping.js",
-    "annexB/language/eval-code/indirect/global-if-stmt-else-decl-eval-global-block-scoping.js",
-    "annexB/language/eval-code/indirect/global-switch-case-eval-global-block-scoping.js",
-    "annexB/language/eval-code/indirect/global-switch-dflt-eval-global-block-scoping.js",
-
-    // Eval code catch clause var-env interaction with AnnexB block-scoped functions
-    "annexB/language/eval-code/direct/var-env-lower-lex-catch-non-strict.js"
+    "annexB/built-ins/Date/prototype/getYear/return-value.js"
   ]
 }

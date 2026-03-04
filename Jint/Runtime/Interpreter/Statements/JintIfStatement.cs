@@ -60,9 +60,9 @@ internal sealed class JintIfStatement : JintStatement<IfStatement>
     }
 
     /// <summary>
-    /// B.3.2/B.3.3: When an IfStatement's consequent or alternate is a FunctionDeclaration
-    /// in sloppy mode, create the function object and copy it to the var scope.
-    /// Uses the same AnnexB eligibility checks as BlockDeclarationInstantiation.
+    /// B.3.4: When an IfStatement's consequent or alternate is a FunctionDeclaration
+    /// in sloppy mode, treat it as if wrapped in a block: create a block-scoped binding
+    /// for the function, instantiate the function object in that scope, and copy to var scope.
     /// </summary>
     private static Completion ExecuteAnnexBFunctionDeclaration(EvaluationContext context, FunctionDeclaration funcDecl)
     {
@@ -72,31 +72,34 @@ internal sealed class JintIfStatement : JintStatement<IfStatement>
             var engine = context.Engine;
             var executionContext = engine.ExecutionContext;
             var varEnv = executionContext.VariableEnvironment;
+            var outerLexEnv = executionContext.LexicalEnvironment;
 
-            // Determine if this function name should be AnnexB-hoisted using the same
-            // logic as BlockDeclarationInstantiation (JintStatementList.cs)
+            // Create a new lexical environment (implicit block scope) for the function declaration
+            var blockEnv = JintEnvironment.NewDeclarativeEnvironment(engine, outerLexEnv);
+            blockEnv.CreateMutableBinding(fn, canBeDeleted: false);
+
+            // Instantiate the function in the block scope
+            var definition = new JintFunctionDefinition(funcDecl);
+            var fo = engine.Realm.Intrinsics.Function.InstantiateFunctionObject(definition, blockEnv, executionContext.PrivateEnvironment);
+            blockEnv.InitializeBinding(fn, fo, DisposeHint.Normal);
+
+            // Copy to var scope if AnnexB-eligible
             var shouldCopy = false;
             if (executionContext.Function is { _functionDefinition: { } funcDef })
             {
-                // Function scope: check AnnexBFunctionNames from B.3.3.1
-                shouldCopy = funcDef.Initialize().AnnexBFunctionNames?.Contains(fn) == true;
+                shouldCopy = funcDef.Initialize().AnnexBFunctionDeclarations?.Contains(funcDecl) == true;
             }
             else if (varEnv is GlobalEnvironment globalEnv)
             {
-                // Global/eval scope: copy if not a lexical declaration and binding exists
                 shouldCopy = !globalEnv.HasLexicalDeclaration(fn) && globalEnv.HasBinding(fn);
             }
             else
             {
-                // Eval in function scope: copy if var binding exists
                 shouldCopy = varEnv.HasBinding(fn);
             }
 
             if (shouldCopy)
             {
-                var lexEnv = executionContext.LexicalEnvironment;
-                var definition = new JintFunctionDefinition(funcDecl);
-                var fo = engine.Realm.Intrinsics.Function.InstantiateFunctionObject(definition, lexEnv, executionContext.PrivateEnvironment);
                 varEnv.SetMutableBinding(fn, fo, strict: false);
             }
         }

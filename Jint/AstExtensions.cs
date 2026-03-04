@@ -265,6 +265,14 @@ public static class AstExtensions
                     target.Add(name);
                 }
             }
+            else if (parameter is FunctionDeclaration functionDeclaration)
+            {
+                var name = functionDeclaration.Id?.Name;
+                if (name != null)
+                {
+                    target.Add(name);
+                }
+            }
             break;
         }
     }

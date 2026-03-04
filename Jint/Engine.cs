@@ -1427,7 +1427,9 @@ public sealed partial class Engine : IDisposable
             while (thisLex is not null && !ReferenceEquals(thisLex, varEnv))
             {
                 var thisEnvRec = thisLex;
-                if (thisEnvRec is not ObjectEnvironment)
+                // B.3.5: Skip catch clause environments - eval'd var/function declarations
+                // are allowed to shadow catch parameters in non-strict mode
+                if (thisEnvRec is not ObjectEnvironment && thisEnvRec is not DeclarativeEnvironment { _catchEnvironment: true })
                 {
                     ref readonly var nodes = ref hoistingScope._variablesDeclarations;
                     for (var i = 0; i < nodes.Count; i++)
