@@ -472,7 +472,7 @@ internal sealed class RegExpPrototype : Prototype
             return a;
         }
 
-        if (!unicodeMatching && rx is JsRegExp R && R.HasDefaultRegExpExec)
+        if (!unicodeMatching && splitter is JsRegExp R && R.HasDefaultRegExpExec)
         {
             // we can take faster path
 

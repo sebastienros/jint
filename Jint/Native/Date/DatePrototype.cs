@@ -1442,7 +1442,7 @@ internal sealed class DatePrototype : Prototype
 
     private static readonly int[] kDaysInMonths = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
-    private static Date YearMonthDayFromTime(DatePresentation t) => YearMonthDayFromDays((long) System.Math.Floor(t.Value / 1000 / 60 / 60 / 24d));
+    private static Date YearMonthDayFromTime(DatePresentation t) => YearMonthDayFromDays((long) System.Math.Floor((double) t.Value / MsPerDay));
 
     private static Date YearMonthDayFromDays(long days)
     {

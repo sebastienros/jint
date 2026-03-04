@@ -288,13 +288,6 @@
 
     // Acornima parser/RegExp limitation: malformed named groups in non-unicode mode
     // Per B.1.2, non-unicode RegExp should accept some malformed named group syntax
-    "annexB/built-ins/RegExp/named-groups/non-unicode-malformed.js",
-
-    // RegExp.prototype.compile interaction with Symbol.split side effects - complex edge case
-    "annexB/built-ins/RegExp/prototype/Symbol.split/toint32-limit-recompiles-source.js",
-
-    // Pre-existing date math issue: YearMonthDayFromDays off-by-one at negative year boundaries
-    // with positive timezone offsets (getYear returns 0 instead of -1 for Dec 31, 1899 in UTC+N)
-    "annexB/built-ins/Date/prototype/getYear/return-value.js"
+    "annexB/built-ins/RegExp/named-groups/non-unicode-malformed.js"
   ]
 }
