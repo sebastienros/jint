@@ -1116,6 +1116,26 @@ public sealed partial class Engine : IDisposable
         }
 
         env.CreateGlobalVarBindings(declaredVarNames, canBeDeleted: false);
+
+        // B.3.2: Block-level function declarations in sloppy mode get var bindings at global scope
+        if (!_isStrict && !script.Strict)
+        {
+            var annexBFunctions = hoistingScope._annexBFunctionDeclarations;
+            if (annexBFunctions != null)
+            {
+                for (var i = 0; i < annexBFunctions.Count; i++)
+                {
+                    var f = annexBFunctions[i];
+                    var fn = (Key) f.Id!.Name;
+                    if (!env.HasLexicalDeclaration(fn)
+                        && env.CanDeclareGlobalFunction(fn)
+                        && !declaredFunctionNames.Contains(fn))
+                    {
+                        env.CreateGlobalVarBinding(fn, canBeDeleted: false);
+                    }
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -1573,6 +1593,41 @@ public sealed partial class Engine : IDisposable
                 {
                     varEnvRec.CreateMutableBinding(vn, canBeDeleted: true);
                     varEnvRec.InitializeBinding(vn, JsValue.Undefined, DisposeHint.Normal);
+                }
+            }
+        }
+
+        // B.3.3: Block-level function declarations in sloppy eval get var bindings
+        if (!strict)
+        {
+            var annexBFunctions = hoistingScope._annexBFunctionDeclarations;
+            if (annexBFunctions != null)
+            {
+                for (var i = 0; i < annexBFunctions.Count; i++)
+                {
+                    var f = annexBFunctions[i];
+                    Key fn = f.Id!.Name;
+                    if (!declaredFunctionNames.Contains(fn))
+                    {
+                        if (varEnvRec is GlobalEnvironment ger)
+                        {
+                            if (!ger.HasLexicalDeclaration(fn) && ger.CanDeclareGlobalFunction(fn))
+                            {
+                                // B.3.3.3: CreateGlobalVarBinding only creates if binding doesn't exist,
+                                // preserving existing property attributes and value.
+                                ger.CreateGlobalVarBinding(fn, canBeDeleted: true);
+                            }
+                        }
+                        else
+                        {
+                            var bindingExists = varEnvRec.HasBinding(fn);
+                            if (!bindingExists)
+                            {
+                                varEnvRec.CreateMutableBinding(fn, canBeDeleted: true);
+                                varEnvRec.InitializeBinding(fn, JsValue.Undefined, DisposeHint.Normal);
+                            }
+                        }
+                    }
                 }
             }
         }

@@ -43,7 +43,11 @@ internal sealed class DatePrototype : Prototype
         const PropertyFlag lengthFlags = PropertyFlag.Configurable;
         const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
 
-        var properties = new PropertyDictionary(51, checkExistingKeys: false)
+        // B.2.1: toGMTString must be the same function object as toUTCString
+        var toUtcStringFunction = new ClrFunction(Engine, "toUTCString", ToUtcString, 0, lengthFlags);
+        var toUtcStringDescriptor = new PropertyDescriptor(toUtcStringFunction, propertyFlags);
+
+        var properties = new PropertyDictionary(52, checkExistingKeys: false)
         {
             ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
             ["toString"] = new PropertyDescriptor(new ClrFunction(Engine, "toString", ToString, 0, lengthFlags), propertyFlags),
@@ -88,7 +92,8 @@ internal sealed class DatePrototype : Prototype
             ["setFullYear"] = new PropertyDescriptor(new ClrFunction(Engine, "setFullYear", SetFullYear, 3, lengthFlags), propertyFlags),
             ["setYear"] = new PropertyDescriptor(new ClrFunction(Engine, "setYear", SetYear, 1, lengthFlags), propertyFlags),
             ["setUTCFullYear"] = new PropertyDescriptor(new ClrFunction(Engine, "setUTCFullYear", SetUTCFullYear, 3, lengthFlags), propertyFlags),
-            ["toUTCString"] = new PropertyDescriptor(new ClrFunction(Engine, "toUTCString", ToUtcString, 0, lengthFlags), propertyFlags),
+            ["toUTCString"] = toUtcStringDescriptor,
+            ["toGMTString"] = toUtcStringDescriptor,
             ["toISOString"] = new PropertyDescriptor(new ClrFunction(Engine, "toISOString", ToISOString, 0, lengthFlags), propertyFlags),
             ["toJSON"] = new PropertyDescriptor(new ClrFunction(Engine, "toJSON", ToJson, 1, lengthFlags), propertyFlags),
             ["toTemporalInstant"] = new PropertyDescriptor(new ClrFunction(Engine, "toTemporalInstant", ToTemporalInstant, 0, lengthFlags), propertyFlags)
@@ -882,14 +887,14 @@ internal sealed class DatePrototype : Prototype
         }
 
         var fy = TypeConverter.ToInteger(y);
-        if (y >= 0 && y <= 99)
+        if (fy >= 0 && fy <= 99)
         {
             fy += 1900;
         }
 
         var newDate = MakeDay(fy, MonthFromTime(t), DateFromTime(t));
-        var u = Utc(MakeDate(newDate, TimeWithinDay(t)));
-        ((JsDate) thisObject)._dateValue = u.TimeClip();
+        var u = Utc(MakeDate(newDate, TimeWithinDay(t))).TimeClip();
+        ((JsDate) thisObject)._dateValue = u;
         return u.ToJsValue();
     }
 
