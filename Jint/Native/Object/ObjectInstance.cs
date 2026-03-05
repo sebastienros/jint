@@ -1683,7 +1683,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         var initValue = Undefined;
         if (initializer is not null)
         {
-            initValue = receiver._engine.Call(initializer, receiver);
+            initValue = receiver._engine.Call(initializer, thisObject: receiver, Arguments.Empty);
             if (initValue is Function.Function functionInstance)
             {
                 functionInstance.SetFunctionName(fieldName);
