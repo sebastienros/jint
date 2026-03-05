@@ -82,10 +82,6 @@
 
     // requires investigation how to process complex function name evaluation for property
     "built-ins/Function/prototype/toString/method-computed-property-name.js",
-    // delete/add detection not implemented for map iterator during iteration
-    "built-ins/Map/prototype/forEach/iterates-values-deleted-then-readded.js",
-    "built-ins/MapIteratorPrototype/next/iteration-mutable.js",
-    "built-ins/Set/prototype/forEach/iterates-values-revisits-after-delete-re-add.js",
 
     // special casing data
     "built-ins/**/special_casing*.js",
