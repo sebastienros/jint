@@ -239,6 +239,41 @@ internal sealed class JintStatementList
                 var fn = definition.Name!;
                 var fo = env._engine.Realm.Intrinsics.Function.InstantiateFunctionObject(definition, env, privateEnv);
                 env.InitializeBinding(fn, fo, DisposeHint.Normal);
+
+                // B.3.2/B.3.3/B.3.3.1: Copy block-level function declaration to var scope in sloppy mode
+                // Only regular function declarations get AnnexB treatment (not generators, async, or async generators)
+                if (!functionDeclaration.Generator && !functionDeclaration.Async && !StrictModeScope.IsStrictModeCode)
+                {
+                    var engine = env._engine;
+                    var executionContext = engine.ExecutionContext;
+                    var varEnv = executionContext.VariableEnvironment;
+                    if (!ReferenceEquals(varEnv, env))
+                    {
+                        var shouldCopy = false;
+                        if (executionContext.Function is { _functionDefinition: { } funcDef })
+                        {
+                            // Function scope: check AnnexBFunctionDeclarations from B.3.3.1
+                            // Must check the specific declaration, not just the name, because
+                            // nested blocks can have same-named declarations with different eligibility.
+                            shouldCopy = funcDef.Initialize().AnnexBFunctionDeclarations?.Contains(functionDeclaration) == true;
+                        }
+                        else if (varEnv is GlobalEnvironment globalEnv)
+                        {
+                            // Global/eval scope: copy if not a lexical declaration
+                            shouldCopy = !globalEnv.HasLexicalDeclaration(fn) && globalEnv.HasBinding(fn);
+                        }
+                        else
+                        {
+                            // Eval in function scope: copy if var binding exists
+                            shouldCopy = varEnv.HasBinding(fn);
+                        }
+
+                        if (shouldCopy)
+                        {
+                            varEnv.SetMutableBinding(fn, fo, strict: false);
+                        }
+                    }
+                }
             }
         }
 

@@ -18,7 +18,6 @@
     "CanBlockIsFalse"
   ],
   "ExcludedDirectories": [
-    "annexB"
   ],
   "ExcludedFiles": [
 
@@ -261,6 +260,34 @@
     // PlainMonthDay from - multi-calendar (constrain, reference-date, reference-year)
     "intl402/Temporal/PlainMonthDay/from/constrain-to-leap-day.js",
     "intl402/Temporal/PlainMonthDay/from/reference-date-noniso-calendar.js",
-    "intl402/Temporal/PlainMonthDay/from/reference-year-1972.js"
+    "intl402/Temporal/PlainMonthDay/from/reference-year-1972.js",
+
+    // === ANNEX B EXCLUSIONS ===
+
+    // Acornima parser limitation: HTML-like comments (<!-- and -->) in dynamic Function() bodies/params
+    // Requires parser option for HTML comments which Acornima doesn't support in function constructor context
+    "annexB/built-ins/Function/createdynfn-html-close-comment-body.js",
+    "annexB/built-ins/Function/createdynfn-html-close-comment-params.js",
+    "annexB/built-ins/Function/createdynfn-html-open-comment-body.js",
+    "annexB/built-ins/Function/createdynfn-html-open-comment-params.js",
+    "annexB/built-ins/Function/createdynfn-no-line-terminator-html-close-comment-body.js",
+
+    // Acornima parser limitation: assignment target type validation for call expressions
+    // Per B.3.7, non-strict mode should allow CallExpression as assignment target in certain cases
+    "annexB/language/expressions/assignmenttargettype/callexpression-as-for-in-lhs.js",
+    "annexB/language/expressions/assignmenttargettype/callexpression-as-for-of-lhs.js",
+    "annexB/language/expressions/assignmenttargettype/callexpression-in-compound-assignment.js",
+    "annexB/language/expressions/assignmenttargettype/callexpression-in-postfix-update.js",
+    "annexB/language/expressions/assignmenttargettype/callexpression-in-prefix-update.js",
+    "annexB/language/expressions/assignmenttargettype/callexpression.js",
+    "annexB/language/expressions/assignmenttargettype/cover-callexpression-and-asyncarrowhead.js",
+
+    // Acornima parser limitation: for-in initializer in non-strict mode
+    // Per B.3.6, `for (var x = expr in obj)` should be allowed in sloppy mode
+    "annexB/language/statements/for-in/nonstrict-initializer.js",
+
+    // Acornima parser/RegExp limitation: malformed named groups in non-unicode mode
+    // Per B.1.2, non-unicode RegExp should accept some malformed named group syntax
+    "annexB/built-ins/RegExp/named-groups/non-unicode-malformed.js"
   ]
 }

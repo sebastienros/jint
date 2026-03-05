@@ -13,6 +13,14 @@ public sealed class RegExpConstructor : Constructor
 {
     private static readonly JsString _functionName = new JsString("RegExp");
 
+    // B.2.4 RegExp Legacy Static Properties
+    internal string _legacyInput = "";
+    internal string _legacyLastMatch = "";
+    internal string _legacyLastParen = "";
+    internal string _legacyLeftContext = "";
+    internal string _legacyRightContext = "";
+    internal readonly string[] _legacyParens = new string[9];
+
     internal RegExpConstructor(
         Engine engine,
         Realm realm,
@@ -24,6 +32,10 @@ public sealed class RegExpConstructor : Constructor
         PrototypeObject = new RegExpPrototype(engine, realm, this, objectPrototype);
         _length = new PropertyDescriptor(2, PropertyFlag.Configurable);
         _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
+        for (var i = 0; i < 9; i++)
+        {
+            _legacyParens[i] = "";
+        }
     }
 
     internal RegExpPrototype PrototypeObject { get; }
@@ -33,9 +45,75 @@ public sealed class RegExpConstructor : Constructor
         const PropertyFlag LengthFlags = PropertyFlag.Configurable;
         const PropertyFlag PropertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
 
-        var properties = new PropertyDictionary(1, checkExistingKeys: false)
+        // B.2.4 Legacy static accessor helpers
+        JsValue LegacyGetter(Func<RegExpConstructor, string> getter, JsValue thisObj, JsCallArguments _)
         {
-            ["escape"] = new PropertyDescriptor(new ClrFunction(Engine, "escape", Escape, 1, LengthFlags), PropertyFlags)
+            if (!ReferenceEquals(thisObj, this))
+            {
+                Throw.TypeError(_realm, "Getter called on non-RegExp constructor");
+            }
+            return getter(this);
+        }
+
+        GetSetPropertyDescriptor CreateLegacyReadOnlyAccessor(Func<RegExpConstructor, string> getter)
+        {
+            return new GetSetPropertyDescriptor(
+                get: new ClrFunction(Engine, "", (thisObj, args) => LegacyGetter(getter, thisObj, args), 0, LengthFlags),
+                set: Undefined,
+                flags: PropertyFlag.Configurable);
+        }
+
+        // input/$_ - readable and writable
+        var inputGetter = new ClrFunction(Engine, "get input", (thisObj, _) =>
+        {
+            if (!ReferenceEquals(thisObj, this)) Throw.TypeError(_realm, "Getter called on non-RegExp constructor");
+            return (JsValue) _legacyInput;
+        }, 0, LengthFlags);
+        var inputSetter = new ClrFunction(Engine, "set input", (thisObj, args) =>
+        {
+            if (!ReferenceEquals(thisObj, this)) Throw.TypeError(_realm, "Setter called on non-RegExp constructor");
+            _legacyInput = TypeConverter.ToString(args.At(0));
+            return Undefined;
+        }, 1, LengthFlags);
+        var inputAccessor = new GetSetPropertyDescriptor(get: inputGetter, set: inputSetter, flags: PropertyFlag.Configurable);
+
+        // $1-$9 - readable, [[Set]]: undefined per B.2.4
+        GetSetPropertyDescriptor CreateParenAccessor(int index)
+        {
+            var i = index;
+            return new GetSetPropertyDescriptor(
+                get: new ClrFunction(Engine, "", (thisObj, _) =>
+                {
+                    if (!ReferenceEquals(thisObj, this)) Throw.TypeError(_realm, "Getter called on non-RegExp constructor");
+                    return (JsValue) _legacyParens[i];
+                }, 0, LengthFlags),
+                set: Undefined,
+                flags: PropertyFlag.Configurable);
+        }
+
+        var properties = new PropertyDictionary(20, checkExistingKeys: false)
+        {
+            ["escape"] = new PropertyDescriptor(new ClrFunction(Engine, "escape", Escape, 1, LengthFlags), PropertyFlags),
+            // B.2.4 Legacy static accessors
+            ["input"] = inputAccessor,
+            ["$_"] = inputAccessor,
+            ["lastMatch"] = CreateLegacyReadOnlyAccessor(static c => c._legacyLastMatch),
+            ["$&"] = CreateLegacyReadOnlyAccessor(static c => c._legacyLastMatch),
+            ["lastParen"] = CreateLegacyReadOnlyAccessor(static c => c._legacyLastParen),
+            ["$+"] = CreateLegacyReadOnlyAccessor(static c => c._legacyLastParen),
+            ["leftContext"] = CreateLegacyReadOnlyAccessor(static c => c._legacyLeftContext),
+            ["$`"] = CreateLegacyReadOnlyAccessor(static c => c._legacyLeftContext),
+            ["rightContext"] = CreateLegacyReadOnlyAccessor(static c => c._legacyRightContext),
+            ["$'"] = CreateLegacyReadOnlyAccessor(static c => c._legacyRightContext),
+            ["$1"] = CreateParenAccessor(0),
+            ["$2"] = CreateParenAccessor(1),
+            ["$3"] = CreateParenAccessor(2),
+            ["$4"] = CreateParenAccessor(3),
+            ["$5"] = CreateParenAccessor(4),
+            ["$6"] = CreateParenAccessor(5),
+            ["$7"] = CreateParenAccessor(6),
+            ["$8"] = CreateParenAccessor(7),
+            ["$9"] = CreateParenAccessor(8),
         };
         SetProperties(properties);
 
@@ -354,7 +432,7 @@ public sealed class RegExpConstructor : Constructor
         return RegExpInitialize(r, p, f);
     }
 
-    private JsRegExp RegExpInitialize(JsRegExp r, JsValue pattern, JsValue flags)
+    internal JsRegExp RegExpInitialize(JsRegExp r, JsValue pattern, JsValue flags, bool throwOnLastIndex = false)
     {
         var p = pattern.IsUndefined() ? "" : TypeConverter.ToString(pattern);
         if (string.IsNullOrEmpty(p))
@@ -387,7 +465,16 @@ public sealed class RegExpConstructor : Constructor
         r.Flags = f;
         r.Source = p;
 
-        RegExpInitialize(r);
+        if (throwOnLastIndex)
+        {
+            // B.2.5.1: Use Set(O, "lastIndex", +0𝔽, true) which throws TypeError if non-writable.
+            // Source/flags are already updated at this point per spec.
+            r.Set(JsRegExp.PropertyLastIndex, 0, true);
+        }
+        else
+        {
+            RegExpInitialize(r);
+        }
 
         return r;
     }

@@ -101,6 +101,8 @@ public abstract partial class Test262Test
                 return JsValue.Undefined;
             }), true, true, true));
 
+        o.FastSetProperty("IsHTMLDDA", new PropertyDescriptor(new IsHTMLDDA(engine), true, true, true));
+
         // Install agent support if needed
         agentManager?.InstallAgent(engine, o);
 
