@@ -87,9 +87,6 @@
     "built-ins/MapIteratorPrototype/next/iteration-mutable.js",
     "built-ins/Set/prototype/forEach/iterates-values-revisits-after-delete-re-add.js",
 
-    // 100 fraction digits is not supported due to .NET format specifier limitation
-    "built-ins/Number/prototype/toFixed/range.js",
-
     // special casing data
     "built-ins/**/special_casing*.js",
 
