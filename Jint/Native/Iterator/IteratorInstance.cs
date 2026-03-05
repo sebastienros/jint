@@ -90,9 +90,24 @@ internal abstract class IteratorInstance : ObjectInstance
             return instance;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-iteratorclose
+        /// </summary>
         public override void Close(CompletionType completion)
         {
-            var callable = _target.GetMethod(CommonProperties.Return);
+            // 7.4.11 IteratorClose ( iteratorRecord, completion )
+            // Step 3: Let innerResult be Completion(GetMethod(iterator, "return")).
+            ICallable? callable;
+            try
+            {
+                callable = _target.GetMethod(CommonProperties.Return);
+            }
+            catch when (completion == CompletionType.Throw)
+            {
+                // Step 5: If completion is a throw completion, return ? completion.
+                return;
+            }
+
             if (callable is null)
             {
                 return;
@@ -103,8 +118,9 @@ internal abstract class IteratorInstance : ObjectInstance
             {
                 innerResult = callable.Call(_target, Arguments.Empty);
             }
-            catch (JavaScriptException) when (completion == CompletionType.Throw)
+            catch when (completion == CompletionType.Throw)
             {
+                // Step 5: If completion is a throw completion, return ? completion.
                 return;
             }
 

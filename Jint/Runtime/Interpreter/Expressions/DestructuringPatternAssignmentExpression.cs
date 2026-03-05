@@ -66,13 +66,28 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
         value = JsValue.Undefined;
         done = false;
 
-        if (!it.TryIteratorStep(out var d))
+        bool stepped;
+        try
+        {
+            stepped = it.TryIteratorStep(out var d);
+            if (stepped)
+            {
+                value = d.Get(CommonProperties.Value);
+            }
+        }
+        catch
+        {
+            // Per spec 13.15.5.5 step 2b: If next is an abrupt completion, set iteratorRecord.[[Done]] to true.
+            done = true;
+            throw;
+        }
+
+        if (!stepped)
         {
             done = true;
             return false;
         }
 
-        value = d.Get(CommonProperties.Value);
         return true;
     }
 
@@ -231,8 +246,16 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                     }
                     else
                     {
-                        iterator!.TryIteratorStep(out var temp);
-                        value = temp;
+                        try
+                        {
+                            iterator!.TryIteratorStep(out var temp);
+                            value = temp;
+                        }
+                        catch
+                        {
+                            done = true;
+                            throw;
+                        }
                     }
                     ProcessPatterns(context, dp, value, environment);
                 }
@@ -434,6 +457,7 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
         catch
         {
             completionType = CompletionType.Throw;
+            close = true;
             // Clear suspend data on error
             generator?.Data.Clear(pattern);
             throw;
@@ -485,9 +509,11 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                 processedProperties?.Add(sourceKey);
                 if (p.Value is AssignmentPattern assignmentPattern)
                 {
-                    // Per ECMAScript spec (KeyedDestructuringAssignmentEvaluation):
+                    // Per ECMAScript spec (KeyedDestructuringAssignmentEvaluation / KeyedBindingInitialization):
                     // If target is MemberExpression, evaluate lref first, then get value
+                    // For binding patterns (environment != null), ResolveBinding before GetV (spec 14.3.3.3 step 2-3)
                     Reference? memberReference = null;
+                    Reference? bindingRef = null;
                     if (assignmentPattern.Left is MemberExpression memberExpr)
                     {
                         memberReference = GetReferenceFromMember(context, memberExpr);
@@ -495,6 +521,11 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                         {
                             return JsValue.Undefined;
                         }
+                    }
+                    else if (assignmentPattern.Left is Identifier leftId)
+                    {
+                        var target = leftId ?? identifier;
+                        bindingRef = context.Engine.ResolveBinding(target!.Name, environment);
                     }
 
                     var value = source.Get(sourceKey);
@@ -531,7 +562,25 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                             ((Function) value).SetFunctionName(target!.Name);
                         }
 
-                        AssignToIdentifier(context.Engine, target!.Name, value, environment, checkReference);
+                        if (bindingRef is not null)
+                        {
+                            if (environment is not null)
+                            {
+                                bindingRef.InitializeReferencedBinding(value, DisposeHint.Normal);
+                            }
+                            else
+                            {
+                                if (checkReference && bindingRef.IsUnresolvableReference && StrictModeScope.IsStrictModeCode)
+                                {
+                                    Throw.ReferenceError(context.Engine.Realm, bindingRef);
+                                }
+                                context.Engine.PutValue(bindingRef, value);
+                            }
+                        }
+                        else
+                        {
+                            AssignToIdentifier(context.Engine, target!.Name, value, environment, checkReference);
+                        }
                     }
                 }
                 else if (p.Value is DestructuringPattern dp)
@@ -549,8 +598,23 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                 {
                     var identifierReference = p.Value as Identifier;
                     var target = identifierReference ?? identifier;
+
+                    // Per spec 14.3.3.3 step 2-3: ResolveBinding before GetV
+                    var lhs = context.Engine.ResolveBinding(target!.Name, environment);
                     var value = source.Get(sourceKey);
-                    AssignToIdentifier(context.Engine, target!.Name, value, environment, checkReference);
+
+                    if (environment is not null)
+                    {
+                        lhs.InitializeReferencedBinding(value, DisposeHint.Normal);
+                    }
+                    else
+                    {
+                        if (checkReference && lhs.IsUnresolvableReference && StrictModeScope.IsStrictModeCode)
+                        {
+                            Throw.ReferenceError(context.Engine.Realm, lhs);
+                        }
+                        context.Engine.PutValue(lhs, value);
+                    }
                 }
             }
             else
