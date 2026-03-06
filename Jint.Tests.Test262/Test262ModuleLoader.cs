@@ -35,4 +35,20 @@ internal sealed class Test262ModuleLoader : ModuleLoader
             return stream.ReadToEnd();
         }
     }
+
+    protected override byte[] LoadModuleContentsAsBytes(Engine engine, ResolvedSpecifier resolved)
+    {
+        lock (_fileSystem)
+        {
+            var fileName = Path.Combine(_basePath, resolved.Key).Replace('\\', '/');
+            if (!_fileSystem.FileExists(fileName))
+            {
+                Throw.ModuleResolutionException("Module Not Found", resolved.ModuleRequest.Specifier, parent: null, fileName);
+            }
+            using var stream = _fileSystem.OpenFile(fileName, FileMode.Open, FileAccess.Read);
+            using var ms = new MemoryStream();
+            stream.CopyTo(ms);
+            return ms.ToArray();
+        }
+    }
 }
