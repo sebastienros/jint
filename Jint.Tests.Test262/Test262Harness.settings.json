@@ -88,11 +88,6 @@
 
     // eval-code arguments bindings in direct eval
     "language/eval-code/direct/*-arguments-*.js",
-    // dynamic import attributes abrupt return
-    "language/expressions/dynamic-import/import-attributes/2nd-param-evaluation-abrupt-return.js",
-    // TLA with complex module graph - dynamic import inside TLA module doesn't settle
-    // when module has both static and dynamic imports with cyclic dependencies
-    "language/module-code/top-level-await/module-graphs-does-not-hang.js",
 
     // === INTL402 EXCLUSIONS ===
     // The following tests require full CLDR locale data support which is not available in the default provider.
