@@ -84,9 +84,9 @@ internal sealed class DateTimeFormatPrototype : Prototype
             if (IsTemporalObject(formattable))
             {
                 var temporalDtf = GetTemporalFormatDtf(dateTimeFormat, formattable);
-                var dateTime = ConvertTemporalToDateTime(formattable);
+                var dateTime = ConvertTemporalToDateTime(formattable, out var originalYear);
                 var isPlain = formattable is not JsInstant;
-                return temporalDtf.Format(dateTime, isPlain: isPlain);
+                return temporalDtf.Format(dateTime, originalYear, isPlain: isPlain);
             }
             else
             {
@@ -109,9 +109,9 @@ internal sealed class DateTimeFormatPrototype : Prototype
         if (IsTemporalObject(formattable))
         {
             var temporalDtf = GetTemporalFormatDtf(dateTimeFormat, formattable);
-            var dateTime = ConvertTemporalToDateTime(formattable);
+            var dateTime = ConvertTemporalToDateTime(formattable, out var originalYear);
             var isPlain = formattable is not JsInstant;
-            parts = temporalDtf.FormatToParts(dateTime, isPlain: isPlain);
+            parts = temporalDtf.FormatToParts(dateTime, originalYear, isPlain: isPlain);
         }
         else
         {
@@ -185,6 +185,30 @@ internal sealed class DateTimeFormatPrototype : Prototype
             Throw.TypeError(_realm, "Both arguments must be the same Temporal type");
         }
     }
+
+    /// <summary>
+    /// Validates that two Temporal objects with calendars use the same calendar.
+    /// Per spec: formatRange throws RangeError if calendars differ.
+    /// </summary>
+    private void ValidateTemporalCalendarsMatch(JsValue x, JsValue y)
+    {
+        var calX = GetTemporalCalendarId(x);
+        var calY = GetTemporalCalendarId(y);
+        if (calX is not null && calY is not null && !string.Equals(calX, calY, StringComparison.Ordinal))
+        {
+            Throw.RangeError(_realm, "Cannot format a range with Temporal objects using different calendars");
+        }
+    }
+
+    private static string? GetTemporalCalendarId(JsValue value) => value switch
+    {
+        JsPlainDate pd => pd.Calendar,
+        JsPlainDateTime pdt => pdt.Calendar,
+        JsPlainYearMonth ym => ym.Calendar,
+        JsPlainMonthDay md => md.Calendar,
+        JsZonedDateTime zdt => zdt.Calendar,
+        _ => null
+    };
 
     /// <summary>
     /// Handles a non-temporal formattable value (Date, Number, undefined).
@@ -419,18 +443,22 @@ internal sealed class DateTimeFormatPrototype : Prototype
 
     /// <summary>
     /// Converts a Temporal object to a .NET DateTime for formatting.
+    /// When the year is outside .NET's 1-9999 range, a representative year is used
+    /// that preserves leap year status and day-of-week, and the original year is returned.
     /// </summary>
-    private static DateTime ConvertTemporalToDateTime(JsValue temporal)
+    private static DateTime ConvertTemporalToDateTime(JsValue temporal, out int? originalYear)
     {
+        originalYear = null;
+
         return temporal switch
         {
-            JsPlainDate pd => new DateTime(pd.IsoDate.Year, pd.IsoDate.Month, pd.IsoDate.Day, 12, 0, 0, DateTimeKind.Unspecified),
-            JsPlainDateTime pdt => new DateTime(pdt.IsoDateTime.Date.Year, pdt.IsoDateTime.Date.Month, pdt.IsoDateTime.Date.Day,
+            JsPlainDate pd => CreateDateTimeSafe(pd.IsoDate.Year, pd.IsoDate.Month, pd.IsoDate.Day, 12, 0, 0, 0, out originalYear),
+            JsPlainDateTime pdt => CreateDateTimeSafe(pdt.IsoDateTime.Date.Year, pdt.IsoDateTime.Date.Month, pdt.IsoDateTime.Date.Day,
                 pdt.IsoDateTime.Time.Hour, pdt.IsoDateTime.Time.Minute, pdt.IsoDateTime.Time.Second,
-                pdt.IsoDateTime.Time.Millisecond, DateTimeKind.Unspecified),
+                pdt.IsoDateTime.Time.Millisecond, out originalYear),
             JsPlainTime pt => new DateTime(1970, 1, 1, pt.IsoTime.Hour, pt.IsoTime.Minute, pt.IsoTime.Second,
                 pt.IsoTime.Millisecond, DateTimeKind.Unspecified),
-            JsPlainYearMonth ym => new DateTime(ym.IsoDate.Year, ym.IsoDate.Month, ym.IsoDate.Day, 12, 0, 0, DateTimeKind.Unspecified),
+            JsPlainYearMonth ym => CreateDateTimeSafe(ym.IsoDate.Year, ym.IsoDate.Month, ym.IsoDate.Day, 12, 0, 0, 0, out originalYear),
             JsPlainMonthDay md => new DateTime(md.IsoDate.Year, md.IsoDate.Month, md.IsoDate.Day, 12, 0, 0, DateTimeKind.Unspecified),
             JsInstant inst => EpochNanosecondsToDateTime(inst.EpochNanoseconds),
             _ => DateTime.Now
@@ -438,10 +466,66 @@ internal sealed class DateTimeFormatPrototype : Prototype
     }
 
     /// <summary>
+    /// Creates a DateTime, using a representative year if the actual year is outside .NET's 1-9999 range.
+    /// The representative year preserves leap year status and day-of-week alignment (Gregorian 400-year cycle).
+    /// </summary>
+    private static DateTime CreateDateTimeSafe(int year, int month, int day, int hour, int minute, int second, int millisecond, out int? originalYear)
+    {
+        originalYear = null;
+        if (year >= 1 && year <= 9999)
+        {
+            return new DateTime(year, month, day, hour, minute, second, millisecond, DateTimeKind.Unspecified);
+        }
+
+        originalYear = year;
+        // Map to representative year in 1-400 range preserving leap year and day-of-week
+        var repYear = ((year - 1) % 400 + 400) % 400 + 1;
+
+        // Ensure leap year match: if the original year is a leap year but repYear isn't (or vice versa),
+        // adjust by searching nearby in the 400-year cycle
+        var needLeap = DateTime.IsLeapYear(IsLeapYearISO(year) ? 4 : 1); // use IsLeapYearISO for negative years
+        if (IsLeapYearISO(year) != DateTime.IsLeapYear(repYear))
+        {
+            // Shift to nearest matching leap year status within valid range
+            // Leap years in a 400-year cycle: every 4 except 100 except 400
+            for (var offset = 1; offset <= 400; offset++)
+            {
+                var candidate = repYear + offset;
+                if (candidate > 400) candidate -= 400;
+                if (DateTime.IsLeapYear(candidate) == IsLeapYearISO(year))
+                {
+                    repYear = candidate;
+                    break;
+                }
+            }
+        }
+
+        // For non-leap year rep when day is 29 Feb, constrain to 28
+        if (month == 2 && day == 29 && !DateTime.IsLeapYear(repYear))
+        {
+            day = 28;
+        }
+
+        return new DateTime(repYear, month, day, hour, minute, second, millisecond, DateTimeKind.Unspecified);
+    }
+
+    /// <summary>
+    /// ISO 8601 leap year calculation (works for negative years).
+    /// </summary>
+    private static bool IsLeapYearISO(int year)
+    {
+        // For negative years, convert to proleptic Gregorian
+        var y = year > 0 ? year : 1 - year; // year 0 = 1 BC, -1 = 2 BC, etc.
+        return (y % 4 == 0) && (y % 100 != 0 || y % 400 == 0);
+    }
+
+    /// <summary>
     /// Handles a formattable value for formatRange/formatRangeToParts.
     /// </summary>
-    private DateTime HandleDateTimeTemporalOrOtherForRange(JsDateTimeFormat dateTimeFormat, JsValue formattable)
+    private DateTime HandleDateTimeTemporalOrOtherForRange(JsDateTimeFormat dateTimeFormat, JsValue formattable, out int? originalYear)
     {
+        originalYear = null;
+
         if (formattable is JsZonedDateTime)
         {
             Throw.TypeError(_realm, "Temporal.ZonedDateTime is not supported in DateTimeFormat.formatRange().");
@@ -451,12 +535,12 @@ internal sealed class DateTimeFormatPrototype : Prototype
         if (formattable is JsPlainDate plainDate)
         {
             ValidateTemporalStyleRestrictions(dateTimeFormat, isDateOnly: true);
-            return IsoDateToDateTime(plainDate.IsoDate);
+            return IsoDateToDateTime(plainDate.IsoDate, out originalYear);
         }
 
         if (formattable is JsPlainDateTime plainDateTime)
         {
-            return IsoDateTimeToDateTime(plainDateTime.IsoDateTime);
+            return IsoDateTimeToDateTime(plainDateTime.IsoDateTime, out originalYear);
         }
 
         if (formattable is JsPlainTime plainTime)
@@ -468,13 +552,13 @@ internal sealed class DateTimeFormatPrototype : Prototype
         if (formattable is JsPlainYearMonth yearMonth)
         {
             ValidateTemporalStyleRestrictions(dateTimeFormat, isDateOnly: true);
-            return IsoDateToDateTime(yearMonth.IsoDate);
+            return IsoDateToDateTime(yearMonth.IsoDate, out originalYear);
         }
 
         if (formattable is JsPlainMonthDay monthDay)
         {
             ValidateTemporalStyleRestrictions(dateTimeFormat, isDateOnly: true);
-            return IsoDateToDateTime(monthDay.IsoDate);
+            return IsoDateToDateTime(monthDay.IsoDate, out originalYear);
         }
 
         if (formattable is JsInstant instant)
@@ -505,36 +589,25 @@ internal sealed class DateTimeFormatPrototype : Prototype
     }
 
     /// <summary>
-    /// Converts an IsoDate to DateTime (time set to midnight).
+    /// Converts an IsoDate to DateTime (time set to noon for formatting).
+    /// Uses representative year for out-of-range years.
     /// </summary>
-    private static DateTime IsoDateToDateTime(IsoDate isoDate)
+    private static DateTime IsoDateToDateTime(IsoDate isoDate, out int? originalYear)
     {
-        // Clamp to .NET DateTime range
-        if (isoDate.Year < 1 || isoDate.Year > 9999)
-        {
-            return isoDate.Year < 1 ? DateTime.MinValue : DateTime.MaxValue;
-        }
-
-        return new DateTime(isoDate.Year, isoDate.Month, isoDate.Day, 0, 0, 0, DateTimeKind.Unspecified);
+        return CreateDateTimeSafe(isoDate.Year, isoDate.Month, isoDate.Day, 0, 0, 0, 0, out originalYear);
     }
 
     /// <summary>
     /// Converts an IsoDateTime to DateTime.
+    /// Uses representative year for out-of-range years.
     /// </summary>
-    private static DateTime IsoDateTimeToDateTime(IsoDateTime isoDateTime)
+    private static DateTime IsoDateTimeToDateTime(IsoDateTime isoDateTime, out int? originalYear)
     {
         var date = isoDateTime.Date;
         var time = isoDateTime.Time;
-
-        // Clamp to .NET DateTime range
-        if (date.Year < 1 || date.Year > 9999)
-        {
-            return date.Year < 1 ? DateTime.MinValue : DateTime.MaxValue;
-        }
-
-        return new DateTime(date.Year, date.Month, date.Day,
+        return CreateDateTimeSafe(date.Year, date.Month, date.Day,
             time.Hour, time.Minute, time.Second,
-            time.Millisecond, DateTimeKind.Unspecified);
+            time.Millisecond, out originalYear);
     }
 
     /// <summary>
@@ -843,8 +916,11 @@ internal sealed class DateTimeFormatPrototype : Prototype
         // Check SameTemporalType
         ValidateTemporalRangeTypes(x, y);
 
-        var start = HandleDateTimeTemporalOrOtherForRange(dateTimeFormat, x);
-        var end = HandleDateTimeTemporalOrOtherForRange(dateTimeFormat, y);
+        // Check calendars match for Temporal objects
+        ValidateTemporalCalendarsMatch(x, y);
+
+        var start = HandleDateTimeTemporalOrOtherForRange(dateTimeFormat, x, out var startOrigYear);
+        var end = HandleDateTimeTemporalOrOtherForRange(dateTimeFormat, y, out var endOrigYear);
 
         // For Temporal objects, use per-type DTF and isPlain flag
         var isTemporalInput = IsTemporalObject(x);
@@ -852,8 +928,8 @@ internal sealed class DateTimeFormatPrototype : Prototype
         var effectiveDtf = isTemporalInput ? GetTemporalFormatDtf(dateTimeFormat, x) : dateTimeFormat;
 
         // Format both dates
-        var startFormatted = effectiveDtf.Format(start, isPlain: isPlain);
-        var endFormatted = effectiveDtf.Format(end, isPlain: isPlain);
+        var startFormatted = effectiveDtf.Format(start, startOrigYear, isPlain: isPlain);
+        var endFormatted = effectiveDtf.Format(end, endOrigYear, isPlain: isPlain);
 
         // If the dates are the same when formatted, return just one
         if (string.Equals(startFormatted, endFormatted, StringComparison.Ordinal))
@@ -862,8 +938,8 @@ internal sealed class DateTimeFormatPrototype : Prototype
         }
 
         // Get parts to determine shared prefix/suffix for collapsing
-        var startParts = effectiveDtf.FormatToParts(start, isPlain: isPlain);
-        var endParts = effectiveDtf.FormatToParts(end, isPlain: isPlain);
+        var startParts = effectiveDtf.FormatToParts(start, startOrigYear, isPlain: isPlain);
+        var endParts = effectiveDtf.FormatToParts(end, endOrigYear, isPlain: isPlain);
 
         var sharedPrefixEnd = FindNaturalBoundaryPrefix(startParts, endParts);
         var sharedSuffixLen = FindNaturalBoundarySuffix(startParts, endParts, sharedPrefixEnd);
@@ -930,8 +1006,11 @@ internal sealed class DateTimeFormatPrototype : Prototype
         // Check SameTemporalType
         ValidateTemporalRangeTypes(x, y);
 
-        var start = HandleDateTimeTemporalOrOtherForRange(dateTimeFormat, x);
-        var end = HandleDateTimeTemporalOrOtherForRange(dateTimeFormat, y);
+        // Check calendars match for Temporal objects
+        ValidateTemporalCalendarsMatch(x, y);
+
+        var start = HandleDateTimeTemporalOrOtherForRange(dateTimeFormat, x, out var startOrigYear);
+        var end = HandleDateTimeTemporalOrOtherForRange(dateTimeFormat, y, out var endOrigYear);
 
         // For Temporal objects, use per-type DTF and isPlain flag
         var isTemporalInput = IsTemporalObject(x);
@@ -939,12 +1018,12 @@ internal sealed class DateTimeFormatPrototype : Prototype
         var effectiveDtf = isTemporalInput ? GetTemporalFormatDtf(dateTimeFormat, x) : dateTimeFormat;
 
         // Get parts for both dates
-        var startParts = effectiveDtf.FormatToParts(start, isPlain: isPlain);
-        var endParts = effectiveDtf.FormatToParts(end, isPlain: isPlain);
+        var startParts = effectiveDtf.FormatToParts(start, startOrigYear, isPlain: isPlain);
+        var endParts = effectiveDtf.FormatToParts(end, endOrigYear, isPlain: isPlain);
 
         // Check if dates are practically equal (same formatted output)
-        var startFormatted = effectiveDtf.Format(start, isPlain: isPlain);
-        var endFormatted = effectiveDtf.Format(end, isPlain: isPlain);
+        var startFormatted = effectiveDtf.Format(start, startOrigYear, isPlain: isPlain);
+        var endFormatted = effectiveDtf.Format(end, endOrigYear, isPlain: isPlain);
 
         var result = new JsArray(Engine);
         uint index = 0;

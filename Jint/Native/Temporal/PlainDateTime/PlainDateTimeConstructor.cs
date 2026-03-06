@@ -732,8 +732,11 @@ internal sealed class PlainDateTimeConstructor : Constructor
                 return false;
             if (offset.Length == 8)
                 return true; // HH:MM:SS
-            // Fractional seconds
-            return offset.Length > 8 && (offset[8] == '.' || offset[8] == ',');
+            // Fractional seconds: must have separator and 1-9 fraction digits
+            if (offset[8] != '.' && offset[8] != ',')
+                return false;
+            var fractionDigits = offset.Length - 9;
+            return fractionDigits >= 1 && fractionDigits <= 9 && AllDigits(offset.AsSpan(9));
         }
         else
         {
@@ -746,9 +749,22 @@ internal sealed class PlainDateTimeConstructor : Constructor
                 return false;
             if (offset.Length == 6)
                 return true; // HHMMSS
-            // Fractional seconds
-            return offset.Length > 6 && (offset[6] == '.' || offset[6] == ',');
+            // Fractional seconds: must have separator and 1-9 fraction digits
+            if (offset[6] != '.' && offset[6] != ',')
+                return false;
+            var fractionDigits = offset.Length - 7;
+            return fractionDigits >= 1 && fractionDigits <= 9 && AllDigits(offset.AsSpan(7));
         }
+    }
+
+    private static bool AllDigits(ReadOnlySpan<char> span)
+    {
+        foreach (var c in span)
+        {
+            if (!char.IsDigit(c))
+                return false;
+        }
+        return true;
     }
 
     private readonly record struct ParsedDateTimeResult(IsoDateTime? DateTime, string? Error);
