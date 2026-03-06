@@ -37,6 +37,10 @@ jobs:
       with:
         dotnet-version: 10.0
 
+    - name: Disable Windows Defender real-time monitoring
+      if: runner.os == 'Windows'
+      run: Set-MpPreference -DisableRealtimeMonitoring $true -Force
+
     - name: Checkout source code
       uses: actions/checkout@v6
 
