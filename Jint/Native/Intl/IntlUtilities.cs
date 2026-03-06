@@ -1584,7 +1584,8 @@ internal static class IntlUtilities
             // Use new CultureInfo() instead of GetCultureInfo() to get correct locale-specific
             // data. GetCultureInfo returns a cached read-only culture that may have different
             // NumberFormatInfo patterns (e.g., CurrencyNegativePattern).
-            return new CultureInfo(cultureTag);
+            // useUserOverride: false ensures consistent behavior regardless of Windows regional settings.
+            return new CultureInfo(cultureTag, false);
         }
         catch (CultureNotFoundException)
         {
