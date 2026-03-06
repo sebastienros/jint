@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
@@ -11,6 +12,7 @@ using Jint.Native.Function;
 using Expression = System.Linq.Expressions.Expression;
 
 #pragma warning disable IL2026
+#pragma warning disable IL2062
 #pragma warning disable IL2067
 #pragma warning disable IL2070
 #pragma warning disable IL2072
@@ -230,21 +232,49 @@ public class DefaultTypeConverter : ITypeConverter
 
             var obj = Activator.CreateInstance(type, constructorParameters)!;
 
-            var members = type.GetMembers();
-            foreach (var member in members)
+            // Check if the target type is also a string-keyed dictionary (e.g. Dictionary<string, object>).
+            // In that case, populate the dictionary entries from the source rather than mapping to target members.
+            var targetTypeDescriptor = TypeDescriptor.Get(type);
+            if (targetTypeDescriptor.IsStringKeyedGenericDictionary && obj is IDictionary targetDict && typeDescriptor.KeysAccessor != null)
             {
-                // only use fields an properties
-                if (member.MemberType != MemberTypes.Property &&
-                    member.MemberType != MemberTypes.Field)
+                // Determine the value type expected by the target dictionary from its generic arguments.
+                var targetValueType = typeof(object);
+                if (type.IsGenericType)
                 {
-                    continue;
+                    var genericArgs = type.GetGenericArguments();
+                    if (genericArgs.Length == 2)
+                    {
+                        targetValueType = genericArgs[1];
+                    }
                 }
 
-                if (typeDescriptor.TryGetValue(value, member.Name, out var val)
-                    || typeDescriptor.TryGetValue(value, member.Name.UpperToLowerCamelCase(), out val))
+                var keys = (IEnumerable<string>) typeDescriptor.KeysAccessor.GetValue(value)!;
+                foreach (var key in keys)
                 {
-                    var output = Convert(val, member.GetDefinedType(), formatProvider);
-                    member.SetValue(obj, output);
+                    if (typeDescriptor.TryGetValue(value, key, out var sourceVal))
+                    {
+                        targetDict[key] = Convert(sourceVal, targetValueType, formatProvider);
+                    }
+                }
+            }
+            else
+            {
+                var members = type.GetMembers();
+                foreach (var member in members)
+                {
+                    // only use fields and properties
+                    if (member.MemberType != MemberTypes.Property &&
+                        member.MemberType != MemberTypes.Field)
+                    {
+                        continue;
+                    }
+
+                    if (typeDescriptor.TryGetValue(value, member.Name, out var val)
+                        || typeDescriptor.TryGetValue(value, member.Name.UpperToLowerCamelCase(), out val))
+                    {
+                        var output = Convert(val, member.GetDefinedType(), formatProvider);
+                        member.SetValue(obj, output);
+                    }
                 }
             }
 

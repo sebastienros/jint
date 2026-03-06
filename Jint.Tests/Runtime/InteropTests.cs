@@ -2582,6 +2582,17 @@ public partial class InteropTests : IDisposable
         {
             Assert.Equal(1, Convert.ToInt32(dictionaryObject.Values["a"]));
         }
+
+        public void Test3(Dictionary<string, object> values)
+        {
+            Assert.Equal(1, Convert.ToInt32(values["a"]));
+        }
+
+        public void Test4(Dictionary<string, object> values = null)
+        {
+            Assert.NotNull(values);
+            Assert.Equal("world", values["value"]);
+        }
     }
 
     [Fact]
@@ -2598,6 +2609,22 @@ public partial class InteropTests : IDisposable
         var engine = new Engine();
         engine.SetValue("dictionaryTest", new DictionaryTest());
         engine.Evaluate("dictionaryTest.test2({ values: { a: 1 } });");
+    }
+
+    [Fact]
+    public void ShouldBeAbleToPassConcreteDictionaryToMethod()
+    {
+        var engine = new Engine();
+        engine.SetValue("dictionaryTest", new DictionaryTest());
+        engine.Evaluate("dictionaryTest.test3({ a: 1 });");
+    }
+
+    [Fact]
+    public void ShouldBeAbleToPassConcreteDictionaryToOptionalParameter()
+    {
+        var engine = new Engine();
+        engine.SetValue("dictionaryTest", new DictionaryTest());
+        engine.Evaluate("dictionaryTest.test4({ value: 'world' });");
     }
 
     [Fact]
