@@ -1464,6 +1464,16 @@ public sealed partial class Engine : IDisposable
                     {
                         Throw.SyntaxError(realm);
                     }
+
+                    // Non-arrow functions always have an implicit "arguments" binding per spec
+                    // (10.2.11 FunctionDeclarationInstantiation steps 17-21), even when the
+                    // arguments object creation was optimized away because the function body
+                    // doesn't reference "arguments". Detect this implicit binding conflict.
+                    if (string.Equals(identifier.Name, "arguments", StringComparison.Ordinal)
+                        && funcEnv._functionObject._thisMode != FunctionThisMode.Lexical)
+                    {
+                        Throw.SyntaxError(realm);
+                    }
                 }
             }
         }
