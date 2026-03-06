@@ -418,6 +418,7 @@ internal sealed class ZonedDateTimePrototype : Prototype
         // NOW do remaining algorithmic validation(after all fields and options are read)
 
         // Parse and validate offset
+        // Per spec: if offset not provided in the property bag, use the existing ZonedDateTime's offset
         long? offsetNs = null;
         if (offsetStr is not null)
         {
@@ -426,6 +427,10 @@ internal sealed class ZonedDateTimePrototype : Prototype
             {
                 Throw.RangeError(_realm, "Invalid offset string");
             }
+        }
+        else
+        {
+            offsetNs = zdt.OffsetNanoseconds;
         }
 
         // Parse and validate monthCode
@@ -1170,69 +1175,7 @@ internal sealed class ZonedDateTimePrototype : Prototype
     private BigInteger AddDurationToZonedDateTime(JsZonedDateTime zdt, DurationRecord duration, string overflow)
     {
         var provider = _engine.Options.Temporal.TimeZoneProvider;
-
-        // If only time units, add directly to epoch nanoseconds
-        if (duration.Years == 0 && duration.Months == 0 && duration.Weeks == 0 && duration.Days == 0)
-        {
-            var timeNs = TemporalHelpers.TotalDurationNanoseconds(duration);
-            return zdt.EpochNanoseconds + timeNs;
-        }
-
-        // Otherwise, we need to work with calendar dates
-        // Per spec: CalendarDateAdd is called with overflow parameter
-        var dt = zdt.GetIsoDateTime();
-
-        // Add years and months (CalendarDateAdd step 1-2)
-        var year = dt.Date.Year + (int) duration.Years;
-        var month = dt.Date.Month + (int) duration.Months;
-
-        // Normalize month
-        while (month > 12)
-        {
-            month -= 12;
-            year++;
-        }
-
-        while (month < 1)
-        {
-            month += 12;
-            year--;
-        }
-
-        // RegulateISODate per spec (CalendarDateAdd step 3)
-        // This will throw RangeError if overflow is "reject" and date is invalid
-        var regulated = TemporalHelpers.RegulateIsoDate(year, month, dt.Date.Day, overflow);
-        if (regulated is null)
-        {
-            Throw.RangeError(_realm, "Invalid date after adding duration");
-        }
-
-        // Add weeks and days (CalendarDateAdd step 4-5)
-        var totalDays = duration.Weeks * 7 + duration.Days;
-        var newDate = totalDays != 0 ? AddDays(regulated.Value, (int) totalDays) : regulated.Value;
-
-        // Add time components using BigInteger to avoid overflow
-        BigInteger totalNs = dt.Time.TotalNanoseconds() + TemporalHelpers.TimeDurationFromComponents(duration);
-
-        // Handle overflow using floor division
-        var dayOverflow = TemporalHelpers.FloorDivide(totalNs, TemporalHelpers.NanosecondsPerDay);
-        totalNs -= dayOverflow * TemporalHelpers.NanosecondsPerDay;
-
-        if (dayOverflow != 0)
-        {
-            // Validate day overflow is within representable range
-            if (dayOverflow > 200_000_000 || dayOverflow < -200_000_000)
-            {
-                Throw.RangeError(_realm, "Date is outside the valid range");
-            }
-
-            newDate = AddDays(newDate, (int) dayOverflow);
-        }
-
-        var newTime = IsoTime.FromNanoseconds((long) totalNs);
-        var newDateTime = new IsoDateTime(newDate, newTime);
-
-        return GetInstantFor(provider, zdt.TimeZone, newDateTime, "compatible");
+        return TemporalHelpers.AddZonedDateTime(_realm, provider, zdt.EpochNanoseconds, zdt.TimeZone, zdt.Calendar, duration, overflow);
     }
 
     /// <summary>

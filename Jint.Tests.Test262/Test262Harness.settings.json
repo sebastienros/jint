@@ -1,10 +1,12 @@
 {
-  "SuiteGitSha": "f2d59ea6e4b2f6f87de9f0d18a41d73782b6a9bc",
+  "SuiteGitSha": "1a51ced90ea552ffd90450d234ebb426f134fa93",
   //"SuiteDirectory": "//mnt/c/work/test262",
   "TargetPath": "./Generated",
   "Namespace": "Jint.Tests.Test262",
   "Parallel": true,
   "ExcludedFeatures": [
+    "await-dictionary",
+    "import-bytes",
     "import-defer",
     "regexp-lookbehind",
     "regexp-modifiers",
@@ -239,6 +241,36 @@
 
     // Japanese calendar era boundary resolution
     "intl402/Temporal/PlainYearMonth/from/reference-day-japanese.js",
+    "intl402/Temporal/PlainDate/from/japanese-pre-meiji.js",
+
+    // .NET ar-EG locale defaults to latn numbering system instead of arab (Arabic-Indic digits)
+    "intl402/DateTimeFormat/prototype/format/temporal-objects-no-time-clip-non-latin-numerals.js",
+
+    // Leap month numerical months - Chinese/Dangi/Hebrew lunisolar calendar limitations
+    "intl402/Temporal/PlainDate/prototype/add/leap-month-chinese-numerical-months.js",
+    "intl402/Temporal/PlainDate/prototype/add/leap-month-dangi-numerical-months.js",
+    "intl402/Temporal/PlainDate/prototype/add/leap-month-hebrew-numerical-months.js",
+    "intl402/Temporal/PlainDate/prototype/subtract/leap-month-chinese-numerical-months.js",
+    "intl402/Temporal/PlainDate/prototype/subtract/leap-month-dangi-numerical-months.js",
+    "intl402/Temporal/PlainDate/prototype/subtract/leap-month-hebrew-numerical-months.js",
+    "intl402/Temporal/PlainDateTime/prototype/add/leap-month-chinese-numerical-months.js",
+    "intl402/Temporal/PlainDateTime/prototype/add/leap-month-dangi-numerical-months.js",
+    "intl402/Temporal/PlainDateTime/prototype/add/leap-month-hebrew-numerical-months.js",
+    "intl402/Temporal/PlainDateTime/prototype/subtract/leap-month-chinese-numerical-months.js",
+    "intl402/Temporal/PlainDateTime/prototype/subtract/leap-month-dangi-numerical-months.js",
+    "intl402/Temporal/PlainDateTime/prototype/subtract/leap-month-hebrew-numerical-months.js",
+    "intl402/Temporal/PlainYearMonth/prototype/add/leap-month-chinese-numerical-months.js",
+    "intl402/Temporal/PlainYearMonth/prototype/add/leap-month-dangi-numerical-months.js",
+    "intl402/Temporal/PlainYearMonth/prototype/add/leap-month-hebrew-numerical-months.js",
+    "intl402/Temporal/PlainYearMonth/prototype/subtract/leap-month-chinese-numerical-months.js",
+    "intl402/Temporal/PlainYearMonth/prototype/subtract/leap-month-dangi-numerical-months.js",
+    "intl402/Temporal/PlainYearMonth/prototype/subtract/leap-month-hebrew-numerical-months.js",
+    "intl402/Temporal/ZonedDateTime/prototype/add/leap-month-chinese-numerical-months.js",
+    "intl402/Temporal/ZonedDateTime/prototype/add/leap-month-dangi-numerical-months.js",
+    "intl402/Temporal/ZonedDateTime/prototype/add/leap-month-hebrew-numerical-months.js",
+    "intl402/Temporal/ZonedDateTime/prototype/subtract/leap-month-chinese-numerical-months.js",
+    "intl402/Temporal/ZonedDateTime/prototype/subtract/leap-month-dangi-numerical-months.js",
+    "intl402/Temporal/ZonedDateTime/prototype/subtract/leap-month-hebrew-numerical-months.js",
 
     // PlainMonthDay from - multi-calendar (constrain, reference-date, reference-year)
     "intl402/Temporal/PlainMonthDay/from/constrain-to-leap-day.js",

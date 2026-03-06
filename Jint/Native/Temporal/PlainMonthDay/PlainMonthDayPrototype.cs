@@ -191,7 +191,10 @@ internal sealed class PlainMonthDayPrototype : Prototype
         }
 
         // Validate using the provided year (important for leap day validation)
-        var date = TemporalHelpers.RegulateIsoDate(year, month, day, overflow);
+        // For PlainMonthDay with iso8601 calendar, the year is only used for overflow,
+        // not range-checked (per spec CalendarMonthDayToISOReferenceDate)
+        var skipRangeCheck = string.Equals(md.Calendar, "iso8601", StringComparison.Ordinal);
+        var date = TemporalHelpers.RegulateIsoDate(year, month, day, overflow, skipRangeCheck);
         if (date is null)
         {
             Throw.RangeError(_realm, "Invalid month-day");

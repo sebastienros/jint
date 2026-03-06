@@ -637,7 +637,15 @@ internal sealed class JsDateTimeFormat : ObjectInstance
 
             // For proleptic Gregorian calendar with era, convert negative years to positive BC years
             // Year 0 in astronomical notation = 1 BC, year -1 = 2 BC, etc.
-            var displayYear = Era != null && effectiveYear <= 0 ? 1 - effectiveYear : System.Math.Abs(effectiveYear);
+            int displayYear;
+            if (Era != null && effectiveYear <= 0)
+            {
+                displayYear = 1 - effectiveYear;
+            }
+            else
+            {
+                displayYear = effectiveYear; // Keep sign for iso8601/gregorian without era
+            }
 
             var yearValue = Year switch
             {
@@ -845,12 +853,35 @@ internal sealed class JsDateTimeFormat : ObjectInstance
                     });
                     break;
                 case 'y' when Year != null:
-                    parts.Add(Year switch
+                    if (originalYear.HasValue)
                     {
-                        "numeric" => "yyyy",
-                        "2-digit" => "yy",
-                        _ => "yyyy"
-                    });
+                        // Use original year as escaped literal to avoid .NET formatting the representative year
+                        var yearVal = originalYear.Value;
+                        int displayYear;
+                        if (Era != null && yearVal <= 0)
+                        {
+                            displayYear = 1 - yearVal; // Convert to era-relative positive year
+                        }
+                        else
+                        {
+                            displayYear = yearVal; // Keep sign for iso8601/gregorian without era
+                        }
+                        var yearStr = Year switch
+                        {
+                            "2-digit" => (System.Math.Abs(displayYear) % 100).ToString("00", CultureInfo),
+                            _ => displayYear.ToString(CultureInfo)
+                        };
+                        parts.Add("'" + yearStr + "'");
+                    }
+                    else
+                    {
+                        parts.Add(Year switch
+                        {
+                            "numeric" => "yyyy",
+                            "2-digit" => "yy",
+                            _ => "yyyy"
+                        });
+                    }
                     break;
             }
         }

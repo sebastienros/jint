@@ -243,17 +243,41 @@ internal static class TemporalHelpers
                 return null;
             }
 
-            // Check for optional seconds +HHMMSS (must be exactly 7 characters total)
+            // Check for optional seconds +HHMMSS[.fffffffff]
             if (input.Length > 5)
             {
-                if (input.Length != 7)
+                if (input.Length < 7)
                 {
-                    return null; // Invalid format - must be exactly +HHMMSS
+                    return null; // Invalid format - need at least +HHMMSS
                 }
 
                 if (!int.TryParse(input.AsSpan(5, 2), NumberStyles.Integer, CultureInfo.InvariantCulture, out seconds))
                 {
                     return null;
+                }
+
+                // Check for fractional seconds after +HHMMSS
+                if (input.Length > 7)
+                {
+                    if (input[7] != '.' && input[7] != ',')
+                    {
+                        return null;
+                    }
+
+                    var fractionStart = 8;
+                    var fractionLength = input.Length - fractionStart;
+
+                    if (fractionLength < 1 || fractionLength > 9)
+                    {
+                        return null;
+                    }
+
+                    if (!int.TryParse(input.AsSpan(fractionStart, fractionLength), NumberStyles.Integer, CultureInfo.InvariantCulture, out var fractionValue))
+                    {
+                        return null;
+                    }
+
+                    nanoseconds = fractionValue * (long) System.Math.Pow(10, 9 - fractionLength);
                 }
             }
         }
@@ -760,7 +784,7 @@ internal static class TemporalHelpers
     // Fractions are only allowed after seconds, not after hours or minutes
     // Per spec TimeSpec grammar: Hour | Hour TimeSeparator MinuteSecond | ...
     private static readonly Regex TimeWithOffsetPattern = new(
-        @"^(\d{2})(?:(?::(\d{2})(?::(\d{2})(?:[.,](\d{1,9}))?)?)|(?:(\d{2})(?:(\d{2})(?:[.,](\d{1,9}))?)?))??(?:([Zz])|([+-])(\d{2}):?(\d{2})(?::?(\d{2})(?:[.,](\d{1,9}))?)?)?$",
+        @"^(\d{2})(?:(?::(\d{2})(?::(\d{2})(?:[.,](\d{1,9}))?)?)|(?:(\d{2})(?:(\d{2})(?:[.,](\d{1,9}))?)?))??(?:([Zz])|([+-])(\d{2})(?::?(\d{2})(?::?(\d{2})(?:[.,](\d{1,9}))?)?)?)?$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant,
         RegexTimeout);
 #pragma warning restore MA0023
@@ -1791,7 +1815,7 @@ internal static class TemporalHelpers
             case "gregory":
                 return isoYear >= 1 ? "ce" : "bce";
             case "roc":
-                return isoYear >= 1912 ? "minguo" : "before-roc";
+                return isoYear >= 1912 ? "roc" : "broc";
             case "buddhist":
                 return "be";
             case "japanese":
@@ -1913,9 +1937,9 @@ internal static class TemporalHelpers
                     return eraYear; // simplified
                 break;
             case "roc":
-                if (era is "minguo" or "roc")
+                if (era is "roc" or "minguo")
                     return eraYear;
-                if (era is "before-roc" or "before-roc-inverse")
+                if (era is "broc" or "before-roc" or "before-roc-inverse")
                     return 1 - eraYear;
                 break;
             case "buddhist":
@@ -2261,7 +2285,7 @@ internal static class TemporalHelpers
     /// <summary>
     /// Validates and regulates ISO date fields.
     /// </summary>
-    public static IsoDate? RegulateIsoDate(int year, int month, int day, string overflow)
+    public static IsoDate? RegulateIsoDate(int year, int month, int day, string overflow, bool skipRangeCheck = false)
     {
         if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
         {
@@ -2269,15 +2293,17 @@ internal static class TemporalHelpers
             var daysInMonth = IsoDate.IsoDateInMonth(year, month);
             day = Clamp(day, 1, daysInMonth);
             var date = new IsoDate(year, month, day);
-            // Even with constrain, check Temporal limits
-            return IsValidIsoDateTime(year, month, day) ? date : null;
+            // Even with constrain, check Temporal limits (unless skipped for PlainMonthDay)
+            return skipRangeCheck || IsValidIsoDateTime(year, month, day) ? date : null;
         }
 
         if (string.Equals(overflow, "reject", StringComparison.Ordinal))
         {
             var date = new IsoDate(year, month, day);
-            // Check both basic validity and Temporal limits
-            return date.IsValid() && IsValidIsoDateTime(year, month, day) ? date : null;
+            // Check basic validity; also check Temporal limits unless skipped for PlainMonthDay
+            if (!date.IsValid())
+                return null;
+            return skipRangeCheck || IsValidIsoDateTime(year, month, day) ? date : null;
         }
 
         return null;
@@ -5010,49 +5036,34 @@ internal static class TemporalHelpers
             Throw.RangeError(realm, "Ambiguous time with disambiguation=reject");
         }
 
-        // Step 8: No possibilities (DST spring forward - gap)
+        // Step 7: No possibilities (gap) — reject throws
         if (string.Equals(disambiguation, "reject", StringComparison.Ordinal))
         {
             Throw.RangeError(realm, "Time does not exist in timezone (DST gap) with disambiguation=reject");
         }
 
-        // Steps 9-19: Find the epoch time during the gap
-        // For "earlier": use the time before the gap
-        // For "compatible" or "later": use the time after the gap
+        // Step 8: Let epochNanoseconds be GetUTCEpochNanoseconds(isoDateTime)
+        var epochNanoseconds = GetUTCEpochNanoseconds(isoDateTime);
 
-        // Simplified implementation: Try adjusting by 1 hour in each direction
-        // A full implementation would use binary search to find exact gap boundaries
+        // Step 9-10: dayBefore and dayAfter
+        var dayBefore = epochNanoseconds - NanosecondsPerDay;
+        var dayAfter = epochNanoseconds + NanosecondsPerDay;
 
-        // Try 1 hour earlier
-        var oneHourNs = NanosecondsPerHour;
-        var earlierEpochGuess = GetUTCEpochNanoseconds(isoDateTime) - oneHourNs;
-        var earlierDateTimeGuess = EpochNanosecondsToIsoDateTime(earlierEpochGuess);
-        var earlierPossible = GetPossibleEpochNanoseconds(realm, timeZoneProvider, timeZone, earlierDateTimeGuess);
+        // Step 11-12: Get offsets at ±1 day
+        var offsetBefore = (BigInteger) timeZoneProvider.GetOffsetNanosecondsFor(timeZone, dayBefore);
+        var offsetAfter = (BigInteger) timeZoneProvider.GetOffsetNanosecondsFor(timeZone, dayAfter);
 
-        if (string.Equals(disambiguation, "earlier", StringComparison.Ordinal) && earlierPossible.Length > 0)
+        // For gaps: "earlier" resolves to the wall-clock time BEFORE the gap,
+        // "compatible"/"later" resolves to the wall-clock time AFTER the gap.
+        // epochNs - offsetAfter gives the instant before the gap,
+        // epochNs - offsetBefore gives the instant after the gap.
+        if (string.Equals(disambiguation, "earlier", StringComparison.Ordinal))
         {
-            return earlierPossible[0];
+            return epochNanoseconds - offsetAfter;
         }
 
-        // Try 1 hour later
-        var laterEpochGuess = GetUTCEpochNanoseconds(isoDateTime) + oneHourNs;
-        var laterDateTimeGuess = EpochNanosecondsToIsoDateTime(laterEpochGuess);
-        var laterPossible = GetPossibleEpochNanoseconds(realm, timeZoneProvider, timeZone, laterDateTimeGuess);
-
-        if (laterPossible.Length > 0)
-        {
-            return laterPossible[laterPossible.Length - 1];
-        }
-
-        // Fallback for "earlier" if forward search worked
-        if (earlierPossible.Length > 0)
-        {
-            return earlierPossible[0];
-        }
-
-        // Should not reach here - throw error
-        Throw.RangeError(realm, "Could not determine epoch time for ambiguous datetime");
-        return BigInteger.Zero; // unreachable
+        // "compatible" or "later" → after the gap
+        return epochNanoseconds - offsetBefore;
     }
 
     /// <summary>
@@ -5094,44 +5105,23 @@ internal static class TemporalHelpers
             return possibleEpochNs[0];
         }
 
-        // Step 5: Midnight is in a DST gap. Find the first valid local time after midnight.
-        // The transition instant that creates the gap IS the start of day.
-        // Search for the transition near UTC midnight for this date.
+        // Step 4: Assert possibleEpochNs is empty (midnight is in a gap)
+        // Step 5: Let startBefore be GetUTCEpochNanoseconds(midnight) - NsPerDay
         var utcMidnightNs = (BigInteger) IsoDateToDays(isoDate.Year, isoDate.Month, isoDate.Day) * NanosecondsPerDay;
+        var startBefore = utcMidnightNs - NanosecondsPerDay;
 
-        // Search from 24 hours before UTC midnight to cover all possible timezone offsets (max ±14h)
-        var searchFrom = utcMidnightNs - NanosecondsPerDay;
-        var transition = provider.GetNextTransition(timeZone, searchFrom);
+        // Step 6: Let nextTransition be GetNamedTimeZoneNextTransition(timeZone, startBefore)
+        var nextTransition = provider.GetNextTransition(timeZone, startBefore);
 
-        // Find the transition whose new local time lands on our target date
-        while (transition.HasValue && transition.Value < utcMidnightNs + NanosecondsPerDay)
+        // Step 7: Assert nextTransition is not null
+        if (!nextTransition.HasValue)
         {
-            // Get the offset AFTER the transition
-            var offsetAfter = provider.GetOffsetNanosecondsFor(timeZone, transition.Value);
-            var localNsAfter = transition.Value + offsetAfter;
-
-            // Check if the local time after transition is on our target date and >= 00:00
-            var localDays = localNsAfter / NanosecondsPerDay;
-            var localTimeNs = localNsAfter - localDays * NanosecondsPerDay;
-            if (localTimeNs < 0)
-            {
-                localDays--;
-                localTimeNs += NanosecondsPerDay;
-            }
-
-            var targetDays = (BigInteger) IsoDateToDays(isoDate.Year, isoDate.Month, isoDate.Day);
-            if (localDays == targetDays)
-            {
-                return transition.Value;
-            }
-
-            // Move to next transition
-            transition = provider.GetNextTransition(timeZone, transition.Value);
+            Throw.RangeError(realm, "Could not determine start of day");
+            return BigInteger.Zero;
         }
 
-        // Fallback: should not reach here for valid timezones
-        Throw.RangeError(realm, "Could not determine start of day");
-        return BigInteger.Zero;
+        // Step 8: Return nextTransition
+        return nextTransition.Value;
     }
 
     /// <summary>
@@ -5267,8 +5257,8 @@ internal static class TemporalHelpers
         // Step 10: If date and time signs disagree, adjust
         if (dateSign != 0 && timeSign != 0 && dateSign == -timeSign)
         {
-            // Step 10a: Adjust date duration
-            dateDifference = AdjustDateDurationRecord(dateDifference, -timeSign);
+            // Step 10a: Adjust date duration - reduce magnitude by going in timeSign direction
+            dateDifference = AdjustDateDurationRecord(dateDifference, timeSign);
 
             // Step 10b: Recompute intermediate
             intermediateDate = CalendarDateAdd(realm, calendar, startDateTime.Date, dateDifference, "constrain");

@@ -430,69 +430,11 @@ internal sealed class PlainTimeConstructor : Constructor
                     if (offsetPart.Length < 2)
                         continue; // Offset must have at least HH (2 digits)
 
-                    // Quick validation: offset should be digits and optional colons only
-                    var validOffsetChars = true;
-                    var hasColonInOffset = false;
-                    var colonPositions = new List<int>();
-                    for (var i = 0; i < offsetPart.Length; i++)
-                    {
-                        var ch = offsetPart[i];
-                        if (!char.IsDigit(ch) && ch != ':')
-                        {
-                            validOffsetChars = false;
-                            break;
-                        }
-
-                        if (ch == ':')
-                        {
-                            hasColonInOffset = true;
-                            colonPositions.Add(i);
-                        }
-                    }
-
-                    if (!validOffsetChars)
+                    // Use ParseOffsetString for validation (consolidates offset validation logic)
+                    var signChar = timeString[splitPos];
+                    var fullOffset = signChar + offsetPart;
+                    if (TemporalHelpers.ParseOffsetString(fullOffset) is null)
                         continue;
-
-                    // Offset must be one of these lengths: 2 (HH), 4 (HHMM), 5 (HH:MM), 6 (HHMMSS), 8 (HH:MM:SS)
-                    // Note: 7 characters is NOT a valid offset format
-                    if (offsetPart.Length != 2 && offsetPart.Length != 4 && offsetPart.Length != 5 &&
-                        offsetPart.Length != 6 && offsetPart.Length != 8)
-                        continue;
-
-                    // Check separator consistency in offset
-                    // Valid patterns: HH, HHMM, HH:MM, HHMMSS, HH:MM:SS
-                    // Invalid: HH:MMSS, HHMM:SS (mixed separators)
-                    if (hasColonInOffset)
-                    {
-                        // With colons, must be HH:MM or HH:MM:SS format
-                        // First colon at position 2, second colon (if any) at position 5
-                        if (colonPositions.Count > 0 && colonPositions[0] != 2)
-                            continue; // First colon must be after HH
-                        if (colonPositions.Count > 1 && colonPositions[1] != 5)
-                            continue; // Second colon must be after MM
-                        if (colonPositions.Count > 2)
-                            continue; // At most 2 colons
-                    }
-
-                    // Validate offset hour (first 2 digits must be 00-23)
-                    if (!int.TryParse(offsetPart.AsSpan(0, 2), NumberStyles.None, CultureInfo.InvariantCulture, out var offsetHour) ||
-                        offsetHour > 23)
-                        continue;
-
-                    // Validate offset minute if present (for HH:MM format)
-                    if (offsetPart.Length >= 5 && offsetPart[2] == ':')
-                    {
-                        if (!int.TryParse(offsetPart.AsSpan(3, 2), NumberStyles.None, CultureInfo.InvariantCulture, out var offsetMinute) ||
-                            offsetMinute > 59)
-                            continue;
-                    }
-                    // Validate offset minute for HHMM format
-                    else if (offsetPart.Length >= 4 && char.IsDigit(offsetPart[2]) && char.IsDigit(offsetPart[3]))
-                    {
-                        if (!int.TryParse(offsetPart.AsSpan(2, 2), NumberStyles.None, CultureInfo.InvariantCulture, out var offsetMinute) ||
-                            offsetMinute > 59)
-                            continue;
-                    }
 
                     // Try parsing just the time part
                     time = TemporalHelpers.ParseIsoTime(timePart);
@@ -607,13 +549,21 @@ internal sealed class PlainTimeConstructor : Constructor
         var timeZoneCount = 0;
         while (pos < remainder.Length)
         {
-            // Skip offset
+            // Validate and skip offset
             if (remainder[pos] == '+' || remainder[pos] == '-')
             {
+                var offsetStart = pos;
                 pos++;
                 while (pos < remainder.Length && remainder[pos] != '[')
                 {
                     pos++;
+                }
+
+                // Validate offset format (including fraction digit count)
+                var offsetStr = remainder.Substring(offsetStart, pos - offsetStart);
+                if (TemporalHelpers.ParseOffsetString(offsetStr) is null)
+                {
+                    return new ParsedTimeResult(null, "Invalid UTC offset format");
                 }
 
                 continue;
