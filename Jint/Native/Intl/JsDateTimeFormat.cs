@@ -465,58 +465,48 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     }
 
     /// <summary>
-    /// Determines the locale-specific date format order and separator.
+    /// Determines the locale-specific date format order and separator
+    /// by parsing the ShortDatePattern from DateTimeFormatInfo.
     /// </summary>
     private LocaleDateFormatInfo GetLocaleDateFormat()
     {
-        // Check if month is textual (long, short, narrow) vs numeric
         var hasTextualMonth = Month != null && Month is "long" or "short" or "narrow";
 
-        // Get locale's short date pattern to determine order
-        var lang = Locale.Split('-')[0].ToLowerInvariant();
-        var region = Locale.Contains('-') ? Locale.Split('-')[1].ToUpperInvariant() : "";
-
-        // Determine date component order based on locale
-        // MDY: en-US, en-CA (Canada uses MDY in English), fil (Philippines)
-        // DMY: Most of Europe, UK, Australia, most of world
-        // YMD: East Asia (China, Japan, Korea), Lithuania, Hungary
-        string dateOrder;
-        if (string.Equals(lang, "en", StringComparison.Ordinal) &&
-            (string.Equals(region, "US", StringComparison.Ordinal) ||
-             string.Equals(region, "", StringComparison.Ordinal)))
-        {
-            // en-US and plain "en" use MDY
-            dateOrder = "Mdy";
-        }
-        else if (string.Equals(lang, "zh", StringComparison.Ordinal) ||
-                 string.Equals(lang, "ja", StringComparison.Ordinal) ||
-                 string.Equals(lang, "ko", StringComparison.Ordinal) ||
-                 string.Equals(lang, "hu", StringComparison.Ordinal) ||
-                 string.Equals(lang, "lt", StringComparison.Ordinal))
-        {
-            // East Asian languages and Hungarian/Lithuanian use YMD
-            dateOrder = "yMd";
-        }
-        else
-        {
-            // Most of the world uses DMY
-            dateOrder = "dMy";
-        }
-
-        // Determine separator based on whether month is textual
-        string dateSeparator;
-        if (hasTextualMonth)
-        {
-            // Textual month uses space separators: "Jan 3, 2019"
-            dateSeparator = " ";
-        }
-        else
-        {
-            // Numeric format uses "/" for en-US, varies by locale
-            dateSeparator = "/";
-        }
+        // Derive date order and separator from the locale's ShortDatePattern (e.g., "dd-MM-yyyy", "M/d/yyyy")
+        var pattern = CultureInfo.DateTimeFormat.ShortDatePattern;
+        var dateOrder = ParseDateOrder(pattern);
+        var dateSeparator = hasTextualMonth ? " " : CultureInfo.DateTimeFormat.DateSeparator;
 
         return new LocaleDateFormatInfo(dateOrder, dateSeparator, hasTextualMonth);
+    }
+
+    /// <summary>
+    /// Parses a .NET ShortDatePattern to extract the date component order (e.g., "dMy", "Mdy", "yMd").
+    /// </summary>
+    private static string ParseDateOrder(string pattern)
+    {
+        var order = new StringBuilder(3);
+        foreach (var c in pattern)
+        {
+            var component = char.ToLowerInvariant(c) switch
+            {
+                'd' => 'd',
+                'm' => 'M',
+                'y' => 'y',
+                _ => '\0'
+            };
+
+            if (component != '\0' && (order.Length == 0 || order[order.Length - 1] != component))
+            {
+                order.Append(component);
+                if (order.Length == 3)
+                {
+                    break;
+                }
+            }
+        }
+
+        return order.Length == 3 ? order.ToString() : "dMy"; // fallback to DMY
     }
 
     private void AddMonthPart(DateTime dateTime, List<DateTimePart> result, ref bool hasDate, string separator, bool hasTextualMonth, ChineseCalendarHelper.ChineseCalendarDate? lunisolarDate = null)
@@ -1198,9 +1188,11 @@ internal sealed class JsDateTimeFormat : ObjectInstance
                         }
                         else
                         {
-                            // Numeric format: "1/3/2019"
-                            // Use literal '/' by escaping with single quotes to avoid .NET's culture-specific date separator
-                            result.Append("'/'");
+                            // Numeric format: use locale-specific date separator
+                            var sep = CultureInfo.DateTimeFormat.DateSeparator;
+                            result.Append('\'');
+                            result.Append(sep);
+                            result.Append('\'');
                         }
                     }
                 }
