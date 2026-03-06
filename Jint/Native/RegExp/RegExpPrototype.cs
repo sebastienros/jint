@@ -178,16 +178,29 @@ internal sealed class RegExpPrototype : Prototype
                     replacerArgs.Add(match.Value);
 
                     ObjectInstance? groups = null;
+                    // Pre-initialize groups with unique names in order
+                    for (var i = 1; i < actualGroupCount; i++)
+                    {
+                        var groupName = GetRegexGroupName(rei, i);
+                        if (!string.IsNullOrWhiteSpace(groupName))
+                        {
+                            groups ??= OrdinaryObjectCreate(_engine, null);
+                            if (!groups.HasOwnProperty(groupName))
+                            {
+                                groups.CreateDataPropertyOrThrow(groupName, Undefined);
+                            }
+                        }
+                    }
+
                     for (var i = 1; i < actualGroupCount; i++)
                     {
                         var capture = match.Groups[i];
                         replacerArgs.Add(capture.Success ? capture.Value : Undefined);
 
                         var groupName = GetRegexGroupName(rei, i);
-                        if (!string.IsNullOrWhiteSpace(groupName))
+                        if (!string.IsNullOrWhiteSpace(groupName) && capture.Success)
                         {
-                            groups ??= OrdinaryObjectCreate(_engine, null);
-                            groups.CreateDataPropertyOrThrow(groupName, capture.Success ? capture.Value : Undefined);
+                            groups!.CreateDataPropertyOrThrow(groupName, (JsString) capture.Value);
                         }
                     }
 
@@ -953,8 +966,33 @@ internal sealed class RegExpPrototype : Prototype
         array.CreateDataProperty(PropertyInput, s);
 
         ObjectInstance? groups = null;
-        List<string>? groupNames = null;
+        List<string?>? groupNames = null;
         var indices = hasIndices ? new List<JsNumber[]?>(actualGroupCount) : null;
+
+        // Pre-initialize groups object with all unique names in source order.
+        // This ensures correct property ordering and that duplicate names don't
+        // overwrite a successful capture with undefined from a non-participating group.
+        var hasAnyGroupName = false;
+        for (uint i = 1; i < actualGroupCount; i++)
+        {
+            var groupName = GetRegexGroupName(rei, (int) i);
+            if (!string.IsNullOrWhiteSpace(groupName))
+            {
+                hasAnyGroupName = true;
+                groups ??= OrdinaryObjectCreate(engine, null);
+                if (!groups.HasOwnProperty(groupName))
+                {
+                    groups.CreateDataPropertyOrThrow(groupName, Undefined);
+                }
+            }
+
+            if (hasIndices)
+            {
+                groupNames ??= [];
+                groupNames.Add(groupName);
+            }
+        }
+
         for (uint i = 0; i < actualGroupCount; i++)
         {
             var capture = match.Groups[(int) i];
@@ -976,13 +1014,13 @@ internal sealed class RegExpPrototype : Prototype
                 }
             }
 
-            var groupName = GetRegexGroupName(rei, (int) i);
-            if (!string.IsNullOrWhiteSpace(groupName))
+            if (i > 0)
             {
-                groups ??= OrdinaryObjectCreate(engine, null);
-                groups.CreateDataPropertyOrThrow(groupName, capturedValue);
-                groupNames ??= [];
-                groupNames.Add(groupName!);
+                var groupName = GetRegexGroupName(rei, (int) i);
+                if (!string.IsNullOrWhiteSpace(groupName) && capture?.Success == true)
+                {
+                    groups!.CreateDataPropertyOrThrow(groupName, capturedValue);
+                }
             }
 
             array.SetIndexValue(i, capturedValue, updateLength: false);
@@ -992,7 +1030,7 @@ internal sealed class RegExpPrototype : Prototype
 
         if (hasIndices)
         {
-            var indicesArray = MakeMatchIndicesIndexPairArray(engine, s, indices!, groupNames, groupNames?.Count > 0);
+            var indicesArray = MakeMatchIndicesIndexPairArray(engine, s, indices!, groupNames, hasAnyGroupName);
             array.CreateDataPropertyOrThrow("indices", indicesArray);
         }
 
@@ -1038,7 +1076,7 @@ internal sealed class RegExpPrototype : Prototype
         Engine engine,
         string s,
         List<JsNumber[]?> indices,
-        List<string>? groupNames,
+        List<string?>? groupNames,
         bool hasGroups)
     {
         var n = indices.Count;
@@ -1047,6 +1085,15 @@ internal sealed class RegExpPrototype : Prototype
         if (hasGroups)
         {
             groups = OrdinaryObjectCreate(engine, null);
+
+            // Pre-initialize all unique group names with undefined for correct property ordering
+            foreach (var name in groupNames!)
+            {
+                if (!string.IsNullOrWhiteSpace(name) && !groups.HasOwnProperty(name))
+                {
+                    groups.CreateDataPropertyOrThrow(name, Undefined);
+                }
+            }
         }
 
         a.CreateDataPropertyOrThrow("groups", groups ?? Undefined);
@@ -1061,7 +1108,11 @@ internal sealed class RegExpPrototype : Prototype
             a.Push(matchIndexPair);
             if (i > 0 && !string.IsNullOrWhiteSpace(groupNames?[i - 1]))
             {
-                groups!.CreateDataPropertyOrThrow(groupNames![i - 1], matchIndexPair);
+                // For duplicate group names, only update if this group actually matched
+                if (matchIndices is not null)
+                {
+                    groups!.CreateDataPropertyOrThrow(groupNames![i - 1], matchIndexPair);
+                }
             }
         }
         return a;

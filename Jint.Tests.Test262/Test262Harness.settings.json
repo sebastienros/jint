@@ -6,7 +6,6 @@
   "Parallel": true,
   "ExcludedFeatures": [
     "import-defer",
-    "regexp-lookbehind",
     "regexp-modifiers",
     "regexp-unicode-property-escapes",
     "regexp-v-flag",
@@ -33,51 +32,45 @@
     // Currently quite impossible to detect if assignment target is CoverParenthesizedExpression
     "language/expressions/assignment/fn-name-lhs-cover.js",
 
-    // RegExp conversion limitations
+    // === REGEX EXCLUSIONS ===
+
+    // CharacterClassEscapes tests internally use v flag which is not supported
+    "built-ins/RegExp/CharacterClassEscapes/*.js",
+
+    // .NET regex engine: forward backreferences not supported in ECMAScript mode
     "built-ins/RegExp/S15.10.2.11_A1_T5.js",
     "built-ins/RegExp/S15.10.2.11_A1_T7.js",
-    "built-ins/RegExp/S15.10.2.5_A1_T4.js",
+    "language/literals/regexp/named-groups/forward-reference.js",
     "built-ins/RegExp/named-groups/non-unicode-references.js",
     "built-ins/RegExp/named-groups/unicode-references.js",
-    "built-ins/RegExp/quantifier-integer-limit.js",
-    "language/literals/regexp/named-groups/forward-reference.js",
 
-    "built-ins/RegExp/CharacterClassEscapes/character-class-digit-class-escape-negative-cases.js",
-    "built-ins/RegExp/CharacterClassEscapes/character-class-digit-class-escape-positive-cases.js",
-    "built-ins/RegExp/CharacterClassEscapes/character-class-non-digit-class-escape-negative-cases.js",
-    "built-ins/RegExp/CharacterClassEscapes/character-class-non-digit-class-escape-positive-cases.js",
-    "built-ins/RegExp/CharacterClassEscapes/character-class-non-whitespace-class-escape-negative-cases.js",
-    "built-ins/RegExp/CharacterClassEscapes/character-class-non-whitespace-class-escape-positive-cases.js",
-    "built-ins/RegExp/CharacterClassEscapes/character-class-non-word-class-escape-negative-cases.js",
-    "built-ins/RegExp/CharacterClassEscapes/character-class-non-word-class-escape-positive-cases.js",
-    "built-ins/RegExp/CharacterClassEscapes/character-class-whitespace-class-escape-negative-cases.js",
-    "built-ins/RegExp/CharacterClassEscapes/character-class-whitespace-class-escape-positive-cases.js",
-    "built-ins/RegExp/CharacterClassEscapes/character-class-word-class-escape-negative-cases.js",
-    "built-ins/RegExp/CharacterClassEscapes/character-class-word-class-escape-positive-cases.js",
+    // .NET regex engine: lookbehind backreference capture semantics differ from JS
+    "built-ins/RegExp/lookBehind/back-references-to-captures.js",
+    "built-ins/RegExp/lookBehind/mutual-recursive.js",
 
-    // RegExp handling problems
+    // .NET regex engine: nullable quantifier and lookahead capture group semantics differ
     "built-ins/RegExp/nullable-quantifier.js",
-    "built-ins/RegExp/prototype/exec/S15.10.6.2_A1_T6.js",
-    "language/literals/regexp/u-case-mapping.js",
     "built-ins/RegExp/lookahead-quantifier-match-groups.js",
+
+    // .NET regex engine: complex quantifier capture group tracking differs
+    "built-ins/RegExp/S15.10.2.5_A1_T4.js",
+    "built-ins/RegExp/prototype/exec/S15.10.6.2_A1_T6.js",
+
+    // .NET regex engine: Unicode case folding tables differ from ECMAScript CaseFolding.txt
+    "language/literals/regexp/u-case-mapping.js",
     "built-ins/RegExp/unicode_full_case_folding.js",
-    "built-ins/RegExp/named-groups/duplicate-names-exec.js",
+
+    // .NET regex engine: quantifier values exceeding int.MaxValue
+    "built-ins/RegExp/quantifier-integer-limit.js",
+
+    // .NET regex engine: quantified groups with alternation retain captures from previous iterations
+    // (JavaScript resets non-participating groups per iteration, .NET does not)
     "built-ins/RegExp/named-groups/duplicate-names-exec.js",
     "built-ins/RegExp/named-groups/duplicate-names-match.js",
-    "built-ins/RegExp/named-groups/duplicate-names-match.js",
-    "built-ins/RegExp/named-groups/duplicate-names-match-indices.js",
-    "built-ins/RegExp/named-groups/duplicate-names-match-indices.js",
-    "built-ins/RegExp/named-groups/duplicate-names-replace.js",
-    "built-ins/RegExp/named-groups/duplicate-names-replace.js",
-    "built-ins/RegExp/named-groups/duplicate-names-replaceall.js",
-    "built-ins/RegExp/named-groups/duplicate-names-replaceall.js",
-    "built-ins/RegExp/prototype/exec/duplicate-named-groups-properties.js",
+    "built-ins/RegExp/named-groups/duplicate-names-test.js",
     "built-ins/RegExp/prototype/exec/duplicate-named-groups-properties.js",
     "built-ins/RegExp/prototype/exec/duplicate-named-indices-groups-properties.js",
-    "built-ins/RegExp/prototype/exec/duplicate-named-indices-groups-properties.js",
     "built-ins/String/prototype/match/duplicate-named-groups-properties.js",
-    "built-ins/String/prototype/match/duplicate-named-groups-properties.js",
-    "built-ins/String/prototype/match/duplicate-named-indices-groups-properties.js",
     "built-ins/String/prototype/match/duplicate-named-indices-groups-properties.js",
 
     // requires investigation how to process complex function name evaluation for property
