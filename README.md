@@ -144,9 +144,11 @@ and many more.
 
 #### ECMAScript proposals (no version yet)
 
+- ✔ Await Dictionary (`Promise.allKeyed`, `Promise.allSettledKeyed`)
 - ✔ `Error.isError`
 - ✔ Explicit Resource Management (`using` and `await using`)
 - ✔ Immutable Arraybuffers
+- ✔ Import Bytes (`import x from './file' with { type: 'bytes' }`)
 - ✔ Iterator Sequencing
 - ✔ Joint Iteration
 - ✔ JSON.parse source text access
