@@ -67,8 +67,9 @@ internal sealed class MapIteratorPrototype : IteratorPrototype
     private sealed class MapIterator : IteratorInstance
     {
         private readonly JintOrderedDictionary<JsValue, JsValue> _map;
-
         private int _position;
+        private JsValue? _lastKey;
+        private bool _done;
 
         public MapIterator(Engine engine, JsMap map) : base(engine)
         {
@@ -78,16 +79,47 @@ internal sealed class MapIteratorPrototype : IteratorPrototype
 
         public override bool TryIteratorStep(out ObjectInstance nextItem)
         {
+            if (_done)
+            {
+                nextItem = IteratorResult.CreateKeyValueIteratorPosition(_engine);
+                return false;
+            }
+
+            // Adjust position for mutations since last step
+            if (_lastKey is not null)
+            {
+                if (_position > 0 && _position - 1 < _map.Count && ReferenceEquals(_map.GetKey(_position - 1), _lastKey))
+                {
+                    // Common fast path: lastKey still at expected position
+                }
+                else if (_map.ContainsKey(_lastKey))
+                {
+                    var newIndex = _map.IndexOf(_lastKey);
+                    if (newIndex < _position - 1)
+                    {
+                        // Key moved backward (entries before it were deleted)
+                        _position = newIndex + 1;
+                    }
+                    // else: key was deleted and re-added at end, keep position
+                }
+                else
+                {
+                    // Key deleted, entries shifted left
+                    _position = System.Math.Max(0, _position - 1);
+                }
+            }
+
             if (_position < _map.Count)
             {
                 var key = _map.GetKey(_position);
                 var value = _map[key];
-
+                _lastKey = key;
                 _position++;
                 nextItem = IteratorResult.CreateKeyValueIteratorPosition(_engine, key, value);
                 return true;
             }
 
+            _done = true;
             nextItem = IteratorResult.CreateKeyValueIteratorPosition(_engine);
             return false;
         }

@@ -94,12 +94,6 @@ internal sealed class NumberPrototype : NumberInstance
             Throw.RangeError(_realm, "fractionDigits argument must be between 0 and 100");
         }
 
-        // limitation with .NET, max is 99
-        if (f == 100)
-        {
-            Throw.RangeError(_realm, "100 fraction digits is not supported due to .NET format specifier limitation");
-        }
-
         var x = TypeConverter.ToNumber(thisObject);
 
         if (double.IsNaN(x))
@@ -107,18 +101,111 @@ internal sealed class NumberPrototype : NumberInstance
             return "NaN";
         }
 
-        if (x >= Ten21)
+        if (x >= Ten21 || x <= -Ten21)
         {
             return ToNumberString(x);
         }
 
-        // handle non-decimal with greater precision
-        if (System.Math.Abs(x - (long) x) < JsNumber.DoubleIsIntegerTolerance)
+        bool negative = false;
+        if (x < 0)
         {
-            return ((long) x).ToString("f" + f, CultureInfo.InvariantCulture);
+            negative = true;
+            x = -x;
         }
 
-        return x.ToString("f" + f, CultureInfo.InvariantCulture);
+        if (f == 0)
+        {
+            // Fast path: no fractional digits
+            var rounded = System.Math.Round(x, MidpointRounding.AwayFromZero);
+            var result = negative ? "-" + ((long) rounded).ToString(CultureInfo.InvariantCulture) : ((long) rounded).ToString(CultureInfo.InvariantCulture);
+            return result;
+        }
+
+        // Use .NET formatting for f <= 99 (fast path)
+        if (f <= 99)
+        {
+            // handle non-decimal with greater precision
+            if (System.Math.Abs(x - (long) x) < JsNumber.DoubleIsIntegerTolerance)
+            {
+                var result = ((long) x).ToString("f" + f, CultureInfo.InvariantCulture);
+                return negative ? "-" + result : result;
+            }
+
+            var formatted = x.ToString("f" + f, CultureInfo.InvariantCulture);
+            return negative ? "-" + formatted : formatted;
+        }
+
+        // Use Dtoa infrastructure for f == 100 (avoids .NET format specifier limitation)
+        return ToFixedDtoa(x, f, negative);
+    }
+
+    private static string ToFixedDtoa(double x, int fractionDigits, bool negative)
+    {
+        if (x == 0)
+        {
+            var sb = new ValueStringBuilder(stackalloc char[128]);
+            if (negative)
+            {
+                sb.Append('-');
+            }
+            sb.Append("0.");
+            sb.Append('0', fractionDigits);
+            return sb.ToString();
+        }
+
+        var dtoaBuilder = new DtoaBuilder(stackalloc char[fractionDigits + 50]);
+        DtoaNumberFormatter.DoubleToAscii(
+            ref dtoaBuilder,
+            x,
+            DtoaMode.Fixed,
+            fractionDigits,
+            out _,
+            out var decimalPoint);
+
+        var result2 = new ValueStringBuilder(stackalloc char[fractionDigits + 50]);
+        if (negative)
+        {
+            result2.Append('-');
+        }
+
+        if (decimalPoint <= 0)
+        {
+            // 0.000...digits
+            result2.Append("0.");
+            result2.Append('0', -decimalPoint);
+            result2.Append(dtoaBuilder._chars.Slice(0, dtoaBuilder.Length));
+            int remaining = fractionDigits - (-decimalPoint + dtoaBuilder.Length);
+            if (remaining > 0)
+            {
+                result2.Append('0', remaining);
+            }
+        }
+        else if (decimalPoint >= dtoaBuilder.Length)
+        {
+            // Integer part only, pad with zeros
+            result2.Append(dtoaBuilder._chars.Slice(0, dtoaBuilder.Length));
+            result2.Append('0', decimalPoint - dtoaBuilder.Length);
+            if (fractionDigits > 0)
+            {
+                result2.Append('.');
+                result2.Append('0', fractionDigits);
+            }
+        }
+        else
+        {
+            // digits split across integer and fractional part
+            result2.Append(dtoaBuilder._chars.Slice(0, decimalPoint));
+            result2.Append('.');
+            int fracDigitsFromDtoa = dtoaBuilder.Length - decimalPoint;
+            result2.Append(dtoaBuilder._chars.Slice(decimalPoint, fracDigitsFromDtoa));
+            int remaining = fractionDigits - fracDigitsFromDtoa;
+            if (remaining > 0)
+            {
+                result2.Append('0', remaining);
+            }
+        }
+
+        return result2.ToString();
     }
 
     /// <summary>
