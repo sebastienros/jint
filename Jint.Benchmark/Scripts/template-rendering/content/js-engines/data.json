@@ -1,0 +1,235 @@
+{
+  "categories": [
+    {
+      "name": "Actual",
+      "engines": [
+        {
+          "id": "besen",
+          "name": "BESEN",
+          "url": "https:\/\/github.com\/BeRo1985\/besen",
+          "description": "A acronym for &ldquo;<strong>B<\/strong> ero&rsquo;s <strong>E<\/strong> cma <strong>S<\/strong> cript <strong>E<\/strong> ngine&rdquo;, and it is a complete ECMAScript 5 implementation in Object Pascal, which is compilable with Delphi >=7 and Free Pascal >= 2.5.1 (maybe also 2.4.1)."
+        },
+        {
+          "id": "chakra-edge",
+          "name": "Chakra “Edge”",
+          "url": "https:\/\/blogs.windows.com\/msedgedev\/2015\/05\/18\/using-chakra-for-scripting-applications-across-windows-10\/",
+          "description": "A JavaScript engine developed by <a href=\"https:\/\/www.microsoft.com\/\" target=\"_blank\">Microsoft<\/a> for its Edge web browser. It is a fork of the <a href=\"#chakra-ie\">JScript9<\/a> engine used in Internet Explorer."
+        },
+        {
+          "id": "chakra-core",
+          "name": "ChakraCore",
+          "url": "https:\/\/github.com\/Microsoft\/ChakraCore",
+          "description": "A core part of Chakra, the high-performance JavaScript engine that powers Microsoft Edge and Windows applications written in HTML\/CSS\/JS. ChakraCore supports Just-in-time (JIT) compilation of JavaScript for x86\/x64\/ARM, garbage collection, and a wide range of the latest JavaScript features. ChakraCore also supports the <a href=\"https:\/\/github.com\/Microsoft\/ChakraCore\/wiki\/JavaScript-Runtime-%28JSRT%29-Overview\" target=\"_blank\">JavaScript Runtime (JSRT) APIs<\/a>, which allows you to easily embed ChakraCore in your applications."
+        },
+        {
+          "id": "duktape",
+          "name": "Duktape",
+          "url": "https:\/\/duktape.org\/",
+          "description": "A embeddable JavaScript engine, with a focus on portability and compact footprint."
+        },
+        {
+          "id": "espruino",
+          "name": "Espruino",
+          "url": "https:\/\/github.com\/espruino\/Espruino",
+          "description": "A JavaScript interpreter for microcontrollers. It designed for devices with as little as 128 KB Flash and 8 KB RAM."
+        },
+        {
+          "id": "hermes",
+          "name": "Hermes",
+          "url": "https:\/\/github.com\/facebook\/hermes",
+          "description": "A <a href=\"https:\/\/opensource.facebook.com\/\" target=\"_blank\">Facebook<\/a>&rsquo;s JavaScript engine optimized for fast start up of <a href=\"https:\/\/facebook.github.io\/react-native\/\" target=\"_blank\">React Native<\/a> apps on Android. It features ahead-of-time static optimization and compact bytecode."
+        },
+        {
+          "id": "javascript-core",
+          "name": "JavaScriptCore",
+          "url": "https:\/\/developer.apple.com\/documentation\/javascriptcore",
+          "description": "A <a href=\"https:\/\/www.apple.com\/\" target=\"_blank\">Apple<\/a>&rsquo;s Framework provides the ability to evaluate JavaScript programs from within Swift, Objective-C, and C-based apps. You can use also use JavaScriptCore to insert custom objects to the JavaScript environment."
+        },
+        {
+          "id": "jerry-script",
+          "name": "JerryScript",
+          "url": "https:\/\/jerryscript.net\/",
+          "description": "A lightweight JavaScript engine for resource-constrained devices such as microcontrollers. It can run on devices with less than 64 KB of RAM and less than 200 KB of flash memory."
+        },
+        {
+          "id": "jint",
+          "name": "Jint",
+          "url": "https:\/\/github.com\/sebastienros\/jint",
+          "description": "A JavaScript interpreter for .NET which provides full ECMAScript 5.1 compliance and can run on any .NET platform. Because it doesn't generate any .NET bytecode nor use the DLR it runs relatively small scripts faster."
+        },
+        {
+          "id": "js-interpreter",
+          "name": "JS-Interpreter",
+          "url": "https:\/\/github.com\/NeilFraser\/JS-Interpreter",
+          "description": "A sandboxed JavaScript interpreter in JavaScript. Execute arbitrary JavaScript code line by line in isolation and safety."
+        },
+        {
+          "id": "jsish",
+          "name": "jsish",
+          "url": "https:\/\/jsish.org",
+          "description": "A Javascript interpreter + embedded Web-server."
+        },
+        {
+          "id": "jurassic",
+          "name": "Jurassic",
+          "url": "https:\/\/github.com\/paulbartrum\/jurassic",
+          "description": "An implementation of the ECMAScript language and runtime. It aims to provide the best performing and most standards-compliant implementation of JavaScript for .NET. Jurassic is not intended for end-users; instead it is intended to be integrated into .NET programs."
+        },
+        {
+          "id": "kjs",
+          "name": "KJS",
+          "url": "https:\/\/api.kde.org\/4.x-api\/kdelibs-apidocs\/kjs\/html\/",
+          "description": "A <a href=\"https:\/\/kde.org\/\" target=\"_blank\">KDE<\/a>&rsquo;s JavaScript engine that was originally developed for the <a href=\"https:\/\/kde.org\/applications\/internet\/org.kde.konqueror\" target=\"_blank\">Konqueror<\/a> web browser by Harri Porten in 2000."
+        },
+        {
+          "id": "mjs",
+          "name": "mJS",
+          "url": "https:\/\/github.com\/cesanta\/mjs",
+          "description": "A restricted JavaScript engine. It designed for microcontrollers with limited resources. Main design goals are small footprint and simple C\/C++ interoperability."
+        },
+        {
+          "id": "mu-js",
+          "name": "MuJS",
+          "url": "https:\/\/mujs.com\/",
+          "description": "A lightweight JavaScript interpreter designed for embedding in other software to extend them with scripting capabilities. It written in portable C and implements ECMAScript."
+        },
+        {
+          "id": "nil-js",
+          "name": "NiL.JS",
+          "url": "https:\/\/github.com\/nilproject\/NiL.JS",
+          "description": "A JavaScript engine for .NET written in C# and implements ECMAScript 6 (ES2015)."
+        },
+        {
+          "id": "quick-js",
+          "name": "QuickJS",
+          "url": "https:\/\/bellard.org\/quickjs\/",
+          "description": "A small and embeddable JavaScript engine. It supports the ES2020 specification including modules, asynchronous generators and proxies."
+        },
+        {
+          "id": "rhino",
+          "name": "Rhino",
+          "url": "https:\/\/github.com\/mozilla\/rhino",
+          "description": "A JavaScript engine written fully in Java and managed by the <a href=\"https:\/\/foundation.mozilla.org\/\" target=\"_blank\">Mozilla Foundation<\/a> as open source software."
+        },
+        {
+          "id": "spider-monkey",
+          "name": "SpiderMonkey",
+          "url": "https:\/\/developer.mozilla.org\/en-US\/docs\/Mozilla\/Projects\/SpiderMonkey",
+          "description": "A <a href=\"https:\/\/www.mozilla.org\/\" target=\"_blank\">Mozilla<\/a>&rsquo;s JavaScript engine written in C and C++. It used in various Mozilla products, including Firefox, and is available under the MPL2."
+        },
+        {
+          "id": "tiny-js",
+          "name": "TinyJS",
+          "url": "https:\/\/github.com\/gfwilliams\/tiny-js",
+          "description": "An extremely simple (~2000 line) JavaScript interpreter, meant for inclusion in applications that require a simple, familiar script language that can be included with no dependencies other than normal C++ libraries. It currently consists of two source files: one containing the interpreter, another containing built-in functions such as <code>String.substring<\/code>."
+        },
+        {
+          "id": "v8",
+          "name": "V8",
+          "url": "https:\/\/v8.dev\/",
+          "description": "A <a href=\"https:\/\/about.google\/\" target=\"_blank\">Google<\/a>&rsquo;s open source high-performance JavaScript and WebAssembly engine, written in C++. It used in Chrome and in Node.js, among others. It implements ECMAScript and WebAssembly, and runs on Windows 7 or later, macOS 10.12+, and Linux systems that use x64, IA-32, ARM, or MIPS processors. V8 can run standalone, or can be embedded into any C++ application."
+        },
+        {
+          "id": "xs",
+          "name": "XS",
+          "url": "https:\/\/github.com\/Moddable-OpenSource\/moddable",
+          "description": "A JavaScript engine at the center of the <a href=\"https:\/\/www.moddable.com\/\" target=\"_blank\">Moddable SDK<\/a> (successor of <a href=\"https:\/\/github.com\/Kinoma\/\" target=\"_blank\">Kinoma<\/a> Platform) implements the 2018 JavaScript language standard with better than 99% conformance. The constraints of the target microcontroller may limit the number of language features that can be used in combination by a single application."
+        }
+      ]
+    },
+    {
+      "name": "Obsolete",
+      "engines": [
+        {
+          "id": "carakan",
+          "name": "Carakan",
+          "url": "https:\/\/dev.opera.com\/blog\/carakan\/",
+          "description": "A JavaScript engine developed by <a href=\"https:\/\/www.opera.com\/\" target=\"_blank\">Opera Software<\/a>, included in the 10.50 release of the Opera web browser, until switching to <a href=\"#v8\">V8<\/a> with Opera 15."
+        },
+        {
+          "id": "chakra-ie",
+          "name": "Chakra “IE” (JScript9)",
+          "url": "https:\/\/blogs.msdn.microsoft.com\/ie\/2010\/03\/18\/the-new-javascript-engine-in-internet-explorer-9\/",
+          "description": "A Active Scripting JavaScript engine developed by <a href=\"https:\/\/www.microsoft.com\/\" target=\"_blank\">Microsoft<\/a> for Internet Explorer 9 web browser. Starting in Internet Explorer 11, Chakra added support for a new set of public hosting APIs called the <a href=\"https:\/\/docs.microsoft.com\/en-us\/previous-versions\/windows\/internet-explorer\/ie-developer\/scripting-articles\/dn249673(v=vs.94)\" target=\"_blank\">JavaScript Runtime (JSRT) APIs<\/a>, which shipped as part of the Windows SDK."
+        },
+        {
+          "id": "continuum",
+          "name": "Continuum",
+          "url": "https:\/\/github.com\/joskid\/continuum",
+          "description": "A JavaScript virtual machine built in JavaScript. It assembles bytecode from source code and executes it an ECMAScript 6 runtime environment. The code of the VM is written in ECMAScript 3 level JavaScript, which means it can run in browsers as old as Internet Explorer 6."
+        },
+        {
+          "id": "iron-js",
+          "name": "IronJS",
+          "url": "https:\/\/github.com\/fholm\/IronJS",
+          "description": "An ECMAScript 3 implementation built on top of the Dynamic Language Runtime from <a href=\"https:\/\/www.microsoft.com\/\" target=\"_blank\">Microsoft<\/a> which allows you to embed a javascript runtime into your .NET applications."
+        },
+        {
+          "id": "iv",
+          "name": "iv",
+          "url": "https:\/\/github.com\/Constellation\/iv",
+          "description": "A ECMAScript 5.1 lexer and parser and engine project written in C++\/JS."
+        },
+        {
+          "id": "jscript",
+          "name": "JScript",
+          "url": "https:\/\/docs.microsoft.com\/en-us\/previous-versions\/hbxc2t98(v=vs.85)",
+          "description": "A <a href=\"https:\/\/www.microsoft.com\/\" target=\"_blank\">Microsoft<\/a> implementation of the ECMAScript 3 language specification. It implemented as an <a href=\"https:\/\/docs.microsoft.com\/en-us\/previous-versions\/windows\/internet-explorer\/ie-developer\/scripting-articles\/fdee6589(v=vs.94)\" target=\"_blank\">Active Scripting<\/a> engine. This means that it can be &ldquo;plugged in&rdquo; to OLE Automation applications that support Active Scripting, such as Internet Explorer, <a href=\"https:\/\/docs.microsoft.com\/en-us\/previous-versions\/office\/developer\/server-technologies\/aa286483(v=msdn.10)\" target=\"_blank\">Active Server Pages<\/a>, and <a href=\"https:\/\/docs.microsoft.com\/en-us\/previous-versions\/\/9bbdkx3k(v=vs.85)\" target=\"_blank\">Windows Script Host<\/a>."
+        },
+        {
+          "id": "narcissus",
+          "name": "Narcissus",
+          "url": "https:\/\/github.com\/mozilla\/narcissus\/",
+          "description": "A JavaScript interpreter written in pure JavaScript (i.e., a <a href=\"https:\/\/en.wikipedia.org\/wiki\/Meta-circular_evaluator\" target=\"_blank\">meta-circular evaluator<\/a>), using the <a href=\"#spider-monkey\">SpiderMonkey<\/a> engine. Originally a proof-of-concept by <a href=\"https:\/\/brendaneich.com\/\" target=\"_blank\">Brendan Eich<\/a>, Narcissus is being revived as a test-bed for rapidly prototyping new language features for the JavaScript language (as well as the ECMAScript standard)."
+        },
+        {
+          "id": "nashorn",
+          "name": "Nashorn",
+          "url": "https:\/\/blogs.oracle.com\/nashorn\/",
+          "description": "A JavaScript engine developed in the Java programming language by <a href=\"https:\/\/www.oracle.com\/\" target=\"_blank\">Oracle<\/a>. It based on the <a href=\"https:\/\/openjdk.java.net\/projects\/mlvm\/\" target=\"_blank\">Da Vinci Machine<\/a> (JSR 292) and has been released with Java 8."
+        },
+        {
+          "id": "v7",
+          "name": "V7",
+          "url": "https:\/\/github.com\/cesanta\/v7\/",
+          "description": "A smallest JavaScript engine written in C. This project is deprecated in favor of the <a href=\"#mjs\">mJS<\/a>."
+        }
+      ]
+    },
+    {
+      "name": "Supersets",
+      "engines": [
+        {
+          "id": "cl-javascript",
+          "name": "CL-JavaScript",
+          "url": "http:\/\/marijnhaverbeke.nl\/cl-javascript\/",
+          "description": "Allows you to add user scripting to your <a href=\"https:\/\/common-lisp.net\/\" target=\"_blank\">Common Lisp<\/a> application without requiring your poor users to learn Common Lisp. It is a JavaScript to Common Lisp translator, runtime, and standard library. CL-JavaScript are ECMAScript 3 compatible, with some of the ECMAScript 5 extensions."
+        },
+        {
+          "id": "in-script",
+          "name": "InScript",
+          "url": "https:\/\/www.muchsoft.com\/inscript\/",
+          "description": "A scripting language used by <a href=\"http:\/\/www.icab.de\/\" target=\"_blank\">iCab<\/a> to generate HTML documents dynamically. The core language is compatible with ECMAScript. At present InScript features roughly the functionality of JavaScript 1.5."
+        },
+        {
+          "id": "njs",
+          "name": "njs",
+          "url": "http:\/\/nginx.org\/en\/docs\/njs\/",
+          "description": "A subset of the JavaScript language that allows extending <a href=\"http:\/\/nginx.org\/\" target=\"_blank\">nginx<\/a> functionality. It created in compliance with ECMAScript 5.1 (strict mode) with some ECMAScript 6 and later extensions. The compliance is still evolving."
+        },
+        {
+          "id": "qt-script",
+          "name": "Qt Script",
+          "url": "https:\/\/doc.qt.io\/QT-5\/qtscript-index.html",
+          "description": "A scripting engine that has been part of the <a href=\"https:\/\/www.qt.io\/\" target=\"_blank\">Qt<\/a> cross-platform application framework since version 4.3.0."
+        },
+        {
+          "id": "tamarin",
+          "name": "Tamarin",
+          "url": "https:\/\/developer.mozilla.org\/en-US\/docs\/Archive\/Mozilla\/Tamarin",
+          "description": "A JavaScript engine written in C++. It currently implements <a href=\"https:\/\/www.adobe.com\/devnet\/actionscript.html\" target=\"_blank\">Adobe ActionScript 3<\/a> (a superset of ECMAScript 3) and is embedded within the <a href=\"https:\/\/www.adobe.com\/products\/flashplayer.html\" target=\"_blank\">Adobe Flash Player<\/a> versions 9 and later. Tamarin&rsquo;s JIT-compiler, <a href=\"https:\/\/developer.mozilla.org\/en-US\/docs\/Archive\/Mozilla\/Nanojit\" target=\"_blank\">NanoJIT<\/a>, is also used in <a href=\"https:\/\/wiki.mozilla.org\/JavaScript:TraceMonkey\" target=\"_blank\">TraceMonkey<\/a> ergo <a href=\"#spider-monkey\">SpiderMonkey<\/a>."
+        }
+      ]
+    }
+  ]
+}
