@@ -133,6 +133,23 @@ public class RegExpTests
     }
 
     [Fact]
+    public void ShouldSupportRegExpModifiersInLiteralsAndConstructor()
+    {
+        var engine = new Engine();
+
+        var prepared = Engine.PrepareScript("""
+            const literal = /(?m-i:^a$)/i;
+            `${literal.test('A\n')},${literal.test('a\n')}`;
+            """);
+
+        engine.Evaluate(prepared).AsString().Should().Be("false,true");
+        engine.Evaluate("""
+            const regex = new RegExp("(?m-i:^a$)", "i");
+            `${regex.test('A\n')},${regex.test('a\n')}`;
+            """).AsString().Should().Be("false,true");
+    }
+
+    [Fact]
     public void Issue506()
     {
         var engine = new Engine();

@@ -6,7 +6,6 @@
   "Parallel": true,
   "ExcludedFeatures": [
     "import-defer",
-    "regexp-modifiers",
     "regexp-unicode-property-escapes",
     "regexp-v-flag",
     "source-phase-imports",
@@ -51,6 +50,14 @@
     // .NET regex engine: nullable quantifier and lookahead capture group semantics differ
     "built-ins/RegExp/nullable-quantifier.js",
     "built-ins/RegExp/lookahead-quantifier-match-groups.js",
+
+    // .NET regex engine: scoped regexp modifiers don't fully match ECMAScript boundary and multiline semantics
+    "built-ins/RegExp/regexp-modifiers/add-ignoreCase-affects-slash-lower-b.js",
+    "built-ins/RegExp/regexp-modifiers/add-ignoreCase-affects-slash-lower-w.js",
+    "built-ins/RegExp/regexp-modifiers/add-ignoreCase-affects-slash-upper-b.js",
+    "built-ins/RegExp/regexp-modifiers/add-ignoreCase-affects-slash-upper-w.js",
+    "built-ins/RegExp/regexp-modifiers/add-multiline.js",
+    "built-ins/RegExp/regexp-modifiers/remove-multiline-does-not-affect-dotAll-flag.js",
 
     // .NET regex engine: complex quantifier capture group tracking differs
     "built-ins/RegExp/S15.10.2.5_A1_T4.js",
