@@ -1,0 +1,98 @@
+[
+  { "name": "WorldWideWeb" },
+  { "name": "ViolaWWW" },
+  { "name": "Erwise" },
+  { "name": "Lynx" },
+  { "name": "TkWWW" },
+  { "name": "MidasWWW" },
+  { "name": "NCSA Mosaic", "nodes": [
+    { "name": "Netscape Navigator 1.0-4.8", "nodes": [
+      { "name": "Mozilla Suite", "nodes": [
+        { "name": "Netscape Navigator 6.0-7.2" },
+        { "name": "Galeon", "nodes": [
+          { "name": "Epiphany <2.28" }
+        ]},
+        { "name": "K-Meleon" },
+        { "name": "Phoenix", "nodes": [
+          { "name": "Mozilla Firebird", "nodes": [
+            { "name": "Mozilla Firefox", "nodes": [
+              { "name": "Netscape Browser", "nodes": [
+                { "name": "Netscape Navigator 9.0" }
+              ]},
+              { "name": "Flock <=2.6.2" },
+              { "name": "GNUzilla IceWeasel", "nodes": [
+                { "name": "GNUzilla IceCat" }
+              ]},
+              { "name": "Debian Firefox", "nodes": [
+                { "name": "Debian Iceweasel" }
+              ]},
+              { "name": "Pale Moon" },
+              { "name": "Avant Browser >=2012" }
+            ]}
+          ]}
+        ]},
+        { "name": "Lunascape" },
+        { "name": "Camino" },
+        { "name": "SeaMonkey" }
+      ]}
+    ]},
+    { "name": "Air Mosaic" },
+    { "name": "Infomosaic" },
+    { "name": "Spyglass Mosaic", "nodes": [
+      { "name": "Internet Explorer", "nodes": [
+        { "name": "MyIE", "nodes": [
+          { "name": "Maxthon" }
+        ]},
+        { "name": "Lunascape" },
+        { "name": "Avant Browser" },
+        { "name": "Netscape Browser" },
+        { "name": "Sogou Browser" },
+        { "name": "QQ browser" },
+        { "name": "Microsoft Edge (Project Spartan)" }
+      ]}
+    ]}
+  ]},
+  { "name": "Cello" },
+  { "name": "OmniWeb <4.5" },
+  { "name": "Opera <15" },
+  { "name": "Amaya" },
+  { "name": "Konqueror" , "nodes": [
+    { "name": "Safari", "nodes": [
+      { "name": "OmniWeb >=4.5" },
+      { "name": "Midori" },
+      { "name": "Epiphany >=2.28" },
+      { "name": "Google Chrome", "nodes": [
+        { "name": "Chromium", "nodes": [
+          { "name": "Lunascape" },
+          { "name": "SRWare Iron" },
+          { "name": "360 Secure Browser" },
+          { "name": "Sogou Browser" },
+          { "name": "CoolNovo" },
+          { "name": "Maxthon >=3" },
+          { "name": "Flock >=3" },
+          { "name": "RockMelt" },
+          { "name": "Avant Browser >=2012" },
+          { "name": "Яндекс.Браузер" },
+          { "name": "QQ browser" },
+          { "name": "Opera >=15" },
+          { "name": "Амиго" },
+          { "name": "Cốc Cốc" },
+          { "name": "Vivaldi" },
+          { "name": "Brave" },
+          { "name": "Naver Whale" },
+          { "name": "Beaker" },
+          { "name": "Microsoft Edge (Anaheim)" }
+        ]}
+      ]},
+      { "name": "Arora" }
+    ]}
+  ]},
+  { "name": "Arachne" },
+  { "name": "Links", "nodes": [
+    { "name": "ELinks" },
+    { "name": "Hacked Links" }
+  ]},
+  { "name": "iCab" },
+  { "name": "Dillo" },
+  { "name": "UC Browser" }
+]

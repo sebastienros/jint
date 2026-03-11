@@ -1,0 +1,16 @@
+{{#* inline "treeNodes"}}
+{{#each nodes}}
+	<li>
+		{{name}}
+		{{#if nodes}}
+		<ul>
+		{{> treeNodes}}
+		</ul>
+		{{/if}}
+	</li>
+{{/each}}
+{{/inline}}
+<h2>Family tree of web browsers</h2>
+<ul>
+{{> treeNodes nodes=this}}
+</ul>
