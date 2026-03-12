@@ -12,7 +12,6 @@ namespace Jint.Benchmark;
 public class PreparedScriptBenchmark
 {
     private string _libraryCode = null!;
-    private Prepared<Script> _preparedLibrary;
     private ContentItem[] _contentItems = null!;
 
     [GlobalSetup]
@@ -21,7 +20,6 @@ public class PreparedScriptBenchmark
         var handlebars = File.ReadAllText("Scripts/template-rendering/lib/handlebars.js");
         var helpers = File.ReadAllText("Scripts/template-rendering/lib/helpers.js");
         _libraryCode = handlebars + "\n" + helpers;
-        _preparedLibrary = Engine.PrepareScript(_libraryCode);
 
         var contentDir = "Scripts/template-rendering/content";
         string[] names = ["hello-world", "contacts", "js-engines", "web-browser-family-tree"];
@@ -34,21 +32,35 @@ public class PreparedScriptBenchmark
     [Benchmark(Baseline = true)]
     public void ExecuteStringOnMultipleEngines()
     {
-        RenderTemplates(withPrecompilation: false);
+        RenderTemplates(prepareScript: false, compileRegex: false);
     }
 
     [Benchmark]
-    public void ExecutePreparedOnMultipleEngines()
+    public void ExecutePreparedWithoutRegexCompilationOnMultipleEngines()
     {
-        RenderTemplates(withPrecompilation: true);
+        RenderTemplates(prepareScript: true, compileRegex: false);
     }
 
-    private void RenderTemplates(bool withPrecompilation)
+    [Benchmark]
+    public void ExecutePreparedWithRegexCompilationOnMultipleEngines()
+    {
+        RenderTemplates(prepareScript: true, compileRegex: true);
+    }
+
+    private void RenderTemplates(bool prepareScript, bool compileRegex)
     {
         // First engine: load library and render first item
+        Prepared<Script> preparedLibrary = default;
         var engine = new Engine();
-        if (withPrecompilation)
-            engine.Execute(_preparedLibrary);
+        if (prepareScript)
+        {
+            var preparationOptions = new ScriptPreparationOptions
+            {
+                ParsingOptions = new ScriptParsingOptions { CompileRegex = compileRegex }
+            };
+            preparedLibrary = Engine.PrepareScript(_libraryCode, options: preparationOptions);
+            engine.Execute(preparedLibrary);
+        }
         else
             engine.Execute(_libraryCode);
 
@@ -58,8 +70,8 @@ public class PreparedScriptBenchmark
         for (int i = 1; i < _contentItems.Length; i++)
         {
             engine = new Engine();
-            if (withPrecompilation)
-                engine.Execute(_preparedLibrary);
+            if (prepareScript)
+                engine.Execute(preparedLibrary);
             else
                 engine.Execute(_libraryCode);
 
