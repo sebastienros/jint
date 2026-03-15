@@ -70,6 +70,11 @@ engine
         path => engine.Evaluate(File.ReadAllText(path)))
     );
 
+var test262 = Test262Object.Install(engine);
+
+var agentManager = new Test262AgentManager();
+agentManager.InstallAgent(engine, test262);
+
 // Execute file if provided via -f
 if (!string.IsNullOrEmpty(inputFile))
 {

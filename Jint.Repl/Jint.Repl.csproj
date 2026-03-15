@@ -3,6 +3,8 @@
     <TargetFramework>net10.0</TargetFramework>
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
+    <AssemblyOriginatorKeyFile>..\Jint\Jint.snk</AssemblyOriginatorKeyFile>
+    <SignAssembly>true</SignAssembly>
     <PublishAot>true</PublishAot>
   </PropertyGroup>
   <ItemGroup>
