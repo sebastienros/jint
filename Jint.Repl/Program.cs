@@ -5,6 +5,7 @@ using Jint;
 using Jint.Native;
 using Jint.Native.Json;
 using Jint.Runtime;
+using Jint.Runtime.Modules;
 
 // ReSharper disable LocalizableElement
 
@@ -14,6 +15,7 @@ using Jint.Runtime;
 // Parse command line arguments
 string? inputFile = null;
 int? timeoutSeconds = null;
+bool runAsModule = false;
 
 for (int i = 0; i < args.Length; i++)
 {
@@ -23,6 +25,10 @@ for (int i = 0; i < args.Length; i++)
             if (i + 1 < args.Length)
             {
                 inputFile = args[++i];
+                if (inputFile.EndsWith(".mjs", StringComparison.OrdinalIgnoreCase))
+                {
+                    runAsModule = true;
+                }
             }
             else
             {
@@ -41,6 +47,9 @@ for (int i = 0; i < args.Length; i++)
                 return 1;
             }
             break;
+        case "-m" or "--module":
+            runAsModule = true;
+            break;
         case "-h" or "--help":
             PrintHelp();
             return 0;
@@ -49,6 +58,10 @@ for (int i = 0; i < args.Length; i++)
             if (!args[i].StartsWith("-") && inputFile == null)
             {
                 inputFile = args[i];
+                if (inputFile.EndsWith(".mjs", StringComparison.OrdinalIgnoreCase))
+                {
+                    runAsModule = true;
+                }
             }
             break;
     }
@@ -60,6 +73,13 @@ var engine = new Engine(cfg =>
     if (timeoutSeconds.HasValue)
     {
         cfg.TimeoutInterval(TimeSpan.FromSeconds(timeoutSeconds.Value));
+    }
+    if (runAsModule)
+    {
+        var basePath = inputFile != null
+            ? Path.GetDirectoryName(Path.GetFullPath(inputFile))!
+            : Directory.GetCurrentDirectory();
+        cfg.EnableModules(basePath, restrictToBasePath: false);
     }
 });
 
@@ -86,11 +106,19 @@ if (!string.IsNullOrEmpty(inputFile))
 
     try
     {
-        var script = File.ReadAllText(inputFile);
-        var result = engine.Evaluate(script, inputFile);
-        if (!result.IsUndefined())
+        if (runAsModule)
         {
-            Console.WriteLine(result);
+            var absolutePath = Path.GetFullPath(inputFile);
+            engine.Modules.Import(new Uri(absolutePath).AbsoluteUri);
+        }
+        else
+        {
+            var script = File.ReadAllText(inputFile);
+            var result = engine.Evaluate(script, inputFile);
+            if (!result.IsUndefined())
+            {
+                Console.WriteLine(result);
+            }
         }
         return 0;
     }
@@ -98,6 +126,11 @@ if (!string.IsNullOrEmpty(inputFile))
     {
         Console.Error.WriteLine(FormatJavaScriptException(je));
         Console.Error.WriteLine(je.JavaScriptStackTrace);
+        return 1;
+    }
+    catch (ModuleResolutionException mre)
+    {
+        Console.Error.WriteLine($"Error: {mre.Message}");
         return 1;
     }
     catch (TimeoutException)
@@ -118,10 +151,18 @@ if (Console.IsInputRedirected)
     try
     {
         var script = Console.In.ReadToEnd();
-        var result = engine.Evaluate(script, "stdin");
-        if (!result.IsUndefined())
+        if (runAsModule)
         {
-            Console.WriteLine(result);
+            engine.Modules.Add("<stdin>", script);
+            engine.Modules.Import("<stdin>");
+        }
+        else
+        {
+            var result = engine.Evaluate(script, "stdin");
+            if (!result.IsUndefined())
+            {
+                Console.WriteLine(result);
+            }
         }
         return 0;
     }
@@ -129,6 +170,11 @@ if (Console.IsInputRedirected)
     {
         Console.Error.WriteLine(FormatJavaScriptException(je));
         Console.Error.WriteLine(je.JavaScriptStackTrace);
+        return 1;
+    }
+    catch (ModuleResolutionException mre)
+    {
+        Console.Error.WriteLine($"Error: {mre.Message}");
         return 1;
     }
     catch (TimeoutException)
@@ -238,12 +284,14 @@ static void PrintHelp()
     Console.WriteLine();
     Console.WriteLine("Options:");
     Console.WriteLine("  -f, --file <path>     Execute JavaScript file");
+    Console.WriteLine("  -m, --module          Run script as ES6 module");
     Console.WriteLine("  -t, --timeout <secs>  Set execution timeout in seconds");
     Console.WriteLine("  -h, --help            Show this help message");
     Console.WriteLine();
     Console.WriteLine("Examples:");
     Console.WriteLine("  jint                          Start interactive REPL");
     Console.WriteLine("  jint script.js                Execute script.js");
+    Console.WriteLine("  jint -m module.js             Execute module.js as ES6 module");
     Console.WriteLine("  jint -f script.js -t 10       Execute with 10 second timeout");
     Console.WriteLine("  echo \"1+1\" | jint             Execute from stdin");
     Console.WriteLine("  echo \"1+1\" | jint -t 5        Execute from stdin with timeout");
