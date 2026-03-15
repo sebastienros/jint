@@ -96,7 +96,7 @@ if (!string.IsNullOrEmpty(inputFile))
     }
     catch (JavaScriptException je)
     {
-        Console.Error.WriteLine($"Error: {je.Message}");
+        Console.Error.WriteLine(FormatJavaScriptException(je));
         Console.Error.WriteLine(je.JavaScriptStackTrace);
         return 1;
     }
@@ -127,7 +127,7 @@ if (Console.IsInputRedirected)
     }
     catch (JavaScriptException je)
     {
-        Console.Error.WriteLine($"Error: {je.Message}");
+        Console.Error.WriteLine(FormatJavaScriptException(je));
         Console.Error.WriteLine(je.JavaScriptStackTrace);
         return 1;
     }
@@ -190,7 +190,8 @@ while (true)
     catch (JavaScriptException je)
     {
         Console.ForegroundColor = ConsoleColor.Red;
-        Console.WriteLine(je.ToString());
+        Console.WriteLine(FormatJavaScriptException(je));
+        Console.Error.WriteLine(je.JavaScriptStackTrace);
     }
     catch (TimeoutException)
     {
@@ -202,6 +203,31 @@ while (true)
         Console.ForegroundColor = ConsoleColor.Red;
         Console.WriteLine(e.Message);
     }
+}
+
+static string FormatJavaScriptException(JavaScriptException je)
+{
+    if (!je.Error.IsObject())
+    {
+        return $"Uncaught exception: {je.Error}";
+    }
+
+    var obj = je.Error.AsObject();
+    var name = obj.Get(new JsString("name"), je.Error);
+    if (name.IsUndefined())
+    {
+        var ctor = obj.Get(new JsString("constructor"), je.Error);
+        if (ctor.IsObject())
+        {
+            name = ctor.AsObject().Get(new JsString("name"), ctor);
+        }
+    }
+
+    var errorName = name.IsUndefined() ? "Error" : name.ToString();
+    var message = obj.Get(new JsString("message"), je.Error);
+    return message.IsUndefined() || message.ToString().Length == 0
+        ? $"Uncaught exception: {errorName}"
+        : $"Uncaught exception: {errorName}: {message}";
 }
 
 static void PrintHelp()
