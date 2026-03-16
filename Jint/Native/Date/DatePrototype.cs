@@ -1580,7 +1580,7 @@ internal sealed class DatePrototype : Prototype
         string timeZoneName;
         // DateTimeOffset.FromUnixTimeMilliseconds only handles years 0001-9999, represented as
         // -62135596800000 ms (DateTime.MinValue) to 253402300799999 ms (DateTime.MaxValue)
-        if (tv.Value is >= -62135596800000L and <= 253402300799999L)
+        if (tv.DateTimeRangeValid)
         {
             var dateTimeOffset = DateTimeOffset.FromUnixTimeMilliseconds(tv.Value);
             timeZoneName = timeZone.IsDaylightSavingTime(dateTimeOffset) ? timeZone.DaylightName : timeZone.StandardName;
