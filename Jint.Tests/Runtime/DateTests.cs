@@ -100,7 +100,7 @@ public class DateTests
         {
             timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
         }
-        catch
+        catch (TimeZoneNotFoundException)
         {
             timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
         }
