@@ -1576,7 +1576,19 @@ internal sealed class DatePrototype : Prototype
         var offsetMin = MinFromTime(absOffset).ToString("00", CultureInfo.InvariantCulture);
         var offsetHour = HourFromTime(absOffset).ToString("00", CultureInfo.InvariantCulture);
 
-        var tzName = " (" + _timeSystem.DefaultTimeZone.StandardName + ")";
+        var timeZone = _timeSystem.DefaultTimeZone;
+        string timeZoneName;
+        if (tv.Value is >= -62135596800000L and <= 253402300799999L)
+        {
+            var dateTimeOffset = DateTimeOffset.FromUnixTimeMilliseconds(tv.Value);
+            timeZoneName = timeZone.IsDaylightSavingTime(dateTimeOffset) ? timeZone.DaylightName : timeZone.StandardName;
+        }
+        else
+        {
+            timeZoneName = timeZone.StandardName;
+        }
+
+        var tzName = " (" + timeZoneName + ")";
 
         return offsetSign + offsetHour + offsetMin + tzName;
     }

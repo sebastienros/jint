@@ -92,6 +92,28 @@ public class DateTests
         Assert.Equal("Tue Feb 01 2022 00:00:00 GMT+0800 (China Standard Time)", engine.Evaluate("new Date(2022,1,1)").ToString());
     }
 
+    [Fact]
+    public void ToStringUsesDaylightNameWhenInDst()
+    {
+        TimeZoneInfo timeZoneInfo;
+        try
+        {
+            timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+        }
+        catch
+        {
+            timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
+        }
+
+        var engine = new Engine(options => options.LocalTimeZone(timeZoneInfo));
+
+        // July 4, 2022 is in summer (EDT = UTC-4, daylight saving time)
+        Assert.Contains("(Eastern Daylight Time)", engine.Evaluate("new Date(2022, 6, 4).toString()").AsString());
+
+        // January 4, 2022 is in winter (EST = UTC-5, standard time)
+        Assert.Contains("(Eastern Standard Time)", engine.Evaluate("new Date(2022, 0, 4).toString()").AsString());
+    }
+
     [Theory]
     [InlineData("Thu, 30 Jan 2020 08:00:00 PST", 1580400000000)]
     [InlineData("Thursday January 01 1970 00:00:25 UTC", 25000)]
