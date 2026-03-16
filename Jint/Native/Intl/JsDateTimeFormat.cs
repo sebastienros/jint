@@ -1505,7 +1505,42 @@ internal sealed class JsDateTimeFormat : ObjectInstance
                 return longName ? TimeZone : parts[parts.Length - 1];
             }
         }
-        return longName ? TimeZoneInfo.Local.StandardName : TimeZoneInfo.Local.Id;
+        // No explicit timezone: use the engine's default timezone
+        var defaultTz = _engine.Options.TimeSystem.DefaultTimeZone;
+
+        var defaultIsDst = false;
+        try
+        {
+            defaultIsDst = defaultTz.IsDaylightSavingTime(DateTime.SpecifyKind(utcDateTime, DateTimeKind.Utc));
+        }
+        catch
+        {
+            // If DST check fails, defaultIsDst stays false
+        }
+
+        // Try to get an IANA timezone ID for the CLDR lookup
+        var defaultTzId = defaultTz.Id;
+#if NET6_0_OR_GREATER
+        if (!defaultTz.HasIanaId && TimeZoneInfo.TryConvertWindowsIdToIanaId(defaultTzId, out var defaultIanaId))
+        {
+            defaultTzId = defaultIanaId;
+        }
+#endif
+
+        var defaultCldrName = Data.MetaZoneData.GetDisplayName(defaultTzId, defaultIsDst, longName, generic);
+        if (defaultCldrName != null)
+        {
+            return defaultCldrName;
+        }
+
+        // Fallback to .NET TimeZoneInfo names
+        if (longName)
+        {
+            return defaultIsDst ? defaultTz.DaylightName : defaultTz.StandardName;
+        }
+
+        var defaultParts = defaultTzId.Split('/');
+        return defaultParts[defaultParts.Length - 1].Replace('_', ' ');
     }
 
     /// <summary>

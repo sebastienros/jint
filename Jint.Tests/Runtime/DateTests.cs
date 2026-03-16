@@ -114,6 +114,44 @@ public class DateTests
         Assert.Contains("(Eastern Standard Time)", engine.Evaluate("new Date(2022, 0, 4).toString()").AsString());
     }
 
+    [Fact]
+    public void ToLocaleStringUsesShortTimeZoneAbbreviation()
+    {
+        TimeZoneInfo timeZoneInfo;
+        try
+        {
+            timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
+        }
+
+        var engine = new Engine(options => options.LocalTimeZone(timeZoneInfo));
+
+        const string script = """
+            (function() {
+                var d = new Date(2022, 6, 4); // July 4, 2022 - DST (EDT)
+                return d.toLocaleString('en-US', { timeZoneName: 'short' });
+            })();
+            """;
+
+        // Should return "EDT" abbreviation, not "Eastern Daylight Time"
+        var result = engine.Evaluate(script).AsString();
+        Assert.Contains("EDT", result);
+
+        const string scriptWinter = """
+            (function() {
+                var d = new Date(2022, 0, 4); // January 4, 2022 - standard time (EST)
+                return d.toLocaleString('en-US', { timeZoneName: 'short' });
+            })();
+            """;
+
+        // Should return "EST" abbreviation, not "Eastern Standard Time"
+        var resultWinter = engine.Evaluate(scriptWinter).AsString();
+        Assert.Contains("EST", resultWinter);
+    }
+
     [Theory]
     [InlineData("Thu, 30 Jan 2020 08:00:00 PST", 1580400000000)]
     [InlineData("Thursday January 01 1970 00:00:25 UTC", 25000)]
