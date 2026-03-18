@@ -1518,7 +1518,8 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             // If DST check fails, defaultIsDst stays false
         }
 
-        // Try to get an IANA timezone ID for the CLDR lookup
+        // Try to get an IANA timezone ID for the CLDR lookup.
+        // The IanaToMetaZone table also includes Windows timezone ID aliases for .NET Framework compatibility.
         var defaultTzId = defaultTz.Id;
 #if NET6_0_OR_GREATER
         if (!defaultTz.HasIanaId && TimeZoneInfo.TryConvertWindowsIdToIanaId(defaultTzId, out var defaultIanaId))
@@ -1539,8 +1540,15 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             return defaultIsDst ? defaultTz.DaylightName : defaultTz.StandardName;
         }
 
-        var defaultParts = defaultTzId.Split('/');
-        return defaultParts[defaultParts.Length - 1].Replace('_', ' ');
+        // For short names: try to parse an abbreviation from IANA-style IDs (e.g. "America/New_York" → "New York")
+        // Windows timezone IDs don't contain '/', so fall back to DST-aware names
+        if (defaultTzId.Contains('/'))
+        {
+            var defaultParts = defaultTzId.Split('/');
+            return defaultParts[defaultParts.Length - 1].Replace('_', ' ');
+        }
+
+        return defaultIsDst ? defaultTz.DaylightName : defaultTz.StandardName;
     }
 
     /// <summary>
