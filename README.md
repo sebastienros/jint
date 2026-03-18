@@ -534,7 +534,7 @@ The synchronous `UnwrapIfPromise` is still available for scenarios where blockin
   - number -> double
   - string -> string
   - boolean -> bool
-  - Regexp -> RegEx
+  - RegExp -> Regex
   - Function -> Delegate
 - Extensions methods
 
