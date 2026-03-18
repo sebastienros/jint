@@ -331,7 +331,8 @@ internal sealed class PlainMonthDayConstructor : Constructor
         // Use input year for validation, but always use 1972 as reference year in result
         // Per spec (calendar.html CalendarMonthDayToISOReferenceDate):
         // "The reference year is always 1972"
-        var date = TemporalHelpers.RegulateIsoDate(year, month, day, overflow);
+        // For iso8601 calendar, the year is only used for overflow, not range-checked
+        var date = TemporalHelpers.RegulateIsoDate(year, month, day, overflow, skipRangeCheck: true);
         if (date is null)
         {
             Throw.RangeError(_realm, "Invalid month-day");

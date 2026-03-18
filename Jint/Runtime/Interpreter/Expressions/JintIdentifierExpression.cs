@@ -12,14 +12,10 @@ internal sealed class JintIdentifierExpression : JintExpression
     private Environment? _cachedEnvironment;
     private bool _cachedStrict;
 
-    public JintIdentifierExpression(Identifier expression) : this(expression, new Environment.BindingName(expression.Name))
+    public JintIdentifierExpression(Identifier expression) : base(expression)
     {
-        _identifier = new Environment.BindingName(((Identifier) _expression).Name);
-    }
-
-    public JintIdentifierExpression(Identifier identifier, Environment.BindingName bindingName) : base(identifier)
-    {
-        _identifier = bindingName;
+        _identifier = expression.UserData as Environment.BindingName
+            ?? new Environment.BindingName(expression.Name);
     }
 
     public Environment.BindingName Identifier => _identifier;

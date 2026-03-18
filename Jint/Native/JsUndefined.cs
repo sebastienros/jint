@@ -15,7 +15,8 @@ public sealed class JsUndefined : JsValue, IEquatable<JsUndefined>
 
     protected internal override bool IsLooselyEqual(JsValue value)
     {
-        return ReferenceEquals(Undefined, value) || ReferenceEquals(Null, value);
+        return ReferenceEquals(Undefined, value) || ReferenceEquals(Null, value)
+            || (value._type & Runtime.InternalTypes.IsHTMLDDA) != Runtime.InternalTypes.Empty;
     }
 
     public override bool Equals(object? obj) => Equals(obj as JsUndefined);

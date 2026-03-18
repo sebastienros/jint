@@ -1,0 +1,13 @@
+<address>
+	<strong><abbr title="Фамилия Имя Отчество">Ф.И.О.</abbr>:</strong> {{lastName}} {{firstName}} {{patronymic}}<br />
+	<strong>Адрес:</strong>
+	{{#with address}}
+		{{postalCode}}, {{country}}, {{state}}, {{city}}, ул. {{street}}, д. {{houseNumber}}, кв. {{apartmentNumber}}
+	{{/with}}
+	<br />
+	<strong>Дом. тел.:</strong> {{homePhone}}<br />
+	<strong>Моб. тел.:</strong> {{mobilePhone}}<br />
+	<strong>Email:</strong> <a href="mailto:{{email}}">{{email}}</a><br />
+	<strong>Сайт:</strong> {{{link website website false}}}<br />
+	<strong>ICQ:</strong> <img src="http://status.icq.com/online.gif?icq={{icq}}&img=26" alt="ICQ статус" />{{icq}}
+</address>

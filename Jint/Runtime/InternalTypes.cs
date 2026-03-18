@@ -31,7 +31,9 @@ internal enum InternalTypes
     PlainObject = 8192,
     // our native array
     Array = 16384,
+    // IsHTMLDDA internal slot
+    IsHTMLDDA = 32768,
 
     Primitive = Boolean | String | Number | Integer | BigInt | Symbol,
-    InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Array | Module
+    InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Array | Module | IsHTMLDDA
 }

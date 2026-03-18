@@ -1,3 +1,4 @@
+using Jint.Native;
 using Jint.Native.Function;
 
 namespace Jint.Runtime.Interpreter.Expressions;
@@ -15,5 +16,11 @@ internal sealed class JintClassExpression : JintExpression
     {
         var env = context.Engine.ExecutionContext.LexicalEnvironment;
         return _classDefinition.BuildConstructor(context, env);
+    }
+
+    internal JsValue EvaluateWithName(EvaluationContext context, string classBinding)
+    {
+        var env = context.Engine.ExecutionContext.LexicalEnvironment;
+        return _classDefinition.BuildConstructor(context, env, classBinding);
     }
 }

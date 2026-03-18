@@ -1234,7 +1234,8 @@ public partial class EngineTests : IDisposable
 
         var expected = dt.ToString("ddd MMM dd yyyy HH:mm:ss", CultureInfo.InvariantCulture);
         expected += dt.ToString(" 'GMT'zzz", CultureInfo.InvariantCulture).Replace(":", "");
-        expected += " (Pacific Standard Time)";
+        var tzName = customTimeZone.IsDaylightSavingTime(dt) ? customTimeZone.DaylightName : customTimeZone.StandardName;
+        expected += " (" + tzName + ")";
         var actual = engine.Evaluate("d.toString();").ToString();
 
         Assert.Equal(expected, actual);
@@ -1847,9 +1848,9 @@ var prep = function (fn) { fn(); };
         engine.Evaluate(@"
                     var d = new Date(1433160000000);
 
-                    equal('Mon Jun 01 2015 05:00:00 GMT-0700 (Pacific Standard Time)', d.toString());
+                    equal('Mon Jun 01 2015 05:00:00 GMT-0700 (Pacific Daylight Time)', d.toString());
                     equal('Mon Jun 01 2015', d.toDateString());
-                    equal('05:00:00 GMT-0700 (Pacific Standard Time)', d.toTimeString());
+                    equal('05:00:00 GMT-0700 (Pacific Daylight Time)', d.toTimeString());
                     // ECMA-402 compliant: numeric defaults used when no options specified
                     equal('1/6/2015, 05:00:00', d.toLocaleString());
                     equal('1/6/2015', d.toLocaleDateString());
@@ -1866,10 +1867,9 @@ var prep = function (fn) { fn(); };
             .SetValue("assert", new Action<bool>(Assert.True))
             .SetValue("equal", new Action<object, object>(Assert.Equal));
 
-        engine.Evaluate(@"
+        engine.Evaluate($@"
                     var d = new Date(2016, 8, 1);
-                    // there's a Linux difference, so do a replace
-                    equal('Thu Sep 01 2016 00:00:00 GMT-0400 (US Eastern Standard Time)', d.toString().replace('(Eastern Standard Time)', '(US Eastern Standard Time)'));
+                    equal('Thu Sep 01 2016 00:00:00 GMT-0400 ({EST.DaylightName})', d.toString());
                     equal('Thu Sep 01 2016', d.toDateString());
             ");
     }

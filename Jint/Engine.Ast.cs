@@ -93,7 +93,7 @@ public partial class Engine
                         _bindingNames[name] = bindingName = new Environment.BindingName(JsString.CachedCreate(name));
                     }
 
-                    node.UserData = new JintIdentifierExpression(identifier, bindingName);
+                    node.UserData = bindingName;
                     break;
 
                 case NodeType.Literal:

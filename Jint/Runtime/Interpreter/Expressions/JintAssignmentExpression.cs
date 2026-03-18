@@ -440,13 +440,20 @@ internal sealed class JintAssignmentExpression : JintExpression
 
     private JsValue NamedEvaluation(EvaluationContext context, JintExpression expression)
     {
-        var rval = expression.GetValue(context);
         if (expression._expression.IsAnonymousFunctionDefinition() && _left._expression.Type == NodeType.Identifier)
         {
-            ((Function) rval).SetFunctionName(((Identifier) _left._expression).Name);
+            var name = ((Identifier) _left._expression).Name;
+            if (expression is JintClassExpression classExpression)
+            {
+                return classExpression.EvaluateWithName(context, name);
+            }
+
+            var rval = expression.GetValue(context);
+            ((Function) rval).SetFunctionName(name);
+            return rval;
         }
 
-        return rval;
+        return expression.GetValue(context);
     }
 
     internal sealed class SimpleAssignmentExpression : JintExpression
@@ -537,7 +544,16 @@ internal sealed class JintAssignmentExpression : JintExpression
                     Throw.SyntaxError(engine.Realm, "Invalid assignment target");
                 }
 
-                var completion = right.GetValue(context);
+                JsValue completion;
+                if (right is JintClassExpression classExpression && right._expression.IsAnonymousFunctionDefinition())
+                {
+                    completion = classExpression.EvaluateWithName(context, identifier.Value.ToString());
+                }
+                else
+                {
+                    completion = right.GetValue(context);
+                }
+
                 if (context.IsAbrupt())
                 {
                     return completion;
@@ -551,7 +567,7 @@ internal sealed class JintAssignmentExpression : JintExpression
 
                 var rval = completion.Clone();
 
-                if (right._expression.IsFunctionDefinition())
+                if (right._expression.IsFunctionDefinition() && right is not JintClassExpression)
                 {
                     ((Function) rval).SetFunctionName(identifier.Value);
                 }

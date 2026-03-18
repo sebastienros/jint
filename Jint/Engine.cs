@@ -1116,6 +1116,26 @@ public sealed partial class Engine : IDisposable
         }
 
         env.CreateGlobalVarBindings(declaredVarNames, canBeDeleted: false);
+
+        // B.3.2: Block-level function declarations in sloppy mode get var bindings at global scope
+        if (!_isStrict && !script.Strict)
+        {
+            var annexBFunctions = hoistingScope._annexBFunctionDeclarations;
+            if (annexBFunctions != null)
+            {
+                for (var i = 0; i < annexBFunctions.Count; i++)
+                {
+                    var f = annexBFunctions[i];
+                    var fn = (Key) f.Id!.Name;
+                    if (!env.HasLexicalDeclaration(fn)
+                        && env.CanDeclareGlobalFunction(fn)
+                        && !declaredFunctionNames.Contains(fn))
+                    {
+                        env.CreateGlobalVarBinding(fn, canBeDeleted: false);
+                    }
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -1407,7 +1427,9 @@ public sealed partial class Engine : IDisposable
             while (thisLex is not null && !ReferenceEquals(thisLex, varEnv))
             {
                 var thisEnvRec = thisLex;
-                if (thisEnvRec is not ObjectEnvironment)
+                // B.3.5: Skip catch clause environments - eval'd var/function declarations
+                // are allowed to shadow catch parameters in non-strict mode
+                if (thisEnvRec is not ObjectEnvironment && thisEnvRec is not DeclarativeEnvironment { _catchEnvironment: true })
                 {
                     ref readonly var nodes = ref hoistingScope._variablesDeclarations;
                     for (var i = 0; i < nodes.Count; i++)
@@ -1439,6 +1461,16 @@ public sealed partial class Engine : IDisposable
                     var variablesDeclaration = nodes[i];
                     var identifier = (Identifier) variablesDeclaration.Declarations[0].Id;
                     if (funcEnv.HasBinding(identifier.Name))
+                    {
+                        Throw.SyntaxError(realm);
+                    }
+
+                    // Non-arrow functions always have an implicit "arguments" binding per spec
+                    // (10.2.11 FunctionDeclarationInstantiation steps 17-21), even when the
+                    // arguments object creation was optimized away because the function body
+                    // doesn't reference "arguments". Detect this implicit binding conflict.
+                    if (string.Equals(identifier.Name, "arguments", StringComparison.Ordinal)
+                        && funcEnv._functionObject._thisMode != FunctionThisMode.Lexical)
                     {
                         Throw.SyntaxError(realm);
                     }
@@ -1573,6 +1605,41 @@ public sealed partial class Engine : IDisposable
                 {
                     varEnvRec.CreateMutableBinding(vn, canBeDeleted: true);
                     varEnvRec.InitializeBinding(vn, JsValue.Undefined, DisposeHint.Normal);
+                }
+            }
+        }
+
+        // B.3.3: Block-level function declarations in sloppy eval get var bindings
+        if (!strict)
+        {
+            var annexBFunctions = hoistingScope._annexBFunctionDeclarations;
+            if (annexBFunctions != null)
+            {
+                for (var i = 0; i < annexBFunctions.Count; i++)
+                {
+                    var f = annexBFunctions[i];
+                    Key fn = f.Id!.Name;
+                    if (!declaredFunctionNames.Contains(fn))
+                    {
+                        if (varEnvRec is GlobalEnvironment ger)
+                        {
+                            if (!ger.HasLexicalDeclaration(fn) && ger.CanDeclareGlobalFunction(fn))
+                            {
+                                // B.3.3.3: CreateGlobalVarBinding only creates if binding doesn't exist,
+                                // preserving existing property attributes and value.
+                                ger.CreateGlobalVarBinding(fn, canBeDeleted: true);
+                            }
+                        }
+                        else
+                        {
+                            var bindingExists = varEnvRec.HasBinding(fn);
+                            if (!bindingExists)
+                            {
+                                varEnvRec.CreateMutableBinding(fn, canBeDeleted: true);
+                                varEnvRec.InitializeBinding(fn, JsValue.Undefined, DisposeHint.Normal);
+                            }
+                        }
+                    }
                 }
             }
         }

@@ -99,6 +99,19 @@ internal sealed class BlockSuspendData : SuspendData
     public Jint.Runtime.Environments.Environment? OuterEnvironment { get; set; }
 }
 
+/// <summary>
+/// Stores the state of a sequence expression when a generator yields inside it.
+/// Tracks which sub-expression was being evaluated when the generator suspended,
+/// so on resume we skip already-evaluated sub-expressions (avoiding duplicate side effects).
+/// </summary>
+internal sealed class SequenceSuspendData : SuspendData
+{
+    /// <summary>
+    /// The index of the sub-expression that was being evaluated when the generator suspended.
+    /// </summary>
+    public int ExpressionIndex { get; set; }
+}
+
 internal sealed class SuspendDataDictionary
 {
     /// <summary>

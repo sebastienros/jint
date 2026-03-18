@@ -31,7 +31,16 @@ internal sealed class JintImportExpression : JintExpression
 
         var referrer = context.Engine.GetActiveScriptOrModule();
         var specifier = _specifierExpression.GetValue(context); //.UnwrapIfPromise();
+        if (context.IsGeneratorAborted())
+        {
+            return specifier;
+        }
+
         var options = _optionsExpression?.GetValue(context) ?? JsValue.Undefined;
+        if (context.IsGeneratorAborted())
+        {
+            return options;
+        }
 
         var promiseCapability = PromiseConstructor.NewPromiseCapability(context.Engine, context.Engine.Realm.Intrinsics.Promise);
 

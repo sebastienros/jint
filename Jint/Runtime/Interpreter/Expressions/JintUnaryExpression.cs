@@ -102,6 +102,12 @@ internal sealed class JintUnaryExpression : JintExpression
                 return JsString.ObjectString;
             }
 
+            // IsHTMLDDA: typeof returns "undefined"
+            if ((v._type & InternalTypes.IsHTMLDDA) != InternalTypes.Empty)
+            {
+                return JsString.UndefinedString;
+            }
+
             switch (v.Type)
             {
                 case Types.Boolean: return JsString.BooleanString;

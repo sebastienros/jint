@@ -266,6 +266,16 @@ internal sealed class JintFunctionDefinition
         public HashSet<Key>? ParameterBindings;
         public List<VariableValuePair>? VarsToInitialize;
         public bool NeedsEvalContext;
+        /// <summary>
+        /// B.3.3.1: Names of block-level function declarations that need runtime var-scope copy.
+        /// </summary>
+        public HashSet<Key>? AnnexBFunctionNames;
+
+        /// <summary>
+        /// B.3.3.1: The specific function declaration AST nodes that are AnnexB-eligible.
+        /// Used to distinguish same-named declarations at different block levels.
+        /// </summary>
+        public HashSet<FunctionDeclaration>? AnnexBFunctionDeclarations;
 
         // Fixed-slot optimization fields
         public bool UseFixedSlots;
@@ -424,6 +434,45 @@ internal sealed class JintFunctionDefinition
         }
 
         state.VarsToInitialize = varsToInitialize;
+
+        // B.3.3.1: AnnexB block-level function declarations need var bindings
+        var annexBFunctions = hoistingScope._annexBFunctionDeclarations;
+        if (annexBFunctions != null)
+        {
+            var instantiatedVarNames = new HashSet<Key>(state.ParameterNames);
+            foreach (var pair in varsToInitialize)
+            {
+                instantiatedVarNames.Add(pair.Name);
+            }
+
+            for (var i = 0; i < annexBFunctions.Count; i++)
+            {
+                var f = annexBFunctions[i];
+                Key fn = f.Id!.Name;
+
+                // Skip if name conflicts with parameter or lexical declaration
+                if (state.ParameterBindings!.Contains(fn))
+                {
+                    continue;
+                }
+
+                if (lexicalNames?.Contains(fn.Name) == true)
+                {
+                    continue;
+                }
+
+                state.AnnexBFunctionNames ??= new HashSet<Key>();
+                state.AnnexBFunctionNames.Add(fn);
+
+                state.AnnexBFunctionDeclarations ??= [];
+                state.AnnexBFunctionDeclarations.Add(f);
+
+                if (instantiatedVarNames.Add(fn))
+                {
+                    varsToInitialize.Add(new State.VariableValuePair(Name: fn, InitialValue: JsValue.Undefined));
+                }
+            }
+        }
 
         if (hoistingScope._lexicalDeclarations != null)
         {

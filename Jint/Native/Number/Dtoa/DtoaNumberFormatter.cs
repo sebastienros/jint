@@ -48,8 +48,7 @@ internal static class DtoaNumberFormatter
                 fast_worked = FastDtoa.NumberToString(v, DtoaMode.Shortest, 0, out point, ref buffer);
                 break;
             case DtoaMode.Fixed:
-                //fast_worked = FastFixedDtoa(v, requested_digits, buffer, length, point);
-                Throw.NotImplementedException();
+                // No fast path implemented; fall through to bignum.
                 break;
             case DtoaMode.Precision:
                 fast_worked = FastDtoa.NumberToString(v, DtoaMode.Precision, requested_digits, out point, ref buffer);

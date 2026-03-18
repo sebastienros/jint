@@ -30,6 +30,15 @@ public sealed class JsRegExp : ObjectInstance
         set
         {
             _flags = value;
+            // Reset all flags before parsing (needed for RegExp.prototype.compile re-initialization)
+            DotAll = false;
+            Global = false;
+            Indices = false;
+            IgnoreCase = false;
+            Multiline = false;
+            Sticky = false;
+            FullUnicode = false;
+            UnicodeSets = false;
             foreach (var c in _flags)
             {
                 switch (c)

@@ -1,0 +1,20 @@
+{
+  "lastName": "Пупкин",
+  "firstName": "Василий",
+  "patronymic": "Иванович",
+  "address": {
+    "postalCode": 392032,
+    "country": "Россия",
+    "state": "Тамбовская область",
+    "city": "Тамбов",
+    "street": "Магистральная",
+    "houseNumber": "41к7",
+    "floor": 8,
+    "apartmentNumber": 115
+  },
+  "homePhone": "+7 (4752) 555-55-55",
+  "mobilePhone": "+7 (999) 689-99-99",
+  "email": "pupkin@mail.ru",
+  "website": "http:\/\/pupkin.narod.ru",
+  "icq": 698426795
+}

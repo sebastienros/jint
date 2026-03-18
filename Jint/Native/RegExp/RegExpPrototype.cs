@@ -70,9 +70,10 @@ internal sealed class RegExpPrototype : Prototype
         }
 
         const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-        var properties = new PropertyDictionary(14, checkExistingKeys: false)
+        var properties = new PropertyDictionary(15, checkExistingKeys: false)
         {
             ["constructor"] = new PropertyDescriptor(_constructor, propertyFlags),
+            ["compile"] = new PropertyDescriptor(new ClrFunction(Engine, "compile", Compile, 2, lengthFlags), propertyFlags),
             ["toString"] = new PropertyDescriptor(new ClrFunction(Engine, "toString", ToRegExpString, 0, lengthFlags), propertyFlags),
             ["exec"] = new PropertyDescriptor(new ClrFunction(Engine, "exec", _defaultExec, 1, lengthFlags), propertyFlags),
             ["test"] = new PropertyDescriptor(new ClrFunction(Engine, "test", Test, 1, lengthFlags), propertyFlags),
@@ -177,16 +178,29 @@ internal sealed class RegExpPrototype : Prototype
                     replacerArgs.Add(match.Value);
 
                     ObjectInstance? groups = null;
+                    // Pre-initialize groups with unique names in order
+                    for (var i = 1; i < actualGroupCount; i++)
+                    {
+                        var groupName = GetRegexGroupName(rei, i);
+                        if (!string.IsNullOrWhiteSpace(groupName))
+                        {
+                            groups ??= OrdinaryObjectCreate(_engine, null);
+                            if (!groups.HasOwnProperty(groupName))
+                            {
+                                groups.CreateDataPropertyOrThrow(groupName, Undefined);
+                            }
+                        }
+                    }
+
                     for (var i = 1; i < actualGroupCount; i++)
                     {
                         var capture = match.Groups[i];
                         replacerArgs.Add(capture.Success ? capture.Value : Undefined);
 
                         var groupName = GetRegexGroupName(rei, i);
-                        if (!string.IsNullOrWhiteSpace(groupName))
+                        if (!string.IsNullOrWhiteSpace(groupName) && capture.Success)
                         {
-                            groups ??= OrdinaryObjectCreate(_engine, null);
-                            groups.CreateDataPropertyOrThrow(groupName, capture.Success ? capture.Value : Undefined);
+                            groups!.CreateDataPropertyOrThrow(groupName, (JsString) capture.Value);
                         }
                     }
 
@@ -471,7 +485,7 @@ internal sealed class RegExpPrototype : Prototype
             return a;
         }
 
-        if (!unicodeMatching && rx is JsRegExp R && R.HasDefaultRegExpExec)
+        if (!unicodeMatching && splitter is JsRegExp R && R.HasDefaultRegExpExec)
         {
             // we can take faster path
 
@@ -952,8 +966,33 @@ internal sealed class RegExpPrototype : Prototype
         array.CreateDataProperty(PropertyInput, s);
 
         ObjectInstance? groups = null;
-        List<string>? groupNames = null;
+        List<string?>? groupNames = null;
         var indices = hasIndices ? new List<JsNumber[]?>(actualGroupCount) : null;
+
+        // Pre-initialize groups object with all unique names in source order.
+        // This ensures correct property ordering and that duplicate names don't
+        // overwrite a successful capture with undefined from a non-participating group.
+        var hasAnyGroupName = false;
+        for (uint i = 1; i < actualGroupCount; i++)
+        {
+            var groupName = GetRegexGroupName(rei, (int) i);
+            if (!string.IsNullOrWhiteSpace(groupName))
+            {
+                hasAnyGroupName = true;
+                groups ??= OrdinaryObjectCreate(engine, null);
+                if (!groups.HasOwnProperty(groupName))
+                {
+                    groups.CreateDataPropertyOrThrow(groupName, Undefined);
+                }
+            }
+
+            if (hasIndices)
+            {
+                groupNames ??= [];
+                groupNames.Add(groupName);
+            }
+        }
+
         for (uint i = 0; i < actualGroupCount; i++)
         {
             var capture = match.Groups[(int) i];
@@ -975,13 +1014,13 @@ internal sealed class RegExpPrototype : Prototype
                 }
             }
 
-            var groupName = GetRegexGroupName(rei, (int) i);
-            if (!string.IsNullOrWhiteSpace(groupName))
+            if (i > 0)
             {
-                groups ??= OrdinaryObjectCreate(engine, null);
-                groups.CreateDataPropertyOrThrow(groupName, capturedValue);
-                groupNames ??= [];
-                groupNames.Add(groupName!);
+                var groupName = GetRegexGroupName(rei, (int) i);
+                if (!string.IsNullOrWhiteSpace(groupName) && capture?.Success == true)
+                {
+                    groups!.CreateDataPropertyOrThrow(groupName, capturedValue);
+                }
             }
 
             array.SetIndexValue(i, capturedValue, updateLength: false);
@@ -991,11 +1030,43 @@ internal sealed class RegExpPrototype : Prototype
 
         if (hasIndices)
         {
-            var indicesArray = MakeMatchIndicesIndexPairArray(engine, s, indices!, groupNames, groupNames?.Count > 0);
+            var indicesArray = MakeMatchIndicesIndexPairArray(engine, s, indices!, groupNames, hasAnyGroupName);
             array.CreateDataPropertyOrThrow("indices", indicesArray);
         }
 
+        // B.2.4 Update legacy RegExp static properties
+        UpdateLegacyStaticProperties(engine, match, s, actualGroupCount);
+
         return array;
+    }
+
+    /// <summary>
+    /// B.2.4 Update RegExp legacy static properties after a successful match.
+    /// </summary>
+    private static void UpdateLegacyStaticProperties(Engine engine, Match match, string s, int actualGroupCount)
+    {
+        var constructor = engine.Realm.Intrinsics.RegExp;
+        constructor._legacyInput = s;
+        constructor._legacyLastMatch = match.Value;
+        constructor._legacyLeftContext = s.Substring(0, match.Index);
+        constructor._legacyRightContext = s.Substring(match.Index + match.Length);
+
+        // Update $1-$9
+        var lastParen = "";
+        for (var i = 0; i < 9; i++)
+        {
+            var groupIndex = i + 1;
+            if (groupIndex < actualGroupCount && match.Groups[groupIndex].Success)
+            {
+                constructor._legacyParens[i] = match.Groups[groupIndex].Value;
+                lastParen = match.Groups[groupIndex].Value;
+            }
+            else
+            {
+                constructor._legacyParens[i] = "";
+            }
+        }
+        constructor._legacyLastParen = lastParen;
     }
 
     /// <summary>
@@ -1005,7 +1076,7 @@ internal sealed class RegExpPrototype : Prototype
         Engine engine,
         string s,
         List<JsNumber[]?> indices,
-        List<string>? groupNames,
+        List<string?>? groupNames,
         bool hasGroups)
     {
         var n = indices.Count;
@@ -1014,6 +1085,15 @@ internal sealed class RegExpPrototype : Prototype
         if (hasGroups)
         {
             groups = OrdinaryObjectCreate(engine, null);
+
+            // Pre-initialize all unique group names with undefined for correct property ordering
+            foreach (var name in groupNames!)
+            {
+                if (!string.IsNullOrWhiteSpace(name) && !groups.HasOwnProperty(name))
+                {
+                    groups.CreateDataPropertyOrThrow(name, Undefined);
+                }
+            }
         }
 
         a.CreateDataPropertyOrThrow("groups", groups ?? Undefined);
@@ -1028,7 +1108,11 @@ internal sealed class RegExpPrototype : Prototype
             a.Push(matchIndexPair);
             if (i > 0 && !string.IsNullOrWhiteSpace(groupNames?[i - 1]))
             {
-                groups!.CreateDataPropertyOrThrow(groupNames![i - 1], matchIndexPair);
+                // For duplicate group names, only update if this group actually matched
+                if (matchIndices is not null)
+                {
+                    groups!.CreateDataPropertyOrThrow(groupNames![i - 1], matchIndexPair);
+                }
             }
         }
         return a;
@@ -1067,6 +1151,55 @@ internal sealed class RegExpPrototype : Prototype
         }
 
         return groupNameFromNumber;
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-regexp.prototype.compile
+    /// B.2.5.1
+    /// </summary>
+    private JsValue Compile(JsValue thisObject, JsCallArguments arguments)
+    {
+        // 1. Let O be the this value.
+        // 2. Perform ? RequireInternalSlot(O, [[RegExpMatcher]]).
+        var r = thisObject as JsRegExp;
+        if (r is null)
+        {
+            Throw.TypeError(_realm);
+            return default!;
+        }
+
+        // 3. If SameValue(O.[[Prototype]], %RegExp%.prototype) is false, throw a TypeError.
+        // This rejects subclass instances and cross-realm instances.
+        if (!ReferenceEquals(r.Prototype, _realm.Intrinsics.RegExp.PrototypeObject))
+        {
+            Throw.TypeError(_realm, "RegExp.prototype.compile cannot be used on RegExp subclass or cross-realm instances");
+            return default!;
+        }
+
+        var pattern = arguments.At(0);
+        var flags = arguments.At(1);
+
+        JsValue p;
+        JsValue f;
+        if (pattern is JsRegExp regExpPattern)
+        {
+            if (!flags.IsUndefined())
+            {
+                Throw.TypeError(_realm, "Cannot supply flags when constructing one RegExp from another");
+            }
+            p = regExpPattern.Source;
+            f = regExpPattern.Flags;
+        }
+        else
+        {
+            p = pattern;
+            f = flags;
+        }
+
+        // RegExpInitialize updates source/flags first, then sets lastIndex = 0.
+        // For compile, we use Set(O, "lastIndex", +0𝔽, true) which throws TypeError
+        // if lastIndex is non-writable (source/flags are already updated at that point).
+        return _constructor.RegExpInitialize(r, p, f, throwOnLastIndex: true);
     }
 
     private JsValue Exec(JsValue thisObject, JsCallArguments arguments)

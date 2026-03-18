@@ -69,7 +69,14 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
                 var value = JsValue.Undefined;
                 if (declaration.Init != null)
                 {
-                    value = declaration.Init.GetValue(context).Clone();
+                    if (declaration.Init is JintClassExpression classExpr && declaration.Init._expression.IsAnonymousFunctionDefinition())
+                    {
+                        value = classExpr.EvaluateWithName(context, lhs.ReferencedName.ToString()).Clone();
+                    }
+                    else
+                    {
+                        value = declaration.Init.GetValue(context).Clone();
+                    }
 
                     // Check for generator suspension after evaluating initializer
                     if (context.IsSuspended())
@@ -78,7 +85,7 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
                         return new Completion(CompletionType.Normal, value, _statement);
                     }
 
-                    if (declaration.Init._expression.IsFunctionDefinition())
+                    if (declaration.Init._expression.IsFunctionDefinition() && declaration.Init is not JintClassExpression)
                     {
                         ((Function) value).SetFunctionName(lhs.ReferencedName);
                     }
@@ -127,7 +134,15 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
                     var lhs = (Reference) declaration.Left!.Evaluate(context);
                     lhs.AssertValid(engine.Realm);
 
-                    var value = declaration.Init.GetValue(context).Clone();
+                    JsValue value;
+                    if (declaration.Init is JintClassExpression classExpr && declaration.Init._expression.IsAnonymousFunctionDefinition())
+                    {
+                        value = classExpr.EvaluateWithName(context, lhs.ReferencedName.ToString()).Clone();
+                    }
+                    else
+                    {
+                        value = declaration.Init.GetValue(context).Clone();
+                    }
 
                     // Check for generator suspension after evaluating initializer
                     if (context.IsSuspended())
@@ -136,7 +151,7 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
                         return new Completion(CompletionType.Normal, value, _statement);
                     }
 
-                    if (declaration.Init._expression.IsFunctionDefinition())
+                    if (declaration.Init._expression.IsFunctionDefinition() && declaration.Init is not JintClassExpression)
                     {
                         ((Function) value).SetFunctionName(lhs.ReferencedName);
                     }
