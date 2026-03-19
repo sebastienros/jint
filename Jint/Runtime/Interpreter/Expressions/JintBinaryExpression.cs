@@ -225,18 +225,11 @@ internal abstract class JintBinaryExpression : JintExpression
         var operands = new List<Expression>();
         CollectAdditionOperands(expression, operands);
 
-        // Must have at least one string literal to guarantee string concatenation semantics
-        var hasStringLiteral = false;
-        foreach (var operand in operands)
-        {
-            if (operand is Literal { Value: string })
-            {
-                hasStringLiteral = true;
-                break;
-            }
-        }
-
-        if (!hasStringLiteral)
+        // Must have a string literal in the first two operands to guarantee string concatenation semantics
+        // from the very first operation. A string literal at index 2+ is not enough because earlier operands
+        // could be numerically added (e.g., 2.0 + 3.0 + 'm' should yield '5m', not '23m').
+        // The early return above guarantees at least 3 operands, so operands[0] and operands[1] are always valid.
+        if (operands.Count < 2 || (operands[0] is not Literal { Value: string } && operands[1] is not Literal { Value: string }))
         {
             return false;
         }
