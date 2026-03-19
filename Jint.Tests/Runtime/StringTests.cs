@@ -13,6 +13,22 @@ public class StringTests
     private readonly Engine _engine;
 
     [Fact]
+    public void MixedTypeAdditionShouldEvaluateLeftToRight()
+    {
+        var engine = new Engine();
+        // Numbers before a string literal must be added numerically first
+        Assert.Equal("5m", engine.Evaluate("2.0 + 3.0 + 'm'").AsString());
+        Assert.Equal("5m", engine.Evaluate("2 + 3 + 'm'").AsString());
+        Assert.Equal("5mx", engine.Evaluate("2.0 + 3.0 + 'm' + 'x'").AsString());
+        Assert.Equal("64", engine.Evaluate("1 + 2 + 3 + '4'").AsString());
+
+        // String literal first: all ops are string concatenation
+        Assert.Equal("m23", engine.Evaluate("'m' + 2 + 3").AsString());
+        // String literal at index 1: correct too
+        Assert.Equal("2m3", engine.Evaluate("2 + 'm' + 3").AsString());
+    }
+
+    [Fact]
     public void StringConcatenationAndReferences()
     {
         const string script = @"
