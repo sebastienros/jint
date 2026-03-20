@@ -94,7 +94,7 @@ internal sealed class JintObjectExpression : JintExpression
                     var propertyValue = p.Value;
                     if (propertyValue is not Expression propertyExpression)
                     {
-                        Throw.SyntaxError(context.Engine.Realm, "Invalid object property value");
+                        Throw.SyntaxError(context.Engine.Realm, $"Invalid property value: expected Expression but found {propertyValue.GetType().Name}.");
                         return;
                     }
                     valueExpressions[i] = propertyExpression;

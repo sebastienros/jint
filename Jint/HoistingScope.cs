@@ -192,7 +192,7 @@ internal sealed class HoistingScope
             if (++_depth > MaxDepth)
             {
                 _depth--;
-                throw new ScriptPreparationException("Script is too deeply nested.", null);
+                throw new ScriptPreparationException($"Script nesting exceeds maximum depth of {MaxDepth} levels.", null);
             }
             try
             {
