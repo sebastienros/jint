@@ -1919,6 +1919,19 @@ var prep = function (fn) { fn(); };
 
 
     [Fact]
+    public void ShouldThrowJavaScriptExceptionForObjectExpressionWithAssignmentPattern()
+    {
+        // Before the fix, JintObjectExpression.Initialize crashed with InvalidCastException
+        // because an AssignmentPattern node was being cast to Expression without a type check.
+        // After the fix, it throws a catchable JavaScriptException (SyntaxError).
+        var engine = new Engine();
+        Assert.ThrowsAny<JavaScriptException>(() =>
+            engine.Execute("a=[1,3];aaa={}={}.aap+=[1,3];aaa={}={a=-[]<= []<a.m}.aap+=[,2,3111-1]")
+        );
+    }
+
+
+    [Fact]
     public void LocaleNumberShouldUseLocalCulture()
     {
         // Forcing to PDT and FR for tests
