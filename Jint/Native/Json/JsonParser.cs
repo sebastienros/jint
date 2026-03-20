@@ -129,7 +129,7 @@ public sealed class JsonParser
 
         for (int i = 0; i < 4; ++i)
         {
-            if (_index < _length + 1 && IsHexDigit(_source[_index]))
+            if (_index < _length && IsHexDigit(_source[_index]))
             {
                 char ch = char.ToLower(_source[_index++], CultureInfo.InvariantCulture);
                 code = code * 16 + "0123456789abcdef".IndexOf(ch);

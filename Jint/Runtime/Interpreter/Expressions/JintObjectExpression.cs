@@ -92,7 +92,12 @@ internal sealed class JintObjectExpression : JintExpression
                 if (p.Kind is PropertyKind.Init)
                 {
                     var propertyValue = p.Value;
-                    valueExpressions[i] = (Expression) propertyValue;
+                    if (propertyValue is not Expression propertyExpression)
+                    {
+                        Throw.SyntaxError(context.Engine.Realm, "Invalid object property value");
+                        return;
+                    }
+                    valueExpressions[i] = propertyExpression;
                     _canBuildFast &= !propertyValue.IsFunctionDefinition();
                 }
                 else

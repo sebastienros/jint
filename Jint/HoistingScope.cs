@@ -178,6 +178,9 @@ internal sealed class HoistingScope
         /// </summary>
         internal List<FunctionDeclaration>? _annexBFunctions;
 
+        private int _depth;
+        private const int MaxDepth = 2_000;
+
         public ScriptWalker(bool collectVarNames, bool collectLexicalNames)
         {
             _collectVarNames = collectVarNames;
@@ -185,6 +188,23 @@ internal sealed class HoistingScope
         }
 
         public void Visit(Node node, Node? parent, HashSet<string>? enclosingLexicalNames = null)
+        {
+            if (++_depth > MaxDepth)
+            {
+                _depth--;
+                throw new ScriptPreparationException("Script is too deeply nested.", null);
+            }
+            try
+            {
+                VisitCore(node, parent, enclosingLexicalNames);
+            }
+            finally
+            {
+                _depth--;
+            }
+        }
+
+        private void VisitCore(Node node, Node? parent, HashSet<string>? enclosingLexicalNames)
         {
             // Collect lexical names from this scope level for AnnexB conflict checking.
             // These are let/const/class declarations in non-root scopes (blocks, for headers, etc.)

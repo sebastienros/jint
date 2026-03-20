@@ -405,6 +405,21 @@ myarr[0](0);
         Assert.Equal(expected, RunLoop(e4, InvokeAction));
     }
 
+    [Fact]
+    public void ShouldThrowScriptPreparationExceptionForDeeplyNestedScript()
+    {
+        // Generate a script with more than MaxDepth (2000) levels of AST nesting.
+        // Each if-block pair adds 2 depth levels: IfStatement + BlockStatement.
+        // 1100 pairs → depth up to 2202, well above the 2000 limit.
+        const int nestingDepth = 1100;
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < nestingDepth; i++) sb.Append("if(true){");
+        sb.Append("1");
+        for (int i = 0; i < nestingDepth; i++) sb.Append("}");
+
+        Assert.Throws<ScriptPreparationException>(() => new Engine().Execute(sb.ToString()));
+    }
+
     private static Engine CreateEngine()
     {
         Engine engine = new(options => options.LimitRecursion(5));
