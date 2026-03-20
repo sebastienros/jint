@@ -179,7 +179,7 @@ internal sealed class HoistingScope
         internal List<FunctionDeclaration>? _annexBFunctions;
 
         private int _depth;
-        private const int MaxDepth = 2_000;
+        private const int MaxDepth = 256;
 
         public ScriptWalker(bool collectVarNames, bool collectLexicalNames)
         {

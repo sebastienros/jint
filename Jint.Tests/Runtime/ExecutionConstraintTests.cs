@@ -408,10 +408,11 @@ myarr[0](0);
     [Fact]
     public void ShouldThrowScriptPreparationExceptionForDeeplyNestedScript()
     {
-        // Generate a script with more than MaxDepth (2000) levels of AST nesting.
+        // Generate a script with more than MaxDepth (256) levels of AST nesting.
         // Each if-block pair adds 2 depth levels: IfStatement + BlockStatement.
-        // 1100 pairs → depth up to 2202, well above the 2000 limit.
-        const int nestingDepth = 1100;
+        // 150 pairs → depth up to ~302, well above the 256 limit, and safe for the
+        // Acornima parser on all platforms (Windows 1MB stack, macOS, Linux).
+        const int nestingDepth = 150;
         var sb = new System.Text.StringBuilder();
         for (int i = 0; i < nestingDepth; i++) sb.Append("if(true){");
         sb.Append("1");
