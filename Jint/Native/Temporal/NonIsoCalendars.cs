@@ -492,6 +492,16 @@ internal static class NonIsoCalendars
         return value < min ? min : value > max ? max : value;
     }
 
+    /// <summary>
+    /// Determines if a Hebrew year is a leap year using the 19-year Metonic cycle.
+    /// Works for any Hebrew year, including those outside .NET HebrewCalendar's range.
+    /// In each 19-year cycle, years 3, 6, 8, 11, 14, 17, 19 are leap years.
+    /// </summary>
+    private static bool IsHebrewLeapYearAlgorithmic(int year)
+    {
+        return (7 * year + 1) % 19 < 7;
+    }
+
     private static Calendar GetCalendar(string calendar)
     {
         return calendar switch
@@ -545,7 +555,9 @@ internal static class NonIsoCalendars
             }
             catch
             {
-                return 0;
+                // Out of .NET range: use algorithmic 19-year cycle
+                // Years 3, 6, 8, 11, 14, 17, 19 of each 19-year cycle are leap years
+                return IsHebrewLeapYearAlgorithmic(year) ? 6 : 0;
             }
         }
 
@@ -586,7 +598,13 @@ internal static class NonIsoCalendars
         }
         catch
         {
-            return 12; // fallback for out-of-range years
+            // For Hebrew out-of-range, use algorithmic leap year detection
+            if (calendar is "hebrew")
+            {
+                return IsHebrewLeapYearAlgorithmic(year) ? 13 : 12;
+            }
+
+            return 12;
         }
     }
 
@@ -867,7 +885,7 @@ internal static class NonIsoCalendars
             }
             catch
             {
-                yearIsLeap = false;
+                yearIsLeap = IsHebrewLeapYearAlgorithmic(year);
             }
 
             if (isLeap)
