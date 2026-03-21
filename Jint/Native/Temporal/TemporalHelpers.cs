@@ -1612,11 +1612,16 @@ internal static class TemporalHelpers
     /// For non-ISO calendars, the input fields are in the calendar's system
     /// and need to be converted to the proleptic Gregorian (ISO 8601) calendar.
     /// </summary>
-    public static IsoDate? CalendarDateToISO(Realm realm, string calendar, int year, int month, int day, string overflow)
+    public static IsoDate? CalendarDateToISO(Realm realm, string calendar, int year, int month, int day, string overflow, string? monthCode = null)
     {
         if (calendar is "iso8601" or "gregory")
         {
             return RegulateIsoDate(year, month, day, overflow);
+        }
+
+        if (NonIsoCalendars.IsNonIsoCalendar(calendar))
+        {
+            return NonIsoCalendars.CalendarDateToIso(calendar, year, monthCode, month, day, overflow);
         }
 
         if (calendar is "islamic-civil")
@@ -1638,8 +1643,13 @@ internal static class TemporalHelpers
     /// converting (calendarYear, month, day) to ISO produces an ISO date with the given
     /// ISO reference year (typically 1972).
     /// </summary>
-    internal static int FindCalendarReferenceYear(string calendar, int isoReferenceYear, int month, int day)
+    internal static int FindCalendarReferenceYear(string calendar, int isoReferenceYear, int month, int day, string? monthCode = null)
     {
+        if (NonIsoCalendars.IsNonIsoCalendar(calendar) && monthCode is not null)
+        {
+            return NonIsoCalendars.FindCalendarReferenceYear(calendar, isoReferenceYear, monthCode, day);
+        }
+
         if (calendar is "islamic-civil" or "islamic-tbla")
         {
             // Approximate Islamic year for a given ISO year
@@ -1819,12 +1829,12 @@ internal static class TemporalHelpers
             case "buddhist":
                 return "be";
             case "japanese":
-                // Simplified: use CE/BCE for years outside specific eras
+                // Temporal uses 1873 as Meiji start (when Japan adopted Gregorian calendar)
                 if (isoYear >= 2019) return "reiwa";
                 if (isoYear >= 1989) return "heisei";
                 if (isoYear >= 1926) return "showa";
                 if (isoYear >= 1912) return "taisho";
-                if (isoYear >= 1868) return "meiji";
+                if (isoYear >= 1873) return "meiji";
                 return isoYear >= 1 ? "ce" : "bce";
             default:
                 return null;
@@ -1849,7 +1859,7 @@ internal static class TemporalHelpers
                 if (isoYear >= 1989) return isoYear - 1988;
                 if (isoYear >= 1926) return isoYear - 1925;
                 if (isoYear >= 1912) return isoYear - 1911;
-                if (isoYear >= 1868) return isoYear - 1867;
+                if (isoYear >= 1873) return isoYear - 1872;
                 return isoYear >= 1 ? isoYear : 1 - isoYear;
             default:
                 return null;
@@ -1875,6 +1885,189 @@ internal static class TemporalHelpers
             default:
                 return isoYear;
         }
+    }
+
+    /// <summary>
+    /// Returns the calendar-specific year for any calendar, including non-ISO calendars.
+    /// For non-ISO calendars, converts the ISO date to a calendar date first.
+    /// </summary>
+    internal static int CalendarYear(string calendar, in IsoDate isoDate)
+    {
+        if (IsGregorianBasedCalendar(calendar))
+        {
+            return CalendarYear(calendar, isoDate.Year);
+        }
+
+        if (NonIsoCalendars.IsNonIsoCalendar(calendar))
+        {
+            return NonIsoCalendars.IsoToCalendarDate(calendar, isoDate).Year;
+        }
+
+        return isoDate.Year;
+    }
+
+    /// <summary>
+    /// Returns the calendar-specific ordinal month for a date.
+    /// </summary>
+    internal static int CalendarMonth(string calendar, in IsoDate isoDate)
+    {
+        if (IsGregorianBasedCalendar(calendar))
+        {
+            return isoDate.Month;
+        }
+
+        if (NonIsoCalendars.IsNonIsoCalendar(calendar))
+        {
+            return NonIsoCalendars.IsoToCalendarDate(calendar, isoDate).Month;
+        }
+
+        return isoDate.Month;
+    }
+
+    /// <summary>
+    /// Returns the calendar-specific monthCode for a date (e.g., "M01", "M05L").
+    /// </summary>
+    internal static string CalendarMonthCode(string calendar, in IsoDate isoDate)
+    {
+        if (IsGregorianBasedCalendar(calendar))
+        {
+            return $"M{isoDate.Month:D2}";
+        }
+
+        if (NonIsoCalendars.IsNonIsoCalendar(calendar))
+        {
+            return NonIsoCalendars.IsoToCalendarDate(calendar, isoDate).MonthCode;
+        }
+
+        return $"M{isoDate.Month:D2}";
+    }
+
+    /// <summary>
+    /// Returns the calendar-specific day for a date.
+    /// </summary>
+    internal static int CalendarDay(string calendar, in IsoDate isoDate)
+    {
+        if (IsGregorianBasedCalendar(calendar))
+        {
+            return isoDate.Day;
+        }
+
+        if (NonIsoCalendars.IsNonIsoCalendar(calendar))
+        {
+            return NonIsoCalendars.IsoToCalendarDate(calendar, isoDate).Day;
+        }
+
+        return isoDate.Day;
+    }
+
+    /// <summary>
+    /// Returns the number of days in the calendar month containing the given ISO date.
+    /// </summary>
+    internal static int CalendarDaysInMonth(string calendar, in IsoDate isoDate)
+    {
+        if (IsGregorianBasedCalendar(calendar))
+        {
+            return isoDate.DaysInMonth();
+        }
+
+        if (NonIsoCalendars.IsNonIsoCalendar(calendar))
+        {
+            return NonIsoCalendars.IsoToCalendarDate(calendar, isoDate).DaysInMonth;
+        }
+
+        return isoDate.DaysInMonth();
+    }
+
+    /// <summary>
+    /// Returns the number of days in the calendar year containing the given ISO date.
+    /// </summary>
+    internal static int CalendarDaysInYear(string calendar, in IsoDate isoDate)
+    {
+        if (IsGregorianBasedCalendar(calendar))
+        {
+            return isoDate.DaysInYear();
+        }
+
+        if (NonIsoCalendars.IsNonIsoCalendar(calendar))
+        {
+            return NonIsoCalendars.IsoToCalendarDate(calendar, isoDate).DaysInYear;
+        }
+
+        return isoDate.DaysInYear();
+    }
+
+    /// <summary>
+    /// Returns the number of months in the calendar year containing the given ISO date.
+    /// </summary>
+    internal static int CalendarMonthsInYear(string calendar, in IsoDate isoDate)
+    {
+        if (IsGregorianBasedCalendar(calendar))
+        {
+            return 12;
+        }
+
+        if (NonIsoCalendars.IsNonIsoCalendar(calendar))
+        {
+            return NonIsoCalendars.IsoToCalendarDate(calendar, isoDate).MonthsInYear;
+        }
+
+        return 12;
+    }
+
+    /// <summary>
+    /// Returns whether the calendar year containing the given ISO date is a leap year.
+    /// </summary>
+    internal static bool CalendarInLeapYear(string calendar, in IsoDate isoDate)
+    {
+        if (IsGregorianBasedCalendar(calendar))
+        {
+            return IsoDate.IsLeapYear(isoDate.Year);
+        }
+
+        if (NonIsoCalendars.IsNonIsoCalendar(calendar))
+        {
+            return NonIsoCalendars.IsoToCalendarDate(calendar, isoDate).InLeapYear;
+        }
+
+        return IsoDate.IsLeapYear(isoDate.Year);
+    }
+
+    /// <summary>
+    /// Returns the era string for any calendar, including non-ISO calendars.
+    /// </summary>
+    internal static string? CalendarEra(string calendar, in IsoDate isoDate)
+    {
+        if (IsGregorianBasedCalendar(calendar))
+        {
+            return CalendarEra(calendar, isoDate.Year);
+        }
+
+        if (NonIsoCalendars.IsNonIsoCalendar(calendar))
+        {
+            var calDate = NonIsoCalendars.IsoToCalendarDate(calendar, isoDate);
+            return NonIsoCalendars.CalendarEra(calendar, calDate);
+        }
+
+        return CalendarEra(calendar, isoDate.Year);
+    }
+
+    /// <summary>
+    /// Returns the eraYear for any calendar, including non-ISO calendars.
+    /// </summary>
+    internal static int? CalendarEraYear(string calendar, in IsoDate isoDate)
+    {
+        if (IsGregorianBasedCalendar(calendar))
+        {
+            return CalendarEraYear(calendar, isoDate.Year);
+        }
+
+        if (NonIsoCalendars.IsNonIsoCalendar(calendar))
+        {
+            var calDate = NonIsoCalendars.IsoToCalendarDate(calendar, isoDate);
+            return NonIsoCalendars.CalendarEraYear(calendar, calDate);
+        }
+
+        return CalendarEraYear(calendar, isoDate.Year);
     }
 
     /// <summary>
@@ -1933,8 +2126,13 @@ internal static class TemporalHelpers
                     return 1 - eraYear;
                 break;
             case "japanese":
-                if (era is "reiwa" or "heisei" or "showa" or "taisho" or "meiji" or "ce" or "bce")
-                    return eraYear; // simplified
+                if (era is "reiwa") return eraYear + 2018;
+                if (era is "heisei") return eraYear + 1988;
+                if (era is "showa") return eraYear + 1925;
+                if (era is "taisho") return eraYear + 1911;
+                if (era is "meiji") return eraYear + 1872;
+                if (era is "ce" or "gregory") return eraYear;
+                if (era is "bce" or "gregory-inverse") return 1 - eraYear;
                 break;
             case "roc":
                 if (era is "roc" or "minguo")
@@ -2262,6 +2460,31 @@ internal static class TemporalHelpers
             // Per spec, CalendarDateAdd does NOT check ISODateWithinLimits.
             // Range validation happens at the caller (e.g., CreateTemporalDate, GetEpochNanosecondsFor).
             return result;
+        }
+        else if (NonIsoCalendars.IsNonIsoCalendar(calendar))
+        {
+            try
+            {
+                // Add years and months using calendar-specific reckoning
+                var result = NonIsoCalendars.CalendarDateAdd(calendar, isoDate, (int) duration.Years, (int) duration.Months, overflow);
+
+                // Add weeks and days using ISO arithmetic
+                var days = duration.Days + 7 * duration.Weeks;
+                if (days != 0)
+                {
+                    result = AddDaysToISODate(result, days);
+                }
+
+                return result;
+            }
+            catch (InvalidOperationException ex) when (string.Equals(ex.Message, "reject", StringComparison.Ordinal))
+            {
+                if (realm != null)
+                    Throw.RangeError(realm, "Invalid date after adding duration");
+                else
+                    throw new ArgumentException("Invalid date after adding duration", nameof(duration));
+                return default;
+            }
         }
         else
         {
@@ -6257,6 +6480,11 @@ internal static class TemporalHelpers
         // Step 3: For ISO and Gregorian-based calendars (same arithmetic)
         if (!IsGregorianBasedCalendar(calendar))
         {
+            if (NonIsoCalendars.IsNonIsoCalendar(calendar))
+            {
+                return NonIsoCalendars.CalendarDateUntil(calendar, one, two, largestUnit);
+            }
+
             throw new NotSupportedException($"Calendar '{calendar}' not yet supported");
         }
 

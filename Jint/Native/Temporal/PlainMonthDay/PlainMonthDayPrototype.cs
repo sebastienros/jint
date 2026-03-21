@@ -61,8 +61,16 @@ internal sealed class PlainMonthDayPrototype : Prototype
 
     // Getters
     private JsString GetCalendarId(JsValue thisObject, JsCallArguments arguments) => new JsString(ValidatePlainMonthDay(thisObject).Calendar);
-    private JsString GetMonthCode(JsValue thisObject, JsCallArguments arguments) => new JsString($"M{ValidatePlainMonthDay(thisObject).IsoDate.Month:D2}");
-    private JsNumber GetDay(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainMonthDay(thisObject).IsoDate.Day);
+    private JsString GetMonthCode(JsValue thisObject, JsCallArguments arguments)
+    {
+        var md = ValidatePlainMonthDay(thisObject);
+        return new JsString(TemporalHelpers.CalendarMonthCode(md.Calendar, md.IsoDate));
+    }
+    private JsNumber GetDay(JsValue thisObject, JsCallArguments arguments)
+    {
+        var md = ValidatePlainMonthDay(thisObject);
+        return JsNumber.Create(TemporalHelpers.CalendarDay(md.Calendar, md.IsoDate));
+    }
 
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plainmonthday.prototype.with

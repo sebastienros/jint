@@ -305,7 +305,7 @@ internal sealed class PlainMonthDayConstructor : Constructor
             month = monthFromCode.Value;
         }
 
-        if (month == 0)
+        if (month == 0 && monthCodeStr is null)
         {
             Throw.TypeError(_realm, "month or monthCode is required");
         }
@@ -316,9 +316,9 @@ internal sealed class PlainMonthDayConstructor : Constructor
             // When year is not explicitly provided, find the calendar year that maps to ISO 1972
             var calendarYear = yearExplicitlyProvided
                 ? year
-                : TemporalHelpers.FindCalendarReferenceYear(calendar, 1972, month, day);
+                : TemporalHelpers.FindCalendarReferenceYear(calendar, 1972, month, day, monthCodeStr);
 
-            var calDate = TemporalHelpers.CalendarDateToISO(_realm, calendar, calendarYear, month, day, overflow);
+            var calDate = TemporalHelpers.CalendarDateToISO(_realm, calendar, calendarYear, month, day, overflow, monthCodeStr);
             if (calDate is null)
             {
                 Throw.RangeError(_realm, "Invalid month-day");

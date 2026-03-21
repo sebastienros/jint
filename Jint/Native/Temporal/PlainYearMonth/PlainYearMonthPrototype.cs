@@ -75,28 +75,48 @@ internal sealed class PlainYearMonthPrototype : Prototype
     private JsNumber GetYear(JsValue thisObject, JsCallArguments arguments)
     {
         var ym = ValidatePlainYearMonth(thisObject);
-        return JsNumber.Create(TemporalHelpers.CalendarYear(ym.Calendar, ym.IsoDate.Year));
+        return JsNumber.Create(TemporalHelpers.CalendarYear(ym.Calendar, ym.IsoDate));
     }
-    private JsNumber GetMonth(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainYearMonth(thisObject).IsoDate.Month);
-    private JsString GetMonthCode(JsValue thisObject, JsCallArguments arguments) => new JsString($"M{ValidatePlainYearMonth(thisObject).IsoDate.Month:D2}");
-    private JsNumber GetDaysInMonth(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainYearMonth(thisObject).IsoDate.DaysInMonth());
-    private JsNumber GetDaysInYear(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainYearMonth(thisObject).IsoDate.DaysInYear());
+    private JsNumber GetMonth(JsValue thisObject, JsCallArguments arguments)
+    {
+        var ym = ValidatePlainYearMonth(thisObject);
+        return JsNumber.Create(TemporalHelpers.CalendarMonth(ym.Calendar, ym.IsoDate));
+    }
+    private JsString GetMonthCode(JsValue thisObject, JsCallArguments arguments)
+    {
+        var ym = ValidatePlainYearMonth(thisObject);
+        return new JsString(TemporalHelpers.CalendarMonthCode(ym.Calendar, ym.IsoDate));
+    }
+    private JsNumber GetDaysInMonth(JsValue thisObject, JsCallArguments arguments)
+    {
+        var ym = ValidatePlainYearMonth(thisObject);
+        return JsNumber.Create(TemporalHelpers.CalendarDaysInMonth(ym.Calendar, ym.IsoDate));
+    }
+    private JsNumber GetDaysInYear(JsValue thisObject, JsCallArguments arguments)
+    {
+        var ym = ValidatePlainYearMonth(thisObject);
+        return JsNumber.Create(TemporalHelpers.CalendarDaysInYear(ym.Calendar, ym.IsoDate));
+    }
     private JsNumber GetMonthsInYear(JsValue thisObject, JsCallArguments arguments)
     {
-        ValidatePlainYearMonth(thisObject);
-        return JsNumber.Create(12);
+        var ym = ValidatePlainYearMonth(thisObject);
+        return JsNumber.Create(TemporalHelpers.CalendarMonthsInYear(ym.Calendar, ym.IsoDate));
     }
-    private JsBoolean GetInLeapYear(JsValue thisObject, JsCallArguments arguments) => IsoDate.IsLeapYear(ValidatePlainYearMonth(thisObject).IsoDate.Year) ? JsBoolean.True : JsBoolean.False;
+    private JsBoolean GetInLeapYear(JsValue thisObject, JsCallArguments arguments)
+    {
+        var ym = ValidatePlainYearMonth(thisObject);
+        return TemporalHelpers.CalendarInLeapYear(ym.Calendar, ym.IsoDate) ? JsBoolean.True : JsBoolean.False;
+    }
     private JsValue GetEraYear(JsValue thisObject, JsCallArguments arguments)
     {
         var ym = ValidatePlainYearMonth(thisObject);
-        var eraYear = TemporalHelpers.CalendarEraYear(ym.Calendar, ym.IsoDate.Year);
+        var eraYear = TemporalHelpers.CalendarEraYear(ym.Calendar, ym.IsoDate);
         return eraYear.HasValue ? JsNumber.Create(eraYear.Value) : Undefined;
     }
     private JsValue GetEra(JsValue thisObject, JsCallArguments arguments)
     {
         var ym = ValidatePlainYearMonth(thisObject);
-        var era = TemporalHelpers.CalendarEra(ym.Calendar, ym.IsoDate.Year);
+        var era = TemporalHelpers.CalendarEra(ym.Calendar, ym.IsoDate);
         return era is not null ? new JsString(era) : Undefined;
     }
 
@@ -138,13 +158,19 @@ internal sealed class PlainYearMonthPrototype : Prototype
 
         // Read and convert properties in alphabetical order with immediate conversion per spec
         // Order: month, monthCode, year
-        var year = ym.IsoDate.Year;
-        var month = ym.IsoDate.Month;
+        var isNonIso = NonIsoCalendars.IsNonIsoCalendar(ym.Calendar);
 
         var monthProp = obj.Get("month");
+        int month;
         if (!monthProp.IsUndefined())
         {
             month = TemporalHelpers.ToPositiveIntegerWithTruncation(_realm, monthProp);
+        }
+        else
+        {
+            month = isNonIso
+                ? TemporalHelpers.CalendarMonth(ym.Calendar, ym.IsoDate)
+                : ym.IsoDate.Month;
         }
 
         var monthCodeProp = obj.Get("monthCode");
@@ -176,11 +202,24 @@ internal sealed class PlainYearMonthPrototype : Prototype
                 monthCode = TypeConverter.ToString(monthCodeProp);
             }
         }
+        else if (isNonIso && monthProp.IsUndefined())
+        {
+            // Only default monthCode from the calendar when month was not explicitly provided;
+            // if the user set month explicitly, let month drive the conversion without monthCode
+            monthCode = TemporalHelpers.CalendarMonthCode(ym.Calendar, ym.IsoDate);
+        }
 
         var yearProp = obj.Get("year");
+        int year;
         if (!yearProp.IsUndefined())
         {
             year = TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearProp);
+        }
+        else
+        {
+            year = isNonIso
+                ? TemporalHelpers.CalendarYear(ym.Calendar, ym.IsoDate)
+                : ym.IsoDate.Year;
         }
 
         // Validate that at least one temporal field was provided (IsPartialTemporalObject)
@@ -192,7 +231,30 @@ internal sealed class PlainYearMonthPrototype : Prototype
         // Read options BEFORE any validation (per spec)
         var overflow = TemporalHelpers.GetOverflowOption(_realm, options);
 
-        // NOW validate monthCode (after options are read)
+        // Handle non-ISO calendars via CalendarDateToISO
+        if (isNonIso)
+        {
+            // Validate monthCode well-formedness if explicitly provided
+            if (!monthCodeProp.IsUndefined() && monthCode is not null)
+            {
+                TemporalHelpers.ParseMonthCode(_realm, monthCode);
+            }
+
+            var date = TemporalHelpers.CalendarDateToISO(_realm, ym.Calendar, year, month, 1, overflow, monthCode);
+            if (date is null)
+            {
+                Throw.RangeError(_realm, "Invalid year-month");
+            }
+
+            if (!TemporalHelpers.ISOYearMonthWithinLimits(date.Value.Year, date.Value.Month))
+            {
+                Throw.RangeError(_realm, "Year-month is outside the representable range");
+            }
+
+            return _constructor.Construct(date.Value, ym.Calendar);
+        }
+
+        // ISO calendar path
         int? parsedMonthFromCode = null;
         if (monthCode is not null)
         {
@@ -290,29 +352,17 @@ internal sealed class PlainYearMonthPrototype : Prototype
         var intermediateDate = new IsoDate(ym.IsoDate.Year, ym.IsoDate.Month, 1);
         TemporalHelpers.CheckISODaysRange(_realm, intermediateDate);
 
-        // Add years and months
-        var currentYear = ym.IsoDate.Year + (int) duration.Years;
-        var currentMonth = ym.IsoDate.Month + (int) duration.Months;
-
-        // Normalize months
-        while (currentMonth > 12)
-        {
-            currentMonth -= 12;
-            currentYear++;
-        }
-        while (currentMonth < 1)
-        {
-            currentMonth += 12;
-            currentYear--;
-        }
+        // Use calendar-aware date addition
+        var yearMonthDuration = new DurationRecord(duration.Years, duration.Months, 0, 0, 0, 0, 0, 0, 0, 0);
+        var resultDate = TemporalHelpers.CalendarDateAdd(_realm, ym.Calendar, ym.IsoDate, yearMonthDuration, overflow);
 
         // Validate the result is within Temporal's representable range
-        if (!TemporalHelpers.ISOYearMonthWithinLimits(currentYear, currentMonth))
+        if (!TemporalHelpers.ISOYearMonthWithinLimits(resultDate.Year, resultDate.Month))
         {
             Throw.RangeError(_realm, "Year-month result is outside the representable range");
         }
 
-        return _constructor.Construct(new IsoDate(currentYear, currentMonth, 1), ym.Calendar);
+        return _constructor.Construct(resultDate, ym.Calendar);
     }
 
     /// <summary>
@@ -618,7 +668,21 @@ internal sealed class PlainYearMonthPrototype : Prototype
         }
 
         var day = TemporalHelpers.ToPositiveIntegerWithTruncation(_realm, dayProp);
-        var date = TemporalHelpers.RegulateIsoDate(ym.IsoDate.Year, ym.IsoDate.Month, day, "constrain");
+
+        IsoDate? date;
+        if (NonIsoCalendars.IsNonIsoCalendar(ym.Calendar))
+        {
+            // For non-ISO calendars, get the calendar year/month and combine with the provided day
+            var calYear = TemporalHelpers.CalendarYear(ym.Calendar, ym.IsoDate);
+            var calMonth = TemporalHelpers.CalendarMonth(ym.Calendar, ym.IsoDate);
+            var calMonthCode = TemporalHelpers.CalendarMonthCode(ym.Calendar, ym.IsoDate);
+            date = TemporalHelpers.CalendarDateToISO(_realm, ym.Calendar, calYear, calMonth, day, "constrain", calMonthCode);
+        }
+        else
+        {
+            date = TemporalHelpers.RegulateIsoDate(ym.IsoDate.Year, ym.IsoDate.Month, day, "constrain");
+        }
+
         if (date is null)
         {
             Throw.RangeError(_realm, "Invalid date");

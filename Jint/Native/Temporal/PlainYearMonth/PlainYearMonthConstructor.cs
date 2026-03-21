@@ -327,7 +327,7 @@ internal sealed class PlainYearMonthConstructor : Constructor
         }
 
         // At least one of month or monthCode is required
-        if (month == 0)
+        if (month == 0 && monthCodeStr is null)
         {
             Throw.TypeError(_realm, "month or monthCode is required");
         }
@@ -335,7 +335,7 @@ internal sealed class PlainYearMonthConstructor : Constructor
         // For non-ISO calendars, convert calendar year/month to ISO
         if (!TemporalHelpers.IsGregorianBasedCalendar(calendar))
         {
-            var date = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, 1, overflow);
+            var date = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, 1, overflow, monthCodeStr);
             if (date is null)
             {
                 Throw.RangeError(_realm, "Invalid year-month");
@@ -474,7 +474,7 @@ internal sealed class PlainYearMonthConstructor : Constructor
         }
 
         // At least one of month or monthCode is required
-        if (month == 0)
+        if (month == 0 && monthCodeStr is null)
         {
             Throw.TypeError(_realm, "month or monthCode is required");
         }
@@ -484,7 +484,7 @@ internal sealed class PlainYearMonthConstructor : Constructor
         // For non-ISO calendars, convert calendar year/month to ISO
         if (!TemporalHelpers.IsGregorianBasedCalendar(calendar))
         {
-            var date = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, 1, overflow);
+            var date = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, 1, overflow, monthCodeStr);
             if (date is null)
             {
                 Throw.RangeError(_realm, "Invalid year-month");

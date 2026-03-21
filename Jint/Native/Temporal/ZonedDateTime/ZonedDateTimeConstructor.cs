@@ -344,13 +344,13 @@ internal sealed class ZonedDateTimeConstructor : Constructor
             }
         }
 
-        if (month == 0)
+        if (month == 0 && monthCodeStr is null)
         {
             Throw.TypeError(_realm, "month or monthCode is required");
         }
 
         // Regulate date (with calendar conversion for non-ISO calendars)
-        var date = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, day, overflow);
+        var date = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, day, overflow, monthCodeStr);
         if (date is null)
         {
             Throw.RangeError(_realm, "Invalid date");
