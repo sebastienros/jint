@@ -318,9 +318,10 @@ internal sealed class InstantPrototype : Prototype
         ObjectInstance roundToObj;
 
         // Step 4: If roundTo is a string, treat as { smallestUnit: roundTo }
+        // Per spec, the synthetic options object must have null prototype to avoid Object.prototype pollution
         if (roundTo.IsString())
         {
-            roundToObj = new JsObject(_engine);
+            roundToObj = ObjectInstance.OrdinaryObjectCreate(_engine, null);
             roundToObj.Set("smallestUnit", roundTo);
         }
         // Step 5: Else, GetOptionsObject (must be an object)
