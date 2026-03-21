@@ -158,19 +158,18 @@
     "intl402/Temporal/PlainMonthDay/from/constrain-to-leap-day.js",
     "intl402/Temporal/PlainMonthDay/from/dangi-30-day-leap-months.js",
     "intl402/Temporal/PlainMonthDay/from/dangi-calendar-dates.js",
-    "intl402/Temporal/PlainMonthDay/from/fields-object.js",
     "intl402/Temporal/PlainMonthDay/from/reference-date-noniso-calendar.js",
     "intl402/Temporal/PlainMonthDay/from/reference-year-1972.js",
+
+    // PlainMonthDay monthCode - reference year selection affects month code for Chinese/Dangi
     "intl402/Temporal/PlainMonthDay/prototype/monthCode/chinese-calendar-dates.js",
     "intl402/Temporal/PlainMonthDay/prototype/monthCode/dangi-calendar-dates.js",
-    "intl402/Temporal/PlainMonthDay/prototype/with/non-iso-calendar-fields.js",
 
     // PlainYearMonth non-ISO calendar reference day and since
     "intl402/Temporal/PlainYearMonth/from/reference-day-chinese.js",
     "intl402/Temporal/PlainYearMonth/from/reference-day-hebrew.js",
     "intl402/Temporal/PlainYearMonth/prototype/since/chinese-calendar-dates.js",
     "intl402/Temporal/PlainYearMonth/prototype/since/dangi-calendar-dates.js",
-    "intl402/Temporal/PlainYearMonth/prototype/with/non-iso-calendar-fields.js",
 
     // === ANNEX B EXCLUSIONS ===
 
