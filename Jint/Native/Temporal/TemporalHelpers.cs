@@ -4366,16 +4366,19 @@ internal static class TemporalHelpers
 
         // Determine month from either month or monthCode
         int month;
+        string? monthCode = null;
+        var isNonIso = NonIsoCalendars.IsNonIsoCalendar(fields.Calendar);
         if (fields.Month.HasValue && !string.IsNullOrEmpty(fields.MonthCode))
         {
-            // Both provided - parse monthCode and verify they match
+            // Both provided - verify they match (ISO only - non-ISO ordinal ≠ display)
             var parsedMonthCode = ParseMonthCode(realm, fields.MonthCode!);
-            if (parsedMonthCode != fields.Month.Value)
+            if (!isNonIso && parsedMonthCode != fields.Month.Value)
             {
                 Throw.RangeError(realm, "month and monthCode do not match");
             }
 
             month = fields.Month.Value;
+            monthCode = fields.MonthCode;
         }
         else if (fields.Month.HasValue)
         {
@@ -4383,7 +4386,8 @@ internal static class TemporalHelpers
         }
         else if (!string.IsNullOrEmpty(fields.MonthCode))
         {
-            month = ParseMonthCode(realm, fields.MonthCode!);
+            month = isNonIso ? 0 : ParseMonthCode(realm, fields.MonthCode!);
+            monthCode = fields.MonthCode;
         }
         else
         {
@@ -4391,8 +4395,17 @@ internal static class TemporalHelpers
             return null!;
         }
 
-        // Regulate the date
-        var isoDate = RegulateIsoDate(fields.Year.Value, month, fields.Day.Value, "constrain");
+        // Use calendar-aware date construction for non-ISO calendars
+        IsoDate? isoDate;
+        if (isNonIso)
+        {
+            isoDate = CalendarDateToISO(realm, fields.Calendar, fields.Year.Value, month, fields.Day.Value, "constrain", monthCode);
+        }
+        else
+        {
+            isoDate = RegulateIsoDate(fields.Year.Value, month, fields.Day.Value, "constrain");
+        }
+
         if (isoDate is null)
         {
             Throw.RangeError(realm, "Invalid date");
@@ -4425,15 +4438,18 @@ internal static class TemporalHelpers
 
         // Determine month
         int month;
+        string? monthCode = null;
+        var isNonIso = NonIsoCalendars.IsNonIsoCalendar(fields.Calendar);
         if (fields.Month.HasValue && !string.IsNullOrEmpty(fields.MonthCode))
         {
             var parsedMonthCode = ParseMonthCode(realm, fields.MonthCode!);
-            if (parsedMonthCode != fields.Month.Value)
+            if (!isNonIso && parsedMonthCode != fields.Month.Value)
             {
                 Throw.RangeError(realm, "month and monthCode do not match");
             }
 
             month = fields.Month.Value;
+            monthCode = fields.MonthCode;
         }
         else if (fields.Month.HasValue)
         {
@@ -4441,7 +4457,8 @@ internal static class TemporalHelpers
         }
         else if (!string.IsNullOrEmpty(fields.MonthCode))
         {
-            month = ParseMonthCode(realm, fields.MonthCode!);
+            month = isNonIso ? 0 : ParseMonthCode(realm, fields.MonthCode!);
+            monthCode = fields.MonthCode;
         }
         else
         {
@@ -4450,7 +4467,16 @@ internal static class TemporalHelpers
         }
 
         // Regulate date and time
-        var isoDate = RegulateIsoDate(fields.Year.Value, month, fields.Day.Value, "constrain");
+        IsoDate? isoDate;
+        if (isNonIso)
+        {
+            isoDate = CalendarDateToISO(realm, fields.Calendar, fields.Year.Value, month, fields.Day.Value, "constrain", monthCode);
+        }
+        else
+        {
+            isoDate = RegulateIsoDate(fields.Year.Value, month, fields.Day.Value, "constrain");
+        }
+
         if (isoDate is null)
         {
             Throw.RangeError(realm, "Invalid date");
