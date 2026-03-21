@@ -2,13 +2,14 @@
 
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Threading;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
-namespace Jint.Tests.Test262;
+namespace Jint;
 
 /// <summary>
 /// Implements the $262.agent API for Test262 multi-agent tests.
@@ -21,7 +22,7 @@ internal sealed class Test262AgentManager : IDisposable
     private readonly Stopwatch _stopwatch = Stopwatch.StartNew();
     private byte[]? _broadcastBufferData;
     private int _broadcastBufferLength;
-    private readonly object _broadcastLock = new();
+    private readonly Lock _broadcastLock = new();
     private readonly ManualResetEventSlim _broadcastEvent = new(false);
     private int _broadcastVersion;
 
@@ -67,7 +68,7 @@ internal sealed class Test262AgentManager : IDisposable
         agent.FastSetProperty("sleep", new PropertyDescriptor(new ClrFunction(engine, "sleep",
             (_, args) =>
             {
-                var ms = (int)TypeConverter.ToNumber(args.At(0));
+                var ms = (int) TypeConverter.ToNumber(args.At(0));
                 Thread.Sleep(ms);
                 return JsValue.Undefined;
             }), true, true, true));
@@ -120,7 +121,7 @@ internal sealed class Test262AgentManager : IDisposable
         List<AgentWorker> workers;
         lock (_workers)
         {
-            workers = [.._workers];
+            workers = [.. _workers];
         }
 
         foreach (var worker in workers)
@@ -194,7 +195,7 @@ internal sealed class Test262AgentManager : IDisposable
                 agentObj.FastSetProperty("sleep", new PropertyDescriptor(new ClrFunction(engine, "sleep",
                     (_, args) =>
                     {
-                        var ms = (int)TypeConverter.ToNumber(args.At(0));
+                        var ms = (int) TypeConverter.ToNumber(args.At(0));
                         Thread.Sleep(ms);
                         return JsValue.Undefined;
                     }), true, true, true));
@@ -274,8 +275,8 @@ internal sealed class Test262AgentManager : IDisposable
             // Create a new SharedArrayBuffer that shares the same underlying byte array
             // Get prototype via the constructor's "prototype" property
             var constructor = engine.Realm.Intrinsics.SharedArrayBuffer;
-            var prototype = (ObjectInstance)constructor.Get(CommonProperties.Prototype);
-            var sab = new JsSharedArrayBuffer(engine, data, null, (uint)byteLength)
+            var prototype = (ObjectInstance) constructor.Get(CommonProperties.Prototype);
+            var sab = new JsSharedArrayBuffer(engine, data, null, (uint) byteLength)
             {
                 _prototype = prototype
             };
