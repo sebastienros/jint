@@ -161,13 +161,17 @@ internal sealed class PlainDateConstructor : Constructor
             // Validate well-formedness (format) - this happens before year type validation
             monthFromCode = TemporalHelpers.ParseMonthCode(_realm, monthCodeStr);
 
-            // If both month and monthCode are provided, they must match
-            if (month != 0 && month != monthFromCode)
+            // If both month and monthCode are provided, they must match (ISO only)
+            // For non-ISO calendars, ordinal month ≠ display month (e.g., month 5 = M04L)
+            if (!NonIsoCalendars.IsNonIsoCalendar(calendar) && month != 0 && month != monthFromCode)
             {
                 Throw.RangeError(_realm, "month and monthCode do not match");
             }
 
-            month = monthFromCode;
+            if (!NonIsoCalendars.IsNonIsoCalendar(calendar))
+            {
+                month = monthFromCode;
+            }
         }
 
         // 5. year - use eraYear if computed, otherwise read from property
@@ -193,27 +197,30 @@ internal sealed class PlainDateConstructor : Constructor
         // 6. Read options AFTER all fields (but BEFORE algorithmic validation)
         var overflow = TemporalHelpers.GetOverflowOption(_realm, options);
 
-        // Validate monthCode suitability - only for ISO/Gregorian calendars
-        if (monthCodeStr is not null && TemporalHelpers.IsGregorianBasedCalendar(calendar))
+        // Validate monthCode suitability
+        if (monthCodeStr is not null)
         {
-            // For ISO 8601 calendar: validate monthCode is valid (01-12, no leap months)
-            if (monthCodeStr.Length == 4 && monthCodeStr[3] == 'L')
+            if (TemporalHelpers.IsGregorianBasedCalendar(calendar))
             {
-                Throw.RangeError(_realm, $"Leap months are not valid for ISO 8601 calendar: {monthCodeStr}");
-            }
+                // For ISO 8601 calendar: validate monthCode is valid (01-12, no leap months)
+                if (monthCodeStr.Length == 4 && monthCodeStr[3] == 'L')
+                {
+                    Throw.RangeError(_realm, $"Leap months are not valid for ISO 8601 calendar: {monthCodeStr}");
+                }
 
-            if (monthFromCode < 1 || monthFromCode > 12)
-            {
-                Throw.RangeError(_realm, $"Month {monthFromCode} is not valid for ISO 8601 calendar");
+                if (monthFromCode < 1 || monthFromCode > 12)
+                {
+                    Throw.RangeError(_realm, $"Month {monthFromCode} is not valid for ISO 8601 calendar");
+                }
             }
         }
 
-        if (month == 0)
+        if (month == 0 && monthCodeStr is null)
         {
             Throw.TypeError(_realm, "month or monthCode is required");
         }
 
-        var date = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, day, overflow);
+        var date = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, day, overflow, monthCodeStr);
         if (date is null)
         {
             Throw.RangeError(_realm, "Invalid date");

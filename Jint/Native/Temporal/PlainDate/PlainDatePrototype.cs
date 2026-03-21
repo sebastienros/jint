@@ -88,25 +88,37 @@ internal sealed class PlainDatePrototype : Prototype
     private JsValue GetEra(JsValue thisObject, JsCallArguments arguments)
     {
         var pd = ValidatePlainDate(thisObject);
-        var era = TemporalHelpers.CalendarEra(pd.Calendar, pd.IsoDate.Year);
+        var era = TemporalHelpers.CalendarEra(pd.Calendar, pd.IsoDate);
         return era is not null ? new JsString(era) : Undefined;
     }
 
     private JsValue GetEraYear(JsValue thisObject, JsCallArguments arguments)
     {
         var pd = ValidatePlainDate(thisObject);
-        var eraYear = TemporalHelpers.CalendarEraYear(pd.Calendar, pd.IsoDate.Year);
+        var eraYear = TemporalHelpers.CalendarEraYear(pd.Calendar, pd.IsoDate);
         return eraYear.HasValue ? JsNumber.Create(eraYear.Value) : Undefined;
     }
 
     private JsNumber GetYear(JsValue thisObject, JsCallArguments arguments)
     {
         var pd = ValidatePlainDate(thisObject);
-        return JsNumber.Create(TemporalHelpers.CalendarYear(pd.Calendar, pd.IsoDate.Year));
+        return JsNumber.Create(TemporalHelpers.CalendarYear(pd.Calendar, pd.IsoDate));
     }
-    private JsNumber GetMonth(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainDate(thisObject).IsoDate.Month);
-    private JsString GetMonthCode(JsValue thisObject, JsCallArguments arguments) => new JsString($"M{ValidatePlainDate(thisObject).IsoDate.Month:D2}");
-    private JsNumber GetDay(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainDate(thisObject).IsoDate.Day);
+    private JsNumber GetMonth(JsValue thisObject, JsCallArguments arguments)
+    {
+        var pd = ValidatePlainDate(thisObject);
+        return JsNumber.Create(TemporalHelpers.CalendarMonth(pd.Calendar, pd.IsoDate));
+    }
+    private JsString GetMonthCode(JsValue thisObject, JsCallArguments arguments)
+    {
+        var pd = ValidatePlainDate(thisObject);
+        return new JsString(TemporalHelpers.CalendarMonthCode(pd.Calendar, pd.IsoDate));
+    }
+    private JsNumber GetDay(JsValue thisObject, JsCallArguments arguments)
+    {
+        var pd = ValidatePlainDate(thisObject);
+        return JsNumber.Create(TemporalHelpers.CalendarDay(pd.Calendar, pd.IsoDate));
+    }
     private JsNumber GetDayOfWeek(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainDate(thisObject).IsoDate.DayOfWeek());
     private JsNumber GetDayOfYear(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainDate(thisObject).IsoDate.DayOfYear());
     private JsValue GetWeekOfYear(JsValue thisObject, JsCallArguments arguments)
@@ -127,16 +139,28 @@ internal sealed class PlainDatePrototype : Prototype
         return JsNumber.Create(7);
     }
 
-    private JsNumber GetDaysInMonth(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainDate(thisObject).IsoDate.DaysInMonth());
-    private JsNumber GetDaysInYear(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainDate(thisObject).IsoDate.DaysInYear());
+    private JsNumber GetDaysInMonth(JsValue thisObject, JsCallArguments arguments)
+    {
+        var pd = ValidatePlainDate(thisObject);
+        return JsNumber.Create(TemporalHelpers.CalendarDaysInMonth(pd.Calendar, pd.IsoDate));
+    }
+    private JsNumber GetDaysInYear(JsValue thisObject, JsCallArguments arguments)
+    {
+        var pd = ValidatePlainDate(thisObject);
+        return JsNumber.Create(TemporalHelpers.CalendarDaysInYear(pd.Calendar, pd.IsoDate));
+    }
 
     private JsNumber GetMonthsInYear(JsValue thisObject, JsCallArguments arguments)
     {
-        ValidatePlainDate(thisObject);
-        return JsNumber.Create(12);
+        var pd = ValidatePlainDate(thisObject);
+        return JsNumber.Create(TemporalHelpers.CalendarMonthsInYear(pd.Calendar, pd.IsoDate));
     }
 
-    private JsBoolean GetInLeapYear(JsValue thisObject, JsCallArguments arguments) => IsoDate.IsLeapYear(ValidatePlainDate(thisObject).IsoDate.Year) ? JsBoolean.True : JsBoolean.False;
+    private JsBoolean GetInLeapYear(JsValue thisObject, JsCallArguments arguments)
+    {
+        var pd = ValidatePlainDate(thisObject);
+        return TemporalHelpers.CalendarInLeapYear(pd.Calendar, pd.IsoDate) ? JsBoolean.True : JsBoolean.False;
+    }
 
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.with
@@ -228,10 +252,49 @@ internal sealed class PlainDatePrototype : Prototype
         var options = GetOptionsObject(optionsArg);
         var overflow = TemporalHelpers.GetOverflowOption(_realm, (JsValue?) options ?? JsValue.Undefined);
 
-        // Merge with existing date values
+        // Handle non-ISO calendars
+        if (NonIsoCalendars.IsNonIsoCalendar(plainDate.Calendar))
+        {
+            // Get current calendar fields
+            var calDate = NonIsoCalendars.IsoToCalendarDate(plainDate.Calendar, plainDate.IsoDate);
+
+            // Merge with provided fields
+            var finalCalYear = year ?? calDate.Year;
+            var finalCalDay = day ?? calDate.Day;
+
+            // monthCode: use explicit if provided, else default from current date
+            // BUT: if month is explicitly provided without monthCode, don't use default monthCode
+            // (month takes precedence as ordinal month)
+            string? finalMonthCode;
+            if (monthCode is not null)
+            {
+                TemporalHelpers.ParseMonthCode(_realm, monthCode);
+                finalMonthCode = monthCode;
+            }
+            else if (month.HasValue)
+            {
+                // Explicit month provided, no monthCode → use month as ordinal, no monthCode
+                finalMonthCode = null;
+            }
+            else
+            {
+                finalMonthCode = calDate.MonthCode;
+            }
+
+            var date = TemporalHelpers.CalendarDateToISO(_realm, plainDate.Calendar, finalCalYear,
+                month ?? 0, finalCalDay, overflow, finalMonthCode);
+            if (date is null)
+            {
+                Throw.RangeError(_realm, "Invalid date");
+            }
+
+            return _constructor.Construct(date.Value, plainDate.Calendar);
+        }
+
+        // Merge with existing date values (ISO/Gregorian path)
         var finalYear = year ?? plainDate.IsoDate.Year;
         var finalMonth = month ?? plainDate.IsoDate.Month;
-        var finalDay = day ?? plainDate.IsoDate.Day;
+        var finalDayVal = day ?? plainDate.IsoDate.Day;
 
         // Handle monthCode - if provided, validate and use it
         // Validation happens AFTER options are read
@@ -266,23 +329,19 @@ internal sealed class PlainDatePrototype : Prototype
         }
 
         // Check for fundamentally invalid values
-        // - Year out of supported range (-271821 to 275760)
-        // - Month or day <= 0 (negative or zero)
-        // These throw RangeError even with overflow="constrain"
-        // But allow constrainable values like month=13 or day=32
-        if (finalYear < -271821 || finalYear > 275760 || finalMonth < 1 || finalDay < 1)
+        if (finalYear < -271821 || finalYear > 275760 || finalMonth < 1 || finalDayVal < 1)
         {
             Throw.RangeError(_realm, "Invalid date");
         }
 
         // Apply regulation with user's overflow option
-        var date = TemporalHelpers.RegulateIsoDate(finalYear, finalMonth, finalDay, overflow);
-        if (date is null)
+        var date2 = TemporalHelpers.RegulateIsoDate(finalYear, finalMonth, finalDayVal, overflow);
+        if (date2 is null)
         {
             Throw.RangeError(_realm, "Invalid date");
         }
 
-        return _constructor.Construct(date.Value, plainDate.Calendar);
+        return _constructor.Construct(date2.Value, plainDate.Calendar);
     }
 
 
@@ -335,15 +394,25 @@ internal sealed class PlainDatePrototype : Prototype
 
     private JsPlainDate AddDurationToDate(JsPlainDate plainDate, DurationRecord duration, string overflow)
     {
-        var newDate = TemporalHelpers.AddDurationToDate(plainDate.IsoDate, duration);
+        // Balance time units into days first (for PlainDate, time components become extra days)
+        var totalNanoseconds = TemporalHelpers.TimeDurationFromComponents(duration);
+        var balancedDays = (long) (totalNanoseconds / TemporalHelpers.NanosecondsPerDay);
 
-        var regulated = TemporalHelpers.RegulateIsoDate(newDate.Year, newDate.Month, newDate.Day, overflow);
-        if (regulated is null)
+        // Create a date-only duration with balanced days
+        var dateDuration = new DurationRecord(
+            duration.Years, duration.Months, duration.Weeks,
+            duration.Days + balancedDays, 0, 0, 0, 0, 0, 0);
+
+        // Use calendar-aware date addition
+        var newDate = TemporalHelpers.CalendarDateAdd(_realm, plainDate.Calendar, plainDate.IsoDate, dateDuration, overflow);
+
+        // Validate the result is within Temporal's representable range
+        if (!TemporalHelpers.IsValidIsoDateTime(newDate.Year, newDate.Month, newDate.Day))
         {
-            Throw.RangeError(_realm, "Invalid date after addition");
+            Throw.RangeError(_realm, "Date is outside the valid range");
         }
 
-        return _constructor.Construct(regulated.Value, plainDate.Calendar);
+        return _constructor.Construct(newDate, plainDate.Calendar);
     }
 
     /// <summary>

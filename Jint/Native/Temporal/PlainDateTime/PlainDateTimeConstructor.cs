@@ -371,19 +371,25 @@ internal sealed class PlainDateTimeConstructor : Constructor
         }
 
         // Now validate and combine month/monthCode
-        // Validate: both month and monthCode provided - they must match
-        if (month != 0 && monthFromCode.HasValue && month != monthFromCode.Value)
+        if (monthCodeStr is not null)
         {
-            Throw.RangeError(_realm, "month and monthCode must match");
+            if (TemporalHelpers.IsGregorianBasedCalendar(calendar))
+            {
+                // Validate: both month and monthCode provided - they must match
+                if (month != 0 && monthFromCode.HasValue && month != monthFromCode.Value)
+                {
+                    Throw.RangeError(_realm, "month and monthCode must match");
+                }
+
+                // For ISO, use parsed month number
+                if (monthFromCode.HasValue)
+                {
+                    month = monthFromCode.Value;
+                }
+            }
         }
 
-        // Use whichever is provided
-        if (monthFromCode.HasValue)
-        {
-            month = monthFromCode.Value;
-        }
-
-        if (month == 0)
+        if (month == 0 && monthCodeStr is null)
         {
             Throw.TypeError(_realm, "month or monthCode is required");
         }
@@ -394,7 +400,7 @@ internal sealed class PlainDateTimeConstructor : Constructor
             Throw.RangeError(_realm, "Date is outside valid range");
         }
 
-        var date = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, day, overflow);
+        var date = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, day, overflow, monthCodeStr);
         if (date is null)
         {
             Throw.RangeError(_realm, "Invalid date");

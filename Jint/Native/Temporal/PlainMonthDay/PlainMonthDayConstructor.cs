@@ -293,19 +293,20 @@ internal sealed class PlainMonthDayConstructor : Constructor
             Throw.TypeError(_realm, "monthCode is required for non-ISO calendars when year is not provided");
         }
 
-        // Validate: both month and monthCode provided - they must match
-        if (month != 0 && monthFromCode.HasValue && month != monthFromCode.Value)
+        // Validate: both month and monthCode provided - they must match (ISO only)
+        // For non-ISO calendars, ordinal month ≠ display month (e.g., month 5 = M04L)
+        if (!NonIsoCalendars.IsNonIsoCalendar(calendar) && month != 0 && monthFromCode.HasValue && month != monthFromCode.Value)
         {
             Throw.RangeError(_realm, "month and monthCode must match");
         }
 
-        // Use whichever is provided
-        if (monthFromCode.HasValue)
+        // Use whichever is provided (ISO only - non-ISO uses monthCode in CalendarDateToISO)
+        if (!NonIsoCalendars.IsNonIsoCalendar(calendar) && monthFromCode.HasValue)
         {
             month = monthFromCode.Value;
         }
 
-        if (month == 0)
+        if (month == 0 && monthCodeStr is null)
         {
             Throw.TypeError(_realm, "month or monthCode is required");
         }
@@ -316,9 +317,9 @@ internal sealed class PlainMonthDayConstructor : Constructor
             // When year is not explicitly provided, find the calendar year that maps to ISO 1972
             var calendarYear = yearExplicitlyProvided
                 ? year
-                : TemporalHelpers.FindCalendarReferenceYear(calendar, 1972, month, day);
+                : TemporalHelpers.FindCalendarReferenceYear(calendar, 1972, month, day, monthCodeStr);
 
-            var calDate = TemporalHelpers.CalendarDateToISO(_realm, calendar, calendarYear, month, day, overflow);
+            var calDate = TemporalHelpers.CalendarDateToISO(_realm, calendar, calendarYear, month, day, overflow, monthCodeStr);
             if (calDate is null)
             {
                 Throw.RangeError(_realm, "Invalid month-day");

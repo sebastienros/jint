@@ -61,8 +61,16 @@ internal sealed class PlainMonthDayPrototype : Prototype
 
     // Getters
     private JsString GetCalendarId(JsValue thisObject, JsCallArguments arguments) => new JsString(ValidatePlainMonthDay(thisObject).Calendar);
-    private JsString GetMonthCode(JsValue thisObject, JsCallArguments arguments) => new JsString($"M{ValidatePlainMonthDay(thisObject).IsoDate.Month:D2}");
-    private JsNumber GetDay(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainMonthDay(thisObject).IsoDate.Day);
+    private JsString GetMonthCode(JsValue thisObject, JsCallArguments arguments)
+    {
+        var md = ValidatePlainMonthDay(thisObject);
+        return new JsString(TemporalHelpers.CalendarMonthCode(md.Calendar, md.IsoDate));
+    }
+    private JsNumber GetDay(JsValue thisObject, JsCallArguments arguments)
+    {
+        var md = ValidatePlainMonthDay(thisObject);
+        return JsNumber.Create(TemporalHelpers.CalendarDay(md.Calendar, md.IsoDate));
+    }
 
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plainmonthday.prototype.with
@@ -101,13 +109,19 @@ internal sealed class PlainMonthDayPrototype : Prototype
         }
 
         // Read and convert properties in strict alphabetical order per spec: day, month, monthCode, year
+        var isNonIso = NonIsoCalendars.IsNonIsoCalendar(md.Calendar);
+
         // 1. day
         var dayProp = obj.Get("day");
-        var day = dayProp.IsUndefined() ? md.IsoDate.Day : TemporalHelpers.ToPositiveIntegerWithTruncation(_realm, dayProp);
+        var day = dayProp.IsUndefined()
+            ? (isNonIso ? TemporalHelpers.CalendarDay(md.Calendar, md.IsoDate) : md.IsoDate.Day)
+            : TemporalHelpers.ToPositiveIntegerWithTruncation(_realm, dayProp);
 
         // 2. month
         var monthProp = obj.Get("month");
-        var month = monthProp.IsUndefined() ? md.IsoDate.Month : TemporalHelpers.ToPositiveIntegerWithTruncation(_realm, monthProp);
+        var month = monthProp.IsUndefined()
+            ? (isNonIso ? TemporalHelpers.CalendarMonth(md.Calendar, md.IsoDate) : md.IsoDate.Month)
+            : TemporalHelpers.ToPositiveIntegerWithTruncation(_realm, monthProp);
 
         // 3. monthCode - read but don't validate yet
         var monthCodeProp = obj.Get("monthCode");
@@ -160,39 +174,62 @@ internal sealed class PlainMonthDayPrototype : Prototype
             Throw.TypeError(_realm, "monthCode is required for non-ISO calendars");
         }
 
+        // Default monthCode from calendar when not provided and month not explicitly set
+        if (monthCodeProp.IsUndefined() && monthProp.IsUndefined() && isNonIso)
+        {
+            monthCode = TemporalHelpers.CalendarMonthCode(md.Calendar, md.IsoDate);
+        }
+
         // NOW validate monthCode (after options are read)
         int? monthFromCode = null;
         if (monthCode is not null)
         {
             monthFromCode = TemporalHelpers.ParseMonthCode(_realm, monthCode);
 
-            // For ISO 8601 calendar: validate monthCode is valid (01-12, no leap months)
-            if (monthCode.Length == 4 && monthCode[3] == 'L')
+            // For ISO/Gregorian calendars: validate monthCode is valid (01-12, no leap months)
+            if (!isNonIso)
             {
-                Throw.RangeError(_realm, $"Leap months are not valid for ISO 8601 calendar: {monthCode}");
-            }
+                if (monthCode.Length == 4 && monthCode[3] == 'L')
+                {
+                    Throw.RangeError(_realm, $"Leap months are not valid for calendar: {monthCode}");
+                }
 
-            if (monthFromCode.Value < 1 || monthFromCode.Value > 12)
-            {
-                Throw.RangeError(_realm, $"Month {monthFromCode.Value} is not valid for ISO 8601 calendar");
+                if (monthFromCode.Value < 1 || monthFromCode.Value > 12)
+                {
+                    Throw.RangeError(_realm, $"Month {monthFromCode.Value} is not valid for calendar");
+                }
             }
         }
 
-        // Validate month/monthCode consistency
-        if (monthFromCode.HasValue && !monthProp.IsUndefined() && month != monthFromCode.Value)
+        // Validate month/monthCode consistency (ISO only)
+        if (!isNonIso && monthFromCode.HasValue && !monthProp.IsUndefined() && month != monthFromCode.Value)
         {
             Throw.RangeError(_realm, "month and monthCode must match");
         }
 
-        // Use monthCode if provided
-        if (monthFromCode.HasValue)
+        // Use monthCode if provided (ISO only - non-ISO handled by CalendarDateToISO)
+        if (!isNonIso && monthFromCode.HasValue)
         {
             month = monthFromCode.Value;
         }
 
-        // Validate using the provided year (important for leap day validation)
-        // For PlainMonthDay with iso8601 calendar, the year is only used for overflow,
-        // not range-checked (per spec CalendarMonthDayToISOReferenceDate)
+        if (isNonIso)
+        {
+            // For non-ISO calendars, use calendar-aware date construction
+            var calYear = isNonIso && yearProp.IsUndefined()
+                ? TemporalHelpers.CalendarYear(md.Calendar, md.IsoDate)
+                : year;
+            var calDate = TemporalHelpers.CalendarDateToISO(_realm, md.Calendar, calYear,
+                monthProp.IsUndefined() ? 0 : month, day, overflow, monthCode);
+            if (calDate is null)
+            {
+                Throw.RangeError(_realm, "Invalid month-day");
+            }
+
+            return _constructor.Construct(calDate.Value, md.Calendar);
+        }
+
+        // ISO path: validate using the provided year
         var skipRangeCheck = string.Equals(md.Calendar, "iso8601", StringComparison.Ordinal);
         var date = TemporalHelpers.RegulateIsoDate(year, month, day, overflow, skipRangeCheck);
         if (date is null)
@@ -200,8 +237,6 @@ internal sealed class PlainMonthDayPrototype : Prototype
             Throw.RangeError(_realm, "Invalid month-day");
         }
 
-        // Choose reference year for result (per spec: not the same as the validation year)
-        // Use 1972 (a leap year) to ensure Feb 29 is always valid
         var referenceYear = 1972;
         var resultDate = new IsoDate(referenceYear, date.Value.Month, date.Value.Day);
 

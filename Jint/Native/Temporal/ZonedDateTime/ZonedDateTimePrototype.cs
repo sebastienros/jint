@@ -113,7 +113,7 @@ internal sealed class ZonedDateTimePrototype : Prototype
     {
         var zdt = ValidateZonedDateTime(thisObject);
         var isoDateTime = zdt.GetIsoDateTime();
-        var era = TemporalHelpers.CalendarEra(zdt.Calendar, isoDateTime.Year);
+        var era = TemporalHelpers.CalendarEra(zdt.Calendar, isoDateTime.Date);
         return era is not null ? new JsString(era) : Undefined;
     }
 
@@ -121,7 +121,7 @@ internal sealed class ZonedDateTimePrototype : Prototype
     {
         var zdt = ValidateZonedDateTime(thisObject);
         var isoDateTime = zdt.GetIsoDateTime();
-        var eraYear = TemporalHelpers.CalendarEraYear(zdt.Calendar, isoDateTime.Year);
+        var eraYear = TemporalHelpers.CalendarEraYear(zdt.Calendar, isoDateTime.Date);
         return eraYear.HasValue ? JsNumber.Create(eraYear.Value) : Undefined;
     }
 
@@ -129,17 +129,26 @@ internal sealed class ZonedDateTimePrototype : Prototype
     {
         var zdt = ValidateZonedDateTime(thisObject);
         var isoDateTime = zdt.GetIsoDateTime();
-        return JsNumber.Create(TemporalHelpers.CalendarYear(zdt.Calendar, isoDateTime.Year));
+        return JsNumber.Create(TemporalHelpers.CalendarYear(zdt.Calendar, isoDateTime.Date));
     }
 
-    private JsNumber GetMonth(JsValue thisObject, JsCallArguments arguments) =>
-        JsNumber.Create(ValidateZonedDateTime(thisObject).GetIsoDateTime().Month);
+    private JsNumber GetMonth(JsValue thisObject, JsCallArguments arguments)
+    {
+        var zdt = ValidateZonedDateTime(thisObject);
+        return JsNumber.Create(TemporalHelpers.CalendarMonth(zdt.Calendar, zdt.GetIsoDateTime().Date));
+    }
 
-    private JsString GetMonthCode(JsValue thisObject, JsCallArguments arguments) =>
-        new JsString($"M{ValidateZonedDateTime(thisObject).GetIsoDateTime().Month:D2}");
+    private JsString GetMonthCode(JsValue thisObject, JsCallArguments arguments)
+    {
+        var zdt = ValidateZonedDateTime(thisObject);
+        return new JsString(TemporalHelpers.CalendarMonthCode(zdt.Calendar, zdt.GetIsoDateTime().Date));
+    }
 
-    private JsNumber GetDay(JsValue thisObject, JsCallArguments arguments) =>
-        JsNumber.Create(ValidateZonedDateTime(thisObject).GetIsoDateTime().Day);
+    private JsNumber GetDay(JsValue thisObject, JsCallArguments arguments)
+    {
+        var zdt = ValidateZonedDateTime(thisObject);
+        return JsNumber.Create(TemporalHelpers.CalendarDay(zdt.Calendar, zdt.GetIsoDateTime().Date));
+    }
 
     private JsNumber GetHour(JsValue thisObject, JsCallArguments arguments) =>
         JsNumber.Create(ValidateZonedDateTime(thisObject).GetIsoDateTime().Hour);
@@ -221,30 +230,25 @@ internal sealed class ZonedDateTimePrototype : Prototype
     private JsNumber GetDaysInMonth(JsValue thisObject, JsCallArguments arguments)
     {
         var zdt = ValidateZonedDateTime(thisObject);
-        var date = zdt.GetIsoDateTime().Date;
-        return JsNumber.Create(IsoDate.IsoDateInMonth(date.Year, date.Month));
+        return JsNumber.Create(TemporalHelpers.CalendarDaysInMonth(zdt.Calendar, zdt.GetIsoDateTime().Date));
     }
 
     private JsNumber GetDaysInYear(JsValue thisObject, JsCallArguments arguments)
     {
         var zdt = ValidateZonedDateTime(thisObject);
-        var year = zdt.GetIsoDateTime().Year;
-        var isLeap = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
-        return JsNumber.Create(isLeap ? 366 : 365);
+        return JsNumber.Create(TemporalHelpers.CalendarDaysInYear(zdt.Calendar, zdt.GetIsoDateTime().Date));
     }
 
     private JsNumber GetMonthsInYear(JsValue thisObject, JsCallArguments arguments)
     {
-        ValidateZonedDateTime(thisObject);
-        return JsNumber.Create(12); // ISO 8601 always has 12 months
+        var zdt = ValidateZonedDateTime(thisObject);
+        return JsNumber.Create(TemporalHelpers.CalendarMonthsInYear(zdt.Calendar, zdt.GetIsoDateTime().Date));
     }
 
     private JsBoolean GetInLeapYear(JsValue thisObject, JsCallArguments arguments)
     {
         var zdt = ValidateZonedDateTime(thisObject);
-        var year = zdt.GetIsoDateTime().Year;
-        var isLeap = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
-        return isLeap ? JsBoolean.True : JsBoolean.False;
+        return TemporalHelpers.CalendarInLeapYear(zdt.Calendar, zdt.GetIsoDateTime().Date) ? JsBoolean.True : JsBoolean.False;
     }
 
     private JsNumber GetHoursInDay(JsValue thisObject, JsCallArguments arguments)
@@ -323,8 +327,20 @@ internal sealed class ZonedDateTimePrototype : Prototype
         // Each field is read and immediately converted, defaulting to current value if undefined
         // Track if at least one property is present
 
+        var isNonIso = NonIsoCalendars.IsNonIsoCalendar(zdt.Calendar);
+
         var dayValue = obj.Get("day");
-        var day = dayValue.IsUndefined() ? current.Day : GetIntegerFromValue(dayValue);
+        int day;
+        if (!dayValue.IsUndefined())
+        {
+            day = GetIntegerFromValue(dayValue);
+        }
+        else
+        {
+            day = isNonIso
+                ? TemporalHelpers.CalendarDay(zdt.Calendar, current.Date)
+                : current.Day;
+        }
 
         var hourValue = obj.Get("hour");
         var hour = hourValue.IsUndefined() ? current.Hour : GetIntegerFromValue(hourValue);
@@ -339,7 +355,19 @@ internal sealed class ZonedDateTimePrototype : Prototype
         var minute = minuteValue.IsUndefined() ? current.Minute : GetIntegerFromValue(minuteValue);
 
         var monthValue = obj.Get("month");
-        var month = monthValue.IsUndefined() ? current.Month : GetIntegerFromValue(monthValue);
+        int month;
+        var monthExplicit = false;
+        if (!monthValue.IsUndefined())
+        {
+            monthExplicit = true;
+            month = GetIntegerFromValue(monthValue);
+        }
+        else
+        {
+            month = isNonIso
+                ? TemporalHelpers.CalendarMonth(zdt.Calendar, current.Date)
+                : current.Month;
+        }
 
         // monthCode - read in alphabetical order, convert to string but defer validation
         var monthCodeValue = obj.Get("monthCode");
@@ -373,6 +401,10 @@ internal sealed class ZonedDateTimePrototype : Prototype
                 monthCode = TypeConverter.ToString(monthCodeValue);
             }
         }
+        else if (isNonIso && !monthExplicit)
+        {
+            monthCode = TemporalHelpers.CalendarMonthCode(zdt.Calendar, current.Date);
+        }
 
         var nanosecondValue = obj.Get("nanosecond");
         var nanosecond = nanosecondValue.IsUndefined() ? current.Nanosecond : GetIntegerFromValue(nanosecondValue);
@@ -389,7 +421,17 @@ internal sealed class ZonedDateTimePrototype : Prototype
         var second = secondValue.IsUndefined() ? current.Second : GetIntegerFromValue(secondValue);
 
         var yearValue = obj.Get("year");
-        var year = yearValue.IsUndefined() ? current.Year : GetIntegerFromValue(yearValue);
+        int year;
+        if (!yearValue.IsUndefined())
+        {
+            year = GetIntegerFromValue(yearValue);
+        }
+        else
+        {
+            year = isNonIso
+                ? TemporalHelpers.CalendarYear(zdt.Calendar, current.Date)
+                : current.Year;
+        }
 
         // Check that at least one property is present
         if (dayValue.IsUndefined() && hourValue.IsUndefined() && microsecondValue.IsUndefined() &&
@@ -440,15 +482,18 @@ internal sealed class ZonedDateTimePrototype : Prototype
             // Parse monthCode for well-formedness
             parsedMonthCode = TemporalHelpers.ParseMonthCode(_realm, monthCode);
 
-            // For ISO 8601 calendar: validate monthCode is valid (01-12, no leap months)
-            if (monthCode.Length == 4 && monthCode[3] == 'L')
+            if (!isNonIso)
             {
-                Throw.RangeError(_realm, $"Leap months are not valid for ISO 8601 calendar: {monthCode}");
-            }
+                // For ISO 8601 calendar: validate monthCode is valid (01-12, no leap months)
+                if (monthCode.Length == 4 && monthCode[3] == 'L')
+                {
+                    Throw.RangeError(_realm, $"Leap months are not valid for ISO 8601 calendar: {monthCode}");
+                }
 
-            if (parsedMonthCode.Value < 1 || parsedMonthCode.Value > 12)
-            {
-                Throw.RangeError(_realm, $"Month {parsedMonthCode.Value} is not valid for ISO 8601 calendar");
+                if (parsedMonthCode.Value < 1 || parsedMonthCode.Value > 12)
+                {
+                    Throw.RangeError(_realm, $"Month {parsedMonthCode.Value} is not valid for ISO 8601 calendar");
+                }
             }
 
             // Check if month property was explicitly provided (not just defaulted)
@@ -462,12 +507,24 @@ internal sealed class ZonedDateTimePrototype : Prototype
                 }
             }
 
-            // Use monthCode if provided
-            month = parsedMonthCode.Value;
+            // Use monthCode if provided (for ISO calendars)
+            if (!isNonIso)
+            {
+                month = parsedMonthCode.Value;
+            }
         }
 
-        // Regulate date and time with user's overflow option
-        var date = TemporalHelpers.RegulateIsoDate(year, month, day, overflow);
+        // Regulate date with user's overflow option
+        IsoDate? date;
+        if (isNonIso)
+        {
+            date = TemporalHelpers.CalendarDateToISO(_realm, zdt.Calendar, year, month, day, overflow, monthCode);
+        }
+        else
+        {
+            date = TemporalHelpers.RegulateIsoDate(year, month, day, overflow);
+        }
+
         if (date is null)
         {
             Throw.RangeError(_realm, "Invalid date");

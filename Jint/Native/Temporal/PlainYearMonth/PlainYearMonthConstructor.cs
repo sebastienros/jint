@@ -281,13 +281,16 @@ internal sealed class PlainYearMonthConstructor : Constructor
             // Validate well-formedness (format) - this happens before year type validation
             monthFromCode = TemporalHelpers.ParseMonthCode(_realm, monthCodeStr);
 
-            // If both month and monthCode are provided, they must match
-            if (month != 0 && month != monthFromCode.Value)
+            // If both month and monthCode are provided, they must match (ISO only)
+            if (!NonIsoCalendars.IsNonIsoCalendar(calendar) && month != 0 && month != monthFromCode.Value)
             {
                 Throw.RangeError(_realm, "month and monthCode must match");
             }
 
-            month = monthFromCode.Value;
+            if (!NonIsoCalendars.IsNonIsoCalendar(calendar))
+            {
+                month = monthFromCode.Value;
+            }
         }
 
         // 5. year - use eraYear if computed, otherwise read from property
@@ -327,7 +330,7 @@ internal sealed class PlainYearMonthConstructor : Constructor
         }
 
         // At least one of month or monthCode is required
-        if (month == 0)
+        if (month == 0 && monthCodeStr is null)
         {
             Throw.TypeError(_realm, "month or monthCode is required");
         }
@@ -335,7 +338,7 @@ internal sealed class PlainYearMonthConstructor : Constructor
         // For non-ISO calendars, convert calendar year/month to ISO
         if (!TemporalHelpers.IsGregorianBasedCalendar(calendar))
         {
-            var date = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, 1, overflow);
+            var date = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, 1, overflow, monthCodeStr);
             if (date is null)
             {
                 Throw.RangeError(_realm, "Invalid year-month");
@@ -431,13 +434,16 @@ internal sealed class PlainYearMonthConstructor : Constructor
             // Validate well-formedness (format) - this happens before year type validation
             monthFromCode = TemporalHelpers.ParseMonthCode(_realm, monthCodeStr);
 
-            // If both month and monthCode are provided, they must match
-            if (month != 0 && month != monthFromCode.Value)
+            // If both month and monthCode are provided, they must match (ISO only)
+            if (!NonIsoCalendars.IsNonIsoCalendar(calendar) && month != 0 && month != monthFromCode.Value)
             {
                 Throw.RangeError(_realm, "month and monthCode must match");
             }
 
-            month = monthFromCode.Value;
+            if (!NonIsoCalendars.IsNonIsoCalendar(calendar))
+            {
+                month = monthFromCode.Value;
+            }
         }
 
         // 5. year - use eraYear if computed, otherwise read from property
@@ -474,7 +480,7 @@ internal sealed class PlainYearMonthConstructor : Constructor
         }
 
         // At least one of month or monthCode is required
-        if (month == 0)
+        if (month == 0 && monthCodeStr is null)
         {
             Throw.TypeError(_realm, "month or monthCode is required");
         }
@@ -484,7 +490,7 @@ internal sealed class PlainYearMonthConstructor : Constructor
         // For non-ISO calendars, convert calendar year/month to ISO
         if (!TemporalHelpers.IsGregorianBasedCalendar(calendar))
         {
-            var date = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, 1, overflow);
+            var date = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, 1, overflow, monthCodeStr);
             if (date is null)
             {
                 Throw.RangeError(_realm, "Invalid year-month");
