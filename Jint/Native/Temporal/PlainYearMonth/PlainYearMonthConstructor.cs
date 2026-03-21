@@ -281,13 +281,16 @@ internal sealed class PlainYearMonthConstructor : Constructor
             // Validate well-formedness (format) - this happens before year type validation
             monthFromCode = TemporalHelpers.ParseMonthCode(_realm, monthCodeStr);
 
-            // If both month and monthCode are provided, they must match
-            if (month != 0 && month != monthFromCode.Value)
+            // If both month and monthCode are provided, they must match (ISO only)
+            if (!NonIsoCalendars.IsNonIsoCalendar(calendar) && month != 0 && month != monthFromCode.Value)
             {
                 Throw.RangeError(_realm, "month and monthCode must match");
             }
 
-            month = monthFromCode.Value;
+            if (!NonIsoCalendars.IsNonIsoCalendar(calendar))
+            {
+                month = monthFromCode.Value;
+            }
         }
 
         // 5. year - use eraYear if computed, otherwise read from property
@@ -431,13 +434,16 @@ internal sealed class PlainYearMonthConstructor : Constructor
             // Validate well-formedness (format) - this happens before year type validation
             monthFromCode = TemporalHelpers.ParseMonthCode(_realm, monthCodeStr);
 
-            // If both month and monthCode are provided, they must match
-            if (month != 0 && month != monthFromCode.Value)
+            // If both month and monthCode are provided, they must match (ISO only)
+            if (!NonIsoCalendars.IsNonIsoCalendar(calendar) && month != 0 && month != monthFromCode.Value)
             {
                 Throw.RangeError(_realm, "month and monthCode must match");
             }
 
-            month = monthFromCode.Value;
+            if (!NonIsoCalendars.IsNonIsoCalendar(calendar))
+            {
+                month = monthFromCode.Value;
+            }
         }
 
         // 5. year - use eraYear if computed, otherwise read from property

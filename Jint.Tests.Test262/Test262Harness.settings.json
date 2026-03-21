@@ -154,6 +154,7 @@
     "intl402/Temporal/ZonedDateTime/prototype/until/leap-year-until.js",
 
     // PlainMonthDay non-ISO calendar support needs more work
+    // PlainMonthDay from - reference year selection, constrain-to-leap-day, and lunisolar dates
     "intl402/Temporal/PlainMonthDay/from/chinese-calendar-dates.js",
     "intl402/Temporal/PlainMonthDay/from/constrain-to-leap-day.js",
     "intl402/Temporal/PlainMonthDay/from/dangi-30-day-leap-months.js",

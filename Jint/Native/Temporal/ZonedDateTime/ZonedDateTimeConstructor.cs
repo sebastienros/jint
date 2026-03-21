@@ -266,13 +266,16 @@ internal sealed class ZonedDateTimeConstructor : Constructor
             // Validate well-formedness (format) - this happens before year type validation
             monthFromCode = TemporalHelpers.ParseMonthCode(_realm, monthCodeStr);
 
-            // If both month and monthCode are provided, they must match
-            if (month != 0 && month != monthFromCode)
+            // If both month and monthCode are provided, they must match (ISO only)
+            if (!NonIsoCalendars.IsNonIsoCalendar(calendar) && month != 0 && month != monthFromCode)
             {
                 Throw.RangeError(_realm, "month and monthCode do not match");
             }
 
-            month = monthFromCode;
+            if (!NonIsoCalendars.IsNonIsoCalendar(calendar))
+            {
+                month = monthFromCode;
+            }
         }
 
         // 9. nanosecond - read and convert immediately
