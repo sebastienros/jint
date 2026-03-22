@@ -1,0 +1,166 @@
+namespace Jint.Native.Intl.Data;
+
+internal static partial class CompactPatterns
+{
+    private static readonly Dictionary<string, LocaleCompactData> _patterns = new(12, StringComparer.OrdinalIgnoreCase)
+    {
+        ["en"] = new LocaleCompactData
+        {
+            ShortThousand = "K",
+            ShortMillion = "M",
+            ShortBillion = "B",
+            ShortTrillion = "T",
+            Threshold = 1000,
+            ShortSpace = false,
+        },
+        ["de"] = new LocaleCompactData
+        {
+            ShortThousand = "",
+            ShortMillion = "Mio.",
+            ShortBillion = "Mrd.",
+            ShortTrillion = "Bio.",
+            LongThousand = "Tausend",
+            LongMillion = "Millionen",
+            LongBillion = "Milliarden",
+            LongTrillion = "Billionen",
+            Threshold = 1000000,
+            ThresholdLong = 1000,
+        },
+        ["ja"] = new LocaleCompactData
+        {
+            ShortThousand = "",
+            ShortMillion = "万",
+            ShortBillion = "億",
+            ShortTrillion = "兆",
+            LongThousand = "",
+            LongMillion = "万",
+            LongBillion = "億",
+            LongTrillion = "兆",
+            Threshold = 10000,
+            DivisorMillion = 10000,
+            DivisorBillion = 100000000,
+            ShortSpace = false,
+            LongSpace = false,
+        },
+        ["ko"] = new LocaleCompactData
+        {
+            ShortThousand = "천",
+            ShortMillion = "만",
+            ShortBillion = "억",
+            ShortTrillion = "조",
+            LongThousand = "천",
+            LongMillion = "만",
+            LongBillion = "억",
+            LongTrillion = "조",
+            Threshold = 1000,
+            DivisorMillion = 10000,
+            DivisorBillion = 100000000,
+            ShortSpace = false,
+            LongSpace = false,
+        },
+        ["zh"] = new LocaleCompactData
+        {
+            ShortThousand = "",
+            ShortMillion = "万",
+            ShortBillion = "亿",
+            ShortTrillion = "兆",
+            LongThousand = "",
+            LongMillion = "万",
+            LongBillion = "亿",
+            LongTrillion = "兆",
+            Threshold = 10000,
+            DivisorMillion = 10000,
+            DivisorBillion = 100000000,
+            ShortSpace = false,
+            LongSpace = false,
+        },
+        ["zh-TW"] = new LocaleCompactData
+        {
+            ShortThousand = "",
+            ShortMillion = "萬",
+            ShortBillion = "億",
+            ShortTrillion = "兆",
+            LongThousand = "",
+            LongMillion = "萬",
+            LongBillion = "億",
+            LongTrillion = "兆",
+            Threshold = 10000,
+            DivisorMillion = 10000,
+            DivisorBillion = 100000000,
+            ShortSpace = false,
+            LongSpace = false,
+        },
+        ["fr"] = new LocaleCompactData
+        {
+            ShortThousand = "k",
+            ShortMillion = "M",
+            ShortBillion = "Md",
+            ShortTrillion = "Bn",
+            LongThousand = "millier",
+            LongMillion = "millions",
+            LongBillion = "milliards",
+            LongTrillion = "billions",
+            Threshold = 1000,
+        },
+        ["es"] = new LocaleCompactData
+        {
+            ShortThousand = "k",
+            ShortMillion = "M",
+            ShortBillion = "mil M",
+            ShortTrillion = "B",
+            LongThousand = "mil",
+            LongMillion = "millones",
+            LongBillion = "mil millones",
+            LongTrillion = "billones",
+            Threshold = 1000,
+        },
+        ["it"] = new LocaleCompactData
+        {
+            ShortThousand = "",
+            ShortMillion = "Mln",
+            ShortBillion = "Mrd",
+            ShortTrillion = "Bln",
+            LongThousand = "mila",
+            LongMillion = "milioni",
+            LongBillion = "miliardi",
+            LongTrillion = "bilioni",
+            Threshold = 1000000,
+        },
+        ["pt"] = new LocaleCompactData
+        {
+            ShortThousand = "mil",
+            ShortMillion = "mi",
+            ShortBillion = "bi",
+            ShortTrillion = "tri",
+            LongThousand = "mil",
+            LongMillion = "milhões",
+            LongBillion = "bilhões",
+            LongTrillion = "trilhões",
+            Threshold = 1000,
+        },
+        ["ru"] = new LocaleCompactData
+        {
+            ShortThousand = "тыс.",
+            ShortMillion = "млн",
+            ShortBillion = "млрд",
+            ShortTrillion = "трлн",
+            LongThousand = "тысяч",
+            LongMillion = "миллионов",
+            LongBillion = "миллиардов",
+            LongTrillion = "триллионов",
+            Threshold = 1000,
+        },
+        ["ar"] = new LocaleCompactData
+        {
+            ShortThousand = "ألف",
+            ShortMillion = "مليون",
+            ShortBillion = "مليار",
+            ShortTrillion = "ترليون",
+            LongThousand = "ألف",
+            LongMillion = "مليون",
+            LongBillion = "مليار",
+            LongTrillion = "ترليون",
+            Threshold = 1000,
+        },
+    };
+}

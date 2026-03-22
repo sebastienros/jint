@@ -1,29 +1,20 @@
-using System.Threading;
-
 namespace Jint.Native.Intl.Data;
 
 /// <summary>
 /// Provides CLDR compact number patterns for locale-aware compact notation.
-/// Data is loaded from embedded CompactPatterns.txt resource.
 /// </summary>
-internal static class CompactPatterns
+internal static partial class CompactPatterns
 {
-    private static readonly Lock _lock = new();
-    private static Dictionary<string, LocaleCompactData>? _patterns;
-    private static volatile bool _loaded;
-
     /// <summary>
     /// Gets compact patterns for a language code.
     /// Falls back to English if not found.
     /// </summary>
     public static LocaleCompactData GetPatterns(string? language)
     {
-        EnsureLoaded();
-
         if (!string.IsNullOrEmpty(language))
         {
             // Try exact match first
-            if (_patterns!.TryGetValue(language!, out var data))
+            if (_patterns.TryGetValue(language!, out var data))
             {
                 return data;
             }
@@ -38,7 +29,7 @@ internal static class CompactPatterns
                                     language.Contains("-MO", StringComparison.OrdinalIgnoreCase) ||
                                     language.Contains("-Hant", StringComparison.OrdinalIgnoreCase);
                 var zhKey = isTraditional ? "zh-TW" : "zh";
-                if (_patterns.TryGetValue(zhKey, out data))
+                if (_patterns!.TryGetValue(zhKey, out data))
                 {
                     return data;
                 }
@@ -57,142 +48,7 @@ internal static class CompactPatterns
         }
 
         // Fall back to English
-        return _patterns!.TryGetValue("en", out var enData) ? enData : LocaleCompactData.Default;
-    }
-
-    private static void EnsureLoaded()
-    {
-        if (_loaded)
-        {
-            return;
-        }
-
-        lock (_lock)
-        {
-            if (_loaded)
-            {
-                return;
-            }
-
-            _patterns = new Dictionary<string, LocaleCompactData>(StringComparer.OrdinalIgnoreCase);
-
-            var assembly = typeof(CompactPatterns).Assembly;
-            using var stream = assembly.GetManifestResourceStream("Jint.Native.Intl.Data.CompactPatterns.txt");
-            if (stream is null)
-            {
-                _loaded = true;
-                return;
-            }
-
-            using var reader = new StreamReader(stream);
-            string? currentLang = null;
-            LocaleCompactData? currentData = null;
-
-            while (reader.ReadLine() is { } line)
-            {
-                if (string.IsNullOrWhiteSpace(line))
-                {
-                    continue;
-                }
-
-                if (line.Length > 2 && line[0] == '[' && line[line.Length - 1] == ']')
-                {
-                    // Save previous locale data
-                    if (currentLang != null && currentData != null)
-                    {
-                        _patterns[currentLang] = currentData;
-                    }
-
-                    currentLang = line.Substring(1, line.Length - 2);
-                    currentData = new LocaleCompactData();
-                    continue;
-                }
-
-                if (currentData == null)
-                {
-                    continue;
-                }
-
-                var eqIndex = line.IndexOf('=');
-                if (eqIndex < 0)
-                {
-                    continue;
-                }
-
-                var key = line.Substring(0, eqIndex);
-                var value = line.Substring(eqIndex + 1);
-
-                switch (key)
-                {
-                    case "short_thousand":
-                        currentData.ShortThousand = value;
-                        break;
-                    case "short_million":
-                        currentData.ShortMillion = value;
-                        break;
-                    case "short_billion":
-                        currentData.ShortBillion = value;
-                        break;
-                    case "short_trillion":
-                        currentData.ShortTrillion = value;
-                        break;
-                    case "long_thousand":
-                        currentData.LongThousand = value;
-                        break;
-                    case "long_million":
-                        currentData.LongMillion = value;
-                        break;
-                    case "long_billion":
-                        currentData.LongBillion = value;
-                        break;
-                    case "long_trillion":
-                        currentData.LongTrillion = value;
-                        break;
-                    case "threshold":
-                        if (long.TryParse(value, System.Globalization.NumberStyles.Integer,
-                            System.Globalization.CultureInfo.InvariantCulture, out var threshold))
-                        {
-                            currentData.Threshold = threshold;
-                        }
-                        break;
-                    case "threshold_long":
-                        if (long.TryParse(value, System.Globalization.NumberStyles.Integer,
-                            System.Globalization.CultureInfo.InvariantCulture, out var thresholdLong))
-                        {
-                            currentData.ThresholdLong = thresholdLong;
-                        }
-                        break;
-                    case "divisor_million":
-                        if (long.TryParse(value, System.Globalization.NumberStyles.Integer,
-                            System.Globalization.CultureInfo.InvariantCulture, out var divMillion))
-                        {
-                            currentData.DivisorMillion = divMillion;
-                        }
-                        break;
-                    case "divisor_billion":
-                        if (long.TryParse(value, System.Globalization.NumberStyles.Integer,
-                            System.Globalization.CultureInfo.InvariantCulture, out var divBillion))
-                        {
-                            currentData.DivisorBillion = divBillion;
-                        }
-                        break;
-                    case "short_space":
-                        currentData.ShortSpace = !string.Equals(value, "false", StringComparison.OrdinalIgnoreCase);
-                        break;
-                    case "long_space":
-                        currentData.LongSpace = !string.Equals(value, "false", StringComparison.OrdinalIgnoreCase);
-                        break;
-                }
-            }
-
-            // Save last locale data
-            if (currentLang != null && currentData != null)
-            {
-                _patterns[currentLang] = currentData;
-            }
-
-            _loaded = true;
-        }
+        return _patterns.TryGetValue("en", out var enData) ? enData : LocaleCompactData.Default;
     }
 
     internal sealed class LocaleCompactData
