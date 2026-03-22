@@ -355,11 +355,20 @@ internal sealed class JintAssignmentExpression : JintExpression
                         else
                         {
                             var exponent = TypeConverter.ToBigInt(rval);
-                            if (exponent > int.MaxValue || exponent < int.MinValue)
+                            if (exponent < 0)
                             {
-                                Throw.TypeError(context.Engine.Realm, "Cannot do exponentiation with exponent not fitting int32");
+                                Throw.RangeError(context.Engine.Realm, "Exponent must be positive");
                             }
-                            newLeftValue = JsBigInt.Create(BigInteger.Pow(TypeConverter.ToBigInt(originalLeftValue), (int) exponent));
+
+                            if (exponent > int.MaxValue)
+                            {
+                                Throw.RangeError(context.Engine.Realm, "Maximum BigInt size exceeded");
+                            }
+
+                            var intExponent = (int) exponent;
+                            var baseValue = TypeConverter.ToBigInt(originalLeftValue);
+                            JintBinaryExpression.ValidateBigIntPowSize(context.Engine.Realm, baseValue, intExponent);
+                            newLeftValue = JsBigInt.Create(BigInteger.Pow(baseValue, intExponent));
                         }
 
                         break;
