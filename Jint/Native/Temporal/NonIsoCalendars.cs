@@ -293,10 +293,12 @@ internal static class NonIsoCalendars
                 }
                 else if (cmp == 0)
                 {
-                    // Check if day was constrained (wrapping)
+                    // Check if day or monthCode was constrained (wrapping)
+                    // This catches: day constraining (e.g., M13 day 6 → 5) and
+                    // leap month constraining (e.g., M05L → M05 when target year has no leap month)
+                    // Compare MonthCode (not ordinal Month) since ordinal shifts between leap/non-leap years
                     var checkCal = IsoToCalendarDate(calendar, check);
-                    if (sign > 0 && checkCal.Day < calOne.Day ||
-                        sign < 0 && checkCal.Day > calOne.Day)
+                    if (checkCal.Day != calOne.Day || !string.Equals(checkCal.MonthCode, calOne.MonthCode, System.StringComparison.Ordinal))
                     {
                         years -= sign;
                     }
@@ -350,17 +352,9 @@ internal static class NonIsoCalendars
                     else if (cmp == 0)
                     {
                         // Intermediate equals target - check if day was constrained
-                        // If adding months to calOne constrained the day down, we need to verify
-                        // by checking remaining days: if they'd be in the wrong direction, reduce months
                         var checkCal = IsoToCalendarDate(calendar, check);
-                        var oneCal = IsoToCalendarDate(calendar, one);
-                        if (sign > 0 && checkCal.Day < oneCal.Day && checkCal.Day == IsoToCalendarDate(calendar, two).Day)
-                        {
-                            // Day was constrained down and matches target exactly - this is the wrapping case
-                            // The month shouldn't count because we only got there via constraining
-                            months -= sign;
-                        }
-                        else if (sign < 0 && checkCal.Day > oneCal.Day && checkCal.Day == IsoToCalendarDate(calendar, two).Day)
+                        if (sign > 0 && checkCal.Day < calOne.Day ||
+                            sign < 0 && checkCal.Day > calOne.Day)
                         {
                             months -= sign;
                         }
@@ -385,11 +379,9 @@ internal static class NonIsoCalendars
                     if (cmp == 0)
                     {
                         var checkCal = IsoToCalendarDate(calendar, check);
-                        var oneCal = IsoToCalendarDate(calendar, one);
-                        if (sign > 0 && checkCal.Day < oneCal.Day ||
-                            sign < 0 && checkCal.Day > oneCal.Day)
+                        if (sign > 0 && checkCal.Day < calOne.Day ||
+                            sign < 0 && checkCal.Day > calOne.Day)
                         {
-                            // Day constrained - don't count this month
                             break;
                         }
                     }
