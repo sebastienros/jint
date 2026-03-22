@@ -194,8 +194,12 @@ internal sealed class ZonedDateTimePrototype : Prototype
     private JsNumber GetDayOfWeek(JsValue thisObject, JsCallArguments arguments) =>
         JsNumber.Create(ValidateZonedDateTime(thisObject).GetIsoDateTime().Date.DayOfWeek());
 
-    private JsNumber GetDayOfYear(JsValue thisObject, JsCallArguments arguments) =>
-        JsNumber.Create(ValidateZonedDateTime(thisObject).GetIsoDateTime().Date.DayOfYear());
+    private JsNumber GetDayOfYear(JsValue thisObject, JsCallArguments arguments)
+    {
+        var zdt = ValidateZonedDateTime(thisObject);
+        var date = zdt.GetIsoDateTime().Date;
+        return JsNumber.Create(TemporalHelpers.CalendarDayOfYear(zdt.Calendar, date));
+    }
 
     private JsValue GetWeekOfYear(JsValue thisObject, JsCallArguments arguments)
     {
@@ -327,7 +331,7 @@ internal sealed class ZonedDateTimePrototype : Prototype
         // Each field is read and immediately converted, defaulting to current value if undefined
         // Track if at least one property is present
 
-        var isNonIso = NonIsoCalendars.IsNonIsoCalendar(zdt.Calendar);
+        var isNonIso8601 = zdt.Calendar is not "iso8601" and not "gregory";
 
         var dayValue = obj.Get("day");
         int day;
@@ -337,7 +341,7 @@ internal sealed class ZonedDateTimePrototype : Prototype
         }
         else
         {
-            day = isNonIso
+            day = isNonIso8601
                 ? TemporalHelpers.CalendarDay(zdt.Calendar, current.Date)
                 : current.Day;
         }
@@ -364,7 +368,7 @@ internal sealed class ZonedDateTimePrototype : Prototype
         }
         else
         {
-            month = isNonIso
+            month = isNonIso8601
                 ? TemporalHelpers.CalendarMonth(zdt.Calendar, current.Date)
                 : current.Month;
         }
@@ -401,7 +405,7 @@ internal sealed class ZonedDateTimePrototype : Prototype
                 monthCode = TypeConverter.ToString(monthCodeValue);
             }
         }
-        else if (isNonIso && !monthExplicit)
+        else if (isNonIso8601 && !monthExplicit)
         {
             monthCode = TemporalHelpers.CalendarMonthCode(zdt.Calendar, current.Date);
         }
@@ -428,16 +432,40 @@ internal sealed class ZonedDateTimePrototype : Prototype
         }
         else
         {
-            year = isNonIso
+            year = isNonIso8601
                 ? TemporalHelpers.CalendarYear(zdt.Calendar, current.Date)
                 : current.Year;
+        }
+
+        // Read era/eraYear only for calendars that support them
+        var hasEraFields = false;
+        if (TemporalHelpers.CalendarUsesEras(zdt.Calendar))
+        {
+            var eraValue = obj.Get("era");
+            var eraYearValue = obj.Get("eraYear");
+            if (!eraValue.IsUndefined() || !eraYearValue.IsUndefined())
+            {
+                hasEraFields = true;
+                if (!eraValue.IsUndefined() && !eraYearValue.IsUndefined())
+                {
+                    var eraYear2 = TemporalHelpers.ReadEraFields(_realm, obj, zdt.Calendar);
+                    if (eraYear2.HasValue)
+                    {
+                        year = eraYear2.Value;
+                    }
+                }
+                else
+                {
+                    Throw.TypeError(_realm, "Both era and eraYear must be provided together");
+                }
+            }
         }
 
         // Check that at least one property is present
         if (dayValue.IsUndefined() && hourValue.IsUndefined() && microsecondValue.IsUndefined() &&
             millisecondValue.IsUndefined() && minuteValue.IsUndefined() && monthValue.IsUndefined() &&
             monthCodeValue.IsUndefined() && nanosecondValue.IsUndefined() && offsetValue.IsUndefined() &&
-            secondValue.IsUndefined() && yearValue.IsUndefined())
+            secondValue.IsUndefined() && yearValue.IsUndefined() && !hasEraFields)
         {
             Throw.TypeError(_realm, "with() requires at least one temporal property");
         }
@@ -477,46 +505,33 @@ internal sealed class ZonedDateTimePrototype : Prototype
 
         // Parse and validate monthCode
         int? parsedMonthCode = null;
-        if (monthCode is not null)
+        if (!isNonIso8601 || TemporalHelpers.IsGregorianBasedCalendar(zdt.Calendar))
         {
-            // Parse monthCode for well-formedness
-            parsedMonthCode = TemporalHelpers.ParseMonthCode(_realm, monthCode);
+            // ISO/Gregorian-based: validate no leap months, month/monthCode consistency
+            parsedMonthCode = TemporalHelpers.ValidateMonthCodeForNonLeapCalendar(
+                _realm, monthCode, !monthValue.IsUndefined() ? month : null);
 
-            if (!isNonIso)
-            {
-                // For ISO 8601 calendar: validate monthCode is valid (01-12, no leap months)
-                if (monthCode.Length == 4 && monthCode[3] == 'L')
-                {
-                    Throw.RangeError(_realm, $"Leap months are not valid for ISO 8601 calendar: {monthCode}");
-                }
-
-                if (parsedMonthCode.Value < 1 || parsedMonthCode.Value > 12)
-                {
-                    Throw.RangeError(_realm, $"Month {parsedMonthCode.Value} is not valid for ISO 8601 calendar");
-                }
-            }
-
-            // Check if month property was explicitly provided (not just defaulted)
-            // Use the monthValue that was already read earlier
-            if (!monthValue.IsUndefined())
-            {
-                // Both month and monthCode provided - they must match
-                if (month != parsedMonthCode.Value)
-                {
-                    Throw.RangeError(_realm, "month and monthCode must match");
-                }
-            }
-
-            // Use monthCode if provided (for ISO calendars)
-            if (!isNonIso)
+            if (parsedMonthCode.HasValue)
             {
                 month = parsedMonthCode.Value;
+            }
+        }
+        else if (monthCode is not null)
+        {
+            // Non-ISO: just parse for well-formedness, let CalendarDateToISO handle validation
+            parsedMonthCode = TemporalHelpers.ParseMonthCode(_realm, monthCode);
+
+            // When monthCode is explicitly provided but month is not, signal CalendarDateToIso
+            // to use monthCode by passing month=0 (avoids month/monthCode mismatch rejection)
+            if (monthValue.IsUndefined())
+            {
+                month = 0;
             }
         }
 
         // Regulate date with user's overflow option
         IsoDate? date;
-        if (isNonIso)
+        if (isNonIso8601)
         {
             date = TemporalHelpers.CalendarDateToISO(_realm, zdt.Calendar, year, month, day, overflow, monthCode);
         }

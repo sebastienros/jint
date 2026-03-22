@@ -134,7 +134,11 @@ internal sealed class PlainDateTimePrototype : Prototype
     private JsNumber GetMicrosecond(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainDateTime(thisObject).IsoDateTime.Microsecond);
     private JsNumber GetNanosecond(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainDateTime(thisObject).IsoDateTime.Nanosecond);
     private JsNumber GetDayOfWeek(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainDateTime(thisObject).IsoDateTime.Date.DayOfWeek());
-    private JsNumber GetDayOfYear(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainDateTime(thisObject).IsoDateTime.Date.DayOfYear());
+    private JsNumber GetDayOfYear(JsValue thisObject, JsCallArguments arguments)
+    {
+        var pdt = ValidatePlainDateTime(thisObject);
+        return JsNumber.Create(TemporalHelpers.CalendarDayOfYear(pdt.Calendar, pdt.IsoDateTime.Date));
+    }
     private JsValue GetWeekOfYear(JsValue thisObject, JsCallArguments arguments)
     {
         var pdt = ValidatePlainDateTime(thisObject);
@@ -221,6 +225,8 @@ internal sealed class PlainDateTimePrototype : Prototype
         var any = false;
         JsValue v;
 
+        var isNonIso8601 = plainDateTime.Calendar is not "iso8601" and not "gregory";
+
         v = obj.Get("day");
         int day;
         if (!v.IsUndefined())
@@ -230,7 +236,7 @@ internal sealed class PlainDateTimePrototype : Prototype
         }
         else
         {
-            day = NonIsoCalendars.IsNonIsoCalendar(plainDateTime.Calendar)
+            day = isNonIso8601
                 ? TemporalHelpers.CalendarDay(plainDateTime.Calendar, plainDateTime.IsoDateTime.Date)
                 : plainDateTime.IsoDateTime.Day;
         }
@@ -282,7 +288,7 @@ internal sealed class PlainDateTimePrototype : Prototype
         }
         else
         {
-            month = NonIsoCalendars.IsNonIsoCalendar(plainDateTime.Calendar)
+            month = isNonIso8601
                 ? TemporalHelpers.CalendarMonth(plainDateTime.Calendar, plainDateTime.IsoDateTime.Date)
                 : plainDateTime.IsoDateTime.Month;
         }
@@ -294,7 +300,7 @@ internal sealed class PlainDateTimePrototype : Prototype
             any = true;
             monthCode = TypeConverter.ToString(v);
         }
-        else if (NonIsoCalendars.IsNonIsoCalendar(plainDateTime.Calendar) && !monthExplicit)
+        else if (isNonIso8601 && !monthExplicit)
         {
             monthCode = TemporalHelpers.CalendarMonthCode(plainDateTime.Calendar, plainDateTime.IsoDateTime.Date);
         }
@@ -326,7 +332,7 @@ internal sealed class PlainDateTimePrototype : Prototype
         }
         else
         {
-            year = NonIsoCalendars.IsNonIsoCalendar(plainDateTime.Calendar)
+            year = isNonIso8601
                 ? TemporalHelpers.CalendarYear(plainDateTime.Calendar, plainDateTime.IsoDateTime.Date)
                 : plainDateTime.IsoDateTime.Year;
         }
@@ -365,41 +371,32 @@ internal sealed class PlainDateTimePrototype : Prototype
 
         // Process monthCode (after reading options, before algorithmic validation)
         int? monthFromCode = null;
-        if (monthCode is not null)
+        if (!isNonIso8601 || TemporalHelpers.IsGregorianBasedCalendar(plainDateTime.Calendar))
         {
-            // Use ParseMonthCode which properly handles "L" suffix for leap months
+            // ISO/Gregorian-based: validate no leap months, month/monthCode consistency
+            monthFromCode = TemporalHelpers.ValidateMonthCodeForNonLeapCalendar(
+                _realm, monthCode, monthExplicit ? month : null);
+
+            if (monthFromCode.HasValue)
+            {
+                month = monthFromCode.Value;
+            }
+        }
+        else if (monthCode is not null)
+        {
+            // Non-ISO: just parse for well-formedness, let CalendarDateToISO handle validation
             monthFromCode = TemporalHelpers.ParseMonthCode(_realm, monthCode);
 
-            // ISO/Gregorian calendars don't support leap months
-            if (!NonIsoCalendars.IsNonIsoCalendar(plainDateTime.Calendar))
+            // When monthCode is explicitly provided but month is not, signal CalendarDateToIso
+            // to use monthCode by passing month=0 (avoids month/monthCode mismatch rejection)
+            if (!monthExplicit)
             {
-                if (monthCode.Length == 4 && monthCode[3] == 'L')
-                {
-                    Throw.RangeError(_realm, $"Leap months are not valid for calendar: {monthCode}");
-                }
-
-                if (monthFromCode.Value < 1 || monthFromCode.Value > 12)
-                {
-                    Throw.RangeError(_realm, $"Month {monthFromCode.Value} is not valid for calendar");
-                }
+                month = 0;
             }
         }
 
-        // Validate month/monthCode consistency (ISO calendars only - non-ISO ordinal ≠ display)
-        if (!NonIsoCalendars.IsNonIsoCalendar(plainDateTime.Calendar) &&
-            monthFromCode.HasValue && month != plainDateTime.IsoDateTime.Month && month != monthFromCode.Value)
-        {
-            Throw.RangeError(_realm, "month and monthCode must match");
-        }
-
-        // Use monthCode if provided (for ISO calendars)
-        if (monthFromCode.HasValue && !NonIsoCalendars.IsNonIsoCalendar(plainDateTime.Calendar))
-        {
-            month = monthFromCode.Value;
-        }
-
         IsoDate? date;
-        if (NonIsoCalendars.IsNonIsoCalendar(plainDateTime.Calendar))
+        if (isNonIso8601)
         {
             date = TemporalHelpers.CalendarDateToISO(_realm, plainDateTime.Calendar, year, month, day, overflow, monthCode);
         }

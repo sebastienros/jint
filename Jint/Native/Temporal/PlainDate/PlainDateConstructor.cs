@@ -102,6 +102,8 @@ internal sealed class PlainDateConstructor : Constructor
             calendar = TemporalHelpers.ToTemporalCalendarIdentifier(_realm, calendarValue);
         }
 
+        TemporalHelpers.RejectTemporalUnsupportedCalendar(_realm, calendar);
+
         // 2. day - read and convert immediately
         var dayValue = obj.Get("day");
         if (dayValue.IsUndefined())

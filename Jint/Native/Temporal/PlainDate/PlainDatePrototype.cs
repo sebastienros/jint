@@ -120,7 +120,11 @@ internal sealed class PlainDatePrototype : Prototype
         return JsNumber.Create(TemporalHelpers.CalendarDay(pd.Calendar, pd.IsoDate));
     }
     private JsNumber GetDayOfWeek(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainDate(thisObject).IsoDate.DayOfWeek());
-    private JsNumber GetDayOfYear(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainDate(thisObject).IsoDate.DayOfYear());
+    private JsNumber GetDayOfYear(JsValue thisObject, JsCallArguments arguments)
+    {
+        var pd = ValidatePlainDate(thisObject);
+        return JsNumber.Create(TemporalHelpers.CalendarDayOfYear(pd.Calendar, pd.IsoDate));
+    }
     private JsValue GetWeekOfYear(JsValue thisObject, JsCallArguments arguments)
     {
         var pd = ValidatePlainDate(thisObject);
@@ -338,20 +342,10 @@ internal sealed class PlainDatePrototype : Prototype
             var calMonth = month ?? plainDate.IsoDate.Month;
             var calDay = day ?? plainDate.IsoDate.Day;
 
-            if (monthCode is not null)
+            var mc = TemporalHelpers.ValidateMonthCodeForNonLeapCalendar(_realm, monthCode, month);
+            if (mc.HasValue)
             {
-                var mc = TemporalHelpers.ParseMonthCode(_realm, monthCode);
-                if (monthCode.Length == 4 && monthCode[3] == 'L')
-                {
-                    Throw.RangeError(_realm, $"Leap months are not valid for calendar: {monthCode}");
-                }
-
-                if (month.HasValue && month.Value != mc)
-                {
-                    Throw.RangeError(_realm, "month and monthCode must match");
-                }
-
-                calMonth = mc;
+                calMonth = mc.Value;
             }
 
             var date2 = TemporalHelpers.CalendarDateToISO(_realm, plainDate.Calendar, calYear, calMonth, calDay, overflow);
@@ -368,28 +362,8 @@ internal sealed class PlainDatePrototype : Prototype
         var finalMonth = month ?? plainDate.IsoDate.Month;
         var finalDayVal = day ?? plainDate.IsoDate.Day;
 
-        // Handle monthCode - if provided, validate and use it
-        int? parsedMonthCode = null;
-        if (monthCode is not null)
-        {
-            parsedMonthCode = TemporalHelpers.ParseMonthCode(_realm, monthCode);
-
-            if (monthCode.Length == 4 && monthCode[3] == 'L')
-            {
-                Throw.RangeError(_realm, $"Leap months are not valid for ISO 8601 calendar: {monthCode}");
-            }
-
-            if (parsedMonthCode.Value < 1 || parsedMonthCode.Value > 12)
-            {
-                Throw.RangeError(_realm, $"Month {parsedMonthCode.Value} is not valid for ISO 8601 calendar");
-            }
-        }
-
-        if (month.HasValue && parsedMonthCode.HasValue && month.Value != parsedMonthCode.Value)
-        {
-            Throw.RangeError(_realm, "month and monthCode must match");
-        }
-
+        // Handle monthCode - validate and use it
+        var parsedMonthCode = TemporalHelpers.ValidateMonthCodeForNonLeapCalendar(_realm, monthCode, month);
         if (parsedMonthCode.HasValue)
         {
             finalMonth = parsedMonthCode.Value;

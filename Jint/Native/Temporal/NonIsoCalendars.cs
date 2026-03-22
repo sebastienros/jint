@@ -408,13 +408,15 @@ internal static class NonIsoCalendars
     {
         return calendar switch
         {
+            // Single-era calendars: always use the primary era
             "hebrew" => "am",
             "persian" => "ap",
-            "chinese" or "dangi" => null, // no eras
-            "coptic" => calDate.Year >= 1 ? "am" : "bd",
-            "ethiopic" => calDate.Year >= 1 ? "am" : "aa",
+            "coptic" => "am",
             "ethioaa" => "aa",
             "indian" => "shaka",
+            "chinese" or "dangi" => null, // no eras
+            // Multi-era calendars: era depends on year
+            "ethiopic" => calDate.Year >= 1 ? "am" : "aa",
             "islamic-umalqura" or "islamic-civil" or "islamic-tbla" => calDate.Year >= 1 ? "ah" : "bh",
             _ => null
         };
@@ -427,13 +429,15 @@ internal static class NonIsoCalendars
     {
         return calendar switch
         {
+            // Single-era calendars: eraYear = year directly
             "hebrew" => calDate.Year,
             "persian" => calDate.Year,
-            "chinese" or "dangi" => null, // no eras
-            "coptic" => calDate.Year >= 1 ? calDate.Year : 1 - calDate.Year,
-            "ethiopic" => calDate.Year >= 1 ? calDate.Year : calDate.Year + 5500,
+            "coptic" => calDate.Year,
             "ethioaa" => calDate.Year,
             "indian" => calDate.Year,
+            "chinese" or "dangi" => null, // no eras
+            // Multi-era calendars: eraYear depends on year
+            "ethiopic" => calDate.Year >= 1 ? calDate.Year : calDate.Year + 5500,
             "islamic-umalqura" or "islamic-civil" or "islamic-tbla" => calDate.Year >= 1 ? calDate.Year : 1 - calDate.Year,
             _ => null
         };
@@ -450,34 +454,26 @@ internal static class NonIsoCalendars
 
         if (calendar is "persian" or "indian" or "islamic-umalqura" or "islamic-civil" or "islamic-tbla")
         {
-            // These calendars have no leap months
-            if (isLeap)
+            // These calendars have 12 months and no leap months
+            // Invalid monthCode (M13+, M00, or any leap month) is always rejected
+            if (isLeap || displayMonth < 1 || displayMonth > 12)
             {
-                if (string.Equals(overflow, "reject", StringComparison.Ordinal))
-                {
-                    throw new InvalidOperationException("reject");
-                }
-
-                // Constrain: use the base month
+                throw new InvalidOperationException("reject");
             }
 
-            return Clamp(displayMonth, 1, 12);
+            return displayMonth;
         }
 
         if (calendar is "coptic" or "ethiopic" or "ethioaa")
         {
             // 13-month calendars with no leap months
-            if (isLeap)
+            // Invalid monthCode (M14+, M00, or any leap month) is always rejected
+            if (isLeap || displayMonth < 1 || displayMonth > 13)
             {
-                if (string.Equals(overflow, "reject", StringComparison.Ordinal))
-                {
-                    throw new InvalidOperationException("reject");
-                }
-
-                // Constrain: use the base month
+                throw new InvalidOperationException("reject");
             }
 
-            return Clamp(displayMonth, 1, 13);
+            return displayMonth;
         }
 
         var leapOrdinal = GetLeapMonthOrdinal(calendar, cal, year);
