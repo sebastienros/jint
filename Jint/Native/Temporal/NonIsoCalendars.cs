@@ -282,14 +282,24 @@ internal static class NonIsoCalendars
         if (string.Equals(largestUnit, "year", StringComparison.Ordinal))
         {
             years = calTwo.Year - calOne.Year;
-            // Check if we overshot
+            // Check if we overshot or day was constrained (wrapping at end of month/year)
             if (years != 0)
             {
                 var check = CalendarDateAdd(calendar, one, years, 0, "constrain");
-                if (sign > 0 && TemporalHelpers.CompareIsoDates(check, two) > 0 ||
-                    sign < 0 && TemporalHelpers.CompareIsoDates(check, two) < 0)
+                var cmp = TemporalHelpers.CompareIsoDates(check, two);
+                if (sign > 0 && cmp > 0 || sign < 0 && cmp < 0)
                 {
                     years -= sign;
+                }
+                else if (cmp == 0)
+                {
+                    // Check if day was constrained (wrapping)
+                    var checkCal = IsoToCalendarDate(calendar, check);
+                    if (sign > 0 && checkCal.Day < calOne.Day ||
+                        sign < 0 && checkCal.Day > calOne.Day)
+                    {
+                        years -= sign;
+                    }
                 }
             }
         }
@@ -1959,10 +1969,21 @@ internal static class NonIsoCalendars
         var year = (int) (cycle30 * 30 + yearInCycle + 1);
         remaining -= daysSoFar;
 
-        // Month within year - use ceil(29.5001 * n) to match forward formula IslamicToJdn
-        var month = System.Math.Min(12, (int) System.Math.Ceiling((remaining + 0.5) / 29.5001));
-        if (month < 1) month = 1;
-        var monthOffset = (long) System.Math.Ceiling(29.5001 * (month - 1));
+        // Month within year - use cumulative month days matching IslamicToJdn
+        var month = 1;
+        for (var m = 1; m <= 12; m++)
+        {
+            var nextMonthStart = IslamicCumulativeMonthDays(m + 1);
+            if (remaining < nextMonthStart)
+            {
+                month = m;
+                break;
+            }
+
+            if (m == 12) month = 12;
+        }
+
+        var monthOffset = IslamicCumulativeMonthDays(month);
         var day = (int) (remaining - monthOffset) + 1;
 
         var isLeapYear = IsIslamicCivilLeapYear(year);
@@ -2101,9 +2122,21 @@ internal static class NonIsoCalendars
         return JdnToIso(jdn);
     }
 
+    /// <summary>
+    /// Cumulative days at the start of each Islamic month (0-indexed).
+    /// M01=0, M02=30, M03=59, M04=89, M05=118, M06=148, M07=177, M08=207, M09=236, M10=266, M11=295, M12=325
+    /// </summary>
+    private static int IslamicCumulativeMonthDays(int month)
+    {
+        // Odd months have 30 days, even months have 29 days
+        // Cumulative: sum of alternating 30, 29, 30, 29, ...
+        var m = month - 1;
+        return m * 30 - m / 2; // = 30*m - floor(m/2) for m months before
+    }
+
     private static long IslamicToJdn(int year, int month, int day, long epoch)
     {
-        var monthDays = (long) System.Math.Ceiling(29.5001 * (month - 1));
+        var monthDays = (long) IslamicCumulativeMonthDays(month);
         var yearDays = (long) (year - 1) * 354L + (long) System.Math.Floor((3.0 + 11.0 * year) / 30.0);
         return monthDays + yearDays + day + epoch;
     }

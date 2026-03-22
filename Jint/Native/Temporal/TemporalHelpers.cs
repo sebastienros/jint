@@ -1784,7 +1784,9 @@ internal static class TemporalHelpers
     /// </summary>
     private static long IslamicToJulianDay(int year, int month, int day, long epoch)
     {
-        var monthDays = (long) System.Math.Ceiling(29.5001 * (month - 1));
+        // Use actual cumulative month days: odd months 30d, even months 29d
+        var m = month - 1;
+        var monthDays = (long) (m * 30 - m / 2);
         var yearDays = (year - 1) * 354L + (long) System.Math.Floor((3.0 + 11.0 * year) / 30.0);
         return monthDays + yearDays + day + epoch;
     }
