@@ -8,16 +8,12 @@ namespace Jint.Runtime.Interpreter.Statements;
 /// </summary>
 internal sealed class JintReturnStatement : JintStatement<ReturnStatement>
 {
-    private JintExpression? _argument;
+    private readonly JintExpression? _argument;
 
     public JintReturnStatement(ReturnStatement statement) : base(statement)
     {
-    }
-
-    protected override void Initialize(EvaluationContext context)
-    {
-        _argument = _statement.Argument != null
-            ? JintExpression.Build(_statement.Argument)
+        _argument = statement.Argument != null
+            ? JintExpression.Build(statement.Argument)
             : null;
     }
 

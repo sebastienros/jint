@@ -6,23 +6,19 @@ namespace Jint.Runtime.Interpreter.Statements;
 
 internal sealed class JintIfStatement : JintStatement<IfStatement>
 {
-    private ProbablyBlockStatement _statementConsequent;
-    private JintExpression _test = null!;
-    private ProbablyBlockStatement? _alternate;
-    private bool _consequentIsFunctionDecl;
-    private bool _alternateIsFunctionDecl;
+    private readonly ProbablyBlockStatement _statementConsequent;
+    private readonly JintExpression _test;
+    private readonly ProbablyBlockStatement? _alternate;
+    private readonly bool _consequentIsFunctionDecl;
+    private readonly bool _alternateIsFunctionDecl;
 
     public JintIfStatement(IfStatement statement) : base(statement)
     {
-    }
-
-    protected override void Initialize(EvaluationContext context)
-    {
-        _statementConsequent = new ProbablyBlockStatement(_statement.Consequent);
-        _test = JintExpression.Build(_statement.Test);
-        _alternate = _statement.Alternate != null ? new ProbablyBlockStatement(_statement.Alternate) : null;
-        _consequentIsFunctionDecl = _statement.Consequent.Type == NodeType.FunctionDeclaration;
-        _alternateIsFunctionDecl = _statement.Alternate?.Type == NodeType.FunctionDeclaration;
+        _statementConsequent = new ProbablyBlockStatement(statement.Consequent);
+        _test = JintExpression.Build(statement.Test);
+        _alternate = statement.Alternate != null ? new ProbablyBlockStatement(statement.Alternate) : null;
+        _consequentIsFunctionDecl = statement.Consequent.Type == NodeType.FunctionDeclaration;
+        _alternateIsFunctionDecl = statement.Alternate?.Type == NodeType.FunctionDeclaration;
     }
 
     protected override Completion ExecuteInternal(EvaluationContext context)

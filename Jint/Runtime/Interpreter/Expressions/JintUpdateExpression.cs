@@ -5,21 +5,15 @@ namespace Jint.Runtime.Interpreter.Expressions;
 
 internal sealed class JintUpdateExpression : JintExpression
 {
-    private JintExpression _argument = null!;
-    private int _change;
-    private bool _prefix;
+    private readonly JintExpression _argument;
+    private readonly int _change;
+    private readonly bool _prefix;
 
-    private JintIdentifierExpression? _leftIdentifier;
-    private bool _evalOrArguments;
-    private bool _initialized;
+    private readonly JintIdentifierExpression? _leftIdentifier;
+    private readonly bool _evalOrArguments;
 
     public JintUpdateExpression(UpdateExpression expression) : base(expression)
     {
-    }
-
-    private void Initialize()
-    {
-        var expression = (UpdateExpression) _expression;
         _prefix = expression.Prefix;
         _argument = Build(expression.Argument);
         if (expression.Operator == Operator.Increment)
@@ -41,12 +35,6 @@ internal sealed class JintUpdateExpression : JintExpression
 
     protected override object EvaluateInternal(EvaluationContext context)
     {
-        if (!_initialized)
-        {
-            Initialize();
-            _initialized = true;
-        }
-
         var fastResult = _leftIdentifier != null
             ? UpdateIdentifier(context)
             : null;

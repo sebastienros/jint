@@ -14,7 +14,7 @@ internal sealed class ExpressionCache
 
     internal bool HasSpreads { get; private set; }
 
-    internal void Initialize(EvaluationContext context, ReadOnlySpan<Expression> arguments)
+    internal void Initialize(ReadOnlySpan<Expression> arguments)
     {
         if (arguments.Length == 0)
         {
@@ -34,16 +34,19 @@ internal sealed class ExpressionCache
                 continue;
             }
 
-            var expression = JintExpression.Build(argument);
-
             if (argument.Type == NodeType.Literal)
             {
-                _expressions[i] = expression.GetValue(context).Clone();
-                continue;
+                var literalValue = JintLiteralExpression.ConvertToJsValue((Literal) argument);
+                if (literalValue is not null)
+                {
+                    _expressions[i] = literalValue;
+                    continue;
+                }
             }
 
+            var expression = JintExpression.Build(argument);
             _expressions[i] = expression;
-            _fullyCached &= argument.Type == NodeType.Literal;
+            _fullyCached = false;
             HasSpreads |= CanSpread(argument);
 
             if (argument.Type == NodeType.ArrayExpression)

@@ -9,22 +9,16 @@ namespace Jint.Runtime.Interpreter.Expressions;
 internal sealed class DestructuringPatternAssignmentExpression : JintExpression
 {
     private readonly DestructuringPattern _pattern;
-    private JintExpression _right = null!;
-    private bool _initialized;
+    private readonly JintExpression _right;
 
     public DestructuringPatternAssignmentExpression(AssignmentExpression expression) : base(expression)
     {
         _pattern = (DestructuringPattern) expression.Left;
+        _right = Build(expression.Right);
     }
 
     protected override object EvaluateInternal(EvaluationContext context)
     {
-        if (!_initialized)
-        {
-            _right = Build(((AssignmentExpression) _expression).Right);
-            _initialized = true;
-        }
-
         var rightValue = _right.GetValue(context);
         if (context.IsAbrupt())
         {

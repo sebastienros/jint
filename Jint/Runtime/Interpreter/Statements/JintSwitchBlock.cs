@@ -7,32 +7,19 @@ namespace Jint.Runtime.Interpreter.Statements;
 
 internal sealed class JintSwitchBlock
 {
-    private readonly NodeList<SwitchCase> _switchBlock;
-    private JintSwitchCase[] _jintSwitchBlock = [];
-    private bool _initialized;
+    private readonly JintSwitchCase[] _jintSwitchBlock;
 
     public JintSwitchBlock(NodeList<SwitchCase> switchBlock)
     {
-        _switchBlock = switchBlock;
-    }
-
-    private void Initialize()
-    {
-        _jintSwitchBlock = new JintSwitchCase[_switchBlock.Count];
+        _jintSwitchBlock = new JintSwitchCase[switchBlock.Count];
         for (var i = 0; i < _jintSwitchBlock.Length; i++)
         {
-            _jintSwitchBlock[i] = new JintSwitchCase(_switchBlock[i]);
+            _jintSwitchBlock[i] = new JintSwitchCase(switchBlock[i]);
         }
     }
 
     public Completion Execute(EvaluationContext context, JsValue input)
     {
-        if (!_initialized)
-        {
-            Initialize();
-            _initialized = true;
-        }
-
         var v = JsValue.Undefined;
         var l = context.LastSyntaxElement;
         var hit = false;

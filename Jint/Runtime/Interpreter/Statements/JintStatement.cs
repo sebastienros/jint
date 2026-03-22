@@ -17,7 +17,6 @@ internal abstract class JintStatement<T> : JintStatement where T : Statement
 internal abstract class JintStatement
 {
     internal readonly Statement _statement;
-    private bool _initialized;
 
     protected JintStatement(Statement statement)
     {
@@ -33,26 +32,12 @@ internal abstract class JintStatement
             context.RunBeforeExecuteStatementChecks(_statement);
         }
 
-        if (!_initialized)
-        {
-            Initialize(context);
-            _initialized = true;
-        }
-
         return ExecuteInternal(context);
     }
 
     protected abstract Completion ExecuteInternal(EvaluationContext context);
 
     public ref readonly SourceLocation Location => ref _statement.LocationRef;
-
-    /// <summary>
-    /// Opportunity to build one-time structures and caching based on lexical context.
-    /// </summary>
-    /// <param name="context"></param>
-    protected virtual void Initialize(EvaluationContext context)
-    {
-    }
 
     protected internal static JintStatement Build(Statement statement)
     {

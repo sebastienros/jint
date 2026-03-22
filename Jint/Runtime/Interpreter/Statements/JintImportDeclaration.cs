@@ -6,10 +6,6 @@ internal sealed class JintImportDeclaration : JintStatement<ImportDeclaration>
     {
     }
 
-    protected override void Initialize(EvaluationContext context)
-    {
-    }
-
     protected override Completion ExecuteInternal(EvaluationContext context)
     {
         // just to ensure module context or valid

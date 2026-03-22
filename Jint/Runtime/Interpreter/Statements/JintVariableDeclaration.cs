@@ -6,7 +6,7 @@ namespace Jint.Runtime.Interpreter.Statements;
 
 internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaration>
 {
-    private ResolvedDeclaration[] _declarations = [];
+    private readonly ResolvedDeclaration[] _declarations;
 
     private sealed class ResolvedDeclaration
     {
@@ -19,14 +19,10 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
 
     public JintVariableDeclaration(VariableDeclaration statement) : base(statement)
     {
-    }
-
-    protected override void Initialize(EvaluationContext context)
-    {
-        _declarations = new ResolvedDeclaration[_statement.Declarations.Count];
+        _declarations = new ResolvedDeclaration[statement.Declarations.Count];
         for (var i = 0; i < _declarations.Length; i++)
         {
-            var declaration = _statement.Declarations[i];
+            var declaration = statement.Declarations[i];
 
             JintExpression? left = null;
             JintExpression? init = null;
