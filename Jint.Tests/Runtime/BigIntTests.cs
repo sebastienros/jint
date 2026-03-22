@@ -1,5 +1,6 @@
 using System.Numerics;
 using Jint.Native;
+using Jint.Runtime;
 
 namespace Jint.Tests.Runtime;
 
@@ -66,5 +67,61 @@ public class BigIntTests
 
         // Assert
         Assert.False(result.AsBoolean());
+    }
+
+    [Theory]
+    [InlineData("11n ** 711111111n")]
+    [InlineData("2n ** 10000000n")]
+    [InlineData("100n ** 1000000n")]
+    public void ExponentiationShouldThrowForExcessiveSize(string expression)
+    {
+        var engine = new Engine(options =>
+        {
+            options.TimeoutInterval(TimeSpan.FromSeconds(5));
+            options.LimitMemory(16_000_000);
+        });
+
+        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate(expression));
+        Assert.Contains("Maximum BigInt size exceeded", ex.Message);
+    }
+
+    [Theory]
+    [InlineData("11n ** 711111111n")]
+    [InlineData("2n ** 10000000n")]
+    public void ExponentiationAssignmentShouldThrowForExcessiveSize(string expression)
+    {
+        var engine = new Engine(options =>
+        {
+            options.TimeoutInterval(TimeSpan.FromSeconds(5));
+            options.LimitMemory(16_000_000);
+        });
+
+        // Convert "a ** b" to "x = a; x **= b" to test assignment path
+        var parts = expression.Split(new[] { " ** " }, StringSplitOptions.None);
+        var script = $"var x = {parts[0]}; x **= {parts[1]}; x";
+
+        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate(script));
+        Assert.Contains("Maximum BigInt size exceeded", ex.Message);
+    }
+
+    [Theory]
+    [InlineData("2n ** 100n", "1267650600228229401496703205376")]
+    [InlineData("3n ** 50n", "717897987691852588770249")]
+    [InlineData("0n ** 1000000n", "0")]
+    [InlineData("1n ** 1000000n", "1")]
+    [InlineData("(-1n) ** 1000001n", "-1")]
+    public void ExponentiationShouldWorkForReasonableSizes(string expression, string expected)
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate(expression);
+        Assert.Equal(expected, result.ToString());
+    }
+
+    [Fact]
+    public void NegativeExponentShouldThrowRangeError()
+    {
+        var engine = new Engine();
+        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("2n ** -1n"));
+        Assert.Contains("Exponent must be positive", ex.Message);
     }
 }

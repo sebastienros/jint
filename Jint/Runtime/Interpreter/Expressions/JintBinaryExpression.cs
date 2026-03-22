@@ -250,6 +250,23 @@ internal abstract class JintBinaryExpression : JintExpression
         }
     }
 
+    /// <summary>
+    /// Validates that BigInteger.Pow(base, exponent) won't produce an excessively large result.
+    /// Limits result to ~1 million bits (~125 KB) to prevent memory exhaustion.
+    /// </summary>
+    internal static void ValidateBigIntPowSize(Realm realm, BigInteger baseValue, int exponent)
+    {
+        if (exponent > 0)
+        {
+            var absBase = BigInteger.Abs(baseValue);
+            if (absBase > BigInteger.One
+                && (double) exponent * BigInteger.Log(absBase, 2.0) > 1_000_000)
+            {
+                Throw.RangeError(realm, "Maximum BigInt size exceeded");
+            }
+        }
+    }
+
     private sealed class StrictlyEqualBinaryExpression : JintBinaryExpression
     {
         public StrictlyEqualBinaryExpression(NonLogicalBinaryExpression expression) : base(expression)
@@ -881,11 +898,15 @@ internal abstract class JintBinaryExpression : JintExpression
                     Throw.RangeError(context.Engine.Realm, "Exponent must be positive");
                 }
 
-                if (exponent > int.MaxValue || exponent < int.MinValue)
+                if (exponent > int.MaxValue)
                 {
-                    Throw.TypeError(context.Engine.Realm, "Exponent does not fit 32bit range");
+                    Throw.RangeError(context.Engine.Realm, "Maximum BigInt size exceeded");
                 }
-                result = JsBigInt.Create(BigInteger.Pow(left.AsBigInt(), (int) exponent));
+
+                var intExponent = (int) exponent;
+                var baseValue = left.AsBigInt();
+                ValidateBigIntPowSize(context.Engine.Realm, baseValue, intExponent);
+                result = JsBigInt.Create(BigInteger.Pow(baseValue, intExponent));
             }
 
             return result;
