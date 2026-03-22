@@ -222,8 +222,31 @@ internal sealed class PlainYearMonthPrototype : Prototype
                 : ym.IsoDate.Year;
         }
 
+        // Read era/eraYear only for calendars that support them
+        var hasEraOrEraYear = false;
+        if (TemporalHelpers.CalendarUsesEras(ym.Calendar))
+        {
+            var eraValue = obj.Get("era");
+            var eraYearValue = obj.Get("eraYear");
+            if (!eraValue.IsUndefined() && !eraYearValue.IsUndefined())
+            {
+                hasEraOrEraYear = true;
+                var eraYear2 = TemporalHelpers.ReadEraFields(_realm, obj, ym.Calendar);
+                if (eraYear2.HasValue)
+                {
+                    year = eraYear2.Value;
+                }
+            }
+            else if (!eraValue.IsUndefined() || !eraYearValue.IsUndefined())
+            {
+                hasEraOrEraYear = true;
+                Throw.TypeError(_realm, "Both era and eraYear must be provided together");
+            }
+        }
+
         // Validate that at least one temporal field was provided (IsPartialTemporalObject)
-        if (monthProp.IsUndefined() && monthCodeProp.IsUndefined() && yearProp.IsUndefined())
+        if (monthProp.IsUndefined() && monthCodeProp.IsUndefined() && yearProp.IsUndefined()
+            && !hasEraOrEraYear)
         {
             Throw.TypeError(_realm, "with argument must have at least one temporal property");
         }

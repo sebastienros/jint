@@ -241,8 +241,19 @@ internal sealed class PlainDatePrototype : Prototype
         var yearValue = obj.Get("year");
         int? year = yearValue.IsUndefined() ? null : TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearValue);
 
-        // At least one property must be present
-        if (day is null && month is null && monthCode is null && year is null)
+        // Read era/eraYear only for calendars that support them
+        var hasEra = false;
+        var hasEraYear = false;
+        if (TemporalHelpers.CalendarUsesEras(plainDate.Calendar))
+        {
+            var eraValue = obj.Get("era");
+            var eraYearValue = obj.Get("eraYear");
+            hasEra = !eraValue.IsUndefined();
+            hasEraYear = !eraYearValue.IsUndefined();
+        }
+
+        // At least one property must be present (including era/eraYear for era-supporting calendars)
+        if (day is null && month is null && monthCode is null && year is null && !hasEra && !hasEraYear)
         {
             Throw.TypeError(_realm, "Temporal date-like object must have at least one temporal property");
         }
@@ -257,6 +268,20 @@ internal sealed class PlainDatePrototype : Prototype
         {
             // Get current calendar fields
             var calDate = NonIsoCalendars.IsoToCalendarDate(plainDate.Calendar, plainDate.IsoDate);
+
+            // Handle era/eraYear for non-ISO calendars
+            if (hasEra && hasEraYear && TemporalHelpers.CalendarUsesEras(plainDate.Calendar))
+            {
+                var eraYear2 = TemporalHelpers.ReadEraFields(_realm, obj, plainDate.Calendar);
+                if (eraYear2.HasValue)
+                {
+                    year = eraYear2.Value;
+                }
+            }
+            else if ((hasEra || hasEraYear) && !(hasEra && hasEraYear) && TemporalHelpers.CalendarUsesEras(plainDate.Calendar))
+            {
+                Throw.TypeError(_realm, "Both era and eraYear must be provided together");
+            }
 
             // Merge with provided fields
             var finalCalYear = year ?? calDate.Year;
@@ -291,20 +316,64 @@ internal sealed class PlainDatePrototype : Prototype
             return _constructor.Construct(date.Value, plainDate.Calendar);
         }
 
-        // Merge with existing date values (ISO/Gregorian path)
+        // Handle era/eraYear: if provided, compute year from era+eraYear
+        // era/eraYear takes precedence and excludes year (mutually exclusive)
+        if (hasEra && hasEraYear && TemporalHelpers.CalendarUsesEras(plainDate.Calendar))
+        {
+            var eraYear2 = TemporalHelpers.ReadEraFields(_realm, obj, plainDate.Calendar);
+            if (eraYear2.HasValue)
+            {
+                year = eraYear2.Value;
+            }
+        }
+        else if ((hasEra || hasEraYear) && !(hasEra && hasEraYear) && TemporalHelpers.CalendarUsesEras(plainDate.Calendar))
+        {
+            Throw.TypeError(_realm, "Both era and eraYear must be provided together");
+        }
+
+        // For buddhist/roc/japanese: use CalendarDateToISO since year needs conversion
+        if (plainDate.Calendar is "buddhist" or "roc" or "japanese")
+        {
+            var calYear = year ?? TemporalHelpers.CalendarYear(plainDate.Calendar, plainDate.IsoDate);
+            var calMonth = month ?? plainDate.IsoDate.Month;
+            var calDay = day ?? plainDate.IsoDate.Day;
+
+            if (monthCode is not null)
+            {
+                var mc = TemporalHelpers.ParseMonthCode(_realm, monthCode);
+                if (monthCode.Length == 4 && monthCode[3] == 'L')
+                {
+                    Throw.RangeError(_realm, $"Leap months are not valid for calendar: {monthCode}");
+                }
+
+                if (month.HasValue && month.Value != mc)
+                {
+                    Throw.RangeError(_realm, "month and monthCode must match");
+                }
+
+                calMonth = mc;
+            }
+
+            var date2 = TemporalHelpers.CalendarDateToISO(_realm, plainDate.Calendar, calYear, calMonth, calDay, overflow);
+            if (date2 is null)
+            {
+                Throw.RangeError(_realm, "Invalid date");
+            }
+
+            return _constructor.Construct(date2.Value, plainDate.Calendar);
+        }
+
+        // Merge with existing date values (ISO/Gregory path)
         var finalYear = year ?? plainDate.IsoDate.Year;
         var finalMonth = month ?? plainDate.IsoDate.Month;
         var finalDayVal = day ?? plainDate.IsoDate.Day;
 
         // Handle monthCode - if provided, validate and use it
-        // Validation happens AFTER options are read
         int? parsedMonthCode = null;
         if (monthCode is not null)
         {
-            // Use ParseMonthCode for proper validation (well-formedness and range)
             parsedMonthCode = TemporalHelpers.ParseMonthCode(_realm, monthCode);
 
-            // For ISO 8601 calendar: validate monthCode is valid (01-12, no leap months)
             if (monthCode.Length == 4 && monthCode[3] == 'L')
             {
                 Throw.RangeError(_realm, $"Leap months are not valid for ISO 8601 calendar: {monthCode}");
@@ -316,32 +385,28 @@ internal sealed class PlainDatePrototype : Prototype
             }
         }
 
-        // Validate: both month and monthCode provided - they must match
         if (month.HasValue && parsedMonthCode.HasValue && month.Value != parsedMonthCode.Value)
         {
             Throw.RangeError(_realm, "month and monthCode must match");
         }
 
-        // Use monthCode if provided, otherwise use month
         if (parsedMonthCode.HasValue)
         {
             finalMonth = parsedMonthCode.Value;
         }
 
-        // Check for fundamentally invalid values
         if (finalYear < -271821 || finalYear > 275760 || finalMonth < 1 || finalDayVal < 1)
         {
             Throw.RangeError(_realm, "Invalid date");
         }
 
-        // Apply regulation with user's overflow option
-        var date2 = TemporalHelpers.RegulateIsoDate(finalYear, finalMonth, finalDayVal, overflow);
-        if (date2 is null)
+        var date3 = TemporalHelpers.RegulateIsoDate(finalYear, finalMonth, finalDayVal, overflow);
+        if (date3 is null)
         {
             Throw.RangeError(_realm, "Invalid date");
         }
 
-        return _constructor.Construct(date2.Value, plainDate.Calendar);
+        return _constructor.Construct(date3.Value, plainDate.Calendar);
     }
 
 
