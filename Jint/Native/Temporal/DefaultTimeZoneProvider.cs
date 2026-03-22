@@ -124,6 +124,12 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
     // Built from IanaToWindows keys at static init time.
     private static readonly Dictionary<string, string> IanaCanonicalCasing = BuildCanonicalCasingDict();
 
+    // Reverse lookup: Windows timezone ID → first IANA name. Avoids O(n) scans of IanaToWindows.
+    private static readonly Dictionary<string, string> WindowsToIana = BuildWindowsToIanaDict();
+
+    // Cached result of GetAvailableTimeZones() since timezone list doesn't change during process lifetime.
+    private static readonly Lazy<IReadOnlyCollection<string>> CachedAvailableTimeZones = new(BuildAvailableTimeZones);
+
     /// <summary>
     /// Singleton instance of the default provider.
     /// </summary>
@@ -558,13 +564,10 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
             return canonicalIana;
         }
 
-        // Try reverse lookup
-        foreach (var kvp in IanaToWindows)
+        // Try reverse lookup via cached dictionary
+        if (WindowsToIana.TryGetValue(tz.Id, out var ianaId))
         {
-            if (kvp.Value.Equals(tz.Id, StringComparison.OrdinalIgnoreCase))
-            {
-                return kvp.Key;
-            }
+            return ianaId;
         }
 
         // Fall back to Windows ID if no IANA mapping found
@@ -574,27 +577,7 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
     /// <inheritdoc />
     public IReadOnlyCollection<string> GetAvailableTimeZones()
     {
-        var zones = TimeZoneInfo.GetSystemTimeZones();
-        var result = new HashSet<string>(StringComparer.Ordinal);
-
-        foreach (var zone in zones)
-        {
-            if (!IsWindowsPlatform())
-            {
-                // On Unix, IDs are already IANA
-                result.Add(zone.Id);
-            }
-            else
-            {
-                // On Windows, prefer IANA names from our mapping
-                var iana = IanaToWindows.FirstOrDefault(x =>
-                    x.Value.Equals(zone.Id, StringComparison.OrdinalIgnoreCase)).Key;
-                result.Add(iana ?? zone.Id);
-            }
-        }
-
-        result.Add("UTC");
-        return result.OrderBy(x => x, StringComparer.Ordinal).ToList();
+        return CachedAvailableTimeZones.Value;
     }
 
     /// <inheritdoc />
@@ -607,13 +590,10 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
             return local.Id;
         }
 
-        // Try to find IANA equivalent
-        foreach (var kvp in IanaToWindows)
+        // Try to find IANA equivalent via cached reverse lookup
+        if (WindowsToIana.TryGetValue(local.Id, out var ianaId))
         {
-            if (kvp.Value.Equals(local.Id, StringComparison.OrdinalIgnoreCase))
-            {
-                return kvp.Key;
-            }
+            return ianaId;
         }
 
         return local.Id;
@@ -844,6 +824,43 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
         totalNs -= (BigInteger) (offset.TotalMilliseconds * 1_000_000);
 
         return totalNs;
+    }
+
+    private static Dictionary<string, string> BuildWindowsToIanaDict()
+    {
+        var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var kvp in IanaToWindows)
+        {
+            // First IANA name wins for each Windows ID
+            if (!dict.ContainsKey(kvp.Value))
+            {
+                dict[kvp.Value] = kvp.Key;
+            }
+        }
+
+        return dict;
+    }
+
+    private static List<string> BuildAvailableTimeZones()
+    {
+        var zones = TimeZoneInfo.GetSystemTimeZones();
+        var result = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var zone in zones)
+        {
+            if (!IsWindowsPlatform())
+            {
+                result.Add(zone.Id);
+            }
+            else
+            {
+                // Use cached reverse lookup instead of linear scan
+                result.Add(WindowsToIana.TryGetValue(zone.Id, out var iana) ? iana : zone.Id);
+            }
+        }
+
+        result.Add("UTC");
+        return result.OrderBy(x => x, StringComparer.Ordinal).ToList();
     }
 
     private static Dictionary<string, string> BuildCanonicalCasingDict()

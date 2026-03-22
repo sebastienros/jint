@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Linq;
 using Jint.Native.Intl.Data;
@@ -14,6 +15,13 @@ public sealed class DefaultCldrProvider : ICldrProvider
     /// Singleton instance of the default provider.
     /// </summary>
     public static readonly DefaultCldrProvider Instance = new();
+
+    // Caches for immutable locale-dependent data
+    private static readonly ConcurrentDictionary<string, string[]?> _monthNameCache = new(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<string, string[]?> _weekdayNameCache = new(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<string, string[]?> _dayPeriodCache = new(StringComparer.Ordinal);
+    private static readonly Lazy<string[]> _supportedCurrencies = new(BuildSupportedCurrencies);
+    private static readonly Lazy<Dictionary<string, string>> _currencyDisplayNames = new(BuildCurrencyDisplayNames);
 
     private DefaultCldrProvider()
     {
@@ -215,7 +223,11 @@ public sealed class DefaultCldrProvider : ICldrProvider
         // Default provider returns basic currency data from .NET
         try
         {
-            var culture = new CultureInfo(RemoveExtensions(locale));
+            var culture = IntlUtilities.GetCultureInfo(locale);
+            if (culture is null)
+            {
+                return null;
+            }
             var region = new RegionInfo(culture.Name);
 
             // Common currency symbols
@@ -319,9 +331,15 @@ public sealed class DefaultCldrProvider : ICldrProvider
 
     public string[]? GetMonthNames(string locale, string style, string? calendar)
     {
-        try
+        var cacheKey = string.Concat(locale, "_", style);
+        return _monthNameCache.GetOrAdd(cacheKey, _ =>
         {
-            var culture = new CultureInfo(RemoveExtensions(locale));
+            var culture = IntlUtilities.GetCultureInfo(locale);
+            if (culture is null)
+            {
+                return null;
+            }
+
             return style switch
             {
                 "long" => culture.DateTimeFormat.MonthNames.Take(12).ToArray(),
@@ -329,18 +347,20 @@ public sealed class DefaultCldrProvider : ICldrProvider
                 "narrow" => culture.DateTimeFormat.AbbreviatedMonthNames.Take(12).Select(m => m.Length > 0 ? m[0].ToString() : m).ToArray(),
                 _ => null
             };
-        }
-        catch
-        {
-            return null;
-        }
+        });
     }
 
     public string[]? GetWeekdayNames(string locale, string style)
     {
-        try
+        var cacheKey = string.Concat(locale, "_", style);
+        return _weekdayNameCache.GetOrAdd(cacheKey, _ =>
         {
-            var culture = new CultureInfo(RemoveExtensions(locale));
+            var culture = IntlUtilities.GetCultureInfo(locale);
+            if (culture is null)
+            {
+                return null;
+            }
+
             return style switch
             {
                 "long" => culture.DateTimeFormat.DayNames,
@@ -348,24 +368,22 @@ public sealed class DefaultCldrProvider : ICldrProvider
                 "narrow" => culture.DateTimeFormat.ShortestDayNames,
                 _ => null
             };
-        }
-        catch
-        {
-            return null;
-        }
+        });
     }
 
     public string[]? GetDayPeriods(string locale, string style, string? calendar)
     {
-        try
+        var cacheKey = string.Concat(locale, "_", style);
+        return _dayPeriodCache.GetOrAdd(cacheKey, _ =>
         {
-            var culture = new CultureInfo(RemoveExtensions(locale));
-            return [culture.DateTimeFormat.AMDesignator, culture.DateTimeFormat.PMDesignator];
-        }
-        catch
-        {
-            return null;
-        }
+            var culture = IntlUtilities.GetCultureInfo(locale);
+            if (culture is null)
+            {
+                return null;
+            }
+
+            return new[] { culture.DateTimeFormat.AMDesignator, culture.DateTimeFormat.PMDesignator };
+        });
     }
 
     public string[]? GetEraNames(string locale, string style, string? calendar)
@@ -393,26 +411,8 @@ public sealed class DefaultCldrProvider : ICldrProvider
             return null;
         }
 
-        // Look up currency name from .NET culture data by finding a culture that uses this currency
         var upperCode = code.ToUpperInvariant();
-        foreach (var culture in IntlUtilities.SpecificCultures.Value)
-        {
-            try
-            {
-                var region = new RegionInfo(culture.Name);
-                if (string.Equals(region.ISOCurrencySymbol, upperCode, StringComparison.OrdinalIgnoreCase))
-                {
-                    return region.CurrencyEnglishName;
-                }
-            }
-            catch
-            {
-                // Skip cultures without region info
-            }
-        }
-
-        // Don't provide fallback - only return names for currencies we actually know about
-        return null;
+        return _currencyDisplayNames.Value.TryGetValue(upperCode, out var name) ? name : null;
     }
 
     // === Locale Data ===
@@ -535,31 +535,7 @@ public sealed class DefaultCldrProvider : ICldrProvider
 
     public IReadOnlyCollection<string> GetSupportedCurrencies()
     {
-        var currencies = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var culture in IntlUtilities.SpecificCultures.Value)
-        {
-            try
-            {
-                var region = new RegionInfo(culture.Name);
-                var currencyCode = region.ISOCurrencySymbol;
-
-                // Filter out invalid currency codes (must be 3 uppercase ASCII letters)
-                // Some cultures have placeholder codes like "¤¤" or "XXX"
-                if (currencyCode.Length == 3 &&
-                    IsUpperAsciiLetter(currencyCode[0]) &&
-                    IsUpperAsciiLetter(currencyCode[1]) &&
-                    IsUpperAsciiLetter(currencyCode[2]) &&
-                    !string.Equals(currencyCode, "XXX", StringComparison.Ordinal)) // XXX is "no currency"
-                {
-                    currencies.Add(currencyCode);
-                }
-            }
-            catch
-            {
-                // Skip cultures without region info
-            }
-        }
-        return currencies.ToArray();
+        return _supportedCurrencies.Value;
     }
 
     public IReadOnlyCollection<string> GetSupportedNumberingSystems()
@@ -773,5 +749,56 @@ public sealed class DefaultCldrProvider : ICldrProvider
     private static string GetUnitPlural(string unit, string style)
     {
         return GetUnitName(unit, style, plural: true);
+    }
+
+    private static string[] BuildSupportedCurrencies()
+    {
+        var currencies = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var culture in IntlUtilities.SpecificCultures.Value)
+        {
+            try
+            {
+                var region = new RegionInfo(culture.Name);
+                var currencyCode = region.ISOCurrencySymbol;
+
+                if (currencyCode.Length == 3 &&
+                    IsUpperAsciiLetter(currencyCode[0]) &&
+                    IsUpperAsciiLetter(currencyCode[1]) &&
+                    IsUpperAsciiLetter(currencyCode[2]) &&
+                    !string.Equals(currencyCode, "XXX", StringComparison.Ordinal))
+                {
+                    currencies.Add(currencyCode);
+                }
+            }
+            catch
+            {
+                // Skip cultures without region info
+            }
+        }
+
+        return currencies.ToArray();
+    }
+
+    private static Dictionary<string, string> BuildCurrencyDisplayNames()
+    {
+        var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var culture in IntlUtilities.SpecificCultures.Value)
+        {
+            try
+            {
+                var region = new RegionInfo(culture.Name);
+                var code = region.ISOCurrencySymbol;
+                if (!names.ContainsKey(code))
+                {
+                    names[code] = region.CurrencyEnglishName;
+                }
+            }
+            catch
+            {
+                // Skip cultures without region info
+            }
+        }
+
+        return names;
     }
 }

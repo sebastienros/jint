@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using Jint.Native.Intl.Data;
@@ -12,6 +13,9 @@ namespace Jint.Native.Intl;
 /// </summary>
 internal static class IntlUtilities
 {
+    // Cache for CultureInfo instances to avoid repeated allocations.
+    // CultureInfo with useUserOverride:false is immutable, safe to cache and share.
+    private static readonly ConcurrentDictionary<string, CultureInfo?> _cultureCache = new(StringComparer.OrdinalIgnoreCase);
     // BCP 47 language tag pattern (permissive to accept Unicode extensions)
     // Accepts: language[-script][-region][-variant]*[-extension]*[-privateuse]
     // Extensions use single-character singletons like -u- for Unicode extensions
@@ -1631,6 +1635,11 @@ internal static class IntlUtilities
             return null;
         }
 
+        return _cultureCache.GetOrAdd(locale, static key => CreateCultureInfo(key));
+    }
+
+    private static CultureInfo? CreateCultureInfo(string locale)
+    {
         try
         {
             // Remove Unicode extensions before creating CultureInfo

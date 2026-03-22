@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -54,6 +55,9 @@ internal static class TemporalHelpers
     // maxTimeDuration = 2^53 × 10^9 - 1 = 9,007,199,254,740,991,999,999,999
     // This is the maximum time duration in nanoseconds
     public static readonly BigInteger MaxTimeDuration = BigInteger.Parse("9007199254740991999999999", CultureInfo.InvariantCulture);
+
+    // 2^53 seconds in nanoseconds = 9007199254740992 * 10^9 (used by IsValidDuration)
+    private static readonly BigInteger MaxDurationNs = new BigInteger(9007199254740992L) * 1_000_000_000L;
 
     // Time conversion helpers
     public static long TimeToNanoseconds(IsoTime time)
@@ -429,10 +433,10 @@ internal static class TemporalHelpers
                 seconds = double.Parse(match.Groups[10].Value, CultureInfo.InvariantCulture);
                 if (match.Groups[11].Success)
                 {
-                    var fraction = match.Groups[11].Value.PadRight(9, '0');
-                    milliseconds = double.Parse(fraction.AsSpan(0, 3), CultureInfo.InvariantCulture);
-                    microseconds = double.Parse(fraction.AsSpan(3, 3), CultureInfo.InvariantCulture);
-                    nanoseconds = double.Parse(fraction.AsSpan(6, 3), CultureInfo.InvariantCulture);
+                    ParseFractionDigits(match.Groups[11].Value, out var ms, out var us, out var ns);
+                    milliseconds = ms;
+                    microseconds = us;
+                    nanoseconds = ns;
                 }
             }
         }
@@ -762,10 +766,7 @@ internal static class TemporalHelpers
         int millisecond = 0, microsecond = 0, nanosecond = 0;
         if (match.Groups[4].Success)
         {
-            var fraction = match.Groups[4].Value.PadRight(9, '0');
-            millisecond = int.Parse(fraction.AsSpan(0, 3), CultureInfo.InvariantCulture);
-            microsecond = int.Parse(fraction.AsSpan(3, 3), CultureInfo.InvariantCulture);
-            nanosecond = int.Parse(fraction.AsSpan(6, 3), CultureInfo.InvariantCulture);
+            ParseFractionDigits(match.Groups[4].Value, out millisecond, out microsecond, out nanosecond);
         }
 
         var time = new IsoTime(hour, minute, second, millisecond, microsecond, nanosecond);
@@ -904,10 +905,7 @@ internal static class TemporalHelpers
         int millisecond = 0, microsecond = 0, nanosecond = 0;
         if (match.Groups[7].Success)
         {
-            var fraction = match.Groups[7].Value.PadRight(9, '0');
-            millisecond = int.Parse(fraction.AsSpan(0, 3), CultureInfo.InvariantCulture);
-            microsecond = int.Parse(fraction.AsSpan(3, 3), CultureInfo.InvariantCulture);
-            nanosecond = int.Parse(fraction.AsSpan(6, 3), CultureInfo.InvariantCulture);
+            ParseFractionDigits(match.Groups[7].Value, out millisecond, out microsecond, out nanosecond);
         }
 
         // Parse time zone offset
@@ -935,8 +933,7 @@ internal static class TemporalHelpers
             long offsetFractionNs = 0;
             if (match.Groups[13].Success)
             {
-                var offsetFraction = match.Groups[13].Value.PadRight(9, '0');
-                offsetFractionNs = long.Parse(offsetFraction.AsSpan(0, 9), CultureInfo.InvariantCulture);
+                offsetFractionNs = ParseFractionToNanoseconds(match.Groups[13].Value);
             }
 
             offsetNanoseconds = offsetSign * (
@@ -1097,27 +1094,20 @@ internal static class TemporalHelpers
     /// </summary>
     public static bool IsValidDuration(DurationRecord duration)
     {
-        // Check that all components have the same sign
+        // Check that all components are finite and have the same sign (inline to avoid array allocation)
         var sign = 0;
-        double[] components = { duration.Years, duration.Months, duration.Weeks, duration.Days, duration.Hours, duration.Minutes, duration.Seconds, duration.Milliseconds, duration.Microseconds, duration.Nanoseconds };
-
-        foreach (var component in components)
+        if (!CheckDurationComponent(duration.Years, ref sign)
+            || !CheckDurationComponent(duration.Months, ref sign)
+            || !CheckDurationComponent(duration.Weeks, ref sign)
+            || !CheckDurationComponent(duration.Days, ref sign)
+            || !CheckDurationComponent(duration.Hours, ref sign)
+            || !CheckDurationComponent(duration.Minutes, ref sign)
+            || !CheckDurationComponent(duration.Seconds, ref sign)
+            || !CheckDurationComponent(duration.Milliseconds, ref sign)
+            || !CheckDurationComponent(duration.Microseconds, ref sign)
+            || !CheckDurationComponent(duration.Nanoseconds, ref sign))
         {
-            if (double.IsNaN(component) || double.IsInfinity(component))
-                return false;
-
-            if (component > 0)
-            {
-                if (sign < 0)
-                    return false;
-                sign = 1;
-            }
-            else if (component < 0)
-            {
-                if (sign > 0)
-                    return false;
-                sign = -1;
-            }
+            return false;
         }
 
         // Check calendar unit maximums: |years|, |months|, |weeks| < 2^32
@@ -1130,9 +1120,6 @@ internal static class TemporalHelpers
         }
 
         // Check normalized seconds < 2^53
-        // normalizedSeconds = |days| × 86400 + |hours| × 3600 + |minutes| × 60 + |seconds|
-        //                     + |ms| × 10^-3 + |µs| × 10^-6 + |ns| × 10^-9
-        // Using nanoseconds for exact comparison:
         var totalNs = (BigInteger) System.Math.Abs(duration.Days) * 86_400_000_000_000L
                       + (BigInteger) System.Math.Abs(duration.Hours) * 3_600_000_000_000L
                       + (BigInteger) System.Math.Abs(duration.Minutes) * 60_000_000_000L
@@ -1141,11 +1128,26 @@ internal static class TemporalHelpers
                       + (BigInteger) System.Math.Abs(duration.Microseconds) * 1_000L
                       + (BigInteger) System.Math.Abs(duration.Nanoseconds);
 
-        // 2^53 seconds in nanoseconds = 9007199254740992 * 10^9
-        var maxNs = new BigInteger(9007199254740992L) * 1_000_000_000L;
-        if (totalNs >= maxNs)
-        {
+        return totalNs < MaxDurationNs;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool CheckDurationComponent(double component, ref int sign)
+    {
+        if (double.IsNaN(component) || double.IsInfinity(component))
             return false;
+
+        if (component > 0)
+        {
+            if (sign < 0)
+                return false;
+            sign = 1;
+        }
+        else if (component < 0)
+        {
+            if (sign > 0)
+                return false;
+            sign = -1;
         }
 
         return true;
@@ -3276,10 +3278,58 @@ internal static class TemporalHelpers
 
     /// <summary>
     /// Returns the number of bits in the absolute value of a positive BigInteger.
-    /// Compatible with all .NET target frameworks (GetBitLength() is .NET 5+ only).
+    /// Uses native GetBitLength() on .NET 5+, falls back to byte array on older frameworks.
     /// </summary>
+    /// <summary>
+    /// Parses a fractional digit group (1-9 digits) into ms/us/ns without string allocation.
+    /// Each output is a 3-digit group: digits 0-2 → ms, 3-5 → µs, 6-8 → ns.
+    /// </summary>
+    private static void ParseFractionDigits(string digits, out int millisecond, out int microsecond, out int nanosecond)
+    {
+        // Powers of 10 for padding missing digits within each 3-digit group
+        Span<int> multipliers = stackalloc int[] { 100, 10, 1 };
+        millisecond = 0;
+        microsecond = 0;
+        nanosecond = 0;
+        var len = digits.Length;
+
+        for (var i = 0; i < 9; i++)
+        {
+            var digitVal = i < len ? (digits[i] - '0') : 0;
+            var group = i / 3; // 0=ms, 1=us, 2=ns
+            var pos = i % 3;
+            var contribution = digitVal * multipliers[pos];
+
+            switch (group)
+            {
+                case 0: millisecond += contribution; break;
+                case 1: microsecond += contribution; break;
+                case 2: nanosecond += contribution; break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Parses a fractional digit group (1-9 digits) into a single nanosecond value without string allocation.
+    /// </summary>
+    private static long ParseFractionToNanoseconds(string digits)
+    {
+        long result = 0;
+        var len = digits.Length;
+        for (var i = 0; i < 9; i++)
+        {
+            var digitVal = i < len ? (digits[i] - '0') : 0;
+            result = result * 10 + digitVal;
+        }
+
+        return result;
+    }
+
     private static int GetBigIntegerBitLength(BigInteger abs)
     {
+#if NET5_0_OR_GREATER
+        return (int) abs.GetBitLength();
+#else
         // Convert to byte array (little-endian, unsigned)
         var bytes = abs.ToByteArray();
         var length = bytes.Length;
@@ -3298,6 +3348,7 @@ internal static class TemporalHelpers
         }
 
         return bits;
+#endif
     }
 
     /// <summary>
