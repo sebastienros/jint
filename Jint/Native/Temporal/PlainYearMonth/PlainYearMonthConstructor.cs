@@ -234,6 +234,8 @@ internal sealed class PlainYearMonthConstructor : Constructor
             calendar = TemporalHelpers.ToTemporalCalendarIdentifier(_realm, calendarValue);
         }
 
+        TemporalHelpers.RejectTemporalUnsupportedCalendar(_realm, calendar);
+
         // 2. era/eraYear - read for era-supporting calendars (alphabetically between calendar and month)
         var eraYear = TemporalHelpers.ReadEraFields(_realm, obj, calendar);
 

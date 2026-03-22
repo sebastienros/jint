@@ -182,35 +182,20 @@ internal sealed class PlainMonthDayPrototype : Prototype
 
         // NOW validate monthCode (after options are read)
         int? monthFromCode = null;
-        if (monthCode is not null)
+        if (!isNonIso)
         {
-            monthFromCode = TemporalHelpers.ParseMonthCode(_realm, monthCode);
+            // ISO/Gregorian: validate no leap months, month/monthCode consistency
+            monthFromCode = TemporalHelpers.ValidateMonthCodeForNonLeapCalendar(
+                _realm, monthCode, !monthProp.IsUndefined() ? month : null);
 
-            // For ISO/Gregorian calendars: validate monthCode is valid (01-12, no leap months)
-            if (!isNonIso)
+            if (monthFromCode.HasValue)
             {
-                if (monthCode.Length == 4 && monthCode[3] == 'L')
-                {
-                    Throw.RangeError(_realm, $"Leap months are not valid for calendar: {monthCode}");
-                }
-
-                if (monthFromCode.Value < 1 || monthFromCode.Value > 12)
-                {
-                    Throw.RangeError(_realm, $"Month {monthFromCode.Value} is not valid for calendar");
-                }
+                month = monthFromCode.Value;
             }
         }
-
-        // Validate month/monthCode consistency (ISO only)
-        if (!isNonIso && monthFromCode.HasValue && !monthProp.IsUndefined() && month != monthFromCode.Value)
+        else if (monthCode is not null)
         {
-            Throw.RangeError(_realm, "month and monthCode must match");
-        }
-
-        // Use monthCode if provided (ISO only - non-ISO handled by CalendarDateToISO)
-        if (!isNonIso && monthFromCode.HasValue)
-        {
-            month = monthFromCode.Value;
+            monthFromCode = TemporalHelpers.ParseMonthCode(_realm, monthCode);
         }
 
         if (isNonIso)

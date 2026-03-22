@@ -194,6 +194,8 @@ internal sealed class ZonedDateTimeConstructor : Constructor
             calendar = TemporalHelpers.ToTemporalCalendarIdentifier(_realm, calendarProp);
         }
 
+        TemporalHelpers.RejectTemporalUnsupportedCalendar(_realm, calendar);
+
         // 2. day - read and convert immediately
         var dayValue = obj.Get("day");
         if (dayValue.IsUndefined())

@@ -1608,12 +1608,63 @@ internal static class TemporalHelpers
     }
 
     /// <summary>
+    /// Throws RangeError for observation-based calendars that cannot be used in Temporal.
+    /// "islamic" and "islamic-rgsa" are only valid for Intl.DateTimeFormat, not Temporal.
+    /// </summary>
+    internal static void RejectTemporalUnsupportedCalendar(Realm realm, string calendar)
+    {
+        if (calendar is "islamic" or "islamic-rgsa")
+        {
+            Throw.RangeError(realm, $"Calendar '{calendar}' is not supported for Temporal operations");
+        }
+    }
+
+    /// <summary>
+    /// Validates a monthCode for calendars that don't support leap months (ISO, Gregorian-based).
+    /// Also validates month/monthCode consistency when both are provided.
+    /// Returns the parsed month number from the monthCode, or null if no monthCode.
+    /// </summary>
+    internal static int? ValidateMonthCodeForNonLeapCalendar(Realm realm, string? monthCode, int? explicitMonth)
+    {
+        if (monthCode is null)
+        {
+            return null;
+        }
+
+        var parsed = ParseMonthCode(realm, monthCode);
+
+        if (monthCode.Length == 4 && monthCode[3] == 'L')
+        {
+            Throw.RangeError(realm, $"Leap months are not valid for calendar: {monthCode}");
+        }
+
+        if (parsed < 1 || parsed > 12)
+        {
+            Throw.RangeError(realm, $"Month {parsed} is not valid for calendar");
+        }
+
+        if (explicitMonth.HasValue && explicitMonth.Value != parsed)
+        {
+            Throw.RangeError(realm, "month and monthCode must match");
+        }
+
+        return parsed;
+    }
+
+    /// <summary>
     /// Converts calendar-system year/month/day to ISO year/month/day.
     /// For non-ISO calendars, the input fields are in the calendar's system
     /// and need to be converted to the proleptic Gregorian (ISO 8601) calendar.
     /// </summary>
     public static IsoDate? CalendarDateToISO(Realm realm, string calendar, int year, int month, int day, string overflow, string? monthCode = null)
     {
+        // Observation-based calendars cannot be used for Temporal arithmetic
+        if (calendar is "islamic" or "islamic-rgsa")
+        {
+            Throw.RangeError(realm, $"Calendar '{calendar}' is not supported for Temporal operations");
+            return null;
+        }
+
         if (calendar is "iso8601" or "gregory")
         {
             return RegulateIsoDate(year, month, day, overflow);
@@ -1849,7 +1900,6 @@ internal static class TemporalHelpers
             case "buddhist":
                 return "be";
             case "japanese":
-                // Temporal uses 1873 as Meiji start (when Japan adopted Gregorian calendar)
                 if (isoYear >= 2019) return "reiwa";
                 if (isoYear >= 1989) return "heisei";
                 if (isoYear >= 1926) return "showa";
@@ -1978,6 +2028,32 @@ internal static class TemporalHelpers
         }
 
         return isoDate.Day;
+    }
+
+    /// <summary>
+    /// Returns the day of the year in the calendar system for the given ISO date.
+    /// </summary>
+    internal static int CalendarDayOfYear(string calendar, in IsoDate isoDate)
+    {
+        if (IsGregorianBasedCalendar(calendar))
+        {
+            return isoDate.DayOfYear();
+        }
+
+        if (NonIsoCalendars.IsNonIsoCalendar(calendar))
+        {
+            var calDate = NonIsoCalendars.IsoToCalendarDate(calendar, isoDate);
+            // Find the first day of the calendar year
+            var firstDay = NonIsoCalendars.CalendarDateToIso(calendar, calDate.Year, "M01", 0, 1, "constrain");
+            if (firstDay is not null)
+            {
+                var epochThis = IsoDateToDays(isoDate.Year, isoDate.Month, isoDate.Day);
+                var epochFirst = IsoDateToDays(firstDay.Value.Year, firstDay.Value.Month, firstDay.Value.Day);
+                return (int) (epochThis - epochFirst) + 1;
+            }
+        }
+
+        return isoDate.DayOfYear();
     }
 
     /// <summary>
@@ -2117,8 +2193,8 @@ internal static class TemporalHelpers
         if (y > 1926 || (y == 1926 && m == 12 && day >= 25)) return "showa";
         // Taisho: July 30, 1912 - December 24, 1926
         if (y > 1912 || (y == 1912 && (m > 7 || (m == 7 && day >= 30)))) return "taisho";
-        // Meiji: January 25, 1873 - July 29, 1912
-        if (y > 1873 || (y == 1873 && (m > 1 || (m == 1 && day >= 25)))) return "meiji";
+        // Meiji: year 1873+ (Japan adopted Gregorian calendar in Meiji 6)
+        if (y >= 1873) return "meiji";
         // Before Meiji
         return y >= 1 ? "ce" : "bce";
     }
@@ -2132,7 +2208,7 @@ internal static class TemporalHelpers
             "heisei" => d.Year - 1988,
             "showa" => d.Year - 1925,
             "taisho" => d.Year - 1911,
-            "meiji" => d.Year - 1872,
+            "meiji" => d.Year - 1867,
             "bce" => 1 - d.Year,
             _ => d.Year // "ce"
         };
@@ -2198,9 +2274,9 @@ internal static class TemporalHelpers
                 if (era is "heisei") return eraYear + 1988;
                 if (era is "showa") return eraYear + 1925;
                 if (era is "taisho") return eraYear + 1911;
-                if (era is "meiji") return eraYear + 1872;
-                if (era is "ce" or "gregory") return eraYear;
-                if (era is "bce" or "gregory-inverse") return 1 - eraYear;
+                if (era is "meiji") return eraYear + 1867;
+                if (era is "ce" or "ad" or "gregory") return eraYear;
+                if (era is "bce" or "bc" or "gregory-inverse") return 1 - eraYear;
                 break;
             case "roc":
                 if (era is "roc" or "minguo")
