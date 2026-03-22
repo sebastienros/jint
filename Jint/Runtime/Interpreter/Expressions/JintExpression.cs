@@ -55,6 +55,15 @@ internal abstract class JintExpression
     protected abstract object EvaluateInternal(EvaluationContext context);
 
     /// <summary>
+    /// Resolves this expression as a boolean value.
+    /// Comparison expressions override this to avoid creating a JsBoolean wrapper.
+    /// </summary>
+    public virtual bool GetBooleanValue(EvaluationContext context)
+    {
+        return TypeConverter.ToBoolean(GetValue(context));
+    }
+
+    /// <summary>
     /// If we'd get Esprima source, we would just refer to it, but this makes error messages easier to decipher.
     /// </summary>
     internal string SourceText => ToString(_expression) ?? "*unknown*";
@@ -147,8 +156,6 @@ internal abstract class JintExpression
     protected static JsValue Remainder(EvaluationContext context, JsValue left, JsValue right)
     {
         var result = JsValue.Undefined;
-        left = TypeConverter.ToNumeric(left);
-        right = TypeConverter.ToNumeric(right);
         if (AreIntegerOperands(left, right))
         {
             var leftInteger = left.AsInteger();
@@ -171,50 +178,56 @@ internal abstract class JintExpression
                 }
             }
         }
-        else if (JintBinaryExpression.AreNonBigIntOperands(left, right))
-        {
-            var n = left.AsNumber();
-            var d = right.AsNumber();
-
-            if (double.IsNaN(n) || double.IsNaN(d) || double.IsInfinity(n))
-            {
-                result = JsNumber.DoubleNaN;
-            }
-            else if (double.IsInfinity(d))
-            {
-                result = n;
-            }
-            else if (NumberInstance.IsPositiveZero(d) || NumberInstance.IsNegativeZero(d))
-            {
-                result = JsNumber.DoubleNaN;
-            }
-            else if (NumberInstance.IsPositiveZero(n) || NumberInstance.IsNegativeZero(n))
-            {
-                result = n;
-            }
-            else
-            {
-                result = JsNumber.Create(n % d);
-            }
-        }
         else
         {
-            JintBinaryExpression.AssertValidBigIntArithmeticOperands(left, right);
+            left = TypeConverter.ToNumeric(left);
+            right = TypeConverter.ToNumeric(right);
 
-            var n = TypeConverter.ToBigInt(left);
-            var d = TypeConverter.ToBigInt(right);
+            if (JintBinaryExpression.AreNonBigIntOperands(left, right))
+            {
+                var n = left.AsNumber();
+                var d = right.AsNumber();
 
-            if (d == 0)
-            {
-                Throw.RangeError(context.Engine.Realm, "Division by zero");
-            }
-            else if (n == 0)
-            {
-                result = JsBigInt.Zero;
+                if (double.IsNaN(n) || double.IsNaN(d) || double.IsInfinity(n))
+                {
+                    result = JsNumber.DoubleNaN;
+                }
+                else if (double.IsInfinity(d))
+                {
+                    result = n;
+                }
+                else if (NumberInstance.IsPositiveZero(d) || NumberInstance.IsNegativeZero(d))
+                {
+                    result = JsNumber.DoubleNaN;
+                }
+                else if (NumberInstance.IsPositiveZero(n) || NumberInstance.IsNegativeZero(n))
+                {
+                    result = n;
+                }
+                else
+                {
+                    result = JsNumber.Create(n % d);
+                }
             }
             else
             {
-                result = JsBigInt.Create(n % d);
+                JintBinaryExpression.AssertValidBigIntArithmeticOperands(left, right);
+
+                var bn = TypeConverter.ToBigInt(left);
+                var bd = TypeConverter.ToBigInt(right);
+
+                if (bd == 0)
+                {
+                    Throw.RangeError(context.Engine.Realm, "Division by zero");
+                }
+                else if (bn == 0)
+                {
+                    result = JsBigInt.Zero;
+                }
+                else
+                {
+                    result = JsBigInt.Create(bn % bd);
+                }
             }
         }
 
@@ -332,29 +345,29 @@ internal abstract class JintExpression
 
     private static JsValue CompareNumber(JsValue x, JsValue y, bool leftFirst)
     {
+        if (x.IsInteger() && y.IsInteger())
+        {
+            return x.AsInteger() < y.AsInteger() ? JsBoolean.True : JsBoolean.False;
+        }
+
         double nx, ny;
         if (leftFirst)
         {
-            nx = x.AsNumber();
-            ny = y.AsNumber();
+            nx = ((JsNumber) x)._value;
+            ny = ((JsNumber) y)._value;
         }
         else
         {
-            ny = y.AsNumber();
-            nx = x.AsNumber();
+            ny = ((JsNumber) y)._value;
+            nx = ((JsNumber) x)._value;
         }
 
-        if (x.IsInteger() && y.IsInteger())
+        if (double.IsNaN(nx) || double.IsNaN(ny))
         {
-            return (int) nx < (int) ny ? JsBoolean.True : JsBoolean.False;
+            return JsValue.Undefined;
         }
 
-        if (!double.IsInfinity(nx) && !double.IsInfinity(ny) && !double.IsNaN(nx) && !double.IsNaN(ny))
-        {
-            return nx < ny ? JsBoolean.True : JsBoolean.False;
-        }
-
-        return CompareComplex(x, y, leftFirst);
+        return nx < ny ? JsBoolean.True : JsBoolean.False;
     }
 
     private static JsValue CompareComplex(JsValue x, JsValue y, bool leftFirst)

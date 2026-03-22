@@ -261,16 +261,14 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
             {
                 debugHandler?.OnStep(_test._expression);
 
-                var testValue = _test.GetValue(context);
-
-                // Check for async suspension in test expression
-                if (context.IsSuspended())
+                if (!_test.GetBooleanValue(context))
                 {
-                    return new Completion(CompletionType.Return, JsValue.Undefined, ((JintStatement) this)._statement);
-                }
+                    // Check for async suspension in test expression
+                    if (context.IsSuspended())
+                    {
+                        return new Completion(CompletionType.Return, JsValue.Undefined, ((JintStatement) this)._statement);
+                    }
 
-                if (!TypeConverter.ToBoolean(testValue))
-                {
                     return new Completion(CompletionType.Normal, v, ((JintStatement) this)._statement);
                 }
             }
