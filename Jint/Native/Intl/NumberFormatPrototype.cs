@@ -253,9 +253,9 @@ internal sealed class NumberFormatPrototype : Prototype
         var startParts = numberFormat.FormatToParts(startNum);
         var endParts = numberFormat.FormatToParts(endNum);
 
-        // Check if formatted values are approximately equal
-        var startFormatted = numberFormat.Format(startNum);
-        var endFormatted = numberFormat.Format(endNum);
+        // Reconstruct formatted strings from parts to avoid redundant Format() calls
+        var startFormatted = JoinParts(startParts);
+        var endFormatted = JoinParts(endParts);
         var approximatelyEqual = string.Equals(startFormatted, endFormatted, StringComparison.Ordinal);
 
         var result = new JsArray(Engine);
@@ -333,5 +333,26 @@ internal sealed class NumberFormatPrototype : Prototype
         }
 
         return number;
+    }
+
+    private static string JoinParts(List<NumberFormatPart> parts)
+    {
+        if (parts.Count == 0)
+        {
+            return "";
+        }
+
+        if (parts.Count == 1)
+        {
+            return parts[0].Value;
+        }
+
+        var sb = new System.Text.StringBuilder();
+        for (var i = 0; i < parts.Count; i++)
+        {
+            sb.Append(parts[i].Value);
+        }
+
+        return sb.ToString();
     }
 }

@@ -182,8 +182,9 @@ internal static class NonIsoCalendars
                     throw new InvalidOperationException("reject");
                 }
 
-                // Constrain to the base month (non-leap version)
-                newOrdinalMonth = MonthCodeToOrdinal(calendar, cal, newYear, calDate.MonthCode.Substring(0, 3), overflow);
+                // Constrain to the base month (non-leap version) — strip trailing 'L' from "M##L"
+                var baseMonthCode = calDate.MonthCode.Length == 4 ? calDate.MonthCode.Substring(0, 3) : calDate.MonthCode;
+                newOrdinalMonth = MonthCodeToOrdinal(calendar, cal, newYear, baseMonthCode, overflow);
             }
         }
         else if (years != 0)
@@ -200,10 +201,12 @@ internal static class NonIsoCalendars
         if (months != 0)
         {
             newOrdinalMonth += months;
-            while (newOrdinalMonth > GetMonthsInYear(calendar, cal, newYear))
+            var monthsInYear = GetMonthsInYear(calendar, cal, newYear);
+            while (newOrdinalMonth > monthsInYear)
             {
-                newOrdinalMonth -= GetMonthsInYear(calendar, cal, newYear);
+                newOrdinalMonth -= monthsInYear;
                 newYear++;
+                monthsInYear = GetMonthsInYear(calendar, cal, newYear);
             }
 
             while (newOrdinalMonth < 1)
@@ -318,9 +321,15 @@ internal static class NonIsoCalendars
                 {
                     totalMonths = calTwo.Month - calOne.Month;
                 }
+                else if (cal is null)
+                {
+                    // Fixed-month calendars: compute directly instead of looping per year
+                    var monthsPerYear = GetMonthsInYear(calendar, null, 0);
+                    totalMonths = (calTwo.Year - calOne.Year) * monthsPerYear + (calTwo.Month - calOne.Month);
+                }
                 else if (calTwo.Year > calOne.Year)
                 {
-                    // Forward: count months from calOne to calTwo
+                    // Variable-month calendars (Chinese, Dangi, Hebrew): must loop
                     for (var y = calOne.Year; y < calTwo.Year; y++)
                     {
                         totalMonths += GetMonthsInYear(calendar, cal, y);
@@ -330,7 +339,7 @@ internal static class NonIsoCalendars
                 }
                 else
                 {
-                    // Backward: count months from calTwo to calOne (negative)
+                    // Variable-month calendars, backward
                     for (var y = calTwo.Year; y < calOne.Year; y++)
                     {
                         totalMonths -= GetMonthsInYear(calendar, cal, y);
@@ -594,6 +603,17 @@ internal static class NonIsoCalendars
 
         for (var y = approxYear - 2; y <= approxYear + 2; y++)
         {
+            // Pre-validate: check if the monthCode exists in this year before calling expensive ToDateTime
+            var isLeapMonthCode = monthCode.Length == 4 && monthCode[3] == 'L';
+            if (isLeapMonthCode)
+            {
+                var leapOrdinal = GetLeapMonthOrdinal(calendar, cal, y);
+                if (leapOrdinal <= 0)
+                {
+                    continue; // No leap month this year — skip
+                }
+            }
+
             try
             {
                 var ordinal = MonthCodeToOrdinal(calendar, cal, y, monthCode, "reject");
