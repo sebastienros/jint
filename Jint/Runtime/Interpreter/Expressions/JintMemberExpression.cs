@@ -12,10 +12,9 @@ namespace Jint.Runtime.Interpreter.Expressions;
 internal sealed class JintMemberExpression : JintExpression
 {
     private readonly MemberExpression _memberExpression;
-    private JintExpression _objectExpression = null!;
-    private JintExpression? _propertyExpression;
-    private JsValue? _determinedProperty;
-    private bool _initialized;
+    private readonly JintExpression _objectExpression;
+    private readonly JintExpression? _propertyExpression;
+    private readonly JsValue? _determinedProperty;
     private ObjectInstance? _cachedReadObject;
     private PropertyDescriptor? _cachedReadDescriptor;
 
@@ -24,6 +23,19 @@ internal sealed class JintMemberExpression : JintExpression
     public JintMemberExpression(MemberExpression expression) : base(expression)
     {
         _memberExpression = (MemberExpression) _expression;
+        _objectExpression = Build(_memberExpression.Object);
+
+        var determined = _expression.UserData as JsValue ?? InitializeDeterminedProperty(_memberExpression, cache: false);
+
+        if (ReferenceEquals(determined, _nullMarker))
+        {
+            _propertyExpression = Build(_memberExpression.Property);
+            _determinedProperty = null;
+        }
+        else
+        {
+            _determinedProperty = determined;
+        }
     }
 
     internal static JsValue InitializeDeterminedProperty(MemberExpression expression, bool cache)
@@ -44,28 +56,8 @@ internal sealed class JintMemberExpression : JintExpression
         return property ?? _nullMarker;
     }
 
-    private void EnsureInitialized()
-    {
-        if (!_initialized)
-        {
-            _objectExpression = Build(_memberExpression.Object);
-
-            _determinedProperty ??= _expression.UserData as JsValue ?? InitializeDeterminedProperty(_memberExpression, cache: false);
-
-            if (ReferenceEquals(_determinedProperty, _nullMarker))
-            {
-                _propertyExpression = Build(_memberExpression.Property);
-                _determinedProperty = null;
-            }
-
-            _initialized = true;
-        }
-    }
-
     protected override object EvaluateInternal(EvaluationContext context)
     {
-        EnsureInitialized();
-
         JsValue? actualThis = null;
         object? baseReferenceName = null;
         JsValue? baseValue = null;
@@ -145,8 +137,6 @@ internal sealed class JintMemberExpression : JintExpression
     /// </summary>
     public override JsValue GetValue(EvaluationContext context)
     {
-        EnsureInitialized();
-
         // Fast path for common property reads (e.g. obj.prop) where we can avoid creating and resolving a Reference.
         if (_propertyExpression is null
             && _determinedProperty is JsString determinedProperty

@@ -10,31 +10,27 @@ namespace Jint.Runtime.Interpreter.Statements;
 /// </summary>
 internal sealed class JintForStatement : JintStatement<ForStatement>
 {
-    private JintVariableDeclaration? _initStatement;
-    private JintExpression? _initExpression;
+    private readonly JintVariableDeclaration? _initStatement;
+    private readonly JintExpression? _initExpression;
 
-    private JintExpression? _test;
-    private JintExpression? _increment;
+    private readonly JintExpression? _test;
+    private readonly JintExpression? _increment;
 
-    private ProbablyBlockStatement _body;
-    private List<Key>? _boundNames;
+    private readonly ProbablyBlockStatement _body;
+    private readonly List<Key>? _boundNames;
 
-    private bool _shouldCreatePerIterationEnvironment;
-    private bool _canReuseIterationEnvironment;
+    private readonly bool _shouldCreatePerIterationEnvironment;
+    private readonly bool _canReuseIterationEnvironment;
 
     public JintForStatement(ForStatement statement) : base(statement)
     {
-    }
+        _body = new ProbablyBlockStatement(statement.Body);
 
-    protected override void Initialize(EvaluationContext context)
-    {
-        _body = new ProbablyBlockStatement(_statement.Body);
-
-        if (_statement.Init != null)
+        if (statement.Init != null)
         {
-            if (_statement.Init.Type == NodeType.VariableDeclaration)
+            if (statement.Init.Type == NodeType.VariableDeclaration)
             {
-                var d = (VariableDeclaration) _statement.Init;
+                var d = (VariableDeclaration) statement.Init;
                 if (d.Kind != VariableDeclarationKind.Var)
                 {
                     _boundNames = new List<Key>();
@@ -47,23 +43,23 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                 // we can reuse the same environment each iteration instead of allocating a new one
                 if (_shouldCreatePerIterationEnvironment)
                 {
-                    _canReuseIterationEnvironment = !ForLoopMayCapture(_statement);
+                    _canReuseIterationEnvironment = !ForLoopMayCapture(statement);
                 }
             }
             else
             {
-                _initExpression = JintExpression.Build((Expression) _statement.Init);
+                _initExpression = JintExpression.Build((Expression) statement.Init);
             }
         }
 
-        if (_statement.Test != null)
+        if (statement.Test != null)
         {
-            _test = JintExpression.Build(_statement.Test);
+            _test = JintExpression.Build(statement.Test);
         }
 
-        if (_statement.Update != null)
+        if (statement.Update != null)
         {
-            _increment = JintExpression.Build(_statement.Update);
+            _increment = JintExpression.Build(statement.Update);
         }
     }
 

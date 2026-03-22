@@ -2,17 +2,13 @@ namespace Jint.Runtime.Interpreter.Statements;
 
 internal sealed class JintLabeledStatement : JintStatement<LabeledStatement>
 {
-    private JintStatement _body = null!;
-    private string? _labelName;
+    private readonly JintStatement _body;
+    private readonly string? _labelName;
 
     public JintLabeledStatement(LabeledStatement statement) : base(statement)
     {
-    }
-
-    protected override void Initialize(EvaluationContext context)
-    {
-        _body = Build(_statement.Body);
-        _labelName = _statement.Label.Name;
+        _body = Build(statement.Body);
+        _labelName = statement.Label.Name;
     }
 
     protected override Completion ExecuteInternal(EvaluationContext context)

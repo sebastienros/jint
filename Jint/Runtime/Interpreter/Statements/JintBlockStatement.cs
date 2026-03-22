@@ -6,25 +6,21 @@ namespace Jint.Runtime.Interpreter.Statements;
 
 internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
 {
-    private JintStatementList? _statementList;
-    private JintStatement? _singleStatement;
-    private BlockState _blockState = null!;
+    private readonly JintStatementList? _statementList;
+    private readonly JintStatement? _singleStatement;
+    private readonly BlockState _blockState;
 
     public JintBlockStatement(NestedBlockStatement blockStatement) : base(blockStatement)
     {
-    }
+        _blockState = (BlockState) (blockStatement.UserData ??= BuildState(blockStatement));
 
-    protected override void Initialize(EvaluationContext context)
-    {
-        _blockState = (BlockState) (_statement.UserData ??= BuildState(_statement));
-
-        if (_statement.Body.Count == 1)
+        if (blockStatement.Body.Count == 1)
         {
-            _singleStatement = Build(_statement.Body[0]);
+            _singleStatement = Build(blockStatement.Body[0]);
         }
         else
         {
-            _statementList = new JintStatementList(_statement, _statement.Body);
+            _statementList = new JintStatementList(blockStatement, blockStatement.Body);
         }
     }
 
@@ -39,11 +35,6 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
     /// </summary>
     public Completion ExecuteBlock(EvaluationContext context)
     {
-        if (_statementList is null && _singleStatement is null)
-        {
-            Initialize(context);
-        }
-
         DeclarativeEnvironment? blockEnv = null;
         Environment? oldEnv = null;
         var engine = context.Engine;

@@ -7,17 +7,13 @@ namespace Jint.Runtime.Interpreter.Statements;
 /// </summary>
 internal sealed class JintSwitchStatement : JintStatement<SwitchStatement>
 {
-    private JintSwitchBlock _switchBlock = null!;
-    private JintExpression _discriminant = null!;
+    private readonly JintSwitchBlock _switchBlock;
+    private readonly JintExpression _discriminant;
 
     public JintSwitchStatement(SwitchStatement statement) : base(statement)
     {
-    }
-
-    protected override void Initialize(EvaluationContext context)
-    {
-        _switchBlock = new JintSwitchBlock(_statement.Cases);
-        _discriminant = JintExpression.Build(_statement.Discriminant);
+        _switchBlock = new JintSwitchBlock(statement.Cases);
+        _discriminant = JintExpression.Build(statement.Discriminant);
     }
 
     protected override Completion ExecuteInternal(EvaluationContext context)

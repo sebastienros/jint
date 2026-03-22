@@ -12,10 +12,8 @@ internal sealed class JintStatementList
     private readonly record struct Pair(JintStatement Statement, JsValue? Value);
 
     private readonly Statement? _statement;
-    private readonly NodeList<Statement> _statements;
 
-    private Pair[]? _jintStatements;
-    private bool _initialized;
+    private readonly Pair[] _jintStatements;
     private uint _index;
 
     public JintStatementList(IFunction function) : this((FunctionBody) function.Body)
@@ -35,33 +33,22 @@ internal sealed class JintStatementList
     public JintStatementList(Statement? statement, in NodeList<Statement> statements)
     {
         _statement = statement;
-        _statements = statements;
-    }
-
-    private void Initialize(EvaluationContext context)
-    {
-        var jintStatements = new Pair[_statements.Count];
+        var jintStatements = new Pair[statements.Count];
         for (var i = 0; i < jintStatements.Length; i++)
         {
-            var esprimaStatement = _statements[i];
-            var statement = JintStatement.Build(esprimaStatement);
-            // When in debug mode, don't do FastResolve: Stepping requires each statement to be actually executed.
-            var value = context.DebugMode ? null : JintStatement.FastResolve(esprimaStatement);
-            jintStatements[i] = new Pair(statement, value);
+            var esprimaStatement = statements[i];
+            var stmt = JintStatement.Build(esprimaStatement);
+            // FastResolve pre-evaluates literal return values.
+            // Debug mode check moved to Execute loop to preserve stepping behavior.
+            var value = JintStatement.FastResolve(esprimaStatement);
+            jintStatements[i] = new Pair(stmt, value);
         }
-
         _jintStatements = jintStatements;
     }
-
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | (MethodImplOptions) 512)]
     public Completion Execute(EvaluationContext context)
     {
-        if (!_initialized)
-        {
-            Initialize(context);
-            _initialized = true;
-        }
 
         if (_statement is not null)
         {
@@ -82,7 +69,7 @@ internal sealed class JintStatementList
             {
                 ref readonly var pair = ref temp[i];
 
-                if (pair.Value is null)
+                if (pair.Value is null || context.DebugMode)
                 {
                     c = pair.Statement.Execute(context);
                     if (context.Engine._error is not null)

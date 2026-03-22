@@ -7,15 +7,11 @@ namespace Jint.Runtime.Interpreter.Statements;
 /// </summary>
 internal sealed class JintThrowStatement : JintStatement<ThrowStatement>
 {
-    private JintExpression _argument = null!;
+    private readonly JintExpression _argument;
 
     public JintThrowStatement(ThrowStatement statement) : base(statement)
     {
-    }
-
-    protected override void Initialize(EvaluationContext context)
-    {
-        _argument = JintExpression.Build(_statement.Argument);
+        _argument = JintExpression.Build(statement.Argument);
     }
 
     protected override Completion ExecuteInternal(EvaluationContext context)

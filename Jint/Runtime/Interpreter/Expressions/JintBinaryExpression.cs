@@ -16,27 +16,14 @@ internal abstract class JintBinaryExpression : JintExpression
     private readonly record struct OperatorKey(string? OperatorName, Type Left, Type Right);
     private static readonly ConcurrentDictionary<OperatorKey, MethodDescriptor> _knownOperators = new();
 
-    private JintExpression _left = null!;
-    private JintExpression _right = null!;
-    private bool _initialized;
+    private readonly JintExpression _left;
+    private readonly JintExpression _right;
 
     private JintBinaryExpression(NonLogicalBinaryExpression expression) : base(expression)
     {
         // TODO check https://tc39.es/ecma262/#sec-applystringornumericbinaryoperator
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void EnsureInitialized()
-    {
-        if (_initialized)
-        {
-            return;
-        }
-
-        var expression = (NonLogicalBinaryExpression) _expression;
         _left = Build(expression.Left);
         _right = Build(expression.Right);
-        _initialized = true;
     }
 
     /// <summary>
@@ -46,8 +33,6 @@ internal abstract class JintBinaryExpression : JintExpression
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected bool TryEvaluateOperands(EvaluationContext context, out JsValue left, out JsValue right)
     {
-        EnsureInitialized();
-
         left = _left.GetValue(context);
         if (context.IsSuspended())
         {

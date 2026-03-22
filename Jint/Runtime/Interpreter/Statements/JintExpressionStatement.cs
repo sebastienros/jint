@@ -4,18 +4,14 @@ namespace Jint.Runtime.Interpreter.Statements;
 
 internal sealed class JintExpressionStatement : JintStatement<ExpressionStatement>
 {
-    private JintExpression _expression = null!;
+    private readonly JintExpression _expression;
 
     // identifiers are queried the most
-    private JintIdentifierExpression? _identifierExpression;
+    private readonly JintIdentifierExpression? _identifierExpression;
 
     public JintExpressionStatement(ExpressionStatement statement) : base(statement)
     {
-    }
-
-    protected override void Initialize(EvaluationContext context)
-    {
-        _expression = JintExpression.Build(_statement.Expression);
+        _expression = JintExpression.Build(statement.Expression);
         _identifierExpression = _expression as JintIdentifierExpression;
     }
 

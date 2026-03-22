@@ -8,32 +8,28 @@ namespace Jint.Runtime.Interpreter.Statements;
 
 internal sealed class JintExportDefaultDeclaration : JintStatement<ExportDefaultDeclaration>
 {
-    private ClassDefinition? _classDefinition;
-    private JintFunctionDeclarationStatement? _functionDeclaration;
-    private JintExpression? _assignmentExpression;
-    private JintExpression? _simpleExpression;
+    private readonly ClassDefinition? _classDefinition;
+    private readonly JintFunctionDeclarationStatement? _functionDeclaration;
+    private readonly JintExpression? _assignmentExpression;
+    private readonly JintExpression? _simpleExpression;
 
     public JintExportDefaultDeclaration(ExportDefaultDeclaration statement) : base(statement)
     {
-    }
-
-    protected override void Initialize(EvaluationContext context)
-    {
-        if (_statement.Declaration is ClassDeclaration classDeclaration)
+        if (statement.Declaration is ClassDeclaration classDeclaration)
         {
             _classDefinition = new ClassDefinition(className: classDeclaration.Id?.Name ?? "default", classDeclaration.SuperClass, classDeclaration.Body);
         }
-        else if (_statement.Declaration is FunctionDeclaration functionDeclaration)
+        else if (statement.Declaration is FunctionDeclaration functionDeclaration)
         {
             _functionDeclaration = new JintFunctionDeclarationStatement(functionDeclaration);
         }
-        else if (_statement.Declaration is AssignmentExpression assignmentExpression)
+        else if (statement.Declaration is AssignmentExpression assignmentExpression)
         {
             _assignmentExpression = JintAssignmentExpression.Build(assignmentExpression);
         }
         else
         {
-            _simpleExpression = JintExpression.Build((Expression) _statement.Declaration);
+            _simpleExpression = JintExpression.Build((Expression) statement.Declaration);
         }
     }
 

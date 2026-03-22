@@ -22,14 +22,14 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
     private readonly Expression _rightExpression;
     private readonly IterationKind _iterationKind;
 
-    private ProbablyBlockStatement _body;
-    private JintExpression? _expr;
-    private DestructuringPattern? _assignmentPattern;
-    private JintExpression _right = null!;
-    private List<Key>? _tdzNames;
-    private bool _destructuring;
-    private LhsKind _lhsKind;
-    private DisposeHint _disposeHint;
+    private readonly ProbablyBlockStatement _body;
+    private readonly JintExpression? _expr;
+    private readonly DestructuringPattern? _assignmentPattern;
+    private readonly JintExpression _right;
+    private readonly List<Key>? _tdzNames;
+    private readonly bool _destructuring;
+    private readonly LhsKind _lhsKind;
+    private readonly DisposeHint _disposeHint;
 
     public JintForInForOfStatement(ForInStatement statement) : base(statement)
     {
@@ -37,6 +37,9 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         _rightExpression = statement.Right;
         _forBody = statement.Body;
         _iterationKind = IterationKind.Enumerate;
+        InitializeLhs(out _lhsKind, out _disposeHint, out _tdzNames, out _destructuring, out _assignmentPattern, out _expr);
+        _body = new ProbablyBlockStatement(_forBody);
+        _right = JintExpression.Build(_rightExpression);
     }
 
     public JintForInForOfStatement(ForOfStatement statement) : base(statement)
@@ -45,57 +48,67 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         _rightExpression = statement.Right;
         _forBody = statement.Body;
         _iterationKind = statement.Await ? IterationKind.AsyncIterate : IterationKind.Iterate;
+        InitializeLhs(out _lhsKind, out _disposeHint, out _tdzNames, out _destructuring, out _assignmentPattern, out _expr);
+        _body = new ProbablyBlockStatement(_forBody);
+        _right = JintExpression.Build(_rightExpression);
     }
 
-    protected override void Initialize(EvaluationContext context2)
+    private void InitializeLhs(
+        out LhsKind lhsKind,
+        out DisposeHint disposeHint,
+        out List<Key>? tdzNames,
+        out bool destructuring,
+        out DestructuringPattern? assignmentPattern,
+        out JintExpression? expr)
     {
-        _lhsKind = LhsKind.Assignment;
-        _disposeHint = DisposeHint.Normal;
+        lhsKind = LhsKind.Assignment;
+        disposeHint = DisposeHint.Normal;
+        tdzNames = null;
+        destructuring = false;
+        assignmentPattern = null;
+        expr = null;
         switch (_leftNode)
         {
             case VariableDeclaration variableDeclaration:
                 {
-                    _lhsKind = variableDeclaration.Kind == VariableDeclarationKind.Var
+                    lhsKind = variableDeclaration.Kind == VariableDeclarationKind.Var
                         ? LhsKind.VarBinding
                         : LhsKind.LexicalBinding;
 
-                    _disposeHint = variableDeclaration.Kind.GetDisposeHint();
+                    disposeHint = variableDeclaration.Kind.GetDisposeHint();
 
                     var variableDeclarationDeclaration = variableDeclaration.Declarations[0];
                     var id = variableDeclarationDeclaration.Id;
-                    if (_lhsKind == LhsKind.LexicalBinding)
+                    if (lhsKind == LhsKind.LexicalBinding)
                     {
-                        _tdzNames = new List<Key>(1);
-                        id.GetBoundNames(_tdzNames);
+                        tdzNames = new List<Key>(1);
+                        id.GetBoundNames(tdzNames);
                     }
 
                     if (id is DestructuringPattern pattern)
                     {
-                        _destructuring = true;
-                        _assignmentPattern = pattern;
+                        destructuring = true;
+                        assignmentPattern = pattern;
                     }
                     else
                     {
                         var identifier = (Identifier) id;
-                        _expr = new JintIdentifierExpression(identifier);
+                        expr = new JintIdentifierExpression(identifier);
                     }
 
                     break;
                 }
             case DestructuringPattern pattern:
-                _destructuring = true;
-                _assignmentPattern = pattern;
+                destructuring = true;
+                assignmentPattern = pattern;
                 break;
             case MemberExpression memberExpression:
-                _expr = new JintMemberExpression(memberExpression);
+                expr = new JintMemberExpression(memberExpression);
                 break;
             default:
-                _expr = new JintIdentifierExpression((Identifier) _leftNode);
+                expr = new JintIdentifierExpression((Identifier) _leftNode);
                 break;
         }
-
-        _body = new ProbablyBlockStatement(_forBody);
-        _right = JintExpression.Build(_rightExpression);
     }
 
     protected override Completion ExecuteInternal(EvaluationContext context)
