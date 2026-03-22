@@ -1,16 +1,43 @@
-using System.Threading;
-
 namespace Jint.Native.Intl.Data;
 
 /// <summary>
 /// Provides CLDR unit formatting patterns for locale-aware unit formatting.
-/// Data is loaded from embedded UnitPatternsData.txt resource.
 /// </summary>
 internal static class UnitPatternsData
 {
-    private static readonly Lock _lock = new();
-    private static Dictionary<string, Dictionary<string, string>>? _patterns;
-    private static volatile bool _loaded;
+    private static readonly Dictionary<string, Dictionary<string, string>> _patterns = new(5, StringComparer.OrdinalIgnoreCase)
+    {
+        ["en"] = new(3, StringComparer.Ordinal)
+        {
+            ["kilometer-per-hour_short"] = "{0} km/h",
+            ["kilometer-per-hour_narrow"] = "{0}km/h",
+            ["kilometer-per-hour_long"] = "{0} kilometers per hour",
+        },
+        ["de"] = new(3, StringComparer.Ordinal)
+        {
+            ["kilometer-per-hour_short"] = "{0} km/h",
+            ["kilometer-per-hour_narrow"] = "{0} km/h",
+            ["kilometer-per-hour_long"] = "{0} Kilometer pro Stunde",
+        },
+        ["ja"] = new(3, StringComparer.Ordinal)
+        {
+            ["kilometer-per-hour_short"] = "{0} km/h",
+            ["kilometer-per-hour_narrow"] = "{0}km/h",
+            ["kilometer-per-hour_long"] = "時速 {0} キロメートル",
+        },
+        ["ko"] = new(3, StringComparer.Ordinal)
+        {
+            ["kilometer-per-hour_short"] = "{0}km/h",
+            ["kilometer-per-hour_narrow"] = "{0}km/h",
+            ["kilometer-per-hour_long"] = "시속 {0}킬로미터",
+        },
+        ["zh"] = new(3, StringComparer.Ordinal)
+        {
+            ["kilometer-per-hour_short"] = "{0} 公里/小時",
+            ["kilometer-per-hour_narrow"] = "{0}公里/小時",
+            ["kilometer-per-hour_long"] = "每小時 {0} 公里",
+        },
+    };
 
     /// <summary>
     /// Gets unit patterns for a locale.
@@ -19,15 +46,13 @@ internal static class UnitPatternsData
     /// </summary>
     public static Dictionary<string, string>? GetPatternsForLocale(string locale)
     {
-        EnsureLoaded();
-
         if (!string.IsNullOrEmpty(locale))
         {
             // Get language code from locale (e.g., "zh" from "zh-TW")
             var language = GetLanguageCode(locale);
 
             // Try to find patterns for this language
-            if (_patterns!.TryGetValue(language, out var data))
+            if (_patterns.TryGetValue(language, out var data))
             {
                 return data;
             }
@@ -36,7 +61,7 @@ internal static class UnitPatternsData
         // Fall back to English if not found and not already English
         if (!IsEnglish(locale))
         {
-            if (_patterns!.TryGetValue("en", out var enData))
+            if (_patterns.TryGetValue("en", out var enData))
             {
                 return enData;
             }
@@ -65,80 +90,5 @@ internal static class UnitPatternsData
         }
 
         return locale!.StartsWith("en", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static void EnsureLoaded()
-    {
-        if (_loaded)
-        {
-            return;
-        }
-
-        lock (_lock)
-        {
-            if (_loaded)
-            {
-                return;
-            }
-
-            _patterns = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
-
-            var assembly = typeof(UnitPatternsData).Assembly;
-            using var stream = assembly.GetManifestResourceStream("Jint.Native.Intl.Data.UnitPatternsData.txt");
-            if (stream is null)
-            {
-                _loaded = true;
-                return;
-            }
-
-            using var reader = new StreamReader(stream);
-            string? currentLocale = null;
-            Dictionary<string, string>? currentPatterns = null;
-
-            while (reader.ReadLine() is { } line)
-            {
-                if (string.IsNullOrWhiteSpace(line))
-                {
-                    continue;
-                }
-
-                if (line.Length > 2 && line[0] == '[' && line[line.Length - 1] == ']')
-                {
-                    // Save previous locale data
-                    if (currentLocale != null && currentPatterns != null)
-                    {
-                        _patterns[currentLocale] = currentPatterns;
-                    }
-
-                    currentLocale = line.Substring(1, line.Length - 2);
-                    currentPatterns = new Dictionary<string, string>(StringComparer.Ordinal);
-                    continue;
-                }
-
-                if (currentLocale == null || currentPatterns == null)
-                {
-                    continue;
-                }
-
-                var eqIndex = line.IndexOf('=');
-                if (eqIndex < 0)
-                {
-                    continue;
-                }
-
-                var key = line.Substring(0, eqIndex);
-                var value = line.Substring(eqIndex + 1);
-
-                currentPatterns[key] = value;
-            }
-
-            // Save last locale data
-            if (currentLocale != null && currentPatterns != null)
-            {
-                _patterns[currentLocale] = currentPatterns;
-            }
-
-            _loaded = true;
-        }
     }
 }

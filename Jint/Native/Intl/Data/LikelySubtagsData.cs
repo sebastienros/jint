@@ -6,13 +6,11 @@ namespace Jint.Native.Intl.Data;
 /// </summary>
 internal static class LikelySubtagsData
 {
-    private static Dictionary<string, string>? _likelySubtags;
-
-    private static Dictionary<string, string> LikelySubtags => _likelySubtags ??= Load();
+    private static readonly Lazy<Dictionary<string, string>> _likelySubtags = new(Load);
 
     public static bool TryResolve(string key, out string value)
     {
-        return LikelySubtags.TryGetValue(key, out value!);
+        return _likelySubtags.Value.TryGetValue(key, out value!);
     }
 
     private static Dictionary<string, string> Load()
