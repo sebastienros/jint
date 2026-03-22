@@ -44,18 +44,17 @@ internal sealed class JintWhileStatement : JintStatement<WhileStatement>
                 context.Engine.Debugger.OnStep(_test._expression);
             }
 
-            var jsValue = _test.GetValue(context);
-
-            // Check for suspension after evaluating the test expression
-            var suspendable = context.Engine.ExecutionContext.Suspendable;
-            if (context.IsSuspended())
+            if (!_test.GetBooleanValue(context))
             {
-                var suspendedValue = suspendable?.SuspendedValue ?? JsValue.Undefined;
-                return new Completion(CompletionType.Return, suspendedValue, _statement);
-            }
+                // GetBooleanValue returns false for both actual false condition
+                // and suspended evaluation (async/generator); check which case
+                if (context.IsSuspended())
+                {
+                    var suspendable = context.Engine.ExecutionContext.Suspendable;
+                    var suspendedValue = suspendable?.SuspendedValue ?? JsValue.Undefined;
+                    return new Completion(CompletionType.Return, suspendedValue, _statement);
+                }
 
-            if (!TypeConverter.ToBoolean(jsValue))
-            {
                 return new Completion(CompletionType.Normal, v, _statement);
             }
 
@@ -69,7 +68,8 @@ internal sealed class JintWhileStatement : JintStatement<WhileStatement>
             // Check for suspension - if suspended, we need to exit the loop
             if (context.IsSuspended())
             {
-                var suspendedValue = suspendable?.SuspendedValue ?? completion.Value;
+                var bodySuspendable = context.Engine.ExecutionContext.Suspendable;
+                var suspendedValue = bodySuspendable?.SuspendedValue ?? completion.Value;
                 return new Completion(CompletionType.Return, suspendedValue, _statement);
             }
 

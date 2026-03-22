@@ -28,7 +28,7 @@ internal sealed class JintIfStatement : JintStatement<IfStatement>
     protected override Completion ExecuteInternal(EvaluationContext context)
     {
         Completion result;
-        if (TypeConverter.ToBoolean(_test.GetValue(context)))
+        if (_test.GetBooleanValue(context))
         {
             // B.3.2/B.3.3: IfStatement function declarations need runtime AnnexB handling
             if (_consequentIsFunctionDecl && !StrictModeScope.IsStrictModeCode)
