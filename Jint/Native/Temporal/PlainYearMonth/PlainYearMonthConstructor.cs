@@ -335,8 +335,8 @@ internal sealed class PlainYearMonthConstructor : Constructor
             Throw.TypeError(_realm, "month or monthCode is required");
         }
 
-        // For non-ISO calendars, convert calendar year/month to ISO
-        if (!TemporalHelpers.IsGregorianBasedCalendar(calendar))
+        // For non-ISO/non-gregory calendars, convert calendar year/month to ISO via CalendarDateToISO
+        if (calendar is not "iso8601" and not "gregory")
         {
             var date = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, 1, overflow, monthCodeStr);
             if (date is null)
@@ -347,7 +347,7 @@ internal sealed class PlainYearMonthConstructor : Constructor
             return Construct(date.Value, calendar);
         }
 
-        // Validate month range (ISO calendars)
+        // Validate month range (ISO/Gregory calendars)
         if (month < 1 || month > 12)
         {
             if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
@@ -487,8 +487,8 @@ internal sealed class PlainYearMonthConstructor : Constructor
 
         // Note: overflow option is already read in From() method before calling this method, per spec
 
-        // For non-ISO calendars, convert calendar year/month to ISO
-        if (!TemporalHelpers.IsGregorianBasedCalendar(calendar))
+        // For non-ISO/non-gregory calendars, convert calendar year/month to ISO via CalendarDateToISO
+        if (calendar is not "iso8601" and not "gregory")
         {
             var date = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, 1, overflow, monthCodeStr);
             if (date is null)
@@ -499,7 +499,7 @@ internal sealed class PlainYearMonthConstructor : Constructor
             return Construct(date.Value, calendar);
         }
 
-        // Validate month range (ISO calendars)
+        // Validate month range (ISO/Gregory calendars)
         if (month < 1 || month > 12)
         {
             if (string.Equals(overflow, "constrain", StringComparison.Ordinal))

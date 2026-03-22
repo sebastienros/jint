@@ -1619,19 +1619,27 @@ internal static class TemporalHelpers
             return RegulateIsoDate(year, month, day, overflow);
         }
 
+        if (calendar is "buddhist")
+        {
+            // Buddhist year = ISO year + 543, so ISO year = Buddhist year - 543
+            return RegulateIsoDate(year - 543, month, day, overflow);
+        }
+
+        if (calendar is "roc")
+        {
+            // ROC year = ISO year - 1911, so ISO year = ROC year + 1911
+            return RegulateIsoDate(year + 1911, month, day, overflow);
+        }
+
+        if (calendar is "japanese")
+        {
+            // Japanese calendar year equals ISO year
+            return RegulateIsoDate(year, month, day, overflow);
+        }
+
         if (NonIsoCalendars.IsNonIsoCalendar(calendar))
         {
             return NonIsoCalendars.CalendarDateToIso(calendar, year, monthCode, month, day, overflow);
-        }
-
-        if (calendar is "islamic-civil")
-        {
-            return IslamicCivilDateToISO(year, month, day, overflow);
-        }
-
-        if (calendar is "islamic-tbla")
-        {
-            return IslamicTblaDateToISO(year, month, day, overflow);
         }
 
         // For other calendars, fall back to treating fields as ISO (best effort)
@@ -1648,6 +1656,16 @@ internal static class TemporalHelpers
         if (NonIsoCalendars.IsNonIsoCalendar(calendar) && monthCode is not null)
         {
             return NonIsoCalendars.FindCalendarReferenceYear(calendar, isoReferenceYear, monthCode, day);
+        }
+
+        if (calendar is "buddhist")
+        {
+            return isoReferenceYear + 543;
+        }
+
+        if (calendar is "roc")
+        {
+            return isoReferenceYear - 1911;
         }
 
         if (calendar is "islamic-civil" or "islamic-tbla")
@@ -1766,7 +1784,9 @@ internal static class TemporalHelpers
     /// </summary>
     private static long IslamicToJulianDay(int year, int month, int day, long epoch)
     {
-        var monthDays = (long) System.Math.Ceiling(29.5001 * (month - 1));
+        // Use actual cumulative month days: odd months 30d, even months 29d
+        var m = month - 1;
+        var monthDays = (long) (m * 30 - m / 2);
         var yearDays = (year - 1) * 354L + (long) System.Math.Floor((3.0 + 11.0 * year) / 30.0);
         return monthDays + yearDays + day + epoch;
     }
@@ -2037,6 +2057,11 @@ internal static class TemporalHelpers
     /// </summary>
     internal static string? CalendarEra(string calendar, in IsoDate isoDate)
     {
+        if (calendar is "japanese")
+        {
+            return JapaneseEra(isoDate);
+        }
+
         if (IsGregorianBasedCalendar(calendar))
         {
             return CalendarEra(calendar, isoDate.Year);
@@ -2056,6 +2081,11 @@ internal static class TemporalHelpers
     /// </summary>
     internal static int? CalendarEraYear(string calendar, in IsoDate isoDate)
     {
+        if (calendar is "japanese")
+        {
+            return JapaneseEraYear(isoDate);
+        }
+
         if (IsGregorianBasedCalendar(calendar))
         {
             return CalendarEraYear(calendar, isoDate.Year);
@@ -2068,6 +2098,44 @@ internal static class TemporalHelpers
         }
 
         return CalendarEraYear(calendar, isoDate.Year);
+    }
+
+    /// <summary>
+    /// Japanese era boundaries use full ISO dates (year, month, day), not just year.
+    /// </summary>
+    private static string JapaneseEra(in IsoDate d)
+    {
+        var y = d.Year;
+        var m = d.Month;
+        var day = d.Day;
+
+        // Reiwa: May 1, 2019+
+        if (y > 2019 || (y == 2019 && (m > 5 || (m == 5 && day >= 1)))) return "reiwa";
+        // Heisei: January 8, 1989 - April 30, 2019
+        if (y > 1989 || (y == 1989 && (m > 1 || (m == 1 && day >= 8)))) return "heisei";
+        // Showa: December 25, 1926 - January 7, 1989
+        if (y > 1926 || (y == 1926 && m == 12 && day >= 25)) return "showa";
+        // Taisho: July 30, 1912 - December 24, 1926
+        if (y > 1912 || (y == 1912 && (m > 7 || (m == 7 && day >= 30)))) return "taisho";
+        // Meiji: January 25, 1873 - July 29, 1912
+        if (y > 1873 || (y == 1873 && (m > 1 || (m == 1 && day >= 25)))) return "meiji";
+        // Before Meiji
+        return y >= 1 ? "ce" : "bce";
+    }
+
+    private static int JapaneseEraYear(in IsoDate d)
+    {
+        var era = JapaneseEra(d);
+        return era switch
+        {
+            "reiwa" => d.Year - 2018,
+            "heisei" => d.Year - 1988,
+            "showa" => d.Year - 1925,
+            "taisho" => d.Year - 1911,
+            "meiji" => d.Year - 1872,
+            "bce" => 1 - d.Year,
+            _ => d.Year // "ce"
+        };
     }
 
     /// <summary>
@@ -2145,25 +2213,25 @@ internal static class TemporalHelpers
                     return eraYear;
                 break;
             case "coptic":
-                if (era is "coptic" or "era1")
+                if (era is "coptic" or "am" or "era1")
                     return eraYear;
-                if (era is "coptic-inverse" or "era0")
+                if (era is "coptic-inverse" or "bd" or "era0")
                     return 1 - eraYear;
                 break;
             case "ethiopic":
-                if (era is "ethiopic" or "incar" or "era1")
+                if (era is "ethiopic" or "incar" or "am" or "era1")
                     return eraYear;
                 if (era is "ethiopic-inverse" or "era0")
                     return 1 - eraYear;
-                if (era is "ethioaa" or "mundi")
-                    return eraYear; // different epoch
+                if (era is "ethioaa" or "aa" or "mundi")
+                    return eraYear - 5500;
                 break;
             case "ethioaa":
-                if (era is "ethioaa" or "mundi")
+                if (era is "ethioaa" or "aa" or "mundi")
                     return eraYear;
                 break;
             case "indian":
-                if (era is "saka" or "indian")
+                if (era is "saka" or "shaka" or "indian")
                     return eraYear;
                 break;
             case "hebrew":
@@ -2175,6 +2243,8 @@ internal static class TemporalHelpers
             case "islamic-umalqura":
                 if (era is "islamic" or "ah")
                     return eraYear;
+                if (era is "islamic-inverse" or "bh")
+                    return 1 - eraYear;
                 break;
             case "persian":
                 if (era is "persian" or "ap")

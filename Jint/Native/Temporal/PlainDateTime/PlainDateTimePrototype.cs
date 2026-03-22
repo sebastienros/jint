@@ -331,6 +331,29 @@ internal sealed class PlainDateTimePrototype : Prototype
                 : plainDateTime.IsoDateTime.Year;
         }
 
+        // Read era/eraYear only for calendars that support them
+        if (TemporalHelpers.CalendarUsesEras(plainDateTime.Calendar))
+        {
+            var eraValue = obj.Get("era");
+            var eraYearValue = obj.Get("eraYear");
+            if (!eraValue.IsUndefined() || !eraYearValue.IsUndefined())
+            {
+                any = true;
+                if (!eraValue.IsUndefined() && !eraYearValue.IsUndefined())
+                {
+                    var eraYear2 = TemporalHelpers.ReadEraFields(_realm, obj, plainDateTime.Calendar);
+                    if (eraYear2.HasValue)
+                    {
+                        year = eraYear2.Value;
+                    }
+                }
+                else
+                {
+                    Throw.TypeError(_realm, "Both era and eraYear must be provided together");
+                }
+            }
+        }
+
         if (!any)
         {
             Throw.TypeError(_realm, "Temporal date-time-like object must have at least one temporal property");
