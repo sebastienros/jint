@@ -710,8 +710,9 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
             suspendData.AccumulatedValue = accumulatedValue;
 
             // Capture the current promise capability before suspending —
-            // AsyncGeneratorResumeNext() dequeued the request, so the queue is
-            // now empty. On resume we must continue THIS request, not start a new one.
+            // the request was already dequeued by AsyncGeneratorResumeNext() before
+            // reaching here, so the queue is now empty. On resume we must continue
+            // THIS request's execution, not start a new one via AsyncGeneratorResumeNext().
             var currentCapability = asyncGenerator._currentPromiseCapability!;
 
             // Mark that we're waiting for the iterator result
