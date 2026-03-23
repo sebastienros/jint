@@ -134,8 +134,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
             // Try async for-await-of suspend data
             else if (suspendable.Data.TryGet(this, out forAwaitSuspendData))
             {
-                // Check if we're resuming from a rejection - if so, throw the error
-                // Note: This requires async-specific handling for _resumeWithThrow
+                // Check if we're resuming from a rejection in an async function - if so, throw the error
                 var asyncFunction = engine.ExecutionContext.AsyncFunction;
                 if (asyncFunction is not null && asyncFunction._lastAwaitNode == this && asyncFunction._resumeWithThrow)
                 {
@@ -146,6 +145,16 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     suspendable.Data.Clear(this);
 
                     Throw.JavaScriptException(engine, error, _statement!.Location);
+                    return default;
+                }
+
+                // Check if we're resuming from a rejection in an async generator - if so, throw the error
+                if (forAwaitSuspendData!.RejectedValue is { } rejectedValue)
+                {
+                    suspendable.IsResuming = false;
+                    suspendable.Data.Clear(this);
+
+                    Throw.JavaScriptException(engine, rejectedValue, _statement!.Location);
                     return default;
                 }
 
@@ -695,32 +704,35 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         }
         else if (asyncGenerator is not null)
         {
-            // When iterating over an async generator from within the same async generator,
-            // we need to use the async generator's suspension mechanism.
             // Save iterator and state for resume
             var suspendData = asyncGenerator.Data.GetOrCreate<ForAwaitSuspendData>(this);
             suspendData.Iterator = iterator;
             suspendData.AccumulatedValue = accumulatedValue;
 
+            // Capture the current promise capability before suspending —
+            // AsyncGeneratorResumeNext() dequeued the request, so the queue is
+            // now empty. On resume we must continue THIS request, not start a new one.
+            var currentCapability = asyncGenerator._currentPromiseCapability!;
+
             // Mark that we're waiting for the iterator result
             asyncGenerator._asyncGeneratorState = Native.AsyncGenerator.AsyncGeneratorState.SuspendedYield;
 
-            // Create resume handlers - just store the result, the async generator's
-            // own mechanisms will handle resumption
+            // Create resume handlers. Use AddToEventLoop (like the async-function path) so
+            // the actual resumption happens in a distinct event-loop turn, matching spec
+            // microtask ordering.
             var onFulfilled = new ClrFunction(engine, "", (_, args) =>
             {
                 var resolvedValue = args.At(0);
 
-                // Store the resolved iterator result for when we resume
-                var resumeSuspendData = asyncGenerator.Data.GetOrCreate<ForAwaitSuspendData>(this);
-                resumeSuspendData.ResolvedIteratorResult = resolvedValue as ObjectInstance;
+                engine.AddToEventLoop(() =>
+                {
+                    // Store the resolved iterator result so the for-await-of loop can use it
+                    var resumeSuspendData = asyncGenerator.Data.GetOrCreate<ForAwaitSuspendData>(this);
+                    resumeSuspendData.ResolvedIteratorResult = resolvedValue as ObjectInstance;
 
-                // Set up for resumption - mark as resuming so the for-await-of loop
-                // knows to use the stored result
-                asyncGenerator._isResuming = true;
-
-                // Resume the async generator
-                asyncGenerator.AsyncGeneratorResumeNext();
+                    // Resume the current request's execution (queue is empty – cannot use AsyncGeneratorResumeNext)
+                    asyncGenerator.AsyncGeneratorContinueForAwait(currentCapability);
+                });
 
                 return JsValue.Undefined;
             }, 1, PropertyFlag.Configurable);
@@ -729,11 +741,15 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
             {
                 var rejectedValue = args.At(0);
 
-                // On rejection, throw in the async generator context
-                asyncGenerator._error = rejectedValue;
-                asyncGenerator._isResuming = true;
-                asyncGenerator._resumeCompletionType = CompletionType.Throw;
-                asyncGenerator.AsyncGeneratorResumeNext();
+                engine.AddToEventLoop(() =>
+                {
+                    // Store the rejection so ExecuteInternal can propagate it as a throw
+                    var resumeSuspendData = asyncGenerator.Data.GetOrCreate<ForAwaitSuspendData>(this);
+                    resumeSuspendData.RejectedValue = rejectedValue;
+
+                    // Resume the current request's execution so the throw can be handled
+                    asyncGenerator.AsyncGeneratorContinueForAwait(currentCapability);
+                });
 
                 return JsValue.Undefined;
             }, 1, PropertyFlag.Configurable);

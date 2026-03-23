@@ -902,6 +902,78 @@ public class AsyncTests
         Assert.Equal(6, result.AsInteger());
     }
 
+    [Fact]
+    public void ForAwaitOfInsideAsyncGenerator()
+    {
+        // Regression: for-await-of inside an async generator was not resuming
+        // because the continuation called AsyncGeneratorResumeNext() which
+        // returned immediately (empty queue). The fix uses AsyncGeneratorContinueForAwait()
+        // which correctly resumes the current request's execution.
+        var log = new List<string>();
+        var engine = new Engine();
+        engine.SetValue("log", (string s) => log.Add(s));
+
+        engine.Evaluate("""
+            async function* gen() {
+                for await (var x of [1, 2]) {
+                    log('item:' + x);
+                }
+                log('done');
+            }
+            gen().next().then(() => log('resolved'));
+            """);
+
+        Assert.Equal(new[] { "item:1", "item:2", "done", "resolved" }, log);
+    }
+
+    [Fact]
+    public void ForAwaitOfInsideAsyncGeneratorWithArrayDestructuring()
+    {
+        // Reproduces the minimal case from the issue report:
+        // test/language/statements/for-await-of/async-gen-decl-dstr-array-elision-val-array.js
+        var log = new List<string>();
+        var engine = new Engine();
+        engine.SetValue("log", (string s) => log.Add(s));
+
+        engine.Evaluate("""
+            async function* gen() {
+                for await ([,] of [[]]) log('iteration');
+            }
+            gen().next().then(() => log('OK'));
+            """);
+
+        Assert.Equal(new[] { "iteration", "OK" }, log);
+    }
+
+    [Fact]
+    public void ForAwaitOfInsideAsyncGeneratorSuspensionIsProperlyResumed()
+    {
+        // Verify that multiple suspensions/resumptions in a for-await-of inside
+        // an async generator all complete correctly.
+        var log = new List<string>();
+        var engine = new Engine();
+        engine.SetValue("log", (string s) => log.Add(s));
+
+        engine.Evaluate("""
+            async function* producer() {
+                yield 'a';
+                yield 'b';
+                yield 'c';
+            }
+
+            async function* consumer() {
+                for await (var item of producer()) {
+                    log('got:' + item);
+                }
+                log('consumer-done');
+            }
+
+            consumer().next().then(() => log('outer-resolved'));
+            """);
+
+        Assert.Equal(new[] { "got:a", "got:b", "got:c", "consumer-done", "outer-resolved" }, log);
+    }
+
     // ========================================================================
     // Thenable Protocol Tests
     // ========================================================================

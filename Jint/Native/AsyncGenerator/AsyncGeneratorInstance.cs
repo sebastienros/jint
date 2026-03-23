@@ -210,6 +210,20 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
     }
 
     /// <summary>
+    /// Resumes execution of the async generator after a for-await-of suspension.
+    /// Unlike <see cref="AsyncGeneratorResumeNext"/>, this continues the CURRENT request's
+    /// execution rather than processing the next queued request (which would fail because
+    /// the current request was already dequeued when processing started).
+    /// Called from the for-await-of iterator promise fulfillment/rejection handlers.
+    /// </summary>
+    internal void AsyncGeneratorContinueForAwait(PromiseCapability promiseCapability)
+    {
+        _asyncGeneratorState = AsyncGeneratorState.Executing;
+        _isResuming = true;
+        ResumeExecution(promiseCapability);
+    }
+
+    /// <summary>
     /// Resumes execution of the async generator with the current request.
     /// </summary>
     private void ResumeExecution(PromiseCapability promiseCapability)
