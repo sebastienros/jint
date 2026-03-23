@@ -974,6 +974,73 @@ public class AsyncTests
         Assert.Equal(new[] { "got:a", "got:b", "got:c", "consumer-done", "outer-resolved" }, log);
     }
 
+    [Fact]
+    public void ForAwaitOfInsideAsyncGeneratorIteratorRejectPropagatesOutward()
+    {
+        // Regression: when the async iterator's next() Promise rejects inside a
+        // for-await-of in an async generator, the rejection must propagate out of
+        // the generator (i.e. gen().next() should reject with the same error).
+        var log = new List<string>();
+        var engine = new Engine();
+        engine.SetValue("log", (string s) => log.Add(s));
+
+        engine.Evaluate("""
+            function makeRejectingIterator() {
+                return {
+                    [Symbol.asyncIterator]() { return this; },
+                    next() { return Promise.reject(new Error('iterator-error')); }
+                };
+            }
+
+            async function* gen() {
+                for await (var x of makeRejectingIterator()) {
+                    log('body');
+                }
+            }
+
+            gen().next().then(
+                () => log('resolved'),
+                e  => log('rejected:' + e.message)
+            );
+            """);
+
+        Assert.Equal(new[] { "rejected:iterator-error" }, log);
+    }
+
+    [Fact]
+    public void ForAwaitOfInsideAsyncGeneratorIteratorRejectCaughtInsideGenerator()
+    {
+        // When the async iterator's next() Promise rejects and the for-await-of is
+        // wrapped in a try/catch inside the async generator, the catch block must run.
+        var log = new List<string>();
+        var engine = new Engine();
+        engine.SetValue("log", (string s) => log.Add(s));
+
+        engine.Evaluate("""
+            function makeRejectingIterator() {
+                return {
+                    [Symbol.asyncIterator]() { return this; },
+                    next() { return Promise.reject(new Error('iterator-error')); }
+                };
+            }
+
+            async function* gen() {
+                try {
+                    for await (var x of makeRejectingIterator()) {
+                        log('body');
+                    }
+                } catch (e) {
+                    log('caught:' + e.message);
+                }
+                log('after-catch');
+            }
+
+            gen().next().then(() => log('resolved'));
+            """);
+
+        Assert.Equal(new[] { "caught:iterator-error", "after-catch", "resolved" }, log);
+    }
+
     // ========================================================================
     // Thenable Protocol Tests
     // ========================================================================
