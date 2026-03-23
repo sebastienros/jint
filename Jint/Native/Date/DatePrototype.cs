@@ -1,8 +1,10 @@
 #pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of prototype methods return JsValue
 
 using System.Globalization;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Jint.Native.Intl;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -41,7 +43,11 @@ internal sealed class DatePrototype : Prototype
         const PropertyFlag lengthFlags = PropertyFlag.Configurable;
         const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
 
-        var properties = new PropertyDictionary(50, checkExistingKeys: false)
+        // B.2.1: toGMTString must be the same function object as toUTCString
+        var toUtcStringFunction = new ClrFunction(Engine, "toUTCString", ToUtcString, 0, lengthFlags);
+        var toUtcStringDescriptor = new PropertyDescriptor(toUtcStringFunction, propertyFlags);
+
+        var properties = new PropertyDictionary(52, checkExistingKeys: false)
         {
             ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
             ["toString"] = new PropertyDescriptor(new ClrFunction(Engine, "toString", ToString, 0, lengthFlags), propertyFlags),
@@ -86,9 +92,11 @@ internal sealed class DatePrototype : Prototype
             ["setFullYear"] = new PropertyDescriptor(new ClrFunction(Engine, "setFullYear", SetFullYear, 3, lengthFlags), propertyFlags),
             ["setYear"] = new PropertyDescriptor(new ClrFunction(Engine, "setYear", SetYear, 1, lengthFlags), propertyFlags),
             ["setUTCFullYear"] = new PropertyDescriptor(new ClrFunction(Engine, "setUTCFullYear", SetUTCFullYear, 3, lengthFlags), propertyFlags),
-            ["toUTCString"] = new PropertyDescriptor(new ClrFunction(Engine, "toUTCString", ToUtcString, 0, lengthFlags), propertyFlags),
+            ["toUTCString"] = toUtcStringDescriptor,
+            ["toGMTString"] = toUtcStringDescriptor,
             ["toISOString"] = new PropertyDescriptor(new ClrFunction(Engine, "toISOString", ToISOString, 0, lengthFlags), propertyFlags),
-            ["toJSON"] = new PropertyDescriptor(new ClrFunction(Engine, "toJSON", ToJson, 1, lengthFlags), propertyFlags)
+            ["toJSON"] = new PropertyDescriptor(new ClrFunction(Engine, "toJSON", ToJson, 1, lengthFlags), propertyFlags),
+            ["toTemporalInstant"] = new PropertyDescriptor(new ClrFunction(Engine, "toTemporalInstant", ToTemporalInstant, 0, lengthFlags), propertyFlags)
         };
         SetProperties(properties);
 
@@ -211,6 +219,7 @@ internal sealed class DatePrototype : Prototype
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.tolocalestring
+    /// https://tc39.es/ecma402/#sup-date.prototype.tolocalestring
     /// </summary>
     private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
     {
@@ -221,11 +230,38 @@ internal sealed class DatePrototype : Prototype
             return "Invalid Date";
         }
 
-        return ToLocalTime(dateInstance).ToString("F", Engine.Options.Culture);
+        var locales = arguments.At(0);
+        var options = arguments.At(1);
+
+        // Per ECMA-402 ToDateTimeOptions("any", "all"):
+        // If no date/time options are specified, use default numeric components
+        var optionsObj = IntlUtilities.CoerceOptionsToObject(Engine, options);
+        var needDefaults = NeedDateTimeDefaults(optionsObj, checkDate: true, checkTime: true);
+
+        if (needDefaults)
+        {
+            // Add default date and time components per spec
+            // Use null prototype per ToDateTimeOptions step 2: ObjectCreate(options)
+            var newOptions = ObjectInstance.OrdinaryObjectCreate(Engine, null);
+            CopyOptions(optionsObj, newOptions);
+            newOptions.Set("year", "numeric");
+            newOptions.Set("month", "numeric");
+            newOptions.Set("day", "numeric");
+            newOptions.Set("hour", "numeric");
+            newOptions.Set("minute", "numeric");
+            newOptions.Set("second", "numeric");
+            options = newOptions;
+        }
+
+        // Use Intl.DateTimeFormat for locale-aware formatting
+        // Pass UTC time; DTF handles timezone conversion based on its timeZone option
+        var dateTimeFormat = (JsDateTimeFormat) Engine.Realm.Intrinsics.DateTimeFormat.Construct([locales, options], Engine.Realm.Intrinsics.DateTimeFormat);
+        return dateTimeFormat.Format(dateInstance.ToDateTime());
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.tolocaledatestring
+    /// https://tc39.es/ecma402/#sup-date.prototype.tolocaledatestring
     /// </summary>
     private JsValue ToLocaleDateString(JsValue thisObject, JsCallArguments arguments)
     {
@@ -236,11 +272,35 @@ internal sealed class DatePrototype : Prototype
             return "Invalid Date";
         }
 
-        return ToLocalTime(dateInstance).ToString("D", Engine.Options.Culture);
+        var locales = arguments.At(0);
+        var options = arguments.At(1);
+
+        // Per ECMA-402 ToDateTimeOptions("date", "date"):
+        // If no date options are specified, use default numeric date components
+        var optionsObj = IntlUtilities.CoerceOptionsToObject(Engine, options);
+        var needDefaults = NeedDateTimeDefaults(optionsObj, checkDate: true, checkTime: false);
+
+        if (needDefaults)
+        {
+            // Add default date components per spec
+            // Use null prototype per ToDateTimeOptions step 2: ObjectCreate(options)
+            var newOptions = ObjectInstance.OrdinaryObjectCreate(Engine, null);
+            CopyOptions(optionsObj, newOptions);
+            newOptions.Set("year", "numeric");
+            newOptions.Set("month", "numeric");
+            newOptions.Set("day", "numeric");
+            options = newOptions;
+        }
+
+        // Use Intl.DateTimeFormat for locale-aware formatting
+        // Pass UTC time; DTF handles timezone conversion based on its timeZone option
+        var dateTimeFormat = (JsDateTimeFormat) Engine.Realm.Intrinsics.DateTimeFormat.Construct([locales, options], Engine.Realm.Intrinsics.DateTimeFormat);
+        return dateTimeFormat.Format(dateInstance.ToDateTime());
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.tolocaletimestring
+    /// https://tc39.es/ecma402/#sup-date.prototype.tolocaletimestring
     /// </summary>
     private JsValue ToLocaleTimeString(JsValue thisObject, JsCallArguments arguments)
     {
@@ -251,7 +311,96 @@ internal sealed class DatePrototype : Prototype
             return "Invalid Date";
         }
 
-        return ToLocalTime(dateInstance).ToString("T", Engine.Options.Culture);
+        var locales = arguments.At(0);
+        var options = arguments.At(1);
+
+        // Per ECMA-402 ToDateTimeOptions("time", "time"):
+        // If no time options are specified, use default numeric time components
+        var optionsObj = IntlUtilities.CoerceOptionsToObject(Engine, options);
+        var needDefaults = NeedDateTimeDefaults(optionsObj, checkDate: false, checkTime: true);
+
+        if (needDefaults)
+        {
+            // Add default time components per spec
+            // Use null prototype per ToDateTimeOptions step 2: ObjectCreate(options)
+            var newOptions = ObjectInstance.OrdinaryObjectCreate(Engine, null);
+            CopyOptions(optionsObj, newOptions);
+            newOptions.Set("hour", "numeric");
+            newOptions.Set("minute", "numeric");
+            newOptions.Set("second", "numeric");
+            options = newOptions;
+        }
+
+        // Use Intl.DateTimeFormat for locale-aware formatting
+        // Pass UTC time; DTF handles timezone conversion based on its timeZone option
+        var dateTimeFormat = (JsDateTimeFormat) Engine.Realm.Intrinsics.DateTimeFormat.Construct([locales, options], Engine.Realm.Intrinsics.DateTimeFormat);
+        return dateTimeFormat.Format(dateInstance.ToDateTime());
+    }
+
+    /// <summary>
+    /// Checks if default date/time options should be applied per ECMA-402 ToDateTimeOptions.
+    /// Returns true if no relevant options are specified and dateStyle/timeStyle are not present.
+    /// </summary>
+    private static bool NeedDateTimeDefaults(ObjectInstance options, bool checkDate, bool checkTime)
+    {
+        // If dateStyle or timeStyle is present, don't add defaults
+        if (!options.Get("dateStyle").IsUndefined() || !options.Get("timeStyle").IsUndefined())
+        {
+            return false;
+        }
+
+        // Check date-related properties (era is intentionally not checked per spec)
+        if (checkDate)
+        {
+            if (!options.Get("weekday").IsUndefined() ||
+                !options.Get("year").IsUndefined() ||
+                !options.Get("month").IsUndefined() ||
+                !options.Get("day").IsUndefined())
+            {
+                return false;
+            }
+        }
+
+        // Check time-related properties
+        if (checkTime)
+        {
+            if (!options.Get("dayPeriod").IsUndefined() ||
+                !options.Get("hour").IsUndefined() ||
+                !options.Get("minute").IsUndefined() ||
+                !options.Get("second").IsUndefined() ||
+                !options.Get("fractionalSecondDigits").IsUndefined())
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Copies all defined options from source to target, preserving user-specified values.
+    /// </summary>
+    private static void CopyOptions(ObjectInstance source, ObjectInstance target)
+    {
+        // Copy all options that should be preserved (general + date/time components)
+        var optionsToCopy = new[]
+        {
+            // General options
+            "localeMatcher", "formatMatcher", "calendar", "numberingSystem", "timeZone", "hourCycle", "hour12",
+            "dateStyle", "timeStyle",
+            // Date components
+            "weekday", "era", "year", "month", "day",
+            // Time components
+            "dayPeriod", "hour", "minute", "second", "fractionalSecondDigits", "timeZoneName"
+        };
+        foreach (var option in optionsToCopy)
+        {
+            var value = source.Get(option);
+            if (!value.IsUndefined())
+            {
+                target.Set(option, value);
+            }
+        }
     }
 
     private JsValue GetTime(JsValue thisObject, JsCallArguments arguments)
@@ -738,14 +887,14 @@ internal sealed class DatePrototype : Prototype
         }
 
         var fy = TypeConverter.ToInteger(y);
-        if (y >= 0 && y <= 99)
+        if (fy >= 0 && fy <= 99)
         {
             fy += 1900;
         }
 
         var newDate = MakeDay(fy, MonthFromTime(t), DateFromTime(t));
-        var u = Utc(MakeDate(newDate, TimeWithinDay(t)));
-        ((JsDate) thisObject)._dateValue = u.TimeClip();
+        var u = Utc(MakeDate(newDate, TimeWithinDay(t))).TimeClip();
+        ((JsDate) thisObject)._dateValue = u;
         return u.ToJsValue();
     }
 
@@ -835,6 +984,30 @@ internal sealed class DatePrototype : Prototype
         }
 
         return Invoke(o, "toISOString", Arguments.Empty);
+    }
+
+    /// <summary>
+    /// https://tc39.es/proposal-temporal/#sec-date.prototype.totemporalinstant
+    /// </summary>
+    private JsValue ToTemporalInstant(JsValue thisObject, JsCallArguments arguments)
+    {
+        // 1. Let dateObject be the this value.
+        // 2. Perform ? RequireInternalSlot(dateObject, [[DateValue]]).
+        var tv = ThisTimeValue(thisObject);
+
+        // 3. Let t be dateObject.[[DateValue]].
+        // 4. Let ns be ? NumberToBigInt(t) × ℤ(10**6).
+        if (tv.IsNaN)
+        {
+            Throw.RangeError(_realm, "Invalid time value");
+            return default;
+        }
+
+        // Convert milliseconds to nanoseconds (multiply by 10^6)
+        var epochNanoseconds = new BigInteger(tv.Value) * 1_000_000;
+
+        // 5. Return ! CreateTemporalInstant(ns).
+        return _realm.Intrinsics.TemporalInstant.Construct(epochNanoseconds);
     }
 
     private const int HoursPerDay = 24;
@@ -1269,7 +1442,7 @@ internal sealed class DatePrototype : Prototype
 
     private static readonly int[] kDaysInMonths = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
-    private static Date YearMonthDayFromTime(DatePresentation t) => YearMonthDayFromDays((long) System.Math.Floor(t.Value / 1000 / 60 / 60 / 24d));
+    private static Date YearMonthDayFromTime(DatePresentation t) => YearMonthDayFromDays((long) System.Math.Floor((double) t.Value / MsPerDay));
 
     private static Date YearMonthDayFromDays(long days)
     {
@@ -1403,7 +1576,21 @@ internal sealed class DatePrototype : Prototype
         var offsetMin = MinFromTime(absOffset).ToString("00", CultureInfo.InvariantCulture);
         var offsetHour = HourFromTime(absOffset).ToString("00", CultureInfo.InvariantCulture);
 
-        var tzName = " (" + _timeSystem.DefaultTimeZone.StandardName + ")";
+        var timeZone = _timeSystem.DefaultTimeZone;
+        string timeZoneName;
+        // DateTimeOffset.FromUnixTimeMilliseconds only handles years 0001-9999, represented as
+        // -62135596800000 ms (DateTime.MinValue) to 253402300799999 ms (DateTime.MaxValue)
+        if (tv.DateTimeRangeValid)
+        {
+            var dateTimeOffset = DateTimeOffset.FromUnixTimeMilliseconds(tv.Value);
+            timeZoneName = timeZone.IsDaylightSavingTime(dateTimeOffset) ? timeZone.DaylightName : timeZone.StandardName;
+        }
+        else
+        {
+            timeZoneName = timeZone.StandardName;
+        }
+
+        var tzName = " (" + timeZoneName + ")";
 
         return offsetSign + offsetHour + offsetMin + tzName;
     }

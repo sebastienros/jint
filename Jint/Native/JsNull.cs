@@ -15,7 +15,8 @@ public sealed class JsNull : JsValue, IEquatable<JsNull>
 
     protected internal override bool IsLooselyEqual(JsValue value)
     {
-        return ReferenceEquals(Null, value) || ReferenceEquals(Undefined, value);
+        return ReferenceEquals(Null, value) || ReferenceEquals(Undefined, value)
+            || (value._type & Runtime.InternalTypes.IsHTMLDDA) != Runtime.InternalTypes.Empty;
     }
 
     public override bool Equals(object? obj) => Equals(obj as JsNull);

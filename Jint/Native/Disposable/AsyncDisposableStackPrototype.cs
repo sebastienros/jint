@@ -1,4 +1,5 @@
 using Jint.Native.Object;
+using Jint.Native.Promise;
 using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -62,7 +63,17 @@ internal sealed class AsyncDisposableStackPrototype : Prototype
     private JsValue Dispose(JsValue thisObject, JsCallArguments arguments)
     {
         var stack = AssertDisposableStack(thisObject);
-        return stack.Dispose();
+        var capability = PromiseConstructor.NewPromiseCapability(_engine, _engine.Realm.Intrinsics.Promise);
+        try
+        {
+            var result = stack.Dispose();
+            capability.Resolve.Call(Undefined, result);
+        }
+        catch (JavaScriptException e)
+        {
+            capability.Reject.Call(Undefined, e.Error);
+        }
+        return capability.PromiseInstance;
     }
 
     private JsValue Disposed(JsValue thisObject, JsCallArguments arguments)

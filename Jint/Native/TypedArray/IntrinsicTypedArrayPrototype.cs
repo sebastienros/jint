@@ -20,6 +20,8 @@ namespace Jint.Native.TypedArray;
 /// </summary>
 internal sealed class IntrinsicTypedArrayPrototype : Prototype
 {
+    private const int ConstraintCheckInterval = 10_000;
+
     private readonly IntrinsicTypedArrayConstructor _constructor;
     private ClrFunction? _originalIteratorFunction;
 
@@ -366,6 +368,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
                 direction = 1;
             }
 
+            var initialCountBytes = countBytes;
             while (countBytes > 0)
             {
                 if (fromByteIndex < bufferByteLimit && toByteIndex < bufferByteLimit)
@@ -375,6 +378,12 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
                     fromByteIndex += direction;
                     toByteIndex += direction;
                     countBytes--;
+
+                    // Check constraints periodically to prevent long-running operations
+                    if ((initialCountBytes - countBytes) % ConstraintCheckInterval == 0)
+                    {
+                        _engine.Constraints.Check();
+                    }
                 }
                 else
                 {
@@ -497,6 +506,12 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
         for (var i = k; i < endIndex; ++i)
         {
             o[i] = value;
+
+            // Check constraints periodically to prevent memory exhaustion in large fills
+            if (i > k && (i - k) % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
         }
 
         return thisObject;
@@ -996,6 +1011,12 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
             o[upper] = lowerValue;
 
             lower++;
+
+            // Check constraints periodically to prevent long-running operations
+            if (lower > 0 && lower % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
         }
 
         return o;
@@ -1447,6 +1468,13 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
             return JsString.Empty;
         }
 
+        // Per ECMA-402, pass locales and options to element's toLocaleString
+        var locales = arguments.At(0);
+        var options = arguments.At(1);
+        var invokeArgs = !locales.IsUndefined() || !options.IsUndefined()
+            ? new[] { locales, options }
+            : System.Array.Empty<JsValue>();
+
         using var r = new ValueStringBuilder();
         for (uint k = 0; k < len; k++)
         {
@@ -1456,7 +1484,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
             }
             if (array.TryGetValue(k, out var nextElement) && !nextElement.IsNullOrUndefined())
             {
-                var s = TypeConverter.ToString(Invoke(nextElement, "toLocaleString", []));
+                var s = TypeConverter.ToString(Invoke(nextElement, "toLocaleString", invokeArgs));
                 r.Append(s);
             }
         }
@@ -1499,6 +1527,12 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
         {
             var from = len - k - 1;
             a[k++] = o.Get(from);
+
+            // Check constraints periodically to prevent long-running operations
+            if (k > 0 && k % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
         }
 
         return a;
@@ -1561,6 +1595,12 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
         {
             a[k] = k == (int) actualIndex ? value : o.Get(k);
             k++;
+
+            // Check constraints periodically to prevent long-running operations
+            if (k > 0 && k % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
         }
 
         return a;

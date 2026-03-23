@@ -1,4 +1,7 @@
 using Jint.Native;
+using Jint.Native.Object;
+using Jint.Runtime;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 
 namespace Jint.Runtime.Interpreter.Expressions;
@@ -9,16 +12,30 @@ namespace Jint.Runtime.Interpreter.Expressions;
 internal sealed class JintMemberExpression : JintExpression
 {
     private readonly MemberExpression _memberExpression;
-    private JintExpression _objectExpression = null!;
-    private JintExpression? _propertyExpression;
-    private JsValue? _determinedProperty;
-    private bool _initialized;
+    private readonly JintExpression _objectExpression;
+    private readonly JintExpression? _propertyExpression;
+    private readonly JsValue? _determinedProperty;
+    private ObjectInstance? _cachedReadObject;
+    private PropertyDescriptor? _cachedReadDescriptor;
 
     private static readonly JsValue _nullMarker = new JsString("NULL MARKER");
 
     public JintMemberExpression(MemberExpression expression) : base(expression)
     {
         _memberExpression = (MemberExpression) _expression;
+        _objectExpression = Build(_memberExpression.Object);
+
+        var determined = _expression.UserData as JsValue ?? InitializeDeterminedProperty(_memberExpression, cache: false);
+
+        if (ReferenceEquals(determined, _nullMarker))
+        {
+            _propertyExpression = Build(_memberExpression.Property);
+            _determinedProperty = null;
+        }
+        else
+        {
+            _determinedProperty = determined;
+        }
     }
 
     internal static JsValue InitializeDeterminedProperty(MemberExpression expression, bool cache)
@@ -41,21 +58,6 @@ internal sealed class JintMemberExpression : JintExpression
 
     protected override object EvaluateInternal(EvaluationContext context)
     {
-        if (!_initialized)
-        {
-            _objectExpression = Build(_memberExpression.Object);
-
-            _determinedProperty ??= _expression.UserData as JsValue ?? InitializeDeterminedProperty(_memberExpression, cache: false);
-
-            if (ReferenceEquals(_determinedProperty, _nullMarker))
-            {
-                _propertyExpression = Build(_memberExpression.Property);
-                _determinedProperty = null;
-            }
-
-            _initialized = true;
-        }
-
         JsValue? actualThis = null;
         object? baseReferenceName = null;
         JsValue? baseValue = null;
@@ -110,15 +112,6 @@ internal sealed class JintMemberExpression : JintExpression
         }
 
         var property = _determinedProperty ?? _propertyExpression!.GetValue(context);
-        if (baseValue.IsNullOrUndefined())
-        {
-            // we can use base data types securely, object evaluation can mess things up
-            var referenceName = property.IsPrimitive()
-                ? TypeConverter.ToString(property)
-                : _determinedProperty?.ToString() ?? baseReferenceName?.ToString();
-
-            TypeConverter.CheckObjectCoercible(engine, baseValue, _memberExpression.Property, referenceName!);
-        }
 
         if (property.IsPrivateName())
         {
@@ -136,5 +129,95 @@ internal sealed class JintMemberExpression : JintExpression
         var privEnv = engine.ExecutionContext.PrivateEnvironment;
         var privateName = privEnv!.ResolvePrivateIdentifier(privateIdentifier.ToString());
         return engine._referencePool.Rent(baseValue, privateName!, strict: true, thisValue: null);
+    }
+
+    /// <summary>
+    /// Override GetValue to provide proper error location when base is null/undefined.
+    /// For read operations, the error should be thrown with the property node's location.
+    /// </summary>
+    public override JsValue GetValue(EvaluationContext context)
+    {
+        // Fast path for common property reads (e.g. obj.prop) where we can avoid creating and resolving a Reference.
+        if (_propertyExpression is null
+            && _determinedProperty is JsString determinedProperty
+            && !_memberExpression.Optional
+            && !_objectExpression._expression.IsOptional()
+            && _objectExpression is not JintSuperExpression)
+        {
+            var baseValue = _objectExpression.GetValue(context);
+            if (baseValue is ObjectInstance baseObject)
+            {
+                context.LastSyntaxElement = _expression;
+
+                if ((baseObject._type & InternalTypes.PlainObject) != InternalTypes.Empty)
+                {
+                    if (ReferenceEquals(baseObject, _cachedReadObject)
+                        && _cachedReadDescriptor is not null)
+                    {
+                        return ObjectInstance.UnwrapJsValue(_cachedReadDescriptor, baseObject);
+                    }
+
+                    var ownDescriptor = baseObject.GetOwnProperty(determinedProperty);
+                    if (!ReferenceEquals(ownDescriptor, PropertyDescriptor.Undefined))
+                    {
+                        if (!ownDescriptor.Configurable)
+                        {
+                            _cachedReadObject = baseObject;
+                            _cachedReadDescriptor = ownDescriptor;
+                        }
+                        else
+                        {
+                            _cachedReadObject = null;
+                            _cachedReadDescriptor = null;
+                        }
+
+                        return ObjectInstance.UnwrapJsValue(ownDescriptor, baseObject);
+                    }
+                }
+
+                _cachedReadObject = null;
+                _cachedReadDescriptor = null;
+                return baseObject.Get(determinedProperty, baseObject);
+            }
+        }
+
+        var result = Evaluate(context);
+        if (result is not Reference reference)
+        {
+            return (JsValue) result;
+        }
+
+        // Fast path for string character access: str[intIndex]
+        if (_memberExpression.Computed
+            && reference.Base is JsString str
+            && reference.ReferencedName is JsNumber num
+            && num.IsInteger())
+        {
+            context.Engine._referencePool.Return(reference);
+            var index = num.AsInteger();
+            if ((uint) index < (uint) str.Length)
+            {
+                return JsString.Create(str[index]);
+            }
+
+            return JsValue.Undefined;
+        }
+
+        // Check if base is null/undefined before calling Engine.GetValue
+        // This ensures the error has the correct location (the property access)
+        // Per ECMAScript spec, ToObject(base) must happen before ToPropertyKey(property),
+        // so we must NOT try to convert property to string for the error message if it's an object.
+        if (reference.Base.IsNullOrUndefined())
+        {
+            var property = reference.ReferencedName;
+            // Only use property for error message if it's already a primitive (won't trigger ToPropertyKey)
+            var referenceName = property.IsPrimitive()
+                ? TypeConverter.ToString(property)
+                : null;
+
+            TypeConverter.CheckObjectCoercible(context.Engine, reference.Base, _memberExpression.Property, referenceName);
+        }
+
+        return context.Engine.GetValue(reference, returnReferenceToPool: true);
     }
 }

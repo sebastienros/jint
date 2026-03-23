@@ -417,12 +417,7 @@ uriError:
         _stringBuilder.EnsureCapacity(strLen);
         _stringBuilder.Clear();
 
-#if SUPPORTS_SPAN_PARSE
         Span<byte> octets = stackalloc byte[4];
-#else
-        var octets = new byte[4];
-#endif
-
         for (var k = 0; k < strLen; k++)
         {
             var C = uriString[k];
@@ -445,7 +440,7 @@ uriError:
                     goto uriError;
                 }
 
-                var B = StringToIntBase16(uriString.AsSpan(k + 1, 2));
+                var B = HexToByteUnchecked(c1, c2);
 
                 k += 2;
                 if ((B & 0x80) == 0)
@@ -496,7 +491,7 @@ uriError:
                             goto uriError;
                         }
 
-                        B = StringToIntBase16(uriString.AsSpan(k + 1, 2));
+                        B = HexToByteUnchecked(c1, c2);
 
                         // B & 11000000 != 10000000
                         if ((B & 0xC0) != 0x80)
@@ -514,15 +509,16 @@ uriError:
                         case 2:
                             {
                                 // Overlong encoding check for 2-byte sequences
-                                var x = octets[0] & 0x1F; // 0x00
-                                var y = octets[1] & 0x3F; // 0x2F
-                                var codepoint = (x << 6) | y; // 0x2F
+                                var x = octets[0] & 0x1F;
+                                var y = octets[1] & 0x3F;
+                                var codepoint = (x << 6) | y;
 
                                 if (codepoint < 0x80) // 2-byte should be ≥ 0x80
                                 {
                                     goto uriError;
                                 }
 
+                                _stringBuilder.Append((char) codepoint);
                                 break;
                             }
                         case 3:
@@ -538,6 +534,7 @@ uriError:
                                     goto uriError;
                                 }
 
+                                _stringBuilder.Append((char) codepoint);
                                 break;
                             }
                         case 4:
@@ -553,15 +550,15 @@ uriError:
                                     goto uriError;
                                 }
 
+                                // Convert to UTF-16 surrogate pair
+                                var offset = codepoint - 0x10000;
+                                var highSurrogate = (char) (0xD800 + (offset >> 10));
+                                var lowSurrogate = (char) (0xDC00 + (offset & 0x3FF));
+                                _stringBuilder.Append(highSurrogate);
+                                _stringBuilder.Append(lowSurrogate);
                                 break;
                             }
                     }
-
-#if SUPPORTS_SPAN_PARSE
-                    _stringBuilder.Append(Encoding.UTF8.GetString(octets.Slice(0, n)));
-#else
-                    _stringBuilder.Append(Encoding.UTF8.GetString(octets, 0, n));
-#endif
                 }
             }
         }
@@ -573,32 +570,24 @@ uriError:
         return JsEmpty.Instance;
     }
 
-    private static byte StringToIntBase16(ReadOnlySpan<char> s)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static byte HexToByteUnchecked(char c1, char c2)
     {
-        var i = 0;
-        var length = s.Length;
+        // Fast 2-char hex to byte conversion for %XX percent-encoded sequences
+        // Assumes c1 and c2 are valid hex digits (already validated by IsValidHexaChar)
+        return (byte) ((HexValue(c1) << 4) | HexValue(c2));
+    }
 
-        if (s[i] == '+')
-        {
-            i++;
-        }
-
-        if (i + 1 < length && s[i] == '0')
-        {
-            if (s[i + 1] == 'x' || s[i + 1] == 'X')
-            {
-                i += 2;
-            }
-        }
-
-        uint result = 0;
-        while (i < s.Length && IsDigit(s[i], 16, out var value))
-        {
-            result = result * 16 + (uint) value;
-            i++;
-        }
-
-        return (byte) (int) result;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int HexValue(char c)
+    {
+        // Branch-free hex digit conversion
+        // '0'-'9' (0x30-0x39) -> 0-9
+        // 'A'-'F' (0x41-0x46) -> 10-15
+        // 'a'-'f' (0x61-0x66) -> 10-15
+        if (c <= '9') return c - '0';
+        if (c <= 'F') return c - 'A' + 10;
+        return c - 'a' + 10;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -346,7 +346,7 @@ public sealed partial class Engine : IDisposable
     /// </summary>
     public JsValue Evaluate(string code, string? source = null)
     {
-        var script = _defaultParser.ParseScriptGuarded(Realm, code, source ?? "<anonymous>", _isStrict);
+        var script = _defaultParser.ParseScriptGuarded(Realm, code, source: source ?? "<anonymous>", strict: _isStrict);
         return Evaluate(new Prepared<Script>(script, _defaultParser.Options));
     }
 
@@ -362,7 +362,7 @@ public sealed partial class Engine : IDisposable
     public JsValue Evaluate(string code, string source, ScriptParsingOptions parsingOptions)
     {
         var parser = GetParserFor(parsingOptions);
-        var script = parser.ParseScriptGuarded(Realm, code, source, _isStrict);
+        var script = parser.ParseScriptGuarded(Realm, code, parsingOptions.SourceOffset, source, _isStrict);
         return Evaluate(new Prepared<Script>(script, parser.Options));
     }
 
@@ -377,7 +377,7 @@ public sealed partial class Engine : IDisposable
     /// </summary>
     public Engine Execute(string code, string? source = null)
     {
-        var script = _defaultParser.ParseScriptGuarded(Realm, code, source ?? "<anonymous>", _isStrict);
+        var script = _defaultParser.ParseScriptGuarded(Realm, code, source: source ?? "<anonymous>", strict: _isStrict);
         return Execute(new Prepared<Script>(script, _defaultParser.Options));
     }
 
@@ -393,7 +393,7 @@ public sealed partial class Engine : IDisposable
     public Engine Execute(string code, string source, ScriptParsingOptions parsingOptions)
     {
         var parser = GetParserFor(parsingOptions);
-        var script = parser.ParseScriptGuarded(Realm, code, source, _isStrict);
+        var script = parser.ParseScriptGuarded(Realm, code, parsingOptions.SourceOffset, source, _isStrict);
         return Execute(new Prepared<Script>(script, parser.Options));
     }
 
@@ -556,6 +556,15 @@ public sealed partial class Engine : IDisposable
         _eventLoop.Enqueue(continuation);
     }
 
+    /// <summary>
+    /// Called by the host when a promise rejection is tracked/untracked.
+    /// Raises the <see cref="AdvancedOperations.PromiseRejectionTracker"/> event.
+    /// </summary>
+    internal void OnPromiseRejectionTracker(JsPromise promise, PromiseRejectionOperation operation)
+    {
+        Advanced.RaisePromiseRejectionTracker(promise, operation);
+    }
+
     internal void AddToKeptObjects(JsValue target)
     {
         _agent.AddToKeptObjects(target);
@@ -645,7 +654,7 @@ public sealed partial class Engine : IDisposable
 
             if (baseValue.IsObject())
             {
-                var baseObj = Runtime.TypeConverter.ToObject(Realm, baseValue);
+                var baseObj = (ObjectInstance) baseValue;
 
                 if (reference.IsPrivateReference)
                 {
@@ -980,7 +989,7 @@ public sealed partial class Engine : IDisposable
         {
             if (env is null)
             {
-                return new Reference(JsValue.Undefined, name, strict);
+                return new Reference(Reference.Unresolvable, name, strict);
             }
 
             if (env.HasBinding(key))
@@ -1107,6 +1116,26 @@ public sealed partial class Engine : IDisposable
         }
 
         env.CreateGlobalVarBindings(declaredVarNames, canBeDeleted: false);
+
+        // B.3.2: Block-level function declarations in sloppy mode get var bindings at global scope
+        if (!_isStrict && !script.Strict)
+        {
+            var annexBFunctions = hoistingScope._annexBFunctionDeclarations;
+            if (annexBFunctions != null)
+            {
+                for (var i = 0; i < annexBFunctions.Count; i++)
+                {
+                    var f = annexBFunctions[i];
+                    var fn = (Key) f.Id!.Name;
+                    if (!env.HasLexicalDeclaration(fn)
+                        && env.CanDeclareGlobalFunction(fn)
+                        && !declaredFunctionNames.Contains(fn))
+                    {
+                        env.CreateGlobalVarBinding(fn, canBeDeleted: false);
+                    }
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -1116,13 +1145,31 @@ public sealed partial class Engine : IDisposable
         Function function,
         JsCallArguments argumentsList)
     {
-        var calleeContext = ExecutionContext;
         var func = function._functionDefinition;
+        var configuration = func!.Initialize();
+
+        // Fast path for simple functions with fixed-slot storage
+        if (configuration.CanUseFastFDI && !_isDebugMode)
+        {
+            var fastEnv = (FunctionEnvironment) ExecutionContext.LexicalEnvironment;
+            fastEnv.InitializeParameters(configuration.ParameterNames, false, argumentsList);
+
+            // Initialize var slots to Undefined
+            var slots = fastEnv._slots!;
+            var paramCount = configuration.ParameterSlotCount;
+            for (var i = paramCount; i < slots.Length; i++)
+            {
+                slots[i] = new Binding(JsValue.Undefined, canBeDeleted: false, mutable: true, strict: false);
+            }
+
+            return null;
+        }
+
+        var calleeContext = ExecutionContext;
 
         var env = (FunctionEnvironment) ExecutionContext.LexicalEnvironment;
         var strict = _isStrict || StrictModeScope.IsStrictModeCode;
 
-        var configuration = func!.Initialize();
         var parameterNames = configuration.ParameterNames;
         var hasDuplicates = configuration.HasDuplicates;
         var simpleParameterList = configuration.IsSimpleParameterList;
@@ -1171,10 +1218,23 @@ public sealed partial class Engine : IDisposable
         {
             // NOTE: Only a single lexical environment is needed for the parameters and top-level vars.
             var varsToInitialize = configuration.VarsToInitialize!;
-            for (var i = 0; i < varsToInitialize.Count; i++)
+            if (env._slots is not null)
             {
-                var pair = varsToInitialize[i];
-                env.CreateMutableBindingAndInitialize(pair.Name, canBeDeleted: false, JsValue.Undefined, DisposeHint.Normal);
+                // Fast path: vars go directly into pre-allocated slots
+                var paramCount = configuration.ParameterSlotCount;
+                for (var i = 0; i < varsToInitialize.Count; i++)
+                {
+                    env._slots[paramCount + i] = new Binding(
+                        JsValue.Undefined, canBeDeleted: false, mutable: true, strict: false);
+                }
+            }
+            else
+            {
+                for (var i = 0; i < varsToInitialize.Count; i++)
+                {
+                    var pair = varsToInitialize[i];
+                    env.CreateMutableBindingAndInitialize(pair.Name, canBeDeleted: false, JsValue.Undefined, DisposeHint.Normal);
+                }
             }
 
             varEnv = env;
@@ -1256,28 +1316,47 @@ public sealed partial class Engine : IDisposable
         var declarations = configuration.LexicalDeclarations;
         if (declarations?.Declarations.Count > 0)
         {
-            var lexicalDeclarations = declarations.Value.Declarations;
-            var checkExistingKeys = (lexEnv._dictionary is not null && lexEnv._dictionary.Count > 0) || !declarations.Value.AllLexicalScoped;
-            var dictionary = lexEnv._dictionary ??= new HybridDictionary<Binding>(lexicalDeclarations.Count, checkExistingKeys);
-            dictionary.EnsureCapacity(dictionary.Count + lexicalDeclarations.Count);
-
-            for (var i = 0; i < lexicalDeclarations.Count; i++)
+            if (lexEnv._slots is not null)
             {
-                var declaration = lexicalDeclarations[i];
-                foreach (var bn in declaration.BoundNames)
+                // Fast path: lexical bindings go directly into pre-allocated slots
+                var lexOffset = configuration.ParameterSlotCount + configuration.VarSlotCount;
+                var lexicalDeclarations = declarations.Value.Declarations;
+                for (var i = 0; i < lexicalDeclarations.Count; i++)
                 {
-                    if (declaration.IsConstantDeclaration)
+                    var declaration = lexicalDeclarations[i];
+                    foreach (var bn in declaration.BoundNames)
                     {
-                        dictionary.CreateImmutableBinding(bn, strict);
-                    }
-                    else
-                    {
-                        dictionary.CreateMutableBinding(bn, canBeDeleted: false);
+                        lexEnv._slots[lexOffset++] = declaration.IsConstantDeclaration
+                            ? new Binding(null!, canBeDeleted: false, mutable: false, strict: true)
+                            : new Binding(null!, canBeDeleted: false, mutable: true, strict: false);
                     }
                 }
             }
+            else
+            {
+                var lexicalDeclarations = declarations.Value.Declarations;
+                var checkExistingKeys = (lexEnv._dictionary is not null && lexEnv._dictionary.Count > 0) || !declarations.Value.AllLexicalScoped;
+                var dictionary = lexEnv._dictionary ??= new HybridDictionary<Binding>(lexicalDeclarations.Count, checkExistingKeys);
+                dictionary.EnsureCapacity(dictionary.Count + lexicalDeclarations.Count);
 
-            dictionary.CheckExistingKeys = true;
+                for (var i = 0; i < lexicalDeclarations.Count; i++)
+                {
+                    var declaration = lexicalDeclarations[i];
+                    foreach (var bn in declaration.BoundNames)
+                    {
+                        if (declaration.IsConstantDeclaration)
+                        {
+                            dictionary.CreateImmutableBinding(bn, strict);
+                        }
+                        else
+                        {
+                            dictionary.CreateMutableBinding(bn, canBeDeleted: false);
+                        }
+                    }
+                }
+
+                dictionary.CheckExistingKeys = true;
+            }
         }
 
         if (configuration.FunctionsToInitialize != null)
@@ -1348,7 +1427,9 @@ public sealed partial class Engine : IDisposable
             while (thisLex is not null && !ReferenceEquals(thisLex, varEnv))
             {
                 var thisEnvRec = thisLex;
-                if (thisEnvRec is not ObjectEnvironment)
+                // B.3.5: Skip catch clause environments - eval'd var/function declarations
+                // are allowed to shadow catch parameters in non-strict mode
+                if (thisEnvRec is not ObjectEnvironment && thisEnvRec is not DeclarativeEnvironment { _catchEnvironment: true })
                 {
                     ref readonly var nodes = ref hoistingScope._variablesDeclarations;
                     for (var i = 0; i < nodes.Count; i++)
@@ -1380,6 +1461,16 @@ public sealed partial class Engine : IDisposable
                     var variablesDeclaration = nodes[i];
                     var identifier = (Identifier) variablesDeclaration.Declarations[0].Id;
                     if (funcEnv.HasBinding(identifier.Name))
+                    {
+                        Throw.SyntaxError(realm);
+                    }
+
+                    // Non-arrow functions always have an implicit "arguments" binding per spec
+                    // (10.2.11 FunctionDeclarationInstantiation steps 17-21), even when the
+                    // arguments object creation was optimized away because the function body
+                    // doesn't reference "arguments". Detect this implicit binding conflict.
+                    if (string.Equals(identifier.Name, "arguments", StringComparison.Ordinal)
+                        && funcEnv._functionObject._thisMode != FunctionThisMode.Lexical)
                     {
                         Throw.SyntaxError(realm);
                     }
@@ -1514,6 +1605,41 @@ public sealed partial class Engine : IDisposable
                 {
                     varEnvRec.CreateMutableBinding(vn, canBeDeleted: true);
                     varEnvRec.InitializeBinding(vn, JsValue.Undefined, DisposeHint.Normal);
+                }
+            }
+        }
+
+        // B.3.3: Block-level function declarations in sloppy eval get var bindings
+        if (!strict)
+        {
+            var annexBFunctions = hoistingScope._annexBFunctionDeclarations;
+            if (annexBFunctions != null)
+            {
+                for (var i = 0; i < annexBFunctions.Count; i++)
+                {
+                    var f = annexBFunctions[i];
+                    Key fn = f.Id!.Name;
+                    if (!declaredFunctionNames.Contains(fn))
+                    {
+                        if (varEnvRec is GlobalEnvironment ger)
+                        {
+                            if (!ger.HasLexicalDeclaration(fn) && ger.CanDeclareGlobalFunction(fn))
+                            {
+                                // B.3.3.3: CreateGlobalVarBinding only creates if binding doesn't exist,
+                                // preserving existing property attributes and value.
+                                ger.CreateGlobalVarBinding(fn, canBeDeleted: true);
+                            }
+                        }
+                        else
+                        {
+                            var bindingExists = varEnvRec.HasBinding(fn);
+                            if (!bindingExists)
+                            {
+                                varEnvRec.CreateMutableBinding(fn, canBeDeleted: true);
+                                varEnvRec.InitializeBinding(fn, JsValue.Undefined, DisposeHint.Normal);
+                            }
+                        }
+                    }
                 }
             }
         }

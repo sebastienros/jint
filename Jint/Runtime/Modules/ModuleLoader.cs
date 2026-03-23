@@ -9,6 +9,22 @@ public abstract class ModuleLoader : IModuleLoader
 
     public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
     {
+        if (resolved.ModuleRequest.IsBytesModule())
+        {
+            byte[] bytes;
+            try
+            {
+                bytes = LoadModuleContentsAsBytes(engine, resolved);
+            }
+            catch (Exception)
+            {
+                Throw.JavaScriptException(engine, $"Could not load module {resolved.ModuleRequest.Specifier}", AstExtensions.DefaultLocation);
+                return default!;
+            }
+
+            return ModuleFactory.BuildBytesModule(engine, resolved, bytes);
+        }
+
         string code;
         try
         {
@@ -29,4 +45,13 @@ public abstract class ModuleLoader : IModuleLoader
     }
 
     protected abstract string LoadModuleContents(Engine engine, ResolvedSpecifier resolved);
+
+    /// <summary>
+    /// Loads module contents as raw bytes. Override in derived classes for efficient binary loading.
+    /// </summary>
+    protected virtual byte[] LoadModuleContentsAsBytes(Engine engine, ResolvedSpecifier resolved)
+    {
+        var text = LoadModuleContents(engine, resolved);
+        return System.Text.Encoding.UTF8.GetBytes(text);
+    }
 }

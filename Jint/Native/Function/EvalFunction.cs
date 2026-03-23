@@ -84,7 +84,9 @@ public sealed class EvalFunction : Function
             CheckPrivateFields = false
         };
         var parser = _engine.GetParserFor(adjustedParserOptions);
-        script = parser.ParseScriptGuarded(_engine.Realm, x.ToString(), strict: strictCaller);
+        // For indirect eval, parse in non-strict mode (strictness only from "use strict" in code)
+        // For direct eval, inherit caller's strictness
+        script = parser.ParseScriptGuarded(_engine.Realm, x.ToString(), strict: direct && strictCaller);
 
         var body = script.Body;
         if (body.Count == 0)
@@ -130,10 +132,16 @@ public sealed class EvalFunction : Function
             }
         }
 
-        var strictEval = script.Strict || _engine._isStrict;
+        // Per ECMAScript 19.2.1.1 step 6-7:
+        // strictEval is true if:
+        // - The eval code has a "use strict" directive, OR
+        // - It's a DIRECT eval and the caller is in strict mode
+        var strictEval = script.Strict || (direct && _engine._isStrict);
         var ctx = _engine.ExecutionContext;
 
-        using (new StrictModeScope(strictEval))
+        // For indirect eval, we need to force reset the strict mode scope
+        // because the caller's strict mode should not apply
+        using (new StrictModeScope(strictEval, force: !direct))
         {
             Environment lexEnv;
             Environment varEnv;

@@ -1,7 +1,9 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Contracts;
 using System.Numerics;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using Jint.Native.Generator;
 using Jint.Native.Iterator;
@@ -39,6 +41,31 @@ public abstract partial class JsValue : IEquatable<JsValue>
 
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     internal virtual bool IsConstructor => false;
+
+    // Temporal type checks
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    internal virtual bool IsTemporalDuration => false;
+
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    internal virtual bool IsTemporalInstant => false;
+
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    internal virtual bool IsTemporalPlainDate => false;
+
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    internal virtual bool IsTemporalPlainDateTime => false;
+
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    internal virtual bool IsTemporalPlainMonthDay => false;
+
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    internal virtual bool IsTemporalPlainTime => false;
+
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    internal virtual bool IsTemporalPlainYearMonth => false;
+
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    internal virtual bool IsTemporalZonedDateTime => false;
 
     internal bool IsEmpty => ReferenceEquals(this, JsEmpty.Instance);
 
@@ -126,6 +153,12 @@ public abstract partial class JsValue : IEquatable<JsValue>
         return true;
     }
 
+    /// <summary>
+    /// Cached reflection lookups for Task interop to avoid repeated GetMethod/GetProperty calls.
+    /// </summary>
+    private static readonly ConcurrentDictionary<Type, PropertyInfo?> _taskResultPropertyCache = new();
+    private static readonly ConcurrentDictionary<Type, MethodInfo?> _valueTaskAsTaskMethodCache = new();
+
     internal static JsValue ConvertAwaitableToPromise(Engine engine, object obj)
     {
         if (obj is Task task)
@@ -139,8 +172,9 @@ public abstract partial class JsValue : IEquatable<JsValue>
             return ConvertTaskToPromise(engine, valueTask.AsTask());
         }
 
-        // ValueTask<T>
-        var asTask = obj.GetType().GetMethod(nameof(ValueTask<object>.AsTask));
+        // ValueTask<T> - use cached reflection lookup
+        var objType = obj.GetType();
+        var asTask = _valueTaskAsTaskMethodCache.GetOrAdd(objType, static t => t.GetMethod(nameof(ValueTask<object>.AsTask)));
         if (asTask is not null)
         {
             return ConvertTaskToPromise(engine, (Task) asTask.Invoke(obj, parameters: null)!);
@@ -175,7 +209,9 @@ public abstract partial class JsValue : IEquatable<JsValue>
                         return;
                     }
 
-                    var result = continuationAction.GetType().GetProperty(nameof(Task<object>.Result));
+                    // Use cached reflection lookup for Task<T>.Result property
+                    var taskType = continuationAction.GetType();
+                    var result = _taskResultPropertyCache.GetOrAdd(taskType, static t => t.GetProperty(nameof(Task<object>.Result)));
                     if (result is not null)
                     {
                         resolveClr(result.GetValue(continuationAction));

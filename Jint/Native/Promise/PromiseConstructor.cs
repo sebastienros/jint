@@ -38,10 +38,12 @@ internal sealed class PromiseConstructor : Constructor
     {
         const PropertyFlag PropertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
         const PropertyFlag LengthFlags = PropertyFlag.Configurable;
-        var properties = new PropertyDictionary(8, checkExistingKeys: false)
+        var properties = new PropertyDictionary(10, checkExistingKeys: false)
         {
             ["all"] = new(new PropertyDescriptor(new ClrFunction(Engine, "all", All, 1, LengthFlags), PropertyFlags)),
+            ["allKeyed"] = new(new PropertyDescriptor(new ClrFunction(Engine, "allKeyed", AllKeyed, 1, LengthFlags), PropertyFlags)),
             ["allSettled"] = new(new PropertyDescriptor(new ClrFunction(Engine, "allSettled", AllSettled, 1, LengthFlags), PropertyFlags)),
+            ["allSettledKeyed"] = new(new PropertyDescriptor(new ClrFunction(Engine, "allSettledKeyed", AllSettledKeyed, 1, LengthFlags), PropertyFlags)),
             ["any"] = new(new PropertyDescriptor(new ClrFunction(Engine, "any", Any, 1, LengthFlags), PropertyFlags)),
             ["race"] = new(new PropertyDescriptor(new ClrFunction(Engine, "race", Race, 1, LengthFlags), PropertyFlags)),
             ["reject"] = new(new PropertyDescriptor(new ClrFunction(Engine, "reject", Reject, 1, LengthFlags), PropertyFlags)),
@@ -76,10 +78,21 @@ internal sealed class PromiseConstructor : Constructor
             return null;
         }
 
-        var promise = OrdinaryCreateFromConstructor(
-            newTarget,
-            static intrinsics => intrinsics.Promise.PrototypeObject,
-            static (Engine engine, Realm _, object? _) => new JsPromise(engine));
+        JsPromise promise;
+        if (ReferenceEquals(newTarget, this))
+        {
+            promise = new JsPromise(_engine)
+            {
+                _prototype = PrototypeObject
+            };
+        }
+        else
+        {
+            promise = OrdinaryCreateFromConstructor(
+                newTarget,
+                static intrinsics => intrinsics.Promise.PrototypeObject,
+                static (Engine engine, Realm _, object? _) => new JsPromise(engine));
+        }
 
         var (resolve, reject) = promise.CreateResolvingFunctions();
         try
@@ -194,6 +207,201 @@ internal sealed class PromiseConstructor : Constructor
         }
 
         return promiseCapability.PromiseInstance;
+    }
+
+    // https://tc39.es/proposal-await-dictionary/#sec-promise.allkeyed
+    private JsValue AllKeyed(JsValue thisObject, JsCallArguments arguments)
+    {
+        if (!thisObject.IsObject())
+        {
+            Throw.TypeError(_realm, "Promise.allKeyed called on non-object");
+        }
+
+        var capability = NewPromiseCapability(_engine, thisObject);
+
+        ICallable promiseResolve;
+        try
+        {
+            promiseResolve = GetPromiseResolve(thisObject);
+        }
+        catch (JavaScriptException e)
+        {
+            capability.Reject.Call(Undefined, e.Error);
+            return capability.PromiseInstance;
+        }
+
+        try
+        {
+            var promises = arguments.At(0);
+            if (!promises.IsObject())
+            {
+                Throw.TypeError(_realm, "Promise.allKeyed requires an object argument");
+            }
+
+            PerformPromiseAllKeyed(allSettled: false, (ObjectInstance) promises, thisObject, capability, promiseResolve);
+        }
+        catch (JavaScriptException e)
+        {
+            capability.Reject.Call(Undefined, e.Error);
+        }
+
+        return capability.PromiseInstance;
+    }
+
+    // https://tc39.es/proposal-await-dictionary/#sec-promise.allsettledkeyed
+    private JsValue AllSettledKeyed(JsValue thisObject, JsCallArguments arguments)
+    {
+        if (!thisObject.IsObject())
+        {
+            Throw.TypeError(_realm, "Promise.allSettledKeyed called on non-object");
+        }
+
+        var capability = NewPromiseCapability(_engine, thisObject);
+
+        ICallable promiseResolve;
+        try
+        {
+            promiseResolve = GetPromiseResolve(thisObject);
+        }
+        catch (JavaScriptException e)
+        {
+            capability.Reject.Call(Undefined, e.Error);
+            return capability.PromiseInstance;
+        }
+
+        try
+        {
+            var promises = arguments.At(0);
+            if (!promises.IsObject())
+            {
+                Throw.TypeError(_realm, "Promise.allSettledKeyed requires an object argument");
+            }
+
+            PerformPromiseAllKeyed(allSettled: true, (ObjectInstance) promises, thisObject, capability, promiseResolve);
+        }
+        catch (JavaScriptException e)
+        {
+            capability.Reject.Call(Undefined, e.Error);
+        }
+
+        return capability.PromiseInstance;
+    }
+
+    // https://tc39.es/proposal-await-dictionary/#sec-performpromiseallkeyed
+    private void PerformPromiseAllKeyed(
+        bool allSettled,
+        ObjectInstance promises,
+        JsValue constructor,
+        PromiseCapability resultCapability,
+        ICallable promiseResolve)
+    {
+        var allKeys = promises.GetOwnPropertyKeys();
+        var keys = new List<JsValue>();
+        var values = new List<JsValue>();
+        var remainingElementsCount = 1;
+        var index = 0;
+
+        foreach (var key in allKeys)
+        {
+            var desc = promises.GetOwnProperty(key);
+            if (desc == PropertyDescriptor.Undefined || !desc.Enumerable)
+            {
+                continue;
+            }
+
+            keys.Add(key);
+            values.Add(null!);
+
+            var value = promises.Get(key);
+            var nextPromise = promiseResolve.Call(constructor, value);
+
+            var capturedIndex = index;
+            var alreadyCalled = false;
+
+            if (allSettled)
+            {
+                var onFulfilled = new ClrFunction(_engine, "", (_, args) =>
+                {
+                    if (!alreadyCalled)
+                    {
+                        alreadyCalled = true;
+                        var res = _engine.Realm.Intrinsics.Object.Construct(2);
+                        res.FastSetDataProperty("status", "fulfilled");
+                        res.FastSetDataProperty("value", args.At(0));
+                        values[capturedIndex] = res;
+                        remainingElementsCount--;
+                        if (remainingElementsCount == 0)
+                        {
+                            var resultObj = CreateKeyedPromiseCombinatorResultObject(keys, values);
+                            resultCapability.Resolve.Call(Undefined, resultObj);
+                        }
+                    }
+                    return Undefined;
+                }, 1, PropertyFlag.Configurable);
+
+                var onRejected = new ClrFunction(_engine, "", (_, args) =>
+                {
+                    if (!alreadyCalled)
+                    {
+                        alreadyCalled = true;
+                        var res = _engine.Realm.Intrinsics.Object.Construct(2);
+                        res.FastSetDataProperty("status", "rejected");
+                        res.FastSetDataProperty("reason", args.At(0));
+                        values[capturedIndex] = res;
+                        remainingElementsCount--;
+                        if (remainingElementsCount == 0)
+                        {
+                            var resultObj = CreateKeyedPromiseCombinatorResultObject(keys, values);
+                            resultCapability.Resolve.Call(Undefined, resultObj);
+                        }
+                    }
+                    return Undefined;
+                }, 1, PropertyFlag.Configurable);
+
+                remainingElementsCount++;
+                _engine.Invoke(nextPromise, "then", [onFulfilled, onRejected]);
+            }
+            else
+            {
+                var onFulfilled = new ClrFunction(_engine, "", (_, args) =>
+                {
+                    if (!alreadyCalled)
+                    {
+                        alreadyCalled = true;
+                        values[capturedIndex] = args.At(0);
+                        remainingElementsCount--;
+                        if (remainingElementsCount == 0)
+                        {
+                            var resultObj = CreateKeyedPromiseCombinatorResultObject(keys, values);
+                            resultCapability.Resolve.Call(Undefined, resultObj);
+                        }
+                    }
+                    return Undefined;
+                }, 1, PropertyFlag.Configurable);
+
+                remainingElementsCount++;
+                _engine.Invoke(nextPromise, "then", [(JsValue) onFulfilled, resultCapability.RejectObj]);
+            }
+
+            index++;
+        }
+
+        remainingElementsCount--;
+        if (remainingElementsCount == 0)
+        {
+            var resultObj = CreateKeyedPromiseCombinatorResultObject(keys, values);
+            resultCapability.Resolve.Call(Undefined, resultObj);
+        }
+    }
+
+    private JsObject CreateKeyedPromiseCombinatorResultObject(List<JsValue> keys, List<JsValue> values)
+    {
+        var obj = OrdinaryObjectCreate(_engine, null);
+        for (var i = 0; i < keys.Count; i++)
+        {
+            obj.CreateDataPropertyOrThrow(keys[i], values[i]);
+        }
+        return obj;
     }
 
     // This helper methods executes the first 6 steps in the specs belonging to static Promise methods like all, any etc.

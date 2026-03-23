@@ -143,6 +143,28 @@ public class DefaultModuleLoader : ModuleLoader
         return File.ReadAllText(fileName);
     }
 
+    protected override byte[] LoadModuleContentsAsBytes(Engine engine, ResolvedSpecifier resolved)
+    {
+        var specifier = resolved.ModuleRequest.Specifier;
+        if (resolved.Type != SpecifierType.RelativeOrAbsolute)
+        {
+            Throw.NotSupportedException($"The default module loader can only resolve files. You can define modules directly to allow imports using {nameof(Engine)}.{nameof(Engine.Modules.Add)}(). Attempted to resolve: '{specifier}'.");
+        }
+
+        if (resolved.Uri == null)
+        {
+            Throw.InvalidOperationException($"Module '{specifier}' of type '{resolved.Type}' has no resolved URI.");
+        }
+
+        var fileName = Uri.UnescapeDataString(resolved.Uri.AbsolutePath);
+        if (!File.Exists(fileName))
+        {
+            Throw.ModuleResolutionException("Module Not Found", specifier, parent: null, fileName);
+        }
+
+        return File.ReadAllBytes(fileName);
+    }
+
     private static bool IsRelative(string specifier)
     {
         return specifier.StartsWith('.') || specifier.StartsWith('/');

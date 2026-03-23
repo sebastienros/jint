@@ -10,30 +10,27 @@ namespace Jint.Runtime.Interpreter.Statements;
 /// </summary>
 internal sealed class JintForStatement : JintStatement<ForStatement>
 {
-    private JintVariableDeclaration? _initStatement;
-    private JintExpression? _initExpression;
+    private readonly JintVariableDeclaration? _initStatement;
+    private readonly JintExpression? _initExpression;
 
-    private JintExpression? _test;
-    private JintExpression? _increment;
+    private readonly JintExpression? _test;
+    private readonly JintExpression? _increment;
 
-    private ProbablyBlockStatement _body;
-    private List<Key>? _boundNames;
+    private readonly ProbablyBlockStatement _body;
+    private readonly List<Key>? _boundNames;
 
-    private bool _shouldCreatePerIterationEnvironment;
+    private readonly bool _shouldCreatePerIterationEnvironment;
+    private readonly bool _canReuseIterationEnvironment;
 
     public JintForStatement(ForStatement statement) : base(statement)
     {
-    }
+        _body = new ProbablyBlockStatement(statement.Body);
 
-    protected override void Initialize(EvaluationContext context)
-    {
-        _body = new ProbablyBlockStatement(_statement.Body);
-
-        if (_statement.Init != null)
+        if (statement.Init != null)
         {
-            if (_statement.Init.Type == NodeType.VariableDeclaration)
+            if (statement.Init.Type == NodeType.VariableDeclaration)
             {
-                var d = (VariableDeclaration) _statement.Init;
+                var d = (VariableDeclaration) statement.Init;
                 if (d.Kind != VariableDeclarationKind.Var)
                 {
                     _boundNames = new List<Key>();
@@ -41,21 +38,28 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                 }
                 _initStatement = new JintVariableDeclaration(d);
                 _shouldCreatePerIterationEnvironment = d.Kind == VariableDeclarationKind.Let;
+
+                // If no closures in the loop body/test/update capture the iteration environment,
+                // we can reuse the same environment each iteration instead of allocating a new one
+                if (_shouldCreatePerIterationEnvironment)
+                {
+                    _canReuseIterationEnvironment = !ForLoopMayCapture(statement);
+                }
             }
             else
             {
-                _initExpression = JintExpression.Build((Expression) _statement.Init);
+                _initExpression = JintExpression.Build((Expression) statement.Init);
             }
         }
 
-        if (_statement.Test != null)
+        if (statement.Test != null)
         {
-            _test = JintExpression.Build(_statement.Test);
+            _test = JintExpression.Build(statement.Test);
         }
 
-        if (_statement.Update != null)
+        if (statement.Update != null)
         {
-            _increment = JintExpression.Build(_statement.Update);
+            _increment = JintExpression.Build(statement.Update);
         }
     }
 
@@ -230,7 +234,7 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
     {
         var v = JsValue.Undefined;
 
-        if (_shouldCreatePerIterationEnvironment)
+        if (_shouldCreatePerIterationEnvironment && !_canReuseIterationEnvironment)
         {
             CreatePerIterationEnvironment(context);
         }
@@ -253,16 +257,14 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
             {
                 debugHandler?.OnStep(_test._expression);
 
-                var testValue = _test.GetValue(context);
-
-                // Check for async suspension in test expression
-                if (context.IsSuspended())
+                if (!_test.GetBooleanValue(context))
                 {
-                    return new Completion(CompletionType.Return, JsValue.Undefined, ((JintStatement) this)._statement);
-                }
+                    // Check for async suspension in test expression
+                    if (context.IsSuspended())
+                    {
+                        return new Completion(CompletionType.Return, JsValue.Undefined, ((JintStatement) this)._statement);
+                    }
 
-                if (!TypeConverter.ToBoolean(testValue))
-                {
                     return new Completion(CompletionType.Normal, v, ((JintStatement) this)._statement);
                 }
             }
@@ -294,7 +296,7 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                 }
             }
 
-            if (_shouldCreatePerIterationEnvironment)
+            if (_shouldCreatePerIterationEnvironment && !_canReuseIterationEnvironment)
             {
                 CreatePerIterationEnvironment(context);
             }
@@ -319,6 +321,46 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Checks if any part of the for-loop (init, test, update, body) contains closures
+    /// that could capture the per-iteration environment.
+    /// </summary>
+    private static bool ForLoopMayCapture(ForStatement statement)
+    {
+        // Check init declarators (e.g., for (let i = 0, f = function() { return i }; ...))
+        if (statement.Init is VariableDeclaration vd)
+        {
+            foreach (var decl in vd.Declarations)
+            {
+                if (decl.Init is not null)
+                {
+                    if (JintFunctionDefinition.EnvironmentEscapeAstVisitor.IsCapturing(decl.Init)
+                        || JintFunctionDefinition.EnvironmentEscapeAstVisitor.MayEscape(decl.Init))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        if (statement.Test is not null
+            && (JintFunctionDefinition.EnvironmentEscapeAstVisitor.IsCapturing(statement.Test)
+                || JintFunctionDefinition.EnvironmentEscapeAstVisitor.MayEscape(statement.Test)))
+        {
+            return true;
+        }
+
+        if (statement.Update is not null
+            && (JintFunctionDefinition.EnvironmentEscapeAstVisitor.IsCapturing(statement.Update)
+                || JintFunctionDefinition.EnvironmentEscapeAstVisitor.MayEscape(statement.Update)))
+        {
+            return true;
+        }
+
+        return JintFunctionDefinition.EnvironmentEscapeAstVisitor.IsCapturing(statement.Body)
+            || JintFunctionDefinition.EnvironmentEscapeAstVisitor.MayEscape(statement.Body);
     }
 
     private void CreatePerIterationEnvironment(EvaluationContext context)

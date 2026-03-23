@@ -61,15 +61,51 @@ public sealed class JsSet : ObjectInstance, IEnumerable<JsValue>
         var args = _engine._jsValueArrayPool.RentArray(3);
         args[2] = this;
 
-        for (var i = 0; i < _set._list.Count; i++)
+        var i = 0;
+        while (i < _set._list.Count)
         {
             var value = _set._list[i];
             args[0] = value;
             args[1] = value;
             callable.Call(thisArg, args);
+
+            // Adjust position for mutations during callback
+            if (i < _set._list.Count && SameComparison(_set._list[i], value))
+            {
+                // Common fast path: value still at same position
+                i++;
+            }
+            else if (_set.Contains(value))
+            {
+                var newIndex = _set._list.IndexOf(value);
+                if (newIndex < i)
+                {
+                    // Value moved backward (entries before it were deleted)
+                    i = newIndex + 1;
+                }
+                // else: value was deleted and re-added at end, keep i (entries shifted left)
+            }
+            // else: value was deleted, entries shifted left so i now points to next entry
         }
 
         _engine._jsValueArrayPool.ReturnArray(args);
+    }
+
+    private static bool SameComparison(JsValue a, JsValue b)
+    {
+        // Use reference equality for most values, SameValueZero for numbers
+        if (ReferenceEquals(a, b))
+        {
+            return true;
+        }
+
+        // Handle the case where JsNumber instances may not be reference equal
+        if (a is JsNumber na && b is JsNumber nb)
+        {
+            return na._value == nb._value || (double.IsNaN(na._value) && double.IsNaN(nb._value));
+        }
+
+        return false;
     }
 
     internal ObjectInstance Entries() => _engine.Realm.Intrinsics.SetIteratorPrototype.ConstructEntryIterator(this);

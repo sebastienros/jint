@@ -7,13 +7,13 @@ namespace Jint.Runtime.Interpreter.Expressions;
 
 internal sealed class JintImportExpression : JintExpression
 {
-    private JintExpression _specifierExpression;
-    private bool _initialized;
-    private JintExpression? _optionsExpression;
+    private readonly JintExpression _specifierExpression;
+    private readonly JintExpression? _optionsExpression;
 
     public JintImportExpression(ImportExpression expression) : base(expression)
     {
-        _specifierExpression = null!;
+        _specifierExpression = Build(expression.Source);
+        _optionsExpression = expression.Options is not null ? Build(expression.Options) : null;
     }
 
     /// <summary>
@@ -21,17 +21,18 @@ internal sealed class JintImportExpression : JintExpression
     /// </summary>
     protected override object EvaluateInternal(EvaluationContext context)
     {
-        if (!_initialized)
-        {
-            var expression = (ImportExpression) _expression;
-            _specifierExpression = Build(expression.Source);
-            _optionsExpression = expression.Options is not null ? Build(expression.Options) : null;
-            _initialized = true;
-        }
-
         var referrer = context.Engine.GetActiveScriptOrModule();
         var specifier = _specifierExpression.GetValue(context); //.UnwrapIfPromise();
+        if (context.IsGeneratorAborted())
+        {
+            return specifier;
+        }
+
         var options = _optionsExpression?.GetValue(context) ?? JsValue.Undefined;
+        if (context.IsGeneratorAborted())
+        {
+            return options;
+        }
 
         var promiseCapability = PromiseConstructor.NewPromiseCapability(context.Engine, context.Engine.Realm.Intrinsics.Promise);
 

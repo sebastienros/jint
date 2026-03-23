@@ -144,7 +144,7 @@ internal sealed class NumberConstructor : Constructor
             var prim = TypeConverter.ToNumeric(arguments[0]);
             if (prim.IsBigInt())
             {
-                n = JsNumber.Create((long) ((JsBigInt) prim)._value);
+                n = JsNumber.Create(Jint.Native.Temporal.TemporalHelpers.BigIntToF64(((JsBigInt) prim)._value));
             }
             else
             {

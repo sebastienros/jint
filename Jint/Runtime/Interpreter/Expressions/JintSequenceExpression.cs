@@ -4,16 +4,10 @@ namespace Jint.Runtime.Interpreter.Expressions;
 
 internal sealed class JintSequenceExpression : JintExpression
 {
-    private JintExpression[] _expressions = [];
-    private bool _initialized;
+    private readonly JintExpression[] _expressions;
 
     public JintSequenceExpression(SequenceExpression expression) : base(expression)
     {
-    }
-
-    private void Initialize()
-    {
-        var expression = (SequenceExpression) _expression;
         ref readonly var expressions = ref expression.Expressions;
         var temp = new JintExpression[expressions.Count];
         for (var i = 0; i < (uint) temp.Length; i++)
@@ -26,23 +20,39 @@ internal sealed class JintSequenceExpression : JintExpression
 
     protected override object EvaluateInternal(EvaluationContext context)
     {
-        if (!_initialized)
+        var expressions = _expressions;
+        var startIndex = 0;
+
+        // When resuming a generator, skip sub-expressions that were already evaluated
+        // before the yield point to avoid duplicate side effects
+        var suspendable = context.Engine.ExecutionContext.Suspendable;
+        if (suspendable is { IsResuming: true }
+            && suspendable.Data.TryGet(this, out SequenceSuspendData? suspendData))
         {
-            Initialize();
-            _initialized = true;
+            startIndex = suspendData!.ExpressionIndex;
         }
 
         var result = JsValue.Undefined;
-        foreach (var expression in _expressions)
+        for (var i = startIndex; i < expressions.Length; i++)
         {
-            result = expression.GetValue(context);
+            result = expressions[i].GetValue(context);
 
             // Check for generator suspension after each expression
-            if (context.IsSuspended())
+            if (context.IsSuspended() || context.IsGeneratorAborted())
             {
+                // Record which sub-expression we were at for proper resume
+                if (suspendable is not null && context.IsSuspended())
+                {
+                    var data = suspendable.Data.GetOrCreate<SequenceSuspendData>(this);
+                    data.ExpressionIndex = i;
+                }
+
                 return result;
             }
         }
+
+        // Clear suspend data when sequence completes normally
+        suspendable?.Data.Clear(this);
 
         return result;
     }

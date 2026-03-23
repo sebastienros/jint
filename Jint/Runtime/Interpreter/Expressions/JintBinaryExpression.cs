@@ -16,27 +16,14 @@ internal abstract class JintBinaryExpression : JintExpression
     private readonly record struct OperatorKey(string? OperatorName, Type Left, Type Right);
     private static readonly ConcurrentDictionary<OperatorKey, MethodDescriptor> _knownOperators = new();
 
-    private JintExpression _left = null!;
-    private JintExpression _right = null!;
-    private bool _initialized;
+    private readonly JintExpression _left;
+    private readonly JintExpression _right;
 
     private JintBinaryExpression(NonLogicalBinaryExpression expression) : base(expression)
     {
         // TODO check https://tc39.es/ecma262/#sec-applystringornumericbinaryoperator
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void EnsureInitialized()
-    {
-        if (_initialized)
-        {
-            return;
-        }
-
-        var expression = (NonLogicalBinaryExpression) _expression;
         _left = Build(expression.Left);
         _right = Build(expression.Right);
-        _initialized = true;
     }
 
     /// <summary>
@@ -46,8 +33,6 @@ internal abstract class JintBinaryExpression : JintExpression
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected bool TryEvaluateOperands(EvaluationContext context, out JsValue left, out JsValue right)
     {
-        EnsureInitialized();
-
         left = _left.GetValue(context);
         if (context.IsSuspended())
         {
@@ -127,6 +112,10 @@ internal abstract class JintBinaryExpression : JintExpression
                 result = new GreaterBinaryExpression(expression);
                 break;
             case Operator.Addition:
+                if (TryBuildStringConcatenation(expression, out var concatExpr))
+                {
+                    return concatExpr;
+                }
                 result = new PlusBinaryExpression(expression);
                 break;
             case Operator.Subtraction:
@@ -201,6 +190,52 @@ internal abstract class JintBinaryExpression : JintExpression
         return result;
     }
 
+    /// <summary>
+    /// Detects left-recursive chains of '+' operations that include at least one string literal,
+    /// and flattens them into a single StringConcatenationExpression to avoid intermediate allocations.
+    /// </summary>
+    private static bool TryBuildStringConcatenation(
+        NonLogicalBinaryExpression expression,
+        [NotNullWhen(true)] out JintExpression? result)
+    {
+        result = null;
+
+        // Only optimize chains of 3+ operands (at least 2 nested additions)
+        if (expression.Left is not NonLogicalBinaryExpression { Operator: Operator.Addition })
+        {
+            return false;
+        }
+
+        // Collect all operands by walking the left-recursive chain
+        var operands = new List<Expression>();
+        CollectAdditionOperands(expression, operands);
+
+        // Must have a string literal in the first two operands to guarantee string concatenation semantics
+        // from the very first operation. A string literal at index 2+ is not enough because earlier operands
+        // could be numerically added (e.g., 2.0 + 3.0 + 'm' should yield '5m', not '23m').
+        // The early return above guarantees at least 3 operands, so operands[0] and operands[1] are always valid.
+        if (operands.Count < 2 || (operands[0] is not Literal { Value: string } && operands[1] is not Literal { Value: string }))
+        {
+            return false;
+        }
+
+        result = new StringConcatenationExpression(expression, operands.ToArray());
+        return true;
+    }
+
+    private static void CollectAdditionOperands(Expression expression, List<Expression> operands)
+    {
+        if (expression is NonLogicalBinaryExpression { Operator: Operator.Addition } binary)
+        {
+            CollectAdditionOperands(binary.Left, operands);
+            operands.Add(binary.Right);
+        }
+        else
+        {
+            operands.Add(expression);
+        }
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool AreNonBigIntOperands(JsValue left, JsValue right)
     {
@@ -212,6 +247,23 @@ internal abstract class JintBinaryExpression : JintExpression
         if (left.Type != right.Type)
         {
             Throw.TypeErrorNoEngine("Cannot mix BigInt and other types, use explicit conversions");
+        }
+    }
+
+    /// <summary>
+    /// Validates that BigInteger.Pow(base, exponent) won't produce an excessively large result.
+    /// Limits result to ~1 million bits (~125 KB) to prevent memory exhaustion.
+    /// </summary>
+    internal static void ValidateBigIntPowSize(Realm realm, BigInteger baseValue, int exponent)
+    {
+        if (exponent > 0)
+        {
+            var absBase = BigInteger.Abs(baseValue);
+            if (absBase > BigInteger.One
+                && (double) exponent * BigInteger.Log(absBase, 2.0) > 1_000_000)
+            {
+                Throw.RangeError(realm, "Maximum BigInt size exceeded");
+            }
         }
     }
 
@@ -231,6 +283,16 @@ internal abstract class JintBinaryExpression : JintExpression
             var equal = left == right;
             return equal ? JsBoolean.True : JsBoolean.False;
         }
+
+        public override bool GetBooleanValue(EvaluationContext context)
+        {
+            if (!TryEvaluateOperands(context, out var left, out var right))
+            {
+                return false;
+            }
+
+            return left == right;
+        }
     }
 
     private sealed class StrictlyNotEqualBinaryExpression : JintBinaryExpression
@@ -247,6 +309,16 @@ internal abstract class JintBinaryExpression : JintExpression
             }
 
             return left == right ? JsBoolean.False : JsBoolean.True;
+        }
+
+        public override bool GetBooleanValue(EvaluationContext context)
+        {
+            if (!TryEvaluateOperands(context, out var left, out var right))
+            {
+                return false;
+            }
+
+            return left != right;
         }
     }
 
@@ -273,6 +345,23 @@ internal abstract class JintBinaryExpression : JintExpression
 
             return value._type == InternalTypes.Undefined ? JsBoolean.False : value;
         }
+
+        public override bool GetBooleanValue(EvaluationContext context)
+        {
+            if (!TryEvaluateOperands(context, out var left, out var right))
+            {
+                return false;
+            }
+
+            if (context.OperatorOverloadingAllowed
+                && TryOperatorOverloading(context, left, right, "op_LessThan", out var opResult))
+            {
+                return TypeConverter.ToBoolean(JsValue.FromObject(context.Engine, opResult));
+            }
+
+            var value = Compare(left, right);
+            return value._type != InternalTypes.Undefined && ((JsBoolean) value)._value;
+        }
     }
 
     private sealed class GreaterBinaryExpression : JintBinaryExpression
@@ -297,6 +386,23 @@ internal abstract class JintBinaryExpression : JintExpression
             var value = Compare(right, left, false);
 
             return value._type == InternalTypes.Undefined ? JsBoolean.False : value;
+        }
+
+        public override bool GetBooleanValue(EvaluationContext context)
+        {
+            if (!TryEvaluateOperands(context, out var left, out var right))
+            {
+                return false;
+            }
+
+            if (context.OperatorOverloadingAllowed
+                && TryOperatorOverloading(context, left, right, "op_GreaterThan", out var opResult))
+            {
+                return TypeConverter.ToBoolean(JsValue.FromObject(context.Engine, opResult));
+            }
+
+            var value = Compare(right, left, false);
+            return value._type != InternalTypes.Undefined && ((JsBoolean) value)._value;
         }
     }
 
@@ -324,6 +430,11 @@ internal abstract class JintBinaryExpression : JintExpression
                 return JsNumber.Create((long) left.AsInteger() + right.AsInteger());
             }
 
+            if (left._type == InternalTypes.Number && right._type == InternalTypes.Number)
+            {
+                return JsNumber.Create(((JsNumber) left)._value + ((JsNumber) right)._value);
+            }
+
             var lprim = TypeConverter.ToPrimitive(left);
             var rprim = TypeConverter.ToPrimitive(right);
             JsValue result;
@@ -342,6 +453,90 @@ internal abstract class JintBinaryExpression : JintExpression
             }
 
             return result;
+        }
+    }
+
+    /// <summary>
+    /// Optimized expression for chains of string concatenation (e.g., a + b + c + d).
+    /// Evaluates all operands and concatenates in a single pass using a ValueStringBuilder,
+    /// avoiding intermediate JsString allocations.
+    /// </summary>
+    private sealed class StringConcatenationExpression : JintExpression
+    {
+        private readonly Expression[] _operandExpressions;
+        private JintExpression[]? _operands;
+
+        public StringConcatenationExpression(Expression expression, Expression[] operandExpressions)
+            : base(expression)
+        {
+            _operandExpressions = operandExpressions;
+        }
+
+        private void EnsureInitialized()
+        {
+            if (_operands is not null)
+            {
+                return;
+            }
+
+            _operands = new JintExpression[_operandExpressions.Length];
+            for (var i = 0; i < _operandExpressions.Length; i++)
+            {
+                _operands[i] = Build(_operandExpressions[i]);
+            }
+        }
+
+        protected override object EvaluateInternal(EvaluationContext context)
+        {
+            EnsureInitialized();
+
+            var operands = _operands!;
+            var count = operands.Length;
+
+            // Fast path for small chains — use string.Concat overloads
+            if (count == 3)
+            {
+                var v0 = operands[0].GetValue(context);
+                if (context.IsSuspended()) return JsValue.Undefined;
+                var v1 = operands[1].GetValue(context);
+                if (context.IsSuspended()) return JsValue.Undefined;
+                var v2 = operands[2].GetValue(context);
+                if (context.IsSuspended()) return JsValue.Undefined;
+
+                return JsString.Create(string.Concat(
+                    TypeConverter.ToString(TypeConverter.ToPrimitive(v0)),
+                    TypeConverter.ToString(TypeConverter.ToPrimitive(v1)),
+                    TypeConverter.ToString(TypeConverter.ToPrimitive(v2))));
+            }
+
+            if (count == 4)
+            {
+                var v0 = operands[0].GetValue(context);
+                if (context.IsSuspended()) return JsValue.Undefined;
+                var v1 = operands[1].GetValue(context);
+                if (context.IsSuspended()) return JsValue.Undefined;
+                var v2 = operands[2].GetValue(context);
+                if (context.IsSuspended()) return JsValue.Undefined;
+                var v3 = operands[3].GetValue(context);
+                if (context.IsSuspended()) return JsValue.Undefined;
+
+                return JsString.Create(string.Concat(
+                    TypeConverter.ToString(TypeConverter.ToPrimitive(v0)),
+                    TypeConverter.ToString(TypeConverter.ToPrimitive(v1)),
+                    TypeConverter.ToString(TypeConverter.ToPrimitive(v2)),
+                    TypeConverter.ToString(TypeConverter.ToPrimitive(v3))));
+            }
+
+            // General path for 5+ operands
+            var strings = new string[count];
+            for (var i = 0; i < count; i++)
+            {
+                var val = operands[i].GetValue(context);
+                if (context.IsSuspended()) return JsValue.Undefined;
+                strings[i] = TypeConverter.ToString(TypeConverter.ToPrimitive(val));
+            }
+
+            return JsString.Create(string.Concat(strings));
         }
     }
 
@@ -364,15 +559,21 @@ internal abstract class JintBinaryExpression : JintExpression
                 return JsValue.FromObject(context.Engine, opResult);
             }
 
-            JsValue number;
+            if (AreIntegerOperands(left, right))
+            {
+                return JsNumber.Create((long) left.AsInteger() - right.AsInteger());
+            }
+
+            if (left._type == InternalTypes.Number && right._type == InternalTypes.Number)
+            {
+                return JsNumber.Create(((JsNumber) left)._value - ((JsNumber) right)._value);
+            }
+
             left = TypeConverter.ToNumeric(left);
             right = TypeConverter.ToNumeric(right);
 
-            if (AreIntegerOperands(left, right))
-            {
-                number = JsNumber.Create((long) left.AsInteger() - right.AsInteger());
-            }
-            else if (AreNonBigIntOperands(left, right))
+            JsValue number;
+            if (AreNonBigIntOperands(left, right))
             {
                 number = JsNumber.Create(left.AsNumber() - right.AsNumber());
             }
@@ -408,6 +609,10 @@ internal abstract class JintBinaryExpression : JintExpression
             else if (AreIntegerOperands(left, right))
             {
                 result = JsNumber.Create((long) left.AsInteger() * right.AsInteger());
+            }
+            else if (left._type == InternalTypes.Number && right._type == InternalTypes.Number)
+            {
+                result = JsNumber.Create(((JsNumber) left)._value * ((JsNumber) right)._value);
             }
             else
             {
@@ -448,6 +653,11 @@ internal abstract class JintBinaryExpression : JintExpression
                 return JsValue.FromObject(context.Engine, opResult);
             }
 
+            if (left._type == InternalTypes.Number && right._type == InternalTypes.Number)
+            {
+                return JsNumber.Create(((JsNumber) left)._value / ((JsNumber) right)._value);
+            }
+
             left = TypeConverter.ToNumeric(left);
             right = TypeConverter.ToNumeric(right);
             return Divide(context, left, right);
@@ -483,6 +693,26 @@ internal abstract class JintBinaryExpression : JintExpression
 
             return equality == !_invert ? JsBoolean.True : JsBoolean.False;
         }
+
+        public override bool GetBooleanValue(EvaluationContext context)
+        {
+            if (!TryEvaluateOperands(context, out var left, out var right))
+            {
+                return false;
+            }
+
+            if (context.OperatorOverloadingAllowed
+                && TryOperatorOverloading(context, left, right, _invert ? "op_Inequality" : "op_Equality", out var opResult))
+            {
+                return TypeConverter.ToBoolean(JsValue.FromObject(context.Engine, opResult));
+            }
+
+            var equality = left.Type == right.Type
+                ? left.Equals(right)
+                : left.IsLooselyEqual(right);
+
+            return _invert ? !equality : equality;
+        }
     }
 
     private sealed class CompareBinaryExpression : JintBinaryExpression
@@ -512,6 +742,26 @@ internal abstract class JintBinaryExpression : JintExpression
 
             var value = Compare(left, right, _leftFirst);
             return value.IsUndefined() || ((JsBoolean) value)._value ? JsBoolean.False : JsBoolean.True;
+        }
+
+        public override bool GetBooleanValue(EvaluationContext context)
+        {
+            if (!TryEvaluateOperands(context, out var leftValue, out var rightValue))
+            {
+                return false;
+            }
+
+            if (context.OperatorOverloadingAllowed
+                && TryOperatorOverloading(context, leftValue, rightValue, _leftFirst ? "op_GreaterThanOrEqual" : "op_LessThanOrEqual", out var opResult))
+            {
+                return TypeConverter.ToBoolean(JsValue.FromObject(context.Engine, opResult));
+            }
+
+            var left = _leftFirst ? leftValue : rightValue;
+            var right = _leftFirst ? rightValue : leftValue;
+
+            var value = Compare(left, right, _leftFirst);
+            return !value.IsUndefined() && !((JsBoolean) value)._value;
         }
     }
 
@@ -648,11 +898,15 @@ internal abstract class JintBinaryExpression : JintExpression
                     Throw.RangeError(context.Engine.Realm, "Exponent must be positive");
                 }
 
-                if (exponent > int.MaxValue || exponent < int.MinValue)
+                if (exponent > int.MaxValue)
                 {
-                    Throw.TypeError(context.Engine.Realm, "Exponent does not fit 32bit range");
+                    Throw.RangeError(context.Engine.Realm, "Maximum BigInt size exceeded");
                 }
-                result = JsBigInt.Create(BigInteger.Pow(left.AsBigInt(), (int) exponent));
+
+                var intExponent = (int) exponent;
+                var baseValue = left.AsBigInt();
+                ValidateBigIntPowSize(context.Engine.Realm, baseValue, intExponent);
+                result = JsBigInt.Create(BigInteger.Pow(baseValue, intExponent));
             }
 
             return result;

@@ -278,6 +278,9 @@ public abstract partial class Function : ObjectInstance, ICallable
     internal void MakeMethod(ObjectInstance homeObject)
     {
         _homeObject = homeObject;
+        // Per ECMAScript spec, methods must not have own "arguments" or "caller" properties
+        RemoveOwnProperty(KnownKeys.Arguments.Name);
+        RemoveOwnProperty(KnownKeys.Caller.Name);
     }
 
     /// <summary>

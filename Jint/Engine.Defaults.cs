@@ -9,6 +9,7 @@ public partial class Engine
         EcmaVersion = EcmaVersion.ES2023,
         ExperimentalESFeatures = ExperimentalESFeatures.ImportAttributes
                                  | ExperimentalESFeatures.RegExpDuplicateNamedCapturingGroups
+                                 | ExperimentalESFeatures.RegExpModifiers
                                  | ExperimentalESFeatures.ExplicitResourceManagement
                                  | ExperimentalESFeatures.Decorators,
         Tolerant = false,

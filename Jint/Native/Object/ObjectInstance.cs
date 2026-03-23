@@ -419,8 +419,13 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             return Undefined;
         }
 
-        var functionInstance = (Function.Function) getter;
-        return functionInstance._engine.Call(functionInstance, thisObject);
+        if (!getter.IsCallable)
+        {
+            return Undefined;
+        }
+
+        var callable = (ICallable) getter;
+        return ((ObjectInstance) getter)._engine.Call(callable, thisObject, Arguments.Empty, null);
     }
 
     /// <summary>
@@ -1411,9 +1416,9 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                             method.Call(this);
                             promiseCapability.Resolve.Call(Undefined, Undefined);
                         }
-                        catch
+                        catch (JavaScriptException e)
                         {
-                            promiseCapability.Reject.Call(Undefined, Undefined);
+                            promiseCapability.Reject.Call(Undefined, e.Error);
                         }
                         return promiseCapability.PromiseInstance;
                     };
@@ -1678,7 +1683,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         var initValue = Undefined;
         if (initializer is not null)
         {
-            initValue = receiver._engine.Call(initializer, receiver);
+            initValue = receiver._engine.Call(initializer, thisObject: receiver, Arguments.Empty);
             if (initValue is Function.Function functionInstance)
             {
                 functionInstance.SetFunctionName(fieldName);

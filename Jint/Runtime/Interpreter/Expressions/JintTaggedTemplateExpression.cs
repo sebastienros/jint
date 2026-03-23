@@ -8,30 +8,17 @@ internal sealed class JintTaggedTemplateExpression : JintExpression
 {
     internal static readonly JsString PropertyRaw = new JsString("raw");
 
-    private JintExpression _tagIdentifier = null!;
-    private JintTemplateLiteralExpression _quasi = null!;
-    private bool _initialized;
+    private readonly JintExpression _tagIdentifier;
+    private readonly JintTemplateLiteralExpression _quasi;
 
     public JintTaggedTemplateExpression(TaggedTemplateExpression expression) : base(expression)
     {
-    }
-
-    private void Initialize()
-    {
-        var taggedTemplateExpression = (TaggedTemplateExpression) _expression;
-        _tagIdentifier = Build(taggedTemplateExpression.Tag);
-        _quasi = new JintTemplateLiteralExpression(taggedTemplateExpression.Quasi);
-        _quasi.DoInitialize();
+        _tagIdentifier = Build(expression.Tag);
+        _quasi = new JintTemplateLiteralExpression(expression.Quasi);
     }
 
     protected override object EvaluateInternal(EvaluationContext context)
     {
-        if (!_initialized)
-        {
-            Initialize();
-            _initialized = true;
-        }
-
         var engine = context.Engine;
 
         var identifier = _tagIdentifier.Evaluate(context);

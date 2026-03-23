@@ -12,18 +12,25 @@ internal sealed class HoistingScope
     internal readonly List<Declaration>? _lexicalDeclarations;
     internal readonly List<string>? _lexicalNames;
 
+    /// <summary>
+    /// B.3.2/B.3.3: Block-level function declarations that need AnnexB var hoisting in sloppy mode.
+    /// </summary>
+    internal readonly List<FunctionDeclaration>? _annexBFunctionDeclarations;
+
     private HoistingScope(
         List<FunctionDeclaration>? functionDeclarations,
         List<Key>? varNames,
         List<VariableDeclaration>? variableDeclarations,
         List<Declaration>? lexicalDeclarations,
-        List<string>? lexicalNames)
+        List<string>? lexicalNames,
+        List<FunctionDeclaration>? annexBFunctionDeclarations = null)
     {
         _functionDeclarations = functionDeclarations;
         _varNames = varNames;
         _variablesDeclarations = variableDeclarations;
         _lexicalDeclarations = lexicalDeclarations;
         _lexicalNames = lexicalNames;
+        _annexBFunctionDeclarations = annexBFunctionDeclarations;
     }
 
     public static HoistingScope GetProgramLevelDeclarations(
@@ -39,7 +46,8 @@ internal sealed class HoistingScope
             treeWalker._varNames,
             treeWalker._variableDeclarations,
             treeWalker._lexicalDeclarations,
-            treeWalker._lexicalNames);
+            treeWalker._lexicalNames,
+            treeWalker._annexBFunctions);
     }
 
     public static HoistingScope GetFunctionLevelDeclarations(bool strict, IFunction node)
@@ -52,7 +60,8 @@ internal sealed class HoistingScope
             treeWalker._varNames,
             treeWalker._variableDeclarations,
             treeWalker._lexicalDeclarations,
-            treeWalker._lexicalNames);
+            treeWalker._lexicalNames,
+            strict ? null : treeWalker._annexBFunctions);
     }
 
     public static HoistingScope GetModuleLevelDeclarations(
@@ -125,7 +134,10 @@ internal sealed class HoistingScope
                             {
                                 if (string.Equals(ie.ImportName, "*", StringComparison.Ordinal))
                                 {
-                                    localExportEntries.Add(ee);
+                                    // Per ECMAScript 16.2.1.7.1 step 10.b.ii:
+                                    // This is a re-export of an imported module namespace object.
+                                    // Create an indirect export entry with ImportName: all ("*")
+                                    indirectExportEntries.Add(new(ee.ExportName, ie.ModuleRequest, "*", null));
                                 }
                                 else
                                 {
@@ -161,14 +173,88 @@ internal sealed class HoistingScope
         internal List<Declaration>? _lexicalDeclarations;
         internal List<string>? _lexicalNames;
 
+        /// <summary>
+        /// B.3.2/B.3.3: Function declarations inside blocks/switch cases in sloppy mode.
+        /// </summary>
+        internal List<FunctionDeclaration>? _annexBFunctions;
+
+        private int _depth;
+        private const int MaxDepth = 256;
+
         public ScriptWalker(bool collectVarNames, bool collectLexicalNames)
         {
             _collectVarNames = collectVarNames;
             _collectLexicalNames = collectLexicalNames;
         }
 
-        public void Visit(Node node, Node? parent)
+        public void Visit(Node node, Node? parent, HashSet<string>? enclosingLexicalNames = null)
         {
+            if (++_depth > MaxDepth)
+            {
+                _depth--;
+                throw new ScriptPreparationException($"Script nesting exceeds maximum depth of {MaxDepth} levels.", null);
+            }
+            try
+            {
+                VisitCore(node, parent, enclosingLexicalNames);
+            }
+            finally
+            {
+                _depth--;
+            }
+        }
+
+        private void VisitCore(Node node, Node? parent, HashSet<string>? enclosingLexicalNames)
+        {
+            // Collect lexical names from this scope level for AnnexB conflict checking.
+            // These are let/const/class declarations in non-root scopes (blocks, for headers, etc.)
+            // that would prevent a var hoisting from the function declaration's position.
+            HashSet<string>? currentScopeLexicalNames = null;
+            if (parent is not null)
+            {
+                foreach (var child in node.ChildNodes)
+                {
+                    if (child is VariableDeclaration { Kind: not VariableDeclarationKind.Var } lexDecl)
+                    {
+                        CollectBoundNames(lexDecl, ref currentScopeLexicalNames, enclosingLexicalNames);
+                    }
+                    else if (child is ClassDeclaration classDecl && classDecl.Id is not null)
+                    {
+                        EnsureSet(ref currentScopeLexicalNames, enclosingLexicalNames);
+                        currentScopeLexicalNames!.Add(classDecl.Id.Name);
+                    }
+                }
+
+                // For for/for-in/for-of statements, also collect lexical names from the header
+                if (node is ForStatement { Init: VariableDeclaration { Kind: not VariableDeclarationKind.Var } forInit })
+                {
+                    CollectBoundNames(forInit, ref currentScopeLexicalNames, enclosingLexicalNames);
+                }
+                else if (node is ForInStatement { Left: VariableDeclaration { Kind: not VariableDeclarationKind.Var } forInLeft })
+                {
+                    CollectBoundNames(forInLeft, ref currentScopeLexicalNames, enclosingLexicalNames);
+                }
+                else if (node is ForOfStatement { Left: VariableDeclaration { Kind: not VariableDeclarationKind.Var } forOfLeft })
+                {
+                    CollectBoundNames(forOfLeft, ref currentScopeLexicalNames, enclosingLexicalNames);
+                }
+                else if (node is CatchClause catchClause && catchClause.Param is not null and not Identifier)
+                {
+                    // Per B.3.5: Only destructured catch parameters (not simple BindingIdentifier)
+                    // prevent AnnexB var hoisting of the same name.
+                    // Simple catch(e) allows AnnexB hoisting; catch({e}) or catch([e]) blocks it.
+                    var boundNames = new List<Key>();
+                    catchClause.Param.GetBoundNames(boundNames);
+                    foreach (var bn in boundNames)
+                    {
+                        currentScopeLexicalNames ??= enclosingLexicalNames != null ? new HashSet<string>(enclosingLexicalNames, StringComparer.Ordinal) : new HashSet<string>(StringComparer.Ordinal);
+                        currentScopeLexicalNames.Add(bn.Name);
+                    }
+                }
+            }
+
+            var effectiveLexicalNames = currentScopeLexicalNames ?? enclosingLexicalNames;
+
             foreach (var childNode in node.ChildNodes)
             {
                 var childType = childNode.Type;
@@ -213,11 +299,43 @@ internal sealed class HoistingScope
                 }
                 else if (childType == NodeType.FunctionDeclaration)
                 {
-                    // function declarations are not hoisted if they are under block or case clauses
-                    if (parent is null || (node.Type != NodeType.BlockStatement && node.Type != NodeType.SwitchCase))
+                    // Function declarations are regular hoisted functions unless they appear in
+                    // block-level positions (blocks, switch cases, if statement clauses).
+                    // Per B.3.2/B.3.3, block-level function declarations in sloppy mode get
+                    // special AnnexB hoisting behavior.
+                    if (parent is null || node.Type is not (NodeType.BlockStatement or NodeType.SwitchCase or NodeType.IfStatement))
                     {
                         _functions ??= [];
                         _functions.Add((FunctionDeclaration) childNode);
+                    }
+                    else
+                    {
+                        // B.3.2/B.3.3: Collect block-level function declarations for AnnexB hoisting
+                        // Only regular function declarations get AnnexB treatment (not generators, async, or async generators)
+                        // But skip if there's a conflicting lexical name in any enclosing scope
+                        var funcDecl = (FunctionDeclaration) childNode;
+                        if (!funcDecl.Generator && !funcDecl.Async)
+                        {
+                            var fnName = funcDecl.Id!.Name;
+                            if (effectiveLexicalNames?.Contains(fnName) != true)
+                            {
+                                _annexBFunctions ??= [];
+                                _annexBFunctions.Add(funcDecl);
+
+                                // Track this function name as a lexical binding so inner scopes
+                                // can't AnnexB-hoist a same-named function (replacing with var
+                                // would conflict with this block-level lexical binding).
+                                if (effectiveLexicalNames is null)
+                                {
+                                    effectiveLexicalNames = new HashSet<string>(StringComparer.Ordinal);
+                                }
+                                else if (ReferenceEquals(effectiveLexicalNames, enclosingLexicalNames))
+                                {
+                                    effectiveLexicalNames = new HashSet<string>(enclosingLexicalNames, StringComparer.Ordinal);
+                                }
+                                effectiveLexicalNames.Add(fnName);
+                            }
+                        }
                     }
                 }
                 else if (childType == NodeType.ClassDeclaration && parent is null or AstModule)
@@ -231,7 +349,25 @@ internal sealed class HoistingScope
                     && childType != NodeType.FunctionExpression
                     && !childNode.ChildNodes.IsEmpty())
                 {
-                    Visit(childNode, node);
+                    Visit(childNode, node, effectiveLexicalNames);
+                }
+            }
+        }
+
+        private static void EnsureSet(ref HashSet<string>? set, HashSet<string>? source)
+        {
+            set ??= source != null ? new HashSet<string>(source, StringComparer.Ordinal) : new HashSet<string>(StringComparer.Ordinal);
+        }
+
+        private static void CollectBoundNames(VariableDeclaration decl, ref HashSet<string>? set, HashSet<string>? source)
+        {
+            ref readonly var decls = ref decl.Declarations;
+            foreach (var d in decls)
+            {
+                if (d.Id is Identifier id)
+                {
+                    EnsureSet(ref set, source);
+                    set!.Add(id.Name);
                 }
             }
         }

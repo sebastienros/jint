@@ -62,6 +62,12 @@ internal static class DeclarationCacheBuilder
         ref readonly var statementListItems = ref statement.Consequent;
         foreach (var node in statementListItems.AsSpan())
         {
+            if (node.Type == NodeType.FunctionDeclaration || node.Type == NodeType.ClassDeclaration)
+            {
+                Collect(boundNames, node, ref allLexical, declarations);
+                continue;
+            }
+
             if (node.Type != NodeType.VariableDeclaration)
             {
                 continue;

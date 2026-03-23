@@ -46,7 +46,7 @@ internal sealed class AtomicsInstance : ObjectInstance
 
     private sealed class WaiterList
     {
-        private readonly object _lock = new();
+        private readonly Lock _lock = new();
         private readonly List<Waiter> _syncWaiters = [];
         private readonly List<AsyncWaiter> _asyncWaiters = [];
 

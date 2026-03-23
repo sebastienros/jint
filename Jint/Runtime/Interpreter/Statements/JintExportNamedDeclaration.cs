@@ -4,17 +4,13 @@ namespace Jint.Runtime.Interpreter.Statements;
 
 internal sealed class JintExportNamedDeclaration : JintStatement<ExportNamedDeclaration>
 {
-    private JintStatement? _declarationStatement;
+    private readonly JintStatement? _declarationStatement;
 
     public JintExportNamedDeclaration(ExportNamedDeclaration statement) : base(statement)
     {
-    }
-
-    protected override void Initialize(EvaluationContext context)
-    {
-        if (_statement.Declaration != null)
+        if (statement.Declaration != null)
         {
-            _declarationStatement = Build(_statement.Declaration);
+            _declarationStatement = Build(statement.Declaration);
         }
     }
 

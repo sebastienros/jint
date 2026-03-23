@@ -123,6 +123,7 @@ internal static class PromiseOperations
         JsValue onRejected,
         PromiseCapability resultCapability)
     {
+        var wasAlreadyHandled = promise.PromiseIsHandled;
         var fulfilReaction = new PromiseReaction(ReactionType.Fulfill, resultCapability, onFulfilled);
         var rejectReaction = new PromiseReaction(ReactionType.Reject, resultCapability, onRejected);
 
@@ -146,8 +147,17 @@ internal static class PromiseOperations
                 break;
         }
 
-        //https://tc39.es/ecma262/#sec-performpromisethen
-        //...
+        // https://tc39.es/ecma262/#sec-performpromisethen
+        // 12. Set promise.[[PromiseIsHandled]] to true.
+        promise.PromiseIsHandled = true;
+
+        // If this promise was previously rejected without a handler, notify the host
+        // that it's now been handled (HostPromiseRejectionTracker "handle" operation).
+        if (promise.State == PromiseState.Rejected && !wasAlreadyHandled)
+        {
+            engine._host.HostPromiseRejectionTracker(promise, PromiseRejectionOperation.Handle);
+        }
+
         //13. If resultCapability is undefined, then
         //      a. Return undefined
         //14. Else

@@ -22,6 +22,10 @@ public abstract partial class Test262Test
             cfg.EnableModules(new Test262ModuleLoader(State.Test262Stream.Options.FileSystem, relativePath));
             cfg.ExperimentalFeatures = ExperimentalFeature.All;
             cfg.TimeoutInterval(TimeSpan.FromSeconds(30));
+            // Use ICU-based CLDR provider for better Intl support
+            cfg.Intl.CldrProvider = IcuCldrProvider.Instance;
+            // Use NodaTime for accurate IANA timezone support (sub-minute offsets, historical DST)
+            cfg.Temporal.TimeZoneProvider = NodaTimeZoneProvider.Instance;
         });
 
         if (file.Flags.Contains("raw"))
@@ -56,51 +60,10 @@ public abstract partial class Test262Test
             return JsValue.Undefined;
         }));
 
-        var o = engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
-        o.FastSetProperty("evalScript", new PropertyDescriptor(new ClrFunction(engine, "evalScript",
-            (_, args) =>
-            {
-                if (args.Length > 1)
-                {
-                    throw new Exception("only script parsing supported");
-                }
-
-                var script = Engine.PrepareScript(args.At(0).AsString(), options: new ScriptPreparationOptions
-                {
-                    ParsingOptions = ScriptParsingOptions.Default with { Tolerant = false },
-                });
-
-                return engine.Evaluate(script);
-            }), true, true, true));
-
-        o.FastSetProperty("createRealm", new PropertyDescriptor(new ClrFunction(engine, "createRealm",
-            (_, args) =>
-            {
-                var realm = engine._host.CreateRealm();
-                realm.GlobalObject.Set("global", realm.GlobalObject);
-                return realm.GlobalObject;
-            }), true, true, true));
-
-        o.FastSetProperty("detachArrayBuffer", new PropertyDescriptor(new ClrFunction(engine, "detachArrayBuffer",
-            (_, args) =>
-            {
-                var buffer = (JsArrayBuffer) args.At(0);
-                buffer.DetachArrayBuffer();
-                return JsValue.Undefined;
-            }), true, true, true));
-
-        o.FastSetProperty("gc", new PropertyDescriptor(new ClrFunction(engine, "gc",
-            (_, _) =>
-            {
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
-                return JsValue.Undefined;
-            }), true, true, true));
+        var o = Test262Object.Install(engine);
 
         // Install agent support if needed
         agentManager?.InstallAgent(engine, o);
-
-        engine.SetValue("$262", o);
 
         foreach (var include in file.Includes)
         {

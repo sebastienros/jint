@@ -9,17 +9,13 @@ namespace Jint.Runtime.Interpreter.Statements;
 /// </summary>
 internal sealed class JintWithStatement : JintStatement<WithStatement>
 {
-    private ProbablyBlockStatement _body;
-    private JintExpression _object = null!;
+    private readonly ProbablyBlockStatement _body;
+    private readonly JintExpression _object;
 
     public JintWithStatement(WithStatement statement) : base(statement)
     {
-    }
-
-    protected override void Initialize(EvaluationContext context)
-    {
-        _body = new ProbablyBlockStatement(_statement.Body);
-        _object = JintExpression.Build(_statement.Object);
+        _body = new ProbablyBlockStatement(statement.Body);
+        _object = JintExpression.Build(statement.Object);
     }
 
     protected override Completion ExecuteInternal(EvaluationContext context)

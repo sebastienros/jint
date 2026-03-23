@@ -1234,7 +1234,8 @@ public partial class EngineTests : IDisposable
 
         var expected = dt.ToString("ddd MMM dd yyyy HH:mm:ss", CultureInfo.InvariantCulture);
         expected += dt.ToString(" 'GMT'zzz", CultureInfo.InvariantCulture).Replace(":", "");
-        expected += " (Pacific Standard Time)";
+        var tzName = customTimeZone.IsDaylightSavingTime(dt) ? customTimeZone.DaylightName : customTimeZone.StandardName;
+        expected += " (" + tzName + ")";
         var actual = engine.Evaluate("d.toString();").ToString();
 
         Assert.Equal(expected, actual);
@@ -1847,11 +1848,12 @@ var prep = function (fn) { fn(); };
         engine.Evaluate(@"
                     var d = new Date(1433160000000);
 
-                    equal('Mon Jun 01 2015 05:00:00 GMT-0700 (Pacific Standard Time)', d.toString());
+                    equal('Mon Jun 01 2015 05:00:00 GMT-0700 (Pacific Daylight Time)', d.toString());
                     equal('Mon Jun 01 2015', d.toDateString());
-                    equal('05:00:00 GMT-0700 (Pacific Standard Time)', d.toTimeString());
-                    equal('lundi 1 juin 2015 05:00:00', d.toLocaleString());
-                    equal('lundi 1 juin 2015', d.toLocaleDateString());
+                    equal('05:00:00 GMT-0700 (Pacific Daylight Time)', d.toTimeString());
+                    // ECMA-402 compliant: numeric defaults used when no options specified
+                    equal('1/6/2015, 05:00:00', d.toLocaleString());
+                    equal('1/6/2015', d.toLocaleDateString());
                     equal('05:00:00', d.toLocaleTimeString());
             ");
     }
@@ -1865,10 +1867,9 @@ var prep = function (fn) { fn(); };
             .SetValue("assert", new Action<bool>(Assert.True))
             .SetValue("equal", new Action<object, object>(Assert.Equal));
 
-        engine.Evaluate(@"
+        engine.Evaluate($@"
                     var d = new Date(2016, 8, 1);
-                    // there's a Linux difference, so do a replace
-                    equal('Thu Sep 01 2016 00:00:00 GMT-0400 (US Eastern Standard Time)', d.toString().replace('(Eastern Standard Time)', '(US Eastern Standard Time)'));
+                    equal('Thu Sep 01 2016 00:00:00 GMT-0400 ({EST.DaylightName})', d.toString());
                     equal('Thu Sep 01 2016', d.toDateString());
             ");
     }
@@ -1914,6 +1915,19 @@ var prep = function (fn) { fn(); };
                     }
             ");
 
+    }
+
+
+    [Fact]
+    public void ShouldThrowJavaScriptExceptionForObjectExpressionWithAssignmentPattern()
+    {
+        // Before the fix, JintObjectExpression.Initialize crashed with InvalidCastException
+        // because an AssignmentPattern node was being cast to Expression without a type check.
+        // After the fix, it throws a catchable JavaScriptException (SyntaxError).
+        var engine = new Engine();
+        Assert.ThrowsAny<JavaScriptException>(() =>
+            engine.Execute("a=[1,3];aaa={}={}.aap+=[1,3];aaa={}={a=-[]<= []<a.m}.aap+=[,2,3111-1]")
+        );
     }
 
 
@@ -3079,6 +3093,183 @@ x.test = {
         call(engine, script);
 
         Assert.True(beforeEvaluateTriggered);
+    }
+
+    [Fact]
+    public void ShouldHandleFixedSlotFunctionWithLetConst()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate(@"
+            function compute(a, b) {
+                let sum = a + b;
+                const product = a * b;
+                let result = sum + product;
+                return result;
+            }
+            compute(3, 4);
+        ");
+        Assert.Equal(19d, result.AsNumber());
+    }
+
+    [Fact]
+    public void ShouldHandleFixedSlotFunctionWithConstReassignmentError()
+    {
+        var engine = new Engine();
+        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate(@"
+            function test(x) {
+                const y = x + 1;
+                y = 10;
+                return y;
+            }
+            test(5);
+        "));
+        Assert.Contains("constant", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ShouldHandleFixedSlotFunctionWithLetTemporalDeadZone()
+    {
+        var engine = new Engine();
+        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate(@"
+            function test() {
+                var x = y;
+                let y = 10;
+                return x;
+            }
+            test();
+        "));
+        Assert.Contains("has not been initialized", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ShouldHandleFixedSlotFunctionWithClosureOverLetConst()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate(@"
+            function makeCounter(start) {
+                let count = start;
+                const increment = 1;
+                return function() {
+                    count += increment;
+                    return count;
+                };
+            }
+            var counter = makeCounter(10);
+            counter() + counter() + counter();
+        ");
+        Assert.Equal(36d, result.AsNumber());
+    }
+
+    [Fact]
+    public void ShouldHandleFixedSlotFunctionWithMultipleLetDeclarations()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate(@"
+            function swap(a, b) {
+                let temp = a;
+                let x = b;
+                let y = temp;
+                return x * 100 + y;
+            }
+            swap(3, 7);
+        ");
+        Assert.Equal(703d, result.AsNumber());
+    }
+
+    [Fact]
+    public void ShouldHandleSlotCachingWithNonEscapingEnvironment()
+    {
+        // Function with let/const where environment doesn't escape (no closures)
+        // should benefit from slot caching across calls
+        var engine = new Engine();
+        var result = engine.Evaluate(@"
+            function add(a, b) {
+                let result = a + b;
+                return result;
+            }
+            add(1, 2) + add(3, 4) + add(5, 6);
+        ");
+        Assert.Equal(21d, result.AsNumber());
+    }
+
+    [Fact]
+    public void ShouldAllowSlotCachingWhenClosureDoesNotReferenceSlotVars()
+    {
+        // Closure exists but doesn't reference any outer slot variables —
+        // environment can still be cached for reuse
+        var engine = new Engine();
+        var result = engine.Evaluate(@"
+            function process(x, y) {
+                var helper = function() { return 42; };
+                return x + y + helper();
+            }
+            process(1, 2) + process(3, 4);
+        ");
+        Assert.Equal(94d, result.AsNumber());
+    }
+
+    [Fact]
+    public void ShouldPreventSlotCachingWhenClosureReferencesSlotVar()
+    {
+        // Closure references outer slot variable — environment must escape
+        var engine = new Engine();
+        var result = engine.Evaluate(@"
+            function makeAdder(x) {
+                return function(y) { return x + y; };
+            }
+            var add5 = makeAdder(5);
+            var add10 = makeAdder(10);
+            add5(3) + add10(3);
+        ");
+        Assert.Equal(21d, result.AsNumber());
+    }
+
+    [Fact]
+    public void ShouldHandleNestedClosureReferencingOuterSlotVar()
+    {
+        // Deeply nested closure references outer function's slot variable
+        var engine = new Engine();
+        var result = engine.Evaluate(@"
+            function outer(x) {
+                return function middle() {
+                    return function inner() {
+                        return x;
+                    };
+                };
+            }
+            outer(42)()();
+        ");
+        Assert.Equal(42d, result.AsNumber());
+    }
+
+    [Fact]
+    public void ShouldAllowSlotCachingWhenClosureOnlyUsesGlobals()
+    {
+        // Closure uses global variable, not any slot variables
+        var engine = new Engine();
+        engine.Evaluate("var globalVal = 100;");
+        var result = engine.Evaluate(@"
+            function compute(a, b) {
+                var fn = function() { return globalVal; };
+                return a + b + fn();
+            }
+            compute(1, 2) + compute(3, 4);
+        ");
+        Assert.Equal(210d, result.AsNumber());
+    }
+
+    [Fact]
+    public void ShouldHandleConciseArrowReturningArrowWithClosure()
+    {
+        // Concise arrow x => y => x * y — body IS a closure that references slot var x
+        var engine = new Engine();
+        var result = engine.Evaluate(@"
+            var make = x => y => x * y;
+            var double = make(2);
+            var triple = make(3);
+            double(5) + triple(5);
+        ");
+        Assert.Equal(25d, result.AsNumber());
     }
 
     private class Wrapper

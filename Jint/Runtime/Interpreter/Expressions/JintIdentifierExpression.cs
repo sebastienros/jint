@@ -9,15 +9,13 @@ namespace Jint.Runtime.Interpreter.Expressions;
 internal sealed class JintIdentifierExpression : JintExpression
 {
     private readonly Environment.BindingName _identifier;
+    private Environment? _cachedEnvironment;
+    private bool _cachedStrict;
 
-    public JintIdentifierExpression(Identifier expression) : this(expression, new Environment.BindingName(expression.Name))
+    public JintIdentifierExpression(Identifier expression) : base(expression)
     {
-        _identifier = new Environment.BindingName(((Identifier) _expression).Name);
-    }
-
-    public JintIdentifierExpression(Identifier identifier, Environment.BindingName bindingName) : base(identifier)
-    {
-        _identifier = bindingName;
+        _identifier = expression.UserData as Environment.BindingName
+            ?? new Environment.BindingName(expression.Name);
     }
 
     public Environment.BindingName Identifier => _identifier;
@@ -36,9 +34,29 @@ internal sealed class JintIdentifierExpression : JintExpression
         var engine = context.Engine;
         var env = engine.ExecutionContext.LexicalEnvironment;
         var strict = StrictModeScope.IsStrictModeCode;
-        var identifierEnvironment = JintEnvironment.TryGetIdentifierEnvironmentWithBinding(env, _identifier, out var temp)
-            ? temp
-            : JsValue.Undefined;
+
+        if (ReferenceEquals(env, _cachedEnvironment)
+            && _cachedStrict == strict
+            && env.HasBinding(_identifier))
+        {
+            return engine._referencePool.Rent(env, _identifier.Value, strict, thisValue: null);
+        }
+
+        if (!JintEnvironment.TryGetIdentifierEnvironmentWithBinding(env, _identifier, out var identifierEnvironment))
+        {
+            // Binding not found - create unresolvable reference
+            return engine._referencePool.Rent(Reference.Unresolvable, _identifier.Value, strict, thisValue: null);
+        }
+
+        if (ReferenceEquals(identifierEnvironment, env))
+        {
+            _cachedEnvironment = env;
+            _cachedStrict = strict;
+        }
+        else
+        {
+            _cachedEnvironment = null;
+        }
 
         return engine._referencePool.Rent(identifierEnvironment, _identifier.Value, strict, thisValue: null);
     }
@@ -57,14 +75,34 @@ internal sealed class JintIdentifierExpression : JintExpression
         var engine = context.Engine;
         var env = engine.ExecutionContext.LexicalEnvironment;
         var strict = StrictModeScope.IsStrictModeCode;
+        JsValue? value;
 
-        if (JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
-                env,
-                identifier,
-                strict,
-                out _,
-                out var value))
+        if (ReferenceEquals(env, _cachedEnvironment)
+            && _cachedStrict == strict
+            && env.TryGetBinding(identifier, strict, out value))
         {
+            if (value is null)
+            {
+                ThrowNotInitialized(engine);
+            }
+        }
+        else if (JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
+                     env,
+                     identifier,
+                     strict,
+                     out var identifierEnvironment,
+                     out value))
+        {
+            if (ReferenceEquals(identifierEnvironment, env))
+            {
+                _cachedEnvironment = env;
+                _cachedStrict = strict;
+            }
+            else
+            {
+                _cachedEnvironment = null;
+            }
+
             if (value is null)
             {
                 ThrowNotInitialized(engine);
@@ -72,7 +110,7 @@ internal sealed class JintIdentifierExpression : JintExpression
         }
         else
         {
-            var reference = engine._referencePool.Rent(JsValue.Undefined, identifier.Value, strict, thisValue: null);
+            var reference = engine._referencePool.Rent(Reference.Unresolvable, identifier.Value, strict, thisValue: null);
             value = engine.GetValue(reference, returnReferenceToPool: true);
         }
 

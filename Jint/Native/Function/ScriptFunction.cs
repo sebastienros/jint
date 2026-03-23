@@ -1,3 +1,4 @@
+using System.Threading;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -61,6 +62,9 @@ public sealed class ScriptFunction : Function, IConstructor
         var strict = _functionDefinition!.Strict || _thisMode == FunctionThisMode.Strict;
         using (new StrictModeScope(strict, force: true))
         {
+            FunctionEnvironment? funcEnv = null;
+            JintFunctionDefinition.State? state = null;
+
             try
             {
                 ref readonly var calleeContext = ref PrepareForOrdinaryCall(Undefined);
@@ -68,6 +72,13 @@ public sealed class ScriptFunction : Function, IConstructor
                 if (_isClassConstructor)
                 {
                     Throw.TypeError(calleeContext.Realm, $"Class constructor {_functionDefinition.Name} cannot be invoked without 'new'");
+                }
+
+                // Check if slot array can be cached after this call
+                state = _functionDefinition.Initialize();
+                if (state is { UseFixedSlots: true, EnvironmentMayEscape: false })
+                {
+                    funcEnv = (FunctionEnvironment) calleeContext.LexicalEnvironment;
                 }
 
                 OrdinaryCallBindThis(calleeContext, thisObject);
@@ -101,6 +112,13 @@ public sealed class ScriptFunction : Function, IConstructor
             }
             finally
             {
+                // Cache the slot array for reuse by next call to the same function (thread-safe)
+                if (funcEnv?._slots is { } slots)
+                {
+                    System.Array.Clear(slots, 0, slots.Length);
+                    Interlocked.Exchange(ref state!._cachedSlots, slots);
+                    funcEnv._slots = null;
+                }
                 _engine.LeaveExecutionContext();
             }
 
@@ -137,10 +155,23 @@ public sealed class ScriptFunction : Function, IConstructor
 
         if (kind == ConstructorKind.Base)
         {
-            thisArgument = OrdinaryCreateFromConstructor(
-                newTarget,
-                static intrinsics => intrinsics.Object.PrototypeObject,
-                static (Engine engine, Realm _, object? _) => new JsObject(engine));
+            if (ReferenceEquals(newTarget, this)
+                && _prototypeDescriptor is { } prototypeDescriptor
+                && !prototypeDescriptor.IsAccessorDescriptor())
+            {
+                var prototype = prototypeDescriptor.Value as ObjectInstance ?? _realm.Intrinsics.Object.PrototypeObject;
+                thisArgument = new JsObject(_engine)
+                {
+                    _prototype = prototype
+                };
+            }
+            else
+            {
+                thisArgument = OrdinaryCreateFromConstructor(
+                    newTarget,
+                    static intrinsics => intrinsics.Object.PrototypeObject,
+                    static (Engine engine, Realm _, object? _) => new JsObject(engine));
+            }
         }
 
         ref readonly var calleeContext = ref PrepareForOrdinaryCall(newTarget);

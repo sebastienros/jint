@@ -4,13 +4,15 @@ using System.Linq;
 using System.Reflection;
 using Jint.Native;
 using Jint.Native.Function;
+using Jint.Native.Intl;
 using Jint.Native.Object;
+using Jint.Native.Temporal;
 using Jint.Runtime;
-using Jint.Runtime.Interop;
+using Jint.Runtime.CallStack;
 using Jint.Runtime.Debugger;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Interop;
 using Jint.Runtime.Modules;
-using Jint.Runtime.CallStack;
 
 namespace Jint;
 
@@ -27,6 +29,8 @@ public class Options
     public delegate ObjectInstance? WrapObjectDelegate(Engine engine, object target, Type? type);
 
     public delegate bool ExceptionHandlerDelegate(Exception exception);
+
+    public delegate void ClrExceptionErrorDecoratorDelegate(Engine engine, ObjectInstance error, Exception exception);
 
     public delegate string? BuildCallStackDelegate(string shortDescription, SourceLocation location, string[]? arguments);
 
@@ -56,6 +60,16 @@ public class Options
     /// Module options
     /// </summary>
     public ModuleOptions Modules { get; } = new();
+
+    /// <summary>
+    /// Internationalization (Intl) options.
+    /// </summary>
+    public IntlOptions Intl { get; } = new();
+
+    /// <summary>
+    /// Temporal API options.
+    /// </summary>
+    public TemporalOptions Temporal { get; } = new();
 
     /// <summary>
     /// Whether the code should be always considered to be in strict mode. Can improve performance.
@@ -327,6 +341,13 @@ public class Options
         public ExceptionHandlerDelegate ExceptionHandler { get; set; } = _defaultExceptionHandler;
 
         /// <summary>
+        /// Called after a JavaScript error object is created from a CLR exception (when <see cref="ExceptionHandler"/> returns true).
+        /// Allows decorating the error object with additional properties or modifying its state.
+        /// The decorator receives the engine instance, the created error object, and the original CLR exception.
+        /// </summary>
+        public ClrExceptionErrorDecoratorDelegate? ClrExceptionErrorDecorator { get; set; }
+
+        /// <summary>
         /// Assemblies to allow scripts to call CLR types directly like <example>System.IO.File</example>.
         /// </summary>
         public List<Assembly> AllowedAssemblies { get; set; } = new();
@@ -497,6 +518,38 @@ public class Options
         /// defaults to 64.
         /// </summary>
         public int MaxParseDepth { get; set; } = 64;
+    }
+
+    /// <summary>
+    /// Internationalization (Intl) API related customization.
+    /// </summary>
+    public class IntlOptions
+    {
+        /// <summary>
+        /// CLDR provider for locale data. Defaults to DefaultCldrProvider
+        /// which provides basic English (en-US, en-GB) support.
+        /// </summary>
+        /// <remarks>
+        /// Set this to a custom ICldrProvider implementation (e.g., ICU-based provider)
+        /// to enable full locale support for the Intl API.
+        /// </remarks>
+        public ICldrProvider CldrProvider { get; set; } = DefaultCldrProvider.Instance;
+    }
+
+    /// <summary>
+    /// Temporal API related customization.
+    /// </summary>
+    public class TemporalOptions
+    {
+        /// <summary>
+        /// Time zone provider for Temporal operations. Defaults to DefaultTimeZoneProvider
+        /// which uses .NET TimeZoneInfo for basic IANA time zone support.
+        /// </summary>
+        /// <remarks>
+        /// Set this to a custom ITimeZoneProvider implementation (e.g., using TimeZoneConverter or NodaTime)
+        /// for full IANA time zone support and better Windows compatibility.
+        /// </remarks>
+        public ITimeZoneProvider TimeZoneProvider { get; set; } = DefaultTimeZoneProvider.Instance;
     }
 }
 

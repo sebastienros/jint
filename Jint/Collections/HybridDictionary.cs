@@ -9,7 +9,7 @@ internal sealed class HybridDictionary<TValue> : IEngineDictionary<Key, TValue>,
 {
     private const int CutoverPoint = 9;
     private const int InitialDictionarySize = 13;
-    private const int FixedSizeCutoverPoint = 6;
+    private const int FixedSizeCutoverPoint = 9;
 
     private readonly bool _checkExistingKeys;
     private ListDictionary<TValue> _list;

@@ -40,10 +40,10 @@ public class NumberTests
     }
 
     [Fact]
-    public void ToFixedWith100FractionDigitsThrows()
+    public void ToFixedWith100FractionDigitsWorks()
     {
-        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate($"(3).toFixed(100)"));
-        Assert.Equal("100 fraction digits is not supported due to .NET format specifier limitation", ex.Message);
+        var value = _engine.Evaluate("(3).toFixed(100)").AsString();
+        Assert.Equal("3." + new string('0', 100), value);
     }
 
     [Theory]

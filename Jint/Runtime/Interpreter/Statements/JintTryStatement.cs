@@ -9,21 +9,16 @@ namespace Jint.Runtime.Interpreter.Statements;
 /// </summary>
 internal sealed class JintTryStatement : JintStatement<TryStatement>
 {
-    private JintBlockStatement _block = null!;
+    private readonly JintBlockStatement _block;
     private JintBlockStatement? _catch;
-    private JintBlockStatement? _finalizer;
+    private readonly JintBlockStatement? _finalizer;
 
     public JintTryStatement(TryStatement statement) : base(statement)
     {
-
-    }
-
-    protected override void Initialize(EvaluationContext context)
-    {
-        _block = new JintBlockStatement(_statement.Block);
-        if (_statement.Finalizer != null)
+        _block = new JintBlockStatement(statement.Block);
+        if (statement.Finalizer != null)
         {
-            _finalizer = new JintBlockStatement(_statement.Finalizer);
+            _finalizer = new JintBlockStatement(statement.Finalizer);
         }
     }
 
@@ -109,7 +104,9 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
 
             if (f.Type == CompletionType.Normal)
             {
-                return b;
+                // Per spec: If F.[[type]] is normal, let F be B.
+                // And step 6: If F.[[value]] is empty, return undefined
+                return b.UpdateEmpty(JsValue.Undefined);
             }
 
             return f.UpdateEmpty(JsValue.Undefined);

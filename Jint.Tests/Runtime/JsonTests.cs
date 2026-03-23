@@ -70,6 +70,8 @@ public class JsonTests
     [InlineData("[,]", "Unexpected token ',' in JSON at position 1")]
     [InlineData("{\"key\": ()}", "Unexpected token '(' in JSON at position 8")]
     [InlineData(".1", "Unexpected token '.' in JSON at position 0")]
+    [InlineData("\"\\u", "Expected hexadecimal digit in JSON at position 3")] // truncated \u escape at end of input
+    [InlineData("\"\\u1\"", "Expected hexadecimal digit in JSON at position 4")] // \u with only 1 hex digit
     public void ShouldReportHelpfulSyntaxErrorForInvalidJson(string json, string expectedMessage)
     {
         var engine = new Engine();

@@ -34,7 +34,6 @@ dotnet test --configuration Release Jint.Tests.Test262/Jint.Tests.Test262.csproj
 ```
 
 Important: Run tests in Release mode for faster feedback loop.
-Important: If you make changes to Test262Harness.settings.json you need to delete folder Jint.Tests.Test262\Generated before building.
 
 ## Requirements
 
@@ -128,6 +127,42 @@ Acornima Parser (external) → AST → Interpreter → Runtime → Interop
 - **Warnings as Errors**: Enabled - all warnings must be fixed
 - **Analysis**: Latest analyzers enabled with EnforceCodeStyleInBuild
 - **Performance**: Try to make code as perfomant as possible.
+
+### Data Structures
+
+**Prefer readonly record structs over tuples** for returning multiple values. Record structs provide better readability, named properties, and IDE support. Pass them into methods with 'in' modifier.
+
+```csharp
+// ❌ Avoid: Tuples with unnamed or poorly named fields
+public (JsPlainDate?, JsZonedDateTime?) GetRelativeTo(ObjectInstance options)
+{
+    // Item1 and Item2 are unclear at call site
+    return (plainDate, zonedDateTime);
+}
+
+// ✅ Prefer: readonly record struct with descriptive names
+[System.Runtime.InteropServices.StructLayout(LayoutKind.Auto)]
+public readonly record struct RelativeToResult(
+    JsPlainDate? PlainRelativeTo,
+    JsZonedDateTime? ZonedRelativeTo);
+
+public RelativeToResult GetRelativeTo(ObjectInstance options)
+{
+    // Clear, self-documenting at call site
+    return new RelativeToResult(plainDate, zonedDateTime);
+}
+
+// Usage is clear and type-safe
+var result = GetRelativeTo(options);
+if (result.PlainRelativeTo != null)
+{
+    // Use result.PlainRelativeTo
+}
+```
+
+**When to use each:**
+- **readonly record struct**: Multiple related return values (2+), especially when used across multiple methods
+- **Class/struct**: Complex data with behavior, validation, or many fields (5+)
 
 ## Testing
 

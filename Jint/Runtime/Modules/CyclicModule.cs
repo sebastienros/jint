@@ -507,6 +507,7 @@ public abstract class CyclicModule : Module
                 }
                 else
                 {
+                    m._asyncEvaluation = false;
                     m.Status = ModuleStatus.Evaluated;
                     if (m._topLevelCapability is not null)
                     {

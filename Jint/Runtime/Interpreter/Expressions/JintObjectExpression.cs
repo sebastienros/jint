@@ -11,12 +11,11 @@ namespace Jint.Runtime.Interpreter.Expressions;
 internal sealed class JintObjectExpression : JintExpression
 {
     private readonly ExpressionCache _valueExpressions = new();
-    private ObjectProperty?[] _properties = [];
+    private readonly ObjectProperty?[] _properties;
 
     // check if we can do a shortcut when all are object properties
     // and don't require duplicate checking
-    private bool _canBuildFast;
-    private bool _initialized;
+    private readonly bool _canBuildFast;
 
     private sealed class ObjectProperty
     {
@@ -53,19 +52,7 @@ internal sealed class JintObjectExpression : JintExpression
 
     private JintObjectExpression(ObjectExpression expression) : base(expression)
     {
-    }
-
-    public static JintExpression Build(ObjectExpression expression)
-    {
-        return expression.Properties.Count == 0
-            ? JintEmptyObjectExpression.Instance
-            : new JintObjectExpression(expression);
-    }
-
-    private void Initialize(EvaluationContext context)
-    {
         _canBuildFast = true;
-        var expression = (ObjectExpression) _expression;
         ref readonly var properties = ref expression.Properties;
 
         var valueExpressions = new Expression[properties.Count];
@@ -91,9 +78,15 @@ internal sealed class JintObjectExpression : JintExpression
 
                 if (p.Kind is PropertyKind.Init)
                 {
-                    var propertyValue = p.Value;
-                    valueExpressions[i] = (Expression) propertyValue;
-                    _canBuildFast &= !propertyValue.IsFunctionDefinition();
+                    if (p.Value is Expression propertyExpression)
+                    {
+                        valueExpressions[i] = propertyExpression;
+                    }
+                    else
+                    {
+                        _canBuildFast = false;
+                    }
+                    _canBuildFast &= !p.Value.IsFunctionDefinition();
                 }
                 else
                 {
@@ -114,17 +107,18 @@ internal sealed class JintObjectExpression : JintExpression
             _canBuildFast &= propName != null;
         }
 
-        _valueExpressions.Initialize(context, valueExpressions.AsSpan());
+        _valueExpressions.Initialize(valueExpressions.AsSpan());
+    }
+
+    public static JintExpression Build(ObjectExpression expression)
+    {
+        return expression.Properties.Count == 0
+            ? JintEmptyObjectExpression.Instance
+            : new JintObjectExpression(expression);
     }
 
     protected override object EvaluateInternal(EvaluationContext context)
     {
-        if (!_initialized)
-        {
-            Initialize(context);
-            _initialized = true;
-        }
-
         return _canBuildFast
             ? BuildObjectFast(context)
             : BuildObjectNormal(context);
@@ -215,6 +209,10 @@ internal sealed class JintObjectExpression : JintExpression
 
             if (property.Kind == PropertyKind.Init)
             {
+                if (property.Value is not Expression)
+                {
+                    Throw.SyntaxError(engine.Realm, $"Invalid property value: expected Expression but found {property.Value.GetType().Name}.");
+                }
                 var propValue = _valueExpressions.GetValue(context, i)!;
 
                 // Check for generator suspension

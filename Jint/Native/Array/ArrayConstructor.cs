@@ -665,9 +665,11 @@ public sealed class ArrayConstructor : Constructor
             newTarget = this;
         }
 
-        var proto = _realm.Intrinsics.Function.GetPrototypeFromConstructor(
-            newTarget,
-            static intrinsics => intrinsics.Array.PrototypeObject);
+        var proto = ReferenceEquals(newTarget, this)
+            ? PrototypeObject
+            : _realm.Intrinsics.Function.GetPrototypeFromConstructor(
+                newTarget,
+                static intrinsics => intrinsics.Array.PrototypeObject);
 
         // check if we can figure out good size
         var capacity = arguments.Length > 0 ? (ulong) arguments.Length : 0;

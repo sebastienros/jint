@@ -49,6 +49,7 @@ internal sealed class NumberPrototype : NumberInstance
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-number.prototype.tolocalestring
+    /// https://tc39.es/ecma402/#sup-number.prototype.tolocalestring
     /// </summary>
     private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
     {
@@ -57,52 +58,14 @@ internal sealed class NumberPrototype : NumberInstance
             Throw.TypeError(_realm);
         }
 
-        var m = TypeConverter.ToNumber(thisObject);
+        var x = TypeConverter.ToNumber(thisObject);
 
-        if (double.IsNaN(m))
-        {
-            return "NaN";
-        }
+        // Use Intl.NumberFormat if available
+        var locales = arguments.At(0);
+        var options = arguments.At(1);
 
-        if (m == 0)
-        {
-            return JsString.NumberZeroString;
-        }
-
-        if (m < 0)
-        {
-            return "-" + ToLocaleString(-m, arguments);
-        }
-
-        if (double.IsPositiveInfinity(m) || m >= double.MaxValue)
-        {
-            return "Infinity";
-        }
-
-        if (double.IsNegativeInfinity(m) || m <= -double.MaxValue)
-        {
-            return "-Infinity";
-        }
-
-        var numberFormat = (NumberFormatInfo) Engine.Options.Culture.NumberFormat.Clone();
-
-        try
-        {
-            if (arguments.Length > 0 && arguments[0].IsString())
-            {
-                var cultureArgument = arguments[0].ToString();
-                numberFormat = (NumberFormatInfo) CultureInfo.GetCultureInfo(cultureArgument).NumberFormat.Clone();
-            }
-
-            int decDigitCount = NumberIntlHelper.GetDecimalDigitCount(m);
-            numberFormat.NumberDecimalDigits = decDigitCount;
-        }
-        catch (CultureNotFoundException)
-        {
-            Throw.RangeError(_realm, "Incorrect locale information provided");
-        }
-
-        return m.ToString("n", numberFormat);
+        var numberFormat = (Intl.JsNumberFormat) Engine.Realm.Intrinsics.NumberFormat.Construct([locales, options], Engine.Realm.Intrinsics.NumberFormat);
+        return numberFormat.Format(x);
     }
 
     private JsValue ValueOf(JsValue thisObject, JsCallArguments arguments)
@@ -131,12 +94,6 @@ internal sealed class NumberPrototype : NumberInstance
             Throw.RangeError(_realm, "fractionDigits argument must be between 0 and 100");
         }
 
-        // limitation with .NET, max is 99
-        if (f == 100)
-        {
-            Throw.RangeError(_realm, "100 fraction digits is not supported due to .NET format specifier limitation");
-        }
-
         var x = TypeConverter.ToNumber(thisObject);
 
         if (double.IsNaN(x))
@@ -144,18 +101,111 @@ internal sealed class NumberPrototype : NumberInstance
             return "NaN";
         }
 
-        if (x >= Ten21)
+        if (x >= Ten21 || x <= -Ten21)
         {
             return ToNumberString(x);
         }
 
-        // handle non-decimal with greater precision
-        if (System.Math.Abs(x - (long) x) < JsNumber.DoubleIsIntegerTolerance)
+        bool negative = false;
+        if (x < 0)
         {
-            return ((long) x).ToString("f" + f, CultureInfo.InvariantCulture);
+            negative = true;
+            x = -x;
         }
 
-        return x.ToString("f" + f, CultureInfo.InvariantCulture);
+        if (f == 0)
+        {
+            // Fast path: no fractional digits
+            var rounded = System.Math.Round(x, MidpointRounding.AwayFromZero);
+            var result = negative ? "-" + ((long) rounded).ToString(CultureInfo.InvariantCulture) : ((long) rounded).ToString(CultureInfo.InvariantCulture);
+            return result;
+        }
+
+        // Use .NET formatting for f <= 99 (fast path)
+        if (f <= 99)
+        {
+            // handle non-decimal with greater precision
+            if (System.Math.Abs(x - (long) x) < JsNumber.DoubleIsIntegerTolerance)
+            {
+                var result = ((long) x).ToString("f" + f, CultureInfo.InvariantCulture);
+                return negative ? "-" + result : result;
+            }
+
+            var formatted = x.ToString("f" + f, CultureInfo.InvariantCulture);
+            return negative ? "-" + formatted : formatted;
+        }
+
+        // Use Dtoa infrastructure for f == 100 (avoids .NET format specifier limitation)
+        return ToFixedDtoa(x, f, negative);
+    }
+
+    private static string ToFixedDtoa(double x, int fractionDigits, bool negative)
+    {
+        if (x == 0)
+        {
+            var sb = new ValueStringBuilder(stackalloc char[128]);
+            if (negative)
+            {
+                sb.Append('-');
+            }
+            sb.Append("0.");
+            sb.Append('0', fractionDigits);
+            return sb.ToString();
+        }
+
+        var dtoaBuilder = new DtoaBuilder(stackalloc char[fractionDigits + 50]);
+        DtoaNumberFormatter.DoubleToAscii(
+            ref dtoaBuilder,
+            x,
+            DtoaMode.Fixed,
+            fractionDigits,
+            out _,
+            out var decimalPoint);
+
+        var result2 = new ValueStringBuilder(stackalloc char[fractionDigits + 50]);
+        if (negative)
+        {
+            result2.Append('-');
+        }
+
+        if (decimalPoint <= 0)
+        {
+            // 0.000...digits
+            result2.Append("0.");
+            result2.Append('0', -decimalPoint);
+            result2.Append(dtoaBuilder._chars.Slice(0, dtoaBuilder.Length));
+            int remaining = fractionDigits - (-decimalPoint + dtoaBuilder.Length);
+            if (remaining > 0)
+            {
+                result2.Append('0', remaining);
+            }
+        }
+        else if (decimalPoint >= dtoaBuilder.Length)
+        {
+            // Integer part only, pad with zeros
+            result2.Append(dtoaBuilder._chars.Slice(0, dtoaBuilder.Length));
+            result2.Append('0', decimalPoint - dtoaBuilder.Length);
+            if (fractionDigits > 0)
+            {
+                result2.Append('.');
+                result2.Append('0', fractionDigits);
+            }
+        }
+        else
+        {
+            // digits split across integer and fractional part
+            result2.Append(dtoaBuilder._chars.Slice(0, decimalPoint));
+            result2.Append('.');
+            int fracDigitsFromDtoa = dtoaBuilder.Length - decimalPoint;
+            result2.Append(dtoaBuilder._chars.Slice(decimalPoint, fracDigitsFromDtoa));
+            int remaining = fractionDigits - fracDigitsFromDtoa;
+            if (remaining > 0)
+            {
+                result2.Append('0', remaining);
+            }
+        }
+
+        return result2.ToString();
     }
 
     /// <summary>
@@ -414,12 +464,25 @@ internal sealed class NumberPrototype : NumberInstance
 
     internal static string ToBase(long n, int radix)
     {
-        const string Digits = "0123456789abcdefghijklmnopqrstuvwxyz";
         if (n == 0)
         {
             return "0";
         }
 
+        // Cache hex strings for small integers (covers common byte range)
+        if (radix == 16 && n is > 0 and <= 0xFF)
+        {
+            return s_hexCache[n] ??= ToBaseCore(n, radix);
+        }
+
+        return ToBaseCore(n, radix);
+    }
+
+    private static readonly string?[] s_hexCache = new string?[256];
+
+    private static string ToBaseCore(long n, int radix)
+    {
+        const string Digits = "0123456789abcdefghijklmnopqrstuvwxyz";
         var sb = new ValueStringBuilder(stackalloc char[64]);
         while (n > 0)
         {

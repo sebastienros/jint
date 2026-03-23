@@ -1,35 +1,23 @@
 {
-  "SuiteGitSha": "9079aeefcefcd55b0e994fb8bda51e06827337bd",
+  "SuiteGitSha": "5c8206929d81b2d3d727ca6aac56c18358c8d790",
   //"SuiteDirectory": "//mnt/c/work/test262",
   "TargetPath": "./Generated",
   "Namespace": "Jint.Tests.Test262",
   "Parallel": true,
   "ExcludedFeatures": [
     "import-defer",
-    "regexp-lookbehind",
-    "regexp-modifiers",
+    "import-text",
     "regexp-unicode-property-escapes",
     "regexp-v-flag",
     "source-phase-imports",
-    "tail-call-optimization",
-    "Temporal"
+    "tail-call-optimization"
   ],
   "ExcludedFlags": [
     "CanBlockIsFalse"
   ],
   "ExcludedDirectories": [
-    "annexB",
-    "intl402"
   ],
   "ExcludedFiles": [
-
-    // requires rewrite of destructing towards spec
-    "language/destructuring/binding/keyed-destructuring-property-reference-target-evaluation-order-with-bindings.js",
-    "language/expressions/assignment/destructuring/keyed-destructuring-property-reference-target-evaluation-order-with-bindings.js",
-    "language/expressions/assignment/destructuring/default-expr-throws-iterator-return-get-throws.js",
-    "language/expressions/assignment/destructuring/default-expr-throws-iterator-return-is-not-callable.js",
-    "language/expressions/assignment/destructuring/target-assign-throws-iterator-return-get-throws.js",
-    "language/expressions/assignment/destructuring/target-assign-throws-iterator-return-is-not-callable.js",
 
     // Acornima doesn't implement unicode 15/16/17 yet
     "language/identifiers/*-unicode-15.*.js",
@@ -43,117 +31,364 @@
     // Currently quite impossible to detect if assignment target is CoverParenthesizedExpression
     "language/expressions/assignment/fn-name-lhs-cover.js",
 
-    // RegExp conversion limitations
+    // === REGEX EXCLUSIONS ===
+
+    // CharacterClassEscapes tests internally use v flag which is not supported
+    "built-ins/RegExp/CharacterClassEscapes/*.js",
+
+    // .NET regex engine: forward backreferences not supported in ECMAScript mode
     "built-ins/RegExp/S15.10.2.11_A1_T5.js",
     "built-ins/RegExp/S15.10.2.11_A1_T7.js",
-    "built-ins/RegExp/S15.10.2.5_A1_T4.js",
+    "language/literals/regexp/named-groups/forward-reference.js",
     "built-ins/RegExp/named-groups/non-unicode-references.js",
     "built-ins/RegExp/named-groups/unicode-references.js",
-    "built-ins/RegExp/quantifier-integer-limit.js",
-    "language/literals/regexp/named-groups/forward-reference.js",
 
-    "built-ins/RegExp/CharacterClassEscapes/character-class-digit-class-escape-negative-cases.js",
-    "built-ins/RegExp/CharacterClassEscapes/character-class-digit-class-escape-positive-cases.js",
-    "built-ins/RegExp/CharacterClassEscapes/character-class-non-digit-class-escape-negative-cases.js",
-    "built-ins/RegExp/CharacterClassEscapes/character-class-non-digit-class-escape-positive-cases.js",
-    "built-ins/RegExp/CharacterClassEscapes/character-class-non-whitespace-class-escape-negative-cases.js",
-    "built-ins/RegExp/CharacterClassEscapes/character-class-non-whitespace-class-escape-positive-cases.js",
-    "built-ins/RegExp/CharacterClassEscapes/character-class-non-word-class-escape-negative-cases.js",
-    "built-ins/RegExp/CharacterClassEscapes/character-class-non-word-class-escape-positive-cases.js",
-    "built-ins/RegExp/CharacterClassEscapes/character-class-whitespace-class-escape-negative-cases.js",
-    "built-ins/RegExp/CharacterClassEscapes/character-class-whitespace-class-escape-positive-cases.js",
-    "built-ins/RegExp/CharacterClassEscapes/character-class-word-class-escape-negative-cases.js",
-    "built-ins/RegExp/CharacterClassEscapes/character-class-word-class-escape-positive-cases.js",
+    // .NET regex engine: lookbehind backreference capture semantics differ from JS
+    "built-ins/RegExp/lookBehind/back-references-to-captures.js",
+    "built-ins/RegExp/lookBehind/mutual-recursive.js",
 
-    // RegExp handling problems
+    // .NET regex engine: nullable quantifier and lookahead capture group semantics differ
     "built-ins/RegExp/nullable-quantifier.js",
-    "built-ins/RegExp/prototype/exec/S15.10.6.2_A1_T6.js",
-    "language/literals/regexp/u-case-mapping.js",
     "built-ins/RegExp/lookahead-quantifier-match-groups.js",
+
+    // .NET regex engine: scoped regexp modifiers don't fully match ECMAScript boundary and multiline semantics
+    "built-ins/RegExp/regexp-modifiers/add-ignoreCase-affects-slash-lower-b.js",
+    "built-ins/RegExp/regexp-modifiers/add-ignoreCase-affects-slash-lower-w.js",
+    "built-ins/RegExp/regexp-modifiers/add-ignoreCase-affects-slash-upper-b.js",
+    "built-ins/RegExp/regexp-modifiers/add-ignoreCase-affects-slash-upper-w.js",
+    "built-ins/RegExp/regexp-modifiers/add-multiline.js",
+    "built-ins/RegExp/regexp-modifiers/remove-multiline-does-not-affect-dotAll-flag.js",
+
+    // .NET regex engine: complex quantifier capture group tracking differs
+    "built-ins/RegExp/S15.10.2.5_A1_T4.js",
+    "built-ins/RegExp/prototype/exec/S15.10.6.2_A1_T6.js",
+
+    // .NET regex engine: Unicode case folding tables differ from ECMAScript CaseFolding.txt
+    "language/literals/regexp/u-case-mapping.js",
     "built-ins/RegExp/unicode_full_case_folding.js",
-    "built-ins/RegExp/named-groups/duplicate-names-exec.js",
+
+    // .NET regex engine: quantifier values exceeding int.MaxValue
+    "built-ins/RegExp/quantifier-integer-limit.js",
+
+    // .NET regex engine: quantified groups with alternation retain captures from previous iterations
+    // (JavaScript resets non-participating groups per iteration, .NET does not)
     "built-ins/RegExp/named-groups/duplicate-names-exec.js",
     "built-ins/RegExp/named-groups/duplicate-names-match.js",
-    "built-ins/RegExp/named-groups/duplicate-names-match.js",
-    "built-ins/RegExp/named-groups/duplicate-names-match-indices.js",
-    "built-ins/RegExp/named-groups/duplicate-names-match-indices.js",
-    "built-ins/RegExp/named-groups/duplicate-names-replace.js",
-    "built-ins/RegExp/named-groups/duplicate-names-replace.js",
-    "built-ins/RegExp/named-groups/duplicate-names-replaceall.js",
-    "built-ins/RegExp/named-groups/duplicate-names-replaceall.js",
-    "built-ins/RegExp/prototype/exec/duplicate-named-groups-properties.js",
+    "built-ins/RegExp/named-groups/duplicate-names-test.js",
     "built-ins/RegExp/prototype/exec/duplicate-named-groups-properties.js",
     "built-ins/RegExp/prototype/exec/duplicate-named-indices-groups-properties.js",
-    "built-ins/RegExp/prototype/exec/duplicate-named-indices-groups-properties.js",
     "built-ins/String/prototype/match/duplicate-named-groups-properties.js",
-    "built-ins/String/prototype/match/duplicate-named-groups-properties.js",
-    "built-ins/String/prototype/match/duplicate-named-indices-groups-properties.js",
     "built-ins/String/prototype/match/duplicate-named-indices-groups-properties.js",
 
     // requires investigation how to process complex function name evaluation for property
     "built-ins/Function/prototype/toString/method-computed-property-name.js",
-    "language/expressions/class/elements/class-name-static-initializer-anonymous.js",
-
-    // delete/add detection not implemented for map iterator during iteration
-    "built-ins/Map/prototype/forEach/iterates-values-deleted-then-readded.js",
-    "built-ins/MapIteratorPrototype/next/iteration-mutable.js",
-    "built-ins/Set/prototype/forEach/iterates-values-revisits-after-delete-re-add.js",
-
-    // 100 fraction digits is not supported due to .NET format specifier limitation
-    "built-ins/Number/prototype/toFixed/range.js",
 
     // special casing data
     "built-ins/**/special_casing*.js",
 
-    // failing tests in new test suite
-    "language/expressions/dynamic-import/eval-export-dflt-expr-gen-anon.js",
-    "language/expressions/dynamic-import/eval-export-dflt-expr-gen-named.js",
+    // === INTL402 EXCLUSIONS ===
+    // The following tests require full CLDR locale data support which is not available in the default provider.
+    // Many of these tests require non-English locales (Spanish, Polish, German, Chinese, etc.) or
+    // advanced features like formatRange, calendar-specific formatting, or complex locale canonicalization.
 
-    // eval-code arguments bindings in direct eval
-    "language/eval-code/direct/*-arguments-*.js",
+    // Collator - German phonebook collation
+    "intl402/Collator/prototype/compare/non-normative-phonebook.js",
+    "intl402/Collator/usage-de.js",
 
-    // eval-code indirect always-non-strict
-    "language/eval-code/indirect/always-non-strict.js",
+    // DateTimeFormat - hanidec numbering system has different AM/PM behavior in ICU/CLDR
+    "intl402/DateTimeFormat/prototype/format/numbering-system.js",
 
-    // destructuring with object literal property references
-    "language/expressions/assignment/dstr/array-elem-put-obj-literal-prop-ref-init.js",
-    "language/expressions/assignment/dstr/array-elem-put-obj-literal-prop-ref-init-active.js",
-    "language/expressions/assignment/dstr/obj-prop-elem-target-obj-literal-prop-ref-init.js",
-    "language/expressions/assignment/dstr/obj-prop-elem-target-obj-literal-prop-ref-init-active.js",
-    "language/statements/for-of/dstr/array-elem-put-obj-literal-prop-ref-init.js",
-    "language/statements/for-of/dstr/array-elem-put-obj-literal-prop-ref-init-active.js",
-    "language/statements/for-of/dstr/obj-prop-elem-target-obj-literal-prop-ref-init.js",
-    "language/statements/for-of/dstr/obj-prop-elem-target-obj-literal-prop-ref-init-active.js",
+    // DateTimeFormat - Chinese/Dangi calendar date range issues (.NET ChineseLunisolarCalendar limitations)
+    "intl402/DateTimeFormat/prototype/formatRangeToParts/chinese-calendar-dates.js",
+    "intl402/DateTimeFormat/prototype/formatRangeToParts/dangi-calendar-dates.js",
+    "intl402/DateTimeFormat/prototype/formatToParts/chinese-calendar-dates.js",
+    "intl402/DateTimeFormat/prototype/formatToParts/dangi-calendar-dates.js",
 
-    // assignment to null/undefined base reference
-    "language/expressions/assignment/target-member-computed-reference-null.js",
-    "language/expressions/assignment/target-member-computed-reference-undefined.js",
-    "language/expressions/assignment/target-member-identifier-reference-null.js",
-    "language/expressions/assignment/target-member-identifier-reference-undefined.js",
-    "language/expressions/assignment/target-super-computed-reference-null.js",
-    "language/expressions/assignment/target-super-identifier-reference-null.js",
-    "language/expressions/delete/super-property-null-base.js",
+    // DurationFormat - precision formatting requires exact sub-second arithmetic
+    "intl402/DurationFormat/prototype/format/precision-exact-mathematical-values.js",
+    // Requires Spanish unit patterns (ICU4N doesn't include unit data, only core locale data)
+    "intl402/DurationFormat/prototype/format/mixed-non-numeric-styles-es.js",
 
-    // dynamic import attributes abrupt return
-    "language/expressions/dynamic-import/import-attributes/2nd-param-evaluation-abrupt-return.js",
+    // NumberFormat - string arguments need mathematical value precision (not IEEE 754 double)
+    "intl402/NumberFormat/prototype/format/format-significant-digits.js",
+    "intl402/NumberFormat/prototype/format/value-decimal-string.js",
 
-    // method forbidden extensions
-    "language/expressions/object/method-definition/forbidden-ext/b1/meth-forbidden-ext-direct-access-prop-arguments.js",
-    "language/expressions/object/method-definition/forbidden-ext/b1/meth-forbidden-ext-direct-access-prop-caller.js",
+    // Locale fallback chains - zh-CN should match zh-Hans-CN in supportedLocalesOf
+    "intl402/fallback-locales-are-supported.js",
+    "intl402/supportedLocalesOf-consistent-with-resolvedOptions.js",
+    // NumberFormat - Indian lakh/crore grouping and compact patterns
+    "intl402/NumberFormat/prototype/format/useGrouping-extended-en-IN.js",
+    // formatRange - sign collapsing and string precision
+    "intl402/NumberFormat/prototype/formatRange/en-US.js",
+    "intl402/NumberFormat/prototype/formatRange/pt-PT.js",
+    "intl402/NumberFormat/prototype/formatRangeToParts/en-US.js",
+    // Unit formatting formatToParts - locale-specific unit patterns
+    "intl402/NumberFormat/prototype/formatToParts/unit-de-DE.js",
+    "intl402/NumberFormat/prototype/formatToParts/unit-ja-JP.js",
+    "intl402/NumberFormat/prototype/formatToParts/unit-ko-KR.js",
+    "intl402/NumberFormat/prototype/formatToParts/unit-zh-TW.js",
 
-    // statement list completion value
-    "language/statementList/eval-block-with-statment-block.js",
+    // PluralRules - compact notation affects plural category
+    "intl402/PluralRules/prototype/select/notation.js",
 
-    // function statement
-    "language/statements/function/S13_A12_T2.js",
+    // === INTL402 TEMPORAL EXCLUSIONS ===
 
-    // module namespace export ambiguity resolution
-    "language/module-code/ambiguous-export-bindings/namespace-unambiguous-if-import-star-as-and-export.js",
-    "language/module-code/ambiguous-export-bindings/namespace-unambiguous-if-export-star-as-from-and-import-star-as-and-export.js",
+    // dateStyle with non-ISO calendar formatting (Islamic month names etc.)
+    "intl402/Temporal/Instant/prototype/toLocaleString/dateStyle.js",
+    "intl402/Temporal/PlainDate/prototype/toLocaleString/dateStyle.js",
+    "intl402/Temporal/PlainDateTime/prototype/toLocaleString/dateStyle.js",
+    "intl402/Temporal/PlainMonthDay/prototype/toLocaleString/dateStyle.js",
+    "intl402/Temporal/PlainYearMonth/prototype/toLocaleString/dateStyle.js",
+    "intl402/Temporal/ZonedDateTime/prototype/toLocaleString/dateStyle.js",
 
-    // TLA with complex module graph - dynamic import inside TLA module doesn't settle
-    // when module has both static and dynamic imports with cyclic dependencies
-    "language/module-code/top-level-await/module-graphs-does-not-hang.js"
+    // .NET ar-EG locale defaults to latn numbering system instead of arab (Arabic-Indic digits)
+    "intl402/DateTimeFormat/prototype/format/temporal-objects-no-time-clip-non-latin-numerals.js",
+
+
+    // Remaining intl402/Temporal calendar failures
+    "intl402/DateTimeFormat/prototype/formatToParts/compare-to-temporal-lunisolar.js",
+    "intl402/DateTimeFormat/prototype/formatToParts/compare-to-temporal.js",
+    "intl402/DateTimeFormat/prototype/formatToParts/era.js",
+    "intl402/Temporal/PlainDate/from/calc-epoch-year-hebrew.js",
+    "intl402/Temporal/PlainDate/from/calendarresolvefields-error-ordering-chinese.js",
+    "intl402/Temporal/PlainDate/from/calendarresolvefields-error-ordering-gregory.js",
+    "intl402/Temporal/PlainDate/from/calendarresolvefields-error-ordering-japanese.js",
+    "intl402/Temporal/PlainDate/from/extreme-dates.js",
+    "intl402/Temporal/PlainDate/from/hebrew-keviah.js",
+    "intl402/Temporal/PlainDate/from/invalid-month-codes-hebrew.js",
+    "intl402/Temporal/PlainDate/from/non-positive-single-era-year.js",
+    "intl402/Temporal/PlainDate/from/roundtrip-from-property-bag.js",
+    "intl402/Temporal/PlainDate/from/roundtrip-from-string.js",
+    "intl402/Temporal/PlainDate/prototype/add/leap-months-hebrew.js",
+    "intl402/Temporal/PlainDate/prototype/add/leap-year-hebrew.js",
+    "intl402/Temporal/PlainDate/prototype/daysInMonth/basic-islamic-umalqura.js",
+    "intl402/Temporal/PlainDate/prototype/daysInYear/basic-islamic-umalqura.js",
+    "intl402/Temporal/PlainDate/prototype/inLeapYear/basic-islamic-umalqura.js",
+    "intl402/Temporal/PlainDate/prototype/since/intercalary-month-coptic.js",
+    "intl402/Temporal/PlainDate/prototype/since/intercalary-month-ethioaa.js",
+    "intl402/Temporal/PlainDate/prototype/since/intercalary-month-ethiopic.js",
+    "intl402/Temporal/PlainDate/prototype/since/leap-months-chinese.js",
+    "intl402/Temporal/PlainDate/prototype/since/leap-months-dangi.js",
+    "intl402/Temporal/PlainDate/prototype/since/leap-months-hebrew.js",
+    "intl402/Temporal/PlainDate/prototype/since/wrapping-at-end-of-month-hebrew.js",
+    "intl402/Temporal/PlainDate/prototype/subtract/leap-months-hebrew.js",
+    "intl402/Temporal/PlainDate/prototype/subtract/leap-year-hebrew.js",
+    "intl402/Temporal/PlainDate/prototype/until/intercalary-month-coptic.js",
+    "intl402/Temporal/PlainDate/prototype/until/intercalary-month-ethioaa.js",
+    "intl402/Temporal/PlainDate/prototype/until/intercalary-month-ethiopic.js",
+    "intl402/Temporal/PlainDate/prototype/until/leap-months-chinese.js",
+    "intl402/Temporal/PlainDate/prototype/until/leap-months-dangi.js",
+    "intl402/Temporal/PlainDate/prototype/until/leap-months-hebrew.js",
+    "intl402/Temporal/PlainDate/prototype/until/leap-year-until.js",
+    "intl402/Temporal/PlainDate/prototype/until/wrapping-at-end-of-month-hebrew.js",
+    "intl402/Temporal/PlainDate/prototype/with/basic-islamic-umalqura.js",
+    "intl402/Temporal/PlainDate/prototype/with/leap-months-hebrew.js",
+    "intl402/Temporal/PlainDate/prototype/with/leap-year-hebrew.js",
+    "intl402/Temporal/PlainDate/prototype/withCalendar/extreme-dates.js",
+    "intl402/Temporal/PlainDate/prototype/year/arithmetic-year.js",
+    "intl402/Temporal/PlainDate/prototype/year/epoch-year.js",
+    "intl402/Temporal/PlainDateTime/from/calendarresolvefields-error-ordering-chinese.js",
+    "intl402/Temporal/PlainDateTime/from/extreme-dates.js",
+    "intl402/Temporal/PlainDateTime/from/invalid-month-codes-hebrew.js",
+    "intl402/Temporal/PlainDateTime/from/non-positive-single-era-year.js",
+    "intl402/Temporal/PlainDateTime/from/roundtrip-from-property-bag.js",
+    "intl402/Temporal/PlainDateTime/from/roundtrip-from-string.js",
+    "intl402/Temporal/PlainDateTime/prototype/add/leap-months-hebrew.js",
+    "intl402/Temporal/PlainDateTime/prototype/add/leap-year-hebrew.js",
+    "intl402/Temporal/PlainDateTime/prototype/daysInMonth/basic-islamic-umalqura.js",
+    "intl402/Temporal/PlainDateTime/prototype/daysInYear/basic-islamic-umalqura.js",
+    "intl402/Temporal/PlainDateTime/prototype/inLeapYear/basic-islamic-umalqura.js",
+    "intl402/Temporal/PlainDateTime/prototype/since/intercalary-month-coptic.js",
+    "intl402/Temporal/PlainDateTime/prototype/since/intercalary-month-ethioaa.js",
+    "intl402/Temporal/PlainDateTime/prototype/since/intercalary-month-ethiopic.js",
+    "intl402/Temporal/PlainDateTime/prototype/since/leap-months-chinese.js",
+    "intl402/Temporal/PlainDateTime/prototype/since/leap-months-dangi.js",
+    "intl402/Temporal/PlainDateTime/prototype/since/leap-months-hebrew.js",
+    "intl402/Temporal/PlainDateTime/prototype/since/wrapping-at-end-of-month-hebrew.js",
+    "intl402/Temporal/PlainDateTime/prototype/subtract/leap-months-hebrew.js",
+    "intl402/Temporal/PlainDateTime/prototype/subtract/leap-year-hebrew.js",
+    "intl402/Temporal/PlainDateTime/prototype/until/intercalary-month-coptic.js",
+    "intl402/Temporal/PlainDateTime/prototype/until/intercalary-month-ethioaa.js",
+    "intl402/Temporal/PlainDateTime/prototype/until/intercalary-month-ethiopic.js",
+    "intl402/Temporal/PlainDateTime/prototype/until/leap-months-chinese.js",
+    "intl402/Temporal/PlainDateTime/prototype/until/leap-months-dangi.js",
+    "intl402/Temporal/PlainDateTime/prototype/until/leap-months-hebrew.js",
+    "intl402/Temporal/PlainDateTime/prototype/until/leap-year-until.js",
+    "intl402/Temporal/PlainDateTime/prototype/until/wrapping-at-end-of-month-hebrew.js",
+    "intl402/Temporal/PlainDateTime/prototype/with/basic-islamic-umalqura.js",
+    "intl402/Temporal/PlainDateTime/prototype/with/leap-months-hebrew.js",
+    "intl402/Temporal/PlainDateTime/prototype/with/leap-year-hebrew.js",
+    "intl402/Temporal/PlainDateTime/prototype/withCalendar/extreme-dates.js",
+    "intl402/Temporal/PlainDateTime/prototype/year/arithmetic-year.js",
+    "intl402/Temporal/PlainDateTime/prototype/year/epoch-year.js",
+    "intl402/Temporal/PlainMonthDay/from/calendarresolvefields-error-ordering-chinese.js",
+    "intl402/Temporal/PlainMonthDay/from/calendarresolvefields-error-ordering-hebrew.js",
+    "intl402/Temporal/PlainMonthDay/from/calendarresolvefields-error-ordering-islamic.js",
+    "intl402/Temporal/PlainMonthDay/from/chinese-30-day-leap-months.js",
+    "intl402/Temporal/PlainMonthDay/from/chinese-calendar-dates.js",
+    "intl402/Temporal/PlainMonthDay/from/chinese-dangi-constrain-rare-leap-months.js",
+    "intl402/Temporal/PlainMonthDay/from/chinese-dangi-leap-month-with-year-from-options-bag-overflow-reject.js",
+    "intl402/Temporal/PlainMonthDay/from/chinese-dangi-leap-month-with-year-from-options-bag.js",
+    "intl402/Temporal/PlainMonthDay/from/chinese-leap-month-codes-common.js",
+    "intl402/Temporal/PlainMonthDay/from/chinese-month-codes.js",
+    "intl402/Temporal/PlainMonthDay/from/constrain-to-leap-day.js",
+    "intl402/Temporal/PlainMonthDay/from/coptic-invalid-month-code-m14.js",
+    "intl402/Temporal/PlainMonthDay/from/dangi-30-day-leap-months.js",
+    "intl402/Temporal/PlainMonthDay/from/dangi-calendar-dates.js",
+    "intl402/Temporal/PlainMonthDay/from/dangi-leap-month-codes-common.js",
+    "intl402/Temporal/PlainMonthDay/from/dangi-month-codes.js",
+    "intl402/Temporal/PlainMonthDay/from/dont-calculate-month-info-for-out-of-range-year.js",
+    "intl402/Temporal/PlainMonthDay/from/ethioaa-invalid-month-code-m14.js",
+    "intl402/Temporal/PlainMonthDay/from/ethiopic-invalid-month-code-m14.js",
+    "intl402/Temporal/PlainMonthDay/from/fields-overspecified.js",
+    "intl402/Temporal/PlainMonthDay/from/hebrew-month-codes.js",
+    "intl402/Temporal/PlainMonthDay/from/indian-invalid-month-code-m13.js",
+    "intl402/Temporal/PlainMonthDay/from/invalid-month-codes-hebrew.js",
+    "intl402/Temporal/PlainMonthDay/from/islamic-civil-invalid-month-code-m13.js",
+    "intl402/Temporal/PlainMonthDay/from/islamic-civil-month-codes.js",
+    "intl402/Temporal/PlainMonthDay/from/islamic-tbla-invalid-month-code-m13.js",
+    "intl402/Temporal/PlainMonthDay/from/islamic-tbla-month-codes.js",
+    "intl402/Temporal/PlainMonthDay/from/islamic-umalqura-invalid-month-code-m13.js",
+    "intl402/Temporal/PlainMonthDay/from/islamic-umalqura-month-codes.js",
+    "intl402/Temporal/PlainMonthDay/from/persian-invalid-month-code-m13.js",
+    "intl402/Temporal/PlainMonthDay/from/reference-date-noniso-calendar.js",
+    "intl402/Temporal/PlainMonthDay/from/reference-year-1972.js",
+    "intl402/Temporal/PlainMonthDay/prototype/monthCode/chinese-calendar-dates.js",
+    "intl402/Temporal/PlainMonthDay/prototype/monthCode/dangi-calendar-dates.js",
+    "intl402/Temporal/PlainYearMonth/from/calendarresolvefields-error-ordering-chinese.js",
+    "intl402/Temporal/PlainYearMonth/from/calendarresolvefields-error-ordering-gregory.js",
+    "intl402/Temporal/PlainYearMonth/from/calendarresolvefields-error-ordering-japanese.js",
+    "intl402/Temporal/PlainYearMonth/from/extreme-dates.js",
+    "intl402/Temporal/PlainYearMonth/from/extreme-unsupported-dates.js",
+    "intl402/Temporal/PlainYearMonth/from/invalid-month-codes-hebrew.js",
+    "intl402/Temporal/PlainYearMonth/from/non-positive-single-era-year.js",
+    "intl402/Temporal/PlainYearMonth/from/reference-day-hebrew.js",
+    "intl402/Temporal/PlainYearMonth/from/roundtrip-from-property-bag.js",
+    "intl402/Temporal/PlainYearMonth/prototype/add/leap-months-hebrew.js",
+    "intl402/Temporal/PlainYearMonth/prototype/add/leap-year-hebrew.js",
+    "intl402/Temporal/PlainYearMonth/prototype/daysInMonth/basic-islamic-umalqura.js",
+    "intl402/Temporal/PlainYearMonth/prototype/daysInYear/basic-islamic-umalqura.js",
+    "intl402/Temporal/PlainYearMonth/prototype/inLeapYear/basic-islamic-umalqura.js",
+    "intl402/Temporal/PlainYearMonth/prototype/since/basic-chinese.js",
+    "intl402/Temporal/PlainYearMonth/prototype/since/basic-coptic.js",
+    "intl402/Temporal/PlainYearMonth/prototype/since/basic-dangi.js",
+    "intl402/Temporal/PlainYearMonth/prototype/since/basic-ethioaa.js",
+    "intl402/Temporal/PlainYearMonth/prototype/since/basic-ethiopic.js",
+    "intl402/Temporal/PlainYearMonth/prototype/since/basic-hebrew.js",
+    "intl402/Temporal/PlainYearMonth/prototype/since/basic-indian.js",
+    "intl402/Temporal/PlainYearMonth/prototype/since/basic-islamic-civil.js",
+    "intl402/Temporal/PlainYearMonth/prototype/since/basic-islamic-tbla.js",
+    "intl402/Temporal/PlainYearMonth/prototype/since/basic-islamic-umalqura.js",
+    "intl402/Temporal/PlainYearMonth/prototype/since/basic-persian.js",
+    "intl402/Temporal/PlainYearMonth/prototype/since/chinese-calendar-dates.js",
+    "intl402/Temporal/PlainYearMonth/prototype/since/dangi-calendar-dates.js",
+    "intl402/Temporal/PlainYearMonth/prototype/since/era-boundary-islamic-civil.js",
+    "intl402/Temporal/PlainYearMonth/prototype/since/era-boundary-islamic-tbla.js",
+    "intl402/Temporal/PlainYearMonth/prototype/since/era-boundary-islamic-umalqura.js",
+    "intl402/Temporal/PlainYearMonth/prototype/since/intercalary-month-coptic.js",
+    "intl402/Temporal/PlainYearMonth/prototype/since/intercalary-month-ethioaa.js",
+    "intl402/Temporal/PlainYearMonth/prototype/since/intercalary-month-ethiopic.js",
+    "intl402/Temporal/PlainYearMonth/prototype/since/leap-months-chinese.js",
+    "intl402/Temporal/PlainYearMonth/prototype/since/leap-months-dangi.js",
+    "intl402/Temporal/PlainYearMonth/prototype/since/leap-months-hebrew.js",
+    "intl402/Temporal/PlainYearMonth/prototype/subtract/leap-months-hebrew.js",
+    "intl402/Temporal/PlainYearMonth/prototype/subtract/leap-year-hebrew.js",
+    "intl402/Temporal/PlainYearMonth/prototype/until/basic-chinese.js",
+    "intl402/Temporal/PlainYearMonth/prototype/until/basic-coptic.js",
+    "intl402/Temporal/PlainYearMonth/prototype/until/basic-dangi.js",
+    "intl402/Temporal/PlainYearMonth/prototype/until/basic-ethioaa.js",
+    "intl402/Temporal/PlainYearMonth/prototype/until/basic-ethiopic.js",
+    "intl402/Temporal/PlainYearMonth/prototype/until/basic-hebrew.js",
+    "intl402/Temporal/PlainYearMonth/prototype/until/basic-indian.js",
+    "intl402/Temporal/PlainYearMonth/prototype/until/basic-islamic-civil.js",
+    "intl402/Temporal/PlainYearMonth/prototype/until/basic-islamic-tbla.js",
+    "intl402/Temporal/PlainYearMonth/prototype/until/basic-islamic-umalqura.js",
+    "intl402/Temporal/PlainYearMonth/prototype/until/basic-persian.js",
+    "intl402/Temporal/PlainYearMonth/prototype/until/era-boundary-islamic-civil.js",
+    "intl402/Temporal/PlainYearMonth/prototype/until/era-boundary-islamic-tbla.js",
+    "intl402/Temporal/PlainYearMonth/prototype/until/era-boundary-islamic-umalqura.js",
+    "intl402/Temporal/PlainYearMonth/prototype/until/intercalary-month-coptic.js",
+    "intl402/Temporal/PlainYearMonth/prototype/until/intercalary-month-ethioaa.js",
+    "intl402/Temporal/PlainYearMonth/prototype/until/intercalary-month-ethiopic.js",
+    "intl402/Temporal/PlainYearMonth/prototype/until/leap-months-chinese.js",
+    "intl402/Temporal/PlainYearMonth/prototype/until/leap-months-dangi.js",
+    "intl402/Temporal/PlainYearMonth/prototype/until/leap-months-hebrew.js",
+    "intl402/Temporal/PlainYearMonth/prototype/with/leap-months-hebrew.js",
+    "intl402/Temporal/PlainYearMonth/prototype/with/mutually-exclusive-fields-chinese.js",
+    "intl402/Temporal/PlainYearMonth/prototype/with/mutually-exclusive-fields-coptic.js",
+    "intl402/Temporal/PlainYearMonth/prototype/with/mutually-exclusive-fields-dangi.js",
+    "intl402/Temporal/PlainYearMonth/prototype/with/mutually-exclusive-fields-ethioaa.js",
+    "intl402/Temporal/PlainYearMonth/prototype/with/mutually-exclusive-fields-ethiopic.js",
+    "intl402/Temporal/PlainYearMonth/prototype/with/mutually-exclusive-fields-hebrew.js",
+    "intl402/Temporal/PlainYearMonth/prototype/with/mutually-exclusive-fields-indian.js",
+    "intl402/Temporal/PlainYearMonth/prototype/with/mutually-exclusive-fields-islamic-civil.js",
+    "intl402/Temporal/PlainYearMonth/prototype/with/mutually-exclusive-fields-islamic-tbla.js",
+    "intl402/Temporal/PlainYearMonth/prototype/with/mutually-exclusive-fields-islamic-umalqura.js",
+    "intl402/Temporal/PlainYearMonth/prototype/with/mutually-exclusive-fields-persian.js",
+    "intl402/Temporal/PlainYearMonth/prototype/year/arithmetic-year.js",
+    "intl402/Temporal/PlainYearMonth/prototype/year/epoch-year.js",
+    "intl402/Temporal/ZonedDateTime/from/calendarresolvefields-error-ordering-chinese.js",
+    "intl402/Temporal/ZonedDateTime/from/extreme-dates.js",
+    "intl402/Temporal/ZonedDateTime/from/invalid-month-codes-hebrew.js",
+    "intl402/Temporal/ZonedDateTime/from/non-positive-single-era-year.js",
+    "intl402/Temporal/ZonedDateTime/from/roundtrip-from-property-bag.js",
+    "intl402/Temporal/ZonedDateTime/from/roundtrip-from-string.js",
+    "intl402/Temporal/ZonedDateTime/prototype/add/leap-months-hebrew.js",
+    "intl402/Temporal/ZonedDateTime/prototype/add/leap-year-hebrew.js",
+    "intl402/Temporal/ZonedDateTime/prototype/daysInMonth/basic-islamic-umalqura.js",
+    "intl402/Temporal/ZonedDateTime/prototype/daysInYear/basic-islamic-umalqura.js",
+    "intl402/Temporal/ZonedDateTime/prototype/inLeapYear/basic-islamic-umalqura.js",
+    "intl402/Temporal/ZonedDateTime/prototype/since/intercalary-month-coptic.js",
+    "intl402/Temporal/ZonedDateTime/prototype/since/intercalary-month-ethioaa.js",
+    "intl402/Temporal/ZonedDateTime/prototype/since/intercalary-month-ethiopic.js",
+    "intl402/Temporal/ZonedDateTime/prototype/since/leap-months-chinese.js",
+    "intl402/Temporal/ZonedDateTime/prototype/since/leap-months-dangi.js",
+    "intl402/Temporal/ZonedDateTime/prototype/since/leap-months-hebrew.js",
+    "intl402/Temporal/ZonedDateTime/prototype/since/wrapping-at-end-of-month-hebrew.js",
+    "intl402/Temporal/ZonedDateTime/prototype/subtract/leap-months-hebrew.js",
+    "intl402/Temporal/ZonedDateTime/prototype/subtract/leap-year-hebrew.js",
+    "intl402/Temporal/ZonedDateTime/prototype/until/intercalary-month-coptic.js",
+    "intl402/Temporal/ZonedDateTime/prototype/until/intercalary-month-ethioaa.js",
+    "intl402/Temporal/ZonedDateTime/prototype/until/intercalary-month-ethiopic.js",
+    "intl402/Temporal/ZonedDateTime/prototype/until/leap-months-chinese.js",
+    "intl402/Temporal/ZonedDateTime/prototype/until/leap-months-dangi.js",
+    "intl402/Temporal/ZonedDateTime/prototype/until/leap-months-hebrew.js",
+    "intl402/Temporal/ZonedDateTime/prototype/until/leap-year-until.js",
+    "intl402/Temporal/ZonedDateTime/prototype/until/wrapping-at-end-of-month-hebrew.js",
+    "intl402/Temporal/ZonedDateTime/prototype/with/basic-islamic-umalqura.js",
+    "intl402/Temporal/ZonedDateTime/prototype/with/leap-months-hebrew.js",
+    "intl402/Temporal/ZonedDateTime/prototype/with/leap-year-hebrew.js",
+    "intl402/Temporal/ZonedDateTime/prototype/withCalendar/extreme-dates.js",
+    "intl402/Temporal/ZonedDateTime/prototype/year/arithmetic-year.js",
+    "intl402/Temporal/ZonedDateTime/prototype/year/epoch-year.js",
+
+    // === ANNEX B EXCLUSIONS ===
+
+    // Acornima parser limitation: HTML-like comments (<!-- and -->) in dynamic Function() bodies/params
+    // Requires parser option for HTML comments which Acornima doesn't support in function constructor context
+    "annexB/built-ins/Function/createdynfn-html-close-comment-body.js",
+    "annexB/built-ins/Function/createdynfn-html-close-comment-params.js",
+    "annexB/built-ins/Function/createdynfn-html-open-comment-body.js",
+    "annexB/built-ins/Function/createdynfn-html-open-comment-params.js",
+    "annexB/built-ins/Function/createdynfn-no-line-terminator-html-close-comment-body.js",
+
+    // Acornima parser limitation: assignment target type validation for call expressions
+    // Per B.3.7, non-strict mode should allow CallExpression as assignment target in certain cases
+    "annexB/language/expressions/assignmenttargettype/callexpression-as-for-in-lhs.js",
+    "annexB/language/expressions/assignmenttargettype/callexpression-as-for-of-lhs.js",
+    "annexB/language/expressions/assignmenttargettype/callexpression-in-compound-assignment.js",
+    "annexB/language/expressions/assignmenttargettype/callexpression-in-postfix-update.js",
+    "annexB/language/expressions/assignmenttargettype/callexpression-in-prefix-update.js",
+    "annexB/language/expressions/assignmenttargettype/callexpression.js",
+    "annexB/language/expressions/assignmenttargettype/cover-callexpression-and-asyncarrowhead.js",
+
+    // Acornima parser limitation: for-in initializer in non-strict mode
+    // Per B.3.6, `for (var x = expr in obj)` should be allowed in sloppy mode
+    "annexB/language/statements/for-in/nonstrict-initializer.js",
+
+    // Acornima parser/RegExp limitation: malformed named groups in non-unicode mode
+    // Per B.1.2, non-unicode RegExp should accept some malformed named group syntax
+    "annexB/built-ins/RegExp/named-groups/non-unicode-malformed.js"
 
   ]
 }

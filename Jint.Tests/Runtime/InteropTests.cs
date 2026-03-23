@@ -91,6 +91,25 @@ public partial class InteropTests : IDisposable
     }
 
     [Fact]
+    public void ReadOnlyDictionaryShouldNotBeTreatedAsArrayLike()
+    {
+        var engine = new Engine();
+
+        var dictionary = new ReadOnlyDictionary(new Dictionary<string, object>
+        {
+            { "foo", 5 },
+            { "bar", "A string" }
+        });
+        engine.SetValue(nameof(dictionary), dictionary);
+
+        var result = engine.Evaluate($"JSON.stringify({nameof(dictionary)})").AsString();
+        Assert.Equal("{\"foo\":5,\"bar\":\"A string\"}", result);
+
+        var keys = engine.Evaluate($"Object.keys({nameof(dictionary)})").AsArray();
+        Assert.Equal((uint) 2, keys.Length);
+    }
+
+    [Fact]
     public void EngineShouldRoundtripParsedJSONBackToStringCorrectly()
     {
         var engine = new Engine();
@@ -2319,6 +2338,134 @@ public partial class InteropTests : IDisposable
     }
 
     [Fact]
+    public void ShouldDecorateClrExceptionErrors()
+    {
+        var exceptionMessage = "Test exception";
+        var decoratorCalled = false;
+        Exception capturedOriginalException = null;
+
+        var engine = new Engine(options =>
+        {
+            options.CatchClrExceptions();
+            options.DecorateClrExceptionErrors((engine, error, clrException) =>
+            {
+                decoratorCalled = true;
+                capturedOriginalException = clrException;
+                
+                // Add custom property
+                error.Set("clrType", clrException.GetType().FullName);
+                error.Set("customProperty", "decorated");
+                
+                // Modify existing property
+                var currentMessage = error.Get("message").ToString();
+                error.Set("message", $"[Decorated] {currentMessage}");
+            });
+        });
+
+        engine.SetValue("throwException", new Action(() => { throw new InvalidOperationException(exceptionMessage); }));
+
+        var result = engine.Evaluate(@"
+            let caughtError;
+            try {
+                throwException();
+            } catch(e) {
+                caughtError = e;
+            }
+            caughtError;
+        ");
+
+        Assert.True(decoratorCalled, "Decorator should have been called");
+        Assert.NotNull(capturedOriginalException);
+        Assert.IsType<InvalidOperationException>(capturedOriginalException);
+        Assert.Equal(exceptionMessage, capturedOriginalException.Message);
+        
+        var errorObject = result.AsObject();
+        Assert.Equal("decorated", errorObject.Get("customProperty").AsString());
+        Assert.Equal("System.InvalidOperationException", errorObject.Get("clrType").AsString());
+        Assert.Equal($"[Decorated] {exceptionMessage}", errorObject.Get("message").AsString());
+    }
+
+    [Fact]
+    public void ShouldDecorateClrExceptionErrorsFromMemberCalls()
+    {
+        var decoratorCallCount = 0;
+
+        var engine = new Engine(options =>
+        {
+            options.AllowClr();
+            options.CatchClrExceptions();
+            options.DecorateClrExceptionErrors((engine, error, clrException) =>
+            {
+                decoratorCallCount++;
+                error.Set("exceptionType", clrException.GetType().Name);
+            });
+        });
+
+        engine.SetValue("instance", new MemberExceptionTest(false));
+
+        engine.Execute(@"
+            try {
+                instance.ThrowingFunction();
+            } catch(e) {
+                if (e.exceptionType !== 'InvalidOperationException') {
+                    throw new Error('Expected exceptionType to be InvalidOperationException');
+                }
+            }
+        ");
+
+        Assert.Equal(1, decoratorCallCount);
+    }
+
+    [Fact]
+    public void ShouldNotCallDecoratorWhenExceptionNotCaught()
+    {
+        var decoratorCalled = false;
+
+        var engine = new Engine(options =>
+        {
+            options.CatchClrExceptions(e => e is NotSupportedException);
+            options.DecorateClrExceptionErrors((engine, error, clrException) =>
+            {
+                decoratorCalled = true;
+            });
+        });
+
+        engine.SetValue("throwException", new Action(() => { throw new InvalidOperationException(); }));
+
+        // Should throw because InvalidOperationException is not caught
+        Assert.Throws<InvalidOperationException>(() => engine.Evaluate("throwException()"));
+        Assert.False(decoratorCalled, "Decorator should not be called when exception is not caught");
+    }
+
+    [Fact]
+    public void DecoratorCanAccessEngineContext()
+    {
+        var engine = new Engine(options =>
+        {
+            options.CatchClrExceptions();
+            options.DecorateClrExceptionErrors((engine, error, clrException) =>
+            {
+                // Decorator can access engine and add context from it
+                error.Set("hasRealm", engine.Realm != null);
+                error.Set("timestamp", DateTime.UtcNow.ToString("o"));
+            });
+        });
+
+        engine.SetValue("throwException", new Action(() => { throw new Exception("test"); }));
+
+        var result = engine.Evaluate(@"
+            try {
+                throwException();
+            } catch(e) {
+                return { hasRealm: e.hasRealm, hasTimestamp: e.timestamp !== undefined };
+            }
+        ").AsObject();
+
+        Assert.True(result.Get("hasRealm").AsBoolean());
+        Assert.True(result.Get("hasTimestamp").AsBoolean());
+    }
+
+    [Fact]
     public void ArrayFromShouldConvertListToArrayLike()
     {
         var list = new List<Person>
@@ -2435,6 +2582,17 @@ public partial class InteropTests : IDisposable
         {
             Assert.Equal(1, Convert.ToInt32(dictionaryObject.Values["a"]));
         }
+
+        public void Test3(Dictionary<string, object> values)
+        {
+            Assert.Equal(1, Convert.ToInt32(values["a"]));
+        }
+
+        public void Test4(Dictionary<string, object> values = null)
+        {
+            Assert.NotNull(values);
+            Assert.Equal("world", values["value"]);
+        }
     }
 
     [Fact]
@@ -2451,6 +2609,22 @@ public partial class InteropTests : IDisposable
         var engine = new Engine();
         engine.SetValue("dictionaryTest", new DictionaryTest());
         engine.Evaluate("dictionaryTest.test2({ values: { a: 1 } });");
+    }
+
+    [Fact]
+    public void ShouldBeAbleToPassConcreteDictionaryToMethod()
+    {
+        var engine = new Engine();
+        engine.SetValue("dictionaryTest", new DictionaryTest());
+        engine.Evaluate("dictionaryTest.test3({ a: 1 });");
+    }
+
+    [Fact]
+    public void ShouldBeAbleToPassConcreteDictionaryToOptionalParameter()
+    {
+        var engine = new Engine();
+        engine.SetValue("dictionaryTest", new DictionaryTest());
+        engine.Evaluate("dictionaryTest.test4({ value: 'world' });");
     }
 
     [Fact]
@@ -2694,6 +2868,49 @@ public partial class InteropTests : IDisposable
     {
         var wrapper = ObjectWrapper.Create(_engine, new Dictionary<string, object>());
         Assert.False(wrapper.IsArrayLike);
+    }
+
+    [Theory]
+    [InlineData("result")]
+    [InlineData("result1", "result2")]
+    [InlineData("result1", "result2", "result3")]
+    [InlineData("result1", "result2", "result3", "result4")]
+    public void ObjectWrapperFrozenDictionaryShouldPreventDelete(params string[] names)
+    {
+        var access = string.Join(".", names);
+
+        var engine = new Engine(cfg => cfg.Strict = true);
+
+        var context = new Dictionary<string, object>();
+        var temp = context;
+
+        for (var i = 0; i < names.Length - 1; i++)
+        {
+            var newStore = new Dictionary<string, object>();
+            temp[names[i]] = newStore;
+            temp = newStore;
+        }
+
+        temp[names[^1]] = "value";
+
+        engine.SetValue("context", context);
+
+        engine.Execute(
+            """
+            function freeze(obj) {
+              Object.freeze(obj);
+              Object.keys(obj).forEach(key => {
+                if (typeof obj[key] === 'object' && obj[key] !== null) {
+                  freeze(obj[key]);
+                }
+              });
+            }
+            freeze(context);
+            """
+        );
+
+        var ex = Assert.Throws<JavaScriptException>(() => engine.Execute($"delete context.{access}"));
+        Assert.StartsWith($"Cannot delete property '{names[^1]}'", ex.Message);
     }
 
     [Fact]
@@ -3525,6 +3742,28 @@ try {
                 SetInitial(new MetadataWrapper(), "metadata");
             }
         }
+    }
+
+    /// <summary>
+    /// A custom IReadOnlyDictionary that does NOT implement IDictionary, to verify it's treated as dictionary-like, not array-like.
+    /// </summary>
+    private class ReadOnlyDictionary : IReadOnlyDictionary<string, object>
+    {
+        private readonly Dictionary<string, object> _dictionary;
+
+        public ReadOnlyDictionary(Dictionary<string, object> dictionary)
+        {
+            _dictionary = dictionary;
+        }
+
+        public IEnumerator<KeyValuePair<string, object>> GetEnumerator() => _dictionary.GetEnumerator();
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+        public int Count => _dictionary.Count;
+        public bool ContainsKey(string key) => _dictionary.ContainsKey(key);
+        public bool TryGetValue(string key, out object value) => _dictionary.TryGetValue(key, out value!);
+        public object this[string key] => _dictionary[key];
+        public IEnumerable<string> Keys => _dictionary.Keys;
+        public IEnumerable<object> Values => _dictionary.Values;
     }
 
     [Fact]

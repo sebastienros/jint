@@ -72,7 +72,7 @@ public class EvaluateTests
         {
             var exception = Assert.Throws<DebugEvaluationException>(() =>
                 engine.Debugger.Evaluate("this is a syntax error"));
-            Assert.IsType<SyntaxErrorException>(exception.InnerException);
+            Assert.IsType<Acornima.SyntaxErrorException>(exception.InnerException);
         });
     }
 

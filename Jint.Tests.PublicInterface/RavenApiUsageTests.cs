@@ -229,7 +229,9 @@ public class RavenApiUsageTests
 
         var rows = result.AsObject()["Rows"];
         var custom = rows.AsArray()[0].AsObject()["Custom"];
-        Assert.Equal(JsValue.Null, custom);
+        // With the spec-compliant IsPropertyReference, the custom resolver's TryGetCallable
+        // returns a function that produces undefined, so the result is undefined
+        Assert.Equal(JsValue.Undefined, custom);
     }
 }
 

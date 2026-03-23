@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
+using Jint.Native.Intl;
 using Jint.Native.Json;
 using Jint.Native.Object;
 using Jint.Native.RegExp;
@@ -44,7 +45,7 @@ internal sealed class StringPrototype : StringInstance
 
         var trimStart = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "trimStart", prototype.TrimStart, 0, lengthFlags), propertyFlags);
         var trimEnd = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "trimEnd", prototype.TrimEnd, 0, lengthFlags), propertyFlags);
-        var properties = new PropertyDictionary(37, checkExistingKeys: false)
+        var properties = new PropertyDictionary(50, checkExistingKeys: false)
         {
             ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
             ["toString"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "toString", prototype.ToStringString, 0, lengthFlags), propertyFlags),
@@ -65,7 +66,7 @@ internal sealed class StringPrototype : StringInstance
             ["search"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "search", prototype.Search, 1, lengthFlags), propertyFlags),
             ["slice"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "slice", prototype.Slice, 2, lengthFlags), propertyFlags),
             ["split"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "split", prototype.Split, 2, lengthFlags), propertyFlags),
-            ["substr"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "substr", Substr, 2), propertyFlags),
+            ["substr"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "substr", prototype.Substr, 2, lengthFlags), propertyFlags),
             ["substring"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "substring", prototype.Substring, 2, lengthFlags), propertyFlags),
             ["toLowerCase"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "toLowerCase", prototype.ToLowerCase, 0, lengthFlags), propertyFlags),
             ["toLocaleLowerCase"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "toLocaleLowerCase", prototype.ToLocaleLowerCase, 0, lengthFlags), propertyFlags),
@@ -84,6 +85,21 @@ internal sealed class StringPrototype : StringInstance
             ["at"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "at", prototype.At, 1, lengthFlags), propertyFlags),
             ["isWellFormed"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "isWellFormed", prototype.IsWellFormed, 0, lengthFlags), propertyFlags),
             ["toWellFormed"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "toWellFormed", prototype.ToWellFormed, 0, lengthFlags), propertyFlags),
+
+            // B.2.2 Additional Properties of the String.prototype Object (HTML methods)
+            ["anchor"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "anchor", prototype.Anchor, 1, lengthFlags), propertyFlags),
+            ["big"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "big", prototype.Big, 0, lengthFlags), propertyFlags),
+            ["blink"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "blink", prototype.Blink, 0, lengthFlags), propertyFlags),
+            ["bold"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "bold", prototype.Bold, 0, lengthFlags), propertyFlags),
+            ["fixed"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "fixed", prototype.Fixed, 0, lengthFlags), propertyFlags),
+            ["fontcolor"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "fontcolor", prototype.FontColor, 1, lengthFlags), propertyFlags),
+            ["fontsize"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "fontsize", prototype.FontSize, 1, lengthFlags), propertyFlags),
+            ["italics"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "italics", prototype.Italics, 0, lengthFlags), propertyFlags),
+            ["link"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "link", prototype.Link, 1, lengthFlags), propertyFlags),
+            ["small"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "small", prototype.Small, 0, lengthFlags), propertyFlags),
+            ["strike"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "strike", prototype.Strike, 0, lengthFlags), propertyFlags),
+            ["sub"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "sub", prototype.Sub, 0, lengthFlags), propertyFlags),
+            ["sup"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "sup", prototype.Sup, 0, lengthFlags), propertyFlags),
         };
         SetProperties(properties);
 
@@ -235,19 +251,16 @@ internal sealed class StringPrototype : StringInstance
     {
         TypeConverter.RequireObjectCoercible(_engine, thisObject);
         var s = TypeConverter.ToString(thisObject);
+
+        // https://tc39.es/ecma402/#sup-string.prototype.tolocaleuppercase
+        // 1. Let requestedLocales be ? CanonicalizeLocaleList(locales).
+        var requestedLocales = IntlUtilities.CanonicalizeLocaleList(_engine, arguments.At(0));
         var culture = CultureInfo.InvariantCulture;
-        if (arguments.Length > 0 && arguments[0].IsString())
+        if (requestedLocales.Count > 0)
         {
-            try
-            {
-                var cultureArgument = arguments[0].ToString();
-                culture = CultureInfo.GetCultureInfo(cultureArgument);
-            }
-            catch (CultureNotFoundException)
-            {
-                Throw.RangeError(_realm, "Incorrect culture information provided");
-            }
+            culture = IntlUtilities.GetCultureInfo(requestedLocales[0]) ?? CultureInfo.InvariantCulture;
         }
+
         if (string.Equals("lt", culture.Name, StringComparison.OrdinalIgnoreCase))
         {
             s = StringInlHelper.LithuanianStringProcessor(s);
@@ -274,7 +287,17 @@ internal sealed class StringPrototype : StringInstance
     {
         TypeConverter.RequireObjectCoercible(_engine, thisObject);
         var s = TypeConverter.ToString(thisObject);
-        return ToLowerCaseWithSpecialCasing(s, CultureInfo.InvariantCulture);
+
+        // https://tc39.es/ecma402/#sup-string.prototype.tolocalelowercase
+        // 1. Let requestedLocales be ? CanonicalizeLocaleList(locales).
+        var requestedLocales = IntlUtilities.CanonicalizeLocaleList(_engine, arguments.At(0));
+        var culture = CultureInfo.InvariantCulture;
+        if (requestedLocales.Count > 0)
+        {
+            culture = IntlUtilities.GetCultureInfo(requestedLocales[0]) ?? CultureInfo.InvariantCulture;
+        }
+
+        return ToLowerCaseWithSpecialCasing(s, culture);
     }
 
     private JsValue ToLowerCase(JsValue thisObject, JsCallArguments arguments)
@@ -286,37 +309,299 @@ internal sealed class StringPrototype : StringInstance
 
     /// <summary>
     /// Converts string to lowercase with Unicode special casing rules.
-    /// Handles Final_Sigma context for Greek capital sigma (U+03A3).
+    /// Handles Final_Sigma, Turkish/Azeri I-dot, Lithuanian soft-dotted, and İ decomposition.
     /// https://unicode.org/reports/tr21/tr21-5.html#SpecialCasing
     /// </summary>
     private static string ToLowerCaseWithSpecialCasing(string s, CultureInfo culture)
     {
-        const char GreekCapitalSigma = '\u03A3';
+        var langName = culture.TwoLetterISOLanguageName;
+        var isTurkishOrAzeri = string.Equals(langName, "tr", StringComparison.Ordinal) ||
+                               string.Equals(langName, "az", StringComparison.Ordinal);
+        var isLithuanian = string.Equals(langName, "lt", StringComparison.Ordinal);
 
-        // Fast path: if no Greek capital sigma, use standard lowercase
-        if (s.IndexOf(GreekCapitalSigma) < 0)
+        // Fast path: if no special characters, use standard lowercase (but not for Turkish/Azeri/Lithuanian)
+        if (!isTurkishOrAzeri && !isLithuanian && !NeedsSpecialCasing(s))
         {
             return s.ToLower(culture);
         }
 
-        // Need to handle Final_Sigma context
-        var result = new char[s.Length];
+        var sb = new System.Text.StringBuilder(s.Length + 4);
+
         for (var i = 0; i < s.Length; i++)
         {
             var c = s[i];
-            if (c == GreekCapitalSigma)
+
+            // Greek Final_Sigma (all locales)
+            if (c == '\u03A3')
             {
-                // Check if this is a Final_Sigma context
-                // Final_Sigma: preceded by cased letter (skipping Case_Ignorable), not followed by cased letter (skipping Case_Ignorable)
-                result[i] = IsFinalSigmaContext(s, i) ? '\u03C2' : '\u03C3';
+                sb.Append(IsFinalSigmaContext(s, i) ? '\u03C2' : '\u03C3');
+                continue;
+            }
+
+            if (isTurkishOrAzeri)
+            {
+                // Turkish/Azeri: İ (U+0130) → i
+                if (c == '\u0130')
+                {
+                    sb.Append('i');
+                    continue;
+                }
+
+                // Turkish/Azeri: I + combining dot above (with only cc<230 in between) → i (remove dot above)
+                if (c == 'I')
+                {
+                    if (FollowedByDotAbove(s, i))
+                    {
+                        sb.Append('i');
+                        // Skip intervening cc<230 chars and the dot above
+                        i++;
+                        while (i < s.Length && s[i] != '\u0307')
+                        {
+                            sb.Append(char.ToLower(s[i], culture));
+                            i++;
+                        }
+                        // i now points at U+0307, skip it
+                        continue;
+                    }
+
+                    // Turkish/Azeri: I (not followed by dot above) → ı (dotless i)
+                    sb.Append('\u0131');
+                    continue;
+                }
+            }
+            else if (isLithuanian)
+            {
+                // Lithuanian: Ì (U+00CC) → i + ̇ + ̀
+                if (c == '\u00CC')
+                {
+                    sb.Append('i');
+                    sb.Append('\u0307');
+                    sb.Append('\u0300');
+                    continue;
+                }
+
+                // Lithuanian: Í (U+00CD) → i + ̇ + ́
+                if (c == '\u00CD')
+                {
+                    sb.Append('i');
+                    sb.Append('\u0307');
+                    sb.Append('\u0301');
+                    continue;
+                }
+
+                // Lithuanian: Ĩ (U+0128) → i + ̇ + ̃
+                if (c == '\u0128')
+                {
+                    sb.Append('i');
+                    sb.Append('\u0307');
+                    sb.Append('\u0303');
+                    continue;
+                }
+
+                // Lithuanian: I, J, Į followed by combining class 230 mark → add U+0307 after lowercase
+                if (c == 'I' || c == 'J' || c == '\u012E')
+                {
+                    if (FollowedByCombiningClass230(s, i))
+                    {
+                        sb.Append(char.ToLower(c, culture));
+                        sb.Append('\u0307');
+                        continue;
+                    }
+                }
             }
             else
             {
-                result[i] = char.ToLower(c, culture);
+                // Default locale: İ (U+0130) → i + ̇ (U+0069 + U+0307)
+                if (c == '\u0130')
+                {
+                    sb.Append('i');
+                    sb.Append('\u0307');
+                    continue;
+                }
             }
+
+            // Handle surrogate pairs
+            if (char.IsHighSurrogate(c) && i + 1 < s.Length && char.IsLowSurrogate(s[i + 1]))
+            {
+                sb.Append(c);
+                sb.Append(s[i + 1]);
+                i++;
+                continue;
+            }
+
+            sb.Append(char.ToLower(c, culture));
         }
 
-        return new string(result);
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Checks if the string needs special casing beyond standard ToLower.
+    /// </summary>
+    private static bool NeedsSpecialCasing(string s)
+    {
+        foreach (var c in s)
+        {
+            if (c == '\u03A3' || c == '\u0130')
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Checks if character at index i is followed by U+0307 (COMBINING DOT ABOVE)
+    /// with only characters of combining class less than 230 in between.
+    /// Used for Turkish/Azeri I + dot above handling.
+    /// </summary>
+    private static bool FollowedByDotAbove(string s, int i)
+    {
+        for (var j = i + 1; j < s.Length; j++)
+        {
+            // Handle surrogate pairs
+            if (char.IsHighSurrogate(s[j]) && j + 1 < s.Length && char.IsLowSurrogate(s[j + 1]))
+            {
+                var cp = char.ConvertToUtf32(s[j], s[j + 1]);
+                var cc = GetCombiningClass(cp);
+                if (cc == 0 || cc >= 230)
+                {
+                    return false;
+                }
+                j++;
+                continue;
+            }
+
+            var ch = s[j];
+            if (ch == '\u0307')
+            {
+                return true;
+            }
+
+            var charCc = GetCombiningClass(ch);
+            if (charCc == 0 || charCc >= 230)
+            {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Checks if character at index i is followed by a combining mark with combining class 230.
+    /// Used for Lithuanian soft-dotted character handling.
+    /// </summary>
+    private static bool FollowedByCombiningClass230(string s, int i)
+    {
+        for (var j = i + 1; j < s.Length; j++)
+        {
+            int cp;
+            if (char.IsHighSurrogate(s[j]) && j + 1 < s.Length && char.IsLowSurrogate(s[j + 1]))
+            {
+                cp = char.ConvertToUtf32(s[j], s[j + 1]);
+                j++;
+            }
+            else
+            {
+                cp = s[j];
+            }
+
+            var cc = GetCombiningClass(cp);
+            if (cc == 0)
+            {
+                return false;
+            }
+
+            if (cc == 230)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Returns the Unicode combining class for a code point.
+    /// Covers the Combining Diacritical Marks block and common supplementary combining marks.
+    /// </summary>
+    private static int GetCombiningClass(int codePoint)
+    {
+        // Most characters have combining class 0
+        if (codePoint < 0x0300)
+        {
+            return 0;
+        }
+
+        // Combining Diacritical Marks (U+0300-U+036F)
+        return codePoint switch
+        {
+            // Class 230 (Above)
+            >= 0x0300 and <= 0x0314 => 230,
+            0x033D or 0x033E or 0x033F => 230,
+            0x0340 or 0x0341 or 0x0342 or 0x0343 or 0x0344 or 0x0346 => 230,
+            0x034A or 0x034B or 0x034C => 230,
+            0x0350 or 0x0351 or 0x0352 => 230,
+            0x0357 => 230,
+            0x035B => 230,
+            >= 0x0363 and <= 0x036F => 230,
+
+            // Class 232 (Double Below)
+            0x035C or 0x035F => 233,
+
+            // Class 1 (Overlay)
+            0x0334 or 0x0335 or 0x0336 or 0x0337 or 0x0338 => 1,
+
+            // Class 220 (Below)
+            >= 0x0316 and <= 0x0319 => 220,
+            >= 0x031C and <= 0x0320 => 220,
+            >= 0x0323 and <= 0x0326 => 220,
+            >= 0x0329 and <= 0x0333 => 220,
+            0x0339 or 0x033A or 0x033B or 0x033C => 220,
+            0x0345 => 240, // Iota subscript
+            0x0347 or 0x0348 or 0x0349 => 220,
+            0x034D or 0x034E => 220,
+            0x0353 or 0x0354 or 0x0355 or 0x0356 => 220,
+            0x0359 or 0x035A => 220,
+
+            // Class 202 (Attached Below Right)
+            0x031A => 232,
+
+            // Class 216 (Attached Above Right)
+            0x0315 => 232,
+
+            // Class 226 (Above Right)
+            0x0358 => 232,
+
+            // Combining marks outside the main block
+            >= 0x0590 and <= 0x05CF => GetHebrewCombiningClass(codePoint),
+
+            // Common supplementary combining marks
+            0x101FD => 220, // PHAISTOS DISC SIGN COMBINING OBLIQUE STROKE
+            >= 0x1D165 and <= 0x1D169 => 216, // MUSICAL SYMBOL COMBINING STEM etc. (attached)
+            >= 0x1D16D and <= 0x1D172 => 216, // MUSICAL SYMBOL COMBINING AUGMENTATION DOT etc.
+            >= 0x1D17B and <= 0x1D182 => 220, // MUSICAL SYMBOL COMBINING ACCENT etc.
+            >= 0x1D185 and <= 0x1D189 => 230, // MUSICAL SYMBOL COMBINING DOIT etc.
+            >= 0x1D18A and <= 0x1D18B => 220, // MUSICAL SYMBOL COMBINING DOWN BOW etc.
+
+            _ => codePoint <= 0xFFFF && CharUnicodeInfo.GetUnicodeCategory((char) codePoint) == UnicodeCategory.NonSpacingMark ? 230 : 0
+        };
+    }
+
+    private static int GetHebrewCombiningClass(int cp)
+    {
+        // Simplified: most Hebrew combining marks are below (220) or above (230)
+        return cp switch
+        {
+            >= 0x0591 and <= 0x05AF => 220, // Hebrew accents (various, simplified)
+            >= 0x05B0 and <= 0x05BD => 220, // Hebrew points
+            0x05BF => 230,
+            0x05C1 => 230,
+            0x05C2 => 220,
+            0x05C4 => 230,
+            0x05C5 => 220,
+            0x05C7 => 220,
+            _ => 0
+        };
     }
 
     /// <summary>
@@ -465,8 +750,12 @@ internal sealed class StringPrototype : StringInstance
         return new JsString(s.Substring(from, length));
     }
 
-    private static JsValue Substr(JsValue thisObject, JsCallArguments arguments)
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-string.prototype.substr
+    /// </summary>
+    private JsValue Substr(JsValue thisObject, JsCallArguments arguments)
     {
+        TypeConverter.RequireObjectCoercible(_engine, thisObject);
         var s = TypeConverter.ToString(thisObject);
         var start = TypeConverter.ToInteger(arguments.At(0));
         var length = arguments.At(1).IsUndefined()
@@ -488,6 +777,63 @@ internal sealed class StringPrototype : StringInstance
         }
         return s.Substring(startIndex, l);
     }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-createhtml
+    /// B.2.2.1
+    /// </summary>
+    private static JsValue CreateHTML(Engine engine, JsValue thisObject, string tag, string attribute, JsValue value)
+    {
+        TypeConverter.RequireObjectCoercible(engine, thisObject);
+        var s = TypeConverter.ToString(thisObject);
+        var p1 = "<" + tag;
+        if (attribute.Length > 0)
+        {
+            var v = TypeConverter.ToString(value);
+            var escapedV = v.Replace("\"", "&quot;");
+            p1 += " " + attribute + "=\"" + escapedV + "\"";
+        }
+        return p1 + ">" + s + "</" + tag + ">";
+    }
+
+    private JsValue Anchor(JsValue thisObject, JsCallArguments arguments)
+        => CreateHTML(_engine, thisObject, "a", "name", arguments.At(0));
+
+    private JsValue Big(JsValue thisObject, JsCallArguments arguments)
+        => CreateHTML(_engine, thisObject, "big", "", Undefined);
+
+    private JsValue Blink(JsValue thisObject, JsCallArguments arguments)
+        => CreateHTML(_engine, thisObject, "blink", "", Undefined);
+
+    private JsValue Bold(JsValue thisObject, JsCallArguments arguments)
+        => CreateHTML(_engine, thisObject, "b", "", Undefined);
+
+    private JsValue Fixed(JsValue thisObject, JsCallArguments arguments)
+        => CreateHTML(_engine, thisObject, "tt", "", Undefined);
+
+    private JsValue FontColor(JsValue thisObject, JsCallArguments arguments)
+        => CreateHTML(_engine, thisObject, "font", "color", arguments.At(0));
+
+    private JsValue FontSize(JsValue thisObject, JsCallArguments arguments)
+        => CreateHTML(_engine, thisObject, "font", "size", arguments.At(0));
+
+    private JsValue Italics(JsValue thisObject, JsCallArguments arguments)
+        => CreateHTML(_engine, thisObject, "i", "", Undefined);
+
+    private JsValue Link(JsValue thisObject, JsCallArguments arguments)
+        => CreateHTML(_engine, thisObject, "a", "href", arguments.At(0));
+
+    private JsValue Small(JsValue thisObject, JsCallArguments arguments)
+        => CreateHTML(_engine, thisObject, "small", "", Undefined);
+
+    private JsValue Strike(JsValue thisObject, JsCallArguments arguments)
+        => CreateHTML(_engine, thisObject, "strike", "", Undefined);
+
+    private JsValue Sub(JsValue thisObject, JsCallArguments arguments)
+        => CreateHTML(_engine, thisObject, "sub", "", Undefined);
+
+    private JsValue Sup(JsValue thisObject, JsCallArguments arguments)
+        => CreateHTML(_engine, thisObject, "sup", "", Undefined);
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.split
@@ -878,21 +1224,22 @@ internal sealed class StringPrototype : StringInstance
         return _engine.Invoke(rx, GlobalSymbolRegistry.MatchAll, [s]);
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-string.prototype.localecompare
+    /// https://tc39.es/ecma402/#sup-string.prototype.localecompare
+    /// </summary>
     private JsValue LocaleCompare(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
 
         var s = TypeConverter.ToString(thisObject);
         var that = TypeConverter.ToString(arguments.At(0));
+        var locales = arguments.At(1);
+        var options = arguments.At(2);
 
-        var culture = Engine.Options.Culture;
-
-        if (arguments.Length > 1 && arguments[1].IsString())
-        {
-            culture = CultureInfo.GetCultureInfo(arguments.At(1).AsString());
-        }
-
-        return culture.CompareInfo.Compare(s.Normalize(NormalizationForm.FormKD), that.Normalize(NormalizationForm.FormKD));
+        // Use Intl.Collator for locale-aware comparison
+        var collator = (JsCollator) Engine.Realm.Intrinsics.Collator.Construct([locales, options], Engine.Realm.Intrinsics.Collator);
+        return collator.Compare(s, that);
     }
 
     /// <summary>

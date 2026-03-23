@@ -65,6 +65,12 @@ internal static class Throw
     }
 
     [DoesNotReturn]
+    public static void SyntaxErrorNoEngine(string? message = null)
+    {
+        throw new SyntaxErrorException(message);
+    }
+
+    [DoesNotReturn]
     public static void TypeErrorNoEngine(string? message = null, Node? source = null)
     {
         throw new TypeErrorException(message, source);
@@ -162,6 +168,17 @@ internal static class Throw
         throw new JavaScriptException(errorConstructor, message);
     }
 
+    /// <summary>
+    /// Creates and throws a JavaScript exception from a CLR exception, applying any configured decorator.
+    /// </summary>
+    [DoesNotReturn]
+    public static void FromClrException(Engine engine, Exception clrException)
+    {
+        var error = engine.Realm.Intrinsics.Error.Construct(clrException.Message);
+        engine.Options.Interop.ClrExceptionErrorDecorator?.Invoke(engine, error, clrException);
+        throw new JavaScriptException(error);
+    }
+
     [DoesNotReturn]
     public static void RecursionDepthOverflowException(JintCallStack currentStack)
     {
@@ -182,7 +199,7 @@ internal static class Throw
 
         if (engine.Options.Interop.ExceptionHandler(meaningfulException))
         {
-            Error(engine, meaningfulException.Message);
+            FromClrException(engine, meaningfulException);
         }
 
         ExceptionDispatchInfo.Capture(meaningfulException).Throw();
