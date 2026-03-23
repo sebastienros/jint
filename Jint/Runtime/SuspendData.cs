@@ -78,6 +78,12 @@ internal sealed class ForAwaitSuspendData : SuspendData
     public ObjectInstance? ResolvedIteratorResult { get; set; }
 
     /// <summary>
+    /// The rejected value if the iterator's next() Promise was rejected.
+    /// When non-null, the for-await-of loop will throw this value on resume.
+    /// </summary>
+    public JsValue? RejectedValue { get; set; }
+
+    /// <summary>
     /// The accumulated result value (v) from previous iterations.
     /// </summary>
     public JsValue AccumulatedValue { get; set; } = JsValue.Undefined;

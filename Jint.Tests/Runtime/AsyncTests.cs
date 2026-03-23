@@ -902,6 +902,145 @@ public class AsyncTests
         Assert.Equal(6, result.AsInteger());
     }
 
+    [Fact]
+    public void ForAwaitOfInsideAsyncGenerator()
+    {
+        // Regression: for-await-of inside an async generator was not resuming
+        // because the continuation called AsyncGeneratorResumeNext() which
+        // returned immediately (empty queue). The fix uses AsyncGeneratorContinueForAwait()
+        // which correctly resumes the current request's execution.
+        var log = new List<string>();
+        var engine = new Engine();
+        engine.SetValue("log", (string s) => log.Add(s));
+
+        engine.Evaluate("""
+            async function* gen() {
+                for await (var x of [1, 2]) {
+                    log('item:' + x);
+                }
+                log('done');
+            }
+            gen().next().then(() => log('resolved'));
+            """);
+
+        Assert.Equal(new[] { "item:1", "item:2", "done", "resolved" }, log);
+    }
+
+    [Fact]
+    public void ForAwaitOfInsideAsyncGeneratorWithArrayDestructuring()
+    {
+        // Reproduces the minimal case from the issue report:
+        // test/language/statements/for-await-of/async-gen-decl-dstr-array-elision-val-array.js
+        var log = new List<string>();
+        var engine = new Engine();
+        engine.SetValue("log", (string s) => log.Add(s));
+
+        engine.Evaluate("""
+            async function* gen() {
+                for await ([,] of [[]]) log('iteration');
+            }
+            gen().next().then(() => log('OK'));
+            """);
+
+        Assert.Equal(new[] { "iteration", "OK" }, log);
+    }
+
+    [Fact]
+    public void ForAwaitOfInsideAsyncGeneratorSuspensionIsProperlyResumed()
+    {
+        // Verify that multiple suspensions/resumptions in a for-await-of inside
+        // an async generator all complete correctly.
+        var log = new List<string>();
+        var engine = new Engine();
+        engine.SetValue("log", (string s) => log.Add(s));
+
+        engine.Evaluate("""
+            async function* producer() {
+                yield 'a';
+                yield 'b';
+                yield 'c';
+            }
+
+            async function* consumer() {
+                for await (var item of producer()) {
+                    log('got:' + item);
+                }
+                log('consumer-done');
+            }
+
+            consumer().next().then(() => log('outer-resolved'));
+            """);
+
+        Assert.Equal(new[] { "got:a", "got:b", "got:c", "consumer-done", "outer-resolved" }, log);
+    }
+
+    [Fact]
+    public void ForAwaitOfInsideAsyncGeneratorIteratorRejectPropagatesOutward()
+    {
+        // Regression: when the async iterator's next() Promise rejects inside a
+        // for-await-of in an async generator, the rejection must propagate out of
+        // the generator (i.e. gen().next() should reject with the same error).
+        var log = new List<string>();
+        var engine = new Engine();
+        engine.SetValue("log", (string s) => log.Add(s));
+
+        engine.Evaluate("""
+            function makeRejectingIterator() {
+                return {
+                    [Symbol.asyncIterator]() { return this; },
+                    next() { return Promise.reject(new Error('iterator-error')); }
+                };
+            }
+
+            async function* gen() {
+                for await (var x of makeRejectingIterator()) {
+                    log('body');
+                }
+            }
+
+            gen().next().then(
+                () => log('resolved'),
+                e  => log('rejected:' + e.message)
+            );
+            """);
+
+        Assert.Equal(new[] { "rejected:iterator-error" }, log);
+    }
+
+    [Fact]
+    public void ForAwaitOfInsideAsyncGeneratorIteratorRejectCaughtInsideGenerator()
+    {
+        // When the async iterator's next() Promise rejects and the for-await-of is
+        // wrapped in a try/catch inside the async generator, the catch block must run.
+        var log = new List<string>();
+        var engine = new Engine();
+        engine.SetValue("log", (string s) => log.Add(s));
+
+        engine.Evaluate("""
+            function makeRejectingIterator() {
+                return {
+                    [Symbol.asyncIterator]() { return this; },
+                    next() { return Promise.reject(new Error('iterator-error')); }
+                };
+            }
+
+            async function* gen() {
+                try {
+                    for await (var x of makeRejectingIterator()) {
+                        log('body');
+                    }
+                } catch (e) {
+                    log('caught:' + e.message);
+                }
+                log('after-catch');
+            }
+
+            gen().next().then(() => log('resolved'));
+            """);
+
+        Assert.Equal(new[] { "caught:iterator-error", "after-catch", "resolved" }, log);
+    }
+
     // ========================================================================
     // Thenable Protocol Tests
     // ========================================================================
