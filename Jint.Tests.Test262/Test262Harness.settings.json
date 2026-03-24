@@ -411,12 +411,10 @@
     "built-ins/AsyncGeneratorPrototype/return/return-suspendedStart-promise.js",
     "built-ins/AsyncGeneratorPrototype/return/return-suspendedYield-broken-promise-try-catch.js",
     "built-ins/AsyncGeneratorPrototype/return/return-suspendedYield-promise.js",
-    "built-ins/AsyncGeneratorPrototype/return/return-suspendedYield-try-finally-return.js",
-    "built-ins/AsyncGeneratorPrototype/return/return-suspendedYield-try-finally-throw.js",
-    "built-ins/AsyncGeneratorPrototype/return/return-suspendedYield-try-finally.js",
-    "language/statements/async-generator/return-undefined-implicit-and-explicit.js",
+    "built-ins/AsyncGeneratorPrototype/return/return-suspendedYield-promise.js",
 
     // Microtask tick ordering
+    "language/statements/async-generator/return-undefined-implicit-and-explicit.js",
     "language/expressions/await/async-generator-interleaved.js",
     "language/expressions/await/for-await-of-interleaved.js",
     "language/module-code/top-level-await/unobservable-global-async-evaluation-count-reset.js",
