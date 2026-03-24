@@ -190,6 +190,10 @@ internal sealed class JintYieldExpression : JintExpression
         var generatorKind = engine.ExecutionContext.GetGeneratorKind();
         var iterator = value.GetIterator(engine.Realm, generatorKind);
 
+        // Per spec step 7.a.i: use the cached [[NextMethod]] from the iterator record
+        // (already obtained when the iterator was created via GetIterator)
+        var nextMethod = iterator.NextMethod ?? iterator.Instance.GetMethod(CommonProperties.Next);
+
         if (generatorKind == GeneratorKind.Async)
         {
             var asyncGenerator = engine.ExecutionContext.AsyncGenerator!;
@@ -197,6 +201,7 @@ internal sealed class JintYieldExpression : JintExpression
             // Store the iterator for delegation continuation
             asyncGenerator._delegatingIterator = iterator;
             asyncGenerator._delegatingYieldNode = _expression;
+            asyncGenerator._delegatingNextMethod = nextMethod;
 
             // Start the first iteration with a normal completion
             return RunAsyncYieldDelegateLoop(context, asyncGenerator, iterator, CompletionType.Normal, JsValue.Undefined);
@@ -208,6 +213,7 @@ internal sealed class JintYieldExpression : JintExpression
             // Store the iterator for delegation continuation
             generator._delegatingIterator = iterator;
             generator._delegatingYieldNode = _expression;
+            generator._delegatingNextMethod = nextMethod;
 
             // Start the first iteration with a normal completion
             return RunYieldDelegateLoop(context, generator, iterator, CompletionType.Normal, JsValue.Undefined);
@@ -261,17 +267,15 @@ internal sealed class JintYieldExpression : JintExpression
         {
             if (receivedType == CompletionType.Normal)
             {
-                // Per spec 14.4.14 step 7.a.i: Call iterator.next with received.[[Value]]
-                // This passes the value from generator.next() to the inner iterator
-                var iteratorInstance = iterator.Instance;
-                var nextMethod = iteratorInstance.GetMethod(CommonProperties.Next);
+                // Per spec 14.4.14 step 7.a.v: use cached nextMethod (obtained once in step 7.a.i)
+                var nextMethod = generator._delegatingNextMethod;
                 if (nextMethod is null)
                 {
                     Throw.TypeError(engine.Realm, "Iterator does not have next method");
                     return JsValue.Undefined; // unreachable
                 }
 
-                var innerResultValue = nextMethod.Call(iteratorInstance, new[] { receivedValue });
+                var innerResultValue = nextMethod.Call(iterator.Instance, new[] { receivedValue });
                 if (generatorKind == GeneratorKind.Async)
                 {
                     innerResultValue = Await(context, innerResultValue);
@@ -485,47 +489,21 @@ internal sealed class JintYieldExpression : JintExpression
         {
             if (receivedType == CompletionType.Normal)
             {
-                // Call iterator.next with received value
-                var iteratorInstance = iterator.Instance;
-                var nextMethod = iteratorInstance.GetMethod(CommonProperties.Next);
+                // Per spec step 7.a.v: use cached nextMethod (obtained once in step 7.a.i)
+                var nextMethod = asyncGenerator._delegatingNextMethod;
                 if (nextMethod is null)
                 {
                     Throw.TypeError(engine.Realm, "Iterator does not have next method");
                     return JsValue.Undefined;
                 }
 
-                var innerResultValue = nextMethod.Call(iteratorInstance, new[] { receivedValue });
+                var innerResultValue = nextMethod.Call(iterator.Instance, new[] { receivedValue });
 
-                // For async iterators, the result is a Promise - we need to await it
-                // But since the inner iterator is also an async generator, it returns a Promise
-                if (innerResultValue is JsPromise innerPromise)
-                {
-                    // Store delegation state for resume
-                    asyncGenerator._delegationResumeType = CompletionType.Normal;
-
-                    // The inner async iterator returned a Promise
-                    // We need to await it and then yield or complete based on the result
-                    return AwaitAndYieldDelegation(context, asyncGenerator, iterator, innerPromise);
-                }
-
-                // If not a Promise (shouldn't happen for async iterators, but handle sync case)
-                if (innerResultValue is not ObjectInstance innerResult)
-                {
-                    Throw.TypeError(engine.Realm, "Iterator result is not an object");
-                    return JsValue.Undefined;
-                }
-
-                var done = IteratorComplete(innerResult);
-                if (done)
-                {
-                    asyncGenerator._delegatingIterator = null;
-                    asyncGenerator._delegatingYieldNode = null;
-                    return IteratorValue(innerResult);
-                }
-
-                // Yield the value from the inner iterator
-                asyncGenerator.AsyncGeneratorYield(IteratorValue(innerResult));
-                return JsValue.Undefined;
+                // Per spec step 7.a.vi: if generatorKind is async, set innerResult to Await(innerResult).
+                // Await wraps via PromiseResolve, which handles both Promises and thenables.
+                asyncGenerator._delegationResumeType = CompletionType.Normal;
+                var innerPromise = EnsurePromise(engine, innerResultValue);
+                return AwaitAndYieldDelegation(context, asyncGenerator, iterator, innerPromise);
             }
             else if (receivedType == CompletionType.Throw)
             {
@@ -535,28 +513,10 @@ internal sealed class JintYieldExpression : JintExpression
                 {
                     var innerResult = throwMethod.Call(iteratorInstance, new[] { receivedValue });
 
-                    if (innerResult is JsPromise innerPromise)
-                    {
-                        asyncGenerator._delegationResumeType = CompletionType.Throw;
-                        return AwaitAndYieldDelegation(context, asyncGenerator, iterator, innerPromise);
-                    }
-
-                    if (innerResult is not ObjectInstance innerObj)
-                    {
-                        Throw.TypeError(engine.Realm, "Iterator result is not an object");
-                        return JsValue.Undefined;
-                    }
-
-                    var done = IteratorComplete(innerObj);
-                    if (done)
-                    {
-                        asyncGenerator._delegatingIterator = null;
-                        asyncGenerator._delegatingYieldNode = null;
-                        return IteratorValue(innerObj);
-                    }
-
-                    asyncGenerator.AsyncGeneratorYield(IteratorValue(innerObj));
-                    return JsValue.Undefined;
+                    // Per spec: if generatorKind is async, set innerResult to Await(innerResult)
+                    asyncGenerator._delegationResumeType = CompletionType.Throw;
+                    var innerPromise = EnsurePromise(engine, innerResult);
+                    return AwaitAndYieldDelegation(context, asyncGenerator, iterator, innerPromise);
                 }
                 else
                 {
@@ -581,33 +541,27 @@ internal sealed class JintYieldExpression : JintExpression
 
                 var innerReturnResult = returnMethod.Call(iteratorInstance, new[] { receivedValue });
 
-                if (innerReturnResult is JsPromise innerPromise)
-                {
-                    asyncGenerator._delegationResumeType = CompletionType.Return;
-                    return AwaitAndYieldDelegation(context, asyncGenerator, iterator, innerPromise);
-                }
-
-                if (innerReturnResult is not ObjectInstance innerReturnObj)
-                {
-                    Throw.TypeError(engine.Realm, "Iterator result is not an object");
-                    return JsValue.Undefined;
-                }
-
-                var done = IteratorComplete(innerReturnObj);
-                if (done)
-                {
-                    var returnValue = IteratorValue(innerReturnObj);
-                    asyncGenerator._delegatingIterator = null;
-                    asyncGenerator._delegatingYieldNode = null;
-                    asyncGenerator._returnRequested = true;
-                    asyncGenerator._suspendedValue = returnValue;
-                    return returnValue;
-                }
-
-                asyncGenerator.AsyncGeneratorYield(IteratorValue(innerReturnObj));
-                return JsValue.Undefined;
+                // Per spec: if generatorKind is async, set innerResult to Await(innerResult)
+                asyncGenerator._delegationResumeType = CompletionType.Return;
+                var innerPromise = EnsurePromise(engine, innerReturnResult);
+                return AwaitAndYieldDelegation(context, asyncGenerator, iterator, innerPromise);
             }
         }
+    }
+
+    /// <summary>
+    /// Wraps a value in a promise via PromiseResolve if it isn't already a JsPromise.
+    /// This implements the spec's Await semantics for async generator yield* delegation.
+    /// </summary>
+    private static JsPromise EnsurePromise(Engine engine, JsValue value)
+    {
+        if (value is JsPromise p)
+        {
+            return p;
+        }
+
+        // PromiseResolve(%Promise%, value) — handles thenables via NewPromiseResolveThenableJob
+        return (JsPromise) engine.Intrinsics.Promise.PromiseResolve(value);
     }
 
     /// <summary>

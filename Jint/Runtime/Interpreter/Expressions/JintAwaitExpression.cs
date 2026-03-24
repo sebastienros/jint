@@ -98,41 +98,30 @@ internal sealed class JintAwaitExpression : JintExpression
         asyncInstance._state = AsyncFunctionState.SuspendedAwait;
         asyncInstance._savedContext = engine.ExecutionContext;
 
-        // Create resume handlers that will be called when the promise settles
+        // Create resume handlers that will be called when the promise settles.
+        // Per spec, the async function resumes directly inside the reaction job (no extra AddToEventLoop hop).
+        // This ensures await consumes exactly 1 microtask tick.
         var onFulfilled = new ClrFunction(engine, "", (_, args) =>
         {
             var resolvedValue = args.At(0);
-
-            // Queue job to resume async function with fulfilled value
-            engine.AddToEventLoop(() =>
-            {
-                asyncInstance._resumeValue = resolvedValue;
-                asyncInstance._resumeWithThrow = false;
-                AsyncFunctionResume(engine, asyncInstance);
-            });
-
+            asyncInstance._resumeValue = resolvedValue;
+            asyncInstance._resumeWithThrow = false;
+            AsyncFunctionResume(engine, asyncInstance);
             return JsValue.Undefined;
         }, 1, PropertyFlag.Configurable);
 
         var onRejected = new ClrFunction(engine, "", (_, args) =>
         {
             var rejectedValue = args.At(0);
-
-            // Queue job to resume async function with rejection (will throw at await point)
-            engine.AddToEventLoop(() =>
-            {
-                asyncInstance._resumeValue = rejectedValue;
-                asyncInstance._resumeWithThrow = true;
-                AsyncFunctionResume(engine, asyncInstance);
-            });
-
+            asyncInstance._resumeValue = rejectedValue;
+            asyncInstance._resumeWithThrow = true;
+            AsyncFunctionResume(engine, asyncInstance);
             return JsValue.Undefined;
         }, 1, PropertyFlag.Configurable);
 
         // Attach the reaction handlers to the promise
-        // We use a dummy capability since we don't need the result promise
-        var resultCapability = PromiseConstructor.NewPromiseCapability(engine, engine.Realm.Intrinsics.Promise);
-        PromiseOperations.PerformPromiseThen(engine, promise, onFulfilled, onRejected, resultCapability);
+        // Per spec Await step 3: PerformPromiseThen(promise, onFulfilled, onRejected) with no resultCapability
+        PromiseOperations.PerformPromiseThen(engine, promise, onFulfilled, onRejected, null!);
 
         // Return undefined - the actual value comes when we resume
         return JsValue.Undefined;

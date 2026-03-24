@@ -684,21 +684,18 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
             asyncInstance._state = AsyncFunctionState.SuspendedAwait;
             asyncInstance._savedContext = engine.ExecutionContext;
 
-            // Create resume handlers
+            // Create resume handlers - resume directly inside the reaction job (no extra AddToEventLoop hop)
             var onFulfilled = new ClrFunction(engine, "", (_, args) =>
             {
                 var resolvedValue = args.At(0);
 
-                engine.AddToEventLoop(() =>
-                {
-                    // Store the resolved iterator result for resume
-                    var resumeSuspendData = asyncInstance.Data.GetOrCreate<ForAwaitSuspendData>(this);
-                    resumeSuspendData.ResolvedIteratorResult = resolvedValue as ObjectInstance;
+                // Store the resolved iterator result for resume
+                var resumeSuspendData = asyncInstance.Data.GetOrCreate<ForAwaitSuspendData>(this);
+                resumeSuspendData.ResolvedIteratorResult = resolvedValue as ObjectInstance;
 
-                    asyncInstance._resumeValue = JsValue.Undefined;
-                    asyncInstance._resumeWithThrow = false;
-                    JintAwaitExpression.AsyncFunctionResume(engine, asyncInstance);
-                });
+                asyncInstance._resumeValue = JsValue.Undefined;
+                asyncInstance._resumeWithThrow = false;
+                JintAwaitExpression.AsyncFunctionResume(engine, asyncInstance);
 
                 return JsValue.Undefined;
             }, 1, PropertyFlag.Configurable);
@@ -707,18 +704,15 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
             {
                 var rejectedValue = args.At(0);
 
-                engine.AddToEventLoop(() =>
-                {
-                    asyncInstance._resumeValue = rejectedValue;
-                    asyncInstance._resumeWithThrow = true;
-                    JintAwaitExpression.AsyncFunctionResume(engine, asyncInstance);
-                });
+                asyncInstance._resumeValue = rejectedValue;
+                asyncInstance._resumeWithThrow = true;
+                JintAwaitExpression.AsyncFunctionResume(engine, asyncInstance);
 
                 return JsValue.Undefined;
             }, 1, PropertyFlag.Configurable);
 
-            var resultCapability = PromiseConstructor.NewPromiseCapability(engine, engine.Realm.Intrinsics.Promise);
-            PromiseOperations.PerformPromiseThen(engine, promise, onFulfilled, onRejected, resultCapability);
+            // Per spec Await step 3: PerformPromiseThen(promise, onFulfilled, onRejected) with no resultCapability
+            PromiseOperations.PerformPromiseThen(engine, promise, onFulfilled, onRejected, null!);
 
             // Return with completion that signals suspension
             return new Completion(CompletionType.Normal, JsValue.Undefined, _statement!);
