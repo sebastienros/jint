@@ -392,24 +392,13 @@
     "built-ins/Atomics/waitAsync/waiterlist-block-indexedposition-wake.js",
     "built-ins/Atomics/waitAsync/was-woken-before-timeout.js",
 
-    // yield* delegation: abrupt done/value getters
-    "language/*/async-generator/yield-star-next-call-done-get-abrupt.js",
-    "language/*/async-generator/yield-star-next-call-value-get-abrupt.js",
-    "language/*/async-generator/named-yield-star-next-call-done-get-abrupt.js",
-    "language/*/async-generator/named-yield-star-next-call-value-get-abrupt.js",
+    // yield* delegation: remaining abrupt value getters and tick ordering
     "language/*/async-generator/yield-star-normal-notdone-iter-value-throws.js",
     "language/*/async-generator/yield-star-return-notdone-iter-value-throws.js",
     "language/*/async-generator/yield-star-throw-notdone-iter-value-throws.js",
     "language/*/async-generator/yield-star-return-missing-value-is-awaited.js",
     "language/*/async-generator/yield-star-return-then-getter-ticks.js",
     "language/*/async-generator/yield-return-then-getter-ticks.js",
-    "language/*/async-gen-method/yield-star-next-call-*-get-abrupt.js",
-    "language/*/async-gen-method-static/yield-star-next-call-*-get-abrupt.js",
-    "language/*/class/async-gen-method/yield-star-next-call-*-get-abrupt.js",
-    "language/*/class/async-gen-method-static/yield-star-next-call-*-get-abrupt.js",
-    "language/*/class/elements/async-gen-private-method/yield-star-next-call-*-get-abrupt.js",
-    "language/*/class/elements/async-gen-private-method-static/yield-star-next-call-*-get-abrupt.js",
-    "language/*/object/method-definition/async-gen-yield-star-next-call-*-get-abrupt.js",
 
     // AsyncFromSyncIterator throw edge cases
     "built-ins/AsyncFromSyncIteratorPrototype/throw/iterator-result-rejected-promise-close.js",

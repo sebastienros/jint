@@ -626,7 +626,27 @@ internal sealed class JintYieldExpression : JintExpression
                 return JsValue.Undefined;
             }
 
-            var done = IteratorComplete(resultObj);
+            // IteratorComplete and IteratorValue may throw (poisoned done/value getters)
+            bool done;
+            try
+            {
+                done = IteratorComplete(resultObj);
+            }
+            catch (JavaScriptException e)
+            {
+                asyncGenerator._delegatingIterator = null;
+                asyncGenerator._delegatingYieldNode = null;
+                asyncGenerator._delegatingNextMethod = null;
+                asyncGenerator._currentPromiseCapability = null;
+                asyncGenerator._asyncGeneratorState = AsyncGeneratorState.Completed;
+                if (promiseCapability is not null)
+                {
+                    AsyncGeneratorInstance.AsyncGeneratorReject(e.Error, promiseCapability);
+                }
+                asyncGenerator.AsyncGeneratorResumeNext();
+                return JsValue.Undefined;
+            }
+
             if (done)
             {
                 // Delegation complete - clean up and resume the outer generator
@@ -634,25 +654,56 @@ internal sealed class JintYieldExpression : JintExpression
                 asyncGenerator._delegatingNextMethod = null;
                 // Keep _delegatingYieldNode for now - used to detect resumption after delegation
 
+                JsValue value;
+                try
+                {
+                    value = IteratorValue(resultObj);
+                }
+                catch (JavaScriptException e)
+                {
+                    asyncGenerator._delegatingYieldNode = null;
+                    asyncGenerator._currentPromiseCapability = null;
+                    asyncGenerator._asyncGeneratorState = AsyncGeneratorState.Completed;
+                    if (promiseCapability is not null)
+                    {
+                        AsyncGeneratorInstance.AsyncGeneratorReject(e.Error, promiseCapability);
+                    }
+                    asyncGenerator.AsyncGeneratorResumeNext();
+                    return JsValue.Undefined;
+                }
+
                 if (delegationResumeType == CompletionType.Return)
                 {
-                    // For Return completions: propagate the return completion type
-                    // so yield* returns with a Return completion (enabling try/finally)
                     asyncGenerator._resumeCompletionType = CompletionType.Return;
                 }
 
-                // Resume execution after delegation
                 if (promiseCapability is not null)
                 {
-                    asyncGenerator.ResumeAfterDelegation(IteratorValue(resultObj), promiseCapability);
+                    asyncGenerator.ResumeAfterDelegation(value, promiseCapability);
                 }
             }
             else
             {
-                // Yield the value from the inner iterator
-                var yieldedValue = IteratorValue(resultObj);
+                JsValue yieldedValue;
+                try
+                {
+                    yieldedValue = IteratorValue(resultObj);
+                }
+                catch (JavaScriptException e)
+                {
+                    asyncGenerator._delegatingIterator = null;
+                    asyncGenerator._delegatingYieldNode = null;
+                    asyncGenerator._delegatingNextMethod = null;
+                    asyncGenerator._currentPromiseCapability = null;
+                    asyncGenerator._asyncGeneratorState = AsyncGeneratorState.Completed;
+                    if (promiseCapability is not null)
+                    {
+                        AsyncGeneratorInstance.AsyncGeneratorReject(e.Error, promiseCapability);
+                    }
+                    asyncGenerator.AsyncGeneratorResumeNext();
+                    return JsValue.Undefined;
+                }
 
-                // Clear the current promise capability before resolving
                 asyncGenerator._currentPromiseCapability = null;
 
                 if (promiseCapability is not null)
@@ -660,7 +711,6 @@ internal sealed class JintYieldExpression : JintExpression
                     asyncGenerator.AsyncGeneratorResolve(yieldedValue, false, promiseCapability);
                 }
 
-                // Process next request - this will continue the delegation when next() is called
                 asyncGenerator.AsyncGeneratorResumeNext();
             }
 
