@@ -31,6 +31,10 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
     private readonly LhsKind _lhsKind;
     private readonly DisposeHint _disposeHint;
 
+    // AnnexB B.3.6: for-in initializer expression (e.g., `for (var a = expr in obj)`)
+    private readonly JintExpression? _forInVarInitializer;
+    private readonly string? _forInVarName;
+
     public JintForInForOfStatement(ForInStatement statement) : base(statement)
     {
         _leftNode = statement.Left;
@@ -40,6 +44,14 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         InitializeLhs(out _lhsKind, out _disposeHint, out _tdzNames, out _destructuring, out _assignmentPattern, out _expr);
         _body = new ProbablyBlockStatement(_forBody);
         _right = JintExpression.Build(_rightExpression);
+
+        // AnnexB B.3.6: for-in with initializer
+        if (_leftNode is VariableDeclaration { Kind: VariableDeclarationKind.Var } varDecl
+            && varDecl.Declarations[0] is { Init: not null, Id: Identifier id })
+        {
+            _forInVarInitializer = JintExpression.Build(varDecl.Declarations[0].Init!);
+            _forInVarName = id.Name;
+        }
     }
 
     public JintForInForOfStatement(ForOfStatement statement) : base(statement)
@@ -197,6 +209,15 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         }
 
         engine.UpdateLexicalEnvironment(tdz);
+
+        // AnnexB B.3.6: evaluate for-in initializer before the right-hand expression
+        if (_forInVarInitializer is not null)
+        {
+            var lhs = engine.ResolveBinding(_forInVarName!);
+            var value = _forInVarInitializer.GetValue(context);
+            engine.PutValue(lhs, value);
+        }
+
         var exprValue = _right.GetValue(context);
         engine.UpdateLexicalEnvironment(oldEnv);
 

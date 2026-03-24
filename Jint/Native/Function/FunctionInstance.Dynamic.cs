@@ -121,27 +121,10 @@ public partial class Function
                         break;
                 }
 
-                if (p.Contains('/'))
-                {
-                    // ensure comments don't screw up things
-                    functionExpression += "\n" + p + "\n";
-                }
-                else
-                {
-                    functionExpression += p;
-                }
-
-                functionExpression += ")";
-
-                if (body.Contains('/'))
-                {
-                    // ensure comments don't screw up things
-                    functionExpression += "{\n" + body + "\n}";
-                }
-                else
-                {
-                    functionExpression += "{" + body + "}";
-                }
+                // Per spec (CreateDynamicFunction step 29), a line feed follows the parameters,
+                // and the body is wrapped with line feeds (step 16). This ensures HTML-like
+                // comments (<!-- and -->) are correctly handled as line comments.
+                functionExpression += p + "\n){\n" + body + "\n}";
             }
 
             var parserOptions = _engine.GetActiveParserOptions();
