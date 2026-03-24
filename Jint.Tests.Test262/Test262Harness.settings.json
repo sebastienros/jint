@@ -405,12 +405,6 @@
     "language/module-code/top-level-await/unobservable-global-async-evaluation-count-reset.js",
     "language/statements/for-await-of/ticks-with-*-iter-resolved-promise-and-constructor-lookup*.js",
 
-    // Array.fromAsync
-    "built-ins/Array/fromAsync/async-iterable-input-does-not-await-input.js",
-    "built-ins/Array/fromAsync/asyncitems-arraylike-length-accessor-throws.js",
-    "built-ins/Array/fromAsync/asyncitems-arraylike-too-long.js",
-    "built-ins/Array/fromAsync/this-constructor-with-bad-length-setter.js",
-    "built-ins/Array/fromAsync/this-constructor-with-readonly-length.js",
 
     // using/await-using in async generators: needs deferred await support
     "language/statements/using/initializer-disposed-at-end-of-asyncgeneratorbody.js",
@@ -419,13 +413,20 @@
     // await-using implicit await tick
     "language/statements/await-using/await-using-implies-await-if-evaluated.js",
 
-    // dynamic import, fn-name, misc
+    // Array.fromAsync remaining issues
+    "built-ins/Array/fromAsync/async-iterable-input-does-not-await-input.js",
+    "built-ins/Array/fromAsync/asyncitems-arraylike-too-long.js",
+    "built-ins/Array/fromAsync/this-constructor-with-bad-length-setter.js",
+    "built-ins/Array/fromAsync/this-constructor-with-readonly-length.js",
+
+    // async generator fn-name reassign: double-await re-evaluation issue
+    "language/expressions/async-generator/named-*-reassign-fn-name-in-body*.js",
+
+    // dynamic import in async contexts
     "language/expressions/dynamic-import/assignment-expression/await-expr.js",
     "language/expressions/dynamic-import/assignment-expression/import-meta.js",
     "language/expressions/dynamic-import/for-await-resolution-and-error-agen-yield.js",
-    "language/expressions/dynamic-import/for-await-resolution-and-error-agen.js",
-    "language/expressions/async-generator/named-*-reassign-fn-name-in-body*.js",
-    "language/expressions/async-generator/expression-yield-newline.js"
+    "language/expressions/dynamic-import/for-await-resolution-and-error-agen.js"
 
   ]
 }

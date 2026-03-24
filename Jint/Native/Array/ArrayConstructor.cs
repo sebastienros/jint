@@ -128,6 +128,16 @@ public sealed class ArrayConstructor : Constructor
         {
             promiseCapability.Reject.Call(Undefined, e.Error);
         }
+        catch (TypeErrorException e)
+        {
+            var error = _realm.Intrinsics.TypeError.Construct(e.Message);
+            promiseCapability.Reject.Call(Undefined, error);
+        }
+        catch (RangeErrorException e)
+        {
+            var error = _realm.Intrinsics.RangeError.Construct(e.Message);
+            promiseCapability.Reject.Call(Undefined, error);
+        }
     }
 
     private void FromAsyncClosureImpl(JsValue c, JsValue asyncItems, JsValue mapfn, JsValue thisArg, PromiseCapability promiseCapability)
@@ -447,6 +457,16 @@ public sealed class ArrayConstructor : Constructor
         catch (JavaScriptException e)
         {
             promiseCapability.Reject.Call(Undefined, e.Error);
+        }
+        catch (TypeErrorException e)
+        {
+            var error = _realm.Intrinsics.TypeError.Construct(e.Message);
+            promiseCapability.Reject.Call(Undefined, error);
+        }
+        catch (RangeErrorException e)
+        {
+            var error = _realm.Intrinsics.RangeError.Construct(e.Message);
+            promiseCapability.Reject.Call(Undefined, error);
         }
     }
 
