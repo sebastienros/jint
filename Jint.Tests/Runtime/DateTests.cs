@@ -226,4 +226,32 @@ public class DateTests
         jsDate = new JsDate(_engine, date);
         Assert.Equal(DateFlags.None, jsDate._dateValue.Flags);
     }
+
+    [Fact]
+    public void DstTransitionShouldUseCorrectOffset()
+    {
+        TimeZoneInfo nztz;
+        try
+        {
+            nztz = TimeZoneInfo.FindSystemTimeZoneById("New Zealand Standard Time");
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            nztz = TimeZoneInfo.FindSystemTimeZoneById("Pacific/Auckland");
+        }
+
+        var engine = new Engine(options => options.LocalTimeZone(nztz));
+
+        // NZDT (GMT+13) ends at 3:00 AM on the first Sunday of April 2025.
+        // At midnight April 6, we are still in NZDT (GMT+13).
+        var result1 = engine.Evaluate("new Date(2025, 3, 6, 0, 0, 0).toString()").AsString();
+        Assert.Contains("GMT+1300", result1);
+        Assert.Contains("Apr 06 2025 00:00:00", result1);
+
+        // NZDT (GMT+13) begins at 2:00 AM on the last Sunday of September 2025.
+        // At midnight Sep 28, we are still in NZST (GMT+12).
+        var result2 = engine.Evaluate("new Date(2025, 8, 28, 0, 0, 0).toString()").AsString();
+        Assert.Contains("GMT+1200", result2);
+        Assert.Contains("Sep 28 2025 00:00:00", result2);
+    }
 }

@@ -116,8 +116,12 @@ public class DefaultTimeSystem : ITimeSystem
 
         if (convertToUtcAfter)
         {
+            // datePresentation is local time encoded as epoch milliseconds.
+            // Two-pass conversion to get correct DST offset near transitions.
             var offset = GetUtcOffset(datePresentation.Value).TotalMilliseconds;
-            datePresentation -= offset;
+            var estimatedUtc = (datePresentation - offset).Value;
+            var refinedOffset = GetUtcOffset(estimatedUtc).TotalMilliseconds;
+            datePresentation -= refinedOffset;
         }
 
         epochMilliseconds = datePresentation.Value;
