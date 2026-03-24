@@ -1,6 +1,5 @@
 using System.Threading;
 using Jint.Native;
-using Jint.Native.Object;
 using Jint.Native.Promise;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;

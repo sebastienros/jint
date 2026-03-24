@@ -2,7 +2,6 @@ using System.Diagnostics.Contracts;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Threading;
-using System.Threading.Tasks;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Object;

@@ -2,7 +2,6 @@
 
 using Jint.Native;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 using Test262Harness;
 
