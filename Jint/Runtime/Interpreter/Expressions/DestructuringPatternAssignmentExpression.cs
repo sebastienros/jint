@@ -95,13 +95,15 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
         var engine = context.Engine;
         var realm = engine.Realm;
         var generator = engine.ExecutionContext.Generator;
+        var asyncGenerator = engine.ExecutionContext.AsyncGenerator;
+        var suspendable = (ISuspendable?) generator ?? asyncGenerator;
 
         // Check if we're resuming from a yield inside this destructuring pattern
         DestructuringSuspendData? suspendData = null;
         var resuming = false;
-        if (generator is not null && generator._isResuming)
+        if (suspendable is { IsResuming: true })
         {
-            if (generator.Data.TryGet(pattern, out suspendData))
+            if (suspendable.Data.TryGet(pattern, out suspendData))
             {
                 resuming = true;
             }
@@ -119,17 +121,27 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
             // If resuming with Return completion, close the iterator immediately
             // This handles the case where generator.return() was called while
             // suspended inside this destructuring pattern
-            if (generator!._resumeCompletionType == CompletionType.Return)
+            var isReturn = generator?._resumeCompletionType == CompletionType.Return
+                           || asyncGenerator?._resumeCompletionType == CompletionType.Return;
+            if (isReturn)
             {
                 if (!suspendData.Done)
                 {
                     suspendData.Done = true;
                     iterator?.Close(CompletionType.Return);
                 }
-                generator.Data.Clear(pattern);
-                // Signal return request - callers check _returnRequested flag
-                generator._returnRequested = true;
-                generator._suspendedValue = generator._nextValue ?? JsValue.Undefined;
+                suspendable!.Data.Clear(pattern);
+                if (generator is not null)
+                {
+                    generator._returnRequested = true;
+                    generator._suspendedValue = generator._nextValue ?? JsValue.Undefined;
+                }
+                else if (asyncGenerator is not null)
+                {
+                    asyncGenerator._resumeCompletionType = CompletionType.Normal;
+                    asyncGenerator._returnRequested = true;
+                    asyncGenerator._suspendedValue = asyncGenerator._nextValue ?? JsValue.Undefined;
+                }
                 return JsValue.Undefined;
             }
         }
@@ -145,9 +157,9 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                 iterator = obj.GetIterator(realm);
 
                 // Save the iterator for potential yield inside this pattern
-                if (generator is not null && iterator is not null)
+                if (suspendable is not null && iterator is not null)
                 {
-                    suspendData = generator.Data.GetOrCreate<DestructuringSuspendData>(pattern, iterator);
+                    suspendData = suspendable.Data.GetOrCreate<DestructuringSuspendData>(pattern, iterator);
                 }
             }
         }
@@ -207,14 +219,14 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                     }
 
                     // Check for generator return request
-                    if (generator?._returnRequested == true)
+                    if (suspendable?.ReturnRequested == true)
                     {
                         if (!done && iterator is not null)
                         {
                             done = true;
                             iterator.Close(CompletionType.Return);
                         }
-                        generator.Data.Clear(pattern);
+                        suspendable?.Data.Clear(pattern);
                         close = false; // Already closed
                         return JsValue.Undefined;
                     }
@@ -269,14 +281,14 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                         }
 
                         // Check for generator return request
-                        if (generator?._returnRequested == true)
+                        if (suspendable?.ReturnRequested == true)
                         {
                             if (!done && iterator is not null)
                             {
                                 done = true;
                                 iterator.Close(CompletionType.Return);
                             }
-                            generator.Data.Clear(pattern);
+                            suspendable?.Data.Clear(pattern);
                             close = false; // Already closed
                             return JsValue.Undefined;
                         }
@@ -348,14 +360,14 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                         }
 
                         // Check for generator return request
-                        if (generator?._returnRequested == true)
+                        if (suspendable?.ReturnRequested == true)
                         {
                             if (!done && iterator is not null)
                             {
                                 done = true;
                                 iterator.Close(CompletionType.Return);
                             }
-                            generator.Data.Clear(pattern);
+                            suspendable?.Data.Clear(pattern);
                             close = false;
                             return JsValue.Undefined;
                         }
@@ -384,14 +396,14 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                         }
 
                         // Check for generator return request after evaluating default value
-                        if (generator?._returnRequested == true)
+                        if (suspendable?.ReturnRequested == true)
                         {
                             if (!done && iterator is not null)
                             {
                                 done = true;
                                 iterator.Close(CompletionType.Return);
                             }
-                            generator.Data.Clear(pattern);
+                            suspendable?.Data.Clear(pattern);
                             close = false; // Already closed
                             return JsValue.Undefined;
                         }
@@ -430,7 +442,7 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                 }
 
                 // Check for generator return request
-                if (generator?._returnRequested == true)
+                if (suspendable?.ReturnRequested == true)
                 {
                     // Generator return() was called - close iterator with Return completion
                     if (!done && iterator is not null)
@@ -438,7 +450,7 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                         done = true; // Prevent double-close in finally
                         iterator.Close(CompletionType.Return);
                     }
-                    generator.Data.Clear(pattern);
+                    suspendable?.Data.Clear(pattern);
                     close = false; // Prevent double-close in finally
                     return JsValue.Undefined;
                 }
@@ -446,14 +458,14 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
 
             close = true;
             // Clear suspend data on normal completion
-            generator?.Data.Clear(pattern);
+            suspendable?.Data.Clear(pattern);
         }
         catch
         {
             completionType = CompletionType.Throw;
             close = true;
             // Clear suspend data on error
-            generator?.Data.Clear(pattern);
+            suspendable?.Data.Clear(pattern);
             throw;
         }
         finally

@@ -87,6 +87,12 @@ internal sealed class ForAwaitSuspendData : SuspendData
     /// The accumulated result value (v) from previous iterations.
     /// </summary>
     public JsValue AccumulatedValue { get; set; } = JsValue.Undefined;
+
+    /// <summary>
+    /// The current value being processed when yield fired inside destructuring.
+    /// When set, the resume should skip the iterator step and use this value.
+    /// </summary>
+    public JsValue? CurrentValue { get; set; }
 }
 
 /// <summary>

@@ -407,8 +407,6 @@
     "language/module-code/top-level-await/unobservable-global-async-evaluation-count-reset.js",
     "language/statements/for-await-of/ticks-with-*-iter-resolved-promise-and-constructor-lookup*.js",
 
-    // for-await-of destructuring with yield
-    "language/statements/for-await-of/async-gen-decl-dstr-*-yield-expr.js",
 
     // Array.fromAsync
     "built-ins/Array/fromAsync/async-iterable-input-does-not-await-input.js",

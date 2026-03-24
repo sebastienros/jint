@@ -173,8 +173,12 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 // We're resuming into this for-await-of loop - use the saved iterator
                 keyResult = forAwaitSuspendData!.Iterator;
                 resuming = true;
-                // Clear the resuming flag since we've handled it
-                suspendable.IsResuming = false;
+                // Only clear IsResuming if NOT resuming from yield inside destructuring
+                // (yield needs IsResuming to be true to return the resume value)
+                if (forAwaitSuspendData.CurrentValue is null)
+                {
+                    suspendable.IsResuming = false;
+                }
             }
         }
 
@@ -297,7 +301,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 JsValue nextValue;
 
                 // Skip TryIteratorStep if we're resuming and already have a current value
-                // (this happens when yield occurred during body execution)
+                // (this happens when yield occurred during body execution or destructuring)
                 if (resuming && suspendData?.CurrentValue is not null)
                 {
                     nextValue = suspendData.CurrentValue;
@@ -310,6 +314,15 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     {
                         engine.UpdateLexicalEnvironment(iterationEnv);
                     }
+                }
+                else if (resuming && iteratorKind == IteratorKind.Async
+                         && suspendable?.Data.TryGet<ForAwaitSuspendData>(this, out var asyncResumeData) == true
+                         && asyncResumeData?.CurrentValue is not null)
+                {
+                    // Resuming from yield inside destructuring in for-await-of
+                    nextValue = asyncResumeData.CurrentValue;
+                    asyncResumeData.CurrentValue = null;
+                    resuming = false;
                 }
                 else
                 {
@@ -456,17 +469,27 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 }
                 else
                 {
+                    // Save the original iterator value before destructuring (for potential resume)
+                    var iteratorValue = nextValue;
+
                     nextValue = DestructuringPatternAssignmentExpression.ProcessPatterns(
                         context,
                         _assignmentPattern!,
-                        nextValue,
+                        iteratorValue,
                         iterationEnv,
                         checkPatternPropertyReference: _lhsKind != LhsKind.VarBinding);
 
-                    // Check for suspension after destructuring
+                    // Check for suspension after destructuring (yield inside pattern)
                     if (context.IsSuspended())
                     {
                         close = false; // Don't close iterator, we'll resume later
+                        // Save the ORIGINAL iterator value for replay when resuming
+                        if (_iterationKind == IterationKind.AsyncIterate && suspendable is not null)
+                        {
+                            var asyncSD = suspendable.Data.GetOrCreate<ForAwaitSuspendData>(this);
+                            asyncSD.CurrentValue = iteratorValue;
+                            asyncSD.AccumulatedValue = v;
+                        }
                         completionType = CompletionType.Return;
                         return new Completion(CompletionType.Return, suspendable?.SuspendedValue ?? nextValue, _statement!);
                     }

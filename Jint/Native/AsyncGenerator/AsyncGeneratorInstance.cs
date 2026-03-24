@@ -287,8 +287,9 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
         }
         else if (result.Type == CompletionType.Normal)
         {
+            // Per spec step 4.c: If result.[[Type]] is normal, set resultValue to undefined
             _asyncGeneratorState = AsyncGeneratorState.Completed;
-            AsyncGeneratorResolve(result.Value, true, promiseCapability);
+            AsyncGeneratorResolve(Undefined, true, promiseCapability);
         }
         else // Throw
         {
@@ -407,7 +408,9 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
             _asyncGeneratorState = AsyncGeneratorState.Completed;
             if (promiseCapability is not null)
             {
-                AsyncGeneratorResolve(bodyResult.Value, true, promiseCapability);
+                // Per spec: normal completion uses undefined, return completion uses the value
+                var completionValue = bodyResult.Type == CompletionType.Return ? bodyResult.Value : Undefined;
+                AsyncGeneratorResolve(completionValue, true, promiseCapability);
             }
             AsyncGeneratorResumeNext();
         }
