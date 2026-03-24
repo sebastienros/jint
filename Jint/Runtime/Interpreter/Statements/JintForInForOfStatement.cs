@@ -276,6 +276,15 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         var suspendable = engine.ExecutionContext.Suspendable;
         var oldEnv = engine.ExecutionContext.LexicalEnvironment;
 
+        // When resuming from await/yield inside a body with let declarations,
+        // the saved execution context has a block-scoped environment. Restore
+        // the correct outer env from suspend data.
+        if (resuming && suspendData?.OuterEnv is not null)
+        {
+            oldEnv = suspendData.OuterEnv;
+            engine.UpdateLexicalEnvironment(oldEnv);
+        }
+
         // Restore accumulated value if resuming
         var v = suspendData?.AccumulatedValue ?? JsValue.Undefined;
         var destructuring = _destructuring;
@@ -548,6 +557,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     data.AccumulatedValue = v;
                     data.CurrentValue = nextValue;
                     data.IterationEnv = iterationEnv;
+                    data.OuterEnv = oldEnv;
                 }
 
                 // For async functions with sync iterators, save state so that if an await
@@ -560,6 +570,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     asyncData.AccumulatedValue = v;
                     asyncData.CurrentValue = nextValue;
                     asyncData.IterationEnv = iterationEnv;
+                    asyncData.OuterEnv = oldEnv;
                 }
 
                 var result = stmt.Execute(context);

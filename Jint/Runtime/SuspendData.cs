@@ -53,6 +53,13 @@ internal sealed class ForOfSuspendData : SuspendData
     /// The iteration environment for lexical bindings (let/const in for-of).
     /// </summary>
     public DeclarativeEnvironment? IterationEnv { get; set; }
+
+    /// <summary>
+    /// The outer environment of the for-of loop body evaluation.
+    /// Needed because the saved execution context on async resume may have a
+    /// block-scoped environment from let declarations inside the loop body.
+    /// </summary>
+    public Environments.Environment? OuterEnv { get; set; }
 }
 
 /// <summary>

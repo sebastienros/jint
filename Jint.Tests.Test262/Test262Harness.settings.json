@@ -377,21 +377,7 @@
 
     // Acornima parser/RegExp limitation: malformed named groups in non-unicode mode
     // Per B.1.2, non-unicode RegExp should accept some malformed named group syntax
-    "annexB/built-ins/RegExp/named-groups/non-unicode-malformed.js",
-
-    // === ASYNC EXCLUSIONS ===
-
-    // Atomics.waitAsync agent tests
-    "built-ins/Atomics/waitAsync/bigint/*.js",
-    "built-ins/Atomics/waitAsync/good-views.js",
-    "built-ins/Atomics/waitAsync/nan-for-timeout-agent.js",
-    "built-ins/Atomics/waitAsync/no-spurious-wakeup-*.js",
-    "built-ins/Atomics/waitAsync/true-for-timeout-agent.js",
-    "built-ins/Atomics/waitAsync/undefined-for-timeout-agent.js",
-    "built-ins/Atomics/waitAsync/undefined-index-defaults-to-zero-agent.js",
-    "built-ins/Atomics/waitAsync/waiterlist-block-indexedposition-wake.js",
-    "built-ins/Atomics/waitAsync/was-woken-before-timeout.js"
+    "annexB/built-ins/RegExp/named-groups/non-unicode-malformed.js"
 
   ]
 }
-

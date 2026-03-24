@@ -138,6 +138,7 @@ internal sealed class Test262AgentManager : IDisposable
         private readonly string _scriptSource;
         private Thread? _thread;
         private int _lastBroadcastVersion;
+        private volatile bool _leaving;
 
         public AgentWorker(Test262AgentManager manager, string scriptSource)
         {
@@ -204,7 +205,7 @@ internal sealed class Test262AgentManager : IDisposable
                 agentObj.FastSetProperty("leaving", new PropertyDescriptor(new ClrFunction(engine, "leaving",
                     (_, _) =>
                     {
-                        // Nothing special needed here
+                        _leaving = true;
                         return JsValue.Undefined;
                     }), true, true, true));
 
@@ -225,6 +226,36 @@ internal sealed class Test262AgentManager : IDisposable
                     ParsingOptions = ScriptParsingOptions.Default with { Tolerant = false },
                 });
                 engine.Execute(script);
+
+                // Drain the event loop for async agent scripts (e.g., await Atomics.waitAsync).
+                // Without this, the worker thread exits before promise resolutions are processed.
+                if (!_leaving)
+                {
+                    var eventLoop = engine.EventLoop;
+                    var previousWaitingThreadId = eventLoop._waitingThreadId;
+                    eventLoop._waitingThreadId = Environment.CurrentManagedThreadId;
+
+                    try
+                    {
+                        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+
+                        while (!_leaving)
+                        {
+                            engine.RunAvailableContinuations();
+
+                            if (_leaving || DateTime.UtcNow >= deadline)
+                            {
+                                break;
+                            }
+
+                            Thread.Sleep(10);
+                        }
+                    }
+                    finally
+                    {
+                        eventLoop._waitingThreadId = previousWaitingThreadId;
+                    }
+                }
             }
             catch (Exception ex)
             {
