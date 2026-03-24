@@ -513,8 +513,10 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
         _asyncGeneratorState = AsyncGeneratorState.SuspendedYield;
         _suspendedValue = value;
 
-        // Await the value
-        var promise = CreateResolvedPromise(value);
+        // Per spec AsyncGeneratorYield step 4: Set value to ? Await(value).
+        // Await step 1: PromiseResolve(%Promise%, value) — returns the value as-is if it's
+        // already a %Promise% (avoids extra thenable job tick for Promise values).
+        var promise = (JsPromise) _engine.Realm.Intrinsics.Promise.PromiseResolve(value);
 
         // Create fulfillment handler
         var onFulfilled = new ClrFunction(_engine, "", (thisObj, args) =>

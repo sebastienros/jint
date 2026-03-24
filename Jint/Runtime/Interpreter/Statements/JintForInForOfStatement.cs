@@ -369,8 +369,13 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
 
                             var nextPromise = nextMethod.Call(iteratorRecord.Instance, Arguments.Empty);
 
+                            // Per spec 13.7.5.13 step 5.b.c: Await(nextResult)
+                            // Await step 1: PromiseResolve(%Promise%, nextResult)
+                            // This makes constructor lookups observable per spec.
+                            var promiseResolved = engine.Realm.Intrinsics.Promise.PromiseResolve(nextPromise);
+
                             // If result is a Promise, we need to await it
-                            if (nextPromise is JsPromise promise)
+                            if (promiseResolved is JsPromise promise)
                             {
                                 // Save current state for resume (including iterator)
                                 if (asyncSuspendData is not null)

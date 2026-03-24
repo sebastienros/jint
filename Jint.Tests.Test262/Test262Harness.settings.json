@@ -395,10 +395,8 @@
     // yield* delegation: tick ordering (requires Await suspension in delegation return path)
     "language/*/async-generator/yield-star-return-then-getter-ticks.js",
 
-    // Tick ordering (microtask scheduling precision)
-    "language/expressions/await/for-await-of-interleaved.js",
+    // Module evaluation ordering with top-level await
     "language/module-code/top-level-await/unobservable-global-async-evaluation-count-reset.js",
-    "language/statements/for-await-of/ticks-with-*-iter-resolved-promise-and-constructor-lookup*.js",
 
     // await-using implicit await tick
     "language/statements/await-using/await-using-implies-await-if-evaluated.js",
