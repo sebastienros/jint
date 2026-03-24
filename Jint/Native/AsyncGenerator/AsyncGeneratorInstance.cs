@@ -191,9 +191,14 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
                 }
                 else if (_asyncGeneratorState == AsyncGeneratorState.SuspendedYield)
                 {
-                    _asyncGeneratorState = AsyncGeneratorState.AwaitingReturn;
-                    // Await the return value before completing
-                    AsyncGeneratorAwaitReturn(completion.Value, promiseCapability);
+                    // Resume execution with Return completion so that:
+                    // 1. yield* delegation forwards return to inner iterator
+                    // 2. try/finally blocks execute their finally clauses
+                    _asyncGeneratorState = AsyncGeneratorState.Executing;
+                    _nextValue = completion.Value;
+                    _isResuming = true;
+                    _resumeCompletionType = CompletionType.Return;
+                    ResumeExecution(promiseCapability);
                     return;
                 }
                 else if (_asyncGeneratorState == AsyncGeneratorState.Completed)

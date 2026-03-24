@@ -89,11 +89,21 @@ internal sealed class JintYieldExpression : JintExpression
             }
             else
             {
-                // Delegation has completed - return the final value and continue after yield*
+                // Delegation has completed - return the final value
                 var returnValue = asyncGenerator._nextValue ?? JsValue.Undefined;
                 asyncGenerator._delegatingYieldNode = null;
                 asyncGenerator._isResuming = false;
                 asyncGenerator._nextValue = null;
+
+                // If this was a Return completion from the inner iterator,
+                // signal the return so try/finally blocks can execute
+                if (asyncGenerator._resumeCompletionType == CompletionType.Return)
+                {
+                    asyncGenerator._resumeCompletionType = CompletionType.Normal;
+                    asyncGenerator._returnRequested = true;
+                    asyncGenerator._suspendedValue = returnValue;
+                }
+
                 return returnValue;
             }
         }
@@ -241,7 +251,14 @@ internal sealed class JintYieldExpression : JintExpression
     private static JsValue ContinueAsyncYieldDelegate(EvaluationContext context, AsyncGeneratorInstance asyncGenerator)
     {
         var iterator = asyncGenerator._delegatingIterator!;
-        var resumeType = asyncGenerator._delegationResumeType;
+
+        // If the user called .throw() or .return() while we were in delegation,
+        // use their completion type instead of the delegation's last resume type
+        var resumeType = asyncGenerator._resumeCompletionType != CompletionType.Normal
+            ? asyncGenerator._resumeCompletionType
+            : asyncGenerator._delegationResumeType;
+        asyncGenerator._resumeCompletionType = CompletionType.Normal; // reset
+
         var resumeValue = asyncGenerator._nextValue ?? JsValue.Undefined;
 
         // Clear the resuming flag since we're handling it here
@@ -585,6 +602,9 @@ internal sealed class JintYieldExpression : JintExpression
         // Capture the current promise capability - we'll resolve it when the inner Promise resolves
         var promiseCapability = asyncGenerator._currentPromiseCapability;
 
+        // Capture the delegation resume type to know if this was a return/throw delegation
+        var delegationResumeType = asyncGenerator._delegationResumeType;
+
         // Create handlers for the Promise
         var onFulfilled = new ClrFunction(engine, "", (_, args) =>
         {
@@ -594,6 +614,7 @@ internal sealed class JintYieldExpression : JintExpression
             {
                 asyncGenerator._delegatingIterator = null;
                 asyncGenerator._delegatingYieldNode = null;
+                asyncGenerator._delegatingNextMethod = null;
                 asyncGenerator._currentPromiseCapability = null;
                 asyncGenerator._asyncGeneratorState = AsyncGeneratorState.Completed;
                 if (promiseCapability is not null)
@@ -610,7 +631,15 @@ internal sealed class JintYieldExpression : JintExpression
             {
                 // Delegation complete - clean up and resume the outer generator
                 asyncGenerator._delegatingIterator = null;
+                asyncGenerator._delegatingNextMethod = null;
                 // Keep _delegatingYieldNode for now - used to detect resumption after delegation
+
+                if (delegationResumeType == CompletionType.Return)
+                {
+                    // For Return completions: propagate the return completion type
+                    // so yield* returns with a Return completion (enabling try/finally)
+                    asyncGenerator._resumeCompletionType = CompletionType.Return;
+                }
 
                 // Resume execution after delegation
                 if (promiseCapability is not null)
@@ -621,7 +650,6 @@ internal sealed class JintYieldExpression : JintExpression
             else
             {
                 // Yield the value from the inner iterator
-                // Resolve the current request with done=false and the inner value
                 var yieldedValue = IteratorValue(resultObj);
 
                 // Clear the current promise capability before resolving
@@ -644,6 +672,7 @@ internal sealed class JintYieldExpression : JintExpression
             var rejectedValue = args.At(0);
             asyncGenerator._delegatingIterator = null;
             asyncGenerator._delegatingYieldNode = null;
+            asyncGenerator._delegatingNextMethod = null;
             asyncGenerator._currentPromiseCapability = null;
             asyncGenerator._asyncGeneratorState = AsyncGeneratorState.Completed;
 
