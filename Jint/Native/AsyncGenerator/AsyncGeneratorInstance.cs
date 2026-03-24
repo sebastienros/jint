@@ -265,6 +265,7 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
             _engine.LeaveExecutionContext();
             _currentPromiseCapability = null;
             _asyncGeneratorState = AsyncGeneratorState.Completed;
+            _completedAwaits = null;
             AsyncGeneratorReject(disposeResult.Value, promiseCapability);
             AsyncGeneratorResumeNext();
             return;
@@ -301,6 +302,7 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
         if (result.Type == CompletionType.Throw)
         {
             _asyncGeneratorState = AsyncGeneratorState.Completed;
+            _completedAwaits = null;
             AsyncGeneratorReject(result.Value, promiseCapability);
         }
         else if (result.Type == CompletionType.Return)
@@ -311,6 +313,7 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
             if (result._source is ReturnStatement { Argument: null })
             {
                 _asyncGeneratorState = AsyncGeneratorState.Completed;
+                _completedAwaits = null;
                 AsyncGeneratorResolve(result.Value, true, promiseCapability);
             }
             else
@@ -322,6 +325,7 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
         else if (result.Type == CompletionType.Normal)
         {
             _asyncGeneratorState = AsyncGeneratorState.Completed;
+            _completedAwaits = null;
             AsyncGeneratorResolve(Undefined, true, promiseCapability);
         }
 
@@ -350,7 +354,7 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
     /// <summary>
     /// Creates a promise resolved with the given value.
     /// </summary>
-    internal JsPromise CreateResolvedPromise(JsValue value)
+    private JsPromise CreateResolvedPromise(JsValue value)
     {
         var capability = PromiseConstructor.NewPromiseCapability(_engine, _engine.Realm.Intrinsics.Promise);
         capability.Resolve.Call(JsValue.Undefined, new[] { value });
@@ -458,6 +462,7 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
             if (bodyResult.Type == CompletionType.Throw)
             {
                 _asyncGeneratorState = AsyncGeneratorState.Completed;
+                _completedAwaits = null;
                 if (promiseCapability is not null)
                 {
                     AsyncGeneratorReject(bodyResult.Value, promiseCapability);
@@ -466,6 +471,7 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
             else
             {
                 _asyncGeneratorState = AsyncGeneratorState.Completed;
+                _completedAwaits = null;
                 if (promiseCapability is not null)
                 {
                     var completionValue = bodyResult.Type == CompletionType.Return ? bodyResult.Value : Undefined;
@@ -481,12 +487,37 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
             _engine.LeaveExecutionContext();
             _currentPromiseCapability = null;
             _asyncGeneratorState = AsyncGeneratorState.Completed;
+            _completedAwaits = null;
             if (promiseCapability is not null)
             {
                 AsyncGeneratorReject(disposeResult.Value, promiseCapability);
             }
             AsyncGeneratorResumeNext();
         }
+    }
+
+    /// <summary>
+    /// Clears all delegation state and marks the generator as completed.
+    /// Used when yield* delegation encounters an error that terminates the generator.
+    /// </summary>
+    internal void AbortDelegation()
+    {
+        _delegatingIterator = null;
+        _delegatingYieldNode = null;
+        _delegatingNextMethod = null;
+        _currentPromiseCapability = null;
+        _asyncGeneratorState = AsyncGeneratorState.Completed;
+        _completedAwaits = null;
+    }
+
+    /// <summary>
+    /// Clears iterator/method delegation state but preserves _delegatingYieldNode
+    /// so ResumeAfterDelegation can re-enter at the yield* expression.
+    /// </summary>
+    internal void ClearDelegationIterator()
+    {
+        _delegatingIterator = null;
+        _delegatingNextMethod = null;
     }
 
     /// <summary>

@@ -235,9 +235,9 @@ public sealed class ArrayConstructor : Constructor
                 returnMethod.Call(iterator, Arguments.Empty);
             }
         }
-        catch
+        catch (Exception)
         {
-            // Errors from iterator close are suppressed
+            // Errors from iterator close are suppressed per spec
         }
     }
 

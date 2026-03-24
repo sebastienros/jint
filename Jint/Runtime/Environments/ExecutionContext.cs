@@ -118,6 +118,25 @@ internal readonly struct ExecutionContext
         }
     }
 
+    /// <summary>
+    /// Clears stale completed-await caches at loop iteration boundaries.
+    /// Only clears when NOT resuming, since resuming needs cached values from prior awaits.
+    /// </summary>
+    internal void ClearCompletedAwaitsIfNotResuming()
+    {
+        var asyncFn = AsyncFunction;
+        if (asyncFn is null || !asyncFn._isResuming)
+        {
+            asyncFn?._completedAwaits?.Clear();
+        }
+
+        var asyncGen = AsyncGenerator;
+        if (asyncGen is not null && !asyncGen._isResuming)
+        {
+            asyncGen._completedAwaits?.Clear();
+        }
+    }
+
     internal GeneratorKind GetGeneratorKind()
     {
         if (AsyncGenerator is not null)

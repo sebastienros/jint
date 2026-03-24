@@ -288,19 +288,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         {
             while (true)
             {
-                // Clear completed awaits cache when starting a new iteration for async functions.
-                // This prevents stale cached await results from prior iterations being reused.
-                // Only clear when NOT resuming mid-iteration (resuming needs the cache intact).
-                var asyncFnLoop = engine.ExecutionContext.AsyncFunction;
-                if (asyncFnLoop is not null && !asyncFnLoop._isResuming)
-                {
-                    asyncFnLoop._completedAwaits?.Clear();
-                }
-                var asyncGenLoop = engine.ExecutionContext.AsyncGenerator;
-                if (asyncGenLoop is not null && !asyncGenLoop._isResuming)
-                {
-                    asyncGenLoop._completedAwaits?.Clear();
-                }
+                engine.ExecutionContext.ClearCompletedAwaitsIfNotResuming();
 
                 DeclarativeEnvironment? iterationEnv = null;
                 JsValue nextValue;
