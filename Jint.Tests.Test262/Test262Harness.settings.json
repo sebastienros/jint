@@ -392,22 +392,13 @@
     "built-ins/Atomics/waitAsync/waiterlist-block-indexedposition-wake.js",
     "built-ins/Atomics/waitAsync/was-woken-before-timeout.js",
 
-    // yield* delegation: remaining abrupt value getters and tick ordering
-    "language/*/async-generator/yield-star-normal-notdone-iter-value-throws.js",
-    "language/*/async-generator/yield-star-return-notdone-iter-value-throws.js",
-    "language/*/async-generator/yield-star-throw-notdone-iter-value-throws.js",
-    "language/*/async-generator/yield-star-return-missing-value-is-awaited.js",
+    // yield* delegation: tick ordering
     "language/*/async-generator/yield-star-return-then-getter-ticks.js",
     "language/*/async-generator/yield-return-then-getter-ticks.js",
 
-    // AsyncFromSyncIterator throw edge cases
-    "built-ins/AsyncFromSyncIteratorPrototype/throw/iterator-result-rejected-promise-close.js",
-    "built-ins/AsyncFromSyncIteratorPrototype/throw/throw-result-poisoned-wrapper.js",
-
-    // Async generator return: remaining broken promise and tick ordering issues
+    // Async generator return: deferred await + tick ordering issues
     "built-ins/AsyncGeneratorPrototype/next/request-queue-await-order.js",
     "built-ins/AsyncGeneratorPrototype/return/return-state-completed-broken-promise.js",
-    "built-ins/AsyncGeneratorPrototype/return/return-suspendedYield-broken-promise-try-catch.js",
 
     // Microtask tick ordering
     "language/statements/async-generator/return-undefined-implicit-and-explicit.js",
@@ -432,11 +423,7 @@
     "language/statements/await-using/throws-error-as-is-if-only-one-error-during-disposal.js",
     "language/statements/using/initializer-disposed-at-end-of-async*.js",
 
-    // AsyncDisposableStack, Promise.any, dynamic import, fn-name, misc
-    "built-ins/AsyncDisposableStack/prototype/disposeAsync/this-does-not-have-internal-asyncdisposablestate-rejects.js",
-    "built-ins/AsyncDisposableStack/prototype/disposeAsync/this-not-object-rejects.js",
-    "built-ins/Promise/any/iter-next-val-err-no-close.js",
-    "built-ins/Promise/any/iter-step-err-no-close.js",
+    // Promise.any, dynamic import, fn-name, misc
     "language/expressions/dynamic-import/assignment-expression/await-expr.js",
     "language/expressions/dynamic-import/assignment-expression/import-meta.js",
     "language/expressions/dynamic-import/for-await-resolution-and-error-agen-yield.js",

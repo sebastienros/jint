@@ -62,10 +62,12 @@ internal sealed class AsyncDisposableStackPrototype : Prototype
 
     private JsValue Dispose(JsValue thisObject, JsCallArguments arguments)
     {
-        var stack = AssertDisposableStack(thisObject);
+        // Per spec: create promise capability first, then validate receiver.
+        // If validation fails, reject the promise instead of throwing synchronously.
         var capability = PromiseConstructor.NewPromiseCapability(_engine, _engine.Realm.Intrinsics.Promise);
         try
         {
+            var stack = AssertDisposableStack(thisObject);
             var result = stack.Dispose();
             capability.Resolve.Call(Undefined, result);
         }

@@ -200,7 +200,8 @@ internal sealed class AsyncFromSyncIteratorPrototype : ObjectInstance
             return promiseCapability.PromiseInstance;
         }
 
-        return AsyncFromSyncIteratorContinuation(result, promiseCapability, syncIterator, closeOnRejection: false);
+        // Per spec step 13: closeOnRejection is true for throw
+        return AsyncFromSyncIteratorContinuation(result, promiseCapability, syncIterator, closeOnRejection: true);
     }
 
     /// <summary>

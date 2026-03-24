@@ -334,8 +334,20 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
     /// </summary>
     private void AsyncGeneratorAwaitReturn(JsValue value, PromiseCapability promiseCapability)
     {
-        // Wrap value in a promise
-        var promise = CreateResolvedPromise(value);
+        // Per spec: Let promise be Completion(PromiseResolve(%Promise%, value)).
+        // If promiseCompletion is an abrupt completion, complete with the error.
+        JsPromise promise;
+        try
+        {
+            promise = CreateResolvedPromise(value);
+        }
+        catch (JavaScriptException e)
+        {
+            _asyncGeneratorState = AsyncGeneratorState.Completed;
+            AsyncGeneratorReject(e.Error, promiseCapability);
+            AsyncGeneratorResumeNext();
+            return;
+        }
 
         // Create fulfillment handler
         var onFulfilled = new ClrFunction(_engine, "", (thisObj, args) =>

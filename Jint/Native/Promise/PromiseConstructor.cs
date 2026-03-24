@@ -714,11 +714,10 @@ internal sealed class PromiseConstructor : Constructor
 
             do
             {
-                ObjectInstance? nextItem = null;
                 JsValue value;
                 try
                 {
-                    if (!iterator.TryIteratorStep(out nextItem))
+                    if (!iterator.TryIteratorStep(out var nextItem))
                     {
                         doneIterating = true;
                         RejectIfAllRejected();
@@ -727,14 +726,12 @@ internal sealed class PromiseConstructor : Constructor
 
                     value = nextItem.Get(CommonProperties.Value);
                 }
-                catch (JavaScriptException e)
+                catch (JavaScriptException)
                 {
-                    if (nextItem?.Get("done")?.AsBoolean() == false)
-                    {
-                        throw;
-                    }
-                    errors.Add(e.Error);
-                    continue;
+                    // Per spec steps 8.b-c and 8.f-g: set iteratorRecord.[[Done]] to true
+                    // then propagate the error. This prevents IteratorClose in the outer catch.
+                    doneIterating = true;
+                    throw;
                 }
 
                 // note that null here is important
@@ -775,13 +772,17 @@ internal sealed class PromiseConstructor : Constructor
         }
         catch (JavaScriptException e)
         {
-            try
+            // Per spec step 6: only close if iteratorRecord.[[Done]] is false
+            if (!doneIterating)
             {
-                iterator.Close(CompletionType.Throw);
-            }
-            catch (JavaScriptException)
-            {
-                // ignore any errors from closing the iterator
+                try
+                {
+                    iterator.Close(CompletionType.Throw);
+                }
+                catch (JavaScriptException)
+                {
+                    // ignore any errors from closing the iterator
+                }
             }
             capability.Reject.Call(Undefined, e.Error);
             return capability.PromiseInstance;

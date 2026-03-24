@@ -95,6 +95,14 @@ internal sealed class JintYieldExpression : JintExpression
                 asyncGenerator._isResuming = false;
                 asyncGenerator._nextValue = null;
 
+                // If the delegation ended with a Throw (e.g., IteratorValue threw),
+                // throw at the yield* point so try/catch in the body can handle it
+                if (asyncGenerator._resumeCompletionType == CompletionType.Throw)
+                {
+                    asyncGenerator._resumeCompletionType = CompletionType.Normal;
+                    Throw.JavaScriptException(context.Engine, returnValue, AstExtensions.DefaultLocation);
+                }
+
                 // If this was a Return completion from the inner iterator,
                 // signal the return so try/finally blocks can execute
                 if (asyncGenerator._resumeCompletionType == CompletionType.Return)
@@ -129,9 +137,14 @@ internal sealed class JintYieldExpression : JintExpression
                 }
 
                 // If we're resuming with a Return completion, signal return request
+                // Per spec AsyncGeneratorYield step 8.b-c: Await the return value.
+                // If PromiseResolve throws synchronously (e.g., poisoned constructor),
+                // the error propagates as a throw completion through the generator body,
+                // allowing try/catch to handle it.
                 if (asyncGenerator._resumeCompletionType == CompletionType.Return)
                 {
                     asyncGenerator._resumeCompletionType = CompletionType.Normal;
+                    context.Engine.Intrinsics.Promise.PromiseResolve(returnValue);
                     asyncGenerator._returnRequested = true;
                     asyncGenerator._suspendedValue = returnValue;
                     return returnValue;
@@ -691,16 +704,17 @@ internal sealed class JintYieldExpression : JintExpression
                 }
                 catch (JavaScriptException e)
                 {
+                    // Per spec: IteratorValue throw on done=false propagates to the
+                    // generator body as a throw completion, allowing try/catch to handle it.
                     asyncGenerator._delegatingIterator = null;
-                    asyncGenerator._delegatingYieldNode = null;
                     asyncGenerator._delegatingNextMethod = null;
-                    asyncGenerator._currentPromiseCapability = null;
-                    asyncGenerator._asyncGeneratorState = AsyncGeneratorState.Completed;
+                    // Keep _delegatingYieldNode so ResumeAfterDelegation can re-enter at the yield*
+                    asyncGenerator._resumeCompletionType = CompletionType.Throw;
+
                     if (promiseCapability is not null)
                     {
-                        AsyncGeneratorInstance.AsyncGeneratorReject(e.Error, promiseCapability);
+                        asyncGenerator.ResumeAfterDelegation(e.Error, promiseCapability);
                     }
-                    asyncGenerator.AsyncGeneratorResumeNext();
                     return JsValue.Undefined;
                 }
 
