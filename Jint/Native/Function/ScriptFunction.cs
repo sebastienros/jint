@@ -87,7 +87,14 @@ public sealed class ScriptFunction : Function, IConstructor
                 var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
 
                 var result = _functionDefinition.EvaluateBody(context, this, arguments);
-                result = calleeContext.LexicalEnvironment.DisposeResources(result);
+
+                // For async functions/generators, DisposeResources is deferred to when
+                // the body truly completes (AsyncBlockStart/AsyncFunctionResume).
+                // Calling it here would dispose too early (before awaits complete).
+                if (!_functionDefinition.Function.Async)
+                {
+                    result = calleeContext.LexicalEnvironment.DisposeResources(result);
+                }
 
                 if (result.Type == CompletionType.Throw)
                 {

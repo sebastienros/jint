@@ -396,17 +396,14 @@
     "language/*/async-generator/yield-star-return-then-getter-ticks.js",
     "language/*/async-generator/yield-return-then-getter-ticks.js",
 
-    // Async generator return: deferred await + tick ordering issues
+    // All below require proper async await suspension in async generators (not blocking UnwrapIfPromise)
     "built-ins/AsyncGeneratorPrototype/next/request-queue-await-order.js",
     "built-ins/AsyncGeneratorPrototype/return/return-state-completed-broken-promise.js",
-
-    // Microtask tick ordering
     "language/statements/async-generator/return-undefined-implicit-and-explicit.js",
     "language/expressions/await/async-generator-interleaved.js",
     "language/expressions/await/for-await-of-interleaved.js",
     "language/module-code/top-level-await/unobservable-global-async-evaluation-count-reset.js",
     "language/statements/for-await-of/ticks-with-*-iter-resolved-promise-and-constructor-lookup*.js",
-
 
     // Array.fromAsync
     "built-ins/Array/fromAsync/async-iterable-input-does-not-await-input.js",
@@ -415,13 +412,14 @@
     "built-ins/Array/fromAsync/this-constructor-with-bad-length-setter.js",
     "built-ins/Array/fromAsync/this-constructor-with-readonly-length.js",
 
-    // await-using / using async disposal
-    "language/statements/await-using/await-using-implies-await-if-evaluated.js",
-    "language/statements/await-using/initializer-Symbol.*-called-at-end-of-async*.js",
-    "language/statements/await-using/throws-error-as-is-if-only-one-error-during-disposal.js",
-    "language/statements/using/initializer-disposed-at-end-of-async*.js",
+    // using/await-using in async generators: needs deferred await support
+    "language/statements/using/initializer-disposed-at-end-of-asyncgeneratorbody.js",
+    "language/statements/await-using/initializer-Symbol.*-called-at-end-of-asyncgeneratorbody.js",
 
-    // Promise.any, dynamic import, fn-name, misc
+    // await-using implicit await tick
+    "language/statements/await-using/await-using-implies-await-if-evaluated.js",
+
+    // dynamic import, fn-name, misc
     "language/expressions/dynamic-import/assignment-expression/await-expr.js",
     "language/expressions/dynamic-import/assignment-expression/import-meta.js",
     "language/expressions/dynamic-import/for-await-resolution-and-error-agen-yield.js",
