@@ -392,14 +392,11 @@
     "built-ins/Atomics/waitAsync/waiterlist-block-indexedposition-wake.js",
     "built-ins/Atomics/waitAsync/was-woken-before-timeout.js",
 
-    // yield* delegation: tick ordering (requires Await suspension in delegation return path)
-    "language/*/async-generator/yield-star-return-then-getter-ticks.js",
 
     // Module evaluation ordering with top-level await
     "language/module-code/top-level-await/unobservable-global-async-evaluation-count-reset.js",
 
-
-    // dynamic import in async contexts
+    // dynamic import: import-meta strict mode issue, yield import() timing issue
     "language/expressions/dynamic-import/assignment-expression/import-meta.js",
     "language/expressions/dynamic-import/for-await-resolution-and-error-agen-yield.js"
 

@@ -560,23 +560,10 @@ internal sealed class JintYieldExpression : JintExpression
             }
             else // Return
             {
-                var iteratorInstance = iterator.Instance;
-                var returnMethod = iteratorInstance.GetMethod("return");
-                if (returnMethod is null)
-                {
-                    asyncGenerator._delegatingIterator = null;
-                    asyncGenerator._delegatingYieldNode = null;
-                    asyncGenerator._returnRequested = true;
-                    asyncGenerator._suspendedValue = receivedValue;
-                    return receivedValue;
-                }
-
-                var innerReturnResult = returnMethod.Call(iteratorInstance, new[] { receivedValue });
-
-                // Per spec: if generatorKind is async, set innerResult to Await(innerResult)
-                asyncGenerator._delegationResumeType = CompletionType.Return;
-                var innerPromise = EnsurePromise(engine, innerReturnResult);
-                return AwaitAndYieldDelegation(context, asyncGenerator, iterator, innerPromise);
+                // Per spec AsyncGeneratorUnwrapYieldResumption step 2:
+                // Await(resumptionValue.[[Value]]) BEFORE continuing yield* delegation.
+                // This makes "then" getter access observable before "return" getter lookup.
+                return AwaitResumptionThenDelegateReturn(context, asyncGenerator, iterator, receivedValue);
             }
         }
     }
@@ -763,6 +750,231 @@ internal sealed class JintYieldExpression : JintExpression
     private static JsValue IteratorValue(JsValue iterResult)
     {
         return iterResult.Get(CommonProperties.Value);
+    }
+
+    /// <summary>
+    /// Per spec AsyncGeneratorUnwrapYieldResumption: Await the resumption value first,
+    /// then continue yield* delegation with the Return path (GetMethod("return"), etc.).
+    /// </summary>
+    private static JsValue AwaitResumptionThenDelegateReturn(
+        EvaluationContext context,
+        AsyncGeneratorInstance asyncGenerator,
+        IteratorInstance iterator,
+        JsValue receivedValue)
+    {
+        var engine = context.Engine;
+
+        // Phase A: Await the resumption value
+        var awaitPromise = EnsurePromise(engine, receivedValue);
+
+        asyncGenerator._delegatingIterator = iterator;
+        asyncGenerator._asyncGeneratorState = AsyncGeneratorState.SuspendedYield;
+
+        var promiseCapability = asyncGenerator._currentPromiseCapability;
+
+        var onFulfilled = new ClrFunction(engine, "", (_, args) =>
+        {
+            var awaitedValue = args.At(0);
+
+            // Phase B: Now check for return method (after Await resolved)
+            ICallable? returnMethod;
+            try
+            {
+                returnMethod = iterator.Instance.GetMethod("return");
+            }
+            catch (JavaScriptException e)
+            {
+                asyncGenerator._delegatingIterator = null;
+                asyncGenerator._delegatingYieldNode = null;
+                asyncGenerator._delegatingNextMethod = null;
+                asyncGenerator._currentPromiseCapability = null;
+                asyncGenerator._asyncGeneratorState = AsyncGeneratorState.Completed;
+                if (promiseCapability is not null)
+                {
+                    AsyncGeneratorInstance.AsyncGeneratorReject(e.Error, promiseCapability);
+                }
+                asyncGenerator.AsyncGeneratorResumeNext();
+                return JsValue.Undefined;
+            }
+
+            if (returnMethod is null)
+            {
+                // No return method: per spec step 25.iii.1:
+                // "If generatorKind is async, then set received.[[Value]] to ? Await(received.[[Value]])."
+                // This is a SECOND Await (separate from the one in AsyncGeneratorUnwrapYieldResumption).
+                // Clear iterator but keep _delegatingYieldNode so ResumeAfterDelegation re-enters correctly.
+                asyncGenerator._delegatingIterator = null;
+                asyncGenerator._delegatingNextMethod = null;
+
+                var awaitPromise2 = EnsurePromise(engine, awaitedValue);
+                asyncGenerator._asyncGeneratorState = AsyncGeneratorState.SuspendedYield;
+
+                var returnOnFulfilled = new ClrFunction(engine, "", (_, returnArgs) =>
+                {
+                    var finalValue = returnArgs.At(0);
+                    // Set up state so yield* detects delegation-complete with Return
+                    asyncGenerator._nextValue = finalValue;
+                    asyncGenerator._resumeCompletionType = CompletionType.Return;
+                    if (promiseCapability is not null)
+                    {
+                        asyncGenerator.ResumeAfterDelegation(finalValue, promiseCapability);
+                    }
+                    return JsValue.Undefined;
+                }, 1, Runtime.Descriptors.PropertyFlag.Configurable);
+
+                var returnOnRejected = new ClrFunction(engine, "", (_, returnArgs) =>
+                {
+                    asyncGenerator._delegatingYieldNode = null;
+                    asyncGenerator._currentPromiseCapability = null;
+                    asyncGenerator._asyncGeneratorState = AsyncGeneratorState.Completed;
+                    if (promiseCapability is not null) AsyncGeneratorInstance.AsyncGeneratorReject(returnArgs.At(0), promiseCapability);
+                    asyncGenerator.AsyncGeneratorResumeNext();
+                    return JsValue.Undefined;
+                }, 1, Runtime.Descriptors.PropertyFlag.Configurable);
+
+                PromiseOperations.PerformPromiseThen(engine, awaitPromise2, returnOnFulfilled, returnOnRejected, null!);
+                return JsValue.Undefined;
+            }
+
+            // Return method exists: call it with awaited value, then await the result
+            JsValue innerReturnResult;
+            try
+            {
+                innerReturnResult = returnMethod.Call(iterator.Instance, new[] { awaitedValue });
+            }
+            catch (JavaScriptException e)
+            {
+                asyncGenerator._delegatingIterator = null;
+                asyncGenerator._delegatingYieldNode = null;
+                asyncGenerator._delegatingNextMethod = null;
+                asyncGenerator._currentPromiseCapability = null;
+                asyncGenerator._asyncGeneratorState = AsyncGeneratorState.Completed;
+                if (promiseCapability is not null)
+                {
+                    AsyncGeneratorInstance.AsyncGeneratorReject(e.Error, promiseCapability);
+                }
+                asyncGenerator.AsyncGeneratorResumeNext();
+                return JsValue.Undefined;
+            }
+
+            // Await the inner return result using inline handler chain
+            asyncGenerator._delegationResumeType = CompletionType.Return;
+            var innerPromise = EnsurePromise(engine, innerReturnResult);
+            asyncGenerator._asyncGeneratorState = AsyncGeneratorState.SuspendedYield;
+
+            // Inline the AwaitAndYieldDelegation handler pattern for the inner result
+            var innerOnFulfilled = new ClrFunction(engine, "", (_, innerArgs) =>
+            {
+                var resolvedResult = innerArgs.At(0);
+
+                if (resolvedResult is not ObjectInstance resultObj)
+                {
+                    asyncGenerator._delegatingIterator = null;
+                    asyncGenerator._delegatingYieldNode = null;
+                    asyncGenerator._delegatingNextMethod = null;
+                    asyncGenerator._currentPromiseCapability = null;
+                    asyncGenerator._asyncGeneratorState = AsyncGeneratorState.Completed;
+                    if (promiseCapability is not null)
+                    {
+                        var error = engine.Realm.Intrinsics.TypeError.Construct("Iterator result is not an object");
+                        AsyncGeneratorInstance.AsyncGeneratorReject(error, promiseCapability);
+                    }
+                    asyncGenerator.AsyncGeneratorResumeNext();
+                    return JsValue.Undefined;
+                }
+
+                bool done;
+                try { done = IteratorComplete(resultObj); }
+                catch (JavaScriptException e)
+                {
+                    asyncGenerator._delegatingIterator = null;
+                    asyncGenerator._delegatingYieldNode = null;
+                    asyncGenerator._delegatingNextMethod = null;
+                    asyncGenerator._currentPromiseCapability = null;
+                    asyncGenerator._asyncGeneratorState = AsyncGeneratorState.Completed;
+                    if (promiseCapability is not null) AsyncGeneratorInstance.AsyncGeneratorReject(e.Error, promiseCapability);
+                    asyncGenerator.AsyncGeneratorResumeNext();
+                    return JsValue.Undefined;
+                }
+
+                if (done)
+                {
+                    asyncGenerator._delegatingIterator = null;
+                    asyncGenerator._delegatingNextMethod = null;
+                    JsValue value;
+                    try { value = IteratorValue(resultObj); }
+                    catch (JavaScriptException e)
+                    {
+                        asyncGenerator._delegatingYieldNode = null;
+                        asyncGenerator._currentPromiseCapability = null;
+                        asyncGenerator._asyncGeneratorState = AsyncGeneratorState.Completed;
+                        if (promiseCapability is not null) AsyncGeneratorInstance.AsyncGeneratorReject(e.Error, promiseCapability);
+                        asyncGenerator.AsyncGeneratorResumeNext();
+                        return JsValue.Undefined;
+                    }
+
+                    asyncGenerator._resumeCompletionType = CompletionType.Return;
+                    if (promiseCapability is not null)
+                    {
+                        asyncGenerator.ResumeAfterDelegation(value, promiseCapability);
+                    }
+                }
+                else
+                {
+                    JsValue yieldedValue;
+                    try { yieldedValue = IteratorValue(resultObj); }
+                    catch (JavaScriptException e)
+                    {
+                        asyncGenerator._delegatingIterator = null;
+                        asyncGenerator._delegatingNextMethod = null;
+                        asyncGenerator._resumeCompletionType = CompletionType.Throw;
+                        if (promiseCapability is not null) asyncGenerator.ResumeAfterDelegation(e.Error, promiseCapability);
+                        return JsValue.Undefined;
+                    }
+
+                    asyncGenerator._currentPromiseCapability = null;
+                    if (promiseCapability is not null) asyncGenerator.AsyncGeneratorResolve(yieldedValue, false, promiseCapability);
+                    asyncGenerator.AsyncGeneratorResumeNext();
+                }
+
+                return JsValue.Undefined;
+            }, 1, Runtime.Descriptors.PropertyFlag.Configurable);
+
+            var innerOnRejected = new ClrFunction(engine, "", (_, innerArgs) =>
+            {
+                asyncGenerator._delegatingIterator = null;
+                asyncGenerator._delegatingYieldNode = null;
+                asyncGenerator._delegatingNextMethod = null;
+                asyncGenerator._currentPromiseCapability = null;
+                asyncGenerator._asyncGeneratorState = AsyncGeneratorState.Completed;
+                if (promiseCapability is not null) AsyncGeneratorInstance.AsyncGeneratorReject(innerArgs.At(0), promiseCapability);
+                asyncGenerator.AsyncGeneratorResumeNext();
+                return JsValue.Undefined;
+            }, 1, Runtime.Descriptors.PropertyFlag.Configurable);
+
+            PromiseOperations.PerformPromiseThen(engine, innerPromise, innerOnFulfilled, innerOnRejected, null!);
+
+            return JsValue.Undefined;
+        }, 1, Runtime.Descriptors.PropertyFlag.Configurable);
+
+        var onRejected = new ClrFunction(engine, "", (_, args) =>
+        {
+            asyncGenerator._delegatingIterator = null;
+            asyncGenerator._delegatingYieldNode = null;
+            asyncGenerator._delegatingNextMethod = null;
+            asyncGenerator._currentPromiseCapability = null;
+            asyncGenerator._asyncGeneratorState = AsyncGeneratorState.Completed;
+            if (promiseCapability is not null)
+            {
+                AsyncGeneratorInstance.AsyncGeneratorReject(args.At(0), promiseCapability);
+            }
+            asyncGenerator.AsyncGeneratorResumeNext();
+            return JsValue.Undefined;
+        }, 1, Runtime.Descriptors.PropertyFlag.Configurable);
+
+        PromiseOperations.PerformPromiseThen(engine, awaitPromise, onFulfilled, onRejected, null!);
+
+        return JsValue.Undefined;
     }
 
     private static void AsyncIteratorClose(IteratorInstance iteratorRecord, CompletionType closeCompletion)
