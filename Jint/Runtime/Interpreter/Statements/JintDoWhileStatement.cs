@@ -35,6 +35,11 @@ internal sealed class JintDoWhileStatement : JintStatement<DoWhileStatement>
             {
                 asyncFn?._completedAwaits?.Clear();
             }
+            var asyncGen = context.Engine.ExecutionContext.AsyncGenerator;
+            if (asyncGen is not null && !asyncGen._isResuming)
+            {
+                asyncGen._completedAwaits?.Clear();
+            }
 
             var completion = _body.Execute(context);
             if (!completion.Value.IsEmpty)

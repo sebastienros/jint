@@ -396,17 +396,15 @@
     "language/*/async-generator/yield-star-return-then-getter-ticks.js",
     "language/*/async-generator/yield-return-then-getter-ticks.js",
 
-    // All below require proper async await suspension in async generators (not blocking UnwrapIfPromise)
-    "built-ins/AsyncGeneratorPrototype/next/request-queue-await-order.js",
-    "built-ins/AsyncGeneratorPrototype/return/return-state-completed-broken-promise.js",
+
+
+    // Tick ordering (microtask scheduling precision)
     "language/statements/async-generator/return-undefined-implicit-and-explicit.js",
-    "language/expressions/await/async-generator-interleaved.js",
     "language/expressions/await/for-await-of-interleaved.js",
     "language/module-code/top-level-await/unobservable-global-async-evaluation-count-reset.js",
     "language/statements/for-await-of/ticks-with-*-iter-resolved-promise-and-constructor-lookup*.js",
 
-
-    // using/await-using in async generators: needs deferred await support
+    // Disposal timing in async generators (need DisposeResources integration)
     "language/statements/using/initializer-disposed-at-end-of-asyncgeneratorbody.js",
     "language/statements/await-using/initializer-Symbol.*-called-at-end-of-asyncgeneratorbody.js",
 

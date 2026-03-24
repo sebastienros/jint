@@ -44,13 +44,20 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
     internal bool _returnRequested;
     internal CompletionType _resumeCompletionType;
 
+    // Await suspension tracking (for bare `await` inside async generator body)
+    internal bool _awaitSuspended;
+    internal bool _resumeWithThrow;
+    internal Dictionary<object, JsValue>? _completedAwaits;
+
     // Finally block tracking (shared by both)
     public object? _currentFinallyStatement;
 
     public SuspendDataDictionary Data { get; } = new();
 
     // ISuspendable implementation
-    bool ISuspendable.IsSuspended => _asyncGeneratorState == AsyncGeneratorState.SuspendedYield || _asyncGeneratorState == AsyncGeneratorState.AwaitingReturn;
+    bool ISuspendable.IsSuspended => _asyncGeneratorState == AsyncGeneratorState.SuspendedYield
+        || _asyncGeneratorState == AsyncGeneratorState.AwaitingReturn
+        || _awaitSuspended;
 
     bool ISuspendable.IsResuming
     {
@@ -261,7 +268,14 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
 
         _engine.LeaveExecutionContext();
 
-        // Check if we suspended (yield or await)
+        // Check if suspended at an await expression
+        if (_awaitSuspended)
+        {
+            // The await handler will call AsyncGeneratorContinueForAwait to resume.
+            return;
+        }
+
+        // Check if we suspended at a yield
         if (_asyncGeneratorState == AsyncGeneratorState.SuspendedYield)
         {
             // Already handled by AsyncGeneratorYield
@@ -396,6 +410,12 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
 
             _engine.LeaveExecutionContext();
 
+            // Check if suspended at an await expression
+            if (_awaitSuspended)
+            {
+                return;
+            }
+
             // Check if we suspended (another yield)
             if (_asyncGeneratorState == AsyncGeneratorState.SuspendedYield)
             {
@@ -434,6 +454,10 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
     /// </summary>
     internal JsValue AsyncGeneratorYield(JsValue value)
     {
+        // Clear stale await cache - after yield, the next resume starts from this point,
+        // so any previously cached await values are irrelevant
+        _completedAwaits?.Clear();
+
         if (_currentPromiseCapability is null)
         {
             Throw.InvalidOperationException("AsyncGeneratorYield called without current promise capability");

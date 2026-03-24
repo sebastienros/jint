@@ -34,6 +34,11 @@ internal sealed class JintWhileStatement : JintStatement<WhileStatement>
             {
                 asyncFn?._completedAwaits?.Clear();
             }
+            var asyncGen = context.Engine.ExecutionContext.AsyncGenerator;
+            if (asyncGen is not null && !asyncGen._isResuming)
+            {
+                asyncGen._completedAwaits?.Clear();
+            }
 
             if (context.DebugMode)
             {

@@ -296,6 +296,11 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 {
                     asyncFnLoop._completedAwaits?.Clear();
                 }
+                var asyncGenLoop = engine.ExecutionContext.AsyncGenerator;
+                if (asyncGenLoop is not null && !asyncGenLoop._isResuming)
+                {
+                    asyncGenLoop._completedAwaits?.Clear();
+                }
 
                 DeclarativeEnvironment? iterationEnv = null;
                 JsValue nextValue;
