@@ -1,3 +1,4 @@
+using Jint.Native.Object;
 using Jint.Runtime.Modules;
 
 namespace Jint.Runtime.Interpreter.Expressions;
@@ -25,7 +26,7 @@ internal sealed class JintMetaPropertyExpression : JintExpression
             var importMeta = module.ImportMeta;
             if (importMeta is null)
             {
-                importMeta = context.Engine.Realm.Intrinsics.Object.Construct(0);
+                importMeta = ObjectInstance.OrdinaryObjectCreate(context.Engine, null);
                 var importMetaValues = context.Engine._host.GetImportMetaProperties(module);
                 foreach (var p in importMetaValues)
                 {

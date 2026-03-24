@@ -56,17 +56,9 @@ internal class SourceTextModule : CyclicModule
         //ToDo async modules
     }
 
-    internal ObjectInstance ImportMeta
+    internal ObjectInstance? ImportMeta
     {
-        get
-        {
-            if (_importMeta is null)
-            {
-                _importMeta = _realm.Intrinsics.Object.Construct(1);
-                _importMeta.CreateDataProperty("url", Location);
-            }
-            return _importMeta;
-        }
+        get => _importMeta;
         set => _importMeta = value;
     }
 

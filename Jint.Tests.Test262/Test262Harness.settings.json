@@ -390,14 +390,7 @@
     "built-ins/Atomics/waitAsync/undefined-for-timeout-agent.js",
     "built-ins/Atomics/waitAsync/undefined-index-defaults-to-zero-agent.js",
     "built-ins/Atomics/waitAsync/waiterlist-block-indexedposition-wake.js",
-    "built-ins/Atomics/waitAsync/was-woken-before-timeout.js",
-
-
-
-    // dynamic import: import-meta strict variant rejects with string instead of TypeError
-    "language/expressions/dynamic-import/assignment-expression/import-meta.js",
-    // dynamic import: yield import() in async generator — pre-existing issue with queued .next() + import timing
-    "language/expressions/dynamic-import/for-await-resolution-and-error-agen-yield.js"
+    "built-ins/Atomics/waitAsync/was-woken-before-timeout.js"
 
   ]
 }
