@@ -39,9 +39,17 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
     internal Dictionary<object, JsValue>? _yieldNodeValues;
     internal IteratorInstance? _delegatingIterator;
     internal object? _delegatingYieldNode;
+    internal ICallable? _delegatingNextMethod;
     internal CompletionType _delegationResumeType;
     internal bool _returnRequested;
     internal CompletionType _resumeCompletionType;
+    internal JsPromise? _yieldReturnPromise; // cached PromiseResolve from yield return path
+    internal JsValue? _yieldReturnValue;    // the original value the promise was created from
+
+    // Await suspension tracking (for bare `await` inside async generator body)
+    internal bool _awaitSuspended;
+    internal bool _resumeWithThrow;
+    internal Dictionary<object, JsValue>? _completedAwaits;
 
     // Finally block tracking (shared by both)
     public object? _currentFinallyStatement;
@@ -49,7 +57,9 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
     public SuspendDataDictionary Data { get; } = new();
 
     // ISuspendable implementation
-    bool ISuspendable.IsSuspended => _asyncGeneratorState == AsyncGeneratorState.SuspendedYield || _asyncGeneratorState == AsyncGeneratorState.AwaitingReturn;
+    bool ISuspendable.IsSuspended => _asyncGeneratorState == AsyncGeneratorState.SuspendedYield
+        || _asyncGeneratorState == AsyncGeneratorState.AwaitingReturn
+        || _awaitSuspended;
 
     bool ISuspendable.IsResuming
     {
@@ -184,20 +194,28 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
             {
                 if (_asyncGeneratorState == AsyncGeneratorState.SuspendedStart)
                 {
-                    _asyncGeneratorState = AsyncGeneratorState.Completed;
-                    AsyncGeneratorResolve(completion.Value, true, promiseCapability);
+                    // Per spec step 7: wrap value in PromiseResolve and await it
+                    _asyncGeneratorState = AsyncGeneratorState.AwaitingReturn;
+                    AsyncGeneratorAwaitReturn(completion.Value, promiseCapability);
                     return;
                 }
                 else if (_asyncGeneratorState == AsyncGeneratorState.SuspendedYield)
                 {
-                    _asyncGeneratorState = AsyncGeneratorState.AwaitingReturn;
-                    // Await the return value before completing
-                    AsyncGeneratorAwaitReturn(completion.Value, promiseCapability);
+                    // Resume execution with Return completion so that:
+                    // 1. yield* delegation forwards return to inner iterator
+                    // 2. try/finally blocks execute their finally clauses
+                    _asyncGeneratorState = AsyncGeneratorState.Executing;
+                    _nextValue = completion.Value;
+                    _isResuming = true;
+                    _resumeCompletionType = CompletionType.Return;
+                    ResumeExecution(promiseCapability);
                     return;
                 }
                 else if (_asyncGeneratorState == AsyncGeneratorState.Completed)
                 {
-                    AsyncGeneratorResolve(completion.Value, true, promiseCapability);
+                    // Per spec: wrap value in PromiseResolve and await it
+                    _asyncGeneratorState = AsyncGeneratorState.AwaitingReturn;
+                    AsyncGeneratorAwaitReturn(completion.Value, promiseCapability);
                     return;
                 }
             }
@@ -242,41 +260,73 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
         }
         catch (JavaScriptException ex)
         {
+            var env = _engine.ExecutionContext.LexicalEnvironment;
+            var disposeResult = env.DisposeResources(new Completion(CompletionType.Throw, ex.Error, null!));
             _engine.LeaveExecutionContext();
             _currentPromiseCapability = null;
             _asyncGeneratorState = AsyncGeneratorState.Completed;
-            AsyncGeneratorReject(ex.Error, promiseCapability);
+            _completedAwaits = null;
+            AsyncGeneratorReject(disposeResult.Value, promiseCapability);
             AsyncGeneratorResumeNext();
             return;
         }
 
-        _engine.LeaveExecutionContext();
+        // Check if suspended at an await expression
+        if (_awaitSuspended)
+        {
+            _engine.LeaveExecutionContext();
+            return;
+        }
 
-        // Check if we suspended (yield or await)
+        // Check if we suspended at a yield
         if (_asyncGeneratorState == AsyncGeneratorState.SuspendedYield)
         {
-            // Already handled by AsyncGeneratorYield
-            // Don't clear _currentPromiseCapability - the yield callback will handle cleanup
+            _engine.LeaveExecutionContext();
             return;
         }
 
         if (_asyncGeneratorState == AsyncGeneratorState.AwaitingReturn)
         {
-            // Already handled by AsyncGeneratorAwaitReturn
+            _engine.LeaveExecutionContext();
             return;
         }
 
-        // Generator completed - clear the promise capability
-        _currentPromiseCapability = null;
-        _asyncGeneratorState = AsyncGeneratorState.Completed;
+        // Generator body completed — dispose resources before leaving context
+        var lexEnv = _engine.ExecutionContext.LexicalEnvironment;
+        result = lexEnv.DisposeResources(result);
 
-        if (result.Type == CompletionType.Normal || result.Type == CompletionType.Return)
+        _engine.LeaveExecutionContext();
+
+        _currentPromiseCapability = null;
+
+        if (result.Type == CompletionType.Throw)
         {
-            AsyncGeneratorResolve(result.Value, true, promiseCapability);
-        }
-        else // Throw
-        {
+            _asyncGeneratorState = AsyncGeneratorState.Completed;
+            _completedAwaits = null;
             AsyncGeneratorReject(result.Value, promiseCapability);
+        }
+        else if (result.Type == CompletionType.Return)
+        {
+            // Per spec 13.10.1: "return;" (no expression) does NOT await the return value,
+            // but "return expr;" does call Await(exprValue) before returning.
+            // When the return statement has no argument, we can resolve directly.
+            if (result._source is ReturnStatement { Argument: null })
+            {
+                _asyncGeneratorState = AsyncGeneratorState.Completed;
+                _completedAwaits = null;
+                AsyncGeneratorResolve(result.Value, true, promiseCapability);
+            }
+            else
+            {
+                _asyncGeneratorState = AsyncGeneratorState.AwaitingReturn;
+                AsyncGeneratorAwaitReturn(result.Value, promiseCapability);
+            }
+        }
+        else if (result.Type == CompletionType.Normal)
+        {
+            _asyncGeneratorState = AsyncGeneratorState.Completed;
+            _completedAwaits = null;
+            AsyncGeneratorResolve(Undefined, true, promiseCapability);
         }
 
         AsyncGeneratorResumeNext();
@@ -317,8 +367,33 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
     /// </summary>
     private void AsyncGeneratorAwaitReturn(JsValue value, PromiseCapability promiseCapability)
     {
-        // Wrap value in a promise
-        var promise = CreateResolvedPromise(value);
+        // Per spec: Let promise be Completion(PromiseResolve(%Promise%, value)).
+        // If promiseCompletion is an abrupt completion, complete with the error.
+        JsPromise promise;
+
+        // If the yield return path already created a promise via PromiseResolve, reuse it
+        // to avoid double access to the "then" getter on thenables.
+        // Only reuse if the value hasn't changed (e.g., finally block could override return value).
+        if (_yieldReturnPromise is not null && ReferenceEquals(value, _yieldReturnValue))
+        {
+            promise = _yieldReturnPromise;
+            _yieldReturnPromise = null;
+            _yieldReturnValue = null;
+        }
+        else
+        {
+            try
+            {
+                promise = CreateResolvedPromise(value);
+            }
+            catch (JavaScriptException e)
+            {
+                _asyncGeneratorState = AsyncGeneratorState.Completed;
+                AsyncGeneratorReject(e.Error, promiseCapability);
+                AsyncGeneratorResumeNext();
+                return;
+            }
+        }
 
         // Create fulfillment handler
         var onFulfilled = new ClrFunction(_engine, "", (thisObj, args) =>
@@ -364,35 +439,85 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
             var evalContext = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
             var bodyResult = _generatorBody.Execute(evalContext);
 
-            _engine.LeaveExecutionContext();
-
-            // Check if we suspended (another yield)
-            if (_asyncGeneratorState == AsyncGeneratorState.SuspendedYield)
+            if (_awaitSuspended)
             {
-                // Already handled by yield or delegation
+                _engine.LeaveExecutionContext();
                 return;
             }
 
-            // Generator completed - resolve with done=true
-            _currentPromiseCapability = null;
-            _asyncGeneratorState = AsyncGeneratorState.Completed;
-            if (promiseCapability is not null)
+            if (_asyncGeneratorState == AsyncGeneratorState.SuspendedYield)
             {
-                AsyncGeneratorResolve(bodyResult.Value, true, promiseCapability);
+                _engine.LeaveExecutionContext();
+                return;
+            }
+
+            // Generator completed — dispose resources before leaving context
+            var lexEnv = _engine.ExecutionContext.LexicalEnvironment;
+            bodyResult = lexEnv.DisposeResources(bodyResult);
+
+            _engine.LeaveExecutionContext();
+
+            _currentPromiseCapability = null;
+
+            if (bodyResult.Type == CompletionType.Throw)
+            {
+                _asyncGeneratorState = AsyncGeneratorState.Completed;
+                _completedAwaits = null;
+                if (promiseCapability is not null)
+                {
+                    AsyncGeneratorReject(bodyResult.Value, promiseCapability);
+                }
+            }
+            else
+            {
+                _asyncGeneratorState = AsyncGeneratorState.Completed;
+                _completedAwaits = null;
+                if (promiseCapability is not null)
+                {
+                    var completionValue = bodyResult.Type == CompletionType.Return ? bodyResult.Value : Undefined;
+                    AsyncGeneratorResolve(completionValue, true, promiseCapability);
+                }
             }
             AsyncGeneratorResumeNext();
         }
         catch (JavaScriptException ex)
         {
+            var env = _engine.ExecutionContext.LexicalEnvironment;
+            var disposeResult = env.DisposeResources(new Completion(CompletionType.Throw, ex.Error, null!));
             _engine.LeaveExecutionContext();
             _currentPromiseCapability = null;
             _asyncGeneratorState = AsyncGeneratorState.Completed;
+            _completedAwaits = null;
             if (promiseCapability is not null)
             {
-                AsyncGeneratorReject(ex.Error, promiseCapability);
+                AsyncGeneratorReject(disposeResult.Value, promiseCapability);
             }
             AsyncGeneratorResumeNext();
         }
+    }
+
+    /// <summary>
+    /// Clears all delegation state and marks the generator as completed.
+    /// Used when yield* delegation encounters an error that terminates the generator.
+    /// </summary>
+    internal void AbortDelegation()
+    {
+        _delegatingIterator = null;
+        _delegatingYieldNode = null;
+        _delegatingNextMethod = null;
+        _currentPromiseCapability = null;
+        _asyncGeneratorState = AsyncGeneratorState.Completed;
+        _completedAwaits = null;
+    }
+
+    /// <summary>
+    /// Clears iterator/method delegation state but preserves _delegatingYieldNode
+    /// so ResumeAfterDelegation can re-enter at the yield* expression.
+    /// </summary>
+    internal void ClearDelegationIterator()
+    {
+        _delegatingIterator = null;
+        _delegatingNextMethod = null;
     }
 
     /// <summary>
@@ -402,6 +527,10 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
     /// </summary>
     internal JsValue AsyncGeneratorYield(JsValue value)
     {
+        // Clear stale await cache - after yield, the next resume starts from this point,
+        // so any previously cached await values are irrelevant
+        _completedAwaits?.Clear();
+
         if (_currentPromiseCapability is null)
         {
             Throw.InvalidOperationException("AsyncGeneratorYield called without current promise capability");
@@ -415,8 +544,10 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
         _asyncGeneratorState = AsyncGeneratorState.SuspendedYield;
         _suspendedValue = value;
 
-        // Await the value
-        var promise = CreateResolvedPromise(value);
+        // Per spec AsyncGeneratorYield step 4: Set value to ? Await(value).
+        // Await step 1: PromiseResolve(%Promise%, value) — returns the value as-is if it's
+        // already a %Promise% (avoids extra thenable job tick for Promise values).
+        var promise = (JsPromise) _engine.Realm.Intrinsics.Promise.PromiseResolve(value);
 
         // Create fulfillment handler
         var onFulfilled = new ClrFunction(_engine, "", (thisObj, args) =>

@@ -1,5 +1,10 @@
 using System.Threading;
+using Jint.Native;
+using Jint.Native.Promise;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
+using Jint.Runtime.Interop;
+using Jint.Runtime.Interpreter.Expressions;
 using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Runtime.Interpreter.Statements;
@@ -96,6 +101,23 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
         }
 
         Completion blockValue;
+
+        // If resuming from a disposal-caused suspension (await-using with null/undefined),
+        // skip re-executing the body — the block body already completed, we're just
+        // resuming after the implicit Await tick from DisposeResources.
+        if (suspendable is { IsResuming: true }
+            && suspendable.Data.TryGet(this, out BlockSuspendData? disposeResumeData)
+            && disposeResumeData?.DisposalComplete == true)
+        {
+            suspendable.IsResuming = false;
+            suspendable.Data.Clear(this);
+            if (oldEnv is not null)
+            {
+                engine.UpdateLexicalEnvironment(oldEnv);
+            }
+            return new Completion(CompletionType.Normal, JsValue.Undefined, _statement);
+        }
+
         if (_singleStatement is not null)
         {
             blockValue = ExecuteSingle(context);
@@ -125,6 +147,45 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
                 }
 
                 blockValue = blockEnv.DisposeResources(blockValue);
+
+                // Per spec Dispose step 3.a: await-using with null/undefined value requires
+                // an implicit Await tick. Suspend the async function to introduce the tick.
+                if (blockEnv.NeedsAsyncDisposeTick)
+                {
+                    var asyncFn = engine.ExecutionContext.AsyncFunction;
+                    if (asyncFn is not null)
+                    {
+                        var promise = (JsPromise) engine.Realm.Intrinsics.Promise.PromiseResolve(JsValue.Undefined);
+
+                        asyncFn._lastAwaitNode = this;
+                        asyncFn._state = Native.AsyncFunction.AsyncFunctionState.SuspendedAwait;
+                        asyncFn._savedContext = engine.ExecutionContext;
+
+                        var onFulfilled = new ClrFunction(engine, "", (_, args) =>
+                        {
+                            asyncFn._resumeValue = JsValue.Undefined;
+                            asyncFn._resumeWithThrow = false;
+                            JintAwaitExpression.AsyncFunctionResume(engine, asyncFn);
+                            return JsValue.Undefined;
+                        }, 1, PropertyFlag.Configurable);
+
+                        PromiseOperations.PerformPromiseThen(engine, promise, onFulfilled, null!, null!);
+
+                        if (suspendable is not null)
+                        {
+                            var data = suspendable.Data.GetOrCreate<BlockSuspendData>(this);
+                            data.BlockEnvironment = blockEnv;
+                            data.OuterEnvironment = oldEnv;
+                            data.DisposalComplete = true;
+                        }
+                        if (oldEnv is not null)
+                        {
+                            engine.UpdateLexicalEnvironment(oldEnv);
+                        }
+                        return blockValue;
+                    }
+                }
+
                 suspendable?.Data.Clear(this);
             }
         }

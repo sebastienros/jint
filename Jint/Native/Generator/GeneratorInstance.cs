@@ -54,6 +54,12 @@ internal sealed class GeneratorInstance : ObjectInstance, ISuspendable
     internal IteratorInstance? _delegatingIterator;
 
     /// <summary>
+    /// The cached [[NextMethod]] obtained once before the yield* delegation loop.
+    /// Per spec step 7.a.i, next must be fetched once, not per-iteration.
+    /// </summary>
+    internal ICallable? _delegatingNextMethod;
+
+    /// <summary>
     /// The yield* expression we're delegating from.
     /// </summary>
     internal object? _delegatingYieldNode;

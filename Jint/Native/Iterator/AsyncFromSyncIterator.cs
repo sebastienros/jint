@@ -60,15 +60,14 @@ internal sealed class AsyncFromSyncIteratorPrototype : ObjectInstance
 
         var promiseCapability = PromiseConstructor.NewPromiseCapability(_engine, _realm.Intrinsics.Promise);
         var syncIterator = asyncIterator!.SyncIterator;
+        var value = arguments.At(0);
 
         ObjectInstance result;
         try
         {
-            if (!syncIterator.TryIteratorStep(out result))
-            {
-                // Iterator is done
-                result = IteratorResult.CreateValueIteratorPosition(_engine, Undefined, done: JsBoolean.True);
-            }
+            // Per spec step 5: Let nextResult be IteratorNext(syncIteratorRecord, value).
+            // Uses the cached [[NextMethod]] from the iterator record and forwards the value.
+            result = syncIterator.IteratorNext(arguments.Length > 0 ? value : null);
         }
         catch (JavaScriptException e)
         {
@@ -94,8 +93,18 @@ internal sealed class AsyncFromSyncIteratorPrototype : ObjectInstance
         var syncIterator = asyncIterator!.SyncIterator;
         var value = arguments.At(0);
 
-        // Get the return method from the sync iterator
-        var returnMethod = syncIterator.Instance.GetMethod(CommonProperties.Return);
+        // Get the return method from the sync iterator (IfAbruptRejectPromise)
+        ICallable? returnMethod;
+        try
+        {
+            returnMethod = syncIterator.Instance.GetMethod(CommonProperties.Return);
+        }
+        catch (JavaScriptException e)
+        {
+            promiseCapability.Reject.Call(Undefined, [e.Error]);
+            return promiseCapability.PromiseInstance;
+        }
+
         if (returnMethod is null)
         {
             // If return is undefined, create a done iterator result
@@ -110,9 +119,12 @@ internal sealed class AsyncFromSyncIteratorPrototype : ObjectInstance
             var jsResult = returnMethod.Call(syncIterator.Instance, arguments.Length > 0 ? [value] : Arguments.Empty);
             if (jsResult is not ObjectInstance oi)
             {
-                Runtime.Throw.TypeError(_realm, "Iterator result is not an object");
+                // Per spec step 10: reject promise instead of throwing synchronously
+                var typeError = _realm.Intrinsics.TypeError.Construct("Iterator result is not an object");
+                promiseCapability.Reject.Call(Undefined, [typeError]);
+                return promiseCapability.PromiseInstance;
             }
-            result = (ObjectInstance) jsResult;
+            result = oi;
         }
         catch (JavaScriptException e)
         {
@@ -138,12 +150,34 @@ internal sealed class AsyncFromSyncIteratorPrototype : ObjectInstance
         var syncIterator = asyncIterator!.SyncIterator;
         var value = arguments.At(0);
 
-        // Get the throw method from the sync iterator
-        var throwMethod = syncIterator.Instance.GetMethod(CommonProperties.Throw);
+        // Get the throw method from the sync iterator (IfAbruptRejectPromise)
+        ICallable? throwMethod;
+        try
+        {
+            throwMethod = syncIterator.Instance.GetMethod(CommonProperties.Throw);
+        }
+        catch (JavaScriptException e)
+        {
+            promiseCapability.Reject.Call(Undefined, [e.Error]);
+            return promiseCapability.PromiseInstance;
+        }
+
         if (throwMethod is null)
         {
-            // If throw is undefined, reject the promise
-            promiseCapability.Reject.Call(Undefined, [value]);
+            // Per spec step 7: close the iterator first, then reject with TypeError
+            try
+            {
+                syncIterator.Close(CompletionType.Normal);
+            }
+            catch (JavaScriptException closeError)
+            {
+                // IfAbruptRejectPromise: if close throws, reject with that error
+                promiseCapability.Reject.Call(Undefined, [closeError.Error]);
+                return promiseCapability.PromiseInstance;
+            }
+
+            var typeError = _realm.Intrinsics.TypeError.Construct("The iterator does not provide a throw method");
+            promiseCapability.Reject.Call(Undefined, [typeError]);
             return promiseCapability.PromiseInstance;
         }
 
@@ -153,9 +187,12 @@ internal sealed class AsyncFromSyncIteratorPrototype : ObjectInstance
             var jsResult = throwMethod.Call(syncIterator.Instance, arguments.Length > 0 ? [value] : Arguments.Empty);
             if (jsResult is not ObjectInstance oi)
             {
-                Runtime.Throw.TypeError(_realm, "Iterator result is not an object");
+                // Per spec step 10: reject promise instead of throwing synchronously
+                var typeError = _realm.Intrinsics.TypeError.Construct("Iterator result is not an object");
+                promiseCapability.Reject.Call(Undefined, [typeError]);
+                return promiseCapability.PromiseInstance;
             }
-            result = (ObjectInstance) jsResult;
+            result = oi;
         }
         catch (JavaScriptException e)
         {
@@ -163,7 +200,8 @@ internal sealed class AsyncFromSyncIteratorPrototype : ObjectInstance
             return promiseCapability.PromiseInstance;
         }
 
-        return AsyncFromSyncIteratorContinuation(result, promiseCapability, syncIterator, closeOnRejection: false);
+        // Per spec step 13: closeOnRejection is true for throw
+        return AsyncFromSyncIteratorContinuation(result, promiseCapability, syncIterator, closeOnRejection: true);
     }
 
     /// <summary>
@@ -176,10 +214,20 @@ internal sealed class AsyncFromSyncIteratorPrototype : ObjectInstance
         bool closeOnRejection)
     {
         // 1. Let done be IteratorComplete(result)
-        var done = TypeConverter.ToBoolean(result.Get(CommonProperties.Done));
-
         // 2. Let value be IteratorValue(result)
-        var value = result.Get(CommonProperties.Value);
+        // IfAbruptRejectPromise for both
+        bool done;
+        JsValue value;
+        try
+        {
+            done = TypeConverter.ToBoolean(result.Get(CommonProperties.Done));
+            value = result.Get(CommonProperties.Value);
+        }
+        catch (JavaScriptException e)
+        {
+            promiseCapability.Reject.Call(Undefined, [e.Error]);
+            return promiseCapability.PromiseInstance;
+        }
 
         // 3. Let valueWrapper be PromiseResolve(%Promise%, value)
         JsPromise valueWrapper;

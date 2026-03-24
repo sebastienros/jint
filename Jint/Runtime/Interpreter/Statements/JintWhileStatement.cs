@@ -24,16 +24,7 @@ internal sealed class JintWhileStatement : JintStatement<WhileStatement>
         var v = JsValue.Undefined;
         while (true)
         {
-            // Only clear completed awaits cache when starting a NEW iteration, not when resuming.
-            // When resuming from a nested await (e.g., "while (await await await x)"),
-            // we need the cached values of already-completed awaits to continue evaluation.
-            // When starting fresh (not resuming), clear the cache to ensure expressions like
-            // "while (await p)" evaluate p fresh each time even if p changes.
-            var asyncFn = context.Engine.ExecutionContext.AsyncFunction;
-            if (asyncFn is null || !asyncFn._isResuming)
-            {
-                asyncFn?._completedAwaits?.Clear();
-            }
+            context.Engine.ExecutionContext.ClearCompletedAwaitsIfNotResuming();
 
             if (context.DebugMode)
             {

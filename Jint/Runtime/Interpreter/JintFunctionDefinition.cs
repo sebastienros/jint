@@ -169,8 +169,11 @@ internal sealed class JintFunctionDefinition
         }
         catch (JavaScriptException e)
         {
+            // Per spec: DisposeResources before rejecting
+            var env = engine.ExecutionContext.LexicalEnvironment;
+            var disposeResult = env.DisposeResources(new Completion(CompletionType.Throw, e.Error, null!));
             asyncInstance._state = AsyncFunctionState.Completed;
-            asyncInstance._capability.Reject.Call(JsValue.Undefined, e.Error);
+            asyncInstance._capability.Reject.Call(JsValue.Undefined, disposeResult.Value);
             return;
         }
 
@@ -178,13 +181,22 @@ internal sealed class JintFunctionDefinition
         if (asyncInstance._state == AsyncFunctionState.SuspendedAwait)
         {
             // Suspended - promise reaction will resume execution later
+            // Do NOT dispose resources yet - body hasn't completed
             return;
         }
+
+        // Per spec AsyncBlockStart step 3.f: DisposeResources after body completes
+        var lexEnv = engine.ExecutionContext.LexicalEnvironment;
+        result = lexEnv.DisposeResources(result);
 
         // Completed - resolve or reject the async function's return promise
         asyncInstance._state = AsyncFunctionState.Completed;
 
-        if (result.Type == CompletionType.Normal)
+        if (result.Type == CompletionType.Throw)
+        {
+            asyncInstance._capability.Reject.Call(JsValue.Undefined, result.Value);
+        }
+        else if (result.Type == CompletionType.Normal)
         {
             asyncInstance._capability.Resolve.Call(JsValue.Undefined, JsValue.Undefined);
         }

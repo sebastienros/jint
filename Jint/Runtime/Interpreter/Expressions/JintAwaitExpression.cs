@@ -1,5 +1,6 @@
 using Jint.Native;
 using Jint.Native.AsyncFunction;
+using Jint.Native.AsyncGenerator;
 using Jint.Native.Promise;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -19,42 +20,70 @@ internal sealed class JintAwaitExpression : JintExpression
     {
         var engine = context.Engine;
         var asyncInstance = engine.ExecutionContext.AsyncFunction;
+        var asyncGenerator = engine.ExecutionContext.AsyncGenerator;
 
-        // Check if this await was already completed (for expression bodies that re-evaluate)
-        // Use the AST expression node as key since JintAwaitExpression may be recreated on each evaluation
+        // === Async generator: return cached completed await value ===
+        if (asyncGenerator?._completedAwaits?.TryGetValue(_expression, out var agCached) == true)
+        {
+            return agCached;
+        }
+
+        // === Async generator: check if resuming from THIS await point ===
+        if (asyncGenerator is not null && asyncGenerator._isResuming
+            && asyncGenerator._lastYieldNode is JintAwaitExpression lastAg
+            && lastAg._expression == _expression)
+        {
+            var returnValue = asyncGenerator._nextValue ?? JsValue.Undefined;
+            asyncGenerator._isResuming = false;
+            asyncGenerator._lastYieldNode = null;
+
+            if (asyncGenerator._resumeWithThrow)
+            {
+                asyncGenerator._resumeWithThrow = false;
+                Throw.JavaScriptException(engine, returnValue, _expression.Location);
+            }
+
+            asyncGenerator._completedAwaits ??= new Dictionary<object, JsValue>();
+            asyncGenerator._completedAwaits[_expression] = returnValue;
+            return returnValue;
+        }
+
+        // === Async function: return cached completed await value ===
         if (asyncInstance?._completedAwaits?.TryGetValue(_expression, out var completedValue) == true)
         {
             return completedValue;
         }
 
-        // If resuming from THIS await point, return the resume value (or throw if rejected)
+        // === Async function: check if resuming from THIS await point ===
         if (asyncInstance is not null && asyncInstance._isResuming
             && asyncInstance._lastAwaitNode is JintExpression lastAwait
             && lastAwait._expression == _expression)
         {
             var returnValue = asyncInstance._resumeValue ?? JsValue.Undefined;
 
-            // Clear resume state
             asyncInstance._isResuming = false;
             asyncInstance._lastAwaitNode = null;
 
-            // If resuming with throw (rejected promise), throw at this point
             if (asyncInstance._resumeWithThrow)
             {
                 asyncInstance._resumeWithThrow = false;
                 Throw.JavaScriptException(engine, returnValue, _expression.Location);
             }
 
-            // Cache the completed value for expression bodies that re-evaluate
-            // (e.g., "x = await a + await b" - when we resume from await b, we need await a's cached value)
             asyncInstance._completedAwaits ??= new Dictionary<object, JsValue>();
             asyncInstance._completedAwaits[_expression] = returnValue;
 
             return returnValue;
         }
 
-        // Evaluate the awaited expression
+        // === Evaluate the awaited expression ===
         var value = _awaitExpression.GetValue(context);
+
+        // If the argument evaluation itself caused suspension (e.g., yield inside await argument)
+        if (context.IsSuspended())
+        {
+            return value;
+        }
 
         // Wrap in promise if not already a promise
         JsPromise promise;
@@ -71,7 +100,13 @@ internal sealed class JintAwaitExpression : JintExpression
             promise.Resolve(value);
         }
 
-        // If we have an async function context, suspend execution
+        // === Async generator: suspend for await ===
+        if (asyncGenerator is not null)
+        {
+            return SuspendForAwaitInAsyncGenerator(context, asyncGenerator, promise);
+        }
+
+        // === Async function: suspend for await ===
         if (asyncInstance is not null)
         {
             return SuspendForAwait(context, asyncInstance, promise);
@@ -89,52 +124,84 @@ internal sealed class JintAwaitExpression : JintExpression
         }
     }
 
-    private JsValue SuspendForAwait(EvaluationContext context, AsyncFunctionInstance asyncInstance, JsPromise promise)
+    /// <summary>
+    /// Suspends the async generator at an await expression, creating promise handlers
+    /// that will resume execution when the awaited promise settles.
+    /// Follows the same pattern as SuspendForAsyncIteration in JintForInForOfStatement.
+    /// </summary>
+    private JsValue SuspendForAwaitInAsyncGenerator(
+        EvaluationContext context,
+        AsyncGeneratorInstance asyncGenerator,
+        JsPromise promise)
     {
         var engine = context.Engine;
 
-        // Mark suspension point - use 'this' since JintAwaitExpression is per-run, AST nodes can be shared
-        asyncInstance._lastAwaitNode = this;
-        asyncInstance._state = AsyncFunctionState.SuspendedAwait;
-        asyncInstance._savedContext = engine.ExecutionContext;
+        // Mark suspension point - store 'this' (JintAwaitExpression instance) as the node identity,
+        // same convention as AsyncFunctionInstance._lastAwaitNode.
+        // _lastYieldNode is object? and yield stores AST YieldExpression nodes, so no collision.
+        asyncGenerator._lastYieldNode = this;
+        asyncGenerator._awaitSuspended = true;
 
-        // Create resume handlers that will be called when the promise settles
+        // Capture the current promise capability. The request was already dequeued by
+        // AsyncGeneratorResumeNext(), so we must continue THIS request's execution on resume.
+        var currentCapability = asyncGenerator._currentPromiseCapability!;
+
+        // Resume directly in the reaction handler (like async functions), not via AddToEventLoop.
+        // This ensures await consumes exactly 1 microtask tick for correct interleaving.
         var onFulfilled = new ClrFunction(engine, "", (_, args) =>
         {
             var resolvedValue = args.At(0);
-
-            // Queue job to resume async function with fulfilled value
-            engine.AddToEventLoop(() =>
-            {
-                asyncInstance._resumeValue = resolvedValue;
-                asyncInstance._resumeWithThrow = false;
-                AsyncFunctionResume(engine, asyncInstance);
-            });
-
+            asyncGenerator._nextValue = resolvedValue;
+            asyncGenerator._resumeWithThrow = false;
+            asyncGenerator._awaitSuspended = false;
+            asyncGenerator.AsyncGeneratorContinueForAwait(currentCapability);
             return JsValue.Undefined;
         }, 1, PropertyFlag.Configurable);
 
         var onRejected = new ClrFunction(engine, "", (_, args) =>
         {
             var rejectedValue = args.At(0);
-
-            // Queue job to resume async function with rejection (will throw at await point)
-            engine.AddToEventLoop(() =>
-            {
-                asyncInstance._resumeValue = rejectedValue;
-                asyncInstance._resumeWithThrow = true;
-                AsyncFunctionResume(engine, asyncInstance);
-            });
-
+            asyncGenerator._nextValue = rejectedValue;
+            asyncGenerator._resumeWithThrow = true;
+            asyncGenerator._awaitSuspended = false;
+            asyncGenerator.AsyncGeneratorContinueForAwait(currentCapability);
             return JsValue.Undefined;
         }, 1, PropertyFlag.Configurable);
 
-        // Attach the reaction handlers to the promise
-        // We use a dummy capability since we don't need the result promise
-        var resultCapability = PromiseConstructor.NewPromiseCapability(engine, engine.Realm.Intrinsics.Promise);
-        PromiseOperations.PerformPromiseThen(engine, promise, onFulfilled, onRejected, resultCapability);
+        PromiseOperations.PerformPromiseThen(engine, promise, onFulfilled, onRejected, null!);
 
-        // Return undefined - the actual value comes when we resume
+        // Return undefined - the body will unwind because IsSuspended is now true
+        return JsValue.Undefined;
+    }
+
+    private JsValue SuspendForAwait(EvaluationContext context, AsyncFunctionInstance asyncInstance, JsPromise promise)
+    {
+        var engine = context.Engine;
+
+        asyncInstance._lastAwaitNode = this;
+        asyncInstance._state = AsyncFunctionState.SuspendedAwait;
+        asyncInstance._savedContext = engine.ExecutionContext;
+
+        var onFulfilled = new ClrFunction(engine, "", (_, args) =>
+        {
+            var resolvedValue = args.At(0);
+            asyncInstance._resumeValue = resolvedValue;
+            asyncInstance._resumeWithThrow = false;
+            AsyncFunctionResume(engine, asyncInstance);
+            return JsValue.Undefined;
+        }, 1, PropertyFlag.Configurable);
+
+        var onRejected = new ClrFunction(engine, "", (_, args) =>
+        {
+            var rejectedValue = args.At(0);
+            asyncInstance._resumeValue = rejectedValue;
+            asyncInstance._resumeWithThrow = true;
+            AsyncFunctionResume(engine, asyncInstance);
+            return JsValue.Undefined;
+        }, 1, PropertyFlag.Configurable);
+
+        PromiseOperations.PerformPromiseThen(engine, promise, onFulfilled, onRejected, null!);
+
         return JsValue.Undefined;
     }
 
@@ -144,8 +211,6 @@ internal sealed class JintAwaitExpression : JintExpression
     /// </summary>
     internal static void AsyncFunctionResume(Engine engine, AsyncFunctionInstance asyncInstance)
     {
-        // Ignore stale reactions - if the async function already completed, don't re-execute.
-        // This can happen with nested awaits that queue multiple promise reactions.
         if (asyncInstance._state == AsyncFunctionState.Completed)
         {
             return;
@@ -154,10 +219,8 @@ internal sealed class JintAwaitExpression : JintExpression
         asyncInstance._state = AsyncFunctionState.Executing;
         asyncInstance._isResuming = true;
 
-        // Restore the execution context and continue executing the body
         engine.EnterExecutionContext(asyncInstance._savedContext);
 
-        // Ensure we have an evaluation context (may be called from event loop outside script evaluation)
         var context = engine._activeEvaluationContext ?? new EvaluationContext(engine);
 
         Completion result;
@@ -178,35 +241,37 @@ internal sealed class JintAwaitExpression : JintExpression
         }
         catch (JavaScriptException e)
         {
+            var env = engine.ExecutionContext.LexicalEnvironment;
+            var disposeResult = env.DisposeResources(new Completion(CompletionType.Throw, e.Error, null!));
             engine.LeaveExecutionContext();
             asyncInstance._state = AsyncFunctionState.Completed;
-            asyncInstance._capability.Reject.Call(JsValue.Undefined, e.Error);
+            asyncInstance._capability.Reject.Call(JsValue.Undefined, disposeResult.Value);
             return;
         }
+
+        if (asyncInstance._state == AsyncFunctionState.SuspendedAwait)
+        {
+            engine.LeaveExecutionContext();
+            return;
+        }
+
+        var lexEnv = engine.ExecutionContext.LexicalEnvironment;
+        result = lexEnv.DisposeResources(result);
 
         engine.LeaveExecutionContext();
 
-        // Check if suspended again at another await
-        if (asyncInstance._state == AsyncFunctionState.SuspendedAwait)
-        {
-            // Still suspended - promise reaction will resume again
-            return;
-        }
-
-        // Completed - resolve or reject the async function's return promise
         asyncInstance._state = AsyncFunctionState.Completed;
 
-        if (result.Type == CompletionType.Return)
-        {
-            asyncInstance._capability.Resolve.Call(JsValue.Undefined, result.Value);
-        }
-        else if (result.Type == CompletionType.Throw)
+        if (result.Type == CompletionType.Throw)
         {
             asyncInstance._capability.Reject.Call(JsValue.Undefined, result.Value);
         }
+        else if (result.Type == CompletionType.Return)
+        {
+            asyncInstance._capability.Resolve.Call(JsValue.Undefined, result.Value);
+        }
         else
         {
-            // Normal completion (no return statement)
             asyncInstance._capability.Resolve.Call(JsValue.Undefined, JsValue.Undefined);
         }
     }

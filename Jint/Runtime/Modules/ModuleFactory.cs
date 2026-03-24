@@ -1,5 +1,4 @@
 ﻿using Jint.Native;
-using Jint.Native.ArrayBuffer;
 using Jint.Native.Json;
 
 namespace Jint.Runtime.Modules;

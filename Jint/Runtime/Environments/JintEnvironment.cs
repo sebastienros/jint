@@ -3,7 +3,6 @@ using System.Threading;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Object;
-using Jint.Runtime.Interpreter;
 
 namespace Jint.Runtime.Environments;
 

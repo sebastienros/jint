@@ -243,15 +243,7 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
 
         while (true)
         {
-            // Only clear completed awaits cache when starting a NEW iteration, not when resuming.
-            // When resuming from a nested await (e.g., "for (; await await await x;)"),
-            // we need the cached values of already-completed awaits to continue evaluation.
-            // Note: _completedAwaits is async-specific, so we access AsyncFunction directly here
-            var asyncFn = context.Engine.ExecutionContext.AsyncFunction;
-            if (asyncFn is null || !asyncFn._isResuming)
-            {
-                asyncFn?._completedAwaits?.Clear();
-            }
+            context.Engine.ExecutionContext.ClearCompletedAwaitsIfNotResuming();
 
             if (_test != null)
             {

@@ -43,6 +43,12 @@ public sealed partial class Engine : IDisposable
 
     private readonly Agent _agent = new();
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-IncrementModuleAsyncEvaluationCount
+    /// Agent-level counter for module async evaluation ordering.
+    /// </summary>
+    internal int ModuleAsyncEvaluationCount;
+
     // lazy properties
     private DebugHandler? _debugger;
 

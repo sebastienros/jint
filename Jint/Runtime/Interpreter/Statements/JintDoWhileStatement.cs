@@ -26,15 +26,7 @@ internal sealed class JintDoWhileStatement : JintStatement<DoWhileStatement>
 
         do
         {
-            var asyncFn = context.Engine.ExecutionContext.AsyncFunction;
-
-            // Only clear completed awaits cache when starting a NEW iteration, not when resuming.
-            // When resuming from a nested await (e.g., "do {} while (await await await x)"),
-            // we need the cached values of already-completed awaits to continue evaluation.
-            if (asyncFn is null || !asyncFn._isResuming)
-            {
-                asyncFn?._completedAwaits?.Clear();
-            }
+            context.Engine.ExecutionContext.ClearCompletedAwaitsIfNotResuming();
 
             var completion = _body.Execute(context);
             if (!completion.Value.IsEmpty)
@@ -74,7 +66,7 @@ internal sealed class JintDoWhileStatement : JintStatement<DoWhileStatement>
             if (context.IsSuspended())
             {
                 var generator = context.Engine.ExecutionContext.Generator;
-                asyncFn = context.Engine.ExecutionContext.AsyncFunction;
+                var asyncFn = context.Engine.ExecutionContext.AsyncFunction;
                 var suspendedValue = generator?._suspendedValue ?? asyncFn?._resumeValue ?? JsValue.Undefined;
                 return new Completion(CompletionType.Return, suspendedValue, _statement);
             }

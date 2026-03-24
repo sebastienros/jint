@@ -21,6 +21,23 @@ internal abstract class IteratorInstance : ObjectInstance
 
     public abstract bool TryIteratorStep(out ObjectInstance nextItem);
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-iteratornext
+    /// IteratorNext with an optional value argument, using the cached [[NextMethod]].
+    /// </summary>
+    public virtual ObjectInstance IteratorNext(JsValue? value = null)
+    {
+        // Default implementation for built-in iterators that don't support value passing
+        TryIteratorStep(out var result);
+        return result;
+    }
+
+    /// <summary>
+    /// The cached [[NextMethod]] from the iterator record.
+    /// Returns null for built-in iterators that don't have a cached callable.
+    /// </summary>
+    public virtual ICallable? NextMethod => null;
+
     public virtual void Close(CompletionType completion)
     {
     }
@@ -46,6 +63,7 @@ internal abstract class IteratorInstance : ObjectInstance
         private readonly ICallable? _nextMethod;
 
         public override ObjectInstance Instance => _target;
+        public override ICallable? NextMethod => _nextMethod;
 
         public ObjectIterator(ObjectInstance target) : base(target.Engine)
         {
@@ -60,7 +78,7 @@ internal abstract class IteratorInstance : ObjectInstance
 
         public override bool TryIteratorStep(out ObjectInstance result)
         {
-            result = IteratorNext();
+            result = IteratorNextInternal(null);
 
             var done = result.Get(CommonProperties.Done);
             if (!done.IsUndefined() && TypeConverter.ToBoolean(done))
@@ -71,7 +89,16 @@ internal abstract class IteratorInstance : ObjectInstance
             return true;
         }
 
-        private ObjectInstance IteratorNext()
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-iteratornext
+        /// Uses the cached [[NextMethod]] and forwards the optional value argument.
+        /// </summary>
+        public override ObjectInstance IteratorNext(JsValue? value = null)
+        {
+            return IteratorNextInternal(value);
+        }
+
+        private ObjectInstance IteratorNextInternal(JsValue? value)
         {
             // Check for 'next' method when actually trying to iterate
             if (_nextMethod is null)
@@ -80,7 +107,9 @@ internal abstract class IteratorInstance : ObjectInstance
                 return null!;
             }
 
-            var jsValue = _nextMethod.Call(_target, Arguments.Empty);
+            var jsValue = value is not null
+                ? _nextMethod.Call(_target, [value])
+                : _nextMethod.Call(_target, Arguments.Empty);
             var instance = jsValue as ObjectInstance;
             if (instance is null)
             {

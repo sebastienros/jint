@@ -1,6 +1,5 @@
 using Jint.Native;
 using Jint.Native.Object;
-using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 
@@ -145,6 +144,10 @@ internal sealed class JintMemberExpression : JintExpression
             && _objectExpression is not JintSuperExpression)
         {
             var baseValue = _objectExpression.GetValue(context);
+            if (context.IsSuspended())
+            {
+                return JsValue.Undefined;
+            }
             if (baseValue is ObjectInstance baseObject)
             {
                 context.LastSyntaxElement = _expression;

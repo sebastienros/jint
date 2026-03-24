@@ -1,5 +1,3 @@
-using Jint.Runtime;
-
 namespace Jint.Tests.Runtime;
 
 public class NumberTests

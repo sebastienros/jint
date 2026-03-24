@@ -85,6 +85,12 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
                 generator._returnRequested = false;
             }
 
+            var asyncGenerator = engine.ExecutionContext.AsyncGenerator;
+            if (asyncGenerator is not null)
+            {
+                asyncGenerator._returnRequested = false;
+            }
+
             var f = _finalizer.Execute(context);
 
             // Check for suspension in finally
