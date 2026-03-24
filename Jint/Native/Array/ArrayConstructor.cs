@@ -215,6 +215,22 @@ public sealed class ArrayConstructor : Constructor
         }
     }
 
+    private static void AsyncIteratorClose(Engine engine, ObjectInstance iterator)
+    {
+        try
+        {
+            var returnMethod = iterator.GetMethod(CommonProperties.Return);
+            if (returnMethod is not null)
+            {
+                returnMethod.Call(iterator, Arguments.Empty);
+            }
+        }
+        catch
+        {
+            // Errors from iterator close are suppressed
+        }
+    }
+
     private void FromAsyncIteratorLoop(
         ObjectInstance iterator,
         ArrayOperations target,
@@ -258,7 +274,7 @@ public sealed class ArrayConstructor : Constructor
                     return Undefined;
                 }
 
-                ProcessAsyncIteratorValue(value, target, callable, thisArg, promiseCapability, capturedK, () =>
+                ProcessAsyncIteratorValue(value, target, callable, thisArg, promiseCapability, capturedK, iterator, () =>
                 {
                     // Queue next iteration to prevent stack overflow
                     _engine.AddToEventLoop(() => FromAsyncIteratorLoop(iterator, target, callable, thisArg, promiseCapability, capturedK + 1));
@@ -268,7 +284,7 @@ public sealed class ArrayConstructor : Constructor
 
             var onRejected = new ClrFunction(_engine, "", (_, args) =>
             {
-                promiseCapability.Reject.Call(Undefined, args);
+                promiseCapability.Reject.Call(Undefined, [args.At(0)]);
                 return Undefined;
             }, 1, PropertyFlag.Configurable);
 
@@ -287,6 +303,7 @@ public sealed class ArrayConstructor : Constructor
         JsValue thisArg,
         PromiseCapability promiseCapability,
         ulong k,
+        ObjectInstance iterator,
         Action continueLoop)
     {
         // Await the value
@@ -295,13 +312,14 @@ public sealed class ArrayConstructor : Constructor
         var onFulfilled = new ClrFunction(_engine, "", (_, args) =>
         {
             var resolvedValue = args.At(0);
-            ProcessMappedValue(resolvedValue, target, callable, thisArg, promiseCapability, k, continueLoop);
+            ProcessMappedValue(resolvedValue, target, callable, thisArg, promiseCapability, k, continueLoop, iterator);
             return Undefined;
         }, 1, PropertyFlag.Configurable);
 
         var onRejected = new ClrFunction(_engine, "", (_, args) =>
         {
-            promiseCapability.Reject.Call(Undefined, args);
+            AsyncIteratorClose(_engine, iterator);
+            promiseCapability.Reject.Call(Undefined, [args.At(0)]);
             return Undefined;
         }, 1, PropertyFlag.Configurable);
 
@@ -315,30 +333,51 @@ public sealed class ArrayConstructor : Constructor
         JsValue thisArg,
         PromiseCapability promiseCapability,
         ulong k,
-        Action continueLoop)
+        Action continueLoop,
+        ObjectInstance? iterator = null)
     {
         try
         {
             if (callable is not null)
             {
-                // Apply mapfn
-                var mappedValue = callable.Call(thisArg, value, k);
+                // Apply mapfn - IfAbruptCloseAsyncIterator
+                JsValue mappedValue;
+                try
+                {
+                    mappedValue = callable.Call(thisArg, value, k);
+                }
+                catch (JavaScriptException e)
+                {
+                    if (iterator is not null) AsyncIteratorClose(_engine, iterator);
+                    promiseCapability.Reject.Call(Undefined, e.Error);
+                    return;
+                }
 
                 // Await the mapped value
                 var mappedPromise = _realm.Intrinsics.Promise.PromiseResolve(mappedValue);
 
+                var capturedIterator = iterator;
                 var onFulfilled = new ClrFunction(_engine, "", (_, args) =>
                 {
                     var resolvedMapped = args.At(0);
-                    target.CreateDataPropertyOrThrow(k, resolvedMapped);
-                    // Queue continuation to prevent stack overflow
+                    try
+                    {
+                        target.CreateDataPropertyOrThrow(k, resolvedMapped);
+                    }
+                    catch (JavaScriptException e2)
+                    {
+                        if (capturedIterator is not null) AsyncIteratorClose(_engine, capturedIterator);
+                        promiseCapability.Reject.Call(Undefined, e2.Error);
+                        return Undefined;
+                    }
                     _engine.AddToEventLoop(continueLoop);
                     return Undefined;
                 }, 1, PropertyFlag.Configurable);
 
                 var onRejected = new ClrFunction(_engine, "", (_, args) =>
                 {
-                    promiseCapability.Reject.Call(Undefined, args);
+                    if (capturedIterator is not null) AsyncIteratorClose(_engine, capturedIterator);
+                    promiseCapability.Reject.Call(Undefined, [args.At(0)]);
                     return Undefined;
                 }, 1, PropertyFlag.Configurable);
 
@@ -346,13 +385,22 @@ public sealed class ArrayConstructor : Constructor
             }
             else
             {
-                target.CreateDataPropertyOrThrow(k, value);
-                // Queue continuation to prevent stack overflow
+                try
+                {
+                    target.CreateDataPropertyOrThrow(k, value);
+                }
+                catch (JavaScriptException e)
+                {
+                    if (iterator is not null) AsyncIteratorClose(_engine, iterator);
+                    promiseCapability.Reject.Call(Undefined, e.Error);
+                    return;
+                }
                 _engine.AddToEventLoop(continueLoop);
             }
         }
         catch (JavaScriptException e)
         {
+            if (iterator is not null) AsyncIteratorClose(_engine, iterator);
             promiseCapability.Reject.Call(Undefined, e.Error);
         }
     }
@@ -371,6 +419,13 @@ public sealed class ArrayConstructor : Constructor
 
             // iii. Let len be ? LengthOfArrayLike(arrayLike).
             var len = arrayLike.GetLength();
+
+            // ArrayCreate step 1: If length > 2^32 - 1, throw a RangeError
+            if (len > ArrayOperations.MaxArrayLength)
+            {
+                Throw.RangeError(_realm, "Invalid array length");
+                return;
+            }
 
             // iv. If IsConstructor(C) is true, then
             //     1. Let A be ? Construct(C, « 𝔽(len) »).
@@ -431,7 +486,7 @@ public sealed class ArrayConstructor : Constructor
 
             var onRejected = new ClrFunction(_engine, "", (_, args) =>
             {
-                promiseCapability.Reject.Call(Undefined, args);
+                promiseCapability.Reject.Call(Undefined, [args.At(0)]);
                 return Undefined;
             }, 1, PropertyFlag.Configurable);
 
@@ -475,7 +530,7 @@ public sealed class ArrayConstructor : Constructor
 
                 var onRejected = new ClrFunction(_engine, "", (_, args) =>
                 {
-                    promiseCapability.Reject.Call(Undefined, args);
+                    promiseCapability.Reject.Call(Undefined, [args.At(0)]);
                     return Undefined;
                 }, 1, PropertyFlag.Configurable);
 

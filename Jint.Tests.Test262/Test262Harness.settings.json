@@ -426,7 +426,11 @@
     "language/statements/for-await-of/async-gen-decl-dstr-*-yield-expr.js",
 
     // Array.fromAsync
-    "built-ins/Array/fromAsync/*.js",
+    "built-ins/Array/fromAsync/async-iterable-input-does-not-await-input.js",
+    "built-ins/Array/fromAsync/asyncitems-arraylike-length-accessor-throws.js",
+    "built-ins/Array/fromAsync/asyncitems-arraylike-too-long.js",
+    "built-ins/Array/fromAsync/this-constructor-with-bad-length-setter.js",
+    "built-ins/Array/fromAsync/this-constructor-with-readonly-length.js",
 
     // await-using / using async disposal
     "language/statements/await-using/await-using-implies-await-if-evaluated.js",
