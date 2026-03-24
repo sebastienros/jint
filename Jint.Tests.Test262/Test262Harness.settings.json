@@ -398,8 +398,6 @@
     // Module evaluation ordering with top-level await
     "language/module-code/top-level-await/unobservable-global-async-evaluation-count-reset.js",
 
-    // await-using implicit await tick
-    "language/statements/await-using/await-using-implies-await-if-evaluated.js",
 
     // dynamic import in async contexts
     "language/expressions/dynamic-import/assignment-expression/import-meta.js",

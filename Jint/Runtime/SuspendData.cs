@@ -109,6 +109,12 @@ internal sealed class BlockSuspendData : SuspendData
     /// The outer environment to restore after the block completes.
     /// </summary>
     public Jint.Runtime.Environments.Environment? OuterEnvironment { get; set; }
+
+    /// <summary>
+    /// Whether DisposeResources has already been called for this block.
+    /// When true, resumption should skip disposal and just continue.
+    /// </summary>
+    public bool DisposalComplete { get; set; }
 }
 
 /// <summary>

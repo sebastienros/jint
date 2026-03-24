@@ -342,6 +342,12 @@ internal class DeclarativeEnvironment : Environment
 
     internal sealed override Completion DisposeResources(Completion c) => _disposeCapability?.DisposeResources(c) ?? c;
 
+    /// <summary>
+    /// True if the last DisposeResources call encountered an async-dispose resource
+    /// with no method (null/undefined value), requiring an implicit Await tick per spec.
+    /// </summary>
+    internal bool NeedsAsyncDisposeTick => _disposeCapability?.NeedsAsyncTick == true;
+
     public void Clear()
     {
         _dictionary = null;
