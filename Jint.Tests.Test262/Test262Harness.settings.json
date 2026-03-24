@@ -396,17 +396,12 @@
     "language/*/async-generator/yield-star-return-then-getter-ticks.js",
     "language/*/async-generator/yield-return-then-getter-ticks.js",
 
-
-
     // Tick ordering (microtask scheduling precision)
     "language/statements/async-generator/return-undefined-implicit-and-explicit.js",
     "language/expressions/await/for-await-of-interleaved.js",
     "language/module-code/top-level-await/unobservable-global-async-evaluation-count-reset.js",
     "language/statements/for-await-of/ticks-with-*-iter-resolved-promise-and-constructor-lookup*.js",
 
-    // Disposal timing in async generators (need DisposeResources integration)
-    "language/statements/using/initializer-disposed-at-end-of-asyncgeneratorbody.js",
-    "language/statements/await-using/initializer-Symbol.*-called-at-end-of-asyncgeneratorbody.js",
 
     // await-using implicit await tick
     "language/statements/await-using/await-using-implies-await-if-evaluated.js",
