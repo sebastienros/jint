@@ -185,8 +185,9 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
             {
                 if (_asyncGeneratorState == AsyncGeneratorState.SuspendedStart)
                 {
-                    _asyncGeneratorState = AsyncGeneratorState.Completed;
-                    AsyncGeneratorResolve(completion.Value, true, promiseCapability);
+                    // Per spec step 7: wrap value in PromiseResolve and await it
+                    _asyncGeneratorState = AsyncGeneratorState.AwaitingReturn;
+                    AsyncGeneratorAwaitReturn(completion.Value, promiseCapability);
                     return;
                 }
                 else if (_asyncGeneratorState == AsyncGeneratorState.SuspendedYield)
@@ -203,7 +204,9 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
                 }
                 else if (_asyncGeneratorState == AsyncGeneratorState.Completed)
                 {
-                    AsyncGeneratorResolve(completion.Value, true, promiseCapability);
+                    // Per spec: wrap value in PromiseResolve and await it
+                    _asyncGeneratorState = AsyncGeneratorState.AwaitingReturn;
+                    AsyncGeneratorAwaitReturn(completion.Value, promiseCapability);
                     return;
                 }
             }
@@ -272,16 +275,24 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
             return;
         }
 
-        // Generator completed - clear the promise capability
+        // Generator completed
         _currentPromiseCapability = null;
-        _asyncGeneratorState = AsyncGeneratorState.Completed;
 
-        if (result.Type == CompletionType.Normal || result.Type == CompletionType.Return)
+        if (result.Type == CompletionType.Return)
         {
+            // Per spec step 4.e.i: Set result to Completion(Await(result.[[Value]])).
+            // The return value must be awaited to unwrap promises.
+            _asyncGeneratorState = AsyncGeneratorState.AwaitingReturn;
+            AsyncGeneratorAwaitReturn(result.Value, promiseCapability);
+        }
+        else if (result.Type == CompletionType.Normal)
+        {
+            _asyncGeneratorState = AsyncGeneratorState.Completed;
             AsyncGeneratorResolve(result.Value, true, promiseCapability);
         }
         else // Throw
         {
+            _asyncGeneratorState = AsyncGeneratorState.Completed;
             AsyncGeneratorReject(result.Value, promiseCapability);
         }
 

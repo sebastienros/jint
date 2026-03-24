@@ -404,14 +404,10 @@
     "built-ins/AsyncFromSyncIteratorPrototype/throw/iterator-result-rejected-promise-close.js",
     "built-ins/AsyncFromSyncIteratorPrototype/throw/throw-result-poisoned-wrapper.js",
 
-    // Async generator return: try/finally, broken promises, suspendedStart
+    // Async generator return: remaining broken promise and tick ordering issues
     "built-ins/AsyncGeneratorPrototype/next/request-queue-await-order.js",
     "built-ins/AsyncGeneratorPrototype/return/return-state-completed-broken-promise.js",
-    "built-ins/AsyncGeneratorPrototype/return/return-suspendedStart-broken-promise.js",
-    "built-ins/AsyncGeneratorPrototype/return/return-suspendedStart-promise.js",
     "built-ins/AsyncGeneratorPrototype/return/return-suspendedYield-broken-promise-try-catch.js",
-    "built-ins/AsyncGeneratorPrototype/return/return-suspendedYield-promise.js",
-    "built-ins/AsyncGeneratorPrototype/return/return-suspendedYield-promise.js",
 
     // Microtask tick ordering
     "language/statements/async-generator/return-undefined-implicit-and-explicit.js",
