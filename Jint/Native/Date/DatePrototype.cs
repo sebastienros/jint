@@ -1295,8 +1295,14 @@ internal sealed class DatePrototype : Prototype
 
     internal DatePresentation Utc(DatePresentation t)
     {
+        // t represents local time encoded as epoch milliseconds. GetUtcOffset treats
+        // its argument as a UTC instant, so a single-pass conversion uses the wrong
+        // DST offset near transitions. Use a two-pass approach matching the ES spec's
+        // UTC(t): first estimate UTC, then get the correct offset at that UTC instant.
         var offset = _timeSystem.GetUtcOffset(t.Value).TotalMilliseconds;
-        return t - offset;
+        var estimatedUtc = (t - offset).Value;
+        var refinedOffset = _timeSystem.GetUtcOffset(estimatedUtc).TotalMilliseconds;
+        return t - refinedOffset;
     }
 
     private static int HourFromTime(DatePresentation t)
