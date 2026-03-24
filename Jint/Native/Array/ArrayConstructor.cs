@@ -278,9 +278,16 @@ public sealed class ArrayConstructor : Constructor
                 var value = iterResultObj.Get(CommonProperties.Value);
                 if (done)
                 {
-                    // Iteration complete
-                    target.SetLength(capturedK);
-                    promiseCapability.Resolve.Call(Undefined, target.Target);
+                    // Iteration complete - Set(A, "length", k, true)
+                    try
+                    {
+                        target.SetLength(capturedK);
+                        promiseCapability.Resolve.Call(Undefined, target.Target);
+                    }
+                    catch (JavaScriptException e)
+                    {
+                        promiseCapability.Reject.Call(Undefined, e.Error);
+                    }
                     return Undefined;
                 }
 
@@ -316,24 +323,32 @@ public sealed class ArrayConstructor : Constructor
         ObjectInstance iterator,
         Action continueLoop)
     {
-        // Await the value
-        var valuePromise = _realm.Intrinsics.Promise.PromiseResolve(value);
-
-        var onFulfilled = new ClrFunction(_engine, "", (_, args) =>
+        if (callable is not null)
         {
-            var resolvedValue = args.At(0);
-            ProcessMappedValue(resolvedValue, target, callable, thisArg, promiseCapability, k, continueLoop, iterator);
-            return Undefined;
-        }, 1, PropertyFlag.Configurable);
+            // When mapping, await the value first, then apply mapfn
+            var valuePromise = _realm.Intrinsics.Promise.PromiseResolve(value);
 
-        var onRejected = new ClrFunction(_engine, "", (_, args) =>
+            var onFulfilled = new ClrFunction(_engine, "", (_, args) =>
+            {
+                var resolvedValue = args.At(0);
+                ProcessMappedValue(resolvedValue, target, callable, thisArg, promiseCapability, k, continueLoop, iterator);
+                return Undefined;
+            }, 1, PropertyFlag.Configurable);
+
+            var onRejected = new ClrFunction(_engine, "", (_, args) =>
+            {
+                AsyncIteratorClose(_engine, iterator);
+                promiseCapability.Reject.Call(Undefined, [args.At(0)]);
+                return Undefined;
+            }, 1, PropertyFlag.Configurable);
+
+            PromiseOperations.PerformPromiseThen(_engine, (JsPromise) valuePromise, onFulfilled, onRejected, null!);
+        }
+        else
         {
-            AsyncIteratorClose(_engine, iterator);
-            promiseCapability.Reject.Call(Undefined, [args.At(0)]);
-            return Undefined;
-        }, 1, PropertyFlag.Configurable);
-
-        PromiseOperations.PerformPromiseThen(_engine, (JsPromise) valuePromise, onFulfilled, onRejected, null!);
+            // Per spec 3.j.ii.8: when mapping is false, mappedValue = nextValue (no await)
+            ProcessMappedValue(value, target, callable, thisArg, promiseCapability, k, continueLoop, iterator);
+        }
     }
 
     private void ProcessMappedValue(
@@ -428,14 +443,7 @@ public sealed class ArrayConstructor : Constructor
             var arrayLike = TypeConverter.ToObject(_realm, asyncItems);
 
             // iii. Let len be ? LengthOfArrayLike(arrayLike).
-            var len = arrayLike.GetLength();
-
-            // ArrayCreate step 1: If length > 2^32 - 1, throw a RangeError
-            if (len > ArrayOperations.MaxArrayLength)
-            {
-                Throw.RangeError(_realm, "Invalid array length");
-                return;
-            }
+            var longLen = TypeConverter.ToLength(arrayLike.Get(CommonProperties.Length));
 
             // iv. If IsConstructor(C) is true, then
             //     1. Let A be ? Construct(C, « 𝔽(len) »).
@@ -444,12 +452,21 @@ public sealed class ArrayConstructor : Constructor
             ObjectInstance a;
             if (!ReferenceEquals(c, this) && c is IConstructor constructor)
             {
-                a = constructor.Construct([len], c);
+                a = constructor.Construct([(JsNumber) longLen], c);
             }
             else
             {
-                a = ArrayCreate(len);
+                // ArrayCreate step 1: If length > 2^32 - 1, throw a RangeError
+                if (longLen > ArrayOperations.MaxArrayLength)
+                {
+                    Throw.RangeError(_realm, "Invalid array length");
+                    return;
+                }
+
+                a = ArrayCreate((uint) longLen);
             }
+
+            var len = longLen;
 
             var target = ArrayOperations.For(a, forWrite: true);
             FromAsyncArrayLikeLoop(arrayLike, target, callable, thisArg, promiseCapability, 0, len);
@@ -481,9 +498,16 @@ public sealed class ArrayConstructor : Constructor
     {
         if (k >= len)
         {
-            // Done
-            target.SetLength(len);
-            promiseCapability.Resolve.Call(Undefined, target.Target);
+            // Done - Set(A, "length", len, true)
+            try
+            {
+                target.SetLength(len);
+                promiseCapability.Resolve.Call(Undefined, target.Target);
+            }
+            catch (JavaScriptException e)
+            {
+                promiseCapability.Reject.Call(Undefined, e.Error);
+            }
             return;
         }
 

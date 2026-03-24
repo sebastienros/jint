@@ -392,34 +392,20 @@
     "built-ins/Atomics/waitAsync/waiterlist-block-indexedposition-wake.js",
     "built-ins/Atomics/waitAsync/was-woken-before-timeout.js",
 
-    // yield* delegation: tick ordering
+    // yield* delegation: tick ordering (requires Await suspension in delegation return path)
     "language/*/async-generator/yield-star-return-then-getter-ticks.js",
-    "language/*/async-generator/yield-return-then-getter-ticks.js",
 
     // Tick ordering (microtask scheduling precision)
-    "language/statements/async-generator/return-undefined-implicit-and-explicit.js",
     "language/expressions/await/for-await-of-interleaved.js",
     "language/module-code/top-level-await/unobservable-global-async-evaluation-count-reset.js",
     "language/statements/for-await-of/ticks-with-*-iter-resolved-promise-and-constructor-lookup*.js",
 
-
     // await-using implicit await tick
     "language/statements/await-using/await-using-implies-await-if-evaluated.js",
 
-    // Array.fromAsync remaining issues
-    "built-ins/Array/fromAsync/async-iterable-input-does-not-await-input.js",
-    "built-ins/Array/fromAsync/asyncitems-arraylike-too-long.js",
-    "built-ins/Array/fromAsync/this-constructor-with-bad-length-setter.js",
-    "built-ins/Array/fromAsync/this-constructor-with-readonly-length.js",
-
-    // async generator fn-name reassign: double-await re-evaluation issue
-    "language/expressions/async-generator/named-*-reassign-fn-name-in-body*.js",
-
     // dynamic import in async contexts
-    "language/expressions/dynamic-import/assignment-expression/await-expr.js",
     "language/expressions/dynamic-import/assignment-expression/import-meta.js",
-    "language/expressions/dynamic-import/for-await-resolution-and-error-agen-yield.js",
-    "language/expressions/dynamic-import/for-await-resolution-and-error-agen.js"
+    "language/expressions/dynamic-import/for-await-resolution-and-error-agen-yield.js"
 
   ]
 }

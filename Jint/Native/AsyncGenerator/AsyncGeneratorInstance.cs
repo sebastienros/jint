@@ -43,6 +43,8 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
     internal CompletionType _delegationResumeType;
     internal bool _returnRequested;
     internal CompletionType _resumeCompletionType;
+    internal JsPromise? _yieldReturnPromise; // cached PromiseResolve from yield return path
+    internal JsValue? _yieldReturnValue;    // the original value the promise was created from
 
     // Await suspension tracking (for bare `await` inside async generator body)
     internal bool _awaitSuspended;
@@ -303,8 +305,19 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
         }
         else if (result.Type == CompletionType.Return)
         {
-            _asyncGeneratorState = AsyncGeneratorState.AwaitingReturn;
-            AsyncGeneratorAwaitReturn(result.Value, promiseCapability);
+            // Per spec 13.10.1: "return;" (no expression) does NOT await the return value,
+            // but "return expr;" does call Await(exprValue) before returning.
+            // When the return statement has no argument, we can resolve directly.
+            if (result._source is ReturnStatement { Argument: null })
+            {
+                _asyncGeneratorState = AsyncGeneratorState.Completed;
+                AsyncGeneratorResolve(result.Value, true, promiseCapability);
+            }
+            else
+            {
+                _asyncGeneratorState = AsyncGeneratorState.AwaitingReturn;
+                AsyncGeneratorAwaitReturn(result.Value, promiseCapability);
+            }
         }
         else if (result.Type == CompletionType.Normal)
         {
@@ -337,7 +350,7 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
     /// <summary>
     /// Creates a promise resolved with the given value.
     /// </summary>
-    private JsPromise CreateResolvedPromise(JsValue value)
+    internal JsPromise CreateResolvedPromise(JsValue value)
     {
         var capability = PromiseConstructor.NewPromiseCapability(_engine, _engine.Realm.Intrinsics.Promise);
         capability.Resolve.Call(JsValue.Undefined, new[] { value });
@@ -353,16 +366,29 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
         // Per spec: Let promise be Completion(PromiseResolve(%Promise%, value)).
         // If promiseCompletion is an abrupt completion, complete with the error.
         JsPromise promise;
-        try
+
+        // If the yield return path already created a promise via PromiseResolve, reuse it
+        // to avoid double access to the "then" getter on thenables.
+        // Only reuse if the value hasn't changed (e.g., finally block could override return value).
+        if (_yieldReturnPromise is not null && ReferenceEquals(value, _yieldReturnValue))
         {
-            promise = CreateResolvedPromise(value);
+            promise = _yieldReturnPromise;
+            _yieldReturnPromise = null;
+            _yieldReturnValue = null;
         }
-        catch (JavaScriptException e)
+        else
         {
-            _asyncGeneratorState = AsyncGeneratorState.Completed;
-            AsyncGeneratorReject(e.Error, promiseCapability);
-            AsyncGeneratorResumeNext();
-            return;
+            try
+            {
+                promise = CreateResolvedPromise(value);
+            }
+            catch (JavaScriptException e)
+            {
+                _asyncGeneratorState = AsyncGeneratorState.Completed;
+                AsyncGeneratorReject(e.Error, promiseCapability);
+                AsyncGeneratorResumeNext();
+                return;
+            }
         }
 
         // Create fulfillment handler

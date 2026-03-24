@@ -136,15 +136,17 @@ internal sealed class JintYieldExpression : JintExpression
                     Throw.JavaScriptException(context.Engine, returnValue, AstExtensions.DefaultLocation);
                 }
 
-                // If we're resuming with a Return completion, signal return request
-                // Per spec AsyncGeneratorYield step 8.b-c: Await the return value.
-                // If PromiseResolve throws synchronously (e.g., poisoned constructor),
-                // the error propagates as a throw completion through the generator body,
-                // allowing try/catch to handle it.
+                // If we're resuming with a Return completion, signal return request.
+                // Per spec AsyncGeneratorYield step 8.b: Await(resumptionValue.[[Value]]).
+                // Call PromiseResolve here so that errors (e.g., broken constructor) are
+                // thrown within the body's execution context (catchable by try-catch).
+                // Cache the resulting promise to avoid double PromiseResolve in AsyncGeneratorAwaitReturn.
                 if (asyncGenerator._resumeCompletionType == CompletionType.Return)
                 {
                     asyncGenerator._resumeCompletionType = CompletionType.Normal;
-                    context.Engine.Intrinsics.Promise.PromiseResolve(returnValue);
+                    var promise = (JsPromise) context.Engine.Intrinsics.Promise.PromiseResolve(returnValue);
+                    asyncGenerator._yieldReturnPromise = promise;
+                    asyncGenerator._yieldReturnValue = returnValue;
                     asyncGenerator._returnRequested = true;
                     asyncGenerator._suspendedValue = returnValue;
                     return returnValue;
