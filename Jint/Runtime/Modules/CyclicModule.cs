@@ -125,7 +125,9 @@ public abstract class CyclicModule : Module
 
         var stack = new Stack<CyclicModule>();
         var capability = PromiseConstructor.NewPromiseCapability(_engine, _realm.Intrinsics.Promise);
-        var asyncEvalOrder = 0;
+        // Per spec, [[ModuleAsyncEvaluationCount]] is agent-level, not per-Evaluate() call.
+        // This ensures correct ordering across dynamic import() calls.
+        ref var asyncEvalOrder = ref _engine.ModuleAsyncEvaluationCount;
         module._topLevelCapability = capability;
 
         var result = module.InnerModuleEvaluation(stack, 0, ref asyncEvalOrder);

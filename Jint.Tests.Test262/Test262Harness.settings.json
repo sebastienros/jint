@@ -393,11 +393,10 @@
     "built-ins/Atomics/waitAsync/was-woken-before-timeout.js",
 
 
-    // Module evaluation ordering with top-level await
-    "language/module-code/top-level-await/unobservable-global-async-evaluation-count-reset.js",
 
-    // dynamic import: import-meta strict mode issue, yield import() timing issue
+    // dynamic import: import-meta strict variant rejects with string instead of TypeError
     "language/expressions/dynamic-import/assignment-expression/import-meta.js",
+    // dynamic import: yield import() in async generator — pre-existing issue with queued .next() + import timing
     "language/expressions/dynamic-import/for-await-resolution-and-error-agen-yield.js"
 
   ]
