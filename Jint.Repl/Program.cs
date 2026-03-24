@@ -74,13 +74,13 @@ var engine = new Engine(cfg =>
     {
         cfg.TimeoutInterval(TimeSpan.FromSeconds(timeoutSeconds.Value));
     }
-    if (runAsModule)
-    {
-        var basePath = inputFile != null
-            ? Path.GetDirectoryName(Path.GetFullPath(inputFile))!
-            : Directory.GetCurrentDirectory();
-        cfg.EnableModules(basePath, restrictToBasePath: false);
-    }
+
+    // Even if the script is not a module, modules still need to be enabled
+    // for dynamic import to work.
+    var basePath = inputFile != null
+        ? Path.GetDirectoryName(Path.GetFullPath(inputFile))!
+        : Directory.GetCurrentDirectory();
+    cfg.EnableModules(basePath, restrictToBasePath: false);
 });
 
 engine
