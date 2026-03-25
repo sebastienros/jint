@@ -389,13 +389,7 @@
     "language/statements/await-using/syntax/with-initializer-label-statement.js",
     "language/statements/await-using/syntax/with-initializer-while-expression-statement.js",
     "language/statements/using/syntax/using-invalid-for-in.js",
-    "language/statements/using/syntax/with-initializer-for-statement.js",
-
-    // Test262Harness NuGet limitation: ExpectedErrorType enum has no EvalError variant,
-    // so expected type is misinterpreted. Acornima correctly handles --> on first line.
-    "annexB/language/comments/single-line-html-close-first-line-1.js",
-    "annexB/language/comments/single-line-html-close-first-line-2.js",
-    "annexB/language/comments/single-line-html-close-first-line-3.js"
+    "language/statements/using/syntax/with-initializer-for-statement.js"
 
   ]
 }

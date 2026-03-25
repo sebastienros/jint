@@ -239,6 +239,8 @@ public abstract partial class Test262Test
             "TypeError" => ExpectedErrorType.TypeError,
             "ReferenceError" => ExpectedErrorType.ReferenceError,
             "RangeError" => ExpectedErrorType.RangeError,
+            "EvalError" => ExpectedErrorType.EvalError,
+            "URIError" => ExpectedErrorType.URIError,
             "Test262Error" => ExpectedErrorType.Test262Error,
             _ => ExpectedErrorType.Test262Error
         };
