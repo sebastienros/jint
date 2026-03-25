@@ -171,6 +171,7 @@ public abstract partial class Test262Test
         var expected = file.NegativeTestCase!.Type;
         var actual = GetActualErrorType(ex);
 
+        // null means infrastructure exception (TimeoutException, etc.) - skip validation
         if (actual is not null && actual.Value != expected)
         {
             Assert.Fail($"Expected {expected} but got {actual.Value}: {ex.Message}");
@@ -179,7 +180,8 @@ public abstract partial class Test262Test
 
     /// <summary>
     /// Maps a Jint exception to a Test262 ExpectedErrorType.
-    /// Returns null if the exception type cannot be mapped to a known error type.
+    /// Returns null only for truly unknown/infrastructure exceptions (TimeoutException, etc.)
+    /// where we can't determine the JS error type and should not fail the validation.
     /// </summary>
     private static ExpectedErrorType? GetActualErrorType(Exception ex)
     {
@@ -206,24 +208,29 @@ public abstract partial class Test262Test
                 return ExpectedErrorType.RangeError;
 
             default:
+                // Infrastructure exceptions (TimeoutException, etc.) - don't validate
                 return null;
         }
     }
 
     /// <summary>
     /// Determines the error type from a JavaScript error value by checking the "name" property.
+    /// For non-object errors (e.g., thrown strings from $DONOTEVALUATE), returns Test262Error
+    /// since a non-typed throw should not match any specific expected error type.
     /// </summary>
     private static ExpectedErrorType? GetErrorTypeFromJsError(JsValue error)
     {
         if (error is not ObjectInstance oi)
         {
-            return null;
+            // Non-object throw (e.g., `throw "string"`) - treat as Test262Error
+            // so it won't match SyntaxError/TypeError/etc. expectations
+            return ExpectedErrorType.Test262Error;
         }
 
         var name = oi.Get("name");
         if (name.IsUndefined() || name.IsNull())
         {
-            return null;
+            return ExpectedErrorType.Test262Error;
         }
 
         return name.ToString() switch
@@ -233,7 +240,7 @@ public abstract partial class Test262Test
             "ReferenceError" => ExpectedErrorType.ReferenceError,
             "RangeError" => ExpectedErrorType.RangeError,
             "Test262Error" => ExpectedErrorType.Test262Error,
-            _ => null
+            _ => ExpectedErrorType.Test262Error
         };
     }
 
