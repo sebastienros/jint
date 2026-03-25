@@ -68,7 +68,7 @@ public static class ModuleFactory
         }
         catch (Exception)
         {
-            Throw.JavaScriptException(engine, $"Could not load module {source}", AstExtensions.DefaultLocation);
+            Throw.SyntaxError(engine.Realm, $"Could not load module {source}");
             module = null;
         }
 

@@ -1,6 +1,8 @@
 #nullable enable
 
 using Jint.Native;
+using Jint.Native.Error;
+using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
 using Test262Harness;
@@ -135,7 +137,7 @@ public abstract partial class Test262Test
             {
                 var script = Engine.PrepareScript(file.Program, source: file.FileName, options: new ScriptPreparationOptions
                 {
-                    ParsingOptions = ScriptParsingOptions.Default with { Tolerant = false },
+                    ParsingOptions = ScriptParsingOptions.Default with { Tolerant = false, AllowReturnOutsideFunction = false },
                 });
 
                 engine.Execute(script);
@@ -147,11 +149,101 @@ public abstract partial class Test262Test
                 WaitForAsyncTestCompletion(engine);
             }
         }
+        catch (Exception ex) when (file.NegativeTestCase is not null)
+        {
+            ValidateNegativeTestError(file, ex);
+            throw; // Re-throw so the outer RunTestCode handler sees the exception as expected
+        }
         finally
         {
             // Cleanup agent manager after test execution
             CleanupAgentManager();
         }
+    }
+
+    /// <summary>
+    /// Validates that the caught exception matches the expected error type for negative tests.
+    /// Uses Assert.Fail to record test failure if the error type doesn't match; this is recorded
+    /// in the NUnit test context even if the outer catch in RunTestCode swallows the exception.
+    /// </summary>
+    private static void ValidateNegativeTestError(Test262File file, Exception ex)
+    {
+        var expected = file.NegativeTestCase!.Type;
+        var actual = GetActualErrorType(ex);
+
+        // null means infrastructure exception (TimeoutException, etc.) - skip validation
+        if (actual is not null && actual.Value != expected)
+        {
+            Assert.Fail($"Expected {expected} but got {actual.Value}: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Maps a Jint exception to a Test262 ExpectedErrorType.
+    /// Returns null only for truly unknown/infrastructure exceptions (TimeoutException, etc.)
+    /// where we can't determine the JS error type and should not fail the validation.
+    /// </summary>
+    private static ExpectedErrorType? GetActualErrorType(Exception ex)
+    {
+        switch (ex)
+        {
+            case ScriptPreparationException:
+                return ExpectedErrorType.SyntaxError;
+
+            case JavaScriptException jsEx:
+                return GetErrorTypeFromJsError(jsEx.Error);
+
+            // Internal Jint exceptions that bypass JavaScriptException
+            case Jint.Runtime.SyntaxErrorException:
+                return ExpectedErrorType.SyntaxError;
+
+            // Acornima parser SyntaxErrorException (e.g. from module resolution)
+            case Acornima.SyntaxErrorException:
+                return ExpectedErrorType.SyntaxError;
+
+            case TypeErrorException:
+                return ExpectedErrorType.TypeError;
+
+            case RangeErrorException:
+                return ExpectedErrorType.RangeError;
+
+            default:
+                // Infrastructure exceptions (TimeoutException, etc.) - don't validate
+                return null;
+        }
+    }
+
+    /// <summary>
+    /// Determines the error type from a JavaScript error value by checking the "name" property.
+    /// For non-object errors (e.g., thrown strings from $DONOTEVALUATE), returns Test262Error
+    /// since a non-typed throw should not match any specific expected error type.
+    /// </summary>
+    private static ExpectedErrorType? GetErrorTypeFromJsError(JsValue error)
+    {
+        if (error is not ObjectInstance oi)
+        {
+            // Non-object throw (e.g., `throw "string"`) - treat as Test262Error
+            // so it won't match SyntaxError/TypeError/etc. expectations
+            return ExpectedErrorType.Test262Error;
+        }
+
+        var name = oi.Get("name");
+        if (name.IsUndefined() || name.IsNull())
+        {
+            return ExpectedErrorType.Test262Error;
+        }
+
+        return name.ToString() switch
+        {
+            "SyntaxError" => ExpectedErrorType.SyntaxError,
+            "TypeError" => ExpectedErrorType.TypeError,
+            "ReferenceError" => ExpectedErrorType.ReferenceError,
+            "RangeError" => ExpectedErrorType.RangeError,
+            "EvalError" => ExpectedErrorType.EvalError,
+            "URIError" => ExpectedErrorType.URIError,
+            "Test262Error" => ExpectedErrorType.Test262Error,
+            _ => ExpectedErrorType.Test262Error
+        };
     }
 
     /// <summary>

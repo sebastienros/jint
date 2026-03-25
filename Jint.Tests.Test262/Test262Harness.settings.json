@@ -377,7 +377,19 @@
 
     // Acornima parser/RegExp limitation: malformed named groups in non-unicode mode
     // Per B.1.2, non-unicode RegExp should accept some malformed named group syntax
-    "annexB/built-ins/RegExp/named-groups/non-unicode-malformed.js"
+    "annexB/built-ins/RegExp/named-groups/non-unicode-malformed.js",
+
+    // Acornima parser limitation: using/await-using in single-statement positions not rejected
+    // Fix pending: https://github.com/adams85/acornima/pull/32
+    "language/statements/await-using/syntax/await-using-invalid-for-in.js",
+    "language/statements/await-using/syntax/with-initializer-do-statement-while-expression.js",
+    "language/statements/await-using/syntax/with-initializer-for-statement.js",
+    "language/statements/await-using/syntax/with-initializer-if-expression-statement.js",
+    "language/statements/await-using/syntax/with-initializer-if-expression-statement-else-statement.js",
+    "language/statements/await-using/syntax/with-initializer-label-statement.js",
+    "language/statements/await-using/syntax/with-initializer-while-expression-statement.js",
+    "language/statements/using/syntax/using-invalid-for-in.js",
+    "language/statements/using/syntax/with-initializer-for-statement.js"
 
   ]
 }
