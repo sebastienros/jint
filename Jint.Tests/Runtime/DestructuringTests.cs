@@ -68,4 +68,54 @@ public class DestructuringTests
     {
         _engine.Execute("function test({ ...props }){}; test({});");
     }
+
+    [Fact]
+    public void VarDestructuringInForOfShouldHoistInStrictMode()
+    {
+        // Nested destructuring var names must be hoisted to function scope.
+        // Previously only Identifier bindings were collected; patterns like [[x]] were skipped,
+        // causing ReferenceError in strict mode.
+        var result = _engine.Evaluate("""
+            'use strict';
+            (function() {
+                var results = [];
+                for (var [[x, y, z] = [4, 5, 6]] of [[]]) {
+                    results.push(x, y, z);
+                }
+                return results.join(',');
+            })()
+            """);
+
+        Assert.Equal("4,5,6", result.AsString());
+    }
+
+    [Fact]
+    public void VarObjectDestructuringInForOfShouldHoistInStrictMode()
+    {
+        var result = _engine.Evaluate("""
+            'use strict';
+            (function() {
+                for (var { a, b } of [{ a: 1, b: 2 }]) {}
+                return a + ',' + b;
+            })()
+            """);
+
+        Assert.Equal("1,2", result.AsString());
+    }
+
+    [Fact]
+    public void VarDestructuringInForAwaitOfShouldHoistInStrictMode()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            'use strict';
+            (async function() {
+                for await (var [[x] = [1]] of [[]]) {}
+                return x;
+            })()
+            """);
+
+        result = result.UnwrapIfPromise();
+        Assert.Equal(1, result.AsInteger());
+    }
 }
