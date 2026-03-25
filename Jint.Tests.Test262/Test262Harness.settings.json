@@ -380,6 +380,7 @@
     "annexB/built-ins/RegExp/named-groups/non-unicode-malformed.js",
 
     // Acornima parser limitation: using/await-using in single-statement positions not rejected
+    // Fix pending: https://github.com/adams85/acornima/pull/32
     "language/statements/await-using/syntax/await-using-invalid-for-in.js",
     "language/statements/await-using/syntax/with-initializer-do-statement-while-expression.js",
     "language/statements/await-using/syntax/with-initializer-for-statement.js",
@@ -390,7 +391,8 @@
     "language/statements/using/syntax/using-invalid-for-in.js",
     "language/statements/using/syntax/with-initializer-for-statement.js",
 
-    // Acornima parser limitation: HTML close comment on first line not handled correctly
+    // Test262Harness NuGet limitation: ExpectedErrorType enum has no EvalError variant,
+    // so expected type is misinterpreted. Acornima correctly handles --> on first line.
     "annexB/language/comments/single-line-html-close-first-line-1.js",
     "annexB/language/comments/single-line-html-close-first-line-2.js",
     "annexB/language/comments/single-line-html-close-first-line-3.js"
