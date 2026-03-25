@@ -344,7 +344,7 @@ internal sealed class JintFunctionDefinition
         }
         else if (!state.HasParameterExpressions)
         {
-            if (state.FunctionNames.Contains(KnownKeys.Arguments) || lexicalNames?.Contains(KnownKeys.Arguments.Name) == true)
+            if (state.FunctionNames.Contains(KnownKeys.Arguments) || lexicalNames?.Contains(KnownKeys.Arguments) == true)
             {
                 state.ArgumentsObjectNeeded = false;
             }
@@ -468,7 +468,7 @@ internal sealed class JintFunctionDefinition
                     continue;
                 }
 
-                if (lexicalNames?.Contains(fn.Name) == true)
+                if (lexicalNames?.Contains(fn) == true)
                 {
                     continue;
                 }
