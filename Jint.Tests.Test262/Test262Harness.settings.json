@@ -379,21 +379,7 @@
     // Per B.1.2, non-unicode RegExp should accept some malformed named group syntax
     "annexB/built-ins/RegExp/named-groups/non-unicode-malformed.js",
 
-    // Negative test error type validation: parser does not reject these as SyntaxError
-    // Return statements at global level (should be parse-time SyntaxError)
-    "language/global-code/return.js",
-    "language/statements/return/S12.9_A1_T1.js",
-    "language/statements/return/S12.9_A1_T2.js",
-    "language/statements/return/S12.9_A1_T3.js",
-    "language/statements/return/S12.9_A1_T4.js",
-    "language/statements/return/S12.9_A1_T5.js",
-    "language/statements/return/S12.9_A1_T6.js",
-    "language/statements/return/S12.9_A1_T7.js",
-    "language/statements/return/S12.9_A1_T8.js",
-    "language/statements/return/S12.9_A1_T9.js",
-    "language/statements/return/S12.9_A1_T10.js",
-
-    // await using / using syntax in single-statement positions (should be parse-time SyntaxError)
+    // Acornima parser limitation: using/await-using in single-statement positions not rejected
     "language/statements/await-using/syntax/await-using-invalid-for-in.js",
     "language/statements/await-using/syntax/with-initializer-do-statement-while-expression.js",
     "language/statements/await-using/syntax/with-initializer-for-statement.js",
@@ -404,10 +390,7 @@
     "language/statements/using/syntax/using-invalid-for-in.js",
     "language/statements/using/syntax/with-initializer-for-statement.js",
 
-    // Import attributes: parser does not reject invalid JSON module
-    "language/import/import-attributes/json-invalid.js",
-
-    // AnnexB HTML comments: parser incorrectly accepts HTML close comment on first line
+    // Acornima parser limitation: HTML close comment on first line not handled correctly
     "annexB/language/comments/single-line-html-close-first-line-1.js",
     "annexB/language/comments/single-line-html-close-first-line-2.js",
     "annexB/language/comments/single-line-html-close-first-line-3.js"
