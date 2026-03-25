@@ -10,7 +10,7 @@ internal sealed class HoistingScope
     internal readonly List<Key>? _varNames;
 
     internal readonly List<Declaration>? _lexicalDeclarations;
-    internal readonly List<string>? _lexicalNames;
+    internal readonly List<Key>? _lexicalNames;
 
     /// <summary>
     /// B.3.2/B.3.3: Block-level function declarations that need AnnexB var hoisting in sloppy mode.
@@ -22,7 +22,7 @@ internal sealed class HoistingScope
         List<Key>? varNames,
         List<VariableDeclaration>? variableDeclarations,
         List<Declaration>? lexicalDeclarations,
-        List<string>? lexicalNames,
+        List<Key>? lexicalNames,
         List<FunctionDeclaration>? annexBFunctionDeclarations = null)
     {
         _functionDeclarations = functionDeclarations;
@@ -171,7 +171,7 @@ internal sealed class HoistingScope
 
         private readonly bool _collectLexicalNames;
         internal List<Declaration>? _lexicalDeclarations;
-        internal List<string>? _lexicalNames;
+        internal List<Key>? _lexicalNames;
 
         /// <summary>
         /// B.3.2/B.3.3: Function declarations inside blocks/switch cases in sloppy mode.
@@ -271,10 +271,7 @@ internal sealed class HoistingScope
                             ref readonly var nodeList = ref variableDeclaration.Declarations;
                             foreach (var declaration in nodeList)
                             {
-                                if (declaration.Id is Identifier identifier)
-                                {
-                                    _varNames.Add(identifier.Name);
-                                }
+                                declaration.Id.GetBoundNames(_varNames);
                             }
                         }
                     }
@@ -289,10 +286,7 @@ internal sealed class HoistingScope
                             ref readonly var nodeList = ref variableDeclaration.Declarations;
                             foreach (var declaration in nodeList)
                             {
-                                if (declaration.Id is Identifier identifier)
-                                {
-                                    _lexicalNames.Add(identifier.Name);
-                                }
+                                declaration.Id.GetBoundNames(_lexicalNames);
                             }
                         }
                     }
