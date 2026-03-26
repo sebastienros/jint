@@ -19,6 +19,9 @@ public static class TypeConverter
     private static readonly string[] intToString = new string[1024];
     private static readonly string[] charToString = new string[256];
 
+    private static readonly BigInteger s_bigInt2Pow64 = BigInteger.Pow(2, 64);
+    private static readonly BigInteger s_bigInt2Pow63 = BigInteger.Pow(2, 63);
+
     static TypeConverter()
     {
         for (var i = 0; i < intToString.Length; ++i)
@@ -742,10 +745,10 @@ public static class TypeConverter
     /// </summary>
     internal static long ToBigInt64(BigInteger value)
     {
-        var int64bit = BigIntegerModulo(value, BigInteger.Pow(2, 64));
-        if (int64bit >= BigInteger.Pow(2, 63))
+        var int64bit = BigIntegerModulo(value, s_bigInt2Pow64);
+        if (int64bit >= s_bigInt2Pow63)
         {
-            return (long) (int64bit - BigInteger.Pow(2, 64));
+            return (long) (int64bit - s_bigInt2Pow64);
         }
 
         return (long) int64bit;
@@ -756,7 +759,7 @@ public static class TypeConverter
     /// </summary>
     internal static ulong ToBigUint64(BigInteger value)
     {
-        return (ulong) BigIntegerModulo(value, BigInteger.Pow(2, 64));
+        return (ulong) BigIntegerModulo(value, s_bigInt2Pow64);
     }
 
     /// <summary>

@@ -855,11 +855,12 @@ internal abstract class JintBinaryExpression : JintExpression
                 var baseValue = baseNumber._value;
                 if (exponentNumber.IsPositiveInfinity())
                 {
-                    if (Math.Abs(baseValue) > 1)
+                    var absBase = Math.Abs(baseValue);
+                    if (absBase > 1)
                     {
                         return JsNumber.DoublePositiveInfinity;
                     }
-                    if (Math.Abs(baseValue) == 1)
+                    if (absBase == 1)
                     {
                         return JsNumber.DoubleNaN;
                     }
@@ -869,11 +870,12 @@ internal abstract class JintBinaryExpression : JintExpression
 
                 if (exponentNumber.IsNegativeInfinity())
                 {
-                    if (Math.Abs(baseValue) > 1)
+                    var absBase = Math.Abs(baseValue);
+                    if (absBase > 1)
                     {
                         return JsNumber.PositiveZero;
                     }
-                    if (Math.Abs(baseValue) == 1)
+                    if (absBase == 1)
                     {
                         return JsNumber.DoubleNaN;
                     }

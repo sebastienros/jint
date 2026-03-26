@@ -154,7 +154,6 @@ internal sealed class SetPrototype : Prototype
         var set = AssertSetInstance(thisObject);
         var other = arguments.At(0);
         var otherRec = GetSetRecord(other);
-        var resultSetData = new JsSet(_engine, new OrderedSet<JsValue>(set._set._set));
 
         if (set.Size <= otherRec.Size)
         {
@@ -168,7 +167,7 @@ internal sealed class SetPrototype : Prototype
             var args = new JsValue[1];
             while (index < set.Size)
             {
-                var e = resultSetData[index];
+                var e = set[index];
                 index++;
                 if (e is not null)
                 {
@@ -334,7 +333,6 @@ internal sealed class SetPrototype : Prototype
         }
 
         var otherRec = GetSetRecord(other);
-        var resultSetData = new JsSet(_engine, new OrderedSet<JsValue>(set._set._set));
         var thisSize = set.Size;
 
         if (thisSize > otherRec.Size)
@@ -342,26 +340,23 @@ internal sealed class SetPrototype : Prototype
             return JsBoolean.False;
         }
 
-        if (thisSize <= otherRec.Size)
+        var index = 0;
+        var args = new JsValue[1];
+        while (index < thisSize)
         {
-            var index = 0;
-            var args = new JsValue[1];
-            while (index < thisSize)
+            var e = set[index];
+            if (e is not null)
             {
-                var e = resultSetData[index];
-                if (e is not null)
+                args[0] = e;
+                var inOther = TypeConverter.ToBoolean(otherRec.Has.Call(otherRec.Set, args));
+                if (!inOther)
                 {
-                    args[0] = e;
-                    var inOther = TypeConverter.ToBoolean(otherRec.Has.Call(otherRec.Set, args));
-                    if (!inOther)
-                    {
-                        return JsBoolean.False;
-                    }
+                    return JsBoolean.False;
                 }
-
-                thisSize = set.Size;
-                index++;
             }
+
+            thisSize = set.Size;
+            index++;
         }
 
         return JsBoolean.True;
@@ -375,8 +370,7 @@ internal sealed class SetPrototype : Prototype
         if (other is JsSet otherSet)
         {
             // fast path
-            var result = new HashSet<JsValue>(set._set._set, SameValueZeroComparer.Instance);
-            return result.IsSupersetOf(otherSet._set._set) ? JsBoolean.True : JsBoolean.False;
+            return set._set._set.IsSupersetOf(otherSet._set._set) ? JsBoolean.True : JsBoolean.False;
         }
 
         var thisSize = set.Size;
