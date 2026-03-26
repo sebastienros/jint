@@ -865,13 +865,15 @@ internal sealed class StringPrototype : StringInstance
         // Coerce into a number, true will become 1
         var lim = limit.IsUndefined() ? uint.MaxValue : TypeConverter.ToUint32(limit);
 
+        // Per spec, if we got here the separator didn't have @@split, so just ToString it.
+        // Don't call IsRegExp - it would be an observable extra property access (@@match).
         if (separator.IsNull())
         {
             separator = "null";
         }
         else if (!separator.IsUndefined())
         {
-            if (!separator.IsRegExp())
+            if (separator is not JsRegExp)
             {
                 separator = TypeConverter.ToJsString(separator); // Coerce into a string, for an object call toString()
             }
@@ -1014,7 +1016,7 @@ internal sealed class StringPrototype : StringInstance
             }
         }
 
-        var rx = (JsRegExp) _realm.Intrinsics.RegExp.Construct([regex]);
+        var rx = _realm.Intrinsics.RegExp.RegExpCreate(regex, JsValue.Undefined);
         var s = TypeConverter.ToJsString(thisObject);
         return _engine.Invoke(rx, GlobalSymbolRegistry.Search, [s]);
     }
@@ -1187,7 +1189,7 @@ internal sealed class StringPrototype : StringInstance
             }
         }
 
-        var rx = (JsRegExp) _realm.Intrinsics.RegExp.Construct([regex]);
+        var rx = _realm.Intrinsics.RegExp.RegExpCreate(regex, JsValue.Undefined);
 
         var s = TypeConverter.ToJsString(thisObject);
         return _engine.Invoke(rx, GlobalSymbolRegistry.Match, [s]);

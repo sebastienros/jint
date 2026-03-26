@@ -319,15 +319,20 @@ internal sealed class HoistingScope
                                 // Track this function name as a lexical binding so inner scopes
                                 // can't AnnexB-hoist a same-named function (replacing with var
                                 // would conflict with this block-level lexical binding).
-                                if (effectiveLexicalNames is null)
+                                // Skip for IfStatement branches - sibling branches (consequent/alternate)
+                                // are not nested scopes and should not block each other.
+                                if (node.Type is not NodeType.IfStatement)
                                 {
-                                    effectiveLexicalNames = new HashSet<string>(StringComparer.Ordinal);
+                                    if (effectiveLexicalNames is null)
+                                    {
+                                        effectiveLexicalNames = new HashSet<string>(StringComparer.Ordinal);
+                                    }
+                                    else if (ReferenceEquals(effectiveLexicalNames, enclosingLexicalNames))
+                                    {
+                                        effectiveLexicalNames = new HashSet<string>(enclosingLexicalNames, StringComparer.Ordinal);
+                                    }
+                                    effectiveLexicalNames.Add(fnName);
                                 }
-                                else if (ReferenceEquals(effectiveLexicalNames, enclosingLexicalNames))
-                                {
-                                    effectiveLexicalNames = new HashSet<string>(enclosingLexicalNames, StringComparer.Ordinal);
-                                }
-                                effectiveLexicalNames.Add(fnName);
                             }
                         }
                     }
