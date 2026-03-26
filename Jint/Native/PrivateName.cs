@@ -8,7 +8,7 @@ namespace Jint.Native;
 /// </summary>
 internal sealed class PrivateName : JsValue, IEquatable<PrivateName>
 {
-    private readonly PrivateIdentifier _identifier;
+    private readonly PrivateIdentifier? _identifier;
 
     public PrivateName(PrivateIdentifier identifier) : base(InternalTypes.PrivateName)
     {
@@ -16,9 +16,18 @@ internal sealed class PrivateName : JsValue, IEquatable<PrivateName>
         Description = identifier.Name;
     }
 
+    /// <summary>
+    /// Creates a synthetic PrivateName not tied to a source-level PrivateIdentifier.
+    /// Used for auto-accessor backing storage.
+    /// </summary>
+    internal PrivateName(string description) : base(InternalTypes.PrivateName)
+    {
+        Description = description;
+    }
+
     public string Description { get; }
 
-    public override string ToString() => _identifier.Name;
+    public override string ToString() => Description;
 
     public override object ToObject() => throw new NotImplementedException();
 
@@ -49,7 +58,7 @@ internal sealed class PrivateName : JsValue, IEquatable<PrivateName>
 
     public override int GetHashCode()
     {
-        return StringComparer.Ordinal.GetHashCode(_identifier.Name);
+        return StringComparer.Ordinal.GetHashCode(Description);
     }
 }
 

@@ -9,7 +9,7 @@ internal sealed class JintClassDeclarationStatement : JintStatement<ClassDeclara
 
     public JintClassDeclarationStatement(ClassDeclaration classDeclaration) : base(classDeclaration)
     {
-        _classDefinition = new ClassDefinition(className: classDeclaration.Id?.Name, classDeclaration.SuperClass, classDeclaration.Body);
+        _classDefinition = new ClassDefinition(className: classDeclaration.Id?.Name, classDeclaration.SuperClass, classDeclaration.Body, classDeclaration.Decorators);
     }
 
     protected override Completion ExecuteInternal(EvaluationContext context)

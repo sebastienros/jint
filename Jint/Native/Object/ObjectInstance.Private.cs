@@ -148,7 +148,7 @@ public partial class ObjectInstance
 internal sealed class ClassFieldDefinition
 {
     public required JsValue Name { get; set; }
-    public ScriptFunction? Initializer { get; set; }
+    public Function.Function? Initializer { get; set; }
 }
 
 internal sealed class ClassStaticBlockDefinition
