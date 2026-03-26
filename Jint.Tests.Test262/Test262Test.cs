@@ -51,7 +51,11 @@ public abstract partial class Test262Test
             // Capture Test262 async test markers from $DONE via doneprintHandle.js
             if (message.StartsWith("Test262:AsyncTest", StringComparison.Ordinal))
             {
-                _asyncResult = message;
+                // AsyncTestFailure takes priority - once recorded, never overwrite with AsyncTestComplete
+                if (_asyncResult is null || !_asyncResult.StartsWith("Test262:AsyncTestFailure:", StringComparison.Ordinal))
+                {
+                    _asyncResult = message;
+                }
             }
             return message;
         }));
