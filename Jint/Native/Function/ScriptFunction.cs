@@ -47,7 +47,8 @@ public sealed class ScriptFunction : Function, IConstructor
 
         if (!function.Strict
             && function.Function is not ArrowFunctionExpression
-            && !function.Function.Generator)
+            && !function.Function.Generator
+            && !function.Function.Async)
         {
             SetProperty(KnownKeys.Arguments, new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(engine, PropertyFlag.Configurable));
             SetProperty(KnownKeys.Caller, new PropertyDescriptor(Undefined, PropertyFlag.Configurable));
