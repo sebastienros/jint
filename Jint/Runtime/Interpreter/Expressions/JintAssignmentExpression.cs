@@ -62,7 +62,7 @@ internal sealed class JintAssignmentExpression : JintExpression
             lref = (_left.Evaluate(context) as Reference)!;
             if (lref is null)
             {
-                Throw.ReferenceError(context.Engine.Realm, "not a valid reference");
+                Throw.ReferenceError(context.Engine.Realm, "Invalid left-hand side in assignment");
             }
             originalLeftValue = context.Engine.GetValue(lref, returnReferenceToPool: false);
         }
@@ -512,7 +512,7 @@ internal sealed class JintAssignmentExpression : JintExpression
             var lref = _left.Evaluate(context) as Reference;
             if (lref is null)
             {
-                Throw.ReferenceError(engine.Realm, "not a valid reference");
+                Throw.ReferenceError(engine.Realm, "Invalid left-hand side in assignment");
             }
 
             lref.AssertValid(engine.Realm);

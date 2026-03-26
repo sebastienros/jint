@@ -929,7 +929,7 @@ internal abstract class JintBinaryExpression : JintExpression
             var oi = right as ObjectInstance;
             if (oi is null)
             {
-                Throw.TypeError(context.Engine.Realm, "in can only be used with an object");
+                Throw.TypeError(context.Engine.Realm, $"Cannot use 'in' operator to search for '{left}' in {right}");
             }
 
             if (left.IsPrivateName())
@@ -1106,7 +1106,7 @@ internal abstract class JintBinaryExpression : JintExpression
                         {
                             return JsNumber.Create((uint) TypeConverter.ToInt32(left) >> (int) (TypeConverter.ToUint32(right) & 0x1F));
                         }
-                        Throw.TypeErrorNoEngine("Cannot mix BigInt and other types, use explicit conversions", _left._expression);
+                        Throw.TypeErrorNoEngine("BigInts have no unsigned right shift, use >> instead", _left._expression);
                         return null;
                     }
 

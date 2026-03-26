@@ -49,6 +49,7 @@ internal sealed class RegExpPrototype : Prototype
 
         GetSetPropertyDescriptor CreateGetAccessorDescriptor(string name, Func<JsRegExp, JsValue> valueExtractor, JsValue? protoValue = null)
         {
+            var propertyName = name.StartsWith("get ", StringComparison.Ordinal) ? name.Substring(4) : name;
             return new GetSetPropertyDescriptor(
                 get: new ClrFunction(Engine, name, (thisObj, arguments) =>
                 {
@@ -60,7 +61,7 @@ internal sealed class RegExpPrototype : Prototype
                     var r = thisObj as JsRegExp;
                     if (r is null)
                     {
-                        Throw.TypeError(_realm);
+                        Throw.TypeError(_realm, $"RegExp.prototype.{propertyName} getter called on non-RegExp object");
                     }
 
                     return valueExtractor(r);
@@ -114,7 +115,7 @@ internal sealed class RegExpPrototype : Prototype
         var r = thisObject as JsRegExp;
         if (r is null)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "RegExp.prototype.source getter called on non-RegExp object");
         }
 
         if (string.IsNullOrEmpty(r.Source))
@@ -840,7 +841,7 @@ internal sealed class RegExpPrototype : Prototype
             var result = callable.Call(r, s);
             if (!result.IsNull() && !result.IsObject())
             {
-                Throw.TypeError(r.Engine.Realm);
+                Throw.TypeError(r.Engine.Realm, $"Method RegExp.prototype.exec called on incompatible receiver {r}");
             }
 
             return result;
@@ -848,7 +849,7 @@ internal sealed class RegExpPrototype : Prototype
 
         if (ri is null)
         {
-            Throw.TypeError(r.Engine.Realm);
+            Throw.TypeError(r.Engine.Realm, $"Method RegExp.prototype.exec called on incompatible receiver {r}");
         }
 
         return RegExpBuiltinExec(ri, s);
@@ -1165,7 +1166,7 @@ internal sealed class RegExpPrototype : Prototype
         var r = thisObject as JsRegExp;
         if (r is null)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Method RegExp.prototype.compile called on incompatible receiver");
             return default!;
         }
 
@@ -1208,7 +1209,7 @@ internal sealed class RegExpPrototype : Prototype
         var r = thisObject as JsRegExp;
         if (r is null)
         {
-            Throw.TypeError(_engine.Realm);
+            Throw.TypeError(_engine.Realm, $"Method RegExp.prototype.exec called on incompatible receiver {thisObject}");
         }
 
         var s = TypeConverter.ToString(arguments.At(0));

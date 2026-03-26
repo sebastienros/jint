@@ -91,7 +91,7 @@ internal sealed class SymbolPrototype : Prototype
             return instance.SymbolData;
         }
 
-        Throw.TypeError(_realm);
+        Throw.TypeError(_realm, "Symbol.prototype.valueOf requires that 'this' be a Symbol");
         return null;
     }
 }

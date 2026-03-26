@@ -235,7 +235,7 @@ public class PropertyDescriptor
     {
         if (o is not ObjectInstance obj)
         {
-            Throw.TypeError(realm);
+            Throw.TypeError(realm, $"Property description must be an object: {o}");
             return null;
         }
 
@@ -317,7 +317,7 @@ public class PropertyDescriptor
         {
             if (!get!.IsUndefined() && get!.TryCast<ICallable>() == null)
             {
-                Throw.TypeError(realm);
+                Throw.TypeError(realm, $"Getter must be a function: {get}");
             }
 
             ((GetSetPropertyDescriptor) desc).SetGet(get!);
@@ -327,7 +327,7 @@ public class PropertyDescriptor
         {
             if (!set!.IsUndefined() && set!.TryCast<ICallable>() is null)
             {
-                Throw.TypeError(realm);
+                Throw.TypeError(realm, $"Setter must be a function: {set}");
             }
 
             ((GetSetPropertyDescriptor) desc).SetSet(set!);
@@ -335,7 +335,7 @@ public class PropertyDescriptor
 
         if ((hasSet || hasGet) && (hasValue || hasWritable))
         {
-            Throw.TypeError(realm);
+            Throw.TypeError(realm, "Invalid property descriptor. Cannot both specify accessors and a value or writable attribute");
         }
 
         return desc;

@@ -206,27 +206,27 @@ internal sealed class ArrayBufferPrototype : Prototype
 
         if (bufferInstance is null)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Species constructor did not return an ArrayBuffer");
         }
 
         if (bufferInstance.IsSharedArrayBuffer)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Cannot use SharedArrayBuffer in ArrayBuffer.prototype.slice");
         }
 
         if (bufferInstance.IsDetachedBuffer)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Cannot perform ArrayBuffer.prototype.slice on a detached ArrayBuffer");
         }
 
         if (ReferenceEquals(bufferInstance, o))
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "ArrayBuffer.prototype.slice returned the same buffer");
         }
 
         if (bufferInstance.ArrayBufferByteLength < newLen)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "ArrayBuffer.prototype.slice: constructed ArrayBuffer is too small");
         }
 
         // https://tc39.es/proposal-immutable-arraybuffer/#sec-arraybuffer.prototype.slice
@@ -240,7 +240,7 @@ internal sealed class ArrayBufferPrototype : Prototype
 
         if (o.IsDetachedBuffer)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Cannot perform ArrayBuffer.prototype.slice on a detached ArrayBuffer");
         }
 
         var fromBuf = o.ArrayBufferData;
@@ -387,7 +387,7 @@ internal sealed class ArrayBufferPrototype : Prototype
 
         if (!arrayBuffer._arrayBufferDetachKey.IsUndefined())
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Cannot transfer ArrayBuffer with a detach key");
         }
 
         var newBuffer = _engine.Realm.Intrinsics.ArrayBuffer.AllocateArrayBuffer(_engine.Realm.Intrinsics.ArrayBuffer, newByteLength, newMaxByteLength);

@@ -104,7 +104,7 @@ public sealed class ObjectPrototype : Prototype
 
         if (!getter.IsCallable)
         {
-            Throw.TypeError(_realm, "Target is not callable");
+            Throw.TypeError(_realm, "Object.prototype.__defineGetter__: Expecting function");
         }
 
         var desc = new GetSetPropertyDescriptor(getter, null, enumerable: true, configurable: true);
@@ -125,7 +125,7 @@ public sealed class ObjectPrototype : Prototype
 
         if (!setter.IsCallable)
         {
-            Throw.TypeError(_realm, "Target is not callable");
+            Throw.TypeError(_realm, "Object.prototype.__defineSetter__: Expecting function");
         }
 
         var desc = new GetSetPropertyDescriptor(null, setter, enumerable: true, configurable: true);

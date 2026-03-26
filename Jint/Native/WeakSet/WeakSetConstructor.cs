@@ -28,7 +28,7 @@ internal sealed class WeakSetConstructor : Constructor
     {
         if (newTarget.IsUndefined())
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, $"Constructor {_nameDescriptor?.Value} requires 'new'");
         }
 
         var set = OrdinaryCreateFromConstructor(

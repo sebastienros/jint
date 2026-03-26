@@ -55,7 +55,7 @@ public abstract class TypedArrayConstructor : Constructor
     {
         if (newTarget.IsUndefined())
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, $"Constructor {_nameDescriptor?.Value} requires 'new'");
         }
 
         var numberOfArgs = arguments.Length;
@@ -130,7 +130,7 @@ public abstract class TypedArrayConstructor : Constructor
         var srcRecord = IntrinsicTypedArrayPrototype.MakeTypedArrayWithBufferWitnessRecord(srcArray, ArrayBufferOrder.SeqCst);
         if (srcRecord.IsTypedArrayOutOfBounds)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Source TypedArray is out of bounds");
         }
 
         var elementLength = srcRecord.TypedArrayLength;

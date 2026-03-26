@@ -72,7 +72,7 @@ internal sealed class SharedArrayBufferConstructor : Constructor
     {
         if (newTarget.IsUndefined())
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, $"Constructor {_nameDescriptor?.Value} requires 'new'");
         }
 
         var length = arguments.At(0);
@@ -90,7 +90,7 @@ internal sealed class SharedArrayBufferConstructor : Constructor
 
         if (allocatingGrowableBuffer && byteLength > maxByteLength)
         {
-            Throw.RangeError(_realm);
+            Throw.RangeError(_realm, "byteLength exceeds maxByteLength");
         }
 
         var allocLength = maxByteLength.GetValueOrDefault(byteLength);

@@ -130,7 +130,7 @@ internal sealed class StringPrototype : StringInstance
         var s = TypeConverter.ToObject(_realm, thisObject) as StringInstance;
         if (s is null)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "String.prototype.toString requires that 'this' be a String");
         }
 
         return s.StringData;
@@ -1210,7 +1210,7 @@ internal sealed class StringPrototype : StringInstance
                 TypeConverter.RequireObjectCoercible(_engine, flags);
                 if (!TypeConverter.ToString(flags).Contains('g'))
                 {
-                    Throw.TypeError(_realm);
+                    Throw.TypeError(_realm, "String.prototype.matchAll called with a non-global RegExp argument");
                 }
             }
             var matcher = GetMethod(_realm, regex, GlobalSymbolRegistry.MatchAll);
@@ -1436,7 +1436,7 @@ internal sealed class StringPrototype : StringInstance
             return thisObject;
         }
 
-        Throw.TypeError(_realm);
+        Throw.TypeError(_realm, "String.prototype.valueOf requires that 'this' be a String");
         return Undefined;
     }
 
@@ -1505,7 +1505,7 @@ internal sealed class StringPrototype : StringInstance
         {
             if (searchString.IsRegExp())
             {
-                Throw.TypeError(_realm);
+                Throw.TypeError(_realm, "First argument to String.prototype.startsWith must not be a regular expression");
             }
         }
 
@@ -1537,7 +1537,7 @@ internal sealed class StringPrototype : StringInstance
         {
             if (searchString.IsRegExp())
             {
-                Throw.TypeError(_realm);
+                Throw.TypeError(_realm, "First argument to String.prototype.endsWith must not be a regular expression");
             }
         }
 

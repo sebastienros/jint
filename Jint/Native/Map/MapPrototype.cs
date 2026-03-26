@@ -144,14 +144,20 @@ internal sealed class MapPrototype : Prototype
         return map.Values();
     }
 
-    private JsMap AssertMapInstance(JsValue thisObject)
+    private JsMap AssertMapInstance(JsValue thisObject, [System.Runtime.CompilerServices.CallerMemberName] string methodName = "")
     {
         if (thisObject is JsMap map)
         {
             return map;
         }
 
-        Throw.TypeError(_realm, "object must be a Map");
+        Throw.TypeError(_realm, $"Method Map.prototype.{MapMethodName(methodName)} called on incompatible receiver {thisObject}");
         return default;
     }
+
+    private static string MapMethodName(string callerName) => callerName switch
+    {
+        "Size" => "get size",
+        _ => char.ToLowerInvariant(callerName[0]) + callerName.Substring(1)
+    };
 }

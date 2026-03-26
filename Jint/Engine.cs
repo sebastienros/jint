@@ -1076,7 +1076,7 @@ public sealed partial class Engine : IDisposable
                 var vnDefinable = env.CanDeclareGlobalVar(vn);
                 if (!vnDefinable)
                 {
-                    Throw.TypeError(realm);
+                    Throw.TypeError(realm, $"Cannot define global variable '{vn}'");
                 }
 
                 declaredVarNames.Add(vn);
@@ -1444,7 +1444,7 @@ public sealed partial class Engine : IDisposable
                         var identifier = (Identifier) variablesDeclaration.Declarations[0].Id;
                         if (thisEnvRec.HasBinding(identifier.Name))
                         {
-                            Throw.SyntaxError(realm);
+                            Throw.SyntaxError(realm, $"Identifier '{identifier.Name}' has already been declared");
                         }
                     }
                 }
@@ -1468,7 +1468,7 @@ public sealed partial class Engine : IDisposable
                     var identifier = (Identifier) variablesDeclaration.Declarations[0].Id;
                     if (funcEnv.HasBinding(identifier.Name))
                     {
-                        Throw.SyntaxError(realm);
+                        Throw.SyntaxError(realm, $"Identifier '{identifier.Name}' has already been declared");
                     }
 
                     // Non-arrow functions always have an implicit "arguments" binding per spec
@@ -1478,7 +1478,7 @@ public sealed partial class Engine : IDisposable
                     if (string.Equals(identifier.Name, "arguments", StringComparison.Ordinal)
                         && funcEnv._functionObject._thisMode != FunctionThisMode.Lexical)
                     {
-                        Throw.SyntaxError(realm);
+                        Throw.SyntaxError(realm, $"Identifier '{identifier.Name}' has already been declared");
                     }
                 }
             }
@@ -1516,7 +1516,7 @@ public sealed partial class Engine : IDisposable
                         var fnDefinable = ger.CanDeclareGlobalFunction(fn);
                         if (!fnDefinable)
                         {
-                            Throw.TypeError(realm);
+                            Throw.TypeError(realm, $"Cannot define global function '{fn}'");
                         }
                     }
 
@@ -1545,7 +1545,7 @@ public sealed partial class Engine : IDisposable
                         var vnDefinable = ger.CanDeclareGlobalFunction(vn);
                         if (!vnDefinable)
                         {
-                            Throw.TypeError(realm);
+                            Throw.TypeError(realm, $"Cannot define global variable '{vn}'");
                         }
                     }
 

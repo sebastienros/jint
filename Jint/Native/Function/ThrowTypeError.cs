@@ -16,7 +16,7 @@ internal sealed class ThrowTypeError : Function
 
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
-        Throw.TypeError(_realm);
+        Throw.TypeError(_realm, "'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them");
         return null;
     }
 }

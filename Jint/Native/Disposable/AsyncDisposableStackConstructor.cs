@@ -21,7 +21,7 @@ internal sealed class AsyncDisposableStackConstructor : Constructor
     {
         if (newTarget.IsUndefined())
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, $"Constructor {_nameDescriptor?.Value} requires 'new'");
         }
 
         var stack = OrdinaryCreateFromConstructor(

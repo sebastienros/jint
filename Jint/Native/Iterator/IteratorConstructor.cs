@@ -44,7 +44,7 @@ internal sealed class IteratorConstructor : Constructor
     {
         if (newTarget.IsUndefined() || ReferenceEquals(this, newTarget))
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Abstract class Iterator not directly constructable");
         }
 
         return OrdinaryCreateFromConstructor(
@@ -127,7 +127,7 @@ internal sealed class IteratorConstructor : Constructor
             // a. If stringHandling is reject-strings or obj is not a String, throw a TypeError exception.
             if (stringHandling == StringHandlingType.RejectStrings || !obj.IsString())
             {
-                Throw.TypeError(_realm, "Iterator.from requires an object or string");
+                Throw.TypeError(_realm, "Iterator.from called on non-object");
             }
 
             // b. Let method be ? GetMethod(obj, @@iterator).

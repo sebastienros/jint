@@ -96,7 +96,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
         var o = thisObject as JsTypedArray;
         if (o is null)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, $"Method get TypedArray.prototype.buffer called on incompatible receiver {thisObject}");
         }
 
         return o._viewedArrayBuffer;
@@ -110,7 +110,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
         var o = thisObject as JsTypedArray;
         if (o is null)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, $"Method get TypedArray.prototype.byteLength called on incompatible receiver {thisObject}");
         }
 
         var taRecord = MakeTypedArrayWithBufferWitnessRecord(o, ArrayBufferOrder.SeqCst);
@@ -125,7 +125,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
         var o = thisObject as JsTypedArray;
         if (o is null)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, $"Method get TypedArray.prototype.byteOffset called on incompatible receiver {thisObject}");
         }
 
         var taRecord = MakeTypedArrayWithBufferWitnessRecord(o, ArrayBufferOrder.SeqCst);
@@ -145,7 +145,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
         var o = thisObject as JsTypedArray;
         if (o is null)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, $"Method get TypedArray.prototype.length called on incompatible receiver {thisObject}");
         }
 
         var taRecord = MakeTypedArrayWithBufferWitnessRecord(o, ArrayBufferOrder.SeqCst);
@@ -914,7 +914,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
 
         if (len == 0 && arguments.Length < 2)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Reduce of empty array with no initial value");
         }
 
         var k = 0;
@@ -960,7 +960,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
 
         if (len == 0 && arguments.Length < 2)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Reduce of empty array with no initial value");
         }
 
         var k = (long) len - 1;
@@ -1030,7 +1030,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
         var target = thisObject as JsTypedArray;
         if (target is null)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, $"Method TypedArray.prototype.set called on incompatible receiver {thisObject}");
         }
 
         var source = arguments.At(0);
@@ -1039,7 +1039,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
         var targetOffset = TypeConverter.ToIntegerOrInfinity(offset);
         if (targetOffset < 0)
         {
-            Throw.RangeError(_realm, "Invalid offset");
+            Throw.RangeError(_realm, "offset is out of bounds");
         }
 
         if (source is JsTypedArray typedArrayInstance)
@@ -1063,7 +1063,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
         var targetRecord = MakeTypedArrayWithBufferWitnessRecord(target, ArrayBufferOrder.SeqCst);
         if (targetRecord.IsTypedArrayOutOfBounds)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Target TypedArray is out of bounds");
         }
 
         var targetLength = targetRecord.TypedArrayLength;
@@ -1072,7 +1072,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
         var srcRecord = MakeTypedArrayWithBufferWitnessRecord(source, ArrayBufferOrder.SeqCst);
         if (srcRecord.IsTypedArrayOutOfBounds)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Source TypedArray is out of bounds");
         }
 
         var targetType = target._arrayElementType;
@@ -1086,17 +1086,17 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
 
         if (double.IsNegativeInfinity(targetOffset))
         {
-            Throw.RangeError(_realm, "Invalid target offset");
+            Throw.RangeError(_realm, "offset is out of bounds");
         }
 
         if (srcLength + targetOffset > targetLength)
         {
-            Throw.RangeError(_realm, "Invalid target offset");
+            Throw.RangeError(_realm, "offset is out of bounds");
         }
 
         if (target._contentType != source._contentType)
         {
-            Throw.TypeError(_realm, "Content type mismatch");
+            Throw.TypeError(_realm, "Cannot mix BigInt and other types, use explicit conversions");
         }
 
         var same = SameValue(srcBuffer, targetBuffer);
@@ -1150,7 +1150,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
         var targetRecord = MakeTypedArrayWithBufferWitnessRecord(target, ArrayBufferOrder.SeqCst);
         if (targetRecord.IsTypedArrayOutOfBounds)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Target TypedArray is out of bounds");
         }
 
         var targetLength = targetRecord.TypedArrayLength;
@@ -1159,12 +1159,12 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
 
         if (double.IsNegativeInfinity(targetOffset))
         {
-            Throw.RangeError(_realm, "Invalid target offset");
+            Throw.RangeError(_realm, "offset is out of bounds");
         }
 
         if (srcLength + targetOffset > targetLength)
         {
-            Throw.RangeError(_realm, "Invalid target offset");
+            Throw.RangeError(_realm, "offset is out of bounds");
         }
 
         var k = 0;
@@ -1371,7 +1371,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
         var o = thisObject as JsTypedArray;
         if (o is null)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, $"Method TypedArray.prototype.subarray called on incompatible receiver {thisObject}");
         }
 
         var start = arguments.At(0);
@@ -1585,7 +1585,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
 
         if (!o.IsValidIntegerIndex(actualIndex))
         {
-            Throw.RangeError(_realm, "Invalid start index");
+            Throw.RangeError(_realm, "Invalid typed array index");
         }
 
         var a = TypedArrayCreateSameType(o, [JsNumber.Create(len)]);

@@ -45,7 +45,7 @@ public sealed class BindFunction : ObjectInstance, IConstructor, ICallable
         var f = BoundTargetFunction as Function;
         if (f is null)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Bind must be called on a function");
         }
 
         var args = CreateArguments(arguments);
@@ -60,7 +60,7 @@ public sealed class BindFunction : ObjectInstance, IConstructor, ICallable
         var target = BoundTargetFunction as IConstructor;
         if (target is null)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, $"{BoundTargetFunction} is not a constructor");
         }
 
         var args = CreateArguments(arguments);
@@ -81,7 +81,7 @@ public sealed class BindFunction : ObjectInstance, IConstructor, ICallable
         var f = BoundTargetFunction as Function;
         if (f is null)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Right-hand side of 'instanceof' is not callable");
         }
 
         return f.OrdinaryHasInstance(v);

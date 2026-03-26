@@ -63,7 +63,7 @@ public sealed class MapConstructor : Constructor
     {
         if (newTarget.IsUndefined())
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, $"Constructor {_nameDescriptor?.Value} requires 'new'");
         }
 
         if (ReferenceEquals(newTarget, this))

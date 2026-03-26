@@ -52,7 +52,7 @@ internal sealed class IntrinsicTypedArrayConstructor : Constructor
         var c = thisObject;
         if (!c.IsConstructor)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Value is not a constructor");
         }
 
         var source = arguments.At(0);
@@ -64,7 +64,7 @@ internal sealed class IntrinsicTypedArrayConstructor : Constructor
         {
             if (!mapFunction.IsCallable)
             {
-                Throw.TypeError(_realm);
+                Throw.TypeError(_realm, "mapFn is not a function");
             }
         }
 
@@ -129,7 +129,7 @@ internal sealed class IntrinsicTypedArrayConstructor : Constructor
 
         if (!thisObject.IsConstructor)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Value is not a constructor");
         }
 
         var newObj = TypedArrayCreate(_realm, (IConstructor) thisObject, [len]);
@@ -155,7 +155,7 @@ internal sealed class IntrinsicTypedArrayConstructor : Constructor
         var result = TypedArrayCreate(_realm, constructor, argumentList);
         if (result._contentType != exemplar._contentType)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Content type mismatch");
         }
 
         return result;
@@ -177,7 +177,7 @@ internal sealed class IntrinsicTypedArrayConstructor : Constructor
             }
             if (newTypedArray.GetLength() < number._value)
             {
-                Throw.TypeError(realm);
+                Throw.TypeError(realm, "Derived TypedArray constructor created an array which was too small");
             }
         }
 
@@ -191,7 +191,7 @@ internal sealed class IntrinsicTypedArrayConstructor : Constructor
 
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
-        Throw.TypeError(_realm, "Abstract class TypedArray not directly callable");
+        Throw.TypeError(_realm, "Abstract class TypedArray not directly constructable");
         return Undefined;
     }
 

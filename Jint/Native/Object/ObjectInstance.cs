@@ -129,7 +129,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         var oi = c as ObjectInstance;
         if (oi is null)
         {
-            Throw.TypeError(o._engine.Realm);
+            Throw.TypeError(o._engine.Realm, "Species constructor is not an object");
         }
 
         var s = oi.Get(GlobalSymbolRegistry.Species);
@@ -143,7 +143,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             return (IConstructor) s;
         }
 
-        Throw.TypeError(o._engine.Realm);
+        Throw.TypeError(o._engine.Realm, $"{s} is not a constructor");
         return null;
     }
 
@@ -492,7 +492,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     {
         if (!Set(p, v) && throwOnError)
         {
-            Throw.TypeError(_engine.Realm);
+            Throw.TypeError(_engine.Realm, $"Cannot assign to read only property '{p}' of object '#<Object>'");
         }
 
         return true;
@@ -694,7 +694,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     {
         if (!Delete(property))
         {
-            Throw.TypeError(_engine.Realm);
+            Throw.TypeError(_engine.Realm, $"Cannot delete property '{property}' of #<Object>");
         }
         return true;
     }
@@ -1365,7 +1365,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     {
         if (!CreateDataProperty(p, v))
         {
-            Throw.TypeError(_engine.Realm);
+            Throw.TypeError(_engine.Realm, $"Cannot define property {p}, object is not extensible");
         }
 
         return true;
@@ -1619,7 +1619,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         var func = v.GetV(_engine.Realm, p);
         if (func is not ICallable callable)
         {
-            Throw.TypeError(_engine.Realm, "Can only invoke functions");
+            Throw.TypeError(_engine.Realm, $"{v}.{p} is not a function");
             return default;
         }
 

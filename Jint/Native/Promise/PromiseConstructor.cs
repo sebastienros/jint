@@ -69,12 +69,12 @@ internal sealed class PromiseConstructor : Constructor
     {
         if (newTarget.IsUndefined())
         {
-            Throw.TypeError(_realm, "Constructor Promise requires 'new'");
+            Throw.TypeError(_realm, "Promise constructor cannot be invoked without 'new'");
         }
 
         if (arguments.At(0) is not ICallable executor)
         {
-            Throw.TypeError(_realm, $"Promise executor {(arguments.At(0))} is not a function");
+            Throw.TypeError(_realm, $"Promise resolver {(arguments.At(0))} is not a function");
             return null;
         }
 

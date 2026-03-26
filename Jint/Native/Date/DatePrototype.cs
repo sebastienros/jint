@@ -115,13 +115,13 @@ internal sealed class DatePrototype : Prototype
         var oi = thisObject as ObjectInstance;
         if (oi is null)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Date.prototype[Symbol.toPrimitive] requires that 'this' be an object");
         }
 
         var hint = arguments.At(0);
         if (!hint.IsString())
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, $"Invalid hint: {hint}");
         }
 
         var hintString = hint.ToString();
@@ -136,7 +136,7 @@ internal sealed class DatePrototype : Prototype
         }
         else
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, $"Invalid hint: {hint}");
         }
 
         return TypeConverter.OrdinaryToPrimitive(oi, tryFirst);
@@ -943,7 +943,7 @@ internal sealed class DatePrototype : Prototype
         var t = thisTime;
         if (t.IsNaN)
         {
-            Throw.RangeError(_realm);
+            Throw.RangeError(_realm, "Invalid time value");
         }
 
         if (((JsDate) thisObject).DateTimeRangeValid)

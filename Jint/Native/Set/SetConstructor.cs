@@ -85,7 +85,7 @@ public sealed class SetConstructor : Constructor
     {
         if (newTarget.IsUndefined())
         {
-            Throw.TypeError(_engine.Realm);
+            Throw.TypeError(_engine.Realm, $"Constructor {_nameDescriptor?.Value} requires 'new'");
         }
 
         if (ReferenceEquals(newTarget, this))

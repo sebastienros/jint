@@ -148,7 +148,7 @@ internal sealed class FunctionPrototype : Function
         var func = thisObject as ICallable;
         if (func is null)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, $"{thisObject} is not a function");
         }
         var thisArg = arguments.At(0);
         var argArray = arguments.At(1);
@@ -173,7 +173,7 @@ internal sealed class FunctionPrototype : Function
         var argArrayObj = argArray as ObjectInstance;
         if (argArrayObj is null)
         {
-            Throw.TypeError(realm);
+            Throw.TypeError(realm, "CreateListFromArrayLike called on non-object");
         }
         var operations = ArrayOperations.For(argArrayObj, forWrite: false);
         var argList = elementTypes is null ? operations.GetAll() : operations.GetAll(elementTypes.Value);
@@ -188,7 +188,7 @@ internal sealed class FunctionPrototype : Function
         var func = thisObject as ICallable;
         if (func is null)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, $"{thisObject} is not a function");
         }
         JsValue[] values = [];
         if (arguments.Length > 1)

@@ -220,7 +220,7 @@ public sealed class ObjectConstructor : Constructor
 
         if (!o.SetPrototypeOf(prototype))
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "#<Object> is not extensible");
         }
         return o;
     }
@@ -342,7 +342,7 @@ public sealed class ObjectConstructor : Constructor
         var o = arguments.At(0) as ObjectInstance;
         if (o is null)
         {
-            Throw.TypeError(_realm, "Object.defineProperty called on non-object");
+            Throw.TypeError(_realm, "Object.defineProperties called on non-object");
         }
 
         var properties = arguments.At(1);
@@ -393,7 +393,7 @@ public sealed class ObjectConstructor : Constructor
 
         if (!status)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Cannot seal");
         }
 
         return o;
@@ -413,7 +413,7 @@ public sealed class ObjectConstructor : Constructor
 
         if (!status)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Cannot freeze");
         }
 
         return o;
@@ -431,7 +431,7 @@ public sealed class ObjectConstructor : Constructor
 
         if (!o.PreventExtensions())
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Cannot prevent extensions");
         }
 
         return o;
