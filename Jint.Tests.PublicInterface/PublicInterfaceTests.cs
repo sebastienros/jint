@@ -47,6 +47,51 @@ var coolingObject = {
         Assert.Equal((uint) 3, arguments.Length);
     }
 
+    [Fact]
+    public void IsCallableReturnsTrueForFunctions()
+    {
+        var engine = new Engine();
+        var func = engine.Evaluate("(function() {})");
+        Assert.True(func.IsCallable());
+
+        var arrow = engine.Evaluate("(() => {})");
+        Assert.True(arrow.IsCallable());
+    }
+
+    [Fact]
+    public void IsCallableReturnsFalseForNonFunctions()
+    {
+        var engine = new Engine();
+        Assert.False(JsValue.Undefined.IsCallable());
+        Assert.False(JsValue.Null.IsCallable());
+        Assert.False(JsNumber.Create(42).IsCallable());
+        Assert.False(new JsString("hello").IsCallable());
+        Assert.False(engine.Evaluate("({})").IsCallable());
+    }
+
+    [Fact]
+    public void IsConstructorReturnsTrueForConstructors()
+    {
+        var engine = new Engine();
+        var ctor = engine.Evaluate("(class Foo {})");
+        Assert.True(ctor.IsConstructor());
+
+        var func = engine.Evaluate("(function Bar() {})");
+        Assert.True(func.IsConstructor());
+    }
+
+    [Fact]
+    public void IsConstructorReturnsFalseForNonConstructors()
+    {
+        var engine = new Engine();
+        Assert.False(JsValue.Undefined.IsConstructor());
+        Assert.False(JsValue.Null.IsConstructor());
+        Assert.False(JsNumber.Create(42).IsConstructor());
+
+        var arrow = engine.Evaluate("(() => {})");
+        Assert.False(arrow.IsConstructor());
+    }
+
     private sealed class SetTimeoutEmulator : IDisposable
     {
         private readonly Engine _engine;
