@@ -134,6 +134,20 @@ public static class JsValueExtensions
         return value._type == InternalTypes.Symbol;
     }
 
+    [Pure]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool IsCallable(this JsValue value)
+    {
+        return value.IsCallable;
+    }
+
+    [Pure]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool IsConstructor(this JsValue value)
+    {
+        return value.IsConstructor;
+    }
+
     /// <summary>
     /// https://tc39.es/ecma262/#sec-canbeheldweakly
     /// </summary>
