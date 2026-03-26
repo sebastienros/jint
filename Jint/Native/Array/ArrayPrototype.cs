@@ -890,22 +890,22 @@ public sealed class ArrayPrototype : ArrayInstance
         var len = target.GetLength();
         var relativeIndex = TypeConverter.ToInteger(arguments.At(0));
 
-        ulong actualIndex;
+        long actualIndex;
         if (relativeIndex < 0)
         {
-            actualIndex = (ulong) (len + relativeIndex);
+            actualIndex = (long) (len + relativeIndex);
         }
         else
         {
-            actualIndex = (ulong) relativeIndex;
+            actualIndex = (long) relativeIndex;
         }
 
-        if (actualIndex < 0 || actualIndex >= len)
+        if (actualIndex < 0 || (ulong) actualIndex >= len)
         {
             return Undefined;
         }
 
-        return target.Get(actualIndex);
+        return target.Get((ulong) actualIndex);
     }
 
     /// <summary>

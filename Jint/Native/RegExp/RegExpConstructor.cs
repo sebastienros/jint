@@ -479,6 +479,17 @@ public sealed class RegExpConstructor : Constructor
         return r;
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-regexpcreate
+    /// RegExpCreate(P, F) - creates a new RegExp without calling IsRegExp on the pattern.
+    /// Used by String.prototype.match/search/split per spec.
+    /// </summary>
+    internal JsRegExp RegExpCreate(JsValue pattern, JsValue flags)
+    {
+        var r = RegExpAlloc(this);
+        return RegExpInitialize(r, pattern, flags);
+    }
+
     private JsRegExp RegExpAlloc(JsValue newTarget)
     {
         if (ReferenceEquals(newTarget, this))

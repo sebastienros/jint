@@ -161,9 +161,10 @@ internal sealed class RegExpPrototype : Prototype
         }
 
         // check if we can access fast path
+        // Derive sticky from already-read flags string to avoid extra observable property access
         if (!fullUnicode
             && !mayHaveNamedCaptures
-            && !TypeConverter.ToBoolean(rx.Get(PropertySticky))
+            && !flags.Contains('y')
             && rx is JsRegExp rei && rei.HasDefaultRegExpExec)
         {
             var count = global ? int.MaxValue : 1;
