@@ -11,6 +11,7 @@ public partial class GlobalObject
     private static readonly Key propertyArray = "Array";
     private static readonly Key propertyArrayBuffer = "ArrayBuffer";
     private static readonly Key propertyAsyncDisposableStack = "AsyncDisposableStack";
+    private static readonly Key propertyAsyncIterator = "AsyncIterator";
     private static readonly Key propertyAtomics = "Atomics";
     private static readonly Key propertyBigInt = "BigInt";
     private static readonly Key propertyBigInt64Array = "BigInt64Array";
@@ -87,11 +88,12 @@ public partial class GlobalObject
         const PropertyFlag LengthFlags = PropertyFlag.Configurable;
         const PropertyFlag PropertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
 
-        var properties = new StringDictionarySlim<PropertyDescriptor>(70);
+        var properties = new StringDictionarySlim<PropertyDescriptor>(71);
         properties.AddDangerous(propertyAggregateError, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.AggregateError, PropertyFlags));
         properties.AddDangerous(propertyArray, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Array, PropertyFlags));
         properties.AddDangerous(propertyArrayBuffer, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.ArrayBuffer, PropertyFlags));
         properties.AddDangerous(propertyAsyncDisposableStack, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.AsyncDisposableStack, PropertyFlags));
+        properties.AddDangerous(propertyAsyncIterator, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.AsyncIterator, PropertyFlags));
         properties.AddDangerous(propertyAtomics, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Atomics, PropertyFlags));
         properties.AddDangerous(propertyBigInt, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.BigInt, PropertyFlags));
         properties.AddDangerous(propertyBigInt64Array, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.BigInt64Array, PropertyFlags));

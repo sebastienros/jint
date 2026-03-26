@@ -73,6 +73,9 @@ public sealed partial class Intrinsics
     private IteratorHelperPrototype? _iteratorHelperPrototype;
     private WrapForValidIteratorPrototype? _wrapForValidIteratorPrototype;
     private AsyncIteratorPrototype? _asyncIteratorPrototype;
+    private AsyncIteratorConstructor? _asyncIteratorConstructor;
+    private AsyncIteratorHelperPrototype? _asyncIteratorHelperPrototype;
+    private WrapForValidAsyncIteratorPrototype? _wrapForValidAsyncIteratorPrototype;
     private AsyncFromSyncIteratorPrototype? _asyncFromSyncIteratorPrototype;
     private MathInstance? _math;
     private JsonInstance? _json;
@@ -243,6 +246,15 @@ public sealed partial class Intrinsics
 
     internal AsyncIteratorPrototype AsyncIteratorPrototype =>
         _asyncIteratorPrototype ??= new AsyncIteratorPrototype(_engine, _realm, Object.PrototypeObject);
+
+    internal AsyncIteratorConstructor AsyncIterator =>
+        _asyncIteratorConstructor ??= new AsyncIteratorConstructor(_engine, _realm, Function.PrototypeObject, AsyncIteratorPrototype);
+
+    internal AsyncIteratorHelperPrototype AsyncIteratorHelperPrototype =>
+        _asyncIteratorHelperPrototype ??= new AsyncIteratorHelperPrototype(_engine, _realm, AsyncIteratorPrototype);
+
+    internal WrapForValidAsyncIteratorPrototype WrapForValidAsyncIteratorPrototype =>
+        _wrapForValidAsyncIteratorPrototype ??= new WrapForValidAsyncIteratorPrototype(_engine, _realm, AsyncIteratorPrototype);
 
     internal AsyncFromSyncIteratorPrototype AsyncFromSyncIteratorPrototype =>
         _asyncFromSyncIteratorPrototype ??= new AsyncFromSyncIteratorPrototype(_engine, _realm, AsyncIteratorPrototype);
