@@ -145,6 +145,7 @@ and many more.
 #### ECMAScript proposals (no version yet)
 
 - ✔ Await Dictionary (`Promise.allKeyed`, `Promise.allSettledKeyed`)
+- ✔ Decorators (`@decorator` syntax for classes, methods, fields, and accessors)
 - ✔ `Error.isError`
 - ✔ Explicit Resource Management (`using` and `await using`)
 - ✔ Immutable Arraybuffers
@@ -516,6 +517,39 @@ var result = await jsValue.UnwrapIfPromiseAsync(cts.Token);
 If `jsValue` is not a Promise it is returned immediately. If it is a rejected Promise a `PromiseRejectedException` is thrown.
 
 The synchronous `UnwrapIfPromise` is still available for scenarios where blocking is acceptable (e.g., CPU-bound scripts with no I/O), but `UnwrapIfPromiseAsync` should be preferred in any `async` call chain.
+
+### Task/ValueTask to Promise Interop (Experimental)
+
+When the `TaskInterop` experimental feature is enabled, .NET `Task` and `ValueTask` return values are automatically converted to JavaScript Promises. This allows JavaScript code to `await` or `.then()` the results of .NET async methods without any manual wrapping:
+
+```c#
+var engine = new Engine(options =>
+{
+    options.ExperimentalFeatures = ExperimentalFeature.TaskInterop;
+});
+
+engine.SetValue("fetchData", new Func<string, Task<string>>(async url =>
+{
+    using var client = new HttpClient();
+    return await client.GetStringAsync(url);
+}));
+
+// .NET Task is automatically converted to a JavaScript Promise
+var result = engine.Evaluate("fetchData('https://example.com/api').then(data => data)");
+result = result.UnwrapIfPromise();
+```
+
+Without `TaskInterop`, .NET Tasks passed to JavaScript are exposed as opaque CLR objects. With it enabled, they become native Promises that support `await`, `.then()`, and `.catch()`.
+
+You can configure the timeout for promise resolution via `Options.Constraints.PromiseTimeout`:
+
+```c#
+var engine = new Engine(options =>
+{
+    options.ExperimentalFeatures = ExperimentalFeature.TaskInterop;
+    options.Constraints.PromiseTimeout = TimeSpan.FromSeconds(10);
+});
+```
 
 ## .NET Interoperability
 
