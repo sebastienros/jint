@@ -47,6 +47,17 @@ var coolingObject = {
         Assert.Equal((uint) 3, arguments.Length);
     }
 
+    [Fact]
+    public void IsCallableIsPublic()
+    {
+        var engine = new Engine();
+        Assert.True(engine.Evaluate("function f() {}; f").IsCallable);
+        Assert.True(engine.Evaluate("() => {}").IsCallable);
+        Assert.False(engine.Evaluate("({})").IsCallable);
+        Assert.False(engine.Evaluate("42").IsCallable);
+        Assert.False(engine.Evaluate("'hello'").IsCallable);
+    }
+
     private sealed class SetTimeoutEmulator : IDisposable
     {
         private readonly Engine _engine;

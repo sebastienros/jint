@@ -510,7 +510,7 @@ public abstract partial class JsValue : IEquatable<JsValue>
     internal virtual JsValue DoClone() => this;
 
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    internal virtual bool IsCallable => this is ICallable;
+    public virtual bool IsCallable => this is ICallable;
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-ordinaryhasinstance

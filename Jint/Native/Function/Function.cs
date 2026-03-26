@@ -72,7 +72,7 @@ public abstract partial class Function : ObjectInstance, ICallable
     // for example RavenDB wants to inspect this
     public IFunction? FunctionDeclaration => _functionDefinition?.Function;
 
-    internal override bool IsCallable => true;
+    public override bool IsCallable => true;
 
     JsValue ICallable.Call(JsValue thisObject, params JsCallArguments arguments) => Call(thisObject, arguments);
 

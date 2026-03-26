@@ -580,7 +580,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         return true;
     }
 
-    internal override bool IsCallable { get; }
+    public override bool IsCallable { get; }
 
     private bool TryCallHandler(JsValue propertyName, JsCallArguments arguments, out JsValue result)
     {
