@@ -245,7 +245,7 @@ internal sealed class HybridDictionary<TValue> : IEngineDictionary<Key, TValue>,
             return _list.GetEnumerator();
         }
 
-        return System.Linq.Enumerable.Empty<KeyValuePair<Key, TValue>>().GetEnumerator();
+        return ((IEnumerable<KeyValuePair<Key, TValue>>) Array.Empty<KeyValuePair<Key, TValue>>()).GetEnumerator();
     }
 
     IEnumerator IEnumerable.GetEnumerator()
@@ -260,7 +260,7 @@ internal sealed class HybridDictionary<TValue> : IEngineDictionary<Key, TValue>,
             return _list.GetEnumerator();
         }
 
-        return System.Linq.Enumerable.Empty<KeyValuePair<Key, TValue>>().GetEnumerator();
+        return ((IEnumerable<KeyValuePair<Key, TValue>>) Array.Empty<KeyValuePair<Key, TValue>>()).GetEnumerator();
     }
 
     public bool Remove(Key key)
