@@ -542,6 +542,12 @@ internal sealed class AtomicsInstance : ObjectInstance
             }
         }
 
+        // https://tc39.es/ecma262/#sec-dowait step 8
+        if (!Engine.Options.AgentCanSuspend)
+        {
+            Throw.TypeError(_realm, "Atomics.wait cannot be used in this agent");
+        }
+
         var buffer = ta._viewedArrayBuffer;
         var bufferData = buffer._arrayBufferData;
         if (bufferData is null)

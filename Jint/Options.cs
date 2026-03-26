@@ -129,6 +129,15 @@ public class Options
     public ExperimentalFeature ExperimentalFeatures { get; set; }
 
     /// <summary>
+    /// Whether the agent can suspend (block) via Atomics.wait().
+    /// Defaults to true. Set to false for main-thread-like environments where blocking is not allowed.
+    /// </summary>
+    /// <remarks>
+    /// https://tc39.es/ecma262/#sec-agentcansuspend
+    /// </remarks>
+    public bool AgentCanSuspend { get; set; } = true;
+
+    /// <summary>
     /// Called by the <see cref="Engine"/> instance that loads this <see cref="Options" />
     /// once it is loaded.
     /// </summary>

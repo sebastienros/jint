@@ -30,6 +30,11 @@ public abstract partial class Test262Test
             cfg.EnableModules(new Test262ModuleLoader(State.Test262Stream.Options.FileSystem, relativePath));
             cfg.ExperimentalFeatures = ExperimentalFeature.All;
             cfg.TimeoutInterval(TimeSpan.FromSeconds(30));
+            // Configure agent blocking based on test flags
+            if (file.Flags.Contains("CanBlockIsFalse"))
+            {
+                cfg.AgentCanSuspend = false;
+            }
             // Use ICU-based CLDR provider for better Intl support
             cfg.Intl.CldrProvider = IcuCldrProvider.Instance;
             // Use NodaTime for accurate IANA timezone support (sub-minute offsets, historical DST)

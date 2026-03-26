@@ -13,7 +13,6 @@
     "tail-call-optimization"
   ],
   "ExcludedFlags": [
-    "CanBlockIsFalse"
   ],
   "ExcludedDirectories": [
   ],
