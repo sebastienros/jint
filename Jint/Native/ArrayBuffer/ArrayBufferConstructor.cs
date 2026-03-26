@@ -65,7 +65,7 @@ public sealed class ArrayBufferConstructor : Constructor
     {
         if (newTarget.IsUndefined())
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, $"Constructor {_nameDescriptor?.Value} requires 'new'");
         }
 
         var length = arguments.At(0);
@@ -102,7 +102,7 @@ public sealed class ArrayBufferConstructor : Constructor
 
         if (allocatingResizableBuffer && byteLength > maxByteLength)
         {
-            Throw.RangeError(_realm);
+            Throw.RangeError(_realm, "byteLength exceeds maxByteLength");
         }
 
         return CreateJsArrayBuffer(constructor, block: null, byteLength, maxByteLength);

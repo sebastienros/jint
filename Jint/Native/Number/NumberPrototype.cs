@@ -55,7 +55,7 @@ internal sealed class NumberPrototype : NumberInstance
     {
         if (!thisObject.IsNumber() && thisObject is not NumberInstance)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Number.prototype.toLocaleString requires that 'this' be a Number");
         }
 
         var x = TypeConverter.ToNumber(thisObject);
@@ -80,7 +80,7 @@ internal sealed class NumberPrototype : NumberInstance
             return thisObject;
         }
 
-        Throw.TypeError(_realm);
+        Throw.TypeError(_realm, "Number.prototype.valueOf requires that 'this' be a Number");
         return null;
     }
 
@@ -91,7 +91,7 @@ internal sealed class NumberPrototype : NumberInstance
         var f = (int) TypeConverter.ToInteger(arguments.At(0, 0));
         if (f < 0 || f > 100)
         {
-            Throw.RangeError(_realm, "fractionDigits argument must be between 0 and 100");
+            Throw.RangeError(_realm, "toFixed() digits argument must be between 0 and 100");
         }
 
         var x = TypeConverter.ToNumber(thisObject);
@@ -215,7 +215,7 @@ internal sealed class NumberPrototype : NumberInstance
     {
         if (!thisObject.IsNumber() && ReferenceEquals(thisObject.TryCast<NumberInstance>(), null))
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Number.prototype.toExponential requires that 'this' be a Number");
         }
 
         var x = TypeConverter.ToNumber(thisObject);
@@ -239,7 +239,7 @@ internal sealed class NumberPrototype : NumberInstance
 
         if (f < 0 || f > 100)
         {
-            Throw.RangeError(_realm, "fractionDigits argument must be between 0 and 100");
+            Throw.RangeError(_realm, "toExponential() argument must be between 0 and 100");
         }
 
         if (arguments.At(0).IsUndefined())
@@ -291,7 +291,7 @@ internal sealed class NumberPrototype : NumberInstance
     {
         if (!thisObject.IsNumber() && ReferenceEquals(thisObject.TryCast<NumberInstance>(), null))
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Number.prototype.toPrecision requires that 'this' be a Number");
         }
 
         var x = TypeConverter.ToNumber(thisObject);
@@ -316,7 +316,7 @@ internal sealed class NumberPrototype : NumberInstance
 
         if (p < 1 || p > 100)
         {
-            Throw.RangeError(_realm, "precision must be between 1 and 100");
+            Throw.RangeError(_realm, "toPrecision() argument must be between 1 and 100");
         }
 
         var dtoaBuilder = new DtoaBuilder(stackalloc char[LargeDtoaLength]);
@@ -411,7 +411,7 @@ internal sealed class NumberPrototype : NumberInstance
     {
         if (!thisObject.IsNumber() && (ReferenceEquals(thisObject.TryCast<NumberInstance>(), null)))
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Number.prototype.toString requires that 'this' be a Number");
         }
 
         var radix = arguments.At(0).IsUndefined()
@@ -420,7 +420,7 @@ internal sealed class NumberPrototype : NumberInstance
 
         if (radix < 2 || radix > 36)
         {
-            Throw.RangeError(_realm, "radix must be between 2 and 36");
+            Throw.RangeError(_realm, "toString() radix argument must be between 2 and 36");
         }
 
         var x = TypeConverter.ToNumber(thisObject);

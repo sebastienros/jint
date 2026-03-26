@@ -9,7 +9,7 @@ internal static class TypeArrayHelper
     {
         if (o is not JsTypedArray typedArray)
         {
-            Throw.TypeError(realm);
+            Throw.TypeError(realm, "this is not a typed array.");
             return default;
         }
 

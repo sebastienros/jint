@@ -37,7 +37,7 @@ internal sealed class ProxyConstructor : Constructor
     {
         if (newTarget.IsUndefined())
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, $"Constructor {_nameDescriptor?.Value} requires 'new'");
         }
 
         return Construct(arguments.At(0), arguments.At(1));

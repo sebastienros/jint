@@ -99,7 +99,7 @@ internal sealed class SymbolConstructor : Constructor
         var symbol = arguments.At(0) as JsSymbol;
         if (symbol is null)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, $"{arguments.At(0)} is not a symbol");
         }
 
         if (_engine.GlobalSymbolRegistry.TryGetSymbol(symbol._value, out var e))

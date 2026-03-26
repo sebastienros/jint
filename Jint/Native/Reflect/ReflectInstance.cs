@@ -60,7 +60,7 @@ internal sealed class ReflectInstance : ObjectInstance
 
         if (!target.IsCallable)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Reflect.apply requires the first argument to be a function");
         }
 
         var args = FunctionPrototype.CreateListFromArrayLike(_realm, argumentsList);

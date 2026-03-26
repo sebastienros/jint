@@ -461,32 +461,32 @@ internal sealed class SetPrototype : Prototype
     {
         if (obj is not ObjectInstance)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "The .size property is accessed on an object that is not a valid Set or Set-like");
         }
 
         var rawSize = obj.Get(CommonProperties.Size);
         var numSize = TypeConverter.ToNumber(rawSize);
         if (double.IsNaN(numSize))
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Invalid size");
         }
 
         var intSize = TypeConverter.ToIntegerOrInfinity(numSize);
         if (intSize < 0)
         {
-            Throw.RangeError(_realm);
+            Throw.RangeError(_realm, "Invalid size");
         }
 
         var has = obj.Get(CommonProperties.Has);
         if (!has.IsCallable)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, $"{obj}.has is not a function");
         }
 
         var keys = obj.Get(CommonProperties.Keys);
         if (!keys.IsCallable)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, $"{obj}.keys is not a function");
         }
 
         return new SetRecord(Set: obj, Size: intSize, Has: (ICallable) has, Keys: (ICallable) keys);
@@ -498,14 +498,20 @@ internal sealed class SetPrototype : Prototype
         return set.Values();
     }
 
-    private JsSet AssertSetInstance(JsValue thisObject)
+    private JsSet AssertSetInstance(JsValue thisObject, [System.Runtime.CompilerServices.CallerMemberName] string methodName = "")
     {
         if (thisObject is JsSet set)
         {
             return set;
         }
 
-        Throw.TypeError(_realm, "object must be a Set");
+        Throw.TypeError(_realm, $"Method Set.prototype.{SetMethodName(methodName)} called on incompatible receiver {thisObject}");
         return default;
     }
+
+    private static string SetMethodName(string callerName) => callerName switch
+    {
+        "Size" => "get size",
+        _ => char.ToLowerInvariant(callerName[0]) + callerName.Substring(1)
+    };
 }

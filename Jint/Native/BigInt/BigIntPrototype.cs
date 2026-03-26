@@ -77,7 +77,7 @@ internal sealed class BigIntPrototype : Prototype
             return thisObject;
         }
 
-        Throw.TypeError(_realm);
+        Throw.TypeError(_realm, "BigInt.prototype.valueOf requires that 'this' be a BigInt");
         return null;
     }
 
@@ -149,7 +149,7 @@ internal sealed class BigIntPrototype : Prototype
             case BigIntInstance bigIntInstance:
                 return bigIntInstance.BigIntData;
             default:
-                Throw.TypeError(_realm);
+                Throw.TypeError(_realm, "BigInt.prototype.valueOf requires that 'this' be a BigInt");
                 return default;
         }
     }

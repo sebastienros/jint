@@ -143,7 +143,7 @@ internal sealed class GlobalEnvironment : Environment
     [MethodImpl(MethodImplOptions.NoInlining)]
     private void ThrowAlreadyDeclaredException(Key name)
     {
-        Throw.TypeError(_engine.Realm, $"{name} has already been declared");
+        Throw.TypeError(_engine.Realm, $"Identifier '{name}' has already been declared");
     }
 
     internal override void InitializeBinding(Key name, JsValue value, DisposeHint hint)

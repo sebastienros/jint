@@ -102,34 +102,34 @@ internal sealed class SharedArrayBufferPrototype : Prototype
 
         if (bufferInstance is null)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Species constructor did not return a SharedArrayBuffer");
         }
 
         if (!bufferInstance.IsSharedArrayBuffer)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "SharedArrayBuffer.prototype.slice: result is not a SharedArrayBuffer");
         }
 
         if (bufferInstance.IsDetachedBuffer)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Cannot perform SharedArrayBuffer.prototype.slice on a detached buffer");
         }
 
         if (ReferenceEquals(bufferInstance, o))
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "SharedArrayBuffer.prototype.slice returned the same buffer");
         }
 
         if (bufferInstance.ArrayBufferByteLength < newLen)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "SharedArrayBuffer.prototype.slice: constructed buffer is too small");
         }
 
         // NOTE: Side-effects of the above steps may have detached O.
 
         if (bufferInstance.IsDetachedBuffer)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Cannot perform SharedArrayBuffer.prototype.slice on a detached buffer");
         }
 
         var fromBuf = o.ArrayBufferData!;

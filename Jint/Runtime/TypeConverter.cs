@@ -809,7 +809,7 @@ public static class TypeConverter
         var integerIndex = ToIntegerOrInfinity(value);
         if (integerIndex < 0)
         {
-            Throw.RangeError(realm);
+            Throw.RangeError(realm, "Invalid index");
         }
 
         var index = ToLength(integerIndex);
@@ -1033,7 +1033,7 @@ public static class TypeConverter
         string? referencedName)
     {
         referencedName ??= "unknown";
-        var message = $"Cannot read property '{referencedName}' of {o}";
+        var message = $"Cannot read properties of {o} (reading '{referencedName}')";
         throw new JavaScriptException(engine.Realm.Intrinsics.TypeError, message)
             .SetJavaScriptCallstack(engine, sourceNode.Location, overwriteExisting: true);
     }

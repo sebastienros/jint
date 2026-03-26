@@ -74,7 +74,7 @@ internal sealed class WeakMapPrototype : Prototype
     {
         if (!key.CanBeHeldWeakly(_engine.GlobalSymbolRegistry))
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Invalid value used as weak map key");
         }
 
         return key;

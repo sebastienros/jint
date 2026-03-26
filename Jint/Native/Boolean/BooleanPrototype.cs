@@ -47,7 +47,7 @@ internal sealed class BooleanPrototype : BooleanInstance
             return bi.BooleanData;
         }
 
-        Throw.TypeError(_realm);
+        Throw.TypeError(_realm, "Boolean.prototype.valueOf requires that 'this' be a Boolean");
         return Undefined;
     }
 

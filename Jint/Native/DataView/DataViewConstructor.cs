@@ -31,7 +31,7 @@ internal sealed class DataViewConstructor : Constructor
     {
         if (newTarget.IsUndefined())
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, $"Constructor {_nameDescriptor?.Value} requires 'new'");
         }
 
         var buffer = arguments.At(0) as JsArrayBuffer;
@@ -47,7 +47,7 @@ internal sealed class DataViewConstructor : Constructor
 
         if (buffer.IsDetachedBuffer)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Cannot perform DataView constructor on a detached ArrayBuffer");
         }
 
         var bufferByteLength = (uint) buffer.ArrayBufferByteLength;
@@ -85,7 +85,7 @@ internal sealed class DataViewConstructor : Constructor
 
         if (buffer.IsDetachedBuffer)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Cannot perform DataView constructor on a detached ArrayBuffer");
         }
 
         bufferByteLength = (uint) buffer.ArrayBufferByteLength;

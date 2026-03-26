@@ -45,7 +45,7 @@ internal sealed class AsyncIteratorConstructor : Constructor
     {
         if (newTarget.IsUndefined() || ReferenceEquals(this, newTarget))
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Abstract class AsyncIterator not directly constructable");
         }
 
         return OrdinaryCreateFromConstructor(
@@ -64,7 +64,7 @@ internal sealed class AsyncIteratorConstructor : Constructor
         // 1. If O is not an Object, throw a TypeError exception.
         if (o is not ObjectInstance obj)
         {
-            Throw.TypeError(_realm, "AsyncIterator.from requires an object");
+            Throw.TypeError(_realm, "AsyncIterator.from called on non-object");
             return Undefined;
         }
 

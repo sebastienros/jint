@@ -409,7 +409,7 @@ public sealed class ArrayPrototype : ArrayInstance
 
         if (len == 0 && arguments.Length < 2)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Reduce of empty array with no initial value");
         }
 
         var k = 0;
@@ -433,7 +433,7 @@ public sealed class ArrayPrototype : ArrayInstance
 
             if (kPresent == false)
             {
-                Throw.TypeError(_realm);
+                Throw.TypeError(_realm, "Reduce of empty array with no initial value");
             }
         }
 
@@ -573,7 +573,7 @@ public sealed class ArrayPrototype : ArrayInstance
 
         if (!mapperFunction.IsCallable)
         {
-            Throw.TypeError(_realm, "flatMap mapper function is not callable");
+            Throw.TypeError(_realm, $"{mapperFunction} is not a function");
         }
 
         var A = _realm.Intrinsics.Array.ArraySpeciesCreate(O.Target, 0);
@@ -636,7 +636,7 @@ public sealed class ArrayPrototype : ArrayInstance
                 {
                     if (targetIndex >= NumberConstructor.MaxSafeInteger)
                     {
-                        Throw.TypeError(_realm);
+                        Throw.TypeError(_realm, "Invalid array length");
                     }
 
                     target.CreateDataPropertyOrThrow(targetIndex, element);
@@ -1551,7 +1551,7 @@ public sealed class ArrayPrototype : ArrayInstance
         var newLen = len + insertCount - actualDeleteCount;
         if (newLen > ArrayOperations.MaxArrayLikeLength)
         {
-            Throw.TypeError(_realm, "Invalid input length");
+            Throw.TypeError(_realm, "Invalid array length");
         }
 
         ValidateArrayLength(newLen);
@@ -1630,7 +1630,7 @@ public sealed class ArrayPrototype : ArrayInstance
 
         if (len == 0 && arguments.Length < 2)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Reduce of empty array with no initial value");
         }
 
         long k = (long) (len - 1);
@@ -1654,7 +1654,7 @@ public sealed class ArrayPrototype : ArrayInstance
 
             if (kPresent == false)
             {
-                Throw.TypeError(_realm);
+                Throw.TypeError(_realm, "Reduce of empty array with no initial value");
             }
         }
 

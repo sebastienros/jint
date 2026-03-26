@@ -71,13 +71,13 @@ internal sealed class AsyncIteratorPrototype : Prototype
     {
         if (thisValue is not ObjectInstance objectInstance)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Iterator prototype setter called on non-object");
             return;
         }
 
         if (SameValue(thisValue, home))
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, "Cannot set property on Iterator prototype directly");
             return;
         }
 
@@ -168,7 +168,7 @@ internal sealed class AsyncIteratorPrototype : Prototype
         if (double.IsNaN(numLimit))
         {
             IteratorClose(o, CompletionType.Throw);
-            Throw.RangeError(_realm, "Invalid limit");
+            Throw.RangeError(_realm, "NaN must be positive");
             limit = 0;
             return null!;
         }
@@ -178,7 +178,7 @@ internal sealed class AsyncIteratorPrototype : Prototype
         if (integerLimit < 0)
         {
             IteratorClose(o, CompletionType.Throw);
-            Throw.RangeError(_realm, "Invalid limit");
+            Throw.RangeError(_realm, $"{integerLimit} must be positive");
             limit = 0;
             return null!;
         }

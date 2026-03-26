@@ -88,7 +88,7 @@ public abstract partial class JsValue : IEquatable<JsValue>
         var iterator = method.Call(this);
         if (iterator is not ObjectInstance objectInstance)
         {
-            Throw.TypeError(realm);
+            Throw.TypeError(realm, "Result of the Symbol.iterator method is not an object");
             return null!;
         }
         return new IteratorInstance.ObjectIterator(objectInstance);

@@ -45,7 +45,7 @@ internal sealed class ErrorPrototype : ErrorInstance
         var o = thisObject.TryCast<ObjectInstance>();
         if (o is null)
         {
-            Throw.TypeError(_realm);
+            Throw.TypeError(_realm, $"Method Error.prototype.toString called on incompatible receiver {thisObject}");
         }
 
         var nameProp = o.Get("name", this);
