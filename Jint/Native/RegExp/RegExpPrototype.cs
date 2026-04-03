@@ -9,6 +9,7 @@ using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
+using Jint.Runtime.RegExp;
 
 namespace Jint.Native.RegExp;
 
@@ -161,12 +162,13 @@ internal sealed class RegExpPrototype : Prototype
             rx.Set(JsRegExp.PropertyLastIndex, 0, true);
         }
 
-        // check if we can access fast path
+        // check if we can access fast path (only for .NET Regex engine)
         // Derive sticky from already-read flags string to avoid extra observable property access
         if (!fullUnicode
             && !mayHaveNamedCaptures
             && !flags.Contains('y')
-            && rx is JsRegExp rei && rei.HasDefaultRegExpExec)
+            && rx is JsRegExp rei && rei.HasDefaultRegExpExec
+            && rei.UsesDotNetEngine)
         {
             var count = global ? int.MaxValue : 1;
 
@@ -487,7 +489,7 @@ internal sealed class RegExpPrototype : Prototype
             return a;
         }
 
-        if (!unicodeMatching && splitter is JsRegExp R && R.HasDefaultRegExpExec)
+        if (!unicodeMatching && splitter is JsRegExp R && R.HasDefaultRegExpExec && R.UsesDotNetEngine)
         {
             // we can take faster path
 
@@ -635,8 +637,8 @@ internal sealed class RegExpPrototype : Prototype
         var r = AssertThisIsObjectInstance(thisObject, "RegExp.prototype.test");
         var s = TypeConverter.ToString(arguments.At(0));
 
-        // check couple fast paths
-        if (r is JsRegExp R && !R.FullUnicode)
+        // check couple fast paths (only for .NET Regex engine)
+        if (r is JsRegExp R && !R.FullUnicode && R.UsesDotNetEngine)
         {
             if (!R.Sticky && !R.Global)
             {
@@ -713,9 +715,10 @@ internal sealed class RegExpPrototype : Prototype
 
         if (!fullUnicode
             && rx is JsRegExp rei
-            && rei.HasDefaultRegExpExec)
+            && rei.HasDefaultRegExpExec
+            && rei.UsesDotNetEngine)
         {
-            // fast path
+            // fast path (only for .NET Regex engine)
             var a = _realm.Intrinsics.Array.ArrayCreate(0);
 
             if (rei.Sticky)
@@ -887,6 +890,12 @@ internal sealed class RegExpPrototype : Prototype
             return array;
         }
 
+        // Use custom engine when .NET Regex cannot handle the pattern
+        if (!R.UsesDotNetEngine)
+        {
+            return CustomEngineBuiltinExec(R, s, lastIndex, global, sticky);
+        }
+
         var matcher = R.Value;
         var fullUnicode = R.FullUnicode;
         var hasIndices = R.Indices;
@@ -952,6 +961,158 @@ internal sealed class RegExpPrototype : Prototype
         }
 
         return CreateReturnValueArray(R, match, s, fullUnicode, hasIndices);
+    }
+
+    /// <summary>
+    /// RegExpBuiltinExec implementation for the custom regex engine.
+    /// </summary>
+    private static JsValue CustomEngineBuiltinExec(JsRegExp R, string s, ulong lastIndex, bool global, bool sticky)
+    {
+        var customEngine = R.CustomEngine!;
+        var hasIndices = R.Indices;
+        var length = (ulong) s.Length;
+
+        if (lastIndex > length)
+        {
+            R.Set(JsRegExp.PropertyLastIndex, JsNumber.PositiveZero, true);
+            return Null;
+        }
+
+        var result = customEngine.Execute(s, (int) lastIndex);
+        var success = result.Success && (!sticky || result.Index == (int) lastIndex);
+
+        if (!success)
+        {
+            R.Set(JsRegExp.PropertyLastIndex, JsNumber.PositiveZero, true);
+            return Null;
+        }
+
+        var e = result.Index + result.Length;
+        if (global || sticky)
+        {
+            R.Set(JsRegExp.PropertyLastIndex, e, true);
+        }
+
+        return CreateReturnValueArrayFromCustom(R, result, s, hasIndices);
+    }
+
+    /// <summary>
+    /// Build the JS result array from a custom engine match result.
+    /// </summary>
+    private static JsArray CreateReturnValueArrayFromCustom(
+        JsRegExp rei,
+        in RegExpMatchResult result,
+        string s,
+        bool hasIndices)
+    {
+        var engine = rei.Engine;
+        var groups = result.Groups;
+        var actualGroupCount = groups?.Length ?? 1;
+        var array = engine.Realm.Intrinsics.Array.ArrayCreate((ulong) actualGroupCount);
+        array.CreateDataProperty(PropertyIndex, result.Index);
+        array.CreateDataProperty(PropertyInput, s);
+
+        ObjectInstance? jsGroups = null;
+        List<string?>? groupNames = null;
+        var indices = hasIndices ? new List<JsNumber[]?>(actualGroupCount) : null;
+
+        var hasAnyGroupName = false;
+
+        // Pre-initialize groups object
+        if (groups is not null)
+        {
+            for (uint i = 1; i < actualGroupCount; i++)
+            {
+                var groupName = groups[i].Name;
+                if (!string.IsNullOrWhiteSpace(groupName))
+                {
+                    hasAnyGroupName = true;
+                    jsGroups ??= OrdinaryObjectCreate(engine, null);
+                    if (!jsGroups.HasOwnProperty(groupName))
+                    {
+                        jsGroups.CreateDataPropertyOrThrow(groupName, Undefined);
+                    }
+                }
+
+                if (hasIndices)
+                {
+                    groupNames ??= [];
+                    groupNames.Add(groupName);
+                }
+            }
+        }
+
+        for (uint i = 0; i < actualGroupCount; i++)
+        {
+            var capture = groups?[(int) i];
+            JsValue capturedValue = Undefined;
+            if (capture?.Success == true)
+            {
+                capturedValue = capture.Value.Value;
+            }
+
+            if (hasIndices)
+            {
+                if (capture?.Success == true)
+                {
+                    indices!.Add([JsNumber.Create(capture.Value.Index), JsNumber.Create(capture.Value.Index + capture.Value.Length)]);
+                }
+                else
+                {
+                    indices!.Add(null);
+                }
+            }
+
+            if (i > 0)
+            {
+                var groupName = groups?[(int) i].Name;
+                if (!string.IsNullOrWhiteSpace(groupName) && capture?.Success == true)
+                {
+                    jsGroups!.CreateDataPropertyOrThrow(groupName, capturedValue);
+                }
+            }
+
+            array.SetIndexValue(i, capturedValue, updateLength: false);
+        }
+
+        array.CreateDataProperty(PropertyGroups, jsGroups ?? Undefined);
+
+        if (hasIndices)
+        {
+            var indicesArray = MakeMatchIndicesIndexPairArray(engine, s, indices!, groupNames, hasAnyGroupName);
+            array.CreateDataPropertyOrThrow("indices", indicesArray);
+        }
+
+        // B.2.4 Update legacy RegExp static properties
+        UpdateLegacyStaticPropertiesFromCustom(engine, result, s, actualGroupCount);
+
+        return array;
+    }
+
+    private static void UpdateLegacyStaticPropertiesFromCustom(Engine engine, in RegExpMatchResult result, string s, int actualGroupCount)
+    {
+        var constructor = engine.Realm.Intrinsics.RegExp;
+        constructor._legacyInput = s;
+        constructor._legacyLastMatch = result.Value;
+        constructor._legacyLeftContext = s.Substring(0, result.Index);
+        constructor._legacyRightContext = s.Substring(result.Index + result.Length);
+
+        var groups = result.Groups;
+        var lastParen = "";
+        for (var i = 0; i < 9; i++)
+        {
+            var groupIndex = i + 1;
+            if (groups is not null && groupIndex < actualGroupCount && groups[groupIndex].Success)
+            {
+                constructor._legacyParens[i] = groups[groupIndex].Value;
+                lastParen = groups[groupIndex].Value;
+            }
+            else
+            {
+                constructor._legacyParens[i] = "";
+            }
+        }
+        constructor._legacyLastParen = lastParen;
     }
 
     private static JsArray CreateReturnValueArray(

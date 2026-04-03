@@ -3,6 +3,7 @@ using Jint.Native.Object;
 using Jint.Native.RegExp;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.RegExp;
 
 namespace Jint.Native;
 
@@ -23,6 +24,12 @@ public sealed class JsRegExp : ObjectInstance
 
     public Regex Value { get; set; } = null!;
     public string Source { get; set; }
+
+    /// <summary>
+    /// Custom regex engine used when .NET Regex cannot handle the pattern.
+    /// When set, this takes priority over <see cref="Value"/>.
+    /// </summary>
+    internal JintRegExpEngine? CustomEngine { get; set; }
 
     public string Flags
     {
@@ -84,6 +91,9 @@ public sealed class JsRegExp : ObjectInstance
     public bool UnicodeSets { get; private set; }
 
     internal bool HasDefaultRegExpExec => Properties == null && Prototype is RegExpPrototype { HasDefaultExec: true };
+
+    /// <summary>Whether this regex uses the .NET Regex engine (not the custom engine).</summary>
+    internal bool UsesDotNetEngine => CustomEngine is null;
 
     public override PropertyDescriptor GetOwnProperty(JsValue property)
     {

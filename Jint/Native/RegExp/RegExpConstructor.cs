@@ -6,12 +6,14 @@ using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
+using Jint.Runtime.RegExp;
 
 namespace Jint.Native.RegExp;
 
 public sealed class RegExpConstructor : Constructor
 {
     private static readonly JsString _functionName = new JsString("RegExp");
+    private static readonly Regex DummyRegex = new("(?:)", RegexOptions.None, TimeSpan.FromSeconds(1));
 
     // B.2.4 RegExp Legacy Static Properties
     internal string _legacyInput = "";
@@ -449,17 +451,23 @@ public sealed class RegExpConstructor : Constructor
                 ecmaVersion: parserOptions.EcmaVersion,
                 experimentalESFeatures: parserOptions.ExperimentalESFeatures);
 
-            if (!regExpParseResult.Success)
+            if (regExpParseResult.Success)
             {
-                Throw.SyntaxError(_realm, $"Unsupported regular expression. {regExpParseResult.ConversionError!.Description}");
+                r.Value = regExpParseResult.Regex!;
+                r.ParseResult = regExpParseResult;
+                r.CustomEngine = null;
             }
-
-            r.Value = regExpParseResult.Regex!;
-            r.ParseResult = regExpParseResult;
+            else
+            {
+                // Acornima could not convert the pattern to .NET Regex.
+                // Try the custom engine (handles v-flag, unicode properties, forward backrefs, etc.)
+                TryCompileWithCustomEngine(r, p, f);
+            }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not Jint.Runtime.JavaScriptException)
         {
-            Throw.SyntaxError(_realm, ex.Message);
+            // Acornima threw during parsing/conversion - try custom engine
+            TryCompileWithCustomEngine(r, p, f);
         }
 
         r.Flags = f;
@@ -477,6 +485,43 @@ public sealed class RegExpConstructor : Constructor
         }
 
         return r;
+    }
+
+    /// <summary>
+    /// Attempt to compile the regex pattern using the custom Jint regex engine.
+    /// Falls back to SyntaxError if the custom engine also fails.
+    /// </summary>
+    private void TryCompileWithCustomEngine(JsRegExp r, string pattern, string flags)
+    {
+        try
+        {
+            var regExpFlags = RegExpFlags.None;
+            foreach (var c in flags)
+            {
+                regExpFlags |= c switch
+                {
+                    'g' => RegExpFlags.Global,
+                    'i' => RegExpFlags.IgnoreCase,
+                    'm' => RegExpFlags.Multiline,
+                    's' => RegExpFlags.DotAll,
+                    'u' => RegExpFlags.Unicode,
+                    'y' => RegExpFlags.Sticky,
+                    'd' => RegExpFlags.Indices,
+                    'v' => RegExpFlags.UnicodeSets,
+                    _ => RegExpFlags.None,
+                };
+            }
+
+            r.CustomEngine = JintRegExpEngine.Compile(pattern, regExpFlags);
+            // Set Value to a dummy regex to avoid null reference in code paths that read it
+            // but won't actually use it (since UsesDotNetEngine will be false)
+            r.Value = DummyRegex;
+            r.ParseResult = default;
+        }
+        catch (RegExpSyntaxException ex)
+        {
+            Throw.SyntaxError(_realm, ex.Message);
+        }
     }
 
     /// <summary>
