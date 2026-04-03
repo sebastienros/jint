@@ -118,7 +118,9 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 expr = new JintMemberExpression(memberExpression);
                 break;
             default:
-                expr = new JintIdentifierExpression((Identifier) _leftNode);
+                expr = _leftNode is Expression expression
+                    ? JintExpression.Build(expression)
+                    : new JintIdentifierExpression((Identifier) _leftNode);
                 break;
         }
     }
@@ -463,7 +465,11 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     }
                     else
                     {
-                        var reference = (Reference) lhsRef;
+                        var reference = lhsRef as Reference;
+                        if (reference is null)
+                        {
+                            Throw.ReferenceError(engine.Realm, "Invalid left-hand side in assignment");
+                        }
                         if (lhsKind == LhsKind.LexicalBinding || _leftNode.Type == NodeType.Identifier && !reference.IsUnresolvableReference)
                         {
                             reference.InitializeReferencedBinding(nextValue, _disposeHint);

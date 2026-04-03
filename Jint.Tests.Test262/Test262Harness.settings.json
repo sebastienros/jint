@@ -23,10 +23,6 @@
     "language/identifiers/*-unicode-16.*.js",
     "language/identifiers/*-unicode-17.*.js",
 
-    // Acornima parsing limitations
-    "language/statements/await-using/syntax/await-using-valid-for-await-using-of-of.js",
-    "language/statements/using/syntax/using-for-statement.js",
-
     // Currently quite impossible to detect if assignment target is CoverParenthesizedExpression
     "language/expressions/assignment/fn-name-lhs-cover.js",
 
@@ -363,32 +359,9 @@
 
     // === ANNEX B EXCLUSIONS ===
 
-    // Acornima parser limitation: assignment target type validation for call expressions
-    // Per B.3.7, non-strict mode should allow CallExpression as assignment target in certain cases
-    // Requires Acornima AllowCallExpressionAsLhs option (pending upstream PR)
-    "annexB/language/expressions/assignmenttargettype/callexpression-as-for-in-lhs.js",
-    "annexB/language/expressions/assignmenttargettype/callexpression-as-for-of-lhs.js",
-    "annexB/language/expressions/assignmenttargettype/callexpression-in-compound-assignment.js",
-    "annexB/language/expressions/assignmenttargettype/callexpression-in-postfix-update.js",
-    "annexB/language/expressions/assignmenttargettype/callexpression-in-prefix-update.js",
-    "annexB/language/expressions/assignmenttargettype/callexpression.js",
-    "annexB/language/expressions/assignmenttargettype/cover-callexpression-and-asyncarrowhead.js",
-
     // Acornima parser/RegExp limitation: malformed named groups in non-unicode mode
     // Per B.1.2, non-unicode RegExp should accept some malformed named group syntax
-    "annexB/built-ins/RegExp/named-groups/non-unicode-malformed.js",
-
-    // Acornima parser limitation: using/await-using in single-statement positions not rejected
-    // Fix pending: https://github.com/adams85/acornima/pull/32
-    "language/statements/await-using/syntax/await-using-invalid-for-in.js",
-    "language/statements/await-using/syntax/with-initializer-do-statement-while-expression.js",
-    "language/statements/await-using/syntax/with-initializer-for-statement.js",
-    "language/statements/await-using/syntax/with-initializer-if-expression-statement.js",
-    "language/statements/await-using/syntax/with-initializer-if-expression-statement-else-statement.js",
-    "language/statements/await-using/syntax/with-initializer-label-statement.js",
-    "language/statements/await-using/syntax/with-initializer-while-expression-statement.js",
-    "language/statements/using/syntax/using-invalid-for-in.js",
-    "language/statements/using/syntax/with-initializer-for-statement.js"
+    "annexB/built-ins/RegExp/named-groups/non-unicode-malformed.js"
 
   ]
 }
