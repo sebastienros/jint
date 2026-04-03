@@ -597,6 +597,21 @@ public sealed class RegExpConstructor : Constructor
         return r;
     }
 
+    /// <summary>
+    /// Construct a RegExp using the custom engine for patterns that .NET Regex cannot handle.
+    /// Called from regex literal evaluation when Acornima conversion fails.
+    /// </summary>
+    internal JsRegExp ConstructWithCustomEngine(string pattern, string flags)
+    {
+        var r = RegExpAlloc(this);
+        ValidateFlags(flags);
+        TryCompileWithCustomEngine(r, pattern, flags);
+        r.Flags = flags;
+        r.Source = pattern;
+        RegExpInitialize(r);
+        return r;
+    }
+
     public JsRegExp Construct(Regex regExp, string source, string flags, RegExpParseResult regExpParseResult = default)
     {
         var r = RegExpAlloc(this);

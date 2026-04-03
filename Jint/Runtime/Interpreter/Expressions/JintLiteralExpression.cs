@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Jint.Native;
+using Jint.Runtime.RegExp;
 
 namespace Jint.Runtime.Interpreter.Expressions;
 
@@ -72,7 +73,8 @@ internal sealed class JintLiteralExpression : JintExpression
                 return context.Engine.Realm.Intrinsics.RegExp.Construct(regex, regExpLiteral.RegExp.Pattern, regExpLiteral.RegExp.Flags, regExpParseResult);
             }
 
-            Throw.SyntaxError(context.Engine.Realm, $"Unsupported regular expression. {regExpParseResult.ConversionError!.Description}");
+            // Acornima could not convert to .NET Regex - try custom engine
+            return context.Engine.Realm.Intrinsics.RegExp.ConstructWithCustomEngine(regExpLiteral.RegExp.Pattern, regExpLiteral.RegExp.Flags);
         }
 
         return JsValue.FromObject(context.Engine, expression.Value);

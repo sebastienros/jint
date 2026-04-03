@@ -7,8 +7,6 @@
   "ExcludedFeatures": [
     "import-defer",
     "import-text",
-    "regexp-unicode-property-escapes",
-    "regexp-v-flag",
     "source-phase-imports",
     "tail-call-optimization"
   ],
@@ -27,9 +25,8 @@
     "language/expressions/assignment/fn-name-lhs-cover.js",
 
     // === REGEX EXCLUSIONS ===
-
-    // CharacterClassEscapes tests internally use v flag which is not supported
-    "built-ins/RegExp/CharacterClassEscapes/*.js",
+    // These tests pass through .NET Regex which has different semantics from ECMAScript.
+    // They need per-pattern detection to route to the custom engine (Phase 4 future work).
 
     // .NET regex engine: forward backreferences not supported in ECMAScript mode
     "built-ins/RegExp/S15.10.2.11_A1_T5.js",
@@ -66,7 +63,6 @@
     "built-ins/RegExp/quantifier-integer-limit.js",
 
     // .NET regex engine: quantified groups with alternation retain captures from previous iterations
-    // (JavaScript resets non-participating groups per iteration, .NET does not)
     "built-ins/RegExp/named-groups/duplicate-names-exec.js",
     "built-ins/RegExp/named-groups/duplicate-names-match.js",
     "built-ins/RegExp/named-groups/duplicate-names-test.js",
