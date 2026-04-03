@@ -15,6 +15,7 @@ public class DebugHandler
 {
     public delegate void BeforeEvaluateEventHandler(object sender, Program ast);
     public delegate StepMode DebugEventHandler(object sender, DebugInformation e);
+    public delegate void ExceptionThrownEventHandler(object sender, ExceptionThrownEventArgs e);
 
     private readonly Engine _engine;
     private bool _paused;
@@ -50,6 +51,15 @@ public class DebugHandler
     /// or <see cref="Break"/> event.
     /// </summary>
     public event DebugEventHandler? Skip;
+
+    /// <summary>
+    /// Triggered when a JavaScript exception is thrown, whether or not it will be caught by a try/catch block.
+    /// This is analogous to a first-chance exception notification.
+    /// </summary>
+    /// <remarks>
+    /// If a catch block re-throws the exception (e.g. <c>throw e;</c>), the event will fire again for the new throw.
+    /// </remarks>
+    public event ExceptionThrownEventHandler? ExceptionThrown;
 
     internal DebugHandler(Engine engine, StepMode initialStepMode)
     {
@@ -140,6 +150,23 @@ public class DebugHandler
         {
             throw new DebugEvaluationException("An error occurred during debugger expression parsing", ex);
         }
+    }
+
+    internal void OnExceptionThrown(JsValue thrownValue, in SourceLocation location)
+    {
+        if (ExceptionThrown is null)
+        {
+            return;
+        }
+
+        // Don't reenter if we're already paused (e.g. when evaluating in a Step/Break handler)
+        if (_paused)
+        {
+            return;
+        }
+
+        var args = new ExceptionThrownEventArgs(_engine, thrownValue, location);
+        ExceptionThrown.Invoke(_engine, args);
     }
 
     internal void OnBeforeEvaluate(Program ast)
