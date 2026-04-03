@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using Jint.Native;
 using Jint.Native.Function;
 
@@ -36,6 +35,10 @@ var coolingObject = {
     }.bind(coolingObject), coolingObject.coolDownTime);
 
 ");
+
+        // Process queued callbacks after Execute() completes to avoid
+        // concurrent access to the Engine (which is not thread-safe).
+        emulator.ProcessQueue();
     }
 
     [Fact]
@@ -95,39 +98,11 @@ var coolingObject = {
     private sealed class SetTimeoutEmulator : IDisposable
     {
         private readonly Engine _engine;
-        private readonly ConcurrentQueue<JsValue> _queue = new();
-        private readonly Task _queueProcessor;
-        private readonly CancellationTokenSource _quit = new();
-        private bool _disposedValue;
+        private readonly Queue<JsValue> _queue = new();
 
         public SetTimeoutEmulator(Engine engine)
         {
             _engine = engine ?? throw new ArgumentNullException(nameof(engine));
-
-            _queueProcessor = Task.Run(() =>
-            {
-                while (!_quit.IsCancellationRequested)
-                {
-                    while (_queue.TryDequeue(out var queueEntry))
-                    {
-                        lock (_engine)
-                        {
-                            if (queueEntry is Function fi)
-                            {
-                                _engine.Invoke(fi);
-                            }
-                            else if (queueEntry is BindFunction bfi)
-                            {
-                                _engine.Invoke(bfi);
-                            }
-                            else
-                            {
-                                _engine.Execute(queueEntry.ToString());
-                            }
-                        }
-                    }
-                }
-            });
         }
 
         public void SetTimeout(JsValue script, object timeout)
@@ -135,26 +110,32 @@ var coolingObject = {
             _queue.Enqueue(script);
         }
 
-        private void Dispose(bool disposing)
+        /// <summary>
+        /// Process all queued callbacks. Must be called when the engine is not in use
+        /// (Engine is not thread-safe).
+        /// </summary>
+        public void ProcessQueue()
         {
-            if (!_disposedValue)
+            while (_queue.Count > 0)
             {
-                if (disposing)
+                var queueEntry = _queue.Dequeue();
+                if (queueEntry is Function fi)
                 {
-                    // TODO: dispose managed state (managed objects)
-                    _quit.Cancel();
-                    _queueProcessor.Wait();
+                    _engine.Invoke(fi);
                 }
-
-                _disposedValue = true;
+                else if (queueEntry is BindFunction bfi)
+                {
+                    _engine.Invoke(bfi);
+                }
+                else
+                {
+                    _engine.Execute(queueEntry.ToString());
+                }
             }
         }
 
         public void Dispose()
         {
-            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-            Dispose(disposing: true);
-            GC.SuppressFinalize(this);
         }
     }
 }
