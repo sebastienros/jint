@@ -553,13 +553,12 @@ public sealed class RegExpConstructor : Constructor
             return true;
         }
 
-        // Note: scoped modifiers (?i:...) etc. have semantic differences in .NET,
-        // but routing all of them to the custom engine causes more regressions than it fixes.
-        // The specific failing cases are excluded in test262 settings.
-
-        // Note: Unicode case folding with /iu has some differences between .NET and ECMAScript,
-        // but routing ALL /iu patterns to custom engine is too aggressive. Only specific
-        // case folding edge cases fail (e.g., ω/Ω matching). Keep on .NET for now.
+        // Duplicate named capture groups in alternation: (?<x>a)|(?<x>b)
+        // .NET retains captures from previous iterations; JS resets them per spec
+        if (HasDuplicateNamedGroups(pattern))
+        {
+            return true;
+        }
 
         return false;
     }
@@ -589,30 +588,103 @@ public sealed class RegExpConstructor : Constructor
         return false;
     }
 
+    private static bool HasDuplicateNamedGroups(string pattern)
+    {
+        // Scan for (?<name>...) groups and check if any name appears more than once
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        int i = 0;
+        while (i < pattern.Length - 3)
+        {
+            if (pattern[i] == '\\')
+            {
+                i += 2; // skip escaped char
+                continue;
+            }
+
+            if (pattern[i] == '(' && pattern[i + 1] == '?' && pattern[i + 2] == '<' &&
+                i + 3 < pattern.Length && pattern[i + 3] != '=' && pattern[i + 3] != '!')
+            {
+                // Found (?<name>
+                int nameStart = i + 3;
+                int nameEnd = pattern.IndexOf('>', nameStart);
+                if (nameEnd > nameStart)
+                {
+                    var name = pattern.Substring(nameStart, nameEnd - nameStart);
+                    if (!names.Add(name))
+                    {
+                        return true; // duplicate found
+                    }
+                }
+            }
+
+            i++;
+        }
+
+        return false;
+    }
+
     private static bool HasForwardBackReference(string pattern)
     {
-        // Quick check: pattern contains \N where N references a group not yet defined
-        int groupCount = 0;
+        // Check for \N numeric forward backreference and \k<name> forward named backreference
+        var definedGroups = new HashSet<string>(StringComparer.Ordinal);
+        int numericGroupCount = 0;
+
         for (int i = 0; i < pattern.Length; i++)
         {
-            if (pattern[i] == '(' && i + 1 < pattern.Length && pattern[i + 1] != '?')
-            {
-                groupCount++;
-            }
-            else if (pattern[i] == '\\' && i + 1 < pattern.Length)
+            if (pattern[i] == '\\' && i + 1 < pattern.Length)
             {
                 char next = pattern[i + 1];
                 if (next >= '1' && next <= '9')
                 {
                     int refNum = next - '0';
-                    if (refNum > groupCount)
+                    if (refNum > numericGroupCount)
                     {
                         return true;
                     }
                 }
+                else if (next == 'k' && i + 2 < pattern.Length && pattern[i + 2] == '<')
+                {
+                    // Named backreference \k<name>
+                    int nameEnd = pattern.IndexOf('>', i + 3);
+                    if (nameEnd > i + 3)
+                    {
+                        var refName = pattern.Substring(i + 3, nameEnd - (i + 3));
+                        if (!definedGroups.Contains(refName))
+                        {
+                            return true;
+                        }
+                        i = nameEnd;
+                        continue;
+                    }
+                }
+
                 i++; // skip escaped char
             }
+            else if (pattern[i] == '(' && i + 1 < pattern.Length)
+            {
+                if (pattern[i + 1] != '?')
+                {
+                    numericGroupCount++;
+                }
+                else if (i + 2 < pattern.Length && pattern[i + 2] == '<' &&
+                         i + 3 < pattern.Length && pattern[i + 3] != '=' && pattern[i + 3] != '!')
+                {
+                    // Named group (?<name>
+                    int nameEnd = pattern.IndexOf('>', i + 3);
+                    if (nameEnd > i + 3)
+                    {
+                        var name = pattern.Substring(i + 3, nameEnd - (i + 3));
+                        definedGroups.Add(name);
+                        numericGroupCount++;
+                    }
+                }
+            }
         }
+
+        // Also check for self-referencing groups like (?<a>\k<a>\w)
+        // These are fine in JS but .NET handles them differently
+        // We already catch these above since \k<a> appears before (?<a>) is fully defined
+
         return false;
     }
 

@@ -97,7 +97,7 @@
     "built-ins/RegExp/S15.10.2.5_A1_T4.js",
     "built-ins/RegExp/prototype/exec/S15.10.6.2_A1_T6.js",
 
-    // Custom engine: named group references in non-unicode/unicode mode
+    // Custom engine: named group forward references (routed to custom engine, testing)
     "built-ins/RegExp/named-groups/non-unicode-references.js",
     "built-ins/RegExp/named-groups/unicode-references.js",
 
@@ -113,7 +113,7 @@
     "language/literals/regexp/u-case-mapping.js",
     "built-ins/RegExp/unicode_full_case_folding.js",
 
-    // Custom engine: duplicate named groups in alternation
+    // Custom engine: duplicate named groups - custom engine doesn't handle capture reset correctly yet
     "built-ins/RegExp/named-groups/duplicate-names-exec.js",
     "built-ins/RegExp/named-groups/duplicate-names-match.js",
     "built-ins/RegExp/prototype/exec/duplicate-named-groups-properties.js",
