@@ -618,65 +618,29 @@ public sealed class RegExpConstructor : Constructor
 
     private static bool HasForwardBackReference(string pattern)
     {
-        // Check for \N numeric forward backreference and \k<name> forward named backreference
-        var definedGroups = new HashSet<string>(StringComparer.Ordinal);
-        int numericGroupCount = 0;
-
+        // Quick check: pattern contains \N where N references a group not yet defined
+        int groupCount = 0;
         for (int i = 0; i < pattern.Length; i++)
         {
-            if (pattern[i] == '\\' && i + 1 < pattern.Length)
+            if (pattern[i] == '(' && i + 1 < pattern.Length && pattern[i + 1] != '?')
+            {
+                groupCount++;
+            }
+            else if (pattern[i] == '\\' && i + 1 < pattern.Length)
             {
                 char next = pattern[i + 1];
                 if (next >= '1' && next <= '9')
                 {
                     int refNum = next - '0';
-                    if (refNum > numericGroupCount)
+                    if (refNum > groupCount)
                     {
                         return true;
-                    }
-                }
-                else if (next == 'k' && i + 2 < pattern.Length && pattern[i + 2] == '<')
-                {
-                    // Named backreference \k<name>
-                    int nameEnd = pattern.IndexOf('>', i + 3);
-                    if (nameEnd > i + 3)
-                    {
-                        var refName = pattern.Substring(i + 3, nameEnd - (i + 3));
-                        if (!definedGroups.Contains(refName))
-                        {
-                            return true;
-                        }
-                        i = nameEnd;
-                        continue;
                     }
                 }
 
                 i++; // skip escaped char
             }
-            else if (pattern[i] == '(' && i + 1 < pattern.Length)
-            {
-                if (pattern[i + 1] != '?')
-                {
-                    numericGroupCount++;
-                }
-                else if (i + 2 < pattern.Length && pattern[i + 2] == '<' &&
-                         i + 3 < pattern.Length && pattern[i + 3] != '=' && pattern[i + 3] != '!')
-                {
-                    // Named group (?<name>
-                    int nameEnd = pattern.IndexOf('>', i + 3);
-                    if (nameEnd > i + 3)
-                    {
-                        var name = pattern.Substring(i + 3, nameEnd - (i + 3));
-                        definedGroups.Add(name);
-                        numericGroupCount++;
-                    }
-                }
-            }
         }
-
-        // Also check for self-referencing groups like (?<a>\k<a>\w)
-        // These are fine in JS but .NET handles them differently
-        // We already catch these above since \k<a> appears before (?<a>) is fully defined
 
         return false;
     }

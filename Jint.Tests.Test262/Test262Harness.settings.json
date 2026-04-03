@@ -97,7 +97,7 @@
     "built-ins/RegExp/S15.10.2.5_A1_T4.js",
     "built-ins/RegExp/prototype/exec/S15.10.6.2_A1_T6.js",
 
-    // Custom engine: named group forward references (routed to custom engine, testing)
+    // .NET regex engine: named group forward references - need custom engine handling
     "built-ins/RegExp/named-groups/non-unicode-references.js",
     "built-ins/RegExp/named-groups/unicode-references.js",
 
