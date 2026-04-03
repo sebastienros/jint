@@ -32,17 +32,11 @@
     // CharacterClassEscapes tests internally use v-flag regex literals (Acornima parser limitation)
     "built-ins/RegExp/CharacterClassEscapes/*.js",
 
-    // Custom engine: Unicode property lookup issues (GC table decoding, character class interaction)
+    // Custom engine: inverted property escape \P{} inside character class union not working
     "built-ins/RegExp/property-escapes/character-class.js",
-    "built-ins/RegExp/property-escapes/character-class-range-end.js",
-    "built-ins/RegExp/property-escapes/character-class-range-no-dash-end.js",
-    "built-ins/RegExp/property-escapes/character-class-range-no-dash-start.js",
-    "built-ins/RegExp/property-escapes/character-class-range-start.js",
+    // Custom engine: Script=Unknown special case
     "built-ins/RegExp/property-escapes/special-property-value-Script_Extensions-Unknown.js",
     "built-ins/RegExp/property-escapes/special-property-value-Script-Unknown.js",
-    "built-ins/RegExp/property-escapes/non-existent-property-and-value.js",
-    "built-ins/RegExp/property-escapes/non-existent-property-value.js",
-    "built-ins/RegExp/property-escapes/non-existent-property.js",
 
     // Custom engine: Unicode 16 scripts not in QuickJS tables (QuickJS uses Unicode 15.x)
     "built-ins/RegExp/property-escapes/generated/Script_-_Beria_Erfe.js",
