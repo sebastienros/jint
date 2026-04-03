@@ -23,8 +23,14 @@ jobs:
     - name: Checkout source code
       uses: actions/checkout@v6
 
+    - name: Cache Test262 generated suite
+      uses: actions/cache@v5
+      with:
+        path: Jint.Tests.Test262/Generated
+        key: test262-generated-${{ hashFiles('Jint.Tests.Test262/Test262Harness.settings.json') }}
+
     - name: Test
-      run: dotnet test --configuration Release --logger "GitHubActions;summary-include-passed=false;summary-include-skipped=false"
+      run: dotnet test --configuration Release --logger "console;verbosity=quiet" --logger "GitHubActions;summary-include-passed=false;summary-include-skipped=false"
 
     - name: Pack with dotnet
       run: |
