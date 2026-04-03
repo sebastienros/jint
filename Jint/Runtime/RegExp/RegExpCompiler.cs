@@ -1579,21 +1579,28 @@ normal_char_return:
                         }
                     }
 
-                    if (!rangeHandled && _pos > 0)
+                    // If no range was handled, union the single class atom into cr
+                    if (!rangeHandled)
                     {
-                        // If we didn't handle as range and didn't fall through to class_atom above
-                        // The else branch of the range check
-                        if (!(_pos < _patternEnd && _pattern[_pos - 1] == '-') || true)
+                        if (c1 >= 0 && c1 < (int) ClassRangeBase)
                         {
-                            // Only emit if not already handled
+                            if (IgnoreCase)
+                            {
+                                var crTmp = new CharRange();
+                                crTmp.AddInterval((uint) c1, (uint) c1 + 1);
+                                crTmp.RegexpCanonicalize(IsUnicode);
+                                cr.Cr.Op1(crTmp, CharRangeOp.Union);
+                            }
+                            else
+                            {
+                                cr.Cr.UnionInterval((uint) c1, (uint) c1);
+                            }
                         }
-                    }
-
-                    // If no range was processed and no fallToClassAtom was triggered,
-                    // this is the default else case
-                    if (!rangeHandled && _pos <= _patternEnd)
-                    {
-                        // Check if we already handled via fallToClassAtom
+                        else
+                        {
+                            // Property escape, \d, \w, etc. - union into result
+                            cr.Cr.Op1(cr1.Cr, CharRangeOp.Union);
+                        }
                     }
 
 after_class_handling:

@@ -32,8 +32,6 @@
     // CharacterClassEscapes tests internally use v-flag regex literals (Acornima parser limitation)
     "built-ins/RegExp/CharacterClassEscapes/*.js",
 
-    // Custom engine: inverted property escape \P{} inside character class union not working
-    "built-ins/RegExp/property-escapes/character-class.js",
     // Custom engine: Script=Unknown special case
     "built-ins/RegExp/property-escapes/special-property-value-Script_Extensions-Unknown.js",
     "built-ins/RegExp/property-escapes/special-property-value-Script-Unknown.js",
