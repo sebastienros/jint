@@ -553,13 +553,6 @@ public sealed class RegExpConstructor : Constructor
             return true;
         }
 
-        // Duplicate named capture groups in alternation: (?<x>a)|(?<x>b)
-        // .NET retains captures from previous iterations; JS resets them per spec
-        if (HasDuplicateNamedGroups(pattern))
-        {
-            return true;
-        }
-
         return false;
     }
 
