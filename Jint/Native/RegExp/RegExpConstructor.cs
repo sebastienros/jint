@@ -444,6 +444,9 @@ public sealed class RegExpConstructor : Constructor
 
         var f = flags.IsUndefined() ? "" : TypeConverter.ToString(flags);
 
+        // Validate flags before attempting compilation - invalid flags should always be a SyntaxError
+        ValidateFlags(f);
+
         var parserOptions = _engine.GetActiveParserOptions();
         try
         {
@@ -485,6 +488,48 @@ public sealed class RegExpConstructor : Constructor
         }
 
         return r;
+    }
+
+    /// <summary>
+    /// Validate regex flags per ECMAScript spec: only "dgimsuy" allowed, no duplicates,
+    /// u and v are mutually exclusive.
+    /// </summary>
+    private void ValidateFlags(string flags)
+    {
+        var seen = 0;
+        foreach (var c in flags)
+        {
+            var bit = c switch
+            {
+                'd' => 1,
+                'g' => 2,
+                'i' => 4,
+                'm' => 8,
+                's' => 16,
+                'u' => 32,
+                'v' => 64,
+                'y' => 128,
+                _ => -1,
+            };
+
+            if (bit < 0)
+            {
+                Throw.SyntaxError(_realm, $"Invalid regular expression flags: {flags}");
+            }
+
+            if ((seen & bit) != 0)
+            {
+                Throw.SyntaxError(_realm, $"Invalid regular expression flags: {flags}");
+            }
+
+            seen |= bit;
+        }
+
+        // u and v are mutually exclusive
+        if ((seen & 32) != 0 && (seen & 64) != 0)
+        {
+            Throw.SyntaxError(_realm, $"Invalid regular expression flags: {flags}");
+        }
     }
 
     /// <summary>
