@@ -48,7 +48,7 @@ internal sealed class JintUpdateExpression : JintExpression
         var reference = _argument.Evaluate(context) as Reference;
         if (reference is null)
         {
-            Throw.TypeError(engine.Realm, "Invalid left-hand side expression");
+            Throw.ReferenceError(engine.Realm, "Invalid left-hand side in assignment");
         }
 
         reference.AssertValid(engine.Realm);
