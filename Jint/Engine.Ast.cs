@@ -17,6 +17,7 @@ public partial class Engine
     /// </remarks>
     public static Prepared<Script> PrepareScript(string code, string? source = null, bool strict = false, ScriptPreparationOptions? options = null)
     {
+        source ??= "<anonymous>";
         options ??= ScriptPreparationOptions.Default;
 
         var astAnalyzer = new AstAnalyzer(options);
@@ -53,6 +54,7 @@ public partial class Engine
     /// </remarks>
     public static Prepared<Module> PrepareModule(string code, string? source = null, ModulePreparationOptions? options = null)
     {
+        source ??= "<anonymous>";
         options ??= ModulePreparationOptions.Default;
 
         var astAnalyzer = new AstAnalyzer(options);

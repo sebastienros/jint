@@ -80,7 +80,7 @@ public class ScriptModulePreparationTests
     public void PrepareScriptShouldNotLeakAcornimaException()
     {
         var ex = Assert.Throws<ScriptPreparationException>(() => Engine.PrepareScript("class A { } A().#nonexistent = 1;"));
-        ex.Message.Should().Be("Could not prepare script: Private field '#nonexistent' must be declared in an enclosing class (1:17)");
+        ex.Message.Should().Be("Could not prepare script: Private field '#nonexistent' must be declared in an enclosing class (<anonymous>:1:17)");
         ex.InnerException.Should().BeOfType<SyntaxErrorException>();
     }
 
@@ -88,7 +88,7 @@ public class ScriptModulePreparationTests
     public void PrepareModuleShouldNotLeakAcornimaException()
     {
         var ex = Assert.Throws<ScriptPreparationException>(() => Engine.PrepareModule("class A { } A().#nonexistent = 1;"));
-        ex.Message.Should().Be("Could not prepare script: Private field '#nonexistent' must be declared in an enclosing class (1:17)");
+        ex.Message.Should().Be("Could not prepare script: Private field '#nonexistent' must be declared in an enclosing class (<anonymous>:1:17)");
         ex.InnerException.Should().BeOfType<SyntaxErrorException>();
     }
 }
