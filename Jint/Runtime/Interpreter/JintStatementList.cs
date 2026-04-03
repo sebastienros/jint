@@ -154,7 +154,7 @@ internal sealed class JintStatementList
 
     internal static Completion HandleException(EvaluationContext context, Exception exception, JintStatement? s)
     {
-        return exception switch
+        var completion = exception switch
         {
             JavaScriptException javaScriptException => CreateThrowCompletion(s, javaScriptException),
             TypeErrorException typeErrorException => CreateThrowCompletion(context.Engine.Realm.Intrinsics.TypeError, typeErrorException, typeErrorException.Node ?? s!._statement),
@@ -162,13 +162,27 @@ internal sealed class JintStatementList
             SyntaxErrorException syntaxErrorException => CreateThrowCompletion(context.Engine.Realm.Intrinsics.SyntaxError, syntaxErrorException, s!._statement),
             _ => throw exception
         };
+
+        if (context.DebugMode)
+        {
+            context.Engine.Debugger.OnExceptionThrown(completion.Value, completion.Location);
+        }
+
+        return completion;
     }
 
     internal static Completion HandleError(Engine engine, JintStatement? s)
     {
         var error = engine._error!;
         engine._error = null;
-        return CreateThrowCompletion(error.ErrorConstructor, error.Message, engine._lastSyntaxElement ?? s!._statement);
+        var completion = CreateThrowCompletion(error.ErrorConstructor, error.Message, engine._lastSyntaxElement ?? s!._statement);
+
+        if (engine._isDebugMode)
+        {
+            engine.Debugger.OnExceptionThrown(completion.Value, completion.Location);
+        }
+
+        return completion;
     }
 
     private static Completion CreateThrowCompletion(ErrorConstructor errorConstructor, string? message, Node s)
