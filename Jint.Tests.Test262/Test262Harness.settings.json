@@ -36,7 +36,8 @@
     "built-ins/RegExp/property-escapes/special-property-value-Script_Extensions-Unknown.js",
     "built-ins/RegExp/property-escapes/special-property-value-Script-Unknown.js",
 
-    // Custom engine: Unicode 16 scripts not in QuickJS tables (QuickJS uses Unicode 15.x)
+    // Custom engine: Script tests require Unicode 17 data (our tables are Unicode 16)
+    // Some scripts exist in our tables but Acornima rejects the property names at parse time
     "built-ins/RegExp/property-escapes/generated/Script_-_Beria_Erfe.js",
     "built-ins/RegExp/property-escapes/generated/Script_-_Garay.js",
     "built-ins/RegExp/property-escapes/generated/Script_-_Gurung_Khema.js",
@@ -60,7 +61,7 @@
     "built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Tolong_Siki.js",
     "built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Tulu_Tigalari.js",
 
-    // Custom engine: General Category table decoding issues
+    // Custom engine: General Category tests differ between Unicode 16 (our tables) and Unicode 17 (test262)
     "built-ins/RegExp/property-escapes/generated/General_Category_-_Cased_Letter.js",
     "built-ins/RegExp/property-escapes/generated/General_Category_-_Currency_Symbol.js",
     "built-ins/RegExp/property-escapes/generated/General_Category_-_Decimal_Number.js",
@@ -85,25 +86,22 @@
     // Custom engine: sequence property string tests
     "built-ins/RegExp/property-escapes/generated/strings/*.js",
 
-    // These tests pass through .NET Regex which has different semantics from ECMAScript.
-    // They need per-pattern detection to route to the custom engine (Phase 4 future work).
+    // Patterns routed to custom engine via NeedCustomEngine() detection.
+    // The following still fail due to custom engine limitations:
 
-    // .NET regex engine: forward backreferences not supported in ECMAScript mode
-    "built-ins/RegExp/S15.10.2.11_A1_T5.js",
-    "built-ins/RegExp/S15.10.2.11_A1_T7.js",
-    "language/literals/regexp/named-groups/forward-reference.js",
-    "built-ins/RegExp/named-groups/non-unicode-references.js",
-    "built-ins/RegExp/named-groups/unicode-references.js",
-
-    // .NET regex engine: lookbehind backreference capture semantics differ from JS
-    "built-ins/RegExp/lookBehind/back-references-to-captures.js",
-    "built-ins/RegExp/lookBehind/mutual-recursive.js",
-
-    // .NET regex engine: nullable quantifier and lookahead capture group semantics differ
+    // Custom engine: nullable quantifier and lookahead capture group semantics
     "built-ins/RegExp/nullable-quantifier.js",
     "built-ins/RegExp/lookahead-quantifier-match-groups.js",
 
-    // .NET regex engine: scoped regexp modifiers don't fully match ECMAScript boundary and multiline semantics
+    // Custom engine: complex quantifier capture group tracking
+    "built-ins/RegExp/S15.10.2.5_A1_T4.js",
+    "built-ins/RegExp/prototype/exec/S15.10.6.2_A1_T6.js",
+
+    // Custom engine: named group references in non-unicode/unicode mode
+    "built-ins/RegExp/named-groups/non-unicode-references.js",
+    "built-ins/RegExp/named-groups/unicode-references.js",
+
+    // Custom engine: scoped regexp modifiers
     "built-ins/RegExp/regexp-modifiers/add-ignoreCase-affects-slash-lower-b.js",
     "built-ins/RegExp/regexp-modifiers/add-ignoreCase-affects-slash-lower-w.js",
     "built-ins/RegExp/regexp-modifiers/add-ignoreCase-affects-slash-upper-b.js",
@@ -111,21 +109,13 @@
     "built-ins/RegExp/regexp-modifiers/add-multiline.js",
     "built-ins/RegExp/regexp-modifiers/remove-multiline-does-not-affect-dotAll-flag.js",
 
-    // .NET regex engine: complex quantifier capture group tracking differs
-    "built-ins/RegExp/S15.10.2.5_A1_T4.js",
-    "built-ins/RegExp/prototype/exec/S15.10.6.2_A1_T6.js",
-
-    // .NET regex engine: Unicode case folding tables differ from ECMAScript CaseFolding.txt
+    // Custom engine: Unicode case folding tables
     "language/literals/regexp/u-case-mapping.js",
     "built-ins/RegExp/unicode_full_case_folding.js",
 
-    // .NET regex engine: quantifier values exceeding int.MaxValue
-    "built-ins/RegExp/quantifier-integer-limit.js",
-
-    // .NET regex engine: quantified groups with alternation retain captures from previous iterations
+    // Custom engine: duplicate named groups in alternation
     "built-ins/RegExp/named-groups/duplicate-names-exec.js",
     "built-ins/RegExp/named-groups/duplicate-names-match.js",
-    "built-ins/RegExp/named-groups/duplicate-names-test.js",
     "built-ins/RegExp/prototype/exec/duplicate-named-groups-properties.js",
     "built-ins/RegExp/prototype/exec/duplicate-named-indices-groups-properties.js",
     "built-ins/String/prototype/match/duplicate-named-groups-properties.js",

@@ -454,7 +454,7 @@ public sealed class RegExpConstructor : Constructor
                 ecmaVersion: parserOptions.EcmaVersion,
                 experimentalESFeatures: parserOptions.ExperimentalESFeatures);
 
-            if (regExpParseResult.Success)
+            if (regExpParseResult.Success && !NeedCustomEngine(p, f))
             {
                 r.Value = regExpParseResult.Regex!;
                 r.ParseResult = regExpParseResult;
@@ -530,6 +530,90 @@ public sealed class RegExpConstructor : Constructor
         {
             Throw.SyntaxError(_realm, $"Invalid regular expression flags: {flags}");
         }
+    }
+
+    /// <summary>
+    /// Detect patterns where .NET Regex produces semantically incorrect results
+    /// compared to ECMAScript specification. These patterns need the custom engine.
+    /// </summary>
+    private static bool NeedCustomEngine(string pattern, string flags)
+    {
+
+        // Forward backreference: \N appears before the Nth capture group
+        // e.g. \1(a) - .NET ECMAScript mode doesn't support this
+        if (HasForwardBackReference(pattern))
+        {
+            return true;
+        }
+
+        // Lookbehind with backreferences: (?<=\1(\w)) or (?<!...)
+        // .NET lookbehind capture semantics differ from JS
+        if ((pattern.Contains("(?<=") || pattern.Contains("(?<!")) && HasBackReferenceInLookbehind(pattern))
+        {
+            return true;
+        }
+
+        // Note: scoped modifiers (?i:...) etc. have semantic differences in .NET,
+        // but routing all of them to the custom engine causes more regressions than it fixes.
+        // The specific failing cases are excluded in test262 settings.
+
+        // Note: Unicode case folding with /iu has some differences between .NET and ECMAScript,
+        // but routing ALL /iu patterns to custom engine is too aggressive. Only specific
+        // case folding edge cases fail (e.g., ω/Ω matching). Keep on .NET for now.
+
+        return false;
+    }
+
+    private static bool HasBackReferenceInLookbehind(string pattern)
+    {
+        // Check if there's a \N backreference inside a lookbehind group
+        int idx = 0;
+        while (true)
+        {
+            int lb = pattern.IndexOf("(?<", idx, StringComparison.Ordinal);
+            if (lb < 0) break;
+            if (lb + 3 < pattern.Length && (pattern[lb + 3] == '=' || pattern[lb + 3] == '!'))
+            {
+                // Found lookbehind - scan for backreference inside
+                for (int j = lb + 4; j < pattern.Length - 1; j++)
+                {
+                    if (pattern[j] == ')') break;
+                    if (pattern[j] == '\\' && j + 1 < pattern.Length && pattern[j + 1] >= '1' && pattern[j + 1] <= '9')
+                    {
+                        return true;
+                    }
+                }
+            }
+            idx = lb + 3;
+        }
+        return false;
+    }
+
+    private static bool HasForwardBackReference(string pattern)
+    {
+        // Quick check: pattern contains \N where N references a group not yet defined
+        int groupCount = 0;
+        for (int i = 0; i < pattern.Length; i++)
+        {
+            if (pattern[i] == '(' && i + 1 < pattern.Length && pattern[i + 1] != '?')
+            {
+                groupCount++;
+            }
+            else if (pattern[i] == '\\' && i + 1 < pattern.Length)
+            {
+                char next = pattern[i + 1];
+                if (next >= '1' && next <= '9')
+                {
+                    int refNum = next - '0';
+                    if (refNum > groupCount)
+                    {
+                        return true;
+                    }
+                }
+                i++; // skip escaped char
+            }
+        }
+        return false;
     }
 
     /// <summary>
