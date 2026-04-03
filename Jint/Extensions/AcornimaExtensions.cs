@@ -14,16 +14,6 @@ internal static class AcornimaExtensions
                 ? parser.ParseScript(padding + code, padding.Length, code.Length, source, strict)
                 : parser.ParseScript(code, source, strict);
         }
-        catch (RegExpConversionErrorException)
-        {
-            // Regex pattern is valid but cannot be converted to .NET Regex.
-            // Re-parse in tolerant mode so the RegExpLiteral node is created
-            // with ConversionError info. At runtime, the custom engine will handle it.
-            var tolerantParser = new Parser(parser.Options with { Tolerant = true });
-            return padding.Length > 0
-                ? tolerantParser.ParseScript(padding + code, padding.Length, code.Length, source, strict)
-                : tolerantParser.ParseScript(code, source, strict);
-        }
         catch (ParseErrorException e)
         {
             Throw.SyntaxError(realm, e.Message, ToLocation(e, source));
@@ -46,11 +36,6 @@ internal static class AcornimaExtensions
         try
         {
             return parser.ParseModule(code, source);
-        }
-        catch (RegExpConversionErrorException)
-        {
-            var tolerantParser = new Parser(parser.Options with { Tolerant = true });
-            return tolerantParser.ParseModule(code, source);
         }
         catch (ParseErrorException ex)
         {

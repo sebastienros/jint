@@ -67,14 +67,16 @@ internal sealed class JintLiteralExpression : JintExpression
         if (expression is RegExpLiteral regExpLiteral)
         {
             var regExpParseResult = regExpLiteral.ParseResult;
-            if (regExpParseResult.Success)
+
+            // If Acornima pre-compiled a .NET Regex (AdaptToInterpreted/AdaptToCompiled mode), use it directly
+            var regex = regExpLiteral.UserData as Regex ?? regExpParseResult.Regex;
+            if (regex is not null)
             {
-                var regex = regExpLiteral.UserData as Regex ?? regExpParseResult.Regex!;
                 return context.Engine.Realm.Intrinsics.RegExp.Construct(regex, regExpLiteral.RegExp.Pattern, regExpLiteral.RegExp.Flags, regExpParseResult);
             }
 
-            // Acornima could not convert to .NET Regex - try custom engine
-            return context.Engine.Realm.Intrinsics.RegExp.ConstructWithCustomEngine(regExpLiteral.RegExp.Pattern, regExpLiteral.RegExp.Flags);
+            // Otherwise compile at runtime via RegExpInitialize (handles .NET Regex + custom engine fallback)
+            return context.Engine.Realm.Intrinsics.RegExp.RegExpCreate(regExpLiteral.RegExp.Pattern, regExpLiteral.RegExp.Flags);
         }
 
         return JsValue.FromObject(context.Engine, expression.Value);

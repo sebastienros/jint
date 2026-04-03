@@ -44,18 +44,17 @@ public partial class Engine
             }
             catch (RegExpConversionErrorException)
             {
-                // Regex pattern is valid but cannot be converted to .NET Regex.
-                // Re-parse in tolerant mode so the RegExpLiteral node is created
-                // with ConversionError info. At runtime, the custom engine will handle it.
-                var tolerantParser = new Parser(parserOptions with { OnNode = astAnalyzer.NodeVisitor, Tolerant = true });
+                // Regex conversion failed at prep time - fall back to Validate mode.
+                // The custom engine will handle these patterns at runtime.
+                var validateParser = new Parser(parserOptions with { OnNode = astAnalyzer.NodeVisitor, RegExpParseMode = RegExpParseMode.Validate });
                 if (padding.Length > 0)
                 {
                     var paddedCode = padding + code;
-                    preparedScript = tolerantParser.ParseScript(paddedCode, padding.Length, code.Length, source, strict);
+                    preparedScript = validateParser.ParseScript(paddedCode, padding.Length, code.Length, source, strict);
                 }
                 else
                 {
-                    preparedScript = tolerantParser.ParseScript(code, source, strict);
+                    preparedScript = validateParser.ParseScript(code, source, strict);
                 }
             }
 
@@ -91,8 +90,8 @@ public partial class Engine
             }
             catch (RegExpConversionErrorException)
             {
-                var tolerantParser = new Parser(parserOptions with { OnNode = astAnalyzer.NodeVisitor, Tolerant = true });
-                preparedModule = tolerantParser.ParseModule(code, source);
+                var validateParser = new Parser(parserOptions with { OnNode = astAnalyzer.NodeVisitor, RegExpParseMode = RegExpParseMode.Validate });
+                preparedModule = validateParser.ParseModule(code, source);
             }
 
             return new Prepared<Module>(preparedModule, parserOptions);

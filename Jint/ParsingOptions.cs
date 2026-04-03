@@ -36,7 +36,7 @@ public sealed record ScriptParsingOptions : IParsingOptions
     {
         AllowReturnOutsideFunction = true,
         AllowTopLevelUsing = true,
-        RegExpParseMode = RegExpParseMode.AdaptToInterpreted,
+        // RegExpParseMode inherited from BaseParserOptions (Validate)
     };
 
     public static readonly ScriptParsingOptions Default = new();
@@ -87,7 +87,7 @@ public sealed record class ModuleParsingOptions : IParsingOptions
 {
     private static readonly ParserOptions _defaultParserOptions = Engine.BaseParserOptions with
     {
-        RegExpParseMode = RegExpParseMode.AdaptToInterpreted,
+        // RegExpParseMode inherited from BaseParserOptions (Validate)
     };
 
     public static readonly ModuleParsingOptions Default = new();
