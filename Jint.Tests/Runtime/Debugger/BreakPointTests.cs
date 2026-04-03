@@ -134,6 +134,95 @@ x++; y *= 2;
     }
 
     [Fact]
+    public void BreakPointBreaksAtPositionWithPreparedScript()
+    {
+        string script = @"let x = 1, y = 2;
+if (x === 1)
+{
+x++; y *= 2;
+}";
+
+        var engine = new Engine(options => options.DebugMode());
+
+        bool didBreak = false;
+        engine.Debugger.Break += (sender, info) =>
+        {
+            Assert.Equal(4, info.Location.Start.Line);
+            Assert.Equal(5, info.Location.Start.Column);
+            didBreak = true;
+            return StepMode.None;
+        };
+
+        engine.Debugger.BreakPoints.Set(new BreakPoint(4, 5));
+        var prepared = Engine.PrepareScript(script);
+        engine.Execute(prepared);
+        Assert.True(didBreak);
+    }
+
+    [Fact]
+    public void BreakPointBreaksInCorrectSourceWithPreparedScript()
+    {
+        string script1 = @"let x = 1, y = 2;
+if (x === 1)
+{
+x++; y *= 2;
+}";
+
+        string script2 = @"function test(x)
+{
+return x + 2;
+}";
+
+        string script3 = @"const z = 3;
+test(z);";
+
+        var engine = new Engine(options => { options.DebugMode(); });
+
+        engine.Debugger.BreakPoints.Set(new BreakPoint("script2", 3, 0));
+
+        bool didBreak = false;
+        engine.Debugger.Break += (sender, info) =>
+        {
+            Assert.Equal("script2", info.Location.SourceFile);
+            Assert.Equal(3, info.Location.Start.Line);
+            Assert.Equal(0, info.Location.Start.Column);
+            didBreak = true;
+            return StepMode.None;
+        };
+
+        engine.Execute(Engine.PrepareScript(script1, "script1"));
+        Assert.False(didBreak);
+
+        engine.Execute(Engine.PrepareScript(script2, "script2"));
+        Assert.False(didBreak);
+
+        engine.Execute(Engine.PrepareScript(script3, "script3"));
+        Assert.True(didBreak);
+    }
+
+    [Fact]
+    public void BreakPointBreaksWithPreparedScriptDefaultSource()
+    {
+        string script = @"let x = 1;
+x++;";
+
+        var engine = new Engine(options => options.DebugMode());
+
+        bool didBreak = false;
+        engine.Debugger.Break += (sender, info) =>
+        {
+            Assert.Equal("<anonymous>", info.Location.SourceFile);
+            didBreak = true;
+            return StepMode.None;
+        };
+
+        engine.Debugger.BreakPoints.Set(new BreakPoint("<anonymous>", 2, 0));
+        var prepared = Engine.PrepareScript(script);
+        engine.Execute(prepared);
+        Assert.True(didBreak);
+    }
+
+    [Fact]
     public void BreakPointBreaksInCorrectSource()
     {
         string script1 = @"let x = 1, y = 2;
