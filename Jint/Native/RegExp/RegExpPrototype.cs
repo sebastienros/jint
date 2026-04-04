@@ -980,15 +980,22 @@ internal sealed class RegExpPrototype : Prototype
         }
 
         var regexTimeout = R.Engine.Options.Constraints.RegexTimeout;
-        using var cts = new CancellationTokenSource(regexTimeout);
         RegExpMatchResult result;
-        try
+        if (regexTimeout.TotalMilliseconds > 0 && regexTimeout != Timeout.InfiniteTimeSpan)
         {
-            result = customEngine.Execute(s, (int) lastIndex, cts.Token);
+            using var cts = new CancellationTokenSource(regexTimeout);
+            try
+            {
+                result = customEngine.Execute(s, (int) lastIndex, cts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                throw new RegexMatchTimeoutException(s, R.Source ?? "", regexTimeout);
+            }
         }
-        catch (OperationCanceledException)
+        else
         {
-            throw new RegexMatchTimeoutException(s, R.Source ?? "", regexTimeout);
+            result = customEngine.Execute(s, (int) lastIndex);
         }
         var success = result.Success && (!sticky || result.Index == (int) lastIndex);
 

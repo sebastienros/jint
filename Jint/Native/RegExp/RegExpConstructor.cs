@@ -606,7 +606,7 @@ public sealed class RegExpConstructor : Constructor
         // Unicode case folding than ES spec (e.g. U+212A KELVIN SIGN matches 'K',
         // U+017F LONG S matches 's'). In non-unicode mode, ES spec Canonicalize uses
         // toUpperCase only, not Unicode case folding.
-        if (flags.Contains('i') && HasUnicodeEscape(pattern))
+        if (flags.Contains('i') && HasNonAsciiUnicodeEscape(pattern))
         {
             return true;
         }
@@ -677,24 +677,77 @@ public sealed class RegExpConstructor : Constructor
     }
 
     /// <summary>
-    /// Detect \u hex escapes for non-ASCII code points in the pattern.
+    /// Detect \uXXXX or \u{XXXX} hex escapes for non-ASCII code points (>0x7F) in the pattern.
+    /// .NET IgnoreCase applies broader Unicode case folding than ES spec for these characters.
+    /// ASCII-range escapes like \u0041 work correctly in .NET and don't need the custom engine.
     /// </summary>
-    private static bool HasUnicodeEscape(string pattern)
+    private static bool HasNonAsciiUnicodeEscape(string pattern)
     {
         for (int i = 0; i < pattern.Length - 1; i++)
         {
             if (pattern[i] == '\\')
             {
-                if (pattern[i + 1] == 'u')
+                if (pattern[i + 1] == 'u' && i + 2 < pattern.Length)
                 {
-                    return true;
-                }
+                    if (pattern[i + 2] == '{')
+                    {
+                        // \u{XXXX} syntax — parse hex value
+                        int value = 0;
+                        int j = i + 3;
+                        while (j < pattern.Length && pattern[j] != '}')
+                        {
+                            int digit = HexDigitValue(pattern[j]);
+                            if (digit < 0) break;
+                            value = (value << 4) | digit;
+                            j++;
+                        }
 
-                i++; // skip escaped char
+                        if (j < pattern.Length && pattern[j] == '}' && value > 0x7F)
+                        {
+                            return true;
+                        }
+
+                        i = j; // skip past parsed escape
+                    }
+                    else if (i + 5 < pattern.Length)
+                    {
+                        // \uXXXX syntax — parse 4 hex digits
+                        int d0 = HexDigitValue(pattern[i + 2]);
+                        int d1 = HexDigitValue(pattern[i + 3]);
+                        int d2 = HexDigitValue(pattern[i + 4]);
+                        int d3 = HexDigitValue(pattern[i + 5]);
+                        if (d0 >= 0 && d1 >= 0 && d2 >= 0 && d3 >= 0)
+                        {
+                            int value = (d0 << 12) | (d1 << 8) | (d2 << 4) | d3;
+                            if (value > 0x7F)
+                            {
+                                return true;
+                            }
+                        }
+
+                        i += 5; // skip past \uXXXX
+                    }
+                    else
+                    {
+                        i++; // skip escaped char
+                    }
+                }
+                else
+                {
+                    i++; // skip escaped char
+                }
             }
         }
 
         return false;
+    }
+
+    private static int HexDigitValue(char c)
+    {
+        if (c >= '0' && c <= '9') return c - '0';
+        if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+        if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+        return -1;
     }
 
     /// <summary>
