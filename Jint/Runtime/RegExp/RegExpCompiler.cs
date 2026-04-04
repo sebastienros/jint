@@ -2572,9 +2572,10 @@ parse_class_atom:
                     int insertLen = 5 + (addZeroAdvanceCheck ? 2 : 0);
                     ByteCodeInsert(lastAtomStart, insertLen);
 
+                    // When goto target is forward (to continuation), greedy means try atom (next) first
                     _byteCode[lastAtomStart] = (byte) (greedy
-                        ? RegExpOpcode.SplitGotoFirst
-                        : RegExpOpcode.SplitNextFirst);
+                        ? RegExpOpcode.SplitNextFirst
+                        : RegExpOpcode.SplitGotoFirst);
                     int jumpDist = len + (hasGoto ? 5 : 0) + (addZeroAdvanceCheck ? 4 : 0);
                     PutU32(lastAtomStart + 1, (uint) jumpDist);
 
@@ -2594,9 +2595,10 @@ parse_class_atom:
                     ByteCodeInsert(lastAtomStart, insertLen);
 
                     int insPos = lastAtomStart;
+                    // When goto target is forward (to continuation), greedy means try atom (next) first
                     _byteCode[insPos] = (byte) (greedy
-                        ? RegExpOpcode.SplitGotoFirst
-                        : RegExpOpcode.SplitNextFirst);
+                        ? RegExpOpcode.SplitNextFirst
+                        : RegExpOpcode.SplitGotoFirst);
                     PutU32(insPos + 1, (uint) (6 + (addZeroAdvanceCheck ? 2 : 0) + len + 10));
                     insPos += 5;
 

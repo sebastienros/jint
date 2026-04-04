@@ -55,28 +55,7 @@
     "built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Tolong_Siki.js",
     "built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Tulu_Tigalari.js",
 
-    // General Category tests - custom engine handles these correctly but .NET Unicode
-    // data lags behind (Unicode 17). Needs \p{} literal routing to custom engine.
-    "built-ins/RegExp/property-escapes/generated/General_Category_-_Cased_Letter.js",
-    "built-ins/RegExp/property-escapes/generated/General_Category_-_Currency_Symbol.js",
-    "built-ins/RegExp/property-escapes/generated/General_Category_-_Decimal_Number.js",
-    "built-ins/RegExp/property-escapes/generated/General_Category_-_Letter.js",
-    "built-ins/RegExp/property-escapes/generated/General_Category_-_Letter_Number.js",
-    "built-ins/RegExp/property-escapes/generated/General_Category_-_Lowercase_Letter.js",
-    "built-ins/RegExp/property-escapes/generated/General_Category_-_Mark.js",
-    "built-ins/RegExp/property-escapes/generated/General_Category_-_Math_Symbol.js",
-    "built-ins/RegExp/property-escapes/generated/General_Category_-_Modifier_Letter.js",
-    "built-ins/RegExp/property-escapes/generated/General_Category_-_Nonspacing_Mark.js",
-    "built-ins/RegExp/property-escapes/generated/General_Category_-_Number.js",
-    "built-ins/RegExp/property-escapes/generated/General_Category_-_Other.js",
-    "built-ins/RegExp/property-escapes/generated/General_Category_-_Other_Letter.js",
-    "built-ins/RegExp/property-escapes/generated/General_Category_-_Other_Punctuation.js",
-    "built-ins/RegExp/property-escapes/generated/General_Category_-_Other_Symbol.js",
-    "built-ins/RegExp/property-escapes/generated/General_Category_-_Punctuation.js",
-    "built-ins/RegExp/property-escapes/generated/General_Category_-_Spacing_Mark.js",
-    "built-ins/RegExp/property-escapes/generated/General_Category_-_Symbol.js",
-    "built-ins/RegExp/property-escapes/generated/General_Category_-_Unassigned.js",
-    "built-ins/RegExp/property-escapes/generated/General_Category_-_Uppercase_Letter.js",
+    // General Category tests — now routed to custom engine via \p{} detection with Unicode 17 data
 
     // Custom engine: sequence property string tests
     "built-ins/RegExp/property-escapes/generated/strings/*.js",
@@ -84,13 +63,7 @@
     // Patterns routed to custom engine via NeedCustomEngine() detection.
     // The following still fail due to custom engine limitations:
 
-    // Custom engine: nullable quantifier and lookahead capture group semantics
-    "built-ins/RegExp/nullable-quantifier.js",
-    "built-ins/RegExp/lookahead-quantifier-match-groups.js",
-
-    // Custom engine: complex quantifier capture group tracking
-    "built-ins/RegExp/S15.10.2.5_A1_T4.js",
-    "built-ins/RegExp/prototype/exec/S15.10.6.2_A1_T6.js",
+    // Nullable quantifier + capture reset tests — now routed to custom engine
 
 
 

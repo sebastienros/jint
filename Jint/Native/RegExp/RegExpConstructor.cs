@@ -447,8 +447,9 @@ public sealed class RegExpConstructor : Constructor
         // Validate flags before attempting compilation - invalid flags should always be a SyntaxError
         ValidateFlags(f);
 
-        // Check upfront if we know the custom engine is needed — avoids
-        // wasting time on Acornima conversion that will be discarded.
+        // Patterns come raw from source (Acornima validates syntax at parse time only).
+        // Route to custom engine when .NET Regex can't handle the pattern correctly,
+        // otherwise use .NET Regex (via Acornima's AdaptRegExp conversion) for performance.
         if (NeedCustomEngine(p, f))
         {
             TryCompileWithCustomEngine(r, p, f);
@@ -470,14 +471,11 @@ public sealed class RegExpConstructor : Constructor
                 }
                 else
                 {
-                    // Acornima could not convert the pattern to .NET Regex.
-                    // Try the custom engine (handles v-flag, unicode properties, forward backrefs, etc.)
                     TryCompileWithCustomEngine(r, p, f);
                 }
             }
             catch (Exception ex) when (ex is not Jint.Runtime.JavaScriptException)
             {
-                // Acornima threw during parsing/conversion - try custom engine
                 TryCompileWithCustomEngine(r, p, f);
             }
         }
@@ -579,6 +577,76 @@ public sealed class RegExpConstructor : Constructor
         if ((pattern.Contains("(?<=") || pattern.Contains("(?<!")) && HasBackReferenceInLookbehind(pattern))
         {
             return true;
+        }
+
+        // Unicode property escapes \p{...} / \P{...} with /u flag:
+        // .NET Unicode data may lag behind (missing Unicode 17 additions).
+        if (flags.Contains('u') && HasUnicodePropertyEscape(pattern))
+        {
+            return true;
+        }
+
+        // Nullable quantifier around capturing groups: .NET RepeatMatcher doesn't
+        // implement step 2.b (discard zero-width optional iterations).
+        // E.g., /(a?b??)*/ or /(?:(?=(abc)))?a/ — .NET gets captures wrong.
+        if (HasNullableQuantifierCapture(pattern))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Detect \p{...} or \P{...} unicode property escapes in the pattern.
+    /// </summary>
+    private static bool HasUnicodePropertyEscape(string pattern)
+    {
+        for (int i = 0; i < pattern.Length - 2; i++)
+        {
+            if (pattern[i] == '\\' && (pattern[i + 1] == 'p' || pattern[i + 1] == 'P') &&
+                i + 2 < pattern.Length && pattern[i + 2] == '{')
+            {
+                return true;
+            }
+
+            if (pattern[i] == '\\')
+            {
+                i++;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Detect nullable quantifier (min=0) around groups containing captures.
+    /// .NET Regex doesn't implement ES spec RepeatMatcher step 2.b correctly.
+    /// </summary>
+    private static bool HasNullableQuantifierCapture(string pattern)
+    {
+        // Look for )? or )* or ){0, patterns — nullable quantifier after a group that might contain captures
+        for (int i = 0; i < pattern.Length - 1; i++)
+        {
+            if (pattern[i] == '\\')
+            {
+                i++;
+                continue;
+            }
+
+            if (pattern[i] == ')' && i + 1 < pattern.Length)
+            {
+                char next = pattern[i + 1];
+                if (next == '?' || next == '*')
+                {
+                    return true;
+                }
+
+                if (next == '{' && i + 2 < pattern.Length && pattern[i + 2] == '0')
+                {
+                    return true;
+                }
+            }
         }
 
         return false;
