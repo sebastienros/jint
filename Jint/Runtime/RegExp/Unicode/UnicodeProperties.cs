@@ -218,7 +218,12 @@ internal static class UnicodeProperties
         {
             int len = CaseConvEntry(res, c, 2, idx, v);
             if (len == 1) c = res[0];
-            else { if (c == 0xfb06) c = 0xfb05; else if (c == 0x1fd3) c = 0x390; else if (c == 0x1fe3) c = 0x3b0; }
+            // When len > 1, the table returns a full case folding (status F).
+            // ES spec uses simple/common folding (status C/S). These characters
+            // have both a full and a common folding — apply the common one:
+            else if (c == 0xfb06) c = 0xfb05;
+            else if (c == 0x1fd3) c = 0x390;
+            else if (c == 0x1fe3) c = 0x3b0;
         }
         else
         {

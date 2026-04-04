@@ -2225,8 +2225,21 @@ done:
                             }
 
                         case 'k':
-                            ParseBackReferenceByName(isBackwardDir, ref lastAtomStart, ref lastCaptureCount);
-                            break;
+                            {
+                                int kPos = _pos;
+                                ParseBackReferenceByName(isBackwardDir, ref lastAtomStart, ref lastCaptureCount);
+                                if (_pos == kPos)
+                                {
+                                    // Annex B fallback: treat \k as literal 'k'
+                                    _pos += 2;
+                                    lastAtomStart = _byteCode.Count;
+                                    lastCaptureCount = CaptureCount;
+                                    if (isBackwardDir) EmitOp(RegExpOpcode.Prev);
+                                    EmitChar('k');
+                                    if (isBackwardDir) EmitOp(RegExpOpcode.Prev);
+                                }
+                                break;
+                            }
 
                         case '0':
                             {

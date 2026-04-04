@@ -2,6 +2,7 @@
 
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.String;
@@ -158,7 +159,7 @@ internal sealed class RegExpPrototype : Prototype
 
         if (global)
         {
-            fullUnicode = flags.Contains('u');
+            fullUnicode = flags.Contains('u') || flags.Contains('v');
             rx.Set(JsRegExp.PropertyLastIndex, 0, true);
         }
 
@@ -462,7 +463,7 @@ internal sealed class RegExpPrototype : Prototype
         var limit = arguments.At(1);
         var c = SpeciesConstructor(rx, _realm.Intrinsics.RegExp);
         var flags = TypeConverter.ToJsString(rx.Get(PropertyFlags));
-        var unicodeMatching = flags.Contains('u');
+        var unicodeMatching = flags.Contains('u') || flags.Contains('v');
         var newFlags = flags.Contains('y') ? flags : new JsString(flags.ToString() + 'y');
         var splitter = Construct(c, [
             rx,
@@ -710,7 +711,7 @@ internal sealed class RegExpPrototype : Prototype
             return RegExpExec(rx, s);
         }
 
-        var fullUnicode = flags.Contains('u');
+        var fullUnicode = flags.Contains('u') || flags.Contains('v');
         rx.Set(JsRegExp.PropertyLastIndex, JsNumber.PositiveZero, true);
 
         if (!fullUnicode
@@ -808,12 +809,12 @@ internal sealed class RegExpPrototype : Prototype
         matcher.Set(JsRegExp.PropertyLastIndex, lastIndex, true);
 
         var global = flags.Contains('g');
-        var fullUnicode = flags.Contains('u');
+        var fullUnicode = flags.Contains('u') || flags.Contains('v');
 
         return _realm.Intrinsics.RegExpStringIteratorPrototype.Construct(matcher, s, global, fullUnicode);
     }
 
-    private static ulong AdvanceStringIndex(string s, ulong index, bool unicode)
+    internal static ulong AdvanceStringIndex(string s, ulong index, bool unicode)
     {
         if (!unicode || index + 1 >= (ulong) s.Length)
         {
@@ -978,7 +979,17 @@ internal sealed class RegExpPrototype : Prototype
             return Null;
         }
 
-        var result = customEngine.Execute(s, (int) lastIndex);
+        var regexTimeout = R.Engine.Options.Constraints.RegexTimeout;
+        using var cts = new CancellationTokenSource(regexTimeout);
+        RegExpMatchResult result;
+        try
+        {
+            result = customEngine.Execute(s, (int) lastIndex, cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            throw new RegexMatchTimeoutException(s, R.Source ?? "", regexTimeout);
+        }
         var success = result.Success && (!sticky || result.Index == (int) lastIndex);
 
         if (!success)

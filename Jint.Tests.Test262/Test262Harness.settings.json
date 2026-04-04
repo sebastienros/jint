@@ -65,17 +65,9 @@
 
 
 
-    // Unicode case folding: custom engine CaseConv/Canonicalize tables need investigation
-    "language/literals/regexp/u-case-mapping.js",
-    "built-ins/RegExp/unicode_full_case_folding.js",
+    // Unicode case folding: fixed in CaseFoldingEntry (removed full-case-folding mappings)
 
-    // Custom engine: duplicate named groups - custom engine doesn't handle capture reset correctly yet
-    "built-ins/RegExp/named-groups/duplicate-names-exec.js",
-    "built-ins/RegExp/named-groups/duplicate-names-match.js",
-    "built-ins/RegExp/prototype/exec/duplicate-named-groups-properties.js",
-    "built-ins/RegExp/prototype/exec/duplicate-named-indices-groups-properties.js",
-    "built-ins/String/prototype/match/duplicate-named-groups-properties.js",
-    "built-ins/String/prototype/match/duplicate-named-indices-groups-properties.js",
+    // Duplicate named groups: re-enabled routing to custom engine
 
     // requires investigation how to process complex function name evaluation for property
     "built-ins/Function/prototype/toString/method-computed-property-name.js",
@@ -357,13 +349,7 @@
     "intl402/Temporal/ZonedDateTime/prototype/with/leap-year-hebrew.js",
     "intl402/Temporal/ZonedDateTime/prototype/withCalendar/extreme-dates.js",
     "intl402/Temporal/ZonedDateTime/prototype/year/arithmetic-year.js",
-    "intl402/Temporal/ZonedDateTime/prototype/year/epoch-year.js",
-
-    // === ANNEX B EXCLUSIONS ===
-
-    // Acornima parser/RegExp limitation: malformed named groups in non-unicode mode
-    // Per B.1.2, non-unicode RegExp should accept some malformed named group syntax
-    "annexB/built-ins/RegExp/named-groups/non-unicode-malformed.js"
+    "intl402/Temporal/ZonedDateTime/prototype/year/epoch-year.js"
 
   ]
 }

@@ -594,6 +594,30 @@ public sealed class RegExpConstructor : Constructor
             return true;
         }
 
+        // \w/\W: .NET ECMAScript mode incorrectly matches U+0130 (LATIN CAPITAL
+        // LETTER I WITH DOT ABOVE) as a word character via case folding to 'I'.
+        // JS spec defines \w as exactly [a-zA-Z0-9_] in all modes.
+        if (HasWordClassEscape(pattern))
+        {
+            return true;
+        }
+
+        // Case-insensitive with Unicode escapes: .NET IgnoreCase applies broader
+        // Unicode case folding than ES spec (e.g. U+212A KELVIN SIGN matches 'K',
+        // U+017F LONG S matches 's'). In non-unicode mode, ES spec Canonicalize uses
+        // toUpperCase only, not Unicode case folding.
+        if (flags.Contains('i') && HasUnicodeEscape(pattern))
+        {
+            return true;
+        }
+
+        // Duplicate named groups in alternation: (?<x>a)|(?<x>b)
+        // .NET doesn't support duplicate named groups in ECMAScript mode.
+        if (HasDuplicateNamedGroups(pattern))
+        {
+            return true;
+        }
+
         return false;
     }
 
@@ -646,6 +670,48 @@ public sealed class RegExpConstructor : Constructor
                 {
                     return true;
                 }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Detect \u hex escapes for non-ASCII code points in the pattern.
+    /// </summary>
+    private static bool HasUnicodeEscape(string pattern)
+    {
+        for (int i = 0; i < pattern.Length - 1; i++)
+        {
+            if (pattern[i] == '\\')
+            {
+                if (pattern[i + 1] == 'u')
+                {
+                    return true;
+                }
+
+                i++; // skip escaped char
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Detect \w or \W character class escapes in the pattern.
+    /// </summary>
+    private static bool HasWordClassEscape(string pattern)
+    {
+        for (int i = 0; i < pattern.Length - 1; i++)
+        {
+            if (pattern[i] == '\\')
+            {
+                if (pattern[i + 1] is 'w' or 'W')
+                {
+                    return true;
+                }
+
+                i++; // skip escaped char
             }
         }
 

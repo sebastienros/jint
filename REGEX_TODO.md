@@ -2,7 +2,7 @@
 
 ## Current Status
 
-**97,570 test262 passed | 6 failures | ~38 excluded regex tests**
+**97,594 test262 passed | 0 failures | ~22 excluded regex tests (Unicode 17 only)**
 
 Architecture: Acornima validates syntax at parse time (`RegExpParseMode.Validate`). At runtime, `NeedCustomEngine()` routes to either .NET Regex (via `AdaptRegExp`) or our custom QuickJS-based engine. Patterns come raw from source — Acornima does not translate them.
 
@@ -115,15 +115,15 @@ Architecture: Acornima validates syntax at parse time (`RegExpParseMode.Validate
 
 ## Summary Table
 
-| # | Category | Files | Tests | Status | Blocker |
-|---|----------|-------|-------|--------|---------|
-| 1 | `\w`/`\W` case fold with /u | 2 | 4 | **Failing** | .NET case fold |
-| 2 | matchAll surrogate advance /u | 1 | 2 | **Failing** | .NET advance |
-| 3 | Unicode case folding | 2 | 4 | Excluded | Custom engine tables |
-| 4 | Duplicate named groups | 6 | 12 | Excluded | Custom engine hang |
-| 5 | Annex B malformed `\k` | 1 | 2 | Excluded | Parser + compiler |
-| 6 | Unicode 17 script names | 22 | 44 | Excluded | **Acornima** |
-| | **Total remaining** | **34** | **68** | | |
+| # | Category | Files | Tests | Status | Fix |
+|---|----------|-------|-------|--------|-----|
+| 1 | `\w`/`\W` case fold | 2 | 4 | **Fixed** | Route all `\w`/`\W` to custom engine |
+| 2 | matchAll surrogate advance | 1 | 2 | **Fixed** | AdvanceStringIndex in iterator + v-flag fullUnicode |
+| 3 | Unicode case folding | 2 | 4 | **Fixed** | Route `/i` + `\u` escapes to custom engine |
+| 4 | Duplicate named groups | 6 | 12 | **Fixed** | Re-enabled HasDuplicateNamedGroups routing |
+| 5 | Annex B malformed `\k` | 1 | 2 | **Fixed** | Annex B fallback in compiler `case 'k':` |
+| 6 | Unicode 17 script names | 22 | 44 | Excluded | **Blocked on Acornima** |
+| | **Total remaining** | **22** | **44** | | |
 
 ### Not fixable without external changes
 
@@ -131,12 +131,8 @@ Architecture: Acornima validates syntax at parse time (`RegExpParseMode.Validate
 |----------|-------|--------|
 | Unicode 17 scripts | 44 | Acornima needs Unicode 17 property names |
 
-### Fixable in Jint
+### Additional fix: Custom engine timeout
 
-| Category | Tests | Effort |
-|----------|-------|--------|
-| `\w`/`\W` + matchAll /u path | 6 | Low — expand NeedCustomEngine or fix .NET path |
-| Unicode case folding | 4 | Medium — audit Canonicalize() tables |
-| Duplicate named groups | 12 | Medium — debug hang, re-enable routing |
-| Annex B `\k` fallback | 2 | Low — add compiler fallback |
-| **Total fixable** | **24** | |
+Custom engine now observes `Options.Constraints.RegexTimeout` by passing a
+`CancellationTokenSource` to `Execute()`. Throws `RegexMatchTimeoutException`
+matching the .NET Regex path behavior.
