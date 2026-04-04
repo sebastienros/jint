@@ -24,51 +24,6 @@
     // Currently quite impossible to detect if assignment target is CoverParenthesizedExpression
     "language/expressions/assignment/fn-name-lhs-cover.js",
 
-    // === REGEX EXCLUSIONS ===
-
-    // Script=Unknown tests now pass via custom engine
-
-    // Unicode 17 script names: Acornima rejects these property names at parse time
-    // These are blocked on Acornima supporting Unicode 17 script names
-    "built-ins/RegExp/property-escapes/generated/Script_-_Beria_Erfe.js",
-    "built-ins/RegExp/property-escapes/generated/Script_-_Garay.js",
-    "built-ins/RegExp/property-escapes/generated/Script_-_Gurung_Khema.js",
-    "built-ins/RegExp/property-escapes/generated/Script_-_Kirat_Rai.js",
-    "built-ins/RegExp/property-escapes/generated/Script_-_Ol_Onal.js",
-    "built-ins/RegExp/property-escapes/generated/Script_-_Sidetic.js",
-    "built-ins/RegExp/property-escapes/generated/Script_-_Sunuwar.js",
-    "built-ins/RegExp/property-escapes/generated/Script_-_Tai_Yo.js",
-    "built-ins/RegExp/property-escapes/generated/Script_-_Todhri.js",
-    "built-ins/RegExp/property-escapes/generated/Script_-_Tolong_Siki.js",
-    "built-ins/RegExp/property-escapes/generated/Script_-_Tulu_Tigalari.js",
-    "built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Beria_Erfe.js",
-    "built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Garay.js",
-    "built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Gurung_Khema.js",
-    "built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Kirat_Rai.js",
-    "built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Ol_Onal.js",
-    "built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Sidetic.js",
-    "built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Sunuwar.js",
-    "built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Tai_Yo.js",
-    "built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Todhri.js",
-    "built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Tolong_Siki.js",
-    "built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Tulu_Tigalari.js",
-
-    // General Category tests — now routed to custom engine via \p{} detection with Unicode 17 data
-
-    // Custom engine: sequence property string tests
-    // Sequence property string tests now pass via custom engine
-
-    // Patterns routed to custom engine via NeedCustomEngine() detection.
-    // The following still fail due to custom engine limitations:
-
-    // Nullable quantifier + capture reset tests — now routed to custom engine
-
-
-
-    // Unicode case folding: fixed in CaseFoldingEntry (removed full-case-folding mappings)
-
-    // Duplicate named groups: re-enabled routing to custom engine
-
     // requires investigation how to process complex function name evaluation for property
     "built-ins/Function/prototype/toString/method-computed-property-name.js",
 
