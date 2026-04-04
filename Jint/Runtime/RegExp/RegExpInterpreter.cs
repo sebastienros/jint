@@ -1,3 +1,6 @@
+// IDE0055: formatting rules conflict with try/finally wrapping a pre-existing ~600 line while loop
+#pragma warning disable IDE0055
+
 // Ported from QuickJS libregexp.c - Bytecode Interpreter
 //
 // Copyright (c) 2017-2018 Fabrice Bellard
@@ -90,21 +93,26 @@ internal static class RegExpInterpreter
             }
         }
 
-        int ret = ExecBacktrack(bc, input, capture, cindex, captureCount, isUnicode, cancellationToken);
-
-        int[]? result = null;
-        if (ret == 1)
+        try
         {
-            result = new int[captureCount * 2];
-            capture.Slice(0, captureCount * 2).CopyTo(result);
-        }
+            int ret = ExecBacktrack(bc, input, capture, cindex, captureCount, isUnicode, cancellationToken);
 
-        if (capturePooled is not null)
+            int[]? result = null;
+            if (ret == 1)
+            {
+                result = new int[captureCount * 2];
+                capture.Slice(0, captureCount * 2).CopyTo(result);
+            }
+
+            return result;
+        }
+        finally
         {
-            ArrayPool<int>.Shared.Return(capturePooled);
+            if (capturePooled is not null)
+            {
+                ArrayPool<int>.Shared.Return(capturePooled);
+            }
         }
-
-        return result;
     }
 
     /// <summary>Get capture count from bytecode header.</summary>
@@ -643,6 +651,7 @@ internal static class RegExpInterpreter
         int pc = 0;  // program counter (index into bc)
         int interruptCounter = InterruptCounterInit;
 
+        try {
         while (true)
         {
             var opcode = (RegExpOpcode) bc[pc++];
@@ -654,7 +663,6 @@ internal static class RegExpInterpreter
                 // ---------------------------------------------------------
                 case RegExpOpcode.Match:
                     {
-                        ReturnStack(stackPooled);
                         return 1;
                     }
 
@@ -1238,7 +1246,6 @@ noMatch:
                 if (sp == 0)
                 {
                     // No more backtracking frames - overall failure.
-                    ReturnStack(stackPooled);
                     return 0;
                 }
 
@@ -1262,6 +1269,8 @@ noMatch:
                 cancellationToken.ThrowIfCancellationRequested();
             }
         }
+
+        } finally { ReturnStack(stackPooled); }
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

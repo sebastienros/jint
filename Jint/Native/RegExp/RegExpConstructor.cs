@@ -940,27 +940,55 @@ public sealed class RegExpConstructor : Constructor
 
     private static bool HasForwardBackReference(string pattern)
     {
-        // Quick check: pattern contains \N where N references a group not yet defined
+        // Check if pattern contains \N where N references a group not yet defined.
+        // Skips escaped chars and character classes to avoid false positives.
         int groupCount = 0;
+        bool inCharClass = false;
         for (int i = 0; i < pattern.Length; i++)
         {
-            if (pattern[i] == '(' && i + 1 < pattern.Length && pattern[i + 1] != '?')
+            if (pattern[i] == '\\' && i + 1 < pattern.Length)
             {
-                groupCount++;
-            }
-            else if (pattern[i] == '\\' && i + 1 < pattern.Length)
-            {
-                char next = pattern[i + 1];
-                if (next >= '1' && next <= '9')
+                if (!inCharClass)
                 {
-                    int refNum = next - '0';
-                    if (refNum > groupCount)
+                    char next = pattern[i + 1];
+                    if (next >= '1' && next <= '9')
                     {
-                        return true;
+                        // Parse the full decimal backreference number
+                        int refNum = 0;
+                        int j = i + 1;
+                        while (j < pattern.Length && pattern[j] >= '0' && pattern[j] <= '9')
+                        {
+                            refNum = refNum * 10 + (pattern[j] - '0');
+                            j++;
+                        }
+
+                        if (refNum > groupCount)
+                        {
+                            return true;
+                        }
+
+                        i = j - 1; // skip past parsed digits
+                        continue;
                     }
                 }
 
                 i++; // skip escaped char
+                continue;
+            }
+
+            if (inCharClass)
+            {
+                if (pattern[i] == ']') inCharClass = false;
+                continue;
+            }
+
+            if (pattern[i] == '[')
+            {
+                inCharClass = true;
+            }
+            else if (pattern[i] == '(' && i + 1 < pattern.Length && pattern[i + 1] != '?')
+            {
+                groupCount++;
             }
         }
 
