@@ -447,30 +447,39 @@ public sealed class RegExpConstructor : Constructor
         // Validate flags before attempting compilation - invalid flags should always be a SyntaxError
         ValidateFlags(f);
 
-        var parserOptions = _engine.GetActiveParserOptions();
-        try
+        // Check upfront if we know the custom engine is needed — avoids
+        // wasting time on Acornima conversion that will be discarded.
+        if (NeedCustomEngine(p, f))
         {
-            var regExpParseResult = Tokenizer.AdaptRegExp(p, f, compiled: false, parserOptions.RegexTimeout,
-                ecmaVersion: parserOptions.EcmaVersion,
-                experimentalESFeatures: parserOptions.ExperimentalESFeatures);
+            TryCompileWithCustomEngine(r, p, f);
+        }
+        else
+        {
+            var parserOptions = _engine.GetActiveParserOptions();
+            try
+            {
+                var regExpParseResult = Tokenizer.AdaptRegExp(p, f, compiled: false, parserOptions.RegexTimeout,
+                    ecmaVersion: parserOptions.EcmaVersion,
+                    experimentalESFeatures: parserOptions.ExperimentalESFeatures);
 
-            if (regExpParseResult.Success && !NeedCustomEngine(p, f))
-            {
-                r.Value = regExpParseResult.Regex!;
-                r.ParseResult = regExpParseResult;
-                r.CustomEngine = null;
+                if (regExpParseResult.Success)
+                {
+                    r.Value = regExpParseResult.Regex!;
+                    r.ParseResult = regExpParseResult;
+                    r.CustomEngine = null;
+                }
+                else
+                {
+                    // Acornima could not convert the pattern to .NET Regex.
+                    // Try the custom engine (handles v-flag, unicode properties, forward backrefs, etc.)
+                    TryCompileWithCustomEngine(r, p, f);
+                }
             }
-            else
+            catch (Exception ex) when (ex is not Jint.Runtime.JavaScriptException)
             {
-                // Acornima could not convert the pattern to .NET Regex.
-                // Try the custom engine (handles v-flag, unicode properties, forward backrefs, etc.)
+                // Acornima threw during parsing/conversion - try custom engine
                 TryCompileWithCustomEngine(r, p, f);
             }
-        }
-        catch (Exception ex) when (ex is not Jint.Runtime.JavaScriptException)
-        {
-            // Acornima threw during parsing/conversion - try custom engine
-            TryCompileWithCustomEngine(r, p, f);
         }
 
         r.Flags = f;
@@ -536,12 +545,31 @@ public sealed class RegExpConstructor : Constructor
     /// Detect patterns where .NET Regex produces semantically incorrect results
     /// compared to ECMAScript specification. These patterns need the custom engine.
     /// </summary>
-    private static bool NeedCustomEngine(string pattern, string flags)
+    internal static bool NeedCustomEngine(string pattern, string flags)
     {
+        // v-flag: Acornima can't handle it at all, skip straight to custom engine
+        if (flags.Contains('v'))
+        {
+            return true;
+        }
+
+        // Scoped regexp modifiers (?i:...), (?-m:...), etc.
+        // .NET gets \b/\w semantics wrong with (?i:...) + /u flag
+        // (doesn't include U+017F long-s and U+212A kelvin sign)
+        if (HasScopedModifiers(pattern))
+        {
+            return true;
+        }
 
         // Forward backreference: \N appears before the Nth capture group
         // e.g. \1(a) - .NET ECMAScript mode doesn't support this
         if (HasForwardBackReference(pattern))
+        {
+            return true;
+        }
+
+        // Forward named backreference: \k<name> appears before (?<name>...)
+        if (HasForwardNamedBackReference(pattern))
         {
             return true;
         }
@@ -551,6 +579,101 @@ public sealed class RegExpConstructor : Constructor
         if ((pattern.Contains("(?<=") || pattern.Contains("(?<!")) && HasBackReferenceInLookbehind(pattern))
         {
             return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Detect scoped modifier groups: (?i:...), (?-m:...), (?ims-ims:...) etc.
+    /// </summary>
+    private static bool HasScopedModifiers(string pattern)
+    {
+        for (int i = 0; i < pattern.Length - 2; i++)
+        {
+            if (pattern[i] == '\\')
+            {
+                i++; // skip escaped char
+                continue;
+            }
+
+            if (pattern[i] == '(' && pattern[i + 1] == '?' &&
+                i + 2 < pattern.Length && pattern[i + 2] is 'i' or 'm' or 's' or '-')
+            {
+                // Distinguish from (?= (?! (?< (?:
+                // Modifier groups start with (?[ims-] and must contain ':'
+                int j = i + 2;
+                while (j < pattern.Length && pattern[j] is 'i' or 'm' or 's' or '-')
+                {
+                    j++;
+                }
+                if (j < pattern.Length && pattern[j] == ':')
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Detect forward named backreferences: \k&lt;name&gt; appearing before (?&lt;name&gt;...) is defined.
+    /// </summary>
+    private static bool HasForwardNamedBackReference(string pattern)
+    {
+        // First pass: collect all named group definitions and their positions
+        var groupPositions = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (int i = 0; i < pattern.Length - 3; i++)
+        {
+            if (pattern[i] == '\\')
+            {
+                i++; // skip escaped char
+                continue;
+            }
+
+            if (pattern[i] == '(' && pattern[i + 1] == '?' && pattern[i + 2] == '<' &&
+                i + 3 < pattern.Length && pattern[i + 3] != '=' && pattern[i + 3] != '!')
+            {
+                // Found (?<name>
+                int nameStart = i + 3;
+                int nameEnd = pattern.IndexOf('>', nameStart);
+                if (nameEnd > nameStart)
+                {
+                    var name = pattern.Substring(nameStart, nameEnd - nameStart);
+                    if (!groupPositions.ContainsKey(name))
+                    {
+                        groupPositions[name] = i;
+                    }
+                }
+            }
+        }
+
+        if (groupPositions.Count == 0)
+        {
+            return false;
+        }
+
+        // Second pass: find \k<name> references that precede their group definition
+        for (int i = 0; i < pattern.Length - 3; i++)
+        {
+            if (pattern[i] == '\\' && pattern[i + 1] == 'k' && i + 2 < pattern.Length && pattern[i + 2] == '<')
+            {
+                int nameStart = i + 3;
+                int nameEnd = pattern.IndexOf('>', nameStart);
+                if (nameEnd > nameStart)
+                {
+                    var name = pattern.Substring(nameStart, nameEnd - nameStart);
+                    if (groupPositions.TryGetValue(name, out int groupPos) && i < groupPos)
+                    {
+                        return true;
+                    }
+                }
+            }
+            else if (pattern[i] == '\\')
+            {
+                i++; // skip escaped char
+            }
         }
 
         return false;

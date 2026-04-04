@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Jint.Native;
+using Jint.Native.RegExp;
 using Jint.Runtime.RegExp;
 
 namespace Jint.Runtime.Interpreter.Expressions;
@@ -68,9 +69,10 @@ internal sealed class JintLiteralExpression : JintExpression
         {
             var regExpParseResult = regExpLiteral.ParseResult;
 
-            // If Acornima pre-compiled a .NET Regex (AdaptToInterpreted/AdaptToCompiled mode), use it directly
+            // If Acornima pre-compiled a .NET Regex, use it — unless the pattern has
+            // semantics that .NET gets wrong (scoped modifiers, forward backrefs, etc.)
             var regex = regExpLiteral.UserData as Regex ?? regExpParseResult.Regex;
-            if (regex is not null)
+            if (regex is not null && !RegExpConstructor.NeedCustomEngine(regExpLiteral.RegExp.Pattern, regExpLiteral.RegExp.Flags))
             {
                 return context.Engine.Realm.Intrinsics.RegExp.Construct(regex, regExpLiteral.RegExp.Pattern, regExpLiteral.RegExp.Flags, regExpParseResult);
             }

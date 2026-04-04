@@ -6,7 +6,7 @@ namespace Jint.Runtime.RegExp.Unicode;
 
 /// <summary>
 /// Compressed Unicode tables: General Category, Script, Binary Properties, Case Conversion.
-/// Data from QuickJS-NG libunicode-table.h (Unicode 16.0).
+/// Data from QuickJS-NG libunicode-table.h (Unicode 17.0).
 /// </summary>
 internal static partial class UnicodeData
 {

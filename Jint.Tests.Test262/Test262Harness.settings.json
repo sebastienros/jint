@@ -32,12 +32,12 @@
     // CharacterClassEscapes tests internally use v-flag regex literals (Acornima parser limitation)
     "built-ins/RegExp/CharacterClassEscapes/*.js",
 
-    // Custom engine: Script=Unknown special case
+    // Custom engine: Script=Unknown - needs investigation
     "built-ins/RegExp/property-escapes/special-property-value-Script_Extensions-Unknown.js",
     "built-ins/RegExp/property-escapes/special-property-value-Script-Unknown.js",
 
-    // Custom engine: Script tests require Unicode 17 data (our tables are Unicode 16)
-    // Some scripts exist in our tables but Acornima rejects the property names at parse time
+    // Unicode 17 script names: Acornima rejects these property names at parse time
+    // These are blocked on Acornima supporting Unicode 17 script names
     "built-ins/RegExp/property-escapes/generated/Script_-_Beria_Erfe.js",
     "built-ins/RegExp/property-escapes/generated/Script_-_Garay.js",
     "built-ins/RegExp/property-escapes/generated/Script_-_Gurung_Khema.js",
@@ -61,7 +61,8 @@
     "built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Tolong_Siki.js",
     "built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Tulu_Tigalari.js",
 
-    // Custom engine: General Category tests differ between Unicode 16 (our tables) and Unicode 17 (test262)
+    // General Category tests - custom engine handles these correctly but .NET Unicode
+    // data lags behind (Unicode 17). Needs \p{} literal routing to custom engine.
     "built-ins/RegExp/property-escapes/generated/General_Category_-_Cased_Letter.js",
     "built-ins/RegExp/property-escapes/generated/General_Category_-_Currency_Symbol.js",
     "built-ins/RegExp/property-escapes/generated/General_Category_-_Decimal_Number.js",
@@ -97,19 +98,9 @@
     "built-ins/RegExp/S15.10.2.5_A1_T4.js",
     "built-ins/RegExp/prototype/exec/S15.10.6.2_A1_T6.js",
 
-    // .NET regex engine: named group forward references - need custom engine handling
-    "built-ins/RegExp/named-groups/non-unicode-references.js",
-    "built-ins/RegExp/named-groups/unicode-references.js",
 
-    // Custom engine: scoped regexp modifiers
-    "built-ins/RegExp/regexp-modifiers/add-ignoreCase-affects-slash-lower-b.js",
-    "built-ins/RegExp/regexp-modifiers/add-ignoreCase-affects-slash-lower-w.js",
-    "built-ins/RegExp/regexp-modifiers/add-ignoreCase-affects-slash-upper-b.js",
-    "built-ins/RegExp/regexp-modifiers/add-ignoreCase-affects-slash-upper-w.js",
-    "built-ins/RegExp/regexp-modifiers/add-multiline.js",
-    "built-ins/RegExp/regexp-modifiers/remove-multiline-does-not-affect-dotAll-flag.js",
 
-    // Custom engine: Unicode case folding tables
+    // Custom engine: Unicode case folding - needs investigation
     "language/literals/regexp/u-case-mapping.js",
     "built-ins/RegExp/unicode_full_case_folding.js",
 

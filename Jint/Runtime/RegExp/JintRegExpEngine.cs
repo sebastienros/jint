@@ -38,12 +38,12 @@ internal sealed class JintRegExpEngine
     /// <summary>Get the name of a capture group by its 1-based index.</summary>
     public string? GetGroupName(int index)
     {
-        if (index <= 0 || index > _groupNames.Length)
+        if (index <= 0 || index >= _groupNames.Length)
         {
             return null;
         }
 
-        return _groupNames[index - 1];
+        return _groupNames[index];
     }
 
     /// <summary>Execute the regex against the input string starting at the given index.</summary>
