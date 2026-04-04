@@ -1034,10 +1034,14 @@ internal static class RegExpCompiler
                 }
                 if (ret < 0 && !isInv && allowSequenceProp)
                 {
+                    // Use a separate temp list for SeqProp1's internal work.
+                    // SeqProp1 uses the list as a scratch buffer (UnicodeProp1 + Clear),
+                    // so it must NOT be cr.Cr.Points which accumulates our output.
+                    var tempBuf = new List<uint>();
                     ret = UnicodeProperties.UnicodeSequenceProp(name, (seq, len) =>
                     {
                         cr.Add(seq.AsSpan(0, len).ToArray());
-                    }, cr.Cr.Points);
+                    }, tempBuf);
                     if (ret == -1) throw new RegExpSyntaxException("out of memory");
                 }
                 if (ret < 0) throw new RegExpSyntaxException("unknown unicode property name");
@@ -1573,8 +1577,8 @@ normal_char_return:
                             }
                             else
                             {
-                                // Multi-char class or special class
-                                cr.Cr.Op1(cr1.Cr, CharRangeOp.Union);
+                                // Multi-char class or special class - union ranges AND strings
+                                cr.Op(cr1, CharRangeOp.Union);
                             }
                         }
                     }
@@ -1598,8 +1602,8 @@ normal_char_return:
                         }
                         else
                         {
-                            // Property escape, \d, \w, etc. - union into result
-                            cr.Cr.Op1(cr1.Cr, CharRangeOp.Union);
+                            // Property escape, \d, \w, \q{}, \p{} etc. - union ranges AND strings
+                            cr.Op(cr1, CharRangeOp.Union);
                         }
                     }
 

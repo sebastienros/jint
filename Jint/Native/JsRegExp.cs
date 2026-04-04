@@ -44,6 +44,7 @@ public sealed class JsRegExp : ObjectInstance
             IgnoreCase = false;
             Multiline = false;
             Sticky = false;
+            Unicode = false;
             FullUnicode = false;
             UnicodeSets = false;
             foreach (var c in _flags)
@@ -69,10 +70,12 @@ public sealed class JsRegExp : ObjectInstance
                         Sticky = true;
                         break;
                     case 'u':
+                        Unicode = true;
                         FullUnicode = true;
                         break;
                     case 'v':
                         UnicodeSets = true;
+                        FullUnicode = true; // v-flag implies unicode semantics
                         break;
                 }
             }
@@ -87,6 +90,9 @@ public sealed class JsRegExp : ObjectInstance
     public bool IgnoreCase { get; private set; }
     public bool Multiline { get; private set; }
     public bool Sticky { get; private set; }
+    /// <summary>Whether the 'u' flag was explicitly set (for the unicode accessor).</summary>
+    public bool Unicode { get; private set; }
+    /// <summary>Whether unicode semantics apply (true for both 'u' and 'v' flags).</summary>
     public bool FullUnicode { get; private set; }
     public bool UnicodeSets { get; private set; }
 

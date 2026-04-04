@@ -87,7 +87,7 @@ internal sealed class RegExpPrototype : Prototype
             ["multiline"] = CreateGetAccessorDescriptor("get multiline", static r => r.Multiline),
             ["source"] = new GetSetPropertyDescriptor(get: new ClrFunction(Engine, "get source", Source, 0, lengthFlags), set: Undefined, flags: PropertyFlag.Configurable),
             ["sticky"] = CreateGetAccessorDescriptor("get sticky", static r => r.Sticky),
-            ["unicode"] = CreateGetAccessorDescriptor("get unicode", static r => r.FullUnicode),
+            ["unicode"] = CreateGetAccessorDescriptor("get unicode", static r => r.Unicode),
             ["unicodeSets"] = CreateGetAccessorDescriptor("get unicodeSets", static r => r.UnicodeSets)
         };
         SetProperties(properties);
