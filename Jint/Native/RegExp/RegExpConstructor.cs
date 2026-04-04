@@ -1034,7 +1034,7 @@ public sealed class RegExpConstructor : Constructor
         }
         catch (OperationCanceledException)
         {
-            throw new RegexMatchTimeoutException(pattern, flags, _engine.Options.Constraints.RegexTimeout);
+            throw new RegexMatchTimeoutException(string.Empty, pattern, _engine.Options.Constraints.RegexTimeout);
         }
         catch (RegExpSyntaxException ex)
         {

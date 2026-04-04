@@ -1336,9 +1336,6 @@ normal_char_return:
             else
             {
                 uint high = cr.Points[cr.Length - 1];
-                if (high == uint.MaxValue)
-                    high = cr.Points[cr.Length - 2];
-
                 if (high <= 0xFFFF)
                 {
                     // Use 16-bit ranges for BMP-only inclusive endpoints
