@@ -17,7 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Acornima.Extras" />
+    <ProjectReference Include="..\..\acornima-vflag\src\Acornima.Extras\Acornima.Extras.csproj" />
     <PackageReference Include="GitHubActionsTestLogger" />
     <PackageReference Include="ICU4N" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />

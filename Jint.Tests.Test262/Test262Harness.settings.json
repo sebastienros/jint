@@ -7,8 +7,6 @@
   "ExcludedFeatures": [
     "import-defer",
     "import-text",
-    "regexp-unicode-property-escapes",
-    "regexp-v-flag",
     "source-phase-imports",
     "tail-call-optimization"
   ],
@@ -25,55 +23,6 @@
 
     // Currently quite impossible to detect if assignment target is CoverParenthesizedExpression
     "language/expressions/assignment/fn-name-lhs-cover.js",
-
-    // === REGEX EXCLUSIONS ===
-
-    // CharacterClassEscapes tests internally use v flag which is not supported
-    "built-ins/RegExp/CharacterClassEscapes/*.js",
-
-    // .NET regex engine: forward backreferences not supported in ECMAScript mode
-    "built-ins/RegExp/S15.10.2.11_A1_T5.js",
-    "built-ins/RegExp/S15.10.2.11_A1_T7.js",
-    "language/literals/regexp/named-groups/forward-reference.js",
-    "built-ins/RegExp/named-groups/non-unicode-references.js",
-    "built-ins/RegExp/named-groups/unicode-references.js",
-
-    // .NET regex engine: lookbehind backreference capture semantics differ from JS
-    "built-ins/RegExp/lookBehind/back-references-to-captures.js",
-    "built-ins/RegExp/lookBehind/mutual-recursive.js",
-
-    // .NET regex engine: nullable quantifier and lookahead capture group semantics differ
-    "built-ins/RegExp/nullable-quantifier.js",
-    "built-ins/RegExp/lookahead-quantifier-match-groups.js",
-
-    // .NET regex engine: scoped regexp modifiers don't fully match ECMAScript boundary and multiline semantics
-    "built-ins/RegExp/regexp-modifiers/add-ignoreCase-affects-slash-lower-b.js",
-    "built-ins/RegExp/regexp-modifiers/add-ignoreCase-affects-slash-lower-w.js",
-    "built-ins/RegExp/regexp-modifiers/add-ignoreCase-affects-slash-upper-b.js",
-    "built-ins/RegExp/regexp-modifiers/add-ignoreCase-affects-slash-upper-w.js",
-    "built-ins/RegExp/regexp-modifiers/add-multiline.js",
-    "built-ins/RegExp/regexp-modifiers/remove-multiline-does-not-affect-dotAll-flag.js",
-
-    // .NET regex engine: complex quantifier capture group tracking differs
-    "built-ins/RegExp/S15.10.2.5_A1_T4.js",
-    "built-ins/RegExp/prototype/exec/S15.10.6.2_A1_T6.js",
-
-    // .NET regex engine: Unicode case folding tables differ from ECMAScript CaseFolding.txt
-    "language/literals/regexp/u-case-mapping.js",
-    "built-ins/RegExp/unicode_full_case_folding.js",
-
-    // .NET regex engine: quantifier values exceeding int.MaxValue
-    "built-ins/RegExp/quantifier-integer-limit.js",
-
-    // .NET regex engine: quantified groups with alternation retain captures from previous iterations
-    // (JavaScript resets non-participating groups per iteration, .NET does not)
-    "built-ins/RegExp/named-groups/duplicate-names-exec.js",
-    "built-ins/RegExp/named-groups/duplicate-names-match.js",
-    "built-ins/RegExp/named-groups/duplicate-names-test.js",
-    "built-ins/RegExp/prototype/exec/duplicate-named-groups-properties.js",
-    "built-ins/RegExp/prototype/exec/duplicate-named-indices-groups-properties.js",
-    "built-ins/String/prototype/match/duplicate-named-groups-properties.js",
-    "built-ins/String/prototype/match/duplicate-named-indices-groups-properties.js",
 
     // requires investigation how to process complex function name evaluation for property
     "built-ins/Function/prototype/toString/method-computed-property-name.js",
@@ -355,13 +304,7 @@
     "intl402/Temporal/ZonedDateTime/prototype/with/leap-year-hebrew.js",
     "intl402/Temporal/ZonedDateTime/prototype/withCalendar/extreme-dates.js",
     "intl402/Temporal/ZonedDateTime/prototype/year/arithmetic-year.js",
-    "intl402/Temporal/ZonedDateTime/prototype/year/epoch-year.js",
-
-    // === ANNEX B EXCLUSIONS ===
-
-    // Acornima parser/RegExp limitation: malformed named groups in non-unicode mode
-    // Per B.1.2, non-unicode RegExp should accept some malformed named group syntax
-    "annexB/built-ins/RegExp/named-groups/non-unicode-malformed.js"
+    "intl402/Temporal/ZonedDateTime/prototype/year/epoch-year.js"
 
   ]
 }

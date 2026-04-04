@@ -29,15 +29,35 @@ public partial class Engine
             Script preparedScript;
             var sourceOffset = options.ParsingOptions.SourceOffset;
             var padding = AcornimaExtensions.CreateSourceOffsetPadding(sourceOffset);
-            if (padding.Length > 0)
+
+            try
             {
-                var paddedCode = padding + code;
-                preparedScript = parser.ParseScript(paddedCode, padding.Length, code.Length, source, strict);
+                if (padding.Length > 0)
+                {
+                    var paddedCode = padding + code;
+                    preparedScript = parser.ParseScript(paddedCode, padding.Length, code.Length, source, strict);
+                }
+                else
+                {
+                    preparedScript = parser.ParseScript(code, source, strict);
+                }
             }
-            else
+            catch (RegExpConversionErrorException)
             {
-                preparedScript = parser.ParseScript(code, source, strict);
+                // Regex conversion failed at prep time - fall back to Validate mode.
+                // The custom engine will handle these patterns at runtime.
+                var validateParser = new Parser(parserOptions with { OnNode = astAnalyzer.NodeVisitor, RegExpParseMode = RegExpParseMode.Validate });
+                if (padding.Length > 0)
+                {
+                    var paddedCode = padding + code;
+                    preparedScript = validateParser.ParseScript(paddedCode, padding.Length, code.Length, source, strict);
+                }
+                else
+                {
+                    preparedScript = validateParser.ParseScript(code, source, strict);
+                }
             }
+
             return new Prepared<Script>(preparedScript, parserOptions);
         }
         catch (Exception e)
@@ -63,7 +83,17 @@ public partial class Engine
 
         try
         {
-            var preparedModule = parser.ParseModule(code, source);
+            Module preparedModule;
+            try
+            {
+                preparedModule = parser.ParseModule(code, source);
+            }
+            catch (RegExpConversionErrorException)
+            {
+                var validateParser = new Parser(parserOptions with { OnNode = astAnalyzer.NodeVisitor, RegExpParseMode = RegExpParseMode.Validate });
+                preparedModule = validateParser.ParseModule(code, source);
+            }
+
             return new Prepared<Module>(preparedModule, parserOptions);
         }
         catch (Exception e)

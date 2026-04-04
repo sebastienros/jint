@@ -1,5 +1,7 @@
 using System.Text.RegularExpressions;
 using Jint.Native;
+using Jint.Native.RegExp;
+using Jint.Runtime.RegExp;
 
 namespace Jint.Runtime.Interpreter.Expressions;
 
@@ -66,13 +68,44 @@ internal sealed class JintLiteralExpression : JintExpression
         if (expression is RegExpLiteral regExpLiteral)
         {
             var regExpParseResult = regExpLiteral.ParseResult;
-            if (regExpParseResult.Success)
+            var pattern = regExpLiteral.RegExp.Pattern;
+            var flags = regExpLiteral.RegExp.Flags;
+            var regExpConstructor = context.Engine.Realm.Intrinsics.RegExp;
+            var userData = regExpLiteral.UserData;
+
+            // Fast path: reuse pre-compiled .NET Regex (from Acornima AdaptToCompiled or cached from first eval)
+            if (userData is Regex cachedRegex)
             {
-                var regex = regExpLiteral.UserData as Regex ?? regExpParseResult.Regex!;
-                return context.Engine.Realm.Intrinsics.RegExp.Construct(regex, regExpLiteral.RegExp.Pattern, regExpLiteral.RegExp.Flags, regExpParseResult);
+                return regExpConstructor.Construct(cachedRegex, pattern, flags, regExpParseResult);
             }
 
-            Throw.SyntaxError(context.Engine.Realm, $"Unsupported regular expression. {regExpParseResult.ConversionError!.Description}");
+            // Fast path: reuse pre-compiled custom engine bytecode (cached from first eval)
+            if (userData is JintRegExpEngine cachedEngine)
+            {
+                return regExpConstructor.Construct(cachedEngine, pattern, flags);
+            }
+
+            // Check Acornima's parse-time result (AdaptToCompiled mode)
+            var regex = regExpParseResult.Regex;
+            if (regex is not null && !RegExpConstructor.NeedCustomEngine(pattern, flags))
+            {
+                regExpLiteral.UserData = regex; // cache for next evaluation
+                return regExpConstructor.Construct(regex, pattern, flags, regExpParseResult);
+            }
+
+            // First evaluation: compile at runtime, then cache the result
+            var jsRegExp = regExpConstructor.RegExpCreate(pattern, flags);
+            var result = (JsRegExp) jsRegExp;
+            if (result.CustomEngine is not null)
+            {
+                regExpLiteral.UserData = result.CustomEngine; // cache bytecode
+            }
+            else if (result.Value is not null)
+            {
+                regExpLiteral.UserData = result.Value; // cache .NET Regex
+            }
+
+            return jsRegExp;
         }
 
         return JsValue.FromObject(context.Engine, expression.Value);
