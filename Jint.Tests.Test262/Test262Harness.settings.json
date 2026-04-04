@@ -26,9 +26,7 @@
 
     // === REGEX EXCLUSIONS ===
 
-    // Custom engine: Script=Unknown - needs investigation
-    "built-ins/RegExp/property-escapes/special-property-value-Script_Extensions-Unknown.js",
-    "built-ins/RegExp/property-escapes/special-property-value-Script-Unknown.js",
+    // Script=Unknown tests now pass via custom engine
 
     // Unicode 17 script names: Acornima rejects these property names at parse time
     // These are blocked on Acornima supporting Unicode 17 script names
@@ -58,7 +56,7 @@
     // General Category tests — now routed to custom engine via \p{} detection with Unicode 17 data
 
     // Custom engine: sequence property string tests
-    "built-ins/RegExp/property-escapes/generated/strings/*.js",
+    // Sequence property string tests now pass via custom engine
 
     // Patterns routed to custom engine via NeedCustomEngine() detection.
     // The following still fail due to custom engine limitations:
@@ -67,7 +65,7 @@
 
 
 
-    // Custom engine: Unicode case folding - needs investigation
+    // Unicode case folding: custom engine CaseConv/Canonicalize tables need investigation
     "language/literals/regexp/u-case-mapping.js",
     "built-ins/RegExp/unicode_full_case_folding.js",
 
