@@ -15,7 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Acornima.Extras" />
+    <ProjectReference Include="..\..\acornima-vflag\src\Acornima.Extras\Acornima.Extras.csproj" />
     <PackageReference Include="FluentAssertions" />
     <PackageReference Include="Flurl.Http.Signed" />
     <PackageReference Include="GitHubActionsTestLogger" />

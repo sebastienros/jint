@@ -542,61 +542,63 @@ internal static class RegExpInterpreter
     }
 
     /// <summary>
-    /// Save a capture value to the backtracking stack (unconditional).
-    /// Pushes (captureIndex, oldValue) pair.
+    /// Push a backtracking frame: saves the full capture+register array (snapshot approach).
+    /// This matches QuickJS's push_state which does memcpy of the entire capture array.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void SaveCapture(
+    private static void PushFrame(
         ref int[] stackBuf,
         ref int[]? stackPooled,
         ref int sp,
+        ref int bp,
         Span<int> capture,
-        int idx,
-        int value)
+        int allocCount,
+        int savedPc,
+        int savedCindex,
+        ExecStateType stateType)
     {
-        EnsureStackSpace(ref stackBuf, ref stackPooled, sp, 2);
-        stackBuf[sp] = idx;
-        stackBuf[sp + 1] = capture[idx];
-        sp += 2;
-        capture[idx] = value;
+        int frameSize = 3 + allocCount;
+        EnsureStackSpace(ref stackBuf, ref stackPooled, sp, frameSize);
+        // Header
+        stackBuf[sp] = savedPc;
+        stackBuf[sp + 1] = savedCindex;
+        stackBuf[sp + 2] = PackBpType(bp, stateType);
+        // Full snapshot of captures + registers
+        for (int i = 0; i < allocCount; i++)
+        {
+            stackBuf[sp + 3 + i] = capture[i];
+        }
+        sp += frameSize;
+        bp = sp;
     }
 
     /// <summary>
-    /// Save a capture value, but skip if the index was already saved since the current bp.
-    /// This avoids redundant saves for registers that get updated repeatedly in loops.
+    /// Pop a backtracking frame: restores the full capture+register array from snapshot.
+    /// Returns the frame's state type.
     /// </summary>
-    private static void SaveCaptureCheck(
-        ref int[] stackBuf,
-        ref int[]? stackPooled,
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ExecStateType PopFrame(
+        int[] stackBuf,
         ref int sp,
-        int bp,
+        ref int bp,
         Span<int> capture,
-        int idx,
-        int value)
+        int allocCount,
+        out int restoredPc,
+        out int restoredCindex)
     {
-        int sp1 = sp;
-        while (true)
+        int frameSize = 3 + allocCount;
+        sp -= frameSize;
+        restoredPc = stackBuf[sp];
+        restoredCindex = stackBuf[sp + 1];
+        int packed = stackBuf[sp + 2];
+        var stateType = UnpackType(packed);
+        bp = UnpackBp(packed);
+        // Restore full snapshot
+        for (int i = 0; i < allocCount; i++)
         {
-            if (sp1 > bp)
-            {
-                if (stackBuf[sp1 - 2] == idx)
-                {
-                    // Already saved - just update capture
-                    break;
-                }
-                sp1 -= 2;
-            }
-            else
-            {
-                // Not found - push new save
-                EnsureStackSpace(ref stackBuf, ref stackPooled, sp, 2);
-                stackBuf[sp] = idx;
-                stackBuf[sp + 1] = capture[idx];
-                sp += 2;
-                break;
-            }
+            capture[i] = stackBuf[sp + 3 + i];
         }
-        capture[idx] = value;
+        return stateType;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -627,12 +629,16 @@ internal static class RegExpInterpreter
         CancellationToken cancellationToken)
     {
         int inputEnd = input.Length;
+        int allocCount = capture.Length; // captures + registers
+
+        // Frame size: 3 (header: pc, cindex, packedBp) + allocCount (full snapshot)
+        int frameSize = 3 + allocCount;
 
         // Backtracking stack (pooled)
         int[]? stackPooled = ArrayPool<int>.Shared.Rent(InitialStackCapacity);
         int[] stackBuf = stackPooled;
         int sp = 0;  // stack pointer (next free index)
-        int bp = 0;  // backtrack pointer (index of first capture-save after the frame header)
+        int bp = 0;  // backtrack pointer (start of current frame's snapshot area, unused in new design but kept for frame nesting)
 
         int pc = 0;  // program counter (index into bc)
         int interruptCounter = InterruptCounterInit;
@@ -819,23 +825,16 @@ internal static class RegExpInterpreter
                         int pc1;
                         if (opcode == RegExpOpcode.SplitNextFirst)
                         {
-                            // Try next instruction first; save goto target as fallback.
                             pc1 = pc + val;
                         }
                         else
                         {
-                            // Try goto target first; save next instruction as fallback.
                             pc1 = pc;
                             pc = pc + val;
                         }
 
-                        // Push backtracking frame: (fallback_pc, cindex, packed_bp_type)
-                        EnsureStackSpace(ref stackBuf, ref stackPooled, sp, 3);
-                        stackBuf[sp] = pc1;
-                        stackBuf[sp + 1] = cindex;
-                        stackBuf[sp + 2] = PackBpType(bp, ExecStateType.Split);
-                        sp += 3;
-                        bp = sp;
+                        PushFrame(ref stackBuf, ref stackPooled, ref sp, ref bp,
+                            capture, allocCount, pc1, cindex, ExecStateType.Split);
                         break;
                     }
 
@@ -848,55 +847,30 @@ internal static class RegExpInterpreter
                         int val = ReadI32(bc, pc);
                         pc += 4;
 
-                        EnsureStackSpace(ref stackBuf, ref stackPooled, sp, 3);
-                        stackBuf[sp] = pc + val;
-                        stackBuf[sp + 1] = cindex;
                         var stateType = opcode == RegExpOpcode.Lookahead
                             ? ExecStateType.Lookahead
                             : ExecStateType.NegativeLookahead;
-                        stackBuf[sp + 2] = PackBpType(bp, stateType);
-                        sp += 3;
-                        bp = sp;
+                        PushFrame(ref stackBuf, ref stackPooled, ref sp, ref bp,
+                            capture, allocCount, pc + val, cindex, stateType);
                         break;
                     }
 
                 case RegExpOpcode.LookaheadMatch:
                     {
-                        // Pop all saved states until reaching the start of the lookahead,
-                        // keeping the updated captures and the corresponding undo info.
-                        int spTop = sp;
+                        // Positive lookahead succeeded. Pop frames until the Lookahead frame.
+                        // Keep current captures (modified by the lookahead body).
+                        // Only restore pc and cindex from the Lookahead frame.
                         while (true)
                         {
-                            int sp1 = sp;
-                            sp = bp;
-                            // Read the frame below current bp
-                            pc = stackBuf[sp - 3];
-                            cindex = stackBuf[sp - 2];
-                            int packed = stackBuf[sp - 1];
+                            sp -= frameSize;
+                            int packed = stackBuf[sp + 2];
                             var type = UnpackType(packed);
-                            bp = UnpackBp(packed);
-                            // Temporarily store sp1 in the frame slot for the copy step
-                            stackBuf[sp - 1] = sp1;
-                            sp -= 3;
                             if (type == ExecStateType.Lookahead)
                             {
+                                pc = stackBuf[sp];
+                                cindex = stackBuf[sp + 1];
+                                bp = UnpackBp(packed);
                                 break;
-                            }
-                        }
-
-                        if (sp != 0)
-                        {
-                            // Keep the undo info: copy capture-save pairs from inner frames,
-                            // collapsing out the frame headers.
-                            int sp1 = sp;
-                            while (sp1 < spTop)
-                            {
-                                int nextSp = stackBuf[sp1 + 2]; // was overwritten above
-                                sp1 += 3;
-                                while (sp1 < nextSp)
-                                {
-                                    stackBuf[sp++] = stackBuf[sp1++];
-                                }
                             }
                         }
                         break;
@@ -904,23 +878,21 @@ internal static class RegExpInterpreter
 
                 case RegExpOpcode.NegativeLookaheadMatch:
                     {
-                        // Pop all saved states until reaching start of the negative lookahead,
-                        // undoing all capture modifications.
+                        // Negative lookahead body matched — meaning the assertion fails.
+                        // Pop frames until the NegativeLookahead frame, restoring captures
+                        // from the NegativeLookahead frame's snapshot.
                         while (true)
                         {
-                            while (sp > bp)
-                            {
-                                capture[stackBuf[sp - 2]] = stackBuf[sp - 1];
-                                sp -= 2;
-                            }
-                            pc = stackBuf[sp - 3];
-                            cindex = stackBuf[sp - 2];
-                            int packed = stackBuf[sp - 1];
+                            sp -= frameSize;
+                            int packed = stackBuf[sp + 2];
                             var type = UnpackType(packed);
-                            bp = UnpackBp(packed);
-                            sp -= 3;
                             if (type == ExecStateType.NegativeLookahead)
                             {
+                                for (int i = 0; i < allocCount; i++)
+                                {
+                                    capture[i] = stackBuf[sp + 3 + i];
+                                }
+                                bp = UnpackBp(packed);
                                 break;
                             }
                         }
@@ -935,7 +907,7 @@ internal static class RegExpInterpreter
                     {
                         int val = bc[pc++];
                         int idx = 2 * val + (opcode - RegExpOpcode.SaveStart);
-                        SaveCapture(ref stackBuf, ref stackPooled, ref sp, capture, idx, cindex);
+                        capture[idx] = cindex;
                         break;
                     }
 
@@ -944,13 +916,10 @@ internal static class RegExpInterpreter
                         int val = bc[pc];
                         int val2 = bc[pc + 1];
                         pc += 2;
-                        EnsureStackSpace(ref stackBuf, ref stackPooled, sp, 4 * (val2 - val + 1));
                         while (val <= val2)
                         {
-                            int idx = 2 * val;
-                            SaveCapture(ref stackBuf, ref stackPooled, ref sp, capture, idx, Unset);
-                            idx = 2 * val + 1;
-                            SaveCapture(ref stackBuf, ref stackPooled, ref sp, capture, idx, Unset);
+                            capture[2 * val] = Unset;
+                            capture[2 * val + 1] = Unset;
                             val++;
                         }
                         break;
@@ -964,7 +933,7 @@ internal static class RegExpInterpreter
                         int idx = 2 * captureCount + bc[pc];
                         int val = ReadI32(bc, pc + 1);
                         pc += 5;
-                        SaveCaptureCheck(ref stackBuf, ref stackPooled, ref sp, bp, capture, idx, val);
+                        capture[idx] = val;
                         break;
                     }
 
@@ -975,7 +944,7 @@ internal static class RegExpInterpreter
                         pc += 5;
 
                         int val2 = capture[idx] - 1;
-                        SaveCaptureCheck(ref stackBuf, ref stackPooled, ref sp, bp, capture, idx, val2);
+                        capture[idx] = val2;
                         if (val2 != 0)
                         {
                             pc += val;
@@ -1000,7 +969,7 @@ internal static class RegExpInterpreter
 
                         // Decrement the counter
                         int val2 = capture[idx] - 1;
-                        SaveCaptureCheck(ref stackBuf, ref stackPooled, ref sp, bp, capture, idx, val2);
+                        capture[idx] = val2;
 
                         if ((uint) val2 > limit)
                         {
@@ -1014,8 +983,6 @@ internal static class RegExpInterpreter
                         }
                         else
                         {
-                            // Check advance: if position hasn't changed and counter != limit,
-                            // we'd loop forever -> fail.
                             if ((opcode == RegExpOpcode.LoopCheckAdvSplitGotoFirst ||
                                  opcode == RegExpOpcode.LoopCheckAdvSplitNextFirst) &&
                                 capture[idx + 1] == cindex &&
@@ -1024,7 +991,6 @@ internal static class RegExpInterpreter
                                 goto noMatch;
                             }
 
-                            // Conditional split: if counter > 0, push a backtracking frame
                             if (val2 != 0)
                             {
                                 int pc1;
@@ -1039,12 +1005,8 @@ internal static class RegExpInterpreter
                                     pc = pc + val;
                                 }
 
-                                EnsureStackSpace(ref stackBuf, ref stackPooled, sp, 3);
-                                stackBuf[sp] = pc1;
-                                stackBuf[sp + 1] = cindex;
-                                stackBuf[sp + 2] = PackBpType(bp, ExecStateType.Split);
-                                sp += 3;
-                                bp = sp;
+                                PushFrame(ref stackBuf, ref stackPooled, ref sp, ref bp,
+                                    capture, allocCount, pc1, cindex, ExecStateType.Split);
                             }
                         }
                         break;
@@ -1053,7 +1015,7 @@ internal static class RegExpInterpreter
                 case RegExpOpcode.SetCharPos:
                     {
                         int idx = 2 * captureCount + bc[pc++];
-                        SaveCaptureCheck(ref stackBuf, ref stackPooled, ref sp, bp, capture, idx, cindex);
+                        capture[idx] = cindex;
                         break;
                     }
 
@@ -1273,27 +1235,16 @@ internal static class RegExpInterpreter
 noMatch:
             while (true)
             {
-                if (bp == 0)
+                if (sp == 0)
                 {
                     // No more backtracking frames - overall failure.
                     ReturnStack(stackPooled);
                     return 0;
                 }
 
-                // Undo capture modifications back to the frame boundary
-                while (sp > bp)
-                {
-                    capture[stackBuf[sp - 2]] = stackBuf[sp - 1];
-                    sp -= 2;
-                }
-
-                // Pop the frame header
-                pc = stackBuf[sp - 3];
-                cindex = stackBuf[sp - 2];
-                int packedBp = stackBuf[sp - 1];
-                var stateType = UnpackType(packedBp);
-                bp = UnpackBp(packedBp);
-                sp -= 3;
+                // Pop frame with full capture+register restore
+                var stateType = PopFrame(stackBuf, ref sp, ref bp, capture, allocCount,
+                    out pc, out cindex);
 
                 // For Lookahead frames we keep unwinding (a lookahead failure
                 // means the inner expression failed, not an alternative to try).

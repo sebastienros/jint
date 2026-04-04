@@ -7,9 +7,6 @@
   "ExcludedFeatures": [
     "import-defer",
     "import-text",
-    // v-flag regex literals are rejected at parse time by Acornima (no parser support yet).
-    // new RegExp() with v-flag works via the custom engine fallback.
-    "regexp-v-flag",
     "source-phase-imports",
     "tail-call-optimization"
   ],
@@ -28,9 +25,6 @@
     "language/expressions/assignment/fn-name-lhs-cover.js",
 
     // === REGEX EXCLUSIONS ===
-
-    // CharacterClassEscapes tests internally use v-flag regex literals (Acornima parser limitation)
-    "built-ins/RegExp/CharacterClassEscapes/*.js",
 
     // Custom engine: Script=Unknown - needs investigation
     "built-ins/RegExp/property-escapes/special-property-value-Script_Extensions-Unknown.js",

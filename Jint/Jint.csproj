@@ -46,7 +46,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Acornima" />
+    <ProjectReference Include="..\..\acornima-vflag\src\Acornima\Acornima.csproj" />
     <PackageReference Include="Meziantou.Analyzer" PrivateAssets="all" />
   </ItemGroup>
 
