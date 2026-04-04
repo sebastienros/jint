@@ -430,6 +430,13 @@ internal static class RegExpInterpreter
     /// </summary>
     private static bool MatchRange16(ReadOnlySpan<byte> bc, int pc, int n, uint c)
     {
+        // 16-bit ranges only cover BMP (U+0000..U+FFFF); supplementary code points
+        // are handled by Range32/Range32I opcodes via MatchRange32.
+        if (c > 0xFFFF)
+        {
+            return false;
+        }
+
         uint idxMin = 0;
         uint low = ReadU16(bc, pc);
         if (c < low)
@@ -438,11 +445,6 @@ internal static class RegExpInterpreter
         }
         uint idxMax = (uint) (n - 1);
         uint high = ReadU16(bc, pc + (int) idxMax * 4 + 2);
-        // 0xFFFF in the last high value means +infinity
-        if (c >= 0xFFFF && high == 0xFFFF)
-        {
-            return true;
-        }
         if (c > high)
         {
             return false;

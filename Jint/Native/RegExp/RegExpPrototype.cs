@@ -975,7 +975,11 @@ internal sealed class RegExpPrototype : Prototype
 
         if (lastIndex > length)
         {
-            R.Set(JsRegExp.PropertyLastIndex, JsNumber.PositiveZero, true);
+            if (global || sticky)
+            {
+                R.Set(JsRegExp.PropertyLastIndex, JsNumber.PositiveZero, true);
+            }
+
             return Null;
         }
 
@@ -1001,7 +1005,11 @@ internal sealed class RegExpPrototype : Prototype
 
         if (!success)
         {
-            R.Set(JsRegExp.PropertyLastIndex, JsNumber.PositiveZero, true);
+            if (global || sticky)
+            {
+                R.Set(JsRegExp.PropertyLastIndex, JsNumber.PositiveZero, true);
+            }
+
             return Null;
         }
 
