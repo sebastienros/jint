@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
@@ -1020,11 +1021,20 @@ public sealed class RegExpConstructor : Constructor
                 };
             }
 
-            r.CustomEngine = JintRegExpEngine.Compile(pattern, regExpFlags);
+            var regexTimeout = _engine.Options.Constraints.RegexTimeout;
+            using var cts = regexTimeout.TotalMilliseconds > 0 && regexTimeout != Timeout.InfiniteTimeSpan
+                ? new CancellationTokenSource(regexTimeout)
+                : null;
+
+            r.CustomEngine = JintRegExpEngine.Compile(pattern, regExpFlags, cts?.Token ?? default);
             // Set Value to a dummy regex to avoid null reference in code paths that read it
             // but won't actually use it (since UsesDotNetEngine will be false)
             r.Value = DummyRegex;
             r.ParseResult = default;
+        }
+        catch (OperationCanceledException)
+        {
+            throw new RegexMatchTimeoutException(pattern, flags, _engine.Options.Constraints.RegexTimeout);
         }
         catch (RegExpSyntaxException ex)
         {

@@ -700,11 +700,8 @@ internal static class RegExpCompiler
         /// <summary>Insert 'len' zero bytes at 'pos'. Port of dbuf_insert.</summary>
         private void ByteCodeInsert(int pos, int len)
         {
-            // Insert zeroed bytes at the given position
-            for (int i = 0; i < len; i++)
-            {
-                _byteCode.Insert(pos, 0);
-            }
+            if (len <= 0) return;
+            _byteCode.InsertRange(pos, new byte[len]);
         }
 
         // Section: Pattern input helpers
