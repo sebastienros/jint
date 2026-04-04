@@ -529,8 +529,9 @@ internal static class RegExpInterpreter
             newSize = minCapacity;
         }
 
+        int usedCount = Math.Min(minCapacity, stackBuf.Length);
         int[] newBuf = ArrayPool<int>.Shared.Rent(newSize);
-        stackBuf.AsSpan(0, Math.Min(stackBuf.Length, newBuf.Length)).CopyTo(newBuf);
+        stackBuf.AsSpan(0, usedCount).CopyTo(newBuf);
 
         if (stackPooled is not null)
         {

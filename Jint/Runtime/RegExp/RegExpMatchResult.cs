@@ -13,7 +13,7 @@ internal readonly record struct RegExpMatchResult(
     string Value,
     RegExpGroupResult[]? Groups)
 {
-    public static RegExpMatchResult NoMatch => default;
+    public static RegExpMatchResult NoMatch => new(false, 0, 0, "", null);
 }
 
 /// <summary>

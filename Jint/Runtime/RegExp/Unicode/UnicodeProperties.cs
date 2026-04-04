@@ -83,9 +83,12 @@ internal static class UnicodeProperties
         CrOp(pts, b, CharRangeOp.Union);
     }
 
+    /// <summary>Upper bound sentinel for character ranges — matches compiler's CharRangeMax (one past max Unicode).</summary>
+    private const uint CharRangeMax = 0x110000;
+
     public static void CrInvert(List<uint> pts)
     {
-        pts.Insert(0, 0); pts.Add(uint.MaxValue); CrCompress(pts);
+        pts.Insert(0, 0); pts.Add(CharRangeMax); CrCompress(pts);
     }
 
     private static void CrSortAndRemoveOverlap(List<uint> pts)

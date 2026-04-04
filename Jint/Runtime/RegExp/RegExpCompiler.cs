@@ -1667,7 +1667,7 @@ after_class_handling:
                 {
                     if (cr.StringCount != 0)
                     {
-                        throw new RegExpSyntaxException("negated character class with strings in regular expression debugger eval code");
+                        throw new RegExpSyntaxException("negated character class with strings in regular expression");
                     }
                     cr.Cr.Invert();
                 }
