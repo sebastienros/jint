@@ -164,7 +164,7 @@ internal static class RegExpInterpreter
 #endif
             }
 
-            // Skip past NUL terminator + 1 byte group index trailer (LRE_GROUP_NAME_TRAILER_LEN = 2 total)
+            // Skip past NUL terminator + 1 byte scope trailer (LRE_GROUP_NAME_TRAILER_LEN = 2 total)
             offset = end + 1;
             if (offset < bytecode.Length)
             {
@@ -516,12 +516,12 @@ internal static class RegExpInterpreter
     {
         if (sp + needed > stackBuf.Length)
         {
-            GrowStack(ref stackBuf, ref stackPooled, sp + needed);
+            GrowStack(ref stackBuf, ref stackPooled, sp, sp + needed);
         }
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void GrowStack(ref int[] stackBuf, ref int[]? stackPooled, int minCapacity)
+    private static void GrowStack(ref int[] stackBuf, ref int[]? stackPooled, int usedCount, int minCapacity)
     {
         int newSize = stackBuf.Length * 3 / 2;
         if (newSize < minCapacity)
@@ -529,7 +529,6 @@ internal static class RegExpInterpreter
             newSize = minCapacity;
         }
 
-        int usedCount = Math.Min(minCapacity, stackBuf.Length);
         int[] newBuf = ArrayPool<int>.Shared.Rent(newSize);
         stackBuf.AsSpan(0, usedCount).CopyTo(newBuf);
 

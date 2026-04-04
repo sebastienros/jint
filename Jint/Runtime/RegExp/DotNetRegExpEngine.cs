@@ -43,7 +43,7 @@ internal sealed class DotNetRegExpEngine
         }
 
         var groupNameFromNumber = _regex.GroupNameFromNumber(index);
-        if (groupNameFromNumber.Length == 1 && groupNameFromNumber[0] == (char) (48 + index))
+        if (string.Equals(groupNameFromNumber, index.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal))
         {
             return null;
         }

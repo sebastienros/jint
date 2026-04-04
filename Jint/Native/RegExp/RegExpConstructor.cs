@@ -876,13 +876,25 @@ public sealed class RegExpConstructor : Constructor
             if (lb < 0) break;
             if (lb + 3 < pattern.Length && (pattern[lb + 3] == '=' || pattern[lb + 3] == '!'))
             {
-                // Found lookbehind - scan for backreference inside
-                for (int j = lb + 4; j < pattern.Length - 1; j++)
+                // Found lookbehind - scan until its matching closing parenthesis
+                int depth = 1;
+                for (int j = lb + 4; j < pattern.Length; j++)
                 {
-                    if (pattern[j] == ')') break;
-                    if (pattern[j] == '\\' && j + 1 < pattern.Length && pattern[j + 1] >= '1' && pattern[j + 1] <= '9')
+                    if (pattern[j] == '\\' && j + 1 < pattern.Length)
                     {
-                        return true;
+                        if (pattern[j + 1] >= '1' && pattern[j + 1] <= '9')
+                        {
+                            return true;
+                        }
+
+                        j++; // skip escaped char
+                        continue;
+                    }
+
+                    if (pattern[j] == '(') depth++;
+                    else if (pattern[j] == ')')
+                    {
+                        if (--depth == 0) break;
                     }
                 }
             }
