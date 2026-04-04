@@ -1344,14 +1344,12 @@ normal_char_return:
 
                 if (high <= 0xFFFF)
                 {
-                    // Use 16-bit ranges (0xFFFF = infinity convention)
+                    // Use 16-bit ranges for BMP-only inclusive endpoints
                     EmitOpU16(IgnoreCase ? RegExpOpcode.RangeI : RegExpOpcode.Range, (ushort) len);
                     for (int i = 0; i < cr.Length; i += 2)
                     {
                         EmitU16((ushort) cr.Points[i]);
-                        uint h = cr.Points[i + 1] - 1;
-                        if (h == uint.MaxValue - 1) h = 0xFFFF;
-                        EmitU16((ushort) h);
+                        EmitU16((ushort) (cr.Points[i + 1] - 1));
                     }
                 }
                 else

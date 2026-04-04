@@ -498,7 +498,7 @@ public sealed class RegExpConstructor : Constructor
     }
 
     /// <summary>
-    /// Validate regex flags per ECMAScript spec: only "dgimsuy" allowed, no duplicates,
+    /// Validate regex flags per ECMAScript spec: only "dgimsuvy" allowed, no duplicates,
     /// u and v are mutually exclusive.
     /// </summary>
     private void ValidateFlags(string flags)
