@@ -1035,6 +1035,21 @@ public sealed class RegExpConstructor : Constructor
         return r;
     }
 
+    /// <summary>
+    /// Construct a RegExp reusing a pre-compiled custom engine (avoids re-compilation of bytecode).
+    /// </summary>
+    internal JsRegExp Construct(JintRegExpEngine customEngine, string source, string flags)
+    {
+        var r = RegExpAlloc(this);
+        r.CustomEngine = customEngine;
+        r.Value = DummyRegex;
+        r.ParseResult = default;
+        r.Source = source;
+        r.Flags = flags;
+        RegExpInitialize(r);
+        return r;
+    }
+
     public JsRegExp Construct(Regex regExp, string source, string flags, RegExpParseResult regExpParseResult = default)
     {
         var r = RegExpAlloc(this);
