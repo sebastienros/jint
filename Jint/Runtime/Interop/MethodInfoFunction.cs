@@ -185,6 +185,7 @@ internal sealed class MethodInfoFunction : Function
                 var methodParameter = methodParameters[i];
                 var parameterType = methodParameter.ParameterType;
                 var argument = arguments.Length > i ? arguments[i] : null;
+                var argumentObject = argument?.ToObject();
 
                 if (typeof(JsValue).IsAssignableFrom(parameterType))
                 {
@@ -195,9 +196,9 @@ internal sealed class MethodInfoFunction : Function
                     // optional
                     parameters[i] = System.Type.Missing;
                 }
-                else if (IsGenericParameter(argument.ToObject(), parameterType)) // don't think we need the condition preface of (argument == null) because of earlier condition
+                else if (IsGenericParameter(argumentObject, parameterType)) // don't think we need the condition preface of (argument == null) because of earlier condition
                 {
-                    parameters[i] = argument.ToObject();
+                    parameters[i] = argumentObject;
                 }
                 else if (parameterType == typeof(JsValue[]) && argument.IsArray())
                 {
@@ -215,7 +216,7 @@ internal sealed class MethodInfoFunction : Function
                 else
                 {
                     if (!ReflectionExtensions.TryConvertViaTypeCoercion(parameterType, _engine.Options.Interop.ValueCoercion, argument, out parameters[i])
-                        && !converter.TryConvert(argument.ToObject(), parameterType, CultureInfo.InvariantCulture, out parameters[i]))
+                        && !converter.TryConvert(argumentObject, parameterType, CultureInfo.InvariantCulture, out parameters[i]))
                     {
                         argumentsMatch = false;
                         break;
