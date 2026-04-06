@@ -431,7 +431,7 @@ public sealed class JsTypedArray : ObjectInstance
     {
         if (_byteOffset == 0 && typeof(T) == typeof(byte) && _arrayElementType == TypedArrayElementType.Uint8)
         {
-            var result = _viewedArrayBuffer._arrayBufferData as T[];
+            var result = _viewedArrayBuffer._arrayBufferData.AsSpan().Slice(0, (int) GetLength()).ToArray() as T[];
             if (result != null)
             {
                 return result;

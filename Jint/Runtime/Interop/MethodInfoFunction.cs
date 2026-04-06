@@ -185,7 +185,7 @@ internal sealed class MethodInfoFunction : Function
                 var methodParameter = methodParameters[i];
                 var parameterType = methodParameter.ParameterType;
                 var argument = arguments.Length > i ? arguments[i] : null;
-                var argumentObject = argument?.ToObject();
+                object? argumentObject = null;
 
                 if (typeof(JsValue).IsAssignableFrom(parameterType))
                 {
@@ -196,8 +196,10 @@ internal sealed class MethodInfoFunction : Function
                     // optional
                     parameters[i] = System.Type.Missing;
                 }
-                else if (IsGenericParameter(argumentObject, parameterType)) // don't think we need the condition preface of (argument == null) because of earlier condition
+                else if (IsGenericParameter(argumentObject = argument.ToObject(), parameterType)) // don't think we need the condition preface of (argument == null) because of earlier condition
                 {
+                    // ^ this is the best way I could think of to only eval argument.ToObject() when needed.
+                    // But it's very cursed, I'm sorry.
                     parameters[i] = argumentObject;
                 }
                 else if (parameterType == typeof(JsValue[]) && argument.IsArray())
