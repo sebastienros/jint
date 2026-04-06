@@ -210,7 +210,7 @@ internal sealed class InteropHelper
             return 1;
         }
 
-        if (parameterValue.IsArray() && paramType.IsArray)
+        if (parameterValue.IsArray() && (paramType.IsArray || IsGenericCollectionType(paramType)))
         {
             // we have potential, TODO if we'd know JS array's internal type we could have exact match
             return 2;
@@ -302,6 +302,23 @@ internal sealed class InteropHelper
             // nope
             return false;
         }
+    }
+
+    private static bool IsGenericCollectionType(Type type)
+    {
+        if (!type.IsGenericType || type.GetGenericArguments().Length != 1)
+        {
+            return false;
+        }
+
+        var genericTypeDef = type.GetGenericTypeDefinition();
+        return genericTypeDef == typeof(List<>) ||
+               genericTypeDef == typeof(IList<>) ||
+               genericTypeDef == typeof(ICollection<>) ||
+               genericTypeDef == typeof(IEnumerable<>) ||
+               genericTypeDef == typeof(IReadOnlyList<>) ||
+               genericTypeDef == typeof(IReadOnlyCollection<>) ||
+               genericTypeDef == typeof(System.Collections.ObjectModel.Collection<>);
     }
 
     internal static bool TypeIsNullable(Type type)
