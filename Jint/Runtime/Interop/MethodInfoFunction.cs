@@ -51,6 +51,13 @@ internal sealed class MethodInfoFunction : Function
 
         if (parameterType.IsGenericParameter || parameterType.IsGenericType)
         {
+            // For fully concrete generic types (no open type parameters), verify the argument
+            // is actually assignable to prevent incorrect direct assignment when type arguments
+            // differ (e.g., object[] should not be directly assigned to IList<string>)
+            if (!parameterType.ContainsGenericParameters && !parameterType.IsAssignableFrom(argObj.GetType()))
+            {
+                return false;
+            }
             return true;
         }
         return false;

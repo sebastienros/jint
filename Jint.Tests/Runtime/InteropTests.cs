@@ -4194,4 +4194,83 @@ try {
         var geometry = (GeometryWrapperWithProperty) feature.Geometry;
         Assert.Equal(99.9, geometry.X);
     }
+
+    public class TypeWithListConstructor
+    {
+        public TypeWithListConstructor(List<string> items)
+        {
+            Items = items;
+        }
+
+        public List<string> Items { get; }
+    }
+
+    public class TypeWithCollectionParameters
+    {
+        public IList<string> IListItems { get; set; } = [];
+        public ICollection<string> ICollectionItems { get; set; } = [];
+        public IEnumerable<string> IEnumerableItems { get; set; } = [];
+        public IReadOnlyList<string> IReadOnlyListItems { get; set; } = [];
+        public IReadOnlyCollection<string> IReadOnlyCollectionItems { get; set; } = [];
+
+        public void SetIListItems(IList<string> items) => IListItems = items;
+        public void SetICollectionItems(ICollection<string> items) => ICollectionItems = items;
+        public void SetIEnumerableItems(IEnumerable<string> items) => IEnumerableItems = items;
+        public void SetIReadOnlyListItems(IReadOnlyList<string> items) => IReadOnlyListItems = items;
+        public void SetIReadOnlyCollectionItems(IReadOnlyCollection<string> items) => IReadOnlyCollectionItems = items;
+    }
+
+    [Fact]
+    public void ShouldConvertJsArrayToListWhenPassedToConstructor()
+    {
+        var engine = new Engine(options => options.AllowClr(GetType().Assembly));
+        engine.SetValue("TypeWithListConstructor", TypeReference.CreateTypeReference(engine, typeof(TypeWithListConstructor)));
+
+        var result = engine.Evaluate("new TypeWithListConstructor(['a', 'b', 'c'])");
+        var obj = result.ToObject() as TypeWithListConstructor;
+
+        Assert.NotNull(obj);
+        Assert.Equal(3, obj.Items.Count);
+        Assert.Equal("a", obj.Items[0]);
+        Assert.Equal("b", obj.Items[1]);
+        Assert.Equal("c", obj.Items[2]);
+    }
+
+    [Fact]
+    public void ShouldConvertJsArrayToEmptyListWhenPassedToConstructor()
+    {
+        var engine = new Engine(options => options.AllowClr(GetType().Assembly));
+        engine.SetValue("TypeWithListConstructor", TypeReference.CreateTypeReference(engine, typeof(TypeWithListConstructor)));
+
+        var result = engine.Evaluate("new TypeWithListConstructor([])");
+        var obj = result.ToObject() as TypeWithListConstructor;
+
+        Assert.NotNull(obj);
+        Assert.Empty(obj.Items);
+    }
+
+    [Fact]
+    public void ShouldConvertJsArrayToGenericCollectionTypes()
+    {
+        var engine = new Engine(options => options.AllowClr(GetType().Assembly));
+        var target = new TypeWithCollectionParameters();
+        engine.SetValue("target", target);
+
+        engine.Evaluate("target.SetIListItems(['a', 'b'])");
+        Assert.Equal(2, target.IListItems.Count);
+        Assert.Equal("a", target.IListItems[0]);
+
+        engine.Evaluate("target.SetICollectionItems(['c', 'd'])");
+        Assert.Equal(2, target.ICollectionItems.Count);
+
+        engine.Evaluate("target.SetIEnumerableItems(['e', 'f'])");
+        Assert.Equal(2, target.IEnumerableItems.Count());
+
+        engine.Evaluate("target.SetIReadOnlyListItems(['g', 'h'])");
+        Assert.Equal(2, target.IReadOnlyListItems.Count);
+        Assert.Equal("g", target.IReadOnlyListItems[0]);
+
+        engine.Evaluate("target.SetIReadOnlyCollectionItems(['i', 'j'])");
+        Assert.Equal(2, target.IReadOnlyCollectionItems.Count);
+    }
 }
