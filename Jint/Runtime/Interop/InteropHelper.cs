@@ -304,21 +304,22 @@ internal sealed class InteropHelper
         }
     }
 
-    private static bool IsGenericCollectionType(Type type)
-    {
-        if (!type.IsGenericType || type.GetGenericArguments().Length != 1)
-        {
-            return false;
-        }
+    internal static readonly HashSet<Type> GenericCollectionTypeDefinitions =
+    [
+        typeof(List<>),
+        typeof(IList<>),
+        typeof(ICollection<>),
+        typeof(IEnumerable<>),
+        typeof(IReadOnlyList<>),
+        typeof(IReadOnlyCollection<>),
+        typeof(System.Collections.ObjectModel.Collection<>),
+    ];
 
-        var genericTypeDef = type.GetGenericTypeDefinition();
-        return genericTypeDef == typeof(List<>) ||
-               genericTypeDef == typeof(IList<>) ||
-               genericTypeDef == typeof(ICollection<>) ||
-               genericTypeDef == typeof(IEnumerable<>) ||
-               genericTypeDef == typeof(IReadOnlyList<>) ||
-               genericTypeDef == typeof(IReadOnlyCollection<>) ||
-               genericTypeDef == typeof(System.Collections.ObjectModel.Collection<>);
+    internal static bool IsGenericCollectionType(Type type)
+    {
+        return type.IsGenericType
+               && type.GetGenericArguments().Length == 1
+               && GenericCollectionTypeDefinitions.Contains(type.GetGenericTypeDefinition());
     }
 
     internal static bool TypeIsNullable(Type type)

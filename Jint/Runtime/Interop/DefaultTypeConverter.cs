@@ -112,19 +112,14 @@ public class DefaultTypeConverter : ITypeConverter
         // the assignability check for IList<string> etc. (since object[] implements IList<object>).
         if (value is object?[] sourceArray && type.IsGenericType)
         {
-            var genericTypeDef = type.GetGenericTypeDefinition();
             var genericArgs = type.GetGenericArguments();
 
             if (genericArgs.Length == 1)
             {
+                var genericTypeDef = type.GetGenericTypeDefinition();
                 var elementType = genericArgs[0];
 
-                if (genericTypeDef == typeof(List<>) ||
-                    genericTypeDef == typeof(IList<>) ||
-                    genericTypeDef == typeof(ICollection<>) ||
-                    genericTypeDef == typeof(IEnumerable<>) ||
-                    genericTypeDef == typeof(IReadOnlyList<>) ||
-                    genericTypeDef == typeof(IReadOnlyCollection<>))
+                if (genericTypeDef != typeof(Collection<>) && InteropHelper.GenericCollectionTypeDefinitions.Contains(genericTypeDef))
                 {
                     var targetList = (IList) Activator.CreateInstance(typeof(List<>).MakeGenericType(elementType))!;
                     foreach (var item in sourceArray)
