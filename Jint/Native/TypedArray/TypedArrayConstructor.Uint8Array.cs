@@ -33,7 +33,7 @@ public sealed class Uint8ArrayConstructor : TypedArrayConstructor
     public JsTypedArray Construct(ReadOnlySpan<byte> values)
     {
         var array = (JsTypedArray) base.Construct([values.Length], this);
-        FillTypedArrayInstance(array, values);
+        values.CopyTo(array._viewedArrayBuffer._arrayBufferData.AsSpan());
         return array;
     }
 

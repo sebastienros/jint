@@ -426,8 +426,18 @@ public sealed class JsTypedArray : ObjectInstance
         return true;
     }
 
+
     internal T[] ToNativeArray<T>()
     {
+        if (_byteOffset == 0 && typeof(T) == typeof(byte) && _arrayElementType == TypedArrayElementType.Uint8)
+        {
+            var result = _viewedArrayBuffer._arrayBufferData.AsSpan().Slice(0, (int) GetLength()).ToArray() as T[];
+            if (result != null)
+            {
+                return result;
+            }
+        }
+
         var conversionType = typeof(T);
         var elementSize = _arrayElementType.GetElementSize();
         var byteOffset = _byteOffset;
