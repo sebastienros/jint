@@ -1,14 +1,51 @@
 using Jint.Native;
+using Jint.Pooling;
 using Jint.Runtime;
 
 namespace Jint.Collections;
+
+
+/// <summary>
+/// Cache reusable <see cref="Reference" /> instances as we allocate them a lot.
+/// </summary>
+internal sealed class ObjectTraverseStackPool
+{
+    private const int PoolSize = 10;
+    private readonly ObjectPool<ObjectTraverseStack> _pool;
+
+    public ObjectTraverseStackPool()
+    {
+        _pool = new ObjectPool<ObjectTraverseStack>(Factory, PoolSize);
+    }
+
+    private static ObjectTraverseStack Factory()
+    {
+        return new ObjectTraverseStack(null!);
+    }
+
+    public ObjectTraverseStack Rent(Engine engine)
+    {
+        var stack = _pool.Allocate();
+        stack.Reset(engine);
+        return stack;
+    }
+
+    public void Return(ObjectTraverseStack? reference)
+    {
+        if (reference == null)
+        {
+            return;
+        }
+        _pool.Free(reference);
+    }
+}
 
 /// <summary>
 /// Helps traversing objects and checks for cyclic references.
 /// </summary>
 internal sealed class ObjectTraverseStack
 {
-    private readonly Engine _engine;
+    private Engine _engine;
     private readonly Stack<object> _stack = new();
 
     public ObjectTraverseStack(Engine engine)
@@ -44,5 +81,11 @@ internal sealed class ObjectTraverseStack
     public void Exit()
     {
         _stack.Pop();
+    }
+
+    public void Reset(Engine engine)
+    {
+        _stack.Clear();
+        _engine = engine;
     }
 }
