@@ -185,8 +185,11 @@ internal sealed class MethodInfoFunction : Function
 
             var argumentsMatch = true;
             var resolvedMethod = ResolveMethod(method.Method, methodParameters, arguments);
-            // TPC: if we're concerned about cost of MethodInfo.GetParameters() - we could only invoke it if this ends up being a generic method (i.e. they will be different in that scenario)
-            methodParameters = resolvedMethod.GetParameters();
+            // We only need to call GetParameters it if this ends up being a generic method (i.e. they will be different in that scenario)
+            if (resolvedMethod.IsGenericMethod)
+            {
+                methodParameters = resolvedMethod.GetParameters();
+            }
             for (var i = 0; i < parameters.Length; i++)
             {
                 var methodParameter = methodParameters[i];
