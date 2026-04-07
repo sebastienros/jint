@@ -64,6 +64,7 @@ public sealed partial class Engine : IDisposable
     internal readonly ReferencePool _referencePool;
     internal readonly ArgumentsInstancePool _argumentsInstancePool;
     internal readonly JsValueArrayPool _jsValueArrayPool;
+    internal readonly ObjectTraverseStackPool _objectTraverseStackPool;
     internal readonly ExtensionMethodCache _extensionMethods;
 
     public ITypeConverter TypeConverter { get; internal set; }
@@ -150,6 +151,7 @@ public sealed partial class Engine : IDisposable
         _referencePool = new ReferencePool();
         _argumentsInstancePool = new ArgumentsInstancePool(this);
         _jsValueArrayPool = new JsValueArrayPool();
+        _objectTraverseStackPool = new ObjectTraverseStackPool();
 
         Options.Apply(this);
 

@@ -965,7 +965,10 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
 
     public override object ToObject()
     {
-        return ToObject(new ObjectTraverseStack(_engine));
+        var stack = _engine._objectTraverseStackPool.Rent(_engine);
+        var result = ToObject(stack);
+        _engine._objectTraverseStackPool.Return(stack);
+        return result;
     }
 
     private object ToObject(ObjectTraverseStack stack)
