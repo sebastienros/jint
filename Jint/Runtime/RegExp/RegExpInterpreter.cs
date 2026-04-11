@@ -26,6 +26,7 @@
 using System.Buffers;
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -115,6 +116,54 @@ internal static class RegExpInterpreter
             }
 
             return result;
+        }
+        finally
+        {
+            if (capturePooled is not null)
+            {
+                ArrayPool<int>.Shared.Return(capturePooled);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Test if regex bytecode matches the input string, without allocating a result array.
+    /// </summary>
+    public static bool ExecuteIsMatch(
+        ReadOnlySpan<byte> bytecode,
+        string input,
+        int startIndex,
+        CancellationToken cancellationToken = default)
+    {
+        var flags = GetFlags(bytecode);
+        int captureCount = bytecode[RegExpHeader.OffsetCaptureCount];
+        int registerCount = bytecode[RegExpHeader.OffsetRegisterCount];
+        bool isUnicode = (flags & (RegExpFlags.Unicode | RegExpFlags.UnicodeSets)) != RegExpFlags.None;
+
+        int allocCount = captureCount * 2 + registerCount;
+
+        int[]? capturePooled = null;
+        Span<int> capture = allocCount <= 64
+            ? stackalloc int[allocCount]
+            : (capturePooled = ArrayPool<int>.Shared.Rent(allocCount)).AsSpan(0, allocCount);
+
+        capture.Fill(Unset);
+
+        int bytecodeLen = BinaryPrimitives.ReadInt32LittleEndian(bytecode.Slice(RegExpHeader.OffsetBytecodeLen));
+        var bc = bytecode.Slice(RegExpHeader.Length, bytecodeLen);
+
+        int cindex = startIndex;
+        if (cindex > 0 && cindex < input.Length && isUnicode)
+        {
+            if (char.IsLowSurrogate(input[cindex]) && char.IsHighSurrogate(input[cindex - 1]))
+            {
+                cindex--;
+            }
+        }
+
+        try
+        {
+            return ExecBacktrack(bc, input, capture, cindex, captureCount, isUnicode, cancellationToken) == 1;
         }
         finally
         {
@@ -415,19 +464,19 @@ internal static class RegExpInterpreter
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static ushort ReadU16(ReadOnlySpan<byte> bc, int offset)
     {
-        return BinaryPrimitives.ReadUInt16LittleEndian(bc.Slice(offset));
+        return Unsafe.ReadUnaligned<ushort>(ref Unsafe.Add(ref MemoryMarshal.GetReference(bc), offset));
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int ReadI32(ReadOnlySpan<byte> bc, int offset)
     {
-        return BinaryPrimitives.ReadInt32LittleEndian(bc.Slice(offset));
+        return Unsafe.ReadUnaligned<int>(ref Unsafe.Add(ref MemoryMarshal.GetReference(bc), offset));
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static uint ReadU32(ReadOnlySpan<byte> bc, int offset)
     {
-        return BinaryPrimitives.ReadUInt32LittleEndian(bc.Slice(offset));
+        return Unsafe.ReadUnaligned<uint>(ref Unsafe.Add(ref MemoryMarshal.GetReference(bc), offset));
     }
 
     // -----------------------------------------------------------------------
@@ -588,11 +637,8 @@ internal static class RegExpInterpreter
         stackBuf[sp] = savedPc;
         stackBuf[sp + 1] = savedCindex;
         stackBuf[sp + 2] = PackBpType(bp, stateType);
-        // Full snapshot of captures + registers
-        for (int i = 0; i < allocCount; i++)
-        {
-            stackBuf[sp + 3 + i] = capture[i];
-        }
+        // Full snapshot of captures + registers (SIMD-optimized bulk copy)
+        capture.CopyTo(stackBuf.AsSpan(sp + 3, allocCount));
         sp += frameSize;
         bp = sp;
     }
@@ -618,11 +664,8 @@ internal static class RegExpInterpreter
         int packed = stackBuf[sp + 2];
         var stateType = UnpackType(packed);
         bp = UnpackBp(packed);
-        // Restore full snapshot
-        for (int i = 0; i < allocCount; i++)
-        {
-            capture[i] = stackBuf[sp + 3 + i];
-        }
+        // Restore full snapshot (SIMD-optimized bulk copy)
+        stackBuf.AsSpan(sp + 3, allocCount).CopyTo(capture);
         return stateType;
     }
 
@@ -633,6 +676,55 @@ internal static class RegExpInterpreter
         {
             ArrayPool<int>.Shared.Return(stackPooled);
         }
+    }
+
+    // -----------------------------------------------------------------------
+    //  First-character scan loop detection
+    // -----------------------------------------------------------------------
+
+    /// <summary>
+    /// Detect the compiler-emitted scan loop at the start of bytecode for non-sticky patterns.
+    /// The scan loop is: SplitGotoFirst(5) + Any(1) + Goto(5) = 11 bytes, followed by SaveStart 0.
+    /// If the first pattern opcode after SaveStart is Char, extract it for IndexOf-based scanning.
+    /// </summary>
+    private static bool TryDetectScanLoop(ReadOnlySpan<byte> bc, out int patternStartPc, out char scanChar)
+    {
+        patternStartPc = 0;
+        scanChar = '\0';
+
+        // Need at least: 11 (scan loop) + 2 (SaveStart 0) + 3 (Char + u16) = 16 bytes
+        if (bc.Length < 16)
+        {
+            return false;
+        }
+
+        // Verify the scan loop byte pattern
+        if (bc[0] != (byte) RegExpOpcode.SplitGotoFirst
+            || bc[5] != (byte) RegExpOpcode.Any
+            || bc[6] != (byte) RegExpOpcode.Goto
+            || bc[11] != (byte) RegExpOpcode.SaveStart
+            || bc[12] != 0)
+        {
+            return false;
+        }
+
+        // Check first pattern opcode at bc[13]
+        if (bc[13] == (byte) RegExpOpcode.Char)
+        {
+            scanChar = (char) ReadU16(bc, 14);
+            // Surrogate values (0xD800-0xDFFF) can appear inside surrogate pairs.
+            // IndexOf would find them mid-pair, but in unicode mode GetChar treats
+            // pairs atomically. Exclude surrogates to avoid false matches.
+            if (char.IsSurrogate(scanChar))
+            {
+                return false;
+            }
+
+            patternStartPc = 11;
+            return true;
+        }
+
+        return false;
     }
 
     // -----------------------------------------------------------------------
@@ -667,6 +759,25 @@ internal static class RegExpInterpreter
 
         int pc = 0;  // program counter (index into bc)
         int interruptCounter = InterruptCounterInit;
+
+        // First-character scan optimization: replace the bytecode scan loop
+        // (SplitGotoFirst/Any/Goto) with SIMD-accelerated string.IndexOf.
+        bool hasFastScan = TryDetectScanLoop(bc, out int patternStartPc, out char scanChar);
+        int lastScanStart = cindex;
+
+        if (hasFastScan)
+        {
+            int pos = input.IndexOf(scanChar, cindex);
+            if (pos < 0)
+            {
+                ReturnStack(stackPooled);
+                return 0;
+            }
+
+            cindex = pos;
+            lastScanStart = pos;
+            pc = patternStartPc;
+        }
 
         try {
         while (true)
@@ -1272,6 +1383,29 @@ noMatch:
             {
                 if (sp == 0)
                 {
+                    if (hasFastScan)
+                    {
+                        // All inner backtracking exhausted at this position.
+                        // Use IndexOf to jump to the next candidate.
+                        int nextStart = lastScanStart + 1;
+                        if (nextStart >= inputEnd)
+                        {
+                            return 0;
+                        }
+
+                        int nextPos = input.IndexOf(scanChar, nextStart);
+                        if (nextPos < 0)
+                        {
+                            return 0;
+                        }
+
+                        lastScanStart = nextPos;
+                        cindex = nextPos;
+                        capture.Fill(Unset);
+                        pc = patternStartPc;
+                        break; // Resume main interpreter loop
+                    }
+
                     // No more backtracking frames - overall failure.
                     return 0;
                 }

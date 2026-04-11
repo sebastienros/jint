@@ -61,7 +61,7 @@ internal sealed class JintRegExpEngine
     /// <summary>Test if the regex matches the input string.</summary>
     public bool IsMatch(string input, int startIndex = 0, CancellationToken cancellationToken = default)
     {
-        return RegExpInterpreter.Execute(_bytecode, input, startIndex, cancellationToken) is not null;
+        return RegExpInterpreter.ExecuteIsMatch(_bytecode, input, startIndex, cancellationToken);
     }
 
     private RegExpMatchResult BuildResult(string input, int[] captures)
