@@ -1051,45 +1051,63 @@ internal static class RegExpInterpreter
                         int pc1 = pc; // continuation
                         int gotoTarget = pc + val;
 
-                        // Detect greedy Range+ loop: backward SplitGotoFirst to single-pair Range.
-                        // The + quantifier compiles as: Range + SplitGotoFirst(backward to Range).
+                        // Detect greedy Char+/Range+ loop: backward SplitGotoFirst to Char or Range.
+                        // The + quantifier compiles as: atom + SplitGotoFirst(backward to atom).
                         // Bulk-advance cindex past all matching chars instead of looping per-char.
                         // Only safe when continuation is SaveEnd(0) — meaning the + is the
                         // outermost quantifier and no further pattern needs to backtrack into it.
                         if (val < 0
-                            && bc[gotoTarget] == (byte) RegExpOpcode.Range
                             && bc[pc1] == (byte) RegExpOpcode.SaveEnd && bc[pc1 + 1] == 0
                             && cindex < inputEnd)
                         {
-                            int n = ReadU16(bc, gotoTarget + 1);
-                            if (n == 1)
+                            // Char+ bulk advance: skip all identical chars
+                            if (bc[gotoTarget] == (byte) RegExpOpcode.Char)
                             {
-                                char low = (char) ReadU16(bc, gotoTarget + 3);
-                                char high = (char) ReadU16(bc, gotoTarget + 5);
-
-                                int scanEnd;
-#if NET8_0_OR_GREATER
-                                int skipLen = input.AsSpan(cindex).IndexOfAnyExceptInRange(low, high);
-                                scanEnd = skipLen < 0 ? inputEnd : cindex + skipLen;
-#else
-                                scanEnd = cindex;
-                                while (scanEnd < inputEnd)
+                                char targetChar = (char) ReadU16(bc, gotoTarget + 1);
+                                int scanEnd = cindex;
+                                while (scanEnd < inputEnd && input[scanEnd] == targetChar)
                                 {
-                                    char ch = input[scanEnd];
-                                    if (ch < low || ch > high)
-                                    {
-                                        break;
-                                    }
                                     scanEnd++;
                                 }
-#endif
-                                // Push one frame at the end position (greedy: longest match first).
-                                // When Range fails at scanEnd, this frame pops to the continuation.
+
                                 PushFrame(ref stackBuf, ref stackPooled, ref sp, ref bp,
                                     capture, allocCount, pc1, scanEnd, ExecStateType.Split);
                                 cindex = scanEnd;
-                                pc = gotoTarget; // Jump to Range (will fail at scanEnd → pop frame)
+                                pc = gotoTarget;
                                 break;
+                            }
+
+                            // Range+ bulk advance: skip all chars in a single-pair range
+                            if (bc[gotoTarget] == (byte) RegExpOpcode.Range)
+                            {
+                                int n = ReadU16(bc, gotoTarget + 1);
+                                if (n == 1)
+                                {
+                                    char low = (char) ReadU16(bc, gotoTarget + 3);
+                                    char high = (char) ReadU16(bc, gotoTarget + 5);
+
+                                    int scanEnd;
+#if NET8_0_OR_GREATER
+                                    int skipLen = input.AsSpan(cindex).IndexOfAnyExceptInRange(low, high);
+                                    scanEnd = skipLen < 0 ? inputEnd : cindex + skipLen;
+#else
+                                    scanEnd = cindex;
+                                    while (scanEnd < inputEnd)
+                                    {
+                                        char ch = input[scanEnd];
+                                        if (ch < low || ch > high)
+                                        {
+                                            break;
+                                        }
+                                        scanEnd++;
+                                    }
+#endif
+                                    PushFrame(ref stackBuf, ref stackPooled, ref sp, ref bp,
+                                        capture, allocCount, pc1, scanEnd, ExecStateType.Split);
+                                    cindex = scanEnd;
+                                    pc = gotoTarget;
+                                    break;
+                                }
                             }
                         }
 
@@ -1133,11 +1151,11 @@ internal static class RegExpInterpreter
                         if (bc[pc] is (byte) RegExpOpcode.Dot or (byte) RegExpOpcode.Any
                             && bc[pc + 1] == (byte) RegExpOpcode.Goto
                             && ReadI32(bc, pc + 2) < 0
-                            && bc[pc1] == (byte) RegExpOpcode.Char
+                            && bc[pc1] is (byte) RegExpOpcode.Char or (byte) RegExpOpcode.Range
                             && cindex < inputEnd)
                         {
                             bool isDot = bc[pc] == (byte) RegExpOpcode.Dot;
-                            char targetChar = (char) ReadU16(bc, pc1 + 1);
+                            bool continuationIsChar = bc[pc1] == (byte) RegExpOpcode.Char;
 
                             // Determine scan limit: Dot stops at line terminators, Any goes to end.
                             int scanLimit = inputEnd;
@@ -1160,13 +1178,32 @@ internal static class RegExpInterpreter
                                 }
                             }
 
-                            // Use LastIndexOf to find just the RIGHTMOST target char position.
-                            // Greedy quantifiers try the longest match first (rightmost position),
-                            // so in the common case only this single frame is needed. If it fails,
-                            // the outer first-char scan retries from the next starting position.
+                            // Use LastIndexOf (for Char) or backward scan (for Range) to find
+                            // the RIGHTMOST position matching the continuation. Greedy quantifiers
+                            // try the longest match first, so only this single frame is needed.
                             if (scanLimit > cindex)
                             {
-                                int lastHit = input.LastIndexOf(targetChar, scanLimit - 1, scanLimit - cindex);
+                                int lastHit;
+                                if (continuationIsChar)
+                                {
+                                    char targetChar = (char) ReadU16(bc, pc1 + 1);
+                                    lastHit = input.LastIndexOf(targetChar, scanLimit - 1, scanLimit - cindex);
+                                }
+                                else
+                                {
+                                    // Range continuation: scan backward for a char in the range
+                                    int rn = ReadU16(bc, pc1 + 1);
+                                    lastHit = -1;
+                                    for (int ri = scanLimit - 1; ri >= cindex; ri--)
+                                    {
+                                        if (MatchRange16(bc, pc1 + 3, rn, input[ri]))
+                                        {
+                                            lastHit = ri;
+                                            break;
+                                        }
+                                    }
+                                }
+
                                 if (lastHit >= 0)
                                 {
                                     PushFrame(ref stackBuf, ref stackPooled, ref sp, ref bp,
