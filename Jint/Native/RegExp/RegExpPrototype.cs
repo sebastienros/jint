@@ -744,17 +744,49 @@ internal sealed class RegExpPrototype : Prototype
         var fullUnicode = flags.Contains('u') || flags.Contains('v');
         rx.Set(JsRegExp.PropertyLastIndex, JsNumber.PositiveZero, true);
 
+        if (rx is JsRegExp rei && rei.HasDefaultRegExpExec && !rei.UsesDotNetEngine)
+        {
+            // fast path for custom engine: call Execute directly, skip building
+            // full JS result arrays per match (saves 15-20 allocations per match)
+            var customEngine = rei.CustomEngine!;
+            var a = _realm.Intrinsics.Array.ArrayCreate(0);
+            uint n = 0;
+            int lastIndex = 0;
+            while (lastIndex <= s.Length)
+            {
+                var result = customEngine.Execute(s, lastIndex);
+                if (!result.Success)
+                {
+                    break;
+                }
+
+                a.SetIndexValue(n, result.Value, updateLength: false);
+
+                if (result.Length == 0)
+                {
+                    lastIndex = (int) AdvanceStringIndex(s, (ulong) result.Index, fullUnicode);
+                }
+                else
+                {
+                    lastIndex = result.Index + result.Length;
+                }
+
+                n++;
+            }
+
+            a.SetLength(n);
+            return n == 0 ? Null : a;
+        }
+
         if (!fullUnicode
-            && rx is JsRegExp rei
-            && rei.HasDefaultRegExpExec
-            && rei.UsesDotNetEngine)
+            && rx is JsRegExp { HasDefaultRegExpExec: true, UsesDotNetEngine: true } dotnetRei)
         {
             // fast path (only for .NET Regex engine)
             var a = _realm.Intrinsics.Array.ArrayCreate(0);
 
-            if (rei.Sticky)
+            if (dotnetRei.Sticky)
             {
-                var match = rei.Value.Match(s);
+                var match = dotnetRei.Value.Match(s);
                 if (!match.Success || match.Index != 0)
                 {
                     return Null;
@@ -774,7 +806,7 @@ internal sealed class RegExpPrototype : Prototype
             }
             else
             {
-                var matches = rei.Value.Matches(s);
+                var matches = dotnetRei.Value.Matches(s);
                 if (matches.Count == 0)
                 {
                     return Null;

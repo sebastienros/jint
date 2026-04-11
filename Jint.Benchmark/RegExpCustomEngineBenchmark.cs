@@ -18,6 +18,7 @@ public class RegExpCustomEngineBenchmark
     private JintRegExpEngine _namedCaptureEngine = null!;
     private JintRegExpEngine _noMatchEngine = null!;
     private JintRegExpEngine _caseInsensitiveEngine = null!;
+    private JintRegExpEngine _globalLiteralEngine = null!;
 
     [GlobalSetup]
     public void Setup()
@@ -39,6 +40,7 @@ public class RegExpCustomEngineBenchmark
         _namedCaptureEngine = JintRegExpEngine.Compile("aa(?<cap>b)aa", RegExpFlags.Unicode | RegExpFlags.Global);
         _noMatchEngine = JintRegExpEngine.Compile("zzzzz", RegExpFlags.Unicode);
         _caseInsensitiveEngine = JintRegExpEngine.Compile("aaaaaaaaaa", RegExpFlags.Unicode | RegExpFlags.IgnoreCase);
+        _globalLiteralEngine = JintRegExpEngine.Compile("aaaaaaaaaa", RegExpFlags.Unicode | RegExpFlags.Global);
     }
 
     [Benchmark]
@@ -75,5 +77,25 @@ public class RegExpCustomEngineBenchmark
     public bool CaseInsensitiveScan()
     {
         return _caseInsensitiveEngine.Execute(_input, 0).Success;
+    }
+
+    [Benchmark]
+    public int GlobalMatchAll()
+    {
+        int count = 0;
+        int lastIndex = 0;
+        while (lastIndex <= _input.Length)
+        {
+            var result = _globalLiteralEngine.Execute(_input, lastIndex);
+            if (!result.Success)
+            {
+                break;
+            }
+
+            count++;
+            lastIndex = result.Index + Math.Max(result.Length, 1);
+        }
+
+        return count;
     }
 }
