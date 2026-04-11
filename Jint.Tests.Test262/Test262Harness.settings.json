@@ -16,11 +16,6 @@
   ],
   "ExcludedFiles": [
 
-    // Acornima doesn't implement unicode 15/16/17 yet
-    "language/identifiers/*-unicode-15.*.js",
-    "language/identifiers/*-unicode-16.*.js",
-    "language/identifiers/*-unicode-17.*.js",
-
     // Currently quite impossible to detect if assignment target is CoverParenthesizedExpression
     "language/expressions/assignment/fn-name-lhs-cover.js",
 
