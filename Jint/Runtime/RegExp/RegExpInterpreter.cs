@@ -1074,21 +1074,18 @@ internal static class RegExpInterpreter
                                 }
                             }
 
-                            // Use IndexOf to jump between target char positions (SIMD-accelerated)
-                            // instead of iterating char-by-char.
-                            int searchFrom = cindex;
-                            while (searchFrom < scanLimit)
+                            // Use LastIndexOf to find just the RIGHTMOST target char position.
+                            // Greedy quantifiers try the longest match first (rightmost position),
+                            // so in the common case only this single frame is needed. If it fails,
+                            // the outer first-char scan retries from the next starting position.
+                            if (scanLimit > cindex)
                             {
-                                int hitPos = input.IndexOf(targetChar, searchFrom, scanLimit - searchFrom);
-                                if (hitPos < 0)
+                                int lastHit = input.LastIndexOf(targetChar, scanLimit - 1, scanLimit - cindex);
+                                if (lastHit >= 0)
                                 {
-                                    break;
+                                    PushFrame(ref stackBuf, ref stackPooled, ref sp, ref bp,
+                                        capture, allocCount, pc1, lastHit, ExecStateType.Split);
                                 }
-
-                                PushFrame(ref stackBuf, ref stackPooled, ref sp, ref bp,
-                                    capture, allocCount, pc1, hitPos, ExecStateType.Split);
-
-                                searchFrom = hitPos + 1;
                             }
 
                             cindex = scanLimit;

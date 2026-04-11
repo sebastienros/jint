@@ -747,6 +747,19 @@ internal sealed class RegExpPrototype : Prototype
             rx.Set(JsRegExp.PropertyLastIndex, 0, true);
         }
 
+        // Fast path for custom engine: only need the index, skip full result array
+        if (rx is JsRegExp { HasDefaultRegExpExec: true, UsesDotNetEngine: false } customR)
+        {
+            var searchResult = customR.CustomEngine!.Execute(s, 0);
+            var currentLastIndex2 = rx.Get(JsRegExp.PropertyLastIndex);
+            if (!SameValue(currentLastIndex2, previousLastIndex))
+            {
+                rx.Set(JsRegExp.PropertyLastIndex, previousLastIndex, true);
+            }
+
+            return searchResult.Success ? searchResult.Index : -1;
+        }
+
         var result = RegExpExec(rx, s);
         var currentLastIndex = rx.Get(JsRegExp.PropertyLastIndex);
         if (!SameValue(currentLastIndex, previousLastIndex))
