@@ -786,16 +786,50 @@ internal static class RegExpInterpreter
         }
 
         // Case-insensitive: CharI stores the canonicalized value.
+        // Also extract multi-char literal from consecutive CharI for OrdinalIgnoreCase search.
         if (firstOp == (byte) RegExpOpcode.CharI && bc.Length >= 16)
         {
             char val = (char) ReadU16(bc, 14);
             if (val < 128)
             {
                 char alt = char.IsLower(val) ? char.ToUpperInvariant(val) : char.ToLowerInvariant(val);
+
+                // Look ahead for consecutive CharI opcodes (same as Char literal extraction)
+                string? literal = null;
+                int nextOp = 16;
+                if (bc.Length > nextOp && bc[nextOp] == (byte) RegExpOpcode.CharI)
+                {
+                    Span<char> litBuf = stackalloc char[32];
+                    litBuf[0] = val;
+                    int litLen = 1;
+                    while (litLen < litBuf.Length
+                        && nextOp < bc.Length
+                        && bc[nextOp] == (byte) RegExpOpcode.CharI)
+                    {
+                        char c = (char) ReadU16(bc, nextOp + 1);
+                        if (c >= 128)
+                        {
+                            break;
+                        }
+
+                        litBuf[litLen++] = c;
+                        nextOp += 3;
+                    }
+
+                    if (litLen > 1)
+                    {
+#if NETSTANDARD2_0 || NET462
+                        literal = litBuf.Slice(0, litLen).ToString();
+#else
+                        literal = new string(litBuf.Slice(0, litLen));
+#endif
+                    }
+                }
+
                 return new ScanLoopInfo(HasFastScan: true, PatternStartPc: 11,
                     ScanChar: val, ScanCharAlt: alt, IsAnchored: false,
                     IsRange: false, RangeLow: '\0', RangeHigh: '\0',
-                    ScanLiteral: null);
+                    ScanLiteral: literal);
             }
         }
 
@@ -833,7 +867,10 @@ internal static class RegExpInterpreter
         // Multi-char literal: SIMD substring search (much faster when first char is common)
         if (info.ScanLiteral is { Length: > 1 })
         {
-            return input.IndexOf(info.ScanLiteral, startIndex, StringComparison.Ordinal);
+            var comparison = info.ScanCharAlt != '\0'
+                ? StringComparison.OrdinalIgnoreCase
+                : StringComparison.Ordinal;
+            return input.IndexOf(info.ScanLiteral, startIndex, comparison);
         }
 
 #if NET8_0_OR_GREATER
