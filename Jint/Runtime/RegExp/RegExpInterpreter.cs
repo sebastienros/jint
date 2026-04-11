@@ -1041,6 +1041,50 @@ internal static class RegExpInterpreter
 
                         int pc1 = pc + val; // continuation (backtrack target)
 
+                        // Greedy dot-star bulk scan: detect SplitNextFirst → Dot/Any → Goto(back)
+                        // and replace the per-character opcode loop with a direct scan.
+                        // Verify the Goto jumps backward (loop) and the atom is exactly 1 opcode.
+                        if (bc[pc] is (byte) RegExpOpcode.Dot or (byte) RegExpOpcode.Any
+                            && bc[pc + 1] == (byte) RegExpOpcode.Goto
+                            && ReadI32(bc, pc + 2) < 0
+                            && bc[pc1] == (byte) RegExpOpcode.Char
+                            && cindex < inputEnd)
+                        {
+                            bool isDot = bc[pc] == (byte) RegExpOpcode.Dot;
+                            char targetChar = (char) ReadU16(bc, pc1 + 1);
+
+                            // Bulk scan forward, pushing frames only at target char positions.
+                            // Dot stops at line terminators; Any matches everything.
+                            int scanEnd = cindex;
+                            while (scanEnd < inputEnd)
+                            {
+                                char ch = input[scanEnd];
+                                if (isDot && IsLineTerminator(ch))
+                                {
+                                    break;
+                                }
+
+                                if (ch == targetChar)
+                                {
+                                    PushFrame(ref stackBuf, ref stackPooled, ref sp, ref bp,
+                                        capture, allocCount, pc1, scanEnd, ExecStateType.Split);
+                                }
+
+                                scanEnd++;
+
+                                // In unicode mode, skip low surrogate of a pair
+                                if (isUnicode && char.IsHighSurrogate(ch)
+                                    && scanEnd < inputEnd && char.IsLowSurrogate(input[scanEnd]))
+                                {
+                                    scanEnd++;
+                                }
+                            }
+
+                            cindex = scanEnd;
+                            pc = pc1; // Jump to continuation
+                            break;
+                        }
+
                         // Greedy quantifier frame pruning: if the continuation starts
                         // with a Char opcode and the current input position doesn't match
                         // that char, skip pushing the frame — backtracking here would
