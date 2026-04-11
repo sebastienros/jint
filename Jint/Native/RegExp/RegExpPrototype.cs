@@ -1231,8 +1231,7 @@ internal sealed class RegExpPrototype : Prototype
         var constructor = engine.Realm.Intrinsics.RegExp;
         constructor._legacyInput = s;
         constructor._legacyLastMatch = result.Value;
-        constructor._legacyLeftContext = s.Substring(0, result.Index);
-        constructor._legacyRightContext = s.Substring(result.Index + result.Length);
+        constructor.SetLegacyContext(s, result.Index, result.Length);
 
         var groups = result.Groups;
         var lastParen = "";
@@ -1348,8 +1347,7 @@ internal sealed class RegExpPrototype : Prototype
         var constructor = engine.Realm.Intrinsics.RegExp;
         constructor._legacyInput = s;
         constructor._legacyLastMatch = match.Value;
-        constructor._legacyLeftContext = s.Substring(0, match.Index);
-        constructor._legacyRightContext = s.Substring(match.Index + match.Length);
+        constructor.SetLegacyContext(s, match.Index, match.Length);
 
         // Update $1-$9
         var lastParen = "";

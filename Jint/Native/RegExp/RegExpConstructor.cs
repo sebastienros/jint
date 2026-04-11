@@ -20,9 +20,20 @@ public sealed class RegExpConstructor : Constructor
     internal string _legacyInput = "";
     internal string _legacyLastMatch = "";
     internal string _legacyLastParen = "";
-    internal string _legacyLeftContext = "";
-    internal string _legacyRightContext = "";
     internal readonly string[] _legacyParens = new string[9];
+    // Left/right context computed lazily to avoid Substring allocations per exec()
+    private string _legacyContextInput = "";
+    private int _legacyMatchIndex;
+    private int _legacyMatchEnd;
+    internal string _legacyLeftContext => _legacyContextInput.Length > 0 ? _legacyContextInput.Substring(0, _legacyMatchIndex) : "";
+    internal string _legacyRightContext => _legacyContextInput.Length > 0 ? _legacyContextInput.Substring(_legacyMatchEnd) : "";
+
+    internal void SetLegacyContext(string input, int matchIndex, int matchLength)
+    {
+        _legacyContextInput = input;
+        _legacyMatchIndex = matchIndex;
+        _legacyMatchEnd = matchIndex + matchLength;
+    }
 
     internal RegExpConstructor(
         Engine engine,

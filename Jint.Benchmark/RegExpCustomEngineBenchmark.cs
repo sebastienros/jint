@@ -19,6 +19,9 @@ public class RegExpCustomEngineBenchmark
     private JintRegExpEngine _noMatchEngine = null!;
     private JintRegExpEngine _caseInsensitiveEngine = null!;
     private JintRegExpEngine _globalLiteralEngine = null!;
+    private JintRegExpEngine _anchoredEngine = null!;
+    private JintRegExpEngine _digitScanEngine = null!;
+    private JintRegExpEngine _charClassScanEngine = null!;
 
     [GlobalSetup]
     public void Setup()
@@ -41,6 +44,9 @@ public class RegExpCustomEngineBenchmark
         _noMatchEngine = JintRegExpEngine.Compile("zzzzz", RegExpFlags.Unicode);
         _caseInsensitiveEngine = JintRegExpEngine.Compile("aaaaaaaaaa", RegExpFlags.Unicode | RegExpFlags.IgnoreCase);
         _globalLiteralEngine = JintRegExpEngine.Compile("aaaaaaaaaa", RegExpFlags.Unicode | RegExpFlags.Global);
+        _anchoredEngine = JintRegExpEngine.Compile("^aaaaaaaaaa", RegExpFlags.Unicode);
+        _digitScanEngine = JintRegExpEngine.Compile("[0-9]+", RegExpFlags.Unicode);
+        _charClassScanEngine = JintRegExpEngine.Compile("[a-z]+", RegExpFlags.Unicode);
     }
 
     [Benchmark]
@@ -97,5 +103,23 @@ public class RegExpCustomEngineBenchmark
         }
 
         return count;
+    }
+
+    [Benchmark]
+    public bool AnchoredLiteral()
+    {
+        return _anchoredEngine.Execute(_input, 0).Success;
+    }
+
+    [Benchmark]
+    public bool DigitScan()
+    {
+        return _digitScanEngine.Execute(_input, 0).Success;
+    }
+
+    [Benchmark]
+    public bool CharClassScan()
+    {
+        return _charClassScanEngine.Execute(_input, 0).Success;
     }
 }
