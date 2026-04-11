@@ -163,13 +163,49 @@ internal sealed class RegExpPrototype : Prototype
             rx.Set(JsRegExp.PropertyLastIndex, 0, true);
         }
 
+        // Custom engine fast path for simple string replacement (no $-substitutions, no function)
+        if (!functionalReplace
+            && !mayHaveNamedCaptures
+            && rx is JsRegExp { HasDefaultRegExpExec: true, UsesDotNetEngine: false } customRei)
+        {
+            var customEngine = customRei.CustomEngine!;
+            var replStr = TypeConverter.ToString(replaceValue);
+            var sb = new ValueStringBuilder(stackalloc char[256]);
+
+            int lastPos = 0;
+            int searchStart = 0;
+            int maxCount = global ? int.MaxValue : 1;
+            int count = 0;
+
+            while (count < maxCount && searchStart <= s.Length)
+            {
+                var result = customEngine.Execute(s, searchStart);
+                if (!result.Success)
+                {
+                    break;
+                }
+
+                sb.Append(s.AsSpan(lastPos, result.Index - lastPos));
+                sb.Append(replStr);
+
+                lastPos = result.Index + result.Length;
+                searchStart = result.Length == 0
+                    ? (int) AdvanceStringIndex(s, (ulong) result.Index, fullUnicode)
+                    : lastPos;
+                count++;
+            }
+
+            sb.Append(s.AsSpan(lastPos));
+            rx.Set(JsRegExp.PropertyLastIndex, JsNumber.PositiveZero);
+            return sb.ToString();
+        }
+
         // check if we can access fast path (only for .NET Regex engine)
         // Derive sticky from already-read flags string to avoid extra observable property access
         if (!fullUnicode
             && !mayHaveNamedCaptures
             && !flags.Contains('y')
-            && rx is JsRegExp rei && rei.HasDefaultRegExpExec
-            && rei.UsesDotNetEngine)
+            && rx is JsRegExp { HasDefaultRegExpExec: true, UsesDotNetEngine: true } rei)
         {
             var count = global ? int.MaxValue : 1;
 
@@ -638,29 +674,59 @@ internal sealed class RegExpPrototype : Prototype
         var r = AssertThisIsObjectInstance(thisObject, "RegExp.prototype.test");
         var s = TypeConverter.ToString(arguments.At(0));
 
-        // check couple fast paths (only for .NET Regex engine)
-        if (r is JsRegExp R && !R.FullUnicode && R.UsesDotNetEngine)
+        if (r is JsRegExp R && R.HasDefaultRegExpExec)
         {
-            if (!R.Sticky && !R.Global)
+            // Fast path for custom engine (allocation-free IsMatch)
+            if (!R.UsesDotNetEngine)
             {
-                R.Set(JsRegExp.PropertyLastIndex, 0, throwOnError: true);
-                return R.Value.IsMatch(s);
+                var customEngine = R.CustomEngine!;
+                if (!R.Sticky && !R.Global)
+                {
+                    return customEngine.IsMatch(s, 0);
+                }
+
+                var lastIndex = (int) TypeConverter.ToLength(R.Get(JsRegExp.PropertyLastIndex));
+                if (lastIndex >= s.Length && s.Length > 0)
+                {
+                    R.Set(JsRegExp.PropertyLastIndex, 0, throwOnError: true);
+                    return JsBoolean.False;
+                }
+
+                // For global/sticky, we need the match position to update lastIndex
+                var result = customEngine.Execute(s, lastIndex);
+                if (!result.Success || (R.Sticky && result.Index != lastIndex))
+                {
+                    R.Set(JsRegExp.PropertyLastIndex, 0, throwOnError: true);
+                    return JsBoolean.False;
+                }
+                R.Set(JsRegExp.PropertyLastIndex, result.Index + result.Length, throwOnError: true);
+                return JsBoolean.True;
             }
 
-            var lastIndex = (int) TypeConverter.ToLength(R.Get(JsRegExp.PropertyLastIndex));
-            if (lastIndex >= s.Length && s.Length > 0)
+            // Fast path for .NET Regex engine
+            if (!R.FullUnicode)
             {
-                return JsBoolean.False;
-            }
+                if (!R.Sticky && !R.Global)
+                {
+                    R.Set(JsRegExp.PropertyLastIndex, 0, throwOnError: true);
+                    return R.Value.IsMatch(s);
+                }
 
-            var m = R.Value.Match(s, lastIndex);
-            if (!m.Success || (R.Sticky && m.Index != lastIndex))
-            {
-                R.Set(JsRegExp.PropertyLastIndex, 0, throwOnError: true);
-                return JsBoolean.False;
+                var lastIndex = (int) TypeConverter.ToLength(R.Get(JsRegExp.PropertyLastIndex));
+                if (lastIndex >= s.Length && s.Length > 0)
+                {
+                    return JsBoolean.False;
+                }
+
+                var m = R.Value.Match(s, lastIndex);
+                if (!m.Success || (R.Sticky && m.Index != lastIndex))
+                {
+                    R.Set(JsRegExp.PropertyLastIndex, 0, throwOnError: true);
+                    return JsBoolean.False;
+                }
+                R.Set(JsRegExp.PropertyLastIndex, m.Index + m.Length, throwOnError: true);
+                return JsBoolean.True;
             }
-            R.Set(JsRegExp.PropertyLastIndex, m.Index + m.Length, throwOnError: true);
-            return JsBoolean.True;
         }
 
         var match = RegExpExec(r, s);
@@ -679,6 +745,19 @@ internal sealed class RegExpPrototype : Prototype
         if (!SameValue(previousLastIndex, 0))
         {
             rx.Set(JsRegExp.PropertyLastIndex, 0, true);
+        }
+
+        // Fast path for custom engine: only need the index, skip full result array
+        if (rx is JsRegExp { HasDefaultRegExpExec: true, UsesDotNetEngine: false } customR)
+        {
+            var searchResult = customR.CustomEngine!.Execute(s, 0);
+            var currentLastIndex2 = rx.Get(JsRegExp.PropertyLastIndex);
+            if (!SameValue(currentLastIndex2, previousLastIndex))
+            {
+                rx.Set(JsRegExp.PropertyLastIndex, previousLastIndex, true);
+            }
+
+            return searchResult.Success ? searchResult.Index : -1;
         }
 
         var result = RegExpExec(rx, s);
@@ -714,17 +793,49 @@ internal sealed class RegExpPrototype : Prototype
         var fullUnicode = flags.Contains('u') || flags.Contains('v');
         rx.Set(JsRegExp.PropertyLastIndex, JsNumber.PositiveZero, true);
 
+        if (rx is JsRegExp rei && rei.HasDefaultRegExpExec && !rei.UsesDotNetEngine)
+        {
+            // fast path for custom engine: call Execute directly, skip building
+            // full JS result arrays per match (saves 15-20 allocations per match)
+            var customEngine = rei.CustomEngine!;
+            var a = _realm.Intrinsics.Array.ArrayCreate(0);
+            uint n = 0;
+            int lastIndex = 0;
+            while (lastIndex <= s.Length)
+            {
+                var result = customEngine.Execute(s, lastIndex);
+                if (!result.Success)
+                {
+                    break;
+                }
+
+                a.SetIndexValue(n, result.Value, updateLength: false);
+
+                if (result.Length == 0)
+                {
+                    lastIndex = (int) AdvanceStringIndex(s, (ulong) result.Index, fullUnicode);
+                }
+                else
+                {
+                    lastIndex = result.Index + result.Length;
+                }
+
+                n++;
+            }
+
+            a.SetLength(n);
+            return n == 0 ? Null : a;
+        }
+
         if (!fullUnicode
-            && rx is JsRegExp rei
-            && rei.HasDefaultRegExpExec
-            && rei.UsesDotNetEngine)
+            && rx is JsRegExp { HasDefaultRegExpExec: true, UsesDotNetEngine: true } dotnetRei)
         {
             // fast path (only for .NET Regex engine)
             var a = _realm.Intrinsics.Array.ArrayCreate(0);
 
-            if (rei.Sticky)
+            if (dotnetRei.Sticky)
             {
-                var match = rei.Value.Match(s);
+                var match = dotnetRei.Value.Match(s);
                 if (!match.Success || match.Index != 0)
                 {
                     return Null;
@@ -744,7 +855,7 @@ internal sealed class RegExpPrototype : Prototype
             }
             else
             {
-                var matches = rei.Value.Matches(s);
+                var matches = dotnetRei.Value.Matches(s);
                 if (matches.Count == 0)
                 {
                     return Null;
@@ -1120,8 +1231,7 @@ internal sealed class RegExpPrototype : Prototype
         var constructor = engine.Realm.Intrinsics.RegExp;
         constructor._legacyInput = s;
         constructor._legacyLastMatch = result.Value;
-        constructor._legacyLeftContext = s.Substring(0, result.Index);
-        constructor._legacyRightContext = s.Substring(result.Index + result.Length);
+        constructor.SetLegacyContext(s, result.Index, result.Length);
 
         var groups = result.Groups;
         var lastParen = "";
@@ -1237,8 +1347,7 @@ internal sealed class RegExpPrototype : Prototype
         var constructor = engine.Realm.Intrinsics.RegExp;
         constructor._legacyInput = s;
         constructor._legacyLastMatch = match.Value;
-        constructor._legacyLeftContext = s.Substring(0, match.Index);
-        constructor._legacyRightContext = s.Substring(match.Index + match.Length);
+        constructor.SetLegacyContext(s, match.Index, match.Length);
 
         // Update $1-$9
         var lastParen = "";

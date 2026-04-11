@@ -1,4 +1,5 @@
 using System.Threading;
+using static Jint.Runtime.RegExp.RegExpInterpreter;
 
 namespace Jint.Runtime.RegExp;
 
@@ -13,6 +14,7 @@ internal sealed class JintRegExpEngine
     private readonly int _captureCount;
     private readonly string?[] _groupNames = [];
     private readonly RegExpFlags _flags;
+    private readonly ScanLoopInfo _scanInfo;
 
     private JintRegExpEngine(byte[] bytecode)
     {
@@ -20,6 +22,7 @@ internal sealed class JintRegExpEngine
         _captureCount = RegExpInterpreter.GetCaptureCount(_bytecode);
         _flags = RegExpInterpreter.GetFlags(_bytecode);
         _groupNames = RegExpInterpreter.GetGroupNames(_bytecode) ?? [];
+        _scanInfo = RegExpInterpreter.DetectScanLoop(_bytecode);
     }
 
     /// <summary>Compile a JavaScript regex pattern into bytecode.</summary>
@@ -49,7 +52,7 @@ internal sealed class JintRegExpEngine
     /// <summary>Execute the regex against the input string starting at the given index.</summary>
     public RegExpMatchResult Execute(string input, int startIndex, CancellationToken cancellationToken = default)
     {
-        var captures = RegExpInterpreter.Execute(_bytecode, input, startIndex, cancellationToken);
+        var captures = RegExpInterpreter.Execute(_bytecode, input, startIndex, _scanInfo, cancellationToken);
         if (captures is null)
         {
             return RegExpMatchResult.NoMatch;
@@ -61,7 +64,7 @@ internal sealed class JintRegExpEngine
     /// <summary>Test if the regex matches the input string.</summary>
     public bool IsMatch(string input, int startIndex = 0, CancellationToken cancellationToken = default)
     {
-        return RegExpInterpreter.Execute(_bytecode, input, startIndex, cancellationToken) is not null;
+        return RegExpInterpreter.ExecuteIsMatch(_bytecode, input, startIndex, _scanInfo, cancellationToken);
     }
 
     private RegExpMatchResult BuildResult(string input, int[] captures)
