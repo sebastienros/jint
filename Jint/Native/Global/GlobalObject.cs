@@ -13,7 +13,8 @@ namespace Jint.Native.Global;
 public sealed partial class GlobalObject : ObjectInstance
 {
     private readonly Realm _realm;
-    private readonly StringBuilder _stringBuilder = new();
+    private ErrorDispatchInfo? _uriError;
+    private ErrorDispatchInfo UriError => _uriError ??= Throw.CreateUriError(_realm, "URI malformed");
 
     internal GlobalObject(
         Engine engine,
@@ -391,7 +392,8 @@ public sealed partial class GlobalObject : ObjectInstance
         return builder.ToString();
 
 uriError:
-        _engine.SignalError(Throw.CreateUriError(_realm, "URI malformed"));
+        builder.Dispose();
+        _engine.SignalError(UriError);
         return JsEmpty.Instance;
     }
 
@@ -414,8 +416,13 @@ uriError:
     {
         var strLen = uriString.Length;
 
-        _stringBuilder.EnsureCapacity(strLen);
-        _stringBuilder.Clear();
+        if (!uriString.Contains('%'))
+        {
+            return uriString;
+        }
+
+        var builder = new ValueStringBuilder(stackalloc char[256]);
+        builder.EnsureCapacity(strLen);
 
         Span<byte> octets = stackalloc byte[4];
         for (var k = 0; k < strLen; k++)
@@ -423,7 +430,7 @@ uriError:
             var C = uriString[k];
             if (C != '%')
             {
-                _stringBuilder.Append(C);
+                builder.Append(C);
             }
             else
             {
@@ -450,11 +457,11 @@ uriError:
                     if (reservedSet == null || !reservedSet.Contains(C))
 #pragma warning restore CA2249
                     {
-                        _stringBuilder.Append(C);
+                        builder.Append(C);
                     }
                     else
                     {
-                        _stringBuilder.Append(uriString, start, k - start + 1);
+                        builder.Append(uriString.AsSpan(start, k - start + 1));
                     }
                 }
                 else
@@ -518,7 +525,7 @@ uriError:
                                     goto uriError;
                                 }
 
-                                _stringBuilder.Append((char) codepoint);
+                                builder.Append((char) codepoint);
                                 break;
                             }
                         case 3:
@@ -534,7 +541,7 @@ uriError:
                                     goto uriError;
                                 }
 
-                                _stringBuilder.Append((char) codepoint);
+                                builder.Append((char) codepoint);
                                 break;
                             }
                         case 4:
@@ -554,8 +561,8 @@ uriError:
                                 var offset = codepoint - 0x10000;
                                 var highSurrogate = (char) (0xD800 + (offset >> 10));
                                 var lowSurrogate = (char) (0xDC00 + (offset & 0x3FF));
-                                _stringBuilder.Append(highSurrogate);
-                                _stringBuilder.Append(lowSurrogate);
+                                builder.Append(highSurrogate);
+                                builder.Append(lowSurrogate);
                                 break;
                             }
                     }
@@ -563,10 +570,11 @@ uriError:
             }
         }
 
-        return _stringBuilder.ToString();
+        return builder.ToString();
 
 uriError:
-        _engine.SignalError(Throw.CreateUriError(_realm, "URI malformed"));
+        builder.Dispose();
+        _engine.SignalError(UriError);
         return JsEmpty.Instance;
     }
 
@@ -654,10 +662,14 @@ uriError:
     {
         var uriString = TypeConverter.ToString(arguments.At(0));
 
-        var strLen = uriString.Length;
+        if (!uriString.Contains('%'))
+        {
+            return uriString;
+        }
 
-        _stringBuilder.EnsureCapacity(strLen);
-        _stringBuilder.Clear();
+        var strLen = uriString.Length;
+        var builder = new ValueStringBuilder(stackalloc char[256]);
+        builder.EnsureCapacity(strLen);
 
         for (var k = 0; k < strLen; k++)
         {
@@ -677,10 +689,10 @@ uriError:
                     k += 2;
                 }
             }
-            _stringBuilder.Append(c);
+            builder.Append(c);
         }
 
-        return _stringBuilder.ToString();
+        return builder.ToString();
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static bool AreValidHexChars(ReadOnlySpan<char> input)
