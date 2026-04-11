@@ -21,11 +21,23 @@ internal sealed class JintFunctionDefinition
     public readonly string? Name;
     public readonly IFunction Function;
 
-    public JintFunctionDefinition(IFunction function)
+    // A negative (bitwise complement) start value indicates that the first token needs to be skipped.
+    // (This is for handling static class members.)
+    public readonly int SourceTextStart, SourceTextEnd;
+
+    public JintFunctionDefinition(IFunction function, int sourceTextStart, int sourceTextEnd)
     {
         Function = function;
         Name = !string.IsNullOrEmpty(function.Id?.Name) ? function.Id!.Name : null;
+        SourceTextStart = sourceTextStart;
+        SourceTextEnd = sourceTextEnd;
     }
+
+    public JintFunctionDefinition(IFunction function, Acornima.Range sourceTextRange)
+        : this(function, sourceTextRange.Start, sourceTextRange.End) { }
+
+    public JintFunctionDefinition(IFunction function)
+        : this(function, function.RangeRef.Start, function.RangeRef.End) { }
 
     public bool Strict => Function.IsStrict();
 
@@ -257,7 +269,11 @@ internal sealed class JintFunctionDefinition
     internal State Initialize()
     {
         var node = (Node) Function;
-        var state = (State) (node.UserData ??= BuildState(Function));
+        var stateOrFullSourceText = node.UserData;
+        if (stateOrFullSourceText is not State state)
+        {
+            node.UserData = state = BuildState(Function, stateOrFullSourceText as string);
+        }
         return state;
     }
 
@@ -298,10 +314,12 @@ internal sealed class JintFunctionDefinition
         public bool EnvironmentMayEscape;
         public Binding[]? _cachedSlots;
 
+        public SourceText SourceText;
+
         internal readonly record struct VariableValuePair(Key Name, JsValue? InitialValue);
     }
 
-    internal static State BuildState(IFunction function)
+    internal static State BuildState(IFunction function, string? fullSourceText = null)
     {
         var state = new State();
 
@@ -555,6 +573,8 @@ internal sealed class JintFunctionDefinition
                 }
             }
         }
+
+        state.SourceText = new SourceText(fullSourceText);
 
         return state;
     }

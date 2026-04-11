@@ -32,7 +32,7 @@ internal sealed class JintObjectExpression : JintExpression
 
         public JsString? KeyJsString => _keyJsString ??= _key != null ? JsString.Create(_key) : null;
 
-        public JintFunctionDefinition GetFunctionDefinition(Engine engine)
+        public JintFunctionDefinition GetFunctionDefinition(Engine engine, Property property)
         {
             if (_functionDefinition is not null)
             {
@@ -45,7 +45,7 @@ internal sealed class JintObjectExpression : JintExpression
                 Throw.SyntaxError(engine.Realm);
             }
 
-            _functionDefinition = new JintFunctionDefinition(function);
+            _functionDefinition = new JintFunctionDefinition(function, property.Range);
             return _functionDefinition;
         }
     }
@@ -240,7 +240,7 @@ internal sealed class JintObjectExpression : JintExpression
             }
             else if (property.Kind is PropertyKind.Get or PropertyKind.Set)
             {
-                var function = objectProperty.GetFunctionDefinition(engine);
+                var function = objectProperty.GetFunctionDefinition(engine, property);
                 var closure = engine.Realm.Intrinsics.Function.OrdinaryFunctionCreate(
                     engine.Realm.Intrinsics.Function.PrototypeObject,
                     function,

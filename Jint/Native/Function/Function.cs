@@ -375,9 +375,19 @@ public abstract partial class Function : ObjectInstance, ICallable
 
     public override string ToString()
     {
-        if (_functionDefinition?.Function is Node node && _engine.Options.Host.FunctionToStringHandler(this, node) is { } s)
+        if (_functionDefinition is not null)
         {
-            return s;
+            var functionNode = (Node) _functionDefinition.Function;
+            if (_engine.Options.Host.FunctionToStringHandler(this, functionNode) is { } s)
+            {
+                return s;
+            }
+
+            var state = _functionDefinition.Initialize();
+            if (state.SourceText.GetValue(_functionDefinition.SourceTextStart, _functionDefinition.SourceTextEnd) is { } sourceText)
+            {
+                return sourceText;
+            }
         }
 
         var nameValue = _nameDescriptor != null ? UnwrapJsValue(_nameDescriptor) : JsString.Empty;

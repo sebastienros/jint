@@ -9,7 +9,7 @@ internal sealed class JintClassExpression : JintExpression
 
     public JintClassExpression(ClassExpression expression) : base(expression)
     {
-        _classDefinition = new ClassDefinition(expression.Id?.Name, expression.SuperClass, expression.Body, expression.Decorators);
+        _classDefinition = new ClassDefinition(expression.Id?.Name, expression);
     }
 
     protected override object EvaluateInternal(EvaluationContext context)

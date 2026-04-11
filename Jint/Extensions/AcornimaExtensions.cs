@@ -7,12 +7,11 @@ internal static class AcornimaExtensions
     public static Script ParseScriptGuarded(this Parser parser, Realm realm, string code, Position sourceOffset = default, string? source = null, bool strict = false)
     {
         var padding = CreateSourceOffsetPadding(sourceOffset);
+        var paddedCode = padding.Length > 0 ? padding + code : code;
 
         try
         {
-            return padding.Length > 0
-                ? parser.ParseScript(padding + code, padding.Length, code.Length, source, strict)
-                : parser.ParseScript(code, source, strict);
+            return parser.ParseScript(paddedCode, padding.Length, code.Length, source, strict);
         }
         catch (ParseErrorException e)
         {
@@ -26,9 +25,14 @@ internal static class AcornimaExtensions
     /// </summary>
     internal static string CreateSourceOffsetPadding(Position sourceOffset)
     {
-        var lineOffset = sourceOffset.Line > 0 ? sourceOffset.Line - 1 : 0;
-        var columnOffset = sourceOffset.Column > 0 ? sourceOffset.Column : 0;
-        return new string('\n', lineOffset) + new string(' ', columnOffset);
+        if (sourceOffset.Line > 0)
+        {
+            var lineOffset = sourceOffset.Line - 1;
+            var columnOffset = sourceOffset.Column > 0 ? sourceOffset.Column : 0;
+            return new string('\n', lineOffset) + new string(' ', columnOffset);
+        }
+
+        return string.Empty;
     }
 
     public static Module ParseModuleGuarded(this Parser parser, Engine engine, string code, string? source = null)

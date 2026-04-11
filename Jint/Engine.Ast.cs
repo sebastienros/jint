@@ -20,25 +20,17 @@ public partial class Engine
         source ??= "<anonymous>";
         options ??= ScriptPreparationOptions.Default;
 
-        var astAnalyzer = new AstAnalyzer(options);
+        var sourceOffset = options.ParsingOptions.SourceOffset;
+        var padding = AcornimaExtensions.CreateSourceOffsetPadding(sourceOffset);
+        var paddedCode = padding.Length > 0 ? padding + code : code;
+
+        var astAnalyzer = new AstAnalyzer(code, options);
         var parserOptions = options.GetParserOptions();
         var parser = new Parser(parserOptions with { OnNode = astAnalyzer.NodeVisitor });
 
         try
         {
-            Script preparedScript;
-            var sourceOffset = options.ParsingOptions.SourceOffset;
-            var padding = AcornimaExtensions.CreateSourceOffsetPadding(sourceOffset);
-
-            if (padding.Length > 0)
-            {
-                var paddedCode = padding + code;
-                preparedScript = parser.ParseScript(paddedCode, padding.Length, code.Length, source, strict);
-            }
-            else
-            {
-                preparedScript = parser.ParseScript(code, source, strict);
-            }
+            var preparedScript = parser.ParseScript(paddedCode, padding.Length, code.Length, source, strict);
 
             return new Prepared<Script>(preparedScript, parserOptions);
         }
@@ -59,7 +51,7 @@ public partial class Engine
         source ??= "<anonymous>";
         options ??= ModulePreparationOptions.Default;
 
-        var astAnalyzer = new AstAnalyzer(options);
+        var astAnalyzer = new AstAnalyzer(code, options);
         var parserOptions = options.GetParserOptions();
         var parser = new Parser(parserOptions with { OnNode = astAnalyzer.NodeVisitor });
 
@@ -77,11 +69,13 @@ public partial class Engine
 
     private sealed class AstAnalyzer
     {
+        private readonly string _sourceText;
         private readonly IPreparationOptions<IParsingOptions> _preparationOptions;
         private readonly Dictionary<string, Environment.BindingName> _bindingNames = new(StringComparer.Ordinal);
 
-        public AstAnalyzer(IPreparationOptions<IParsingOptions> preparationOptions)
+        public AstAnalyzer(string sourceText, IPreparationOptions<IParsingOptions> preparationOptions)
         {
+            _sourceText = sourceText;
             _preparationOptions = preparationOptions;
         }
 
@@ -115,7 +109,7 @@ public partial class Engine
                 case NodeType.ArrowFunctionExpression:
                 case NodeType.FunctionDeclaration:
                 case NodeType.FunctionExpression:
-                    node.UserData = JintFunctionDefinition.BuildState((IFunction) node);
+                    node.UserData = JintFunctionDefinition.BuildState((IFunction) node, _sourceText);
                     break;
 
                 case NodeType.Program:
