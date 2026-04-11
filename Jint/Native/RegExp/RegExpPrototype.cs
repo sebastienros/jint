@@ -638,29 +638,59 @@ internal sealed class RegExpPrototype : Prototype
         var r = AssertThisIsObjectInstance(thisObject, "RegExp.prototype.test");
         var s = TypeConverter.ToString(arguments.At(0));
 
-        // check couple fast paths (only for .NET Regex engine)
-        if (r is JsRegExp R && !R.FullUnicode && R.UsesDotNetEngine)
+        if (r is JsRegExp R && R.HasDefaultRegExpExec)
         {
-            if (!R.Sticky && !R.Global)
+            // Fast path for custom engine (allocation-free IsMatch)
+            if (!R.UsesDotNetEngine)
             {
-                R.Set(JsRegExp.PropertyLastIndex, 0, throwOnError: true);
-                return R.Value.IsMatch(s);
+                var customEngine = R.CustomEngine!;
+                if (!R.Sticky && !R.Global)
+                {
+                    return customEngine.IsMatch(s, 0);
+                }
+
+                var lastIndex = (int) TypeConverter.ToLength(R.Get(JsRegExp.PropertyLastIndex));
+                if (lastIndex >= s.Length && s.Length > 0)
+                {
+                    R.Set(JsRegExp.PropertyLastIndex, 0, throwOnError: true);
+                    return JsBoolean.False;
+                }
+
+                // For global/sticky, we need the match position to update lastIndex
+                var result = customEngine.Execute(s, lastIndex);
+                if (!result.Success || (R.Sticky && result.Index != lastIndex))
+                {
+                    R.Set(JsRegExp.PropertyLastIndex, 0, throwOnError: true);
+                    return JsBoolean.False;
+                }
+                R.Set(JsRegExp.PropertyLastIndex, result.Index + result.Length, throwOnError: true);
+                return JsBoolean.True;
             }
 
-            var lastIndex = (int) TypeConverter.ToLength(R.Get(JsRegExp.PropertyLastIndex));
-            if (lastIndex >= s.Length && s.Length > 0)
+            // Fast path for .NET Regex engine
+            if (!R.FullUnicode)
             {
-                return JsBoolean.False;
-            }
+                if (!R.Sticky && !R.Global)
+                {
+                    R.Set(JsRegExp.PropertyLastIndex, 0, throwOnError: true);
+                    return R.Value.IsMatch(s);
+                }
 
-            var m = R.Value.Match(s, lastIndex);
-            if (!m.Success || (R.Sticky && m.Index != lastIndex))
-            {
-                R.Set(JsRegExp.PropertyLastIndex, 0, throwOnError: true);
-                return JsBoolean.False;
+                var lastIndex = (int) TypeConverter.ToLength(R.Get(JsRegExp.PropertyLastIndex));
+                if (lastIndex >= s.Length && s.Length > 0)
+                {
+                    return JsBoolean.False;
+                }
+
+                var m = R.Value.Match(s, lastIndex);
+                if (!m.Success || (R.Sticky && m.Index != lastIndex))
+                {
+                    R.Set(JsRegExp.PropertyLastIndex, 0, throwOnError: true);
+                    return JsBoolean.False;
+                }
+                R.Set(JsRegExp.PropertyLastIndex, m.Index + m.Length, throwOnError: true);
+                return JsBoolean.True;
             }
-            R.Set(JsRegExp.PropertyLastIndex, m.Index + m.Length, throwOnError: true);
-            return JsBoolean.True;
         }
 
         var match = RegExpExec(r, s);

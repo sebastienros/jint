@@ -40,6 +40,9 @@ namespace Jint.Runtime.RegExp;
 /// </summary>
 internal static class RegExpInterpreter
 {
+    /// <summary>Pre-computed scan loop info, extracted once at compile time.</summary>
+    internal readonly record struct ScanLoopInfo(bool HasFastScan, int PatternStartPc, char ScanChar, char ScanCharAlt);
+
     /// <summary>Unset capture position sentinel (mirrors NULL in the C code).</summary>
     private const int Unset = -1;
 
@@ -62,6 +65,19 @@ internal static class RegExpInterpreter
     //  Public API
     // -----------------------------------------------------------------------
 
+    /// <summary>Analyze bytecode header and detect scan loop for caching.</summary>
+    public static ScanLoopInfo DetectScanLoop(ReadOnlySpan<byte> bytecode)
+    {
+        int bytecodeLen = BinaryPrimitives.ReadInt32LittleEndian(bytecode.Slice(RegExpHeader.OffsetBytecodeLen));
+        var bc = bytecode.Slice(RegExpHeader.Length, bytecodeLen);
+        if (TryDetectScanLoop(bc, out int patternStartPc, out char scanChar, out char scanCharAlt))
+        {
+            return new ScanLoopInfo(true, patternStartPc, scanChar, scanCharAlt);
+        }
+
+        return default;
+    }
+
     /// <summary>
     /// Execute regex bytecode against input string.
     /// Returns capture positions array on match, null on no match.
@@ -72,6 +88,7 @@ internal static class RegExpInterpreter
         ReadOnlySpan<byte> bytecode,
         string input,
         int startIndex,
+        in ScanLoopInfo scanInfo = default,
         CancellationToken cancellationToken = default)
     {
         var flags = GetFlags(bytecode);
@@ -106,7 +123,7 @@ internal static class RegExpInterpreter
 
         try
         {
-            int ret = ExecBacktrack(bc, input, capture, cindex, captureCount, isUnicode, cancellationToken);
+            int ret = ExecBacktrack(bc, input, capture, cindex, captureCount, isUnicode, scanInfo, cancellationToken);
 
             int[]? result = null;
             if (ret == 1)
@@ -133,6 +150,7 @@ internal static class RegExpInterpreter
         ReadOnlySpan<byte> bytecode,
         string input,
         int startIndex,
+        in ScanLoopInfo scanInfo = default,
         CancellationToken cancellationToken = default)
     {
         var flags = GetFlags(bytecode);
@@ -163,7 +181,7 @@ internal static class RegExpInterpreter
 
         try
         {
-            return ExecBacktrack(bc, input, capture, cindex, captureCount, isUnicode, cancellationToken) == 1;
+            return ExecBacktrack(bc, input, capture, cindex, captureCount, isUnicode, scanInfo, cancellationToken) == 1;
         }
         finally
         {
@@ -687,10 +705,11 @@ internal static class RegExpInterpreter
     /// The scan loop is: SplitGotoFirst(5) + Any(1) + Goto(5) = 11 bytes, followed by SaveStart 0.
     /// If the first pattern opcode after SaveStart is Char, extract it for IndexOf-based scanning.
     /// </summary>
-    private static bool TryDetectScanLoop(ReadOnlySpan<byte> bc, out int patternStartPc, out char scanChar)
+    private static bool TryDetectScanLoop(ReadOnlySpan<byte> bc, out int patternStartPc, out char scanChar, out char scanCharAlt)
     {
         patternStartPc = 0;
         scanChar = '\0';
+        scanCharAlt = '\0';
 
         // Need at least: 11 (scan loop) + 2 (SaveStart 0) + 3 (Char + u16) = 16 bytes
         if (bc.Length < 16)
@@ -708,8 +727,10 @@ internal static class RegExpInterpreter
             return false;
         }
 
+        byte firstOp = bc[13];
+
         // Check first pattern opcode at bc[13]
-        if (bc[13] == (byte) RegExpOpcode.Char)
+        if (firstOp == (byte) RegExpOpcode.Char)
         {
             scanChar = (char) ReadU16(bc, 14);
             // Surrogate values (0xD800-0xDFFF) can appear inside surrogate pairs.
@@ -724,7 +745,38 @@ internal static class RegExpInterpreter
             return true;
         }
 
+        // Case-insensitive: CharI stores the canonicalized value.
+        // For ASCII, search for both cases via IndexOfAny.
+        if (firstOp == (byte) RegExpOpcode.CharI)
+        {
+            char val = (char) ReadU16(bc, 14);
+            if (val < 128)
+            {
+                scanChar = val;
+                // Compute the opposite case for IndexOfAny
+                scanCharAlt = char.IsLower(val) ? char.ToUpperInvariant(val) : char.ToLowerInvariant(val);
+                patternStartPc = 11;
+                return true;
+            }
+        }
+
         return false;
+    }
+
+    /// <summary>
+    /// Find the next position of the scan character(s) in the input string.
+    /// Uses IndexOfAny for case-insensitive patterns (scanCharAlt != '\0').
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int FindScanChar(string input, int startIndex, char scanChar, char scanCharAlt)
+    {
+        if (scanCharAlt == '\0' || scanCharAlt == scanChar)
+        {
+            return input.IndexOf(scanChar, startIndex);
+        }
+
+        var idx = input.AsSpan(startIndex).IndexOfAny(scanChar, scanCharAlt);
+        return idx < 0 ? -1 : idx + startIndex;
     }
 
     // -----------------------------------------------------------------------
@@ -743,6 +795,7 @@ internal static class RegExpInterpreter
         int cindex,
         int captureCount,
         bool isUnicode,
+        in ScanLoopInfo scanInfo,
         CancellationToken cancellationToken)
     {
         int inputEnd = input.Length;
@@ -761,13 +814,29 @@ internal static class RegExpInterpreter
         int interruptCounter = InterruptCounterInit;
 
         // First-character scan optimization: replace the bytecode scan loop
-        // (SplitGotoFirst/Any/Goto) with SIMD-accelerated string.IndexOf.
-        bool hasFastScan = TryDetectScanLoop(bc, out int patternStartPc, out char scanChar);
+        // (SplitGotoFirst/Any/Goto) with SIMD-accelerated string.IndexOf/IndexOfAny.
+        // Use pre-computed scan info when available, fall back to runtime detection.
+        bool hasFastScan;
+        int patternStartPc;
+        char scanChar;
+        char scanCharAlt;
+        if (scanInfo.HasFastScan)
+        {
+            hasFastScan = true;
+            patternStartPc = scanInfo.PatternStartPc;
+            scanChar = scanInfo.ScanChar;
+            scanCharAlt = scanInfo.ScanCharAlt;
+        }
+        else
+        {
+            hasFastScan = TryDetectScanLoop(bc, out patternStartPc, out scanChar, out scanCharAlt);
+        }
+
         int lastScanStart = cindex;
 
         if (hasFastScan)
         {
-            int pos = input.IndexOf(scanChar, cindex);
+            int pos = FindScanChar(input, cindex, scanChar, scanCharAlt);
             if (pos < 0)
             {
                 ReturnStack(stackPooled);
@@ -953,20 +1022,34 @@ internal static class RegExpInterpreter
                     }
 
                 case RegExpOpcode.SplitGotoFirst:
+                    {
+                        int val = ReadI32(bc, pc);
+                        pc += 4;
+
+                        int pc1 = pc;
+                        pc = pc + val;
+
+                        PushFrame(ref stackBuf, ref stackPooled, ref sp, ref bp,
+                            capture, allocCount, pc1, cindex, ExecStateType.Split);
+                        break;
+                    }
+
                 case RegExpOpcode.SplitNextFirst:
                     {
                         int val = ReadI32(bc, pc);
                         pc += 4;
 
-                        int pc1;
-                        if (opcode == RegExpOpcode.SplitNextFirst)
+                        int pc1 = pc + val; // continuation (backtrack target)
+
+                        // Greedy quantifier frame pruning: if the continuation starts
+                        // with a Char opcode and the current input position doesn't match
+                        // that char, skip pushing the frame — backtracking here would
+                        // immediately fail on that Char and pop again.
+                        if (bc[pc1] == (byte) RegExpOpcode.Char
+                            && cindex < inputEnd
+                            && input[cindex] != (char) ReadU16(bc, pc1 + 1))
                         {
-                            pc1 = pc + val;
-                        }
-                        else
-                        {
-                            pc1 = pc;
-                            pc = pc + val;
+                            break;
                         }
 
                         PushFrame(ref stackBuf, ref stackPooled, ref sp, ref bp,
@@ -1393,7 +1476,7 @@ noMatch:
                             return 0;
                         }
 
-                        int nextPos = input.IndexOf(scanChar, nextStart);
+                        int nextPos = FindScanChar(input, nextStart, scanChar, scanCharAlt);
                         if (nextPos < 0)
                         {
                             return 0;
