@@ -45,7 +45,8 @@ internal static class RegExpInterpreter
         bool HasFastScan, int PatternStartPc,
         char ScanChar, char ScanCharAlt,
         bool IsAnchored,
-        bool IsRange, char RangeLow, char RangeHigh);
+        bool IsRange, char RangeLow, char RangeHigh,
+        string? ScanLiteral);
 
     /// <summary>Unset capture position sentinel (mirrors NULL in the C code).</summary>
     private const int Unset = -1;
@@ -730,10 +731,12 @@ internal static class RegExpInterpreter
         {
             return new ScanLoopInfo(HasFastScan: true, PatternStartPc: 11,
                 ScanChar: '\0', ScanCharAlt: '\0', IsAnchored: true,
-                IsRange: false, RangeLow: '\0', RangeHigh: '\0');
+                IsRange: false, RangeLow: '\0', RangeHigh: '\0',
+                ScanLiteral: null);
         }
 
-        // Exact character match
+        // Exact character match — also look ahead for consecutive Char opcodes
+        // to extract a multi-char literal for SIMD substring search.
         if (firstOp == (byte) RegExpOpcode.Char && bc.Length >= 16)
         {
             char scanChar = (char) ReadU16(bc, 14);
@@ -742,9 +745,44 @@ internal static class RegExpInterpreter
                 return default;
             }
 
+            // Look ahead for consecutive Char opcodes to build a literal prefix.
+            // Each Char opcode is 3 bytes: opcode(1) + u16(2).
+            string? literal = null;
+            int nextOp = 16; // position after first Char's u16
+            if (bc.Length > nextOp && bc[nextOp] == (byte) RegExpOpcode.Char)
+            {
+                // At least 2 consecutive Chars — extract the literal
+                Span<char> litBuf = stackalloc char[32]; // up to 32 chars
+                litBuf[0] = scanChar;
+                int litLen = 1;
+                while (litLen < litBuf.Length
+                    && nextOp < bc.Length
+                    && bc[nextOp] == (byte) RegExpOpcode.Char)
+                {
+                    char c = (char) ReadU16(bc, nextOp + 1);
+                    if (char.IsSurrogate(c))
+                    {
+                        break;
+                    }
+
+                    litBuf[litLen++] = c;
+                    nextOp += 3;
+                }
+
+                if (litLen > 1)
+                {
+#if NETSTANDARD2_0 || NET462
+                    literal = litBuf.Slice(0, litLen).ToString();
+#else
+                    literal = new string(litBuf.Slice(0, litLen));
+#endif
+                }
+            }
+
             return new ScanLoopInfo(HasFastScan: true, PatternStartPc: 11,
                 ScanChar: scanChar, ScanCharAlt: '\0', IsAnchored: false,
-                IsRange: false, RangeLow: '\0', RangeHigh: '\0');
+                IsRange: false, RangeLow: '\0', RangeHigh: '\0',
+                ScanLiteral: literal);
         }
 
         // Case-insensitive: CharI stores the canonicalized value.
@@ -756,7 +794,8 @@ internal static class RegExpInterpreter
                 char alt = char.IsLower(val) ? char.ToUpperInvariant(val) : char.ToLowerInvariant(val);
                 return new ScanLoopInfo(HasFastScan: true, PatternStartPc: 11,
                     ScanChar: val, ScanCharAlt: alt, IsAnchored: false,
-                    IsRange: false, RangeLow: '\0', RangeHigh: '\0');
+                    IsRange: false, RangeLow: '\0', RangeHigh: '\0',
+                    ScanLiteral: null);
             }
         }
 
@@ -774,7 +813,8 @@ internal static class RegExpInterpreter
                 {
                     return new ScanLoopInfo(HasFastScan: true, PatternStartPc: 11,
                         ScanChar: '\0', ScanCharAlt: '\0', IsAnchored: false,
-                        IsRange: true, RangeLow: low, RangeHigh: high);
+                        IsRange: true, RangeLow: low, RangeHigh: high,
+                        ScanLiteral: null);
                 }
             }
         }
@@ -790,6 +830,12 @@ internal static class RegExpInterpreter
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int FindScanChar(string input, int startIndex, in ScanLoopInfo info)
     {
+        // Multi-char literal: SIMD substring search (much faster when first char is common)
+        if (info.ScanLiteral is { Length: > 1 })
+        {
+            return input.IndexOf(info.ScanLiteral, startIndex, StringComparison.Ordinal);
+        }
+
 #if NET8_0_OR_GREATER
         if (info.IsRange)
         {
