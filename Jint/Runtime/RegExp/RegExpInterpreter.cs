@@ -1053,34 +1053,45 @@ internal static class RegExpInterpreter
                             bool isDot = bc[pc] == (byte) RegExpOpcode.Dot;
                             char targetChar = (char) ReadU16(bc, pc1 + 1);
 
-                            // Bulk scan forward, pushing frames only at target char positions.
-                            // Dot stops at line terminators; Any matches everything.
-                            int scanEnd = cindex;
-                            while (scanEnd < inputEnd)
+                            // Determine scan limit: Dot stops at line terminators, Any goes to end.
+                            int scanLimit = inputEnd;
+                            if (isDot)
                             {
-                                char ch = input[scanEnd];
-                                if (isDot && IsLineTerminator(ch))
+                                // Find the nearest line terminator to cap the scan.
+                                // \n and \r cover >99.9% of cases; 0x2028/0x2029 are checked below.
+                                var remaining = input.AsSpan(cindex, inputEnd - cindex);
+                                int ltPos = remaining.IndexOfAny('\n', '\r');
+                                if (ltPos >= 0)
+                                {
+                                    scanLimit = cindex + ltPos;
+                                }
+
+                                // Also check for rare Unicode line terminators (LS/PS)
+                                int uPos = remaining.IndexOfAny('\u2028', '\u2029');
+                                if (uPos >= 0 && cindex + uPos < scanLimit)
+                                {
+                                    scanLimit = cindex + uPos;
+                                }
+                            }
+
+                            // Use IndexOf to jump between target char positions (SIMD-accelerated)
+                            // instead of iterating char-by-char.
+                            int searchFrom = cindex;
+                            while (searchFrom < scanLimit)
+                            {
+                                int hitPos = input.IndexOf(targetChar, searchFrom, scanLimit - searchFrom);
+                                if (hitPos < 0)
                                 {
                                     break;
                                 }
 
-                                if (ch == targetChar)
-                                {
-                                    PushFrame(ref stackBuf, ref stackPooled, ref sp, ref bp,
-                                        capture, allocCount, pc1, scanEnd, ExecStateType.Split);
-                                }
+                                PushFrame(ref stackBuf, ref stackPooled, ref sp, ref bp,
+                                    capture, allocCount, pc1, hitPos, ExecStateType.Split);
 
-                                scanEnd++;
-
-                                // In unicode mode, skip low surrogate of a pair
-                                if (isUnicode && char.IsHighSurrogate(ch)
-                                    && scanEnd < inputEnd && char.IsLowSurrogate(input[scanEnd]))
-                                {
-                                    scanEnd++;
-                                }
+                                searchFrom = hitPos + 1;
                             }
 
-                            cindex = scanEnd;
+                            cindex = scanLimit;
                             pc = pc1; // Jump to continuation
                             break;
                         }

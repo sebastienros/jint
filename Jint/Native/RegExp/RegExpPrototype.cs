@@ -163,13 +163,49 @@ internal sealed class RegExpPrototype : Prototype
             rx.Set(JsRegExp.PropertyLastIndex, 0, true);
         }
 
+        // Custom engine fast path for simple string replacement (no $-substitutions, no function)
+        if (!functionalReplace
+            && !mayHaveNamedCaptures
+            && rx is JsRegExp { HasDefaultRegExpExec: true, UsesDotNetEngine: false } customRei)
+        {
+            var customEngine = customRei.CustomEngine!;
+            var replStr = TypeConverter.ToString(replaceValue);
+            var sb = new ValueStringBuilder(stackalloc char[256]);
+
+            int lastPos = 0;
+            int searchStart = 0;
+            int maxCount = global ? int.MaxValue : 1;
+            int count = 0;
+
+            while (count < maxCount && searchStart <= s.Length)
+            {
+                var result = customEngine.Execute(s, searchStart);
+                if (!result.Success)
+                {
+                    break;
+                }
+
+                sb.Append(s.AsSpan(lastPos, result.Index - lastPos));
+                sb.Append(replStr);
+
+                lastPos = result.Index + result.Length;
+                searchStart = result.Length == 0
+                    ? (int) AdvanceStringIndex(s, (ulong) result.Index, fullUnicode)
+                    : lastPos;
+                count++;
+            }
+
+            sb.Append(s.AsSpan(lastPos));
+            rx.Set(JsRegExp.PropertyLastIndex, JsNumber.PositiveZero);
+            return sb.ToString();
+        }
+
         // check if we can access fast path (only for .NET Regex engine)
         // Derive sticky from already-read flags string to avoid extra observable property access
         if (!fullUnicode
             && !mayHaveNamedCaptures
             && !flags.Contains('y')
-            && rx is JsRegExp rei && rei.HasDefaultRegExpExec
-            && rei.UsesDotNetEngine)
+            && rx is JsRegExp { HasDefaultRegExpExec: true, UsesDotNetEngine: true } rei)
         {
             var count = global ? int.MaxValue : 1;
 
