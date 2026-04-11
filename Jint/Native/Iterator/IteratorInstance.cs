@@ -227,7 +227,7 @@ internal abstract class IteratorInstance : ObjectInstance
                 if (macthStr == "")
                 {
                     var thisIndex = TypeConverter.ToLength(_iteratingRegExp.Get(JsRegExp.PropertyLastIndex));
-                    var nextIndex = thisIndex + 1;
+                    var nextIndex = RegExpPrototype.AdvanceStringIndex(_s, thisIndex, _unicode);
                     _iteratingRegExp.Set(JsRegExp.PropertyLastIndex, nextIndex, true);
                 }
             }

@@ -3,6 +3,7 @@ using Jint.Native.Object;
 using Jint.Native.RegExp;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.RegExp;
 
 namespace Jint.Native;
 
@@ -24,6 +25,12 @@ public sealed class JsRegExp : ObjectInstance
     public Regex Value { get; set; } = null!;
     public string Source { get; set; }
 
+    /// <summary>
+    /// Custom regex engine used when .NET Regex cannot handle the pattern.
+    /// When set, this takes priority over <see cref="Value"/>.
+    /// </summary>
+    internal JintRegExpEngine? CustomEngine { get; set; }
+
     public string Flags
     {
         get => _flags;
@@ -37,6 +44,7 @@ public sealed class JsRegExp : ObjectInstance
             IgnoreCase = false;
             Multiline = false;
             Sticky = false;
+            Unicode = false;
             FullUnicode = false;
             UnicodeSets = false;
             foreach (var c in _flags)
@@ -62,17 +70,33 @@ public sealed class JsRegExp : ObjectInstance
                         Sticky = true;
                         break;
                     case 'u':
+                        Unicode = true;
                         FullUnicode = true;
                         break;
                     case 'v':
                         UnicodeSets = true;
+                        FullUnicode = true; // v-flag implies unicode semantics
                         break;
                 }
             }
         }
     }
 
-    public RegExpParseResult ParseResult { get; set; }
+    /// <summary>
+    /// JS group count (including group 0 for full match) from Jint's converter.
+    /// 0 means not set — fall back to .NET Regex's own group count.
+    /// </summary>
+    internal int ConvertedGroupCount { get; set; }
+
+    /// <summary>
+    /// Provides backward-compatible access to the regex parse result.
+    /// </summary>
+    [Obsolete("The ParseResult property is no longer populated. Use Value to access the .NET Regex instance directly.")]
+    public RegExpParseResult ParseResult
+    {
+        get => UsesDotNetEngine && Value is not null ? RegExpParseResult.ForSuccess(Value) : default;
+        set { /* no-op for backward compatibility */ }
+    }
 
     public bool DotAll { get; private set; }
     public bool Global { get; private set; }
@@ -80,10 +104,16 @@ public sealed class JsRegExp : ObjectInstance
     public bool IgnoreCase { get; private set; }
     public bool Multiline { get; private set; }
     public bool Sticky { get; private set; }
+    /// <summary>Whether the 'u' flag was explicitly set (for the unicode accessor).</summary>
+    public bool Unicode { get; private set; }
+    /// <summary>Whether unicode semantics apply (true for both 'u' and 'v' flags).</summary>
     public bool FullUnicode { get; private set; }
     public bool UnicodeSets { get; private set; }
 
     internal bool HasDefaultRegExpExec => Properties == null && Prototype is RegExpPrototype { HasDefaultExec: true };
+
+    /// <summary>Whether this regex uses the .NET Regex engine (not the custom engine).</summary>
+    internal bool UsesDotNetEngine => CustomEngine is null;
 
     public override PropertyDescriptor GetOwnProperty(JsValue property)
     {

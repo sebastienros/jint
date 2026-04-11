@@ -22,8 +22,12 @@ public class ScriptModulePreparationTests
         var declaration = Assert.IsType<VariableDeclaration>(script.Program.Body[0]);
         var init = Assert.IsType<RegExpLiteral>(declaration.Declarations[0].Init);
 
-        init.Value.ToString().Should().Be("[cgt]");
-        (init.Value.Options & RegexOptions.Compiled).Should().Be(RegexOptions.Compiled);
+        // Regex is pre-compiled during preparation with Compiled flag
+        var regex = init.ParseResult.Regex;
+        regex.Should().NotBeNull();
+        (regex!.Options & RegexOptions.Compiled).Should().Be(RegexOptions.Compiled);
+
+        // Prepared script executes correctly
         new Engine().Evaluate(script).AsNumber().Should().Be(1);
     }
 

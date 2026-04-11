@@ -29,6 +29,7 @@ public partial class Engine
             Script preparedScript;
             var sourceOffset = options.ParsingOptions.SourceOffset;
             var padding = AcornimaExtensions.CreateSourceOffsetPadding(sourceOffset);
+
             if (padding.Length > 0)
             {
                 var paddedCode = padding + code;
@@ -38,6 +39,7 @@ public partial class Engine
             {
                 preparedScript = parser.ParseScript(code, source, strict);
             }
+
             return new Prepared<Script>(preparedScript, parserOptions);
         }
         catch (Exception e)
@@ -64,6 +66,7 @@ public partial class Engine
         try
         {
             var preparedModule = parser.ParseModule(code, source);
+
             return new Prepared<Module>(preparedModule, parserOptions);
         }
         catch (Exception e)

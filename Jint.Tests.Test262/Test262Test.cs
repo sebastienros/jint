@@ -1,7 +1,6 @@
 #nullable enable
 
 using Jint.Native;
-using Jint.Native.Error;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
