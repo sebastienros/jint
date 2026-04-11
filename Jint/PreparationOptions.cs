@@ -16,7 +16,7 @@ public sealed record class ScriptPreparationOptions : IPreparationOptions<Script
 {
     private static readonly ParserOptions _defaultParserOptions = ScriptParsingOptions.Default.GetParserOptions() with
     {
-        RegExpParseMode = RegExpParseMode.AdaptToCompiled,
+        OnRegExp = Engine.CompileRegExpHandler,
     };
 
     public static readonly ScriptPreparationOptions Default = new();
@@ -28,14 +28,14 @@ public sealed record class ScriptPreparationOptions : IPreparationOptions<Script
 
     internal ParserOptions GetParserOptions() => ReferenceEquals(this, Default)
         ? _defaultParserOptions
-        : ParsingOptions.ApplyTo(_defaultParserOptions, _defaultParserOptions.RegExpParseMode, _defaultParserOptions.RegexTimeout);
+        : ParsingOptions.ApplyTo(_defaultParserOptions);
 }
 
 public sealed record class ModulePreparationOptions : IPreparationOptions<ModuleParsingOptions>
 {
     private static readonly ParserOptions _defaultParserOptions = ModuleParsingOptions.Default.GetParserOptions() with
     {
-        RegExpParseMode = RegExpParseMode.AdaptToCompiled
+        OnRegExp = Engine.CompileRegExpHandler,
     };
 
     public static readonly ModulePreparationOptions Default = new();
@@ -47,5 +47,5 @@ public sealed record class ModulePreparationOptions : IPreparationOptions<Module
 
     internal ParserOptions GetParserOptions() => ReferenceEquals(this, Default)
         ? _defaultParserOptions
-        : ParsingOptions.ApplyTo(_defaultParserOptions, _defaultParserOptions.RegExpParseMode, _defaultParserOptions.RegexTimeout);
+        : ParsingOptions.ApplyTo(_defaultParserOptions);
 }
