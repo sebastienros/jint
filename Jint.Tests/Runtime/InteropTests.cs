@@ -2628,6 +2628,22 @@ public partial class InteropTests : IDisposable
     }
 
     [Fact]
+    public void ShouldNotChangeFunctionArgumentsWhenFunctionStoredInDictionary()
+    {
+        var engine = new Engine();
+        engine.SetValue("globalScope", new Dictionary<string, object>());
+
+        engine.Execute("""
+            globalScope.fuzzyScore = function (pattern, text) {
+                return pattern + ":" + text;
+            };
+            """);
+
+        var result = engine.Evaluate("globalScope.fuzzyScore('abc', 'xyz');");
+        Assert.Equal("abc:xyz", result.AsString());
+    }
+
+    [Fact]
     public void ShouldSupportSpreadForDictionary()
     {
         var engine = new Engine();

@@ -68,6 +68,14 @@ internal static class DefaultObjectConverter
 
             if (value is Delegate d)
             {
+                if (d is JsCallDelegate jsCallDelegate
+                    && jsCallDelegate.Target is JsValue jsFunction
+                    && jsFunction is ICallable)
+                {
+                    result = jsFunction;
+                    return true;
+                }
+
                 result = new DelegateWrapper(engine, d);
                 return result is not null;
             }
