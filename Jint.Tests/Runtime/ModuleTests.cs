@@ -777,4 +777,44 @@ export const count = globals.counter;
             throw new ArgumentException(null, nameof(resolved));
         }
     }
+
+    [Fact]
+    public void ModuleLoadingErrorsShouldBeReportedBeforeLinkingErrors()
+    {
+        // Module that imports a valid module (which has a linking error) and an unresolvable module.
+        // The unresolvable module loading error should be reported before the linking error.
+        var loaderModules = new Dictionary<string, Func<Engine, ResolvedSpecifier, Module>>
+        {
+            ["main"] = (e, r) => ModuleFactory.BuildSourceTextModule(e, r, "import './has-linking-error'; import './does-not-exist';"),
+            ["./has-linking-error"] = (e, r) => ModuleFactory.BuildSourceTextModule(e, r, "import { nonExistent } from './has-linking-error';"),
+            // './does-not-exist' is NOT in the loader → will throw during loading
+        };
+        var engine = new Engine(o => o.EnableModules(new TestModuleLoader(loaderModules)));
+
+        var ex = Assert.ThrowsAny<Exception>(() => engine.Modules.Import("main"));
+        // Should fail with a module loading error for './does-not-exist',
+        // not with a SyntaxError/linking error from 'has-linking-error'
+        Assert.DoesNotContain("Ambiguous", ex.Message);
+    }
+
+    [Fact]
+    public void ModuleNamespaceToStringShouldNotTriggerSideEffects()
+    {
+        // Accessing ToString() on a module namespace in C# error messages should not
+        // trigger JavaScript type conversion which calls Get("toString") on the namespace.
+        _engine.Modules.Add("counter", @"
+            globalThis.toStringCalls = (globalThis.toStringCalls || 0) + 1;
+            export const value = 42;
+        ");
+
+        var ns = _engine.Modules.Import("counter");
+        var initialCalls = _engine.Evaluate("globalThis.toStringCalls").AsInteger();
+
+        // C# ToString() should not trigger JS evaluation side effects
+        var str = ns.ToString();
+        Assert.Equal("[object Module]", str);
+
+        var callsAfter = _engine.Evaluate("globalThis.toStringCalls").AsInteger();
+        Assert.Equal(initialCalls, callsAfter);
+    }
 }

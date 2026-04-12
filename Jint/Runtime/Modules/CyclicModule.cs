@@ -199,6 +199,13 @@ public abstract class CyclicModule : Module
         index++;
         stack.Push(this);
 
+        // Pre-load all requested modules before linking to ensure loading errors
+        // (e.g. unresolvable specifiers) are reported before any linking errors.
+        foreach (var request in _requestedModules)
+        {
+            _engine._host.GetImportedModule(this, request);
+        }
+
         foreach (var request in _requestedModules)
         {
             var requiredModule = _engine._host.GetImportedModule(this, request);

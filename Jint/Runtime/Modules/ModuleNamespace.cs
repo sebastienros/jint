@@ -184,6 +184,16 @@ internal sealed class ModuleNamespace : ObjectInstance
     }
 
     /// <summary>
+    /// Prevent side-effectful JS type conversion when used in C# string interpolation (e.g. error messages).
+    /// ObjectInstance.ToString() calls TypeConverter.ToString(this) which triggers ToPrimitive → Get("toString"),
+    /// and Get on a module namespace accesses exports which can have unintended side effects.
+    /// </summary>
+    public override string ToString()
+    {
+        return "[object Module]";
+    }
+
+    /// <summary>
     /// https://tc39.es/ecma262/#sec-module-namespace-exotic-objects-delete-p
     /// </summary>
     public override bool Delete(JsValue property)
