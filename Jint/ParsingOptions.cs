@@ -78,7 +78,7 @@ public sealed record ScriptParsingOptions : IParsingOptions
         Tolerant = Tolerant,
     };
 
-    internal OnRegExpHandler? GetOnRegExpHandler(bool fallbackCompileRegex, TimeSpan fallbackRegexTimeout)
+    private OnRegExpHandler? GetOnRegExpHandler(bool fallbackCompileRegex, TimeSpan fallbackRegexTimeout)
     {
         // Explicit RegexTimeout takes priority, then engine's configured timeout
         var timeout = RegexTimeout ?? fallbackRegexTimeout;
@@ -87,13 +87,13 @@ public sealed record ScriptParsingOptions : IParsingOptions
         {
             return timeout == Engine.DefaultRegexTimeout
                 ? Engine.DefaultCompileRegExpHandler
-                : Engine.CreateCompileRegExpHandler(timeout);
+                : Engine.CreateRegExpHandler(compiled: true, timeout);
         }
         else
         {
             return timeout == Engine.DefaultRegexTimeout
                 ? Engine.DefaultConvertRegExpHandler
-                : Engine.CreateConvertRegExpHandler(timeout);
+                : Engine.CreateRegExpHandler(compiled: false, timeout);
         }
     }
 
@@ -129,7 +129,7 @@ public sealed record class ModuleParsingOptions : IParsingOptions
         Tolerant = Tolerant,
     };
 
-    internal OnRegExpHandler? GetOnRegExpHandler(bool fallbackCompileRegex, TimeSpan fallbackRegexTimeout)
+    private OnRegExpHandler? GetOnRegExpHandler(bool fallbackCompileRegex, TimeSpan fallbackRegexTimeout)
     {
         // Explicit RegexTimeout takes priority, then engine's configured timeout
         var timeout = RegexTimeout ?? fallbackRegexTimeout;
@@ -138,13 +138,13 @@ public sealed record class ModuleParsingOptions : IParsingOptions
         {
             return timeout == Engine.DefaultRegexTimeout
                 ? Engine.DefaultCompileRegExpHandler
-                : Engine.CreateCompileRegExpHandler(timeout);
+                : Engine.CreateRegExpHandler(compiled: true, timeout);
         }
         else
         {
             return timeout == Engine.DefaultRegexTimeout
                 ? Engine.DefaultConvertRegExpHandler
-                : Engine.CreateConvertRegExpHandler(timeout);
+                : Engine.CreateRegExpHandler(compiled: false, timeout);
         }
     }
 

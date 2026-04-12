@@ -1426,7 +1426,9 @@ internal sealed class RegExpPrototype : Prototype
 
     private static int GetActualRegexGroupCount(JsRegExp rei, Match match)
     {
-        return rei.ConvertedGroupCount > 0 ? rei.ConvertedGroupCount : match.Groups.Count;
+#pragma warning disable CS0618 // Type or member is obsolete
+        return rei.UsesDotNetEngine ? rei.ParseResult.ActualRegexGroupCount : match.Groups.Count;
+#pragma warning restore CS0618 // Type or member is obsolete
     }
 
     private static string? GetRegexGroupName(JsRegExp rei, int index)
@@ -1434,6 +1436,13 @@ internal sealed class RegExpPrototype : Prototype
         if (index == 0)
         {
             return null;
+        }
+
+        if (rei.UsesDotNetEngine)
+        {
+#pragma warning disable CS0618 // Type or member is obsolete
+            return rei.ParseResult.GetRegexGroupName(index);
+#pragma warning restore CS0618 // Type or member is obsolete
         }
 
         var regex = rei.Value;

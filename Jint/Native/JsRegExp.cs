@@ -29,7 +29,7 @@ public sealed class JsRegExp : ObjectInstance
     /// Custom regex engine used when .NET Regex cannot handle the pattern.
     /// When set, this takes priority over <see cref="Value"/>.
     /// </summary>
-    internal JintRegExpEngine? CustomEngine { get; set; }
+    internal JintRegExpEngine? CustomEngine => ParseResult.ConversionResult as JintRegExpEngine;
 
     public string Flags
     {
@@ -82,21 +82,7 @@ public sealed class JsRegExp : ObjectInstance
         }
     }
 
-    /// <summary>
-    /// JS group count (including group 0 for full match) from Jint's converter.
-    /// 0 means not set — fall back to .NET Regex's own group count.
-    /// </summary>
-    internal int ConvertedGroupCount { get; set; }
-
-    /// <summary>
-    /// Provides backward-compatible access to the regex parse result.
-    /// </summary>
-    [Obsolete("The ParseResult property is no longer populated. Use Value to access the .NET Regex instance directly.")]
-    public RegExpParseResult ParseResult
-    {
-        get => UsesDotNetEngine && Value is not null ? RegExpParseResult.ForSuccess(Value) : default;
-        set { /* no-op for backward compatibility */ }
-    }
+    public RegExpParseResult ParseResult { get; set; }
 
     public bool DotAll { get; private set; }
     public bool Global { get; private set; }
@@ -113,7 +99,7 @@ public sealed class JsRegExp : ObjectInstance
     internal bool HasDefaultRegExpExec => Properties == null && Prototype is RegExpPrototype { HasDefaultExec: true };
 
     /// <summary>Whether this regex uses the .NET Regex engine (not the custom engine).</summary>
-    internal bool UsesDotNetEngine => CustomEngine is null;
+    internal bool UsesDotNetEngine => ParseResult.ConversionResult is Regex;
 
     public override PropertyDescriptor GetOwnProperty(JsValue property)
     {
