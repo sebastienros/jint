@@ -23,9 +23,9 @@ public class ScriptModulePreparationTests
         var init = Assert.IsType<RegExpLiteral>(declaration.Declarations[0].Init);
 
         // Regex is pre-compiled during preparation with Compiled flag
-        var regex = init.ParseResult.Regex;
-        regex.Should().NotBeNull();
-        (regex!.Options & RegexOptions.Compiled).Should().Be(RegexOptions.Compiled);
+        var conversionOptions = init.ParseResult.AdditionalData as Engine.RegexConversionOptions;
+        conversionOptions.Should().NotBeNull();
+        conversionOptions.Compiled.Should().BeTrue();
 
         // Prepared script executes correctly
         new Engine().Evaluate(script).AsNumber().Should().Be(1);

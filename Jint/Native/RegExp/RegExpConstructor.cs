@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+using Jint.Collections;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
@@ -457,29 +458,61 @@ public sealed class RegExpConstructor : Constructor
         var f = flags.IsUndefined() ? "" : TypeConverter.ToString(flags);
 
         // Validate flags before attempting compilation - invalid flags should always be a SyntaxError
-        ValidateFlags(f);
 
-        // Two-tier regex compilation:
-        // 1. Patterns with known .NET divergences → custom QuickJS bytecode engine (guaranteed correct)
-        // 2. Jint's lightweight converter rewrites JS escapes to .NET standard mode equivalents
-        //    Falls back to custom engine if conversion fails.
-        if (NeedCustomEngine(p, f))
+        // Acornima's regexp validation doesn't handle unterminated escape at the end currently.
+        var escapeAtEnd = false;
+        for (var i = p.Length - 1; i >= 0; i--)
         {
-            TryCompileWithCustomEngine(r, p, f);
+            if (p[i] == '\\') escapeAtEnd = !escapeAtEnd;
+            else break;
         }
-        else
+
+        ParseError? error;
+
+        if (escapeAtEnd)
         {
-            var regexTimeout = _engine.Options.Constraints.RegexTimeout;
-            if (JsRegExpConverter.TryConvert(p, f, regexTimeout, out var regex, out var groupCount))
+            error = new SyntaxError(p,
+                string.Format(null, "Invalid regular expression: /{0}/{1}: \\ at end of pattern", p, f),
+                p.Length - 1,
+                Position.From(1, p.Length - 1));
+            Throw.SyntaxError(_realm, error.Description);
+        }
+
+        if (!Tokenizer.ValidateRegExp(p, f, out error, Engine.BaseParserOptions.EcmaVersion, Engine.BaseParserOptions.ExperimentalESFeatures))
+        {
+            Throw.SyntaxError(_realm, error!.Description);
+        }
+
+        RegExpParseResult regExpParseResult = default;
+
+        var parserOptions = _engine.GetActiveParserOptions();
+
+        if (!NeedCustomEngine(p, f))
+        {
+#pragma warning disable CS0618 // Type or member is obsolete
+            regExpParseResult = Tokenizer.AdaptRegExp(p, f, compiled: false, parserOptions.RegexTimeout, throwIfNotAdaptable: false,
+#pragma warning restore CS0618 // Type or member is obsolete
+                Engine.BaseParserOptions.EcmaVersion, Engine.BaseParserOptions.ExperimentalESFeatures);
+
+            if (regExpParseResult.Success)
             {
-                r.Value = regex;
-                r.ConvertedGroupCount = groupCount;
-                r.CustomEngine = null;
+                r.Value = regExpParseResult.Regex!;
+                r.ParseResult = regExpParseResult;
             }
-            else
-            {
-                TryCompileWithCustomEngine(r, p, f);
-            }
+        }
+
+        if (!regExpParseResult.Success)
+        {
+#pragma warning disable CS0618 // Type or member is obsolete
+            var customEngine = TryCompileWithCustomEngine(_realm, p, f, parserOptions.RegexTimeout);
+#pragma warning restore CS0618 // Type or member is obsolete
+
+            regExpParseResult = RegExpParseResult.ForSuccess(customEngine);
+
+            // Set Value to a dummy regex to avoid null reference in code paths that read it
+            // but won't actually use it (since UsesDotNetEngine will be false)
+            r.Value = DummyRegex;
+            r.ParseResult = regExpParseResult;
         }
 
         r.Flags = f;
@@ -555,49 +588,6 @@ public sealed class RegExpConstructor : Constructor
             return true;
         }
 
-        // Named groups: JsRegExpConverter rejects all named groups (?<name>...) because
-        // .NET group numbering semantics differ. Route directly to avoid wasted TryConvert.
-        if (pattern.Contains("(?<") && HasNamedGroup(pattern))
-        {
-            return true;
-        }
-
-        // Scoped regexp modifiers (?i:...), (?-m:...), etc.
-        // .NET gets \b/\w semantics wrong with (?i:...) + /u flag
-        // (doesn't include U+017F long-s and U+212A kelvin sign)
-        if (HasScopedModifiers(pattern))
-        {
-            return true;
-        }
-
-        // Forward backreference: \N appears before the Nth capture group
-        // e.g. \1(a) - .NET ECMAScript mode doesn't support this
-        if (HasForwardBackReference(pattern))
-        {
-            return true;
-        }
-
-        // Forward named backreference: \k<name> appears before (?<name>...)
-        if (HasForwardNamedBackReference(pattern))
-        {
-            return true;
-        }
-
-        // Lookbehind with backreferences: (?<=\1(\w)) or (?<!...)
-        // .NET lookbehind capture semantics differ from JS
-        if ((pattern.Contains("(?<=") || pattern.Contains("(?<!")) && HasBackReferenceInLookbehind(pattern))
-        {
-            return true;
-        }
-
-        // Nullable quantifier around capturing groups: .NET RepeatMatcher doesn't
-        // implement step 2.b (discard zero-width optional iterations).
-        // E.g., /(a?b??)*/ or /(?:(?=(abc)))?a/ — .NET gets captures wrong.
-        if (HasNullableQuantifierCapture(pattern))
-        {
-            return true;
-        }
-
         // Case-insensitive with non-ASCII characters: .NET IgnoreCase applies broader
         // Unicode case folding than ES spec (e.g. U+212A KELVIN SIGN matches 'K',
         // U+017F LONG S matches 's'). In non-unicode mode, ES spec Canonicalize uses
@@ -608,118 +598,234 @@ public sealed class RegExpConstructor : Constructor
             return true;
         }
 
-        // Duplicate named groups in alternation: (?<x>a)|(?<x>b)
-        // .NET doesn't support duplicate named groups in ECMAScript mode.
-        if (HasDuplicateNamedGroups(pattern))
-        {
-            return true;
-        }
+        // Check for further non-compliant cases.
 
-        return false;
-    }
+        // Negative (bitwise complement) values indicate groups that contain quantified nested capturing groups.
+        const int nonCapturingGroup = 0;
+        const int capturingGroup = 1;
+        const int lookaheadAssertion = 2;
+        const int lookbehindAssertion = 3;
 
-    /// <summary>
-    /// Detect \p{...} or \P{...} unicode property escapes in the pattern.
-    /// </summary>
-    private static bool HasUnicodePropertyEscape(string pattern)
-    {
-        for (int i = 0; i < pattern.Length - 2; i++)
-        {
-            if (pattern[i] == '\\' && (pattern[i + 1] == 'p' || pattern[i + 1] == 'P') &&
-                i + 2 < pattern.Length && pattern[i + 2] == '{')
-            {
-                return true;
-            }
+        bool inCharClass = false;
+        int groupNumber, groupType;
+        List<int>? capturingGroups = null;
+        Dictionary<string, int>? namedGroupNumbers = null;
+        var groupStack = new RefStack<KeyValuePair<int, int>>();
 
-            if (pattern[i] == '\\')
-            {
-                i++;
-            }
-        }
+        int nameStart, nameEnd;
+        string? name;
 
-        return false;
-    }
-
-    /// <summary>
-    /// Detect nullable quantifier (min=0) around groups that contain capturing sub-groups.
-    /// .NET Regex doesn't implement ES spec RepeatMatcher step 2.b correctly:
-    /// after an optional iteration that matches the empty string, JS discards the iteration
-    /// (clearing its captures), while .NET retains them.
-    /// Only routes to the custom engine when the nullable-quantified group actually contains
-    /// a capturing group — non-capturing groups like (?:foo)? are safe for .NET.
-    /// </summary>
-    private static bool HasNullableQuantifierCapture(string pattern)
-    {
-        // Stack tracks group types: true = group contains a capture (is or contains a capturing group)
-        var groupStack = new List<bool>(8);
-        var inCharClass = false;
-
+        int j;
         for (int i = 0; i < pattern.Length; i++)
         {
-            var ch = pattern[i];
+            char ch = pattern[i], next;
 
-            if (ch == '\\')
+            if (inCharClass)
             {
+                if (ch == ']') inCharClass = false;
+                if (ch == '\\' && i + 1 < pattern.Length)
+                {
+                    next = pattern[i + 1];
+                    if (next is 'w' or 'W')
+                    {
+                        // Acornima doesn't handle these escapes correctly at the moment.
+                        return true;
+                    }
+                }
+
                 i++; // skip escaped char
                 continue;
             }
 
-            if (inCharClass)
+            if (ch == '\\' && i + 1 < pattern.Length)
             {
-                if (ch == ']')
+                next = pattern[i + 1];
+                if (next >= '1' && next <= '9')
                 {
-                    inCharClass = false;
-                }
-                continue;
-            }
-
-            switch (ch)
-            {
-                case '[':
-                    inCharClass = true;
-                    break;
-
-                case '(':
-                    if (i + 1 < pattern.Length && pattern[i + 1] == '?')
+                    int refNum = 0;
+                    j = i + 1;
+                    while (j < pattern.Length && pattern[j] >= '0' && pattern[j] <= '9')
                     {
-                        // Non-capturing group (?:...), lookahead (?=/?!), lookbehind (?<=/<!), etc.
-                        groupStack.Add(false);
+                        refNum = refNum * 10 + (pattern[j] - '0');
+                        j++;
+                    }
+
+                    if (capturingGroups is null || refNum > capturingGroups.Count || capturingGroups![refNum - 1] < 0)
+                    {
+                        // Forward or self backreference
+                        return true;
+                    }
+
+                    foreach (var item in groupStack)
+                    {
+                        if (item.Value == lookbehindAssertion)
+                        {
+                            // Backreference in lookbehind
+                            return true;
+                        }
+                    }
+
+                    i = j - 1; // skip past parsed digits
+                    continue;
+                }
+                else if (next == 'k' && i + 2 < pattern.Length && pattern[i + 2] == '<')
+                {
+                    nameStart = i + 3;
+                    nameEnd = pattern.IndexOf('>', nameStart);
+                    if (nameEnd > nameStart)
+                    {
+                        name = pattern.Substring(nameStart, nameEnd - nameStart);
+                        if (namedGroupNumbers is null || !namedGroupNumbers.TryGetValue(name, out j) || capturingGroups![j - 1] < 0)
+                        {
+                            // Forward or self named backreference
+                            return true;
+                        }
                     }
                     else
                     {
-                        // Capturing group — mark this level as containing a capture
-                        groupStack.Add(true);
+                        nameEnd = nameStart + 1;
                     }
-                    break;
 
-                case ')':
-                    if (groupStack.Count > 0)
+                    foreach (var item in groupStack)
                     {
-                        bool hasCapture = groupStack[groupStack.Count - 1];
-                        groupStack.RemoveAt(groupStack.Count - 1);
-
-                        // Check for nullable quantifier after this group close
-                        if (hasCapture && i + 1 < pattern.Length)
+                        if (item.Value == lookbehindAssertion)
                         {
-                            char next = pattern[i + 1];
-                            if (next == '?' || next == '*')
-                            {
-                                return true;
-                            }
-
-                            if (next == '{' && i + 2 < pattern.Length && pattern[i + 2] == '0')
-                            {
-                                return true;
-                            }
-                        }
-
-                        // Propagate capture flag to parent group
-                        if (hasCapture && groupStack.Count > 0)
-                        {
-                            groupStack[groupStack.Count - 1] = true;
+                            // Named backreference in lookbehind
+                            return true;
                         }
                     }
-                    break;
+
+                    i = nameEnd;
+                    continue;
+                }
+                else if (next is 'w' or 'W')
+                {
+                    // Acornima doesn't handle these escapes correctly at the moment.
+                    return true;
+                }
+
+                i++; // skip escaped char
+                continue;
+            }
+
+            if (ch == '[')
+            {
+                inCharClass = true;
+            }
+            else if (ch == '(')
+            {
+                groupNumber = 0;
+                groupType = nonCapturingGroup;
+
+                if (i + 1 >= pattern.Length || pattern[i + 1] != '?')
+                {
+                    (capturingGroups ??= new()).Add(-1);
+                    groupNumber = capturingGroups.Count;
+                    groupType = capturingGroup;
+                }
+                else if (i + 2 < pattern.Length)
+                {
+                    next = pattern[i + 2];
+                    if (next == '<')
+                    {
+                        nameStart = i + 3;
+                        if (nameStart < pattern.Length)
+                        {
+                            if (pattern[nameStart] is '=' or '!')
+                            {
+                                groupType = lookbehindAssertion;
+                                i++;
+                            }
+                            else if ((nameEnd = pattern.IndexOf('>', nameStart)) > nameStart)
+                            {
+                                // Found (?<name>
+                                (capturingGroups ??= new()).Add(-1);
+                                groupNumber = capturingGroups.Count;
+                                groupType = capturingGroup;
+
+                                name = pattern.Substring(nameStart, nameEnd - nameStart);
+                                namedGroupNumbers ??= new(StringComparer.Ordinal);
+
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP2_0_OR_GREATER
+                                if (!namedGroupNumbers.TryAdd(name, groupNumber))
+                                {
+                                    // Duplicate named group
+                                    return true;
+                                }
+#else
+                                if (namedGroupNumbers.ContainsKey(name))
+                                {
+                                    return true;
+                                }
+                                namedGroupNumbers.Add(name, groupNumber);
+#endif
+
+                                i = nameEnd;
+                            }
+                        }
+                    }
+                    else if (next is '=' or '!')
+                    {
+                        groupType = lookaheadAssertion;
+                        i++;
+                    }
+                    else if (next is 'i' or 'm' or 's' or '-')
+                    {
+                        j = i + 2;
+                        do
+                        {
+                            if (next == 'i' || next == 'm')
+                            {
+                                // Case insensitive or multiline modifier
+                                return true;
+                            }
+                            j++;
+                        }
+                        while (j < pattern.Length && (next = pattern[j]) is 'i' or 'm' or 's');
+                    }
+                }
+
+                groupStack.Push(new(groupNumber, groupType));
+            }
+            else if (groupStack._size > 0)
+            {
+                if (ch == ')')
+                {
+                    var kvp = groupStack.Pop();
+                    groupNumber = kvp.Key;
+                    groupType = kvp.Value;
+
+                    if (groupType < 0 || groupType == lookaheadAssertion || groupType == lookbehindAssertion)
+                    {
+                        if (i + 1 < pattern.Length && pattern[i + 1] is '?' or '*' or '+' or '{')
+                        {
+                            // Repeated nested capturing group, quantified lookahead/lookbehind 
+                            return true;
+                        }
+
+                        if (groupStack._size > 0)
+                        {
+                            ref var item = ref groupStack._array[groupStack._size - 1];
+                            if (item.Value >= 0)
+                            {
+                                item = new(item.Key, ~item.Value);
+                            }
+                        }
+                    }
+
+                    if (groupNumber > 0)
+                    {
+                        capturingGroups![groupNumber - 1] = i;
+                    }
+                }
+                else if (ch is '?' or '*' or '+' or '{')
+                {
+                    ref var item = ref groupStack._array[groupStack._size - 1];
+                    if (item.Value >= 0)
+                    {
+                        item = new(item.Key, ~item.Value);
+                    }
+                }
             }
         }
 
@@ -736,7 +842,9 @@ public sealed class RegExpConstructor : Constructor
     {
         for (int i = 0; i < pattern.Length; i++)
         {
-            if (pattern[i] == '\\' && i + 1 < pattern.Length)
+            char ch = pattern[i];
+
+            if (ch == '\\' && i + 1 < pattern.Length)
             {
                 if (pattern[i + 1] == 'u' && i + 2 < pattern.Length)
                 {
@@ -788,7 +896,7 @@ public sealed class RegExpConstructor : Constructor
                     i++; // skip escaped char
                 }
             }
-            else if (pattern[i] > 0x7F)
+            else if (ch > 0x7F)
             {
                 // Literal non-ASCII character in the pattern
                 return true;
@@ -807,257 +915,9 @@ public sealed class RegExpConstructor : Constructor
     }
 
     /// <summary>
-    /// Detect scoped modifier groups: (?i:...), (?-m:...), (?ims-ims:...) etc.
-    /// </summary>
-    private static bool HasScopedModifiers(string pattern)
-    {
-        for (int i = 0; i < pattern.Length - 2; i++)
-        {
-            if (pattern[i] == '\\')
-            {
-                i++; // skip escaped char
-                continue;
-            }
-
-            if (pattern[i] == '(' && pattern[i + 1] == '?' &&
-                i + 2 < pattern.Length && pattern[i + 2] is 'i' or 'm' or 's' or '-')
-            {
-                // Distinguish from (?= (?! (?< (?:
-                // Modifier groups start with (?[ims-] and must contain ':'
-                int j = i + 2;
-                while (j < pattern.Length && pattern[j] is 'i' or 'm' or 's' or '-')
-                {
-                    j++;
-                }
-                if (j < pattern.Length && pattern[j] == ':')
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    /// Detect named capturing groups (?&lt;name&gt;...), excluding lookbehind assertions (?&lt;=...) and (?&lt;!...).
-    /// </summary>
-    private static bool HasNamedGroup(string pattern)
-    {
-        for (int i = 0; i < pattern.Length - 2; i++)
-        {
-            if (pattern[i] == '\\')
-            {
-                i++; // skip escaped char
-                continue;
-            }
-
-            if (pattern[i] == '(' && pattern[i + 1] == '?' && pattern[i + 2] == '<'
-                && i + 3 < pattern.Length && pattern[i + 3] != '=' && pattern[i + 3] != '!')
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    /// Detect forward named backreferences: \k&lt;name&gt; appearing before (?&lt;name&gt;...) is defined.
-    /// </summary>
-    private static bool HasForwardNamedBackReference(string pattern)
-    {
-        // First pass: collect all named group definitions and their positions
-        var groupPositions = new Dictionary<string, int>(StringComparer.Ordinal);
-        for (int i = 0; i < pattern.Length - 3; i++)
-        {
-            if (pattern[i] == '\\')
-            {
-                i++; // skip escaped char
-                continue;
-            }
-
-            if (pattern[i] == '(' && pattern[i + 1] == '?' && pattern[i + 2] == '<' &&
-                i + 3 < pattern.Length && pattern[i + 3] != '=' && pattern[i + 3] != '!')
-            {
-                // Found (?<name>
-                int nameStart = i + 3;
-                int nameEnd = pattern.IndexOf('>', nameStart);
-                if (nameEnd > nameStart)
-                {
-                    var name = pattern.Substring(nameStart, nameEnd - nameStart);
-                    if (!groupPositions.ContainsKey(name))
-                    {
-                        groupPositions[name] = i;
-                    }
-                }
-            }
-        }
-
-        if (groupPositions.Count == 0)
-        {
-            return false;
-        }
-
-        // Second pass: find \k<name> references that precede their group definition
-        for (int i = 0; i < pattern.Length - 3; i++)
-        {
-            if (pattern[i] == '\\' && pattern[i + 1] == 'k' && i + 2 < pattern.Length && pattern[i + 2] == '<')
-            {
-                int nameStart = i + 3;
-                int nameEnd = pattern.IndexOf('>', nameStart);
-                if (nameEnd > nameStart)
-                {
-                    var name = pattern.Substring(nameStart, nameEnd - nameStart);
-                    if (groupPositions.TryGetValue(name, out int groupPos) && i < groupPos)
-                    {
-                        return true;
-                    }
-                }
-            }
-            else if (pattern[i] == '\\')
-            {
-                i++; // skip escaped char
-            }
-        }
-
-        return false;
-    }
-
-    private static bool HasBackReferenceInLookbehind(string pattern)
-    {
-        // Check if there's a \N backreference inside a lookbehind group
-        int idx = 0;
-        while (true)
-        {
-            int lb = pattern.IndexOf("(?<", idx, StringComparison.Ordinal);
-            if (lb < 0) break;
-            if (lb + 3 < pattern.Length && (pattern[lb + 3] == '=' || pattern[lb + 3] == '!'))
-            {
-                // Found lookbehind - scan until its matching closing parenthesis
-                int depth = 1;
-                for (int j = lb + 4; j < pattern.Length; j++)
-                {
-                    if (pattern[j] == '\\' && j + 1 < pattern.Length)
-                    {
-                        if (pattern[j + 1] >= '1' && pattern[j + 1] <= '9')
-                        {
-                            return true;
-                        }
-
-                        j++; // skip escaped char
-                        continue;
-                    }
-
-                    if (pattern[j] == '(') depth++;
-                    else if (pattern[j] == ')')
-                    {
-                        if (--depth == 0) break;
-                    }
-                }
-            }
-            idx = lb + 3;
-        }
-        return false;
-    }
-
-    private static bool HasDuplicateNamedGroups(string pattern)
-    {
-        // Scan for (?<name>...) groups and check if any name appears more than once
-        var names = new HashSet<string>(StringComparer.Ordinal);
-        int i = 0;
-        while (i < pattern.Length - 3)
-        {
-            if (pattern[i] == '\\')
-            {
-                i += 2; // skip escaped char
-                continue;
-            }
-
-            if (pattern[i] == '(' && pattern[i + 1] == '?' && pattern[i + 2] == '<' &&
-                i + 3 < pattern.Length && pattern[i + 3] != '=' && pattern[i + 3] != '!')
-            {
-                // Found (?<name>
-                int nameStart = i + 3;
-                int nameEnd = pattern.IndexOf('>', nameStart);
-                if (nameEnd > nameStart)
-                {
-                    var name = pattern.Substring(nameStart, nameEnd - nameStart);
-                    if (!names.Add(name))
-                    {
-                        return true; // duplicate found
-                    }
-                }
-            }
-
-            i++;
-        }
-
-        return false;
-    }
-
-    private static bool HasForwardBackReference(string pattern)
-    {
-        // Check if pattern contains \N where N references a group not yet defined.
-        // Skips escaped chars and character classes to avoid false positives.
-        int groupCount = 0;
-        bool inCharClass = false;
-        for (int i = 0; i < pattern.Length; i++)
-        {
-            if (pattern[i] == '\\' && i + 1 < pattern.Length)
-            {
-                if (!inCharClass)
-                {
-                    char next = pattern[i + 1];
-                    if (next >= '1' && next <= '9')
-                    {
-                        // Parse the full decimal backreference number
-                        int refNum = 0;
-                        int j = i + 1;
-                        while (j < pattern.Length && pattern[j] >= '0' && pattern[j] <= '9')
-                        {
-                            refNum = refNum * 10 + (pattern[j] - '0');
-                            j++;
-                        }
-
-                        if (refNum > groupCount)
-                        {
-                            return true;
-                        }
-
-                        i = j - 1; // skip past parsed digits
-                        continue;
-                    }
-                }
-
-                i++; // skip escaped char
-                continue;
-            }
-
-            if (inCharClass)
-            {
-                if (pattern[i] == ']') inCharClass = false;
-                continue;
-            }
-
-            if (pattern[i] == '[')
-            {
-                inCharClass = true;
-            }
-            else if (pattern[i] == '(' && i + 1 < pattern.Length && pattern[i + 1] != '?')
-            {
-                groupCount++;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>
     /// Attempt to compile the regex pattern using the custom Jint regex engine.
-    /// Falls back to SyntaxError if the custom engine also fails.
     /// </summary>
-    private void TryCompileWithCustomEngine(JsRegExp r, string pattern, string flags)
+    internal static JintRegExpEngine TryCompileWithCustomEngine(Realm realm, string pattern, string flags, TimeSpan regexTimeout)
     {
         try
         {
@@ -1078,24 +938,20 @@ public sealed class RegExpConstructor : Constructor
                 };
             }
 
-            var regexTimeout = _engine.Options.Constraints.RegexTimeout;
             using var cts = regexTimeout.TotalMilliseconds > 0 && regexTimeout != Timeout.InfiniteTimeSpan
                 ? new CancellationTokenSource(regexTimeout)
                 : null;
 
-            r.CustomEngine = JintRegExpEngine.Compile(pattern, regExpFlags, cts?.Token ?? default);
-            // Set Value to a dummy regex to avoid null reference in code paths that read it
-            // but won't actually use it (since UsesDotNetEngine will be false)
-            r.Value = DummyRegex;
-            r.ConvertedGroupCount = 0;
+            return JintRegExpEngine.Compile(pattern, regExpFlags, cts?.Token ?? default);
         }
         catch (OperationCanceledException)
         {
-            throw new RegexMatchTimeoutException(string.Empty, pattern, _engine.Options.Constraints.RegexTimeout);
+            throw new RegexMatchTimeoutException(string.Empty, pattern, regexTimeout);
         }
         catch (RegExpSyntaxException ex)
         {
-            Throw.SyntaxError(_realm, ex.Message);
+            Throw.SyntaxError(realm, ex.Message);
+            throw;
         }
     }
 
@@ -1127,32 +983,13 @@ public sealed class RegExpConstructor : Constructor
         return r;
     }
 
-    /// <summary>
-    /// Construct a RegExp using the custom engine for patterns that .NET Regex cannot handle.
-    /// Called from regex literal evaluation when Acornima conversion fails.
-    /// </summary>
-    internal JsRegExp ConstructWithCustomEngine(string pattern, string flags)
+    internal JsRegExp Construct(RegExpParseResult parseResult, string source, string flags)
     {
         var r = RegExpAlloc(this);
-        ValidateFlags(flags);
-        TryCompileWithCustomEngine(r, pattern, flags);
-        r.Flags = flags;
-        r.Source = pattern;
-        RegExpInitialize(r);
-        return r;
-    }
-
-    /// <summary>
-    /// Construct a RegExp reusing a pre-compiled custom engine (avoids re-compilation of bytecode).
-    /// </summary>
-    internal JsRegExp Construct(JintRegExpEngine customEngine, string source, string flags)
-    {
-        var r = RegExpAlloc(this);
-        r.CustomEngine = customEngine;
-        r.Value = DummyRegex;
-        r.ConvertedGroupCount = 0;
+        r.Value = parseResult.Regex ?? DummyRegex;
         r.Source = source;
         r.Flags = flags;
+        r.ParseResult = parseResult;
         RegExpInitialize(r);
         return r;
     }
@@ -1163,7 +1000,6 @@ public sealed class RegExpConstructor : Constructor
         r.Value = regExp;
         r.Source = source;
         r.Flags = flags;
-        r.ConvertedGroupCount = 0; // user-provided Regex — use .NET's own group methods
 
         RegExpInitialize(r);
 

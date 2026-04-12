@@ -1,7 +1,5 @@
-using System.Text.RegularExpressions;
 using Jint.Native;
 using Jint.Native.RegExp;
-using Jint.Runtime.RegExp;
 
 namespace Jint.Runtime.Interpreter.Expressions;
 
@@ -77,46 +75,35 @@ internal sealed class JintLiteralExpression : JintExpression
             // Engine instances are single-threaded. If a Prepared<Script> is shared across
             // concurrent Engine instances, the worst case is redundant compilation — both
             // engines produce equivalent results for the same pattern.
-            if (userData is Regex cachedRegex)
+            if (userData is RegExpParseResult cachedParseResult)
             {
-                return regExpConstructor.Construct(cachedRegex, pattern, flags);
+                return regExpConstructor.Construct(cachedParseResult, pattern, flags);
             }
 
-            // Fast path: reuse cached custom engine bytecode from first evaluation
-            if (userData is JintRegExpEngine cachedEngine)
-            {
-                return regExpConstructor.Construct(cachedEngine, pattern, flags);
-            }
+            var conversionOptions = (Engine.RegexConversionOptions) regExpLiteral.ParseResult.AdditionalData!;
 
-            // Check for pre-compiled .NET Regex from preparation phase (OnRegExp callback)
-            var parseResult = regExpLiteral.ParseResult;
-            var precompiledRegex = parseResult.Regex;
-            if (precompiledRegex is not null)
+            if (!RegExpConstructor.NeedCustomEngine(pattern, flags))
             {
-                regExpLiteral.UserData = precompiledRegex; // cache for next evaluation
-                var r = regExpConstructor.Construct(precompiledRegex, pattern, flags);
-                // Store the group count from preparation
-                if (parseResult.AdditionalData is int groupCount)
+#pragma warning disable CS0618 // Type or member is obsolete
+                cachedParseResult = Tokenizer.AdaptRegExp(
+#pragma warning restore CS0618 // Type or member is obsolete
+                    pattern, flags, conversionOptions.Compiled, conversionOptions.Timeout, throwIfNotAdaptable: false,
+                    Engine.BaseParserOptions.EcmaVersion, Engine.BaseParserOptions.ExperimentalESFeatures);
+
+                if (cachedParseResult.Success)
                 {
-                    ((JsRegExp) r).ConvertedGroupCount = groupCount;
+                    regExpLiteral.UserData = cachedParseResult; // cache for next evaluation
+                    return regExpConstructor.Construct(cachedParseResult, pattern, flags);
                 }
-
-                return r;
             }
 
-            // First evaluation: compile at runtime, then cache the result
-            var jsRegExp = regExpConstructor.RegExpCreate(pattern, flags);
-            var result = (JsRegExp) jsRegExp;
-            if (result.CustomEngine is not null)
-            {
-                regExpLiteral.UserData = result.CustomEngine; // cache bytecode
-            }
-            else if (result.Value is not null)
-            {
-                regExpLiteral.UserData = result.Value; // cache .NET Regex
-            }
+            // Fall back to custom regexp engine.
+            var customEngine = RegExpConstructor.TryCompileWithCustomEngine(context.Engine.Realm,
+                pattern, flags, conversionOptions.Timeout);
 
-            return jsRegExp;
+            cachedParseResult = RegExpParseResult.ForSuccess(customEngine);
+            regExpLiteral.UserData = cachedParseResult; // cache for next evaluation
+            return regExpConstructor.Construct(cachedParseResult, pattern, flags);
         }
 
         return JsValue.FromObject(context.Engine, expression.Value);

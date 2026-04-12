@@ -127,7 +127,7 @@ and many more.
 - ✔ Ensuring that strings are well-formed - `String.prototype.ensureWellFormed` and `String.prototype.isWellFormed`
 - ✔ Grouping synchronous iterables - `Object.groupBy` and `Map.groupBy`
 - ✔ `Promise.withResolvers`
-- ❌ Regular expression flag `/v`
+- ✔ Regular expression flag `/v`
 
 #### ECMAScript 2025
 
@@ -138,8 +138,8 @@ and many more.
 - ✔ JSON modules
 - ✔ `Promise.try`
 - ✔ `RegExp.escape()`
-- ❌ Regular expression pattern modifiers (inline flags)
-- ❌ Duplicate named capture groups
+- ✔ Regular expression pattern modifiers (inline flags)
+- ✔ Duplicate named capture groups
 - ✔ Set methods (`intersection`, `union`, `difference`, `symmetricDifference`, `isSubsetOf`, `isSupersetOf`, `isDisjointFrom`)
 
 #### ECMAScript proposals (no version yet)

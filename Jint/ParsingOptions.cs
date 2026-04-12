@@ -6,17 +6,22 @@ public interface IParsingOptions
 {
     /// <summary>
     /// Gets or sets whether to create compiled <see cref="Regex"/> instances when adapting regular expressions.
-    /// Defaults to <see langword="null"/>. When <see langword="true"/>, regex patterns are pre-compiled during
-    /// preparation using <see cref="RegexOptions.Compiled"/>. When <see langword="false"/>, interpreted .NET Regex
-    /// instances are created. When <see langword="null"/>, inherits from the base parser options.
-    /// Patterns that require the custom QuickJS engine are always deferred to runtime regardless of this setting.
+    /// When <see langword="true"/>, regex patterns are pre-compiled using <see cref="RegexOptions.Compiled"/>.
+    /// When <see langword="false"/>, regex patterns are interpreted.
+    /// When <see langword="null"/>, regex patterns are interpreted in the case of non-prepared scripts and modules,
+    /// otherwise they are pre-compiled.
+    /// Defaults to <see langword="null"/>.
     /// </summary>
+    /// <remarks>
+    /// Patterns that require the custom QuickJS engine are always interpreted regardless of this setting.
+    /// </remarks>
     bool? CompileRegex { get; init; }
 
     /// <summary>
     /// Gets or sets the default timeout for created <see cref="Regex"/> instances.
     /// Defaults to <see langword="null"/>, which means that in the case of non-prepared scripts and modules
-    /// the <see cref="Options.ConstraintOptions.RegexTimeout"/> setting should apply.
+    /// the <see cref="Options.ConstraintOptions.RegexTimeout"/> setting should apply,
+    /// otherwise the default value of 10 seconds is used.
     /// </summary>
     /// <remarks>
     /// Please note that <see cref="Options.ConstraintOptions.RegexTimeout"/> setting will be ignored
@@ -37,6 +42,7 @@ public sealed record ScriptParsingOptions : IParsingOptions
     {
         AllowReturnOutsideFunction = true,
         AllowTopLevelUsing = true,
+        OnRegExp = Engine.DefaultConvertRegExpHandler,
     };
 
     public static readonly ScriptParsingOptions Default = new();
@@ -65,48 +71,45 @@ public sealed record ScriptParsingOptions : IParsingOptions
     /// </summary>
     public Position SourceOffset { get; init; }
 
-    internal ParserOptions ApplyTo(ParserOptions parserOptions, TimeSpan? engineRegexTimeout = null) => parserOptions with
+    internal ParserOptions ApplyTo(ParserOptions baseOptions, bool fallbackCompileRegex, TimeSpan fallbackRegexTimeout) => baseOptions with
     {
         AllowReturnOutsideFunction = AllowReturnOutsideFunction,
-        OnRegExp = GetOnRegExpHandler(parserOptions, engineRegexTimeout),
+        OnRegExp = GetOnRegExpHandler(fallbackCompileRegex, fallbackRegexTimeout),
         Tolerant = Tolerant,
     };
 
-    private OnRegExpHandler? GetOnRegExpHandler(ParserOptions parserOptions, TimeSpan? engineRegexTimeout)
+    private OnRegExpHandler? GetOnRegExpHandler(bool fallbackCompileRegex, TimeSpan fallbackRegexTimeout)
     {
         // Explicit RegexTimeout takes priority, then engine's configured timeout
-        var timeout = RegexTimeout ?? engineRegexTimeout;
+        var timeout = RegexTimeout ?? fallbackRegexTimeout;
 
-        if (timeout is { } t)
+        if (CompileRegex ?? fallbackCompileRegex)
         {
-            return CompileRegex switch
-            {
-                true => Engine.CreateCompileRegExpHandler(t),
-                false => Engine.CreateConvertRegExpHandler(t),
-                _ => parserOptions.OnRegExp,
-            };
+            return timeout == Engine.DefaultRegexTimeout
+                ? Engine.DefaultCompileRegExpHandler
+                : Engine.CreateRegExpHandler(compiled: true, timeout);
         }
-
-        return CompileRegex switch
+        else
         {
-            true => Engine.CompileRegExpHandler,
-            false => Engine.ConvertRegExpHandler,
-            null => parserOptions.OnRegExp, // inherit from base (validate for scripts, compile for preparation)
-        };
+            return timeout == Engine.DefaultRegexTimeout
+                ? Engine.DefaultConvertRegExpHandler
+                : Engine.CreateRegExpHandler(compiled: false, timeout);
+        }
     }
 
     internal ParserOptions GetParserOptions() => ReferenceEquals(this, Default)
         ? _defaultParserOptions
-        : ApplyTo(_defaultParserOptions);
+        : ApplyTo(_defaultParserOptions, fallbackCompileRegex: false, Engine.DefaultRegexTimeout);
 
     internal ParserOptions GetParserOptions(Options engineOptions)
-        => ApplyTo(_defaultParserOptions, engineOptions.Constraints.RegexTimeout);
+        => ApplyTo(_defaultParserOptions, fallbackCompileRegex: false, engineOptions.Constraints.RegexTimeout);
 }
 
 public sealed record class ModuleParsingOptions : IParsingOptions
 {
     private static readonly ParserOptions _defaultParserOptions = Engine.BaseParserOptions with
     {
+        OnRegExp = Engine.DefaultConvertRegExpHandler,
     };
 
     public static readonly ModuleParsingOptions Default = new();
@@ -120,39 +123,35 @@ public sealed record class ModuleParsingOptions : IParsingOptions
     /// <inheritdoc/>
     public bool Tolerant { get; init; } = _defaultParserOptions.Tolerant;
 
-    internal ParserOptions ApplyTo(ParserOptions baseOptions, TimeSpan? engineRegexTimeout = null) => baseOptions with
+    internal ParserOptions ApplyTo(ParserOptions baseOptions, bool fallbackCompileRegex, TimeSpan fallbackRegexTimeout) => baseOptions with
     {
-        OnRegExp = GetOnRegExpHandler(baseOptions, engineRegexTimeout),
+        OnRegExp = GetOnRegExpHandler(fallbackCompileRegex, fallbackRegexTimeout),
         Tolerant = Tolerant,
     };
 
-    private OnRegExpHandler? GetOnRegExpHandler(ParserOptions baseOptions, TimeSpan? engineRegexTimeout)
+    private OnRegExpHandler? GetOnRegExpHandler(bool fallbackCompileRegex, TimeSpan fallbackRegexTimeout)
     {
         // Explicit RegexTimeout takes priority, then engine's configured timeout
-        var timeout = RegexTimeout ?? engineRegexTimeout;
+        var timeout = RegexTimeout ?? fallbackRegexTimeout;
 
-        if (timeout is { } t)
+        if (CompileRegex ?? fallbackCompileRegex)
         {
-            return CompileRegex switch
-            {
-                true => Engine.CreateCompileRegExpHandler(t),
-                false => Engine.CreateConvertRegExpHandler(t),
-                _ => baseOptions.OnRegExp,
-            };
+            return timeout == Engine.DefaultRegexTimeout
+                ? Engine.DefaultCompileRegExpHandler
+                : Engine.CreateRegExpHandler(compiled: true, timeout);
         }
-
-        return CompileRegex switch
+        else
         {
-            true => Engine.CompileRegExpHandler,
-            false => Engine.ConvertRegExpHandler,
-            null => baseOptions.OnRegExp,
-        };
+            return timeout == Engine.DefaultRegexTimeout
+                ? Engine.DefaultConvertRegExpHandler
+                : Engine.CreateRegExpHandler(compiled: false, timeout);
+        }
     }
 
     internal ParserOptions GetParserOptions() => ReferenceEquals(this, Default)
         ? _defaultParserOptions
-        : ApplyTo(_defaultParserOptions);
+        : ApplyTo(_defaultParserOptions, fallbackCompileRegex: false, Engine.DefaultRegexTimeout);
 
     internal ParserOptions GetParserOptions(Options engineOptions)
-        => ApplyTo(_defaultParserOptions, engineOptions.Constraints.RegexTimeout);
+        => ApplyTo(_defaultParserOptions, fallbackCompileRegex: false, engineOptions.Constraints.RegexTimeout);
 }
