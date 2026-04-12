@@ -1,5 +1,7 @@
 using Jint.Native;
+using Jint.Native.Function;
 using Jint.Native.Object;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -18,6 +20,9 @@ internal static class Test262Object
     public static ObjectInstance Install(Engine engine)
     {
         var o = engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
+
+        // %AbstractModuleSource% intrinsic - exposed via $262 for source-phase-imports tests
+        o.FastSetProperty("AbstractModuleSource", new PropertyDescriptor(CreateAbstractModuleSource(engine), true, true, true));
 
         o.FastSetProperty("evalScript", new PropertyDescriptor(new ClrFunction(engine, "evalScript",
             (_, args) =>
@@ -63,5 +68,47 @@ internal static class Test262Object
 
         engine.SetValue("$262", o);
         return o;
+    }
+
+    /// <summary>
+    /// Creates the %AbstractModuleSource% intrinsic constructor and prototype.
+    /// https://tc39.es/proposal-source-phase-imports/#sec-%abstractmodulesource%
+    /// </summary>
+    private static ClrFunction CreateAbstractModuleSource(Engine engine)
+    {
+        var realm = engine.Realm;
+
+        // Create the prototype object
+        var proto = engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
+
+        // @@toStringTag getter on prototype
+        var toStringTagGetter = new ClrFunction(engine, "get [Symbol.toStringTag]", (thisObj, _) =>
+        {
+            if (thisObj is not ObjectInstance)
+            {
+                return JsValue.Undefined;
+            }
+
+            // Check for [[ModuleSourceClassName]] internal slot - not implemented for SourceTextModules
+            return JsValue.Undefined;
+        }, 0, PropertyFlag.Configurable);
+
+        proto.DefineOwnProperty(GlobalSymbolRegistry.ToStringTag, new GetSetPropertyDescriptor(
+            get: toStringTagGetter,
+            set: JsValue.Undefined,
+            PropertyFlag.Configurable));
+
+        // The constructor function that always throws TypeError
+        var ctor = new ClrFunction(engine, "AbstractModuleSource", (_, _) =>
+        {
+            Throw.TypeError(realm, "Abstract class constructor %AbstractModuleSource% cannot be invoked");
+            return JsValue.Undefined;
+        }, 0, PropertyFlag.Configurable);
+
+        // Set up constructor <-> prototype relationship
+        ctor.DefineOwnProperty(CommonProperties.Prototype, new PropertyDescriptor(proto, PropertyFlag.AllForbidden));
+        proto.DefineOwnProperty(CommonProperties.Constructor, new PropertyDescriptor(ctor, PropertyFlag.NonEnumerable));
+
+        return ctor;
     }
 }
