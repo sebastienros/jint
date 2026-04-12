@@ -156,6 +156,14 @@ public class Host
             var moduleRecord = GetImportedModule(referrer, moduleRequest);
             try
             {
+                // Source phase: SourceTextModules don't support source phase imports
+                if (moduleRequest.Phase == ModuleImportPhase.Source)
+                {
+                    var error = Engine.Realm.Intrinsics.SyntaxError.Construct("Source phase import is not supported for JavaScript modules");
+                    payload.Reject.Call(JsValue.Undefined, error);
+                    return JsValue.Undefined;
+                }
+
                 // Link the module if not already linked/linking/evaluating
                 if (moduleRecord is CyclicModule cyclicModule)
                 {
@@ -168,6 +176,85 @@ public class Host
                 {
                     // Non-cyclic modules - safe to call Link
                     moduleRecord.Link();
+                }
+
+                // Defer phase: link but don't fully evaluate, only evaluate async transitive deps
+                if (moduleRequest.Phase == ModuleImportPhase.Defer)
+                {
+                    var asyncDeps = new List<Module>();
+                    if (moduleRecord is CyclicModule cm)
+                    {
+                        CyclicModule.GatherAsynchronousTransitiveDependencies(cm, asyncDeps);
+                    }
+
+                    if (asyncDeps.Count == 0)
+                    {
+                        // No async deps - resolve immediately with deferred namespace
+                        var ns = Module.GetModuleNamespace(moduleRecord, ModuleImportPhase.Defer);
+                        payload.Resolve.Call(JsValue.Undefined, ns);
+                        return JsValue.Undefined;
+                    }
+
+                    // Evaluate all async deps and collect their promises
+                    var evalPromises = new List<JsPromise>();
+                    foreach (var dep in asyncDeps)
+                    {
+                        var depResult = dep.Evaluate();
+                        if (depResult is JsPromise depPromise)
+                        {
+                            evalPromises.Add(depPromise);
+                        }
+                    }
+
+                    // Chain resolution: wait for all async deps, then resolve with deferred namespace
+                    var deferredModule = moduleRecord;
+                    void ResolveDeferred()
+                    {
+                        var ns = Module.GetModuleNamespace(deferredModule, ModuleImportPhase.Defer);
+                        payload.Resolve.Call(JsValue.Undefined, ns);
+                    }
+
+                    if (evalPromises.Count == 0 || evalPromises.TrueForAll(p => p.State == PromiseState.Fulfilled))
+                    {
+                        ResolveDeferred();
+                    }
+                    else if (evalPromises.Exists(p => p.State == PromiseState.Rejected))
+                    {
+                        var rejected = evalPromises.Find(p => p.State == PromiseState.Rejected)!;
+                        payload.Reject.Call(JsValue.Undefined, rejected.Value);
+                    }
+                    else
+                    {
+                        // Some promises still pending - chain on all of them
+                        var remaining = evalPromises.Count;
+                        foreach (var evalPromise in evalPromises)
+                        {
+                            if (evalPromise.State == PromiseState.Fulfilled)
+                            {
+                                remaining--;
+                                continue;
+                            }
+
+                            var onDepFulfilled = new ClrFunction(Engine, "", (_, depArgs) =>
+                            {
+                                if (--remaining == 0)
+                                {
+                                    ResolveDeferred();
+                                }
+                                return JsValue.Undefined;
+                            }, 0, PropertyFlag.Configurable);
+
+                            var onDepRejected = new ClrFunction(Engine, "", (_, depArgs) =>
+                            {
+                                payload.Reject.Call(JsValue.Undefined, depArgs.At(0));
+                                return JsValue.Undefined;
+                            }, 1, PropertyFlag.Configurable);
+
+                            PromiseOperations.PerformPromiseThen(Engine, evalPromise, onDepFulfilled, onDepRejected, resultCapability: null!);
+                        }
+                    }
+
+                    return JsValue.Undefined;
                 }
 
                 // Evaluate returns a promise for async (TLA) modules

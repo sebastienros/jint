@@ -1,8 +1,15 @@
 namespace Jint.Runtime.Modules;
 
+public enum ModuleImportPhase
+{
+    Evaluation,
+    Defer,
+    Source
+}
+
 public readonly record struct ModuleImportAttribute(string Key, string Value);
 
-public readonly record struct ModuleRequest(string Specifier, ModuleImportAttribute[] Attributes)
+public readonly record struct ModuleRequest(string Specifier, ModuleImportAttribute[] Attributes, ModuleImportPhase Phase = ModuleImportPhase.Evaluation)
 {
     /// <summary>
     /// https://tc39.es/proposal-import-attributes/#sec-ModuleRequestsEqual
@@ -10,6 +17,11 @@ public readonly record struct ModuleRequest(string Specifier, ModuleImportAttrib
     public bool Equals(ModuleRequest other)
     {
         if (!string.Equals(Specifier, other.Specifier, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (Phase != other.Phase)
         {
             return false;
         }

@@ -132,7 +132,13 @@ internal sealed class HoistingScope
                             var ie = importEntries[j];
                             if (string.Equals(ie.LocalName, ee.LocalName, StringComparison.Ordinal))
                             {
-                                if (string.Equals(ie.ImportName, "*", StringComparison.Ordinal))
+                                if (ie.Phase == ModuleImportPhase.Defer)
+                                {
+                                    // Deferred namespace imports re-exported should be treated as local exports
+                                    // so the deferred namespace object is returned from the environment binding
+                                    localExportEntries.Add(ee);
+                                }
+                                else if (string.Equals(ie.ImportName, "*", StringComparison.Ordinal))
                                 {
                                     // Per ECMAScript 16.2.1.7.1 step 10.b.ii:
                                     // This is a re-export of an imported module namespace object.

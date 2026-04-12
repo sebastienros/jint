@@ -9,7 +9,9 @@ public partial class Engine
     internal static readonly ParserOptions BaseParserOptions = ParserOptions.Default with
     {
         EcmaVersion = EcmaVersion.ES2026,
-        ExperimentalESFeatures = ExperimentalESFeatures.Decorators,
+        ExperimentalESFeatures = ExperimentalESFeatures.Decorators
+            | ExperimentalESFeatures.SourcePhaseImports
+            | ExperimentalESFeatures.ImportDefer,
     };
 
     internal static readonly TimeSpan DefaultRegexTimeout = TimeSpan.FromSeconds(10);

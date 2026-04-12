@@ -15,7 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Acornima.Extras" />
+    <ProjectReference Include="..\..\acornima\src\Acornima.Extras\Acornima.Extras.csproj" />
     <PackageReference Include="GitHubActionsTestLogger" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="Newtonsoft.Json" />

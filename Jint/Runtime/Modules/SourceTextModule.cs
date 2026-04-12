@@ -11,7 +11,7 @@ namespace Jint.Runtime.Modules;
 /// <summary>
 /// https://tc39.es/ecma262/#importentry-record
 /// </summary>
-internal sealed record ImportEntry(ModuleRequest ModuleRequest, string? ImportName, string LocalName);
+internal sealed record ImportEntry(ModuleRequest ModuleRequest, string? ImportName, string LocalName, ModuleImportPhase Phase = ModuleImportPhase.Evaluation);
 
 /// <summary>
 /// https://tc39.es/ecma262/#exportentry-record
@@ -215,8 +215,23 @@ internal class SourceTextModule : CyclicModule
             for (var i = 0; i < _importEntries.Count; i++)
             {
                 var ie = _importEntries[i];
+
+                if (ie.Phase == ModuleImportPhase.Source)
+                {
+                    // SourceTextModules do not support source phase imports
+                    Throw.TypeError(_realm, "Source phase import is not supported for JavaScript modules");
+                }
+
                 var importedModule = _engine._host.GetImportedModule(this, ie.ModuleRequest);
-                if (string.Equals(ie.ImportName, "*", StringComparison.Ordinal))
+
+                if (ie.Phase == ModuleImportPhase.Defer)
+                {
+                    // import defer * as ns from "module" - create deferred namespace
+                    var ns = GetModuleNamespace(importedModule, ModuleImportPhase.Defer);
+                    env.CreateImmutableBinding(ie.LocalName, strict: true);
+                    env.InitializeBinding(ie.LocalName, ns, DisposeHint.Normal);
+                }
+                else if (string.Equals(ie.ImportName, "*", StringComparison.Ordinal))
                 {
                     var ns = GetModuleNamespace(importedModule);
                     env.CreateImmutableBinding(ie.LocalName, strict: true);

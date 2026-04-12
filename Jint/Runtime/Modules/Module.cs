@@ -17,8 +17,9 @@ internal sealed record ExportResolveSetItem(
 public abstract class Module : JsValue, IScriptOrModule
 {
     private ObjectInstance _namespace;
-    protected readonly Engine _engine;
-    protected readonly Realm _realm;
+    private ObjectInstance _deferredNamespace;
+    internal readonly Engine _engine;
+    internal readonly Realm _realm;
     internal ModuleEnvironment _environment;
 
     public string Location { get; }
@@ -41,8 +42,31 @@ public abstract class Module : JsValue, IScriptOrModule
     /// <summary>
     /// https://tc39.es/ecma262/#sec-getmodulenamespace
     /// </summary>
-    public static ObjectInstance GetModuleNamespace(Module module)
+    public static ObjectInstance GetModuleNamespace(Module module, ModuleImportPhase phase = ModuleImportPhase.Evaluation)
     {
+        if (phase == ModuleImportPhase.Defer)
+        {
+            var dns = module._deferredNamespace;
+            if (dns is null)
+            {
+                var exportedNames = module.GetExportedNames();
+                var unambiguousNames = new List<string>();
+                for (var i = 0; i < exportedNames.Count; i++)
+                {
+                    var name = exportedNames[i];
+                    var resolution = module.ResolveExport(name);
+                    if (resolution is not null && resolution != ResolvedBinding.Ambiguous)
+                    {
+                        unambiguousNames.Add(name);
+                    }
+                }
+
+                dns = CreateModuleNamespace(module, unambiguousNames, deferred: true);
+            }
+
+            return dns;
+        }
+
         var ns = module._namespace;
         if (ns is null)
         {
@@ -58,7 +82,7 @@ public abstract class Module : JsValue, IScriptOrModule
                 }
             }
 
-            ns = CreateModuleNamespace(module, unambiguousNames);
+            ns = CreateModuleNamespace(module, unambiguousNames, deferred: false);
         }
 
         return ns;
@@ -67,10 +91,17 @@ public abstract class Module : JsValue, IScriptOrModule
     /// <summary>
     /// https://tc39.es/ecma262/#sec-modulenamespacecreate
     /// </summary>
-    private static ModuleNamespace CreateModuleNamespace(Module module, List<string> unambiguousNames)
+    private static ModuleNamespace CreateModuleNamespace(Module module, List<string> unambiguousNames, bool deferred)
     {
-        var m = new ModuleNamespace(module._engine, module, unambiguousNames);
-        module._namespace = m;
+        var m = new ModuleNamespace(module._engine, module, unambiguousNames, deferred);
+        if (deferred)
+        {
+            module._deferredNamespace = m;
+        }
+        else
+        {
+            module._namespace = m;
+        }
         return m;
     }
 

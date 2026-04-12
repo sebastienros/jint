@@ -5,9 +5,6 @@
   "Namespace": "Jint.Tests.Test262",
   "Parallel": true,
   "ExcludedFeatures": [
-    "import-defer",
-    "import-text",
-    "source-phase-imports",
     "tail-call-optimization"
   ],
   "ExcludedFlags": [
