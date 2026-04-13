@@ -52,7 +52,7 @@ public partial class Engine
     /// Cached OnNode callback that stores the source text being parsed in <see cref="Node.UserData"/> of function nodes
     /// to support <see cref="Function.ToString"><c>Function.prototype.toString()</c> implementation</see>.
     /// </summary>
-    internal static readonly OnNodeHandler DefaultNodeHandler = static (node, ctx) =>
+    internal static readonly OnNodeHandler DefaultNodeHandler = static (node, in ctx) =>
     {
         if (node.Type is NodeType.ArrowFunctionExpression or NodeType.FunctionDeclaration or NodeType.FunctionExpression)
         {
