@@ -24,7 +24,7 @@ public partial class Engine
         var padding = AcornimaExtensions.CreateSourceOffsetPadding(sourceOffset);
         var paddedCode = padding.Length > 0 ? padding + code : code;
 
-        var astAnalyzer = new AstAnalyzer(code, options);
+        var astAnalyzer = new AstAnalyzer(options);
         var parserOptions = options.GetParserOptions();
         var parser = new Parser(parserOptions with { OnNode = astAnalyzer.NodeVisitor });
 
@@ -51,7 +51,7 @@ public partial class Engine
         source ??= "<anonymous>";
         options ??= ModulePreparationOptions.Default;
 
-        var astAnalyzer = new AstAnalyzer(code, options);
+        var astAnalyzer = new AstAnalyzer(options);
         var parserOptions = options.GetParserOptions();
         var parser = new Parser(parserOptions with { OnNode = astAnalyzer.NodeVisitor });
 
@@ -69,17 +69,15 @@ public partial class Engine
 
     private sealed class AstAnalyzer
     {
-        private readonly string _sourceText;
         private readonly IPreparationOptions<IParsingOptions> _preparationOptions;
         private readonly Dictionary<string, Environment.BindingName> _bindingNames = new(StringComparer.Ordinal);
 
-        public AstAnalyzer(string sourceText, IPreparationOptions<IParsingOptions> preparationOptions)
+        public AstAnalyzer(IPreparationOptions<IParsingOptions> preparationOptions)
         {
-            _sourceText = sourceText;
             _preparationOptions = preparationOptions;
         }
 
-        public void NodeVisitor(Node node, in OnNodeContext _)
+        public void NodeVisitor(Node node, in OnNodeContext ctx)
         {
             switch (node.Type)
             {
@@ -109,7 +107,7 @@ public partial class Engine
                 case NodeType.ArrowFunctionExpression:
                 case NodeType.FunctionDeclaration:
                 case NodeType.FunctionExpression:
-                    node.UserData = JintFunctionDefinition.BuildState((IFunction) node, _sourceText);
+                    node.UserData = JintFunctionDefinition.BuildState((IFunction) node, ctx.Input);
                     break;
 
                 case NodeType.Program:
