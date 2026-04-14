@@ -459,26 +459,7 @@ public sealed class RegExpConstructor : Constructor
 
         // Validate flags before attempting compilation - invalid flags should always be a SyntaxError
 
-        // Acornima's regexp validation doesn't handle unterminated escape at the end currently.
-        var escapeAtEnd = false;
-        for (var i = p.Length - 1; i >= 0; i--)
-        {
-            if (p[i] == '\\') escapeAtEnd = !escapeAtEnd;
-            else break;
-        }
-
-        ParseError? error;
-
-        if (escapeAtEnd)
-        {
-            error = new SyntaxError(p,
-                string.Format(null, "Invalid regular expression: /{0}/{1}: \\ at end of pattern", p, f),
-                p.Length - 1,
-                Position.From(1, p.Length - 1));
-            Throw.SyntaxError(_realm, error.Description);
-        }
-
-        if (!Tokenizer.ValidateRegExp(p, f, out error, Engine.BaseParserOptions.EcmaVersion, Engine.BaseParserOptions.ExperimentalESFeatures))
+        if (!Tokenizer.ValidateRegExp(p, f, out var error, Engine.BaseParserOptions.EcmaVersion, Engine.BaseParserOptions.ExperimentalESFeatures))
         {
             Throw.SyntaxError(_realm, error!.Description);
         }
@@ -580,9 +561,9 @@ public sealed class RegExpConstructor : Constructor
     /// </summary>
     internal static bool NeedCustomEngine(string pattern, string flags)
     {
-        // Unicode modes: JsRegExpConverter always rejects these (it uses standard mode,
-        // not ECMAScript mode). Route directly to custom engine to avoid the wasted
-        // TryConvert call at both preparation and runtime.
+        // Unicode modes: Although Acornima implements a best-effort conversion for
+        // flag u patterns, it's not possible to produce standards-compliant results
+        // in most of the cases. Conversion of flag v patterns is not supported at all.
         if (flags.Contains('u') || flags.Contains('v'))
         {
             return true;
@@ -600,7 +581,8 @@ public sealed class RegExpConstructor : Constructor
 
         // Check for further non-compliant cases.
 
-        // Negative (bitwise complement) values indicate groups that contain quantified nested capturing groups.
+        // Negative (bitwise complement) values indicate groups that contain
+        // quantified nested capturing groups or lookahead/lookbehind assertions.
         const int nonCapturingGroup = 0;
         const int capturingGroup = 1;
         const int lookaheadAssertion = 2;
@@ -622,18 +604,11 @@ public sealed class RegExpConstructor : Constructor
 
             if (inCharClass)
             {
-                if (ch == ']') inCharClass = false;
                 if (ch == '\\' && i + 1 < pattern.Length)
                 {
-                    next = pattern[i + 1];
-                    if (next is 'w' or 'W')
-                    {
-                        // Acornima doesn't handle these escapes correctly at the moment.
-                        return true;
-                    }
+                    i++; // skip escaped char
                 }
-
-                i++; // skip escaped char
+                else if (ch == ']') inCharClass = false;
                 continue;
             }
 
@@ -697,11 +672,6 @@ public sealed class RegExpConstructor : Constructor
 
                     i = nameEnd;
                     continue;
-                }
-                else if (next is 'w' or 'W')
-                {
-                    // Acornima doesn't handle these escapes correctly at the moment.
-                    return true;
                 }
 
                 i++; // skip escaped char
@@ -769,14 +739,14 @@ public sealed class RegExpConstructor : Constructor
                         groupType = lookaheadAssertion;
                         i++;
                     }
-                    else if (next is 'i' or 'm' or 's' or '-')
+                    else if (next is 'i' or 'm' or 's')
                     {
                         j = i + 2;
                         do
                         {
-                            if (next == 'i' || next == 'm')
+                            if (next == 'i')
                             {
-                                // Case insensitive or multiline modifier
+                                // Case insensitive modifier
                                 return true;
                             }
                             j++;
@@ -799,7 +769,7 @@ public sealed class RegExpConstructor : Constructor
                     {
                         if (i + 1 < pattern.Length && pattern[i + 1] is '?' or '*' or '+' or '{')
                         {
-                            // Repeated nested capturing group, quantified lookahead/lookbehind 
+                            // Repeated nested capturing group or quantified lookahead/lookbehind
                             return true;
                         }
 
