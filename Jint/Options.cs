@@ -495,9 +495,19 @@ public class Options
         public bool StringCompilationAllowed { get; set; } = true;
 
         /// <summary>
-        /// Possibility to override Jint's default function() { [native code] } format for functions using AST Node.
-        /// If callback return null, Jint will use its own default logic.
+        /// Possibility to override Jint's default <c>Function.prototype.toString()</c> implementation.
+        /// If the callback returns <see langword="null"/>, Jint will use its own default logic.
         /// </summary>
+        /// <remarks>
+        /// In most cases, the AST node passed to the callback is of type <see cref="IFunction" />.
+        /// However, there are some special cases:<br/>
+        /// - For class constructors, a node of type <see cref="IClass"/> is passed
+        ///   since <c>toString()</c> should return the code of the entire class as per specification.<br/>
+        /// - For class methods and getters/setters, a node of type <see cref="MethodDefinition"/> is passed
+        ///   since <c>toString()</c> should include the <c>get</c> or <c>set</c> tokens for getters/setters and the member name as per specification.<br/>
+        /// - For object methods and getters/setters, a node of type <see cref="ObjectProperty"/> is passed
+        ///   since <c>toString()</c> should include the <c>get</c> or <c>set</c> tokens for getters/setters and the member name as per specification.
+        /// </remarks>
         public Func<Function, Node, string?> FunctionToStringHandler { get; set; } = (_, _) => null;
     }
 

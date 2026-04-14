@@ -181,7 +181,7 @@ internal sealed class ClassDefinition
         ScriptFunction F;
         try
         {
-            var constructorInfo = constructor.DefineMethod(proto, constructorParent, _class);
+            var constructorInfo = constructor.DefineMethod(proto, constructorParent, sourceTextNode: _class);
             F = constructorInfo.Closure;
 
             F.SetFunctionName(_className ?? classBinding ?? "");
@@ -759,15 +759,12 @@ internal sealed class ClassDefinition
 
         if (method.Kind != PropertyKind.Get && method.Kind != PropertyKind.Set && !function.Generator)
         {
-            var methodDef = method.DefineMethod(obj);
+            var methodDef = method.DefineMethod(obj, functionPrototype: null, sourceTextNode: method);
             methodDef.Closure.SetFunctionName(methodDef.Key);
             return DefineMethodProperty(obj, methodDef.Key, methodDef.Closure, enumerable);
         }
 
-        var sourceTextStart = method is MethodDefinition { Static: true } ? ~method.RangeRef.Start : method.RangeRef.Start;
-        var sourceTextEnd = method.RangeRef.End;
-
-        var definition = new JintFunctionDefinition(function, sourceTextStart, sourceTextEnd);
+        var definition = new JintFunctionDefinition(function, sourceTextNode: method);
         var intrinsics = engine.Realm.Intrinsics;
 
         var value = method.TryGetKey(engine);

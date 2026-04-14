@@ -377,14 +377,14 @@ public abstract partial class Function : ObjectInstance, ICallable
     {
         if (_functionDefinition is not null)
         {
-            var functionNode = (Node) _functionDefinition.Function;
-            if (_engine.Options.Host.FunctionToStringHandler(this, functionNode) is { } s)
+            var sourceTextNode = (Node) _functionDefinition.SourceTextNode;
+            if (_engine.Options.Host.FunctionToStringHandler(this, sourceTextNode) is { } s)
             {
                 return s;
             }
 
             var state = _functionDefinition.Initialize();
-            if (state.SourceText.GetValue(_functionDefinition.SourceTextStart, _functionDefinition.SourceTextEnd) is { } sourceText)
+            if (state.SourceText.GetValue(sourceTextNode) is { } sourceText)
             {
                 return sourceText;
             }

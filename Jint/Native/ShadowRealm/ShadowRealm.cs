@@ -387,6 +387,8 @@ public sealed class ShadowRealm : ObjectInstance
 
             return GetWrappedValue(callerRealm, callerRealm, result);
         }
+
+        public override string ToString() => _wrappedTargetFunction.ToString();
     }
 
     /// <summary>

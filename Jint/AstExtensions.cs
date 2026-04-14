@@ -328,7 +328,7 @@ public static class AstExtensions
     /// <summary>
     /// https://tc39.es/ecma262/#sec-runtime-semantics-definemethod
     /// </summary>
-    internal static Record DefineMethod<T>(this T m, ObjectInstance obj, ObjectInstance? functionPrototype = null, INode? sourceTextNode = null) where T : IProperty
+    internal static Record DefineMethod<T>(this T m, ObjectInstance obj, ObjectInstance? functionPrototype, INode sourceTextNode) where T : IProperty
     {
         var engine = obj.Engine;
         var propKey = TypeConverter.ToPropertyKey(m.GetKey(engine));
@@ -345,18 +345,7 @@ public static class AstExtensions
             Throw.SyntaxError(engine.Realm);
         }
 
-        int sourceTextStart, sourceTextEnd;
-        if (sourceTextNode is not null)
-        {
-            (sourceTextStart, sourceTextEnd) = sourceTextNode.Range;
-        }
-        else
-        {
-            sourceTextStart = m is MethodDefinition { Static: true } ? ~m.RangeRef.Start : m.RangeRef.Start;
-            sourceTextEnd = m.RangeRef.End;
-        }
-
-        var definition = new JintFunctionDefinition(function, sourceTextStart, sourceTextEnd);
+        var definition = new JintFunctionDefinition(function, sourceTextNode);
         var closure = intrinsics.Function.OrdinaryFunctionCreate(prototype, definition, definition.ThisMode, env, privateEnv);
         closure.MakeMethod(obj);
 

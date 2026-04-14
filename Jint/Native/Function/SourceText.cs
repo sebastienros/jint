@@ -14,7 +14,7 @@ namespace Jint.Native.Function
             _fullSourceTextOrBoxedValue = fullSourceText;
         }
 
-        public string? GetValue(int start, int end)
+        public string? GetValue(Node sourceTextNode)
         {
             if (_fullSourceTextOrBoxedValue is null)
             {
@@ -28,13 +28,19 @@ namespace Jint.Native.Function
 
             var fullSourceText = (string) _fullSourceTextOrBoxedValue;
 
-            if (start < 0)
+            var (start, end) = sourceTextNode.Range;
+
+            // In the case of static class methods, the static keyword is not included.
+            if (sourceTextNode is MethodDefinition { Static: true } m)
             {
-                start = AstExtensions.GetSecondTokenStartIndex(fullSourceText, ~start, end);
+                start = AstExtensions.GetSecondTokenStartIndex(fullSourceText, start, end);
             }
 
             var value = fullSourceText.Substring(start, end - start);
+
+            // Setting this field also releases the reference to the full source text string instance.
             _fullSourceTextOrBoxedValue = new StrongBox<string>(value);
+
             return value;
         }
     }

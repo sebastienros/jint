@@ -21,23 +21,19 @@ internal sealed class JintFunctionDefinition
     public readonly string? Name;
     public readonly IFunction Function;
 
-    // A negative (bitwise complement) start value indicates that the first token needs to be skipped.
-    // (This is for handling static class members.)
-    public readonly int SourceTextStart, SourceTextEnd;
+    // Stores the AST node needed for creating the source text.
+    // (This might be different from the Function node, e.g., in the case of class methods.)
+    public readonly INode SourceTextNode;
 
-    public JintFunctionDefinition(IFunction function, int sourceTextStart, int sourceTextEnd)
+    public JintFunctionDefinition(IFunction function, INode sourceTextNode)
     {
         Function = function;
         Name = !string.IsNullOrEmpty(function.Id?.Name) ? function.Id!.Name : null;
-        SourceTextStart = sourceTextStart;
-        SourceTextEnd = sourceTextEnd;
+        SourceTextNode = sourceTextNode;
     }
 
-    public JintFunctionDefinition(IFunction function, Acornima.Range sourceTextRange)
-        : this(function, sourceTextRange.Start, sourceTextRange.End) { }
-
     public JintFunctionDefinition(IFunction function)
-        : this(function, function.RangeRef.Start, function.RangeRef.End) { }
+        : this(function, function) { }
 
     public bool Strict => Function.IsStrict();
 

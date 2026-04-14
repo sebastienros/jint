@@ -84,16 +84,16 @@ public partial class Function
                 switch (kind)
                 {
                     case FunctionKind.Normal:
-                        functionExpression = "function anonymous() {}";
+                        functionExpression = "function anonymous(\n) {\n\n}";
                         break;
                     case FunctionKind.Generator:
-                        functionExpression = "function* anonymous() {}";
+                        functionExpression = "function* anonymous(\n) {\n\n}";
                         break;
                     case FunctionKind.Async:
-                        functionExpression = "async function anonymous() {}";
+                        functionExpression = "async function anonymous(\n) {\n\n}";
                         break;
                     case FunctionKind.AsyncGenerator:
-                        functionExpression = "async function* anonymous() {}";
+                        functionExpression = "async function* anonymous(\n) {\n\n}";
                         break;
                     default:
                         Throw.ArgumentOutOfRangeException(nameof(kind), kind.ToString());

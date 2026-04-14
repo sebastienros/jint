@@ -21,10 +21,10 @@ internal sealed class JintObjectExpression : JintExpression
     {
         internal readonly string? _key;
         private JsString? _keyJsString;
-        internal readonly Property _value;
+        internal readonly Acornima.Ast.ObjectProperty _value;
         private JintFunctionDefinition? _functionDefinition;
 
-        public ObjectProperty(string? key, Property property)
+        public ObjectProperty(string? key, Acornima.Ast.ObjectProperty property)
         {
             _key = key;
             _value = property;
@@ -32,7 +32,7 @@ internal sealed class JintObjectExpression : JintExpression
 
         public JsString? KeyJsString => _keyJsString ??= _key != null ? JsString.Create(_key) : null;
 
-        public JintFunctionDefinition GetFunctionDefinition(Engine engine, Property property)
+        public JintFunctionDefinition GetFunctionDefinition(Engine engine, Acornima.Ast.ObjectProperty property)
         {
             if (_functionDefinition is not null)
             {
@@ -45,7 +45,7 @@ internal sealed class JintObjectExpression : JintExpression
                 Throw.SyntaxError(engine.Realm);
             }
 
-            _functionDefinition = new JintFunctionDefinition(function, property.Range);
+            _functionDefinition = new JintFunctionDefinition(function, sourceTextNode: property);
             return _functionDefinition;
         }
     }
