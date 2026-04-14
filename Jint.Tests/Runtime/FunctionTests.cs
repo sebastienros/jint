@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Runtime;
@@ -334,5 +335,397 @@ assertEqual(booleanCount, 1);
 
         Assert.Equal(values[0], found1);
         Assert.Equal(values[1], found2);
+    }
+
+    [Theory]
+    [InlineData(
+        """
+        /* before */ function fn() {
+          return 0;
+        } /* after */
+        [fn.toString(), fn.toString()]
+        """,
+        """
+        function fn() {
+          return 0;
+        }
+        """)]
+    [InlineData(
+        """
+        /* before */ async function* g() {
+          yield 0;
+        } /* after */
+        [g.toString(), g.toString()]
+        """,
+        """
+        async function* g() {
+          yield 0;
+        }
+        """)]
+    [InlineData(
+        """
+        /* before */ var fn = async function f() {
+          return 0;
+        } /* after */ ;
+        [fn.toString(), fn.toString()]
+        """,
+        """
+        async function f() {
+          return 0;
+        }
+        """)]
+    [InlineData(
+        """
+        /* before */ let g = function*() {
+          yield 0;
+        }; /* after */
+        [g.toString(), g.toString()]
+        """,
+        """
+        function*() {
+          yield 0;
+        }
+        """)]
+    [InlineData(
+        """
+        /* before */ var fn = () => {
+          return 0;
+        } /* after */
+        [fn.toString(), fn.toString()]
+        """,
+        """
+        () => {
+          return 0;
+        }
+        """)]
+    [InlineData(
+        """
+        /* before */ const o = {
+          m () {
+            return 0;
+          }
+        } /* after */
+        const m = o.m;
+        [m.toString(), m.toString()]
+        """,
+        """
+        m () {
+            return 0;
+          }
+        """)]
+    [InlineData(
+        """
+        /* before */ const o = {
+          *g( ) {
+            yield 0;
+          }
+        } /* after */
+        const g = o.g;
+        [g.toString(), g.toString()]
+        """,
+        """
+        *g( ) {
+            yield 0;
+          }
+        """)]
+    [InlineData(
+        """
+        /* before */ const o = {
+          get p() {
+            return 0;
+          }
+        } /* after */
+        const getter = Object.getOwnPropertyDescriptor(o, "p").get;
+        [getter.toString(), getter.toString()]
+        """,
+        """
+        get p() {
+            return 0;
+          }
+        """)]
+    [InlineData(
+        """
+        /* before */ const o = {
+          set p(_) {
+          }
+        } /* after */
+        const setter = Object.getOwnPropertyDescriptor(o, "p").set;
+        [setter.toString(), setter.toString()]
+        """,
+        """
+        set p(_) {
+          }
+        """)]
+    [InlineData(
+        """
+        /* before */ class A extends Object.prototype.constructor {
+          constructor() { super(); }
+        } /* after */
+        const ctor = A.prototype.constructor;
+        [ctor.toString(), ctor.toString()]
+        """,
+        """
+        class A extends Object.prototype.constructor {
+          constructor() { super(); }
+        }
+        """)]
+    [InlineData(
+        """
+        /* before */ class A {
+          m() {
+            return 0;
+          }
+        } /* after */
+        const m = A.prototype.m;
+        [m.toString(), m.toString()]
+        """,
+        """
+        m() {
+            return 0;
+          }
+        """)]
+    [InlineData(
+        """
+        /* before */ class A {
+          * g( ) {
+            yield 0;
+          }
+        } /* after */
+        const g = A.prototype.g;
+        [g.toString(), g.toString()]
+        """,
+        """
+        * g( ) {
+            yield 0;
+          }
+        """)]
+    [InlineData(
+        """
+        /* before */ class A {
+          get p() {
+            return 0;
+          }
+        } /* after */
+        const getter = Object.getOwnPropertyDescriptor(A.prototype, "p").get;
+        [getter.toString(), getter.toString()]
+        """,
+        """
+        get p() {
+            return 0;
+          }
+        """)]
+    [InlineData(
+        """
+        /* before */ class A {
+          set p(_) {
+          }
+        } /* after */
+        const setter = Object.getOwnPropertyDescriptor(A.prototype, "p").set;
+        [setter.toString(), setter.toString()]
+        """,
+        """
+        set p(_) {
+          }
+        """)]
+    [InlineData(
+        """
+        /* before */ class A {
+          static m() {
+            return 0;
+          }
+        } /* after */
+        const m = A.m;
+        [m.toString(), m.toString()]
+        """,
+        """
+        m() {
+            return 0;
+          }
+        """)]
+    [InlineData(
+        """
+        /* before */ class A {
+          static async * g() {
+            yield 0;
+          }
+        } /* after */
+        const g = A.g;
+        [g.toString(), g.toString()]
+        """,
+        """
+        async * g() {
+            yield 0;
+          }
+        """)]
+    [InlineData(
+        """
+        /* before */ class A {
+          static get p() {
+            return 0;
+          }
+        } /* after */
+        const getter = Object.getOwnPropertyDescriptor(A, "p").get;
+        [getter.toString(), getter.toString()]
+        """,
+        """
+        get p() {
+            return 0;
+          }
+        """)]
+    [InlineData(
+        """
+        /* before */ class A {
+          static set p(_) {
+          }
+        } /* after */
+        const setter = Object.getOwnPropertyDescriptor(A, "p").set;
+        [setter.toString(), setter.toString()]
+        """,
+        """
+        set p(_) {
+          }
+        """)]
+    [InlineData(
+        """
+        var fn = /* before */Function()/* after */;
+        [fn.toString(), fn.toString()]
+        """,
+        """
+        function anonymous(
+        ) {
+
+        }
+        """)]
+    [InlineData(
+        """
+        var Generator = (function*() {}).constructor;
+        var fn = /* before */Generator()/* after */;
+        [fn.toString(), fn.toString()]
+        """,
+        """
+        function* anonymous(
+        ) {
+
+        }
+        """)]
+    [InlineData(
+        """
+        var AsyncFunction = (async function() {}).constructor;
+        var fn = /* before */AsyncFunction()/* after */;
+        [fn.toString(), fn.toString()]
+        """,
+        """
+        async function anonymous(
+        ) {
+
+        }
+        """)]
+    [InlineData(
+        """
+        var AsyncGenerator = (async function*() {}).constructor;
+        var fn = /* before */AsyncGenerator()/* after */;
+        [fn.toString(), fn.toString()]
+        """,
+        """
+        async function* anonymous(
+        ) {
+
+        }
+        """)]
+    [InlineData(
+        """
+        var p1 = "a //", p2 = "/*a */ b, c";
+        var fn = /* before */Function(p1, p2, "return Promise.resolve(a+b+c) /* d */ //")/* after */;
+        [fn.toString(), fn.toString()]
+        """,
+        """
+        function anonymous(a //,/*a */ b, c
+        ) {
+        return Promise.resolve(a+b+c) /* d */ //
+        }
+        """)]
+    [InlineData(
+        """
+        var Generator = (function*() {}).constructor;
+        var p1 = "a //", p2 = "/*a */ b, c";
+        var fn = /* before */Generator(p1, p2, "return Promise.resolve(a+b+c) /* d */ //")/* after */;
+        [fn.toString(), fn.toString()]
+        """,
+        """
+        function* anonymous(a //,/*a */ b, c
+        ) {
+        return Promise.resolve(a+b+c) /* d */ //
+        }
+        """)]
+    [InlineData(
+        """
+        var AsyncFunction = (async function() {}).constructor;
+        var p1 = "a //", p2 = "/*a */ b, c";
+        var fn = /* before */AsyncFunction(p1, p2, "return Promise.resolve(a+b+c) /* d */ //")/* after */; 
+        [fn.toString(), fn.toString()]
+        """,
+        """
+        async function anonymous(a //,/*a */ b, c
+        ) {
+        return Promise.resolve(a+b+c) /* d */ //
+        }
+        """)]
+    [InlineData(
+        """
+        var AsyncGenerator = (async function*() {}).constructor;
+        var p1 = "a //", p2 = "/*a */ b, c";
+        var fn = /* before */AsyncGenerator(p1, p2, "return Promise.resolve(a+b+c) /* d */ //")/* after */; 
+        [fn.toString(), fn.toString()]
+        """,
+        """
+        async function* anonymous(a //,/*a */ b, c
+        ) {
+        return Promise.resolve(a+b+c) /* d */ //
+        }
+        """)]
+    [InlineData(
+        """
+        eval('function fn() {\n}');
+        [fn.toString(), fn.toString()]
+        """,
+        """
+        function fn() {
+        }
+        """)]
+    [InlineData(
+        """
+        const fn = new ShadowRealm().evaluate('(\n)=>0');
+        [fn.toString(), fn.toString()]
+        """,
+        """
+        (
+        )=>0
+        """)]
+    [InlineData(
+        """
+        const fn = (0, eval)(
+          new ShadowRealm().evaluate('(\n)=>0')
+        );
+        [fn.toString(), fn.toString()]
+        """,
+        """
+        (
+        )=>0
+        """)]
+    public void ToStringShouldProduceStandardsCompliantResultByDefault(string code, string expectedResult)
+    {
+        code = Regex.Replace(code, @"\r\n?", "\n", RegexOptions.CultureInvariant); // normalize line endings to '\n'
+        expectedResult = Regex.Replace(expectedResult, @"\r\n?", "\n", RegexOptions.CultureInvariant); // normalize line endings to '\n'
+
+        var returnValue = new Engine().Evaluate(code);
+
+        var actualResults = Assert.IsType<JsArray>(returnValue);
+        Assert.Equal(2u, actualResults.Length);
+
+        var actualResult1 = Assert.IsType<JsString>(actualResults[0]).ToString();
+        Assert.Equal(expectedResult, actualResult1);
+
+        var actualResult2 = Assert.IsType<JsString>(actualResults[1]).ToString();
+        Assert.Same(actualResult1, actualResult2);
     }
 }
