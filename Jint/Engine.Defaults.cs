@@ -11,7 +11,7 @@ public partial class Engine
         EcmaVersion = EcmaVersion.ES2026,
         ExperimentalESFeatures = ExperimentalESFeatures.Decorators
             | ExperimentalESFeatures.SourcePhaseImports
-            | ExperimentalESFeatures.ImportDefer,
+            | ExperimentalESFeatures.DeferImportEvaluation,
     };
 
     internal static readonly TimeSpan DefaultRegexTimeout = TimeSpan.FromSeconds(10);
