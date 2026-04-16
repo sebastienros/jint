@@ -43,6 +43,7 @@ public sealed record ScriptParsingOptions : IParsingOptions
         AllowReturnOutsideFunction = true,
         AllowTopLevelUsing = true,
         OnRegExp = Engine.DefaultConvertRegExpHandler,
+        OnNode = Engine.DefaultNodeHandler,
     };
 
     public static readonly ScriptParsingOptions Default = new();
@@ -110,6 +111,7 @@ public sealed record class ModuleParsingOptions : IParsingOptions
     private static readonly ParserOptions _defaultParserOptions = Engine.BaseParserOptions with
     {
         OnRegExp = Engine.DefaultConvertRegExpHandler,
+        OnNode = Engine.DefaultNodeHandler,
     };
 
     public static readonly ModuleParsingOptions Default = new();

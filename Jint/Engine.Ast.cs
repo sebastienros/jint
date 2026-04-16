@@ -20,25 +20,17 @@ public partial class Engine
         source ??= "<anonymous>";
         options ??= ScriptPreparationOptions.Default;
 
+        var sourceOffset = options.ParsingOptions.SourceOffset;
+        var padding = AcornimaExtensions.CreateSourceOffsetPadding(sourceOffset);
+        var paddedCode = padding.Length > 0 ? padding + code : code;
+
         var astAnalyzer = new AstAnalyzer(options);
         var parserOptions = options.GetParserOptions();
         var parser = new Parser(parserOptions with { OnNode = astAnalyzer.NodeVisitor });
 
         try
         {
-            Script preparedScript;
-            var sourceOffset = options.ParsingOptions.SourceOffset;
-            var padding = AcornimaExtensions.CreateSourceOffsetPadding(sourceOffset);
-
-            if (padding.Length > 0)
-            {
-                var paddedCode = padding + code;
-                preparedScript = parser.ParseScript(paddedCode, padding.Length, code.Length, source, strict);
-            }
-            else
-            {
-                preparedScript = parser.ParseScript(code, source, strict);
-            }
+            var preparedScript = parser.ParseScript(paddedCode, padding.Length, code.Length, source, strict);
 
             return new Prepared<Script>(preparedScript, parserOptions);
         }
@@ -85,7 +77,7 @@ public partial class Engine
             _preparationOptions = preparationOptions;
         }
 
-        public void NodeVisitor(Node node, in OnNodeContext _)
+        public void NodeVisitor(Node node, in OnNodeContext ctx)
         {
             switch (node.Type)
             {
@@ -115,7 +107,7 @@ public partial class Engine
                 case NodeType.ArrowFunctionExpression:
                 case NodeType.FunctionDeclaration:
                 case NodeType.FunctionExpression:
-                    node.UserData = JintFunctionDefinition.BuildState((IFunction) node);
+                    node.UserData = JintFunctionDefinition.BuildState((IFunction) node, ctx.Input);
                     break;
 
                 case NodeType.Program:

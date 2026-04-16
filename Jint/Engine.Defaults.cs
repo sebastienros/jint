@@ -1,3 +1,5 @@
+using Jint.Native.Function;
+
 namespace Jint;
 
 public partial class Engine
@@ -45,4 +47,16 @@ public partial class Engine
             return RegExpParseResult.ForSuccess(additionalData: this);
         }
     }
+
+    /// <summary>
+    /// Cached OnNode callback that stores the source text being parsed in <see cref="Node.UserData"/> of function nodes
+    /// to support <see cref="Function.ToString"><c>Function.prototype.toString()</c> implementation</see>.
+    /// </summary>
+    internal static readonly OnNodeHandler DefaultNodeHandler = static (node, in ctx) =>
+    {
+        if (node.Type is NodeType.ArrowFunctionExpression or NodeType.FunctionDeclaration or NodeType.FunctionExpression)
+        {
+            node.UserData = ctx.Input;
+        }
+    };
 }

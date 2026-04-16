@@ -84,16 +84,16 @@ public partial class Function
                 switch (kind)
                 {
                     case FunctionKind.Normal:
-                        functionExpression = "function f(){}";
+                        functionExpression = "function anonymous(\n) {\n\n}";
                         break;
                     case FunctionKind.Generator:
-                        functionExpression = "function* f(){}";
+                        functionExpression = "function* anonymous(\n) {\n\n}";
                         break;
                     case FunctionKind.Async:
-                        functionExpression = "async function f(){}";
+                        functionExpression = "async function anonymous(\n) {\n\n}";
                         break;
                     case FunctionKind.AsyncGenerator:
-                        functionExpression = "async function* f(){}";
+                        functionExpression = "async function* anonymous(\n) {\n\n}";
                         break;
                     default:
                         Throw.ArgumentOutOfRangeException(nameof(kind), kind.ToString());
@@ -105,16 +105,16 @@ public partial class Function
                 switch (kind)
                 {
                     case FunctionKind.Normal:
-                        functionExpression = "function f(";
+                        functionExpression = "function anonymous(";
                         break;
                     case FunctionKind.Async:
-                        functionExpression = "async function f(";
+                        functionExpression = "async function anonymous(";
                         break;
                     case FunctionKind.Generator:
-                        functionExpression = "function* f(";
+                        functionExpression = "function* anonymous(";
                         break;
                     case FunctionKind.AsyncGenerator:
-                        functionExpression = "async function* f(";
+                        functionExpression = "async function* anonymous(";
                         break;
                     default:
                         Throw.ArgumentOutOfRangeException(nameof(kind), kind.ToString());
@@ -124,7 +124,7 @@ public partial class Function
                 // Per spec (CreateDynamicFunction step 29), a line feed follows the parameters,
                 // and the body is wrapped with line feeds (step 16). This ensures HTML-like
                 // comments (<!-- and -->) are correctly handled as line comments.
-                functionExpression += p + "\n){\n" + body + "\n}";
+                functionExpression += p + "\n) {\n" + body + "\n}";
             }
 
             var parserOptions = _engine.GetActiveParserOptions();

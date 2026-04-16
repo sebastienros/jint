@@ -21,11 +21,19 @@ internal sealed class JintFunctionDefinition
     public readonly string? Name;
     public readonly IFunction Function;
 
-    public JintFunctionDefinition(IFunction function)
+    // Stores the AST node needed for creating the source text.
+    // (This might be different from the Function node, e.g., in the case of class methods.)
+    public readonly INode SourceTextNode;
+
+    public JintFunctionDefinition(IFunction function, INode sourceTextNode)
     {
         Function = function;
         Name = !string.IsNullOrEmpty(function.Id?.Name) ? function.Id!.Name : null;
+        SourceTextNode = sourceTextNode;
     }
+
+    public JintFunctionDefinition(IFunction function)
+        : this(function, function) { }
 
     public bool Strict => Function.IsStrict();
 
@@ -257,7 +265,11 @@ internal sealed class JintFunctionDefinition
     internal State Initialize()
     {
         var node = (Node) Function;
-        var state = (State) (node.UserData ??= BuildState(Function));
+        var stateOrFullSourceText = node.UserData;
+        if (stateOrFullSourceText is not State state)
+        {
+            node.UserData = state = BuildState(Function, stateOrFullSourceText as string);
+        }
         return state;
     }
 
@@ -298,10 +310,12 @@ internal sealed class JintFunctionDefinition
         public bool EnvironmentMayEscape;
         public Binding[]? _cachedSlots;
 
+        public SourceText SourceText;
+
         internal readonly record struct VariableValuePair(Key Name, JsValue? InitialValue);
     }
 
-    internal static State BuildState(IFunction function)
+    internal static State BuildState(IFunction function, string? fullSourceText = null)
     {
         var state = new State();
 
@@ -555,6 +569,8 @@ internal sealed class JintFunctionDefinition
                 }
             }
         }
+
+        state.SourceText = new SourceText(fullSourceText);
 
         return state;
     }

@@ -37,18 +37,16 @@ internal sealed class ClassDefinition
         _emptyConstructor = CreateConstructorMethodDefinition(parser, "class temp { constructor() {} }");
     }
 
-    private readonly NodeList<Decorator> _classDecorators;
+    private readonly IClass _class;
 
     public ClassDefinition(
         string? className,
-        Expression? superClass,
-        ClassBody body,
-        in NodeList<Decorator> classDecorators = default)
+        IClass @class)
     {
         _className = className;
-        _superClass = superClass;
-        _body = body;
-        _classDecorators = classDecorators;
+        _superClass = @class.SuperClass;
+        _body = @class.Body;
+        _class = @class;
     }
 
     /// <summary>
@@ -79,7 +77,7 @@ internal sealed class ClassDefinition
         if (hasDecorators)
         {
             // Evaluate class-level decorators
-            classDecoratorValues = EvaluateDecorators(context, _classDecorators);
+            classDecoratorValues = EvaluateDecorators(context, _class.Decorators);
 
             // Evaluate element-level decorators
             ref readonly var bodyElements = ref _body.Body;
@@ -183,7 +181,7 @@ internal sealed class ClassDefinition
         ScriptFunction F;
         try
         {
-            var constructorInfo = constructor.DefineMethod(proto, constructorParent);
+            var constructorInfo = constructor.DefineMethod(proto, constructorParent, sourceTextNode: _class);
             F = constructorInfo.Closure;
 
             F.SetFunctionName(_className ?? classBinding ?? "");
@@ -761,14 +759,12 @@ internal sealed class ClassDefinition
 
         if (method.Kind != PropertyKind.Get && method.Kind != PropertyKind.Set && !function.Generator)
         {
-            var methodDef = method.DefineMethod(obj);
+            var methodDef = method.DefineMethod(obj, functionPrototype: null, sourceTextNode: method);
             methodDef.Closure.SetFunctionName(methodDef.Key);
             return DefineMethodProperty(obj, methodDef.Key, methodDef.Closure, enumerable);
         }
 
-        var getter = method.Kind == PropertyKind.Get;
-
-        var definition = new JintFunctionDefinition(function);
+        var definition = new JintFunctionDefinition(function, sourceTextNode: method);
         var intrinsics = engine.Realm.Intrinsics;
 
         var value = method.TryGetKey(engine);
@@ -803,6 +799,8 @@ internal sealed class ClassDefinition
         }
         else
         {
+            var getter = method.Kind == PropertyKind.Get;
+
             var closure = intrinsics.Function.OrdinaryFunctionCreate(intrinsics.Function.PrototypeObject, definition, definition.ThisMode, env, privateEnv);
             closure.MakeMethod(obj);
             closure.SetFunctionName(propKey, getter ? "get" : "set");
@@ -1092,7 +1090,7 @@ internal sealed class ClassDefinition
     /// </summary>
     private bool HasDecorators()
     {
-        if (_classDecorators.Count > 0) return true;
+        if (_class.Decorators.Count > 0) return true;
 
         ref readonly var elements = ref _body.Body;
         for (var i = 0; i < elements.Count; i++)
