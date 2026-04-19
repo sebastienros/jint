@@ -148,6 +148,12 @@ internal sealed class JintMemberExpression : JintExpression
             {
                 return JsValue.Undefined;
             }
+
+            if (baseValue.IsNullOrUndefined())
+            {
+                TypeConverter.CheckObjectCoercible(context.Engine, baseValue, _memberExpression.Property, determinedProperty.ToString());
+            }
+
             if (baseValue is ObjectInstance baseObject)
             {
                 context.LastSyntaxElement = _expression;
@@ -182,6 +188,8 @@ internal sealed class JintMemberExpression : JintExpression
                 _cachedReadDescriptor = null;
                 return baseObject.Get(determinedProperty, baseObject);
             }
+
+            return baseValue.GetV(context.Engine.Realm, determinedProperty);
         }
 
         var result = Evaluate(context);

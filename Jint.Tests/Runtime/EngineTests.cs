@@ -2878,6 +2878,23 @@ x.test = {
     }
 
     [Fact]
+    public void MemberExpressionOnAssignmentShouldEvaluateRightHandSideOnce()
+    {
+        var engine = new Engine();
+
+        engine.Execute(@"
+            var callCount = 0;
+            function produce() { callCount++; return 'abc'; }
+            var x;
+            var len = (x = produce()).length;
+            ");
+
+        Assert.Equal(1, engine.Evaluate("callCount").AsNumber());
+        Assert.Equal(3, engine.Evaluate("len").AsNumber());
+        Assert.Equal("abc", engine.Evaluate("x").AsString());
+    }
+
+    [Fact]
     public void ClassDeclarationHoisting()
     {
         var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("typeof MyClass; class MyClass {}"));
