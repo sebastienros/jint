@@ -365,7 +365,7 @@ public static class AstExtensions
             _ => ModuleImportPhase.Evaluation,
         };
 
-        var moduleRequest = new ModuleRequest(source, attributes, phase);
+        var moduleRequest = new ModuleRequest(source, attributes) { Phase = phase };
         requestedModules.Add(moduleRequest);
 
         foreach (var specifier in specifiers)

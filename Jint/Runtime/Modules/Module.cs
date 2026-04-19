@@ -42,7 +42,9 @@ public abstract class Module : JsValue, IScriptOrModule
     /// <summary>
     /// https://tc39.es/ecma262/#sec-getmodulenamespace
     /// </summary>
-    public static ObjectInstance GetModuleNamespace(Module module, ModuleImportPhase phase = ModuleImportPhase.Evaluation)
+    public static ObjectInstance GetModuleNamespace(Module module) => GetModuleNamespace(module, ModuleImportPhase.Evaluation);
+
+    internal static ObjectInstance GetModuleNamespace(Module module, ModuleImportPhase phase)
     {
         if (phase == ModuleImportPhase.Defer)
         {

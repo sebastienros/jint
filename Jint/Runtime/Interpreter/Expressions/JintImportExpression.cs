@@ -90,7 +90,7 @@ internal sealed class JintImportExpression : JintExpression
                 }
             }
 
-            var moduleRequest = new ModuleRequest(Specifier: specifierString, Attributes: attributes.ToArray(), Phase: _phase);
+            var moduleRequest = new ModuleRequest(Specifier: specifierString, Attributes: attributes.ToArray()) { Phase = _phase };
             context.Engine._host.LoadImportedModule(referrer, moduleRequest, promiseCapability);
         }
         catch (JavaScriptException e)
