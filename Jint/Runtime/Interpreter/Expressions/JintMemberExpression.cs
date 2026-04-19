@@ -14,6 +14,7 @@ internal sealed class JintMemberExpression : JintExpression
     private readonly JintExpression _objectExpression;
     private readonly JintExpression? _propertyExpression;
     private readonly JsValue? _determinedProperty;
+    private readonly bool _objectExpressionCanShortCircuit;
     private ObjectInstance? _cachedReadObject;
     private PropertyDescriptor? _cachedReadDescriptor;
 
@@ -23,6 +24,7 @@ internal sealed class JintMemberExpression : JintExpression
     {
         _memberExpression = (MemberExpression) _expression;
         _objectExpression = Build(_memberExpression.Object);
+        _objectExpressionCanShortCircuit = CanShortCircuit(_memberExpression.Object);
 
         var determined = _expression.UserData as JsValue ?? InitializeDeterminedProperty(_memberExpression, cache: false);
 
@@ -53,6 +55,22 @@ internal sealed class JintMemberExpression : JintExpression
         }
 
         return property ?? _nullMarker;
+    }
+
+    private static bool CanShortCircuit(Expression expression)
+    {
+        if (expression.IsOptional())
+        {
+            return true;
+        }
+
+        return expression switch
+        {
+            ChainExpression chainExpression => CanShortCircuit(chainExpression.Expression),
+            CallExpression callExpression => CanShortCircuit(callExpression.Callee),
+            MemberExpression memberExpression => CanShortCircuit(memberExpression.Object),
+            _ => false
+        };
     }
 
     protected override object EvaluateInternal(EvaluationContext context)
@@ -141,6 +159,8 @@ internal sealed class JintMemberExpression : JintExpression
             && _determinedProperty is JsString determinedProperty
             && !_memberExpression.Optional
             && !_objectExpression._expression.IsOptional()
+            && !_objectExpressionCanShortCircuit
+            && ReferenceEquals(context.Engine.Options.ReferenceResolver, DefaultReferenceResolver.Instance)
             && _objectExpression is not JintSuperExpression)
         {
             var baseValue = _objectExpression.GetValue(context);
