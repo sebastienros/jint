@@ -58,7 +58,7 @@ public sealed partial class Engine : IDisposable
     internal readonly bool _isDebugMode;
     internal readonly bool _isStrict;
 
-    private readonly bool _customResolver;
+    internal readonly bool _customResolver;
     internal readonly IReferenceResolver _referenceResolver;
 
     internal readonly ReferencePool _referencePool;

@@ -155,12 +155,12 @@ internal sealed class JintMemberExpression : JintExpression
     public override JsValue GetValue(EvaluationContext context)
     {
         // Fast path for common property reads (e.g. obj.prop) where we can avoid creating and resolving a Reference.
+        var engine = context.Engine;
         if (_propertyExpression is null
             && _determinedProperty is JsString determinedProperty
             && !_memberExpression.Optional
-            && !_objectExpression._expression.IsOptional()
             && !_objectExpressionCanShortCircuit
-            && ReferenceEquals(context.Engine.Options.ReferenceResolver, DefaultReferenceResolver.Instance)
+            && !engine._customResolver
             && _objectExpression is not JintSuperExpression)
         {
             var baseValue = _objectExpression.GetValue(context);
@@ -171,13 +171,13 @@ internal sealed class JintMemberExpression : JintExpression
 
             if (baseValue.IsNullOrUndefined())
             {
-                TypeConverter.CheckObjectCoercible(context.Engine, baseValue, _memberExpression.Property, determinedProperty.ToString());
+                TypeConverter.CheckObjectCoercible(engine, baseValue, _memberExpression.Property, determinedProperty.ToString());
             }
+
+            context.LastSyntaxElement = _expression;
 
             if (baseValue is ObjectInstance baseObject)
             {
-                context.LastSyntaxElement = _expression;
-
                 if ((baseObject._type & InternalTypes.PlainObject) != InternalTypes.Empty)
                 {
                     if (ReferenceEquals(baseObject, _cachedReadObject)
@@ -209,7 +209,7 @@ internal sealed class JintMemberExpression : JintExpression
                 return baseObject.Get(determinedProperty, baseObject);
             }
 
-            return baseValue.GetV(context.Engine.Realm, determinedProperty);
+            return baseValue.GetV(engine.Realm, determinedProperty);
         }
 
         var result = Evaluate(context);
@@ -224,7 +224,7 @@ internal sealed class JintMemberExpression : JintExpression
             && reference.ReferencedName is JsNumber num
             && num.IsInteger())
         {
-            context.Engine._referencePool.Return(reference);
+            engine._referencePool.Return(reference);
             var index = num.AsInteger();
             if ((uint) index < (uint) str.Length)
             {
@@ -246,9 +246,9 @@ internal sealed class JintMemberExpression : JintExpression
                 ? TypeConverter.ToString(property)
                 : null;
 
-            TypeConverter.CheckObjectCoercible(context.Engine, reference.Base, _memberExpression.Property, referenceName);
+            TypeConverter.CheckObjectCoercible(engine, reference.Base, _memberExpression.Property, referenceName);
         }
 
-        return context.Engine.GetValue(reference, returnReferenceToPool: true);
+        return engine.GetValue(reference, returnReferenceToPool: true);
     }
 }
