@@ -357,20 +357,29 @@ public static class AstExtensions
         var source = import.Source.Value;
         var specifiers = import.Specifiers;
         var attributes = GetAttributes(import.Attributes);
-        requestedModules.Add(new ModuleRequest(source, attributes));
+
+        var phase = import.Phase switch
+        {
+            ImportPhase.Defer => ModuleImportPhase.Defer,
+            ImportPhase.Source => ModuleImportPhase.Source,
+            _ => ModuleImportPhase.Evaluation,
+        };
+
+        var moduleRequest = new ModuleRequest(source, attributes) { Phase = phase };
+        requestedModules.Add(moduleRequest);
 
         foreach (var specifier in specifiers)
         {
             switch (specifier)
             {
                 case ImportNamespaceSpecifier namespaceSpecifier:
-                    importEntries.Add(new ImportEntry(new ModuleRequest(source, attributes), "*", namespaceSpecifier.Local.GetModuleKey()));
+                    importEntries.Add(new ImportEntry(moduleRequest, "*", namespaceSpecifier.Local.GetModuleKey(), phase));
                     break;
                 case ImportSpecifier importSpecifier:
-                    importEntries.Add(new ImportEntry(new ModuleRequest(source, attributes), importSpecifier.Imported.GetModuleKey(), importSpecifier.Local.GetModuleKey()!));
+                    importEntries.Add(new ImportEntry(moduleRequest, importSpecifier.Imported.GetModuleKey(), importSpecifier.Local.GetModuleKey()!, phase));
                     break;
                 case ImportDefaultSpecifier defaultSpecifier:
-                    importEntries.Add(new ImportEntry(new ModuleRequest(source, attributes), "default", defaultSpecifier.Local.GetModuleKey()));
+                    importEntries.Add(new ImportEntry(moduleRequest, "default", defaultSpecifier.Local.GetModuleKey(), phase));
                     break;
             }
         }

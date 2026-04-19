@@ -3,6 +3,7 @@
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Object;
+using Jint.Native.Promise;
 using Jint.Native.Symbol;
 using Jint.Runtime.Descriptors;
 
@@ -15,20 +16,62 @@ internal sealed class ModuleNamespace : ObjectInstance
 {
     private readonly Module _module;
     private readonly HashSet<string> _exports;
+    private readonly bool _deferred;
 
-    public ModuleNamespace(Engine engine, Module module, List<string> exports) : base(engine)
+    public ModuleNamespace(Engine engine, Module module, List<string> exports, bool deferred = false) : base(engine)
     {
         _module = module;
         _exports = new HashSet<string>(exports, StringComparer.Ordinal);
+        _deferred = deferred;
     }
 
     protected override void Initialize()
     {
+        var tag = _deferred ? "Deferred Module" : "Module";
         var symbols = new SymbolDictionary(1)
         {
-            [GlobalSymbolRegistry.ToStringTag] = new("Module", false, false, false)
+            [GlobalSymbolRegistry.ToStringTag] = new(tag, false, false, false)
         };
         SetSymbols(symbols);
+    }
+
+    /// <summary>
+    /// https://tc39.es/proposal-defer-import-eval/#sec-IsSymbolLikeNamespaceKey
+    /// </summary>
+    private bool IsSymbolLikeNamespaceKey(JsValue property)
+    {
+        if (property.IsSymbol())
+        {
+            return true;
+        }
+
+        if (_deferred && string.Equals(TypeConverter.ToString(property), "then", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// https://tc39.es/proposal-defer-import-eval/#sec-GetModuleExportsList
+    /// </summary>
+    private HashSet<string> GetModuleExportsList()
+    {
+        if (_deferred)
+        {
+            if (_module is CyclicModule cyclicModule
+                && cyclicModule.Status != ModuleStatus.Evaluated
+                && !CyclicModule.ReadyForSyncExecution(cyclicModule))
+            {
+                Throw.TypeError(_engine.Realm,
+                    "Cannot access deferred module namespace: module has async dependencies that have not been evaluated");
+            }
+
+            CyclicModule.EvaluateSync(_module);
+        }
+
+        return _exports;
     }
 
     /// <summary>
@@ -65,14 +108,15 @@ internal sealed class ModuleNamespace : ObjectInstance
     /// </summary>
     public override PropertyDescriptor GetOwnProperty(JsValue property)
     {
-        if (property.IsSymbol())
+        if (IsSymbolLikeNamespaceKey(property))
         {
             return base.GetOwnProperty(property);
         }
 
+        var exports = GetModuleExportsList();
         var p = TypeConverter.ToString(property);
 
-        if (!_exports.Contains(p))
+        if (!exports.Contains(p))
         {
             return PropertyDescriptor.Undefined;
         }
@@ -86,7 +130,7 @@ internal sealed class ModuleNamespace : ObjectInstance
     /// </summary>
     public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
     {
-        if (property.IsSymbol())
+        if (IsSymbolLikeNamespaceKey(property))
         {
             return base.DefineOwnProperty(property, desc);
         }
@@ -131,13 +175,14 @@ internal sealed class ModuleNamespace : ObjectInstance
     /// </summary>
     public override bool HasProperty(JsValue property)
     {
-        if (property.IsSymbol())
+        if (IsSymbolLikeNamespaceKey(property))
         {
             return base.HasProperty(property);
         }
 
+        var exports = GetModuleExportsList();
         var p = TypeConverter.ToString(property);
-        return _exports.Contains(p);
+        return exports.Contains(p);
     }
 
     /// <summary>
@@ -145,14 +190,15 @@ internal sealed class ModuleNamespace : ObjectInstance
     /// </summary>
     public override JsValue Get(JsValue property, JsValue receiver)
     {
-        if (property.IsSymbol())
+        if (IsSymbolLikeNamespaceKey(property))
         {
             return base.Get(property, receiver);
         }
 
+        var exports = GetModuleExportsList();
         var p = TypeConverter.ToString(property);
 
-        if (!_exports.Contains(p))
+        if (!exports.Contains(p))
         {
             return Undefined;
         }
@@ -184,13 +230,14 @@ internal sealed class ModuleNamespace : ObjectInstance
     }
 
     /// <summary>
-    /// Prevent side-effectful JS type conversion when used in C# string interpolation (e.g. error messages).
-    /// ObjectInstance.ToString() calls TypeConverter.ToString(this) which triggers ToPrimitive → Get("toString"),
-    /// and Get on a module namespace accesses exports which can have unintended side effects.
+    /// Prevents side-effectful JS type conversion when the namespace is used in C# string interpolation (e.g. error messages).
+    /// <c>ObjectInstance.ToString()</c> calls <c>TypeConverter.ToString(this)</c> which triggers <c>ToPrimitive</c>
+    /// → <c>Get("toString")</c>, and <c>Get</c> on a module namespace accesses exports, which for deferred namespaces
+    /// would eagerly evaluate the module.
     /// </summary>
     public override string ToString()
     {
-        return "[object Module]";
+        return _deferred ? "[object Deferred Module]" : "[object Module]";
     }
 
     /// <summary>
@@ -198,13 +245,14 @@ internal sealed class ModuleNamespace : ObjectInstance
     /// </summary>
     public override bool Delete(JsValue property)
     {
-        if (property.IsSymbol())
+        if (IsSymbolLikeNamespaceKey(property))
         {
             return base.Delete(property);
         }
 
+        var exports = GetModuleExportsList();
         var p = TypeConverter.ToString(property);
-        return !_exports.Contains(p);
+        return !exports.Contains(p);
     }
 
     /// <summary>
@@ -212,11 +260,13 @@ internal sealed class ModuleNamespace : ObjectInstance
     /// </summary>
     public override List<JsValue> GetOwnPropertyKeys(Types types = Types.String | Types.Symbol)
     {
+        // Per spec, [[OwnPropertyKeys]] always calls GetModuleExportsList
+        var exports = GetModuleExportsList();
         var result = new List<JsValue>();
         if ((types & Types.String) != Types.Empty)
         {
-            result.Capacity = _exports.Count;
-            foreach (var export in _exports)
+            result.Capacity = exports.Count;
+            foreach (var export in exports)
             {
                 result.Add(export);
             }

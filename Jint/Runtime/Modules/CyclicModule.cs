@@ -208,6 +208,12 @@ public abstract class CyclicModule : Module
 
         foreach (var request in _requestedModules)
         {
+            // Source phase imports only load the module, no recursive linking needed
+            if (request.Phase == ModuleImportPhase.Source)
+            {
+                continue;
+            }
+
             var requiredModule = _engine._host.GetImportedModule(this, request);
 
             index = requiredModule.InnerModuleLinking(stack, index);
@@ -298,9 +304,36 @@ public abstract class CyclicModule : Module
         index++;
         stack.Push(this);
 
+        // Build evaluationList per spec - deferred imports only evaluate async transitive deps
+        var evaluationList = new List<Module>();
         foreach (var required in _requestedModules)
         {
+            if (required.Phase == ModuleImportPhase.Source)
+            {
+                // Source phase imports don't trigger evaluation
+                continue;
+            }
+
             var requiredModule = _engine._host.GetImportedModule(this, required);
+
+            if (required.Phase == ModuleImportPhase.Defer)
+            {
+                // For defer phase: only gather and evaluate async transitive dependencies
+                GatherAsynchronousTransitiveDependencies(requiredModule, evaluationList);
+            }
+            else
+            {
+                // For evaluation phase: add the module itself
+                if (!evaluationList.Contains(requiredModule))
+                {
+                    evaluationList.Add(requiredModule);
+                }
+            }
+        }
+
+        for (var ei = 0; ei < evaluationList.Count; ei++)
+        {
+            var requiredModule = evaluationList[ei];
 
             var result = requiredModule.InnerModuleEvaluation(stack, index, ref asyncEvalOrder);
             if (result.Type != CompletionType.Normal)
@@ -601,6 +634,117 @@ public abstract class CyclicModule : Module
                     }
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// https://tc39.es/proposal-defer-import-eval/#sec-ReadyForSyncExecution
+    /// </summary>
+    internal static bool ReadyForSyncExecution(Module module, HashSet<Module> seen = null)
+    {
+        if (module is not CyclicModule cyclicModule)
+        {
+            return true;
+        }
+
+        seen ??= new HashSet<Module>();
+        if (!seen.Add(cyclicModule))
+        {
+            return true;
+        }
+
+        if (cyclicModule.Status == ModuleStatus.Evaluated)
+        {
+            return true;
+        }
+
+        if (cyclicModule.Status is ModuleStatus.Evaluating or ModuleStatus.EvaluatingAsync)
+        {
+            return false;
+        }
+
+        // Assert: status is Linked
+        if (cyclicModule._hasTLA)
+        {
+            return false;
+        }
+
+        foreach (var request in cyclicModule._requestedModules)
+        {
+            var requiredModule = cyclicModule._engine._host.GetImportedModule(cyclicModule, request);
+            if (!ReadyForSyncExecution(requiredModule, seen))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// https://tc39.es/proposal-defer-import-eval/#sec-EvaluateSync
+    /// </summary>
+    internal static void EvaluateSync(Module module)
+    {
+        if (!ReadyForSyncExecution(module))
+        {
+            Throw.TypeError(module._realm, "Cannot synchronously evaluate module: module has unfinished async dependencies");
+        }
+
+        var promise = module.Evaluate();
+
+        if (promise is JsPromise jsPromise)
+        {
+            // Spec (step 3): assert the promise is settled. ReadyForSyncExecution guarantees no TLA
+            // in the transitive graph, so Evaluate() must settle synchronously.
+            System.Diagnostics.Debug.Assert(
+                jsPromise.State != PromiseState.Pending,
+                "EvaluateSync called on a module whose evaluation did not settle synchronously.");
+
+            if (jsPromise.State == PromiseState.Rejected)
+            {
+                Throw.JavaScriptException(module._engine, jsPromise.Value, in AstExtensions.DefaultLocation);
+            }
+        }
+    }
+
+    /// <summary>
+    /// https://tc39.es/proposal-defer-import-eval/#sec-GatherAsynchronousTransitiveDependencies
+    /// </summary>
+    internal static void GatherAsynchronousTransitiveDependencies(
+        Module module,
+        List<Module> result,
+        HashSet<Module> seen = null)
+    {
+        if (module is not CyclicModule cyclicModule)
+        {
+            return;
+        }
+
+        seen ??= new HashSet<Module>();
+        if (!seen.Add(cyclicModule))
+        {
+            return;
+        }
+
+        if (cyclicModule.Status is ModuleStatus.Evaluating or ModuleStatus.EvaluatingAsync or ModuleStatus.Evaluated)
+        {
+            return;
+        }
+
+        if (cyclicModule._hasTLA)
+        {
+            if (!result.Contains(cyclicModule))
+            {
+                result.Add(cyclicModule);
+            }
+            return;
+        }
+
+        foreach (var request in cyclicModule._requestedModules)
+        {
+            var requiredModule = cyclicModule._engine._host.GetImportedModule(cyclicModule, request);
+            GatherAsynchronousTransitiveDependencies(requiredModule, result, seen);
         }
     }
 

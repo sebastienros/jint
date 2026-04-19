@@ -9,11 +9,18 @@ internal sealed class JintImportExpression : JintExpression
 {
     private readonly JintExpression _specifierExpression;
     private readonly JintExpression? _optionsExpression;
+    private readonly ModuleImportPhase _phase;
 
     public JintImportExpression(ImportExpression expression) : base(expression)
     {
         _specifierExpression = Build(expression.Source);
         _optionsExpression = expression.Options is not null ? Build(expression.Options) : null;
+        _phase = expression.Phase switch
+        {
+            ImportPhase.Defer => ModuleImportPhase.Defer,
+            ImportPhase.Source => ModuleImportPhase.Source,
+            _ => ModuleImportPhase.Evaluation,
+        };
     }
 
     /// <summary>
@@ -83,7 +90,7 @@ internal sealed class JintImportExpression : JintExpression
                 }
             }
 
-            var moduleRequest = new ModuleRequest(Specifier: specifierString, Attributes: attributes.ToArray());
+            var moduleRequest = new ModuleRequest(Specifier: specifierString, Attributes: attributes.ToArray()) { Phase = _phase };
             context.Engine._host.LoadImportedModule(referrer, moduleRequest, promiseCapability);
         }
         catch (JavaScriptException e)

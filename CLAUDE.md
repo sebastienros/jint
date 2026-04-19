@@ -164,6 +164,33 @@ if (result.PlainRelativeTo != null)
 - **readonly record struct**: Multiple related return values (2+), especially when used across multiple methods
 - **Class/struct**: Complex data with behavior, validation, or many fields (5+)
 
+### Visibility: internal-first
+
+Default new types, members, fields, and parameters to the **narrowest visibility that compiles**. Climb up only when a real consumer requires it.
+
+1. **`private`** → single-class / single-file implementation detail
+2. **`internal`** → shared within the Jint assembly (the default for most new runtime types)
+3. **`protected internal`** → extension points on public abstract classes that derived classes in user code might legitimately need (e.g. `Module._engine`, `_realm`)
+4. **`public`** → only when the type appears in a **public** signature (parameter, return, property) of an already-public API, or when end users must construct/consume it directly
+
+**Rule of thumb:** if a type is only referenced by `internal` members, it must be `internal`. Only promote to `public` when a genuine public surface forces your hand — and if that happens, first consider whether the public surface itself can be split so the implementation-detail type stays internal. Example from this repo: `ModuleImportPhase` is only used by `internal` consumers plus one `public` static method; splitting that method into `public GetModuleNamespace(Module)` + `internal GetModuleNamespace(Module, ModuleImportPhase)` kept the enum internal.
+
+Adding `public` API surface is a durable commitment — once shipped, breaking changes are costly. `internal` costs nothing to widen later.
+
+### Type co-location: same file if same concept
+
+Keep small supporting types (enums, record structs, private helpers) **in the same file** as the class they primarily exist to serve, provided they share a namespace and the combined file stays readable. Benefits: the relationship is obvious at a glance, renames/refactors touch one file, and reviewers don't have to jump between files.
+
+Good candidates for co-location:
+- Enums used by exactly one public type (e.g. `ModuleImportPhase` lives in `ModuleRequest.cs`)
+- Record structs used as the return type of a single method
+- Tiny helper classes with a one-way dependency on a single enclosing type
+
+Split into a separate file when:
+- The type has multiple independent consumers across the assembly
+- It's a `public` type that needs independent XML-doc discoverability
+- The enclosing file would exceed ~500 lines or mix unrelated concepts
+
 ## Testing
 
 - **Jint.Tests/**: Main test suite using xUnit v3

@@ -817,4 +817,122 @@ export const count = globals.counter;
         var callsAfter = _engine.Evaluate("globalThis.toStringCalls").AsInteger();
         Assert.Equal(initialCalls, callsAfter);
     }
+
+    [Fact]
+    public void ImportDeferShouldNotEvaluateModuleUntilPropertyAccessed()
+    {
+        _engine.Modules.Add("setup", "globalThis.log = [];");
+        _engine.Modules.Add("dep", "globalThis.log.push('dep'); export const value = 42;");
+        _engine.Modules.Add("main", @"
+            import 'setup';
+            import defer * as ns from 'dep';
+            globalThis.phase1 = globalThis.log.length;
+            globalThis.accessed = ns.value;
+            globalThis.phase2 = globalThis.log.length;
+        ");
+
+        _engine.Modules.Import("main");
+
+        Assert.Equal(0, _engine.Evaluate("globalThis.phase1").AsInteger());
+        Assert.Equal(42, _engine.Evaluate("globalThis.accessed").AsInteger());
+        Assert.Equal(1, _engine.Evaluate("globalThis.phase2").AsInteger());
+        Assert.Equal(1, _engine.Evaluate("globalThis.log.length").AsInteger());
+        Assert.Equal("dep", _engine.Evaluate("globalThis.log[0]").AsString());
+    }
+
+    [Fact]
+    public void ImportDeferNamespaceHasDeferredModuleToStringTag()
+    {
+        _engine.Modules.Add("dep", "export const x = 1;");
+        _engine.Modules.Add("main", @"
+            import defer * as ns from 'dep';
+            globalThis.tag = ns[Symbol.toStringTag];
+        ");
+
+        _engine.Modules.Import("main");
+
+        Assert.Equal("Deferred Module", _engine.Evaluate("globalThis.tag").AsString());
+    }
+
+    [Fact]
+    public void ImportDeferNamespaceThenAccessDoesNotTriggerEvaluation()
+    {
+        // Per spec, "then" on a deferred namespace is treated as a symbol-like key
+        // to prevent the namespace from being detected as a thenable.
+        _engine.Modules.Add("setup", "globalThis.evaluated = false;");
+        _engine.Modules.Add("dep", "globalThis.evaluated = true; export const then = 'not-a-function';");
+        _engine.Modules.Add("main", @"
+            import 'setup';
+            import defer * as ns from 'dep';
+            globalThis.afterDefer = globalThis.evaluated;
+            globalThis.thenValue = ns.then;
+            globalThis.afterThenAccess = globalThis.evaluated;
+        ");
+
+        _engine.Modules.Import("main");
+
+        Assert.False(_engine.Evaluate("globalThis.afterDefer").AsBoolean());
+        Assert.True(_engine.Evaluate("globalThis.thenValue").IsUndefined());
+        Assert.False(_engine.Evaluate("globalThis.afterThenAccess").AsBoolean());
+    }
+
+    [Fact]
+    public void ImportDeferReExportedNamespaceKeepsDeferredIdentity()
+    {
+        // A deferred namespace re-exported via `export { ns }` should keep its deferred-ness,
+        // not be resolved through the indirect-namespace (`*namespace*`) path which would
+        // produce a fresh non-deferred namespace.
+        _engine.Modules.Add("setup", "globalThis.leafEvaluated = false;");
+        _engine.Modules.Add("leaf", "globalThis.leafEvaluated = true; export const x = 'leaf';");
+        _engine.Modules.Add("middle", @"
+            import defer * as leafNs from 'leaf';
+            export { leafNs };
+        ");
+        _engine.Modules.Add("main", @"
+            import 'setup';
+            import * as m from 'middle';
+            globalThis.tag = m.leafNs[Symbol.toStringTag];
+            globalThis.beforeAccess = globalThis.leafEvaluated;
+            globalThis.x = m.leafNs.x;
+            globalThis.afterAccess = globalThis.leafEvaluated;
+        ");
+
+        _engine.Modules.Import("main");
+
+        Assert.Equal("Deferred Module", _engine.Evaluate("globalThis.tag").AsString());
+        Assert.False(_engine.Evaluate("globalThis.beforeAccess").AsBoolean());
+        Assert.Equal("leaf", _engine.Evaluate("globalThis.x").AsString());
+        Assert.True(_engine.Evaluate("globalThis.afterAccess").AsBoolean());
+    }
+
+    [Fact]
+    public void ImportSourceDynamicShouldRejectPromise()
+    {
+        _engine.Modules.Add("dep", "export const x = 1;");
+        _engine.Modules.Add("main", @"
+            globalThis.rejected = false;
+            globalThis.errorName = null;
+            import.source('dep').then(
+                () => { globalThis.resolved = true; },
+                (e) => { globalThis.rejected = true; globalThis.errorName = e.constructor.name; }
+            );
+        ");
+
+        _engine.Modules.Import("main");
+
+        Assert.True(_engine.Evaluate("globalThis.rejected").AsBoolean());
+        // SourceTextModules don't have a source representation; rejection type is host-defined.
+        Assert.False(_engine.Evaluate("globalThis.errorName").IsNull());
+    }
+
+    [Fact]
+    public void ImportSourceStaticShouldCauseLinkingError()
+    {
+        _engine.Modules.Add("dep", "export const x = 1;");
+        _engine.Modules.Add("main", "import source x from 'dep';");
+
+        var ex = Assert.Throws<JavaScriptException>(() => _engine.Modules.Import("main"));
+        // Must not be SyntaxError per test262 expectations for SourceTextModule source phase.
+        Assert.NotEqual("SyntaxError", ex.Error.Get("name").AsString());
+    }
 }
