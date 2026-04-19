@@ -1,12 +1,5 @@
 namespace Jint.Runtime.Modules;
 
-public enum ModuleImportPhase
-{
-    Evaluation,
-    Defer,
-    Source
-}
-
 public readonly record struct ModuleImportAttribute(string Key, string Value);
 
 public readonly record struct ModuleRequest(string Specifier, ModuleImportAttribute[] Attributes, ModuleImportPhase Phase = ModuleImportPhase.Evaluation)
@@ -50,6 +43,10 @@ public readonly record struct ModuleRequest(string Specifier, ModuleImportAttrib
 
     public override int GetHashCode()
     {
-        return StringComparer.Ordinal.GetHashCode(Specifier);
+        // Manual combine (HashCode.Combine unavailable on net462/netstandard2.0).
+        unchecked
+        {
+            return (StringComparer.Ordinal.GetHashCode(Specifier) * 397) ^ (int) Phase;
+        }
     }
 }

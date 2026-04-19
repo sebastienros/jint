@@ -178,82 +178,11 @@ public class Host
                     moduleRecord.Link();
                 }
 
-                // Defer phase: link but don't fully evaluate, only evaluate async transitive deps
+                // Defer phase: link but don't fully evaluate, only evaluate async transitive deps.
+                // See https://tc39.es/proposal-defer-import-eval/#sec-ContinueDynamicImport
                 if (moduleRequest.Phase == ModuleImportPhase.Defer)
                 {
-                    var asyncDeps = new List<Module>();
-                    if (moduleRecord is CyclicModule cm)
-                    {
-                        CyclicModule.GatherAsynchronousTransitiveDependencies(cm, asyncDeps);
-                    }
-
-                    if (asyncDeps.Count == 0)
-                    {
-                        // No async deps - resolve immediately with deferred namespace
-                        var ns = Module.GetModuleNamespace(moduleRecord, ModuleImportPhase.Defer);
-                        payload.Resolve.Call(JsValue.Undefined, ns);
-                        return JsValue.Undefined;
-                    }
-
-                    // Evaluate all async deps and collect their promises
-                    var evalPromises = new List<JsPromise>();
-                    foreach (var dep in asyncDeps)
-                    {
-                        var depResult = dep.Evaluate();
-                        if (depResult is JsPromise depPromise)
-                        {
-                            evalPromises.Add(depPromise);
-                        }
-                    }
-
-                    // Chain resolution: wait for all async deps, then resolve with deferred namespace
-                    var deferredModule = moduleRecord;
-                    void ResolveDeferred()
-                    {
-                        var ns = Module.GetModuleNamespace(deferredModule, ModuleImportPhase.Defer);
-                        payload.Resolve.Call(JsValue.Undefined, ns);
-                    }
-
-                    if (evalPromises.Count == 0 || evalPromises.TrueForAll(p => p.State == PromiseState.Fulfilled))
-                    {
-                        ResolveDeferred();
-                    }
-                    else if (evalPromises.Exists(p => p.State == PromiseState.Rejected))
-                    {
-                        var rejected = evalPromises.Find(p => p.State == PromiseState.Rejected)!;
-                        payload.Reject.Call(JsValue.Undefined, rejected.Value);
-                    }
-                    else
-                    {
-                        // Some promises still pending - chain on all of them
-                        var remaining = evalPromises.Count;
-                        foreach (var evalPromise in evalPromises)
-                        {
-                            if (evalPromise.State == PromiseState.Fulfilled)
-                            {
-                                remaining--;
-                                continue;
-                            }
-
-                            var onDepFulfilled = new ClrFunction(Engine, "", (_, depArgs) =>
-                            {
-                                if (--remaining == 0)
-                                {
-                                    ResolveDeferred();
-                                }
-                                return JsValue.Undefined;
-                            }, 0, PropertyFlag.Configurable);
-
-                            var onDepRejected = new ClrFunction(Engine, "", (_, depArgs) =>
-                            {
-                                payload.Reject.Call(JsValue.Undefined, depArgs.At(0));
-                                return JsValue.Undefined;
-                            }, 1, PropertyFlag.Configurable);
-
-                            PromiseOperations.PerformPromiseThen(Engine, evalPromise, onDepFulfilled, onDepRejected, resultCapability: null!);
-                        }
-                    }
-
+                    HandleDeferredImport(moduleRecord, payload);
                     return JsValue.Undefined;
                 }
 
@@ -312,6 +241,107 @@ public class Host
         }, 1, PropertyFlag.Configurable);
 
         PromiseOperations.PerformPromiseThen(Engine, result, onFulfilled, onRejected, resultCapability: null!);
+    }
+
+    /// <summary>
+    /// Implements the defer-phase branch of
+    /// <see href="https://tc39.es/proposal-defer-import-eval/#sec-ContinueDynamicImport">ContinueDynamicImport</see>:
+    /// gather async transitive dependencies, await their evaluation, then resolve the payload with the deferred namespace.
+    /// </summary>
+    private void HandleDeferredImport(Module moduleRecord, PromiseCapability payload)
+    {
+        var asyncDeps = new List<Module>();
+        if (moduleRecord is CyclicModule cm)
+        {
+            CyclicModule.GatherAsynchronousTransitiveDependencies(cm, asyncDeps);
+        }
+
+        if (asyncDeps.Count == 0)
+        {
+            // No async deps - resolve immediately with deferred namespace.
+            payload.Resolve.Call(JsValue.Undefined, Module.GetModuleNamespace(moduleRecord, ModuleImportPhase.Defer));
+            return;
+        }
+
+        // Evaluate all async deps, collect their promises, and classify states in a single pass.
+        var evalPromises = new List<JsPromise>(asyncDeps.Count);
+        var pending = 0;
+        JsPromise? firstRejected = null;
+
+        foreach (var dep in asyncDeps)
+        {
+            if (dep.Evaluate() is not JsPromise depPromise)
+            {
+                continue;
+            }
+
+            evalPromises.Add(depPromise);
+            switch (depPromise.State)
+            {
+                case PromiseState.Rejected:
+                    firstRejected ??= depPromise;
+                    break;
+                case PromiseState.Pending:
+                    pending++;
+                    break;
+            }
+        }
+
+        // Promise.all semantics: reject on first rejection, otherwise wait for all to fulfill.
+        if (firstRejected is not null)
+        {
+            payload.Reject.Call(JsValue.Undefined, firstRejected.Value);
+            return;
+        }
+
+        if (pending == 0)
+        {
+            payload.Resolve.Call(JsValue.Undefined, Module.GetModuleNamespace(moduleRecord, ModuleImportPhase.Defer));
+            return;
+        }
+
+        // One-shot guard: once the payload is settled, subsequent handler firings are ignored.
+        // The PromiseCapability itself enforces settle-once, but this avoids redundant work and
+        // leaking onto the event loop if multiple deps settle near-simultaneously.
+        var settled = false;
+        var remaining = pending;
+        var deferredModule = moduleRecord;
+
+        var onDepFulfilled = new ClrFunction(Engine, "", (_, _) =>
+        {
+            if (settled)
+            {
+                return JsValue.Undefined;
+            }
+
+            if (--remaining == 0)
+            {
+                settled = true;
+                payload.Resolve.Call(JsValue.Undefined, Module.GetModuleNamespace(deferredModule, ModuleImportPhase.Defer));
+            }
+            return JsValue.Undefined;
+        }, 0, PropertyFlag.Configurable);
+
+        var onDepRejected = new ClrFunction(Engine, "", (_, depArgs) =>
+        {
+            if (settled)
+            {
+                return JsValue.Undefined;
+            }
+
+            settled = true;
+            payload.Reject.Call(JsValue.Undefined, depArgs.At(0));
+            return JsValue.Undefined;
+        }, 1, PropertyFlag.Configurable);
+
+        foreach (var evalPromise in evalPromises)
+        {
+            if (evalPromise.State != PromiseState.Pending)
+            {
+                continue;
+            }
+            PromiseOperations.PerformPromiseThen(Engine, evalPromise, onDepFulfilled, onDepRejected, resultCapability: null!);
+        }
     }
 
     /// <summary>

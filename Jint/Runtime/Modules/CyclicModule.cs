@@ -695,10 +695,15 @@ public abstract class CyclicModule : Module
 
         if (promise is JsPromise jsPromise)
         {
+            // Spec (step 3): assert the promise is settled. ReadyForSyncExecution guarantees no TLA
+            // in the transitive graph, so Evaluate() must settle synchronously.
+            System.Diagnostics.Debug.Assert(
+                jsPromise.State != PromiseState.Pending,
+                "EvaluateSync called on a module whose evaluation did not settle synchronously.");
+
             if (jsPromise.State == PromiseState.Rejected)
             {
-                var error = jsPromise.Value;
-                Throw.JavaScriptException(module._engine, error, in AstExtensions.DefaultLocation);
+                Throw.JavaScriptException(module._engine, jsPromise.Value, in AstExtensions.DefaultLocation);
             }
         }
     }

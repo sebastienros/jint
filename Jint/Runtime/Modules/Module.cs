@@ -18,8 +18,8 @@ public abstract class Module : JsValue, IScriptOrModule
 {
     private ObjectInstance _namespace;
     private ObjectInstance _deferredNamespace;
-    internal readonly Engine _engine;
-    internal readonly Realm _realm;
+    protected internal readonly Engine _engine;
+    protected internal readonly Realm _realm;
     internal ModuleEnvironment _environment;
 
     public string Location { get; }

@@ -229,6 +229,12 @@ internal sealed class ModuleNamespace : ObjectInstance
         return false;
     }
 
+    /// <summary>
+    /// Prevents side-effectful JS type conversion when the namespace is used in C# string interpolation (e.g. error messages).
+    /// <c>ObjectInstance.ToString()</c> calls <c>TypeConverter.ToString(this)</c> which triggers <c>ToPrimitive</c>
+    /// → <c>Get("toString")</c>, and <c>Get</c> on a module namespace accesses exports, which for deferred namespaces
+    /// would eagerly evaluate the module.
+    /// </summary>
     public override string ToString()
     {
         return _deferred ? "[object Deferred Module]" : "[object Module]";

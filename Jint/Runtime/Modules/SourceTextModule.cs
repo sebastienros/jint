@@ -218,7 +218,9 @@ internal class SourceTextModule : CyclicModule
 
                 if (ie.Phase == ModuleImportPhase.Source)
                 {
-                    // SourceTextModules do not support source phase imports
+                    // SourceTextModules have no [[ModuleSource]] representation. Throw TypeError here
+                    // rather than SyntaxError — test262 `import-source.js` explicitly rejects SyntaxError
+                    // for this case, expecting a host-defined non-SyntaxError rejection.
                     Throw.TypeError(_realm, "Source phase import is not supported for JavaScript modules");
                 }
 
