@@ -14,6 +14,7 @@ internal sealed class JintMemberExpression : JintExpression
     private readonly JintExpression _objectExpression;
     private readonly JintExpression? _propertyExpression;
     private readonly JsValue? _determinedProperty;
+    private readonly bool _objectExpressionCanShortCircuit;
     private ObjectInstance? _cachedReadObject;
     private PropertyDescriptor? _cachedReadDescriptor;
 
@@ -23,6 +24,7 @@ internal sealed class JintMemberExpression : JintExpression
     {
         _memberExpression = (MemberExpression) _expression;
         _objectExpression = Build(_memberExpression.Object);
+        _objectExpressionCanShortCircuit = CanShortCircuit(_memberExpression.Object);
 
         var determined = _expression.UserData as JsValue ?? InitializeDeterminedProperty(_memberExpression, cache: false);
 
@@ -53,6 +55,22 @@ internal sealed class JintMemberExpression : JintExpression
         }
 
         return property ?? _nullMarker;
+    }
+
+    private static bool CanShortCircuit(Expression expression)
+    {
+        if (expression.IsOptional())
+        {
+            return true;
+        }
+
+        return expression switch
+        {
+            ChainExpression chainExpression => CanShortCircuit(chainExpression.Expression),
+            CallExpression callExpression => CanShortCircuit(callExpression.Callee),
+            MemberExpression memberExpression => CanShortCircuit(memberExpression.Object),
+            _ => false
+        };
     }
 
     protected override object EvaluateInternal(EvaluationContext context)
@@ -137,10 +155,12 @@ internal sealed class JintMemberExpression : JintExpression
     public override JsValue GetValue(EvaluationContext context)
     {
         // Fast path for common property reads (e.g. obj.prop) where we can avoid creating and resolving a Reference.
+        var engine = context.Engine;
         if (_propertyExpression is null
             && _determinedProperty is JsString determinedProperty
             && !_memberExpression.Optional
-            && !_objectExpression._expression.IsOptional()
+            && !_objectExpressionCanShortCircuit
+            && !engine._customResolver
             && _objectExpression is not JintSuperExpression)
         {
             var baseValue = _objectExpression.GetValue(context);
@@ -148,10 +168,16 @@ internal sealed class JintMemberExpression : JintExpression
             {
                 return JsValue.Undefined;
             }
+
+            if (baseValue.IsNullOrUndefined())
+            {
+                TypeConverter.CheckObjectCoercible(engine, baseValue, _memberExpression.Property, determinedProperty.ToString());
+            }
+
+            context.LastSyntaxElement = _expression;
+
             if (baseValue is ObjectInstance baseObject)
             {
-                context.LastSyntaxElement = _expression;
-
                 if ((baseObject._type & InternalTypes.PlainObject) != InternalTypes.Empty)
                 {
                     if (ReferenceEquals(baseObject, _cachedReadObject)
@@ -182,6 +208,8 @@ internal sealed class JintMemberExpression : JintExpression
                 _cachedReadDescriptor = null;
                 return baseObject.Get(determinedProperty, baseObject);
             }
+
+            return baseValue.GetV(engine.Realm, determinedProperty);
         }
 
         var result = Evaluate(context);
@@ -196,7 +224,7 @@ internal sealed class JintMemberExpression : JintExpression
             && reference.ReferencedName is JsNumber num
             && num.IsInteger())
         {
-            context.Engine._referencePool.Return(reference);
+            engine._referencePool.Return(reference);
             var index = num.AsInteger();
             if ((uint) index < (uint) str.Length)
             {
@@ -218,9 +246,9 @@ internal sealed class JintMemberExpression : JintExpression
                 ? TypeConverter.ToString(property)
                 : null;
 
-            TypeConverter.CheckObjectCoercible(context.Engine, reference.Base, _memberExpression.Property, referenceName);
+            TypeConverter.CheckObjectCoercible(engine, reference.Base, _memberExpression.Property, referenceName);
         }
 
-        return context.Engine.GetValue(reference, returnReferenceToPool: true);
+        return engine.GetValue(reference, returnReferenceToPool: true);
     }
 }
