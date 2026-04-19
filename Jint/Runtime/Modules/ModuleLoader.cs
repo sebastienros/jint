@@ -36,6 +36,11 @@ public abstract class ModuleLoader : IModuleLoader
             return default!;
         }
 
+        if (resolved.ModuleRequest.IsTextModule())
+        {
+            return ModuleFactory.BuildTextModule(engine, resolved, code);
+        }
+
         var isJson = resolved.ModuleRequest.IsJsonModule();
         Module moduleRecord = isJson
             ? ModuleFactory.BuildJsonModule(engine, resolved, code)

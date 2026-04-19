@@ -5,9 +5,6 @@
   "Namespace": "Jint.Tests.Test262",
   "Parallel": true,
   "ExcludedFeatures": [
-    // import-text is a separate TC39 proposal (https://github.com/tc39/proposal-import-text),
-    // not implemented yet. Tracked for a follow-up PR.
-    "import-text",
     "tail-call-optimization"
   ],
   "ExcludedFlags": [
