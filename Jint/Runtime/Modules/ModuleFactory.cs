@@ -104,4 +104,16 @@ public static class ModuleFactory
 
         return new SyntheticModule(engine, engine.Realm, uint8Array, resolved.Uri?.LocalPath);
     }
+
+    /// <summary>
+    /// Creates a <see cref="Module"/> for the usage within the given <paramref name="engine"/> for the
+    /// provided text module contents.
+    /// </summary>
+    /// <remarks>
+    /// https://tc39.es/proposal-import-text/#sec-create-text-module
+    /// </remarks>
+    public static Module BuildTextModule(Engine engine, ResolvedSpecifier resolved, string text)
+    {
+        return new SyntheticModule(engine, engine.Realm, JsString.Create(text), resolved.Uri?.LocalPath);
+    }
 }

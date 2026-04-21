@@ -20,10 +20,50 @@ public partial class Engine
         return _executionContexts?.GetActiveScriptOrModule();
     }
 
+    // Cache key for the per-engine module map. Per the import-attributes spec,
+    // two requests for the same resolved specifier with different attributes
+    // are distinct module records. Import phase (defer/source) does NOT create
+    // distinct records — defer and evaluation share the same underlying module.
+    internal readonly record struct ModuleCacheKey(string Key, ModuleImportAttribute[] Attributes)
+    {
+        public static ModuleCacheKey From(ResolvedSpecifier resolved)
+            => new(resolved.Key, resolved.ModuleRequest.Attributes ?? []);
+
+        public bool Equals(ModuleCacheKey other)
+        {
+            if (!string.Equals(Key, other.Key, StringComparison.Ordinal))
+            {
+                return false;
+            }
+            var a = Attributes;
+            var b = other.Attributes;
+            if (a.Length != b.Length)
+            {
+                return false;
+            }
+            for (var i = 0; i < a.Length; i++)
+            {
+                if (Array.IndexOf(b, a[i]) < 0)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                return (StringComparer.Ordinal.GetHashCode(Key) * 397) ^ Attributes.Length;
+            }
+        }
+    }
+
     public class ModuleOperations
     {
         private readonly Engine _engine;
-        private readonly Dictionary<string, Module> _modules = new(StringComparer.Ordinal);
+        private readonly Dictionary<ModuleCacheKey, Module> _modules = new();
         private readonly Dictionary<string, ModuleBuilder> _builders = new(StringComparer.Ordinal);
 
         public ModuleOperations(Engine engine, IModuleLoader moduleLoader)
@@ -37,19 +77,20 @@ public partial class Engine
         internal Module Load(string? referencingModuleLocation, ModuleRequest request)
         {
             var moduleResolution = ModuleLoader.Resolve(referencingModuleLocation, request);
+            var cacheKey = ModuleCacheKey.From(moduleResolution);
 
-            if (_modules.TryGetValue(moduleResolution.Key, out var module))
+            if (_modules.TryGetValue(cacheKey, out var module))
             {
                 return module;
             }
 
             if (_builders.TryGetValue(moduleResolution.Key, out var moduleBuilder))
             {
-                module = LoadFromBuilder(moduleResolution.Key, moduleBuilder, moduleResolution);
+                module = LoadFromBuilder(moduleResolution.Key, moduleBuilder, moduleResolution, cacheKey);
             }
             else
             {
-                module = LoadFromModuleLoader(moduleResolution);
+                module = LoadFromModuleLoader(moduleResolution, cacheKey);
             }
 
             if (module is SourceTextModule sourceTextModule)
@@ -60,21 +101,21 @@ public partial class Engine
             return module;
         }
 
-        private BuilderModule LoadFromBuilder(string specifier, ModuleBuilder moduleBuilder, ResolvedSpecifier moduleResolution)
+        private BuilderModule LoadFromBuilder(string specifier, ModuleBuilder moduleBuilder, ResolvedSpecifier moduleResolution, ModuleCacheKey cacheKey)
         {
             var parsedModule = moduleBuilder.Parse();
             var hasTopLevelAwait = HoistingScope.HasTopLevelAwait(parsedModule.Program!);
             var module = new BuilderModule(_engine, _engine.Realm, parsedModule, location: parsedModule.Program!.Location.SourceFile, async: hasTopLevelAwait);
-            _modules[moduleResolution.Key] = module;
+            _modules[cacheKey] = module;
             moduleBuilder.BindExportedValues(module);
             _builders.Remove(specifier);
             return module;
         }
 
-        private Module LoadFromModuleLoader(ResolvedSpecifier moduleResolution)
+        private Module LoadFromModuleLoader(ResolvedSpecifier moduleResolution, ModuleCacheKey cacheKey)
         {
             var module = ModuleLoader.LoadModule(_engine, moduleResolution);
-            _modules[moduleResolution.Key] = module;
+            _modules[cacheKey] = module;
             return module;
         }
 
@@ -111,7 +152,7 @@ public partial class Engine
         {
             var moduleResolution = ModuleLoader.Resolve(referencingModuleLocation, request);
 
-            if (!_modules.TryGetValue(moduleResolution.Key, out var module))
+            if (!_modules.TryGetValue(ModuleCacheKey.From(moduleResolution), out var module))
             {
                 module = Load(referencingModuleLocation, request);
             }

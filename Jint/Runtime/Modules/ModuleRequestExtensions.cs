@@ -35,4 +35,21 @@ public static class ModuleRequestExtensions
         return request.Attributes != null
             && Array.Exists(request.Attributes, x => string.Equals(x.Key, "type", StringComparison.Ordinal) && string.Equals(x.Value, "bytes", StringComparison.Ordinal));
     }
+
+    /// <summary>
+    /// Returns true if the provided <paramref name="request"/>
+    /// is a text module, otherwise false.
+    /// </summary>
+    /// <example>
+    /// The following JavaScript import statement imports a text module
+    /// for which this method would return true.
+    /// <code>
+    /// import value from 'file.txt' with { type: 'text' }
+    /// </code>
+    /// </example>
+    public static bool IsTextModule(this ModuleRequest request)
+    {
+        return request.Attributes != null
+            && Array.Exists(request.Attributes, x => string.Equals(x.Key, "type", StringComparison.Ordinal) && string.Equals(x.Value, "text", StringComparison.Ordinal));
+    }
 }

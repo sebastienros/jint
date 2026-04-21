@@ -753,6 +753,75 @@ export const count = globals.counter;
         Assert.Equal("hello", (await completionTcs.Task).AsString());
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CanStaticallyImportTextModule(bool importViaLoader)
+    {
+        const string TextModuleSpecifier = "./hello.txt";
+        const string TextModuleContent = "hello world";
+
+        const string MainModuleSpecifier = "./main.js";
+        const string MainModuleCode =
+            $$"""
+            import txt from "{{TextModuleSpecifier}}" with { type: "text" };
+            export const msg = txt;
+            """;
+
+        var loaderModules = new Dictionary<string, Func<Engine, ResolvedSpecifier, Module>>();
+        var engine = new Engine(o => o.EnableModules(new TestModuleLoader(loaderModules)));
+
+        loaderModules.Add(TextModuleSpecifier, (engine, resolved) => ModuleFactory.BuildTextModule(engine, resolved, TextModuleContent));
+        if (importViaLoader)
+        {
+            loaderModules.Add(MainModuleSpecifier, (engine, resolved) => ModuleFactory.BuildSourceTextModule(engine, resolved, MainModuleCode));
+        }
+        else
+        {
+            engine.Modules.Add(MainModuleSpecifier, MainModuleCode);
+        }
+
+        var mainModule = engine.Modules.Import(MainModuleSpecifier);
+
+        Assert.Equal(TextModuleContent, mainModule.Get("msg").AsString());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CanDynamicallyImportTextModule(bool importViaLoader)
+    {
+        const string TextModuleSpecifier = "./hello.txt";
+        const string TextModuleContent = "hello world";
+
+        const string MainModuleSpecifier = "./main.js";
+        const string MainModuleCode =
+            $$"""
+            const txt = await import("{{TextModuleSpecifier}}", { with: { type: "text" } });
+            callback(txt.default);
+            """;
+
+        var completionTcs = new TaskCompletionSource<JsValue>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var loaderModules = new Dictionary<string, Func<Engine, ResolvedSpecifier, Module>>();
+        var engine = new Engine(o => o.EnableModules(new TestModuleLoader(loaderModules)))
+            .SetValue("callback", new Action<JsValue>(value => completionTcs.SetResult(value)));
+
+        loaderModules.Add(TextModuleSpecifier, (engine, resolved) => ModuleFactory.BuildTextModule(engine, resolved, TextModuleContent));
+        if (importViaLoader)
+        {
+            loaderModules.Add(MainModuleSpecifier, (engine, resolved) => ModuleFactory.BuildSourceTextModule(engine, resolved, MainModuleCode));
+        }
+        else
+        {
+            engine.Modules.Add(MainModuleSpecifier, MainModuleCode);
+        }
+
+        var mainModule = engine.Modules.Import(MainModuleSpecifier);
+
+        Assert.Equal(TextModuleContent, (await completionTcs.Task).AsString());
+    }
+
     private sealed class TestModuleLoader : IModuleLoader
     {
         private readonly Dictionary<string, Func<Engine, ResolvedSpecifier, Module>> _moduleFactories;
