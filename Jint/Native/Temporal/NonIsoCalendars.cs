@@ -300,7 +300,7 @@ internal static class NonIsoCalendars
                 {
                     // Check if day or monthCode was constrained (wrapping)
                     // This catches: day constraining (e.g., M13 day 6 → 5) and
-                    // leap month constraining (e.g., M05L → M05 when target year has no leap month)
+                    // leap month constraining (e.g., M05L → M06 when target year has no leap month)
                     // Compare MonthCode (not ordinal Month) since ordinal shifts between leap/non-leap years
                     var checkCal = IsoToCalendarDate(calendar, check);
                     if (checkCal.Day != calOne.Day || !string.Equals(checkCal.MonthCode, calOne.MonthCode, System.StringComparison.Ordinal))
