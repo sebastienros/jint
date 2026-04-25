@@ -866,7 +866,12 @@ internal sealed class StringPrototype : StringInstance
             return char.IsLetter(c) && (char.IsLower(c) || char.IsUpper(c) || CharUnicodeInfo.GetUnicodeCategory(c) == UnicodeCategory.TitlecaseLetter);
         }
 
+#if SUPPORTS_UNICODE_CATEGORY_INT
+        var category = CharUnicodeInfo.GetUnicodeCategory(cp);
+#else
+        // net462 / netstandard2.0 lack the int overload; the 2-char string allocation is unavoidable here.
         var category = CharUnicodeInfo.GetUnicodeCategory(char.ConvertFromUtf32(cp), 0);
+#endif
         return category is UnicodeCategory.LowercaseLetter
             or UnicodeCategory.UppercaseLetter
             or UnicodeCategory.TitlecaseLetter;
@@ -880,9 +885,14 @@ internal sealed class StringPrototype : StringInstance
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool IsCaseIgnorable(int cp)
     {
+#if SUPPORTS_UNICODE_CATEGORY_INT
+        var category = CharUnicodeInfo.GetUnicodeCategory(cp);
+#else
+        // net462 / netstandard2.0 lack the int overload; supplementary-plane lookups go through a 2-char string.
         var category = cp <= 0xFFFF
             ? CharUnicodeInfo.GetUnicodeCategory((char) cp)
             : CharUnicodeInfo.GetUnicodeCategory(char.ConvertFromUtf32(cp), 0);
+#endif
         return category == UnicodeCategory.NonSpacingMark ||      // Mn
                category == UnicodeCategory.EnclosingMark ||       // Me
                category == UnicodeCategory.Format ||              // Cf (includes U+180E Mongolian Vowel Separator)
