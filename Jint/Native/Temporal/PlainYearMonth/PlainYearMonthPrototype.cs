@@ -247,7 +247,7 @@ internal sealed class PlainYearMonthPrototype : Prototype
             else if (!eraValue.IsUndefined() || !eraYearValue.IsUndefined())
             {
                 hasEraOrEraYear = true;
-                Throw.TypeError(_realm, "Both era and eraYear must be provided together");
+                Throw.TypeError(_realm, "Mismatching era/eraYear");
             }
         }
 
@@ -285,7 +285,7 @@ internal sealed class PlainYearMonthPrototype : Prototype
                     // month/monthCode consistency for Gregorian-based
                     if (monthExplicit && month != mc)
                     {
-                        Throw.RangeError(_realm, "month and monthCode must match");
+                        Throw.RangeError(_realm, "Mismatching month/monthCode");
                     }
 
                     month = mc;

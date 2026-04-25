@@ -556,12 +556,7 @@ internal static class NonIsoCalendars
             return false;
         }
 
-        int displayMonth;
-        try
-        {
-            displayMonth = int.Parse(monthCode.AsSpan(1, 2), NumberStyles.None, CultureInfo.InvariantCulture);
-        }
-        catch
+        if (!int.TryParse(monthCode.AsSpan(1, 2), NumberStyles.None, CultureInfo.InvariantCulture, out var displayMonth))
         {
             return false;
         }
@@ -599,20 +594,31 @@ internal static class NonIsoCalendars
             return true;
         }
 
+        Calendar? cal;
         try
         {
-            Calendar? cal = calendar switch
+            cal = calendar switch
             {
                 "coptic" or "ethiopic" or "ethioaa" or "indian" => null,
                 "islamic-civil" or "islamic-tbla" => null,
                 _ => GetCalendar(calendar)
             };
+        }
+        catch (NotSupportedException)
+        {
+            // Calendar not handled here — defer to caller's downstream validation.
+            return true;
+        }
+
+        try
+        {
             var resolved = MonthCodeToOrdinal(calendar, cal, year, monthCode, "reject");
             return resolved == month;
         }
-        catch
+        catch (InvalidOperationException)
         {
-            // Invalid monthCode (out of range etc.) — let the downstream conversion produce the error
+            // monthCode out of range or otherwise unresolvable for this year — let the
+            // downstream CalendarDateToIso path produce the appropriate error.
             return true;
         }
     }

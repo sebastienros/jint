@@ -68,9 +68,6 @@
     "intl402/Temporal/PlainYearMonth/prototype/toLocaleString/dateStyle.js",
     "intl402/Temporal/ZonedDateTime/prototype/toLocaleString/dateStyle.js",
 
-    // .NET ar-EG locale defaults to latn numbering system instead of arab (Arabic-Indic digits)
-
-
     // Remaining intl402/Temporal calendar failures
     "intl402/DateTimeFormat/prototype/formatToParts/compare-to-temporal-lunisolar.js",
     "intl402/DateTimeFormat/prototype/formatToParts/compare-to-temporal.js",

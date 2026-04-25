@@ -200,7 +200,7 @@ internal sealed class ZonedDateTimeConstructor : Constructor
         var dayValue = obj.Get("day");
         if (dayValue.IsUndefined())
         {
-            Throw.TypeError(_realm, "Missing required property: day");
+            Throw.TypeError(_realm, "Missing day");
         }
 
         var day = TemporalHelpers.ToPositiveIntegerWithTruncation(_realm, dayValue);
@@ -294,7 +294,7 @@ internal sealed class ZonedDateTimeConstructor : Constructor
         var timeZoneProp = obj.Get("timeZone");
         if (timeZoneProp.IsUndefined())
         {
-            Throw.TypeError(_realm, "Missing required property: timeZone");
+            Throw.TypeError(_realm, "Missing timeZone");
         }
 
         var timeZone = ToTemporalTimeZoneIdentifier(timeZoneProp);
@@ -311,7 +311,7 @@ internal sealed class ZonedDateTimeConstructor : Constructor
             var yearValue = obj.Get("year");
             if (yearValue.IsUndefined())
             {
-                Throw.TypeError(_realm, "Missing required property: year");
+                Throw.TypeError(_realm, "Missing year/era/eraYear");
             }
 
             year = TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearValue);
@@ -340,30 +340,11 @@ internal sealed class ZonedDateTimeConstructor : Constructor
 
         if (month == 0 && monthCodeStr is null)
         {
-            Throw.TypeError(_realm, "month or monthCode is required");
+            Throw.TypeError(_realm, "Missing month/monthCode");
         }
 
-        // Range validation: month/monthCode mismatch — must come AFTER all required-field
-        // (TypeError) checks per CalendarResolveFields error ordering.
-        if (monthCodeStr is not null && month != 0)
-        {
-            if (NonIsoCalendars.IsNonIsoCalendar(calendar))
-            {
-                if (!NonIsoCalendars.MonthAndMonthCodeAgree(calendar, year, month, monthCodeStr))
-                {
-                    Throw.RangeError(_realm, "month and monthCode do not match");
-                }
-            }
-            else if (month != monthFromCode)
-            {
-                Throw.RangeError(_realm, "month and monthCode do not match");
-            }
-        }
-
-        if (monthCodeStr is not null && !NonIsoCalendars.IsNonIsoCalendar(calendar))
-        {
-            month = monthFromCode;
-        }
+        // Range validation: month/monthCode mismatch — must come AFTER required-field checks.
+        month = TemporalHelpers.ValidateMonthAndMonthCode(_realm, calendar, year, month, monthCodeStr, monthFromCode);
 
         // Regulate date (with calendar conversion for non-ISO calendars)
         var date = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, day, overflow, monthCodeStr);

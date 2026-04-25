@@ -355,7 +355,7 @@ internal sealed class PlainDateTimePrototype : Prototype
                 }
                 else
                 {
-                    Throw.TypeError(_realm, "Both era and eraYear must be provided together");
+                    Throw.TypeError(_realm, "Mismatching era/eraYear");
                 }
             }
         }

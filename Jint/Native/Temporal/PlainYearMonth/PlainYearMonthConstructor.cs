@@ -296,7 +296,7 @@ internal sealed class PlainYearMonthConstructor : Constructor
             var yearValue = obj.Get("year");
             if (yearValue.IsUndefined())
             {
-                Throw.TypeError(_realm, "Missing required property: year");
+                Throw.TypeError(_realm, "Missing year/era/eraYear");
             }
 
             year = TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearValue);
@@ -323,30 +323,11 @@ internal sealed class PlainYearMonthConstructor : Constructor
         // At least one of month or monthCode is required
         if (month == 0 && monthCodeStr is null)
         {
-            Throw.TypeError(_realm, "month or monthCode is required");
+            Throw.TypeError(_realm, "Missing month/monthCode");
         }
 
-        // Range validation: month/monthCode mismatch — must come AFTER all required-field
-        // (TypeError) checks per CalendarResolveFields error ordering.
-        if (monthCodeStr is not null && month != 0)
-        {
-            if (NonIsoCalendars.IsNonIsoCalendar(calendar))
-            {
-                if (!NonIsoCalendars.MonthAndMonthCodeAgree(calendar, year, month, monthCodeStr))
-                {
-                    Throw.RangeError(_realm, "month and monthCode must match");
-                }
-            }
-            else if (month != monthFromCode!.Value)
-            {
-                Throw.RangeError(_realm, "month and monthCode must match");
-            }
-        }
-
-        if (monthCodeStr is not null && !NonIsoCalendars.IsNonIsoCalendar(calendar))
-        {
-            month = monthFromCode!.Value;
-        }
+        // Range validation: month/monthCode mismatch — must come AFTER required-field checks.
+        month = TemporalHelpers.ValidateMonthAndMonthCode(_realm, calendar, year, month, monthCodeStr, monthFromCode);
 
         // For non-ISO/non-gregory calendars, convert calendar year/month to ISO via CalendarDateToISO
         if (calendar is not "iso8601" and not "gregory")
@@ -460,7 +441,7 @@ internal sealed class PlainYearMonthConstructor : Constructor
             var yearValue = obj.Get("year");
             if (yearValue.IsUndefined())
             {
-                Throw.TypeError(_realm, "Missing required property: year");
+                Throw.TypeError(_realm, "Missing year/era/eraYear");
             }
 
             year = TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearValue);
@@ -484,30 +465,11 @@ internal sealed class PlainYearMonthConstructor : Constructor
         // At least one of month or monthCode is required
         if (month == 0 && monthCodeStr is null)
         {
-            Throw.TypeError(_realm, "month or monthCode is required");
+            Throw.TypeError(_realm, "Missing month/monthCode");
         }
 
-        // Range validation: month/monthCode mismatch — must come AFTER all required-field
-        // (TypeError) checks per CalendarResolveFields error ordering.
-        if (monthCodeStr is not null && month != 0)
-        {
-            if (NonIsoCalendars.IsNonIsoCalendar(calendar))
-            {
-                if (!NonIsoCalendars.MonthAndMonthCodeAgree(calendar, year, month, monthCodeStr))
-                {
-                    Throw.RangeError(_realm, "month and monthCode must match");
-                }
-            }
-            else if (month != monthFromCode!.Value)
-            {
-                Throw.RangeError(_realm, "month and monthCode must match");
-            }
-        }
-
-        if (monthCodeStr is not null && !NonIsoCalendars.IsNonIsoCalendar(calendar))
-        {
-            month = monthFromCode!.Value;
-        }
+        // Range validation: month/monthCode mismatch — must come AFTER required-field checks.
+        month = TemporalHelpers.ValidateMonthAndMonthCode(_realm, calendar, year, month, monthCodeStr, monthFromCode);
 
         // Note: overflow option is already read in From() method before calling this method, per spec
 

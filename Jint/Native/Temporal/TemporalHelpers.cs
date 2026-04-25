@@ -1647,10 +1647,49 @@ internal static class TemporalHelpers
 
         if (explicitMonth.HasValue && explicitMonth.Value != parsed)
         {
-            Throw.RangeError(realm, "month and monthCode must match");
+            Throw.RangeError(realm, "Mismatching month/monthCode");
         }
 
         return parsed;
+    }
+
+    /// <summary>
+    /// Validates that a user-supplied <paramref name="month"/> and <paramref name="monthCode"/> are
+    /// consistent for the given calendar, then returns the canonical ordinal month for downstream use.
+    /// For ISO/Gregorian calendars: monthCode and month must parse to the same value.
+    /// For non-ISO calendars: ordinal month must equal the resolved-from-monthCode ordinal in the
+    /// given year (which is leap-month-dependent).
+    /// Throws <c>RangeError</c> on mismatch — this validation is overflow-independent per
+    /// CalendarResolveFields. Callers MUST have already enforced required-field (TypeError) checks.
+    /// </summary>
+    /// <returns>The ordinal month to use downstream: monthCode-derived for ISO/gregory when
+    /// monthCode was supplied, else <paramref name="month"/> unchanged (non-ISO uses
+    /// <paramref name="monthCode"/> at conversion time).</returns>
+    internal static int ValidateMonthAndMonthCode(Realm realm, string calendar, int year, int month, string? monthCode, int? monthFromCode)
+    {
+        if (monthCode is null)
+        {
+            return month;
+        }
+
+        var resolvedFromCode = monthFromCode ?? ParseMonthCode(realm, monthCode);
+
+        if (NonIsoCalendars.IsNonIsoCalendar(calendar))
+        {
+            if (month != 0 && !NonIsoCalendars.MonthAndMonthCodeAgree(calendar, year, month, monthCode))
+            {
+                Throw.RangeError(realm, "Mismatching month/monthCode");
+            }
+
+            return month;
+        }
+
+        if (month != 0 && month != resolvedFromCode)
+        {
+            Throw.RangeError(realm, "Mismatching month/monthCode");
+        }
+
+        return resolvedFromCode;
     }
 
     /// <summary>
@@ -2056,6 +2095,10 @@ internal static class TemporalHelpers
             }
         }
 
+        // Best-effort fallback when calendar conversion can't produce a result (e.g. ISO date
+        // outside the .NET BCL calendar's supported range). For non-ISO calendars at the extremes
+        // this returns ISO day-1 of the same ISO month, which may not be calendar day-1 — but the
+        // alternative (throwing) would surface during property reads that previously succeeded.
         return new IsoDate(isoDate.Year, isoDate.Month, 1);
     }
 
@@ -2277,7 +2320,7 @@ internal static class TemporalHelpers
         if (hasEra || hasEraYear)
         {
             // Only one of era/eraYear is present - this is an error
-            Throw.TypeError(realm, "Both era and eraYear must be provided together");
+            Throw.TypeError(realm, "Mismatching era/eraYear");
         }
 
         // Neither era nor eraYear present
@@ -4580,12 +4623,12 @@ internal static class TemporalHelpers
         // Required fields: year, day, and (month or monthCode)
         if (!fields.Year.HasValue)
         {
-            Throw.TypeError(realm, "Missing required property: year");
+            Throw.TypeError(realm, "Missing year/era/eraYear");
         }
 
         if (!fields.Day.HasValue)
         {
-            Throw.TypeError(realm, "Missing required property: day");
+            Throw.TypeError(realm, "Missing day");
         }
 
         // Determine month from either month or monthCode
@@ -4598,7 +4641,7 @@ internal static class TemporalHelpers
             var parsedMonthCode = ParseMonthCode(realm, fields.MonthCode!);
             if (!isNonIso && parsedMonthCode != fields.Month.Value)
             {
-                Throw.RangeError(realm, "month and monthCode do not match");
+                Throw.RangeError(realm, "Mismatching month/monthCode");
             }
 
             month = fields.Month.Value;
@@ -4615,7 +4658,7 @@ internal static class TemporalHelpers
         }
         else
         {
-            Throw.TypeError(realm, "Missing required property: month or monthCode");
+            Throw.TypeError(realm, "Missing month/monthCode");
             return null!;
         }
 
@@ -4647,17 +4690,17 @@ internal static class TemporalHelpers
         // Required fields: year, day, month (or monthCode), timeZone
         if (!fields.Year.HasValue)
         {
-            Throw.TypeError(realm, "Missing required property: year");
+            Throw.TypeError(realm, "Missing year/era/eraYear");
         }
 
         if (!fields.Day.HasValue)
         {
-            Throw.TypeError(realm, "Missing required property: day");
+            Throw.TypeError(realm, "Missing day");
         }
 
         if (fields.TimeZone is null)
         {
-            Throw.TypeError(realm, "Missing required property: timeZone");
+            Throw.TypeError(realm, "Missing timeZone");
         }
 
         // Determine month
@@ -4669,7 +4712,7 @@ internal static class TemporalHelpers
             var parsedMonthCode = ParseMonthCode(realm, fields.MonthCode!);
             if (!isNonIso && parsedMonthCode != fields.Month.Value)
             {
-                Throw.RangeError(realm, "month and monthCode do not match");
+                Throw.RangeError(realm, "Mismatching month/monthCode");
             }
 
             month = fields.Month.Value;
@@ -4686,7 +4729,7 @@ internal static class TemporalHelpers
         }
         else
         {
-            Throw.TypeError(realm, "Missing required property: month or monthCode");
+            Throw.TypeError(realm, "Missing month/monthCode");
             return null!;
         }
 
