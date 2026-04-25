@@ -911,20 +911,40 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
             return;
         }
 
-        _sparse ??= new Dictionary<uint, PropertyDescriptor?>();
-        for (uint i = 0; i < (uint) temp.Length; ++i)
+        if (_sparse is null)
         {
-            var value = temp[i];
-            if (value is not null)
+            // Fast path: first conversion. Single dictionary touch per slot, no Remove calls
+            // (a brand-new dictionary has nothing to remove).
+            _sparse = new Dictionary<uint, PropertyDescriptor?>(temp.Length);
+            for (uint i = 0; i < (uint) temp.Length; ++i)
             {
-                _sparse.TryGetValue(i, out var descriptor);
-                descriptor ??= new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable);
-                descriptor.Value = value;
-                _sparse[i] = descriptor;
+                var value = temp[i];
+                if (value is not null)
+                {
+                    _sparse[i] = new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable);
+                }
             }
-            else
+        }
+        else
+        {
+            for (uint i = 0; i < (uint) temp.Length; ++i)
             {
-                _sparse.Remove(i);
+                var value = temp[i];
+                if (value is not null)
+                {
+                    if (_sparse.TryGetValue(i, out var descriptor) && descriptor is not null)
+                    {
+                        descriptor.Value = value;
+                    }
+                    else
+                    {
+                        _sparse[i] = new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable);
+                    }
+                }
+                else
+                {
+                    _sparse.Remove(i);
+                }
             }
         }
 

@@ -720,6 +720,28 @@ public sealed class ArrayPrototype : ArrayInstance
             }
         }
 
+        // Fast path: dense JsArray scan avoids the per-element virtual call through ArrayOperations.Get.
+        if (thisObject is JsArray { CanUseFastAccess: true } fast && fast._dense is { } dense)
+        {
+            var actualLen = (int) System.Math.Min((uint) dense.Length, (uint) len);
+            for (var i = (int) k; i < actualLen; i++)
+            {
+                var v = dense[i];
+                // Holes count as undefined for Includes.
+                v ??= Undefined;
+                if (SameValueZeroComparer.Equals(v, searchElement))
+                {
+                    return JsBoolean.True;
+                }
+            }
+            // Trailing positions beyond _dense are holes => undefined.
+            if (actualLen < len && SameValueZeroComparer.Equals(Undefined, searchElement))
+            {
+                return JsBoolean.True;
+            }
+            return JsBoolean.False;
+        }
+
         while (k < len)
         {
             var value = o.Get((ulong) k);
@@ -825,6 +847,22 @@ public sealed class ArrayPrototype : ArrayInstance
         }
 
         var searchElement = arguments.At(0);
+
+        // Fast path: dense JsArray scan avoids the per-element HasProperty + Get virtual call pair.
+        if (thisObject is JsArray { CanUseFastAccess: true } fast && fast._dense is { } dense)
+        {
+            var actualLen = (int) System.Math.Min((uint) dense.Length, (uint) len);
+            for (var i = (int) k; i < actualLen; i++)
+            {
+                var v = dense[i];
+                if (v is not null && v.Equals(searchElement))
+                {
+                    return JsNumber.Create((uint) i);
+                }
+            }
+            return JsNumber.IntegerNegativeOne;
+        }
+
         for (; k < len; k++)
         {
             var kPresent = o.HasProperty(k);
@@ -1086,7 +1124,8 @@ public sealed class ArrayPrototype : ArrayInstance
             return obj.Target;
         }
 
-        var items = new List<JsValue>((int) System.Math.Min(10_000, obj.GetLength()));
+        // capacity capped to a sane upper bound so a 1e9-length sparse array doesn't preallocate everything
+        var items = new List<JsValue>((int) System.Math.Min(1024, len));
         for (ulong k = 0; k < len; ++k)
         {
             if (obj.TryGetValue(k, out var kValue))
@@ -1100,36 +1139,32 @@ public sealed class ArrayPrototype : ArrayInstance
         // don't eat inner exceptions
         try
         {
-            var comparer = ArrayComparer.WithFunction(_engine, compareFn);
-            IEnumerable<JsValue> ordered;
-#if !NETCOREAPP
-            if (comparer is not null)
+            if (compareFn is null)
             {
-                // sort won't be stable on .NET Framework, but at least it cant go into infinite loop when comparer is badly implemented
-                items.Sort(comparer);
-                ordered = items;
+                SortByCachedStringKeys(items);
             }
             else
             {
-                ordered = items.OrderBy(x => x, comparer);
-            }
-#else
-
+                var comparer = ArrayComparer.WithFunction(_engine, compareFn);
+#if NETCOREAPP
+                // OrderBy is stable; List<T>.Sort is not. Stability is required by the spec since ES2019.
 #if NET8_0_OR_GREATER
-            ordered = items.Order(comparer);
+                items = items.Order(comparer).ToList();
 #else
-            ordered = items.OrderBy(x => x, comparer);
+                items = items.OrderBy(x => x, comparer).ToList();
 #endif
-
+#else
+                items.Sort(comparer);
 #endif
-            uint j = 0;
-            foreach (var item in ordered)
-            {
-                obj.Set(j, item, updateLength: false, throwOnError: true);
-                j++;
             }
 
-            for (; j < len; ++j)
+            for (uint j = 0; j < itemCount; j++)
+            {
+                obj.Set(j, items[(int) j], updateLength: false, throwOnError: true);
+            }
+
+            // Holes (TryGetValue returned false) only need clearing when the input had holes.
+            for (uint j = (uint) itemCount; j < len; ++j)
             {
                 obj.DeletePropertyOrThrow(j);
             }
@@ -1140,6 +1175,73 @@ public sealed class ArrayPrototype : ArrayInstance
         }
 
         return obj.Target;
+    }
+
+    /// <summary>
+    /// Default ECMA Array.prototype.sort path: SortCompare coerces both operands via ToString
+    /// per comparison, which is O(n log n) ToString allocations. Cache the coerced key once per
+    /// element (Schwartzian transform), then sort indices stably (tiebreak by original index).
+    /// </summary>
+    private static void SortByCachedStringKeys(List<JsValue> items)
+    {
+        var itemCount = items.Count;
+        if (itemCount <= 1)
+        {
+            return;
+        }
+
+        var keys = new string?[itemCount];
+        for (var i = 0; i < itemCount; i++)
+        {
+            var v = items[i];
+            // Spec: undefined elements sort to the end and are not coerced via ToString.
+            keys[i] = v.IsUndefined() ? null : TypeConverter.ToString(v);
+        }
+
+        var indices = new int[itemCount];
+        for (var i = 0; i < itemCount; i++)
+        {
+            indices[i] = i;
+        }
+
+        System.Array.Sort(indices, new CachedStringKeyComparer(keys));
+
+        // Apply permutation via a temp buffer; cycle-permute would avoid the allocation but adds risk.
+        var sorted = new JsValue[itemCount];
+        for (var i = 0; i < itemCount; i++)
+        {
+            sorted[i] = items[indices[i]];
+        }
+        for (var i = 0; i < itemCount; i++)
+        {
+            items[i] = sorted[i];
+        }
+    }
+
+    private sealed class CachedStringKeyComparer : IComparer<int>
+    {
+        private readonly string?[] _keys;
+        public CachedStringKeyComparer(string?[] keys) => _keys = keys;
+        public int Compare(int a, int b)
+        {
+            var ka = _keys[a];
+            var kb = _keys[b];
+            // undefined sorts to the end (spec: SortCompare returns 1 if x is undefined, -1 if y is)
+            if (ka is null)
+            {
+                if (kb is null)
+                {
+                    return a - b; // tiebreak by original index for stability
+                }
+                return 1;
+            }
+            if (kb is null)
+            {
+                return -1;
+            }
+            var c = string.CompareOrdinal(ka, kb);
+            return c != 0 ? c : a - b; // tiebreak by original index for stability
+        }
     }
 
     /// <summary>
@@ -1385,6 +1487,16 @@ public sealed class ArrayPrototype : ArrayInstance
     /// </summary>
     private JsValue Concat(JsValue thisObject, JsCallArguments arguments)
     {
+        // Fast path: thisObject and every spreadable arg are CanUseFastAccess JsArrays.
+        // Pre-sum total length so the output is allocated once at exact size and each source
+        // can be copied via Array.Copy instead of element-by-element CreateDataPropertyOrThrow.
+        if (thisObject is JsArray { CanUseFastAccess: true } thisArr
+            && !thisArr.HasOwnProperty(CommonProperties.Constructor)
+            && TryConcatAllJsArrayFast(thisArr, arguments, out var fastResult))
+        {
+            return fastResult;
+        }
+
         var o = TypeConverter.ToObject(_realm, thisObject);
         var items = new List<JsValue>(arguments.Length + 1) { o };
         items.AddRange(arguments);
@@ -1432,6 +1544,95 @@ public sealed class ArrayPrototype : ArrayInstance
         a.DefineOwnProperty(CommonProperties.Length, new PropertyDescriptor(n, PropertyFlag.OnlyWritable));
 
         return a;
+    }
+
+    private bool TryConcatAllJsArrayFast(JsArray thisArr, JsCallArguments arguments, out JsArray result)
+    {
+        result = null!;
+
+        // CanUseFastAccess does not catch a custom @@isConcatSpreadable symbol, so we still
+        // have to consult IsConcatSpreadable for each input.
+        if (!thisArr.IsConcatSpreadable)
+        {
+            return false;
+        }
+
+        // Pre-classify each arg as spreadable-array / scalar / bail-to-slow-path so we don't
+        // call IsConcatSpreadable twice (once during sizing, once during copy).
+        var argInfo = arguments.Length == 0 ? null : new bool[arguments.Length];
+
+        ulong totalLen = thisArr.GetLength();
+        for (var i = 0; i < arguments.Length; i++)
+        {
+            var e = arguments[i];
+            if (e is JsArray { CanUseFastAccess: true } ja && ja.IsConcatSpreadable)
+            {
+                argInfo![i] = true;
+                totalLen += ja.GetLength();
+            }
+            else if (e is ObjectInstance)
+            {
+                // Either a non-fast array, a non-array object, or a custom-symbol object.
+                // Defer to slow path which handles all spreadability cases correctly.
+                return false;
+            }
+            else
+            {
+                totalLen++;
+            }
+
+            if (totalLen > ArrayOperations.MaxArrayLikeLength)
+            {
+                Throw.TypeError(_realm, "Invalid array length");
+            }
+        }
+
+        if (totalLen > int.MaxValue)
+        {
+            return false;
+        }
+
+        var a = _realm.Intrinsics.Array.ArrayCreate(totalLen);
+        var dest = a._dense;
+        if (dest is null)
+        {
+            return false;
+        }
+
+        uint pos = 0;
+
+        var thisLen = thisArr.GetLength();
+        if (thisLen > 0)
+        {
+            var src = thisArr._dense!;
+            var copyLen = (int) System.Math.Min((uint) src.Length, thisLen);
+            System.Array.Copy(src, 0, dest, (int) pos, copyLen);
+            pos = thisLen;
+        }
+
+        for (var i = 0; i < arguments.Length; i++)
+        {
+            var e = arguments[i];
+            if (argInfo is not null && argInfo[i])
+            {
+                var ja = (JsArray) e;
+                var len = ja.GetLength();
+                if (len > 0)
+                {
+                    var src = ja._dense!;
+                    var copyLen = (int) System.Math.Min((uint) src.Length, len);
+                    System.Array.Copy(src, 0, dest, (int) pos, copyLen);
+                    pos += len;
+                }
+            }
+            else
+            {
+                dest[pos++] = e;
+            }
+        }
+
+        result = a;
+        return true;
     }
 
     internal JsValue ToString(JsValue thisObject, JsCallArguments arguments)
