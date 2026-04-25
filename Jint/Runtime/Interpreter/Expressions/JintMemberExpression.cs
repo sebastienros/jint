@@ -17,6 +17,7 @@ internal sealed class JintMemberExpression : JintExpression
     private readonly bool _objectExpressionCanShortCircuit;
     private ObjectInstance? _cachedReadObject;
     private PropertyDescriptor? _cachedReadDescriptor;
+    private uint _cachedReadVersion;
 
     private static readonly JsValue _nullMarker = new JsString("NULL MARKER");
 
@@ -180,7 +181,11 @@ internal sealed class JintMemberExpression : JintExpression
             {
                 if ((baseObject._type & InternalTypes.PlainObject) != InternalTypes.Empty)
                 {
+                    // Version-based inline cache: as long as the same object is read and its own-property
+                    // shape (descriptor add/replace/remove) hasn't changed since we cached, the previously
+                    // resolved descriptor reference is still valid — even for configurable properties.
                     if (ReferenceEquals(baseObject, _cachedReadObject)
+                        && baseObject._propertiesVersion == _cachedReadVersion
                         && _cachedReadDescriptor is not null)
                     {
                         return ObjectInstance.UnwrapJsValue(_cachedReadDescriptor, baseObject);
@@ -189,16 +194,9 @@ internal sealed class JintMemberExpression : JintExpression
                     var ownDescriptor = baseObject.GetOwnProperty(determinedProperty);
                     if (!ReferenceEquals(ownDescriptor, PropertyDescriptor.Undefined))
                     {
-                        if (!ownDescriptor.Configurable)
-                        {
-                            _cachedReadObject = baseObject;
-                            _cachedReadDescriptor = ownDescriptor;
-                        }
-                        else
-                        {
-                            _cachedReadObject = null;
-                            _cachedReadDescriptor = null;
-                        }
+                        _cachedReadObject = baseObject;
+                        _cachedReadVersion = baseObject._propertiesVersion;
+                        _cachedReadDescriptor = ownDescriptor;
 
                         return ObjectInstance.UnwrapJsValue(ownDescriptor, baseObject);
                     }

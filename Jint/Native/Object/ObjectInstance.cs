@@ -28,6 +28,13 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     internal PropertyDictionary? _properties;
     internal SymbolDictionary? _symbols;
 
+    /// <summary>
+    /// Bumped whenever own-property shape changes (descriptor added/replaced/removed via SetProperty / RemoveOwnProperty).
+    /// Plain in-place value updates of an existing data descriptor (the hot Set fast path) do NOT bump this.
+    /// Used by inline caches (e.g. <see cref="Jint.Runtime.Interpreter.Expressions.JintMemberExpression"/>) to validate cached descriptor references.
+    /// </summary>
+    internal uint _propertiesVersion;
+
     internal ObjectInstance? _prototype;
     protected readonly Engine _engine;
 
@@ -156,6 +163,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             properties.CheckExistingKeys = true;
         }
         _properties = properties;
+        unchecked { _propertiesVersion++; }
     }
 
     internal void SetSymbols(SymbolDictionary? symbols)
@@ -188,6 +196,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     {
         _properties ??= new PropertyDictionary();
         _properties[property] = value;
+        unchecked { _propertiesVersion++; }
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -198,6 +207,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         {
             _properties ??= new PropertyDictionary();
             _properties[TypeConverter.ToString(propertyKey)] = value;
+            unchecked { _propertiesVersion++; }
         }
         else
         {
@@ -357,6 +367,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         if (!key.IsSymbol())
         {
             _properties?.Remove(TypeConverter.ToString(key));
+            unchecked { _propertiesVersion++; }
             return;
         }
 

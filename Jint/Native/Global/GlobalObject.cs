@@ -763,6 +763,7 @@ uriError:
                 Throw.ReferenceNameError(_realm, property.Name);
             }
             _properties[property] = new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable | PropertyFlag.MutableBinding);
+            unchecked { _propertiesVersion++; }
             return true;
         }
 
