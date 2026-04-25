@@ -1086,7 +1086,8 @@ public sealed class ArrayPrototype : ArrayInstance
             return obj.Target;
         }
 
-        var items = new List<JsValue>((int) System.Math.Min(10_000, obj.GetLength()));
+        // capacity capped to a sane upper bound so a 1e9-length sparse array doesn't preallocate everything
+        var items = new List<JsValue>((int) System.Math.Min(1024, len));
         for (ulong k = 0; k < len; ++k)
         {
             if (obj.TryGetValue(k, out var kValue))
@@ -1100,36 +1101,32 @@ public sealed class ArrayPrototype : ArrayInstance
         // don't eat inner exceptions
         try
         {
-            var comparer = ArrayComparer.WithFunction(_engine, compareFn);
-            IEnumerable<JsValue> ordered;
-#if !NETCOREAPP
-            if (comparer is not null)
+            if (compareFn is null)
             {
-                // sort won't be stable on .NET Framework, but at least it cant go into infinite loop when comparer is badly implemented
-                items.Sort(comparer);
-                ordered = items;
+                SortByCachedStringKeys(items);
             }
             else
             {
-                ordered = items.OrderBy(x => x, comparer);
-            }
-#else
-
+                var comparer = ArrayComparer.WithFunction(_engine, compareFn);
+#if NETCOREAPP
+                // OrderBy is stable; List<T>.Sort is not. Stability is required by the spec since ES2019.
 #if NET8_0_OR_GREATER
-            ordered = items.Order(comparer);
+                items = items.Order(comparer).ToList();
 #else
-            ordered = items.OrderBy(x => x, comparer);
+                items = items.OrderBy(x => x, comparer).ToList();
 #endif
-
+#else
+                items.Sort(comparer);
 #endif
-            uint j = 0;
-            foreach (var item in ordered)
-            {
-                obj.Set(j, item, updateLength: false, throwOnError: true);
-                j++;
             }
 
-            for (; j < len; ++j)
+            for (uint j = 0; j < itemCount; j++)
+            {
+                obj.Set(j, items[(int) j], updateLength: false, throwOnError: true);
+            }
+
+            // Holes (TryGetValue returned false) only need clearing when the input had holes.
+            for (uint j = (uint) itemCount; j < len; ++j)
             {
                 obj.DeletePropertyOrThrow(j);
             }
@@ -1140,6 +1137,73 @@ public sealed class ArrayPrototype : ArrayInstance
         }
 
         return obj.Target;
+    }
+
+    /// <summary>
+    /// Default ECMA Array.prototype.sort path: SortCompare coerces both operands via ToString
+    /// per comparison, which is O(n log n) ToString allocations. Cache the coerced key once per
+    /// element (Schwartzian transform), then sort indices stably (tiebreak by original index).
+    /// </summary>
+    private static void SortByCachedStringKeys(List<JsValue> items)
+    {
+        var itemCount = items.Count;
+        if (itemCount <= 1)
+        {
+            return;
+        }
+
+        var keys = new string?[itemCount];
+        for (var i = 0; i < itemCount; i++)
+        {
+            var v = items[i];
+            // Spec: undefined elements sort to the end and are not coerced via ToString.
+            keys[i] = v.IsUndefined() ? null : TypeConverter.ToString(v);
+        }
+
+        var indices = new int[itemCount];
+        for (var i = 0; i < itemCount; i++)
+        {
+            indices[i] = i;
+        }
+
+        System.Array.Sort(indices, new CachedStringKeyComparer(keys));
+
+        // Apply permutation via a temp buffer; cycle-permute would avoid the allocation but adds risk.
+        var sorted = new JsValue[itemCount];
+        for (var i = 0; i < itemCount; i++)
+        {
+            sorted[i] = items[indices[i]];
+        }
+        for (var i = 0; i < itemCount; i++)
+        {
+            items[i] = sorted[i];
+        }
+    }
+
+    private sealed class CachedStringKeyComparer : IComparer<int>
+    {
+        private readonly string?[] _keys;
+        public CachedStringKeyComparer(string?[] keys) => _keys = keys;
+        public int Compare(int a, int b)
+        {
+            var ka = _keys[a];
+            var kb = _keys[b];
+            // undefined sorts to the end (spec: SortCompare returns 1 if x is undefined, -1 if y is)
+            if (ka is null)
+            {
+                if (kb is null)
+                {
+                    return a - b; // tiebreak by original index for stability
+                }
+                return 1;
+            }
+            if (kb is null)
+            {
+                return -1;
+            }
+            var c = string.CompareOrdinal(ka, kb);
+            return c != 0 ? c : a - b; // tiebreak by original index for stability
+        }
     }
 
     /// <summary>
