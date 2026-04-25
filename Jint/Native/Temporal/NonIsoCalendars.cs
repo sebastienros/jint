@@ -182,8 +182,10 @@ internal static class NonIsoCalendars
                     throw new InvalidOperationException("reject");
                 }
 
-                // Constrain to the base month (non-leap version) — strip trailing 'L' from "M##L"
-                var baseMonthCode = calDate.MonthCode.Length == 4 ? calDate.MonthCode.Substring(0, 3) : calDate.MonthCode;
+                // Constrain to the calendar-specific non-leap equivalent. For chinese/dangi the
+                // leap month follows the same display number (M04L → M04). For hebrew the leap
+                // M05L (Adar I) is followed by M06 (Adar) in non-leap years, so it advances by 1.
+                var baseMonthCode = NonLeapEquivalentMonthCode(calendar, calDate.MonthCode);
                 newOrdinalMonth = MonthCodeToOrdinal(calendar, cal, newYear, baseMonthCode, overflow);
             }
         }
@@ -450,6 +452,33 @@ internal static class NonIsoCalendars
             "islamic-umalqura" or "islamic-civil" or "islamic-tbla" => calDate.Year >= 1 ? calDate.Year : 1 - calDate.Year,
             _ => null
         };
+    }
+
+    /// <summary>
+    /// Returns the non-leap monthCode equivalent for a leap monthCode in a given calendar.
+    /// Used when constraining a leap-month date into a year that doesn't have that leap month.
+    /// chinese/dangi: M0NL → M0N (same display number, drop the 'L' suffix).
+    /// hebrew: M05L (Adar I) → M06 (Adar). In Hebrew leap years M05L precedes M06 (Adar II);
+    /// in non-leap years there's only one Adar, named M06. So constraining advances by one
+    /// display number rather than dropping 'L'.
+    /// Non-leap monthCodes are returned unchanged.
+    /// </summary>
+    internal static string NonLeapEquivalentMonthCode(string calendar, string monthCode)
+    {
+        if (monthCode.Length != 4 || monthCode[3] != 'L')
+        {
+            return monthCode;
+        }
+
+        if (string.Equals(calendar, "hebrew", StringComparison.Ordinal))
+        {
+            // Hebrew M##L (only M05L is defined) maps to the FOLLOWING display month, not the same
+            var displayMonth = int.Parse(monthCode.AsSpan(1, 2), NumberStyles.None, CultureInfo.InvariantCulture);
+            return $"M{displayMonth + 1:D2}";
+        }
+
+        // chinese, dangi: drop the trailing 'L'
+        return monthCode.Substring(0, 3);
     }
 
     /// <summary>
@@ -1172,8 +1201,10 @@ internal static class NonIsoCalendars
                         return null;
                     }
 
-                    // Constrain to M05 (non-leap version)
-                    ordinalMonth = 5;
+                    // In Hebrew, M05L (Adar I) constrains to M06 (Adar) in non-leap years.
+                    // M06 occupies ordinal 6 in non-leap years (after Shevat=M05) and ordinal 7
+                    // in leap years (where M05L is at ordinal 6 and M06=Adar II at ordinal 7).
+                    ordinalMonth = yearIsLeap ? 7 : 6;
                 }
                 else
                 {
