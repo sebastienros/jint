@@ -173,7 +173,6 @@
     "intl402/Temporal/PlainYearMonth/prototype/until/leap-months-chinese.js",
     "intl402/Temporal/PlainYearMonth/prototype/until/leap-months-dangi.js",
     "intl402/Temporal/PlainYearMonth/prototype/until/leap-months-hebrew.js",
-    "intl402/Temporal/PlainYearMonth/prototype/with/mutually-exclusive-fields-hebrew.js",
     "intl402/Temporal/PlainYearMonth/prototype/year/arithmetic-year.js",
     "intl402/Temporal/PlainYearMonth/prototype/year/epoch-year.js",
     "intl402/Temporal/ZonedDateTime/from/extreme-dates.js",
