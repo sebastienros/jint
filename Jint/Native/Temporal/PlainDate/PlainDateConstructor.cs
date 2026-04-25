@@ -164,14 +164,22 @@ internal sealed class PlainDateConstructor : Constructor
             monthFromCode = TemporalHelpers.ParseMonthCode(_realm, monthCodeStr);
         }
 
-        // 5. year - use eraYear if computed, otherwise read from property
+        // 5. year - use eraYear if computed, otherwise read from property.
+        // When BOTH era/eraYear AND year are user-supplied, they must agree (RangeError on
+        // mismatch — per spec PrepareCalendarFields, redundant fields must be consistent).
         int year;
         if (eraYear.HasValue)
         {
-            // Year was already computed from era/eraYear
             year = eraYear.Value;
-            // Still read the year property for observable side effects, but don't require it
-            obj.Get("year");
+            var yearValue = obj.Get("year");
+            if (!yearValue.IsUndefined())
+            {
+                var userYear = TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearValue);
+                if (userYear != year)
+                {
+                    Throw.RangeError(_realm, "Mismatching era/eraYear/year");
+                }
+            }
         }
         else
         {
