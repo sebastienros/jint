@@ -309,6 +309,7 @@ internal sealed class JintFunctionDefinition
         public bool CanUseFastFDI;
         public bool EnvironmentMayEscape;
         public Binding[]? _cachedSlots;
+        public Environments.FunctionEnvironment? _cachedEnv;
 
         public SourceText SourceText;
 
@@ -558,16 +559,25 @@ internal sealed class JintFunctionDefinition
                 state.VarSlotCount = varsToInitialize.Count;
                 state.UseFixedSlots = true;
                 state.CanUseFastFDI = lexicalBindingCount == 0;
-
-                if (function.Generator || function.Async)
-                {
-                    state.EnvironmentMayEscape = true;
-                }
-                else
-                {
-                    state.EnvironmentMayEscape = EnvironmentEscapeAstVisitor.MayEscapeWithReferences(function, slotNames);
-                }
             }
+        }
+
+        // Compute EnvironmentMayEscape unconditionally so consumers (e.g. FunctionEnvironment pooling)
+        // can rely on it without first checking UseFixedSlots. Generators / async functions / direct eval
+        // always escape; otherwise inspect the body. When the function qualified for fixed slots, prefer
+        // the slot-aware analysis (only escapes if a closure actually references a slot variable);
+        // otherwise fall back to the conservative "any inner closure means escape" check.
+        if (function.Generator || function.Async || state.NeedsEvalContext)
+        {
+            state.EnvironmentMayEscape = true;
+        }
+        else if (state.UseFixedSlots)
+        {
+            state.EnvironmentMayEscape = EnvironmentEscapeAstVisitor.MayEscapeWithReferences(function, state.SlotNames!);
+        }
+        else
+        {
+            state.EnvironmentMayEscape = EnvironmentEscapeAstVisitor.MayEscape(function);
         }
 
         state.SourceText = new SourceText(fullSourceText);
