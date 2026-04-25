@@ -545,19 +545,26 @@ internal static class NonIsoCalendars
     }
 
     /// <summary>
-    /// Returns true if a monthCode's display-month part is fundamentally valid for a calendar
-    /// (i.e. within [1, MaxDisplayMonth]) AND, when it is a leap variant ("M##L"), the calendar
-    /// supports leap months at all. This validation is overflow-independent per spec.
+    /// Validates a monthCode's display-month part against a calendar's range and leap-month
+    /// support. Returns true and emits the parsed display month if the monthCode is fundamentally
+    /// valid for the calendar (display number in [1, MaxDisplayMonth] and, for leap variants
+    /// ("M##L"), the calendar supports leap months). Returns false otherwise. The display month
+    /// is also emitted on the false path when the structure parsed successfully (so callers can
+    /// build precise error messages) — only structurally malformed monthCodes leave it at 0.
+    /// This validation is overflow-independent per spec.
     /// </summary>
-    internal static bool IsValidMonthCodeForCalendar(string calendar, string monthCode)
+    internal static bool TryValidateMonthCode(string calendar, string monthCode, out int displayMonth)
     {
+        displayMonth = 0;
+
         if (monthCode.Length < 3 || monthCode[0] != 'M')
         {
             return false;
         }
 
-        if (!int.TryParse(monthCode.AsSpan(1, 2), NumberStyles.None, CultureInfo.InvariantCulture, out var displayMonth))
+        if (!int.TryParse(monthCode.AsSpan(1, 2), NumberStyles.None, CultureInfo.InvariantCulture, out displayMonth))
         {
+            displayMonth = 0;
             return false;
         }
 

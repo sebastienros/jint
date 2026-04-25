@@ -1661,18 +1661,21 @@ internal static class TemporalHelpers
     /// given year (which is leap-month-dependent).
     /// Throws <c>RangeError</c> on mismatch — this validation is overflow-independent per
     /// CalendarResolveFields. Callers MUST have already enforced required-field (TypeError) checks.
+    ///
+    /// Convention: <paramref name="month"/> uses 0 as the sentinel for "not user-supplied" so
+    /// the helper can distinguish between an explicit ordinal of 1 and a missing field. When
+    /// <paramref name="monthCode"/> is non-null, callers MUST pass the parsed ordinal from
+    /// <see cref="ParseMonthCode"/> in <paramref name="monthFromCode"/> (the helper does not re-parse).
     /// </summary>
     /// <returns>The ordinal month to use downstream: monthCode-derived for ISO/gregory when
     /// monthCode was supplied, else <paramref name="month"/> unchanged (non-ISO uses
     /// <paramref name="monthCode"/> at conversion time).</returns>
-    internal static int ValidateMonthAndMonthCode(Realm realm, string calendar, int year, int month, string? monthCode, int? monthFromCode)
+    internal static int ValidateMonthAndMonthCode(Realm realm, string calendar, int year, int month, string? monthCode, int monthFromCode)
     {
         if (monthCode is null)
         {
             return month;
         }
-
-        var resolvedFromCode = monthFromCode ?? ParseMonthCode(realm, monthCode);
 
         if (NonIsoCalendars.IsNonIsoCalendar(calendar))
         {
@@ -1684,12 +1687,12 @@ internal static class TemporalHelpers
             return month;
         }
 
-        if (month != 0 && month != resolvedFromCode)
+        if (month != 0 && month != monthFromCode)
         {
             Throw.RangeError(realm, "Mismatching month/monthCode");
         }
 
-        return resolvedFromCode;
+        return monthFromCode;
     }
 
     /// <summary>

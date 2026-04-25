@@ -220,7 +220,7 @@ internal sealed class PlainMonthDayConstructor : Constructor
         // 4. monthCode - read and convert immediately, validate well-formedness
         var monthCodeValue = obj.Get("monthCode");
         string? monthCodeStr = null;
-        int? monthFromCode = null;
+        int monthFromCode = 0;
         if (!monthCodeValue.IsUndefined())
         {
             // monthCode must be a string (per spec)
@@ -281,9 +281,9 @@ internal sealed class PlainMonthDayConstructor : Constructor
                 Throw.RangeError(_realm, $"Leap months are not valid for ISO 8601 calendar: {monthCodeStr}");
             }
 
-            if (monthFromCode!.Value < 1 || monthFromCode.Value > 12)
+            if (monthFromCode < 1 || monthFromCode > 12)
             {
-                Throw.RangeError(_realm, $"Month {monthFromCode.Value} is not valid for ISO 8601 calendar");
+                Throw.RangeError(_realm, $"Month {monthFromCode} is not valid for ISO 8601 calendar");
             }
         }
 
@@ -311,9 +311,8 @@ internal sealed class PlainMonthDayConstructor : Constructor
         // Fundamental monthCode validity for non-ISO calendars: out-of-range display number,
         // or leap variant on a calendar without leap months → RangeError regardless of overflow.
         if (monthCodeStr is not null && NonIsoCalendars.IsNonIsoCalendar(calendar)
-            && !NonIsoCalendars.IsValidMonthCodeForCalendar(calendar, monthCodeStr))
+            && !NonIsoCalendars.TryValidateMonthCode(calendar, monthCodeStr, out var displayMonth))
         {
-            int.TryParse(monthCodeStr.AsSpan(1, System.Math.Min(2, monthCodeStr.Length - 1)), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var displayMonth);
             var max = NonIsoCalendars.MaxDisplayMonth(calendar) ?? 12;
             Throw.RangeError(_realm, $"Invalid month: {displayMonth}; must be between 1-{max}");
         }
