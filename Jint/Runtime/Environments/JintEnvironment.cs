@@ -77,12 +77,27 @@ internal static class JintEnvironment
     /// </summary>
     internal static FunctionEnvironment NewFunctionEnvironment(Engine engine, Function f, JsValue newTarget)
     {
-        var env = new FunctionEnvironment(engine, f, newTarget)
-        {
-            _outerEnv = f._environment
-        };
-
         var state = f._functionDefinition?.Initialize();
+        FunctionEnvironment env;
+
+        // Reuse a pooled FunctionEnvironment when the function's bindings cannot escape the call
+        // (no closure capture, not a generator/async). Re-bind to the new function/target/outer env
+        // and reset transient state. Slot storage is handled below.
+        if (state is { EnvironmentMayEscape: false }
+            && Interlocked.Exchange(ref state._cachedEnv, null) is { } cachedEnv
+            && ReferenceEquals(cachedEnv._engine, engine))
+        {
+            cachedEnv.Reset(f, newTarget, f._environment);
+            env = cachedEnv;
+        }
+        else
+        {
+            env = new FunctionEnvironment(engine, f, newTarget)
+            {
+                _outerEnv = f._environment,
+            };
+        }
+
         if (state is { UseFixedSlots: true })
         {
             env._slotNames = state.SlotNames;

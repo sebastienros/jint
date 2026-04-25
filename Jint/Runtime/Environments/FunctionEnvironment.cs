@@ -23,7 +23,8 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
 
     private JsValue? _thisValue;
     private ThisBindingStatus _thisBindingStatus;
-    internal readonly Function _functionObject;
+    // Mutable so a pooled env can be re-bound to a different Function instance that shares the same State (e.g. function literals re-evaluated in loops).
+    internal Function _functionObject;
 
     public FunctionEnvironment(
         Engine engine,
@@ -40,6 +41,23 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
         {
             _thisBindingStatus = ThisBindingStatus.Uninitialized;
         }
+    }
+
+    /// <summary>
+    /// Re-initialize a pooled FunctionEnvironment for a new call. Leaves slot/dictionary handling
+    /// to the caller — they may either clear in place or replace with fresh storage.
+    /// </summary>
+    internal void Reset(Function functionObject, JsValue newTarget, Environment? outerEnv)
+    {
+        _functionObject = functionObject;
+        NewTarget = newTarget;
+        _outerEnv = outerEnv;
+        _thisValue = null;
+        _thisBindingStatus = functionObject._functionDefinition?.Function.Type is NodeType.ArrowFunctionExpression
+            ? ThisBindingStatus.Lexical
+            : ThisBindingStatus.Uninitialized;
+        _dictionary?.Clear();
+        ClearDisposeCapability();
     }
 
 

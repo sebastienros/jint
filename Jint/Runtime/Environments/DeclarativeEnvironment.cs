@@ -353,6 +353,14 @@ internal class DeclarativeEnvironment : Environment
         _dictionary = null;
     }
 
+    /// <summary>
+    /// Reset for env-pool reuse: drop any using/await-using disposable resources tracked from the previous call.
+    /// </summary>
+    internal void ClearDisposeCapability()
+    {
+        _disposeCapability = null;
+    }
+
     internal void TransferTo(List<Key> names, DeclarativeEnvironment env)
     {
         var source = _dictionary!;
