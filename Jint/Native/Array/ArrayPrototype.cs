@@ -720,6 +720,28 @@ public sealed class ArrayPrototype : ArrayInstance
             }
         }
 
+        // Fast path: dense JsArray scan avoids the per-element virtual call through ArrayOperations.Get.
+        if (thisObject is JsArray { CanUseFastAccess: true } fast && fast._dense is { } dense)
+        {
+            var actualLen = (int) System.Math.Min((uint) dense.Length, (uint) len);
+            for (var i = (int) k; i < actualLen; i++)
+            {
+                var v = dense[i];
+                // Holes count as undefined for Includes.
+                v ??= Undefined;
+                if (SameValueZeroComparer.Equals(v, searchElement))
+                {
+                    return JsBoolean.True;
+                }
+            }
+            // Trailing positions beyond _dense are holes => undefined.
+            if (actualLen < len && SameValueZeroComparer.Equals(Undefined, searchElement))
+            {
+                return JsBoolean.True;
+            }
+            return JsBoolean.False;
+        }
+
         while (k < len)
         {
             var value = o.Get((ulong) k);
@@ -825,6 +847,22 @@ public sealed class ArrayPrototype : ArrayInstance
         }
 
         var searchElement = arguments.At(0);
+
+        // Fast path: dense JsArray scan avoids the per-element HasProperty + Get virtual call pair.
+        if (thisObject is JsArray { CanUseFastAccess: true } fast && fast._dense is { } dense)
+        {
+            var actualLen = (int) System.Math.Min((uint) dense.Length, (uint) len);
+            for (var i = (int) k; i < actualLen; i++)
+            {
+                var v = dense[i];
+                if (v is not null && v.Equals(searchElement))
+                {
+                    return JsNumber.Create((uint) i);
+                }
+            }
+            return JsNumber.IntegerNegativeOne;
+        }
+
         for (; k < len; k++)
         {
             var kPresent = o.HasProperty(k);
