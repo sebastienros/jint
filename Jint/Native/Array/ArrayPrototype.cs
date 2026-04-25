@@ -1487,6 +1487,16 @@ public sealed class ArrayPrototype : ArrayInstance
     /// </summary>
     private JsValue Concat(JsValue thisObject, JsCallArguments arguments)
     {
+        // Fast path: thisObject and every spreadable arg are CanUseFastAccess JsArrays.
+        // Pre-sum total length so the output is allocated once at exact size and each source
+        // can be copied via Array.Copy instead of element-by-element CreateDataPropertyOrThrow.
+        if (thisObject is JsArray { CanUseFastAccess: true } thisArr
+            && !thisArr.HasOwnProperty(CommonProperties.Constructor)
+            && TryConcatAllJsArrayFast(thisArr, arguments, out var fastResult))
+        {
+            return fastResult;
+        }
+
         var o = TypeConverter.ToObject(_realm, thisObject);
         var items = new List<JsValue>(arguments.Length + 1) { o };
         items.AddRange(arguments);
@@ -1534,6 +1544,95 @@ public sealed class ArrayPrototype : ArrayInstance
         a.DefineOwnProperty(CommonProperties.Length, new PropertyDescriptor(n, PropertyFlag.OnlyWritable));
 
         return a;
+    }
+
+    private bool TryConcatAllJsArrayFast(JsArray thisArr, JsCallArguments arguments, out JsArray result)
+    {
+        result = null!;
+
+        // CanUseFastAccess does not catch a custom @@isConcatSpreadable symbol, so we still
+        // have to consult IsConcatSpreadable for each input.
+        if (!thisArr.IsConcatSpreadable)
+        {
+            return false;
+        }
+
+        // Pre-classify each arg as spreadable-array / scalar / bail-to-slow-path so we don't
+        // call IsConcatSpreadable twice (once during sizing, once during copy).
+        var argInfo = arguments.Length == 0 ? null : new bool[arguments.Length];
+
+        ulong totalLen = thisArr.GetLength();
+        for (var i = 0; i < arguments.Length; i++)
+        {
+            var e = arguments[i];
+            if (e is JsArray { CanUseFastAccess: true } ja && ja.IsConcatSpreadable)
+            {
+                argInfo![i] = true;
+                totalLen += ja.GetLength();
+            }
+            else if (e is ObjectInstance)
+            {
+                // Either a non-fast array, a non-array object, or a custom-symbol object.
+                // Defer to slow path which handles all spreadability cases correctly.
+                return false;
+            }
+            else
+            {
+                totalLen++;
+            }
+
+            if (totalLen > ArrayOperations.MaxArrayLikeLength)
+            {
+                Throw.TypeError(_realm, "Invalid array length");
+            }
+        }
+
+        if (totalLen > int.MaxValue)
+        {
+            return false;
+        }
+
+        var a = _realm.Intrinsics.Array.ArrayCreate(totalLen);
+        var dest = a._dense;
+        if (dest is null)
+        {
+            return false;
+        }
+
+        uint pos = 0;
+
+        var thisLen = thisArr.GetLength();
+        if (thisLen > 0)
+        {
+            var src = thisArr._dense!;
+            var copyLen = (int) System.Math.Min((uint) src.Length, thisLen);
+            System.Array.Copy(src, 0, dest, (int) pos, copyLen);
+            pos = thisLen;
+        }
+
+        for (var i = 0; i < arguments.Length; i++)
+        {
+            var e = arguments[i];
+            if (argInfo is not null && argInfo[i])
+            {
+                var ja = (JsArray) e;
+                var len = ja.GetLength();
+                if (len > 0)
+                {
+                    var src = ja._dense!;
+                    var copyLen = (int) System.Math.Min((uint) src.Length, len);
+                    System.Array.Copy(src, 0, dest, (int) pos, copyLen);
+                    pos += len;
+                }
+            }
+            else
+            {
+                dest[pos++] = e;
+            }
+        }
+
+        result = a;
+        return true;
     }
 
     internal JsValue ToString(JsValue thisObject, JsCallArguments arguments)
