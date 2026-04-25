@@ -49,6 +49,14 @@ public interface ICldrProvider
     string? GetNumberingSystemDigits(string numberingSystem);
 
     /// <summary>
+    /// Gets the default numbering system for a locale (e.g., "ar-EG" → "arab", "en-US" → "latn").
+    /// Used when a formatter is constructed without an explicit "nu" option or Unicode extension.
+    /// </summary>
+    /// <param name="locale">The locale identifier.</param>
+    /// <returns>The default numbering system name, or null if the provider has no opinion (caller falls back to "latn").</returns>
+    string? GetDefaultNumberingSystem(string locale);
+
+    /// <summary>
     /// Gets compact number patterns for a locale.
     /// </summary>
     /// <param name="locale">The locale identifier.</param>

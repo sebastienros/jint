@@ -93,6 +93,17 @@ internal sealed class NumberFormatConstructor : Constructor
         var availableLocales = IntlUtilities.GetAvailableLocales();
         var resolvedLocale = ResolveNumberFormatLocale(_engine, availableLocales, requestedLocales, localeMatcher);
 
+        // If no user-supplied numberingSystem, fall back to the locale's CLDR default
+        // (e.g. ar-EG → arab). Provider returning null means "no opinion" → use Latin.
+        if (numberingSystem is null)
+        {
+            var localeDefault = _engine.Options.Intl.CldrProvider.GetDefaultNumberingSystem(resolvedLocale);
+            if (localeDefault is not null && !string.Equals(localeDefault, "latn", StringComparison.OrdinalIgnoreCase))
+            {
+                numberingSystem = localeDefault;
+            }
+        }
+
         // SetNumberFormatUnitOptions - read style, currency, currencyDisplay, currencySign, unit, unitDisplay
         var style = GetStringOption(optionsObj, "style", StyleValues, "decimal");
 

@@ -287,7 +287,8 @@ internal sealed class PlainMonthDayConstructor : Constructor
             }
         }
 
-        // Now validate and combine month/monthCode
+        // Required-field checks (TypeError) MUST come before mismatch checks (RangeError).
+
         // For non-ISO calendars, monthCode is required unless year is explicitly provided
         // (month alone is ambiguous in calendars with leap months)
         if (!string.Equals(calendar, "iso8601", StringComparison.Ordinal) && monthCodeStr is null && !yearExplicitlyProvided)
@@ -295,22 +296,46 @@ internal sealed class PlainMonthDayConstructor : Constructor
             Throw.TypeError(_realm, "monthCode is required for non-ISO calendars when year is not provided");
         }
 
-        // Validate: both month and monthCode provided - they must match (ISO only)
-        // For non-ISO calendars, ordinal month ≠ display month (e.g., month 5 = M04L)
-        if (!NonIsoCalendars.IsNonIsoCalendar(calendar) && month != 0 && monthFromCode.HasValue && month != monthFromCode.Value)
+        // For non-ISO calendars, when an explicit ordinal `month` is supplied, year is needed
+        // because the ordinal-to-monthCode mapping is year-dependent (leap months shift it).
+        if (NonIsoCalendars.IsNonIsoCalendar(calendar) && month != 0 && !yearExplicitlyProvided)
         {
-            Throw.RangeError(_realm, "month and monthCode must match");
+            Throw.TypeError(_realm, "year is required when month is provided for a non-ISO calendar");
+        }
+
+        if (month == 0 && monthCodeStr is null)
+        {
+            Throw.TypeError(_realm, "month or monthCode is required");
+        }
+
+        // Fundamental monthCode validity for non-ISO calendars: out-of-range display number,
+        // or leap variant on a calendar without leap months → RangeError regardless of overflow.
+        if (monthCodeStr is not null && NonIsoCalendars.IsNonIsoCalendar(calendar)
+            && !NonIsoCalendars.IsValidMonthCodeForCalendar(calendar, monthCodeStr))
+        {
+            Throw.RangeError(_realm, $"monthCode '{monthCodeStr}' is not valid for calendar '{calendar}'");
+        }
+
+        // Range validation: month/monthCode mismatch.
+        if (monthCodeStr is not null && month != 0)
+        {
+            if (NonIsoCalendars.IsNonIsoCalendar(calendar))
+            {
+                if (!NonIsoCalendars.MonthAndMonthCodeAgree(calendar, year, month, monthCodeStr))
+                {
+                    Throw.RangeError(_realm, "month and monthCode must match");
+                }
+            }
+            else if (monthFromCode.HasValue && month != monthFromCode.Value)
+            {
+                Throw.RangeError(_realm, "month and monthCode must match");
+            }
         }
 
         // Use whichever is provided (ISO only - non-ISO uses monthCode in CalendarDateToISO)
         if (!NonIsoCalendars.IsNonIsoCalendar(calendar) && monthFromCode.HasValue)
         {
             month = monthFromCode.Value;
-        }
-
-        if (month == 0 && monthCodeStr is null)
-        {
-            Throw.TypeError(_realm, "month or monthCode is required");
         }
 
         // For non-ISO calendars, convert calendar year/month/day to ISO

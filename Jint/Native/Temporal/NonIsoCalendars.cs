@@ -527,6 +527,97 @@ internal static class NonIsoCalendars
     }
 
     /// <summary>
+    /// Returns the maximum valid display-month for a calendar. monthCode "M{n}" with n outside
+    /// [1, MaxDisplayMonth(calendar)] is fundamentally invalid and must throw RangeError
+    /// regardless of overflow option. Returns null for ISO/Gregorian calendars (which use the
+    /// standard 12-month rule via different validation paths).
+    /// </summary>
+    internal static int? MaxDisplayMonth(string calendar)
+    {
+        return calendar switch
+        {
+            "coptic" or "ethiopic" or "ethioaa" => 13,
+            "chinese" or "dangi" or "hebrew" => 12, // leap variants share display number 1-12
+            "persian" or "indian" => 12,
+            "islamic-umalqura" or "islamic-civil" or "islamic-tbla" => 12,
+            _ => null
+        };
+    }
+
+    /// <summary>
+    /// Returns true if a monthCode's display-month part is fundamentally valid for a calendar
+    /// (i.e. within [1, MaxDisplayMonth]) AND, when it is a leap variant ("M##L"), the calendar
+    /// supports leap months at all. This validation is overflow-independent per spec.
+    /// </summary>
+    internal static bool IsValidMonthCodeForCalendar(string calendar, string monthCode)
+    {
+        if (monthCode.Length < 3 || monthCode[0] != 'M')
+        {
+            return false;
+        }
+
+        int displayMonth;
+        try
+        {
+            displayMonth = int.Parse(monthCode.AsSpan(1, 2), NumberStyles.None, CultureInfo.InvariantCulture);
+        }
+        catch
+        {
+            return false;
+        }
+
+        var max = MaxDisplayMonth(calendar);
+        if (max is null)
+        {
+            return true; // Unknown calendar — defer to caller
+        }
+
+        if (displayMonth < 1 || displayMonth > max.Value)
+        {
+            return false;
+        }
+
+        var isLeap = monthCode.Length == 4 && monthCode[3] == 'L';
+        if (isLeap)
+        {
+            // Only lunisolar calendars (chinese, dangi, hebrew) support leap months
+            return calendar is "chinese" or "dangi" or "hebrew";
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Returns true if (month, monthCode) is internally consistent for a given non-ISO calendar
+    /// year — i.e. both refer to the same calendar month. Used for spec-mandated mismatch
+    /// validation that must happen regardless of overflow option.
+    /// </summary>
+    internal static bool MonthAndMonthCodeAgree(string calendar, int year, int month, string monthCode)
+    {
+        if (month <= 0)
+        {
+            return true;
+        }
+
+        try
+        {
+            Calendar? cal = calendar switch
+            {
+                "coptic" or "ethiopic" or "ethioaa" or "indian" => null,
+                "islamic-civil" or "islamic-tbla" => null,
+                _ => GetCalendar(calendar)
+            };
+            var resolved = MonthCodeToOrdinal(calendar, cal, year, monthCode, "reject");
+            return resolved == month;
+        }
+        catch
+        {
+            // Invalid monthCode (out of range etc.) — let the downstream conversion produce the error
+            return true;
+        }
+    }
+
+    /// <summary>
     /// Validates that month and monthCode are consistent for a non-ISO calendar.
     /// If only monthCode is provided, resolves it to an ordinal month.
     /// If only month is provided, uses the ordinal directly.

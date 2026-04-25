@@ -2033,6 +2033,33 @@ internal static class TemporalHelpers
     }
 
     /// <summary>
+    /// Returns the ISO date corresponding to day-1 of the calendar month/year that contains the given ISO date.
+    /// PlainYearMonth stores an ISO anchor; for non-ISO calendars that anchor's ISO day is unrelated to
+    /// calendar day-1, so PYM operations must canonicalize through the calendar before computing differences
+    /// or doing date arithmetic. Spec ref: ISODateToFields + setting [[Day]] to 1 + CalendarDateFromFields.
+    /// </summary>
+    internal static IsoDate IsoDateForCalendarFirstOfMonth(string calendar, in IsoDate isoDate)
+    {
+        if (IsGregorianBasedCalendar(calendar))
+        {
+            // ISO day-of-month maps directly to calendar day-of-month.
+            return new IsoDate(isoDate.Year, isoDate.Month, 1);
+        }
+
+        if (NonIsoCalendars.IsNonIsoCalendar(calendar))
+        {
+            var calDate = NonIsoCalendars.IsoToCalendarDate(calendar, isoDate);
+            var firstOfMonth = NonIsoCalendars.CalendarDateToIso(calendar, calDate.Year, calDate.MonthCode, calDate.Month, 1, "constrain");
+            if (firstOfMonth is not null)
+            {
+                return firstOfMonth.Value;
+            }
+        }
+
+        return new IsoDate(isoDate.Year, isoDate.Month, 1);
+    }
+
+    /// <summary>
     /// Returns the day of the year in the calendar system for the given ISO date.
     /// </summary>
     internal static int CalendarDayOfYear(string calendar, in IsoDate isoDate)

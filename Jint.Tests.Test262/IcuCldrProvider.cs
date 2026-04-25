@@ -159,6 +159,20 @@ public sealed class IcuCldrProvider : ICldrProvider
         }
     }
 
+    public string? GetDefaultNumberingSystem(string locale)
+    {
+        try
+        {
+            var culture = new UCultureInfo(locale);
+            var ns = NumberingSystem.GetInstance(culture);
+            return ns?.Name;
+        }
+        catch
+        {
+            return _fallback.GetDefaultNumberingSystem(locale);
+        }
+    }
+
     public CompactPatterns? GetCompactPatterns(string locale, string style)
         => _fallback.GetCompactPatterns(locale, style);
 

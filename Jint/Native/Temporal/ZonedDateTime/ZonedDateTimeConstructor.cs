@@ -267,17 +267,6 @@ internal sealed class ZonedDateTimeConstructor : Constructor
 
             // Validate well-formedness (format) - this happens before year type validation
             monthFromCode = TemporalHelpers.ParseMonthCode(_realm, monthCodeStr);
-
-            // If both month and monthCode are provided, they must match (ISO only)
-            if (!NonIsoCalendars.IsNonIsoCalendar(calendar) && month != 0 && month != monthFromCode)
-            {
-                Throw.RangeError(_realm, "month and monthCode do not match");
-            }
-
-            if (!NonIsoCalendars.IsNonIsoCalendar(calendar))
-            {
-                month = monthFromCode;
-            }
         }
 
         // 9. nanosecond - read and convert immediately
@@ -352,6 +341,28 @@ internal sealed class ZonedDateTimeConstructor : Constructor
         if (month == 0 && monthCodeStr is null)
         {
             Throw.TypeError(_realm, "month or monthCode is required");
+        }
+
+        // Range validation: month/monthCode mismatch — must come AFTER all required-field
+        // (TypeError) checks per CalendarResolveFields error ordering.
+        if (monthCodeStr is not null && month != 0)
+        {
+            if (NonIsoCalendars.IsNonIsoCalendar(calendar))
+            {
+                if (!NonIsoCalendars.MonthAndMonthCodeAgree(calendar, year, month, monthCodeStr))
+                {
+                    Throw.RangeError(_realm, "month and monthCode do not match");
+                }
+            }
+            else if (month != monthFromCode)
+            {
+                Throw.RangeError(_realm, "month and monthCode do not match");
+            }
+        }
+
+        if (monthCodeStr is not null && !NonIsoCalendars.IsNonIsoCalendar(calendar))
+        {
+            month = monthFromCode;
         }
 
         // Regulate date (with calendar conversion for non-ISO calendars)

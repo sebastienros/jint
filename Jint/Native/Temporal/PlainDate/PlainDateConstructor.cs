@@ -162,18 +162,6 @@ internal sealed class PlainDateConstructor : Constructor
 
             // Validate well-formedness (format) - this happens before year type validation
             monthFromCode = TemporalHelpers.ParseMonthCode(_realm, monthCodeStr);
-
-            // If both month and monthCode are provided, they must match (ISO only)
-            // For non-ISO calendars, ordinal month ≠ display month (e.g., month 5 = M04L)
-            if (!NonIsoCalendars.IsNonIsoCalendar(calendar) && month != 0 && month != monthFromCode)
-            {
-                Throw.RangeError(_realm, "month and monthCode do not match");
-            }
-
-            if (!NonIsoCalendars.IsNonIsoCalendar(calendar))
-            {
-                month = monthFromCode;
-            }
         }
 
         // 5. year - use eraYear if computed, otherwise read from property
@@ -220,6 +208,28 @@ internal sealed class PlainDateConstructor : Constructor
         if (month == 0 && monthCodeStr is null)
         {
             Throw.TypeError(_realm, "month or monthCode is required");
+        }
+
+        // Range validation: month/monthCode mismatch — must come AFTER all required-field
+        // (TypeError) checks per CalendarResolveFields error ordering.
+        if (monthCodeStr is not null && month != 0)
+        {
+            if (NonIsoCalendars.IsNonIsoCalendar(calendar))
+            {
+                if (!NonIsoCalendars.MonthAndMonthCodeAgree(calendar, year, month, monthCodeStr))
+                {
+                    Throw.RangeError(_realm, "month and monthCode do not match");
+                }
+            }
+            else if (month != monthFromCode)
+            {
+                Throw.RangeError(_realm, "month and monthCode do not match");
+            }
+        }
+
+        if (monthCodeStr is not null && !NonIsoCalendars.IsNonIsoCalendar(calendar))
+        {
+            month = monthFromCode;
         }
 
         var date = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, day, overflow, monthCodeStr);
@@ -444,6 +454,12 @@ internal sealed class PlainDateConstructor : Constructor
             year = TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearValue);
         }
 
+        // Required-field check (TypeError) MUST come before mismatch check (RangeError).
+        if (month == 0 && !monthFromCode.HasValue)
+        {
+            Throw.TypeError(_realm, "month or monthCode is required");
+        }
+
         // Validate: both month and monthCode provided - they must match
         if (month != 0 && monthFromCode.HasValue && month != monthFromCode.Value)
         {
@@ -454,11 +470,6 @@ internal sealed class PlainDateConstructor : Constructor
         if (monthFromCode.HasValue)
         {
             month = monthFromCode.Value;
-        }
-
-        if (month == 0)
-        {
-            Throw.TypeError(_realm, "month or monthCode is required");
         }
 
         var date = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, day, overflow);
