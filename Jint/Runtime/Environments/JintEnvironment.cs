@@ -22,6 +22,18 @@ internal static class JintEnvironment
 
         while (record is not null)
         {
+            // Skip the virtual HasBinding call on FunctionEnvironments that have no own bindings
+            // (zero-arg, zero-var closures like `function () { ... }`). The body's identifier reads
+            // resolve outward; the empty callee env contributes nothing.
+            if (record is FunctionEnvironment fenv
+                && fenv._slots is null
+                && fenv._dictionary is null
+                && record._outerEnv is not null)
+            {
+                record = record._outerEnv;
+                continue;
+            }
+
             if (record.HasBinding(name))
             {
                 return true;
@@ -50,6 +62,16 @@ internal static class JintEnvironment
 
         while (record is not null)
         {
+            // See sibling method above; skip empty FunctionEnvironments outright.
+            if (record is FunctionEnvironment fenv
+                && fenv._slots is null
+                && fenv._dictionary is null
+                && record._outerEnv is not null)
+            {
+                record = record._outerEnv;
+                continue;
+            }
+
             if (record.TryGetBinding(name, strict, out value))
             {
                 return true;
