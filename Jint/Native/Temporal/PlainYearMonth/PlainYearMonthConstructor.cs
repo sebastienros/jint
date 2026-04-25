@@ -250,7 +250,7 @@ internal sealed class PlainYearMonthConstructor : Constructor
         // 4. monthCode - read and convert immediately, validate well-formedness
         var monthCodeValue = obj.Get("monthCode");
         string? monthCodeStr = null;
-        int? monthFromCode = null;
+        int monthFromCode = 0;
         if (!monthCodeValue.IsUndefined())
         {
             // monthCode must be a string (per spec)
@@ -282,17 +282,6 @@ internal sealed class PlainYearMonthConstructor : Constructor
 
             // Validate well-formedness (format) - this happens before year type validation
             monthFromCode = TemporalHelpers.ParseMonthCode(_realm, monthCodeStr);
-
-            // If both month and monthCode are provided, they must match (ISO only)
-            if (!NonIsoCalendars.IsNonIsoCalendar(calendar) && month != 0 && month != monthFromCode.Value)
-            {
-                Throw.RangeError(_realm, "month and monthCode must match");
-            }
-
-            if (!NonIsoCalendars.IsNonIsoCalendar(calendar))
-            {
-                month = monthFromCode.Value;
-            }
         }
 
         // 5. year - use eraYear if computed, otherwise read from property
@@ -307,7 +296,7 @@ internal sealed class PlainYearMonthConstructor : Constructor
             var yearValue = obj.Get("year");
             if (yearValue.IsUndefined())
             {
-                Throw.TypeError(_realm, "Missing required property: year");
+                Throw.TypeError(_realm, "Missing year/era/eraYear");
             }
 
             year = TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearValue);
@@ -325,17 +314,20 @@ internal sealed class PlainYearMonthConstructor : Constructor
                 Throw.RangeError(_realm, $"Leap months are not valid for ISO 8601 calendar: {monthCodeStr}");
             }
 
-            if (monthFromCode!.Value < 1 || monthFromCode.Value > 12)
+            if (monthFromCode < 1 || monthFromCode > 12)
             {
-                Throw.RangeError(_realm, $"Month {monthFromCode.Value} is not valid for ISO 8601 calendar");
+                Throw.RangeError(_realm, $"Month {monthFromCode} is not valid for ISO 8601 calendar");
             }
         }
 
         // At least one of month or monthCode is required
         if (month == 0 && monthCodeStr is null)
         {
-            Throw.TypeError(_realm, "month or monthCode is required");
+            Throw.TypeError(_realm, "Missing month/monthCode");
         }
+
+        // Range validation: month/monthCode mismatch — must come AFTER required-field checks.
+        month = TemporalHelpers.ValidateMonthAndMonthCode(_realm, calendar, year, month, monthCodeStr, monthFromCode);
 
         // For non-ISO/non-gregory calendars, convert calendar year/month to ISO via CalendarDateToISO
         if (calendar is not "iso8601" and not "gregory")
@@ -403,7 +395,7 @@ internal sealed class PlainYearMonthConstructor : Constructor
         // 4. monthCode - read and convert immediately, validate well-formedness
         var monthCodeValue = obj.Get("monthCode");
         string? monthCodeStr = null;
-        int? monthFromCode = null;
+        int monthFromCode = 0;
         if (!monthCodeValue.IsUndefined())
         {
             // monthCode must be a string (per spec)
@@ -435,17 +427,6 @@ internal sealed class PlainYearMonthConstructor : Constructor
 
             // Validate well-formedness (format) - this happens before year type validation
             monthFromCode = TemporalHelpers.ParseMonthCode(_realm, monthCodeStr);
-
-            // If both month and monthCode are provided, they must match (ISO only)
-            if (!NonIsoCalendars.IsNonIsoCalendar(calendar) && month != 0 && month != monthFromCode.Value)
-            {
-                Throw.RangeError(_realm, "month and monthCode must match");
-            }
-
-            if (!NonIsoCalendars.IsNonIsoCalendar(calendar))
-            {
-                month = monthFromCode.Value;
-            }
         }
 
         // 5. year - use eraYear if computed, otherwise read from property
@@ -460,7 +441,7 @@ internal sealed class PlainYearMonthConstructor : Constructor
             var yearValue = obj.Get("year");
             if (yearValue.IsUndefined())
             {
-                Throw.TypeError(_realm, "Missing required property: year");
+                Throw.TypeError(_realm, "Missing year/era/eraYear");
             }
 
             year = TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearValue);
@@ -475,17 +456,20 @@ internal sealed class PlainYearMonthConstructor : Constructor
                 Throw.RangeError(_realm, $"Leap months are not valid for ISO 8601 calendar: {monthCodeStr}");
             }
 
-            if (monthFromCode!.Value < 1 || monthFromCode.Value > 12)
+            if (monthFromCode < 1 || monthFromCode > 12)
             {
-                Throw.RangeError(_realm, $"Month {monthFromCode.Value} is not valid for ISO 8601 calendar");
+                Throw.RangeError(_realm, $"Month {monthFromCode} is not valid for ISO 8601 calendar");
             }
         }
 
         // At least one of month or monthCode is required
         if (month == 0 && monthCodeStr is null)
         {
-            Throw.TypeError(_realm, "month or monthCode is required");
+            Throw.TypeError(_realm, "Missing month/monthCode");
         }
+
+        // Range validation: month/monthCode mismatch — must come AFTER required-field checks.
+        month = TemporalHelpers.ValidateMonthAndMonthCode(_realm, calendar, year, month, monthCodeStr, monthFromCode);
 
         // Note: overflow option is already read in From() method before calling this method, per spec
 

@@ -201,7 +201,7 @@ internal sealed class PlainMonthDayConstructor : Constructor
         var dayValue = obj.Get("day");
         if (dayValue.IsUndefined())
         {
-            Throw.TypeError(_realm, "Missing required property: day");
+            Throw.TypeError(_realm, "Missing day");
         }
 
         var day = TemporalHelpers.ToPositiveIntegerWithTruncation(_realm, dayValue);
@@ -220,7 +220,7 @@ internal sealed class PlainMonthDayConstructor : Constructor
         // 4. monthCode - read and convert immediately, validate well-formedness
         var monthCodeValue = obj.Get("monthCode");
         string? monthCodeStr = null;
-        int? monthFromCode = null;
+        int monthFromCode = 0;
         if (!monthCodeValue.IsUndefined())
         {
             // monthCode must be a string (per spec)
@@ -281,13 +281,14 @@ internal sealed class PlainMonthDayConstructor : Constructor
                 Throw.RangeError(_realm, $"Leap months are not valid for ISO 8601 calendar: {monthCodeStr}");
             }
 
-            if (monthFromCode!.Value < 1 || monthFromCode.Value > 12)
+            if (monthFromCode < 1 || monthFromCode > 12)
             {
-                Throw.RangeError(_realm, $"Month {monthFromCode.Value} is not valid for ISO 8601 calendar");
+                Throw.RangeError(_realm, $"Month {monthFromCode} is not valid for ISO 8601 calendar");
             }
         }
 
-        // Now validate and combine month/monthCode
+        // Required-field checks (TypeError) MUST come before mismatch checks (RangeError).
+
         // For non-ISO calendars, monthCode is required unless year is explicitly provided
         // (month alone is ambiguous in calendars with leap months)
         if (!string.Equals(calendar, "iso8601", StringComparison.Ordinal) && monthCodeStr is null && !yearExplicitlyProvided)
@@ -295,23 +296,29 @@ internal sealed class PlainMonthDayConstructor : Constructor
             Throw.TypeError(_realm, "monthCode is required for non-ISO calendars when year is not provided");
         }
 
-        // Validate: both month and monthCode provided - they must match (ISO only)
-        // For non-ISO calendars, ordinal month ≠ display month (e.g., month 5 = M04L)
-        if (!NonIsoCalendars.IsNonIsoCalendar(calendar) && month != 0 && monthFromCode.HasValue && month != monthFromCode.Value)
+        // For non-ISO calendars, when an explicit ordinal `month` is supplied, year is needed
+        // because the ordinal-to-monthCode mapping is year-dependent (leap months shift it).
+        if (NonIsoCalendars.IsNonIsoCalendar(calendar) && month != 0 && !yearExplicitlyProvided)
         {
-            Throw.RangeError(_realm, "month and monthCode must match");
-        }
-
-        // Use whichever is provided (ISO only - non-ISO uses monthCode in CalendarDateToISO)
-        if (!NonIsoCalendars.IsNonIsoCalendar(calendar) && monthFromCode.HasValue)
-        {
-            month = monthFromCode.Value;
+            Throw.TypeError(_realm, "year is required when month is provided for a non-ISO calendar");
         }
 
         if (month == 0 && monthCodeStr is null)
         {
-            Throw.TypeError(_realm, "month or monthCode is required");
+            Throw.TypeError(_realm, "Missing month/monthCode");
         }
+
+        // Fundamental monthCode validity for non-ISO calendars: out-of-range display number,
+        // or leap variant on a calendar without leap months → RangeError regardless of overflow.
+        if (monthCodeStr is not null && NonIsoCalendars.IsNonIsoCalendar(calendar)
+            && !NonIsoCalendars.TryValidateMonthCode(calendar, monthCodeStr, out var displayMonth))
+        {
+            var max = NonIsoCalendars.MaxDisplayMonth(calendar) ?? 12;
+            Throw.RangeError(_realm, $"Invalid month: {displayMonth}; must be between 1-{max}");
+        }
+
+        // Range validation: month/monthCode mismatch — must come AFTER required-field checks.
+        month = TemporalHelpers.ValidateMonthAndMonthCode(_realm, calendar, year, month, monthCodeStr, monthFromCode);
 
         // For non-ISO calendars, convert calendar year/month/day to ISO
         if (!TemporalHelpers.IsGregorianBasedCalendar(calendar))

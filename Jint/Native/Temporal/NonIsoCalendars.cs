@@ -527,6 +527,110 @@ internal static class NonIsoCalendars
     }
 
     /// <summary>
+    /// Returns the maximum valid display-month for a calendar. monthCode "M{n}" with n outside
+    /// [1, MaxDisplayMonth(calendar)] is fundamentally invalid and must throw RangeError
+    /// regardless of overflow option. Returns null for ISO/Gregorian calendars (which use the
+    /// standard 12-month rule via different validation paths).
+    /// </summary>
+    internal static int? MaxDisplayMonth(string calendar)
+    {
+        return calendar switch
+        {
+            "coptic" or "ethiopic" or "ethioaa" => 13,
+            "chinese" or "dangi" or "hebrew" => 12, // leap variants share display number 1-12
+            "persian" or "indian" => 12,
+            "islamic-umalqura" or "islamic-civil" or "islamic-tbla" => 12,
+            _ => null
+        };
+    }
+
+    /// <summary>
+    /// Validates a monthCode's display-month part against a calendar's range and leap-month
+    /// support. Returns true and emits the parsed display month if the monthCode is fundamentally
+    /// valid for the calendar (display number in [1, MaxDisplayMonth] and, for leap variants
+    /// ("M##L"), the calendar supports leap months). Returns false otherwise. The display month
+    /// is also emitted on the false path when the structure parsed successfully (so callers can
+    /// build precise error messages) — only structurally malformed monthCodes leave it at 0.
+    /// This validation is overflow-independent per spec.
+    /// </summary>
+    internal static bool TryValidateMonthCode(string calendar, string monthCode, out int displayMonth)
+    {
+        displayMonth = 0;
+
+        if (monthCode.Length < 3 || monthCode[0] != 'M')
+        {
+            return false;
+        }
+
+        if (!int.TryParse(monthCode.AsSpan(1, 2), NumberStyles.None, CultureInfo.InvariantCulture, out displayMonth))
+        {
+            displayMonth = 0;
+            return false;
+        }
+
+        var max = MaxDisplayMonth(calendar);
+        if (max is null)
+        {
+            return true; // Unknown calendar — defer to caller
+        }
+
+        if (displayMonth < 1 || displayMonth > max.Value)
+        {
+            return false;
+        }
+
+        var isLeap = monthCode.Length == 4 && monthCode[3] == 'L';
+        if (isLeap)
+        {
+            // Only lunisolar calendars (chinese, dangi, hebrew) support leap months
+            return calendar is "chinese" or "dangi" or "hebrew";
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Returns true if (month, monthCode) is internally consistent for a given non-ISO calendar
+    /// year — i.e. both refer to the same calendar month. Used for spec-mandated mismatch
+    /// validation that must happen regardless of overflow option.
+    /// </summary>
+    internal static bool MonthAndMonthCodeAgree(string calendar, int year, int month, string monthCode)
+    {
+        if (month <= 0)
+        {
+            return true;
+        }
+
+        Calendar? cal;
+        try
+        {
+            cal = calendar switch
+            {
+                "coptic" or "ethiopic" or "ethioaa" or "indian" => null,
+                "islamic-civil" or "islamic-tbla" => null,
+                _ => GetCalendar(calendar)
+            };
+        }
+        catch (NotSupportedException)
+        {
+            // Calendar not handled here — defer to caller's downstream validation.
+            return true;
+        }
+
+        try
+        {
+            var resolved = MonthCodeToOrdinal(calendar, cal, year, monthCode, "reject");
+            return resolved == month;
+        }
+        catch (InvalidOperationException)
+        {
+            // monthCode out of range or otherwise unresolvable for this year — let the
+            // downstream CalendarDateToIso path produce the appropriate error.
+            return true;
+        }
+    }
+
+    /// <summary>
     /// Validates that month and monthCode are consistent for a non-ISO calendar.
     /// If only monthCode is provided, resolves it to an ordinal month.
     /// If only month is provided, uses the ordinal directly.

@@ -255,6 +255,25 @@ internal sealed class DateTimeFormatConstructor : Constructor
             numberingSystem = null;
         }
 
+        // If no user-supplied numberingSystem and no Unicode extension, fall back to the locale's
+        // default per CLDR (e.g. ar-EG → arab). The provider returns null when it has no opinion;
+        // in that case we leave numberingSystem null and the formatter uses Latin digits.
+        if (numberingSystem is null)
+        {
+            var localeDefault = _engine.Options.Intl.CldrProvider.GetDefaultNumberingSystem(resolvedLocale);
+            if (localeDefault is not null && !string.Equals(localeDefault, "latn", StringComparison.OrdinalIgnoreCase))
+            {
+                foreach (var ns in supported)
+                {
+                    if (string.Equals(ns, localeDefault, StringComparison.OrdinalIgnoreCase))
+                    {
+                        numberingSystem = ns;
+                        break;
+                    }
+                }
+            }
+        }
+
         // Step 13: Get hour12 option
         var hour12Value = optionsObj.Get("hour12");
         bool? hour12 = null;

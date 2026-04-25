@@ -108,7 +108,7 @@ internal sealed class PlainDateConstructor : Constructor
         var dayValue = obj.Get("day");
         if (dayValue.IsUndefined())
         {
-            Throw.TypeError(_realm, "Missing required property: day");
+            Throw.TypeError(_realm, "Missing day");
         }
 
         var day = TemporalHelpers.ToPositiveIntegerWithTruncation(_realm, dayValue);
@@ -162,18 +162,6 @@ internal sealed class PlainDateConstructor : Constructor
 
             // Validate well-formedness (format) - this happens before year type validation
             monthFromCode = TemporalHelpers.ParseMonthCode(_realm, monthCodeStr);
-
-            // If both month and monthCode are provided, they must match (ISO only)
-            // For non-ISO calendars, ordinal month ≠ display month (e.g., month 5 = M04L)
-            if (!NonIsoCalendars.IsNonIsoCalendar(calendar) && month != 0 && month != monthFromCode)
-            {
-                Throw.RangeError(_realm, "month and monthCode do not match");
-            }
-
-            if (!NonIsoCalendars.IsNonIsoCalendar(calendar))
-            {
-                month = monthFromCode;
-            }
         }
 
         // 5. year - use eraYear if computed, otherwise read from property
@@ -190,7 +178,7 @@ internal sealed class PlainDateConstructor : Constructor
             var yearValue = obj.Get("year");
             if (yearValue.IsUndefined())
             {
-                Throw.TypeError(_realm, "Missing required property: year");
+                Throw.TypeError(_realm, "Missing year/era/eraYear");
             }
 
             year = TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearValue);
@@ -219,8 +207,12 @@ internal sealed class PlainDateConstructor : Constructor
 
         if (month == 0 && monthCodeStr is null)
         {
-            Throw.TypeError(_realm, "month or monthCode is required");
+            Throw.TypeError(_realm, "Missing month/monthCode");
         }
+
+        // Range validation: month/monthCode mismatch — must come AFTER all required-field
+        // (TypeError) checks per CalendarResolveFields error ordering.
+        month = TemporalHelpers.ValidateMonthAndMonthCode(_realm, calendar, year, month, monthCodeStr, monthFromCode);
 
         var date = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, day, overflow, monthCodeStr);
         if (date is null)
@@ -362,7 +354,7 @@ internal sealed class PlainDateConstructor : Constructor
         var dayValue = obj.Get("day");
         if (dayValue.IsUndefined())
         {
-            Throw.TypeError(_realm, "Missing required property: day");
+            Throw.TypeError(_realm, "Missing day");
         }
 
         var day = TemporalHelpers.ToPositiveIntegerWithTruncation(_realm, dayValue);
@@ -438,27 +430,28 @@ internal sealed class PlainDateConstructor : Constructor
             var yearValue = obj.Get("year");
             if (yearValue.IsUndefined())
             {
-                Throw.TypeError(_realm, "Missing required property: year");
+                Throw.TypeError(_realm, "Missing year/era/eraYear");
             }
 
             year = TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearValue);
         }
 
+        // Required-field check (TypeError) MUST come before mismatch check (RangeError).
+        if (month == 0 && !monthFromCode.HasValue)
+        {
+            Throw.TypeError(_realm, "Missing month/monthCode");
+        }
+
         // Validate: both month and monthCode provided - they must match
         if (month != 0 && monthFromCode.HasValue && month != monthFromCode.Value)
         {
-            Throw.RangeError(_realm, "month and monthCode must match");
+            Throw.RangeError(_realm, "Mismatching month/monthCode");
         }
 
         // Use whichever is provided
         if (monthFromCode.HasValue)
         {
             month = monthFromCode.Value;
-        }
-
-        if (month == 0)
-        {
-            Throw.TypeError(_realm, "month or monthCode is required");
         }
 
         var date = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, day, overflow);

@@ -178,6 +178,12 @@ public sealed class DefaultCldrProvider : ICldrProvider
         return NumberingSystemData.Digits.TryGetValue(numberingSystem, out var digits) ? digits : null;
     }
 
+    public string? GetDefaultNumberingSystem(string locale)
+    {
+        // Default provider has no per-locale CLDR data; caller falls back to "latn".
+        return null;
+    }
+
     public CompactPatterns? GetCompactPatterns(string locale, string style)
     {
         // Use existing CompactPatterns data

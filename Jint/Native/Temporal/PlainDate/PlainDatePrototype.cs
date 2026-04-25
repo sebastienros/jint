@@ -284,7 +284,7 @@ internal sealed class PlainDatePrototype : Prototype
             }
             else if ((hasEra || hasEraYear) && !(hasEra && hasEraYear) && TemporalHelpers.CalendarUsesEras(plainDate.Calendar))
             {
-                Throw.TypeError(_realm, "Both era and eraYear must be provided together");
+                Throw.TypeError(_realm, "Mismatching era/eraYear");
             }
 
             // Merge with provided fields
@@ -332,7 +332,7 @@ internal sealed class PlainDatePrototype : Prototype
         }
         else if ((hasEra || hasEraYear) && !(hasEra && hasEraYear) && TemporalHelpers.CalendarUsesEras(plainDate.Calendar))
         {
-            Throw.TypeError(_realm, "Both era and eraYear must be provided together");
+            Throw.TypeError(_realm, "Mismatching era/eraYear");
         }
 
         // For buddhist/roc/japanese: use CalendarDateToISO since year needs conversion
@@ -748,8 +748,9 @@ internal sealed class PlainDatePrototype : Prototype
     private JsPlainYearMonth ToPlainYearMonth(JsValue thisObject, JsCallArguments arguments)
     {
         var plainDate = ValidatePlainDate(thisObject);
-        // Use the first day of month for the reference day
-        var isoDate = new IsoDate(plainDate.IsoDate.Year, plainDate.IsoDate.Month, 1);
+        // Use the first day of the calendar month for the reference day; for non-ISO calendars
+        // the ISO month does not align with the calendar month.
+        var isoDate = TemporalHelpers.IsoDateForCalendarFirstOfMonth(plainDate.Calendar, plainDate.IsoDate);
         return new JsPlainYearMonth(_engine, _realm.Intrinsics.TemporalPlainYearMonth.PrototypeObject,
             isoDate, plainDate.Calendar);
     }
@@ -791,7 +792,7 @@ internal sealed class PlainDatePrototype : Prototype
             var timeZoneValue = obj.Get("timeZone");
             if (timeZoneValue.IsUndefined())
             {
-                Throw.TypeError(_realm, "Missing required property: timeZone");
+                Throw.TypeError(_realm, "Missing timeZone");
             }
 
             timeZone = TemporalHelpers.ToTemporalTimeZoneIdentifier(_engine, _realm, timeZoneValue);

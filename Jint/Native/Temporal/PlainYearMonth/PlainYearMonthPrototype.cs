@@ -161,21 +161,17 @@ internal sealed class PlainYearMonthPrototype : Prototype
         var isNonIso8601 = ym.Calendar is not "iso8601" and not "gregory";
 
         var monthProp = obj.Get("month");
-        int month;
-        if (!monthProp.IsUndefined())
+        int month = 0;
+        var monthExplicit = !monthProp.IsUndefined();
+        if (monthExplicit)
         {
             month = TemporalHelpers.ToPositiveIntegerWithTruncation(_realm, monthProp);
         }
-        else
-        {
-            month = isNonIso8601
-                ? TemporalHelpers.CalendarMonth(ym.Calendar, ym.IsoDate)
-                : ym.IsoDate.Month;
-        }
 
         var monthCodeProp = obj.Get("monthCode");
+        var monthCodeExplicit = !monthCodeProp.IsUndefined();
         string? monthCode = null;
-        if (!monthCodeProp.IsUndefined())
+        if (monthCodeExplicit)
         {
             // monthCode must be a string (per spec)
             // Handle objects specially: call ToPrimitive and ensure result is a string
@@ -202,11 +198,22 @@ internal sealed class PlainYearMonthPrototype : Prototype
                 monthCode = TypeConverter.ToString(monthCodeProp);
             }
         }
-        else if (isNonIso8601 && monthProp.IsUndefined())
+        else if (isNonIso8601 && !monthExplicit)
         {
             // Only default monthCode from the calendar when month was not explicitly provided;
             // if the user set month explicitly, let month drive the conversion without monthCode
             monthCode = TemporalHelpers.CalendarMonthCode(ym.Calendar, ym.IsoDate);
+        }
+
+        // Default month from the existing date when neither month nor monthCode was explicitly
+        // supplied. When monthCode IS explicitly supplied (without month), leave month=0 so
+        // monthCode alone drives resolution — per NonIsoFieldKeysToIgnore, the existing date's
+        // month must not be carried over and create a spurious mismatch.
+        if (!monthExplicit && !monthCodeExplicit)
+        {
+            month = isNonIso8601
+                ? TemporalHelpers.CalendarMonth(ym.Calendar, ym.IsoDate)
+                : ym.IsoDate.Month;
         }
 
         var yearProp = obj.Get("year");
@@ -240,12 +247,12 @@ internal sealed class PlainYearMonthPrototype : Prototype
             else if (!eraValue.IsUndefined() || !eraYearValue.IsUndefined())
             {
                 hasEraOrEraYear = true;
-                Throw.TypeError(_realm, "Both era and eraYear must be provided together");
+                Throw.TypeError(_realm, "Mismatching era/eraYear");
             }
         }
 
         // Validate that at least one temporal field was provided (IsPartialTemporalObject)
-        if (monthProp.IsUndefined() && monthCodeProp.IsUndefined() && yearProp.IsUndefined()
+        if (!monthExplicit && !monthCodeExplicit && yearProp.IsUndefined()
             && !hasEraOrEraYear)
         {
             Throw.TypeError(_realm, "with argument must have at least one temporal property");
@@ -258,7 +265,7 @@ internal sealed class PlainYearMonthPrototype : Prototype
         if (isNonIso8601)
         {
             // Validate monthCode well-formedness if explicitly provided
-            if (!monthCodeProp.IsUndefined() && monthCode is not null)
+            if (monthCodeExplicit && monthCode is not null)
             {
                 var mc = TemporalHelpers.ParseMonthCode(_realm, monthCode);
 
@@ -276,9 +283,9 @@ internal sealed class PlainYearMonthPrototype : Prototype
                     }
 
                     // month/monthCode consistency for Gregorian-based
-                    if (!monthProp.IsUndefined() && month != mc)
+                    if (monthExplicit && month != mc)
                     {
-                        Throw.RangeError(_realm, "month and monthCode must match");
+                        Throw.RangeError(_realm, "Mismatching month/monthCode");
                     }
 
                     month = mc;
@@ -302,7 +309,7 @@ internal sealed class PlainYearMonthPrototype : Prototype
 
         // ISO calendar path - validate monthCode
         var parsedMonthFromCode = TemporalHelpers.ValidateMonthCodeForNonLeapCalendar(
-            _realm, monthCode, !monthProp.IsUndefined() ? month : null);
+            _realm, monthCode, monthExplicit ? month : null);
         if (parsedMonthFromCode.HasValue)
         {
             month = parsedMonthFromCode.Value;
@@ -372,13 +379,15 @@ internal sealed class PlainYearMonthPrototype : Prototype
             Throw.RangeError(_realm, "Duration must not have weeks, days, or time components for PlainYearMonth");
         }
 
-        // Step 8-9: Set day=1 and validate the intermediate date is within range
-        var intermediateDate = new IsoDate(ym.IsoDate.Year, ym.IsoDate.Month, 1);
+        // Step 8-9: Set day=1 (calendar day-1, not ISO day-1) and validate within range.
+        // For non-ISO calendars, ym.IsoDate is the ISO anchor for calendar (year, month, day=1) at
+        // construction but PYM may have been parsed from a string with a different anchor day.
+        var intermediateDate = TemporalHelpers.IsoDateForCalendarFirstOfMonth(ym.Calendar, ym.IsoDate);
         TemporalHelpers.CheckISODaysRange(_realm, intermediateDate);
 
         // Use calendar-aware date addition
         var yearMonthDuration = new DurationRecord(duration.Years, duration.Months, 0, 0, 0, 0, 0, 0, 0, 0);
-        var resultDate = TemporalHelpers.CalendarDateAdd(_realm, ym.Calendar, ym.IsoDate, yearMonthDuration, overflow);
+        var resultDate = TemporalHelpers.CalendarDateAdd(_realm, ym.Calendar, intermediateDate, yearMonthDuration, overflow);
 
         // Validate the result is within Temporal's representable range
         if (!TemporalHelpers.ISOYearMonthWithinLimits(resultDate.Year, resultDate.Month))
@@ -485,9 +494,11 @@ internal sealed class PlainYearMonthPrototype : Prototype
             return _engine.Realm.Intrinsics.TemporalDuration.Construct(zeroDuration);
         }
 
-        // Step 7-10: Convert both PlainYearMonth to PlainDate with day=1
-        var thisDate = new IsoDate(ym1.IsoDate.Year, ym1.IsoDate.Month, 1);
-        var otherDate = new IsoDate(ym2.IsoDate.Year, ym2.IsoDate.Month, 1);
+        // Step 7-10: Convert both PlainYearMonth to PlainDate with calendar day-1.
+        // For non-ISO calendars, ISO month/day differs from calendar month/day, so naively
+        // setting ISO day to 1 would produce a date in the wrong calendar month.
+        var thisDate = TemporalHelpers.IsoDateForCalendarFirstOfMonth(ym1.Calendar, ym1.IsoDate);
+        var otherDate = TemporalHelpers.IsoDateForCalendarFirstOfMonth(ym2.Calendar, ym2.IsoDate);
 
         // Step 9: CalendarDateFromFields validates the dates are within ISO range
         TemporalHelpers.CheckISODaysRange(_realm, thisDate);
