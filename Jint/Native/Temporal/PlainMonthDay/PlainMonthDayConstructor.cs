@@ -334,6 +334,15 @@ internal sealed class PlainMonthDayConstructor : Constructor
         // For non-ISO calendars, convert calendar year/month/day to ISO
         if (!TemporalHelpers.IsGregorianBasedCalendar(calendar))
         {
+            // Bail out early when an explicit year is far outside the Temporal-supported range.
+            // This catches `PlainMonthDay.from({ year: ±999999, ... })` per spec — without the
+            // check we silently produce ISO dates outside [-271821, +275760] that no other
+            // Temporal type would accept.
+            if (yearExplicitlyProvided && (year < -300000 || year > 300000))
+            {
+                Throw.RangeError(_realm, "year is outside the supported range for PlainMonthDay");
+            }
+
             // When year is not explicitly provided, find the calendar year that maps to ISO 1972
             var calendarYear = yearExplicitlyProvided
                 ? year
@@ -347,6 +356,15 @@ internal sealed class PlainMonthDayConstructor : Constructor
 
             // The converted ISO date becomes the reference date
             return Construct(calDate.Value, calendar);
+        }
+
+        // Bail out early when an explicit year is far outside the Temporal-supported range
+        // (gregorian-based non-ISO calendars: buddhist/japanese/roc). iso8601 PMD doesn't have
+        // an "explicit year" notion in the same way and is intentionally allowed any year.
+        if (yearExplicitlyProvided && !string.Equals(calendar, "iso8601", StringComparison.Ordinal)
+            && (year < -300000 || year > 300000))
+        {
+            Throw.RangeError(_realm, "year is outside the supported range for PlainMonthDay");
         }
 
         // Use input year for validation, but always use 1972 as reference year in result
