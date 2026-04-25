@@ -118,17 +118,19 @@ internal static class NonIsoCalendars
         // fall back to treating fields as ISO (best effort)
         if (result is null && !string.Equals(overflow, "reject", StringComparison.Ordinal))
         {
-            // Don't fall back for fundamentally invalid monthCodes (display month > 12 or < 1)
-            if (monthCode is not null)
+            // Don't fall back for fundamentally-invalid monthCodes (out-of-range display number,
+            // or leap variant on a calendar that doesn't support it / a different leap month).
+            // The Hebrew M02L → ISO 5779-02 fallback was masking spec-mandated RangeErrors.
+            if (monthCode is not null && !TryValidateMonthCode(calendar, monthCode, out var validatedDisplayMonth))
             {
-                var displayMonth = int.Parse(monthCode.AsSpan(1, 2), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture);
-                if (displayMonth < 1 || displayMonth > 12)
-                {
-                    return null;
-                }
+                return null;
             }
 
-            var isoMonth = month > 0 ? month : (monthCode is not null ? int.Parse(monthCode.AsSpan(1, 2), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture) : 1);
+            var isoMonth = month > 0
+                ? month
+                : (monthCode is not null
+                    ? int.Parse(monthCode.AsSpan(1, 2), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture)
+                    : 1);
             return TemporalHelpers.RegulateIsoDate(year, Clamp(isoMonth, 1, 12), day, overflow);
         }
 
@@ -610,8 +612,16 @@ internal static class NonIsoCalendars
         var isLeap = monthCode.Length == 4 && monthCode[3] == 'L';
         if (isLeap)
         {
-            // Only lunisolar calendars (chinese, dangi, hebrew) support leap months
-            return calendar is "chinese" or "dangi" or "hebrew";
+            // chinese / dangi support leap variants of any month (M01L–M12L can occur)
+            // hebrew has exactly one leap monthCode: M05L (Adar I). M01L, M02L, …, M04L,
+            //   M06L, …, M12L are fundamentally invalid.
+            // Other non-ISO calendars don't support leap months at all.
+            return calendar switch
+            {
+                "chinese" or "dangi" => true,
+                "hebrew" => displayMonth == 5,
+                _ => false,
+            };
         }
 
         return true;
@@ -1192,22 +1202,30 @@ internal static class NonIsoCalendars
 
             if (isLeap)
             {
-                if (!yearIsLeap || displayMonth != 5)
+                // Hebrew has only one leap monthCode: M05L (Adar I). M01L, M02L, …, M04L,
+                // M06L, …, M12L are fundamentally invalid for the Hebrew calendar — reject
+                // unconditionally regardless of overflow option.
+                if (displayMonth != 5)
                 {
-                    // M05L only exists in leap years
+                    return null;
+                }
+
+                if (!yearIsLeap)
+                {
+                    // M05L exists only in leap years; constrain to M06 (Adar) in non-leap years
+                    // unless overflow is "reject".
                     if (string.Equals(overflow, "reject", StringComparison.Ordinal))
                     {
                         return null;
                     }
 
                     // In Hebrew, M05L (Adar I) constrains to M06 (Adar) in non-leap years.
-                    // M06 occupies ordinal 6 in non-leap years (after Shevat=M05) and ordinal 7
-                    // in leap years (where M05L is at ordinal 6 and M06=Adar II at ordinal 7).
-                    ordinalMonth = yearIsLeap ? 7 : 6;
+                    // M06 occupies ordinal 6 in non-leap years (after Shevat=M05).
+                    ordinalMonth = 6;
                 }
                 else
                 {
-                    ordinalMonth = 6; // M05L → ordinal 6
+                    ordinalMonth = 6; // M05L → ordinal 6 in leap year (Adar I)
                 }
             }
             else
