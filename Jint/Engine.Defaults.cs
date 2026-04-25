@@ -6,6 +6,12 @@ public partial class Engine
 {
     internal const bool FoldConstantsOnPrepareByDefault = true;
 
+    // NOTE: Do not enable ParserOptions.PreserveParens here without first revisiting the
+    // CoverParenthesizedExpression detection in JintAssignmentExpression (NamedEvaluation +
+    // SimpleAssignmentExpression.Initialize). That code relies on Acornima stripping parens
+    // by default and uses the position offset between the AssignmentExpression and its inner
+    // Identifier to detect "(fn) = ..." — a wrapped ParenthesizedExpression node would
+    // bypass the Identifier-type guard and silently break the IsIdentifierRef semantics.
     internal static readonly ParserOptions BaseParserOptions = ParserOptions.Default with
     {
         EcmaVersion = EcmaVersion.ES2026,

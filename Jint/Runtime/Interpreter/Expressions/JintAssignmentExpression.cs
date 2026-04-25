@@ -449,7 +449,12 @@ internal sealed class JintAssignmentExpression : JintExpression
 
     private JsValue NamedEvaluation(EvaluationContext context, JintExpression expression)
     {
-        if (expression._expression.IsAnonymousFunctionDefinition() && _left._expression.Type == NodeType.Identifier)
+        // IsIdentifierRef is false for a CoverParenthesizedExpression. Acornima strips parens by default,
+        // but the AssignmentExpression's Range starts at the leading '(' while the inner Identifier's Range
+        // starts after it — so a positional difference indicates the LHS was parenthesized.
+        if (expression._expression.IsAnonymousFunctionDefinition()
+            && _left._expression.Type == NodeType.Identifier
+            && _left._expression.Range.Start == _expression.Range.Start)
         {
             var name = ((Identifier) _left._expression).Name;
             if (expression is JintClassExpression classExpression)
@@ -472,6 +477,7 @@ internal sealed class JintAssignmentExpression : JintExpression
 
         private JintIdentifierExpression? _leftIdentifier;
         private bool _evalOrArguments;
+        private bool _leftIsCoverParenthesized;
         private bool _initialized;
 
         public SimpleAssignmentExpression(AssignmentExpression expression) : base(expression)
@@ -484,6 +490,11 @@ internal sealed class JintAssignmentExpression : JintExpression
             _left = Build((Expression) assignmentExpression.Left);
             _leftIdentifier = _left as JintIdentifierExpression;
             _evalOrArguments = _leftIdentifier?.HasEvalOrArguments == true;
+
+            // IsIdentifierRef is false for a CoverParenthesizedExpression. Acornima strips parens by default,
+            // so we detect them by comparing ranges: the AssignmentExpression starts at the leading '(' but
+            // the inner Identifier starts after it.
+            _leftIsCoverParenthesized = _left._expression.Range.Start != assignmentExpression.Range.Start;
 
             _right = Build(assignmentExpression.Right);
         }
@@ -499,7 +510,7 @@ internal sealed class JintAssignmentExpression : JintExpression
             object? completion = null;
             if (_leftIdentifier != null)
             {
-                completion = AssignToIdentifier(context, _leftIdentifier, _right, _evalOrArguments);
+                completion = AssignToIdentifier(context, _leftIdentifier, _right, _evalOrArguments, !_leftIsCoverParenthesized);
             }
             return completion ?? SetValue(context);
         }
@@ -537,7 +548,8 @@ internal sealed class JintAssignmentExpression : JintExpression
             EvaluationContext context,
             JintIdentifierExpression left,
             JintExpression right,
-            bool hasEvalOrArguments)
+            bool hasEvalOrArguments,
+            bool nameAnonymousFunction = true)
         {
             var engine = context.Engine;
             var env = engine.ExecutionContext.LexicalEnvironment;
@@ -554,7 +566,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                 }
 
                 JsValue completion;
-                if (right is JintClassExpression classExpression && right._expression.IsAnonymousFunctionDefinition())
+                if (nameAnonymousFunction && right is JintClassExpression classExpression && right._expression.IsAnonymousFunctionDefinition())
                 {
                     completion = classExpression.EvaluateWithName(context, identifier.Value.ToString());
                 }
@@ -576,7 +588,7 @@ internal sealed class JintAssignmentExpression : JintExpression
 
                 var rval = completion.Clone();
 
-                if (right._expression.IsFunctionDefinition() && right is not JintClassExpression)
+                if (nameAnonymousFunction && right._expression.IsFunctionDefinition() && right is not JintClassExpression)
                 {
                     ((Function) rval).SetFunctionName(identifier.Value);
                 }

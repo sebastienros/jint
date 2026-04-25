@@ -267,20 +267,192 @@ internal sealed class StringPrototype : StringInstance
 #if NET462
             // Code specific to .NET Framework 4.6.2.
             // For no good reason this verison does not upper case these characters correctly.
-            return new JsString(s.ToUpper(culture)
+            return new JsString(ToUpperCaseWithSpecialCasing(s, culture)
                 .Replace("ϳ", "Ϳ")
                 .Replace("ʝ", "Ʝ"));
 #endif
         }
 
-        return new JsString(s.ToUpper(culture));
+        return new JsString(ToUpperCaseWithSpecialCasing(s, culture));
     }
 
     private JsValue ToUpperCase(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(_engine, thisObject);
         var s = TypeConverter.ToString(thisObject);
-        return new JsString(s.ToUpperInvariant());
+        return new JsString(ToUpperCaseWithSpecialCasing(s, CultureInfo.InvariantCulture));
+    }
+
+    /// <summary>
+    /// Converts string to uppercase with Unicode SpecialCasing.txt unconditional, locale-insensitive
+    /// expansions (e.g. ß → SS, ﬀ → FF, Greek titlecase → upper + Ι).
+    /// https://www.unicode.org/Public/UCD/latest/ucd/SpecialCasing.txt
+    /// </summary>
+    private static string ToUpperCaseWithSpecialCasing(string s, CultureInfo culture)
+    {
+        // Fast path: no codepoint in the string has a SpecialCasing expansion.
+        if (!NeedsUpperSpecialCasing(s))
+        {
+            return s.ToUpper(culture);
+        }
+
+        // Stack buffer covers most strings; ValueStringBuilder rents from ArrayPool if it grows beyond.
+        Span<char> stackBuffer = stackalloc char[128];
+        var sb = new ValueStringBuilder(stackBuffer);
+        for (var i = 0; i < s.Length; i++)
+        {
+            var c = s[i];
+            var mapped = GetSpecialUpperCasing(c);
+            if (mapped is not null)
+            {
+                sb.Append(mapped);
+            }
+            else if (char.IsHighSurrogate(c) && i + 1 < s.Length && char.IsLowSurrogate(s[i + 1]))
+            {
+                // No supplementary-plane special-cased uppercase mappings — pass through.
+                sb.Append(c);
+                sb.Append(s[i + 1]);
+                i++;
+            }
+            else
+            {
+                sb.Append(char.ToUpper(c, culture));
+            }
+        }
+
+        return sb.ToString();
+    }
+
+    private static bool NeedsUpperSpecialCasing(string s)
+    {
+        foreach (var c in s)
+        {
+            if (GetSpecialUpperCasing(c) is not null)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Returns the SpecialCasing.txt unconditional uppercase expansion for a BMP code point,
+    /// or <c>null</c> if no special mapping applies.
+    /// </summary>
+    private static string? GetSpecialUpperCasing(char c)
+    {
+        // ASCII has no SpecialCasing.txt expansions; the lowest mapped codepoint is U+00DF.
+        if (c < '\u00DF')
+        {
+            return null;
+        }
+
+        return c switch
+        {
+            '\u00DF' => "\u0053\u0053", // LATIN SMALL LETTER SHARP S
+            '\u0149' => "\u02BC\u004E", // LATIN SMALL LETTER N PRECEDED BY APOSTROPHE
+            '\u01F0' => "\u004A\u030C", // LATIN SMALL LETTER J WITH CARON
+            '\u0390' => "\u0399\u0308\u0301", // GREEK SMALL LETTER IOTA WITH DIALYTIKA AND TONOS
+            '\u03B0' => "\u03A5\u0308\u0301", // GREEK SMALL LETTER UPSILON WITH DIALYTIKA AND TONOS
+            '\u0587' => "\u0535\u0552", // ARMENIAN SMALL LIGATURE ECH YIWN
+            '\u1E96' => "\u0048\u0331", // LATIN SMALL LETTER H WITH LINE BELOW
+            '\u1E97' => "\u0054\u0308", // LATIN SMALL LETTER T WITH DIAERESIS
+            '\u1E98' => "\u0057\u030A", // LATIN SMALL LETTER W WITH RING ABOVE
+            '\u1E99' => "\u0059\u030A", // LATIN SMALL LETTER Y WITH RING ABOVE
+            '\u1E9A' => "\u0041\u02BE", // LATIN SMALL LETTER A WITH RIGHT HALF RING
+            '\u1F50' => "\u03A5\u0313", // GREEK SMALL LETTER UPSILON WITH PSILI
+            '\u1F52' => "\u03A5\u0313\u0300", // GREEK SMALL LETTER UPSILON WITH PSILI AND VARIA
+            '\u1F54' => "\u03A5\u0313\u0301", // GREEK SMALL LETTER UPSILON WITH PSILI AND OXIA
+            '\u1F56' => "\u03A5\u0313\u0342", // GREEK SMALL LETTER UPSILON WITH PSILI AND PERISPOMENI
+            '\u1F80' => "\u1F08\u0399", // GREEK SMALL LETTER ALPHA WITH PSILI AND YPOGEGRAMMENI
+            '\u1F81' => "\u1F09\u0399", // GREEK SMALL LETTER ALPHA WITH DASIA AND YPOGEGRAMMENI
+            '\u1F82' => "\u1F0A\u0399", // GREEK SMALL LETTER ALPHA WITH PSILI AND VARIA AND YPOGEGRAMMENI
+            '\u1F83' => "\u1F0B\u0399", // GREEK SMALL LETTER ALPHA WITH DASIA AND VARIA AND YPOGEGRAMMENI
+            '\u1F84' => "\u1F0C\u0399", // GREEK SMALL LETTER ALPHA WITH PSILI AND OXIA AND YPOGEGRAMMENI
+            '\u1F85' => "\u1F0D\u0399", // GREEK SMALL LETTER ALPHA WITH DASIA AND OXIA AND YPOGEGRAMMENI
+            '\u1F86' => "\u1F0E\u0399", // GREEK SMALL LETTER ALPHA WITH PSILI AND PERISPOMENI AND YPOGEGRAMMENI
+            '\u1F87' => "\u1F0F\u0399", // GREEK SMALL LETTER ALPHA WITH DASIA AND PERISPOMENI AND YPOGEGRAMMENI
+            '\u1F88' => "\u1F08\u0399", // GREEK CAPITAL LETTER ALPHA WITH PSILI AND PROSGEGRAMMENI
+            '\u1F89' => "\u1F09\u0399", // GREEK CAPITAL LETTER ALPHA WITH DASIA AND PROSGEGRAMMENI
+            '\u1F8A' => "\u1F0A\u0399", // GREEK CAPITAL LETTER ALPHA WITH PSILI AND VARIA AND PROSGEGRAMMENI
+            '\u1F8B' => "\u1F0B\u0399", // GREEK CAPITAL LETTER ALPHA WITH DASIA AND VARIA AND PROSGEGRAMMENI
+            '\u1F8C' => "\u1F0C\u0399", // GREEK CAPITAL LETTER ALPHA WITH PSILI AND OXIA AND PROSGEGRAMMENI
+            '\u1F8D' => "\u1F0D\u0399", // GREEK CAPITAL LETTER ALPHA WITH DASIA AND OXIA AND PROSGEGRAMMENI
+            '\u1F8E' => "\u1F0E\u0399", // GREEK CAPITAL LETTER ALPHA WITH PSILI AND PERISPOMENI AND PROSGEGRAMMENI
+            '\u1F8F' => "\u1F0F\u0399", // GREEK CAPITAL LETTER ALPHA WITH DASIA AND PERISPOMENI AND PROSGEGRAMMENI
+            '\u1F90' => "\u1F28\u0399", // GREEK SMALL LETTER ETA WITH PSILI AND YPOGEGRAMMENI
+            '\u1F91' => "\u1F29\u0399", // GREEK SMALL LETTER ETA WITH DASIA AND YPOGEGRAMMENI
+            '\u1F92' => "\u1F2A\u0399", // GREEK SMALL LETTER ETA WITH PSILI AND VARIA AND YPOGEGRAMMENI
+            '\u1F93' => "\u1F2B\u0399", // GREEK SMALL LETTER ETA WITH DASIA AND VARIA AND YPOGEGRAMMENI
+            '\u1F94' => "\u1F2C\u0399", // GREEK SMALL LETTER ETA WITH PSILI AND OXIA AND YPOGEGRAMMENI
+            '\u1F95' => "\u1F2D\u0399", // GREEK SMALL LETTER ETA WITH DASIA AND OXIA AND YPOGEGRAMMENI
+            '\u1F96' => "\u1F2E\u0399", // GREEK SMALL LETTER ETA WITH PSILI AND PERISPOMENI AND YPOGEGRAMMENI
+            '\u1F97' => "\u1F2F\u0399", // GREEK SMALL LETTER ETA WITH DASIA AND PERISPOMENI AND YPOGEGRAMMENI
+            '\u1F98' => "\u1F28\u0399", // GREEK CAPITAL LETTER ETA WITH PSILI AND PROSGEGRAMMENI
+            '\u1F99' => "\u1F29\u0399", // GREEK CAPITAL LETTER ETA WITH DASIA AND PROSGEGRAMMENI
+            '\u1F9A' => "\u1F2A\u0399", // GREEK CAPITAL LETTER ETA WITH PSILI AND VARIA AND PROSGEGRAMMENI
+            '\u1F9B' => "\u1F2B\u0399", // GREEK CAPITAL LETTER ETA WITH DASIA AND VARIA AND PROSGEGRAMMENI
+            '\u1F9C' => "\u1F2C\u0399", // GREEK CAPITAL LETTER ETA WITH PSILI AND OXIA AND PROSGEGRAMMENI
+            '\u1F9D' => "\u1F2D\u0399", // GREEK CAPITAL LETTER ETA WITH DASIA AND OXIA AND PROSGEGRAMMENI
+            '\u1F9E' => "\u1F2E\u0399", // GREEK CAPITAL LETTER ETA WITH PSILI AND PERISPOMENI AND PROSGEGRAMMENI
+            '\u1F9F' => "\u1F2F\u0399", // GREEK CAPITAL LETTER ETA WITH DASIA AND PERISPOMENI AND PROSGEGRAMMENI
+            '\u1FA0' => "\u1F68\u0399", // GREEK SMALL LETTER OMEGA WITH PSILI AND YPOGEGRAMMENI
+            '\u1FA1' => "\u1F69\u0399", // GREEK SMALL LETTER OMEGA WITH DASIA AND YPOGEGRAMMENI
+            '\u1FA2' => "\u1F6A\u0399", // GREEK SMALL LETTER OMEGA WITH PSILI AND VARIA AND YPOGEGRAMMENI
+            '\u1FA3' => "\u1F6B\u0399", // GREEK SMALL LETTER OMEGA WITH DASIA AND VARIA AND YPOGEGRAMMENI
+            '\u1FA4' => "\u1F6C\u0399", // GREEK SMALL LETTER OMEGA WITH PSILI AND OXIA AND YPOGEGRAMMENI
+            '\u1FA5' => "\u1F6D\u0399", // GREEK SMALL LETTER OMEGA WITH DASIA AND OXIA AND YPOGEGRAMMENI
+            '\u1FA6' => "\u1F6E\u0399", // GREEK SMALL LETTER OMEGA WITH PSILI AND PERISPOMENI AND YPOGEGRAMMENI
+            '\u1FA7' => "\u1F6F\u0399", // GREEK SMALL LETTER OMEGA WITH DASIA AND PERISPOMENI AND YPOGEGRAMMENI
+            '\u1FA8' => "\u1F68\u0399", // GREEK CAPITAL LETTER OMEGA WITH PSILI AND PROSGEGRAMMENI
+            '\u1FA9' => "\u1F69\u0399", // GREEK CAPITAL LETTER OMEGA WITH DASIA AND PROSGEGRAMMENI
+            '\u1FAA' => "\u1F6A\u0399", // GREEK CAPITAL LETTER OMEGA WITH PSILI AND VARIA AND PROSGEGRAMMENI
+            '\u1FAB' => "\u1F6B\u0399", // GREEK CAPITAL LETTER OMEGA WITH DASIA AND VARIA AND PROSGEGRAMMENI
+            '\u1FAC' => "\u1F6C\u0399", // GREEK CAPITAL LETTER OMEGA WITH PSILI AND OXIA AND PROSGEGRAMMENI
+            '\u1FAD' => "\u1F6D\u0399", // GREEK CAPITAL LETTER OMEGA WITH DASIA AND OXIA AND PROSGEGRAMMENI
+            '\u1FAE' => "\u1F6E\u0399", // GREEK CAPITAL LETTER OMEGA WITH PSILI AND PERISPOMENI AND PROSGEGRAMMENI
+            '\u1FAF' => "\u1F6F\u0399", // GREEK CAPITAL LETTER OMEGA WITH DASIA AND PERISPOMENI AND PROSGEGRAMMENI
+            '\u1FB2' => "\u1FBA\u0399", // GREEK SMALL LETTER ALPHA WITH VARIA AND YPOGEGRAMMENI
+            '\u1FB3' => "\u0391\u0399", // GREEK SMALL LETTER ALPHA WITH YPOGEGRAMMENI
+            '\u1FB4' => "\u0386\u0399", // GREEK SMALL LETTER ALPHA WITH OXIA AND YPOGEGRAMMENI
+            '\u1FB6' => "\u0391\u0342", // GREEK SMALL LETTER ALPHA WITH PERISPOMENI
+            '\u1FB7' => "\u0391\u0342\u0399", // GREEK SMALL LETTER ALPHA WITH PERISPOMENI AND YPOGEGRAMMENI
+            '\u1FBC' => "\u0391\u0399", // GREEK CAPITAL LETTER ALPHA WITH PROSGEGRAMMENI
+            '\u1FC2' => "\u1FCA\u0399", // GREEK SMALL LETTER ETA WITH VARIA AND YPOGEGRAMMENI
+            '\u1FC3' => "\u0397\u0399", // GREEK SMALL LETTER ETA WITH YPOGEGRAMMENI
+            '\u1FC4' => "\u0389\u0399", // GREEK SMALL LETTER ETA WITH OXIA AND YPOGEGRAMMENI
+            '\u1FC6' => "\u0397\u0342", // GREEK SMALL LETTER ETA WITH PERISPOMENI
+            '\u1FC7' => "\u0397\u0342\u0399", // GREEK SMALL LETTER ETA WITH PERISPOMENI AND YPOGEGRAMMENI
+            '\u1FCC' => "\u0397\u0399", // GREEK CAPITAL LETTER ETA WITH PROSGEGRAMMENI
+            '\u1FD2' => "\u0399\u0308\u0300", // GREEK SMALL LETTER IOTA WITH DIALYTIKA AND VARIA
+            '\u1FD3' => "\u0399\u0308\u0301", // GREEK SMALL LETTER IOTA WITH DIALYTIKA AND OXIA
+            '\u1FD6' => "\u0399\u0342", // GREEK SMALL LETTER IOTA WITH PERISPOMENI
+            '\u1FD7' => "\u0399\u0308\u0342", // GREEK SMALL LETTER IOTA WITH DIALYTIKA AND PERISPOMENI
+            '\u1FE2' => "\u03A5\u0308\u0300", // GREEK SMALL LETTER UPSILON WITH DIALYTIKA AND VARIA
+            '\u1FE3' => "\u03A5\u0308\u0301", // GREEK SMALL LETTER UPSILON WITH DIALYTIKA AND OXIA
+            '\u1FE4' => "\u03A1\u0313", // GREEK SMALL LETTER RHO WITH PSILI
+            '\u1FE6' => "\u03A5\u0342", // GREEK SMALL LETTER UPSILON WITH PERISPOMENI
+            '\u1FE7' => "\u03A5\u0308\u0342", // GREEK SMALL LETTER UPSILON WITH DIALYTIKA AND PERISPOMENI
+            '\u1FF2' => "\u1FFA\u0399", // GREEK SMALL LETTER OMEGA WITH VARIA AND YPOGEGRAMMENI
+            '\u1FF3' => "\u03A9\u0399", // GREEK SMALL LETTER OMEGA WITH YPOGEGRAMMENI
+            '\u1FF4' => "\u038F\u0399", // GREEK SMALL LETTER OMEGA WITH OXIA AND YPOGEGRAMMENI
+            '\u1FF6' => "\u03A9\u0342", // GREEK SMALL LETTER OMEGA WITH PERISPOMENI
+            '\u1FF7' => "\u03A9\u0342\u0399", // GREEK SMALL LETTER OMEGA WITH PERISPOMENI AND YPOGEGRAMMENI
+            '\u1FFC' => "\u03A9\u0399", // GREEK CAPITAL LETTER OMEGA WITH PROSGEGRAMMENI
+            '\uFB00' => "\u0046\u0046", // LATIN SMALL LIGATURE FF
+            '\uFB01' => "\u0046\u0049", // LATIN SMALL LIGATURE FI
+            '\uFB02' => "\u0046\u004C", // LATIN SMALL LIGATURE FL
+            '\uFB03' => "\u0046\u0046\u0049", // LATIN SMALL LIGATURE FFI
+            '\uFB04' => "\u0046\u0046\u004C", // LATIN SMALL LIGATURE FFL
+            '\uFB05' => "\u0053\u0054", // LATIN SMALL LIGATURE LONG S T
+            '\uFB06' => "\u0053\u0054", // LATIN SMALL LIGATURE ST
+            '\uFB13' => "\u0544\u0546", // ARMENIAN SMALL LIGATURE MEN NOW
+            '\uFB14' => "\u0544\u0535", // ARMENIAN SMALL LIGATURE MEN ECH
+            '\uFB15' => "\u0544\u053B", // ARMENIAN SMALL LIGATURE MEN INI
+            '\uFB16' => "\u054E\u0546", // ARMENIAN SMALL LIGATURE VEW NOW
+            '\uFB17' => "\u0544\u053D", // ARMENIAN SMALL LIGATURE MEN XEH
+            _ => null
+        };
     }
 
     private JsValue ToLocaleLowerCase(JsValue thisObject, JsCallArguments arguments)
@@ -325,7 +497,9 @@ internal sealed class StringPrototype : StringInstance
             return s.ToLower(culture);
         }
 
-        var sb = new System.Text.StringBuilder(s.Length + 4);
+        // Stack buffer covers most strings; ValueStringBuilder rents from ArrayPool if it grows beyond.
+        Span<char> stackBuffer = stackalloc char[128];
+        var sb = new ValueStringBuilder(stackBuffer);
 
         for (var i = 0; i < s.Length; i++)
         {
@@ -614,18 +788,32 @@ internal sealed class StringPrototype : StringInstance
     {
         // Check backward: must find a cased letter (skipping Case_Ignorable)
         var foundCasedBefore = false;
-        for (var i = index - 1; i >= 0; i--)
+        var i = index - 1;
+        while (i >= 0)
         {
-            var c = s[i];
-            if (IsCased(c))
+            int cp;
+            int step;
+            if (char.IsLowSurrogate(s[i]) && i - 1 >= 0 && char.IsHighSurrogate(s[i - 1]))
+            {
+                cp = char.ConvertToUtf32(s[i - 1], s[i]);
+                step = 2;
+            }
+            else
+            {
+                cp = s[i];
+                step = 1;
+            }
+
+            if (IsCased(cp))
             {
                 foundCasedBefore = true;
                 break;
             }
-            if (!IsCaseIgnorable(c))
+            if (!IsCaseIgnorable(cp))
             {
                 break;
             }
+            i -= step;
         }
 
         if (!foundCasedBefore)
@@ -634,17 +822,31 @@ internal sealed class StringPrototype : StringInstance
         }
 
         // Check forward: must NOT find a cased letter (skipping Case_Ignorable)
-        for (var i = index + 1; i < s.Length; i++)
+        var j = index + 1;
+        while (j < s.Length)
         {
-            var c = s[i];
-            if (IsCased(c))
+            int cp;
+            int step;
+            if (char.IsHighSurrogate(s[j]) && j + 1 < s.Length && char.IsLowSurrogate(s[j + 1]))
+            {
+                cp = char.ConvertToUtf32(s[j], s[j + 1]);
+                step = 2;
+            }
+            else
+            {
+                cp = s[j];
+                step = 1;
+            }
+
+            if (IsCased(cp))
             {
                 return false; // Found cased letter after, so NOT Final_Sigma
             }
-            if (!IsCaseIgnorable(c))
+            if (!IsCaseIgnorable(cp))
             {
                 break;
             }
+            j += step;
         }
 
         return true;
@@ -655,10 +857,24 @@ internal sealed class StringPrototype : StringInstance
     /// A character is cased if it has the Lowercase or Uppercase property, or has General_Category=Titlecase_Letter.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsCased(char c)
+    private static bool IsCased(int cp)
     {
         // Cased = Lowercase OR Uppercase OR General_Category=Lt
-        return char.IsLetter(c) && (char.IsLower(c) || char.IsUpper(c) || CharUnicodeInfo.GetUnicodeCategory(c) == UnicodeCategory.TitlecaseLetter);
+        if (cp <= 0xFFFF)
+        {
+            var c = (char) cp;
+            return char.IsLetter(c) && (char.IsLower(c) || char.IsUpper(c) || CharUnicodeInfo.GetUnicodeCategory(c) == UnicodeCategory.TitlecaseLetter);
+        }
+
+#if SUPPORTS_UNICODE_CATEGORY_INT
+        var category = CharUnicodeInfo.GetUnicodeCategory(cp);
+#else
+        // net462 / netstandard2.0 lack the int overload; the 2-char string allocation is unavoidable here.
+        var category = CharUnicodeInfo.GetUnicodeCategory(char.ConvertFromUtf32(cp), 0);
+#endif
+        return category is UnicodeCategory.LowercaseLetter
+            or UnicodeCategory.UppercaseLetter
+            or UnicodeCategory.TitlecaseLetter;
     }
 
     /// <summary>
@@ -667,24 +883,37 @@ internal sealed class StringPrototype : StringInstance
     /// Lm (Modifier_Letter), Sk (Modifier_Symbol), and characters with Word_Break property MidLetter, MidNumLet, or Single_Quote.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsCaseIgnorable(char c)
+    private static bool IsCaseIgnorable(int cp)
     {
-        var category = CharUnicodeInfo.GetUnicodeCategory(c);
+#if SUPPORTS_UNICODE_CATEGORY_INT
+        var category = CharUnicodeInfo.GetUnicodeCategory(cp);
+#else
+        // net462 / netstandard2.0 lack the int overload; supplementary-plane lookups go through a 2-char string.
+        var category = cp <= 0xFFFF
+            ? CharUnicodeInfo.GetUnicodeCategory((char) cp)
+            : CharUnicodeInfo.GetUnicodeCategory(char.ConvertFromUtf32(cp), 0);
+#endif
         return category == UnicodeCategory.NonSpacingMark ||      // Mn
                category == UnicodeCategory.EnclosingMark ||       // Me
                category == UnicodeCategory.Format ||              // Cf (includes U+180E Mongolian Vowel Separator)
                category == UnicodeCategory.ModifierLetter ||      // Lm
                category == UnicodeCategory.ModifierSymbol ||      // Sk
-               c == '\u0027' ||                                   // APOSTROPHE (Word_Break=Single_Quote)
-               c == '\u00B7' ||                                   // MIDDLE DOT (Word_Break=MidLetter)
-               c == '\u0387' ||                                   // GREEK ANO TELEIA (Word_Break=MidLetter)
-               c == '\u05F4' ||                                   // HEBREW PUNCTUATION GERSHAYIM (Word_Break=MidLetter)
-               c == '\u2019' ||                                   // RIGHT SINGLE QUOTATION MARK (Word_Break=Single_Quote)
-               c == '\u2027' ||                                   // HYPHENATION POINT (Word_Break=MidLetter)
-               c == '\uFE13' ||                                   // PRESENTATION FORM FOR VERTICAL COLON (Word_Break=MidLetter)
-               c == '\uFE55' ||                                   // SMALL COLON (Word_Break=MidLetter)
-               c == '\uFF07' ||                                   // FULLWIDTH APOSTROPHE (Word_Break=MidNumLet)
-               c == '\uFF1A';                                     // FULLWIDTH COLON (Word_Break=MidLetter)
+               cp == 0x0027 ||                                    // APOSTROPHE (Word_Break=Single_Quote)
+               cp == 0x002E ||                                    // FULL STOP (Word_Break=MidNumLet)
+               cp == 0x003A ||                                    // COLON (Word_Break=MidLetter)
+               cp == 0x00B7 ||                                    // MIDDLE DOT (Word_Break=MidLetter)
+               cp == 0x0387 ||                                    // GREEK ANO TELEIA (Word_Break=MidLetter)
+               cp == 0x05F4 ||                                    // HEBREW PUNCTUATION GERSHAYIM (Word_Break=MidLetter)
+               cp == 0x2018 ||                                    // LEFT SINGLE QUOTATION MARK (Word_Break=MidNumLet)
+               cp == 0x2019 ||                                    // RIGHT SINGLE QUOTATION MARK (Word_Break=Single_Quote)
+               cp == 0x2024 ||                                    // ONE DOT LEADER (Word_Break=MidNumLet)
+               cp == 0x2027 ||                                    // HYPHENATION POINT (Word_Break=MidLetter)
+               cp == 0xFE13 ||                                    // PRESENTATION FORM FOR VERTICAL COLON (Word_Break=MidLetter)
+               cp == 0xFE52 ||                                    // SMALL FULL STOP (Word_Break=MidNumLet)
+               cp == 0xFE55 ||                                    // SMALL COLON (Word_Break=MidLetter)
+               cp == 0xFF07 ||                                    // FULLWIDTH APOSTROPHE (Word_Break=MidNumLet)
+               cp == 0xFF0E ||                                    // FULLWIDTH FULL STOP (Word_Break=MidNumLet)
+               cp == 0xFF1A;                                      // FULLWIDTH COLON (Word_Break=MidLetter)
     }
 
     private static int ToIntegerSupportInfinity(JsValue numberVal)
