@@ -299,23 +299,8 @@ internal sealed class ZonedDateTimeConstructor : Constructor
 
         var timeZone = ToTemporalTimeZoneIdentifier(timeZoneProp);
 
-        // 13. year - use eraYear if computed, otherwise read from property
-        int year;
-        if (eraYear.HasValue)
-        {
-            year = eraYear.Value;
-            obj.Get("year");
-        }
-        else
-        {
-            var yearValue = obj.Get("year");
-            if (yearValue.IsUndefined())
-            {
-                Throw.TypeError(_realm, "Missing year/era/eraYear");
-            }
-
-            year = TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearValue);
-        }
+        // 13. year - use eraYear if computed, otherwise read from property.
+        var year = TemporalHelpers.ResolveYearFromEraOrYear(_realm, obj, eraYear, requireYear: true, out _);
 
         // 14-16. Read options AFTER all fields(but BEFORE algorithmic validation)
         // Alphabetical order: disambiguation, offset, overflow

@@ -284,23 +284,8 @@ internal sealed class PlainYearMonthConstructor : Constructor
             monthFromCode = TemporalHelpers.ParseMonthCode(_realm, monthCodeStr);
         }
 
-        // 5. year - use eraYear if computed, otherwise read from property
-        int year;
-        if (eraYear.HasValue)
-        {
-            year = eraYear.Value;
-            obj.Get("year");
-        }
-        else
-        {
-            var yearValue = obj.Get("year");
-            if (yearValue.IsUndefined())
-            {
-                Throw.TypeError(_realm, "Missing year/era/eraYear");
-            }
-
-            year = TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearValue);
-        }
+        // 5. year - use eraYear if computed, otherwise read from property.
+        var year = TemporalHelpers.ResolveYearFromEraOrYear(_realm, obj, eraYear, requireYear: true, out _);
 
         // 6. Read options AFTER all fields (but BEFORE algorithmic validation)
         var overflow = TemporalHelpers.GetOverflowOption(_realm, options);
@@ -429,23 +414,8 @@ internal sealed class PlainYearMonthConstructor : Constructor
             monthFromCode = TemporalHelpers.ParseMonthCode(_realm, monthCodeStr);
         }
 
-        // 5. year - use eraYear if computed, otherwise read from property
-        int year;
-        if (eraYear.HasValue)
-        {
-            year = eraYear.Value;
-            obj.Get("year");
-        }
-        else
-        {
-            var yearValue = obj.Get("year");
-            if (yearValue.IsUndefined())
-            {
-                Throw.TypeError(_realm, "Missing year/era/eraYear");
-            }
-
-            year = TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearValue);
-        }
+        // 5. year - use eraYear if computed, otherwise read from property.
+        var year = TemporalHelpers.ResolveYearFromEraOrYear(_realm, obj, eraYear, requireYear: true, out _);
 
         // Validate monthCode suitability - only for ISO/Gregorian calendars
         if (monthCodeStr is not null && TemporalHelpers.IsGregorianBasedCalendar(calendar))

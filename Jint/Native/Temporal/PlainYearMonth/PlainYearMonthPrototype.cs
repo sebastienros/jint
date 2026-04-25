@@ -209,7 +209,13 @@ internal sealed class PlainYearMonthPrototype : Prototype
         // supplied. When monthCode IS explicitly supplied (without month), leave month=0 so
         // monthCode alone drives resolution — per NonIsoFieldKeysToIgnore, the existing date's
         // month must not be carried over and create a spurious mismatch.
-        if (!monthExplicit && !monthCodeExplicit)
+        // For lunisolar calendars (chinese, dangi, hebrew) we similarly leave month=0 so the
+        // defaulted monthCode drives, because the ordinal-to-monthCode mapping is year-dependent
+        // (e.g. Hebrew M12 is ordinal 12 in non-leap years and ordinal 13 in leap years —
+        // carrying the source ordinal across a year change to a year of different leap-status
+        // would produce a spurious month/monthCode mismatch).
+        var isLunisolar = ym.Calendar is "chinese" or "dangi" or "hebrew";
+        if (!monthExplicit && !monthCodeExplicit && !isLunisolar)
         {
             month = isNonIso8601
                 ? TemporalHelpers.CalendarMonth(ym.Calendar, ym.IsoDate)

@@ -335,23 +335,8 @@ internal sealed class PlainDateTimeConstructor : Constructor
         var secondValue = obj.Get("second");
         var second = secondValue.IsUndefined() ? 0 : TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, secondValue);
 
-        // 11. year - use eraYear if computed, otherwise read from property
-        int year;
-        if (eraYear.HasValue)
-        {
-            year = eraYear.Value;
-            obj.Get("year");
-        }
-        else
-        {
-            var yearValue = obj.Get("year");
-            if (yearValue.IsUndefined())
-            {
-                Throw.TypeError(_realm, "Missing year/era/eraYear");
-            }
-
-            year = TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearValue);
-        }
+        // 11. year - use eraYear if computed, otherwise read from property.
+        var year = TemporalHelpers.ResolveYearFromEraOrYear(_realm, obj, eraYear, requireYear: true, out _);
 
         // 12. Read options.overflow AFTER all fields (but BEFORE algorithmic validation)
         var overflow = optionsValue.IsUndefined() ? "constrain" : TemporalHelpers.GetOverflowOption(_realm, optionsValue);

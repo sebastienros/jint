@@ -254,20 +254,10 @@ internal sealed class PlainMonthDayConstructor : Constructor
             monthFromCode = TemporalHelpers.ParseMonthCode(_realm, monthCodeStr);
         }
 
-        // 5. year - use eraYear if computed, otherwise read from property
-        int year;
-        var yearExplicitlyProvided = eraYear.HasValue;
-        if (eraYear.HasValue)
-        {
-            year = eraYear.Value;
-            obj.Get("year");
-        }
-        else
-        {
-            var yearValue = obj.Get("year");
-            yearExplicitlyProvided = !yearValue.IsUndefined();
-            year = yearValue.IsUndefined() ? 1972 : TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearValue);
-        }
+        // 5. year - use eraYear if computed, otherwise read from property. PMD allows year to
+        // be omitted (uses 1972 as the reference year), so requireYear is false.
+        var year = TemporalHelpers.ResolveYearFromEraOrYear(
+            _realm, obj, eraYear, requireYear: false, out var yearExplicitlyProvided, defaultYear: 1972);
 
         // 6. Read options.overflow AFTER all fields (but BEFORE algorithmic validation)
         var overflow = optionsValue.IsUndefined() ? "constrain" : TemporalHelpers.GetOverflowOption(_realm, optionsValue);
@@ -319,6 +309,18 @@ internal sealed class PlainMonthDayConstructor : Constructor
 
         // Range validation: month/monthCode mismatch — must come AFTER required-field checks.
         month = TemporalHelpers.ValidateMonthAndMonthCode(_realm, calendar, year, month, monthCodeStr, monthFromCode);
+
+        // Bail out early when an explicit year is outside the Temporal-supported envelope
+        // (year ∈ [-271821, +275760]). Without this, `PlainMonthDay.from({ year: ±999999, ... })`
+        // would silently produce ISO dates that no other Temporal type would accept.
+        // iso8601 PMD doesn't have an "explicit year" notion in the same way and is intentionally
+        // allowed any year value (matches existing skipRangeCheck behaviour for that path).
+        if (yearExplicitlyProvided
+            && !string.Equals(calendar, "iso8601", StringComparison.Ordinal)
+            && (year < -271821 || year > 275760))
+        {
+            Throw.RangeError(_realm, "year is outside the supported range for PlainMonthDay");
+        }
 
         // For non-ISO calendars, convert calendar year/month/day to ISO
         if (!TemporalHelpers.IsGregorianBasedCalendar(calendar))

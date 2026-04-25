@@ -2290,6 +2290,58 @@ internal static class TemporalHelpers
     }
 
     /// <summary>
+    /// Resolves the calendar year from a previously-read eraYear-derived value plus the user's
+    /// "year" property. When BOTH are user-supplied they must agree (RangeError on mismatch,
+    /// per spec PrepareCalendarFields rejecting redundant inconsistent fields).
+    /// </summary>
+    /// <param name="realm">Realm for error reporting.</param>
+    /// <param name="obj">The fields object — "year" is read here for its observable side effect.</param>
+    /// <param name="eraYearDerived">Year previously computed from era/eraYear via <see cref="ReadEraFields"/>, or null.</param>
+    /// <param name="requireYear">When true and neither eraYear nor year is supplied, throws TypeError. When false, returns <paramref name="defaultYear"/>.</param>
+    /// <param name="explicitlyProvided">true when either eraYear or year was user-supplied; false when neither was supplied and <paramref name="defaultYear"/> is returned.</param>
+    /// <param name="defaultYear">Year to return when not supplied and <paramref name="requireYear"/> is false (e.g. PlainMonthDay's reference year 1972).</param>
+    /// <returns>The resolved year value.</returns>
+    internal static int ResolveYearFromEraOrYear(
+        Realm realm,
+        ObjectInstance obj,
+        int? eraYearDerived,
+        bool requireYear,
+        out bool explicitlyProvided,
+        int defaultYear = 0)
+    {
+        if (eraYearDerived.HasValue)
+        {
+            var yearValue = obj.Get("year");
+            if (!yearValue.IsUndefined())
+            {
+                var userYear = ToIntegerWithTruncationAsInt(realm, yearValue);
+                if (userYear != eraYearDerived.Value)
+                {
+                    Throw.RangeError(realm, "Mismatching era/eraYear");
+                }
+            }
+
+            explicitlyProvided = true;
+            return eraYearDerived.Value;
+        }
+
+        var yearProp = obj.Get("year");
+        if (yearProp.IsUndefined())
+        {
+            if (requireYear)
+            {
+                Throw.TypeError(realm, "Missing year/era/eraYear");
+            }
+
+            explicitlyProvided = false;
+            return defaultYear;
+        }
+
+        explicitlyProvided = true;
+        return ToIntegerWithTruncationAsInt(realm, yearProp);
+    }
+
+    /// <summary>
     /// Reads era and eraYear properties from a property bag for era-supporting calendars.
     /// Returns the computed year if era/eraYear are present, or null if they should be ignored.
     /// Throws TypeError if only one of era/eraYear is present.

@@ -164,25 +164,8 @@ internal sealed class PlainDateConstructor : Constructor
             monthFromCode = TemporalHelpers.ParseMonthCode(_realm, monthCodeStr);
         }
 
-        // 5. year - use eraYear if computed, otherwise read from property
-        int year;
-        if (eraYear.HasValue)
-        {
-            // Year was already computed from era/eraYear
-            year = eraYear.Value;
-            // Still read the year property for observable side effects, but don't require it
-            obj.Get("year");
-        }
-        else
-        {
-            var yearValue = obj.Get("year");
-            if (yearValue.IsUndefined())
-            {
-                Throw.TypeError(_realm, "Missing year/era/eraYear");
-            }
-
-            year = TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, yearValue);
-        }
+        // 5. year - use eraYear if computed, otherwise read from property.
+        var year = TemporalHelpers.ResolveYearFromEraOrYear(_realm, obj, eraYear, requireYear: true, out _);
 
         // 6. Read options AFTER all fields (but BEFORE algorithmic validation)
         var overflow = TemporalHelpers.GetOverflowOption(_realm, options);
