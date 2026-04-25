@@ -79,7 +79,7 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
                     {
                         // Reuse environment: update outer reference and reset slots
                         cachedEnv._outerEnv = oldEnv;
-                        blockState.SlotTemplates.AsSpan().CopyTo(cachedEnv._slots);
+                        ResetSlots(cachedEnv._slots!, blockState.SlotTemplates!);
                         blockEnv = cachedEnv;
                     }
                     else
@@ -242,6 +242,28 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
     protected override Completion ExecuteInternal(EvaluationContext context)
     {
         return ExecuteBlock(context);
+    }
+
+    /// <summary>
+    /// Reset the slots of a reused block environment to the pre-computed templates.
+    /// Hand-rolled small-array fast path: typical block scopes hold 1-3 bindings, where the
+    /// JIT can unroll this loop and avoid the Span construction + generic copy of CopyTo.
+    /// </summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    private static void ResetSlots(Binding[] slots, Binding[] templates)
+    {
+        var len = slots.Length;
+        if (len == templates.Length && len <= 4)
+        {
+            for (var i = 0; i < len; i++)
+            {
+                slots[i] = templates[i];
+            }
+        }
+        else
+        {
+            templates.AsSpan().CopyTo(slots);
+        }
     }
 
     /// <summary>
