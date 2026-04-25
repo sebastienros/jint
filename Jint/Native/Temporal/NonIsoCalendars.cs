@@ -564,7 +564,6 @@ internal static class NonIsoCalendars
 
         if (!int.TryParse(monthCode.AsSpan(1, 2), NumberStyles.None, CultureInfo.InvariantCulture, out displayMonth))
         {
-            displayMonth = 0;
             return false;
         }
 
