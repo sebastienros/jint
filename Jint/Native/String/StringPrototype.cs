@@ -267,21 +267,184 @@ internal sealed class StringPrototype : StringInstance
 #if NET462
             // Code specific to .NET Framework 4.6.2.
             // For no good reason this verison does not upper case these characters correctly.
-            return new JsString(s.ToUpper(culture)
+            return new JsString(ToUpperCaseWithSpecialCasing(s, culture)
                 .Replace("ϳ", "Ϳ")
                 .Replace("ʝ", "Ʝ"));
 #endif
         }
 
-        return new JsString(s.ToUpper(culture));
+        return new JsString(ToUpperCaseWithSpecialCasing(s, culture));
     }
 
     private JsValue ToUpperCase(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(_engine, thisObject);
         var s = TypeConverter.ToString(thisObject);
-        return new JsString(s.ToUpperInvariant());
+        return new JsString(ToUpperCaseWithSpecialCasing(s, CultureInfo.InvariantCulture));
     }
+
+    /// <summary>
+    /// Converts string to uppercase with Unicode SpecialCasing.txt unconditional, locale-insensitive
+    /// expansions (e.g. ß → SS, ﬀ → FF, Greek titlecase → upper + Ι).
+    /// https://www.unicode.org/Public/UCD/latest/ucd/SpecialCasing.txt
+    /// </summary>
+    private static string ToUpperCaseWithSpecialCasing(string s, CultureInfo culture)
+    {
+        // Fast path: no codepoint in the string has a SpecialCasing expansion.
+        if (!NeedsUpperSpecialCasing(s))
+        {
+            return s.ToUpper(culture);
+        }
+
+        // Stack buffer covers most strings; ValueStringBuilder rents from ArrayPool if it grows beyond.
+        Span<char> stackBuffer = stackalloc char[128];
+        var sb = new ValueStringBuilder(stackBuffer);
+        for (var i = 0; i < s.Length; i++)
+        {
+            var c = s[i];
+            var mapped = GetSpecialUpperCasing(c);
+            if (mapped is not null)
+            {
+                sb.Append(mapped);
+            }
+            else if (char.IsHighSurrogate(c) && i + 1 < s.Length && char.IsLowSurrogate(s[i + 1]))
+            {
+                // No supplementary-plane special-cased uppercase mappings — pass through.
+                sb.Append(c);
+                sb.Append(s[i + 1]);
+                i++;
+            }
+            else
+            {
+                sb.Append(char.ToUpper(c, culture));
+            }
+        }
+
+        return sb.ToString();
+    }
+
+    private static bool NeedsUpperSpecialCasing(string s)
+    {
+        foreach (var c in s)
+        {
+            if (GetSpecialUpperCasing(c) is not null)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Returns the SpecialCasing.txt unconditional uppercase expansion for a BMP code point,
+    /// or <c>null</c> if no special mapping applies.
+    /// </summary>
+    private static string? GetSpecialUpperCasing(char c) => c switch
+    {
+        'ß' => "SS",                 // ß → SS
+        'ŉ' => "ʼN",                 // ŉ → ʼN
+        'ǰ' => "J̌",                 // ǰ → J̌
+        'ΐ' => "Ϊ́",           // ΐ → Ϊ́
+        'ΰ' => "Ϋ́",           // ΰ → Ϋ́
+        'և' => "ԵՒ",                 // և → ԵՒ
+        'ẖ' => "H̱",                 // ẖ → H̱
+        'ẗ' => "T̈",                 // ẗ → T̈
+        'ẘ' => "W̊",                 // ẘ → W̊
+        'ẙ' => "Y̊",                 // ẙ → Y̊
+        'ẚ' => "Aʾ",                 // ẚ → Aʾ
+        'ὐ' => "Υ̓",                 // ὐ → Υ̓
+        'ὒ' => "Υ̓̀",           // ὒ → Υ̓̀
+        'ὔ' => "Υ̓́",           // ὔ → Υ̓́
+        'ὖ' => "Υ̓͂",           // ὖ → Υ̓͂
+        'ᾀ' => "ἈΙ",                 // ᾀ → ἈΙ
+        'ᾁ' => "ἉΙ",
+        'ᾂ' => "ἊΙ",
+        'ᾃ' => "ἋΙ",
+        'ᾄ' => "ἌΙ",
+        'ᾅ' => "ἍΙ",
+        'ᾆ' => "ἎΙ",
+        'ᾇ' => "ἏΙ",
+        'ᾈ' => "ἈΙ",
+        'ᾉ' => "ἉΙ",
+        'ᾊ' => "ἊΙ",
+        'ᾋ' => "ἋΙ",
+        'ᾌ' => "ἌΙ",
+        'ᾍ' => "ἍΙ",
+        'ᾎ' => "ἎΙ",
+        'ᾏ' => "ἏΙ",
+        'ᾐ' => "ἨΙ",
+        'ᾑ' => "ἩΙ",
+        'ᾒ' => "ἪΙ",
+        'ᾓ' => "ἫΙ",
+        'ᾔ' => "ἬΙ",
+        'ᾕ' => "ἭΙ",
+        'ᾖ' => "ἮΙ",
+        'ᾗ' => "ἯΙ",
+        'ᾘ' => "ἨΙ",
+        'ᾙ' => "ἩΙ",
+        'ᾚ' => "ἪΙ",
+        'ᾛ' => "ἫΙ",
+        'ᾜ' => "ἬΙ",
+        'ᾝ' => "ἭΙ",
+        'ᾞ' => "ἮΙ",
+        'ᾟ' => "ἯΙ",
+        'ᾠ' => "ὨΙ",
+        'ᾡ' => "ὩΙ",
+        'ᾢ' => "ὪΙ",
+        'ᾣ' => "ὫΙ",
+        'ᾤ' => "ὬΙ",
+        'ᾥ' => "ὭΙ",
+        'ᾦ' => "ὮΙ",
+        'ᾧ' => "ὯΙ",
+        'ᾨ' => "ὨΙ",
+        'ᾩ' => "ὩΙ",
+        'ᾪ' => "ὪΙ",
+        'ᾫ' => "ὫΙ",
+        'ᾬ' => "ὬΙ",
+        'ᾭ' => "ὭΙ",
+        'ᾮ' => "ὮΙ",
+        'ᾯ' => "ὯΙ",
+        'ᾲ' => "ᾺΙ",                 // ᾲ → ᾺΙ
+        'ᾳ' => "ΑΙ",                 // ᾳ → ΑΙ
+        'ᾴ' => "ΆΙ",                 // ᾴ → ΆΙ
+        'ᾶ' => "Α͂",                 // ᾶ → Α͂
+        'ᾷ' => "Α͂Ι",           // ᾷ → Α͂Ι
+        'ᾼ' => "ΑΙ",                 // ᾼ → ΑΙ
+        'ῂ' => "ῊΙ",
+        'ῃ' => "ΗΙ",
+        'ῄ' => "ΉΙ",
+        'ῆ' => "Η͂",
+        'ῇ' => "Η͂Ι",
+        'ῌ' => "ΗΙ",
+        'ῒ' => "Ϊ̀",
+        'ΐ' => "Ϊ́",
+        'ῖ' => "Ι͂",
+        'ῗ' => "Ϊ͂",
+        'ῢ' => "Ϋ̀",
+        'ΰ' => "Ϋ́",
+        'ῤ' => "Ρ̓",
+        'ῦ' => "Υ͂",
+        'ῧ' => "Ϋ͂",
+        'ῲ' => "ῺΙ",
+        'ῳ' => "ΩΙ",
+        'ῴ' => "ΏΙ",
+        'ῶ' => "Ω͂",
+        'ῷ' => "Ω͂Ι",
+        'ῼ' => "ΩΙ",
+        'ﬀ' => "FF",                 // ﬀ → FF
+        'ﬁ' => "FI",                 // ﬁ → FI
+        'ﬂ' => "FL",                 // ﬂ → FL
+        'ﬃ' => "FFI",           // ﬃ → FFI
+        'ﬄ' => "FFL",           // ﬄ → FFL
+        'ﬅ' => "ST",                 // ﬅ → ST
+        'ﬆ' => "ST",                 // ﬆ → ST
+        'ﬓ' => "ՄՆ",
+        'ﬔ' => "ՄԵ",
+        'ﬕ' => "ՄԻ",
+        'ﬖ' => "ՎՆ",
+        'ﬗ' => "ՄԽ",
+        _ => null
+    };
 
     private JsValue ToLocaleLowerCase(JsValue thisObject, JsCallArguments arguments)
     {
@@ -325,7 +488,9 @@ internal sealed class StringPrototype : StringInstance
             return s.ToLower(culture);
         }
 
-        var sb = new System.Text.StringBuilder(s.Length + 4);
+        // Stack buffer covers most strings; ValueStringBuilder rents from ArrayPool if it grows beyond.
+        Span<char> stackBuffer = stackalloc char[128];
+        var sb = new ValueStringBuilder(stackBuffer);
 
         for (var i = 0; i < s.Length; i++)
         {
@@ -614,18 +779,32 @@ internal sealed class StringPrototype : StringInstance
     {
         // Check backward: must find a cased letter (skipping Case_Ignorable)
         var foundCasedBefore = false;
-        for (var i = index - 1; i >= 0; i--)
+        var i = index - 1;
+        while (i >= 0)
         {
-            var c = s[i];
-            if (IsCased(c))
+            int cp;
+            int step;
+            if (char.IsLowSurrogate(s[i]) && i - 1 >= 0 && char.IsHighSurrogate(s[i - 1]))
+            {
+                cp = char.ConvertToUtf32(s[i - 1], s[i]);
+                step = 2;
+            }
+            else
+            {
+                cp = s[i];
+                step = 1;
+            }
+
+            if (IsCased(cp))
             {
                 foundCasedBefore = true;
                 break;
             }
-            if (!IsCaseIgnorable(c))
+            if (!IsCaseIgnorable(cp))
             {
                 break;
             }
+            i -= step;
         }
 
         if (!foundCasedBefore)
@@ -634,17 +813,31 @@ internal sealed class StringPrototype : StringInstance
         }
 
         // Check forward: must NOT find a cased letter (skipping Case_Ignorable)
-        for (var i = index + 1; i < s.Length; i++)
+        var j = index + 1;
+        while (j < s.Length)
         {
-            var c = s[i];
-            if (IsCased(c))
+            int cp;
+            int step;
+            if (char.IsHighSurrogate(s[j]) && j + 1 < s.Length && char.IsLowSurrogate(s[j + 1]))
+            {
+                cp = char.ConvertToUtf32(s[j], s[j + 1]);
+                step = 2;
+            }
+            else
+            {
+                cp = s[j];
+                step = 1;
+            }
+
+            if (IsCased(cp))
             {
                 return false; // Found cased letter after, so NOT Final_Sigma
             }
-            if (!IsCaseIgnorable(c))
+            if (!IsCaseIgnorable(cp))
             {
                 break;
             }
+            j += step;
         }
 
         return true;
@@ -655,10 +848,19 @@ internal sealed class StringPrototype : StringInstance
     /// A character is cased if it has the Lowercase or Uppercase property, or has General_Category=Titlecase_Letter.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsCased(char c)
+    private static bool IsCased(int cp)
     {
         // Cased = Lowercase OR Uppercase OR General_Category=Lt
-        return char.IsLetter(c) && (char.IsLower(c) || char.IsUpper(c) || CharUnicodeInfo.GetUnicodeCategory(c) == UnicodeCategory.TitlecaseLetter);
+        if (cp <= 0xFFFF)
+        {
+            var c = (char) cp;
+            return char.IsLetter(c) && (char.IsLower(c) || char.IsUpper(c) || CharUnicodeInfo.GetUnicodeCategory(c) == UnicodeCategory.TitlecaseLetter);
+        }
+
+        var category = CharUnicodeInfo.GetUnicodeCategory(char.ConvertFromUtf32(cp), 0);
+        return category is UnicodeCategory.LowercaseLetter
+            or UnicodeCategory.UppercaseLetter
+            or UnicodeCategory.TitlecaseLetter;
     }
 
     /// <summary>
@@ -667,24 +869,32 @@ internal sealed class StringPrototype : StringInstance
     /// Lm (Modifier_Letter), Sk (Modifier_Symbol), and characters with Word_Break property MidLetter, MidNumLet, or Single_Quote.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsCaseIgnorable(char c)
+    private static bool IsCaseIgnorable(int cp)
     {
-        var category = CharUnicodeInfo.GetUnicodeCategory(c);
+        var category = cp <= 0xFFFF
+            ? CharUnicodeInfo.GetUnicodeCategory((char) cp)
+            : CharUnicodeInfo.GetUnicodeCategory(char.ConvertFromUtf32(cp), 0);
         return category == UnicodeCategory.NonSpacingMark ||      // Mn
                category == UnicodeCategory.EnclosingMark ||       // Me
                category == UnicodeCategory.Format ||              // Cf (includes U+180E Mongolian Vowel Separator)
                category == UnicodeCategory.ModifierLetter ||      // Lm
                category == UnicodeCategory.ModifierSymbol ||      // Sk
-               c == '\u0027' ||                                   // APOSTROPHE (Word_Break=Single_Quote)
-               c == '\u00B7' ||                                   // MIDDLE DOT (Word_Break=MidLetter)
-               c == '\u0387' ||                                   // GREEK ANO TELEIA (Word_Break=MidLetter)
-               c == '\u05F4' ||                                   // HEBREW PUNCTUATION GERSHAYIM (Word_Break=MidLetter)
-               c == '\u2019' ||                                   // RIGHT SINGLE QUOTATION MARK (Word_Break=Single_Quote)
-               c == '\u2027' ||                                   // HYPHENATION POINT (Word_Break=MidLetter)
-               c == '\uFE13' ||                                   // PRESENTATION FORM FOR VERTICAL COLON (Word_Break=MidLetter)
-               c == '\uFE55' ||                                   // SMALL COLON (Word_Break=MidLetter)
-               c == '\uFF07' ||                                   // FULLWIDTH APOSTROPHE (Word_Break=MidNumLet)
-               c == '\uFF1A';                                     // FULLWIDTH COLON (Word_Break=MidLetter)
+               cp == 0x0027 ||                                    // APOSTROPHE (Word_Break=Single_Quote)
+               cp == 0x002E ||                                    // FULL STOP (Word_Break=MidNumLet)
+               cp == 0x003A ||                                    // COLON (Word_Break=MidLetter)
+               cp == 0x00B7 ||                                    // MIDDLE DOT (Word_Break=MidLetter)
+               cp == 0x0387 ||                                    // GREEK ANO TELEIA (Word_Break=MidLetter)
+               cp == 0x05F4 ||                                    // HEBREW PUNCTUATION GERSHAYIM (Word_Break=MidLetter)
+               cp == 0x2018 ||                                    // LEFT SINGLE QUOTATION MARK (Word_Break=MidNumLet)
+               cp == 0x2019 ||                                    // RIGHT SINGLE QUOTATION MARK (Word_Break=Single_Quote)
+               cp == 0x2024 ||                                    // ONE DOT LEADER (Word_Break=MidNumLet)
+               cp == 0x2027 ||                                    // HYPHENATION POINT (Word_Break=MidLetter)
+               cp == 0xFE13 ||                                    // PRESENTATION FORM FOR VERTICAL COLON (Word_Break=MidLetter)
+               cp == 0xFE52 ||                                    // SMALL FULL STOP (Word_Break=MidNumLet)
+               cp == 0xFE55 ||                                    // SMALL COLON (Word_Break=MidLetter)
+               cp == 0xFF07 ||                                    // FULLWIDTH APOSTROPHE (Word_Break=MidNumLet)
+               cp == 0xFF0E ||                                    // FULLWIDTH FULL STOP (Word_Break=MidNumLet)
+               cp == 0xFF1A;                                      // FULLWIDTH COLON (Word_Break=MidLetter)
     }
 
     private static int ToIntegerSupportInfinity(JsValue numberVal)

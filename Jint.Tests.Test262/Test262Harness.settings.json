@@ -13,15 +13,6 @@
   ],
   "ExcludedFiles": [
 
-    // Currently quite impossible to detect if assignment target is CoverParenthesizedExpression
-    "language/expressions/assignment/fn-name-lhs-cover.js",
-
-    // requires investigation how to process complex function name evaluation for property
-    "built-ins/Function/prototype/toString/method-computed-property-name.js",
-
-    // special casing data
-    "built-ins/**/special_casing*.js",
-
     // === INTL402 EXCLUSIONS ===
     // The following tests require full CLDR locale data support which is not available in the default provider.
     // Many of these tests require non-English locales (Spanish, Polish, German, Chinese, etc.) or
