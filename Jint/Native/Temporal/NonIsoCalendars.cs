@@ -460,9 +460,9 @@ internal static class NonIsoCalendars
     /// Returns the non-leap monthCode equivalent for a leap monthCode in a given calendar.
     /// Used when constraining a leap-month date into a year that doesn't have that leap month.
     /// chinese/dangi: M0NL → M0N (same display number, drop the 'L' suffix).
-    /// hebrew: M05L (Adar I) → M06 (Adar). In Hebrew leap years M05L precedes M06 (Adar II);
-    /// in non-leap years there's only one Adar, named M06. So constraining advances by one
-    /// display number rather than dropping 'L'.
+    /// hebrew: M05L (Adar I) → M06 (Adar). M05L is Hebrew's only valid leap monthCode
+    /// (validated upstream by <see cref="TryValidateMonthCode"/>); in non-leap years its sole
+    /// non-leap equivalent is M06 (the regular Adar).
     /// Non-leap monthCodes are returned unchanged.
     /// </summary>
     internal static string NonLeapEquivalentMonthCode(string calendar, string monthCode)
@@ -474,9 +474,8 @@ internal static class NonIsoCalendars
 
         if (string.Equals(calendar, "hebrew", StringComparison.Ordinal))
         {
-            // Hebrew M##L (only M05L is defined) maps to the FOLLOWING display month, not the same
-            var displayMonth = int.Parse(monthCode.AsSpan(1, 2), NumberStyles.None, CultureInfo.InvariantCulture);
-            return $"M{displayMonth + 1:D2}";
+            // Hebrew has exactly one leap monthCode: M05L (Adar I) → M06 (Adar).
+            return "M06";
         }
 
         // chinese, dangi: drop the trailing 'L'
