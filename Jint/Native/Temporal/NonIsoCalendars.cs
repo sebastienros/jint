@@ -253,165 +253,147 @@ internal static class NonIsoCalendars
 
     /// <summary>
     /// Computes the difference between two ISO dates using calendar-specific reckoning.
+    /// Mirrors the temporal-polyfill HelperBase.untilCalendar algorithm:
+    /// (1) compute years from a "diffInYearSign" formula based on monthCode/day position,
+    /// (2) optionally pre-skip whole-cycle months for largestUnit=month,
+    /// (3) iterate ±1 month at a time, comparing in calendar-field space with the day
+    ///     un-constrained (so a day forced down by AddCalendar still counts as "past target"),
+    /// (4) measure remaining days as ISO epoch-day diff.
     /// </summary>
     internal static DurationRecord CalendarDateUntil(string calendar, in IsoDate one, in IsoDate two, string largestUnit)
     {
-        var sign = TemporalHelpers.CompareIsoDates(one, two);
-        if (sign == 0)
+        var rawSign = TemporalHelpers.CompareIsoDates(one, two);
+        if (rawSign == 0)
         {
             return new DurationRecord(0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
         }
 
-        // For day and week, use epoch day arithmetic (same as ISO)
-        if (largestUnit is "day" or "week")
+        var epochOne = TemporalHelpers.IsoDateToDays(one.Year, one.Month, one.Day);
+        var epochTwo = TemporalHelpers.IsoDateToDays(two.Year, two.Month, two.Day);
+
+        if (string.Equals(largestUnit, "week", StringComparison.Ordinal))
         {
-            var epochOne = TemporalHelpers.IsoDateToDays(one.Year, one.Month, one.Day);
-            var epochTwo = TemporalHelpers.IsoDateToDays(two.Year, two.Month, two.Day);
             var totalDays = (int) (epochTwo - epochOne);
-
-            if (string.Equals(largestUnit, "week", StringComparison.Ordinal))
-            {
-                var w = totalDays / 7;
-                var d = totalDays - w * 7;
-                return new DurationRecord(0, 0, w, d, 0, 0, 0, 0, 0, 0);
-            }
-
-            return new DurationRecord(0, 0, 0, totalDays, 0, 0, 0, 0, 0, 0);
+            var w = totalDays / 7;
+            return new DurationRecord(0, 0, w, totalDays - w * 7, 0, 0, 0, 0, 0, 0);
         }
 
-        // Calendar-aware year/month difference
-        sign = -sign; // negate per spec
+        if (!string.Equals(largestUnit, "year", StringComparison.Ordinal) &&
+            !string.Equals(largestUnit, "month", StringComparison.Ordinal))
+        {
+            // "day" or smaller: the date portion is just the ISO-day diff.
+            return new DurationRecord(0, 0, 0, (int) (epochTwo - epochOne), 0, 0, 0, 0, 0, 0);
+        }
+
+        // Spec convention: sign = +1 if two > one (forward), -1 if backward.
+        var sign = -rawSign;
 
         var calOne = IsoToCalendarDate(calendar, one);
         var calTwo = IsoToCalendarDate(calendar, two);
 
-        int years = 0;
-        if (string.Equals(largestUnit, "year", StringComparison.Ordinal))
+        var years = 0;
+        var diffYears = calTwo.Year - calOne.Year;
+        if (diffYears != 0)
         {
-            years = calTwo.Year - calOne.Year;
-            // Check if we overshot or day was constrained (wrapping at end of month/year)
+            int diffInYearSign;
+            var mcCmp = string.CompareOrdinal(calTwo.MonthCode, calOne.MonthCode);
+            if (mcCmp > 0) diffInYearSign = 1;
+            else if (mcCmp < 0) diffInYearSign = -1;
+            else diffInYearSign = System.Math.Sign(calTwo.Day - calOne.Day);
+
+            var isOneFurtherInYear = diffInYearSign * sign < 0;
+            years = isOneFurtherInYear ? diffYears - sign : diffYears;
+
+            // Strict overshoot follow-up using un-constrained-day comparison: this catches the
+            // case where AddCalendar's constrain mode forced the day down to fit a shorter target
+            // month. The spec treats "would-be day exists in target's month?" as the overshoot
+            // criterion, so an intermediate that landed at the target only because the day was
+            // truncated should NOT count as a full year. Chinese/Hebrew leap-month wrapping plus
+            // day-overflow within the same year boundary all flow through this check.
             if (years != 0)
             {
                 var check = CalendarDateAdd(calendar, one, years, 0, "constrain");
-                var cmp = TemporalHelpers.CompareIsoDates(check, two);
-                if (sign > 0 && cmp > 0 || sign < 0 && cmp < 0)
+                var checkCal = IsoToCalendarDate(calendar, check);
+                var notional = checkCal.Day != calOne.Day ? calOne.Day : checkCal.Day;
+                var ccd = CompareCalendarFields(calTwo.Year, calTwo.MonthCode, calTwo.Day, checkCal.Year, checkCal.MonthCode, notional);
+                if (ccd * sign < 0)
                 {
                     years -= sign;
                 }
-                else if (cmp == 0)
-                {
-                    // Check if day or monthCode was constrained (wrapping)
-                    // This catches: day constraining (e.g., M13 day 6 → 5) and
-                    // leap month constraining (e.g., M05L → M06 when target year has no leap month)
-                    // Compare MonthCode (not ordinal Month) since ordinal shifts between leap/non-leap years
-                    var checkCal = IsoToCalendarDate(calendar, check);
-                    if (checkCal.Day != calOne.Day || !string.Equals(checkCal.MonthCode, calOne.MonthCode, System.StringComparison.Ordinal))
-                    {
-                        years -= sign;
-                    }
-                }
             }
         }
 
-        int months = 0;
-        if (largestUnit is "year" or "month")
+        var months = 0;
+        if (string.Equals(largestUnit, "month", StringComparison.Ordinal))
         {
-            if (string.Equals(largestUnit, "month", StringComparison.Ordinal))
+            if (years != 0)
             {
-                // Estimate total months
-                Calendar? cal = calendar is "coptic" or "ethiopic" or "ethioaa" or "indian" or "islamic-civil" or "islamic-tbla" or "islamic-umalqura" ? null : GetCalendar(calendar);
-                var totalMonths = 0;
-                if (calTwo.Year == calOne.Year)
-                {
-                    totalMonths = calTwo.Month - calOne.Month;
-                }
-                else if (cal is null)
-                {
-                    // Fixed-month calendars: compute directly instead of looping per year
-                    var monthsPerYear = GetMonthsInYear(calendar, null, 0);
-                    totalMonths = (calTwo.Year - calOne.Year) * monthsPerYear + (calTwo.Month - calOne.Month);
-                }
-                else if (calTwo.Year > calOne.Year)
-                {
-                    // Variable-month calendars (Chinese, Dangi, Hebrew): must loop
-                    for (var y = calOne.Year; y < calTwo.Year; y++)
-                    {
-                        totalMonths += GetMonthsInYear(calendar, cal, y);
-                    }
-
-                    totalMonths += calTwo.Month - calOne.Month;
-                }
-                else
-                {
-                    // Variable-month calendars, backward
-                    for (var y = calTwo.Year; y < calOne.Year; y++)
-                    {
-                        totalMonths -= GetMonthsInYear(calendar, cal, y);
-                    }
-
-                    totalMonths += calTwo.Month - calOne.Month;
-                }
-
-                months = totalMonths;
-                // Check if we overshot (including day constraint cases)
-                if (months != 0)
-                {
-                    var check = CalendarDateAdd(calendar, one, 0, months, "constrain");
-                    var cmp = TemporalHelpers.CompareIsoDates(check, two);
-                    if (sign > 0 && cmp > 0 || sign < 0 && cmp < 0)
-                    {
-                        months -= sign;
-                    }
-                    else if (cmp == 0)
-                    {
-                        // Intermediate equals target - check if day was constrained
-                        var checkCal = IsoToCalendarDate(calendar, check);
-                        if (sign > 0 && checkCal.Day < calOne.Day ||
-                            sign < 0 && checkCal.Day > calOne.Day)
-                        {
-                            months -= sign;
-                        }
-                    }
-                }
+                // Whole-year skip estimate. The iteration loop below corrects for
+                // year-length variation in lunisolar calendars (Hebrew/Chinese/Dangi).
+                var monthsPerCycle = calendar is "coptic" or "ethiopic" or "ethioaa" ? 13 : 12;
+                months = years * monthsPerCycle;
             }
-            else
-            {
-                // largestUnit is "year" - count remaining months after years
-                var intermediate = CalendarDateAdd(calendar, one, years, 0, "constrain");
-                var candidateMonths = sign;
-                while (true)
-                {
-                    var check = CalendarDateAdd(calendar, one, years, candidateMonths, "constrain");
-                    var cmp = TemporalHelpers.CompareIsoDates(check, two);
-                    if (sign > 0 && cmp > 0 || sign < 0 && cmp < 0)
-                    {
-                        break;
-                    }
-
-                    // Check for day constraining (wrapping at end of month)
-                    if (cmp == 0)
-                    {
-                        var checkCal = IsoToCalendarDate(calendar, check);
-                        if (sign > 0 && checkCal.Day < calOne.Day ||
-                            sign < 0 && checkCal.Day > calOne.Day)
-                        {
-                            break;
-                        }
-                    }
-
-                    months = candidateMonths;
-                    candidateMonths += sign;
-                }
-            }
+            years = 0;
         }
 
-        // Compute remaining days
-        var afterYearsMonths = CalendarDateAdd(calendar, one, years, months, "constrain");
-        var epochIntermediate = TemporalHelpers.IsoDateToDays(afterYearsMonths.Year, afterYearsMonths.Month, afterYearsMonths.Day);
-        var epochTwoVal = TemporalHelpers.IsoDateToDays(two.Year, two.Month, two.Day);
-        var remainingDays = (int) (epochTwoVal - epochIntermediate);
+        var currentIso = years != 0 || months != 0
+            ? CalendarDateAdd(calendar, one, years, months, "constrain")
+            : one;
 
-        return new DurationRecord(years, months, 0, remainingDays, 0, 0, 0, 0, 0, 0);
+        while (true)
+        {
+            var prevMonths = months;
+            months += sign;
+            var nextIso = CalendarDateAdd(calendar, one, years, months, "constrain");
+            var nextCal = IsoToCalendarDate(calendar, nextIso);
+            // Un-constrain the day in calendar-field space: if AddCalendar forced day down
+            // to fit the target month, we still want to consider "next" as standing at the
+            // source's original day for comparison (matches polyfill behavior).
+            var notionalDay = nextCal.Day != calOne.Day ? calOne.Day : nextCal.Day;
+
+            var ccd = CompareCalendarFields(calTwo.Year, calTwo.MonthCode, calTwo.Day, nextCal.Year, nextCal.MonthCode, notionalDay);
+
+            // Continue while ccd * sign >= 0 (next has not yet passed two).
+            if (ccd * sign < 0)
+            {
+                months = prevMonths;
+                break;
+            }
+
+            currentIso = nextIso;
+        }
+
+        var epochCurrent = TemporalHelpers.IsoDateToDays(currentIso.Year, currentIso.Month, currentIso.Day);
+        var days = (int) (epochTwo - epochCurrent);
+
+        return new DurationRecord(years, months, 0, days, 0, 0, 0, 0, 0, 0);
+    }
+
+    /// <summary>
+    /// Compares two calendar-field tuples (year, monthCode, day) lexicographically.
+    /// MonthCode comparison is ordinal-string (so "M05" &lt; "M05L" &lt; "M06"), which matches the
+    /// chronological order of months within a year for all supported calendars.
+    /// Returns +1 if A > B, -1 if A &lt; B, 0 if equal.
+    /// </summary>
+    private static int CompareCalendarFields(int aYear, string aMonthCode, int aDay, int bYear, string bMonthCode, int bDay)
+    {
+        if (aYear != bYear)
+        {
+            return aYear > bYear ? 1 : -1;
+        }
+
+        var mcCmp = string.CompareOrdinal(aMonthCode, bMonthCode);
+        if (mcCmp != 0)
+        {
+            return mcCmp > 0 ? 1 : -1;
+        }
+
+        if (aDay != bDay)
+        {
+            return aDay > bDay ? 1 : -1;
+        }
+
+        return 0;
     }
 
     /// <summary>
