@@ -1,4 +1,3 @@
-using System.Threading;
 using Jint.Native;
 using Jint.Native.Promise;
 using Jint.Runtime.Descriptors;
@@ -73,7 +72,8 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
                 if (blockState.SlotNames is not null)
                 {
                     // Try to reuse cached environment (only valid for same Engine)
-                    var cachedEnv = Interlocked.Exchange(ref blockState._cachedEnv, null);
+                    var cachedEnv = blockState._cachedEnv;
+                    blockState._cachedEnv = null;
 
                     if (cachedEnv is not null && ReferenceEquals(cachedEnv._engine, engine))
                     {
@@ -143,7 +143,7 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
                 // Return environment to cache for reuse (slots only exist when CanReuseEnvironment=true)
                 if (blockEnv._slots is not null)
                 {
-                    Interlocked.Exchange(ref blockState._cachedEnv, blockEnv);
+                    blockState._cachedEnv = blockEnv;
                 }
 
                 blockValue = blockEnv.DisposeResources(blockValue);
@@ -262,7 +262,7 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
         /// </summary>
         public readonly bool CanReuseEnvironment;
 
-        // Cached environment for reuse (thread-safe via Interlocked.Exchange)
+        // Cached environment for reuse — single-threaded engine, plain field access is sufficient.
         public DeclarativeEnvironment? _cachedEnv;
 
         public BlockState(DeclarationCache declarationCache, BlockStatement blockStatement)

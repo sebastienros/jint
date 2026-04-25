@@ -1,4 +1,3 @@
-using System.Threading;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -122,17 +121,16 @@ public sealed class ScriptFunction : Function, IConstructor
             {
                 if (funcEnv is not null)
                 {
-                    // Cache the slot array for reuse by next call to the same function (thread-safe)
+                    // Pool returns: plain writes are sufficient — the engine is single-threaded for a
+                    // given execution; a concurrent misuse would at worst lose a pooled object (one
+                    // extra allocation), never produce stale state.
                     if (funcEnv._slots is { } slots)
                     {
                         System.Array.Clear(slots, 0, slots.Length);
-                        Interlocked.Exchange(ref state!._cachedSlots, slots);
+                        state!._cachedSlots = slots;
                         funcEnv._slots = null;
                     }
-
-                    // Return the env itself to the per-State pool so the next call to a function
-                    // sharing this State (typically the same Function instance) avoids the allocation.
-                    Interlocked.Exchange(ref state!._cachedEnv, funcEnv);
+                    state!._cachedEnv = funcEnv;
                 }
                 _engine.LeaveExecutionContext();
             }

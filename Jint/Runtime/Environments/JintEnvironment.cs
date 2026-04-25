@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using System.Threading;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -89,9 +88,14 @@ internal static class JintEnvironment
         // slot-binding cache caches resolve-env references and trusts that they remain stable for
         // the lifetime of the function instance that captured them. If the EnvironmentMayEscape gate
         // is widened beyond closure-targets, that cache must be revisited.
-        if (state is { EnvironmentMayEscape: false }
-            && Interlocked.Exchange(ref state._cachedEnv, null) is { } cachedEnv
-            && ReferenceEquals(cachedEnv._engine, engine))
+        FunctionEnvironment? cachedEnv = null;
+        if (state is { EnvironmentMayEscape: false })
+        {
+            cachedEnv = state._cachedEnv;
+            state._cachedEnv = null;
+        }
+
+        if (cachedEnv is not null && ReferenceEquals(cachedEnv._engine, engine))
         {
             cachedEnv.Reset(f, newTarget, f._environment);
             env = cachedEnv;
@@ -107,8 +111,9 @@ internal static class JintEnvironment
         if (state is { UseFixedSlots: true })
         {
             env._slotNames = state.SlotNames;
-            // Try to reuse cached slots from previous call to same function (thread-safe)
-            var cached = Interlocked.Exchange(ref state._cachedSlots, null);
+            // Try to reuse cached slots from previous call to same function
+            var cached = state._cachedSlots;
+            state._cachedSlots = null;
             env._slots = cached ?? new Binding[state.SlotNames!.Length];
         }
 
