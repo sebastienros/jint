@@ -365,19 +365,28 @@ internal sealed class PlainMonthDayConstructor : Constructor
             // the requested day:
             //   leap max < day  AND  regular max ≥ leap max  → regular month wins (preserves
             //   more of the requested day, even when also constraining).
-            if (!yearExplicitlyProvided
-                && effectiveMonthCode is { Length: 4 } leapMc
+            if (effectiveMonthCode is { Length: 4 } leapMc
                 && leapMc[3] == 'L'
                 && (calendar is "chinese" or "dangi"))
             {
+                // Use the ORIGINAL day (not actualDay, which may have been constrained by the
+                // explicit-year validation) so the fallback decision considers the user's intent.
+                var fallbackProbeDay = yearExplicitlyProvided ? day : actualDay;
                 var leapMax = NonIsoCalendars.MaxDaysForChineseLeapMonth(calendar, leapMc);
-                if (leapMax < actualDay)
+                if (leapMax < fallbackProbeDay)
                 {
                     var regularMc = leapMc.Substring(0, 3);
                     var regularMax = NonIsoCalendars.MaxDaysForChineseRegularMonth(calendar, regularMc);
                     if (regularMax > leapMax)
                     {
                         effectiveMonthCode = regularMc;
+                        // Re-anchor day too: when falling back to the regular month from the
+                        // user's leap monthCode, preserve the user's original day (the
+                        // explicit-year validation may have constrained it).
+                        if (yearExplicitlyProvided && day > actualDay)
+                        {
+                            actualDay = day;
+                        }
                         if (string.Equals(overflow, "reject", StringComparison.Ordinal))
                         {
                             // Per spec, when the user requested a leap monthCode and the day

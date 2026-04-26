@@ -84,8 +84,6 @@
     "intl402/Temporal/PlainDateTime/prototype/inLeapYear/basic-islamic-umalqura.js",
     "intl402/Temporal/PlainDateTime/prototype/with/basic-islamic-umalqura.js",
     "intl402/Temporal/PlainDateTime/prototype/withCalendar/extreme-dates.js",
-    "intl402/Temporal/PlainMonthDay/from/chinese-dangi-leap-month-with-year-from-options-bag-overflow-reject.js",
-    "intl402/Temporal/PlainMonthDay/from/chinese-dangi-leap-month-with-year-from-options-bag.js",
     "intl402/Temporal/PlainMonthDay/from/islamic-umalqura-month-codes.js",
     "intl402/Temporal/PlainYearMonth/from/extreme-dates.js",
     "intl402/Temporal/PlainYearMonth/from/extreme-unsupported-dates.js",
