@@ -370,6 +370,40 @@ internal static class NonIsoCalendars
     }
 
     /// <summary>
+    /// Returns true if there is at least one Chinese/Dangi calendar year (within a wide
+    /// search window around the canonical 1972 anchor) in which the given leap monthCode
+    /// has at least <paramref name="day"/> days. Used by PlainMonthDay to decide whether
+    /// to fall back to the regular (non-leap) monthCode when the leap monthCode never
+    /// admits the requested day (e.g. chinese M02L D30).
+    /// </summary>
+    internal static bool IsLeapMonthRepresentableForDay(string calendar, string monthCode, int day)
+    {
+        if (calendar is not ("chinese" or "dangi")) return true;
+        if (monthCode.Length != 4 || monthCode[3] != 'L') return true;
+
+        var cal = GetCalendar(calendar);
+        var approxYear = IsoYearToCalendarYear(calendar, cal, 1972);
+        for (var y = approxYear - 75; y <= approxYear + 75; y++)
+        {
+            var leapOrdinal = GetLeapMonthOrdinal(calendar, cal, y);
+            if (leapOrdinal <= 0) continue;
+            try
+            {
+                var ord = MonthCodeToOrdinal(calendar, cal, y, monthCode, "reject");
+                if (ord <= 0) continue;
+                var maxDay = GetDaysInMonthCal(cal, y, ord);
+                if (maxDay >= day) return true;
+            }
+            catch
+            {
+                // monthCode doesn't exist this year
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Compares two calendar-field tuples (year, monthCode, day) lexicographically.
     /// MonthCode comparison is ordinal-string (so "M05" &lt; "M05L" &lt; "M06"), which matches the
     /// chronological order of months within a year for all supported calendars.
@@ -778,6 +812,43 @@ internal static class NonIsoCalendars
         if (bestYear != int.MinValue)
         {
             return bestYear;
+        }
+
+        // Pass 1.5: rare leap months (chinese M09L/M10L/M11L, etc.) may not occur in any year
+        // ≤ isoReferenceYear. Look forward for the SOONEST future year that admits the
+        // un-constrained day; per the spec note in chinese-leap-month-codes-common, "uncommon"
+        // leap months use a reference year in the near future when no past year qualifies.
+        if (isLeapMonthCode)
+        {
+            var futureYear = int.MinValue;
+            var futureIsoTicks = long.MaxValue;
+            for (var y = approxYear - window; y <= approxYear + window; y++)
+            {
+                var leapOrdinal = GetLeapMonthOrdinal(calendar, cal, y);
+                if (leapOrdinal <= 0) continue;
+
+                try
+                {
+                    var ordinal = MonthCodeToOrdinal(calendar, cal, y, monthCode, "reject");
+                    var maxDay = GetDaysInMonthCal(cal, y, ordinal);
+                    if (day > maxDay) continue;
+                    var dt = cal.ToDateTime(y, ordinal, day, 0, 0, 0, 0);
+                    if (dt.Ticks > upperBound && dt.Ticks < futureIsoTicks)
+                    {
+                        futureIsoTicks = dt.Ticks;
+                        futureYear = y;
+                    }
+                }
+                catch
+                {
+                    // skip
+                }
+            }
+
+            if (futureYear != int.MinValue)
+            {
+                return futureYear;
+            }
         }
 
         // Fallback: when no year has the day un-constrained, pick the year where this monthCode
@@ -2399,6 +2470,15 @@ internal static class NonIsoCalendars
     private static CalendarDate IslamicUmalquraToCalendarDate(in IsoDate isoDate)
     {
         var cal = UmAlQuraCal;
+
+        // ISO year may fall outside System.DateTime's 1–9999 range; route directly to the
+        // tabular fallback for those years rather than letting `new DateTime` throw and the
+        // outer catch return ISO-like fields.
+        if (isoDate.Year < 1 || isoDate.Year > 9999)
+        {
+            return IslamicCivilToCalendarDate(isoDate);
+        }
+
         var dt = new DateTime(isoDate.Year, isoDate.Month, isoDate.Day);
 
         if (dt >= cal.MinSupportedDateTime && dt <= cal.MaxSupportedDateTime)
@@ -2501,15 +2581,15 @@ internal static class NonIsoCalendars
     }
 
     /// <summary>
-    /// Converts an ISO date to Julian Day Number.
+    /// Converts an ISO date (proleptic Gregorian) to a Julian Day Number.
+    /// Uses Howard Hinnant's epoch-day formula (via TemporalHelpers.IsoDateToDays) plus the
+    /// constant offset 2440588 (= JDN of 1970-01-01) so that the result is correct for any
+    /// proleptic ISO year — the older Fliegel–Van Flandern formula written here previously
+    /// used truncating C# integer division and broke for years &lt; −4800.
     /// </summary>
     private static long IsoToJulianDay(int year, int month, int day)
     {
-        // Algorithm: ISO (proleptic Gregorian) to JDN
-        long a = (14L - month) / 12;
-        long y = year + 4800 - a;
-        long m = month + 12 * a - 3;
-        return day + (153 * m + 2) / 5 + 365 * y + y / 4 - y / 100 + y / 400 - 32045;
+        return TemporalHelpers.IsoDateToDays(year, month, day) + 2440588L;
     }
 
     /// <summary>

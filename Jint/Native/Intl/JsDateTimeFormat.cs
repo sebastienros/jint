@@ -270,9 +270,10 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             "hebrew" => GetHebrewEra(style, eraNames),
             "persian" => GetPersianEra(style, eraNames),
             "indian" => GetIndianEra(style, eraNames),
-            "ethioaa" or "ethiopic" => GetEthiopicEra(style, eraNames),
+            "ethiopic" => GetEthiopicEra(dateTime, style, eraNames),
+            "ethioaa" => GetEthioAaEra(style, eraNames),
             "coptic" => GetCopticEra(effectiveYear, style, eraNames),
-            "islamic" or "islamic-civil" or "islamic-tbla" or "islamic-umalqura" => GetIslamicEra(style, eraNames),
+            "islamic" or "islamic-civil" or "islamic-tbla" or "islamic-umalqura" => GetIslamicEra(dateTime, style, eraNames),
             _ => GetGregorianEra(effectiveYear, style, eraNames) // Default to Gregorian
         };
     }
@@ -404,43 +405,57 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         };
     }
 
-    private static string GetEthiopicEra(string style, string[]? eraNames)
+    private static string GetEthiopicEra(DateTime dateTime, string style, string[]? eraNames)
     {
-        // Ethiopic calendar uses Era of the Incarnation
-        // Note: eraNames from CLDR are Gregorian, not Ethiopic-specific
+        // Ethiopic has two eras: Anno Mundi (AA) for Ethiopic years ≤ 0, Era of the Incarnation
+        // (AM) for Ethiopic years ≥ 1. Ethiopic year 1 starts roughly ISO 8 CE; the easy
+        // approximation that suffices here is "ISO year ≥ 8 → AM, otherwise AA".
+        var isAm = dateTime.Year >= 8;
         return style switch
         {
-            "long" => "Era of the Incarnation",
-            "short" => "ERA1",
-            "narrow" => "ERA1",
-            _ => "ERA1"
+            "long" => isAm ? "Era of the Incarnation" : "Anno Mundi",
+            "short" => isAm ? "ERA1" : "ERA0",
+            "narrow" => isAm ? "ERA1" : "ERA0",
+            _ => isAm ? "ERA1" : "ERA0"
+        };
+    }
+
+    private static string GetEthioAaEra(string style, string[]? eraNames)
+    {
+        // Ethio-AA (Amete Alem) — single era spanning all years.
+        return style switch
+        {
+            "long" => "Anno Mundi",
+            "short" => "ERA0",
+            "narrow" => "ERA0",
+            _ => "ERA0"
         };
     }
 
     private static string GetCopticEra(int year, string style, string[]? eraNames)
     {
-        // Coptic calendar has two eras
-        // Note: eraNames from CLDR are Gregorian, not Coptic-specific, so we use hardcoded values
-        var isAfterEpoch = year >= 284; // Year 284 CE
+        // Coptic has a single era (Anno Martyrum / Era of the Martyrs) per the spec; both
+        // positive and negative Coptic years use the same era name.
         return style switch
         {
-            "long" => isAfterEpoch ? "Era of the Martyrs" : "Before Era of the Martyrs",
-            "short" => isAfterEpoch ? "AM" : "BAM",
-            "narrow" => isAfterEpoch ? "AM" : "BAM",
-            _ => isAfterEpoch ? "AM" : "BAM"
+            "long" => "Era of the Martyrs",
+            "short" => "AM",
+            "narrow" => "AM",
+            _ => "AM"
         };
     }
 
-    private static string GetIslamicEra(string style, string[]? eraNames)
+    private static string GetIslamicEra(DateTime dateTime, string style, string[]? eraNames)
     {
-        // Islamic calendar has single era (AH - Anno Hegirae)
-        // Note: eraNames from CLDR are Gregorian, not Islamic-specific
+        // Islamic has two eras: AH (Anno Hegirae) for dates ≥ 622-07-16 CE Gregorian (the Hijra
+        // epoch) and BH (Before Hijra) for earlier dates.
+        var isAh = dateTime.Year > 622 || (dateTime.Year == 622 && (dateTime.Month > 7 || (dateTime.Month == 7 && dateTime.Day >= 16)));
         return style switch
         {
-            "long" => "Anno Hegirae",
-            "short" => "AH",
-            "narrow" => "AH",
-            _ => "AH"
+            "long" => isAh ? "Anno Hegirae" : "Before Hijra",
+            "short" => isAh ? "AH" : "BH",
+            "narrow" => isAh ? "AH" : "BH",
+            _ => isAh ? "AH" : "BH"
         };
     }
 
