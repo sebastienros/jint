@@ -1,0 +1,17 @@
+﻿{
+  Diagnostics: [
+    {
+      Location: : (10,36)-(10,39),
+      Message: Method 'Bar' annotated with [JsFunction] must return JsValue (or a JsValue subtype) but returns 'int',
+      Severity: Error,
+      Descriptor: {
+        Id: JINT010,
+        Title: Unsupported [JsFunction] return type,
+        MessageFormat: Method '{0}' annotated with [JsFunction] must return JsValue (or a JsValue subtype) but returns '{1}',
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Error,
+        IsEnabledByDefault: true
+      }
+    }
+  ]
+}

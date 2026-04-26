@@ -1,0 +1,17 @@
+﻿{
+  Diagnostics: [
+    {
+      Location: : (11,40)-(11,43),
+      Message: Method 'Bar' in 'Foo' is annotated with [JsFunction] more than once or has overloads — only one [JsFunction] per CLR name is supported,
+      Severity: Error,
+      Descriptor: {
+        Id: JINT012,
+        Title: Duplicate [JsFunction] CLR method name,
+        MessageFormat: Method '{0}' in '{1}' is annotated with [JsFunction] more than once or has overloads — only one [JsFunction] per CLR name is supported,
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Error,
+        IsEnabledByDefault: true
+      }
+    }
+  ]
+}

@@ -51,6 +51,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Jint.SourceGenerators\Jint.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+    <CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)Generated</CompilerGeneratedFilesOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
     <Using Remove="System.Linq" />
     <Using Remove="System.Net.Http" />
     <Using Remove="System.Threading" />

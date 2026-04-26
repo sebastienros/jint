@@ -1,0 +1,17 @@
+﻿{
+  Diagnostics: [
+    {
+      Location: : (10,91)-(10,92),
+      Message: Parameter 'x' on method 'Bar' has more than one of [ToNumber]/[ToInt32]/[ToUint32]/[Rest] — pick one,
+      Severity: Error,
+      Descriptor: {
+        Id: JINT014,
+        Title: Multiple conversion attributes on a single parameter,
+        MessageFormat: Parameter '{0}' on method '{1}' has more than one of [ToNumber]/[ToInt32]/[ToUint32]/[Rest] — pick one,
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Error,
+        IsEnabledByDefault: true
+      }
+    }
+  ]
+}

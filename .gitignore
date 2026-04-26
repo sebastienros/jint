@@ -166,3 +166,6 @@ BenchmarkDotNet.Artifacts*
 # generated code
 Jint.Tests.Test262/Generated
 /artifacts
+
+# Verify.SourceGenerators received snapshots — local-only diffs to inspect, never committed
+*.received.*
