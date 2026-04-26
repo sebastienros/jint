@@ -50,18 +50,21 @@ internal sealed partial class ReflectInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-reflect.construct
     /// </summary>
+    // Spec distinguishes "newTarget is not present" (defaults to target) from "newTarget is undefined"
+    // (must throw via IsConstructor). The arguments-array form is the only way to detect that
+    // difference; the source generator's per-parameter unpacking always passes Undefined for missing
+    // positions, conflating the two cases.
     [JsFunction(Length = 2)]
-    private JsValue Construct(JsValue thisObject, JsValue target, JsValue argumentsList, JsValue newTarget)
+    private JsValue Construct(JsValue thisObject, JsCallArguments arguments)
     {
-        var targetCtor = AssertConstructor(_engine, target);
+        var target = AssertConstructor(_engine, arguments.At(0));
 
-        // If newTarget is not present, set newTarget to target.
-        var newTargetArgument = newTarget.IsUndefined() ? target : newTarget;
+        var newTargetArgument = arguments.At(2, arguments[0]);
         AssertConstructor(_engine, newTargetArgument);
 
-        var args = FunctionPrototype.CreateListFromArrayLike(_realm, argumentsList);
+        var args = FunctionPrototype.CreateListFromArrayLike(_realm, arguments.At(1));
 
-        return targetCtor.Construct(args, newTargetArgument);
+        return target.Construct(args, newTargetArgument);
     }
 
     /// <summary>
@@ -108,41 +111,41 @@ internal sealed partial class ReflectInstance : ObjectInstance
         return o.HasProperty(property) ? JsBoolean.True : JsBoolean.False;
     }
 
+    // "receiver is not present" defaults to target; "receiver is undefined" is preserved and
+    // forwarded to [[Set]] (where, per spec, a non-Object receiver causes the set to return false).
+    // Generator-unpacked params can't represent "not present", so this method takes the array form.
     [JsFunction(Length = 3)]
-    private JsValue Set(JsValue thisObject, JsValue target, JsValue propertyKey, JsValue value, JsValue receiver)
+    private JsValue Set(JsValue thisObject, JsCallArguments arguments)
     {
+        var target = arguments.At(0);
+        var property = TypeConverter.ToPropertyKey(arguments.At(1));
+        var value = arguments.At(2);
+        var receiver = arguments.At(3, target);
+
         var o = target as ObjectInstance;
         if (o is null)
         {
             Throw.TypeError(_realm, "Reflect.set called on non-object");
         }
 
-        // If receiver is not present, set receiver to target.
-        if (receiver.IsUndefined())
-        {
-            receiver = target;
-        }
-
-        var property = TypeConverter.ToPropertyKey(propertyKey);
         return o.Set(property, value, receiver);
     }
 
+    // Same not-present-vs-undefined distinction as Set: receiver defaults to target only when the
+    // caller didn't pass a third argument. Explicit undefined is preserved and reaches [[Get]] /
+    // accessor invocation as the receiver.
     [JsFunction(Length = 2)]
-    private JsValue Get(JsValue thisObject, JsValue target, JsValue propertyKey, JsValue receiver)
+    private JsValue Get(JsValue thisObject, JsCallArguments arguments)
     {
+        var target = arguments.At(0);
         var o = target as ObjectInstance;
         if (o is null)
         {
             Throw.TypeError(_realm, "Reflect.get called on non-object");
         }
 
-        // If receiver is not present, set receiver to target.
-        if (receiver.IsUndefined())
-        {
-            receiver = target;
-        }
-
-        var property = TypeConverter.ToPropertyKey(propertyKey);
+        var receiver = arguments.At(2, target);
+        var property = TypeConverter.ToPropertyKey(arguments.At(1));
         return o.Get(property, receiver);
     }
 
