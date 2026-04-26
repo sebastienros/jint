@@ -64,12 +64,12 @@ internal sealed class PlainMonthDayPrototype : Prototype
     private JsString GetMonthCode(JsValue thisObject, JsCallArguments arguments)
     {
         var md = ValidatePlainMonthDay(thisObject);
-        return new JsString(TemporalHelpers.CalendarMonthCode(md.Calendar, md.IsoDate));
+        return new JsString(TemporalHelpers.CalendarMonthCode(md.Calendar, md.IsoDate, _engine));
     }
     private JsNumber GetDay(JsValue thisObject, JsCallArguments arguments)
     {
         var md = ValidatePlainMonthDay(thisObject);
-        return JsNumber.Create(TemporalHelpers.CalendarDay(md.Calendar, md.IsoDate));
+        return JsNumber.Create(TemporalHelpers.CalendarDay(md.Calendar, md.IsoDate, _engine));
     }
 
     /// <summary>
@@ -114,13 +114,13 @@ internal sealed class PlainMonthDayPrototype : Prototype
         // 1. day
         var dayProp = obj.Get("day");
         var day = dayProp.IsUndefined()
-            ? (isNonIso ? TemporalHelpers.CalendarDay(md.Calendar, md.IsoDate) : md.IsoDate.Day)
+            ? (isNonIso ? TemporalHelpers.CalendarDay(md.Calendar, md.IsoDate, _engine) : md.IsoDate.Day)
             : TemporalHelpers.ToPositiveIntegerWithTruncation(_realm, dayProp);
 
         // 2. month
         var monthProp = obj.Get("month");
         var month = monthProp.IsUndefined()
-            ? (isNonIso ? TemporalHelpers.CalendarMonth(md.Calendar, md.IsoDate) : md.IsoDate.Month)
+            ? (isNonIso ? TemporalHelpers.CalendarMonth(md.Calendar, md.IsoDate, _engine) : md.IsoDate.Month)
             : TemporalHelpers.ToPositiveIntegerWithTruncation(_realm, monthProp);
 
         // 3. monthCode - read but don't validate yet
@@ -177,7 +177,7 @@ internal sealed class PlainMonthDayPrototype : Prototype
         // Default monthCode from calendar when not provided and month not explicitly set
         if (monthCodeProp.IsUndefined() && monthProp.IsUndefined() && isNonIso)
         {
-            monthCode = TemporalHelpers.CalendarMonthCode(md.Calendar, md.IsoDate);
+            monthCode = TemporalHelpers.CalendarMonthCode(md.Calendar, md.IsoDate, _engine);
         }
 
         // NOW validate monthCode (after options are read)
@@ -202,7 +202,7 @@ internal sealed class PlainMonthDayPrototype : Prototype
         {
             // For non-ISO calendars, use calendar-aware date construction
             var calYear = isNonIso && yearProp.IsUndefined()
-                ? TemporalHelpers.CalendarYear(md.Calendar, md.IsoDate)
+                ? TemporalHelpers.CalendarYear(md.Calendar, md.IsoDate, _engine)
                 : year;
             var calDate = TemporalHelpers.CalendarDateToISO(_realm, md.Calendar, calYear,
                 monthProp.IsUndefined() ? 0 : month, day, overflow, monthCode);

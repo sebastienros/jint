@@ -75,37 +75,37 @@ internal sealed class PlainYearMonthPrototype : Prototype
     private JsNumber GetYear(JsValue thisObject, JsCallArguments arguments)
     {
         var ym = ValidatePlainYearMonth(thisObject);
-        return JsNumber.Create(TemporalHelpers.CalendarYear(ym.Calendar, ym.IsoDate));
+        return JsNumber.Create(TemporalHelpers.CalendarYear(ym.Calendar, ym.IsoDate, _engine));
     }
     private JsNumber GetMonth(JsValue thisObject, JsCallArguments arguments)
     {
         var ym = ValidatePlainYearMonth(thisObject);
-        return JsNumber.Create(TemporalHelpers.CalendarMonth(ym.Calendar, ym.IsoDate));
+        return JsNumber.Create(TemporalHelpers.CalendarMonth(ym.Calendar, ym.IsoDate, _engine));
     }
     private JsString GetMonthCode(JsValue thisObject, JsCallArguments arguments)
     {
         var ym = ValidatePlainYearMonth(thisObject);
-        return new JsString(TemporalHelpers.CalendarMonthCode(ym.Calendar, ym.IsoDate));
+        return new JsString(TemporalHelpers.CalendarMonthCode(ym.Calendar, ym.IsoDate, _engine));
     }
     private JsNumber GetDaysInMonth(JsValue thisObject, JsCallArguments arguments)
     {
         var ym = ValidatePlainYearMonth(thisObject);
-        return JsNumber.Create(TemporalHelpers.CalendarDaysInMonth(ym.Calendar, ym.IsoDate));
+        return JsNumber.Create(TemporalHelpers.CalendarDaysInMonth(ym.Calendar, ym.IsoDate, _engine));
     }
     private JsNumber GetDaysInYear(JsValue thisObject, JsCallArguments arguments)
     {
         var ym = ValidatePlainYearMonth(thisObject);
-        return JsNumber.Create(TemporalHelpers.CalendarDaysInYear(ym.Calendar, ym.IsoDate));
+        return JsNumber.Create(TemporalHelpers.CalendarDaysInYear(ym.Calendar, ym.IsoDate, _engine));
     }
     private JsNumber GetMonthsInYear(JsValue thisObject, JsCallArguments arguments)
     {
         var ym = ValidatePlainYearMonth(thisObject);
-        return JsNumber.Create(TemporalHelpers.CalendarMonthsInYear(ym.Calendar, ym.IsoDate));
+        return JsNumber.Create(TemporalHelpers.CalendarMonthsInYear(ym.Calendar, ym.IsoDate, _engine));
     }
     private JsBoolean GetInLeapYear(JsValue thisObject, JsCallArguments arguments)
     {
         var ym = ValidatePlainYearMonth(thisObject);
-        return TemporalHelpers.CalendarInLeapYear(ym.Calendar, ym.IsoDate) ? JsBoolean.True : JsBoolean.False;
+        return TemporalHelpers.CalendarInLeapYear(ym.Calendar, ym.IsoDate, _engine) ? JsBoolean.True : JsBoolean.False;
     }
     private JsValue GetEraYear(JsValue thisObject, JsCallArguments arguments)
     {
@@ -202,7 +202,7 @@ internal sealed class PlainYearMonthPrototype : Prototype
         {
             // Only default monthCode from the calendar when month was not explicitly provided;
             // if the user set month explicitly, let month drive the conversion without monthCode
-            monthCode = TemporalHelpers.CalendarMonthCode(ym.Calendar, ym.IsoDate);
+            monthCode = TemporalHelpers.CalendarMonthCode(ym.Calendar, ym.IsoDate, _engine);
         }
 
         // Default month from the existing date when neither month nor monthCode was explicitly
@@ -218,7 +218,7 @@ internal sealed class PlainYearMonthPrototype : Prototype
         if (!monthExplicit && !monthCodeExplicit && !isLunisolar)
         {
             month = isNonIso8601
-                ? TemporalHelpers.CalendarMonth(ym.Calendar, ym.IsoDate)
+                ? TemporalHelpers.CalendarMonth(ym.Calendar, ym.IsoDate, _engine)
                 : ym.IsoDate.Month;
         }
 
@@ -231,7 +231,7 @@ internal sealed class PlainYearMonthPrototype : Prototype
         else
         {
             year = isNonIso8601
-                ? TemporalHelpers.CalendarYear(ym.Calendar, ym.IsoDate)
+                ? TemporalHelpers.CalendarYear(ym.Calendar, ym.IsoDate, _engine)
                 : ym.IsoDate.Year;
         }
 
@@ -714,9 +714,9 @@ internal sealed class PlainYearMonthPrototype : Prototype
         if (NonIsoCalendars.IsNonIsoCalendar(ym.Calendar))
         {
             // For non-ISO calendars, get the calendar year/month and combine with the provided day
-            var calYear = TemporalHelpers.CalendarYear(ym.Calendar, ym.IsoDate);
-            var calMonth = TemporalHelpers.CalendarMonth(ym.Calendar, ym.IsoDate);
-            var calMonthCode = TemporalHelpers.CalendarMonthCode(ym.Calendar, ym.IsoDate);
+            var calYear = TemporalHelpers.CalendarYear(ym.Calendar, ym.IsoDate, _engine);
+            var calMonth = TemporalHelpers.CalendarMonth(ym.Calendar, ym.IsoDate, _engine);
+            var calMonthCode = TemporalHelpers.CalendarMonthCode(ym.Calendar, ym.IsoDate, _engine);
             date = TemporalHelpers.CalendarDateToISO(_realm, ym.Calendar, calYear, calMonth, day, "constrain", calMonthCode);
         }
         else

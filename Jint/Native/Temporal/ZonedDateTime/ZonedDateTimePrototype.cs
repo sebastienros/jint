@@ -129,25 +129,25 @@ internal sealed class ZonedDateTimePrototype : Prototype
     {
         var zdt = ValidateZonedDateTime(thisObject);
         var isoDateTime = zdt.GetIsoDateTime();
-        return JsNumber.Create(TemporalHelpers.CalendarYear(zdt.Calendar, isoDateTime.Date));
+        return JsNumber.Create(TemporalHelpers.CalendarYear(zdt.Calendar, isoDateTime.Date, _engine));
     }
 
     private JsNumber GetMonth(JsValue thisObject, JsCallArguments arguments)
     {
         var zdt = ValidateZonedDateTime(thisObject);
-        return JsNumber.Create(TemporalHelpers.CalendarMonth(zdt.Calendar, zdt.GetIsoDateTime().Date));
+        return JsNumber.Create(TemporalHelpers.CalendarMonth(zdt.Calendar, zdt.GetIsoDateTime().Date, _engine));
     }
 
     private JsString GetMonthCode(JsValue thisObject, JsCallArguments arguments)
     {
         var zdt = ValidateZonedDateTime(thisObject);
-        return new JsString(TemporalHelpers.CalendarMonthCode(zdt.Calendar, zdt.GetIsoDateTime().Date));
+        return new JsString(TemporalHelpers.CalendarMonthCode(zdt.Calendar, zdt.GetIsoDateTime().Date, _engine));
     }
 
     private JsNumber GetDay(JsValue thisObject, JsCallArguments arguments)
     {
         var zdt = ValidateZonedDateTime(thisObject);
-        return JsNumber.Create(TemporalHelpers.CalendarDay(zdt.Calendar, zdt.GetIsoDateTime().Date));
+        return JsNumber.Create(TemporalHelpers.CalendarDay(zdt.Calendar, zdt.GetIsoDateTime().Date, _engine));
     }
 
     private JsNumber GetHour(JsValue thisObject, JsCallArguments arguments) =>
@@ -198,7 +198,7 @@ internal sealed class ZonedDateTimePrototype : Prototype
     {
         var zdt = ValidateZonedDateTime(thisObject);
         var date = zdt.GetIsoDateTime().Date;
-        return JsNumber.Create(TemporalHelpers.CalendarDayOfYear(zdt.Calendar, date));
+        return JsNumber.Create(TemporalHelpers.CalendarDayOfYear(zdt.Calendar, date, _engine));
     }
 
     private JsValue GetWeekOfYear(JsValue thisObject, JsCallArguments arguments)
@@ -234,25 +234,25 @@ internal sealed class ZonedDateTimePrototype : Prototype
     private JsNumber GetDaysInMonth(JsValue thisObject, JsCallArguments arguments)
     {
         var zdt = ValidateZonedDateTime(thisObject);
-        return JsNumber.Create(TemporalHelpers.CalendarDaysInMonth(zdt.Calendar, zdt.GetIsoDateTime().Date));
+        return JsNumber.Create(TemporalHelpers.CalendarDaysInMonth(zdt.Calendar, zdt.GetIsoDateTime().Date, _engine));
     }
 
     private JsNumber GetDaysInYear(JsValue thisObject, JsCallArguments arguments)
     {
         var zdt = ValidateZonedDateTime(thisObject);
-        return JsNumber.Create(TemporalHelpers.CalendarDaysInYear(zdt.Calendar, zdt.GetIsoDateTime().Date));
+        return JsNumber.Create(TemporalHelpers.CalendarDaysInYear(zdt.Calendar, zdt.GetIsoDateTime().Date, _engine));
     }
 
     private JsNumber GetMonthsInYear(JsValue thisObject, JsCallArguments arguments)
     {
         var zdt = ValidateZonedDateTime(thisObject);
-        return JsNumber.Create(TemporalHelpers.CalendarMonthsInYear(zdt.Calendar, zdt.GetIsoDateTime().Date));
+        return JsNumber.Create(TemporalHelpers.CalendarMonthsInYear(zdt.Calendar, zdt.GetIsoDateTime().Date, _engine));
     }
 
     private JsBoolean GetInLeapYear(JsValue thisObject, JsCallArguments arguments)
     {
         var zdt = ValidateZonedDateTime(thisObject);
-        return TemporalHelpers.CalendarInLeapYear(zdt.Calendar, zdt.GetIsoDateTime().Date) ? JsBoolean.True : JsBoolean.False;
+        return TemporalHelpers.CalendarInLeapYear(zdt.Calendar, zdt.GetIsoDateTime().Date, _engine) ? JsBoolean.True : JsBoolean.False;
     }
 
     private JsNumber GetHoursInDay(JsValue thisObject, JsCallArguments arguments)
@@ -342,7 +342,7 @@ internal sealed class ZonedDateTimePrototype : Prototype
         else
         {
             day = isNonIso8601
-                ? TemporalHelpers.CalendarDay(zdt.Calendar, current.Date)
+                ? TemporalHelpers.CalendarDay(zdt.Calendar, current.Date, _engine)
                 : current.Day;
         }
 
@@ -369,7 +369,7 @@ internal sealed class ZonedDateTimePrototype : Prototype
         else
         {
             month = isNonIso8601
-                ? TemporalHelpers.CalendarMonth(zdt.Calendar, current.Date)
+                ? TemporalHelpers.CalendarMonth(zdt.Calendar, current.Date, _engine)
                 : current.Month;
         }
 
@@ -407,7 +407,7 @@ internal sealed class ZonedDateTimePrototype : Prototype
         }
         else if (isNonIso8601 && !monthExplicit)
         {
-            monthCode = TemporalHelpers.CalendarMonthCode(zdt.Calendar, current.Date);
+            monthCode = TemporalHelpers.CalendarMonthCode(zdt.Calendar, current.Date, _engine);
         }
 
         var nanosecondValue = obj.Get("nanosecond");
@@ -433,7 +433,7 @@ internal sealed class ZonedDateTimePrototype : Prototype
         else
         {
             year = isNonIso8601
-                ? TemporalHelpers.CalendarYear(zdt.Calendar, current.Date)
+                ? TemporalHelpers.CalendarYear(zdt.Calendar, current.Date, _engine)
                 : current.Year;
         }
 

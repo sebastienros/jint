@@ -110,22 +110,22 @@ internal sealed class PlainDateTimePrototype : Prototype
     private JsNumber GetYear(JsValue thisObject, JsCallArguments arguments)
     {
         var pdt = ValidatePlainDateTime(thisObject);
-        return JsNumber.Create(TemporalHelpers.CalendarYear(pdt.Calendar, pdt.IsoDateTime.Date));
+        return JsNumber.Create(TemporalHelpers.CalendarYear(pdt.Calendar, pdt.IsoDateTime.Date, _engine));
     }
     private JsNumber GetMonth(JsValue thisObject, JsCallArguments arguments)
     {
         var pdt = ValidatePlainDateTime(thisObject);
-        return JsNumber.Create(TemporalHelpers.CalendarMonth(pdt.Calendar, pdt.IsoDateTime.Date));
+        return JsNumber.Create(TemporalHelpers.CalendarMonth(pdt.Calendar, pdt.IsoDateTime.Date, _engine));
     }
     private JsString GetMonthCode(JsValue thisObject, JsCallArguments arguments)
     {
         var pdt = ValidatePlainDateTime(thisObject);
-        return new JsString(TemporalHelpers.CalendarMonthCode(pdt.Calendar, pdt.IsoDateTime.Date));
+        return new JsString(TemporalHelpers.CalendarMonthCode(pdt.Calendar, pdt.IsoDateTime.Date, _engine));
     }
     private JsNumber GetDay(JsValue thisObject, JsCallArguments arguments)
     {
         var pdt = ValidatePlainDateTime(thisObject);
-        return JsNumber.Create(TemporalHelpers.CalendarDay(pdt.Calendar, pdt.IsoDateTime.Date));
+        return JsNumber.Create(TemporalHelpers.CalendarDay(pdt.Calendar, pdt.IsoDateTime.Date, _engine));
     }
     private JsNumber GetHour(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainDateTime(thisObject).IsoDateTime.Hour);
     private JsNumber GetMinute(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainDateTime(thisObject).IsoDateTime.Minute);
@@ -137,7 +137,7 @@ internal sealed class PlainDateTimePrototype : Prototype
     private JsNumber GetDayOfYear(JsValue thisObject, JsCallArguments arguments)
     {
         var pdt = ValidatePlainDateTime(thisObject);
-        return JsNumber.Create(TemporalHelpers.CalendarDayOfYear(pdt.Calendar, pdt.IsoDateTime.Date));
+        return JsNumber.Create(TemporalHelpers.CalendarDayOfYear(pdt.Calendar, pdt.IsoDateTime.Date, _engine));
     }
     private JsValue GetWeekOfYear(JsValue thisObject, JsCallArguments arguments)
     {
@@ -160,24 +160,24 @@ internal sealed class PlainDateTimePrototype : Prototype
     private JsNumber GetDaysInMonth(JsValue thisObject, JsCallArguments arguments)
     {
         var pdt = ValidatePlainDateTime(thisObject);
-        return JsNumber.Create(TemporalHelpers.CalendarDaysInMonth(pdt.Calendar, pdt.IsoDateTime.Date));
+        return JsNumber.Create(TemporalHelpers.CalendarDaysInMonth(pdt.Calendar, pdt.IsoDateTime.Date, _engine));
     }
     private JsNumber GetDaysInYear(JsValue thisObject, JsCallArguments arguments)
     {
         var pdt = ValidatePlainDateTime(thisObject);
-        return JsNumber.Create(TemporalHelpers.CalendarDaysInYear(pdt.Calendar, pdt.IsoDateTime.Date));
+        return JsNumber.Create(TemporalHelpers.CalendarDaysInYear(pdt.Calendar, pdt.IsoDateTime.Date, _engine));
     }
 
     private JsNumber GetMonthsInYear(JsValue thisObject, JsCallArguments arguments)
     {
         var pdt = ValidatePlainDateTime(thisObject);
-        return JsNumber.Create(TemporalHelpers.CalendarMonthsInYear(pdt.Calendar, pdt.IsoDateTime.Date));
+        return JsNumber.Create(TemporalHelpers.CalendarMonthsInYear(pdt.Calendar, pdt.IsoDateTime.Date, _engine));
     }
 
     private JsBoolean GetInLeapYear(JsValue thisObject, JsCallArguments arguments)
     {
         var pdt = ValidatePlainDateTime(thisObject);
-        return TemporalHelpers.CalendarInLeapYear(pdt.Calendar, pdt.IsoDateTime.Date) ? JsBoolean.True : JsBoolean.False;
+        return TemporalHelpers.CalendarInLeapYear(pdt.Calendar, pdt.IsoDateTime.Date, _engine) ? JsBoolean.True : JsBoolean.False;
     }
 
     /// <summary>
@@ -237,7 +237,7 @@ internal sealed class PlainDateTimePrototype : Prototype
         else
         {
             day = isNonIso8601
-                ? TemporalHelpers.CalendarDay(plainDateTime.Calendar, plainDateTime.IsoDateTime.Date)
+                ? TemporalHelpers.CalendarDay(plainDateTime.Calendar, plainDateTime.IsoDateTime.Date, _engine)
                 : plainDateTime.IsoDateTime.Day;
         }
 
@@ -289,7 +289,7 @@ internal sealed class PlainDateTimePrototype : Prototype
         else
         {
             month = isNonIso8601
-                ? TemporalHelpers.CalendarMonth(plainDateTime.Calendar, plainDateTime.IsoDateTime.Date)
+                ? TemporalHelpers.CalendarMonth(plainDateTime.Calendar, plainDateTime.IsoDateTime.Date, _engine)
                 : plainDateTime.IsoDateTime.Month;
         }
 
@@ -302,7 +302,7 @@ internal sealed class PlainDateTimePrototype : Prototype
         }
         else if (isNonIso8601 && !monthExplicit)
         {
-            monthCode = TemporalHelpers.CalendarMonthCode(plainDateTime.Calendar, plainDateTime.IsoDateTime.Date);
+            monthCode = TemporalHelpers.CalendarMonthCode(plainDateTime.Calendar, plainDateTime.IsoDateTime.Date, _engine);
         }
 
         v = obj.Get("nanosecond");
@@ -333,7 +333,7 @@ internal sealed class PlainDateTimePrototype : Prototype
         else
         {
             year = isNonIso8601
-                ? TemporalHelpers.CalendarYear(plainDateTime.Calendar, plainDateTime.IsoDateTime.Date)
+                ? TemporalHelpers.CalendarYear(plainDateTime.Calendar, plainDateTime.IsoDateTime.Date, _engine)
                 : plainDateTime.IsoDateTime.Year;
         }
 

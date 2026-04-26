@@ -102,28 +102,28 @@ internal sealed class PlainDatePrototype : Prototype
     private JsNumber GetYear(JsValue thisObject, JsCallArguments arguments)
     {
         var pd = ValidatePlainDate(thisObject);
-        return JsNumber.Create(TemporalHelpers.CalendarYear(pd.Calendar, pd.IsoDate));
+        return JsNumber.Create(TemporalHelpers.CalendarYear(pd.Calendar, pd.IsoDate, _engine));
     }
     private JsNumber GetMonth(JsValue thisObject, JsCallArguments arguments)
     {
         var pd = ValidatePlainDate(thisObject);
-        return JsNumber.Create(TemporalHelpers.CalendarMonth(pd.Calendar, pd.IsoDate));
+        return JsNumber.Create(TemporalHelpers.CalendarMonth(pd.Calendar, pd.IsoDate, _engine));
     }
     private JsString GetMonthCode(JsValue thisObject, JsCallArguments arguments)
     {
         var pd = ValidatePlainDate(thisObject);
-        return new JsString(TemporalHelpers.CalendarMonthCode(pd.Calendar, pd.IsoDate));
+        return new JsString(TemporalHelpers.CalendarMonthCode(pd.Calendar, pd.IsoDate, _engine));
     }
     private JsNumber GetDay(JsValue thisObject, JsCallArguments arguments)
     {
         var pd = ValidatePlainDate(thisObject);
-        return JsNumber.Create(TemporalHelpers.CalendarDay(pd.Calendar, pd.IsoDate));
+        return JsNumber.Create(TemporalHelpers.CalendarDay(pd.Calendar, pd.IsoDate, _engine));
     }
     private JsNumber GetDayOfWeek(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainDate(thisObject).IsoDate.DayOfWeek());
     private JsNumber GetDayOfYear(JsValue thisObject, JsCallArguments arguments)
     {
         var pd = ValidatePlainDate(thisObject);
-        return JsNumber.Create(TemporalHelpers.CalendarDayOfYear(pd.Calendar, pd.IsoDate));
+        return JsNumber.Create(TemporalHelpers.CalendarDayOfYear(pd.Calendar, pd.IsoDate, _engine));
     }
     private JsValue GetWeekOfYear(JsValue thisObject, JsCallArguments arguments)
     {
@@ -146,24 +146,24 @@ internal sealed class PlainDatePrototype : Prototype
     private JsNumber GetDaysInMonth(JsValue thisObject, JsCallArguments arguments)
     {
         var pd = ValidatePlainDate(thisObject);
-        return JsNumber.Create(TemporalHelpers.CalendarDaysInMonth(pd.Calendar, pd.IsoDate));
+        return JsNumber.Create(TemporalHelpers.CalendarDaysInMonth(pd.Calendar, pd.IsoDate, _engine));
     }
     private JsNumber GetDaysInYear(JsValue thisObject, JsCallArguments arguments)
     {
         var pd = ValidatePlainDate(thisObject);
-        return JsNumber.Create(TemporalHelpers.CalendarDaysInYear(pd.Calendar, pd.IsoDate));
+        return JsNumber.Create(TemporalHelpers.CalendarDaysInYear(pd.Calendar, pd.IsoDate, _engine));
     }
 
     private JsNumber GetMonthsInYear(JsValue thisObject, JsCallArguments arguments)
     {
         var pd = ValidatePlainDate(thisObject);
-        return JsNumber.Create(TemporalHelpers.CalendarMonthsInYear(pd.Calendar, pd.IsoDate));
+        return JsNumber.Create(TemporalHelpers.CalendarMonthsInYear(pd.Calendar, pd.IsoDate, _engine));
     }
 
     private JsBoolean GetInLeapYear(JsValue thisObject, JsCallArguments arguments)
     {
         var pd = ValidatePlainDate(thisObject);
-        return TemporalHelpers.CalendarInLeapYear(pd.Calendar, pd.IsoDate) ? JsBoolean.True : JsBoolean.False;
+        return TemporalHelpers.CalendarInLeapYear(pd.Calendar, pd.IsoDate, _engine) ? JsBoolean.True : JsBoolean.False;
     }
 
     /// <summary>
@@ -271,7 +271,7 @@ internal sealed class PlainDatePrototype : Prototype
         if (NonIsoCalendars.IsNonIsoCalendar(plainDate.Calendar))
         {
             // Get current calendar fields
-            var calDate = NonIsoCalendars.IsoToCalendarDate(plainDate.Calendar, plainDate.IsoDate);
+            var calDate = NonIsoCalendars.IsoToCalendarDate(plainDate.Calendar, plainDate.IsoDate, _engine);
 
             // Handle era/eraYear for non-ISO calendars
             if (hasEra && hasEraYear && TemporalHelpers.CalendarUsesEras(plainDate.Calendar))
@@ -768,7 +768,7 @@ internal sealed class PlainDatePrototype : Prototype
         // the calendar-aware re-anchoring the PMD parsing path performs.
         if (!TemporalHelpers.IsGregorianBasedCalendar(plainDate.Calendar))
         {
-            var calFields = NonIsoCalendars.IsoToCalendarDate(plainDate.Calendar, plainDate.IsoDate);
+            var calFields = NonIsoCalendars.IsoToCalendarDate(plainDate.Calendar, plainDate.IsoDate, _engine);
             var monthCode = calFields.MonthCode;
             var day = calFields.Day;
 

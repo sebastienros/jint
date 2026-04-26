@@ -798,13 +798,139 @@ internal sealed class JsNumberFormat : ObjectInstance
     }
 
     /// <summary>
+    /// Formats an exact decimal value (mantissa × 10^-fractionDigits) preserving precision
+    /// beyond what an IEEE-754 double can represent. Currently routes through the decimal
+    /// style only — currency / percent / unit / compact / engineering / scientific notations
+    /// still go through the double-based pipeline. Significant-digits rounding falls back to
+    /// <see cref="Format(BigInteger)"/> after rounding away the fraction.
+    /// </summary>
+    internal string FormatExactDecimal(BigInteger mantissa, int fractionDigits)
+    {
+        // If the formatter uses any of the styles that require scaling or compact notation,
+        // we don't yet have an exact-decimal pipeline — fall back to double.
+        if (Style is "currency" or "percent" or "unit"
+            || !string.Equals(Notation, "standard", StringComparison.Ordinal))
+        {
+            return Format(MantissaToDouble(mantissa, fractionDigits));
+        }
+
+        // Significant-digits rounding effectively discards trailing fraction digits beyond
+        // the kept precision. The BigInteger ApplySignificantDigitRounding path only handles
+        // integer-only mantissas, so when sig-digits combine with a non-zero fractionDigits
+        // we fall back to the double pipeline rather than build a richer carrier here.
+        if (MinimumSignificantDigits.HasValue || MaximumSignificantDigits.HasValue)
+        {
+            return Format(MantissaToDouble(mantissa, fractionDigits));
+        }
+
+        var maxFrac = MaximumFractionDigits;
+        var minFrac = MinimumFractionDigits;
+
+        // Track the original sign so a "-0.000..." input that rounds to zero still displays
+        // as negative (ECMA-402 preserves negative-zero in formatted output).
+        var originallyNegative = mantissa.Sign < 0;
+
+        // Trim or round fraction digits to MaximumFractionDigits using halfExpand.
+        if (fractionDigits > maxFrac)
+        {
+            var dropDigits = fractionDigits - maxFrac;
+            var divisor = BigInteger.Pow(10, dropDigits);
+            var halfDivisor = divisor / 2;
+            var absM = originallyNegative ? -mantissa : mantissa;
+            var rounded = (absM + halfDivisor) / divisor;
+            mantissa = originallyNegative ? -rounded : rounded;
+            fractionDigits = maxFrac;
+        }
+
+        var absMantissa = mantissa.Sign < 0 ? -mantissa : mantissa;
+        var digits = absMantissa.ToString("R", CultureInfo.InvariantCulture);
+
+        string integerStr;
+        string fractionStr;
+        if (fractionDigits == 0)
+        {
+            integerStr = digits;
+            fractionStr = string.Empty;
+        }
+        else if (digits.Length <= fractionDigits)
+        {
+            integerStr = "0";
+            fractionStr = digits.PadLeft(fractionDigits, '0');
+        }
+        else
+        {
+            integerStr = digits.Substring(0, digits.Length - fractionDigits);
+            fractionStr = digits.Substring(digits.Length - fractionDigits);
+        }
+
+        // Trim trailing zeros down to MinimumFractionDigits.
+        if (fractionStr.Length > minFrac)
+        {
+            var keep = fractionStr.Length;
+            while (keep > minFrac && fractionStr[keep - 1] == '0') keep--;
+            fractionStr = fractionStr.Substring(0, keep);
+        }
+        else if (fractionStr.Length < minFrac)
+        {
+            fractionStr = fractionStr.PadRight(minFrac, '0');
+        }
+
+        // Apply MinimumIntegerDigits padding.
+        if (MinimumIntegerDigits > 1 && integerStr.Length < MinimumIntegerDigits)
+        {
+            integerStr = integerStr.PadLeft(MinimumIntegerDigits, '0');
+        }
+
+        // Apply grouping if needed.
+        if (ShouldApplyGrouping(integerStr.Length))
+        {
+            integerStr = ApplyGrouping(integerStr, false);
+        }
+
+        var result = fractionStr.Length == 0
+            ? integerStr
+            : integerStr + NumberFormatInfo.NumberDecimalSeparator + fractionStr;
+
+        if (originallyNegative)
+        {
+            result = NumberFormatInfo.NegativeSign + result;
+        }
+
+        return Data.NumberingSystemData.TransliterateDigits(result, NumberingSystem);
+    }
+
+    /// <summary>
+    /// Approximate a (mantissa, fractionDigits) decimal as a double for legacy code paths
+    /// that still expect a double. Loses the high-precision tail by definition; only used
+    /// for currency / percent / unit / compact / engineering / scientific styles where the
+    /// exact-decimal path isn't available yet.
+    /// </summary>
+    private static double MantissaToDouble(BigInteger mantissa, int fractionDigits)
+    {
+        if (fractionDigits <= 0)
+            return (double) mantissa;
+
+        // Math.Pow(10, n) keeps any compounded rounding to a single division step, instead of
+        // accumulating it across `fractionDigits` separate divides.
+        return (double) mantissa / System.Math.Pow(10, fractionDigits);
+    }
+
+    /// <summary>
     /// Formats a BigInteger according to the formatter's locale and options.
     /// </summary>
     internal string Format(BigInteger value)
     {
-        // If significant digits are specified, convert to double for formatting
-        // This may lose precision for very large numbers but handles significantDigits correctly
-        if (MinimumSignificantDigits.HasValue || MaximumSignificantDigits.HasValue)
+        // For non-currency/percent/unit styles with significant digits, round the BigInteger
+        // directly so we keep precision for inputs that exceed double's 15-17 digit window.
+        // (Currency/percent/unit involve scaling/rounding paths that still go through double.)
+        var sigDigitsActive = (MinimumSignificantDigits.HasValue || MaximumSignificantDigits.HasValue)
+            && Style is not ("currency" or "percent" or "unit");
+        if (sigDigitsActive)
+        {
+            value = ApplySignificantDigitRounding(value);
+            // After rounding to significant digits, fall through to FormatDecimalBigInt.
+        }
+        else if (MinimumSignificantDigits.HasValue || MaximumSignificantDigits.HasValue)
         {
             return Format((double) value);
         }
@@ -814,36 +940,75 @@ internal sealed class JsNumberFormat : ObjectInstance
             "currency" => FormatCurrencyBigInt(value),
             "percent" => FormatPercentBigInt(value),
             "unit" => FormatUnitBigInt(value),
-            _ => FormatDecimalBigInt(value)
+            // Significant-digits formatting in Format(double) uses a literal "-" sign
+            // (no locale-specific RTL marker), so match that to keep both code paths
+            // producing identical output for the same input.
+            _ => FormatDecimalBigInt(value, useLiteralMinus: sigDigitsActive)
         };
 
         // Apply numbering system digit transliteration
         return Data.NumberingSystemData.TransliterateDigits(result, NumberingSystem);
     }
 
-    private string FormatDecimalBigInt(BigInteger value)
+    /// <summary>
+    /// Rounds a BigInteger so it carries at most <see cref="MaximumSignificantDigits"/>
+    /// significant digits, using the spec's "halfExpand" rounding (round half away from zero).
+    /// </summary>
+    private BigInteger ApplySignificantDigitRounding(BigInteger value)
     {
-        // BigInteger formatting - use grouping if needed
-        var formatted = value.ToString("R", CultureInfo.InvariantCulture);
-        var digitCount = value < 0 ? formatted.Length - 1 : formatted.Length;
+        if (!MaximumSignificantDigits.HasValue || value.IsZero)
+            return value;
 
-        if (ShouldApplyGrouping(digitCount))
+        var maxSig = MaximumSignificantDigits.Value;
+        var isNegative = value.Sign < 0;
+        var abs = isNegative ? -value : value;
+
+        // Number of decimal digits in |value|.
+        var digitCount = abs.ToString("R", CultureInfo.InvariantCulture).Length;
+        if (digitCount <= maxSig)
+            return value;
+
+        // Drop the last (digitCount - maxSig) digits with halfExpand rounding.
+        var dropDigits = digitCount - maxSig;
+        var divisor = BigInteger.Pow(10, dropDigits);
+        var halfDivisor = divisor / 2;
+        var rounded = (abs + halfDivisor) / divisor * divisor;
+
+        // Rounding can push the digit count up by one (e.g., 99500 with 3 sig digits → 100000).
+        // ECMA-402 keeps the same significant-digit count, so re-trim if that happened.
+        var roundedDigitCount = rounded.ToString("R", CultureInfo.InvariantCulture).Length;
+        if (roundedDigitCount > digitCount)
         {
-            // Apply grouping manually for BigInteger
-            formatted = ApplyGrouping(formatted, value < 0);
+            divisor *= 10;
+            rounded = rounded / divisor * divisor;
+        }
+
+        return isNegative ? -rounded : rounded;
+    }
+
+    private string FormatDecimalBigInt(BigInteger value, bool useLiteralMinus = false)
+    {
+        // Format absolute value via invariant culture, then prepend either the locale-aware
+        // NegativeSign (which for ar adds the U+061C ALM marker that System.Globalization
+        // also adds for double formatting) or a literal '-' to mirror the significant-digits
+        // path in Format(double).
+        var isNegative = value.Sign < 0;
+        var abs = isNegative ? -value : value;
+        var digits = abs.ToString("R", CultureInfo.InvariantCulture);
+
+        if (ShouldApplyGrouping(digits.Length))
+        {
+            digits = ApplyGrouping(digits, false);
         }
 
         // Apply minimum integer digits padding
-        if (MinimumIntegerDigits > 1)
+        if (MinimumIntegerDigits > 1 && digits.Length < MinimumIntegerDigits)
         {
-            var isNegative = value < 0;
-            var digits = isNegative ? formatted.Substring(1) : formatted;
-            if (digits.Length < MinimumIntegerDigits)
-            {
-                digits = digits.PadLeft(MinimumIntegerDigits, '0');
-                formatted = isNegative ? "-" + digits : digits;
-            }
+            digits = digits.PadLeft(MinimumIntegerDigits, '0');
         }
+
+        var negativeSign = useLiteralMinus ? "-" : NumberFormatInfo.NegativeSign;
+        var formatted = isNegative ? negativeSign + digits : digits;
 
         // Handle minimumFractionDigits for BigInt (add decimal zeros)
         if (MinimumFractionDigits > 0)
@@ -1227,7 +1392,12 @@ internal sealed class JsNumberFormat : ObjectInstance
 
         if (value == 0)
         {
-            var zeroResult = minSigDigits > 1 ? "0." + new string('0', minSigDigits - 1) : "0";
+            // Use the locale's decimal separator so numbering-system transliteration leaves it
+            // alone. Without this, `.` would be replaced by the numbering-system's default
+            // separator (e.g. Arabic ٫) even when the locale wants a different one (de → `,`).
+            var zeroResult = minSigDigits > 1
+                ? "0" + NumberFormatInfo.NumberDecimalSeparator + new string('0', minSigDigits - 1)
+                : "0";
             return isNegativeZero ? "-" + zeroResult : zeroResult;
         }
 
@@ -2674,8 +2844,12 @@ internal sealed class JsNumberFormat : ObjectInstance
 
     private void AddFractionPartsIfNeeded(List<NumberFormatPart> parts, double fractionValue)
     {
-        var minFrac = MinimumFractionDigits > 0 ? MinimumFractionDigits : 2;
-        if (minFrac > 0 || fractionValue > 0)
+        if (MaximumFractionDigits == 0)
+        {
+            return;
+        }
+
+        if (MinimumFractionDigits > 0 || fractionValue > 0)
         {
             parts.Add(new NumberFormatPart("decimal", NumberFormatInfo.CurrencyDecimalSeparator));
             FormatFractionToParts(parts, fractionValue);

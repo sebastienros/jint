@@ -149,7 +149,7 @@ internal sealed class JsPluralRules : ObjectInstance
                 (i == 1 && v == 0) ? "one" : "other",
 
             // French - "one" for 0 and 1, "many" for multiples of 1 million with no fraction
-            "fr" => SelectFrenchCardinal(i, v),
+            "fr" => SelectFrenchCardinal(i, v, n),
 
             // Portuguese, Persian - "one" for 0 and 1
             "pt" or "fa" => (i == 0 || i == 1) ? "one" : "other",
@@ -226,11 +226,15 @@ internal sealed class JsPluralRules : ObjectInstance
         };
     }
 
-    private static string SelectFrenchCardinal(long i, int v)
+    // TODO: Portuguese ("pt") has the same compact-many CLDR clause as French and is currently
+    // still on the simpler `(i == 0 || i == 1)` rule above — rerouting it through this helper
+    // (or generalising to a CompactManyCardinal) will catch the same notation:"compact" cases.
+    private string SelectFrenchCardinal(long i, int v, double n)
     {
         // French cardinal rules (from CLDR):
         // one: i = 0,1 (integer part is 0 or 1)
-        // many: e = 0 and i != 0 and i % 1000000 = 0 and v = 0 (integer is a non-zero multiple of 1 million with no fraction)
+        // many: c != 0..5 (compact-decimal exponent reaches a million or more), or
+        //       (e = 0 and i != 0 and i % 1000000 = 0 and v = 0)
         // other: everything else
         if (i == 0 || i == 1)
         {
@@ -238,6 +242,13 @@ internal sealed class JsPluralRules : ObjectInstance
         }
 
         if (v == 0 && i != 0 && i % 1000000 == 0)
+        {
+            return "many";
+        }
+
+        // Compact notation: values displayed with the M/B/T scale (|n| >= 1_000_000)
+        // expose a non-zero compact exponent and select "many" per CLDR.
+        if (string.Equals(Notation, "compact", StringComparison.Ordinal) && System.Math.Abs(n) >= 1_000_000)
         {
             return "many";
         }
