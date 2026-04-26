@@ -1,17 +1,19 @@
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.FinalizationRegistry;
 
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-the-finalization-registry-prototype-object
 /// </summary>
-internal sealed class FinalizationRegistryPrototype : Prototype
+[JsObject]
+internal sealed partial class FinalizationRegistryPrototype : Prototype
 {
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly FinalizationRegistryConstructor _constructor;
+
+    [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString FinalizationRegistryToStringTag = new("FinalizationRegistry");
 
     public FinalizationRegistryPrototype(
         Engine engine,
@@ -25,29 +27,17 @@ internal sealed class FinalizationRegistryPrototype : Prototype
 
     protected override void Initialize()
     {
-        const PropertyFlag PropertyFlags = PropertyFlag.NonEnumerable;
-        var properties = new PropertyDictionary(4, checkExistingKeys: false)
-        {
-            [KnownKeys.Constructor] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
-            ["register"] = new PropertyDescriptor(new ClrFunction(Engine, "register", Register, 2, PropertyFlag.Configurable), PropertyFlags),
-            ["unregister"] = new PropertyDescriptor(new ClrFunction(Engine, "unregister", Unregister, 1, PropertyFlag.Configurable), PropertyFlags),
-        };
-        SetProperties(properties);
-
-        var symbols = new SymbolDictionary(1) { [GlobalSymbolRegistry.ToStringTag] = new("FinalizationRegistry", PropertyFlag.Configurable) };
-        SetSymbols(symbols);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-finalization-registry.prototype.register
     /// </summary>
-    private JsValue Register(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private JsValue Register(JsValue thisObject, JsValue target, JsValue heldValue, JsValue unregisterToken)
     {
         var finalizationRegistry = AssertFinalizationRegistryInstance(thisObject);
-
-        var target = arguments.At(0);
-        var heldValue = arguments.At(1);
-        var unregisterToken = arguments.At(2);
 
         if (!target.CanBeHeldWeakly(_engine.GlobalSymbolRegistry))
         {
@@ -75,11 +65,10 @@ internal sealed class FinalizationRegistryPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-finalization-registry.prototype.unregister
     /// </summary>
-    private JsValue Unregister(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue Unregister(JsValue thisObject, JsValue unregisterToken)
     {
         var finalizationRegistry = AssertFinalizationRegistryInstance(thisObject);
-
-        var unregisterToken = arguments.At(0);
 
         if (!unregisterToken.CanBeHeldWeakly(_engine.GlobalSymbolRegistry))
         {

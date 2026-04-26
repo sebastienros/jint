@@ -1,17 +1,19 @@
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.WeakRef;
 
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-the-weak-ref-prototype-object
 /// </summary>
-internal sealed class WeakRefPrototype : Prototype
+[JsObject]
+internal sealed partial class WeakRefPrototype : Prototype
 {
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly WeakRefConstructor _constructor;
+
+    [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString WeakRefToStringTag = new("WeakRef");
 
     internal WeakRefPrototype(
         Engine engine,
@@ -25,22 +27,12 @@ internal sealed class WeakRefPrototype : Prototype
 
     protected override void Initialize()
     {
-        const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-        var properties = new PropertyDictionary(5, checkExistingKeys: false)
-        {
-            ["constructor"] = new(_constructor, PropertyFlag.NonEnumerable),
-            ["deref"] = new(new ClrFunction(Engine, "deref", Deref, 0, PropertyFlag.Configurable), propertyFlags)
-        };
-        SetProperties(properties);
-
-        var symbols = new SymbolDictionary(1)
-        {
-            [GlobalSymbolRegistry.ToStringTag] = new("WeakRef", false, false, true)
-        };
-        SetSymbols(symbols);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
     }
 
-    private JsValue Deref(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0)]
+    private JsValue Deref(JsValue thisObject)
     {
         if (thisObject is JsWeakRef weakRef)
         {

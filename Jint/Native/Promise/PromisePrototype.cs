@@ -1,14 +1,17 @@
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Promise;
 
-internal sealed class PromisePrototype : Prototype
+[JsObject]
+internal sealed partial class PromisePrototype : Prototype
 {
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly PromiseConstructor _constructor;
+
+    [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString PromiseToStringTag = new("Promise");
 
     internal PromisePrototype(
         Engine engine,
@@ -22,22 +25,8 @@ internal sealed class PromisePrototype : Prototype
 
     protected override void Initialize()
     {
-        const PropertyFlag lengthFlags = PropertyFlag.Configurable;
-        const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-        var properties = new PropertyDictionary(5, checkExistingKeys: false)
-        {
-            ["constructor"] = new(_constructor, PropertyFlag.NonEnumerable),
-            ["then"] = new(new ClrFunction(Engine, "then", Then, 2, lengthFlags), propertyFlags),
-            ["catch"] = new(new ClrFunction(Engine, "catch", Catch, 1, lengthFlags), propertyFlags),
-            ["finally"] = new(new ClrFunction(Engine, "finally", Finally, 1, lengthFlags), propertyFlags)
-        };
-        SetProperties(properties);
-
-        var symbols = new SymbolDictionary(1)
-        {
-            [GlobalSymbolRegistry.ToStringTag] = new(new JsString("Promise"), PropertyFlag.Configurable)
-        };
-        SetSymbols(symbols);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
     }
 
     // https://tc39.es/ecma262/#sec-promise.prototype.then
@@ -49,11 +38,12 @@ internal sealed class PromisePrototype : Prototype
     // 3. Let C be ? SpeciesConstructor(promise, %Promise%).
     // 4. Let resultCapability be ? NewPromiseCapability(C).
     // 5. Return PerformPromiseThen(promise, onFulfilled, onRejected, resultCapability).
-    private JsValue Then(JsValue thisValue, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private JsValue Then(JsValue thisObject, JsValue onFulfilled, JsValue onRejected)
     {
         // 1. Let promise be the this value.
         // 2. If IsPromise(promise) is false, throw a TypeError exception.
-        var promise = thisValue as JsPromise;
+        var promise = thisObject as JsPromise;
         if (promise is null)
         {
             Throw.TypeError(_realm, "Method Promise.prototype.then called on incompatible receiver");
@@ -66,7 +56,7 @@ internal sealed class PromisePrototype : Prototype
         var capability = PromiseConstructor.NewPromiseCapability(_engine, (JsValue) ctor);
 
         // 5. Return PerformPromiseThen(promise, onFulfilled, onRejected, resultCapability).
-        return PromiseOperations.PerformPromiseThen(_engine, promise, arguments.At(0), arguments.At(1), capability);
+        return PromiseOperations.PerformPromiseThen(_engine, promise, onFulfilled, onRejected, capability);
     }
 
     // https://tc39.es/ecma262/#sec-promise.prototype.catch
@@ -76,15 +66,17 @@ internal sealed class PromisePrototype : Prototype
     //
     // 1. Let promise be the this value.
     // 2. Return ? Invoke(promise, "then", « undefined, onRejected »).
-    private JsValue Catch(JsValue thisValue, JsCallArguments arguments) =>
-        _engine.Invoke(thisValue, "then", [Undefined, arguments.At(0)]);
+    [JsFunction(Length = 1)]
+    private JsValue Catch(JsValue thisObject, JsValue onRejected) =>
+        _engine.Invoke(thisObject, "then", [Undefined, onRejected]);
 
     // https://tc39.es/ecma262/#sec-promise.prototype.finally
-    private JsValue Finally(JsValue thisValue, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue Finally(JsValue thisObject, JsValue onFinally)
     {
         // 1. Let promise be the this value.
         // 2. If Type(promise) is not Object, throw a TypeError exception.
-        var promise = thisValue as ObjectInstance;
+        var promise = thisObject as ObjectInstance;
         if (promise is null)
         {
             Throw.TypeError(_realm, "this passed to Promise.prototype.finally is not an object");
@@ -96,7 +88,6 @@ internal sealed class PromisePrototype : Prototype
 
         JsValue thenFinally;
         JsValue catchFinally;
-        var onFinally = arguments.At(0);
 
         // 5. If IsCallable(onFinally) is false, then
         if (onFinally is not ICallable onFinallyFunc)
