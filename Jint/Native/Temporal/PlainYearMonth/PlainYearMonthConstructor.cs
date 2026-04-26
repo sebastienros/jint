@@ -563,7 +563,7 @@ internal sealed class PlainYearMonthConstructor : Constructor
                         CultureInfo.InvariantCulture, out var month))
                 {
                     // If there's a suffix, check what follows
-                    if (endIndex >= 0 && endIndex < rest.Length)
+                    if ((uint) endIndex < (uint) rest.Length)
                     {
                         var suffix = rest.Substring(endIndex);
                         // If it starts with '-', there's a day component - don't match here, let full date parsing handle it
