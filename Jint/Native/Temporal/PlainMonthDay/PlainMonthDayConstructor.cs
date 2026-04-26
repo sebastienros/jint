@@ -160,7 +160,7 @@ internal sealed class PlainMonthDayConstructor : Constructor
         if (item.IsString())
         {
             var str = item.ToString();
-            var parsed = ParseMonthDayString(str, out var parsedCalendar);
+            var parsed = ParseMonthDayString(str, out var parsedCalendar, _engine);
             if (parsed is null)
             {
                 Throw.RangeError(_realm, "Invalid month-day string");
@@ -347,7 +347,7 @@ internal sealed class PlainMonthDayConstructor : Constructor
                 // the canonical refYear lookup uses the validated/constrained day. Also fills in
                 // monthCode when the user passed numeric month without monthCode (FindCalendar-
                 // ReferenceYear's non-iso path requires monthCode for the lookup).
-                var calendarFields = NonIsoCalendars.IsoToCalendarDate(calendar, validated.Value);
+                var calendarFields = NonIsoCalendars.IsoToCalendarDate(calendar, validated.Value, _engine);
                 actualDay = calendarFields.Day;
                 effectiveMonthCode ??= calendarFields.MonthCode;
                 // Day already validated and constrained — the second conversion below should
@@ -423,7 +423,7 @@ internal sealed class PlainMonthDayConstructor : Constructor
         return Construct(new IsoDate(1972, date.Value.Month, date.Value.Day), calendar);
     }
 
-    private static IsoDate? ParseMonthDayString(string input, out string parsedCalendar)
+    private static IsoDate? ParseMonthDayString(string input, out string parsedCalendar, Engine? engine = null)
     {
         parsedCalendar = "iso8601";
 
@@ -573,10 +573,10 @@ internal sealed class PlainMonthDayConstructor : Constructor
         }
 
         // Try parsing as full date and extract month-day
-        return TryParseFullDateAsMonthDay(coreString, hasNonIsoCalendar, hasNonIsoCalendar ? parsedCalendar : null);
+        return TryParseFullDateAsMonthDay(coreString, hasNonIsoCalendar, hasNonIsoCalendar ? parsedCalendar : null, engine);
     }
 
-    private static IsoDate? TryParseFullDateAsMonthDay(string input, bool hasNonIsoCalendar, string? calendar = null)
+    private static IsoDate? TryParseFullDateAsMonthDay(string input, bool hasNonIsoCalendar, string? calendar = null, Engine? engine = null)
     {
         var parsed = TemporalHelpers.ParseIsoDate(input);
         if (parsed is not null)
@@ -596,7 +596,7 @@ internal sealed class PlainMonthDayConstructor : Constructor
                 // round-trip back. Otherwise we'd lose the year info: e.g. ISO 2023-01-01 in
                 // hebrew is M04 D08 (Tevet 8 of 5783), but ISO 1972-01-01 in hebrew is M04 D14
                 // (Tevet 14 of 5732), so simply replacing the year flips the calendar day.
-                var calFields = NonIsoCalendars.IsoToCalendarDate(calendar, parsed.Value);
+                var calFields = NonIsoCalendars.IsoToCalendarDate(calendar, parsed.Value, engine);
                 var canonicalYear = TemporalHelpers.FindCalendarReferenceYear(calendar, 1972, calFields.Month, calFields.Day, calFields.MonthCode);
                 var anchored = TemporalHelpers.CalendarDateToISO(null!, calendar, canonicalYear, calFields.Month, calFields.Day, "constrain", calFields.MonthCode);
                 if (anchored is not null)

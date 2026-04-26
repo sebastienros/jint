@@ -62,9 +62,21 @@ internal static class NonIsoCalendars
 
     /// <summary>
     /// Converts an ISO date to calendar-specific fields.
+    /// When <paramref name="engine"/> is supplied and its options expose a non-default
+    /// <see cref="ICalendarProvider"/>, the conversion is delegated to that provider.
     /// </summary>
-    internal static CalendarDate IsoToCalendarDate(string calendar, in IsoDate isoDate)
+    internal static CalendarDate IsoToCalendarDate(string calendar, in IsoDate isoDate, Engine? engine = null)
     {
+        var provider = engine?.Options.Temporal.CalendarProvider;
+        if (provider is not null && provider != DefaultCalendarProvider.Instance && provider.IsSupported(calendar))
+        {
+            var fields = provider.IsoToCalendarFields(calendar, isoDate.Year, isoDate.Month, isoDate.Day);
+            return new CalendarDate(
+                fields.Year, fields.Month, fields.MonthCode, fields.Day,
+                fields.IsLeapMonth, fields.MonthsInYear, fields.DaysInMonth,
+                fields.DaysInYear, fields.InLeapYear);
+        }
+
         try
         {
             return calendar switch
@@ -95,9 +107,18 @@ internal static class NonIsoCalendars
 
     /// <summary>
     /// Converts a calendar date to an ISO date. Returns null if the date is invalid with overflow "reject".
+    /// When <paramref name="engine"/> is supplied and its options expose a non-default
+    /// <see cref="ICalendarProvider"/>, the conversion is delegated to that provider.
     /// </summary>
-    internal static IsoDate? CalendarDateToIso(string calendar, int year, string? monthCode, int month, int day, string overflow)
+    internal static IsoDate? CalendarDateToIso(string calendar, int year, string? monthCode, int month, int day, string overflow, Engine? engine = null)
     {
+        var provider = engine?.Options.Temporal.CalendarProvider;
+        if (provider is not null && provider != DefaultCalendarProvider.Instance && provider.IsSupported(calendar))
+        {
+            var iso = provider.CalendarFieldsToIso(calendar, year, monthCode, month, day, overflow);
+            return iso is null ? null : new IsoDate(iso.Value.Year, iso.Value.Month, iso.Value.Day);
+        }
+
         var result = calendar switch
         {
             "chinese" => LunisolarDateToIso(ChineseCal, year, monthCode, month, day, overflow),

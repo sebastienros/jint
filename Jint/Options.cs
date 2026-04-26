@@ -569,6 +569,18 @@ public class Options
         /// for full IANA time zone support and better Windows compatibility.
         /// </remarks>
         public ITimeZoneProvider TimeZoneProvider { get; set; } = DefaultTimeZoneProvider.Instance;
+
+        /// <summary>
+        /// Calendar provider for non-ISO calendar arithmetic and field conversion.
+        /// Defaults to <see cref="DefaultCalendarProvider"/> which uses .NET
+        /// <see cref="System.Globalization.Calendar"/> subclasses.
+        /// </summary>
+        /// <remarks>
+        /// Set this to a custom <see cref="ICalendarProvider"/> implementation
+        /// (e.g. backed by ICU4N or NodaTime) for richer support of islamic-umalqura,
+        /// Persian astronomical, or Chinese/Dangi calendars at extreme dates.
+        /// </remarks>
+        public ICalendarProvider CalendarProvider { get; set; } = DefaultCalendarProvider.Instance;
     }
 }
 

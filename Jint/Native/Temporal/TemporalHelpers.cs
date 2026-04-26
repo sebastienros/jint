@@ -2005,7 +2005,7 @@ internal static class TemporalHelpers
     /// Returns the calendar-specific year for any calendar, including non-ISO calendars.
     /// For non-ISO calendars, converts the ISO date to a calendar date first.
     /// </summary>
-    internal static int CalendarYear(string calendar, in IsoDate isoDate)
+    internal static int CalendarYear(string calendar, in IsoDate isoDate, Engine? engine = null)
     {
         if (IsGregorianBasedCalendar(calendar))
         {
@@ -2014,7 +2014,7 @@ internal static class TemporalHelpers
 
         if (NonIsoCalendars.IsNonIsoCalendar(calendar))
         {
-            return NonIsoCalendars.IsoToCalendarDate(calendar, isoDate).Year;
+            return NonIsoCalendars.IsoToCalendarDate(calendar, isoDate, engine).Year;
         }
 
         return isoDate.Year;
@@ -2023,7 +2023,7 @@ internal static class TemporalHelpers
     /// <summary>
     /// Returns the calendar-specific ordinal month for a date.
     /// </summary>
-    internal static int CalendarMonth(string calendar, in IsoDate isoDate)
+    internal static int CalendarMonth(string calendar, in IsoDate isoDate, Engine? engine = null)
     {
         if (IsGregorianBasedCalendar(calendar))
         {
@@ -2032,7 +2032,7 @@ internal static class TemporalHelpers
 
         if (NonIsoCalendars.IsNonIsoCalendar(calendar))
         {
-            return NonIsoCalendars.IsoToCalendarDate(calendar, isoDate).Month;
+            return NonIsoCalendars.IsoToCalendarDate(calendar, isoDate, engine).Month;
         }
 
         return isoDate.Month;
@@ -2041,7 +2041,7 @@ internal static class TemporalHelpers
     /// <summary>
     /// Returns the calendar-specific monthCode for a date (e.g., "M01", "M05L").
     /// </summary>
-    internal static string CalendarMonthCode(string calendar, in IsoDate isoDate)
+    internal static string CalendarMonthCode(string calendar, in IsoDate isoDate, Engine? engine = null)
     {
         if (IsGregorianBasedCalendar(calendar))
         {
@@ -2050,7 +2050,7 @@ internal static class TemporalHelpers
 
         if (NonIsoCalendars.IsNonIsoCalendar(calendar))
         {
-            return NonIsoCalendars.IsoToCalendarDate(calendar, isoDate).MonthCode;
+            return NonIsoCalendars.IsoToCalendarDate(calendar, isoDate, engine).MonthCode;
         }
 
         return $"M{isoDate.Month:D2}";
@@ -2059,7 +2059,7 @@ internal static class TemporalHelpers
     /// <summary>
     /// Returns the calendar-specific day for a date.
     /// </summary>
-    internal static int CalendarDay(string calendar, in IsoDate isoDate)
+    internal static int CalendarDay(string calendar, in IsoDate isoDate, Engine? engine = null)
     {
         if (IsGregorianBasedCalendar(calendar))
         {
@@ -2068,7 +2068,7 @@ internal static class TemporalHelpers
 
         if (NonIsoCalendars.IsNonIsoCalendar(calendar))
         {
-            return NonIsoCalendars.IsoToCalendarDate(calendar, isoDate).Day;
+            return NonIsoCalendars.IsoToCalendarDate(calendar, isoDate, engine).Day;
         }
 
         return isoDate.Day;
@@ -2080,7 +2080,7 @@ internal static class TemporalHelpers
     /// calendar day-1, so PYM operations must canonicalize through the calendar before computing differences
     /// or doing date arithmetic. Spec ref: ISODateToFields + setting [[Day]] to 1 + CalendarDateFromFields.
     /// </summary>
-    internal static IsoDate IsoDateForCalendarFirstOfMonth(string calendar, in IsoDate isoDate)
+    internal static IsoDate IsoDateForCalendarFirstOfMonth(string calendar, in IsoDate isoDate, Engine? engine = null)
     {
         if (IsGregorianBasedCalendar(calendar))
         {
@@ -2090,8 +2090,8 @@ internal static class TemporalHelpers
 
         if (NonIsoCalendars.IsNonIsoCalendar(calendar))
         {
-            var calDate = NonIsoCalendars.IsoToCalendarDate(calendar, isoDate);
-            var firstOfMonth = NonIsoCalendars.CalendarDateToIso(calendar, calDate.Year, calDate.MonthCode, calDate.Month, 1, "constrain");
+            var calDate = NonIsoCalendars.IsoToCalendarDate(calendar, isoDate, engine);
+            var firstOfMonth = NonIsoCalendars.CalendarDateToIso(calendar, calDate.Year, calDate.MonthCode, calDate.Month, 1, "constrain", engine);
             if (firstOfMonth is not null)
             {
                 return firstOfMonth.Value;
@@ -2108,7 +2108,7 @@ internal static class TemporalHelpers
     /// <summary>
     /// Returns the day of the year in the calendar system for the given ISO date.
     /// </summary>
-    internal static int CalendarDayOfYear(string calendar, in IsoDate isoDate)
+    internal static int CalendarDayOfYear(string calendar, in IsoDate isoDate, Engine? engine = null)
     {
         if (IsGregorianBasedCalendar(calendar))
         {
@@ -2117,9 +2117,9 @@ internal static class TemporalHelpers
 
         if (NonIsoCalendars.IsNonIsoCalendar(calendar))
         {
-            var calDate = NonIsoCalendars.IsoToCalendarDate(calendar, isoDate);
+            var calDate = NonIsoCalendars.IsoToCalendarDate(calendar, isoDate, engine);
             // Find the first day of the calendar year
-            var firstDay = NonIsoCalendars.CalendarDateToIso(calendar, calDate.Year, "M01", 0, 1, "constrain");
+            var firstDay = NonIsoCalendars.CalendarDateToIso(calendar, calDate.Year, "M01", 0, 1, "constrain", engine);
             if (firstDay is not null)
             {
                 var epochThis = IsoDateToDays(isoDate.Year, isoDate.Month, isoDate.Day);
@@ -2134,7 +2134,7 @@ internal static class TemporalHelpers
     /// <summary>
     /// Returns the number of days in the calendar month containing the given ISO date.
     /// </summary>
-    internal static int CalendarDaysInMonth(string calendar, in IsoDate isoDate)
+    internal static int CalendarDaysInMonth(string calendar, in IsoDate isoDate, Engine? engine = null)
     {
         if (IsGregorianBasedCalendar(calendar))
         {
@@ -2143,7 +2143,7 @@ internal static class TemporalHelpers
 
         if (NonIsoCalendars.IsNonIsoCalendar(calendar))
         {
-            return NonIsoCalendars.IsoToCalendarDate(calendar, isoDate).DaysInMonth;
+            return NonIsoCalendars.IsoToCalendarDate(calendar, isoDate, engine).DaysInMonth;
         }
 
         return isoDate.DaysInMonth();
@@ -2152,7 +2152,7 @@ internal static class TemporalHelpers
     /// <summary>
     /// Returns the number of days in the calendar year containing the given ISO date.
     /// </summary>
-    internal static int CalendarDaysInYear(string calendar, in IsoDate isoDate)
+    internal static int CalendarDaysInYear(string calendar, in IsoDate isoDate, Engine? engine = null)
     {
         if (IsGregorianBasedCalendar(calendar))
         {
@@ -2161,7 +2161,7 @@ internal static class TemporalHelpers
 
         if (NonIsoCalendars.IsNonIsoCalendar(calendar))
         {
-            return NonIsoCalendars.IsoToCalendarDate(calendar, isoDate).DaysInYear;
+            return NonIsoCalendars.IsoToCalendarDate(calendar, isoDate, engine).DaysInYear;
         }
 
         return isoDate.DaysInYear();
@@ -2170,7 +2170,7 @@ internal static class TemporalHelpers
     /// <summary>
     /// Returns the number of months in the calendar year containing the given ISO date.
     /// </summary>
-    internal static int CalendarMonthsInYear(string calendar, in IsoDate isoDate)
+    internal static int CalendarMonthsInYear(string calendar, in IsoDate isoDate, Engine? engine = null)
     {
         if (IsGregorianBasedCalendar(calendar))
         {
@@ -2179,7 +2179,7 @@ internal static class TemporalHelpers
 
         if (NonIsoCalendars.IsNonIsoCalendar(calendar))
         {
-            return NonIsoCalendars.IsoToCalendarDate(calendar, isoDate).MonthsInYear;
+            return NonIsoCalendars.IsoToCalendarDate(calendar, isoDate, engine).MonthsInYear;
         }
 
         return 12;
@@ -2188,7 +2188,7 @@ internal static class TemporalHelpers
     /// <summary>
     /// Returns whether the calendar year containing the given ISO date is a leap year.
     /// </summary>
-    internal static bool CalendarInLeapYear(string calendar, in IsoDate isoDate)
+    internal static bool CalendarInLeapYear(string calendar, in IsoDate isoDate, Engine? engine = null)
     {
         if (IsGregorianBasedCalendar(calendar))
         {
@@ -2197,7 +2197,7 @@ internal static class TemporalHelpers
 
         if (NonIsoCalendars.IsNonIsoCalendar(calendar))
         {
-            return NonIsoCalendars.IsoToCalendarDate(calendar, isoDate).InLeapYear;
+            return NonIsoCalendars.IsoToCalendarDate(calendar, isoDate, engine).InLeapYear;
         }
 
         return IsoDate.IsLeapYear(isoDate.Year);
