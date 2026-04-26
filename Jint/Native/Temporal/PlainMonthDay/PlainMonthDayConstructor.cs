@@ -355,25 +355,36 @@ internal sealed class PlainMonthDayConstructor : Constructor
                 finalOverflow = "constrain";
             }
 
-            // For Chinese/Dangi leap monthCodes that NEVER appear with the requested day in any
-            // calendar year (e.g. M02L D30 — M02L max ≈29 days in every year of the supported
-            // range), the spec falls the request back to the corresponding regular month with
-            // the day preserved. Detect this BEFORE the canonical lookup by probing the leap
-            // month's max day across the search window; if no year admits the requested day,
-            // strip the L and proceed with the regular monthCode.
+            // For Chinese/Dangi leap monthCodes that cannot represent the requested day in any
+            // year (e.g. M02L D30 — M02L max ≈29 days everywhere), the spec falls back to the
+            // corresponding REGULAR month. Cases where the regular month also can't represent
+            // the day (e.g. M03L D31 — both M03L and M03 max at 30) BUT the leap month CAN
+            // represent some smaller version still keep the leap monthCode and let the day
+            // constrain within it; the test expects M03L D30, not M03 D30. We detect "leap can
+            // represent some day ≥ regular's max" by comparing max-days of leap vs regular and
+            // the requested day:
+            //   leap max < day  AND  regular max ≥ leap max  → regular month wins (preserves
+            //   more of the requested day, even when also constraining).
             if (!yearExplicitlyProvided
                 && effectiveMonthCode is { Length: 4 } leapMc
                 && leapMc[3] == 'L'
-                && (calendar is "chinese" or "dangi")
-                && !NonIsoCalendars.IsLeapMonthRepresentableForDay(calendar, leapMc, actualDay))
+                && (calendar is "chinese" or "dangi"))
             {
-                effectiveMonthCode = leapMc.Substring(0, 3);
-                if (string.Equals(overflow, "reject", StringComparison.Ordinal))
+                var leapMax = NonIsoCalendars.MaxDaysForChineseLeapMonth(calendar, leapMc);
+                if (leapMax < actualDay)
                 {
-                    // Reject mode: per spec, if the user requested a leap monthCode and the
-                    // requested day is not representable in any year for that leap monthCode,
-                    // throw rather than silently fall back to the regular month.
-                    Throw.RangeError(_realm, "Invalid month-day");
+                    var regularMc = leapMc.Substring(0, 3);
+                    var regularMax = NonIsoCalendars.MaxDaysForChineseRegularMonth(calendar, regularMc);
+                    if (regularMax > leapMax)
+                    {
+                        effectiveMonthCode = regularMc;
+                        if (string.Equals(overflow, "reject", StringComparison.Ordinal))
+                        {
+                            // Per spec, when the user requested a leap monthCode and the day
+                            // cannot fit in that leap month in any year, reject overflow throws.
+                            Throw.RangeError(_realm, "Invalid month-day");
+                        }
+                    }
                 }
             }
 

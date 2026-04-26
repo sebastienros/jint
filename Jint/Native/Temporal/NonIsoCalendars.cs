@@ -370,19 +370,19 @@ internal static class NonIsoCalendars
     }
 
     /// <summary>
-    /// Returns true if there is at least one Chinese/Dangi calendar year (within a wide
-    /// search window around the canonical 1972 anchor) in which the given leap monthCode
-    /// has at least <paramref name="day"/> days. Used by PlainMonthDay to decide whether
-    /// to fall back to the regular (non-leap) monthCode when the leap monthCode never
-    /// admits the requested day (e.g. chinese M02L D30).
+    /// Returns the maximum number of days the given Chinese/Dangi LEAP monthCode has
+    /// across any year in the search window around the canonical 1972 anchor. Used by
+    /// PlainMonthDay to decide whether to fall back to the regular (non-leap) monthCode.
+    /// Returns 0 if the monthCode is invalid or not a leap monthCode.
     /// </summary>
-    internal static bool IsLeapMonthRepresentableForDay(string calendar, string monthCode, int day)
+    internal static int MaxDaysForChineseLeapMonth(string calendar, string monthCode)
     {
-        if (calendar is not ("chinese" or "dangi")) return true;
-        if (monthCode.Length != 4 || monthCode[3] != 'L') return true;
+        if (calendar is not ("chinese" or "dangi")) return 30;
+        if (monthCode.Length != 4 || monthCode[3] != 'L') return 0;
 
         var cal = GetCalendar(calendar);
         var approxYear = IsoYearToCalendarYear(calendar, cal, 1972);
+        var maxSeen = 0;
         for (var y = approxYear - 75; y <= approxYear + 75; y++)
         {
             var leapOrdinal = GetLeapMonthOrdinal(calendar, cal, y);
@@ -391,8 +391,8 @@ internal static class NonIsoCalendars
             {
                 var ord = MonthCodeToOrdinal(calendar, cal, y, monthCode, "reject");
                 if (ord <= 0) continue;
-                var maxDay = GetDaysInMonthCal(cal, y, ord);
-                if (maxDay >= day) return true;
+                var dim = GetDaysInMonthCal(cal, y, ord);
+                if (dim > maxSeen) maxSeen = dim;
             }
             catch
             {
@@ -400,7 +400,34 @@ internal static class NonIsoCalendars
             }
         }
 
-        return false;
+        return maxSeen;
+    }
+
+    /// <summary>Same as <see cref="MaxDaysForChineseLeapMonth"/> but for a REGULAR monthCode.</summary>
+    internal static int MaxDaysForChineseRegularMonth(string calendar, string monthCode)
+    {
+        if (calendar is not ("chinese" or "dangi")) return 30;
+        if (monthCode.Length != 3) return 0;
+
+        var cal = GetCalendar(calendar);
+        var approxYear = IsoYearToCalendarYear(calendar, cal, 1972);
+        var maxSeen = 0;
+        for (var y = approxYear - 75; y <= approxYear + 75; y++)
+        {
+            try
+            {
+                var ord = MonthCodeToOrdinal(calendar, cal, y, monthCode, "reject");
+                if (ord <= 0) continue;
+                var dim = GetDaysInMonthCal(cal, y, ord);
+                if (dim > maxSeen) maxSeen = dim;
+            }
+            catch
+            {
+                // monthCode doesn't exist this year
+            }
+        }
+
+        return maxSeen;
     }
 
     /// <summary>
