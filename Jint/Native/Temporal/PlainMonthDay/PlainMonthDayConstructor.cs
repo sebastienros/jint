@@ -322,15 +322,84 @@ internal sealed class PlainMonthDayConstructor : Constructor
             Throw.RangeError(_realm, "year is outside the supported range for PlainMonthDay");
         }
 
-        // For non-ISO calendars, convert calendar year/month/day to ISO
+        // For non-ISO calendars, convert calendar year/month/day to ISO.
         if (!TemporalHelpers.IsGregorianBasedCalendar(calendar))
         {
-            // When year is not explicitly provided, find the calendar year that maps to ISO 1972
-            var calendarYear = yearExplicitlyProvided
-                ? year
-                : TemporalHelpers.FindCalendarReferenceYear(calendar, 1972, month, day, monthCodeStr);
+            // When year IS explicitly provided, the spec uses it for VALIDATION (date must exist
+            // for that year, possibly with overflow), but the STORED reference year is still the
+            // canonical 1972-anchored one (per CalendarMonthDayToISOReferenceDate). We therefore
+            // first round-trip through the user's year to obtain the constrained day, then ask
+            // FindCalendarReferenceYear for the canonical reference year using that constrained
+            // day. Without this re-anchoring, PMD.from({year: 5781, monthCode: "M02", day: 30,
+            // calendar: "hebrew"}) with constrain would store ISO 2020-11-16 instead of 1972-…
+            int actualDay = day;
+            string finalOverflow = overflow;
+            string? effectiveMonthCode = monthCodeStr;
+            if (yearExplicitlyProvided)
+            {
+                var validated = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, day, overflow, monthCodeStr);
+                if (validated is null)
+                {
+                    Throw.RangeError(_realm, "Invalid month-day");
+                }
 
-            var calDate = TemporalHelpers.CalendarDateToISO(_realm, calendar, calendarYear, month, day, overflow, monthCodeStr);
+                // Extract the constrained day AND monthCode by reading back via the calendar so
+                // the canonical refYear lookup uses the validated/constrained day. Also fills in
+                // monthCode when the user passed numeric month without monthCode (FindCalendar-
+                // ReferenceYear's non-iso path requires monthCode for the lookup).
+                var calendarFields = NonIsoCalendars.IsoToCalendarDate(calendar, validated.Value);
+                actualDay = calendarFields.Day;
+                effectiveMonthCode ??= calendarFields.MonthCode;
+                // Day already validated and constrained — the second conversion below should
+                // never need to throw on its own.
+                finalOverflow = "constrain";
+            }
+
+            // For Chinese/Dangi leap monthCodes that cannot represent the requested day in any
+            // year (e.g. M02L D30 — M02L max ≈29 days everywhere), the spec falls back to the
+            // corresponding REGULAR month. Cases where the regular month also can't represent
+            // the day (e.g. M03L D31 — both M03L and M03 max at 30) BUT the leap month CAN
+            // represent some smaller version still keep the leap monthCode and let the day
+            // constrain within it; the test expects M03L D30, not M03 D30. We detect "leap can
+            // represent some day ≥ regular's max" by comparing max-days of leap vs regular and
+            // the requested day:
+            //   leap max < day  AND  regular max ≥ leap max  → regular month wins (preserves
+            //   more of the requested day, even when also constraining).
+            if (effectiveMonthCode is { Length: 4 } leapMc
+                && leapMc[3] == 'L'
+                && (calendar is "chinese" or "dangi"))
+            {
+                // Use the ORIGINAL day (not actualDay, which may have been constrained by the
+                // explicit-year validation) so the fallback decision considers the user's intent.
+                var fallbackProbeDay = yearExplicitlyProvided ? day : actualDay;
+                var leapMax = NonIsoCalendars.MaxDaysForChineseLeapMonth(calendar, leapMc);
+                if (leapMax < fallbackProbeDay)
+                {
+                    var regularMc = leapMc.Substring(0, 3);
+                    var regularMax = NonIsoCalendars.MaxDaysForChineseRegularMonth(calendar, regularMc);
+                    if (regularMax > leapMax)
+                    {
+                        effectiveMonthCode = regularMc;
+                        // Re-anchor day too: when falling back to the regular month from the
+                        // user's leap monthCode, preserve the user's original day (the
+                        // explicit-year validation may have constrained it).
+                        if (yearExplicitlyProvided && day > actualDay)
+                        {
+                            actualDay = day;
+                        }
+                        if (string.Equals(overflow, "reject", StringComparison.Ordinal))
+                        {
+                            // Per spec, when the user requested a leap monthCode and the day
+                            // cannot fit in that leap month in any year, reject overflow throws.
+                            Throw.RangeError(_realm, "Invalid month-day");
+                        }
+                    }
+                }
+            }
+
+            var calendarYear = TemporalHelpers.FindCalendarReferenceYear(calendar, 1972, month, actualDay, effectiveMonthCode);
+
+            var calDate = TemporalHelpers.CalendarDateToISO(_realm, calendar, calendarYear, month, actualDay, finalOverflow, effectiveMonthCode);
             if (calDate is null)
             {
                 Throw.RangeError(_realm, "Invalid month-day");
@@ -504,10 +573,10 @@ internal sealed class PlainMonthDayConstructor : Constructor
         }
 
         // Try parsing as full date and extract month-day
-        return TryParseFullDateAsMonthDay(coreString, hasNonIsoCalendar);
+        return TryParseFullDateAsMonthDay(coreString, hasNonIsoCalendar, hasNonIsoCalendar ? parsedCalendar : null);
     }
 
-    private static IsoDate? TryParseFullDateAsMonthDay(string input, bool hasNonIsoCalendar)
+    private static IsoDate? TryParseFullDateAsMonthDay(string input, bool hasNonIsoCalendar, string? calendar = null)
     {
         var parsed = TemporalHelpers.ParseIsoDate(input);
         if (parsed is not null)
@@ -517,6 +586,25 @@ internal sealed class PlainMonthDayConstructor : Constructor
             if (hasNonIsoCalendar && !TemporalHelpers.IsValidIsoDateTime(parsed.Value.Year, parsed.Value.Month, parsed.Value.Day))
             {
                 return null;
+            }
+
+            if (hasNonIsoCalendar && calendar is not null)
+            {
+                // For non-ISO calendars, the parsed (calendarYear, monthCode, day) — derived
+                // from the parsed ISO date — is what determines the PMD's identity. Re-anchor
+                // by finding a canonical reference year (≈1972) where the same monthCode+day
+                // round-trip back. Otherwise we'd lose the year info: e.g. ISO 2023-01-01 in
+                // hebrew is M04 D08 (Tevet 8 of 5783), but ISO 1972-01-01 in hebrew is M04 D14
+                // (Tevet 14 of 5732), so simply replacing the year flips the calendar day.
+                var calFields = NonIsoCalendars.IsoToCalendarDate(calendar, parsed.Value);
+                var canonicalYear = TemporalHelpers.FindCalendarReferenceYear(calendar, 1972, calFields.Month, calFields.Day, calFields.MonthCode);
+                var anchored = TemporalHelpers.CalendarDateToISO(null!, calendar, canonicalYear, calFields.Month, calFields.Day, "constrain", calFields.MonthCode);
+                if (anchored is not null)
+                {
+                    return anchored.Value;
+                }
+                // Fallback: keep the parsed ISO date as-is.
+                return parsed.Value;
             }
 
             // For PlainMonthDay, we only extract month and day — year range validation is not needed for iso8601

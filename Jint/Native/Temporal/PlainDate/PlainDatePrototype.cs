@@ -761,6 +761,46 @@ internal sealed class PlainDatePrototype : Prototype
     private JsPlainMonthDay ToPlainMonthDay(JsValue thisObject, JsCallArguments arguments)
     {
         var plainDate = ValidatePlainDate(thisObject);
+
+        // For non-ISO calendars, preserve the CALENDAR's monthCode+day rather than the
+        // underlying ISO month/day — those will diverge when the canonical 1972-anchored ISO
+        // date interprets to different calendar fields than the source date does. This mirrors
+        // the calendar-aware re-anchoring the PMD parsing path performs.
+        if (!TemporalHelpers.IsGregorianBasedCalendar(plainDate.Calendar))
+        {
+            var calFields = NonIsoCalendars.IsoToCalendarDate(plainDate.Calendar, plainDate.IsoDate);
+            var monthCode = calFields.MonthCode;
+            var day = calFields.Day;
+
+            // Apply the same leap-month → regular-month fallback the PMD constructor does, so
+            // a chinese/dangi date in a year whose M0NL is rare (e.g. dangi 1765 M02L D30)
+            // re-anchors to the regular month at the canonical 1972 reference, not to another
+            // out-of-window year that happens to have the leap month at that day.
+            if (monthCode is { Length: 4 } leapMc
+                && leapMc[3] == 'L'
+                && (plainDate.Calendar is "chinese" or "dangi"))
+            {
+                var leapMax = NonIsoCalendars.MaxDaysForChineseLeapMonth(plainDate.Calendar, leapMc);
+                if (leapMax < day)
+                {
+                    var regularMc = leapMc.Substring(0, 3);
+                    var regularMax = NonIsoCalendars.MaxDaysForChineseRegularMonth(plainDate.Calendar, regularMc);
+                    if (regularMax > leapMax)
+                    {
+                        monthCode = regularMc;
+                    }
+                }
+            }
+
+            var canonicalYear = TemporalHelpers.FindCalendarReferenceYear(plainDate.Calendar, 1972, calFields.Month, day, monthCode);
+            var anchored = TemporalHelpers.CalendarDateToISO(_realm, plainDate.Calendar, canonicalYear, calFields.Month, day, "constrain", monthCode);
+            if (anchored is not null)
+            {
+                return new JsPlainMonthDay(_engine, _realm.Intrinsics.TemporalPlainMonthDay.PrototypeObject,
+                    anchored.Value, plainDate.Calendar);
+            }
+        }
+
         // Use a reference year (1972 is a leap year, so it has Feb 29)
         var isoDate = new IsoDate(1972, plainDate.IsoDate.Month, plainDate.IsoDate.Day);
         return new JsPlainMonthDay(_engine, _realm.Intrinsics.TemporalPlainMonthDay.PrototypeObject,

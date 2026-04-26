@@ -253,165 +253,208 @@ internal static class NonIsoCalendars
 
     /// <summary>
     /// Computes the difference between two ISO dates using calendar-specific reckoning.
+    /// Mirrors the temporal-polyfill HelperBase.untilCalendar algorithm:
+    /// (1) compute years from a "diffInYearSign" formula based on monthCode/day position,
+    /// (2) optionally pre-skip whole-cycle months for largestUnit=month,
+    /// (3) iterate ±1 month at a time, comparing in calendar-field space with the day
+    ///     un-constrained (so a day forced down by AddCalendar still counts as "past target"),
+    /// (4) measure remaining days as ISO epoch-day diff.
     /// </summary>
     internal static DurationRecord CalendarDateUntil(string calendar, in IsoDate one, in IsoDate two, string largestUnit)
     {
-        var sign = TemporalHelpers.CompareIsoDates(one, two);
-        if (sign == 0)
+        var rawSign = TemporalHelpers.CompareIsoDates(one, two);
+        if (rawSign == 0)
         {
             return new DurationRecord(0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
         }
 
-        // For day and week, use epoch day arithmetic (same as ISO)
-        if (largestUnit is "day" or "week")
+        var epochOne = TemporalHelpers.IsoDateToDays(one.Year, one.Month, one.Day);
+        var epochTwo = TemporalHelpers.IsoDateToDays(two.Year, two.Month, two.Day);
+
+        if (string.Equals(largestUnit, "week", StringComparison.Ordinal))
         {
-            var epochOne = TemporalHelpers.IsoDateToDays(one.Year, one.Month, one.Day);
-            var epochTwo = TemporalHelpers.IsoDateToDays(two.Year, two.Month, two.Day);
             var totalDays = (int) (epochTwo - epochOne);
-
-            if (string.Equals(largestUnit, "week", StringComparison.Ordinal))
-            {
-                var w = totalDays / 7;
-                var d = totalDays - w * 7;
-                return new DurationRecord(0, 0, w, d, 0, 0, 0, 0, 0, 0);
-            }
-
-            return new DurationRecord(0, 0, 0, totalDays, 0, 0, 0, 0, 0, 0);
+            var w = totalDays / 7;
+            return new DurationRecord(0, 0, w, totalDays - w * 7, 0, 0, 0, 0, 0, 0);
         }
 
-        // Calendar-aware year/month difference
-        sign = -sign; // negate per spec
+        if (!string.Equals(largestUnit, "year", StringComparison.Ordinal) &&
+            !string.Equals(largestUnit, "month", StringComparison.Ordinal))
+        {
+            // "day" or smaller: the date portion is just the ISO-day diff.
+            return new DurationRecord(0, 0, 0, (int) (epochTwo - epochOne), 0, 0, 0, 0, 0, 0);
+        }
+
+        // Spec convention: sign = +1 if two > one (forward), -1 if backward.
+        var sign = -rawSign;
 
         var calOne = IsoToCalendarDate(calendar, one);
         var calTwo = IsoToCalendarDate(calendar, two);
 
-        int years = 0;
-        if (string.Equals(largestUnit, "year", StringComparison.Ordinal))
+        var years = 0;
+        var diffYears = calTwo.Year - calOne.Year;
+        if (diffYears != 0)
         {
-            years = calTwo.Year - calOne.Year;
-            // Check if we overshot or day was constrained (wrapping at end of month/year)
+            int diffInYearSign;
+            var mcCmp = string.CompareOrdinal(calTwo.MonthCode, calOne.MonthCode);
+            if (mcCmp > 0) diffInYearSign = 1;
+            else if (mcCmp < 0) diffInYearSign = -1;
+            else diffInYearSign = System.Math.Sign(calTwo.Day - calOne.Day);
+
+            var isOneFurtherInYear = diffInYearSign * sign < 0;
+            years = isOneFurtherInYear ? diffYears - sign : diffYears;
+
+            // Strict overshoot follow-up using un-constrained-day comparison: this catches the
+            // case where AddCalendar's constrain mode forced the day down to fit a shorter target
+            // month. The spec treats "would-be day exists in target's month?" as the overshoot
+            // criterion, so an intermediate that landed at the target only because the day was
+            // truncated should NOT count as a full year. Chinese/Hebrew leap-month wrapping plus
+            // day-overflow within the same year boundary all flow through this check.
             if (years != 0)
             {
                 var check = CalendarDateAdd(calendar, one, years, 0, "constrain");
-                var cmp = TemporalHelpers.CompareIsoDates(check, two);
-                if (sign > 0 && cmp > 0 || sign < 0 && cmp < 0)
+                var checkCal = IsoToCalendarDate(calendar, check);
+                var notional = checkCal.Day != calOne.Day ? calOne.Day : checkCal.Day;
+                var ccd = CompareCalendarFields(calTwo.Year, calTwo.MonthCode, calTwo.Day, checkCal.Year, checkCal.MonthCode, notional);
+                if (ccd * sign < 0)
                 {
                     years -= sign;
                 }
-                else if (cmp == 0)
-                {
-                    // Check if day or monthCode was constrained (wrapping)
-                    // This catches: day constraining (e.g., M13 day 6 → 5) and
-                    // leap month constraining (e.g., M05L → M06 when target year has no leap month)
-                    // Compare MonthCode (not ordinal Month) since ordinal shifts between leap/non-leap years
-                    var checkCal = IsoToCalendarDate(calendar, check);
-                    if (checkCal.Day != calOne.Day || !string.Equals(checkCal.MonthCode, calOne.MonthCode, System.StringComparison.Ordinal))
-                    {
-                        years -= sign;
-                    }
-                }
             }
         }
 
-        int months = 0;
-        if (largestUnit is "year" or "month")
+        var months = 0;
+        if (string.Equals(largestUnit, "month", StringComparison.Ordinal))
         {
-            if (string.Equals(largestUnit, "month", StringComparison.Ordinal))
+            if (years != 0)
             {
-                // Estimate total months
-                Calendar? cal = calendar is "coptic" or "ethiopic" or "ethioaa" or "indian" or "islamic-civil" or "islamic-tbla" or "islamic-umalqura" ? null : GetCalendar(calendar);
-                var totalMonths = 0;
-                if (calTwo.Year == calOne.Year)
-                {
-                    totalMonths = calTwo.Month - calOne.Month;
-                }
-                else if (cal is null)
-                {
-                    // Fixed-month calendars: compute directly instead of looping per year
-                    var monthsPerYear = GetMonthsInYear(calendar, null, 0);
-                    totalMonths = (calTwo.Year - calOne.Year) * monthsPerYear + (calTwo.Month - calOne.Month);
-                }
-                else if (calTwo.Year > calOne.Year)
-                {
-                    // Variable-month calendars (Chinese, Dangi, Hebrew): must loop
-                    for (var y = calOne.Year; y < calTwo.Year; y++)
-                    {
-                        totalMonths += GetMonthsInYear(calendar, cal, y);
-                    }
-
-                    totalMonths += calTwo.Month - calOne.Month;
-                }
-                else
-                {
-                    // Variable-month calendars, backward
-                    for (var y = calTwo.Year; y < calOne.Year; y++)
-                    {
-                        totalMonths -= GetMonthsInYear(calendar, cal, y);
-                    }
-
-                    totalMonths += calTwo.Month - calOne.Month;
-                }
-
-                months = totalMonths;
-                // Check if we overshot (including day constraint cases)
-                if (months != 0)
-                {
-                    var check = CalendarDateAdd(calendar, one, 0, months, "constrain");
-                    var cmp = TemporalHelpers.CompareIsoDates(check, two);
-                    if (sign > 0 && cmp > 0 || sign < 0 && cmp < 0)
-                    {
-                        months -= sign;
-                    }
-                    else if (cmp == 0)
-                    {
-                        // Intermediate equals target - check if day was constrained
-                        var checkCal = IsoToCalendarDate(calendar, check);
-                        if (sign > 0 && checkCal.Day < calOne.Day ||
-                            sign < 0 && checkCal.Day > calOne.Day)
-                        {
-                            months -= sign;
-                        }
-                    }
-                }
+                // Whole-year skip estimate. The iteration loop below corrects for
+                // year-length variation in lunisolar calendars (Hebrew/Chinese/Dangi).
+                var monthsPerCycle = calendar is "coptic" or "ethiopic" or "ethioaa" ? 13 : 12;
+                months = years * monthsPerCycle;
             }
-            else
+            years = 0;
+        }
+
+        var currentIso = years != 0 || months != 0
+            ? CalendarDateAdd(calendar, one, years, months, "constrain")
+            : one;
+
+        while (true)
+        {
+            var prevMonths = months;
+            months += sign;
+            var nextIso = CalendarDateAdd(calendar, one, years, months, "constrain");
+            var nextCal = IsoToCalendarDate(calendar, nextIso);
+            // Un-constrain the day in calendar-field space: if AddCalendar forced day down
+            // to fit the target month, we still want to consider "next" as standing at the
+            // source's original day for comparison (matches polyfill behavior).
+            var notionalDay = nextCal.Day != calOne.Day ? calOne.Day : nextCal.Day;
+
+            var ccd = CompareCalendarFields(calTwo.Year, calTwo.MonthCode, calTwo.Day, nextCal.Year, nextCal.MonthCode, notionalDay);
+
+            // Continue while ccd * sign >= 0 (next has not yet passed two).
+            if (ccd * sign < 0)
             {
-                // largestUnit is "year" - count remaining months after years
-                var intermediate = CalendarDateAdd(calendar, one, years, 0, "constrain");
-                var candidateMonths = sign;
-                while (true)
-                {
-                    var check = CalendarDateAdd(calendar, one, years, candidateMonths, "constrain");
-                    var cmp = TemporalHelpers.CompareIsoDates(check, two);
-                    if (sign > 0 && cmp > 0 || sign < 0 && cmp < 0)
-                    {
-                        break;
-                    }
+                months = prevMonths;
+                break;
+            }
 
-                    // Check for day constraining (wrapping at end of month)
-                    if (cmp == 0)
-                    {
-                        var checkCal = IsoToCalendarDate(calendar, check);
-                        if (sign > 0 && checkCal.Day < calOne.Day ||
-                            sign < 0 && checkCal.Day > calOne.Day)
-                        {
-                            break;
-                        }
-                    }
+            currentIso = nextIso;
+        }
 
-                    months = candidateMonths;
-                    candidateMonths += sign;
-                }
+        var epochCurrent = TemporalHelpers.IsoDateToDays(currentIso.Year, currentIso.Month, currentIso.Day);
+        var days = (int) (epochTwo - epochCurrent);
+
+        return new DurationRecord(years, months, 0, days, 0, 0, 0, 0, 0, 0);
+    }
+
+    /// <summary>
+    /// Returns the maximum number of days the given Chinese/Dangi LEAP monthCode has
+    /// across any year in the search window around the canonical 1972 anchor. Used by
+    /// PlainMonthDay to decide whether to fall back to the regular (non-leap) monthCode.
+    /// Returns 0 if the monthCode is invalid or not a leap monthCode.
+    /// </summary>
+    internal static int MaxDaysForChineseLeapMonth(string calendar, string monthCode)
+    {
+        if (calendar is not ("chinese" or "dangi")) return 30;
+        if (monthCode.Length != 4 || monthCode[3] != 'L') return 0;
+
+        var cal = GetCalendar(calendar);
+        var approxYear = IsoYearToCalendarYear(calendar, cal, 1972);
+        var maxSeen = 0;
+        for (var y = approxYear - 75; y <= approxYear + 75; y++)
+        {
+            var leapOrdinal = GetLeapMonthOrdinal(calendar, cal, y);
+            if (leapOrdinal <= 0) continue;
+            try
+            {
+                var ord = MonthCodeToOrdinal(calendar, cal, y, monthCode, "reject");
+                if (ord <= 0) continue;
+                var dim = GetDaysInMonthCal(cal, y, ord);
+                if (dim > maxSeen) maxSeen = dim;
+            }
+            catch
+            {
+                // monthCode doesn't exist this year
             }
         }
 
-        // Compute remaining days
-        var afterYearsMonths = CalendarDateAdd(calendar, one, years, months, "constrain");
-        var epochIntermediate = TemporalHelpers.IsoDateToDays(afterYearsMonths.Year, afterYearsMonths.Month, afterYearsMonths.Day);
-        var epochTwoVal = TemporalHelpers.IsoDateToDays(two.Year, two.Month, two.Day);
-        var remainingDays = (int) (epochTwoVal - epochIntermediate);
+        return maxSeen;
+    }
 
-        return new DurationRecord(years, months, 0, remainingDays, 0, 0, 0, 0, 0, 0);
+    /// <summary>Same as <see cref="MaxDaysForChineseLeapMonth"/> but for a REGULAR monthCode.</summary>
+    internal static int MaxDaysForChineseRegularMonth(string calendar, string monthCode)
+    {
+        if (calendar is not ("chinese" or "dangi")) return 30;
+        if (monthCode.Length != 3) return 0;
+
+        var cal = GetCalendar(calendar);
+        var approxYear = IsoYearToCalendarYear(calendar, cal, 1972);
+        var maxSeen = 0;
+        for (var y = approxYear - 75; y <= approxYear + 75; y++)
+        {
+            try
+            {
+                var ord = MonthCodeToOrdinal(calendar, cal, y, monthCode, "reject");
+                if (ord <= 0) continue;
+                var dim = GetDaysInMonthCal(cal, y, ord);
+                if (dim > maxSeen) maxSeen = dim;
+            }
+            catch
+            {
+                // monthCode doesn't exist this year
+            }
+        }
+
+        return maxSeen;
+    }
+
+    /// <summary>
+    /// Compares two calendar-field tuples (year, monthCode, day) lexicographically.
+    /// MonthCode comparison is ordinal-string (so "M05" &lt; "M05L" &lt; "M06"), which matches the
+    /// chronological order of months within a year for all supported calendars.
+    /// Returns +1 if A > B, -1 if A &lt; B, 0 if equal.
+    /// </summary>
+    private static int CompareCalendarFields(int aYear, string aMonthCode, int aDay, int bYear, string bMonthCode, int bDay)
+    {
+        if (aYear != bYear)
+        {
+            return aYear > bYear ? 1 : -1;
+        }
+
+        var mcCmp = string.CompareOrdinal(aMonthCode, bMonthCode);
+        if (mcCmp != 0)
+        {
+            return mcCmp > 0 ? 1 : -1;
+        }
+
+        if (aDay != bDay)
+        {
+            return aDay > bDay ? 1 : -1;
+        }
+
+        return 0;
     }
 
     /// <summary>
@@ -738,20 +781,118 @@ internal static class NonIsoCalendars
 
         var cal = GetCalendar(calendar);
 
-        // For lunisolar calendars, a calendar year spans parts of two ISO years
-        // Try multiple calendar years around the ISO reference year
-        var approxYear = IsoYearToCalendarYear(calendar, cal, isoReferenceYear);
+        // Widen the search window for lunisolar calendars (chinese/dangi/hebrew) where rare
+        // leap months (e.g. chinese M02L only ~every 25-30 years) won't appear within ±12 years
+        // of the canonical anchor. Bounded by typical .NET BCL ranges (chinese 1901-2100,
+        // dangi 918-2050, hebrew 5343-5999 ≈ ISO 1583-2239).
+        var window = calendar is "chinese" or "dangi" or "hebrew" ? 75 : 12;
 
-        for (var y = approxYear - 2; y <= approxYear + 2; y++)
+        // For lunisolar calendars, a calendar year spans parts of two ISO years.
+        // Spec algorithm: find the LATEST calendar year y such that ToIso(y, monthCode, day) has
+        // ISO year ≤ isoReferenceYear AND the day is valid (not constrained) in that year's
+        // monthCode. This produces the "latest representable" reference year, which is what tests
+        // like reference-year-1972 (M05L hebrew → 1970, M02 D30 hebrew → 1971, M12 D30 islamic
+        // → 1971) require. We fall back to a constrained-day match only if no exact-day year
+        // exists within the search window.
+        var approxYear = IsoYearToCalendarYear(calendar, cal, isoReferenceYear);
+        var isLeapMonthCode = monthCode.Length == 4 && monthCode[3] == 'L';
+
+        var bestYear = int.MinValue;
+        var bestIsoTicks = long.MinValue;
+        var upperBound = new DateTime(isoReferenceYear, 12, 31).Ticks;
+        for (var y = approxYear - window; y <= approxYear + window; y++)
         {
-            // Pre-validate: check if the monthCode exists in this year before calling expensive ToDateTime
-            var isLeapMonthCode = monthCode.Length == 4 && monthCode[3] == 'L';
             if (isLeapMonthCode)
             {
                 var leapOrdinal = GetLeapMonthOrdinal(calendar, cal, y);
                 if (leapOrdinal <= 0)
                 {
-                    continue; // No leap month this year — skip
+                    continue;
+                }
+            }
+
+            try
+            {
+                var ordinal = MonthCodeToOrdinal(calendar, cal, y, monthCode, "reject");
+                var maxDay = GetDaysInMonthCal(cal, y, ordinal);
+                if (day > maxDay)
+                {
+                    continue; // day not valid in this year — skip in pass 1
+                }
+
+                var dt = cal.ToDateTime(y, ordinal, day, 0, 0, 0, 0);
+                // Pick the LATEST valid ISO date that's ≤ end-of-refYear. When two calendar
+                // years both produce ISO dates in refYear (e.g. Hebrew M04 D26 in 5732 → 1972-01
+                // and 5733 → 1972-12), the spec says use the later one.
+                if (dt.Ticks <= upperBound && dt.Ticks > bestIsoTicks)
+                {
+                    bestIsoTicks = dt.Ticks;
+                    bestYear = y;
+                }
+            }
+            catch
+            {
+                // This year doesn't have the requested monthCode
+            }
+        }
+
+        if (bestYear != int.MinValue)
+        {
+            return bestYear;
+        }
+
+        // Pass 1.5: rare leap months (chinese M09L/M10L/M11L, etc.) may not occur in any year
+        // ≤ isoReferenceYear. Look forward for the SOONEST future year that admits the
+        // un-constrained day; per the spec note in chinese-leap-month-codes-common, "uncommon"
+        // leap months use a reference year in the near future when no past year qualifies.
+        if (isLeapMonthCode)
+        {
+            var futureYear = int.MinValue;
+            var futureIsoTicks = long.MaxValue;
+            for (var y = approxYear - window; y <= approxYear + window; y++)
+            {
+                var leapOrdinal = GetLeapMonthOrdinal(calendar, cal, y);
+                if (leapOrdinal <= 0) continue;
+
+                try
+                {
+                    var ordinal = MonthCodeToOrdinal(calendar, cal, y, monthCode, "reject");
+                    var maxDay = GetDaysInMonthCal(cal, y, ordinal);
+                    if (day > maxDay) continue;
+                    var dt = cal.ToDateTime(y, ordinal, day, 0, 0, 0, 0);
+                    if (dt.Ticks > upperBound && dt.Ticks < futureIsoTicks)
+                    {
+                        futureIsoTicks = dt.Ticks;
+                        futureYear = y;
+                    }
+                }
+                catch
+                {
+                    // skip
+                }
+            }
+
+            if (futureYear != int.MinValue)
+            {
+                return futureYear;
+            }
+        }
+
+        // Fallback: when no year has the day un-constrained, pick the year where this monthCode
+        // holds the MOST days (so day constrains as little as possible). Tiebreak by latest ISO
+        // date ≤ refYear ceiling. This matches the spec for cases like Hebrew M02 D31 constrain
+        // → 30 (find the year where Cheshvan has 30 days, not 29) with refYear=1971.
+        var fallbackYear = int.MinValue;
+        var fallbackMaxDay = 0;
+        var fallbackKey = long.MinValue;
+        for (var y = approxYear - window; y <= approxYear + window; y++)
+        {
+            if (isLeapMonthCode)
+            {
+                var leapOrdinal = GetLeapMonthOrdinal(calendar, cal, y);
+                if (leapOrdinal <= 0)
+                {
+                    continue;
                 }
             }
 
@@ -761,9 +902,16 @@ internal static class NonIsoCalendars
                 var maxDay = GetDaysInMonthCal(cal, y, ordinal);
                 var clampedDay = System.Math.Min(day, maxDay);
                 var dt = cal.ToDateTime(y, ordinal, clampedDay, 0, 0, 0, 0);
-                if (dt.Year == isoReferenceYear)
+                if (dt.Ticks > upperBound)
                 {
-                    return y;
+                    continue;
+                }
+
+                if (maxDay > fallbackMaxDay || (maxDay == fallbackMaxDay && dt.Ticks > fallbackKey))
+                {
+                    fallbackMaxDay = maxDay;
+                    fallbackKey = dt.Ticks;
+                    fallbackYear = y;
                 }
             }
             catch
@@ -772,7 +920,7 @@ internal static class NonIsoCalendars
             }
         }
 
-        return approxYear;
+        return fallbackYear != int.MinValue ? fallbackYear : approxYear;
     }
 
     #region Private Helpers
@@ -789,7 +937,191 @@ internal static class NonIsoCalendars
     /// </summary>
     private static bool IsHebrewLeapYearAlgorithmic(int year)
     {
-        return (7 * year + 1) % 19 < 7;
+        // Use mathematical modulo (always non-negative) for correct behavior on year ≤ 0.
+        long v = ((long) 7 * year + 1L) % 19L;
+        if (v < 0) v += 19L;
+        return v < 7L;
+    }
+
+    // Hebrew arithmetic calendar (Reingold–Dershowitz). Used as a proleptic fallback for years
+    // outside the .NET HebrewCalendar range (which only supports Hebrew years 5343–5999,
+    // ≈ ISO 1583–2239). Year 1 (Tishrei 1) = JDN 347998 (= ISO −3760-09-07 proleptic Gregorian).
+    private const long HebrewEpochJdn = 347998L;
+
+    /// <summary>
+    /// Mathematical floor division, returning floor(a/b). Differs from C#'s truncating "/"
+    /// for negative dividends — required for the Reingold–Dershowitz Hebrew formulas to
+    /// extend correctly into proleptic (year ≤ 0) territory.
+    /// </summary>
+    private static long FloorDiv(long a, long b)
+    {
+        long q = a / b;
+        if ((a ^ b) < 0L && q * b != a) q--;
+        return q;
+    }
+
+    /// <summary>Mathematical floor modulo, returning a non-negative residue (when b is positive).</summary>
+    private static long FloorMod(long a, long b)
+    {
+        long r = a % b;
+        if (r != 0L && (r ^ b) < 0L) r += b;
+        return r;
+    }
+
+    private static long HebrewElapsedDays(int year)
+    {
+        long monthsElapsed = FloorDiv(235L * year - 234L, 19L);
+        long partsElapsed = 12084L + 13753L * monthsElapsed;
+        long days = 29L * monthsElapsed + FloorDiv(partsElapsed, 25920L);
+        // Lo Adu Rosh dehiyya: postpone Tishrei 1 to avoid Sun/Wed/Fri.
+        if (FloorMod(3L * (days + 1L), 7L) < 3L) days++;
+        return days;
+    }
+
+    private static int HebrewYearLengthCorrection(int year)
+    {
+        long ny0 = HebrewElapsedDays(year - 1);
+        long ny1 = HebrewElapsedDays(year);
+        long ny2 = HebrewElapsedDays(year + 1);
+        if (ny2 - ny1 == 356L) return 2;
+        if (ny1 - ny0 == 382L) return 1;
+        return 0;
+    }
+
+    private static long HebrewYearStartJdn(int year)
+    {
+        return HebrewEpochJdn + HebrewElapsedDays(year) + HebrewYearLengthCorrection(year);
+    }
+
+    private static int HebrewYearLength(int year)
+    {
+        return (int) (HebrewYearStartJdn(year + 1) - HebrewYearStartJdn(year));
+    }
+
+    private static int HebrewDaysInMonthOrdinal(int year, int ordinalMonth)
+    {
+        bool leap = IsHebrewLeapYearAlgorithmic(year);
+        switch (ordinalMonth)
+        {
+            case 1: return 30; // Tishrei
+            case 2: // Cheshvan: 30 if "complete" year (length 355/385), else 29
+                {
+                    var len = HebrewYearLength(year);
+                    return len == 355 || len == 385 ? 30 : 29;
+                }
+            case 3: // Kislev: 29 if "deficient" year (length 353/383), else 30
+                {
+                    var len = HebrewYearLength(year);
+                    return len == 353 || len == 383 ? 29 : 30;
+                }
+            case 4: return 29; // Tevet
+            case 5: return 30; // Shevat
+        }
+        if (leap)
+        {
+            switch (ordinalMonth)
+            {
+                case 6: return 30; // Adar I (M05L)
+                case 7: return 29; // Adar II (M06)
+                case 8: return 30; // Nisan
+                case 9: return 29; // Iyar
+                case 10: return 30; // Sivan
+                case 11: return 29; // Tammuz
+                case 12: return 30; // Av
+                case 13: return 29; // Elul
+            }
+        }
+        else
+        {
+            switch (ordinalMonth)
+            {
+                case 6: return 29; // Adar (M06)
+                case 7: return 30; // Nisan
+                case 8: return 29; // Iyar
+                case 9: return 30; // Sivan
+                case 10: return 29; // Tammuz
+                case 11: return 30; // Av
+                case 12: return 29; // Elul
+            }
+        }
+        return 0;
+    }
+
+    private static int HebrewMonthCodeToOrdinal(int year, string monthCode)
+    {
+        bool leap = IsHebrewLeapYearAlgorithmic(year);
+        if (string.Equals(monthCode, "M05L", StringComparison.Ordinal))
+        {
+            return leap ? 6 : -1;
+        }
+
+        if (monthCode.Length != 3 || monthCode[0] != 'M')
+        {
+            return -1;
+        }
+
+        if (!int.TryParse(monthCode.AsSpan(1, 2), NumberStyles.None, CultureInfo.InvariantCulture, out var displayMonth)
+            || displayMonth < 1 || displayMonth > 12)
+        {
+            return -1;
+        }
+
+        if (displayMonth <= 5) return displayMonth;
+        return leap ? displayMonth + 1 : displayMonth;
+    }
+
+    private static string HebrewOrdinalToMonthCode(int year, int ordinalMonth, out bool isLeapMonth)
+    {
+        bool leap = IsHebrewLeapYearAlgorithmic(year);
+        if (leap)
+        {
+            if (ordinalMonth <= 5) { isLeapMonth = false; return $"M{ordinalMonth:D2}"; }
+            if (ordinalMonth == 6) { isLeapMonth = true; return "M05L"; }
+            isLeapMonth = false;
+            return $"M{ordinalMonth - 1:D2}";
+        }
+        isLeapMonth = false;
+        return $"M{ordinalMonth:D2}";
+    }
+
+    private static CalendarDate HebrewAlgorithmicFromIso(in IsoDate isoDate)
+    {
+        long jdn = IsoToJulianDay(isoDate.Year, isoDate.Month, isoDate.Day);
+        long days = jdn - HebrewEpochJdn;
+        int yearEst = (int) (days / 365L) + 1;
+        while (HebrewYearStartJdn(yearEst + 1) <= jdn) yearEst++;
+        while (HebrewYearStartJdn(yearEst) > jdn) yearEst--;
+
+        int year = yearEst;
+        long dayOfYear = jdn - HebrewYearStartJdn(year); // 0-based
+        int ordinalMonth = 1;
+        while (true)
+        {
+            var dim = HebrewDaysInMonthOrdinal(year, ordinalMonth);
+            if (dayOfYear < dim) break;
+            dayOfYear -= dim;
+            ordinalMonth++;
+        }
+        int day = (int) dayOfYear + 1;
+
+        var monthCode = HebrewOrdinalToMonthCode(year, ordinalMonth, out var isLeapMonth);
+        int monthsInYear = IsHebrewLeapYearAlgorithmic(year) ? 13 : 12;
+        int daysInMonth = HebrewDaysInMonthOrdinal(year, ordinalMonth);
+        int daysInYear = HebrewYearLength(year);
+        bool isLeapYear = IsHebrewLeapYearAlgorithmic(year);
+
+        return new CalendarDate(year, ordinalMonth, monthCode, day, isLeapMonth, monthsInYear, daysInMonth, daysInYear, isLeapYear);
+    }
+
+    private static IsoDate? HebrewAlgorithmicToIso(int year, int ordinalMonth, int day)
+    {
+        long jdn = HebrewYearStartJdn(year);
+        for (int m = 1; m < ordinalMonth; m++)
+        {
+            jdn += HebrewDaysInMonthOrdinal(year, m);
+        }
+        jdn += day - 1;
+        return JdnToIso(jdn);
     }
 
     private static Calendar GetCalendar(string calendar)
@@ -1122,11 +1454,19 @@ internal static class NonIsoCalendars
     private static CalendarDate HebrewToCalendarDate(in IsoDate isoDate)
     {
         var cal = HebrewCal;
+
+        // ISO year may fall outside System.DateTime's range (1–9999 in BCL); for those years
+        // we cannot construct a DateTime at all, so route directly to the algorithmic path.
+        if (isoDate.Year < 1 || isoDate.Year > 9999)
+        {
+            return HebrewAlgorithmicFromIso(isoDate);
+        }
+
         var dt = new DateTime(isoDate.Year, isoDate.Month, isoDate.Day);
 
         if (dt < cal.MinSupportedDateTime || dt > cal.MaxSupportedDateTime)
         {
-            throw new ArgumentOutOfRangeException(nameof(isoDate));
+            return HebrewAlgorithmicFromIso(isoDate);
         }
 
         var year = cal.GetYear(dt);
@@ -1255,13 +1595,15 @@ internal static class NonIsoCalendars
 
         // Constrain ordinal month
         int maxMonths;
+        bool yearInDotNetRange = true;
         try
         {
             maxMonths = cal.IsLeapYear(year) ? 13 : 12;
         }
         catch
         {
-            maxMonths = 12;
+            yearInDotNetRange = false;
+            maxMonths = IsHebrewLeapYearAlgorithmic(year) ? 13 : 12;
         }
 
         if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
@@ -1277,11 +1619,13 @@ internal static class NonIsoCalendars
         int maxDay;
         try
         {
-            maxDay = cal.GetDaysInMonth(year, ordinalMonth);
+            maxDay = yearInDotNetRange
+                ? cal.GetDaysInMonth(year, ordinalMonth)
+                : HebrewDaysInMonthOrdinal(year, ordinalMonth);
         }
         catch
         {
-            maxDay = 30;
+            maxDay = HebrewDaysInMonthOrdinal(year, ordinalMonth);
         }
 
         if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
@@ -1293,6 +1637,11 @@ internal static class NonIsoCalendars
             return null;
         }
 
+        if (!yearInDotNetRange)
+        {
+            return HebrewAlgorithmicToIso(year, ordinalMonth, day);
+        }
+
         try
         {
             var dt = cal.ToDateTime(year, ordinalMonth, day, 0, 0, 0, 0);
@@ -1300,7 +1649,7 @@ internal static class NonIsoCalendars
         }
         catch
         {
-            return null;
+            return HebrewAlgorithmicToIso(year, ordinalMonth, day);
         }
     }
 
@@ -1308,14 +1657,92 @@ internal static class NonIsoCalendars
 
     #region Persian Calendar
 
+    // Persian arithmetic calendar (2820-year cycle, Reingold–Dershowitz / Birashk).
+    // Used as a proleptic fallback for years outside the .NET PersianCalendar range
+    // (which only supports years 1–9999, ≈ ISO 622–10620). The 2820-year cycle has
+    // 683 leap years; year 1 starts at JDN 1948321 = ISO 622-03-22 (proleptic Gregorian).
+    private const long PersianEpochJdn = 1948321L;
+
+    private static bool IsPersianLeapYearAlgorithmic(int year)
+    {
+        long yp = (long) year - 474L;
+        long mod = ((yp % 2820L) + 2820L) % 2820L;
+        long yc = mod + 474L;
+        return ((yc + 38L) * 682L) % 2816L < 682L;
+    }
+
+    private static long PersianYearStartJdn(int year)
+    {
+        long yp = (long) year - 474L;
+        long mod = ((yp % 2820L) + 2820L) % 2820L;
+        long cycle = (yp - mod) / 2820L;
+        long yc = mod + 474L;
+        return PersianEpochJdn + cycle * 1029983L + 365L * (yc - 1L) + (yc * 682L - 110L) / 2816L;
+    }
+
+    private static int PersianAlgorithmicDaysInMonth(int year, int month)
+    {
+        if (month <= 6) return 31;
+        if (month <= 11) return 30;
+        return IsPersianLeapYearAlgorithmic(year) ? 30 : 29;
+    }
+
+    private static CalendarDate PersianAlgorithmicFromIso(in IsoDate isoDate)
+    {
+        long jdn = IsoToJulianDay(isoDate.Year, isoDate.Month, isoDate.Day);
+
+        // Estimate Persian year then walk to exact.
+        long days = jdn - PersianEpochJdn;
+        int yearEst = (int) (days / 365L) + 1;
+        while (PersianYearStartJdn(yearEst + 1) <= jdn) yearEst++;
+        while (PersianYearStartJdn(yearEst) > jdn) yearEst--;
+
+        int year = yearEst;
+        long dayOfYear = jdn - PersianYearStartJdn(year) + 1; // 1-based
+
+        int month, day;
+        if (dayOfYear <= 186)
+        {
+            month = (int) ((dayOfYear - 1) / 31) + 1;
+            day = (int) (dayOfYear - (month - 1) * 31);
+        }
+        else
+        {
+            long remaining = dayOfYear - 186;
+            month = (int) ((remaining - 1) / 30) + 7;
+            day = (int) (remaining - (month - 7) * 30);
+        }
+
+        bool isLeap = IsPersianLeapYearAlgorithmic(year);
+        var monthCode = $"M{month:D2}";
+        return new CalendarDate(year, month, monthCode, day, false, 12, PersianAlgorithmicDaysInMonth(year, month), isLeap ? 366 : 365, isLeap);
+    }
+
+    private static IsoDate? PersianAlgorithmicToIso(int year, int month, int day)
+    {
+        long jdn = PersianYearStartJdn(year);
+        for (int m = 1; m < month; m++)
+        {
+            jdn += PersianAlgorithmicDaysInMonth(year, m);
+        }
+        jdn += day - 1;
+        return JdnToIso(jdn);
+    }
+
     private static CalendarDate PersianToCalendarDate(in IsoDate isoDate)
     {
         var cal = PersianCal;
+
+        if (isoDate.Year < 1 || isoDate.Year > 9999)
+        {
+            return PersianAlgorithmicFromIso(isoDate);
+        }
+
         var dt = new DateTime(isoDate.Year, isoDate.Month, isoDate.Day);
 
         if (dt < cal.MinSupportedDateTime || dt > cal.MaxSupportedDateTime)
         {
-            throw new ArgumentOutOfRangeException(nameof(isoDate));
+            return PersianAlgorithmicFromIso(isoDate);
         }
 
         var year = cal.GetYear(dt);
@@ -1382,8 +1809,8 @@ internal static class NonIsoCalendars
         }
         catch
         {
-            // Fallback: Persian months 1-6=31, 7-11=30, 12=29/30
-            maxDay = ordinalMonth <= 6 ? 31 : ordinalMonth <= 11 ? 30 : 29;
+            // Fallback: use the algorithmic computation, which works for all years.
+            maxDay = PersianAlgorithmicDaysInMonth(year, ordinalMonth);
         }
 
         if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
@@ -1402,7 +1829,8 @@ internal static class NonIsoCalendars
         }
         catch
         {
-            return null;
+            // Year is outside .NET PersianCalendar range — use algorithmic conversion.
+            return PersianAlgorithmicToIso(year, ordinalMonth, day);
         }
     }
 
@@ -2069,6 +2497,15 @@ internal static class NonIsoCalendars
     private static CalendarDate IslamicUmalquraToCalendarDate(in IsoDate isoDate)
     {
         var cal = UmAlQuraCal;
+
+        // ISO year may fall outside System.DateTime's 1–9999 range; route directly to the
+        // tabular fallback for those years rather than letting `new DateTime` throw and the
+        // outer catch return ISO-like fields.
+        if (isoDate.Year < 1 || isoDate.Year > 9999)
+        {
+            return IslamicCivilToCalendarDate(isoDate);
+        }
+
         var dt = new DateTime(isoDate.Year, isoDate.Month, isoDate.Day);
 
         if (dt >= cal.MinSupportedDateTime && dt <= cal.MaxSupportedDateTime)
@@ -2171,15 +2608,15 @@ internal static class NonIsoCalendars
     }
 
     /// <summary>
-    /// Converts an ISO date to Julian Day Number.
+    /// Converts an ISO date (proleptic Gregorian) to a Julian Day Number.
+    /// Uses Howard Hinnant's epoch-day formula (via TemporalHelpers.IsoDateToDays) plus the
+    /// constant offset 2440588 (= JDN of 1970-01-01) so that the result is correct for any
+    /// proleptic ISO year — the older Fliegel–Van Flandern formula written here previously
+    /// used truncating C# integer division and broke for years &lt; −4800.
     /// </summary>
     private static long IsoToJulianDay(int year, int month, int day)
     {
-        // Algorithm: ISO (proleptic Gregorian) to JDN
-        long a = (14L - month) / 12;
-        long y = year + 4800 - a;
-        long m = month + 12 * a - 3;
-        return day + (153 * m + 2) / 5 + 365 * y + y / 4 - y / 100 + y / 400 - 32045;
+        return TemporalHelpers.IsoDateToDays(year, month, day) + 2440588L;
     }
 
     /// <summary>
@@ -2302,7 +2739,19 @@ internal static class NonIsoCalendars
 
     private static IsoDate? JdnToIso(long jdn)
     {
-        var a = jdn + 32044L;
+        // The standard Fliegel–Van Flandern formula assumes positive intermediate values, so
+        // (a + 32044) and (4a + 3) need to stay non-negative. For very negative JDNs (deep
+        // proleptic Hebrew/Persian/Islamic dates), shift forward by an integer number of
+        // 400-year Gregorian cycles, run the formula, then subtract those cycles' years.
+        const long Cycle = 146097L; // days per 400-year Gregorian cycle
+        long shift = 0L;
+        if (jdn + 32044L < 0L)
+        {
+            shift = (-(jdn + 32044L) + Cycle - 1L) / Cycle;
+        }
+        long jdnAdj = jdn + shift * Cycle;
+
+        var a = jdnAdj + 32044L;
         var b = (4 * a + 3) / 146097;
         var c = a - 146097 * b / 4;
         var d = (4 * c + 3) / 1461;
@@ -2311,7 +2760,7 @@ internal static class NonIsoCalendars
 
         var isoDay = (int) (e - (153 * m + 2) / 5 + 1);
         var isoMonth = (int) (m + 3 - 12 * (m / 10));
-        var isoYear = (int) (100 * b + d - 4800 + m / 10);
+        var isoYear = (int) (100 * b + d - 4800 + m / 10) - (int) (shift * 400L);
 
         return new IsoDate(isoYear, isoMonth, isoDay);
     }
@@ -2462,19 +2911,60 @@ internal static class NonIsoCalendars
         // Approximate Islamic year from ISO year: Islamic year ≈ (ISO - 622) * 33/32
         var approxYear = (int) ((isoReferenceYear - 622.0) * 33.0 / 32.0);
 
-        for (var y = approxYear - 2; y <= approxYear + 2; y++)
+        // Pass 1: find the LATEST calendar year where the day is valid (un-constrained) AND
+        // ISO date ≤ end-of-refYear. Required for cases like Islamic M12 D30 where M12 only has
+        // 30 days in leap years (refYear=1971 expected). Compares full ISO date so that ties on
+        // year are broken by month/day.
+        var bestYear = int.MinValue;
+        var bestKey = long.MinValue;
+        var upperBound = (long) isoReferenceYear * 10000 + 1231;
+        for (var y = approxYear - 5; y <= approxYear + 5; y++)
+        {
+            var maxDay = IslamicCivilDaysInMonth(y, monthNum);
+            if (day > maxDay)
+            {
+                continue;
+            }
+
+            var jdn = IslamicToJdn(y, monthNum, day, epoch);
+            var isoDate = JdnToIso(jdn);
+            if (!isoDate.HasValue) continue;
+            var key = (long) isoDate.Value.Year * 10000 + isoDate.Value.Month * 100 + isoDate.Value.Day;
+            if (key <= upperBound && key > bestKey)
+            {
+                bestKey = key;
+                bestYear = y;
+            }
+        }
+
+        if (bestYear != int.MinValue)
+        {
+            return bestYear;
+        }
+
+        // Fallback: pick the year with the most days in this monthCode (so day constrains as
+        // little as possible), tiebreak by latest ISO date ≤ refYear.
+        var fallbackYear = int.MinValue;
+        var fallbackMaxDay = 0;
+        var fallbackKey = long.MinValue;
+        for (var y = approxYear - 5; y <= approxYear + 5; y++)
         {
             var maxDay = IslamicCivilDaysInMonth(y, monthNum);
             var clampedDay = System.Math.Min(day, maxDay);
             var jdn = IslamicToJdn(y, monthNum, clampedDay, epoch);
             var isoDate = JdnToIso(jdn);
-            if (isoDate?.Year == isoReferenceYear)
+            if (!isoDate.HasValue) continue;
+            var key = (long) isoDate.Value.Year * 10000 + isoDate.Value.Month * 100 + isoDate.Value.Day;
+            if (key > upperBound) continue;
+            if (maxDay > fallbackMaxDay || (maxDay == fallbackMaxDay && key > fallbackKey))
             {
-                return y;
+                fallbackMaxDay = maxDay;
+                fallbackKey = key;
+                fallbackYear = y;
             }
         }
 
-        return approxYear;
+        return fallbackYear != int.MinValue ? fallbackYear : approxYear;
     }
 
     #endregion

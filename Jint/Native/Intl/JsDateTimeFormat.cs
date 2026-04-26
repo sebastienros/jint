@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using Jint.Native.Object;
+using Jint.Native.Temporal;
 
 namespace Jint.Native.Intl;
 
@@ -103,7 +104,16 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         // This is needed because .NET format strings don't handle proleptic Gregorian years correctly
         var hasEra = Era != null;
 
-        if (isLunisolarCalendar || hasEra)
+        // For non-ISO non-Gregorian calendars, route through FormatToParts so that the year/
+        // month/day overrides applied there (calendar-aware values) are reflected in format()
+        // output too — otherwise format() prints the underlying ISO date (March 15, 2024)
+        // while formatToParts() prints the calendar fields (Adar 5, 5784), and the test in
+        // lunisolar-leap-months.js asserts they match.
+        var isNonIsoCalendar = Calendar is not null
+            && !string.Equals(Calendar, "iso8601", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(Calendar, "gregory", StringComparison.OrdinalIgnoreCase);
+
+        if (isLunisolarCalendar || hasEra || isNonIsoCalendar)
         {
             var parts = FormatToParts(dateTime, originalYear, isPlain);
             var sb = new StringBuilder();
@@ -270,9 +280,10 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             "hebrew" => GetHebrewEra(style, eraNames),
             "persian" => GetPersianEra(style, eraNames),
             "indian" => GetIndianEra(style, eraNames),
-            "ethioaa" or "ethiopic" => GetEthiopicEra(style, eraNames),
+            "ethiopic" => GetEthiopicEra(dateTime, style, eraNames),
+            "ethioaa" => GetEthioAaEra(style, eraNames),
             "coptic" => GetCopticEra(effectiveYear, style, eraNames),
-            "islamic" or "islamic-civil" or "islamic-tbla" or "islamic-umalqura" => GetIslamicEra(style, eraNames),
+            "islamic" or "islamic-civil" or "islamic-tbla" or "islamic-umalqura" => GetIslamicEra(dateTime, style, eraNames),
             _ => GetGregorianEra(effectiveYear, style, eraNames) // Default to Gregorian
         };
     }
@@ -404,43 +415,57 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         };
     }
 
-    private static string GetEthiopicEra(string style, string[]? eraNames)
+    private static string GetEthiopicEra(DateTime dateTime, string style, string[]? eraNames)
     {
-        // Ethiopic calendar uses Era of the Incarnation
-        // Note: eraNames from CLDR are Gregorian, not Ethiopic-specific
+        // Ethiopic has two eras: Anno Mundi (AA) for Ethiopic years ≤ 0, Era of the Incarnation
+        // (AM) for Ethiopic years ≥ 1. Ethiopic year 1 starts roughly ISO 8 CE; the easy
+        // approximation that suffices here is "ISO year ≥ 8 → AM, otherwise AA".
+        var isAm = dateTime.Year >= 8;
         return style switch
         {
-            "long" => "Era of the Incarnation",
-            "short" => "ERA1",
-            "narrow" => "ERA1",
-            _ => "ERA1"
+            "long" => isAm ? "Era of the Incarnation" : "Anno Mundi",
+            "short" => isAm ? "ERA1" : "ERA0",
+            "narrow" => isAm ? "ERA1" : "ERA0",
+            _ => isAm ? "ERA1" : "ERA0"
+        };
+    }
+
+    private static string GetEthioAaEra(string style, string[]? eraNames)
+    {
+        // Ethio-AA (Amete Alem) — single era spanning all years.
+        return style switch
+        {
+            "long" => "Anno Mundi",
+            "short" => "ERA0",
+            "narrow" => "ERA0",
+            _ => "ERA0"
         };
     }
 
     private static string GetCopticEra(int year, string style, string[]? eraNames)
     {
-        // Coptic calendar has two eras
-        // Note: eraNames from CLDR are Gregorian, not Coptic-specific, so we use hardcoded values
-        var isAfterEpoch = year >= 284; // Year 284 CE
+        // Coptic has a single era (Anno Martyrum / Era of the Martyrs) per the spec; both
+        // positive and negative Coptic years use the same era name.
         return style switch
         {
-            "long" => isAfterEpoch ? "Era of the Martyrs" : "Before Era of the Martyrs",
-            "short" => isAfterEpoch ? "AM" : "BAM",
-            "narrow" => isAfterEpoch ? "AM" : "BAM",
-            _ => isAfterEpoch ? "AM" : "BAM"
+            "long" => "Era of the Martyrs",
+            "short" => "AM",
+            "narrow" => "AM",
+            _ => "AM"
         };
     }
 
-    private static string GetIslamicEra(string style, string[]? eraNames)
+    private static string GetIslamicEra(DateTime dateTime, string style, string[]? eraNames)
     {
-        // Islamic calendar has single era (AH - Anno Hegirae)
-        // Note: eraNames from CLDR are Gregorian, not Islamic-specific
+        // Islamic has two eras: AH (Anno Hegirae) for dates ≥ 622-07-16 CE Gregorian (the Hijra
+        // epoch) and BH (Before Hijra) for earlier dates.
+        var isAh = dateTime.Year > 622 || (dateTime.Year == 622 && (dateTime.Month > 7 || (dateTime.Month == 7 && dateTime.Day >= 16)));
         return style switch
         {
-            "long" => "Anno Hegirae",
-            "short" => "AH",
-            "narrow" => "AH",
-            _ => "AH"
+            "long" => isAh ? "Anno Hegirae" : "Before Hijra",
+            "short" => isAh ? "AH" : "BH",
+            "narrow" => isAh ? "AH" : "BH",
+            _ => isAh ? "AH" : "BH"
         };
     }
 
@@ -509,7 +534,89 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         return order.Length == 3 ? order.ToString() : "dMy"; // fallback to DMY
     }
 
-    private void AddMonthPart(DateTime dateTime, List<DateTimePart> result, ref bool hasDate, string separator, bool hasTextualMonth, ChineseCalendarHelper.ChineseCalendarDate? lunisolarDate = null)
+    /// <summary>
+    /// For non-ISO/non-Gregorian/non-lunisolar calendars, returns the calendar's view of the
+    /// given DateTime via the three out parameters. Sets all three to null for ISO/Gregorian
+    /// (the caller falls back to dateTime.Year/Month/Day) or for lunisolar calendars (which
+    /// take a separate code path via ChineseCalendarHelper).
+    /// </summary>
+    private void ResolveCalendarFieldsForFormatting(DateTime dateTime, int? originalYear, out int? year, out int? month, out int? day)
+    {
+        year = null;
+        month = null;
+        day = null;
+
+        if (Calendar is null) return;
+        if (string.Equals(Calendar, "iso8601", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(Calendar, "gregory", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        // Lunisolar calendars are handled separately via ChineseCalendarHelper / lunisolarDate.
+        if (string.Equals(Calendar, "chinese", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(Calendar, "dangi", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        // Simple offset calendars: cheap arithmetic without going through NonIsoCalendars.
+        var sourceYear = originalYear ?? dateTime.Year;
+        if (string.Equals(Calendar, "buddhist", StringComparison.OrdinalIgnoreCase))
+        {
+            year = sourceYear + 543;
+            month = dateTime.Month;
+            day = dateTime.Day;
+            return;
+        }
+        if (string.Equals(Calendar, "roc", StringComparison.OrdinalIgnoreCase))
+        {
+            year = sourceYear - 1911;
+            month = dateTime.Month;
+            day = dateTime.Day;
+            return;
+        }
+        if (string.Equals(Calendar, "japanese", StringComparison.OrdinalIgnoreCase))
+        {
+            // For Japanese, the displayed year is the era year of whichever era contains the
+            // given date. Pre-Meiji dates fall back to the Gregorian year.
+            var dt = dateTime;
+            int? eraYear = null;
+            if (dt.Year > 2019 || (dt.Year == 2019 && (dt.Month > 5 || (dt.Month == 5 && dt.Day >= 1))))
+                eraYear = dt.Year - 2018; // Reiwa
+            else if (dt.Year > 1989 || (dt.Year == 1989 && (dt.Month > 1 || (dt.Month == 1 && dt.Day >= 8))))
+                eraYear = dt.Year - 1988; // Heisei
+            else if (dt.Year > 1926 || (dt.Year == 1926 && (dt.Month > 12 || (dt.Month == 12 && dt.Day >= 25))))
+                eraYear = dt.Year - 1925; // Showa
+            else if (dt.Year > 1912 || (dt.Year == 1912 && (dt.Month > 7 || (dt.Month == 7 && dt.Day >= 30))))
+                eraYear = dt.Year - 1911; // Taisho
+            else if (dt.Year > 1868 || (dt.Year == 1868 && (dt.Month > 1 || (dt.Month == 1 && dt.Day >= 25))))
+                eraYear = dt.Year - 1867; // Meiji
+            if (eraYear.HasValue)
+            {
+                year = eraYear;
+                month = dt.Month;
+                day = dt.Day;
+            }
+            return;
+        }
+
+        // Other non-ISO calendars go through the full IsoToCalendarDate machinery.
+        try
+        {
+            var isoDate = new IsoDate(originalYear ?? dateTime.Year, dateTime.Month, dateTime.Day);
+            var calDate = NonIsoCalendars.IsoToCalendarDate(Calendar, isoDate);
+            year = calDate.Year;
+            month = calDate.Month;
+            day = calDate.Day;
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+
+    private void AddMonthPart(DateTime dateTime, List<DateTimePart> result, ref bool hasDate, string separator, bool hasTextualMonth, ChineseCalendarHelper.ChineseCalendarDate? lunisolarDate = null, int? overrideMonth = null)
     {
         if (result.Count > 0 && hasDate)
         {
@@ -531,6 +638,18 @@ internal sealed class JsDateTimeFormat : ObjectInstance
                 _ => chineseMonth.ToString("D2", CultureInfo)
             };
         }
+        else if (overrideMonth.HasValue)
+        {
+            // Calendar-aware override (e.g. coptic month for the underlying ISO date).
+            // Textual month styles fall back to numeric since we don't have month-name data
+            // for arbitrary non-ISO calendars.
+            monthValue = Month switch
+            {
+                "numeric" => overrideMonth.Value.ToString(CultureInfo),
+                "2-digit" => overrideMonth.Value.ToString("D2", CultureInfo),
+                _ => overrideMonth.Value.ToString(CultureInfo)
+            };
+        }
         else
         {
             var format = Month switch
@@ -549,7 +668,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         hasDate = true;
     }
 
-    private void AddDayPart(DateTime dateTime, List<DateTimePart> result, ref bool hasDate, string separator, bool hasTextualMonth, ChineseCalendarHelper.ChineseCalendarDate? lunisolarDate = null)
+    private void AddDayPart(DateTime dateTime, List<DateTimePart> result, ref bool hasDate, string separator, bool hasTextualMonth, ChineseCalendarHelper.ChineseCalendarDate? lunisolarDate = null, int? overrideDay = null)
     {
         if (result.Count > 0 && hasDate)
         {
@@ -568,6 +687,15 @@ internal sealed class JsDateTimeFormat : ObjectInstance
                 _ => chineseDay.ToString("D2", CultureInfo)
             };
         }
+        else if (overrideDay.HasValue)
+        {
+            dayValue = Day switch
+            {
+                "numeric" => overrideDay.Value.ToString(CultureInfo),
+                "2-digit" => overrideDay.Value.ToString("D2", CultureInfo),
+                _ => overrideDay.Value.ToString("D2", CultureInfo)
+            };
+        }
         else
         {
             var format = Day switch
@@ -583,7 +711,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         hasDate = true;
     }
 
-    private void AddYearPart(DateTime dateTime, List<DateTimePart> result, ref bool hasDate, string separator, bool hasTextualMonth, ChineseCalendarHelper.ChineseCalendarDate? lunisolarDate = null, int? originalYear = null)
+    private void AddYearPart(DateTime dateTime, List<DateTimePart> result, ref bool hasDate, string separator, bool hasTextualMonth, ChineseCalendarHelper.ChineseCalendarDate? lunisolarDate = null, int? originalYear = null, int? overrideYear = null)
     {
         if (result.Count > 0 && hasDate)
         {
@@ -622,8 +750,9 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         }
         else
         {
-            // Use original year if provided (for dates outside .NET DateTime range)
-            var effectiveYear = originalYear ?? dateTime.Year;
+            // Use override (calendar-aware) year if available, else the original year (for
+            // dates outside .NET DateTime range), else the underlying ISO year.
+            var effectiveYear = overrideYear ?? originalYear ?? dateTime.Year;
 
             // For proleptic Gregorian calendar with era, convert negative years to positive BC years
             // Year 0 in astronomical notation = 1 BC, year -1 = 2 BC, etc.
@@ -1648,19 +1777,26 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             hasDate = true;
         }
 
+        // For non-ISO non-lunisolar calendars, derive (calYear, calMonth, calDay) from the
+        // calendar so the year/month/day components reflect the calendar — not the underlying
+        // ISO date. Test262 (DateTimeFormat compare-to-temporal) verifies that DTF formats
+        // values matching Temporal's calendar-aware year/month/day for buddhist/coptic/hebrew/
+        // persian/etc.
+        ResolveCalendarFieldsForFormatting(dateTime, originalYear, out var calOverrideYear, out var calOverrideMonth, out var calOverrideDay);
+
         // Add date components in locale-specific order
         foreach (var component in dateOrder)
         {
             switch (component)
             {
                 case 'M' when Month != null:
-                    AddMonthPart(dateTime, result, ref hasDate, dateSeparator, hasTextualMonth, lunisolarDate);
+                    AddMonthPart(dateTime, result, ref hasDate, dateSeparator, hasTextualMonth, lunisolarDate, calOverrideMonth);
                     break;
                 case 'd' when Day != null:
-                    AddDayPart(dateTime, result, ref hasDate, dateSeparator, hasTextualMonth, lunisolarDate);
+                    AddDayPart(dateTime, result, ref hasDate, dateSeparator, hasTextualMonth, lunisolarDate, calOverrideDay);
                     break;
                 case 'y' when Year != null:
-                    AddYearPart(dateTime, result, ref hasDate, dateSeparator, hasTextualMonth, lunisolarDate, originalYear);
+                    AddYearPart(dateTime, result, ref hasDate, dateSeparator, hasTextualMonth, lunisolarDate, originalYear, calOverrideYear);
                     break;
             }
         }
