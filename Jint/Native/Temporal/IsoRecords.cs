@@ -61,20 +61,16 @@ internal readonly record struct IsoDate(int Year, int Month, int Day)
     /// </summary>
     public int DayOfWeek()
     {
-        // Using Zeller's congruence adapted for Monday = 1
-        var y = Year;
-        var m = Month;
-        if (m < 3)
-        {
-            m += 12;
-            y--;
-        }
-        var k = y % 100;
-        var j = y / 100;
-        var h = (Day + (13 * (m + 1)) / 5 + k + k / 4 + j / 4 - 2 * j) % 7;
-        // Convert from Zeller (0 = Saturday) to ISO (1 = Monday)
-        var dow = ((h + 5) % 7) + 1;
-        return dow;
+        // Computed via epoch-day count to avoid Zeller's congruence pitfalls with negative
+        // (proleptic) years, where C#'s truncating "%" gives wrong residues. Each ISO date
+        // maps to a signed day count past 1970-01-01 (Thursday → ISO weekday 4); the day
+        // of week is then a non-negative residue mod 7 mapped to ISO 1..7.
+        var days = TemporalHelpers.IsoDateToDays(Year, Month, Day);
+        // 1970-01-01 (epoch day 0) is a Thursday (ISO weekday 4); offsets:
+        // 0→4(Thu), 1→5, 2→6, 3→7(Sun), 4→1(Mon), 5→2, 6→3.
+        var mod = (int) (days % 7);
+        if (mod < 0) mod += 7;
+        return ((mod + 3) % 7) + 1;
     }
 
     /// <summary>
