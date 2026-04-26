@@ -2,18 +2,18 @@
 
 using Jint.Native.Array;
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Descriptors.Specialized;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.Function;
 
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-the-function-prototype-object
 /// </summary>
-internal sealed class FunctionPrototype : Function
+[JsObject]
+[JsThrowerAccessor("arguments")]
+[JsThrowerAccessor("caller")]
+internal sealed partial class FunctionPrototype : Function
 {
     internal FunctionPrototype(
         Engine engine,
@@ -25,43 +25,33 @@ internal sealed class FunctionPrototype : Function
         _length = new PropertyDescriptor(JsNumber.PositiveZero, PropertyFlag.Configurable);
     }
 
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
+    private FunctionConstructor Constructor => _realm.Intrinsics.Function;
+
     protected override void Initialize()
     {
-        const PropertyFlag PropertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-        const PropertyFlag LengthFlags = PropertyFlag.Configurable;
-        var properties = new PropertyDictionary(7, checkExistingKeys: false)
-        {
-            ["constructor"] = new LazyPropertyDescriptor<FunctionPrototype>(this, static prototype => prototype._realm.Intrinsics.Function, PropertyFlag.NonEnumerable),
-            ["toString"] = new LazyPropertyDescriptor<FunctionPrototype>(this, static prototype => new ClrFunction(prototype._engine, "toString", prototype.ToString, 0, LengthFlags), PropertyFlags),
-            ["apply"] = new LazyPropertyDescriptor<FunctionPrototype>(this, static prototype => new ClrFunction(prototype._engine, "apply", prototype.Apply, 2, LengthFlags), PropertyFlags),
-            ["call"] = new LazyPropertyDescriptor<FunctionPrototype>(this, static prototype => new ClrFunction(prototype._engine, "call", prototype.CallImpl, 1, LengthFlags), PropertyFlags),
-            ["bind"] = new LazyPropertyDescriptor<FunctionPrototype>(this, static prototype => new ClrFunction(prototype._engine, "bind", prototype.Bind, 1, LengthFlags), PropertyFlags),
-            ["arguments"] = new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(_engine, PropertyFlag.Configurable),
-            ["caller"] = new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(_engine, PropertyFlag.Configurable)
-        };
-        SetProperties(properties);
-
-        var symbols = new SymbolDictionary(1)
-        {
-            [GlobalSymbolRegistry.HasInstance] = new PropertyDescriptor(new ClrFunction(_engine, "[Symbol.hasInstance]", HasInstance, 1, PropertyFlag.Configurable), PropertyFlag.AllForbidden)
-        };
-        SetSymbols(symbols);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-function.prototype-@@hasinstance
     /// </summary>
-    private static JsValue HasInstance(JsValue thisObject, JsCallArguments arguments)
+    [JsSymbolFunction("HasInstance", Length = 1, Flags = PropertyFlag.AllForbidden)]
+    private static JsValue HasInstance(JsValue thisObject, JsValue v)
     {
-        return thisObject.OrdinaryHasInstance(arguments.At(0));
+        return thisObject.OrdinaryHasInstance(v);
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-function.prototype.bind
     /// </summary>
-    private JsValue Bind(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue Bind(ICallable thisObject, JsCallArguments arguments)
     {
-        if (thisObject is not (ICallable and ObjectInstance oi))
+        // BoundFunctionCreate needs ObjectInstance for the prototype walk — separate from the
+        // generator-emitted IsCallable check that already ran on entry.
+        if (thisObject is not ObjectInstance oi)
         {
             Throw.TypeError(_realm, "Bind must be called on a function");
             return default;
@@ -129,7 +119,8 @@ internal sealed class FunctionPrototype : Function
     /// <summary>
     /// https://tc39.es/ecma262/#sec-function.prototype.tostring
     /// </summary>
-    private JsValue ToString(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0)]
+    private JsValue ToString(JsValue thisObject)
     {
         if (thisObject.IsObject() && thisObject.IsCallable)
         {
@@ -143,24 +134,17 @@ internal sealed class FunctionPrototype : Function
     /// <summary>
     /// https://tc39.es/ecma262/#sec-function.prototype.apply
     /// </summary>
-    private JsValue Apply(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private JsValue Apply(ICallable thisObject, JsValue thisArg, JsValue argArray)
     {
-        var func = thisObject as ICallable;
-        if (func is null)
-        {
-            Throw.TypeError(_realm, $"{thisObject} is not a function");
-        }
-        var thisArg = arguments.At(0);
-        var argArray = arguments.At(1);
-
         if (argArray.IsNullOrUndefined())
         {
-            return func.Call(thisArg, Arguments.Empty);
+            return thisObject.Call(thisArg, Arguments.Empty);
         }
 
         var argList = CreateListFromArrayLike(_realm, argArray);
 
-        var result = func.Call(thisArg, argList);
+        var result = thisObject.Call(thisArg, argList);
 
         return result;
     }
@@ -183,13 +167,9 @@ internal sealed class FunctionPrototype : Function
     /// <summary>
     /// https://tc39.es/ecma262/#sec-function.prototype.call
     /// </summary>
-    private JsValue CallImpl(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1, Name = "call")]
+    private static JsValue CallImpl(ICallable thisObject, JsCallArguments arguments)
     {
-        var func = thisObject as ICallable;
-        if (func is null)
-        {
-            Throw.TypeError(_realm, $"{thisObject} is not a function");
-        }
         JsValue[] values = [];
         if (arguments.Length > 1)
         {
@@ -197,7 +177,7 @@ internal sealed class FunctionPrototype : Function
             System.Array.Copy(arguments, 1, values, 0, arguments.Length - 1);
         }
 
-        var result = func.Call(arguments.At(0), values);
+        var result = thisObject.Call(arguments.At(0), values);
 
         return result;
     }

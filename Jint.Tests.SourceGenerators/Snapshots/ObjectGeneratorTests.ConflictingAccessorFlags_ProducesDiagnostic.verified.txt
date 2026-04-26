@@ -1,0 +1,17 @@
+﻿{
+  Diagnostics: [
+    {
+      Location: : (16,27)-(16,34),
+      Message: Accessor 'size' on 'Foo' has get and set with different Flags values — declare Flags only once or set them identically,
+      Severity: Error,
+      Descriptor: {
+        Id: JINT017,
+        Title: [JsAccessor] get and set declare different Flags,
+        MessageFormat: Accessor '{0}' on '{1}' has get and set with different Flags values — declare Flags only once or set them identically,
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Error,
+        IsEnabledByDefault: true
+      }
+    }
+  ]
+}

@@ -1646,7 +1646,8 @@ public sealed class ArrayPrototype : ArrayInstance
         }
         else
         {
-            func = _realm.Intrinsics.Object.PrototypeObject.ToObjectString;
+            var prototype = _realm.Intrinsics.Object.PrototypeObject;
+            func = (thisArg, _) => prototype.ToObjectString(thisArg);
         }
 
         return func(array, Arguments.Empty);

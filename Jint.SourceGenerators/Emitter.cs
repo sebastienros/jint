@@ -26,7 +26,13 @@ internal static class Emitter
 
         EmitInitialize(sb, obj);
 
-        if (obj.Symbols.Count > 0)
+        var hasSymbolFunctions = false;
+        foreach (var fn in obj.Functions)
+        {
+            if (fn.Registration == RegistrationKind.SymbolFunction) { hasSymbolFunctions = true; break; }
+        }
+
+        if (obj.Symbols.Count > 0 || hasSymbolFunctions)
         {
             sb.AppendLine();
             EmitSymbolInitialize(sb, obj);
@@ -44,7 +50,31 @@ internal static class Emitter
 
     private static void EmitInitialize(StringBuilder sb, ObjectDefinition obj)
     {
-        var totalEntries = obj.Functions.Count + obj.Properties.Count;
+        // Group function registrations by JsName for accessor pairing.
+        var dataProperties = new List<FunctionDefinition>();
+        var accessorsByName = new Dictionary<string, (FunctionDefinition? Get, FunctionDefinition? Set, string Flags)>(StringComparer.Ordinal);
+        foreach (var fn in obj.Functions)
+        {
+            switch (fn.Registration)
+            {
+                case RegistrationKind.DataProperty:
+                    dataProperties.Add(fn);
+                    break;
+                case RegistrationKind.AccessorGet:
+                    accessorsByName.TryGetValue(fn.JsName, out var slotG);
+                    accessorsByName[fn.JsName] = (fn, slotG.Set, slotG.Get is null && slotG.Set is null ? fn.FlagsExpression : slotG.Flags);
+                    break;
+                case RegistrationKind.AccessorSet:
+                    accessorsByName.TryGetValue(fn.JsName, out var slotS);
+                    accessorsByName[fn.JsName] = (slotS.Get, fn, slotS.Get is null && slotS.Set is null ? fn.FlagsExpression : slotS.Flags);
+                    break;
+                case RegistrationKind.SymbolFunction:
+                    // Handled in EmitSymbolInitialize.
+                    break;
+            }
+        }
+
+        var totalEntries = dataProperties.Count + obj.Properties.Count + accessorsByName.Count + obj.ThrowerAccessors.Count;
 
         sb.AppendLine("    /// <summary>Generated property registration. Call from <c>Initialize()</c>.</summary>");
         sb.AppendLine("    private void CreateProperties_Generated()");
@@ -52,7 +82,7 @@ internal static class Emitter
 
         if (totalEntries == 0)
         {
-            sb.AppendLine("        // no [JsFunction] or [JsProperty] members");
+            sb.AppendLine("        // no [JsFunction] / [JsProperty] / [JsAccessor] / [JsThrowerAccessor] members");
             sb.AppendLine("    }");
             return;
         }
@@ -70,11 +100,49 @@ internal static class Emitter
             sb.AppendLine(");");
         }
 
-        foreach (var fn in obj.Functions)
+        foreach (var fn in dataProperties)
         {
             sb.Append("        properties[\"").Append(EscapeStringLit(fn.JsName)).Append("\"] = new global::Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<")
               .Append(obj.Name).Append(">(this, static host => new __").Append(obj.Name).Append("Function(host, __")
-              .Append(obj.Name).Append("Function.Slot.").Append(fn.ClrName).AppendLine("), global::Jint.Runtime.Descriptors.PropertyFlag.NonEnumerable);");
+              .Append(obj.Name).Append("Function.Slot.").Append(fn.ClrName).Append("), ").Append(fn.FlagsExpression).AppendLine(");");
+        }
+
+        // Accessors: GetSetPropertyDescriptor wrapping eagerly-allocated dispatcher slots.
+        var accessorNames = new List<string>(accessorsByName.Keys);
+        accessorNames.Sort(StringComparer.Ordinal);
+        foreach (var name in accessorNames)
+        {
+            var (getFn, setFn, flagsExpr) = accessorsByName[name];
+            sb.Append("        properties[\"").Append(EscapeStringLit(name)).Append("\"] = new global::Jint.Runtime.Descriptors.GetSetPropertyDescriptor(");
+            if (getFn is not null)
+            {
+                sb.Append("new __").Append(obj.Name).Append("Function(this, __").Append(obj.Name).Append("Function.Slot.").Append(getFn.ClrName).Append(')');
+            }
+            else
+            {
+                sb.Append("null");
+            }
+            sb.Append(", ");
+            if (setFn is not null)
+            {
+                sb.Append("new __").Append(obj.Name).Append("Function(this, __").Append(obj.Name).Append("Function.Slot.").Append(setFn.ClrName).Append(')');
+            }
+            else
+            {
+                sb.Append("null");
+            }
+            sb.Append(", ").Append(flagsExpr).AppendLine(");");
+        }
+
+        // Thrower accessors: a single shared instance per host, assigned to each name.
+        if (obj.ThrowerAccessors.Count > 0)
+        {
+            // Reuse the same descriptor instance — the runtime allows this; it has no per-property state.
+            sb.Append("        var __thrower = new global::Jint.Runtime.Descriptors.GetSetPropertyDescriptor.ThrowerPropertyDescriptor(_engine, ").Append(obj.ThrowerAccessors[0].FlagsExpression).AppendLine(");");
+            foreach (var thr in obj.ThrowerAccessors)
+            {
+                sb.Append("        properties[\"").Append(EscapeStringLit(thr.JsName)).AppendLine("\"] = __thrower;");
+            }
         }
 
         sb.AppendLine("        SetProperties(properties);");
@@ -116,9 +184,41 @@ internal static class Emitter
         sb.AppendLine("            {");
         foreach (var fn in obj.Functions)
         {
-            sb.Append("                case Slot.").Append(fn.ClrName).Append(": return ");
-            EmitInvocation(sb, obj, fn);
-            sb.AppendLine(";");
+            // If thisObject is typed as a JsValue subtype or ICallable, emit a cast + TypeError precondition.
+            string? castType = null;
+            foreach (var p in fn.Parameters)
+            {
+                if (p.Kind == ParameterKind.ThisObject && p.CastTargetType is not null)
+                {
+                    castType = p.CastTargetType;
+                    break;
+                }
+            }
+
+            if (castType is not null)
+            {
+                sb.Append("                case Slot.").Append(fn.ClrName).AppendLine(":");
+                sb.AppendLine("                {");
+                sb.Append("                    var __cast = thisObject as global::").Append(castType).AppendLine(";");
+                // Use the host's _realm (which carries the realm where the host was constructed) — not the
+                // dispatcher's own _realm, which only reflects the engine's active realm at first access of
+                // the lazy descriptor. Cross-realm tests like apply/this-not-callable-realm depend on this.
+                sb.Append("                    if (__cast is null) global::Jint.Runtime.Throw.TypeError(_host._realm, \"")
+                  .Append(EscapeStringLit(fn.FunctionName))
+                  .Append(" requires 'this' to be of type ")
+                  .Append(EscapeStringLit(castType.Substring(castType.LastIndexOf('.') + 1)))
+                  .AppendLine("\");");
+                sb.Append("                    return ");
+                EmitInvocation(sb, obj, fn);
+                sb.AppendLine(";");
+                sb.AppendLine("                }");
+            }
+            else
+            {
+                sb.Append("                case Slot.").Append(fn.ClrName).Append(": return ");
+                EmitInvocation(sb, obj, fn);
+                sb.AppendLine(";");
+            }
         }
         sb.AppendLine("                default: throw UnknownSlot(_slot);");
         sb.AppendLine("            }");
@@ -131,7 +231,7 @@ internal static class Emitter
         sb.AppendLine("            {");
         foreach (var fn in obj.Functions)
         {
-            sb.Append("                case Slot.").Append(fn.ClrName).Append(": return global::Jint.Native.JsString.CachedCreate(\"").Append(EscapeStringLit(fn.JsName)).AppendLine("\");");
+            sb.Append("                case Slot.").Append(fn.ClrName).Append(": return global::Jint.Native.JsString.CachedCreate(\"").Append(EscapeStringLit(fn.FunctionName)).AppendLine("\");");
         }
         sb.AppendLine("                default: throw UnknownSlot(slot);");
         sb.AppendLine("            }");
@@ -171,7 +271,7 @@ internal static class Emitter
             switch (p.Kind)
             {
                 case ParameterKind.ThisObject:
-                    sb.Append("thisObject");
+                    sb.Append(p.CastTargetType is null ? "thisObject" : "__cast");
                     break;
                 case ParameterKind.ValueAt:
                     sb.Append("global::Jint.Runtime.Arguments.At(arguments, ").Append(p.Position).Append(')');
@@ -184,6 +284,21 @@ internal static class Emitter
                     break;
                 case ParameterKind.ToUint32:
                     sb.Append("global::Jint.Runtime.TypeConverter.ToUint32(global::Jint.Runtime.Arguments.At(arguments, ").Append(p.Position).Append("))");
+                    break;
+                case ParameterKind.ToInteger:
+                    sb.Append("global::Jint.Runtime.TypeConverter.ToInteger(global::Jint.Runtime.Arguments.At(arguments, ").Append(p.Position).Append("))");
+                    break;
+                case ParameterKind.ToLength:
+                    sb.Append("global::Jint.Runtime.TypeConverter.ToLength(global::Jint.Runtime.Arguments.At(arguments, ").Append(p.Position).Append("))");
+                    break;
+                case ParameterKind.ToString:
+                    sb.Append("global::Jint.Runtime.TypeConverter.ToString(global::Jint.Runtime.Arguments.At(arguments, ").Append(p.Position).Append("))");
+                    break;
+                case ParameterKind.ToJsString:
+                    sb.Append("global::Jint.Runtime.TypeConverter.ToJsString(global::Jint.Runtime.Arguments.At(arguments, ").Append(p.Position).Append("))");
+                    break;
+                case ParameterKind.ToObject:
+                    sb.Append("global::Jint.Runtime.TypeConverter.ToObject(_realm, global::Jint.Runtime.Arguments.At(arguments, ").Append(p.Position).Append("))");
                     break;
                 case ParameterKind.Rest:
                     // Slice past the fixed positional value parameters into a ReadOnlySpan over the array tail; no allocation.
@@ -209,11 +324,19 @@ internal static class Emitter
 
     private static void EmitSymbolInitialize(StringBuilder sb, ObjectDefinition obj)
     {
+        var symbolFunctions = new List<FunctionDefinition>();
+        foreach (var fn in obj.Functions)
+        {
+            if (fn.Registration == RegistrationKind.SymbolFunction) symbolFunctions.Add(fn);
+        }
+
+        var totalEntries = obj.Symbols.Count + symbolFunctions.Count;
+
         sb.AppendLine("    /// <summary>Generated symbol-keyed registration. Call from <c>Initialize()</c>.</summary>");
         sb.AppendLine("    private void CreateSymbols_Generated()");
         sb.AppendLine("    {");
         sb.Append("        var symbols = new global::Jint.Collections.DictionarySlim<global::Jint.Native.JsSymbol, global::Jint.Runtime.Descriptors.PropertyDescriptor>(")
-          .Append(obj.Symbols.Count)
+          .Append(totalEntries)
           .AppendLine(");");
 
         foreach (var sym in obj.Symbols)
@@ -223,6 +346,13 @@ internal static class Emitter
             sb.Append(sym.ClrName).Append(", ");
             sb.Append(sym.FlagsExpression);
             sb.AppendLine(");");
+        }
+
+        foreach (var fn in symbolFunctions)
+        {
+            sb.Append("        symbols[global::Jint.Native.Symbol.GlobalSymbolRegistry.").Append(fn.JsName).Append("] = new global::Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<")
+              .Append(obj.Name).Append(">(this, static host => new __").Append(obj.Name).Append("Function(host, __")
+              .Append(obj.Name).Append("Function.Slot.").Append(fn.ClrName).Append("), ").Append(fn.FlagsExpression).AppendLine(");");
         }
 
         sb.AppendLine("        SetSymbols(symbols);");

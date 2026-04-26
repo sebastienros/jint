@@ -12,12 +12,15 @@ namespace Jint.Native.Number;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-the-number-prototype-object
 /// </summary>
-internal sealed class NumberPrototype : NumberInstance
+[JsObject]
+internal sealed partial class NumberPrototype : NumberInstance
 {
     private const int SmallDtoaLength = FastDtoa.KFastDtoaMaximalLength + 8;
     private const int LargeDtoaLength = 101;
 
     private readonly Realm _realm;
+
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly NumberConstructor _constructor;
 
     internal NumberPrototype(
@@ -32,25 +35,13 @@ internal sealed class NumberPrototype : NumberInstance
         _constructor = constructor;
     }
 
-    protected override void Initialize()
-    {
-        var properties = new PropertyDictionary(8, checkExistingKeys: false)
-        {
-            ["constructor"] = new PropertyDescriptor(_constructor, true, false, true),
-            ["toString"] = new PropertyDescriptor(new ClrFunction(Engine, "toString", ToNumberString, 1, PropertyFlag.Configurable), true, false, true),
-            ["toLocaleString"] = new PropertyDescriptor(new ClrFunction(Engine, "toLocaleString", ToLocaleString, 0, PropertyFlag.Configurable), true, false, true),
-            ["valueOf"] = new PropertyDescriptor(new ClrFunction(Engine, "valueOf", ValueOf, 0, PropertyFlag.Configurable), true, false, true),
-            ["toFixed"] = new PropertyDescriptor(new ClrFunction(Engine, "toFixed", ToFixed, 1, PropertyFlag.Configurable), true, false, true),
-            ["toExponential"] = new PropertyDescriptor(new ClrFunction(Engine, "toExponential", ToExponential, 1, PropertyFlag.Configurable), true, false, true),
-            ["toPrecision"] = new PropertyDescriptor(new ClrFunction(Engine, "toPrecision", ToPrecision, 1, PropertyFlag.Configurable), true, false, true)
-        };
-        SetProperties(properties);
-    }
+    protected override void Initialize() => CreateProperties_Generated();
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-number.prototype.tolocalestring
     /// https://tc39.es/ecma402/#sup-number.prototype.tolocalestring
     /// </summary>
+    [JsFunction(Length = 0)]
     private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
     {
         if (!thisObject.IsNumber() && thisObject is not NumberInstance)
@@ -68,7 +59,8 @@ internal sealed class NumberPrototype : NumberInstance
         return numberFormat.Format(x);
     }
 
-    private JsValue ValueOf(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0)]
+    private JsValue ValueOf(JsValue thisObject)
     {
         if (thisObject is NumberInstance ni)
         {
@@ -86,9 +78,10 @@ internal sealed class NumberPrototype : NumberInstance
 
     private const double Ten21 = 1e21;
 
-    private JsValue ToFixed(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue ToFixed(JsValue thisObject, [ToInteger] double fAsDouble)
     {
-        var f = (int) TypeConverter.ToInteger(arguments.At(0, 0));
+        var f = (int) fAsDouble;
         if (f < 0 || f > 100)
         {
             Throw.RangeError(_realm, "toFixed() digits argument must be between 0 and 100");
@@ -211,6 +204,7 @@ internal sealed class NumberPrototype : NumberInstance
     /// <summary>
     /// https://www.ecma-international.org/ecma-262/6.0/#sec-number.prototype.toexponential
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsValue ToExponential(JsValue thisObject, JsCallArguments arguments)
     {
         if (!thisObject.IsNumber() && ReferenceEquals(thisObject.TryCast<NumberInstance>(), null))
@@ -287,6 +281,7 @@ internal sealed class NumberPrototype : NumberInstance
         return result;
     }
 
+    [JsFunction(Length = 1)]
     private JsValue ToPrecision(JsValue thisObject, JsCallArguments arguments)
     {
         if (!thisObject.IsNumber() && ReferenceEquals(thisObject.TryCast<NumberInstance>(), null))
@@ -407,6 +402,7 @@ internal sealed class NumberPrototype : NumberInstance
         return sb.ToString();
     }
 
+    [JsFunction(Length = 1, Name = "toString")]
     private JsValue ToNumberString(JsValue thisObject, JsCallArguments arguments)
     {
         if (!thisObject.IsNumber() && (ReferenceEquals(thisObject.TryCast<NumberInstance>(), null)))

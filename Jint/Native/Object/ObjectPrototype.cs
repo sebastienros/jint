@@ -4,14 +4,15 @@ using Jint.Native.Array;
 using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Descriptors.Specialized;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.Object;
 
-public sealed class ObjectPrototype : Prototype
+[JsObject]
+public sealed partial class ObjectPrototype : Prototype
 {
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.Configurable | PropertyFlag.Writable)]
     private readonly ObjectConstructor _constructor;
+
     internal ObjectChangeFlags _objectChangeFlags;
 
     internal ObjectPrototype(
@@ -22,45 +23,34 @@ public sealed class ObjectPrototype : Prototype
         _constructor = constructor;
     }
 
-    protected override void Initialize()
+    protected override void Initialize() => CreateProperties_Generated();
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-get-object.prototype.__proto__
+    /// </summary>
+    [JsAccessor("__proto__")]
+    private JsValue ProtoGet(JsValue thisObject)
+        => TypeConverter.ToObject(_realm, thisObject).GetPrototypeOf() ?? Null;
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-set-object.prototype.__proto__
+    /// </summary>
+    [JsAccessor("__proto__", AccessorKind.Set)]
+    private JsValue ProtoSet(JsValue thisObject, JsValue value)
     {
-        const PropertyFlag PropertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-        const PropertyFlag LengthFlags = PropertyFlag.Configurable;
-        var properties = new PropertyDictionary(12, checkExistingKeys: false)
+        TypeConverter.RequireObjectCoercible(_engine, thisObject);
+
+        if (!value.IsObject() && !value.IsNull() || thisObject is not ObjectInstance objectInstance)
         {
-            ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlags),
-            ["__defineGetter__"] = new LazyPropertyDescriptor<ObjectPrototype>(this, static prototype => new ClrFunction(prototype._engine, "__defineGetter__", prototype.DefineGetter, 2, LengthFlags), PropertyFlags),
-            ["__defineSetter__"] = new LazyPropertyDescriptor<ObjectPrototype>(this, static prototype => new ClrFunction(prototype._engine, "__defineSetter__", prototype.DefineSetter, 2, LengthFlags), PropertyFlags),
-            ["__lookupGetter__"] = new LazyPropertyDescriptor<ObjectPrototype>(this, static prototype => new ClrFunction(prototype._engine, "__lookupGetter__", prototype.LookupGetter, 1, LengthFlags), PropertyFlags),
-            ["__lookupSetter__"] = new LazyPropertyDescriptor<ObjectPrototype>(this, static prototype => new ClrFunction(prototype._engine, "__lookupSetter__", prototype.LookupSetter, 1, LengthFlags), PropertyFlags),
-            ["__proto__"] = new GetSetPropertyDescriptor(
-                new ClrFunction(Engine, "get __proto__", (thisObject, _) => TypeConverter.ToObject(_realm, thisObject).GetPrototypeOf() ?? Null, 0, LengthFlags),
-                new ClrFunction(Engine, "set __proto__", (thisObject, arguments) =>
-                {
-                    TypeConverter.RequireObjectCoercible(_engine, thisObject);
+            return Undefined;
+        }
 
-                    var proto = arguments.At(0);
-                    if (!proto.IsObject() && !proto.IsNull() || thisObject is not ObjectInstance objectInstance)
-                    {
-                        return Undefined;
-                    }
+        if (!objectInstance.SetPrototypeOf(value))
+        {
+            Throw.TypeError(_realm, "Invalid prototype");
+        }
 
-                    if (!objectInstance.SetPrototypeOf(proto))
-                    {
-                        Throw.TypeError(_realm, "Invalid prototype");
-                    }
-
-                    return Undefined;
-                }, 0, LengthFlags),
-                enumerable: false, configurable: true),
-            ["toString"] = new LazyPropertyDescriptor<ObjectPrototype>(this, static prototype => new ClrFunction(prototype._engine, "toString", prototype.ToObjectString, 0, LengthFlags), PropertyFlags),
-            ["toLocaleString"] = new LazyPropertyDescriptor<ObjectPrototype>(this, static prototype => new ClrFunction(prototype._engine, "toLocaleString", prototype.ToLocaleString, 0, LengthFlags), PropertyFlags),
-            ["valueOf"] = new LazyPropertyDescriptor<ObjectPrototype>(this, static prototype => new ClrFunction(prototype._engine, "valueOf", prototype.ValueOf, 0, LengthFlags), PropertyFlags),
-            ["hasOwnProperty"] = new LazyPropertyDescriptor<ObjectPrototype>(this, static prototype => new ClrFunction(prototype._engine, "hasOwnProperty", prototype.HasOwnProperty, 1, LengthFlags), PropertyFlags),
-            ["isPrototypeOf"] = new LazyPropertyDescriptor<ObjectPrototype>(this, static prototype => new ClrFunction(prototype._engine, "isPrototypeOf", prototype.IsPrototypeOf, 1, LengthFlags), PropertyFlags),
-            ["propertyIsEnumerable"] = new LazyPropertyDescriptor<ObjectPrototype>(this, static prototype => new ClrFunction(prototype._engine, "propertyIsEnumerable", prototype.PropertyIsEnumerable, 1, LengthFlags), PropertyFlags)
-        };
-        SetProperties(properties);
+        return Undefined;
     }
 
     internal override bool SetPrototypeOf(JsValue value)
@@ -96,11 +86,10 @@ public sealed class ObjectPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.prototype.__defineGetter__
     /// </summary>
-    private JsValue DefineGetter(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2, Name = "__defineGetter__")]
+    private JsValue DefineGetter(JsValue thisObject, JsValue p, JsValue getter)
     {
         var o = TypeConverter.ToObject(_realm, thisObject);
-        var p = arguments.At(0);
-        var getter = arguments.At(1);
 
         if (!getter.IsCallable)
         {
@@ -117,11 +106,10 @@ public sealed class ObjectPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.prototype.__defineSetter__
     /// </summary>
-    private JsValue DefineSetter(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2, Name = "__defineSetter__")]
+    private JsValue DefineSetter(JsValue thisObject, JsValue p, JsValue setter)
     {
         var o = TypeConverter.ToObject(_realm, thisObject);
-        var p = arguments.At(0);
-        var setter = arguments.At(1);
 
         if (!setter.IsCallable)
         {
@@ -138,10 +126,11 @@ public sealed class ObjectPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.prototype.__lookupGetter__
     /// </summary>
-    private JsValue LookupGetter(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1, Name = "__lookupGetter__")]
+    private JsValue LookupGetter(JsValue thisObject, JsValue p)
     {
         var o = TypeConverter.ToObject(_realm, thisObject);
-        var key = TypeConverter.ToPropertyKey(arguments.At(0));
+        var key = TypeConverter.ToPropertyKey(p);
         while (true)
         {
             var desc = o.GetOwnProperty(key);
@@ -166,10 +155,11 @@ public sealed class ObjectPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.prototype.__lookupSetter__
     /// </summary>
-    private JsValue LookupSetter(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1, Name = "__lookupSetter__")]
+    private JsValue LookupSetter(JsValue thisObject, JsValue p)
     {
         var o = TypeConverter.ToObject(_realm, thisObject);
-        var key = TypeConverter.ToPropertyKey(arguments.At(0));
+        var key = TypeConverter.ToPropertyKey(p);
         while (true)
         {
             var desc = o.GetOwnProperty(key);
@@ -191,9 +181,10 @@ public sealed class ObjectPrototype : Prototype
         }
     }
 
-    private JsValue PropertyIsEnumerable(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue PropertyIsEnumerable(JsValue thisObject, JsValue v)
     {
-        var p = TypeConverter.ToPropertyKey(arguments[0]);
+        var p = TypeConverter.ToPropertyKey(v);
         var o = TypeConverter.ToObject(_realm, thisObject);
         var desc = o.GetOwnProperty(p);
         if (desc == PropertyDescriptor.Undefined)
@@ -203,15 +194,16 @@ public sealed class ObjectPrototype : Prototype
         return desc.Enumerable;
     }
 
-    private JsValue ValueOf(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0)]
+    private JsValue ValueOf(JsValue thisObject)
     {
         var o = TypeConverter.ToObject(_realm, thisObject);
         return o;
     }
 
-    private JsValue IsPrototypeOf(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue IsPrototypeOf(JsValue thisObject, JsValue arg)
     {
-        var arg = arguments[0];
         if (!arg.IsObject())
         {
             return JsBoolean.False;
@@ -239,7 +231,8 @@ public sealed class ObjectPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.prototype.tolocalestring
     /// </summary>
-    private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0)]
+    private JsValue ToLocaleString(JsValue thisObject)
     {
         return Invoke(thisObject, "toString", []);
     }
@@ -247,7 +240,8 @@ public sealed class ObjectPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.prototype.tostring
     /// </summary>
-    internal JsValue ToObjectString(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0, Name = "toString")]
+    internal JsValue ToObjectString(JsValue thisObject)
     {
         if (thisObject.IsUndefined())
         {
@@ -285,9 +279,10 @@ public sealed class ObjectPrototype : Prototype
     /// <summary>
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.2.4.5
     /// </summary>
-    private JsValue HasOwnProperty(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue HasOwnProperty(JsValue thisObject, JsValue v)
     {
-        var p = TypeConverter.ToPropertyKey(arguments[0]);
+        var p = TypeConverter.ToPropertyKey(v);
         var o = TypeConverter.ToObject(_realm, thisObject);
         var desc = o.GetOwnProperty(p);
         return desc != PropertyDescriptor.Undefined;

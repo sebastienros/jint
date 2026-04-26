@@ -1,0 +1,17 @@
+﻿{
+  Diagnostics: [
+    {
+      Location: : (9,30)-(9,33),
+      Message: [JsThrowerAccessor("arguments")] appears more than once on 'Foo',
+      Severity: Error,
+      Descriptor: {
+        Id: JINT016,
+        Title: Duplicate [JsThrowerAccessor] name on the same class,
+        MessageFormat: [JsThrowerAccessor("{0}")] appears more than once on '{1}',
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Error,
+        IsEnabledByDefault: true
+      }
+    }
+  ]
+}

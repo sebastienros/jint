@@ -52,6 +52,26 @@ internal static class Attributes
         [global::System.Diagnostics.Conditional("JINT_SOURCE_GENERATORS")]
         internal sealed class ToUint32Attribute : global::System.Attribute { }
 
+        [global::System.AttributeUsage(global::System.AttributeTargets.Parameter)]
+        [global::System.Diagnostics.Conditional("JINT_SOURCE_GENERATORS")]
+        internal sealed class ToIntegerAttribute : global::System.Attribute { }
+
+        [global::System.AttributeUsage(global::System.AttributeTargets.Parameter)]
+        [global::System.Diagnostics.Conditional("JINT_SOURCE_GENERATORS")]
+        internal sealed class ToLengthAttribute : global::System.Attribute { }
+
+        [global::System.AttributeUsage(global::System.AttributeTargets.Parameter)]
+        [global::System.Diagnostics.Conditional("JINT_SOURCE_GENERATORS")]
+        internal sealed class ToStringAttribute : global::System.Attribute { }
+
+        [global::System.AttributeUsage(global::System.AttributeTargets.Parameter)]
+        [global::System.Diagnostics.Conditional("JINT_SOURCE_GENERATORS")]
+        internal sealed class ToJsStringAttribute : global::System.Attribute { }
+
+        [global::System.AttributeUsage(global::System.AttributeTargets.Parameter)]
+        [global::System.Diagnostics.Conditional("JINT_SOURCE_GENERATORS")]
+        internal sealed class ToObjectAttribute : global::System.Attribute { }
+
         [global::System.AttributeUsage(global::System.AttributeTargets.Field | global::System.AttributeTargets.Property)]
         [global::System.Diagnostics.Conditional("JINT_SOURCE_GENERATORS")]
         internal sealed class JsSymbolAttribute : global::System.Attribute
@@ -63,6 +83,49 @@ internal static class Attributes
 
             public string SymbolName { get; }
             public global::Jint.Runtime.Descriptors.PropertyFlag Flags { get; set; } = global::Jint.Runtime.Descriptors.PropertyFlag.Configurable;
+        }
+
+        internal enum AccessorKind { Get, Set }
+
+        // Pairs by Name on the same class. The CLR method takes the standard JsValue thisObject + value
+        // parameters; the generator emits a GetSetPropertyDescriptor wrapping both halves and an entry
+        // per method in the per-host dispatcher.
+        [global::System.AttributeUsage(global::System.AttributeTargets.Method, AllowMultiple = false)]
+        [global::System.Diagnostics.Conditional("JINT_SOURCE_GENERATORS")]
+        internal sealed class JsAccessorAttribute : global::System.Attribute
+        {
+            public JsAccessorAttribute(string name, AccessorKind kind = AccessorKind.Get)
+            {
+                Name = name;
+                Kind = kind;
+            }
+
+            public string Name { get; }
+            public AccessorKind Kind { get; }
+            public global::Jint.Runtime.Descriptors.PropertyFlag Flags { get; set; } = global::Jint.Runtime.Descriptors.PropertyFlag.Configurable;
+        }
+
+        // Class-level, repeats. Each one registers a single shared ThrowerPropertyDescriptor on the host
+        // under the named key. Used for FunctionPrototype's "arguments" and "caller".
+        [global::System.AttributeUsage(global::System.AttributeTargets.Class, AllowMultiple = true)]
+        [global::System.Diagnostics.Conditional("JINT_SOURCE_GENERATORS")]
+        internal sealed class JsThrowerAccessorAttribute : global::System.Attribute
+        {
+            public JsThrowerAccessorAttribute(string name) { Name = name; }
+            public string Name { get; }
+            public global::Jint.Runtime.Descriptors.PropertyFlag Flags { get; set; } = global::Jint.Runtime.Descriptors.PropertyFlag.Configurable;
+        }
+
+        // Like [JsFunction] but registers in SymbolDictionary instead of PropertyDictionary.
+        // SymbolName must match a static property on Jint.Native.Symbol.GlobalSymbolRegistry.
+        [global::System.AttributeUsage(global::System.AttributeTargets.Method)]
+        [global::System.Diagnostics.Conditional("JINT_SOURCE_GENERATORS")]
+        internal sealed class JsSymbolFunctionAttribute : global::System.Attribute
+        {
+            public JsSymbolFunctionAttribute(string symbolName) { SymbolName = symbolName; }
+            public string SymbolName { get; }
+            public int Length { get; set; } = -1;
+            public global::Jint.Runtime.Descriptors.PropertyFlag Flags { get; set; } = global::Jint.Runtime.Descriptors.PropertyFlag.AllForbidden;
         }
 
         """;

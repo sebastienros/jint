@@ -1,18 +1,25 @@
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.Error;
 
 /// <summary>
 /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.11.4
 /// </summary>
-internal sealed class ErrorPrototype : ErrorInstance
+[JsObject]
+internal sealed partial class ErrorPrototype : ErrorInstance
 {
+    [JsProperty(Name = "name", Flags = PropertyFlag.NonEnumerable)]
     private readonly JsString _name;
+
     private readonly Realm _realm;
+
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly ErrorConstructor _constructor;
+
+    [JsProperty(Name = "message", Flags = PropertyFlag.NonEnumerable)]
+    private static readonly JsString MessageDefault = JsString.Empty;
 
     internal ErrorPrototype(
         Engine engine,
@@ -28,19 +35,10 @@ internal sealed class ErrorPrototype : ErrorInstance
         _prototype = prototype;
     }
 
-    protected override void Initialize()
-    {
-        var properties = new PropertyDictionary(3, checkExistingKeys: false)
-        {
-            ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
-            ["message"] = new PropertyDescriptor("", PropertyFlag.Configurable | PropertyFlag.Writable),
-            ["name"] = new PropertyDescriptor(_name, PropertyFlag.Configurable | PropertyFlag.Writable),
-            ["toString"] = new PropertyDescriptor(new ClrFunction(Engine, "toString", ToString, 0, PropertyFlag.Configurable), PropertyFlag.Configurable | PropertyFlag.Writable)
-        };
-        SetProperties(properties);
-    }
+    protected override void Initialize() => CreateProperties_Generated();
 
-    public JsValue ToString(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0)]
+    public JsValue ToString(JsValue thisObject)
     {
         var o = thisObject.TryCast<ObjectInstance>();
         if (o is null)

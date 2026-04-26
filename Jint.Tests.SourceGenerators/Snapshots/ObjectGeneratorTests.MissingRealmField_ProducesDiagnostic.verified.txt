@@ -1,0 +1,17 @@
+﻿{
+  Diagnostics: [
+    {
+      Location: : (9,30)-(9,33),
+      Message: Type 'Foo' has [JsFunction] methods with non-JsValue 'thisObject' types but no accessible Realm-typed '_realm' field — derive from Function or declare 'private readonly Realm _realm;',
+      Severity: Error,
+      Descriptor: {
+        Id: JINT018,
+        Title: Host using cast precondition needs an accessible _realm field,
+        MessageFormat: Type '{0}' has [JsFunction] methods with non-JsValue 'thisObject' types but no accessible Realm-typed '_realm' field — derive from Function or declare 'private readonly Realm _realm;',
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Error,
+        IsEnabledByDefault: true
+      }
+    }
+  ]
+}
