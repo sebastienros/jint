@@ -17,7 +17,7 @@ internal sealed class MethodInfoFunction : Function
     private readonly object? _target;
     private readonly string _name;
     private readonly MethodDescriptor[] _methods;
-    private readonly ClrFunction? _fallbackClrFunctionInstance;
+    private readonly Function? _fallbackFunctionInstance;
 
     public MethodInfoFunction(
         Engine engine,
@@ -25,14 +25,14 @@ internal sealed class MethodInfoFunction : Function
         object? target,
         string name,
         MethodDescriptor[] methods,
-        ClrFunction? fallbackClrFunctionInstance = null)
+        Function? fallbackFunctionInstance = null)
         : base(engine, engine.Realm, new JsString(name))
     {
         _targetType = targetType;
         _target = target;
         _name = name;
         _methods = methods;
-        _fallbackClrFunctionInstance = fallbackClrFunctionInstance;
+        _fallbackFunctionInstance = fallbackFunctionInstance;
         _prototype = engine.Realm.Intrinsics.Function.PrototypeObject;
     }
 
@@ -263,9 +263,9 @@ internal sealed class MethodInfoFunction : Function
             }
         }
 
-        if (_fallbackClrFunctionInstance is not null)
+        if (_fallbackFunctionInstance is not null)
         {
-            return _fallbackClrFunctionInstance.Call(thisObject, jsArguments);
+            return _fallbackFunctionInstance.Call(thisObject, jsArguments);
         }
 
         Throw.TypeError(_engine.Realm, "No public methods with the specified arguments were found.");

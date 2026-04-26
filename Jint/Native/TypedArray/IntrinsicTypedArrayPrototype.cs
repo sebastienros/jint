@@ -73,7 +73,10 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
             ["toLocaleString"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "toLocaleString", prototype.ToLocaleString, 0, PropertyFlag.Configurable), PropertyFlags),
             ["toReversed"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "toReversed", prototype.ToReversed, 0, PropertyFlag.Configurable), PropertyFlags),
             ["toSorted"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "toSorted", prototype.ToSorted, 1, PropertyFlag.Configurable), PropertyFlags),
-            ["toString"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "toLocaleString", prototype._realm.Intrinsics.Array.PrototypeObject.ToString, 0, PropertyFlag.Configurable), PropertyFlags),
+            // Per spec (ECMA-262 23.2.3.32) the initial value of %TypedArray%.prototype.toString is the
+            // same function object as %Array.prototype.toString%. Materialize Array.prototype.toString and
+            // share that instance so SameValue holds.
+            ["toString"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => prototype._realm.Intrinsics.Array.PrototypeObject.Get("toString"), PropertyFlags),
             ["values"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "values", prototype.Values, 0, PropertyFlag.Configurable), PropertyFlags),
             ["with"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "with", prototype.With, 2, PropertyFlag.Configurable), PropertyFlags),
         };

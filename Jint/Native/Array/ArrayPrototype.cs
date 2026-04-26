@@ -28,7 +28,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
     private readonly ArrayConstructor _constructor;
 
     private readonly ObjectTraverseStack _joinStack;
-    internal ClrFunction? _originalIteratorFunction;
+    internal JsValue? _originalIteratorFunction;
 
     internal ArrayPrototype(
         Engine engine,
@@ -48,11 +48,11 @@ public sealed partial class ArrayPrototype : ArrayInstance
         const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
         CreateProperties_Generated();
 
-        // Hand-written symbols block: [Symbol.iterator] needs to capture _originalIteratorFunction for
-        // ArrayInstance.HasOriginalIterator fast-path detection (ArrayInstance.cs:73), and
-        // [Symbol.unscopables] is a JsObject built lazily — neither fits the generator's data-symbol or
-        // [JsSymbolFunction] shapes cleanly.
-        _originalIteratorFunction = new ClrFunction(_engine, "iterator", Values, 1);
+        // Per spec, Array.prototype[@@iterator] is the SAME function object as Array.prototype.values
+        // (ECMA-262 23.1.3.34). Materialize the generated `values` descriptor and reuse it both as the
+        // Symbol.iterator value and as _originalIteratorFunction for ArrayInstance.HasOriginalIterator
+        // fast-path detection (ArrayInstance.cs:73).
+        _originalIteratorFunction = GetOwnProperty("values").Value;
         var symbols = new SymbolDictionary(2)
         {
             [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(_originalIteratorFunction, PropertyFlags),

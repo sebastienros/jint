@@ -208,7 +208,7 @@ public class Options
 
         foreach (var overloads in methods.GroupBy(x => x.Name, StringComparer.Ordinal))
         {
-            PropertyDescriptor CreateMethodInstancePropertyDescriptor(ClrFunction? function)
+            PropertyDescriptor CreateMethodInstancePropertyDescriptor(Function? function)
             {
                 var instance = new MethodInfoFunction(
                     engine,
@@ -226,9 +226,9 @@ public class Options
             PropertyDescriptor? descriptorWithoutFallback = null;
 
             if (prototype.HasOwnProperty(key) &&
-                prototype.GetOwnProperty(key).Value is ClrFunction clrFunctionInstance)
+                prototype.GetOwnProperty(key).Value is Function functionInstance)
             {
-                descriptorWithFallback = CreateMethodInstancePropertyDescriptor(clrFunctionInstance);
+                descriptorWithFallback = CreateMethodInstancePropertyDescriptor(functionInstance);
                 prototype.SetOwnProperty(key, descriptorWithFallback);
             }
             else
@@ -243,9 +243,9 @@ public class Options
                 key = char.ToLower(overloads.Key[0], CultureInfo.InvariantCulture) + overloads.Key.Substring(1);
 
                 if (prototype.HasOwnProperty(key) &&
-                    prototype.GetOwnProperty(key).Value is ClrFunction lowerclrFunctionInstance)
+                    prototype.GetOwnProperty(key).Value is Function lowerFunctionInstance)
                 {
-                    descriptorWithFallback ??= CreateMethodInstancePropertyDescriptor(lowerclrFunctionInstance);
+                    descriptorWithFallback ??= CreateMethodInstancePropertyDescriptor(lowerFunctionInstance);
                     prototype.SetOwnProperty(key, descriptorWithFallback);
                 }
                 else
