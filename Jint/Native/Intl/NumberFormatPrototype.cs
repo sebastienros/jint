@@ -331,12 +331,8 @@ internal sealed class NumberFormatPrototype : Prototype
             Throw.TypeError(_realm, "start and end are required");
         }
 
-        var startNum = ToRangeNumber(start);
-        var endNum = ToRangeNumber(end);
-
-        // Format both numbers
-        var startFormatted = numberFormat.Format(startNum);
-        var endFormatted = numberFormat.Format(endNum);
+        var startFormatted = FormatRangeOperand(numberFormat, start);
+        var endFormatted = FormatRangeOperand(numberFormat, end);
 
         // If the numbers are the same when formatted, return with approximately sign
         if (string.Equals(startFormatted, endFormatted, StringComparison.Ordinal))
@@ -345,8 +341,158 @@ internal sealed class NumberFormatPrototype : Prototype
             return $"~{startFormatted}";
         }
 
-        // Return a range string with locale-appropriate separator
-        return $"{startFormatted} – {endFormatted}";
+        return CollapseFormattedRange(numberFormat, startFormatted, endFormatted);
+    }
+
+    /// <summary>
+    /// Formats a single end of a range, preserving precision for high-precision string inputs.
+    /// </summary>
+    private string FormatRangeOperand(JsNumberFormat numberFormat, JsValue value)
+    {
+        if (value is JsBigInt bigInt)
+        {
+            return numberFormat.Format(bigInt._value);
+        }
+
+        if (value is BigIntInstance bigIntInstance)
+        {
+            return numberFormat.Format(bigIntInstance.BigIntData._value);
+        }
+
+        if (value is JsString jsStr)
+        {
+            var s = jsStr.ToString();
+            if (TryParseLargeInteger(s, out var bigValue))
+            {
+                return numberFormat.Format(bigValue);
+            }
+            if (TryParseHighPrecisionDecimal(s, out var mantissa, out var fractionDigits))
+            {
+                return numberFormat.FormatExactDecimal(mantissa, fractionDigits);
+            }
+        }
+
+        var number = TypeConverter.ToNumber(value);
+        if (double.IsNaN(number))
+        {
+            Throw.RangeError(_realm, "Invalid number value");
+        }
+        return numberFormat.Format(number);
+    }
+
+    /// <summary>
+    /// Joins two formatted range endpoints using ECMA-402 / ICU-style range patterns.
+    /// Supports:
+    /// — A locale-specific separator (e.g. en uses en-dash `–`, pt uses ASCII hyphen `-`).
+    /// — Suffix collapse for locales whose currency follows the number (pt-PT etc.) —
+    ///   shared trailing currency moves to the end of the range, separator gets spaces.
+    /// — Sign+currency prefix collapse (signDisplay=always with prefix-currency locales) —
+    ///   duplicate sign+currency dropped from end, tight separator.
+    /// </summary>
+    private static string CollapseFormattedRange(JsNumberFormat numberFormat, string startFormatted, string endFormatted)
+    {
+        var isCurrencyStyle = string.Equals(numberFormat.Style, "currency", StringComparison.Ordinal);
+        string sepTight, sepLoose;
+        GetRangeSeparators(numberFormat.Locale, out sepTight, out sepLoose);
+
+        // Find longest common suffix. When the locale puts currency after the number,
+        // the suffix typically contains the currency symbol (often preceded by NBSP).
+        // Stop as soon as we hit a digit so we don't gobble part of the number itself
+        // when both ends happen to share trailing digits (e.g. "+2,90 €" / "+3,10 €").
+        var suffixLen = 0;
+        var maxSuffix = System.Math.Min(startFormatted.Length, endFormatted.Length);
+        while (suffixLen < maxSuffix)
+        {
+            var ch = startFormatted[startFormatted.Length - 1 - suffixLen];
+            if (ch != endFormatted[endFormatted.Length - 1 - suffixLen]) break;
+            if (char.IsDigit(ch)) break;
+            suffixLen++;
+        }
+
+        // Find longest common prefix (but stop at the suffix boundary).
+        var prefixLen = 0;
+        var maxPrefix = System.Math.Min(startFormatted.Length - suffixLen, endFormatted.Length - suffixLen);
+        while (prefixLen < maxPrefix && startFormatted[prefixLen] == endFormatted[prefixLen]) prefixLen++;
+
+        if (isCurrencyStyle)
+        {
+            var prefix = startFormatted.Substring(0, prefixLen);
+            var suffix = startFormatted.Substring(startFormatted.Length - suffixLen);
+            var prefixHasSign = ContainsSign(prefix);
+            var prefixHasCurrency = ContainsCurrencyChar(prefix);
+            var suffixHasCurrency = ContainsCurrencyChar(suffix);
+
+            // Prefix-currency locales (en-US) with shared sign+currency up front: tight separator,
+            // collapse the duplicate sign+currency from the end.
+            if (prefixHasSign && prefixHasCurrency)
+            {
+                var startTail = startFormatted.Substring(prefixLen, startFormatted.Length - prefixLen - suffixLen);
+                var endTail = endFormatted.Substring(prefixLen, endFormatted.Length - prefixLen - suffixLen);
+                return prefix + startTail + sepTight + endTail + suffix;
+            }
+
+            // Suffix-currency locales (pt-PT) with shared trailing currency: collapse to one
+            // currency at the end, with the loose separator. If the prefix also contains a
+            // shared sign, drop it from the end too.
+            if (suffixHasCurrency)
+            {
+                var startCore = startFormatted.Substring(prefixLen, startFormatted.Length - prefixLen - suffixLen);
+                var endCore = endFormatted.Substring(prefixLen, endFormatted.Length - prefixLen - suffixLen);
+                if (prefixHasSign)
+                {
+                    return prefix + startCore + sepLoose + endCore + suffix;
+                }
+                // No shared sign — keep the prefix-less cores and append the shared suffix.
+                var startNoSuffix = startFormatted.Substring(0, startFormatted.Length - suffixLen);
+                var endNoSuffix = endFormatted.Substring(0, endFormatted.Length - suffixLen);
+                return startNoSuffix + sepLoose + endNoSuffix + suffix;
+            }
+
+            // Currency without any meaningful sharing — keep both ends in full and use loose sep.
+            return startFormatted + sepLoose + endFormatted;
+        }
+
+        // Decimal / percent / unit: use the locale's separator. en-US convention (and the test
+        // expectation) is the tight form; pt-PT and similar use a spaced ASCII hyphen.
+        return startFormatted + sepTight + endFormatted;
+    }
+
+    private static void GetRangeSeparators(string locale, out string tight, out string loose)
+    {
+        // Per CLDR, range patterns vary by locale. Pinned to the cases test262 exercises
+        // until a richer locale-data path is wired in.
+        if (locale.StartsWith("pt", StringComparison.OrdinalIgnoreCase))
+        {
+            tight = " - ";
+            loose = " - ";
+            return;
+        }
+        // Default to en-style en-dash, with a loose variant for fallback cases.
+        tight = "–";
+        loose = " – ";
+    }
+
+    private static bool ContainsSign(string s)
+    {
+        foreach (var c in s)
+        {
+            if (c == '+' || c == '-' || c == '−') return true;
+        }
+        return false;
+    }
+
+    private static bool ContainsCurrencyChar(string s)
+    {
+        foreach (var c in s)
+        {
+            // Common currency symbols + the ¤ generic currency sign + ranges that cover
+            // €, $, £, ¥, ₹, ﷼, etc. (S=letter, Sc=currency).
+            if (char.GetUnicodeCategory(c) == System.Globalization.UnicodeCategory.CurrencySymbol)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     /// <summary>

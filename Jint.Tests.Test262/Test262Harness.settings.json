@@ -47,8 +47,8 @@
     // NumberFormat - Indian lakh/crore compact notation (1L for 100K, 1C for 10M)
     "intl402/NumberFormat/prototype/format/useGrouping-extended-en-IN.js",
     // formatRange - locale-specific range patterns + sign-collapse + string precision (unblocks once P1.2/P1.3 land)
-    "intl402/NumberFormat/prototype/formatRange/en-US.js",
-    "intl402/NumberFormat/prototype/formatRange/pt-PT.js",
+    //"intl402/NumberFormat/prototype/formatRange/en-US.js",
+    //"intl402/NumberFormat/prototype/formatRange/pt-PT.js",
     //"intl402/NumberFormat/prototype/formatRangeToParts/en-US.js",
     // Unit formatting formatToParts - locale-specific unit patterns
     "intl402/NumberFormat/prototype/formatToParts/unit-de-DE.js",
