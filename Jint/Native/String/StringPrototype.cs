@@ -55,7 +55,7 @@ internal sealed partial class StringPrototype : StringInstance
         SetOwnProperty("trimRight", GetOwnProperty("trimEnd"));
 
         // [Symbol.iterator] kept hand-written: needs to capture _originalIteratorFunction for
-        // StringInstance.HasOriginalIterator fast-path detection (StringPrototype.cs:114).
+        // the HasOriginalIterator fast-path detection used by string iteration consumers.
         _originalIteratorFunction = new ClrFunction(_engine, "[Symbol.iterator]", Iterator, 0, lengthFlags);
         var symbols = new SymbolDictionary(1)
         {
@@ -164,9 +164,8 @@ internal sealed partial class StringPrototype : StringInstance
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [JsFunction(Length = 0)]
     [RequireObjectCoercible]
-    private JsValue Trim(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Trim(JsValue thisObject, JsCallArguments arguments)
     {
-        TypeConverter.RequireObjectCoercible(Engine, thisObject);
         var s = TypeConverter.ToJsString(thisObject);
         if (s.Length == 0 || (!IsWhiteSpaceEx(s[0]) && !IsWhiteSpaceEx(s[s.Length - 1])))
         {
@@ -180,9 +179,8 @@ internal sealed partial class StringPrototype : StringInstance
     /// </summary>
     [JsFunction(Length = 0)]
     [RequireObjectCoercible]
-    private JsValue TrimStart(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue TrimStart(JsValue thisObject, JsCallArguments arguments)
     {
-        TypeConverter.RequireObjectCoercible(Engine, thisObject);
         var s = TypeConverter.ToJsString(thisObject);
         if (s.Length == 0 || !IsWhiteSpaceEx(s[0]))
         {
@@ -196,9 +194,8 @@ internal sealed partial class StringPrototype : StringInstance
     /// </summary>
     [JsFunction(Length = 0)]
     [RequireObjectCoercible]
-    private JsValue TrimEnd(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue TrimEnd(JsValue thisObject, JsCallArguments arguments)
     {
-        TypeConverter.RequireObjectCoercible(Engine, thisObject);
         var s = TypeConverter.ToJsString(thisObject);
         if (s.Length == 0 || !IsWhiteSpaceEx(s[s.Length - 1]))
         {
@@ -211,7 +208,6 @@ internal sealed partial class StringPrototype : StringInstance
     [RequireObjectCoercible]
     private JsValue ToLocaleUpperCase(JsValue thisObject, JsCallArguments arguments)
     {
-        TypeConverter.RequireObjectCoercible(_engine, thisObject);
         var s = TypeConverter.ToString(thisObject);
 
         // https://tc39.es/ecma402/#sup-string.prototype.tolocaleuppercase
@@ -240,9 +236,8 @@ internal sealed partial class StringPrototype : StringInstance
 
     [JsFunction(Length = 0)]
     [RequireObjectCoercible]
-    private JsValue ToUpperCase(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue ToUpperCase(JsValue thisObject, JsCallArguments arguments)
     {
-        TypeConverter.RequireObjectCoercible(_engine, thisObject);
         var s = TypeConverter.ToString(thisObject);
         return new JsString(ToUpperCaseWithSpecialCasing(s, CultureInfo.InvariantCulture));
     }
@@ -423,7 +418,6 @@ internal sealed partial class StringPrototype : StringInstance
     [RequireObjectCoercible]
     private JsValue ToLocaleLowerCase(JsValue thisObject, JsCallArguments arguments)
     {
-        TypeConverter.RequireObjectCoercible(_engine, thisObject);
         var s = TypeConverter.ToString(thisObject);
 
         // https://tc39.es/ecma402/#sup-string.prototype.tolocalelowercase
@@ -440,9 +434,8 @@ internal sealed partial class StringPrototype : StringInstance
 
     [JsFunction(Length = 0)]
     [RequireObjectCoercible]
-    private JsValue ToLowerCase(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue ToLowerCase(JsValue thisObject, JsCallArguments arguments)
     {
-        TypeConverter.RequireObjectCoercible(_engine, thisObject);
         var s = TypeConverter.ToString(thisObject);
         return ToLowerCaseWithSpecialCasing(s, CultureInfo.InvariantCulture);
     }
@@ -907,10 +900,8 @@ internal sealed partial class StringPrototype : StringInstance
 
     [JsFunction(Length = 2)]
     [RequireObjectCoercible]
-    private JsValue Substring(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Substring(JsValue thisObject, JsCallArguments arguments)
     {
-        TypeConverter.RequireObjectCoercible(Engine, thisObject);
-
         var s = TypeConverter.ToString(thisObject);
         var start = TypeConverter.ToNumber(arguments.At(0));
         var end = TypeConverter.ToNumber(arguments.At(1));
@@ -954,9 +945,8 @@ internal sealed partial class StringPrototype : StringInstance
     /// </summary>
     [JsFunction(Length = 2)]
     [RequireObjectCoercible]
-    private JsValue Substr(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Substr(JsValue thisObject, JsCallArguments arguments)
     {
-        TypeConverter.RequireObjectCoercible(_engine, thisObject);
         var s = TypeConverter.ToString(thisObject);
         var start = TypeConverter.ToInteger(arguments.At(0));
         var length = arguments.At(1).IsUndefined()
@@ -1056,8 +1046,6 @@ internal sealed partial class StringPrototype : StringInstance
     [RequireObjectCoercible]
     private JsValue Split(JsValue thisObject, JsCallArguments arguments)
     {
-        TypeConverter.RequireObjectCoercible(Engine, thisObject);
-
         var separator = arguments.At(0);
         var limit = arguments.At(1);
 
@@ -1151,9 +1139,8 @@ internal sealed partial class StringPrototype : StringInstance
     /// </summary>
     [JsFunction(Length = 1)]
     [RequireObjectCoercible]
-    private JsValue At(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue At(JsValue thisObject, JsCallArguments arguments)
     {
-        TypeConverter.RequireObjectCoercible(_engine, thisObject);
         var start = arguments.At(0);
 
         var o = thisObject.ToString();
@@ -1181,10 +1168,8 @@ internal sealed partial class StringPrototype : StringInstance
 
     [JsFunction(Length = 2)]
     [RequireObjectCoercible]
-    private JsValue Slice(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Slice(JsValue thisObject, JsCallArguments arguments)
     {
-        TypeConverter.RequireObjectCoercible(Engine, thisObject);
-
         var start = TypeConverter.ToNumber(arguments.At(0));
         if (double.IsNegativeInfinity(start))
         {
@@ -1226,7 +1211,6 @@ internal sealed partial class StringPrototype : StringInstance
     [RequireObjectCoercible]
     private JsValue Search(JsValue thisObject, JsCallArguments arguments)
     {
-        TypeConverter.RequireObjectCoercible(Engine, thisObject);
         var regex = arguments.At(0);
 
         if (regex is ObjectInstance oi)
@@ -1250,8 +1234,6 @@ internal sealed partial class StringPrototype : StringInstance
     [RequireObjectCoercible]
     private JsValue Replace(JsValue thisObject, JsCallArguments arguments)
     {
-        TypeConverter.RequireObjectCoercible(Engine, thisObject);
-
         var searchValue = arguments.At(0);
         var replaceValue = arguments.At(1);
 
@@ -1306,8 +1288,6 @@ internal sealed partial class StringPrototype : StringInstance
     [RequireObjectCoercible]
     private JsValue ReplaceAll(JsValue thisObject, JsCallArguments arguments)
     {
-        TypeConverter.RequireObjectCoercible(Engine, thisObject);
-
         var searchValue = arguments.At(0);
         var replaceValue = arguments.At(1);
 
@@ -1405,8 +1385,6 @@ internal sealed partial class StringPrototype : StringInstance
     [RequireObjectCoercible]
     private JsValue Match(JsValue thisObject, JsCallArguments arguments)
     {
-        TypeConverter.RequireObjectCoercible(Engine, thisObject);
-
         var regex = arguments.At(0);
         if (regex is ObjectInstance oi)
         {
@@ -1427,8 +1405,6 @@ internal sealed partial class StringPrototype : StringInstance
     [RequireObjectCoercible]
     private JsValue MatchAll(JsValue thisObject, JsCallArguments arguments)
     {
-        TypeConverter.RequireObjectCoercible(_engine, thisObject);
-
         var regex = arguments.At(0);
         // 2. If regexp is neither undefined nor null, then
         // Note: spec requires checking if regexp IS an object, not just not-null/undefined
@@ -1464,8 +1440,6 @@ internal sealed partial class StringPrototype : StringInstance
     [RequireObjectCoercible]
     private JsValue LocaleCompare(JsValue thisObject, JsCallArguments arguments)
     {
-        TypeConverter.RequireObjectCoercible(Engine, thisObject);
-
         var s = TypeConverter.ToString(thisObject);
         var that = TypeConverter.ToString(arguments.At(0));
         var locales = arguments.At(1);
@@ -1481,10 +1455,8 @@ internal sealed partial class StringPrototype : StringInstance
     /// </summary>
     [JsFunction(Length = 1)]
     [RequireObjectCoercible]
-    private JsValue LastIndexOf(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue LastIndexOf(JsValue thisObject, JsCallArguments arguments)
     {
-        TypeConverter.RequireObjectCoercible(Engine, thisObject);
-
         var jsString = TypeConverter.ToJsString(thisObject);
         var searchStr = TypeConverter.ToString(arguments.At(0));
         double numPos = double.NaN;
@@ -1539,10 +1511,8 @@ internal sealed partial class StringPrototype : StringInstance
     /// </summary>
     [JsFunction(Length = 1)]
     [RequireObjectCoercible]
-    private JsValue IndexOf(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue IndexOf(JsValue thisObject, JsCallArguments arguments)
     {
-        TypeConverter.RequireObjectCoercible(Engine, thisObject);
-
         var s = TypeConverter.ToJsString(thisObject);
         var searchStr = TypeConverter.ToString(arguments.At(0));
         double pos = 0;
@@ -1566,10 +1536,8 @@ internal sealed partial class StringPrototype : StringInstance
 
     [JsFunction(Length = 1)]
     [RequireObjectCoercible]
-    private JsValue Concat(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Concat(JsValue thisObject, JsCallArguments arguments)
     {
-        TypeConverter.RequireObjectCoercible(Engine, thisObject);
-
         if (thisObject is not JsString jsString)
         {
             jsString = new JsString.ConcatenatedString(TypeConverter.ToString(thisObject));
@@ -1589,10 +1557,8 @@ internal sealed partial class StringPrototype : StringInstance
 
     [JsFunction(Length = 1)]
     [RequireObjectCoercible]
-    private JsValue CharCodeAt(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue CharCodeAt(JsValue thisObject, JsCallArguments arguments)
     {
-        TypeConverter.RequireObjectCoercible(Engine, thisObject);
-
         JsValue pos = arguments.Length > 0 ? arguments[0] : 0;
         var s = TypeConverter.ToJsString(thisObject);
         var position = (int) TypeConverter.ToInteger(pos);
@@ -1608,10 +1574,8 @@ internal sealed partial class StringPrototype : StringInstance
     /// </summary>
     [JsFunction(Length = 1)]
     [RequireObjectCoercible]
-    private JsValue CodePointAt(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue CodePointAt(JsValue thisObject, JsCallArguments arguments)
     {
-        TypeConverter.RequireObjectCoercible(Engine, thisObject);
-
         JsValue pos = arguments.Length > 0 ? arguments[0] : 0;
         var s = TypeConverter.ToString(thisObject);
         var position = (int) TypeConverter.ToInteger(pos);
@@ -1655,9 +1619,8 @@ internal sealed partial class StringPrototype : StringInstance
 
     [JsFunction(Length = 1)]
     [RequireObjectCoercible]
-    private JsValue CharAt(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue CharAt(JsValue thisObject, JsCallArguments arguments)
     {
-        TypeConverter.RequireObjectCoercible(Engine, thisObject);
         var s = TypeConverter.ToJsString(thisObject);
         var position = TypeConverter.ToInteger(arguments.At(0));
         var size = s.Length;
@@ -1689,7 +1652,8 @@ internal sealed partial class StringPrototype : StringInstance
     /// https://tc39.es/ecma262/#sec-string.prototype.padstart
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsValue PadStart(JsValue thisObject, JsCallArguments arguments)
+    [RequireObjectCoercible]
+    private static JsValue PadStart(JsValue thisObject, JsCallArguments arguments)
     {
         return StringPad(thisObject, arguments, true);
     }
@@ -1698,7 +1662,8 @@ internal sealed partial class StringPrototype : StringInstance
     /// https://tc39.es/ecma262/#sec-string.prototype.padend
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsValue PadEnd(JsValue thisObject, JsCallArguments arguments)
+    [RequireObjectCoercible]
+    private static JsValue PadEnd(JsValue thisObject, JsCallArguments arguments)
     {
         return StringPad(thisObject, arguments, false);
     }
@@ -1706,9 +1671,8 @@ internal sealed partial class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-stringpad
     /// </summary>
-    private JsValue StringPad(JsValue thisObject, JsCallArguments arguments, bool padStart)
+    private static JsValue StringPad(JsValue thisObject, JsCallArguments arguments, bool padStart)
     {
-        TypeConverter.RequireObjectCoercible(Engine, thisObject);
         var s = TypeConverter.ToJsString(thisObject);
 
         var targetLength = TypeConverter.ToInt32(arguments.At(0));
@@ -1741,8 +1705,6 @@ internal sealed partial class StringPrototype : StringInstance
     [RequireObjectCoercible]
     private JsValue StartsWith(JsValue thisObject, JsCallArguments arguments)
     {
-        TypeConverter.RequireObjectCoercible(Engine, thisObject);
-
         var s = TypeConverter.ToJsString(thisObject);
 
         var searchString = arguments.At(0);
@@ -1775,8 +1737,6 @@ internal sealed partial class StringPrototype : StringInstance
     [RequireObjectCoercible]
     private JsValue EndsWith(JsValue thisObject, JsCallArguments arguments)
     {
-        TypeConverter.RequireObjectCoercible(Engine, thisObject);
-
         var s = TypeConverter.ToJsString(thisObject);
 
         var searchString = arguments.At(0);
@@ -1808,8 +1768,6 @@ internal sealed partial class StringPrototype : StringInstance
     [RequireObjectCoercible]
     private JsValue Includes(JsValue thisObject, JsCallArguments arguments)
     {
-        TypeConverter.RequireObjectCoercible(Engine, thisObject);
-
         var s = TypeConverter.ToJsString(thisObject);
         var searchString = arguments.At(0);
 
@@ -1842,7 +1800,6 @@ internal sealed partial class StringPrototype : StringInstance
     [RequireObjectCoercible]
     private JsValue Normalize(JsValue thisObject, JsCallArguments arguments)
     {
-        TypeConverter.RequireObjectCoercible(Engine, thisObject);
         var str = TypeConverter.ToString(thisObject);
 
         var param = arguments.At(0);
@@ -1885,7 +1842,6 @@ internal sealed partial class StringPrototype : StringInstance
     [RequireObjectCoercible]
     private JsValue Repeat(JsValue thisObject, JsCallArguments arguments)
     {
-        TypeConverter.RequireObjectCoercible(Engine, thisObject);
         var s = TypeConverter.ToString(thisObject);
         var count = arguments.At(0);
 
@@ -1917,9 +1873,8 @@ internal sealed partial class StringPrototype : StringInstance
 
     [JsFunction(Length = 0)]
     [RequireObjectCoercible]
-    private JsValue IsWellFormed(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue IsWellFormed(JsValue thisObject, JsCallArguments arguments)
     {
-        TypeConverter.RequireObjectCoercible(_engine, thisObject);
         var s = TypeConverter.ToString(thisObject);
 
         return IsStringWellFormedUnicode(s);
@@ -1927,9 +1882,8 @@ internal sealed partial class StringPrototype : StringInstance
 
     [JsFunction(Length = 0)]
     [RequireObjectCoercible]
-    private JsValue ToWellFormed(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue ToWellFormed(JsValue thisObject, JsCallArguments arguments)
     {
-        TypeConverter.RequireObjectCoercible(_engine, thisObject);
         var s = TypeConverter.ToString(thisObject);
 
         var strLen = s.Length;
