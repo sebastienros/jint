@@ -40,7 +40,7 @@ internal class StringInlHelper
             for (int i = replaceableCharsIdx.Count - 1; i >= 0; i--)
             {
                 int index = replaceableCharsIdx[i];
-                if (index >= 0 && index < stringBuilder.Length)
+                if ((uint) index < (uint) stringBuilder.Length)
                 {
                     stringBuilder.Remove(index, 1);
                 }

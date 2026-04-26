@@ -222,6 +222,26 @@ Split into a separate file when:
 - Expression and function definition caching reduces re-evaluation cost
 - AggressiveInlining attributes mark hot paths
 
+### Unsigned-cast bounds check (`(uint)i < (uint)length`)
+
+Prefer `(uint) index < (uint) array.Length` over `index >= 0 && index < array.Length` when guarding an array/Span/list access where the index could be negative. This is an established pattern in this codebase (already used in `DictionarySlim`, `StringDictionarySlim`, `ValueStringBuilder`, `Arguments`, `TypeConverter`, `JsNumber`, `JintIdentifierExpression`, etc.) and across the .NET BCL.
+
+**How it works:** `int.MinValue..-1` cast to `uint` produces values `0x80000000..0xFFFFFFFF` — all greater than any non-negative `int`. So the single unsigned comparison `(uint)i < (uint)length` is true iff `i` is in `[0, length)`. RyuJIT recognizes this idiom and lowers it to a single `cmp` + `jae` instruction; furthermore, the JIT can use the post-comparison range fact to elide the bounds check on the subsequent `array[i]` access (the index is already proven in range).
+
+**When to use:**
+- Manual bounds checks before a direct `array[i]` / `span[i]` / `list[i]` access where `i` could be negative or oversized — typical in pool/cache code, parser fast paths, and `for`-loop chains where the index isn't a fresh loop variable.
+- Defensive validation of an `int` field/argument before indexing.
+- `for (var i = ...; (uint)i < (uint)arr.Length; ...)` loops where the body indexes `arr[i]`.
+
+**When not to use:**
+- Ordinary `for (var i = 0; i < arr.Length; i++)` loops — the JIT already eliminates the bounds check there; the cast is noise.
+- When the index is known non-negative by construction and you just want a single upper-bound check — plain `i < arr.Length` is clearer and equivalent.
+- When the type is already unsigned (`uint`/`nuint`) — the cast is redundant.
+
+**Caveats:**
+- The pattern relies on `length` fitting in `int` (always true for `Array.Length` / `Span<T>.Length`). For `long` lengths (rare), use `(ulong)i < (ulong)length`.
+- Different phrasings can affect the JIT's ability to elide subsequent bounds checks; prefer `(uint)i < (uint)arr.Length` over `(uint)i <= (uint)(arr.Length - 1)` and similar variants.
+
 ## Working with ES Features
 
 When implementing new ECMAScript features:

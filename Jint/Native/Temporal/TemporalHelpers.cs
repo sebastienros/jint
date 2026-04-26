@@ -4426,7 +4426,7 @@ internal static class TemporalHelpers
             {
                 // Check for timezone annotation (bracket without "=" or with non-calendar key)
                 var bracketStart = str.IndexOf('[');
-                while (bracketStart >= 0 && bracketStart < str.Length)
+                while ((uint) bracketStart < (uint) str.Length)
                 {
                     var bracketEnd = str.IndexOf(']', bracketStart);
                     if (bracketEnd < 0) break;

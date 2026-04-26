@@ -668,7 +668,7 @@ internal sealed class ZonedDateTimeConstructor : Constructor
             int lastBracketEnd = -1;
 
             bracketIndex = input.IndexOf('[');
-            while (bracketIndex >= 0 && bracketIndex < input.Length)
+            while ((uint) bracketIndex < (uint) input.Length)
             {
                 var bracketEnd = input.IndexOf(']', bracketIndex);
                 if (bracketEnd < 0) break;
