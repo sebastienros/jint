@@ -119,6 +119,8 @@ public partial class Engine
     /// </summary>
     private async Task<JsValue> AwaitPromiseSettlementAsync(JsPromise promise, CancellationToken cancellationToken)
     {
+        Interlocked.Increment(ref _pendingAsyncOperations);
+
         var eventLoop = _eventLoop;
         var timeout = Options.Constraints.PromiseTimeout;
         var hasTimeout = timeout > TimeSpan.Zero;
@@ -178,6 +180,7 @@ public partial class Engine
         }
         finally
         {
+            Interlocked.Decrement(ref _pendingAsyncOperations);
             ownedCts?.Dispose();
         }
 

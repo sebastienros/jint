@@ -32,6 +32,14 @@ internal sealed record EventLoop
 
     public bool IsEmpty => _events.IsEmpty;
 
+    internal void Reset()
+    {
+        while (_events.TryDequeue(out _)) { }
+        Interlocked.Exchange(ref _isProcessing, 0);
+        _waitingThreadId = -1;
+        Interlocked.Exchange(ref _eventAvailable, null);
+    }
+
     public void Enqueue(Action continuation)
     {
         _events.Enqueue(continuation);

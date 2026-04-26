@@ -143,6 +143,8 @@ public class Options
     /// </summary>
     internal void Apply(Engine engine)
     {
+        engine.Modules = new Engine.ModuleOperations(engine, Modules.ModuleLoader);
+
         foreach (var configuration in _configurations)
         {
             configuration(engine);
@@ -185,7 +187,6 @@ public class Options
                 PropertyFlag.AllForbidden));
         }
 
-        engine.Modules = new Engine.ModuleOperations(engine, Modules.ModuleLoader);
     }
 
     private static void AttachExtensionMethodsToPrototypes(Engine engine)
@@ -224,6 +225,13 @@ public class Options
             JsValue key = overloads.Key;
             PropertyDescriptor? descriptorWithFallback = null;
             PropertyDescriptor? descriptorWithoutFallback = null;
+
+            if (prototype.HasOwnProperty(key) &&
+                prototype.GetOwnProperty(key).Value is MethodInfoFunction)
+            {
+                // Already attached (e.g., during a previous Options.Apply call) — skip
+                continue;
+            }
 
             if (prototype.HasOwnProperty(key) &&
                 prototype.GetOwnProperty(key).Value is Function functionInstance)
