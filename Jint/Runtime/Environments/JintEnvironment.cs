@@ -83,6 +83,12 @@ internal static class JintEnvironment
         // Reuse a pooled FunctionEnvironment when the function's bindings cannot escape the call
         // (no closure capture, not a generator/async). Re-bind to the new function/target/outer env
         // and reset transient state. Slot storage is handled below.
+        //
+        // Important invariant for downstream callers: any env that an inner closure could resolve
+        // bindings from (i.e. a closure-target env) must not be pool-eligible — JintIdentifierExpression's
+        // slot-binding cache caches resolve-env references and trusts that they remain stable for
+        // the lifetime of the function instance that captured them. If the EnvironmentMayEscape gate
+        // is widened beyond closure-targets, that cache must be revisited.
         if (state is { EnvironmentMayEscape: false }
             && Interlocked.Exchange(ref state._cachedEnv, null) is { } cachedEnv
             && ReferenceEquals(cachedEnv._engine, engine))

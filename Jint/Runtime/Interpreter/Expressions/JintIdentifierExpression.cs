@@ -12,6 +12,20 @@ internal sealed class JintIdentifierExpression : JintExpression
     private Environment? _cachedEnvironment;
     private bool _cachedStrict;
 
+    // Slot-binding location cache: when an identifier resolves to a slot in some
+    // (possibly outer) DeclarativeEnvironment, remember the env reference and slot
+    // index so subsequent reads can skip the env-chain walk and SlotIndexOf scan.
+    // Validity: walk from the current execution env up looking for _cachedSlotEnv via
+    // ReferenceEquals — closure-captured envs cannot be pooled (escape-detection prevents it),
+    // so their identity is stable for the lifetime of the function instance that captured them.
+    // Strict-mode is intentionally not validated: a single AST node's strictness is fixed by
+    // its enclosing scope at parse time, so it cannot change between calls.
+    private DeclarativeEnvironment? _cachedSlotEnv;
+    private int _cachedSlotIndex = -1;
+
+    // Bounded walk: chain depth is typically 1-3 in real code; deeper chains fall through.
+    private const int MaxSlotCacheChainDepth = 4;
+
     public JintIdentifierExpression(Identifier expression) : base(expression)
     {
         _identifier = expression.UserData as Environment.BindingName
@@ -77,6 +91,35 @@ internal sealed class JintIdentifierExpression : JintExpression
         var strict = StrictModeScope.IsStrictModeCode;
         JsValue? value;
 
+        // Slot-cache fast path: walk from the current env up the chain looking for the cached
+        // resolving env via ReferenceEquals. When found, read the slot value directly,
+        // skipping HasBinding + SlotIndexOf at every intermediate env.
+        var cachedSlotEnv = _cachedSlotEnv;
+        if (cachedSlotEnv is not null)
+        {
+            var search = env;
+            for (var hops = 0; hops < MaxSlotCacheChainDepth && search is not null; hops++)
+            {
+                if (ReferenceEquals(search, cachedSlotEnv))
+                {
+                    var slots = cachedSlotEnv._slots;
+                    var idx = _cachedSlotIndex;
+                    if (slots is not null && (uint) idx < (uint) slots.Length)
+                    {
+                        value = slots[idx].Value;
+                        if (value is null)
+                        {
+                            ThrowNotInitialized(engine);
+                        }
+                        return MaterializeIfArguments(value);
+                    }
+                    break;
+                }
+                search = search._outerEnv;
+            }
+        }
+
+
         if (ReferenceEquals(env, _cachedEnvironment)
             && _cachedStrict == strict
             && env.TryGetBinding(identifier, strict, out value))
@@ -103,6 +146,25 @@ internal sealed class JintIdentifierExpression : JintExpression
                 _cachedEnvironment = null;
             }
 
+            // Populate slot-binding cache when the resolved env stores this binding in a fixed slot.
+            // Closure-captured envs cannot be pooled (escape detection prevents it), so caching the
+            // env reference is safe; slot indices are immutable for the lifetime of the env.
+            if (identifierEnvironment is DeclarativeEnvironment denv
+                && denv._slots is not null
+                && denv._slotNames is { } slotNames)
+            {
+                var key = identifier.Key;
+                for (var i = 0; i < slotNames.Length; i++)
+                {
+                    if (slotNames[i] == key)
+                    {
+                        _cachedSlotEnv = denv;
+                        _cachedSlotIndex = i;
+                        break;
+                    }
+                }
+            }
+
             if (value is null)
             {
                 ThrowNotInitialized(engine);
@@ -114,12 +176,17 @@ internal sealed class JintIdentifierExpression : JintExpression
             value = engine.GetValue(reference, returnReferenceToPool: true);
         }
 
+        return MaterializeIfArguments(value);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static JsValue MaterializeIfArguments(JsValue value)
+    {
         // make sure arguments access freezes state
         if (value is JsArguments argumentsInstance)
         {
             argumentsInstance.Materialize();
         }
-
         return value;
     }
 
