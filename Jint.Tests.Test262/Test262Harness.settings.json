@@ -57,7 +57,7 @@
     "intl402/NumberFormat/prototype/formatToParts/unit-zh-TW.js",
 
     // PluralRules - compact notation affects plural category
-    "intl402/PluralRules/prototype/select/notation.js",
+    //"intl402/PluralRules/prototype/select/notation.js",
 
     // === INTL402 TEMPORAL EXCLUSIONS ===
 
