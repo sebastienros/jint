@@ -168,6 +168,92 @@ public sealed partial class Engine : IDisposable
         _host.Initialize(this);
     }
 
+    /// <summary>
+    /// Resets the engine to a clean execution state, keeping Intrinsics and configuration intact.
+    /// This is significantly cheaper than creating a new Engine instance because it avoids
+    /// reconstructing Options, Parser, Intrinsics (Object/Function constructors and their prototypes),
+    /// and all cached CLR metadata.
+    /// </summary>
+    /// <remarks>
+    /// After calling this method the engine is in a state equivalent to a freshly constructed engine
+    /// with the same options — global variables, functions, and modules from prior executions are cleared.
+    /// The built-in prototypes (Array.prototype, Object.prototype, etc.) are preserved as-is; if prior
+    /// scripts mutated them (e.g. <c>Array.prototype.custom = ...</c>), those mutations will persist.
+    /// For sandboxed/trusted scripts that do not modify built-in prototypes, this is safe and fast.
+    /// This method must only be called when no script is executing on the engine (i.e., between
+    /// <see cref="Execute(string, string?)"/> / <see cref="EvaluateAsync(string, string?, System.Threading.CancellationToken)"/> calls).
+    /// Calling it from within a JavaScript callback or during active execution throws <see cref="InvalidOperationException"/>.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">Thrown when called during script execution.</exception>
+    public void ResetState()
+    {
+        if (_activeEvaluationContext is not null)
+        {
+            Throw.InvalidOperationException("ResetState cannot be called while script is executing");
+        }
+
+        // Capture realm before clearing execution context stack
+        var realm = Realm;
+
+        _completionValue = JsValue.Undefined;
+        _activeEvaluationContext = null;
+        _error = null;
+        _lastSyntaxElement = null;
+        _realmInConstruction = null;
+        ModuleAsyncEvaluationCount = 0;
+
+        _executionContexts.Clear();
+        CallStack.Clear();
+        _eventLoop.Reset();
+        _agent.ClearKeptObjects();
+
+        // Set _realmInConstruction so ObjectInstance constructors can resolve the realm
+        // while the execution context stack is still empty (same pattern as Host.CreateRealm)
+        _realmInConstruction = realm;
+        try
+        {
+            var newGlobalObject = _host.CreateGlobalObject(realm);
+            var newGlobalEnv = _host.CreateGlobalEnvironment(newGlobalObject);
+            realm.GlobalObject = newGlobalObject;
+            realm.GlobalEnv = newGlobalEnv;
+            realm._templateMap.Clear();
+        }
+        finally
+        {
+            _realmInConstruction = null;
+        }
+
+        // Re-enter root execution context (same as Host.InitializeHostDefinedRealm)
+        var globalEnv = realm.GlobalEnv;
+        var newContext = new ExecutionContext(
+            scriptOrModule: null,
+            lexicalEnvironment: globalEnv,
+            variableEnvironment: globalEnv,
+            privateEnvironment: null,
+            realm: realm,
+            function: null);
+        _executionContexts.Push(newContext);
+
+        // Clear per-execution caches
+        GlobalSymbolRegistry.Reset();
+        Modules.Clear();
+
+        // Clear object wrapper identity cache
+        if (_objectWrapperCache is not null)
+        {
+#if SUPPORTS_WEAK_TABLE_CLEAR
+            _objectWrapperCache.Clear();
+#else
+            _objectWrapperCache = null;
+#endif
+        }
+
+        // Re-apply options (registers CLR interop globals, require(), etc.)
+        Options.Apply(this);
+
+        ResetConstraints();
+    }
+
     internal ref readonly ExecutionContext ExecutionContext
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

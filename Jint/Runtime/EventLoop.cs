@@ -5,7 +5,7 @@ namespace Jint.Runtime;
 
 internal sealed record EventLoop
 {
-    private readonly ConcurrentQueue<Action> _events = new();
+    private readonly ConcurrentQueue<TaggedEvent> _events = new();
 
     /// <summary>
     /// Tracks whether we are currently processing the event loop.
@@ -30,11 +30,28 @@ internal sealed record EventLoop
     /// </summary>
     private volatile TaskCompletionSource<bool>? _eventAvailable;
 
+    /// <summary>
+    /// Monotonically increasing generation counter. Bumped on <see cref="Reset"/>.
+    /// Events enqueued with a stale generation are silently dropped during processing,
+    /// preventing callbacks from a prior execution cycle (e.g., late-arriving
+    /// Task.ContinueWith callbacks) from running after the engine has been reset.
+    /// </summary>
+    private volatile int _generation;
+
     public bool IsEmpty => _events.IsEmpty;
+
+    internal void Reset()
+    {
+        Interlocked.Increment(ref _generation);
+        while (_events.TryDequeue(out _)) { }
+        Interlocked.Exchange(ref _isProcessing, 0);
+        _waitingThreadId = -1;
+        Interlocked.Exchange(ref _eventAvailable, null);
+    }
 
     public void Enqueue(Action continuation)
     {
-        _events.Enqueue(continuation);
+        _events.Enqueue(new TaggedEvent(continuation, _generation));
 
         // Wake any async waiter. Atomically steal the TCS and signal it.
         // This ensures the async loop in WaitForEventAsync wakes up promptly
@@ -119,10 +136,13 @@ internal sealed record EventLoop
 
         try
         {
-            while (_events.TryDequeue(out var nextContinuation))
+            var currentGeneration = _generation;
+            while (_events.TryDequeue(out var taggedEvent))
             {
-                // note that continuation can enqueue new events
-                nextContinuation();
+                if (taggedEvent.Generation == currentGeneration)
+                {
+                    taggedEvent.Continuation();
+                }
             }
         }
         finally
@@ -130,4 +150,6 @@ internal sealed record EventLoop
             Interlocked.Exchange(ref _isProcessing, 0);
         }
     }
+
+    private readonly record struct TaggedEvent(Action Continuation, int Generation);
 }

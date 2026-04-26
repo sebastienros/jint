@@ -36,6 +36,11 @@ public sealed class GlobalSymbolRegistry
         _customSymbolLookup[symbol._value] = symbol;
     }
 
+    internal void Reset()
+    {
+        _customSymbolLookup = null;
+    }
+
     internal static JsSymbol CreateSymbol(JsValue description)
     {
         return new JsSymbol(description);

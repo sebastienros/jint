@@ -170,6 +170,7 @@ and many more.
 - Because Jint neither generates any .NET bytecode nor uses the DLR it runs relatively small scripts really fast
 - If you repeatedly run the same script, you should prepare it for execution using `Engine.PrepareScript` or `Engine.PrepareModule`, cache the returned `Prepared<...>` object and feed it to Jint instead of the content string
 - You should prefer running engine in strict mode, it improves performance
+- If you create many engine instances with the same configuration, use `Engine.ResetState()` to reuse an existing engine instead of constructing a new one — it preserves Intrinsics and configuration while clearing all execution state
 
 You can check out [the engine comparison results](Jint.Benchmark), bear in mind that every use case is different and benchmarks might not reflect your real-world usage.
 
@@ -185,7 +186,23 @@ https://docs.microsoft.com/shows/code-conversations/sebastien-ros-on-jint-javasc
 
 ## Thread-safety
 
-Engine instances are not thread-safe and they should not accessed from multiple threads simultaneously. 
+Engine instances are not thread-safe and they should not be accessed from multiple threads simultaneously. However, engines can be reused sequentially across threads via `Engine.ResetState()`, which clears all execution state while preserving Intrinsics and configuration:
+
+```c#
+var engine = pool.Get();
+try
+{
+    engine.Execute(setupScript);
+    var result = await engine.EvaluateAsync("process(21)");
+}
+finally
+{
+    engine.ResetState();
+    pool.Return(engine);
+}
+```
+
+Note: built-in prototype mutations from prior scripts persist after reset. For untrusted scripts that may modify prototypes, create a new engine instead.
 
 ## Examples
 

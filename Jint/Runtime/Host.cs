@@ -65,7 +65,7 @@ public class Host
         return JintEnvironment.NewGlobalEnvironment(Engine, globalObject, globalObject);
     }
 
-    protected virtual ObjectInstance CreateGlobalObject(Realm realm)
+    protected internal virtual ObjectInstance CreateGlobalObject(Realm realm)
     {
         var globalObject = new GlobalObject(Engine, realm);
         // Because the properties might need some of the built-in object
