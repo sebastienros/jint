@@ -652,4 +652,93 @@ public class IntlTests
         Assert.Throws<Jint.Runtime.JavaScriptException>(() =>
             _engine.Evaluate("new Intl.DateTimeFormat('en-US', { weekday: 'invalid' })"));
     }
+
+    // Boundary tests for the precision-aware string-input paths in NumberFormatPrototype.
+    // These cover the 16/17 digit thresholds that route to FormatExactDecimal / Format(BigInteger),
+    // so a regression in TryParseLargeInteger / TryParseHighPrecisionDecimal is caught even when
+    // test262 isn't running.
+
+    [Fact]
+    public void NumberFormat_LargeIntegerString_PreservesAllDigits()
+    {
+        var result = _engine.Evaluate("new Intl.NumberFormat('en-US').format('987654321987654321')");
+        Assert.Equal("987,654,321,987,654,321", result.AsString());
+    }
+
+    [Fact]
+    public void NumberFormat_NegativeLargeIntegerString_PreservesAllDigits()
+    {
+        var result = _engine.Evaluate("new Intl.NumberFormat('en-US').format('-987654321987654321')");
+        Assert.Equal("-987,654,321,987,654,321", result.AsString());
+    }
+
+    [Fact]
+    public void NumberFormat_LargeIntegerString_BelowThreshold_StaysOnDoublePath()
+    {
+        // 16 digits — under the 17-digit boundary; goes through TypeConverter.ToNumber and
+        // the existing double pipeline. The chosen value is exactly representable as a
+        // double (≤ 2^53) so this also asserts no regression in the small-integer path.
+        var result = _engine.Evaluate("new Intl.NumberFormat('en-US').format('1000000000000000')");
+        Assert.Equal("1,000,000,000,000,000", result.AsString());
+    }
+
+    [Fact]
+    public void NumberFormat_HighPrecisionDecimal_PreservesAllFractionDigits()
+    {
+        var result = _engine.Evaluate("new Intl.NumberFormat('en-US', {maximumFractionDigits: 20}).format('1.0000000000000001')");
+        Assert.Equal("1.0000000000000001", result.AsString());
+    }
+
+    [Fact]
+    public void NumberFormat_HighPrecisionDecimal_BelowThreshold_StaysOnDoublePath()
+    {
+        // 15 total digits — under the 16-digit precision boundary; format result still matches
+        // because the double can represent 1.23 exactly enough for a 2-fraction-digit display.
+        var result = _engine.Evaluate("new Intl.NumberFormat('en-US').format('1.23')");
+        Assert.Equal("1.23", result.AsString());
+    }
+
+    [Fact]
+    public void NumberFormat_NegativeTinyDecimalRoundsToZero_KeepsMinus()
+    {
+        // -1.23e-30 with maxFracDigits:3 rounds to -0.000 (displayed minimumFractionDigits=3).
+        // The originally-negative tracking in FormatExactDecimal must keep the leading '-'.
+        var result = _engine.Evaluate(
+            "new Intl.NumberFormat('en-US', {minimumFractionDigits: 3, maximumFractionDigits: 3})" +
+            ".format('-0.00000000000000000000000000000123')");
+        Assert.Equal("-0.000", result.AsString());
+    }
+
+    [Fact]
+    public void NumberFormat_SignificantDigitsOnHugeInteger_RoundsHalfExpand()
+    {
+        var result = _engine.Evaluate(
+            "new Intl.NumberFormat('en-US', {useGrouping: false, maximumSignificantDigits: 5})" +
+            ".format('12344501000000000000000000000000000')");
+        Assert.Equal("12345000000000000000000000000000000", result.AsString());
+    }
+
+    [Fact]
+    public void NumberFormat_FormatRange_StringInputs_PreservePrecision()
+    {
+        var result = _engine.Evaluate(
+            "new Intl.NumberFormat('en-US').formatRange('987654321987654321', '987654321987654322')");
+        Assert.Equal("987,654,321,987,654,321–987,654,321,987,654,322", result.AsString());
+    }
+
+    [Fact]
+    public void NumberFormat_FormatRange_NaN_Throws()
+    {
+        Assert.Throws<Jint.Runtime.JavaScriptException>(() =>
+            _engine.Evaluate("new Intl.NumberFormat('en-US').formatRange(NaN, 5)"));
+    }
+
+    [Fact]
+    public void NumberFormat_FormatRange_PrefixCurrencyCollapse_TightSeparator()
+    {
+        var result = _engine.Evaluate(
+            "new Intl.NumberFormat('en-US', {style: 'currency', currency: 'USD', signDisplay: 'always'})" +
+            ".formatRange(2.9, 3.1)");
+        Assert.Equal("+$2.90–3.10", result.AsString());
+    }
 }

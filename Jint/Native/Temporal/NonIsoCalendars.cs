@@ -163,6 +163,13 @@ internal static class NonIsoCalendars
     /// Years are added preserving monthCode semantics (not ordinal month).
     /// Months are added as ordinal month steps.
     /// </summary>
+    /// <remarks>
+    /// Note: <see cref="ICalendarProvider"/> is consulted only for IsoToCalendarFields /
+    /// CalendarFieldsToIso. Higher-level calendar arithmetic (this method, CalendarDateUntil,
+    /// MaxDaysForChineseLeapMonth, etc.) currently uses the BCL/inline implementations
+    /// regardless of the registered provider. A custom provider that needs different
+    /// add/until semantics will need this helper threaded through too.
+    /// </remarks>
     internal static IsoDate CalendarDateAdd(string calendar, in IsoDate isoDate, int years, int months, string overflow)
     {
         // For calendars that use epoch-day arithmetic (coptic/ethiopic/ethioaa)

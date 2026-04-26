@@ -226,6 +226,9 @@ internal sealed class JsPluralRules : ObjectInstance
         };
     }
 
+    // TODO: Portuguese ("pt") has the same compact-many CLDR clause as French and is currently
+    // still on the simpler `(i == 0 || i == 1)` rule above — rerouting it through this helper
+    // (or generalising to a CompactManyCardinal) will catch the same notation:"compact" cases.
     private string SelectFrenchCardinal(long i, int v, double n)
     {
         // French cardinal rules (from CLDR):

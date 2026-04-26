@@ -457,6 +457,11 @@ internal sealed class NumberFormatPrototype : Prototype
         return startFormatted + sepTight + endFormatted;
     }
 
+    // TODO: read range patterns from CLDR (e.g. via Options.Intl.CldrProvider) instead of
+    // hard-coding language detection here. Other locales (fr, ja, …) have their own pattern
+    // shapes and will silently fall through to the en-style default until that data path
+    // exists. Tracked in the precision-aware FormatRange work — see
+    // Jint/Native/Intl/Data/CompactPatterns.Data.cs for an analogous CLDR-data stash.
     private static void GetRangeSeparators(string locale, out string tight, out string loose)
     {
         // Per CLDR, range patterns vary by locale. Pinned to the cases test262 exercises
@@ -485,8 +490,8 @@ internal sealed class NumberFormatPrototype : Prototype
     {
         foreach (var c in s)
         {
-            // Common currency symbols + the ¤ generic currency sign + ranges that cover
-            // €, $, £, ¥, ₹, ﷼, etc. (S=letter, Sc=currency).
+            // UnicodeCategory.CurrencySymbol covers $, €, £, ¥, ₹, ﷼, ¤, etc. — every
+            // single-character currency mark we care about for prefix/suffix collapse.
             if (char.GetUnicodeCategory(c) == System.Globalization.UnicodeCategory.CurrencySymbol)
             {
                 return true;

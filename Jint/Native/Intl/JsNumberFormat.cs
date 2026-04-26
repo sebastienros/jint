@@ -811,22 +811,16 @@ internal sealed class JsNumberFormat : ObjectInstance
         if (Style is "currency" or "percent" or "unit"
             || !string.Equals(Notation, "standard", StringComparison.Ordinal))
         {
-            var asDouble = (double) mantissa;
-            for (var k = 0; k < fractionDigits; k++) asDouble /= 10.0;
-            return Format(asDouble);
+            return Format(MantissaToDouble(mantissa, fractionDigits));
         }
 
         // Significant-digits rounding effectively discards trailing fraction digits beyond
-        // the kept precision; round once on the BigInteger and reuse the integer pipeline.
+        // the kept precision. The BigInteger ApplySignificantDigitRounding path only handles
+        // integer-only mantissas, so when sig-digits combine with a non-zero fractionDigits
+        // we fall back to the double pipeline rather than build a richer carrier here.
         if (MinimumSignificantDigits.HasValue || MaximumSignificantDigits.HasValue)
         {
-            // Convert to integer space if rounding will eliminate the fraction entirely
-            // (e.g., 12344501e-3 with 5 sig digits → 12345000 → integer formatter handles it).
-            // Otherwise fall back to double — the ApplySignificantDigitRounding path on a
-            // BigInteger with non-zero fractionDigits would need a richer carrier.
-            var asDouble = (double) mantissa;
-            for (var k = 0; k < fractionDigits; k++) asDouble /= 10.0;
-            return Format(asDouble);
+            return Format(MantissaToDouble(mantissa, fractionDigits));
         }
 
         var maxFrac = MaximumFractionDigits;
@@ -848,7 +842,6 @@ internal sealed class JsNumberFormat : ObjectInstance
             fractionDigits = maxFrac;
         }
 
-        var negative = originallyNegative;
         var absMantissa = mantissa.Sign < 0 ? -mantissa : mantissa;
         var digits = absMantissa.ToString("R", CultureInfo.InvariantCulture);
 
@@ -898,12 +891,28 @@ internal sealed class JsNumberFormat : ObjectInstance
             ? integerStr
             : integerStr + NumberFormatInfo.NumberDecimalSeparator + fractionStr;
 
-        if (negative)
+        if (originallyNegative)
         {
             result = NumberFormatInfo.NegativeSign + result;
         }
 
         return Data.NumberingSystemData.TransliterateDigits(result, NumberingSystem);
+    }
+
+    /// <summary>
+    /// Approximate a (mantissa, fractionDigits) decimal as a double for legacy code paths
+    /// that still expect a double. Loses the high-precision tail by definition; only used
+    /// for currency / percent / unit / compact / engineering / scientific styles where the
+    /// exact-decimal path isn't available yet.
+    /// </summary>
+    private static double MantissaToDouble(BigInteger mantissa, int fractionDigits)
+    {
+        if (fractionDigits <= 0)
+            return (double) mantissa;
+
+        // Math.Pow(10, n) keeps any compounded rounding to a single division step, instead of
+        // accumulating it across `fractionDigits` separate divides.
+        return (double) mantissa / System.Math.Pow(10, fractionDigits);
     }
 
     /// <summary>
