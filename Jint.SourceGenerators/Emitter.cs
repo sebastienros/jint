@@ -195,19 +195,26 @@ internal static class Emitter
                 }
             }
 
-            if (castType is not null)
+            if (castType is not null || fn.RequireObjectCoercible)
             {
                 sb.Append("                case Slot.").Append(fn.ClrName).AppendLine(":");
                 sb.AppendLine("                {");
-                sb.Append("                    var __cast = thisObject as global::").Append(castType).AppendLine(";");
-                // Use the host's _realm (which carries the realm where the host was constructed) — not the
-                // dispatcher's own _realm, which only reflects the engine's active realm at first access of
-                // the lazy descriptor. Cross-realm tests like apply/this-not-callable-realm depend on this.
-                sb.Append("                    if (__cast is null) global::Jint.Runtime.Throw.TypeError(_host._realm, \"")
-                  .Append(EscapeStringLit(fn.FunctionName))
-                  .Append(" requires 'this' to be of type ")
-                  .Append(EscapeStringLit(castType.Substring(castType.LastIndexOf('.') + 1)))
-                  .AppendLine("\");");
+                if (fn.RequireObjectCoercible)
+                {
+                    sb.AppendLine("                    global::Jint.Runtime.TypeConverter.RequireObjectCoercible(_host._engine, thisObject);");
+                }
+                if (castType is not null)
+                {
+                    sb.Append("                    var __cast = thisObject as global::").Append(castType).AppendLine(";");
+                    // Use the host's _realm (which carries the realm where the host was constructed) — not the
+                    // dispatcher's own _realm, which only reflects the engine's active realm at first access of
+                    // the lazy descriptor. Cross-realm tests like apply/this-not-callable-realm depend on this.
+                    sb.Append("                    if (__cast is null) global::Jint.Runtime.Throw.TypeError(_host._realm, \"")
+                      .Append(EscapeStringLit(fn.FunctionName))
+                      .Append(" requires 'this' to be of type ")
+                      .Append(EscapeStringLit(castType.Substring(castType.LastIndexOf('.') + 1)))
+                      .AppendLine("\");");
+                }
                 sb.Append("                    return ");
                 EmitInvocation(sb, obj, fn);
                 sb.AppendLine(";");

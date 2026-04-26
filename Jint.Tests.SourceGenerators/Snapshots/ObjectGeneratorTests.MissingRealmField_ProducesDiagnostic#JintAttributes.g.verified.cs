@@ -68,6 +68,13 @@ internal sealed class ToJsStringAttribute : global::System.Attribute { }
 [global::System.Diagnostics.Conditional("JINT_SOURCE_GENERATORS")]
 internal sealed class ToObjectAttribute : global::System.Attribute { }
 
+// Marks a [JsFunction]/[JsSymbolFunction] method whose dispatcher should call
+// TypeConverter.RequireObjectCoercible(_host._engine, thisObject) before invoking the user method.
+// Common pattern for String and Array prototype methods that require 'this' to be defined/non-null.
+[global::System.AttributeUsage(global::System.AttributeTargets.Method)]
+[global::System.Diagnostics.Conditional("JINT_SOURCE_GENERATORS")]
+internal sealed class RequireObjectCoercibleAttribute : global::System.Attribute { }
+
 [global::System.AttributeUsage(global::System.AttributeTargets.Field | global::System.AttributeTargets.Property)]
 [global::System.Diagnostics.Conditional("JINT_SOURCE_GENERATORS")]
 internal sealed class JsSymbolAttribute : global::System.Attribute

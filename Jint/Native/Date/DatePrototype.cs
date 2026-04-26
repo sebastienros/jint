@@ -16,7 +16,8 @@ namespace Jint.Native.Date;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-the-date-prototype-object
 /// </summary>
-internal sealed class DatePrototype : Prototype
+[JsObject]
+internal sealed partial class DatePrototype : Prototype
 {
     // ES6 section 20.3.1.1 Time Values and Time Range
     private const double MinYear = -1000000.0;
@@ -24,7 +25,9 @@ internal sealed class DatePrototype : Prototype
     private const double MinMonth = -10000000.0;
     private const double MaxMonth = -MinMonth;
 
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly DateConstructor _constructor;
+
     private readonly ITimeSystem _timeSystem;
 
     internal DatePrototype(
@@ -40,76 +43,19 @@ internal sealed class DatePrototype : Prototype
 
     protected override void Initialize()
     {
-        const PropertyFlag lengthFlags = PropertyFlag.Configurable;
-        const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-
-        // B.2.1: toGMTString must be the same function object as toUTCString
-        var toUtcStringFunction = new ClrFunction(Engine, "toUTCString", ToUtcString, 0, lengthFlags);
-        var toUtcStringDescriptor = new PropertyDescriptor(toUtcStringFunction, propertyFlags);
-
-        var properties = new PropertyDictionary(52, checkExistingKeys: false)
-        {
-            ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
-            ["toString"] = new PropertyDescriptor(new ClrFunction(Engine, "toString", ToString, 0, lengthFlags), propertyFlags),
-            ["toDateString"] = new PropertyDescriptor(new ClrFunction(Engine, "toDateString", ToDateString, 0, lengthFlags), propertyFlags),
-            ["toTimeString"] = new PropertyDescriptor(new ClrFunction(Engine, "toTimeString", ToTimeString, 0, lengthFlags), propertyFlags),
-            ["toLocaleString"] = new PropertyDescriptor(new ClrFunction(Engine, "toLocaleString", ToLocaleString, 0, lengthFlags), propertyFlags),
-            ["toLocaleDateString"] = new PropertyDescriptor(new ClrFunction(Engine, "toLocaleDateString", ToLocaleDateString, 0, lengthFlags), propertyFlags),
-            ["toLocaleTimeString"] = new PropertyDescriptor(new ClrFunction(Engine, "toLocaleTimeString", ToLocaleTimeString, 0, lengthFlags), propertyFlags),
-            ["valueOf"] = new PropertyDescriptor(new ClrFunction(Engine, "valueOf", ValueOf, 0, lengthFlags), propertyFlags),
-            ["getTime"] = new PropertyDescriptor(new ClrFunction(Engine, "getTime", GetTime, 0, lengthFlags), propertyFlags),
-            ["getFullYear"] = new PropertyDescriptor(new ClrFunction(Engine, "getFullYear", GetFullYear, 0, lengthFlags), propertyFlags),
-            ["getYear"] = new PropertyDescriptor(new ClrFunction(Engine, "getYear", GetYear, 0, lengthFlags), propertyFlags),
-            ["getUTCFullYear"] = new PropertyDescriptor(new ClrFunction(Engine, "getUTCFullYear", GetUTCFullYear, 0, lengthFlags), propertyFlags),
-            ["getMonth"] = new PropertyDescriptor(new ClrFunction(Engine, "getMonth", GetMonth, 0, lengthFlags), propertyFlags),
-            ["getUTCMonth"] = new PropertyDescriptor(new ClrFunction(Engine, "getUTCMonth", GetUTCMonth, 0, lengthFlags), propertyFlags),
-            ["getDate"] = new PropertyDescriptor(new ClrFunction(Engine, "getDate", GetDate, 0, lengthFlags), propertyFlags),
-            ["getUTCDate"] = new PropertyDescriptor(new ClrFunction(Engine, "getUTCDate", GetUTCDate, 0, lengthFlags), propertyFlags),
-            ["getDay"] = new PropertyDescriptor(new ClrFunction(Engine, "getDay", GetDay, 0, lengthFlags), propertyFlags),
-            ["getUTCDay"] = new PropertyDescriptor(new ClrFunction(Engine, "getUTCDay", GetUTCDay, 0, lengthFlags), propertyFlags),
-            ["getHours"] = new PropertyDescriptor(new ClrFunction(Engine, "getHours", GetHours, 0, lengthFlags), propertyFlags),
-            ["getUTCHours"] = new PropertyDescriptor(new ClrFunction(Engine, "getUTCHours", GetUTCHours, 0, lengthFlags), propertyFlags),
-            ["getMinutes"] = new PropertyDescriptor(new ClrFunction(Engine, "getMinutes", GetMinutes, 0, lengthFlags), propertyFlags),
-            ["getUTCMinutes"] = new PropertyDescriptor(new ClrFunction(Engine, "getUTCMinutes", GetUTCMinutes, 0, lengthFlags), propertyFlags),
-            ["getSeconds"] = new PropertyDescriptor(new ClrFunction(Engine, "getSeconds", GetSeconds, 0, lengthFlags), propertyFlags),
-            ["getUTCSeconds"] = new PropertyDescriptor(new ClrFunction(Engine, "getUTCSeconds", GetUTCSeconds, 0, lengthFlags), propertyFlags),
-            ["getMilliseconds"] = new PropertyDescriptor(new ClrFunction(Engine, "getMilliseconds", GetMilliseconds, 0, lengthFlags), propertyFlags),
-            ["getUTCMilliseconds"] = new PropertyDescriptor(new ClrFunction(Engine, "getUTCMilliseconds", GetUTCMilliseconds, 0, lengthFlags), propertyFlags),
-            ["getTimezoneOffset"] = new PropertyDescriptor(new ClrFunction(Engine, "getTimezoneOffset", GetTimezoneOffset, 0, lengthFlags), propertyFlags),
-            ["setTime"] = new PropertyDescriptor(new ClrFunction(Engine, "setTime", SetTime, 1, lengthFlags), propertyFlags),
-            ["setMilliseconds"] = new PropertyDescriptor(new ClrFunction(Engine, "setMilliseconds", SetMilliseconds, 1, lengthFlags), propertyFlags),
-            ["setUTCMilliseconds"] = new PropertyDescriptor(new ClrFunction(Engine, "setUTCMilliseconds", SetUTCMilliseconds, 1, lengthFlags), propertyFlags),
-            ["setSeconds"] = new PropertyDescriptor(new ClrFunction(Engine, "setSeconds", SetSeconds, 2, lengthFlags), propertyFlags),
-            ["setUTCSeconds"] = new PropertyDescriptor(new ClrFunction(Engine, "setUTCSeconds", SetUTCSeconds, 2, lengthFlags), propertyFlags),
-            ["setMinutes"] = new PropertyDescriptor(new ClrFunction(Engine, "setMinutes", SetMinutes, 3, lengthFlags), propertyFlags),
-            ["setUTCMinutes"] = new PropertyDescriptor(new ClrFunction(Engine, "setUTCMinutes", SetUTCMinutes, 3, lengthFlags), propertyFlags),
-            ["setHours"] = new PropertyDescriptor(new ClrFunction(Engine, "setHours", SetHours, 4, lengthFlags), propertyFlags),
-            ["setUTCHours"] = new PropertyDescriptor(new ClrFunction(Engine, "setUTCHours", SetUTCHours, 4, lengthFlags), propertyFlags),
-            ["setDate"] = new PropertyDescriptor(new ClrFunction(Engine, "setDate", SetDate, 1, lengthFlags), propertyFlags),
-            ["setUTCDate"] = new PropertyDescriptor(new ClrFunction(Engine, "setUTCDate", SetUTCDate, 1, lengthFlags), propertyFlags),
-            ["setMonth"] = new PropertyDescriptor(new ClrFunction(Engine, "setMonth", SetMonth, 2, lengthFlags), propertyFlags),
-            ["setUTCMonth"] = new PropertyDescriptor(new ClrFunction(Engine, "setUTCMonth", SetUTCMonth, 2, lengthFlags), propertyFlags),
-            ["setFullYear"] = new PropertyDescriptor(new ClrFunction(Engine, "setFullYear", SetFullYear, 3, lengthFlags), propertyFlags),
-            ["setYear"] = new PropertyDescriptor(new ClrFunction(Engine, "setYear", SetYear, 1, lengthFlags), propertyFlags),
-            ["setUTCFullYear"] = new PropertyDescriptor(new ClrFunction(Engine, "setUTCFullYear", SetUTCFullYear, 3, lengthFlags), propertyFlags),
-            ["toUTCString"] = toUtcStringDescriptor,
-            ["toGMTString"] = toUtcStringDescriptor,
-            ["toISOString"] = new PropertyDescriptor(new ClrFunction(Engine, "toISOString", ToISOString, 0, lengthFlags), propertyFlags),
-            ["toJSON"] = new PropertyDescriptor(new ClrFunction(Engine, "toJSON", ToJson, 1, lengthFlags), propertyFlags),
-            ["toTemporalInstant"] = new PropertyDescriptor(new ClrFunction(Engine, "toTemporalInstant", ToTemporalInstant, 0, lengthFlags), propertyFlags)
-        };
-        SetProperties(properties);
-
-        var symbols = new SymbolDictionary(1)
-        {
-            [GlobalSymbolRegistry.ToPrimitive] = new PropertyDescriptor(new ClrFunction(Engine, "[Symbol.toPrimitive]", ToPrimitive, 1, PropertyFlag.Configurable), PropertyFlag.Configurable),
-        };
-        SetSymbols(symbols);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
+        // Annex B 7.1.2: Date.prototype.toGMTString must be the same function reference as toUTCString.
+        // Aliasing the same descriptor instance — the lazy resolver fires once and both keys see the
+        // same Function object.
+        var utcDesc = GetOwnProperty("toUTCString");
+        SetOwnProperty("toGMTString", utcDesc);
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype-@@toprimitive
     /// </summary>
+    [JsSymbolFunction("ToPrimitive", Length = 1, Flags = global::Jint.Runtime.Descriptors.PropertyFlag.Configurable)]
     private JsValue ToPrimitive(JsValue thisObject, JsCallArguments arguments)
     {
         var oi = thisObject as ObjectInstance;
@@ -142,6 +88,7 @@ internal sealed class DatePrototype : Prototype
         return TypeConverter.OrdinaryToPrimitive(oi, tryFirst);
     }
 
+    [JsFunction(Length = 0)]
     private JsValue ValueOf(JsValue thisObject, JsCallArguments arguments)
     {
         return ThisTimeValue(thisObject).ToJsValue();
@@ -164,6 +111,7 @@ internal sealed class DatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.tostring
     /// </summary>
+    [JsFunction(Length = 0)]
     internal JsValue ToString(JsValue thisObject, JsCallArguments arguments)
     {
         var tv = ThisTimeValue(thisObject);
@@ -173,6 +121,7 @@ internal sealed class DatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.todatestring
     /// </summary>
+    [JsFunction(Length = 0)]
     private JsValue ToDateString(JsValue thisObject, JsCallArguments arguments)
     {
         var tv = ThisTimeValue(thisObject);
@@ -203,6 +152,7 @@ internal sealed class DatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.totimestring
     /// </summary>
+    [JsFunction(Length = 0)]
     private JsValue ToTimeString(JsValue thisObject, JsCallArguments arguments)
     {
         var tv = ThisTimeValue(thisObject);
@@ -221,6 +171,7 @@ internal sealed class DatePrototype : Prototype
     /// https://tc39.es/ecma262/#sec-date.prototype.tolocalestring
     /// https://tc39.es/ecma402/#sup-date.prototype.tolocalestring
     /// </summary>
+    [JsFunction(Length = 0)]
     private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
     {
         var dateInstance = ThisTimeValue(thisObject);
@@ -263,6 +214,7 @@ internal sealed class DatePrototype : Prototype
     /// https://tc39.es/ecma262/#sec-date.prototype.tolocaledatestring
     /// https://tc39.es/ecma402/#sup-date.prototype.tolocaledatestring
     /// </summary>
+    [JsFunction(Length = 0)]
     private JsValue ToLocaleDateString(JsValue thisObject, JsCallArguments arguments)
     {
         var dateInstance = ThisTimeValue(thisObject);
@@ -302,6 +254,7 @@ internal sealed class DatePrototype : Prototype
     /// https://tc39.es/ecma262/#sec-date.prototype.tolocaletimestring
     /// https://tc39.es/ecma402/#sup-date.prototype.tolocaletimestring
     /// </summary>
+    [JsFunction(Length = 0)]
     private JsValue ToLocaleTimeString(JsValue thisObject, JsCallArguments arguments)
     {
         var dateInstance = ThisTimeValue(thisObject);
@@ -403,6 +356,7 @@ internal sealed class DatePrototype : Prototype
         }
     }
 
+    [JsFunction(Length = 0)]
     private JsValue GetTime(JsValue thisObject, JsCallArguments arguments)
     {
         var t = ThisTimeValue(thisObject);
@@ -413,6 +367,7 @@ internal sealed class DatePrototype : Prototype
         return t.ToJsValue();
     }
 
+    [JsFunction(Length = 0)]
     private JsValue GetFullYear(JsValue thisObject, JsCallArguments arguments)
     {
         var t = ThisTimeValue(thisObject);
@@ -423,6 +378,7 @@ internal sealed class DatePrototype : Prototype
         return YearFromTime(LocalTime(t));
     }
 
+    [JsFunction(Length = 0)]
     private JsValue GetYear(JsValue thisObject, JsCallArguments arguments)
     {
         var t = ThisTimeValue(thisObject);
@@ -433,6 +389,7 @@ internal sealed class DatePrototype : Prototype
         return YearFromTime(LocalTime(t)) - 1900;
     }
 
+    [JsFunction(Length = 0)]
     private JsValue GetUTCFullYear(JsValue thisObject, JsCallArguments arguments)
     {
         var t = ThisTimeValue(thisObject);
@@ -443,6 +400,7 @@ internal sealed class DatePrototype : Prototype
         return YearFromTime(t);
     }
 
+    [JsFunction(Length = 0)]
     private JsValue GetMonth(JsValue thisObject, JsCallArguments arguments)
     {
         var t = ThisTimeValue(thisObject);
@@ -456,6 +414,7 @@ internal sealed class DatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.getutcmonth
     /// </summary>
+    [JsFunction(Length = 0)]
     private JsValue GetUTCMonth(JsValue thisObject, JsCallArguments arguments)
     {
         var t = ThisTimeValue(thisObject);
@@ -469,6 +428,7 @@ internal sealed class DatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.getdate
     /// </summary>
+    [JsFunction(Length = 0)]
     private JsValue GetDate(JsValue thisObject, JsCallArguments arguments)
     {
         var t = ThisTimeValue(thisObject);
@@ -479,6 +439,7 @@ internal sealed class DatePrototype : Prototype
         return DateFromTime(LocalTime(t));
     }
 
+    [JsFunction(Length = 0)]
     private JsValue GetUTCDate(JsValue thisObject, JsCallArguments arguments)
     {
         var t = ThisTimeValue(thisObject);
@@ -489,6 +450,7 @@ internal sealed class DatePrototype : Prototype
         return DateFromTime(t);
     }
 
+    [JsFunction(Length = 0)]
     private JsValue GetDay(JsValue thisObject, JsCallArguments arguments)
     {
         var t = ThisTimeValue(thisObject);
@@ -499,6 +461,7 @@ internal sealed class DatePrototype : Prototype
         return WeekDay(LocalTime(t));
     }
 
+    [JsFunction(Length = 0)]
     private JsValue GetUTCDay(JsValue thisObject, JsCallArguments arguments)
     {
         var t = ThisTimeValue(thisObject);
@@ -509,6 +472,7 @@ internal sealed class DatePrototype : Prototype
         return WeekDay(t);
     }
 
+    [JsFunction(Length = 0)]
     private JsValue GetHours(JsValue thisObject, JsCallArguments arguments)
     {
         var t = ThisTimeValue(thisObject);
@@ -519,6 +483,7 @@ internal sealed class DatePrototype : Prototype
         return HourFromTime(LocalTime(t));
     }
 
+    [JsFunction(Length = 0)]
     private JsValue GetUTCHours(JsValue thisObject, JsCallArguments arguments)
     {
         var t = ThisTimeValue(thisObject);
@@ -529,6 +494,7 @@ internal sealed class DatePrototype : Prototype
         return HourFromTime(t);
     }
 
+    [JsFunction(Length = 0)]
     private JsValue GetMinutes(JsValue thisObject, JsCallArguments arguments)
     {
         var t = ThisTimeValue(thisObject);
@@ -539,6 +505,7 @@ internal sealed class DatePrototype : Prototype
         return MinFromTime(LocalTime(t));
     }
 
+    [JsFunction(Length = 0)]
     private JsValue GetUTCMinutes(JsValue thisObject, JsCallArguments arguments)
     {
         var t = ThisTimeValue(thisObject);
@@ -549,6 +516,7 @@ internal sealed class DatePrototype : Prototype
         return MinFromTime(t);
     }
 
+    [JsFunction(Length = 0)]
     private JsValue GetSeconds(JsValue thisObject, JsCallArguments arguments)
     {
         var t = ThisTimeValue(thisObject);
@@ -559,6 +527,7 @@ internal sealed class DatePrototype : Prototype
         return SecFromTime(LocalTime(t));
     }
 
+    [JsFunction(Length = 0)]
     private JsValue GetUTCSeconds(JsValue thisObject, JsCallArguments arguments)
     {
         var t = ThisTimeValue(thisObject);
@@ -569,6 +538,7 @@ internal sealed class DatePrototype : Prototype
         return SecFromTime(t);
     }
 
+    [JsFunction(Length = 0)]
     private JsValue GetMilliseconds(JsValue thisObject, JsCallArguments arguments)
     {
         var t = ThisTimeValue(thisObject);
@@ -579,6 +549,7 @@ internal sealed class DatePrototype : Prototype
         return MsFromTime(LocalTime(t));
     }
 
+    [JsFunction(Length = 0)]
     private JsValue GetUTCMilliseconds(JsValue thisObject, JsCallArguments arguments)
     {
         var t = ThisTimeValue(thisObject);
@@ -589,6 +560,7 @@ internal sealed class DatePrototype : Prototype
         return MsFromTime(t);
     }
 
+    [JsFunction(Length = 0)]
     private JsValue GetTimezoneOffset(JsValue thisObject, JsCallArguments arguments)
     {
         var t = ThisTimeValue(thisObject);
@@ -602,6 +574,7 @@ internal sealed class DatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.settime
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsValue SetTime(JsValue thisObject, JsCallArguments arguments)
     {
         ThisTimeValue(thisObject);
@@ -615,6 +588,7 @@ internal sealed class DatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.setmilliseconds
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsValue SetMilliseconds(JsValue thisObject, JsCallArguments arguments)
     {
         var t = LocalTime(ThisTimeValue(thisObject));
@@ -634,6 +608,7 @@ internal sealed class DatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.setutcmilliseconds
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsValue SetUTCMilliseconds(JsValue thisObject, JsCallArguments arguments)
     {
         var t = ThisTimeValue(thisObject);
@@ -653,6 +628,7 @@ internal sealed class DatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.setseconds
     /// </summary>
+    [JsFunction(Length = 2)]
     private JsValue SetSeconds(JsValue thisObject, JsCallArguments arguments)
     {
         var t = LocalTime(ThisTimeValue(thisObject));
@@ -673,6 +649,7 @@ internal sealed class DatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.setutcseconds
     /// </summary>
+    [JsFunction(Length = 2)]
     private JsValue SetUTCSeconds(JsValue thisObject, JsCallArguments arguments)
     {
         var t = ThisTimeValue(thisObject);
@@ -693,6 +670,7 @@ internal sealed class DatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.setminutes
     /// </summary>
+    [JsFunction(Length = 3)]
     private JsValue SetMinutes(JsValue thisObject, JsCallArguments arguments)
     {
         var t = LocalTime(ThisTimeValue(thisObject));
@@ -714,6 +692,7 @@ internal sealed class DatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.setutcminutes
     /// </summary>
+    [JsFunction(Length = 3)]
     private JsValue SetUTCMinutes(JsValue thisObject, JsCallArguments arguments)
     {
         var t = ThisTimeValue(thisObject);
@@ -735,6 +714,7 @@ internal sealed class DatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.sethours
     /// </summary>
+    [JsFunction(Length = 4)]
     private JsValue SetHours(JsValue thisObject, JsCallArguments arguments)
     {
         var t = LocalTime(ThisTimeValue(thisObject));
@@ -757,6 +737,7 @@ internal sealed class DatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.setutchours
     /// </summary>
+    [JsFunction(Length = 4)]
     private JsValue SetUTCHours(JsValue thisObject, JsCallArguments arguments)
     {
         var t = ThisTimeValue(thisObject);
@@ -779,6 +760,7 @@ internal sealed class DatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.setdate
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsValue SetDate(JsValue thisObject, JsCallArguments arguments)
     {
         var t = LocalTime(ThisTimeValue(thisObject));
@@ -799,6 +781,7 @@ internal sealed class DatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.setutcdate
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsValue SetUTCDate(JsValue thisObject, JsCallArguments arguments)
     {
         var t = ThisTimeValue(thisObject);
@@ -818,6 +801,7 @@ internal sealed class DatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.setmonth
     /// </summary>
+    [JsFunction(Length = 2)]
     private JsValue SetMonth(JsValue thisObject, JsCallArguments arguments)
     {
         var t = LocalTime(ThisTimeValue(thisObject));
@@ -838,6 +822,7 @@ internal sealed class DatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.setutcmonth
     /// </summary>
+    [JsFunction(Length = 2)]
     private JsValue SetUTCMonth(JsValue thisObject, JsCallArguments arguments)
     {
         var t = ThisTimeValue(thisObject);
@@ -858,6 +843,7 @@ internal sealed class DatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.setfullyear
     /// </summary>
+    [JsFunction(Length = 3)]
     private JsValue SetFullYear(JsValue thisObject, JsCallArguments arguments)
     {
         var thisTime = ThisTimeValue(thisObject);
@@ -875,6 +861,7 @@ internal sealed class DatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.setyear
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsValue SetYear(JsValue thisObject, JsCallArguments arguments)
     {
         var thisTime = ThisTimeValue(thisObject);
@@ -901,6 +888,7 @@ internal sealed class DatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.setutcfullyear
     /// </summary>
+    [JsFunction(Length = 3)]
     private JsValue SetUTCFullYear(JsValue thisObject, JsCallArguments arguments)
     {
         var thisTime = ThisTimeValue(thisObject);
@@ -917,6 +905,7 @@ internal sealed class DatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.toutcstring
     /// </summary>
+    [JsFunction(Length = 0, Name = "toUTCString")]
     private JsValue ToUtcString(JsValue thisObject, JsCallArguments arguments)
     {
         var tv = ThisTimeValue(thisObject);
@@ -937,6 +926,7 @@ internal sealed class DatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.toisostring
     /// </summary>
+    [JsFunction(Length = 0)]
     private JsValue ToISOString(JsValue thisObject, JsCallArguments arguments)
     {
         var thisTime = ThisTimeValue(thisObject);
@@ -974,6 +964,7 @@ internal sealed class DatePrototype : Prototype
         return formatted;
     }
 
+    [JsFunction(Length = 1, Name = "toJSON")]
     private JsValue ToJson(JsValue thisObject, JsCallArguments arguments)
     {
         var o = TypeConverter.ToObject(_realm, thisObject);
@@ -989,6 +980,7 @@ internal sealed class DatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-date.prototype.totemporalinstant
     /// </summary>
+    [JsFunction(Length = 0)]
     private JsValue ToTemporalInstant(JsValue thisObject, JsCallArguments arguments)
     {
         // 1. Let dateObject be the this value.

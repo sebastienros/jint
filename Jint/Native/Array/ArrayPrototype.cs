@@ -17,14 +17,18 @@ namespace Jint.Native.Array;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-the-array-prototype-object
 /// </summary>
-public sealed class ArrayPrototype : ArrayInstance
+[JsObject]
+public sealed partial class ArrayPrototype : ArrayInstance
 {
     private const int ConstraintCheckInterval = 10_000;
 
     private readonly Realm _realm;
+
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly ArrayConstructor _constructor;
+
     private readonly ObjectTraverseStack _joinStack;
-    internal ClrFunction? _originalIteratorFunction;
+    internal JsValue? _originalIteratorFunction;
 
     internal ArrayPrototype(
         Engine engine,
@@ -42,52 +46,13 @@ public sealed class ArrayPrototype : ArrayInstance
     protected override void Initialize()
     {
         const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
-        var properties = new PropertyDictionary(38, checkExistingKeys: false)
-        {
-            ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
+        CreateProperties_Generated();
 
-            ["at"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "at", prototype.At, 1, PropertyFlag.Configurable), PropertyFlags),
-            ["concat"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "concat", prototype.Concat, 1, PropertyFlag.Configurable), PropertyFlags),
-            ["copyWithin"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "copyWithin", prototype.CopyWithin, 2, PropertyFlag.Configurable), PropertyFlags),
-            ["entries"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "entries", prototype.Entries, 0, PropertyFlag.Configurable), PropertyFlags),
-            ["every"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "every", prototype.Every, 1, PropertyFlag.Configurable), PropertyFlags),
-            ["fill"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "fill", prototype.Fill, 1, PropertyFlag.Configurable), PropertyFlags),
-            ["filter"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "filter", prototype.Filter, 1, PropertyFlag.Configurable), PropertyFlags),
-            ["find"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "find", prototype.Find, 1, PropertyFlag.Configurable), PropertyFlags),
-            ["findIndex"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "findIndex", prototype.FindIndex, 1, PropertyFlag.Configurable), PropertyFlags),
-            ["findLast"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "findLast", prototype.FindLast, 1, PropertyFlag.Configurable), PropertyFlags),
-            ["findLastIndex"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "findLastIndex", prototype.FindLastIndex, 1, PropertyFlag.Configurable), PropertyFlags),
-            ["flat"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "flat", prototype.Flat, 0, PropertyFlag.Configurable), PropertyFlags),
-            ["flatMap"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "flatMap", prototype.FlatMap, 1, PropertyFlag.Configurable), PropertyFlags),
-            ["forEach"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "forEach", prototype.ForEach, 1, PropertyFlag.Configurable), PropertyFlags),
-            ["includes"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "includes", prototype.Includes, 1, PropertyFlag.Configurable), PropertyFlags),
-            ["indexOf"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "indexOf", prototype.IndexOf, 1, PropertyFlag.Configurable), PropertyFlags),
-            ["join"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "join", prototype.Join, 1, PropertyFlag.Configurable), PropertyFlags),
-            ["keys"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "keys", prototype.Keys, 0, PropertyFlag.Configurable), PropertyFlags),
-            ["lastIndexOf"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "lastIndexOf", prototype.LastIndexOf, 1, PropertyFlag.Configurable), PropertyFlags),
-            ["map"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "map", prototype.Map, 1, PropertyFlag.Configurable), PropertyFlags),
-            ["pop"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "pop", prototype.Pop, 0, PropertyFlag.Configurable), PropertyFlags),
-            ["push"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "push", prototype.Push, 1, PropertyFlag.Configurable), PropertyFlags),
-            ["reduce"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "reduce", prototype.Reduce, 1, PropertyFlag.Configurable), PropertyFlags),
-            ["reduceRight"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "reduceRight", prototype.ReduceRight, 1, PropertyFlag.Configurable), PropertyFlags),
-            ["reverse"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "reverse", prototype.Reverse, 0, PropertyFlag.Configurable), PropertyFlags),
-            ["shift"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "shift", prototype.Shift, 0, PropertyFlag.Configurable), PropertyFlags),
-            ["slice"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "slice", prototype.Slice, 2, PropertyFlag.Configurable), PropertyFlags),
-            ["some"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "some", prototype.Some, 1, PropertyFlag.Configurable), PropertyFlags),
-            ["sort"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "sort", prototype.Sort, 1, PropertyFlag.Configurable), PropertyFlags),
-            ["splice"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "splice", prototype.Splice, 2, PropertyFlag.Configurable), PropertyFlags),
-            ["toLocaleString"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "toLocaleString", prototype.ToLocaleString, 0, PropertyFlag.Configurable), PropertyFlags),
-            ["toReversed"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "toReversed", prototype.ToReversed, 0, PropertyFlag.Configurable), PropertyFlags),
-            ["toSorted"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "toSorted", prototype.ToSorted, 1, PropertyFlag.Configurable), PropertyFlags),
-            ["toSpliced"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "toSpliced", prototype.ToSpliced, 2, PropertyFlag.Configurable), PropertyFlags),
-            ["toString"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "toString", prototype.ToString, 0, PropertyFlag.Configurable), PropertyFlags),
-            ["unshift"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "unshift", prototype.Unshift, 1, PropertyFlag.Configurable), PropertyFlags),
-            ["values"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "values", prototype.Values, 0, PropertyFlag.Configurable), PropertyFlags),
-            ["with"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "with", prototype.With, 2, PropertyFlag.Configurable), PropertyFlags),
-        };
-        SetProperties(properties);
-
-        _originalIteratorFunction = new ClrFunction(_engine, "iterator", Values, 1);
+        // Per spec, Array.prototype[@@iterator] is the SAME function object as Array.prototype.values
+        // (ECMA-262 23.1.3.34). Materialize the generated `values` descriptor and reuse it both as the
+        // Symbol.iterator value and as _originalIteratorFunction for ArrayInstance.HasOriginalIterator
+        // fast-path detection (ArrayInstance.cs:73).
+        _originalIteratorFunction = GetOwnProperty("values").Value;
         var symbols = new SymbolDictionary(2)
         {
             [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(_originalIteratorFunction, PropertyFlags),
@@ -121,6 +86,7 @@ public sealed class ArrayPrototype : ArrayInstance
         SetSymbols(symbols);
     }
 
+    [JsFunction(Length = 0)]
     private ObjectInstance Keys(JsValue thisObject, JsCallArguments arguments)
     {
         if (thisObject is ObjectInstance oi && oi.IsArrayLike)
@@ -132,6 +98,7 @@ public sealed class ArrayPrototype : ArrayInstance
         return null;
     }
 
+    [JsFunction(Length = 0)]
     internal ObjectInstance Values(JsValue thisObject, JsCallArguments arguments)
     {
         if (thisObject is ObjectInstance oi && oi.IsArrayLike)
@@ -143,6 +110,7 @@ public sealed class ArrayPrototype : ArrayInstance
         return null;
     }
 
+    [JsFunction(Length = 2)]
     private ObjectInstance With(JsValue thisObject, JsCallArguments arguments)
     {
         var o = ArrayOperations.For(TypeConverter.ToObject(_realm, thisObject), forWrite: false);
@@ -181,6 +149,7 @@ public sealed class ArrayPrototype : ArrayInstance
         return new JsArray(_engine, a);
     }
 
+    [JsFunction(Length = 0)]
     private ObjectInstance Entries(JsValue thisObject, JsCallArguments arguments)
     {
         if (thisObject is ObjectInstance oi && oi.IsArrayLike)
@@ -195,6 +164,7 @@ public sealed class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.fill
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsValue Fill(JsValue thisObject, JsCallArguments arguments)
     {
         var value = arguments.At(0);
@@ -254,6 +224,7 @@ public sealed class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.copywithin
     /// </summary>
+    [JsFunction(Length = 2)]
     private JsValue CopyWithin(JsValue thisObject, JsCallArguments arguments)
     {
         var o = TypeConverter.ToObject(_realm, thisObject);
@@ -344,6 +315,7 @@ public sealed class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.lastindexof
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsValue LastIndexOf(JsValue thisObject, JsCallArguments arguments)
     {
         var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
@@ -397,6 +369,7 @@ public sealed class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.reduce
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsValue Reduce(JsValue thisObject, JsCallArguments arguments)
     {
         var callbackfn = arguments.At(0);
@@ -459,6 +432,7 @@ public sealed class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.filter
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsValue Filter(JsValue thisObject, JsCallArguments arguments)
     {
         var callbackfn = arguments.At(0);
@@ -499,6 +473,7 @@ public sealed class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.map
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsValue Map(JsValue thisObject, JsCallArguments arguments)
     {
         if (thisObject is JsArray { CanUseFastAccess: true } arrayInstance
@@ -539,6 +514,7 @@ public sealed class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.flat
     /// </summary>
+    [JsFunction(Length = 0)]
     private JsValue Flat(JsValue thisObject, JsCallArguments arguments)
     {
         var operations = ArrayOperations.For(_realm, thisObject, forWrite: false);
@@ -563,6 +539,7 @@ public sealed class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.flatmap
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsValue FlatMap(JsValue thisObject, JsCallArguments arguments)
     {
         var O = ArrayOperations.For(_realm, thisObject, forWrite: false);
@@ -655,6 +632,7 @@ public sealed class ArrayPrototype : ArrayInstance
         return targetIndex;
     }
 
+    [JsFunction(Length = 1)]
     private JsValue ForEach(JsValue thisObject, JsCallArguments arguments)
     {
         var callbackfn = arguments.At(0);
@@ -684,6 +662,7 @@ public sealed class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.includes
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsValue Includes(JsValue thisObject, JsCallArguments arguments)
     {
         var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
@@ -754,6 +733,7 @@ public sealed class ArrayPrototype : ArrayInstance
         return false;
     }
 
+    [JsFunction(Length = 1)]
     private JsValue Some(JsValue thisObject, JsCallArguments arguments)
     {
         var target = TypeConverter.ToObject(_realm, thisObject);
@@ -763,6 +743,7 @@ public sealed class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.every
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsValue Every(JsValue thisObject, JsCallArguments arguments)
     {
         var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
@@ -800,6 +781,7 @@ public sealed class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.indexof
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsValue IndexOf(JsValue thisObject, JsCallArguments arguments)
     {
         var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
@@ -882,6 +864,7 @@ public sealed class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.find
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsValue Find(JsValue thisObject, JsCallArguments arguments)
     {
         var target = TypeConverter.ToObject(_realm, thisObject);
@@ -892,6 +875,7 @@ public sealed class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.findindex
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsValue FindIndex(JsValue thisObject, JsCallArguments arguments)
     {
         var target = TypeConverter.ToObject(_realm, thisObject);
@@ -902,6 +886,7 @@ public sealed class ArrayPrototype : ArrayInstance
         return -1;
     }
 
+    [JsFunction(Length = 1)]
     private JsValue FindLast(JsValue thisObject, JsCallArguments arguments)
     {
         var target = TypeConverter.ToObject(_realm, thisObject);
@@ -909,6 +894,7 @@ public sealed class ArrayPrototype : ArrayInstance
         return value;
     }
 
+    [JsFunction(Length = 1)]
     private JsValue FindLastIndex(JsValue thisObject, JsCallArguments arguments)
     {
         var target = TypeConverter.ToObject(_realm, thisObject);
@@ -922,6 +908,7 @@ public sealed class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/proposal-relative-indexing-method/#sec-array-prototype-additions
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsValue At(JsValue thisObject, JsCallArguments arguments)
     {
         var target = TypeConverter.ToObject(_realm, thisObject);
@@ -949,6 +936,7 @@ public sealed class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.splice
     /// </summary>
+    [JsFunction(Length = 2)]
     private JsValue Splice(JsValue thisObject, JsCallArguments arguments)
     {
         var start = arguments.At(0);
@@ -1069,6 +1057,7 @@ public sealed class ArrayPrototype : ArrayInstance
     /// <summary>
     /// /https://tc39.es/ecma262/#sec-array.prototype.unshift
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsValue Unshift(JsValue thisObject, JsCallArguments arguments)
     {
         var o = ArrayOperations.For(_realm, thisObject, forWrite: true);
@@ -1113,6 +1102,7 @@ public sealed class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.sort
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsValue Sort(JsValue thisObject, JsCallArguments arguments)
     {
         var obj = ArrayOperations.For(_realm, thisObject, forWrite: true);
@@ -1247,6 +1237,7 @@ public sealed class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.slice
     /// </summary>
+    [JsFunction(Length = 2)]
     private JsValue Slice(JsValue thisObject, JsCallArguments arguments)
     {
         var start = arguments.At(0);
@@ -1310,6 +1301,7 @@ public sealed class ArrayPrototype : ArrayInstance
         return a;
     }
 
+    [JsFunction(Length = 0)]
     private JsValue Shift(JsValue thisObject, JsCallArguments arguments)
     {
         var o = ArrayOperations.For(_realm, thisObject, forWrite: true);
@@ -1343,6 +1335,7 @@ public sealed class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.reverse
     /// </summary>
+    [JsFunction(Length = 0)]
     private JsValue Reverse(JsValue thisObject, JsCallArguments arguments)
     {
         var o = ArrayOperations.For(_realm, thisObject, forWrite: true);
@@ -1392,6 +1385,7 @@ public sealed class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.join
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsValue Join(JsValue thisObject, JsCallArguments arguments)
     {
         var separator = arguments.At(0);
@@ -1443,6 +1437,7 @@ public sealed class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.tolocalestring
     /// </summary>
+    [JsFunction(Length = 0)]
     private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
     {
         const string Separator = ",";
@@ -1485,6 +1480,7 @@ public sealed class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.concat
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsValue Concat(JsValue thisObject, JsCallArguments arguments)
     {
         // Fast path: thisObject and every spreadable arg are CanUseFastAccess JsArrays.
@@ -1635,6 +1631,7 @@ public sealed class ArrayPrototype : ArrayInstance
         return true;
     }
 
+    [JsFunction(Length = 0)]
     internal JsValue ToString(JsValue thisObject, JsCallArguments arguments)
     {
         var array = TypeConverter.ToObject(_realm, thisObject);
@@ -1653,6 +1650,7 @@ public sealed class ArrayPrototype : ArrayInstance
         return func(array, Arguments.Empty);
     }
 
+    [JsFunction(Length = 0)]
     private JsValue ToReversed(JsValue thisObject, JsCallArguments arguments)
     {
         var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
@@ -1680,6 +1678,7 @@ public sealed class ArrayPrototype : ArrayInstance
         return new JsArray(_engine, a);
     }
 
+    [JsFunction(Length = 1)]
     private JsValue ToSorted(JsValue thisObject, JsCallArguments arguments)
     {
         var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
@@ -1700,6 +1699,7 @@ public sealed class ArrayPrototype : ArrayInstance
         return new JsArray(_engine, array);
     }
 
+    [JsFunction(Length = 2)]
     private JsValue ToSpliced(JsValue thisObject, JsCallArguments arguments)
     {
         var start = arguments.At(0);
@@ -1820,6 +1820,7 @@ public sealed class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.reduceright
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsValue ReduceRight(JsValue thisObject, JsCallArguments arguments)
     {
         var callbackfn = arguments.At(0);
@@ -1879,6 +1880,7 @@ public sealed class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.push
     /// </summary>
+    [JsFunction(Length = 1)]
     public JsValue Push(JsValue thisObject, JsCallArguments arguments)
     {
         if (thisObject is JsArray { CanUseFastAccess: true } arrayInstance)
@@ -1904,6 +1906,7 @@ public sealed class ArrayPrototype : ArrayInstance
         return n;
     }
 
+    [JsFunction(Length = 0)]
     public JsValue Pop(JsValue thisObject, JsCallArguments arguments)
     {
         if (thisObject is JsArray { CanUseFastAccess: true } array)

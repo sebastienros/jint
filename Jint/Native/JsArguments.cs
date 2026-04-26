@@ -97,7 +97,9 @@ public sealed class JsArguments : ObjectInstance
             DefinePropertyOrThrow(CommonProperties.Callee, new PropertyDescriptor(_func, PropertyFlag.NonEnumerable));
         }
 
-        var iteratorFunction = new ClrFunction(Engine, "iterator", _engine.Realm.Intrinsics.Array.PrototypeObject.Values, 0, PropertyFlag.Configurable);
+        // Spec (10.4.4.6 step 19) requires arguments[@@iterator] to be %Array.prototype.values%
+        // — the same function object, not a fresh wrapper.
+        var iteratorFunction = _engine.Realm.Intrinsics.Array.PrototypeObject.Get("values");
         DefinePropertyOrThrow(GlobalSymbolRegistry.Iterator, new PropertyDescriptor(iteratorFunction, PropertyFlag.Writable | PropertyFlag.Configurable));
     }
 
