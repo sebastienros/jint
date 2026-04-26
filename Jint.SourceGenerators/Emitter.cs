@@ -176,6 +176,15 @@ internal static class Emitter
                 case ParameterKind.ValueAt:
                     sb.Append("global::Jint.Runtime.Arguments.At(arguments, ").Append(p.Position).Append(')');
                     break;
+                case ParameterKind.ToNumber:
+                    sb.Append("global::Jint.Runtime.TypeConverter.ToNumber(global::Jint.Runtime.Arguments.At(arguments, ").Append(p.Position).Append("))");
+                    break;
+                case ParameterKind.ToInt32:
+                    sb.Append("global::Jint.Runtime.TypeConverter.ToInt32(global::Jint.Runtime.Arguments.At(arguments, ").Append(p.Position).Append("))");
+                    break;
+                case ParameterKind.ToUint32:
+                    sb.Append("global::Jint.Runtime.TypeConverter.ToUint32(global::Jint.Runtime.Arguments.At(arguments, ").Append(p.Position).Append("))");
+                    break;
                 case ParameterKind.Rest:
                     // Slice past the fixed positional value parameters into a ReadOnlySpan over the array tail; no allocation.
                     if (p.Position == 0)

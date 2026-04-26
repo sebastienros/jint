@@ -32,6 +32,22 @@ internal sealed class RestAttribute : global::System.Attribute
 {
 }
 
+// Marks a parameter as receiving the result of a TypeConverter.ToXxx coercion of arguments[N].
+// The CLR parameter type must match the converter's return type (double for ToNumber, int for
+// ToInt32, uint for ToUint32). The generator emits the conversion at the dispatcher boundary.
+
+[global::System.AttributeUsage(global::System.AttributeTargets.Parameter)]
+[global::System.Diagnostics.Conditional("JINT_SOURCE_GENERATORS")]
+internal sealed class ToNumberAttribute : global::System.Attribute { }
+
+[global::System.AttributeUsage(global::System.AttributeTargets.Parameter)]
+[global::System.Diagnostics.Conditional("JINT_SOURCE_GENERATORS")]
+internal sealed class ToInt32Attribute : global::System.Attribute { }
+
+[global::System.AttributeUsage(global::System.AttributeTargets.Parameter)]
+[global::System.Diagnostics.Conditional("JINT_SOURCE_GENERATORS")]
+internal sealed class ToUint32Attribute : global::System.Attribute { }
+
 [global::System.AttributeUsage(global::System.AttributeTargets.Field | global::System.AttributeTargets.Property)]
 [global::System.Diagnostics.Conditional("JINT_SOURCE_GENERATORS")]
 internal sealed class JsSymbolAttribute : global::System.Attribute

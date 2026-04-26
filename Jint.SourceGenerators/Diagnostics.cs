@@ -44,6 +44,22 @@ internal static class DiagnosticDescriptors
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
 
+    public static readonly DiagnosticDescriptor ConversionTypeMismatch = new(
+        id: "JINT013",
+        title: "Conversion attribute requires a matching CLR parameter type",
+        messageFormat: "Parameter '{0}' on method '{1}' has [{2}] but the CLR type is '{3}' — expected '{4}'",
+        category: "Jint.SourceGenerators",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor ConflictingConversionAttributes = new(
+        id: "JINT014",
+        title: "Multiple conversion attributes on a single parameter",
+        messageFormat: "Parameter '{0}' on method '{1}' has more than one of [ToNumber]/[ToInt32]/[ToUint32]/[Rest] — pick one",
+        category: "Jint.SourceGenerators",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
     public static readonly DiagnosticDescriptor UnsupportedPropertyType = new(
         id: "JINT020",
         title: "Unsupported [JsProperty] member type",

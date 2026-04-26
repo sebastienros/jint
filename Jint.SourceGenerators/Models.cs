@@ -217,6 +217,9 @@ internal enum ParameterKind
 {
     ThisObject,
     ValueAt,
+    ToNumber,
+    ToInt32,
+    ToUint32,
     Rest,
     AllArguments,
 }
@@ -271,8 +274,20 @@ internal sealed record class FunctionDefinition(
                 continue;
             }
 
+            // Detect conversion attributes — at most one per parameter, and not combinable with [Rest].
+            var conversion = DetectConversion(param, method, diagnostics, out var failed);
+            if (failed) return null;
+
             if (ObjectDefinition.HasAttribute(param, "RestAttribute"))
             {
+                if (conversion is not null)
+                {
+                    diagnostics.Add(new DiagnosticInfo(
+                        DiagnosticDescriptors.ConflictingConversionAttributes,
+                        param.Locations.FirstOrDefault(),
+                        param.Name, method.Name));
+                    return null;
+                }
                 if (!isLast)
                 {
                     diagnostics.Add(new DiagnosticInfo(
@@ -307,6 +322,22 @@ internal sealed record class FunctionDefinition(
                 continue;
             }
 
+            if (conversion is { } kind)
+            {
+                var expected = ExpectedConversionType(kind);
+                if (param.Type.SpecialType != expected.specialType)
+                {
+                    diagnostics.Add(new DiagnosticInfo(
+                        DiagnosticDescriptors.ConversionTypeMismatch,
+                        param.Locations.FirstOrDefault(),
+                        param.Name, method.Name, expected.attrName, param.Type.ToDisplayString(), expected.csharpName));
+                    return null;
+                }
+                parameters.Add(new ParameterDefinition(kind, valuePosition));
+                valuePosition++;
+                continue;
+            }
+
             if (!pc.IsJsValueOrSubtype(param.Type))
             {
                 diagnostics.Add(new DiagnosticInfo(
@@ -329,6 +360,43 @@ internal sealed record class FunctionDefinition(
             IsStatic: method.IsStatic,
             Parameters: parameters.ToEquatableArray());
     }
+
+    private static ParameterKind? DetectConversion(IParameterSymbol param, IMethodSymbol method, List<DiagnosticInfo> diagnostics, out bool failed)
+    {
+        failed = false;
+        ParameterKind? found = null;
+        foreach (var attr in param.GetAttributes())
+        {
+            var name = attr.AttributeClass?.Name;
+            ParameterKind? kind = name switch
+            {
+                "ToNumberAttribute" => ParameterKind.ToNumber,
+                "ToInt32Attribute" => ParameterKind.ToInt32,
+                "ToUint32Attribute" => ParameterKind.ToUint32,
+                _ => null,
+            };
+            if (kind is null) continue;
+            if (found is not null)
+            {
+                diagnostics.Add(new DiagnosticInfo(
+                    DiagnosticDescriptors.ConflictingConversionAttributes,
+                    param.Locations.FirstOrDefault(),
+                    param.Name, method.Name));
+                failed = true;
+                return null;
+            }
+            found = kind;
+        }
+        return found;
+    }
+
+    private static (SpecialType specialType, string csharpName, string attrName) ExpectedConversionType(ParameterKind kind) => kind switch
+    {
+        ParameterKind.ToNumber => (SpecialType.System_Double, "double", "ToNumber"),
+        ParameterKind.ToInt32 => (SpecialType.System_Int32, "int", "ToInt32"),
+        ParameterKind.ToUint32 => (SpecialType.System_UInt32, "uint", "ToUint32"),
+        _ => (SpecialType.None, string.Empty, string.Empty),
+    };
 
     private static bool IsReadOnlySpanOfJsValue(ITypeSymbol t, ParseContext pc)
     {

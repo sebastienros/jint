@@ -216,4 +216,100 @@ public class ObjectGeneratorTests
             }
             """);
     }
+
+    [Test]
+    public Task ToNumberConversion()
+    {
+        return VerifyGenerator("""
+            using Jint;
+            using Jint.Native;
+            using Jint.Native.Object;
+
+            namespace Sample;
+
+            [JsObject]
+            internal sealed partial class Foo : ObjectInstance
+            {
+                internal Foo(Engine engine) : base(engine) { }
+
+                [JsFunction(Length = 1)]
+                private static JsValue Abs(JsValue thisObject, [ToNumber] double x)
+                    => JsNumber.Create(System.Math.Abs(x));
+
+                [JsFunction(Length = 2)]
+                private static JsValue Atan2(JsValue thisObject, [ToNumber] double y, [ToNumber] double x)
+                    => JsNumber.Create(System.Math.Atan2(y, x));
+
+                protected override void Initialize() => CreateProperties_Generated();
+            }
+            """);
+    }
+
+    [Test]
+    public Task IntegerConversions()
+    {
+        return VerifyGenerator("""
+            using Jint;
+            using Jint.Native;
+            using Jint.Native.Object;
+
+            namespace Sample;
+
+            [JsObject]
+            internal sealed partial class Foo : ObjectInstance
+            {
+                internal Foo(Engine engine) : base(engine) { }
+
+                [JsFunction(Length = 2)]
+                private static JsValue Imul(JsValue thisObject, [ToInt32] int a, [ToInt32] int b)
+                    => JsNumber.Create(a * b);
+
+                [JsFunction(Length = 1)]
+                private static JsValue PopCount(JsValue thisObject, [ToUint32] uint x)
+                    => JsNumber.Create(System.Numerics.BitOperations.PopCount(x));
+
+                protected override void Initialize() => CreateProperties_Generated();
+            }
+            """);
+    }
+
+    [Test]
+    public Task ConversionTypeMismatch_ProducesDiagnostic()
+    {
+        return VerifyGenerator("""
+            using Jint;
+            using Jint.Native;
+            using Jint.Native.Object;
+
+            namespace Sample;
+
+            [JsObject]
+            internal sealed partial class Foo : ObjectInstance
+            {
+                internal Foo(Engine engine) : base(engine) { }
+                [JsFunction] private static JsValue Bar(JsValue thisObject, [ToNumber] int x) => JsNumber.Create(x);
+                protected override void Initialize() => CreateProperties_Generated();
+            }
+            """);
+    }
+
+    [Test]
+    public Task ConflictingConversionAttrs_ProducesDiagnostic()
+    {
+        return VerifyGenerator("""
+            using Jint;
+            using Jint.Native;
+            using Jint.Native.Object;
+
+            namespace Sample;
+
+            [JsObject]
+            internal sealed partial class Foo : ObjectInstance
+            {
+                internal Foo(Engine engine) : base(engine) { }
+                [JsFunction] private static JsValue Bar(JsValue thisObject, [ToNumber][ToInt32] double x) => JsNumber.Create(x);
+                protected override void Initialize() => CreateProperties_Generated();
+            }
+            """);
+    }
 }
