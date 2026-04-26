@@ -19,10 +19,14 @@ namespace Jint.Native.String;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-the-string-prototype-object
 /// </summary>
-internal sealed class StringPrototype : StringInstance
+[JsObject]
+internal sealed partial class StringPrototype : StringInstance
 {
     private readonly Realm _realm;
+
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly StringConstructor _constructor;
+
     internal ClrFunction? _originalIteratorFunction;
 
     internal StringPrototype(
@@ -43,66 +47,15 @@ internal sealed class StringPrototype : StringInstance
         const PropertyFlag lengthFlags = PropertyFlag.Configurable;
         const PropertyFlag propertyFlags = lengthFlags | PropertyFlag.Writable;
 
-        var trimStart = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "trimStart", prototype.TrimStart, 0, lengthFlags), propertyFlags);
-        var trimEnd = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "trimEnd", prototype.TrimEnd, 0, lengthFlags), propertyFlags);
-        var properties = new PropertyDictionary(50, checkExistingKeys: false)
-        {
-            ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
-            ["toString"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "toString", prototype.ToStringString, 0, lengthFlags), propertyFlags),
-            ["valueOf"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "valueOf", prototype.ValueOf, 0, lengthFlags), propertyFlags),
-            ["charAt"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "charAt", prototype.CharAt, 1, lengthFlags), propertyFlags),
-            ["charCodeAt"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "charCodeAt", prototype.CharCodeAt, 1, lengthFlags), propertyFlags),
-            ["codePointAt"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "codePointAt", prototype.CodePointAt, 1, lengthFlags), propertyFlags),
-            ["concat"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "concat", prototype.Concat, 1, lengthFlags), propertyFlags),
-            ["indexOf"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "indexOf", prototype.IndexOf, 1, lengthFlags), propertyFlags),
-            ["endsWith"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "endsWith", prototype.EndsWith, 1, lengthFlags), propertyFlags),
-            ["startsWith"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "startsWith", prototype.StartsWith, 1, lengthFlags), propertyFlags),
-            ["lastIndexOf"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "lastIndexOf", prototype.LastIndexOf, 1, lengthFlags), propertyFlags),
-            ["localeCompare"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "localeCompare", prototype.LocaleCompare, 1, lengthFlags), propertyFlags),
-            ["match"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "match", prototype.Match, 1, lengthFlags), propertyFlags),
-            ["matchAll"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "matchAll", prototype.MatchAll, 1, lengthFlags), propertyFlags),
-            ["replace"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "replace", prototype.Replace, 2, lengthFlags), propertyFlags),
-            ["replaceAll"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "replaceAll", prototype.ReplaceAll, 2, lengthFlags), propertyFlags),
-            ["search"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "search", prototype.Search, 1, lengthFlags), propertyFlags),
-            ["slice"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "slice", prototype.Slice, 2, lengthFlags), propertyFlags),
-            ["split"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "split", prototype.Split, 2, lengthFlags), propertyFlags),
-            ["substr"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "substr", prototype.Substr, 2, lengthFlags), propertyFlags),
-            ["substring"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "substring", prototype.Substring, 2, lengthFlags), propertyFlags),
-            ["toLowerCase"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "toLowerCase", prototype.ToLowerCase, 0, lengthFlags), propertyFlags),
-            ["toLocaleLowerCase"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "toLocaleLowerCase", prototype.ToLocaleLowerCase, 0, lengthFlags), propertyFlags),
-            ["toUpperCase"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "toUpperCase", prototype.ToUpperCase, 0, lengthFlags), propertyFlags),
-            ["toLocaleUpperCase"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "toLocaleUpperCase", prototype.ToLocaleUpperCase, 0, lengthFlags), propertyFlags),
-            ["trim"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "trim", prototype.Trim, 0, lengthFlags), propertyFlags),
-            ["trimStart"] = trimStart,
-            ["trimEnd"] = trimEnd,
-            ["trimLeft"] = trimStart,
-            ["trimRight"] = trimEnd,
-            ["padStart"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "padStart", prototype.PadStart, 1, lengthFlags), propertyFlags),
-            ["padEnd"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "padEnd", prototype.PadEnd, 1, lengthFlags), propertyFlags),
-            ["includes"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "includes", prototype.Includes, 1, lengthFlags), propertyFlags),
-            ["normalize"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "normalize", prototype.Normalize, 0, lengthFlags), propertyFlags),
-            ["repeat"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "repeat", prototype.Repeat, 1, lengthFlags), propertyFlags),
-            ["at"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "at", prototype.At, 1, lengthFlags), propertyFlags),
-            ["isWellFormed"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "isWellFormed", prototype.IsWellFormed, 0, lengthFlags), propertyFlags),
-            ["toWellFormed"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "toWellFormed", prototype.ToWellFormed, 0, lengthFlags), propertyFlags),
+        CreateProperties_Generated();
 
-            // B.2.2 Additional Properties of the String.prototype Object (HTML methods)
-            ["anchor"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "anchor", prototype.Anchor, 1, lengthFlags), propertyFlags),
-            ["big"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "big", prototype.Big, 0, lengthFlags), propertyFlags),
-            ["blink"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "blink", prototype.Blink, 0, lengthFlags), propertyFlags),
-            ["bold"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "bold", prototype.Bold, 0, lengthFlags), propertyFlags),
-            ["fixed"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "fixed", prototype.Fixed, 0, lengthFlags), propertyFlags),
-            ["fontcolor"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "fontcolor", prototype.FontColor, 1, lengthFlags), propertyFlags),
-            ["fontsize"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "fontsize", prototype.FontSize, 1, lengthFlags), propertyFlags),
-            ["italics"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "italics", prototype.Italics, 0, lengthFlags), propertyFlags),
-            ["link"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "link", prototype.Link, 1, lengthFlags), propertyFlags),
-            ["small"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "small", prototype.Small, 0, lengthFlags), propertyFlags),
-            ["strike"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "strike", prototype.Strike, 0, lengthFlags), propertyFlags),
-            ["sub"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "sub", prototype.Sub, 0, lengthFlags), propertyFlags),
-            ["sup"] = new LazyPropertyDescriptor<StringPrototype>(this, static prototype => new ClrFunction(prototype._engine, "sup", prototype.Sup, 0, lengthFlags), propertyFlags),
-        };
-        SetProperties(properties);
+        // B.2.3: trimLeft/trimRight are aliases for trimStart/trimEnd. Aliasing the same descriptor
+        // instance shares the same lazy-resolved Function reference.
+        SetOwnProperty("trimLeft", GetOwnProperty("trimStart"));
+        SetOwnProperty("trimRight", GetOwnProperty("trimEnd"));
 
+        // [Symbol.iterator] kept hand-written: needs to capture _originalIteratorFunction for
+        // StringInstance.HasOriginalIterator fast-path detection (StringPrototype.cs:114).
         _originalIteratorFunction = new ClrFunction(_engine, "[Symbol.iterator]", Iterator, 0, lengthFlags);
         var symbols = new SymbolDictionary(1)
         {
@@ -120,6 +73,7 @@ internal sealed class StringPrototype : StringInstance
         return _realm.Intrinsics.StringIteratorPrototype.Construct(str);
     }
 
+    [JsFunction(Length = 0, Name = "toString")]
     private JsValue ToStringString(JsValue thisObject, JsCallArguments arguments)
     {
         if (thisObject.IsString())
@@ -208,6 +162,8 @@ internal sealed class StringPrototype : StringInstance
     /// https://tc39.es/ecma262/#sec-string.prototype.trim
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [JsFunction(Length = 0)]
+    [RequireObjectCoercible]
     private JsValue Trim(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
@@ -222,6 +178,8 @@ internal sealed class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.trimstart
     /// </summary>
+    [JsFunction(Length = 0)]
+    [RequireObjectCoercible]
     private JsValue TrimStart(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
@@ -236,6 +194,8 @@ internal sealed class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.trimend
     /// </summary>
+    [JsFunction(Length = 0)]
+    [RequireObjectCoercible]
     private JsValue TrimEnd(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
@@ -247,6 +207,8 @@ internal sealed class StringPrototype : StringInstance
         return TrimEndEx(s.ToString());
     }
 
+    [JsFunction(Length = 0)]
+    [RequireObjectCoercible]
     private JsValue ToLocaleUpperCase(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(_engine, thisObject);
@@ -276,6 +238,8 @@ internal sealed class StringPrototype : StringInstance
         return new JsString(ToUpperCaseWithSpecialCasing(s, culture));
     }
 
+    [JsFunction(Length = 0)]
+    [RequireObjectCoercible]
     private JsValue ToUpperCase(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(_engine, thisObject);
@@ -455,6 +419,8 @@ internal sealed class StringPrototype : StringInstance
         };
     }
 
+    [JsFunction(Length = 0)]
+    [RequireObjectCoercible]
     private JsValue ToLocaleLowerCase(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(_engine, thisObject);
@@ -472,6 +438,8 @@ internal sealed class StringPrototype : StringInstance
         return ToLowerCaseWithSpecialCasing(s, culture);
     }
 
+    [JsFunction(Length = 0)]
+    [RequireObjectCoercible]
     private JsValue ToLowerCase(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(_engine, thisObject);
@@ -937,6 +905,8 @@ internal sealed class StringPrototype : StringInstance
         return intVal;
     }
 
+    [JsFunction(Length = 2)]
+    [RequireObjectCoercible]
     private JsValue Substring(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
@@ -982,6 +952,8 @@ internal sealed class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.substr
     /// </summary>
+    [JsFunction(Length = 2)]
+    [RequireObjectCoercible]
     private JsValue Substr(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(_engine, thisObject);
@@ -1025,48 +997,63 @@ internal sealed class StringPrototype : StringInstance
         return p1 + ">" + s + "</" + tag + ">";
     }
 
+    [JsFunction(Length = 1)]
     private JsValue Anchor(JsValue thisObject, JsCallArguments arguments)
         => CreateHTML(_engine, thisObject, "a", "name", arguments.At(0));
 
+    [JsFunction(Length = 0)]
     private JsValue Big(JsValue thisObject, JsCallArguments arguments)
         => CreateHTML(_engine, thisObject, "big", "", Undefined);
 
+    [JsFunction(Length = 0)]
     private JsValue Blink(JsValue thisObject, JsCallArguments arguments)
         => CreateHTML(_engine, thisObject, "blink", "", Undefined);
 
+    [JsFunction(Length = 0)]
     private JsValue Bold(JsValue thisObject, JsCallArguments arguments)
         => CreateHTML(_engine, thisObject, "b", "", Undefined);
 
+    [JsFunction(Length = 0)]
     private JsValue Fixed(JsValue thisObject, JsCallArguments arguments)
         => CreateHTML(_engine, thisObject, "tt", "", Undefined);
 
+    [JsFunction(Length = 1, Name = "fontcolor")]
     private JsValue FontColor(JsValue thisObject, JsCallArguments arguments)
         => CreateHTML(_engine, thisObject, "font", "color", arguments.At(0));
 
+    [JsFunction(Length = 1, Name = "fontsize")]
     private JsValue FontSize(JsValue thisObject, JsCallArguments arguments)
         => CreateHTML(_engine, thisObject, "font", "size", arguments.At(0));
 
+    [JsFunction(Length = 0)]
     private JsValue Italics(JsValue thisObject, JsCallArguments arguments)
         => CreateHTML(_engine, thisObject, "i", "", Undefined);
 
+    [JsFunction(Length = 1)]
     private JsValue Link(JsValue thisObject, JsCallArguments arguments)
         => CreateHTML(_engine, thisObject, "a", "href", arguments.At(0));
 
+    [JsFunction(Length = 0)]
     private JsValue Small(JsValue thisObject, JsCallArguments arguments)
         => CreateHTML(_engine, thisObject, "small", "", Undefined);
 
+    [JsFunction(Length = 0)]
     private JsValue Strike(JsValue thisObject, JsCallArguments arguments)
         => CreateHTML(_engine, thisObject, "strike", "", Undefined);
 
+    [JsFunction(Length = 0)]
     private JsValue Sub(JsValue thisObject, JsCallArguments arguments)
         => CreateHTML(_engine, thisObject, "sub", "", Undefined);
 
+    [JsFunction(Length = 0)]
     private JsValue Sup(JsValue thisObject, JsCallArguments arguments)
         => CreateHTML(_engine, thisObject, "sup", "", Undefined);
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.split
     /// </summary>
+    [JsFunction(Length = 2)]
+    [RequireObjectCoercible]
     private JsValue Split(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
@@ -1162,6 +1149,8 @@ internal sealed class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/proposal-relative-indexing-method/#sec-string-prototype-additions
     /// </summary>
+    [JsFunction(Length = 1)]
+    [RequireObjectCoercible]
     private JsValue At(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(_engine, thisObject);
@@ -1190,6 +1179,8 @@ internal sealed class StringPrototype : StringInstance
         return o[k];
     }
 
+    [JsFunction(Length = 2)]
+    [RequireObjectCoercible]
     private JsValue Slice(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
@@ -1231,6 +1222,8 @@ internal sealed class StringPrototype : StringInstance
         return s.Substring(from, span);
     }
 
+    [JsFunction(Length = 1)]
+    [RequireObjectCoercible]
     private JsValue Search(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
@@ -1253,6 +1246,8 @@ internal sealed class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.replace
     /// </summary>
+    [JsFunction(Length = 2)]
+    [RequireObjectCoercible]
     private JsValue Replace(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
@@ -1307,6 +1302,8 @@ internal sealed class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.replaceall
     /// </summary>
+    [JsFunction(Length = 2)]
+    [RequireObjectCoercible]
     private JsValue ReplaceAll(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
@@ -1404,6 +1401,8 @@ internal sealed class StringPrototype : StringInstance
         return result.ToString();
     }
 
+    [JsFunction(Length = 1)]
+    [RequireObjectCoercible]
     private JsValue Match(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
@@ -1424,6 +1423,8 @@ internal sealed class StringPrototype : StringInstance
         return _engine.Invoke(rx, GlobalSymbolRegistry.Match, [s]);
     }
 
+    [JsFunction(Length = 1)]
+    [RequireObjectCoercible]
     private JsValue MatchAll(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(_engine, thisObject);
@@ -1459,6 +1460,8 @@ internal sealed class StringPrototype : StringInstance
     /// https://tc39.es/ecma262/#sec-string.prototype.localecompare
     /// https://tc39.es/ecma402/#sup-string.prototype.localecompare
     /// </summary>
+    [JsFunction(Length = 1)]
+    [RequireObjectCoercible]
     private JsValue LocaleCompare(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
@@ -1476,6 +1479,8 @@ internal sealed class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.lastindexof
     /// </summary>
+    [JsFunction(Length = 1)]
+    [RequireObjectCoercible]
     private JsValue LastIndexOf(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
@@ -1532,6 +1537,8 @@ internal sealed class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.indexof
     /// </summary>
+    [JsFunction(Length = 1)]
+    [RequireObjectCoercible]
     private JsValue IndexOf(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
@@ -1557,6 +1564,8 @@ internal sealed class StringPrototype : StringInstance
         return s.IndexOf(searchStr, (int) pos);
     }
 
+    [JsFunction(Length = 1)]
+    [RequireObjectCoercible]
     private JsValue Concat(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
@@ -1578,6 +1587,8 @@ internal sealed class StringPrototype : StringInstance
         return jsString;
     }
 
+    [JsFunction(Length = 1)]
+    [RequireObjectCoercible]
     private JsValue CharCodeAt(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
@@ -1595,6 +1606,8 @@ internal sealed class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.codepointat
     /// </summary>
+    [JsFunction(Length = 1)]
+    [RequireObjectCoercible]
     private JsValue CodePointAt(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
@@ -1640,6 +1653,8 @@ internal sealed class StringPrototype : StringInstance
         return new CodePointResult(char.ConvertToUtf32(first, second), 2, false);
     }
 
+    [JsFunction(Length = 1)]
+    [RequireObjectCoercible]
     private JsValue CharAt(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
@@ -1653,6 +1668,7 @@ internal sealed class StringPrototype : StringInstance
         return JsString.Create(s[(int) position]);
     }
 
+    [JsFunction(Length = 0)]
     private JsValue ValueOf(JsValue thisObject, JsCallArguments arguments)
     {
         if (thisObject is StringInstance si)
@@ -1672,6 +1688,7 @@ internal sealed class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.padstart
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsValue PadStart(JsValue thisObject, JsCallArguments arguments)
     {
         return StringPad(thisObject, arguments, true);
@@ -1680,6 +1697,7 @@ internal sealed class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.padend
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsValue PadEnd(JsValue thisObject, JsCallArguments arguments)
     {
         return StringPad(thisObject, arguments, false);
@@ -1719,6 +1737,8 @@ internal sealed class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.startswith
     /// </summary>
+    [JsFunction(Length = 1)]
+    [RequireObjectCoercible]
     private JsValue StartsWith(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
@@ -1751,6 +1771,8 @@ internal sealed class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.endswith
     /// </summary>
+    [JsFunction(Length = 1)]
+    [RequireObjectCoercible]
     private JsValue EndsWith(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
@@ -1782,6 +1804,8 @@ internal sealed class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.includes
     /// </summary>
+    [JsFunction(Length = 1)]
+    [RequireObjectCoercible]
     private JsValue Includes(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
@@ -1814,6 +1838,8 @@ internal sealed class StringPrototype : StringInstance
         return s.IndexOf(searchStr, (int) pos) > -1;
     }
 
+    [JsFunction(Length = 0)]
+    [RequireObjectCoercible]
     private JsValue Normalize(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
@@ -1855,6 +1881,8 @@ internal sealed class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.repeat
     /// </summary>
+    [JsFunction(Length = 1)]
+    [RequireObjectCoercible]
     private JsValue Repeat(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
@@ -1887,6 +1915,8 @@ internal sealed class StringPrototype : StringInstance
         return sb.ToString();
     }
 
+    [JsFunction(Length = 0)]
+    [RequireObjectCoercible]
     private JsValue IsWellFormed(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(_engine, thisObject);
@@ -1895,6 +1925,8 @@ internal sealed class StringPrototype : StringInstance
         return IsStringWellFormedUnicode(s);
     }
 
+    [JsFunction(Length = 0)]
+    [RequireObjectCoercible]
     private JsValue ToWellFormed(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(_engine, thisObject);

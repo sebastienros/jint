@@ -370,7 +370,8 @@ internal sealed record class FunctionDefinition(
     bool IsStatic,
     EquatableArray<ParameterDefinition> Parameters,
     RegistrationKind Registration,
-    string FlagsExpression)
+    string FlagsExpression,
+    bool RequireObjectCoercible)
 {
     public static FunctionDefinition? FromJsFunction(IMethodSymbol method, ParseContext pc, List<DiagnosticInfo> diagnostics)
     {
@@ -569,6 +570,8 @@ internal sealed record class FunctionDefinition(
 
         var length = explicitLength >= 0 ? explicitLength : valuePosition;
 
+        var requireOc = ObjectDefinition.HasAttribute(method, "RequireObjectCoercibleAttribute");
+
         return new FunctionDefinition(
             ClrName: method.Name,
             JsName: jsName,
@@ -577,7 +580,8 @@ internal sealed record class FunctionDefinition(
             IsStatic: method.IsStatic,
             Parameters: parameters.ToEquatableArray(),
             Registration: registration,
-            FlagsExpression: flagsExpression);
+            FlagsExpression: flagsExpression,
+            RequireObjectCoercible: requireOc);
     }
 
     private static ParameterKind? DetectConversion(IParameterSymbol param, IMethodSymbol method, List<DiagnosticInfo> diagnostics, out bool failed)

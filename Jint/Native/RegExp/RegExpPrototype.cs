@@ -1,4 +1,4 @@
-﻿#pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of prototype methods return JsValue
+#pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of prototype methods return JsValue
 
 using System.Text;
 using System.Text.RegularExpressions;
@@ -14,7 +14,8 @@ using Jint.Runtime.RegExp;
 
 namespace Jint.Native.RegExp;
 
-internal sealed class RegExpPrototype : Prototype
+[JsObject]
+internal sealed partial class RegExpPrototype : Prototype
 {
     private static readonly JsString PropertyExec = new("exec");
     private static readonly JsString PropertyIndex = new("index");
@@ -31,7 +32,9 @@ internal sealed class RegExpPrototype : Prototype
     private static readonly JsString PropertyUnicode = new("unicode");
     private static readonly JsString PropertyUnicodeSets = new("unicodeSets");
 
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.Configurable | PropertyFlag.Writable)]
     private readonly RegExpConstructor _constructor;
+
     private readonly JsCallDelegate _defaultExec;
 
     internal RegExpPrototype(
@@ -46,6 +49,19 @@ internal sealed class RegExpPrototype : Prototype
     }
 
     protected override void Initialize()
+    {
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
+
+        // Eight RegExp.prototype get accessors (dotAll, global, hasIndices, ignoreCase, multiline,
+        // source, sticky, unicode, unicodeSets, flags) stay hand-written. Each shares a "this could be
+        // RegExp.prototype itself → return undefined" path that doesn't fit the generator's cast model.
+        // Source and Flags are full methods; the rest reduce to a property name + JsRegExp accessor via
+        // CreateGetAccessorDescriptor.
+        AddRegExpAccessors();
+    }
+
+    private void AddRegExpAccessors()
     {
         const PropertyFlag lengthFlags = PropertyFlag.Configurable;
 
@@ -72,36 +88,19 @@ internal sealed class RegExpPrototype : Prototype
                 flags: PropertyFlag.Configurable);
         }
 
-        const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-        var properties = new PropertyDictionary(15, checkExistingKeys: false)
-        {
-            ["constructor"] = new PropertyDescriptor(_constructor, propertyFlags),
-            ["compile"] = new PropertyDescriptor(new ClrFunction(Engine, "compile", Compile, 2, lengthFlags), propertyFlags),
-            ["toString"] = new PropertyDescriptor(new ClrFunction(Engine, "toString", ToRegExpString, 0, lengthFlags), propertyFlags),
-            ["exec"] = new PropertyDescriptor(new ClrFunction(Engine, "exec", _defaultExec, 1, lengthFlags), propertyFlags),
-            ["test"] = new PropertyDescriptor(new ClrFunction(Engine, "test", Test, 1, lengthFlags), propertyFlags),
-            ["dotAll"] = CreateGetAccessorDescriptor("get dotAll", static r => r.DotAll),
-            ["flags"] = new GetSetPropertyDescriptor(get: new ClrFunction(Engine, "get flags", Flags, 0, lengthFlags), set: Undefined, flags: PropertyFlag.Configurable),
-            ["global"] = CreateGetAccessorDescriptor("get global", static r => r.Global),
-            ["hasIndices"] = CreateGetAccessorDescriptor("get hasIndices", static r => r.Indices),
-            ["ignoreCase"] = CreateGetAccessorDescriptor("get ignoreCase", static r => r.IgnoreCase),
-            ["multiline"] = CreateGetAccessorDescriptor("get multiline", static r => r.Multiline),
-            ["source"] = new GetSetPropertyDescriptor(get: new ClrFunction(Engine, "get source", Source, 0, lengthFlags), set: Undefined, flags: PropertyFlag.Configurable),
-            ["sticky"] = CreateGetAccessorDescriptor("get sticky", static r => r.Sticky),
-            ["unicode"] = CreateGetAccessorDescriptor("get unicode", static r => r.Unicode),
-            ["unicodeSets"] = CreateGetAccessorDescriptor("get unicodeSets", static r => r.UnicodeSets)
-        };
-        SetProperties(properties);
+        // exec stays manually registered as a ClrFunction so HasDefaultExec's identity check works.
+        SetOwnProperty("exec", new PropertyDescriptor(new ClrFunction(Engine, "exec", _defaultExec, 1, lengthFlags), PropertyFlag.Configurable | PropertyFlag.Writable));
 
-        var symbols = new SymbolDictionary(5)
-        {
-            [GlobalSymbolRegistry.Match] = new PropertyDescriptor(new ClrFunction(Engine, "[Symbol.match]", Match, 1, lengthFlags), propertyFlags),
-            [GlobalSymbolRegistry.MatchAll] = new PropertyDescriptor(new ClrFunction(Engine, "[Symbol.matchAll]", MatchAll, 1, lengthFlags), propertyFlags),
-            [GlobalSymbolRegistry.Replace] = new PropertyDescriptor(new ClrFunction(Engine, "[Symbol.replace]", Replace, 2, lengthFlags), propertyFlags),
-            [GlobalSymbolRegistry.Search] = new PropertyDescriptor(new ClrFunction(Engine, "[Symbol.search]", Search, 1, lengthFlags), propertyFlags),
-            [GlobalSymbolRegistry.Split] = new PropertyDescriptor(new ClrFunction(Engine, "[Symbol.split]", Split, 2, lengthFlags), propertyFlags)
-        };
-        SetSymbols(symbols);
+        SetOwnProperty("dotAll", CreateGetAccessorDescriptor("get dotAll", static r => r.DotAll));
+        SetOwnProperty("flags", new GetSetPropertyDescriptor(get: new ClrFunction(Engine, "get flags", Flags, 0, lengthFlags), set: Undefined, flags: PropertyFlag.Configurable));
+        SetOwnProperty("global", CreateGetAccessorDescriptor("get global", static r => r.Global));
+        SetOwnProperty("hasIndices", CreateGetAccessorDescriptor("get hasIndices", static r => r.Indices));
+        SetOwnProperty("ignoreCase", CreateGetAccessorDescriptor("get ignoreCase", static r => r.IgnoreCase));
+        SetOwnProperty("multiline", CreateGetAccessorDescriptor("get multiline", static r => r.Multiline));
+        SetOwnProperty("source", new GetSetPropertyDescriptor(get: new ClrFunction(Engine, "get source", Source, 0, lengthFlags), set: Undefined, flags: PropertyFlag.Configurable));
+        SetOwnProperty("sticky", CreateGetAccessorDescriptor("get sticky", static r => r.Sticky));
+        SetOwnProperty("unicode", CreateGetAccessorDescriptor("get unicode", static r => r.Unicode));
+        SetOwnProperty("unicodeSets", CreateGetAccessorDescriptor("get unicodeSets", static r => r.UnicodeSets));
     }
 
     /// <summary>
@@ -135,6 +134,7 @@ internal sealed class RegExpPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-regexp.prototype-@@replace
     /// </summary>
+    [JsSymbolFunction("Replace", Length = 2, Flags = global::Jint.Runtime.Descriptors.PropertyFlag.Configurable | global::Jint.Runtime.Descriptors.PropertyFlag.Writable)]
     private JsValue Replace(JsValue thisObject, JsCallArguments arguments)
     {
         var rx = AssertThisIsObjectInstance(thisObject, "RegExp.prototype.replace");
@@ -492,6 +492,7 @@ internal sealed class RegExpPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-regexp.prototype-@@split
     /// </summary>
+    [JsSymbolFunction("Split", Length = 2, Flags = global::Jint.Runtime.Descriptors.PropertyFlag.Configurable | global::Jint.Runtime.Descriptors.PropertyFlag.Writable)]
     private JsValue Split(JsValue thisObject, JsCallArguments arguments)
     {
         var rx = AssertThisIsObjectInstance(thisObject, "RegExp.prototype.split");
@@ -659,6 +660,7 @@ internal sealed class RegExpPrototype : Prototype
         return result;
     }
 
+    [JsFunction(Length = 0, Name = "toString")]
     private JsValue ToRegExpString(JsValue thisObject, JsCallArguments arguments)
     {
         var r = AssertThisIsObjectInstance(thisObject, "RegExp.prototype.toString");
@@ -669,6 +671,7 @@ internal sealed class RegExpPrototype : Prototype
         return "/" + pattern + "/" + flags;
     }
 
+    [JsFunction(Length = 1)]
     private JsValue Test(JsValue thisObject, JsCallArguments arguments)
     {
         var r = AssertThisIsObjectInstance(thisObject, "RegExp.prototype.test");
@@ -736,6 +739,7 @@ internal sealed class RegExpPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-regexp.prototype-@@search
     /// </summary>
+    [JsSymbolFunction("Search", Length = 1, Flags = global::Jint.Runtime.Descriptors.PropertyFlag.Configurable | global::Jint.Runtime.Descriptors.PropertyFlag.Writable)]
     private JsValue Search(JsValue thisObject, JsCallArguments arguments)
     {
         var rx = AssertThisIsObjectInstance(thisObject, "RegExp.prototype.search");
@@ -778,6 +782,7 @@ internal sealed class RegExpPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-regexp.prototype-@@match
     /// </summary>
+    [JsSymbolFunction("Match", Length = 1, Flags = global::Jint.Runtime.Descriptors.PropertyFlag.Configurable | global::Jint.Runtime.Descriptors.PropertyFlag.Writable)]
     private JsValue Match(JsValue thisObject, JsCallArguments arguments)
     {
         var rx = AssertThisIsObjectInstance(thisObject, "RegExp.prototype.match");
@@ -903,6 +908,7 @@ internal sealed class RegExpPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-regexp-prototype-matchall
     /// </summary>
+    [JsSymbolFunction("MatchAll", Length = 1, Flags = global::Jint.Runtime.Descriptors.PropertyFlag.Configurable | global::Jint.Runtime.Descriptors.PropertyFlag.Writable)]
     private JsValue MatchAll(JsValue thisObject, JsCallArguments arguments)
     {
         var r = AssertThisIsObjectInstance(thisObject, "RegExp.prototype.matchAll");
@@ -1460,6 +1466,7 @@ internal sealed class RegExpPrototype : Prototype
     /// https://tc39.es/ecma262/#sec-regexp.prototype.compile
     /// B.2.5.1
     /// </summary>
+    [JsFunction(Length = 2)]
     private JsValue Compile(JsValue thisObject, JsCallArguments arguments)
     {
         // 1. Let O be the this value.
@@ -1505,6 +1512,8 @@ internal sealed class RegExpPrototype : Prototype
         return _constructor.RegExpInitialize(r, p, f, throwOnLastIndex: true);
     }
 
+    // Not [JsFunction] — registered manually in AddRegExpAccessors so HasDefaultExec's
+    // ClrFunction-identity check (RegExpPrototype.cs HasDefaultExec) keeps working.
     private JsValue Exec(JsValue thisObject, JsCallArguments arguments)
     {
         var r = thisObject as JsRegExp;
