@@ -2,19 +2,20 @@
 
 using Jint.Native.Function;
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.Reflect;
 
 /// <summary>
 /// https://www.ecma-international.org/ecma-262/6.0/index.html#sec-reflect-object
 /// </summary>
-internal sealed class ReflectInstance : ObjectInstance
+[JsObject]
+internal sealed partial class ReflectInstance : ObjectInstance
 {
     private readonly Realm _realm;
+
+    [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString ReflectToStringTag = new("Reflect");
 
     internal ReflectInstance(
         Engine engine,
@@ -27,31 +28,11 @@ internal sealed class ReflectInstance : ObjectInstance
 
     protected override void Initialize()
     {
-        var properties = new PropertyDictionary(14, checkExistingKeys: false)
-        {
-            ["apply"] = new PropertyDescriptor(new ClrFunction(Engine, "apply", Apply, 3, PropertyFlag.Configurable), true, false, true),
-            ["construct"] = new PropertyDescriptor(new ClrFunction(Engine, "construct", Construct, 2, PropertyFlag.Configurable), true, false, true),
-            ["defineProperty"] = new PropertyDescriptor(new ClrFunction(Engine, "defineProperty", DefineProperty, 3, PropertyFlag.Configurable), true, false, true),
-            ["deleteProperty"] = new PropertyDescriptor(new ClrFunction(Engine, "deleteProperty", DeleteProperty, 2, PropertyFlag.Configurable), true, false, true),
-            ["get"] = new PropertyDescriptor(new ClrFunction(Engine, "get", Get, 2, PropertyFlag.Configurable), true, false, true),
-            ["getOwnPropertyDescriptor"] = new PropertyDescriptor(new ClrFunction(Engine, "getOwnPropertyDescriptor", GetOwnPropertyDescriptor, 2, PropertyFlag.Configurable), true, false, true),
-            ["getPrototypeOf"] = new PropertyDescriptor(new ClrFunction(Engine, "getPrototypeOf", GetPrototypeOf, 1, PropertyFlag.Configurable), true, false, true),
-            ["has"] = new PropertyDescriptor(new ClrFunction(Engine, "has", Has, 2, PropertyFlag.Configurable), true, false, true),
-            ["isExtensible"] = new PropertyDescriptor(new ClrFunction(Engine, "isExtensible", IsExtensible, 1, PropertyFlag.Configurable), true, false, true),
-            ["ownKeys"] = new PropertyDescriptor(new ClrFunction(Engine, "ownKeys", OwnKeys, 1, PropertyFlag.Configurable), true, false, true),
-            ["preventExtensions"] = new PropertyDescriptor(new ClrFunction(Engine, "preventExtensions", PreventExtensions, 1, PropertyFlag.Configurable), true, false, true),
-            ["set"] = new PropertyDescriptor(new ClrFunction(Engine, "set", Set, 3, PropertyFlag.Configurable), true, false, true),
-            ["setPrototypeOf"] = new PropertyDescriptor(new ClrFunction(Engine, "setPrototypeOf", SetPrototypeOf, 2, PropertyFlag.Configurable), true, false, true),
-        };
-        SetProperties(properties);
-
-        var symbols = new SymbolDictionary(1)
-        {
-            [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("Reflect", false, false, true)
-        };
-        SetSymbols(symbols);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
     }
 
+    [JsFunction(Length = 3)]
     private JsValue Apply(JsValue thisObject, JsCallArguments arguments)
     {
         var target = arguments.At(0);
@@ -73,6 +54,7 @@ internal sealed class ReflectInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-reflect.construct
     /// </summary>
+    [JsFunction(Length = 2)]
     private JsValue Construct(JsValue thisObject, JsCallArguments arguments)
     {
         var target = AssertConstructor(_engine, arguments.At(0));
@@ -88,6 +70,7 @@ internal sealed class ReflectInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-reflect.defineproperty
     /// </summary>
+    [JsFunction(Length = 3)]
     private JsValue DefineProperty(JsValue thisObject, JsCallArguments arguments)
     {
         var target = arguments.At(0) as ObjectInstance;
@@ -105,6 +88,7 @@ internal sealed class ReflectInstance : ObjectInstance
         return target.DefineOwnProperty(key, desc);
     }
 
+    [JsFunction(Length = 2)]
     private JsValue DeleteProperty(JsValue thisObject, JsCallArguments arguments)
     {
         var o = arguments.At(0) as ObjectInstance;
@@ -117,6 +101,7 @@ internal sealed class ReflectInstance : ObjectInstance
         return o.Delete(property) ? JsBoolean.True : JsBoolean.False;
     }
 
+    [JsFunction(Length = 2)]
     private JsValue Has(JsValue thisObject, JsCallArguments arguments)
     {
         var o = arguments.At(0) as ObjectInstance;
@@ -129,6 +114,7 @@ internal sealed class ReflectInstance : ObjectInstance
         return o.HasProperty(property) ? JsBoolean.True : JsBoolean.False;
     }
 
+    [JsFunction(Length = 3)]
     private JsValue Set(JsValue thisObject, JsCallArguments arguments)
     {
         var target = arguments.At(0);
@@ -145,6 +131,7 @@ internal sealed class ReflectInstance : ObjectInstance
         return o.Set(property, value, receiver);
     }
 
+    [JsFunction(Length = 2)]
     private JsValue Get(JsValue thisObject, JsCallArguments arguments)
     {
         var target = arguments.At(0);
@@ -159,6 +146,7 @@ internal sealed class ReflectInstance : ObjectInstance
         return o.Get(property, receiver);
     }
 
+    [JsFunction(Length = 2)]
     private JsValue GetOwnPropertyDescriptor(JsValue thisObject, JsCallArguments arguments)
     {
         if (!arguments.At(0).IsObject())
@@ -168,6 +156,7 @@ internal sealed class ReflectInstance : ObjectInstance
         return _realm.Intrinsics.Object.GetOwnPropertyDescriptor(Undefined, arguments);
     }
 
+    [JsFunction(Length = 1)]
     private JsValue OwnKeys(JsValue thisObject, JsCallArguments arguments)
     {
         var o = arguments.At(0) as ObjectInstance;
@@ -180,6 +169,7 @@ internal sealed class ReflectInstance : ObjectInstance
         return _realm.Intrinsics.Array.CreateArrayFromList(keys);
     }
 
+    [JsFunction(Length = 1)]
     private JsValue IsExtensible(JsValue thisObject, JsCallArguments arguments)
     {
         var o = arguments.At(0) as ObjectInstance;
@@ -191,6 +181,7 @@ internal sealed class ReflectInstance : ObjectInstance
         return o.Extensible;
     }
 
+    [JsFunction(Length = 1)]
     private JsValue PreventExtensions(JsValue thisObject, JsCallArguments arguments)
     {
         var o = arguments.At(0) as ObjectInstance;
@@ -202,6 +193,7 @@ internal sealed class ReflectInstance : ObjectInstance
         return o.PreventExtensions();
     }
 
+    [JsFunction(Length = 1)]
     private JsValue GetPrototypeOf(JsValue thisObject, JsCallArguments arguments)
     {
         var target = arguments.At(0);
@@ -214,6 +206,7 @@ internal sealed class ReflectInstance : ObjectInstance
         return _realm.Intrinsics.Object.GetPrototypeOf(Undefined, arguments);
     }
 
+    [JsFunction(Length = 2)]
     private JsValue SetPrototypeOf(JsValue thisObject, JsCallArguments arguments)
     {
         var target = arguments.At(0);

@@ -1,14 +1,15 @@
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.Json;
 
-internal sealed class JsonInstance : ObjectInstance
+[JsObject]
+internal sealed partial class JsonInstance : ObjectInstance
 {
     private readonly Realm _realm;
+
+    [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString JsonToStringTag = new("JSON");
 
     internal JsonInstance(
         Engine engine,
@@ -22,25 +23,14 @@ internal sealed class JsonInstance : ObjectInstance
 
     protected override void Initialize()
     {
-        var properties = new PropertyDictionary(4, checkExistingKeys: false)
-        {
-            ["parse"] = new PropertyDescriptor(new ClrFunction(Engine, "parse", Parse, 2, PropertyFlag.Configurable), true, false, true),
-            ["stringify"] = new PropertyDescriptor(new ClrFunction(Engine, "stringify", Stringify, 3, PropertyFlag.Configurable), true, false, true),
-            ["rawJSON"] = new PropertyDescriptor(new ClrFunction(Engine, "rawJSON", RawJSON, 1, PropertyFlag.Configurable), true, false, true),
-            ["isRawJSON"] = new PropertyDescriptor(new ClrFunction(Engine, "isRawJSON", IsRawJSON, 1, PropertyFlag.Configurable), true, false, true)
-        };
-        SetProperties(properties);
-
-        var symbols = new SymbolDictionary(1)
-        {
-            [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("JSON", false, false, true),
-        };
-        SetSymbols(symbols);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
     }
 
     /// <summary>
     /// https://tc39.es/proposal-json-parse-with-source/#sec-json.israwjson
     /// </summary>
+    [JsFunction(Length = 1)]
     private static JsValue IsRawJSON(JsValue thisObject, JsCallArguments arguments)
     {
         var o = arguments.At(0);
@@ -52,6 +42,7 @@ internal sealed class JsonInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/proposal-json-parse-with-source/#sec-json.rawjson
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsValue RawJSON(JsValue thisObject, JsCallArguments arguments)
     {
         var text = arguments.At(0);
@@ -186,6 +177,7 @@ internal sealed class JsonInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-json.parse
     /// </summary>
+    [JsFunction(Length = 2)]
     private JsValue Parse(JsValue thisObject, JsCallArguments arguments)
     {
         var jsonString = TypeConverter.ToString(arguments.At(0));
@@ -209,6 +201,7 @@ internal sealed class JsonInstance : ObjectInstance
         }
     }
 
+    [JsFunction(Length = 3)]
     private JsValue Stringify(JsValue thisObject, JsCallArguments arguments)
     {
         var value = arguments.At(0);
