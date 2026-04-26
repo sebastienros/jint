@@ -39,11 +39,8 @@ internal sealed partial class BigIntPrototype : Prototype
     /// https://tc39.es/ecma402/#sup-bigint.prototype.tolocalestring
     /// </summary>
     [JsFunction(Length = 0)]
-    private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
+    private JsValue ToLocaleString(JsValue thisObject, JsValue locales, JsValue options)
     {
-        var locales = arguments.At(0);
-        var options = arguments.At(1);
-
         var x = ThisBigIntValue(thisObject);
 
         // Use Intl.NumberFormat for locale-aware formatting
@@ -57,7 +54,7 @@ internal sealed partial class BigIntPrototype : Prototype
     /// https://tc39.es/ecma262/#sec-bigint.prototype.valueof
     /// </summary>
     [JsFunction(Length = 0)]
-    private JsValue ValueOf(JsValue thisObject, JsCallArguments arguments)
+    private JsValue ValueOf(JsValue thisObject)
     {
         if (thisObject is BigIntInstance ni)
         {
@@ -77,11 +74,9 @@ internal sealed partial class BigIntPrototype : Prototype
     /// https://tc39.es/ecma262/#sec-bigint.prototype.tostring
     /// </summary>
     [JsFunction(Length = 0, Name = "toString")]
-    private JsValue ToBigIntString(JsValue thisObject, JsCallArguments arguments)
+    private JsValue ToBigIntString(JsValue thisObject, JsValue radix)
     {
         var x = ThisBigIntValue(thisObject);
-
-        var radix = arguments.At(0);
 
         var radixMV = radix.IsUndefined()
             ? 10

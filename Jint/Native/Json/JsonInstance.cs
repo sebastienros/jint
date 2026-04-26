@@ -30,10 +30,9 @@ internal sealed partial class JsonInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/proposal-json-parse-with-source/#sec-json.israwjson
     /// </summary>
-    [JsFunction(Length = 1)]
-    private static JsValue IsRawJSON(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction]
+    private static JsValue IsRawJSON(JsValue thisObject, JsValue o)
     {
-        var o = arguments.At(0);
         // If Type(O) is Object and O has an [[IsRawJSON]] internal slot, return true.
         // Return false otherwise.
         return o is JsRawJson;
@@ -42,11 +41,9 @@ internal sealed partial class JsonInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/proposal-json-parse-with-source/#sec-json.rawjson
     /// </summary>
-    [JsFunction(Length = 1)]
-    private JsValue RawJSON(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction]
+    private JsValue RawJSON(JsValue thisObject, JsValue text)
     {
-        var text = arguments.At(0);
-
         // 1. Let jsonString be ? ToString(text).
         var jsonString = TypeConverter.ToString(text);
 
@@ -177,11 +174,10 @@ internal sealed partial class JsonInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-json.parse
     /// </summary>
-    [JsFunction(Length = 2)]
-    private JsValue Parse(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction]
+    private JsValue Parse(JsValue thisObject, JsValue text, JsValue reviver)
     {
-        var jsonString = TypeConverter.ToString(arguments.At(0));
-        var reviver = arguments.At(1);
+        var jsonString = TypeConverter.ToString(text);
 
         var parser = new JsonParser(_engine);
 
@@ -201,13 +197,9 @@ internal sealed partial class JsonInstance : ObjectInstance
         }
     }
 
-    [JsFunction(Length = 3)]
-    private JsValue Stringify(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction]
+    private JsValue Stringify(JsValue thisObject, JsValue value, JsValue replacer, JsValue space)
     {
-        var value = arguments.At(0);
-        var replacer = arguments.At(1);
-        var space = arguments.At(2);
-
         if (value.IsUndefined() && replacer.IsUndefined())
         {
             return Undefined;
