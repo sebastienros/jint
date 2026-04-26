@@ -4,7 +4,6 @@ using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.Symbol;
 
@@ -12,9 +11,28 @@ namespace Jint.Native.Symbol;
 /// 19.4
 /// http://www.ecma-international.org/ecma-262/6.0/index.html#sec-symbol-objects
 /// </summary>
-internal sealed class SymbolConstructor : Constructor
+[JsObject]
+internal sealed partial class SymbolConstructor : Constructor
 {
     private static readonly JsString _functionName = new JsString("Symbol");
+
+    // Well-known symbol aliases. Each forwards a JsSymbol from GlobalSymbolRegistry under the
+    // Symbol.X spec name, with PropertyFlag.AllForbidden (non-writable, non-enumerable, non-configurable).
+    [JsProperty(Name = "hasInstance")] private static readonly JsSymbol _hasInstance = GlobalSymbolRegistry.HasInstance;
+    [JsProperty(Name = "isConcatSpreadable")] private static readonly JsSymbol _isConcatSpreadable = GlobalSymbolRegistry.IsConcatSpreadable;
+    [JsProperty(Name = "iterator")] private static readonly JsSymbol _iterator = GlobalSymbolRegistry.Iterator;
+    [JsProperty(Name = "match")] private static readonly JsSymbol _match = GlobalSymbolRegistry.Match;
+    [JsProperty(Name = "matchAll")] private static readonly JsSymbol _matchAll = GlobalSymbolRegistry.MatchAll;
+    [JsProperty(Name = "replace")] private static readonly JsSymbol _replace = GlobalSymbolRegistry.Replace;
+    [JsProperty(Name = "search")] private static readonly JsSymbol _search = GlobalSymbolRegistry.Search;
+    [JsProperty(Name = "species")] private static readonly JsSymbol _species = GlobalSymbolRegistry.Species;
+    [JsProperty(Name = "split")] private static readonly JsSymbol _split = GlobalSymbolRegistry.Split;
+    [JsProperty(Name = "toPrimitive")] private static readonly JsSymbol _toPrimitive = GlobalSymbolRegistry.ToPrimitive;
+    [JsProperty(Name = "toStringTag")] private static readonly JsSymbol _toStringTag = GlobalSymbolRegistry.ToStringTag;
+    [JsProperty(Name = "unscopables")] private static readonly JsSymbol _unscopables = GlobalSymbolRegistry.Unscopables;
+    [JsProperty(Name = "asyncIterator")] private static readonly JsSymbol _asyncIterator = GlobalSymbolRegistry.AsyncIterator;
+    [JsProperty(Name = "dispose")] private static readonly JsSymbol _dispose = GlobalSymbolRegistry.Dispose;
+    [JsProperty(Name = "asyncDispose")] private static readonly JsSymbol _asyncDispose = GlobalSymbolRegistry.AsyncDispose;
 
     internal SymbolConstructor(
         Engine engine,
@@ -31,33 +49,7 @@ internal sealed class SymbolConstructor : Constructor
 
     public SymbolPrototype PrototypeObject { get; }
 
-    protected override void Initialize()
-    {
-        const PropertyFlag lengthFlags = PropertyFlag.Configurable;
-        const PropertyFlag propertyFlags = PropertyFlag.AllForbidden;
-
-        var properties = new PropertyDictionary(17, checkExistingKeys: false)
-        {
-            ["for"] = new PropertyDescriptor(new ClrFunction(Engine, "for", For, 1, lengthFlags), PropertyFlag.Writable | PropertyFlag.Configurable),
-            ["keyFor"] = new PropertyDescriptor(new ClrFunction(Engine, "keyFor", KeyFor, 1, lengthFlags), PropertyFlag.Writable | PropertyFlag.Configurable),
-            ["hasInstance"] = new PropertyDescriptor(GlobalSymbolRegistry.HasInstance, propertyFlags),
-            ["isConcatSpreadable"] = new PropertyDescriptor(GlobalSymbolRegistry.IsConcatSpreadable, propertyFlags),
-            ["iterator"] = new PropertyDescriptor(GlobalSymbolRegistry.Iterator, propertyFlags),
-            ["match"] = new PropertyDescriptor(GlobalSymbolRegistry.Match, propertyFlags),
-            ["matchAll"] = new PropertyDescriptor(GlobalSymbolRegistry.MatchAll, propertyFlags),
-            ["replace"] = new PropertyDescriptor(GlobalSymbolRegistry.Replace, propertyFlags),
-            ["search"] = new PropertyDescriptor(GlobalSymbolRegistry.Search, propertyFlags),
-            ["species"] = new PropertyDescriptor(GlobalSymbolRegistry.Species, propertyFlags),
-            ["split"] = new PropertyDescriptor(GlobalSymbolRegistry.Split, propertyFlags),
-            ["toPrimitive"] = new PropertyDescriptor(GlobalSymbolRegistry.ToPrimitive, propertyFlags),
-            ["toStringTag"] = new PropertyDescriptor(GlobalSymbolRegistry.ToStringTag, propertyFlags),
-            ["unscopables"] = new PropertyDescriptor(GlobalSymbolRegistry.Unscopables, propertyFlags),
-            ["asyncIterator"] = new PropertyDescriptor(GlobalSymbolRegistry.AsyncIterator, propertyFlags),
-            ["dispose"] = new PropertyDescriptor(GlobalSymbolRegistry.Dispose, propertyFlags),
-            ["asyncDispose"] = new PropertyDescriptor(GlobalSymbolRegistry.AsyncDispose, propertyFlags),
-        };
-        SetProperties(properties);
-    }
+    protected override void Initialize() => CreateProperties_Generated();
 
     /// <summary>
     /// http://www.ecma-international.org/ecma-262/6.0/index.html#sec-symbol-description
@@ -76,9 +68,10 @@ internal sealed class SymbolConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-symbol.for
     /// </summary>
-    private JsValue For(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1, Name = "for")]
+    private JsValue For(JsValue thisObject, JsValue key)
     {
-        var stringKey = TypeConverter.ToJsString(arguments.At(0));
+        var stringKey = TypeConverter.ToJsString(key);
 
         // 2. ReturnIfAbrupt(stringKey).
 
@@ -94,12 +87,13 @@ internal sealed class SymbolConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-symbol.keyfor
     /// </summary>
-    private JsValue KeyFor(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue KeyFor(JsValue thisObject, JsValue sym)
     {
-        var symbol = arguments.At(0) as JsSymbol;
+        var symbol = sym as JsSymbol;
         if (symbol is null)
         {
-            Throw.TypeError(_realm, $"{arguments.At(0)} is not a symbol");
+            Throw.TypeError(_realm, $"{sym} is not a symbol");
         }
 
         if (_engine.GlobalSymbolRegistry.TryGetSymbol(symbol._value, out var e))

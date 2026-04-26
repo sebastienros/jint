@@ -3,14 +3,14 @@ using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.BigInt;
 
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-the-bigint-constructor
 /// </summary>
-internal sealed class BigIntConstructor : Constructor
+[JsObject]
+internal sealed partial class BigIntConstructor : Constructor
 {
     private static readonly JsString _functionName = new("BigInt");
 
@@ -27,23 +27,16 @@ internal sealed class BigIntConstructor : Constructor
         _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
     }
 
-    protected override void Initialize()
-    {
-        var properties = new PropertyDictionary(2, checkExistingKeys: false)
-        {
-            ["asIntN"] = new(new ClrFunction(Engine, "asIntN", AsIntN, 2, PropertyFlag.Configurable), true, false, true),
-            ["asUintN"] = new(new ClrFunction(Engine, "asUintN", AsUintN, 2, PropertyFlag.Configurable), true, false, true),
-        };
-        SetProperties(properties);
-    }
+    protected override void Initialize() => CreateProperties_Generated();
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-bigint.asintn
     /// </summary>
-    private JsValue AsIntN(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private JsValue AsIntN(JsValue thisObject, JsValue bitsValue, JsValue bigintValue)
     {
-        var bits = (int) TypeConverter.ToIndex(_realm, arguments.At(0));
-        var bigint = arguments.At(1).ToBigInteger(_engine);
+        var bits = (int) TypeConverter.ToIndex(_realm, bitsValue);
+        var bigint = bigintValue.ToBigInteger(_engine);
 
         var mod = TypeConverter.BigIntegerModulo(bigint, BigInteger.Pow(2, bits));
         if (bits > 0 && mod >= BigInteger.Pow(2, bits - 1))
@@ -57,10 +50,11 @@ internal sealed class BigIntConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-bigint.asuintn
     /// </summary>
-    private JsValue AsUintN(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private JsValue AsUintN(JsValue thisObject, JsValue bitsValue, JsValue bigintValue)
     {
-        var bits = (int) TypeConverter.ToIndex(_realm, arguments.At(0));
-        var bigint = arguments.At(1).ToBigInteger(_engine);
+        var bits = (int) TypeConverter.ToIndex(_realm, bitsValue);
+        var bigint = bigintValue.ToBigInteger(_engine);
 
         var result = TypeConverter.BigIntegerModulo(bigint, BigInteger.Pow(2, bits));
 
