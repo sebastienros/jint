@@ -60,12 +60,27 @@ public class Host
         Engine.EnterExecutionContext(newContext);
     }
 
+    /// <summary>
+    /// Rebuilds the global object and environment for an existing realm, then runs
+    /// <see cref="PostInitialize"/>. Used by <see cref="Engine.ResetState"/> to
+    /// reset execution state without recreating Intrinsics.
+    /// </summary>
+    internal void RebuildGlobals(Realm realm)
+    {
+        var globalObject = CreateGlobalObject(realm);
+        var globalEnv = CreateGlobalEnvironment(globalObject);
+        realm.GlobalObject = globalObject;
+        realm.GlobalEnv = globalEnv;
+
+        PostInitialize();
+    }
+
     internal virtual GlobalEnvironment CreateGlobalEnvironment(ObjectInstance globalObject)
     {
         return JintEnvironment.NewGlobalEnvironment(Engine, globalObject, globalObject);
     }
 
-    protected internal virtual ObjectInstance CreateGlobalObject(Realm realm)
+    protected virtual ObjectInstance CreateGlobalObject(Realm realm)
     {
         var globalObject = new GlobalObject(Engine, realm);
         // Because the properties might need some of the built-in object

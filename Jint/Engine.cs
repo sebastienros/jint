@@ -19,6 +19,7 @@ using Jint.Runtime.Interop.Reflection;
 using Jint.Runtime.Interpreter;
 using Jint.Runtime.Interpreter.Expressions;
 using Environment = Jint.Runtime.Environments.Environment;
+using Volatile = System.Threading.Volatile;
 
 namespace Jint;
 
@@ -42,6 +43,21 @@ public sealed partial class Engine : IDisposable
     internal EventLoop EventLoop => _eventLoop;
 
     private readonly Agent _agent = new();
+
+    /// <summary>
+    /// Monotonically increasing generation counter, bumped by <see cref="ResetState"/>.
+    /// Captured by async settle closures at registration time so that late-arriving
+    /// <c>Task.ContinueWith</c> callbacks from a prior execution cycle are silently
+    /// dropped instead of enqueuing stale work onto the event loop.
+    /// </summary>
+    private volatile int _executionGeneration;
+
+    /// <summary>
+    /// Number of outstanding <c>AwaitPromiseSettlementAsync</c> calls.
+    /// Incremented before the async wait loop, decremented in its finally block.
+    /// Checked by <see cref="ResetState"/> to prevent reset while an async evaluation is suspended.
+    /// </summary>
+    internal int _pendingAsyncOperations;
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-IncrementModuleAsyncEvaluationCount
@@ -180,17 +196,31 @@ public sealed partial class Engine : IDisposable
     /// The built-in prototypes (Array.prototype, Object.prototype, etc.) are preserved as-is; if prior
     /// scripts mutated them (e.g. <c>Array.prototype.custom = ...</c>), those mutations will persist.
     /// For sandboxed/trusted scripts that do not modify built-in prototypes, this is safe and fast.
-    /// This method must only be called when no script is executing on the engine (i.e., between
-    /// <see cref="Execute(string, string?)"/> / <see cref="EvaluateAsync(string, string?, System.Threading.CancellationToken)"/> calls).
+    /// If the debugger has been used (<see cref="Debugger"/>), its internal state (breakpoints, step mode)
+    /// is preserved across resets.
+    /// Programmatic module registrations (<see cref="ModuleOperations.Add(string, string)"/>) are cleared;
+    /// re-register them after reset if needed.
+    /// Custom <see cref="Host"/> subclasses should place per-execution setup in
+    /// <see cref="Host.PostInitialize"/> (which is re-invoked on reset), not in
+    /// <see cref="Host.InitializeHostDefinedRealm"/> (which only runs at construction time).
+    /// This method must only be called when no script is executing on the engine and no
+    /// <see cref="EvaluateAsync(string, string?, System.Threading.CancellationToken)"/> Task is pending.
     /// Calling it from within a JavaScript callback or during active execution throws <see cref="InvalidOperationException"/>.
     /// </remarks>
-    /// <exception cref="InvalidOperationException">Thrown when called during script execution.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when called during script execution or while an async evaluation is pending.</exception>
     public void ResetState()
     {
         if (_activeEvaluationContext is not null)
         {
             Throw.InvalidOperationException("ResetState cannot be called while script is executing");
         }
+
+        if (Volatile.Read(ref _pendingAsyncOperations) > 0)
+        {
+            Throw.InvalidOperationException("ResetState cannot be called while an async evaluation (EvaluateAsync/ExecuteAsync/InvokeAsync) is pending");
+        }
+
+        unchecked { _executionGeneration++; }
 
         // Capture realm before clearing execution context stack
         var realm = Realm;
@@ -212,10 +242,7 @@ public sealed partial class Engine : IDisposable
         _realmInConstruction = realm;
         try
         {
-            var newGlobalObject = _host.CreateGlobalObject(realm);
-            var newGlobalEnv = _host.CreateGlobalEnvironment(newGlobalObject);
-            realm.GlobalObject = newGlobalObject;
-            realm.GlobalEnv = newGlobalEnv;
+            _host.RebuildGlobals(realm);
             realm._templateMap.Clear();
         }
         finally
@@ -236,17 +263,8 @@ public sealed partial class Engine : IDisposable
 
         // Clear per-execution caches
         GlobalSymbolRegistry.Reset();
-        Modules.Clear();
 
-        // Clear object wrapper identity cache
-        if (_objectWrapperCache is not null)
-        {
-#if SUPPORTS_WEAK_TABLE_CLEAR
-            _objectWrapperCache.Clear();
-#else
-            _objectWrapperCache = null;
-#endif
-        }
+        ClearObjectWrapperCache();
 
         // Re-apply options (registers CLR interop globals, require(), etc.)
         Options.Apply(this);
@@ -585,9 +603,15 @@ public sealed partial class Engine : IDisposable
 
         var (resolve, reject) = promise.CreateResolvingFunctions();
 
+        var capturedGeneration = _executionGeneration;
 
         Action<JsValue> SettleWith(Function settle) => value =>
         {
+            if (capturedGeneration != _executionGeneration)
+            {
+                return;
+            }
+
             // Enqueue to event loop to ensure thread safety - the settle operation
             // may be called from a background thread (e.g., Task.ContinueWith callback)
             // but JavaScript execution must happen on the thread that owns the Engine.
@@ -623,8 +647,15 @@ public sealed partial class Engine : IDisposable
 
         var (resolve, reject) = promise.CreateResolvingFunctions();
 
+        var capturedGeneration = _executionGeneration;
+
         Action<object?> SettleWithClr(Function settle) => clrValue =>
         {
+            if (capturedGeneration != _executionGeneration)
+            {
+                return;
+            }
+
             // Enqueue to event loop to ensure thread safety - both the FromObject conversion
             // and the settle operation are performed on the main thread, not the background
             // thread that completed the Task.
@@ -1952,6 +1983,11 @@ public sealed partial class Engine : IDisposable
     }
 
     public void Dispose()
+    {
+        ClearObjectWrapperCache();
+    }
+
+    private void ClearObjectWrapperCache()
     {
         if (_objectWrapperCache is null)
         {

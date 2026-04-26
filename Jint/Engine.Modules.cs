@@ -74,12 +74,6 @@ public partial class Engine
 
         internal IModuleLoader ModuleLoader { get; }
 
-        internal void Clear()
-        {
-            _modules.Clear();
-            _builders.Clear();
-        }
-
         internal Module Load(string? referencingModuleLocation, ModuleRequest request)
         {
             var moduleResolution = ModuleLoader.Resolve(referencingModuleLocation, request);

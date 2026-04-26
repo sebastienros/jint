@@ -1,4 +1,5 @@
 using Jint.Native;
+using Jint.Native.Object;
 using Jint.Native.Promise;
 using Jint.Runtime;
 
@@ -612,65 +613,44 @@ public class EngineResetTests
     [Fact]
     public async Task ResetState_StaleAsyncCallbacksDroppedAfterReset()
     {
+        var staleCallbackExecuted = false;
+
         var engine = new Engine(options =>
         {
             options.ExperimentalFeatures = ExperimentalFeature.TaskInterop;
+            options.TimeoutInterval(TimeSpan.FromMilliseconds(100));
+            options.Constraints.PromiseTimeout = TimeSpan.FromMilliseconds(100);
         });
 
         var tcs = new TaskCompletionSource<int>();
 
         engine.SetValue("getPendingValue", new Func<Task<int>>(() => tcs.Task));
+        engine.SetValue("setFlag", new Action(() => staleCallbackExecuted = true));
 
-        // Start an async evaluation that will be pending (tcs not yet completed)
-        var evalTask = engine.EvaluateAsync("getPendingValue()");
+        // Start async eval — will timeout because tcs is never completed in time
+        try
+        {
+            await engine.EvaluateAsync("getPendingValue().then(() => setFlag())");
+        }
+        catch
+        {
+            // Expected: timeout
+        }
 
-        // Reset while the Task is still pending — the ContinueWith callback
-        // will fire later and enqueue onto the event loop with a stale generation
+        // Now the async operation is no longer pending — safe to reset
         engine.ResetState();
 
-        // Complete the old task AFTER reset — its callback should be silently dropped
+        // Complete the old task AFTER reset — the settle closure captured the old
+        // generation, so it should be silently dropped
         tcs.SetResult(999);
-
-        // New execution on the reset engine should work cleanly
-        engine.SetValue("getValue", new Func<Task<int>>(() => Task.FromResult(42)));
-        var result = await engine.EvaluateAsync("getValue()");
-        Assert.Equal(42, result.AsNumber());
-    }
-
-    [Fact]
-    public async Task ResetState_MultipleStaleCallbacksAllDropped()
-    {
-        var engine = new Engine(options =>
-        {
-            options.ExperimentalFeatures = ExperimentalFeature.TaskInterop;
-        });
-
-        var sources = new List<TaskCompletionSource<int>>();
-
-        for (var i = 0; i < 5; i++)
-        {
-            var tcs = new TaskCompletionSource<int>();
-            sources.Add(tcs);
-            engine.SetValue($"pending{i}", new Func<Task<int>>(() => tcs.Task));
-            _ = engine.EvaluateAsync($"pending{i}()");
-        }
-
-        engine.ResetState();
-
-        // Complete all old tasks after reset
-        for (var i = 0; i < sources.Count; i++)
-        {
-            sources[i].SetResult(i);
-        }
-
-        // Give callbacks a moment to fire and enqueue stale events
         await Task.Delay(200);
 
-        // Engine should be clean — stale events dropped by generation check
-        Assert.Equal(1, engine.Evaluate("1").AsNumber());
+        // Verify the stale callback did NOT execute
+        Assert.False(staleCallbackExecuted);
 
-        var result = await engine.EvaluateAsync("Promise.resolve(77)");
-        Assert.Equal(77, result.AsNumber());
+        // New execution should work cleanly
+        var result = await engine.EvaluateAsync("Promise.resolve(42)");
+        Assert.Equal(42, result.AsNumber());
     }
 
     [Fact]
@@ -705,5 +685,135 @@ public class EngineResetTests
             })()
         ");
         Assert.Equal(6, result.AsNumber());
+    }
+
+    // ── Reviewer-requested tests ────────────────────────────────────────
+
+    [Fact]
+    public async Task ResetState_StaleContinueWithDoesNotExecuteObservableWork()
+    {
+        var staleWorkExecuted = false;
+
+        var engine = new Engine(options =>
+        {
+            options.ExperimentalFeatures = ExperimentalFeature.TaskInterop;
+            options.TimeoutInterval(TimeSpan.FromMilliseconds(100));
+            options.Constraints.PromiseTimeout = TimeSpan.FromMilliseconds(100);
+        });
+
+        var tcs = new TaskCompletionSource<int>();
+        engine.SetValue("getPending", new Func<Task<int>>(() => tcs.Task));
+        engine.SetValue("flagStale", new Action(() => staleWorkExecuted = true));
+
+        try
+        {
+            await engine.EvaluateAsync("getPending().then(() => flagStale())");
+        }
+        catch
+        {
+            // Expected: timeout
+        }
+
+        engine.ResetState();
+
+        // Late completion: the settle closure captured the old generation
+        tcs.SetResult(42);
+        await Task.Delay(200);
+
+        // The stale .then(() => flagStale()) must NOT have executed
+        Assert.False(staleWorkExecuted, "Stale ContinueWith callback should have been dropped by generation check");
+    }
+
+    [Fact]
+    public void ResetState_ModulesRegisteredViaConfigureSurviveReset()
+    {
+        var engine = new Engine(options =>
+        {
+            options.Modules.RegisterRequire = true;
+            options.Configure(e => e.Modules.Add("cfgLib", b => b.ExportValue("val", JsNumber.Create(99))));
+        });
+
+        var ns = engine.Modules.Import("cfgLib");
+        Assert.Equal(99, ns.Get("val").AsNumber());
+
+        engine.ResetState();
+
+        // Modules registered via Options.Configure are re-applied on reset
+        ns = engine.Modules.Import("cfgLib");
+        Assert.Equal(99, ns.Get("val").AsNumber());
+    }
+
+    [Fact]
+    public void ResetState_ProgrammaticModuleRegistrationsClearedAfterReset()
+    {
+        var engine = new Engine(options =>
+        {
+            options.Modules.RegisterRequire = true;
+        });
+
+        engine.Modules.Add("myLib", builder => builder.ExportValue("version", JsNumber.Create(1)));
+        var ns = engine.Modules.Import("myLib");
+        Assert.Equal(1, ns.Get("version").AsNumber());
+
+        engine.ResetState();
+
+        // Module registration is gone after reset — must re-register
+        engine.Modules.Add("myLib", builder => builder.ExportValue("version", JsNumber.Create(2)));
+        ns = engine.Modules.Import("myLib");
+        Assert.Equal(2, ns.Get("version").AsNumber());
+    }
+
+    [Fact]
+    public void ResetState_CustomHostPostInitializeSurvivesReset()
+    {
+        var engine = new Engine(options =>
+        {
+            options.Host.Factory = _ => new TestHostWithPostInit();
+        });
+
+        // PostInitialize should have registered the global
+        Assert.Equal(42, engine.Evaluate("hostGlobal").AsNumber());
+
+        engine.Execute("var x = 1;");
+        engine.ResetState();
+
+        // After reset, PostInitialize is re-called — hostGlobal should be present again
+        Assert.Equal(42, engine.Evaluate("hostGlobal").AsNumber());
+        // But user state should be gone
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("x"));
+    }
+
+    [Fact]
+    public async Task ResetState_ThrowsWhileAsyncEvaluationIsPendingThenRecoverable()
+    {
+        var engine = new Engine(options =>
+        {
+            options.ExperimentalFeatures = ExperimentalFeature.TaskInterop;
+        });
+
+        var tcs = new TaskCompletionSource<int>();
+        engine.SetValue("getPending", new Func<Task<int>>(() => tcs.Task));
+
+        var evalTask = engine.EvaluateAsync("getPending()");
+
+        // Cannot reset while async is pending
+        Assert.Throws<InvalidOperationException>(() => engine.ResetState());
+
+        // Complete and await so engine is usable
+        tcs.SetResult(1);
+        var result = await evalTask;
+        Assert.Equal(1, result.AsNumber());
+
+        // Now reset should work
+        engine.ResetState();
+        Assert.Equal(2, engine.Evaluate("2").AsNumber());
+    }
+
+    private sealed class TestHostWithPostInit : Host
+    {
+        protected override void PostInitialize()
+        {
+            Engine.SetValue("hostGlobal", 42);
+        }
     }
 }
