@@ -33,10 +33,8 @@ internal sealed partial class MathInstance : ObjectInstance
     }
 
     [JsFunction(Length = 1)]
-    private static JsValue Abs(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Abs(JsValue thisObject, [ToNumber] double x)
     {
-        var x = TypeConverter.ToNumber(arguments.At(0));
-
         if (double.IsNaN(x))
         {
             return JsNumber.DoubleNaN;
@@ -54,10 +52,8 @@ internal sealed partial class MathInstance : ObjectInstance
     }
 
     [JsFunction(Length = 1)]
-    private static JsValue Acos(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Acos(JsValue thisObject, [ToNumber] double x)
     {
-        var x = TypeConverter.ToNumber(arguments.At(0));
-
         if (double.IsNaN(x) || (x > 1) || (x < -1))
         {
             return JsNumber.DoubleNaN;
@@ -71,10 +67,8 @@ internal sealed partial class MathInstance : ObjectInstance
     }
 
     [JsFunction(Length = 1)]
-    private static JsValue Acosh(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Acosh(JsValue thisObject, [ToNumber] double x)
     {
-        var x = TypeConverter.ToNumber(arguments.At(0));
-
         if (double.IsNaN(x) || x < 1)
         {
             return JsNumber.DoubleNaN;
@@ -84,10 +78,8 @@ internal sealed partial class MathInstance : ObjectInstance
     }
 
     [JsFunction(Length = 1)]
-    private static JsValue Asin(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Asin(JsValue thisObject, [ToNumber] double x)
     {
-        var x = TypeConverter.ToNumber(arguments.At(0));
-
         if (double.IsNaN(x) || (x > 1) || (x < -1))
         {
             return JsNumber.DoubleNaN;
@@ -101,9 +93,8 @@ internal sealed partial class MathInstance : ObjectInstance
     }
 
     [JsFunction(Length = 1)]
-    private static JsValue Asinh(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Asinh(JsValue thisObject, [ToNumber] double x)
     {
-        var x = TypeConverter.ToNumber(arguments.At(0));
         if (double.IsInfinity(x) || NumberInstance.IsPositiveZero(x) || NumberInstance.IsNegativeZero(x))
         {
             return x;
@@ -113,10 +104,8 @@ internal sealed partial class MathInstance : ObjectInstance
     }
 
     [JsFunction(Length = 1)]
-    private static JsValue Atan(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Atan(JsValue thisObject, [ToNumber] double x)
     {
-        var x = TypeConverter.ToNumber(arguments.At(0));
-
         if (double.IsNaN(x))
         {
             return JsNumber.DoubleNaN;
@@ -137,10 +126,8 @@ internal sealed partial class MathInstance : ObjectInstance
         return System.Math.Atan(x);
     }
     [JsFunction(Length = 1)]
-    private static JsValue Atanh(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Atanh(JsValue thisObject, [ToNumber] double x)
     {
-        var x = TypeConverter.ToNumber(arguments.At(0));
-
         if (double.IsNaN(x))
         {
             return JsNumber.DoubleNaN;
@@ -155,11 +142,8 @@ internal sealed partial class MathInstance : ObjectInstance
     }
 
     [JsFunction(Length = 2)]
-    private static JsValue Atan2(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Atan2(JsValue thisObject, [ToNumber] double y, [ToNumber] double x)
     {
-        var y = TypeConverter.ToNumber(arguments.At(0));
-        var x = TypeConverter.ToNumber(arguments.At(1));
-
         // If either x or y is NaN, the result is NaN.
         if (double.IsNaN(x) || double.IsNaN(y))
         {
@@ -304,10 +288,8 @@ internal sealed partial class MathInstance : ObjectInstance
     }
 
     [JsFunction(Length = 1)]
-    private static JsValue Ceil(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Ceil(JsValue thisObject, [ToNumber] double x)
     {
-        var x = TypeConverter.ToNumber(arguments.At(0));
-
         if (double.IsNaN(x))
         {
             return JsNumber.DoubleNaN;
@@ -340,10 +322,8 @@ internal sealed partial class MathInstance : ObjectInstance
     }
 
     [JsFunction(Length = 1)]
-    private static JsValue Cos(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Cos(JsValue thisObject, [ToNumber] double x)
     {
-        var x = TypeConverter.ToNumber(arguments.At(0));
-
         if (double.IsNaN(x))
         {
             return JsNumber.DoubleNaN;
@@ -365,10 +345,8 @@ internal sealed partial class MathInstance : ObjectInstance
     }
 
     [JsFunction(Length = 1)]
-    private static JsValue Cosh(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Cosh(JsValue thisObject, [ToNumber] double x)
     {
-        var x = TypeConverter.ToNumber(arguments.At(0));
-
         if (double.IsNaN(x))
         {
             return JsNumber.DoubleNaN;
@@ -390,10 +368,8 @@ internal sealed partial class MathInstance : ObjectInstance
     }
 
     [JsFunction(Length = 1)]
-    private static JsValue Exp(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Exp(JsValue thisObject, [ToNumber] double x)
     {
-        var x = TypeConverter.ToNumber(arguments.At(0));
-
         if (double.IsNaN(x))
         {
             return JsNumber.DoubleNaN;
@@ -415,27 +391,23 @@ internal sealed partial class MathInstance : ObjectInstance
     }
 
     [JsFunction(Length = 1)]
-    private static JsValue Expm1(JsValue thisObject, JsCallArguments arguments)
+    private static JsNumber Expm1(JsValue thisObject, [ToNumber] double x)
     {
-        var x = TypeConverter.ToNumber(arguments.At(0));
-
         if (double.IsNaN(x) || NumberInstance.IsPositiveZero(x) || NumberInstance.IsNegativeZero(x) || double.IsPositiveInfinity(x))
         {
-            return arguments.At(0);
+            return JsNumber.Create(x);
         }
         if (double.IsNegativeInfinity(x))
         {
             return JsNumber.DoubleNegativeOne;
         }
 
-        return System.Math.Exp(x) - 1.0;
+        return JsNumber.Create(System.Math.Exp(x) - 1.0);
     }
 
     [JsFunction(Length = 1)]
-    private static JsValue Floor(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Floor(JsValue thisObject, [ToNumber] double x)
     {
-        var x = TypeConverter.ToNumber(arguments.At(0));
-
         if (double.IsNaN(x))
         {
             return JsNumber.DoubleNaN;
@@ -461,10 +433,8 @@ internal sealed partial class MathInstance : ObjectInstance
     }
 
     [JsFunction(Length = 1)]
-    private static JsValue Log(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Log(JsValue thisObject, [ToNumber] double x)
     {
-        var x = TypeConverter.ToNumber(arguments.At(0));
-
         if (double.IsNaN(x))
         {
             return JsNumber.DoubleNaN;
@@ -490,10 +460,8 @@ internal sealed partial class MathInstance : ObjectInstance
     }
 
     [JsFunction(Length = 1)]
-    private static JsValue Log1p(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Log1p(JsValue thisObject, [ToNumber] double x)
     {
-        var x = TypeConverter.ToNumber(arguments.At(0));
-
         if (double.IsNaN(x))
         {
             return JsNumber.DoubleNaN;
@@ -511,17 +479,15 @@ internal sealed partial class MathInstance : ObjectInstance
 
         if (x == 0 || double.IsPositiveInfinity(x))
         {
-            return arguments.At(0);
+            return JsNumber.Create(x);
         }
 
         return System.Math.Log(1 + x);
     }
 
     [JsFunction(Length = 1)]
-    private static JsValue Log2(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Log2(JsValue thisObject, [ToNumber] double x)
     {
-        var x = TypeConverter.ToNumber(arguments.At(0));
-
         if (double.IsNaN(x))
         {
             return JsNumber.DoubleNaN;
@@ -547,10 +513,8 @@ internal sealed partial class MathInstance : ObjectInstance
     }
 
     [JsFunction(Length = 1)]
-    private static JsValue Log10(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Log10(JsValue thisObject, [ToNumber] double x)
     {
-        var x = TypeConverter.ToNumber(arguments.At(0));
-
         if (double.IsNaN(x))
         {
             return JsNumber.DoubleNaN;
@@ -642,11 +606,8 @@ internal sealed partial class MathInstance : ObjectInstance
     }
 
     [JsFunction(Length = 2)]
-    private static JsValue Pow(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Pow(JsValue thisObject, [ToNumber] double x, [ToNumber] double y)
     {
-        var x = TypeConverter.ToNumber(arguments.At(0));
-        var y = TypeConverter.ToNumber(arguments.At(1));
-
         // check easy case where values are valid
         if (x > 1 && y > 1 && x < int.MaxValue && y < int.MaxValue)
         {
@@ -797,7 +758,7 @@ internal sealed partial class MathInstance : ObjectInstance
     }
 
     [JsFunction(Length = 0)]
-    private JsValue Random(JsValue thisObject, JsCallArguments arguments)
+    private JsValue Random(JsValue thisObject)
     {
         if (_random == null)
         {
@@ -808,9 +769,8 @@ internal sealed partial class MathInstance : ObjectInstance
     }
 
     [JsFunction(Length = 1)]
-    private static JsValue Round(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Round(JsValue thisObject, [ToNumber] double x)
     {
-        var x = TypeConverter.ToNumber(arguments.At(0));
         var round = System.Math.Round(x);
         if (round.Equals(x - 0.5))
         {
@@ -856,10 +816,8 @@ internal sealed partial class MathInstance : ObjectInstance
     }
 
     [JsFunction(Length = 1)]
-    private static JsValue Sin(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Sin(JsValue thisObject, [ToNumber] double x)
     {
-        var x = TypeConverter.ToNumber(arguments.At(0));
-
         if (double.IsNaN(x))
         {
             return JsNumber.DoubleNaN;
@@ -881,10 +839,8 @@ internal sealed partial class MathInstance : ObjectInstance
     }
 
     [JsFunction(Length = 1)]
-    private static JsValue Sinh(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Sinh(JsValue thisObject, [ToNumber] double x)
     {
-        var x = TypeConverter.ToNumber(arguments.At(0));
-
         if (double.IsNaN(x))
         {
             return JsNumber.DoubleNaN;
@@ -910,31 +866,26 @@ internal sealed partial class MathInstance : ObjectInstance
     }
 
     [JsFunction(Length = 1)]
-    private static JsValue Sqrt(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Sqrt(JsValue thisObject, [ToNumber] double x)
     {
-        var x = TypeConverter.ToNumber(arguments.At(0));
         return System.Math.Sqrt(x);
     }
 
     [JsFunction(Length = 1)]
-    private static JsValue Tan(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Tan(JsValue thisObject, [ToNumber] double x)
     {
-        var x = TypeConverter.ToNumber(arguments.At(0));
         return System.Math.Tan(x);
     }
 
     [JsFunction(Length = 1)]
-    private static JsValue Tanh(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Tanh(JsValue thisObject, [ToNumber] double x)
     {
-        var x = TypeConverter.ToNumber(arguments.At(0));
         return System.Math.Tanh(x);
     }
 
     [JsFunction(Length = 1, Name = "trunc")]
-    private static JsValue Truncate(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Truncate(JsValue thisObject, [ToNumber] double x)
     {
-        var x = TypeConverter.ToNumber(arguments.At(0));
-
         if (double.IsNaN(x))
         {
             return JsNumber.DoubleNaN;
@@ -959,10 +910,8 @@ internal sealed partial class MathInstance : ObjectInstance
     }
 
     [JsFunction(Length = 1)]
-    private static JsValue Sign(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Sign(JsValue thisObject, [ToNumber] double x)
     {
-        var x = TypeConverter.ToNumber(arguments.At(0));
-
         if (double.IsNaN(x))
         {
             return JsNumber.DoubleNaN;
@@ -987,10 +936,8 @@ internal sealed partial class MathInstance : ObjectInstance
     }
 
     [JsFunction(Length = 1)]
-    private static JsValue Cbrt(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Cbrt(JsValue thisObject, [ToNumber] double x)
     {
-        var x = TypeConverter.ToNumber(arguments.At(0));
-
         if (double.IsNaN(x))
         {
             return JsNumber.DoubleNaN;
@@ -1162,18 +1109,14 @@ internal sealed partial class MathInstance : ObjectInstance
     }
 
     [JsFunction(Length = 2)]
-    private static JsValue Imul(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Imul(JsValue thisObject, [ToInt32] int x, [ToInt32] int y)
     {
-        var x = TypeConverter.ToInt32(arguments.At(0));
-        var y = TypeConverter.ToInt32(arguments.At(1));
-
         return x * y;
     }
 
     [JsFunction(Length = 1)]
-    private static JsValue Clz32(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Clz32(JsValue thisObject, [ToInt32] int x)
     {
-        var x = TypeConverter.ToInt32(arguments.At(0));
         if (x < 0)
         {
             return 0;
