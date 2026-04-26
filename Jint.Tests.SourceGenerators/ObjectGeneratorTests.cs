@@ -1,0 +1,219 @@
+using static Jint.Tests.SourceGenerators.VerifyHelper;
+
+namespace Jint.Tests.SourceGenerators;
+
+#pragma warning disable NUnit1032 // Verify is used as a static helper, not async-disposable infra
+
+[TestFixture]
+public class ObjectGeneratorTests
+{
+    [Test]
+    public Task MinimalClass()
+    {
+        return VerifyGenerator("""
+            using Jint;
+            using Jint.Native;
+            using Jint.Native.Object;
+
+            namespace Sample;
+
+            [JsObject]
+            internal sealed partial class Foo : ObjectInstance
+            {
+                internal Foo(Engine engine) : base(engine) { }
+
+                [JsFunction(Length = 1)]
+                private static JsValue Bar(JsValue x) => x;
+
+                protected override void Initialize() => CreateProperties_Generated();
+            }
+            """);
+    }
+
+    [Test]
+    public Task PropertyConstants()
+    {
+        return VerifyGenerator("""
+            using Jint;
+            using Jint.Native;
+            using Jint.Native.Object;
+            using Jint.Runtime.Descriptors;
+
+            namespace Sample;
+
+            [JsObject]
+            internal sealed partial class Foo : ObjectInstance
+            {
+                internal Foo(Engine engine) : base(engine) { }
+
+                [JsProperty(Name = "PI", Flags = PropertyFlag.AllForbidden)]
+                private static readonly JsNumber PiValue = new(3.14);
+
+                [JsProperty(Name = "answer")]
+                private static readonly JsNumber Answer = new(42);
+
+                [JsProperty(Flags = PropertyFlag.NonEnumerable)]
+                private static readonly JsString MutableTag = new("hi");
+
+                protected override void Initialize() => CreateProperties_Generated();
+            }
+            """);
+    }
+
+    [Test]
+    public Task SymbolMember()
+    {
+        return VerifyGenerator("""
+            using Jint;
+            using Jint.Native;
+            using Jint.Native.Object;
+            using Jint.Runtime.Descriptors;
+
+            namespace Sample;
+
+            [JsObject]
+            internal sealed partial class Foo : ObjectInstance
+            {
+                internal Foo(Engine engine) : base(engine) { }
+
+                [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)]
+                private static readonly JsString Tag = new("Foo");
+
+                protected override void Initialize() => CreateSymbols_Generated();
+            }
+            """);
+    }
+
+    [Test]
+    public Task RestParameter()
+    {
+        return VerifyGenerator("""
+            using System;
+            using Jint;
+            using Jint.Native;
+            using Jint.Native.Object;
+
+            namespace Sample;
+
+            [JsObject]
+            internal sealed partial class Foo : ObjectInstance
+            {
+                internal Foo(Engine engine) : base(engine) { }
+
+                [JsFunction(Length = 0)]
+                private static JsValue Concat(JsValue thisObject, JsValue first, [Rest] ReadOnlySpan<JsValue> rest)
+                    => first;
+
+                protected override void Initialize() => CreateProperties_Generated();
+            }
+            """);
+    }
+
+    [Test]
+    public Task PassthroughArguments()
+    {
+        return VerifyGenerator("""
+            using Jint;
+            using Jint.Native;
+            using Jint.Native.Object;
+
+            namespace Sample;
+
+            [JsObject]
+            internal sealed partial class Foo : ObjectInstance
+            {
+                internal Foo(Engine engine) : base(engine) { }
+
+                [JsFunction(Length = 2, Name = "max")]
+                private static JsValue Max(JsValue thisObject, JsCallArguments arguments) => arguments.At(0);
+
+                protected override void Initialize() => CreateProperties_Generated();
+            }
+            """);
+    }
+
+    [Test]
+    public Task InstanceMethod()
+    {
+        return VerifyGenerator("""
+            using Jint;
+            using Jint.Native;
+            using Jint.Native.Object;
+
+            namespace Sample;
+
+            [JsObject]
+            internal sealed partial class Foo : ObjectInstance
+            {
+                private int _state;
+
+                internal Foo(Engine engine) : base(engine) { }
+
+                [JsFunction(Length = 0)]
+                private JsValue Tick(JsValue thisObject) { _state++; return JsNumber.Create(_state); }
+
+                protected override void Initialize() => CreateProperties_Generated();
+            }
+            """);
+    }
+
+    [Test]
+    public Task NotPartial_ProducesDiagnostic()
+    {
+        return VerifyGenerator("""
+            using Jint;
+            using Jint.Native;
+            using Jint.Native.Object;
+
+            namespace Sample;
+
+            [JsObject]
+            internal sealed class Foo : ObjectInstance
+            {
+                internal Foo(Engine engine) : base(engine) { }
+                [JsFunction] private static JsValue Bar(JsValue x) => x;
+            }
+            """);
+    }
+
+    [Test]
+    public Task OverloadCollision_ProducesDiagnostic()
+    {
+        return VerifyGenerator("""
+            using Jint;
+            using Jint.Native;
+            using Jint.Native.Object;
+
+            namespace Sample;
+
+            [JsObject]
+            internal sealed partial class Foo : ObjectInstance
+            {
+                internal Foo(Engine engine) : base(engine) { }
+                [JsFunction] private static JsValue Bar(JsValue x) => x;
+                [JsFunction] private static JsValue Bar(JsValue x, JsValue y) => x;
+                protected override void Initialize() => CreateProperties_Generated();
+            }
+            """);
+    }
+
+    [Test]
+    public Task UnsupportedReturnType_ProducesDiagnostic()
+    {
+        return VerifyGenerator("""
+            using Jint;
+            using Jint.Native;
+            using Jint.Native.Object;
+
+            namespace Sample;
+
+            [JsObject]
+            internal sealed partial class Foo : ObjectInstance
+            {
+                internal Foo(Engine engine) : base(engine) { }
+                [JsFunction] private static int Bar(JsValue x) => 0;
+                protected override void Initialize() => CreateProperties_Generated();
+            }
+            """);
+    }
+}

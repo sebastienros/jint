@@ -1,0 +1,17 @@
+﻿{
+  Diagnostics: [
+    {
+      Location: : (7,22)-(7,25),
+      Message: Type 'Foo' is annotated with [JsObject] and must be declared 'partial',
+      Severity: Error,
+      Descriptor: {
+        Id: JINT001,
+        Title: [JsObject] type must be partial,
+        MessageFormat: Type '{0}' is annotated with [JsObject] and must be declared 'partial',
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Error,
+        IsEnabledByDefault: true
+      }
+    }
+  ]
+}

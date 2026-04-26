@@ -1,0 +1,17 @@
+﻿{
+  Diagnostics: [
+    {
+      Location: : (12,67)-(12,76),
+      Message: Parameter 'arguments' on method 'Max' has unsupported type 'JsCallArguments' (only JsValue is supported),
+      Severity: Error,
+      Descriptor: {
+        Id: JINT011,
+        Title: Unsupported [JsFunction] parameter type,
+        MessageFormat: Parameter '{0}' on method '{1}' has unsupported type '{2}' (only JsValue is supported),
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Error,
+        IsEnabledByDefault: true
+      }
+    }
+  ]
+}

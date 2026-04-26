@@ -22,6 +22,7 @@
   <Project Path="Jint.Benchmark/Jint.Benchmark.csproj" />
   <Project Path="Jint.Repl/Jint.Repl.csproj" />
   <Project Path="Jint.SourceGenerators/Jint.SourceGenerators.csproj" />
+  <Project Path="Jint.Tests.SourceGenerators/Jint.Tests.SourceGenerators.csproj" />
   <Project Path="Jint.Tests.CommonScripts/Jint.Tests.CommonScripts.csproj" />
   <Project Path="Jint.Tests.PublicInterface/Jint.Tests.PublicInterface.csproj" />
   <Project Path="Jint.Tests.Test262/Jint.Tests.Test262.csproj" />
