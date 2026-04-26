@@ -2674,8 +2674,12 @@ internal sealed class JsNumberFormat : ObjectInstance
 
     private void AddFractionPartsIfNeeded(List<NumberFormatPart> parts, double fractionValue)
     {
-        var minFrac = MinimumFractionDigits > 0 ? MinimumFractionDigits : 2;
-        if (minFrac > 0 || fractionValue > 0)
+        if (MaximumFractionDigits == 0)
+        {
+            return;
+        }
+
+        if (MinimumFractionDigits > 0 || fractionValue > 0)
         {
             parts.Add(new NumberFormatPart("decimal", NumberFormatInfo.CurrencyDecimalSeparator));
             FormatFractionToParts(parts, fractionValue);
