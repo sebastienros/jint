@@ -3,19 +3,21 @@ using System.Numerics;
 using System.Text;
 using Jint.Native.Intl;
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.BigInt;
 
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-the-bigint-prototype-object
 /// </summary>
-internal sealed class BigIntPrototype : Prototype
+[JsObject]
+internal sealed partial class BigIntPrototype : Prototype
 {
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly BigIntConstructor _constructor;
+
+    [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString BigIntToStringTag = new("BigInt");
 
     internal BigIntPrototype(
         Engine engine,
@@ -29,30 +31,16 @@ internal sealed class BigIntPrototype : Prototype
 
     protected override void Initialize()
     {
-        var properties = new PropertyDictionary(4, checkExistingKeys: false)
-        {
-            ["constructor"] = new(_constructor, true, false, true),
-            ["toString"] = new(new ClrFunction(Engine, "toString", ToBigIntString, 0, PropertyFlag.Configurable), true, false, true),
-            ["toLocaleString"] = new(new ClrFunction(Engine, "toLocaleString", ToLocaleString, 0, PropertyFlag.Configurable), true, false, true),
-            ["valueOf"] = new(new ClrFunction(Engine, "valueOf", ValueOf, 0, PropertyFlag.Configurable), true, false, true),
-        };
-        SetProperties(properties);
-
-        var symbols = new SymbolDictionary(1)
-        {
-            [GlobalSymbolRegistry.ToStringTag] = new("BigInt", false, false, true)
-        };
-        SetSymbols(symbols);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
     }
 
     /// <summary>
     /// https://tc39.es/ecma402/#sup-bigint.prototype.tolocalestring
     /// </summary>
-    private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0)]
+    private JsValue ToLocaleString(JsValue thisObject, JsValue locales, JsValue options)
     {
-        var locales = arguments.At(0);
-        var options = arguments.At(1);
-
         var x = ThisBigIntValue(thisObject);
 
         // Use Intl.NumberFormat for locale-aware formatting
@@ -65,7 +53,8 @@ internal sealed class BigIntPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-bigint.prototype.valueof
     /// </summary>
-    private JsValue ValueOf(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0)]
+    private JsValue ValueOf(JsValue thisObject)
     {
         if (thisObject is BigIntInstance ni)
         {
@@ -84,11 +73,10 @@ internal sealed class BigIntPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-bigint.prototype.tostring
     /// </summary>
-    private JsValue ToBigIntString(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0, Name = "toString")]
+    private JsValue ToBigIntString(JsValue thisObject, JsValue radix)
     {
         var x = ThisBigIntValue(thisObject);
-
-        var radix = arguments.At(0);
 
         var radixMV = radix.IsUndefined()
             ? 10

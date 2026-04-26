@@ -2,19 +2,20 @@
 
 using Jint.Native.Function;
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.Reflect;
 
 /// <summary>
 /// https://www.ecma-international.org/ecma-262/6.0/index.html#sec-reflect-object
 /// </summary>
-internal sealed class ReflectInstance : ObjectInstance
+[JsObject]
+internal sealed partial class ReflectInstance : ObjectInstance
 {
     private readonly Realm _realm;
+
+    [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString ReflectToStringTag = new("Reflect");
 
     internal ReflectInstance(
         Engine engine,
@@ -27,37 +28,13 @@ internal sealed class ReflectInstance : ObjectInstance
 
     protected override void Initialize()
     {
-        var properties = new PropertyDictionary(14, checkExistingKeys: false)
-        {
-            ["apply"] = new PropertyDescriptor(new ClrFunction(Engine, "apply", Apply, 3, PropertyFlag.Configurable), true, false, true),
-            ["construct"] = new PropertyDescriptor(new ClrFunction(Engine, "construct", Construct, 2, PropertyFlag.Configurable), true, false, true),
-            ["defineProperty"] = new PropertyDescriptor(new ClrFunction(Engine, "defineProperty", DefineProperty, 3, PropertyFlag.Configurable), true, false, true),
-            ["deleteProperty"] = new PropertyDescriptor(new ClrFunction(Engine, "deleteProperty", DeleteProperty, 2, PropertyFlag.Configurable), true, false, true),
-            ["get"] = new PropertyDescriptor(new ClrFunction(Engine, "get", Get, 2, PropertyFlag.Configurable), true, false, true),
-            ["getOwnPropertyDescriptor"] = new PropertyDescriptor(new ClrFunction(Engine, "getOwnPropertyDescriptor", GetOwnPropertyDescriptor, 2, PropertyFlag.Configurable), true, false, true),
-            ["getPrototypeOf"] = new PropertyDescriptor(new ClrFunction(Engine, "getPrototypeOf", GetPrototypeOf, 1, PropertyFlag.Configurable), true, false, true),
-            ["has"] = new PropertyDescriptor(new ClrFunction(Engine, "has", Has, 2, PropertyFlag.Configurable), true, false, true),
-            ["isExtensible"] = new PropertyDescriptor(new ClrFunction(Engine, "isExtensible", IsExtensible, 1, PropertyFlag.Configurable), true, false, true),
-            ["ownKeys"] = new PropertyDescriptor(new ClrFunction(Engine, "ownKeys", OwnKeys, 1, PropertyFlag.Configurable), true, false, true),
-            ["preventExtensions"] = new PropertyDescriptor(new ClrFunction(Engine, "preventExtensions", PreventExtensions, 1, PropertyFlag.Configurable), true, false, true),
-            ["set"] = new PropertyDescriptor(new ClrFunction(Engine, "set", Set, 3, PropertyFlag.Configurable), true, false, true),
-            ["setPrototypeOf"] = new PropertyDescriptor(new ClrFunction(Engine, "setPrototypeOf", SetPrototypeOf, 2, PropertyFlag.Configurable), true, false, true),
-        };
-        SetProperties(properties);
-
-        var symbols = new SymbolDictionary(1)
-        {
-            [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("Reflect", false, false, true)
-        };
-        SetSymbols(symbols);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
     }
 
-    private JsValue Apply(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction]
+    private JsValue Apply(JsValue thisObject, JsValue target, JsValue thisArgument, JsValue argumentsList)
     {
-        var target = arguments.At(0);
-        var thisArgument = arguments.At(1);
-        var argumentsList = arguments.At(2);
-
         if (!target.IsCallable)
         {
             Throw.TypeError(_realm, "Reflect.apply requires the first argument to be a function");
@@ -73,6 +50,11 @@ internal sealed class ReflectInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-reflect.construct
     /// </summary>
+    // Spec distinguishes "newTarget is not present" (defaults to target) from "newTarget is undefined"
+    // (must throw via IsConstructor). The arguments-array form is the only way to detect that
+    // difference; the source generator's per-parameter unpacking always passes Undefined for missing
+    // positions, conflating the two cases.
+    [JsFunction(Length = 2)]
     private JsValue Construct(JsValue thisObject, JsCallArguments arguments)
     {
         var target = AssertConstructor(_engine, arguments.At(0));
@@ -88,47 +70,51 @@ internal sealed class ReflectInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-reflect.defineproperty
     /// </summary>
-    private JsValue DefineProperty(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction]
+    private JsValue DefineProperty(JsValue thisObject, JsValue target, JsValue propertyKey, JsValue attributes)
     {
-        var target = arguments.At(0) as ObjectInstance;
-        if (target is null)
+        var o = target as ObjectInstance;
+        if (o is null)
         {
             Throw.TypeError(_realm, "Reflect.defineProperty called on non-object");
         }
 
-        var propertyKey = arguments.At(1);
-        var attributes = arguments.At(2);
-
         var key = TypeConverter.ToPropertyKey(propertyKey);
         var desc = PropertyDescriptor.ToPropertyDescriptor(_realm, attributes);
 
-        return target.DefineOwnProperty(key, desc);
+        return o.DefineOwnProperty(key, desc);
     }
 
-    private JsValue DeleteProperty(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction]
+    private JsValue DeleteProperty(JsValue thisObject, JsValue target, JsValue propertyKey)
     {
-        var o = arguments.At(0) as ObjectInstance;
+        var o = target as ObjectInstance;
         if (o is null)
         {
             Throw.TypeError(_realm, "Reflect.deleteProperty called on non-object");
         }
 
-        var property = TypeConverter.ToPropertyKey(arguments.At(1));
+        var property = TypeConverter.ToPropertyKey(propertyKey);
         return o.Delete(property) ? JsBoolean.True : JsBoolean.False;
     }
 
-    private JsValue Has(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction]
+    private JsValue Has(JsValue thisObject, JsValue target, JsValue propertyKey)
     {
-        var o = arguments.At(0) as ObjectInstance;
+        var o = target as ObjectInstance;
         if (o is null)
         {
             Throw.TypeError(_realm, "Reflect.has called on non-object");
         }
 
-        var property = TypeConverter.ToPropertyKey(arguments.At(1));
+        var property = TypeConverter.ToPropertyKey(propertyKey);
         return o.HasProperty(property) ? JsBoolean.True : JsBoolean.False;
     }
 
+    // "receiver is not present" defaults to target; "receiver is undefined" is preserved and
+    // forwarded to [[Set]] (where, per spec, a non-Object receiver causes the set to return false).
+    // Generator-unpacked params can't represent "not present", so this method takes the array form.
+    [JsFunction(Length = 3)]
     private JsValue Set(JsValue thisObject, JsCallArguments arguments)
     {
         var target = arguments.At(0);
@@ -145,6 +131,10 @@ internal sealed class ReflectInstance : ObjectInstance
         return o.Set(property, value, receiver);
     }
 
+    // Same not-present-vs-undefined distinction as Set: receiver defaults to target only when the
+    // caller didn't pass a third argument. Explicit undefined is preserved and reaches [[Get]] /
+    // accessor invocation as the receiver.
+    [JsFunction(Length = 2)]
     private JsValue Get(JsValue thisObject, JsCallArguments arguments)
     {
         var target = arguments.At(0);
@@ -159,30 +149,33 @@ internal sealed class ReflectInstance : ObjectInstance
         return o.Get(property, receiver);
     }
 
-    private JsValue GetOwnPropertyDescriptor(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction]
+    private JsValue GetOwnPropertyDescriptor(JsValue thisObject, JsValue target, JsValue propertyKey)
     {
-        if (!arguments.At(0).IsObject())
+        if (!target.IsObject())
         {
             Throw.TypeError(_realm, "Reflect.getOwnPropertyDescriptor called on non-object");
         }
-        return _realm.Intrinsics.Object.GetOwnPropertyDescriptor(Undefined, arguments);
+        return _realm.Intrinsics.Object.GetOwnPropertyDescriptor(Undefined, [target, propertyKey]);
     }
 
-    private JsValue OwnKeys(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction]
+    private JsValue OwnKeys(JsValue thisObject, JsValue target)
     {
-        var o = arguments.At(0) as ObjectInstance;
+        var o = target as ObjectInstance;
         if (o is null)
         {
-            Throw.TypeError(_realm, "Reflect.get called on non-object");
+            Throw.TypeError(_realm, "Reflect.ownKeys called on non-object");
         }
 
         var keys = o.GetOwnPropertyKeys();
         return _realm.Intrinsics.Array.CreateArrayFromList(keys);
     }
 
-    private JsValue IsExtensible(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction]
+    private JsValue IsExtensible(JsValue thisObject, JsValue target)
     {
-        var o = arguments.At(0) as ObjectInstance;
+        var o = target as ObjectInstance;
         if (o is null)
         {
             Throw.TypeError(_realm, "Reflect.isExtensible called on non-object");
@@ -191,9 +184,10 @@ internal sealed class ReflectInstance : ObjectInstance
         return o.Extensible;
     }
 
-    private JsValue PreventExtensions(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction]
+    private JsValue PreventExtensions(JsValue thisObject, JsValue target)
     {
-        var o = arguments.At(0) as ObjectInstance;
+        var o = target as ObjectInstance;
         if (o is null)
         {
             Throw.TypeError(_realm, "Reflect.preventExtensions called on non-object");
@@ -202,29 +196,26 @@ internal sealed class ReflectInstance : ObjectInstance
         return o.PreventExtensions();
     }
 
-    private JsValue GetPrototypeOf(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction]
+    private JsValue GetPrototypeOf(JsValue thisObject, JsValue target)
     {
-        var target = arguments.At(0);
-
         if (!target.IsObject())
         {
             Throw.TypeError(_realm, "Reflect.getPrototypeOf called on non-object");
         }
 
-        return _realm.Intrinsics.Object.GetPrototypeOf(Undefined, arguments);
+        return _realm.Intrinsics.Object.GetPrototypeOf(Undefined, [target]);
     }
 
-    private JsValue SetPrototypeOf(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction]
+    private JsValue SetPrototypeOf(JsValue thisObject, JsValue target, JsValue prototype)
     {
-        var target = arguments.At(0);
-
         var o = target as ObjectInstance;
         if (o is null)
         {
             Throw.TypeError(_realm, "Reflect.setPrototypeOf called on non-object");
         }
 
-        var prototype = arguments.At(1);
         if (!prototype.IsObject() && !prototype.IsNull())
         {
             Throw.TypeError(_realm, $"Object prototype may only be an Object or null: {prototype}");
