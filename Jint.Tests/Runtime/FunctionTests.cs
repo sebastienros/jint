@@ -17,6 +17,32 @@ public class FunctionTests
     }
 
     [Fact]
+    public void FunctionPrototypeApplyThrowsTypeErrorFromTheFunctionsRealm()
+    {
+        // Regression for the source-gen [JsFunction]/ICallable cast precondition: when
+        // `other.Function.prototype.apply` is invoked from the main realm with a non-callable
+        // 'this', the TypeError must come from `other`'s realm (the realm that defined apply),
+        // not from whatever realm is executing at the time of the call. ECMA-262 + test262
+        // built-ins/Function/prototype/apply/this-not-callable-realm.
+        var engine = new Engine();
+        var otherGlobal = engine._host.CreateRealm().GlobalObject;
+        otherGlobal.Set("global", otherGlobal);
+        engine.SetValue("other", otherGlobal);
+
+        var script = @"
+            var threw = false;
+            try {
+                other.Function.prototype.apply.call({}, undefined);
+            } catch (e) {
+                threw = (e instanceof other.TypeError) && !(e instanceof TypeError);
+            }
+            threw
+        ";
+
+        Assert.True(((JsBoolean) engine.Evaluate(script))._value);
+    }
+
+    [Fact]
     public void BindCombinesBoundArgumentsToCallArgumentsCorrectly()
     {
         _engine.Evaluate("var testFunc = function (a, b, c) { return a + ', ' + b + ', ' + c + ', ' + JSON.stringify(arguments); }");

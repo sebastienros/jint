@@ -1,0 +1,17 @@
+﻿{
+  Diagnostics: [
+    {
+      Location: : (13,27)-(13,36),
+      Message: [JsAccessor] set 'BadSetter' on 'Foo': setter must take exactly one value parameter, has 0,
+      Severity: Error,
+      Descriptor: {
+        Id: JINT019,
+        Title: [JsAccessor] method has wrong arity,
+        MessageFormat: [JsAccessor] {0} '{1}' on '{2}': {3},
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Error,
+        IsEnabledByDefault: true
+      }
+    }
+  ]
+}

@@ -60,6 +60,38 @@ internal static class DiagnosticDescriptors
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
 
+    public static readonly DiagnosticDescriptor DuplicateThrowerAccessor = new(
+        id: "JINT016",
+        title: "Duplicate [JsThrowerAccessor] name on the same class",
+        messageFormat: "[JsThrowerAccessor(\"{0}\")] appears more than once on '{1}'",
+        category: "Jint.SourceGenerators",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor ConflictingAccessorFlags = new(
+        id: "JINT017",
+        title: "[JsAccessor] get and set declare different Flags",
+        messageFormat: "Accessor '{0}' on '{1}' has get and set with different Flags values — declare Flags only once or set them identically",
+        category: "Jint.SourceGenerators",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor MissingRealmField = new(
+        id: "JINT018",
+        title: "Host using cast precondition needs an accessible _realm field",
+        messageFormat: "Type '{0}' has [JsFunction] methods with non-JsValue 'thisObject' types but no accessible Realm-typed '_realm' field — derive from Function or declare 'private readonly Realm _realm;'",
+        category: "Jint.SourceGenerators",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor InvalidAccessorSignature = new(
+        id: "JINT019",
+        title: "[JsAccessor] method has wrong arity",
+        messageFormat: "[JsAccessor] {0} '{1}' on '{2}': {3}",
+        category: "Jint.SourceGenerators",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
     public static readonly DiagnosticDescriptor UnsupportedPropertyType = new(
         id: "JINT020",
         title: "Unsupported [JsProperty] member type",

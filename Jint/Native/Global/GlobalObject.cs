@@ -25,7 +25,7 @@ public sealed partial class GlobalObject : ObjectInstance
 
     private JsValue ToStringString(JsValue thisObject, JsCallArguments arguments)
     {
-        return _realm.Intrinsics.Object.PrototypeObject.ToObjectString(thisObject, Arguments.Empty);
+        return _realm.Intrinsics.Object.PrototypeObject.ToObjectString(thisObject);
     }
 
     /// <summary>
