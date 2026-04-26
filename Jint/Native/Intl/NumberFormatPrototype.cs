@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Numerics;
 using Jint.Native.BigInt;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
@@ -91,8 +93,58 @@ internal sealed class NumberFormatPrototype : Prototype
                 return numberFormat.Format(bigIntInstance.BigIntData._value);
             }
 
+            // Per ECMA-402 ToIntlMathematicalValue: when a string represents an integer that
+            // exceeds Number.MAX_SAFE_INTEGER precision, route through the BigInteger path so
+            // significant digits are preserved exactly.
+            if (value is JsString jsStr && TryParseLargeInteger(jsStr.ToString(), out var bigValue))
+            {
+                return numberFormat.Format(bigValue);
+            }
+
             return numberFormat.Format(TypeConverter.ToNumber(value));
         }, 1, PropertyFlag.Configurable);
+    }
+
+    /// <summary>
+    /// Returns true when the input string is a decimal integer literal whose magnitude
+    /// requires more precision than IEEE 754 double can represent (≥17 digits).
+    /// Smaller integers stay on the double path so we don't perturb existing formatting.
+    /// </summary>
+    private static bool TryParseLargeInteger(string s, out BigInteger value)
+    {
+        value = default;
+        if (string.IsNullOrEmpty(s))
+            return false;
+
+        var i = 0;
+        var negative = false;
+        if (s[0] == '+' || s[0] == '-')
+        {
+            negative = s[0] == '-';
+            i = 1;
+        }
+
+        // Must be all digits, at least 17 of them (the precision boundary for double).
+        if (s.Length - i < 17)
+            return false;
+
+        for (var j = i; j < s.Length; j++)
+        {
+            if (s[j] < '0' || s[j] > '9')
+                return false;
+        }
+
+#if NET6_0_OR_GREATER
+        if (!BigInteger.TryParse(s.AsSpan(i), NumberStyles.None, CultureInfo.InvariantCulture, out value))
+            return false;
+#else
+        if (!BigInteger.TryParse(i == 0 ? s : s.Substring(i), NumberStyles.None, CultureInfo.InvariantCulture, out value))
+            return false;
+#endif
+
+        if (negative)
+            value = -value;
+        return true;
     }
 
     /// <summary>

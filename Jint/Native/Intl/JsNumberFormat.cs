@@ -802,9 +802,17 @@ internal sealed class JsNumberFormat : ObjectInstance
     /// </summary>
     internal string Format(BigInteger value)
     {
-        // If significant digits are specified, convert to double for formatting
-        // This may lose precision for very large numbers but handles significantDigits correctly
-        if (MinimumSignificantDigits.HasValue || MaximumSignificantDigits.HasValue)
+        // For non-currency/percent/unit styles with significant digits, round the BigInteger
+        // directly so we keep precision for inputs that exceed double's 15-17 digit window.
+        // (Currency/percent/unit involve scaling/rounding paths that still go through double.)
+        var sigDigitsActive = (MinimumSignificantDigits.HasValue || MaximumSignificantDigits.HasValue)
+            && Style is not ("currency" or "percent" or "unit");
+        if (sigDigitsActive)
+        {
+            value = ApplySignificantDigitRounding(value);
+            // After rounding to significant digits, fall through to FormatDecimalBigInt.
+        }
+        else if (MinimumSignificantDigits.HasValue || MaximumSignificantDigits.HasValue)
         {
             return Format((double) value);
         }
@@ -814,36 +822,75 @@ internal sealed class JsNumberFormat : ObjectInstance
             "currency" => FormatCurrencyBigInt(value),
             "percent" => FormatPercentBigInt(value),
             "unit" => FormatUnitBigInt(value),
-            _ => FormatDecimalBigInt(value)
+            // Significant-digits formatting in Format(double) uses a literal "-" sign
+            // (no locale-specific RTL marker), so match that to keep both code paths
+            // producing identical output for the same input.
+            _ => FormatDecimalBigInt(value, useLiteralMinus: sigDigitsActive)
         };
 
         // Apply numbering system digit transliteration
         return Data.NumberingSystemData.TransliterateDigits(result, NumberingSystem);
     }
 
-    private string FormatDecimalBigInt(BigInteger value)
+    /// <summary>
+    /// Rounds a BigInteger so it carries at most <see cref="MaximumSignificantDigits"/>
+    /// significant digits, using the spec's "halfExpand" rounding (round half away from zero).
+    /// </summary>
+    private BigInteger ApplySignificantDigitRounding(BigInteger value)
     {
-        // BigInteger formatting - use grouping if needed
-        var formatted = value.ToString("R", CultureInfo.InvariantCulture);
-        var digitCount = value < 0 ? formatted.Length - 1 : formatted.Length;
+        if (!MaximumSignificantDigits.HasValue || value.IsZero)
+            return value;
 
-        if (ShouldApplyGrouping(digitCount))
+        var maxSig = MaximumSignificantDigits.Value;
+        var isNegative = value.Sign < 0;
+        var abs = isNegative ? -value : value;
+
+        // Number of decimal digits in |value|.
+        var digitCount = abs.ToString("R", CultureInfo.InvariantCulture).Length;
+        if (digitCount <= maxSig)
+            return value;
+
+        // Drop the last (digitCount - maxSig) digits with halfExpand rounding.
+        var dropDigits = digitCount - maxSig;
+        var divisor = BigInteger.Pow(10, dropDigits);
+        var halfDivisor = divisor / 2;
+        var rounded = (abs + halfDivisor) / divisor * divisor;
+
+        // Rounding can push the digit count up by one (e.g., 99500 with 3 sig digits → 100000).
+        // ECMA-402 keeps the same significant-digit count, so re-trim if that happened.
+        var roundedDigitCount = rounded.ToString("R", CultureInfo.InvariantCulture).Length;
+        if (roundedDigitCount > digitCount)
         {
-            // Apply grouping manually for BigInteger
-            formatted = ApplyGrouping(formatted, value < 0);
+            divisor *= 10;
+            rounded = rounded / divisor * divisor;
+        }
+
+        return isNegative ? -rounded : rounded;
+    }
+
+    private string FormatDecimalBigInt(BigInteger value, bool useLiteralMinus = false)
+    {
+        // Format absolute value via invariant culture, then prepend either the locale-aware
+        // NegativeSign (which for ar adds the U+061C ALM marker that System.Globalization
+        // also adds for double formatting) or a literal '-' to mirror the significant-digits
+        // path in Format(double).
+        var isNegative = value.Sign < 0;
+        var abs = isNegative ? -value : value;
+        var digits = abs.ToString("R", CultureInfo.InvariantCulture);
+
+        if (ShouldApplyGrouping(digits.Length))
+        {
+            digits = ApplyGrouping(digits, false);
         }
 
         // Apply minimum integer digits padding
-        if (MinimumIntegerDigits > 1)
+        if (MinimumIntegerDigits > 1 && digits.Length < MinimumIntegerDigits)
         {
-            var isNegative = value < 0;
-            var digits = isNegative ? formatted.Substring(1) : formatted;
-            if (digits.Length < MinimumIntegerDigits)
-            {
-                digits = digits.PadLeft(MinimumIntegerDigits, '0');
-                formatted = isNegative ? "-" + digits : digits;
-            }
+            digits = digits.PadLeft(MinimumIntegerDigits, '0');
         }
+
+        var negativeSign = useLiteralMinus ? "-" : NumberFormatInfo.NegativeSign;
+        var formatted = isNegative ? negativeSign + digits : digits;
 
         // Handle minimumFractionDigits for BigInt (add decimal zeros)
         if (MinimumFractionDigits > 0)
@@ -1227,7 +1274,12 @@ internal sealed class JsNumberFormat : ObjectInstance
 
         if (value == 0)
         {
-            var zeroResult = minSigDigits > 1 ? "0." + new string('0', minSigDigits - 1) : "0";
+            // Use the locale's decimal separator so numbering-system transliteration leaves it
+            // alone. Without this, `.` would be replaced by the numbering-system's default
+            // separator (e.g. Arabic ٫) even when the locale wants a different one (de → `,`).
+            var zeroResult = minSigDigits > 1
+                ? "0" + NumberFormatInfo.NumberDecimalSeparator + new string('0', minSigDigits - 1)
+                : "0";
             return isNegativeZero ? "-" + zeroResult : zeroResult;
         }
 

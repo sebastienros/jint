@@ -37,7 +37,7 @@
     "intl402/DurationFormat/prototype/format/mixed-non-numeric-styles-es.js",
 
     // NumberFormat - string arguments need mathematical value precision (not IEEE 754 double)
-    "intl402/NumberFormat/prototype/format/format-significant-digits.js",
+    //"intl402/NumberFormat/prototype/format/format-significant-digits.js",
     "intl402/NumberFormat/prototype/format/value-decimal-string.js",
 
     // Locale fallback chains - zh-CN should match zh-Hans-CN in supportedLocalesOf
