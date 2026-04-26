@@ -720,6 +720,12 @@ internal static class NonIsoCalendars
 
         var cal = GetCalendar(calendar);
 
+        // Widen the search window for lunisolar calendars (chinese/dangi/hebrew) where rare
+        // leap months (e.g. chinese M02L only ~every 25-30 years) won't appear within ±12 years
+        // of the canonical anchor. Bounded by typical .NET BCL ranges (chinese 1901-2100,
+        // dangi 918-2050, hebrew 5343-5999 ≈ ISO 1583-2239).
+        var window = calendar is "chinese" or "dangi" or "hebrew" ? 75 : 12;
+
         // For lunisolar calendars, a calendar year spans parts of two ISO years.
         // Spec algorithm: find the LATEST calendar year y such that ToIso(y, monthCode, day) has
         // ISO year ≤ isoReferenceYear AND the day is valid (not constrained) in that year's
@@ -733,7 +739,7 @@ internal static class NonIsoCalendars
         var bestYear = int.MinValue;
         var bestIsoTicks = long.MinValue;
         var upperBound = new DateTime(isoReferenceYear, 12, 31).Ticks;
-        for (var y = approxYear - 5; y <= approxYear + 5; y++)
+        for (var y = approxYear - window; y <= approxYear + window; y++)
         {
             if (isLeapMonthCode)
             {
@@ -781,7 +787,7 @@ internal static class NonIsoCalendars
         var fallbackYear = int.MinValue;
         var fallbackMaxDay = 0;
         var fallbackKey = long.MinValue;
-        for (var y = approxYear - 5; y <= approxYear + 5; y++)
+        for (var y = approxYear - window; y <= approxYear + window; y++)
         {
             if (isLeapMonthCode)
             {
