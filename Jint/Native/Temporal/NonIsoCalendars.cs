@@ -720,20 +720,75 @@ internal static class NonIsoCalendars
 
         var cal = GetCalendar(calendar);
 
-        // For lunisolar calendars, a calendar year spans parts of two ISO years
-        // Try multiple calendar years around the ISO reference year
+        // For lunisolar calendars, a calendar year spans parts of two ISO years.
+        // Spec algorithm: find the LATEST calendar year y such that ToIso(y, monthCode, day) has
+        // ISO year ≤ isoReferenceYear AND the day is valid (not constrained) in that year's
+        // monthCode. This produces the "latest representable" reference year, which is what tests
+        // like reference-year-1972 (M05L hebrew → 1970, M02 D30 hebrew → 1971, M12 D30 islamic
+        // → 1971) require. We fall back to a constrained-day match only if no exact-day year
+        // exists within the search window.
         var approxYear = IsoYearToCalendarYear(calendar, cal, isoReferenceYear);
+        var isLeapMonthCode = monthCode.Length == 4 && monthCode[3] == 'L';
 
-        for (var y = approxYear - 2; y <= approxYear + 2; y++)
+        var bestYear = int.MinValue;
+        var bestIsoTicks = long.MinValue;
+        var upperBound = new DateTime(isoReferenceYear, 12, 31).Ticks;
+        for (var y = approxYear - 5; y <= approxYear + 5; y++)
         {
-            // Pre-validate: check if the monthCode exists in this year before calling expensive ToDateTime
-            var isLeapMonthCode = monthCode.Length == 4 && monthCode[3] == 'L';
             if (isLeapMonthCode)
             {
                 var leapOrdinal = GetLeapMonthOrdinal(calendar, cal, y);
                 if (leapOrdinal <= 0)
                 {
-                    continue; // No leap month this year — skip
+                    continue;
+                }
+            }
+
+            try
+            {
+                var ordinal = MonthCodeToOrdinal(calendar, cal, y, monthCode, "reject");
+                var maxDay = GetDaysInMonthCal(cal, y, ordinal);
+                if (day > maxDay)
+                {
+                    continue; // day not valid in this year — skip in pass 1
+                }
+
+                var dt = cal.ToDateTime(y, ordinal, day, 0, 0, 0, 0);
+                // Pick the LATEST valid ISO date that's ≤ end-of-refYear. When two calendar
+                // years both produce ISO dates in refYear (e.g. Hebrew M04 D26 in 5732 → 1972-01
+                // and 5733 → 1972-12), the spec says use the later one.
+                if (dt.Ticks <= upperBound && dt.Ticks > bestIsoTicks)
+                {
+                    bestIsoTicks = dt.Ticks;
+                    bestYear = y;
+                }
+            }
+            catch
+            {
+                // This year doesn't have the requested monthCode
+            }
+        }
+
+        if (bestYear != int.MinValue)
+        {
+            return bestYear;
+        }
+
+        // Fallback: when no year has the day un-constrained, pick the year where this monthCode
+        // holds the MOST days (so day constrains as little as possible). Tiebreak by latest ISO
+        // date ≤ refYear ceiling. This matches the spec for cases like Hebrew M02 D31 constrain
+        // → 30 (find the year where Cheshvan has 30 days, not 29) with refYear=1971.
+        var fallbackYear = int.MinValue;
+        var fallbackMaxDay = 0;
+        var fallbackKey = long.MinValue;
+        for (var y = approxYear - 5; y <= approxYear + 5; y++)
+        {
+            if (isLeapMonthCode)
+            {
+                var leapOrdinal = GetLeapMonthOrdinal(calendar, cal, y);
+                if (leapOrdinal <= 0)
+                {
+                    continue;
                 }
             }
 
@@ -743,9 +798,16 @@ internal static class NonIsoCalendars
                 var maxDay = GetDaysInMonthCal(cal, y, ordinal);
                 var clampedDay = System.Math.Min(day, maxDay);
                 var dt = cal.ToDateTime(y, ordinal, clampedDay, 0, 0, 0, 0);
-                if (dt.Year == isoReferenceYear)
+                if (dt.Ticks > upperBound)
                 {
-                    return y;
+                    continue;
+                }
+
+                if (maxDay > fallbackMaxDay || (maxDay == fallbackMaxDay && dt.Ticks > fallbackKey))
+                {
+                    fallbackMaxDay = maxDay;
+                    fallbackKey = dt.Ticks;
+                    fallbackYear = y;
                 }
             }
             catch
@@ -754,7 +816,7 @@ internal static class NonIsoCalendars
             }
         }
 
-        return approxYear;
+        return fallbackYear != int.MinValue ? fallbackYear : approxYear;
     }
 
     #region Private Helpers
@@ -2444,19 +2506,60 @@ internal static class NonIsoCalendars
         // Approximate Islamic year from ISO year: Islamic year ≈ (ISO - 622) * 33/32
         var approxYear = (int) ((isoReferenceYear - 622.0) * 33.0 / 32.0);
 
-        for (var y = approxYear - 2; y <= approxYear + 2; y++)
+        // Pass 1: find the LATEST calendar year where the day is valid (un-constrained) AND
+        // ISO date ≤ end-of-refYear. Required for cases like Islamic M12 D30 where M12 only has
+        // 30 days in leap years (refYear=1971 expected). Compares full ISO date so that ties on
+        // year are broken by month/day.
+        var bestYear = int.MinValue;
+        var bestKey = long.MinValue;
+        var upperBound = (long) isoReferenceYear * 10000 + 1231;
+        for (var y = approxYear - 5; y <= approxYear + 5; y++)
+        {
+            var maxDay = IslamicCivilDaysInMonth(y, monthNum);
+            if (day > maxDay)
+            {
+                continue;
+            }
+
+            var jdn = IslamicToJdn(y, monthNum, day, epoch);
+            var isoDate = JdnToIso(jdn);
+            if (!isoDate.HasValue) continue;
+            var key = (long) isoDate.Value.Year * 10000 + isoDate.Value.Month * 100 + isoDate.Value.Day;
+            if (key <= upperBound && key > bestKey)
+            {
+                bestKey = key;
+                bestYear = y;
+            }
+        }
+
+        if (bestYear != int.MinValue)
+        {
+            return bestYear;
+        }
+
+        // Fallback: pick the year with the most days in this monthCode (so day constrains as
+        // little as possible), tiebreak by latest ISO date ≤ refYear.
+        var fallbackYear = int.MinValue;
+        var fallbackMaxDay = 0;
+        var fallbackKey = long.MinValue;
+        for (var y = approxYear - 5; y <= approxYear + 5; y++)
         {
             var maxDay = IslamicCivilDaysInMonth(y, monthNum);
             var clampedDay = System.Math.Min(day, maxDay);
             var jdn = IslamicToJdn(y, monthNum, clampedDay, epoch);
             var isoDate = JdnToIso(jdn);
-            if (isoDate?.Year == isoReferenceYear)
+            if (!isoDate.HasValue) continue;
+            var key = (long) isoDate.Value.Year * 10000 + isoDate.Value.Month * 100 + isoDate.Value.Day;
+            if (key > upperBound) continue;
+            if (maxDay > fallbackMaxDay || (maxDay == fallbackMaxDay && key > fallbackKey))
             {
-                return y;
+                fallbackMaxDay = maxDay;
+                fallbackKey = key;
+                fallbackYear = y;
             }
         }
 
-        return approxYear;
+        return fallbackYear != int.MinValue ? fallbackYear : approxYear;
     }
 
     #endregion

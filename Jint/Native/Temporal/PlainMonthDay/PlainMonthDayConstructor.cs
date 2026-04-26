@@ -322,15 +322,42 @@ internal sealed class PlainMonthDayConstructor : Constructor
             Throw.RangeError(_realm, "year is outside the supported range for PlainMonthDay");
         }
 
-        // For non-ISO calendars, convert calendar year/month/day to ISO
+        // For non-ISO calendars, convert calendar year/month/day to ISO.
         if (!TemporalHelpers.IsGregorianBasedCalendar(calendar))
         {
-            // When year is not explicitly provided, find the calendar year that maps to ISO 1972
-            var calendarYear = yearExplicitlyProvided
-                ? year
-                : TemporalHelpers.FindCalendarReferenceYear(calendar, 1972, month, day, monthCodeStr);
+            // When year IS explicitly provided, the spec uses it for VALIDATION (date must exist
+            // for that year, possibly with overflow), but the STORED reference year is still the
+            // canonical 1972-anchored one (per CalendarMonthDayToISOReferenceDate). We therefore
+            // first round-trip through the user's year to obtain the constrained day, then ask
+            // FindCalendarReferenceYear for the canonical reference year using that constrained
+            // day. Without this re-anchoring, PMD.from({year: 5781, monthCode: "M02", day: 30,
+            // calendar: "hebrew"}) with constrain would store ISO 2020-11-16 instead of 1972-…
+            int actualDay = day;
+            string finalOverflow = overflow;
+            string? effectiveMonthCode = monthCodeStr;
+            if (yearExplicitlyProvided)
+            {
+                var validated = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, day, overflow, monthCodeStr);
+                if (validated is null)
+                {
+                    Throw.RangeError(_realm, "Invalid month-day");
+                }
 
-            var calDate = TemporalHelpers.CalendarDateToISO(_realm, calendar, calendarYear, month, day, overflow, monthCodeStr);
+                // Extract the constrained day AND monthCode by reading back via the calendar so
+                // the canonical refYear lookup uses the validated/constrained day. Also fills in
+                // monthCode when the user passed numeric month without monthCode (FindCalendar-
+                // ReferenceYear's non-iso path requires monthCode for the lookup).
+                var calendarFields = NonIsoCalendars.IsoToCalendarDate(calendar, validated.Value);
+                actualDay = calendarFields.Day;
+                effectiveMonthCode ??= calendarFields.MonthCode;
+                // Day already validated and constrained — the second conversion below should
+                // never need to throw on its own.
+                finalOverflow = "constrain";
+            }
+
+            var calendarYear = TemporalHelpers.FindCalendarReferenceYear(calendar, 1972, month, actualDay, effectiveMonthCode);
+
+            var calDate = TemporalHelpers.CalendarDateToISO(_realm, calendar, calendarYear, month, actualDay, finalOverflow, effectiveMonthCode);
             if (calDate is null)
             {
                 Throw.RangeError(_realm, "Invalid month-day");
