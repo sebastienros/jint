@@ -96,13 +96,80 @@ internal sealed class NumberFormatPrototype : Prototype
             // Per ECMA-402 ToIntlMathematicalValue: when a string represents an integer that
             // exceeds Number.MAX_SAFE_INTEGER precision, route through the BigInteger path so
             // significant digits are preserved exactly.
-            if (value is JsString jsStr && TryParseLargeInteger(jsStr.ToString(), out var bigValue))
+            if (value is JsString jsStr)
             {
-                return numberFormat.Format(bigValue);
+                var s = jsStr.ToString();
+                if (TryParseLargeInteger(s, out var bigValue))
+                {
+                    return numberFormat.Format(bigValue);
+                }
+                // Fractional decimal strings whose precision exceeds what double can represent
+                // (16+ significant digits): format directly from the (mantissa, fractionDigits)
+                // pair to avoid losing trailing digits via TypeConverter.ToNumber.
+                if (TryParseHighPrecisionDecimal(s, out var mantissa, out var fractionDigits))
+                {
+                    return numberFormat.FormatExactDecimal(mantissa, fractionDigits);
+                }
             }
 
             return numberFormat.Format(TypeConverter.ToNumber(value));
         }, 1, PropertyFlag.Configurable);
+    }
+
+    /// <summary>
+    /// Parses a decimal-string with a fraction part (e.g. "1.0000000000000001") into a
+    /// BigInteger mantissa plus a fraction-digit count, when the total precision exceeds
+    /// what an IEEE-754 double can represent (16 significant digits is the conservative
+    /// boundary). Returns false otherwise so existing inputs stay on the double path.
+    /// </summary>
+    private static bool TryParseHighPrecisionDecimal(string s, out BigInteger mantissa, out int fractionDigits)
+    {
+        mantissa = default;
+        fractionDigits = 0;
+        if (string.IsNullOrEmpty(s))
+            return false;
+
+        var i = 0;
+        var negative = false;
+        if (s[0] == '+' || s[0] == '-')
+        {
+            negative = s[0] == '-';
+            i = 1;
+        }
+
+        var dotPos = -1;
+        for (var j = i; j < s.Length; j++)
+        {
+            if (s[j] == '.')
+            {
+                if (dotPos != -1) return false;
+                dotPos = j;
+            }
+            else if (s[j] < '0' || s[j] > '9')
+            {
+                return false;
+            }
+        }
+
+        if (dotPos == -1) return false;
+        if (dotPos == i || dotPos == s.Length - 1) return false; // need digits on both sides
+
+        fractionDigits = s.Length - dotPos - 1;
+        var totalDigits = (dotPos - i) + fractionDigits;
+
+        // Stay on the double path when precision fits — preserves existing per-locale behavior
+        // (signDisplay, percent/currency style, etc. that the BigInteger path doesn't replicate).
+        if (totalDigits < 16)
+            return false;
+
+        // Build mantissa from concatenated integer + fraction digits.
+        var sb = new System.Text.StringBuilder(totalDigits);
+        sb.Append(s, i, dotPos - i);
+        sb.Append(s, dotPos + 1, fractionDigits);
+        if (!BigInteger.TryParse(sb.ToString(), NumberStyles.None, CultureInfo.InvariantCulture, out mantissa))
+            return false;
+        if (negative) mantissa = -mantissa;
+        return true;
     }
 
     /// <summary>

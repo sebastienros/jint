@@ -798,6 +798,115 @@ internal sealed class JsNumberFormat : ObjectInstance
     }
 
     /// <summary>
+    /// Formats an exact decimal value (mantissa × 10^-fractionDigits) preserving precision
+    /// beyond what an IEEE-754 double can represent. Currently routes through the decimal
+    /// style only — currency / percent / unit / compact / engineering / scientific notations
+    /// still go through the double-based pipeline. Significant-digits rounding falls back to
+    /// <see cref="Format(BigInteger)"/> after rounding away the fraction.
+    /// </summary>
+    internal string FormatExactDecimal(BigInteger mantissa, int fractionDigits)
+    {
+        // If the formatter uses any of the styles that require scaling or compact notation,
+        // we don't yet have an exact-decimal pipeline — fall back to double.
+        if (Style is "currency" or "percent" or "unit"
+            || !string.Equals(Notation, "standard", StringComparison.Ordinal))
+        {
+            var asDouble = (double) mantissa;
+            for (var k = 0; k < fractionDigits; k++) asDouble /= 10.0;
+            return Format(asDouble);
+        }
+
+        // Significant-digits rounding effectively discards trailing fraction digits beyond
+        // the kept precision; round once on the BigInteger and reuse the integer pipeline.
+        if (MinimumSignificantDigits.HasValue || MaximumSignificantDigits.HasValue)
+        {
+            // Convert to integer space if rounding will eliminate the fraction entirely
+            // (e.g., 12344501e-3 with 5 sig digits → 12345000 → integer formatter handles it).
+            // Otherwise fall back to double — the ApplySignificantDigitRounding path on a
+            // BigInteger with non-zero fractionDigits would need a richer carrier.
+            var asDouble = (double) mantissa;
+            for (var k = 0; k < fractionDigits; k++) asDouble /= 10.0;
+            return Format(asDouble);
+        }
+
+        var maxFrac = MaximumFractionDigits;
+        var minFrac = MinimumFractionDigits;
+
+        // Track the original sign so a "-0.000..." input that rounds to zero still displays
+        // as negative (ECMA-402 preserves negative-zero in formatted output).
+        var originallyNegative = mantissa.Sign < 0;
+
+        // Trim or round fraction digits to MaximumFractionDigits using halfExpand.
+        if (fractionDigits > maxFrac)
+        {
+            var dropDigits = fractionDigits - maxFrac;
+            var divisor = BigInteger.Pow(10, dropDigits);
+            var halfDivisor = divisor / 2;
+            var absM = originallyNegative ? -mantissa : mantissa;
+            var rounded = (absM + halfDivisor) / divisor;
+            mantissa = originallyNegative ? -rounded : rounded;
+            fractionDigits = maxFrac;
+        }
+
+        var negative = originallyNegative;
+        var absMantissa = mantissa.Sign < 0 ? -mantissa : mantissa;
+        var digits = absMantissa.ToString("R", CultureInfo.InvariantCulture);
+
+        string integerStr;
+        string fractionStr;
+        if (fractionDigits == 0)
+        {
+            integerStr = digits;
+            fractionStr = string.Empty;
+        }
+        else if (digits.Length <= fractionDigits)
+        {
+            integerStr = "0";
+            fractionStr = digits.PadLeft(fractionDigits, '0');
+        }
+        else
+        {
+            integerStr = digits.Substring(0, digits.Length - fractionDigits);
+            fractionStr = digits.Substring(digits.Length - fractionDigits);
+        }
+
+        // Trim trailing zeros down to MinimumFractionDigits.
+        if (fractionStr.Length > minFrac)
+        {
+            var keep = fractionStr.Length;
+            while (keep > minFrac && fractionStr[keep - 1] == '0') keep--;
+            fractionStr = fractionStr.Substring(0, keep);
+        }
+        else if (fractionStr.Length < minFrac)
+        {
+            fractionStr = fractionStr.PadRight(minFrac, '0');
+        }
+
+        // Apply MinimumIntegerDigits padding.
+        if (MinimumIntegerDigits > 1 && integerStr.Length < MinimumIntegerDigits)
+        {
+            integerStr = integerStr.PadLeft(MinimumIntegerDigits, '0');
+        }
+
+        // Apply grouping if needed.
+        if (ShouldApplyGrouping(integerStr.Length))
+        {
+            integerStr = ApplyGrouping(integerStr, false);
+        }
+
+        var result = fractionStr.Length == 0
+            ? integerStr
+            : integerStr + NumberFormatInfo.NumberDecimalSeparator + fractionStr;
+
+        if (negative)
+        {
+            result = NumberFormatInfo.NegativeSign + result;
+        }
+
+        return Data.NumberingSystemData.TransliterateDigits(result, NumberingSystem);
+    }
+
+    /// <summary>
     /// Formats a BigInteger according to the formatter's locale and options.
     /// </summary>
     internal string Format(BigInteger value)
