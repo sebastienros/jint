@@ -41,8 +41,8 @@
     "intl402/NumberFormat/prototype/format/value-decimal-string.js",
 
     // Locale fallback chains - zh-CN should match zh-Hans-CN in supportedLocalesOf
-    "intl402/fallback-locales-are-supported.js",
-    "intl402/supportedLocalesOf-consistent-with-resolvedOptions.js",
+    //"intl402/fallback-locales-are-supported.js",
+    //"intl402/supportedLocalesOf-consistent-with-resolvedOptions.js",
     // NumberFormat - Indian lakh/crore grouping and compact patterns
     // NumberFormat - Indian lakh/crore compact notation (1L for 100K, 1C for 10M)
     "intl402/NumberFormat/prototype/format/useGrouping-extended-en-IN.js",

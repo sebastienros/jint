@@ -1513,6 +1513,8 @@ internal static class IntlUtilities
 
             // Try expanded script form for Chinese regions
             // zh-TW → zh-Hant-TW, zh-HK → zh-Hant-HK, zh-CN → zh-Hans-CN, etc.
+            // Per spec, BestAvailableLocale must return the candidate (or a truncated prefix), so
+            // the expansion is used only as a data-availability probe — return the original candidate.
             if (candidate.StartsWith("zh-", StringComparison.OrdinalIgnoreCase) &&
                 !candidate.Contains("-Hant", StringComparison.OrdinalIgnoreCase) &&
                 !candidate.Contains("-Hans", StringComparison.OrdinalIgnoreCase))
@@ -1525,7 +1527,7 @@ internal static class IntlUtilities
                 var expandedCandidate = $"zh-{script}-{region}";
                 if (availableLocales.Contains(expandedCandidate))
                 {
-                    return expandedCandidate;
+                    return candidate;
                 }
             }
 
