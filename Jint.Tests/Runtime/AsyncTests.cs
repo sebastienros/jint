@@ -2209,6 +2209,33 @@ public class AsyncTests
         Assert.Equal("7", result.AsString());
     }
 
+#if !NETFRAMEWORK
+    [Fact]
+    public async Task EventLoopShouldSignalAllConcurrentWaiters()
+    {
+        // Regression: a second concurrent caller of WaitForEventAsync used to receive
+        // Task.CompletedTask immediately because the loop only tracked a single
+        // outstanding TCS. Its outer loop would then spin (or, if a single Enqueue
+        // arrived, only the first waiter would be woken). With the multi-waiter fix,
+        // both waiters register and both are signaled by a single Enqueue.
+        var loop = new EventLoop();
+
+        var waiter1 = loop.WaitForEventAsync(CancellationToken.None);
+        var waiter2 = loop.WaitForEventAsync(CancellationToken.None);
+
+        Assert.False(waiter1.IsCompleted, "waiter1 should be pending until Enqueue");
+        Assert.False(waiter2.IsCompleted, "waiter2 should be pending until Enqueue");
+
+        loop.Enqueue(static () => { });
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await Task.WhenAll(waiter1, waiter2).WaitAsync(cts.Token);
+
+        Assert.True(waiter1.IsCompletedSuccessfully);
+        Assert.True(waiter2.IsCompletedSuccessfully);
+    }
+#endif
+
     class TestAsyncClass
     {
         private readonly ConcurrentBag<string> _values = new();

@@ -24,11 +24,16 @@ internal sealed record EventLoop
     internal volatile int _waitingThreadId = -1;
 
     /// <summary>
-    /// Async wake signal used by <see cref="WaitForEventAsync"/> to release the thread
-    /// while waiting for events. Set by <see cref="Enqueue"/> when new work arrives.
-    /// Uses TaskCompletionSource&lt;bool&gt; for compatibility with netstandard2.0/net462.
+    /// Async wake signals registered by callers of <see cref="WaitForEventAsync"/>.
+    /// Each call appends its own TCS so that <see cref="Enqueue"/> can wake every
+    /// outstanding waiter — supporting concurrent awaiters on a single engine
+    /// (e.g. a caller that <c>await</c>s two engine-internal promises in parallel
+    /// via <c>Task.WhenAll</c>). Replaces an earlier single-field design that
+    /// silently dropped the second waiter and could spin until the first one
+    /// happened to resume.
     /// </summary>
-    private volatile TaskCompletionSource<bool>? _eventAvailable;
+    private readonly Lock _waitersLock = new();
+    private List<TaskCompletionSource<bool>>? _waiters;
 
     public bool IsEmpty => _events.IsEmpty;
 
@@ -36,17 +41,33 @@ internal sealed record EventLoop
     {
         _events.Enqueue(continuation);
 
-        // Wake any async waiter. Atomically steal the TCS and signal it.
-        // This ensures the async loop in WaitForEventAsync wakes up promptly
-        // when new work is enqueued (e.g., from a Task.ContinueWith callback).
-        Interlocked.Exchange(ref _eventAvailable, null)?.TrySetResult(true);
+        // Wake every registered async waiter. Each one re-checks its own promise
+        // state on resume, so spurious wakes loop harmlessly back to WaitForEventAsync.
+        List<TaskCompletionSource<bool>>? toSignal = null;
+        lock (_waitersLock)
+        {
+            if (_waiters is { Count: > 0 })
+            {
+                toSignal = _waiters;
+                _waiters = null;
+            }
+        }
+
+        if (toSignal is not null)
+        {
+            for (var i = 0; i < toSignal.Count; i++)
+            {
+                toSignal[i].TrySetResult(true);
+            }
+        }
     }
 
     /// <summary>
     /// Waits asynchronously for events to be enqueued, releasing the current thread.
     /// Used by the async API path (EvaluateAsync/ExecuteAsync/InvokeAsync) to avoid
     /// blocking a thread during IO-bound operations. During the wait, zero threads
-    /// are consumed.
+    /// are consumed. Multiple concurrent waiters are supported — each registers its
+    /// own TCS and is signaled on every <see cref="Enqueue"/>.
     /// </summary>
     /// <param name="cancellationToken">Token to observe for cancellation.</param>
     /// <returns>A task that completes when events are available or cancellation is requested.</returns>
@@ -60,33 +81,20 @@ internal sealed record EventLoop
 
         var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        // Atomically register our TCS. If another waiter is already registered,
-        // check whether it's stale (completed/cancelled from a prior timeout).
-        var previous = Interlocked.CompareExchange(ref _eventAvailable, tcs, null);
-        if (previous is not null)
+        lock (_waitersLock)
         {
-            if (!previous.Task.IsCompleted)
-            {
-                // Active waiter exists — events may already be pending.
-                return Task.CompletedTask;
-            }
-
-            // Previous TCS is stale (cancelled/completed). Try to replace it with ours.
-            if (Interlocked.CompareExchange(ref _eventAvailable, tcs, previous) != previous)
-            {
-                // Enqueue cleared it concurrently — events are likely available.
-                return Task.CompletedTask;
-            }
-
-            // Successfully replaced stale TCS, fall through to double-check.
+            (_waiters ??= new List<TaskCompletionSource<bool>>()).Add(tcs);
         }
 
         // Double-check after registration to close the race window where an event
-        // was enqueued between our IsEmpty check and the CompareExchange.
+        // was enqueued between our IsEmpty check and the list insertion. Self-signal
+        // rather than removing from the list — Enqueue's broadcast TrySetResult on
+        // an already-completed TCS is a no-op, so leaving the entry costs nothing
+        // beyond a single GC root until the next Enqueue clears the list.
         if (!_events.IsEmpty)
         {
-            Interlocked.Exchange(ref _eventAvailable, null);
-            return Task.CompletedTask;
+            tcs.TrySetResult(true);
+            return tcs.Task;
         }
 
         if (cancellationToken.CanBeCanceled)
