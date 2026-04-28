@@ -299,6 +299,33 @@ public partial class InteropTests
         engine.Invoking(e => e.Evaluate("obj.AgeMissing")).Should().Throw<MissingMemberException>();
     }
 
+    private class ClassWithToString
+    {
+        public override string ToString() => "Test";
+    }
+
+    [Fact]
+    public void ImplicitStringCoercionShouldNotThrowForMissingValueOf()
+    {
+        // default settings - string concatenation with CLR object should use ToString()
+        var engine = new Engine();
+        engine.SetValue("obj", new ClassWithToString());
+        engine.Evaluate("'prefix' + obj").AsString().Should().Be("prefixTest");
+
+        // with ThrowOnUnresolvedMember = true - string concatenation should still work
+        // by falling back to the prototype chain for valueOf, then using CLR's ToString() for toString
+        engine = new Engine(options =>
+        {
+            options.Interop.ThrowOnUnresolvedMember = true;
+        });
+        engine.SetValue("obj", new ClassWithToString());
+        engine.Evaluate("'prefix' + obj").AsString().Should().Be("prefixTest");
+
+        // explicit access to a missing member should still throw
+        engine.Invoking(e => e.Evaluate("obj.valueOf()")).Should().NotThrow();
+        engine.Invoking(e => e.Evaluate("obj.AgeMissing")).Should().Throw<MissingMemberException>();
+    }
+
     public class ClassWithPropertyToHide
     {
         public int x { get; set; } = 2;

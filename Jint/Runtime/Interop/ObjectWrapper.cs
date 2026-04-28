@@ -346,7 +346,25 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         }
 
         // slow path requires us to create a property descriptor that might get cached or not
-        var desc = GetOwnProperty(property, mustBeReadable: true, mustBeWritable: false);
+        PropertyDescriptor desc;
+        try
+        {
+            desc = GetOwnProperty(property, mustBeReadable: true, mustBeWritable: false);
+        }
+        catch (MissingMemberException) when (_engine.Options.Interop.ThrowOnUnresolvedMember)
+        {
+            // ThrowOnUnresolvedMember is enabled but the CLR type doesn't have this property.
+            // Before throwing, check the prototype chain (e.g. valueOf/toString from Object.prototype
+            // are needed for implicit type coercion like string concatenation).
+            var protoResult = Prototype?.Get(property, receiver);
+            if (protoResult is not null && !protoResult.IsUndefined())
+            {
+                return protoResult;
+            }
+
+            throw;
+        }
+
         if (desc != PropertyDescriptor.Undefined)
         {
             return UnwrapJsValue(desc, receiver);
