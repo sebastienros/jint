@@ -357,7 +357,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             // Before throwing, check the prototype chain (e.g. valueOf/toString from Object.prototype
             // are needed for implicit type coercion like string concatenation).
             var protoResult = Prototype?.Get(property, receiver);
-            if (protoResult is not null && !protoResult.IsUndefined())
+            if (protoResult is not null and not JsUndefined)
             {
                 return protoResult;
             }

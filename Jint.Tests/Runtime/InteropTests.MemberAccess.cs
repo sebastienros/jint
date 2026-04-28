@@ -322,7 +322,9 @@ public partial class InteropTests
         engine.Evaluate("'prefix' + obj").AsString().Should().Be("prefixTest");
 
         // explicit access to a missing member should still throw
-        engine.Invoking(e => e.Evaluate("obj.valueOf()")).Should().NotThrow();
+        // valueOf() is on the prototype chain and should return the object itself
+        var obj = engine.Evaluate("obj");
+        engine.Evaluate("obj.valueOf()").Should().Be(obj);
         engine.Invoking(e => e.Evaluate("obj.AgeMissing")).Should().Throw<MissingMemberException>();
     }
 
