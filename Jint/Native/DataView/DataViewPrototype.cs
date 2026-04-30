@@ -2,20 +2,22 @@
 
 using Jint.Native.ArrayBuffer;
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Native.TypedArray;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.DataView;
 
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-the-dataview-prototype-object
 /// </summary>
-internal sealed class DataViewPrototype : Prototype
+[JsObject]
+internal sealed partial class DataViewPrototype : Prototype
 {
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly DataViewConstructor _constructor;
+
+    [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString DataViewToStringTag = new("DataView");
 
     internal DataViewPrototype(
         Engine engine,
@@ -28,47 +30,15 @@ internal sealed class DataViewPrototype : Prototype
 
     protected override void Initialize()
     {
-        const PropertyFlag lengthFlags = PropertyFlag.Configurable;
-        const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-        var properties = new PropertyDictionary(26, checkExistingKeys: false)
-        {
-            ["buffer"] = new GetSetPropertyDescriptor(new ClrFunction(_engine, "get buffer", Buffer, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
-            ["byteLength"] = new GetSetPropertyDescriptor(new ClrFunction(_engine, "get byteLength", ByteLength, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
-            ["byteOffset"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get byteOffset", ByteOffset, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
-            ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
-            ["getBigInt64"] = new PropertyDescriptor(new ClrFunction(Engine, "getBigInt64", GetBigInt64, length: 1, lengthFlags), propertyFlags),
-            ["getBigUint64"] = new PropertyDescriptor(new ClrFunction(Engine, "getBigUint64", GetBigUint64, length: 1, lengthFlags), propertyFlags),
-            ["getFloat16"] = new PropertyDescriptor(new ClrFunction(Engine, "getFloat16", GetFloat16, length: 1, lengthFlags), propertyFlags),
-            ["getFloat32"] = new PropertyDescriptor(new ClrFunction(Engine, "getFloat32", GetFloat32, length: 1, lengthFlags), propertyFlags),
-            ["getFloat64"] = new PropertyDescriptor(new ClrFunction(Engine, "getFloat64", GetFloat64, length: 1, lengthFlags), propertyFlags),
-            ["getInt8"] = new PropertyDescriptor(new ClrFunction(Engine, "getInt8", GetInt8, length: 1, lengthFlags), propertyFlags),
-            ["getInt16"] = new PropertyDescriptor(new ClrFunction(Engine, "getInt16", GetInt16, length: 1, lengthFlags), propertyFlags),
-            ["getInt32"] = new PropertyDescriptor(new ClrFunction(Engine, "getInt32", GetInt32, length: 1, lengthFlags), propertyFlags),
-            ["getUint8"] = new PropertyDescriptor(new ClrFunction(Engine, "getUint8", GetUint8, length: 1, lengthFlags), propertyFlags),
-            ["getUint16"] = new PropertyDescriptor(new ClrFunction(Engine, "getUint16", GetUint16, length: 1, lengthFlags), propertyFlags),
-            ["getUint32"] = new PropertyDescriptor(new ClrFunction(Engine, "getUint32", GetUint32, length: 1, lengthFlags), propertyFlags),
-            ["setBigInt64"] = new PropertyDescriptor(new ClrFunction(Engine, "setBigInt64", SetBigInt64, length: 2, lengthFlags), propertyFlags),
-            ["setBigUint64"] = new PropertyDescriptor(new ClrFunction(Engine, "setBigUint64", SetBigUint64, length: 2, lengthFlags), propertyFlags),
-            ["setFloat16"] = new PropertyDescriptor(new ClrFunction(Engine, "setFloat16", SetFloat16, length: 2, lengthFlags), propertyFlags),
-            ["setFloat32"] = new PropertyDescriptor(new ClrFunction(Engine, "setFloat32", SetFloat32, length: 2, lengthFlags), propertyFlags),
-            ["setFloat64"] = new PropertyDescriptor(new ClrFunction(Engine, "setFloat64", SetFloat64, length: 2, lengthFlags), propertyFlags),
-            ["setInt8"] = new PropertyDescriptor(new ClrFunction(Engine, "setInt8", SetInt8, length: 2, lengthFlags), propertyFlags),
-            ["setInt16"] = new PropertyDescriptor(new ClrFunction(Engine, "setInt16", SetInt16, length: 2, lengthFlags), propertyFlags),
-            ["setInt32"] = new PropertyDescriptor(new ClrFunction(Engine, "setInt32", SetInt32, length: 2, lengthFlags), propertyFlags),
-            ["setUint8"] = new PropertyDescriptor(new ClrFunction(Engine, "setUint8", SetUint8, length: 2, lengthFlags), propertyFlags),
-            ["setUint16"] = new PropertyDescriptor(new ClrFunction(Engine, "setUint16", SetUint16, length: 2, lengthFlags), propertyFlags),
-            ["setUint32"] = new PropertyDescriptor(new ClrFunction(Engine, "setUint32", SetUint32, length: 2, lengthFlags), propertyFlags)
-        };
-        SetProperties(properties);
-
-        var symbols = new SymbolDictionary(1) { [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("DataView", PropertyFlag.Configurable) };
-        SetSymbols(symbols);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-get-dataview.prototype.buffer
     /// </summary>
-    private JsValue Buffer(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("buffer")]
+    private JsValue Buffer(JsValue thisObject)
     {
         var o = thisObject as JsDataView;
         if (o is null)
@@ -82,7 +52,8 @@ internal sealed class DataViewPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-get-dataview.prototype.bytelength
     /// </summary>
-    private JsValue ByteLength(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("byteLength")]
+    private JsValue ByteLength(JsValue thisObject)
     {
         var o = thisObject as JsDataView;
         if (o is null)
@@ -105,7 +76,8 @@ internal sealed class DataViewPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-get-dataview.prototype.byteoffset
     /// </summary>
-    private JsValue ByteOffset(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("byteOffset")]
+    private JsValue ByteOffset(JsValue thisObject)
     {
         var o = thisObject as JsDataView;
         if (o is null)
@@ -125,114 +97,137 @@ internal sealed class DataViewPrototype : Prototype
         return JsNumber.Create(o._byteOffset);
     }
 
-    private JsValue GetBigInt64(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue GetBigInt64(JsValue thisObject, JsValue byteOffset, JsValue littleEndian)
     {
-        return GetViewValue(thisObject, arguments.At(0), arguments.At(1), TypedArrayElementType.BigInt64);
+        return GetViewValue(thisObject, byteOffset, littleEndian, TypedArrayElementType.BigInt64);
     }
 
-    private JsValue GetBigUint64(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue GetBigUint64(JsValue thisObject, JsValue byteOffset, JsValue littleEndian)
     {
-        return GetViewValue(thisObject, arguments.At(0), arguments.At(1), TypedArrayElementType.BigUint64);
+        return GetViewValue(thisObject, byteOffset, littleEndian, TypedArrayElementType.BigUint64);
     }
 
-    private JsValue GetFloat16(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue GetFloat16(JsValue thisObject, JsValue byteOffset, JsValue littleEndian)
     {
-        return GetViewValue(thisObject, arguments.At(0), arguments.At(1, JsBoolean.False), TypedArrayElementType.Float16);
+        return GetViewValue(thisObject, byteOffset, littleEndian, TypedArrayElementType.Float16);
     }
 
-    private JsValue GetFloat32(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue GetFloat32(JsValue thisObject, JsValue byteOffset, JsValue littleEndian)
     {
-        return GetViewValue(thisObject, arguments.At(0), arguments.At(1, JsBoolean.False), TypedArrayElementType.Float32);
+        return GetViewValue(thisObject, byteOffset, littleEndian, TypedArrayElementType.Float32);
     }
 
-    private JsValue GetFloat64(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue GetFloat64(JsValue thisObject, JsValue byteOffset, JsValue littleEndian)
     {
-        return GetViewValue(thisObject, arguments.At(0), arguments.At(1, JsBoolean.False), TypedArrayElementType.Float64);
+        return GetViewValue(thisObject, byteOffset, littleEndian, TypedArrayElementType.Float64);
     }
 
-    private JsValue GetInt8(JsValue thisObject, JsCallArguments arguments)
+    // 1-byte reads have no endianness; spec passes byteOffset only and Length is 1.
+    [JsFunction(Length = 1)]
+    private JsValue GetInt8(JsValue thisObject, JsValue byteOffset)
     {
-        return GetViewValue(thisObject, arguments.At(0), JsBoolean.True, TypedArrayElementType.Int8);
+        return GetViewValue(thisObject, byteOffset, JsBoolean.True, TypedArrayElementType.Int8);
     }
 
-    private JsValue GetInt16(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue GetInt16(JsValue thisObject, JsValue byteOffset, JsValue littleEndian)
     {
-        return GetViewValue(thisObject, arguments.At(0), arguments.At(1, JsBoolean.False), TypedArrayElementType.Int16);
+        return GetViewValue(thisObject, byteOffset, littleEndian, TypedArrayElementType.Int16);
     }
 
-    private JsValue GetInt32(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue GetInt32(JsValue thisObject, JsValue byteOffset, JsValue littleEndian)
     {
-        return GetViewValue(thisObject, arguments.At(0), arguments.At(1, JsBoolean.False), TypedArrayElementType.Int32);
+        return GetViewValue(thisObject, byteOffset, littleEndian, TypedArrayElementType.Int32);
     }
 
-    private JsValue GetUint8(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue GetUint8(JsValue thisObject, JsValue byteOffset)
     {
-        return GetViewValue(thisObject, arguments.At(0), JsBoolean.True, TypedArrayElementType.Uint8);
+        return GetViewValue(thisObject, byteOffset, JsBoolean.True, TypedArrayElementType.Uint8);
     }
 
-    private JsValue GetUint16(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue GetUint16(JsValue thisObject, JsValue byteOffset, JsValue littleEndian)
     {
-        return GetViewValue(thisObject, arguments.At(0), arguments.At(1, JsBoolean.False), TypedArrayElementType.Uint16);
+        return GetViewValue(thisObject, byteOffset, littleEndian, TypedArrayElementType.Uint16);
     }
 
-    private JsValue GetUint32(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue GetUint32(JsValue thisObject, JsValue byteOffset, JsValue littleEndian)
     {
-        return GetViewValue(thisObject, arguments.At(0), arguments.At(1, JsBoolean.False), TypedArrayElementType.Uint32);
+        return GetViewValue(thisObject, byteOffset, littleEndian, TypedArrayElementType.Uint32);
     }
 
-    private JsValue SetBigInt64(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private JsValue SetBigInt64(JsValue thisObject, JsValue byteOffset, JsValue value, JsValue littleEndian)
     {
-        return SetViewValue(thisObject, arguments.At(0), arguments.At(2), TypedArrayElementType.BigInt64, arguments.At(1));
+        return SetViewValue(thisObject, byteOffset, littleEndian, TypedArrayElementType.BigInt64, value);
     }
 
-    private JsValue SetBigUint64(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private JsValue SetBigUint64(JsValue thisObject, JsValue byteOffset, JsValue value, JsValue littleEndian)
     {
-        return SetViewValue(thisObject, arguments.At(0), arguments.At(2), TypedArrayElementType.BigUint64, arguments.At(1));
+        return SetViewValue(thisObject, byteOffset, littleEndian, TypedArrayElementType.BigUint64, value);
     }
 
-    private JsValue SetFloat16(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private JsValue SetFloat16(JsValue thisObject, JsValue byteOffset, JsValue value, JsValue littleEndian)
     {
-        return SetViewValue(thisObject, arguments.At(0), arguments.At(2, JsBoolean.False), TypedArrayElementType.Float16, arguments.At(1));
+        return SetViewValue(thisObject, byteOffset, littleEndian, TypedArrayElementType.Float16, value);
     }
 
-    private JsValue SetFloat32(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private JsValue SetFloat32(JsValue thisObject, JsValue byteOffset, JsValue value, JsValue littleEndian)
     {
-        return SetViewValue(thisObject, arguments.At(0), arguments.At(2, JsBoolean.False), TypedArrayElementType.Float32, arguments.At(1));
+        return SetViewValue(thisObject, byteOffset, littleEndian, TypedArrayElementType.Float32, value);
     }
 
-    private JsValue SetFloat64(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private JsValue SetFloat64(JsValue thisObject, JsValue byteOffset, JsValue value, JsValue littleEndian)
     {
-        return SetViewValue(thisObject, arguments.At(0), arguments.At(2, JsBoolean.False), TypedArrayElementType.Float64, arguments.At(1));
+        return SetViewValue(thisObject, byteOffset, littleEndian, TypedArrayElementType.Float64, value);
     }
 
-    private JsValue SetInt8(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private JsValue SetInt8(JsValue thisObject, JsValue byteOffset, JsValue value)
     {
-        return SetViewValue(thisObject, arguments.At(0), JsBoolean.True, TypedArrayElementType.Int8, arguments.At(1));
+        return SetViewValue(thisObject, byteOffset, JsBoolean.True, TypedArrayElementType.Int8, value);
     }
 
-    private JsValue SetInt16(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private JsValue SetInt16(JsValue thisObject, JsValue byteOffset, JsValue value, JsValue littleEndian)
     {
-        return SetViewValue(thisObject, arguments.At(0), arguments.At(2, JsBoolean.False), TypedArrayElementType.Int16, arguments.At(1));
+        return SetViewValue(thisObject, byteOffset, littleEndian, TypedArrayElementType.Int16, value);
     }
 
-    private JsValue SetInt32(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private JsValue SetInt32(JsValue thisObject, JsValue byteOffset, JsValue value, JsValue littleEndian)
     {
-        return SetViewValue(thisObject, arguments.At(0), arguments.At(2, JsBoolean.False), TypedArrayElementType.Int32, arguments.At(1));
+        return SetViewValue(thisObject, byteOffset, littleEndian, TypedArrayElementType.Int32, value);
     }
 
-    private JsValue SetUint8(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private JsValue SetUint8(JsValue thisObject, JsValue byteOffset, JsValue value)
     {
-        return SetViewValue(thisObject, arguments.At(0), JsBoolean.True, TypedArrayElementType.Uint8, arguments.At(1));
+        return SetViewValue(thisObject, byteOffset, JsBoolean.True, TypedArrayElementType.Uint8, value);
     }
 
-    private JsValue SetUint16(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private JsValue SetUint16(JsValue thisObject, JsValue byteOffset, JsValue value, JsValue littleEndian)
     {
-        return SetViewValue(thisObject, arguments.At(0), arguments.At(2, JsBoolean.False), TypedArrayElementType.Uint16, arguments.At(1));
+        return SetViewValue(thisObject, byteOffset, littleEndian, TypedArrayElementType.Uint16, value);
     }
 
-    private JsValue SetUint32(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private JsValue SetUint32(JsValue thisObject, JsValue byteOffset, JsValue value, JsValue littleEndian)
     {
-        return SetViewValue(thisObject, arguments.At(0), arguments.At(2, JsBoolean.False), TypedArrayElementType.Uint32, arguments.At(1));
+        return SetViewValue(thisObject, byteOffset, littleEndian, TypedArrayElementType.Uint32, value);
     }
 
     /// <summary>

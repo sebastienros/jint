@@ -1,19 +1,21 @@
 #pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of prototype methods return JsValue
 
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.ArrayBuffer;
 
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-the-arraybuffer-prototype-object
 /// </summary>
-internal sealed class ArrayBufferPrototype : Prototype
+[JsObject]
+internal sealed partial class ArrayBufferPrototype : Prototype
 {
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly ArrayBufferConstructor _constructor;
+
+    [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString ArrayBufferToStringTag = new("ArrayBuffer");
 
     internal ArrayBufferPrototype(
         Engine engine,
@@ -26,29 +28,12 @@ internal sealed class ArrayBufferPrototype : Prototype
 
     protected override void Initialize()
     {
-        const PropertyFlag lengthFlags = PropertyFlag.Configurable;
-        var properties = new PropertyDictionary(4, checkExistingKeys: false)
-        {
-            ["byteLength"] = new GetSetPropertyDescriptor(new ClrFunction(_engine, "get byteLength", ByteLength, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
-            [KnownKeys.Constructor] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
-            ["detached"] = new GetSetPropertyDescriptor(new ClrFunction(_engine, "get detached", Detached, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
-            ["immutable"] = new GetSetPropertyDescriptor(new ClrFunction(_engine, "get immutable", Immutable, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
-            ["maxByteLength"] = new GetSetPropertyDescriptor(new ClrFunction(_engine, "get maxByteLength", MaxByteLength, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
-            ["resizable"] = new GetSetPropertyDescriptor(new ClrFunction(_engine, "get resizable", Resizable, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
-            ["resize"] = new PropertyDescriptor(new ClrFunction(_engine, "resize", Resize, 1, lengthFlags), PropertyFlag.NonEnumerable),
-            ["slice"] = new PropertyDescriptor(new ClrFunction(_engine, "slice", Slice, 2, lengthFlags), PropertyFlag.NonEnumerable),
-            ["sliceToImmutable"] = new PropertyDescriptor(new ClrFunction(_engine, "sliceToImmutable", SliceToImmutable, 2, lengthFlags), PropertyFlag.NonEnumerable),
-            ["transfer"] = new PropertyDescriptor(new ClrFunction(_engine, "transfer", Transfer, 0, lengthFlags), PropertyFlag.NonEnumerable),
-            ["transferToFixedLength"] = new PropertyDescriptor(new ClrFunction(_engine, "transferToFixedLength", TransferToFixedLength, 0, lengthFlags), PropertyFlag.NonEnumerable),
-            ["transferToImmutable"] = new PropertyDescriptor(new ClrFunction(_engine, "transferToImmutable", TransferToImmutable, 0, lengthFlags), PropertyFlag.NonEnumerable),
-        };
-        SetProperties(properties);
-
-        var symbols = new SymbolDictionary(1) { [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("ArrayBuffer", PropertyFlag.Configurable) };
-        SetSymbols(symbols);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
     }
 
-    private JsValue Detached(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("detached")]
+    private JsValue Detached(JsValue thisObject)
     {
         var o = thisObject as JsArrayBuffer;
         if (o is null || o.IsSharedArrayBuffer)
@@ -62,7 +47,8 @@ internal sealed class ArrayBufferPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-immutable-arraybuffer/#sec-get-arraybuffer.prototype.immutable
     /// </summary>
-    private JsValue Immutable(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("immutable")]
+    private JsValue Immutable(JsValue thisObject)
     {
         var o = thisObject as JsArrayBuffer;
         if (o is null || o.IsSharedArrayBuffer)
@@ -76,7 +62,8 @@ internal sealed class ArrayBufferPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-get-arraybuffer.prototype.maxbytelength
     /// </summary>
-    private JsValue MaxByteLength(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("maxByteLength")]
+    private JsValue MaxByteLength(JsValue thisObject)
     {
         var o = thisObject as JsArrayBuffer;
         if (o is null || o.IsSharedArrayBuffer)
@@ -99,7 +86,8 @@ internal sealed class ArrayBufferPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-get-arraybuffer.prototype.resizable
     /// </summary>
-    private JsValue Resizable(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("resizable")]
+    private JsValue Resizable(JsValue thisObject)
     {
         var o = thisObject as JsArrayBuffer;
         if (o is null || o.IsSharedArrayBuffer)
@@ -114,7 +102,8 @@ internal sealed class ArrayBufferPrototype : Prototype
     /// https://tc39.es/ecma262/#sec-arraybuffer.prototype.resize
     /// https://tc39.es/proposal-immutable-arraybuffer/#sec-arraybuffer.prototype.resize
     /// </summary>
-    private JsValue Resize(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue Resize(JsValue thisObject, JsValue newLength)
     {
         var o = thisObject as JsArrayBuffer;
         if (o is null || o.IsSharedArrayBuffer)
@@ -129,7 +118,6 @@ internal sealed class ArrayBufferPrototype : Prototype
             Throw.TypeError(_realm, "Cannot resize a fixed-length ArrayBuffer");
         }
 
-        var newLength = arguments.At(0);
         var newByteLength = TypeConverter.ToIndex(_realm, newLength);
 
         o.AssertNotDetached();
@@ -142,7 +130,8 @@ internal sealed class ArrayBufferPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-get-arraybuffer.prototype.bytelength
     /// </summary>
-    private JsValue ByteLength(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("byteLength")]
+    private JsValue ByteLength(JsValue thisObject)
     {
         var o = thisObject as JsArrayBuffer;
         if (o is null || o.IsSharedArrayBuffer)
@@ -161,7 +150,8 @@ internal sealed class ArrayBufferPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-arraybuffer.prototype.slice
     /// </summary>
-    private JsValue Slice(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private JsValue Slice(JsValue thisObject, JsValue start, JsValue end)
     {
         var o = thisObject as JsArrayBuffer;
         if (o is null || o.IsSharedArrayBuffer)
@@ -170,9 +160,6 @@ internal sealed class ArrayBufferPrototype : Prototype
         }
 
         o.AssertNotDetached();
-
-        var start = arguments.At(0);
-        var end = arguments.At(1);
 
         var len = o.ArrayBufferByteLength;
         var relativeStart = TypeConverter.ToIntegerOrInfinity(start);
@@ -252,33 +239,37 @@ internal sealed class ArrayBufferPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-arraybuffer-transfer/#sec-arraybuffer.prototype.transfer
     /// </summary>
-    private JsValue Transfer(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0)]
+    private JsValue Transfer(JsValue thisObject, JsValue newLength)
     {
-        return ArrayBufferCopyAndDetach(thisObject, arguments.At(0), PreserveResizability.PreserveResizability);
+        return ArrayBufferCopyAndDetach(thisObject, newLength, PreserveResizability.PreserveResizability);
     }
 
     /// <summary>
     /// https://tc39.es/proposal-arraybuffer-transfer/#sec-arraybuffer.prototype.transfertofixedlength
     /// </summary>
-    private JsValue TransferToFixedLength(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0)]
+    private JsValue TransferToFixedLength(JsValue thisObject, JsValue newLength)
     {
-        return ArrayBufferCopyAndDetach(thisObject, arguments.At(0), PreserveResizability.FixedLength);
+        return ArrayBufferCopyAndDetach(thisObject, newLength, PreserveResizability.FixedLength);
     }
 
     /// <summary>
     /// https://tc39.es/proposal-immutable-arraybuffer/#sec-arraybuffer.prototype.transfertoimmutable
     /// </summary>
-    private JsValue TransferToImmutable(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0)]
+    private JsValue TransferToImmutable(JsValue thisObject, JsValue newLength)
     {
         // 1. Let O be the this value.
         // 2. Return ? ArrayBufferCopyAndDetach(O, newLength, immutable).
-        return ArrayBufferCopyAndDetach(thisObject, arguments.At(0), PreserveResizability.Immutable);
+        return ArrayBufferCopyAndDetach(thisObject, newLength, PreserveResizability.Immutable);
     }
 
     /// <summary>
     /// https://tc39.es/proposal-immutable-arraybuffer/#sec-arraybuffer.prototype.slicetoimmutable
     /// </summary>
-    private JsValue SliceToImmutable(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private JsValue SliceToImmutable(JsValue thisObject, JsValue start, JsValue end)
     {
         // 1. Let O be the this value.
         var o = thisObject as JsArrayBuffer;
@@ -293,9 +284,6 @@ internal sealed class ArrayBufferPrototype : Prototype
 
         // 4. If IsDetachedBuffer(O) is true, throw a TypeError exception.
         o.AssertNotDetached();
-
-        var start = arguments.At(0);
-        var end = arguments.At(1);
 
         // 5. Let len be O.[[ArrayBufferByteLength]].
         var len = o.ArrayBufferByteLength;

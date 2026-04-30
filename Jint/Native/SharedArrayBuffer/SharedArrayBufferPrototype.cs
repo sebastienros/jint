@@ -1,17 +1,19 @@
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.SharedArrayBuffer;
 
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-the-sharedarraybuffer-prototype-object
 /// </summary>
-internal sealed class SharedArrayBufferPrototype : Prototype
+[JsObject]
+internal sealed partial class SharedArrayBufferPrototype : Prototype
 {
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly SharedArrayBufferConstructor _constructor;
+
+    [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString SharedArrayBufferToStringTag = new("SharedArrayBuffer");
 
     internal SharedArrayBufferPrototype(
         Engine engine,
@@ -24,31 +26,20 @@ internal sealed class SharedArrayBufferPrototype : Prototype
 
     protected override void Initialize()
     {
-        const PropertyFlag lengthFlags = PropertyFlag.Configurable;
-        var properties = new PropertyDictionary(3, checkExistingKeys: false)
-        {
-            ["byteLength"] = new GetSetPropertyDescriptor(new ClrFunction(_engine, "get byteLength", ByteLength, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
-            [KnownKeys.Constructor] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
-            ["growable"] = new GetSetPropertyDescriptor(new ClrFunction(_engine, "get growable", Growable, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
-            ["grow"] = new PropertyDescriptor(new ClrFunction(_engine, "grow", Grow, 1, lengthFlags), PropertyFlag.NonEnumerable),
-            ["maxByteLength"] = new GetSetPropertyDescriptor(new ClrFunction(_engine, "get maxByteLength", MaxByteLength, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
-            ["slice"] = new PropertyDescriptor(new ClrFunction(Engine, "slice", Slice, 2, lengthFlags), PropertyFlag.Configurable | PropertyFlag.Writable)
-        };
-        SetProperties(properties);
-
-        var symbols = new SymbolDictionary(1) { [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("SharedArrayBuffer", PropertyFlag.Configurable) };
-        SetSymbols(symbols);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-get-sharedarraybuffer.prototype.bytelength
     /// </summary>
-    private JsNumber ByteLength(JsValue thisObj, JsCallArguments arguments)
+    [JsAccessor("byteLength")]
+    private JsNumber ByteLength(JsValue thisObject)
     {
-        var o = thisObj as JsSharedArrayBuffer;
+        var o = thisObject as JsSharedArrayBuffer;
         if (o is null || !o.IsSharedArrayBuffer)
         {
-            Throw.TypeError(_realm, "Method prototype.byteLength called on incompatible receiver " + thisObj);
+            Throw.TypeError(_realm, "Method prototype.byteLength called on incompatible receiver " + thisObject);
         }
 
         return JsNumber.Create(o.ArrayBufferByteLength);
@@ -57,18 +48,16 @@ internal sealed class SharedArrayBufferPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-sharedarraybuffer.prototype.slice
     /// </summary>
-    private JsSharedArrayBuffer Slice(JsValue thisObj, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private JsSharedArrayBuffer Slice(JsValue thisObject, JsValue start, JsValue end)
     {
-        var o = thisObj as JsSharedArrayBuffer;
+        var o = thisObject as JsSharedArrayBuffer;
         if (o is null || !o.IsSharedArrayBuffer)
         {
-            Throw.TypeError(_realm, "Method prototype.slice called on incompatible receiver " + thisObj);
+            Throw.TypeError(_realm, "Method prototype.slice called on incompatible receiver " + thisObject);
         }
 
         o.AssertNotDetached();
-
-        var start = arguments.At(0);
-        var end = arguments.At(1);
 
         var len = o.ArrayBufferByteLength;
         var relativeStart = TypeConverter.ToIntegerOrInfinity(start);
@@ -141,7 +130,8 @@ internal sealed class SharedArrayBufferPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-get-sharedarraybuffer.prototype.growable
     /// </summary>
-    private JsValue Growable(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("growable")]
+    private JsValue Growable(JsValue thisObject)
     {
         var o = thisObject as JsSharedArrayBuffer;
         if (o is null || !o.IsSharedArrayBuffer)
@@ -155,7 +145,8 @@ internal sealed class SharedArrayBufferPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-sharedarraybuffer.prototype.grow
     /// </summary>
-    private JsValue Grow(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue Grow(JsValue thisObject, JsValue newLength)
     {
         var o = thisObject as JsSharedArrayBuffer;
         if (o is null || !o.IsSharedArrayBuffer)
@@ -163,7 +154,6 @@ internal sealed class SharedArrayBufferPrototype : Prototype
             Throw.TypeError(_realm, "Method SharedArrayBuffer.prototype.grow called on incompatible receiver " + thisObject);
         }
 
-        var newLength = arguments.At(0);
         var newByteLength = TypeConverter.ToIndex(_realm, newLength);
 
         o.AssertNotDetached();
@@ -176,7 +166,8 @@ internal sealed class SharedArrayBufferPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-get-sharedarraybuffer.prototype.maxbytelength
     /// </summary>
-    private JsValue MaxByteLength(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("maxByteLength")]
+    private JsValue MaxByteLength(JsValue thisObject)
     {
         var o = thisObject as JsSharedArrayBuffer;
         if (o is null || !o.IsSharedArrayBuffer)
