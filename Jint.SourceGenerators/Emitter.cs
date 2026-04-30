@@ -26,13 +26,19 @@ internal static class Emitter
 
         EmitInitialize(sb, obj);
 
-        var hasSymbolFunctions = false;
+        var hasSymbolMembers = false;
         foreach (var fn in obj.Functions)
         {
-            if (fn.Registration == RegistrationKind.SymbolFunction) { hasSymbolFunctions = true; break; }
+            if (fn.Registration == RegistrationKind.SymbolFunction
+                || fn.Registration == RegistrationKind.SymbolAccessorGet
+                || fn.Registration == RegistrationKind.SymbolAccessorSet)
+            {
+                hasSymbolMembers = true;
+                break;
+            }
         }
 
-        if (obj.Symbols.Count > 0 || hasSymbolFunctions)
+        if (obj.Symbols.Count > 0 || hasSymbolMembers)
         {
             sb.AppendLine();
             EmitSymbolInitialize(sb, obj);
@@ -69,6 +75,8 @@ internal static class Emitter
                     accessorsByName[fn.JsName] = (slotS.Get, fn, slotS.Get is null && slotS.Set is null ? fn.FlagsExpression : slotS.Flags);
                     break;
                 case RegistrationKind.SymbolFunction:
+                case RegistrationKind.SymbolAccessorGet:
+                case RegistrationKind.SymbolAccessorSet:
                     // Handled in EmitSymbolInitialize.
                     break;
             }
@@ -332,12 +340,26 @@ internal static class Emitter
     private static void EmitSymbolInitialize(StringBuilder sb, ObjectDefinition obj)
     {
         var symbolFunctions = new List<FunctionDefinition>();
+        var symbolAccessorsByName = new Dictionary<string, (FunctionDefinition? Get, FunctionDefinition? Set, string Flags)>(StringComparer.Ordinal);
         foreach (var fn in obj.Functions)
         {
-            if (fn.Registration == RegistrationKind.SymbolFunction) symbolFunctions.Add(fn);
+            switch (fn.Registration)
+            {
+                case RegistrationKind.SymbolFunction:
+                    symbolFunctions.Add(fn);
+                    break;
+                case RegistrationKind.SymbolAccessorGet:
+                    symbolAccessorsByName.TryGetValue(fn.JsName, out var slotG);
+                    symbolAccessorsByName[fn.JsName] = (fn, slotG.Set, slotG.Get is null && slotG.Set is null ? fn.FlagsExpression : slotG.Flags);
+                    break;
+                case RegistrationKind.SymbolAccessorSet:
+                    symbolAccessorsByName.TryGetValue(fn.JsName, out var slotS);
+                    symbolAccessorsByName[fn.JsName] = (slotS.Get, fn, slotS.Get is null && slotS.Set is null ? fn.FlagsExpression : slotS.Flags);
+                    break;
+            }
         }
 
-        var totalEntries = obj.Symbols.Count + symbolFunctions.Count;
+        var totalEntries = obj.Symbols.Count + symbolFunctions.Count + symbolAccessorsByName.Count;
 
         sb.AppendLine("    /// <summary>Generated symbol-keyed registration. Call from <c>Initialize()</c>.</summary>");
         sb.AppendLine("    private void CreateSymbols_Generated()");
@@ -360,6 +382,34 @@ internal static class Emitter
             sb.Append("        symbols[global::Jint.Native.Symbol.GlobalSymbolRegistry.").Append(fn.JsName).Append("] = new global::Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<")
               .Append(obj.Name).Append(">(this, static host => new __").Append(obj.Name).Append("Function(host, __")
               .Append(obj.Name).Append("Function.Slot.").Append(fn.ClrName).Append("), ").Append(fn.FlagsExpression).AppendLine(");");
+        }
+
+        // Symbol-keyed accessors: GetSetPropertyDescriptor wrapping eagerly-allocated dispatcher slots,
+        // registered under GlobalSymbolRegistry.<SymbolName>.
+        var symbolAccessorNames = new List<string>(symbolAccessorsByName.Keys);
+        symbolAccessorNames.Sort(StringComparer.Ordinal);
+        foreach (var name in symbolAccessorNames)
+        {
+            var (getFn, setFn, flagsExpr) = symbolAccessorsByName[name];
+            sb.Append("        symbols[global::Jint.Native.Symbol.GlobalSymbolRegistry.").Append(name).Append("] = new global::Jint.Runtime.Descriptors.GetSetPropertyDescriptor(");
+            if (getFn is not null)
+            {
+                sb.Append("new __").Append(obj.Name).Append("Function(this, __").Append(obj.Name).Append("Function.Slot.").Append(getFn.ClrName).Append(')');
+            }
+            else
+            {
+                sb.Append("null");
+            }
+            sb.Append(", ");
+            if (setFn is not null)
+            {
+                sb.Append("new __").Append(obj.Name).Append("Function(this, __").Append(obj.Name).Append("Function.Slot.").Append(setFn.ClrName).Append(')');
+            }
+            else
+            {
+                sb.Append("null");
+            }
+            sb.Append(", ").Append(flagsExpr).AppendLine(");");
         }
 
         sb.AppendLine("        SetSymbols(symbols);");

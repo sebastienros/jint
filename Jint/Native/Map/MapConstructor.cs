@@ -3,14 +3,13 @@
 using Jint.Native.Function;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.Map;
 
-public sealed class MapConstructor : Constructor
+[JsObject]
+public sealed partial class MapConstructor : Constructor
 {
     private static readonly JsString _functionName = new("Map");
 
@@ -31,12 +30,8 @@ public sealed class MapConstructor : Constructor
 
     protected override void Initialize()
     {
-        const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
-        var properties = new PropertyDictionary(1, checkExistingKeys: false) { ["groupBy"] = new(new ClrFunction(Engine, "groupBy", GroupBy, 2, PropertyFlag.Configurable), PropertyFlags), };
-        SetProperties(properties);
-
-        var symbols = new SymbolDictionary(1) { [GlobalSymbolRegistry.Species] = new GetSetPropertyDescriptor(get: new ClrFunction(_engine, "get [Symbol.species]", Species, 0, PropertyFlag.Configurable), set: Undefined, PropertyFlag.Configurable) };
-        SetSymbols(symbols);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
     }
 
     public JsMap Construct() => ConstructMap(this);
@@ -86,10 +81,9 @@ public sealed class MapConstructor : Constructor
     /// <summary>
     /// https://tc39.es/proposal-array-grouping/#sec-map.groupby
     /// </summary>
-    private JsValue GroupBy(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private JsValue GroupBy(JsValue thisObject, JsValue items, JsValue callbackfn)
     {
-        var items = arguments.At(0);
-        var callbackfn = arguments.At(1);
         var grouping = GroupByHelper.GroupBy(_engine, _realm, items, callbackfn, mapMode: true);
         var map = (JsMap) Construct(_realm.Intrinsics.Map);
         foreach (var pair in grouping)
@@ -100,7 +94,8 @@ public sealed class MapConstructor : Constructor
         return map;
     }
 
-    private static JsValue Species(JsValue thisObject, JsCallArguments arguments)
+    [JsSymbolAccessor("Species")]
+    private static JsValue Species(JsValue thisObject)
     {
         return thisObject;
     }

@@ -198,6 +198,41 @@ internal sealed record class ObjectDefinition(
                     if (fn is not null) functions.Add(fn);
                     break;
                 }
+                case IMethodSymbol method when HasAttribute(method, "JsSymbolAccessorAttribute"):
+                {
+                    seenFunctionClrNames ??= new HashSet<string>(StringComparer.Ordinal);
+                    if (!seenFunctionClrNames.Add(method.Name))
+                    {
+                        diagnostics.Add(new DiagnosticInfo(
+                            DiagnosticDescriptors.DuplicateJsName,
+                            method.Locations.FirstOrDefault(),
+                            method.Name,
+                            typeSymbol.Name));
+                        break;
+                    }
+                    var fn = FunctionDefinition.FromJsSymbolAccessor(method, pc, diagnostics);
+                    if (fn is null) break;
+                    functions.Add(fn);
+
+                    // JINT017: pair this symbol-accessor with any prior get/set under the same SymbolName.
+                    accessorFlagsByJsName ??= new Dictionary<string, string>(StringComparer.Ordinal);
+                    var pairKey = "@@" + fn.JsName;
+                    if (accessorFlagsByJsName.TryGetValue(pairKey, out var firstFlags))
+                    {
+                        if (!string.Equals(firstFlags, fn.FlagsExpression, StringComparison.Ordinal))
+                        {
+                            diagnostics.Add(new DiagnosticInfo(
+                                DiagnosticDescriptors.ConflictingAccessorFlags,
+                                method.Locations.FirstOrDefault(),
+                                fn.JsName, typeSymbol.Name));
+                        }
+                    }
+                    else
+                    {
+                        accessorFlagsByJsName[pairKey] = fn.FlagsExpression;
+                    }
+                    break;
+                }
                 case IFieldSymbol field when HasAttribute(field, "JsPropertyAttribute"):
                 {
                     var prop = PropertyDefinition.FromField(field, pc, diagnostics);
@@ -354,10 +389,12 @@ internal sealed record class ParameterDefinition(ParameterKind Kind, int Positio
 
 internal enum RegistrationKind
 {
-    DataProperty,     // [JsFunction] — emit into properties[…] as LazyPropertyDescriptor
-    AccessorGet,      // [JsAccessor(Get)] — pair with matching Set by JsName, emit GetSetPropertyDescriptor
-    AccessorSet,      // [JsAccessor(Set)]
-    SymbolFunction,   // [JsSymbolFunction] — emit into symbols[GlobalSymbolRegistry.X] as LazyPropertyDescriptor
+    DataProperty,        // [JsFunction] — emit into properties[…] as LazyPropertyDescriptor
+    AccessorGet,         // [JsAccessor(Get)] — pair with matching Set by JsName, emit GetSetPropertyDescriptor
+    AccessorSet,         // [JsAccessor(Set)]
+    SymbolFunction,      // [JsSymbolFunction] — emit into symbols[GlobalSymbolRegistry.X] as LazyPropertyDescriptor
+    SymbolAccessorGet,   // [JsSymbolAccessor(Get)] — pair with matching Set by SymbolName, emit symbol-keyed GetSetPropertyDescriptor
+    SymbolAccessorSet,   // [JsSymbolAccessor(Set)]
 }
 
 internal sealed record class ThrowerAccessorDefinition(string JsName, string FlagsExpression);
@@ -447,6 +484,52 @@ internal sealed record class FunctionDefinition(
         // The JS-visible function name follows the ECMA convention "[Symbol.X]" with X = lowercase first letter.
         var functionName = "[Symbol." + ToCamelCase(symbolName!) + "]";
         return BuildCommon(method, pc, diagnostics, symbolName!, functionName, explicitLength, RegistrationKind.SymbolFunction, flags);
+    }
+
+    public static FunctionDefinition? FromJsSymbolAccessor(IMethodSymbol method, ParseContext pc, List<DiagnosticInfo> diagnostics)
+    {
+        var attr = ObjectDefinition.GetAttribute(method, "JsSymbolAccessorAttribute");
+        if (attr is null || attr.ConstructorArguments.Length == 0) return null;
+        var symbolName = attr.ConstructorArguments[0].Value as string;
+        if (string.IsNullOrWhiteSpace(symbolName)) return null;
+        var kindEnumValue = attr.ConstructorArguments.Length > 1 ? (attr.ConstructorArguments[1].Value as int? ?? 0) : 0;
+        var registration = kindEnumValue == 1 ? RegistrationKind.SymbolAccessorSet : RegistrationKind.SymbolAccessorGet;
+        // Default symbol-accessor flags mirror [JsAccessor]: Configurable, non-enumerable (EnumerableSet bit set).
+        var flagsExplicit = ObjectDefinition.HasNamedArg(attr, "Flags")
+            ? ObjectDefinition.GetNamedArg(attr, "Flags") as int?
+            : (int?) 18;
+        var flags = FlagExpression.From(flagsExplicit, "Configurable");
+        var expectedValueParams = registration == RegistrationKind.SymbolAccessorSet ? 1 : 0;
+        // The JS-visible function name follows the "get [Symbol.X]" / "set [Symbol.X]" convention.
+        var functionName = (registration == RegistrationKind.SymbolAccessorSet ? "set [Symbol." : "get [Symbol.") + ToCamelCase(symbolName!) + "]";
+        var fn = BuildCommon(method, pc, diagnostics, symbolName!, functionName, expectedValueParams, registration, flags);
+        if (fn is null) return null;
+
+        // JINT019: validate the actual value-parameter count matches the accessor kind.
+        var actualValueParams = 0;
+        foreach (var p in fn.Parameters)
+        {
+            if (p.Kind != ParameterKind.ThisObject && p.Kind != ParameterKind.AllArguments && p.Kind != ParameterKind.Rest)
+            {
+                actualValueParams++;
+            }
+        }
+        if (actualValueParams != expectedValueParams)
+        {
+            var detail = expectedValueParams == 0
+                ? $"getter must take no value parameters, has {actualValueParams}"
+                : $"setter must take exactly one value parameter, has {actualValueParams}";
+            diagnostics.Add(new DiagnosticInfo(
+                DiagnosticDescriptors.InvalidAccessorSignature,
+                method.Locations.FirstOrDefault(),
+                registration == RegistrationKind.SymbolAccessorSet ? "set" : "get",
+                method.Name,
+                method.ContainingType.Name,
+                detail));
+            return null;
+        }
+
+        return fn;
     }
 
     private static FunctionDefinition? BuildCommon(IMethodSymbol method, ParseContext pc, List<DiagnosticInfo> diagnostics, string jsName, string functionName, int explicitLength, RegistrationKind registration, string flagsExpression)

@@ -442,6 +442,29 @@ public class ObjectGeneratorTests
     }
 
     [Test]
+    public Task SymbolAccessorGetterOnly()
+    {
+        return VerifyGenerator("""
+            using Jint;
+            using Jint.Native;
+            using Jint.Native.Object;
+
+            namespace Sample;
+
+            [JsObject]
+            internal sealed partial class Foo : ObjectInstance
+            {
+                internal Foo(Engine engine) : base(engine) { }
+
+                [JsSymbolAccessor("Species")]
+                private static JsValue Species(JsValue thisObject) => thisObject;
+
+                protected override void Initialize() { CreateProperties_Generated(); CreateSymbols_Generated(); }
+            }
+            """);
+    }
+
+    [Test]
     public Task ThisObjectCastToCallable()
     {
         return VerifyGenerator("""

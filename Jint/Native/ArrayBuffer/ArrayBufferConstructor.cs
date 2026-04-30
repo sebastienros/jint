@@ -1,16 +1,15 @@
 using Jint.Native.Function;
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.ArrayBuffer;
 
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-the-arraybuffer-constructor
 /// </summary>
-public sealed class ArrayBufferConstructor : Constructor
+[JsObject]
+public sealed partial class ArrayBufferConstructor : Constructor
 {
     private static readonly JsString _functionName = new("ArrayBuffer");
 
@@ -31,18 +30,8 @@ public sealed class ArrayBufferConstructor : Constructor
 
     protected override void Initialize()
     {
-        const PropertyFlag lengthFlags = PropertyFlag.Configurable;
-        var properties = new PropertyDictionary(1, checkExistingKeys: false)
-        {
-            ["isView"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunction(Engine, "isView", IsView, 1, lengthFlags), PropertyFlag.Configurable | PropertyFlag.Writable)),
-        };
-        SetProperties(properties);
-
-        var symbols = new SymbolDictionary(1)
-        {
-            [GlobalSymbolRegistry.Species] = new GetSetPropertyDescriptor(get: new ClrFunction(Engine, "get [Symbol.species]", Species, 0, lengthFlags), set: Undefined, PropertyFlag.Configurable),
-        };
-        SetSymbols(symbols);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
     }
 
     /// <summary>
@@ -79,7 +68,8 @@ public sealed class ArrayBufferConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-get-arraybuffer-@@species
     /// </summary>
-    private static JsValue Species(JsValue thisObject, JsCallArguments arguments)
+    [JsSymbolAccessor("Species")]
+    private static JsValue Species(JsValue thisObject)
     {
         return thisObject;
     }
@@ -87,9 +77,9 @@ public sealed class ArrayBufferConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-arraybuffer.isview
     /// </summary>
-    private static JsValue IsView(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private static JsValue IsView(JsValue thisObject, JsValue arg)
     {
-        var arg = arguments.At(0);
         return arg is JsDataView or JsTypedArray;
     }
 

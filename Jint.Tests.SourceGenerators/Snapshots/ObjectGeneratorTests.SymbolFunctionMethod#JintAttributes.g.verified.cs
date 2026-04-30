@@ -130,3 +130,21 @@ internal sealed class JsSymbolFunctionAttribute : global::System.Attribute
     public int Length { get; set; } = -1;
     public global::Jint.Runtime.Descriptors.PropertyFlag Flags { get; set; } = global::Jint.Runtime.Descriptors.PropertyFlag.AllForbidden;
 }
+
+// Symbol-keyed accessor: pairs by SymbolName on the same class. Get and Set halves emit one
+// GetSetPropertyDescriptor wrapping eagerly-allocated dispatcher slots, registered under
+// GlobalSymbolRegistry.<SymbolName>. Most commonly used for "@@species" getters.
+[global::System.AttributeUsage(global::System.AttributeTargets.Method, AllowMultiple = false)]
+[global::System.Diagnostics.Conditional("JINT_SOURCE_GENERATORS")]
+internal sealed class JsSymbolAccessorAttribute : global::System.Attribute
+{
+    public JsSymbolAccessorAttribute(string symbolName, AccessorKind kind = AccessorKind.Get)
+    {
+        SymbolName = symbolName;
+        Kind = kind;
+    }
+
+    public string SymbolName { get; }
+    public AccessorKind Kind { get; }
+    public global::Jint.Runtime.Descriptors.PropertyFlag Flags { get; set; } = global::Jint.Runtime.Descriptors.PropertyFlag.Configurable;
+}
