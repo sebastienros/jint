@@ -3,13 +3,16 @@ using Jint.Native.Promise;
 using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.Disposable;
 
-internal sealed class AsyncDisposableStackPrototype : Prototype
+[JsObject]
+internal sealed partial class AsyncDisposableStackPrototype : Prototype
 {
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly AsyncDisposableStackConstructor _constructor;
+
+    [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString AsyncDisposableStackToStringTag = new("AsyncDisposableStack");
 
     internal AsyncDisposableStackPrototype(
         Engine engine,
@@ -23,44 +26,32 @@ internal sealed class AsyncDisposableStackPrototype : Prototype
 
     protected override void Initialize()
     {
-        var disposeFunction = new ClrFunction(Engine, "disposeAsync", Dispose, 0, PropertyFlag.Configurable);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
 
-        const PropertyFlag PropertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-        var properties = new PropertyDictionary(8, checkExistingKeys: false)
-        {
-            ["length"] = new PropertyDescriptor(0, PropertyFlag.Configurable),
-            ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
-            ["adopt"] = new PropertyDescriptor(new ClrFunction(Engine, "adopt", Adopt, 2, PropertyFlag.Configurable), PropertyFlags),
-            ["defer"] = new PropertyDescriptor(new ClrFunction(Engine, "defer", Defer, 1, PropertyFlag.Configurable), PropertyFlags),
-            ["disposeAsync"] = new PropertyDescriptor(disposeFunction, PropertyFlags),
-            ["disposed"] = new GetSetPropertyDescriptor(get: new ClrFunction(Engine, "get disposed", Disposed, 0, PropertyFlag.Configurable), set: Undefined, PropertyFlags),
-            ["move"] = new PropertyDescriptor(new ClrFunction(Engine, "move", Move, 0, PropertyFlag.Configurable), PropertyFlags),
-            ["use"] = new PropertyDescriptor(new ClrFunction(Engine, "use", Use, 1, PropertyFlag.Configurable), PropertyFlags),
-        };
-        SetProperties(properties);
-
-        var symbols = new SymbolDictionary(2)
-        {
-            [GlobalSymbolRegistry.AsyncDispose] = new PropertyDescriptor(disposeFunction, PropertyFlags),
-            [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("AsyncDisposableStack", PropertyFlag.Configurable),
-        };
-        SetSymbols(symbols);
+        // Spec requires AsyncDisposableStack.prototype[@@asyncDispose] to be the same function object
+        // as AsyncDisposableStack.prototype.disposeAsync. Alias the descriptor here so the
+        // @@asyncDispose slot shares the same materialized function as `disposeAsync`.
+        SetProperty(GlobalSymbolRegistry.AsyncDispose, GetOwnProperty("disposeAsync"));
     }
 
-    private JsValue Adopt(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private JsValue Adopt(JsValue thisObject, JsValue value, JsValue onDispose)
     {
         var stack = AssertDisposableStack(thisObject);
-        return stack.Adopt(arguments.At(0), arguments.At(1));
+        return stack.Adopt(value, onDispose);
     }
 
-    private JsValue Defer(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue Defer(JsValue thisObject, JsValue onDispose)
     {
         var stack = AssertDisposableStack(thisObject);
-        stack.Defer(arguments.At(0));
+        stack.Defer(onDispose);
         return Undefined;
     }
 
-    private JsValue Dispose(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0, Name = "disposeAsync")]
+    private JsValue Dispose(JsValue thisObject)
     {
         // Per spec: create promise capability first, then validate receiver.
         // If validation fails, reject the promise instead of throwing synchronously.
@@ -78,13 +69,15 @@ internal sealed class AsyncDisposableStackPrototype : Prototype
         return capability.PromiseInstance;
     }
 
-    private JsValue Disposed(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("disposed")]
+    private JsBoolean Disposed(JsValue thisObject)
     {
         var stack = AssertDisposableStack(thisObject);
-        return stack.State == DisposableState.Disposed;
+        return stack.State == DisposableState.Disposed ? JsBoolean.True : JsBoolean.False;
     }
 
-    private JsValue Move(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0)]
+    private JsValue Move(JsValue thisObject)
     {
         var stack = AssertDisposableStack(thisObject);
         var newDisposableStack = _engine.Intrinsics.Function.OrdinaryCreateFromConstructor(
@@ -95,10 +88,11 @@ internal sealed class AsyncDisposableStackPrototype : Prototype
         return stack.Move(newDisposableStack);
     }
 
-    private JsValue Use(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue Use(JsValue thisObject, JsValue value)
     {
         var stack = AssertDisposableStack(thisObject);
-        return stack.Use(arguments.At(0));
+        return stack.Use(value);
     }
 
     private DisposableStack AssertDisposableStack(JsValue thisObject)

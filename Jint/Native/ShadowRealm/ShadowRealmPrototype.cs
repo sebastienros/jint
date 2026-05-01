@@ -1,17 +1,19 @@
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.ShadowRealm;
 
 /// <summary>
 /// https://tc39.es/proposal-shadowrealm/#sec-properties-of-the-shadowrealm-prototype-object
 /// </summary>
-internal sealed class ShadowRealmPrototype : Prototype
+[JsObject]
+internal sealed partial class ShadowRealmPrototype : Prototype
 {
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly ShadowRealmConstructor _constructor;
+
+    [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString ShadowRealmToStringTag = new("ShadowRealm");
 
     internal ShadowRealmPrototype(
         Engine engine,
@@ -25,27 +27,17 @@ internal sealed class ShadowRealmPrototype : Prototype
 
     protected override void Initialize()
     {
-        const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-        var properties = new PropertyDictionary(5, checkExistingKeys: false)
-        {
-            ["length"] = new PropertyDescriptor(0, PropertyFlag.Configurable),
-            ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
-            ["evaluate"] = new PropertyDescriptor(new ClrFunction(Engine, "evaluate", Evaluate, 1, PropertyFlag.Configurable), propertyFlags),
-            ["importValue"] = new PropertyDescriptor(new ClrFunction(Engine, "importValue", ImportValue, 2, PropertyFlag.Configurable), propertyFlags),
-        };
-        SetProperties(properties);
-
-        var symbols = new SymbolDictionary(1) { [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("ShadowRealm", false, false, true) };
-        SetSymbols(symbols);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
     }
 
     /// <summary>
     /// https://tc39.es/proposal-shadowrealm/#sec-shadowrealm.prototype.evaluate
     /// </summary>
-    private JsValue Evaluate(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue Evaluate(JsValue thisObject, JsValue sourceText)
     {
         var shadowRealm = ValidateShadowRealmObject(thisObject);
-        var sourceText = arguments.At(0);
 
         if (!sourceText.IsString())
         {
@@ -65,11 +57,9 @@ internal sealed class ShadowRealmPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-shadowrealm/#sec-shadowrealm.prototype.importvalue
     /// </summary>
-    private JsValue ImportValue(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private JsValue ImportValue(JsValue thisObject, JsValue specifier, JsValue exportName)
     {
-        var specifier = arguments.At(0);
-        var exportName = arguments.At(1);
-
         var O = ValidateShadowRealmObject(thisObject);
         var specifierString = TypeConverter.ToJsString(specifier);
         if (!specifier.IsString())
