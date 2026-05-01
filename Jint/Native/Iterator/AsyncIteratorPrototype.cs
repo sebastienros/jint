@@ -116,7 +116,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
     /// Validates thisObject is an ObjectInstance and extracts a callable argument.
     /// Closes the iterator on validation failure.
     /// </summary>
-    private ObjectInstance ValidateThisAndGetCallable(JsValue thisObject, JsValue[] arguments, string methodName, out ICallable callable)
+    private ObjectInstance ValidateThisAndGetCallable(JsValue thisObject, JsValue arg, string methodName, out ICallable callable)
     {
         if (thisObject is not ObjectInstance o)
         {
@@ -127,7 +127,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
 
         try
         {
-            callable = GetCallable(arguments.At(0));
+            callable = GetCallable(arg);
         }
         catch
         {
@@ -142,7 +142,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
     /// Validates thisObject and extracts a numeric limit argument.
     /// Closes the iterator on validation failure.
     /// </summary>
-    private ObjectInstance ValidateThisAndGetLimit(JsValue thisObject, JsValue[] arguments, string methodName, out long limit)
+    private ObjectInstance ValidateThisAndGetLimit(JsValue thisObject, JsValue arg, string methodName, out long limit)
     {
         if (thisObject is not ObjectInstance o)
         {
@@ -154,7 +154,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
         double numLimit;
         try
         {
-            numLimit = TypeConverter.ToNumber(arguments.At(0));
+            numLimit = TypeConverter.ToNumber(arg);
         }
         catch
         {
@@ -364,46 +364,46 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
     // ---- Helper-returning methods ----
 
     [JsFunction(Length = 1)]
-    private AsyncMapIterator Map(JsValue thisObject, JsValue[] arguments)
+    private AsyncMapIterator Map(JsValue thisObject, JsValue mapperArg)
     {
-        var o = ValidateThisAndGetCallable(thisObject, arguments, "map", out var mapper);
+        var o = ValidateThisAndGetCallable(thisObject, mapperArg, "map", out var mapper);
         return new AsyncMapIterator(_engine, GetIteratorDirect(o), mapper);
     }
 
     [JsFunction(Length = 1)]
-    private AsyncFilterIterator Filter(JsValue thisObject, JsValue[] arguments)
+    private AsyncFilterIterator Filter(JsValue thisObject, JsValue predicateArg)
     {
-        var o = ValidateThisAndGetCallable(thisObject, arguments, "filter", out var predicate);
+        var o = ValidateThisAndGetCallable(thisObject, predicateArg, "filter", out var predicate);
         return new AsyncFilterIterator(_engine, GetIteratorDirect(o), predicate);
     }
 
     [JsFunction(Length = 1)]
-    private AsyncTakeIterator Take(JsValue thisObject, JsValue[] arguments)
+    private AsyncTakeIterator Take(JsValue thisObject, JsValue limitArg)
     {
-        var o = ValidateThisAndGetLimit(thisObject, arguments, "take", out var limit);
+        var o = ValidateThisAndGetLimit(thisObject, limitArg, "take", out var limit);
         return new AsyncTakeIterator(_engine, GetIteratorDirect(o), limit);
     }
 
     [JsFunction(Length = 1)]
-    private AsyncDropIterator Drop(JsValue thisObject, JsValue[] arguments)
+    private AsyncDropIterator Drop(JsValue thisObject, JsValue limitArg)
     {
-        var o = ValidateThisAndGetLimit(thisObject, arguments, "drop", out var limit);
+        var o = ValidateThisAndGetLimit(thisObject, limitArg, "drop", out var limit);
         return new AsyncDropIterator(_engine, GetIteratorDirect(o), limit);
     }
 
     [JsFunction(Length = 1)]
-    private AsyncFlatMapIterator FlatMap(JsValue thisObject, JsValue[] arguments)
+    private AsyncFlatMapIterator FlatMap(JsValue thisObject, JsValue mapperArg)
     {
-        var o = ValidateThisAndGetCallable(thisObject, arguments, "flatMap", out var mapper);
+        var o = ValidateThisAndGetCallable(thisObject, mapperArg, "flatMap", out var mapper);
         return new AsyncFlatMapIterator(_engine, GetIteratorDirect(o), mapper);
     }
 
     // ---- Consuming methods (return promises) ----
 
     [JsFunction(Length = 1)]
-    private JsValue Reduce(JsValue thisObject, JsValue[] arguments)
+    private JsValue Reduce(JsValue thisObject, JsCallArguments arguments)
     {
-        var o = ValidateThisAndGetCallable(thisObject, arguments, "reduce", out var reducer);
+        var o = ValidateThisAndGetCallable(thisObject, arguments.At(0), "reduce", out var reducer);
         var iterated = GetIteratorDirect(o);
         var promiseCapability = PromiseConstructor.NewPromiseCapability(_engine, _engine.Realm.Intrinsics.Promise);
         var hasInitialValue = arguments.Length >= 2;
@@ -465,7 +465,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
     }
 
     [JsFunction(Length = 0)]
-    private JsValue ToArray(JsValue thisObject, JsValue[] arguments)
+    private JsValue ToArray(JsValue thisObject)
     {
         if (thisObject is not ObjectInstance o)
         {
@@ -500,9 +500,9 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
     }
 
     [JsFunction(Length = 1)]
-    private JsValue ForEach(JsValue thisObject, JsValue[] arguments)
+    private JsValue ForEach(JsValue thisObject, JsValue procedureArg)
     {
-        var o = ValidateThisAndGetCallable(thisObject, arguments, "forEach", out var procedure);
+        var o = ValidateThisAndGetCallable(thisObject, procedureArg, "forEach", out var procedure);
         var iterated = GetIteratorDirect(o);
         var promiseCapability = PromiseConstructor.NewPromiseCapability(_engine, _engine.Realm.Intrinsics.Promise);
 
@@ -514,9 +514,9 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
     }
 
     [JsFunction(Length = 1)]
-    private JsValue Some(JsValue thisObject, JsValue[] arguments)
+    private JsValue Some(JsValue thisObject, JsValue predicateArg)
     {
-        var o = ValidateThisAndGetCallable(thisObject, arguments, "some", out var predicate);
+        var o = ValidateThisAndGetCallable(thisObject, predicateArg, "some", out var predicate);
         var iterated = GetIteratorDirect(o);
         var promiseCapability = PromiseConstructor.NewPromiseCapability(_engine, _engine.Realm.Intrinsics.Promise);
 
@@ -534,9 +534,9 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
     }
 
     [JsFunction(Length = 1)]
-    private JsValue Every(JsValue thisObject, JsValue[] arguments)
+    private JsValue Every(JsValue thisObject, JsValue predicateArg)
     {
-        var o = ValidateThisAndGetCallable(thisObject, arguments, "every", out var predicate);
+        var o = ValidateThisAndGetCallable(thisObject, predicateArg, "every", out var predicate);
         var iterated = GetIteratorDirect(o);
         var promiseCapability = PromiseConstructor.NewPromiseCapability(_engine, _engine.Realm.Intrinsics.Promise);
 
@@ -554,9 +554,9 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
     }
 
     [JsFunction(Length = 1)]
-    private JsValue Find(JsValue thisObject, JsValue[] arguments)
+    private JsValue Find(JsValue thisObject, JsValue predicateArg)
     {
-        var o = ValidateThisAndGetCallable(thisObject, arguments, "find", out var predicate);
+        var o = ValidateThisAndGetCallable(thisObject, predicateArg, "find", out var predicate);
         var iterated = GetIteratorDirect(o);
         var promiseCapability = PromiseConstructor.NewPromiseCapability(_engine, _engine.Realm.Intrinsics.Promise);
 
