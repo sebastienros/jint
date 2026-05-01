@@ -2,14 +2,14 @@ using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.Iterator;
 
 /// <summary>
 /// https://tc39.es/ecma262/#sec-%iteratorprototype%-object
 /// </summary>
-internal class IteratorPrototype : Prototype
+[JsObject]
+internal partial class IteratorPrototype : Prototype
 {
     internal IteratorPrototype(
         Engine engine,
@@ -21,45 +21,42 @@ internal class IteratorPrototype : Prototype
 
     protected override void Initialize()
     {
-        var properties = new PropertyDictionary(12, checkExistingKeys: false)
-        {
-            [KnownKeys.Constructor] = new GetSetPropertyDescriptor(
-                get: new ClrFunction(_engine, "get constructor", (_, _) => _engine.Intrinsics.Iterator, 0, PropertyFlag.Configurable),
-                set: new ClrFunction(_engine, "set constructor", (thisObject, arguments) =>
-                {
-                    SetterThatIgnoresPrototypeProperties(thisObject, _engine.Intrinsics.IteratorPrototype, CommonProperties.Constructor, arguments.At(0));
-                    return Undefined;
-                }, 1, PropertyFlag.Configurable),
-                PropertyFlag.Configurable),
-            ["map"] = new(new ClrFunction(_engine, "map", Map, 1, PropertyFlag.Configurable), PropertyFlag.Writable | PropertyFlag.Configurable),
-            ["filter"] = new(new ClrFunction(_engine, "filter", Filter, 1, PropertyFlag.Configurable), PropertyFlag.Writable | PropertyFlag.Configurable),
-            ["take"] = new(new ClrFunction(_engine, "take", Take, 1, PropertyFlag.Configurable), PropertyFlag.Writable | PropertyFlag.Configurable),
-            ["drop"] = new(new ClrFunction(_engine, "drop", Drop, 1, PropertyFlag.Configurable), PropertyFlag.Writable | PropertyFlag.Configurable),
-            ["flatMap"] = new(new ClrFunction(_engine, "flatMap", FlatMap, 1, PropertyFlag.Configurable), PropertyFlag.Writable | PropertyFlag.Configurable),
-            ["reduce"] = new(new ClrFunction(_engine, "reduce", Reduce, 1, PropertyFlag.Configurable), PropertyFlag.Writable | PropertyFlag.Configurable),
-            ["toArray"] = new(new ClrFunction(_engine, "toArray", ToArray, 0, PropertyFlag.Configurable), PropertyFlag.Writable | PropertyFlag.Configurable),
-            ["forEach"] = new(new ClrFunction(_engine, "forEach", ForEach, 1, PropertyFlag.Configurable), PropertyFlag.Writable | PropertyFlag.Configurable),
-            ["some"] = new(new ClrFunction(_engine, "some", Some, 1, PropertyFlag.Configurable), PropertyFlag.Writable | PropertyFlag.Configurable),
-            ["every"] = new(new ClrFunction(_engine, "every", Every, 1, PropertyFlag.Configurable), PropertyFlag.Writable | PropertyFlag.Configurable),
-            ["find"] = new(new ClrFunction(_engine, "find", Find, 1, PropertyFlag.Configurable), PropertyFlag.Writable | PropertyFlag.Configurable),
-        };
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
+    }
 
-        SetProperties(properties);
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-get-iteratorprototype-constructor
+    /// </summary>
+    [JsAccessor("constructor")]
+    private IteratorConstructor ConstructorGet(JsValue thisObject) => _engine.Intrinsics.Iterator;
 
-        var symbols = new SymbolDictionary(3)
-        {
-            [GlobalSymbolRegistry.Iterator] = new(new ClrFunction(Engine, "[Symbol.iterator]", ToIterator, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
-            [GlobalSymbolRegistry.Dispose] = new(new ClrFunction(Engine, "[Symbol.dispose]", Dispose, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
-            [GlobalSymbolRegistry.ToStringTag] = new GetSetPropertyDescriptor(
-                get: new ClrFunction(_engine, "get [Symbol.toStringTag]", (_, _) => "Iterator", 0, PropertyFlag.Configurable),
-                set: new ClrFunction(_engine, "set [Symbol.toStringTag]", (thisObject, arguments) =>
-                {
-                    SetterThatIgnoresPrototypeProperties(thisObject, _engine.Intrinsics.IteratorPrototype, GlobalSymbolRegistry.ToStringTag, arguments.At(0));
-                    return Undefined;
-                }, 0, PropertyFlag.Configurable),
-                PropertyFlag.Configurable)
-        };
-        SetSymbols(symbols);
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-set-iteratorprototype-constructor
+    /// </summary>
+    [JsAccessor("constructor", AccessorKind.Set)]
+    private JsValue ConstructorSet(JsValue thisObject, JsValue value)
+    {
+        SetterThatIgnoresPrototypeProperties(thisObject, _engine.Intrinsics.IteratorPrototype, CommonProperties.Constructor, value);
+        return Undefined;
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-get-iteratorprototype-@@tostringtag
+    /// </summary>
+    private static readonly JsString IteratorToStringTag = new("Iterator");
+
+    [JsSymbolAccessor("ToStringTag")]
+    private static JsString ToStringTagGet(JsValue thisObject) => IteratorToStringTag;
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-set-iteratorprototype-@@tostringtag
+    /// </summary>
+    [JsSymbolAccessor("ToStringTag", AccessorKind.Set)]
+    private JsValue ToStringTagSet(JsValue thisObject, JsValue value)
+    {
+        SetterThatIgnoresPrototypeProperties(thisObject, _engine.Intrinsics.IteratorPrototype, GlobalSymbolRegistry.ToStringTag, value);
+        return Undefined;
     }
 
     /// <summary>
@@ -93,7 +90,8 @@ internal class IteratorPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-iterator.prototype.map
     /// </summary>
-    private JsValue Map(JsValue thisObject, JsValue[] arguments)
+    [JsFunction(Length = 1)]
+    private JsValue Map(JsValue thisObject, JsValue mapper)
     {
         // 1. Let O be the this value.
         // 2. If O is not an Object, throw a TypeError exception.
@@ -104,10 +102,10 @@ internal class IteratorPrototype : Prototype
         }
 
         // 3. If IsCallable(mapper) is false, throw a TypeError exception.
-        ICallable mapper;
+        ICallable mapperCallable;
         try
         {
-            mapper = GetCallable(arguments.At(0));
+            mapperCallable = GetCallable(mapper);
         }
         catch
         {
@@ -119,7 +117,7 @@ internal class IteratorPrototype : Prototype
         var iterated = GetIteratorDirect(o);
 
         // Create and return map iterator
-        return new MapIterator(_engine, iterated, mapper);
+        return new MapIterator(_engine, iterated, mapperCallable);
     }
 
     private static IteratorInstance.ObjectIterator GetIteratorDirect(ObjectInstance objectInstance) => new(objectInstance);
@@ -149,7 +147,8 @@ internal class IteratorPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-iterator.prototype.filter
     /// </summary>
-    private JsValue Filter(JsValue thisObject, JsValue[] arguments)
+    [JsFunction(Length = 1)]
+    private JsValue Filter(JsValue thisObject, JsValue predicate)
     {
         // 1. Let O be the this value.
         // 2. If O is not an Object, throw a TypeError exception.
@@ -160,10 +159,10 @@ internal class IteratorPrototype : Prototype
         }
 
         // 3. If IsCallable(predicate) is false, throw a TypeError exception.
-        ICallable predicate;
+        ICallable predicateCallable;
         try
         {
-            predicate = GetCallable(arguments.At(0));
+            predicateCallable = GetCallable(predicate);
         }
         catch
         {
@@ -175,13 +174,14 @@ internal class IteratorPrototype : Prototype
         var iterated = GetIteratorDirect(o);
 
         // Create and return filter iterator
-        return new FilterIterator(_engine, iterated, predicate);
+        return new FilterIterator(_engine, iterated, predicateCallable);
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-iterator.prototype.take
     /// </summary>
-    private JsValue Take(JsValue thisObject, JsValue[] arguments)
+    [JsFunction(Length = 1)]
+    private JsValue Take(JsValue thisObject, JsValue limit)
     {
         // 1. Let O be the this value.
         // 2. If O is not an Object, throw a TypeError exception.
@@ -195,7 +195,7 @@ internal class IteratorPrototype : Prototype
         double numLimit;
         try
         {
-            numLimit = TypeConverter.ToNumber(arguments.At(0));
+            numLimit = TypeConverter.ToNumber(limit);
         }
         catch
         {
@@ -226,14 +226,15 @@ internal class IteratorPrototype : Prototype
         var iterated = GetIteratorDirect(o);
 
         // Create and return take iterator
-        var limit = double.IsPositiveInfinity(integerLimit) ? long.MaxValue : (long) integerLimit;
-        return new TakeIterator(_engine, iterated, limit);
+        var lim = double.IsPositiveInfinity(integerLimit) ? long.MaxValue : (long) integerLimit;
+        return new TakeIterator(_engine, iterated, lim);
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-iterator.prototype.drop
     /// </summary>
-    private JsValue Drop(JsValue thisObject, JsValue[] arguments)
+    [JsFunction(Length = 1)]
+    private JsValue Drop(JsValue thisObject, JsValue limit)
     {
         // 1. Let O be the this value.
         // 2. If O is not an Object, throw a TypeError exception.
@@ -247,7 +248,7 @@ internal class IteratorPrototype : Prototype
         double numLimit;
         try
         {
-            numLimit = TypeConverter.ToNumber(arguments.At(0));
+            numLimit = TypeConverter.ToNumber(limit);
         }
         catch
         {
@@ -278,14 +279,15 @@ internal class IteratorPrototype : Prototype
         var iterated = GetIteratorDirect(o);
 
         // Create and return drop iterator
-        var limit = double.IsPositiveInfinity(integerLimit) ? long.MaxValue : (long) integerLimit;
-        return new DropIterator(_engine, iterated, limit);
+        var lim = double.IsPositiveInfinity(integerLimit) ? long.MaxValue : (long) integerLimit;
+        return new DropIterator(_engine, iterated, lim);
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-iterator.prototype.flatmap
     /// </summary>
-    private JsValue FlatMap(JsValue thisObject, JsValue[] arguments)
+    [JsFunction(Length = 1)]
+    private JsValue FlatMap(JsValue thisObject, JsValue mapper)
     {
         // 1. Let O be the this value.
         // 2. If O is not an Object, throw a TypeError exception.
@@ -296,10 +298,10 @@ internal class IteratorPrototype : Prototype
         }
 
         // 3. If IsCallable(mapper) is false, throw a TypeError exception.
-        ICallable mapper;
+        ICallable mapperCallable;
         try
         {
-            mapper = GetCallable(arguments.At(0));
+            mapperCallable = GetCallable(mapper);
         }
         catch
         {
@@ -311,13 +313,14 @@ internal class IteratorPrototype : Prototype
         var iterated = GetIteratorDirect(o);
 
         // Create and return flatMap iterator
-        return new FlatMapIterator(_engine, iterated, mapper);
+        return new FlatMapIterator(_engine, iterated, mapperCallable);
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-iterator.prototype.reduce
     /// </summary>
-    private JsValue Reduce(JsValue thisObject, JsValue[] arguments)
+    [JsFunction(Length = 1)]
+    private JsValue Reduce(JsValue thisObject, JsCallArguments arguments)
     {
         // 1. Let O be the this value.
         // 2. If O is not an Object, throw a TypeError exception.
@@ -391,7 +394,8 @@ internal class IteratorPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-iterator.prototype.toarray
     /// </summary>
-    private JsValue ToArray(JsValue thisObject, JsValue[] arguments)
+    [JsFunction(Length = 0)]
+    private JsValue ToArray(JsValue thisObject)
     {
         if (thisObject is not ObjectInstance o)
         {
@@ -421,7 +425,8 @@ internal class IteratorPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-iterator.prototype.foreach
     /// </summary>
-    private JsValue ForEach(JsValue thisObject, JsValue[] arguments)
+    [JsFunction(Length = 1)]
+    private JsValue ForEach(JsValue thisObject, JsValue procedure)
     {
         if (thisObject is not ObjectInstance o)
         {
@@ -430,10 +435,10 @@ internal class IteratorPrototype : Prototype
         }
 
         // Validate predicate first, close on failure
-        ICallable procedure;
+        ICallable procedureCallable;
         try
         {
-            procedure = GetCallable(arguments.At(0));
+            procedureCallable = GetCallable(procedure);
         }
         catch
         {
@@ -450,7 +455,7 @@ internal class IteratorPrototype : Prototype
             try
             {
                 var value = iteratorResult.Get(CommonProperties.Value);
-                procedure.Call(Undefined, [value, counter]);
+                procedureCallable.Call(Undefined, [value, counter]);
                 counter++;
             }
             catch
@@ -466,7 +471,8 @@ internal class IteratorPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-iterator.prototype.some
     /// </summary>
-    private JsValue Some(JsValue thisObject, JsValue[] arguments)
+    [JsFunction(Length = 1)]
+    private JsValue Some(JsValue thisObject, JsValue predicate)
     {
         if (thisObject is not ObjectInstance o)
         {
@@ -475,10 +481,10 @@ internal class IteratorPrototype : Prototype
         }
 
         // Validate predicate first, close on failure
-        ICallable predicate;
+        ICallable predicateCallable;
         try
         {
-            predicate = GetCallable(arguments.At(0));
+            predicateCallable = GetCallable(predicate);
         }
         catch
         {
@@ -495,7 +501,7 @@ internal class IteratorPrototype : Prototype
             try
             {
                 var value = iteratorResult.Get(CommonProperties.Value);
-                var result = predicate.Call(Undefined, [value, counter]);
+                var result = predicateCallable.Call(Undefined, [value, counter]);
                 if (TypeConverter.ToBoolean(result))
                 {
                     iterated.Close(CompletionType.Normal);
@@ -517,7 +523,8 @@ internal class IteratorPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-iterator.prototype.every
     /// </summary>
-    private JsValue Every(JsValue thisObject, JsValue[] arguments)
+    [JsFunction(Length = 1)]
+    private JsValue Every(JsValue thisObject, JsValue predicate)
     {
         if (thisObject is not ObjectInstance o)
         {
@@ -526,10 +533,10 @@ internal class IteratorPrototype : Prototype
         }
 
         // Validate predicate first, close on failure
-        ICallable predicate;
+        ICallable predicateCallable;
         try
         {
-            predicate = GetCallable(arguments.At(0));
+            predicateCallable = GetCallable(predicate);
         }
         catch
         {
@@ -546,7 +553,7 @@ internal class IteratorPrototype : Prototype
             try
             {
                 var value = iteratorResult.Get(CommonProperties.Value);
-                var result = predicate.Call(Undefined, [value, counter]);
+                var result = predicateCallable.Call(Undefined, [value, counter]);
                 if (!TypeConverter.ToBoolean(result))
                 {
                     iterated.Close(CompletionType.Normal);
@@ -568,7 +575,8 @@ internal class IteratorPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-iterator.prototype.find
     /// </summary>
-    private JsValue Find(JsValue thisObject, JsValue[] arguments)
+    [JsFunction(Length = 1)]
+    private JsValue Find(JsValue thisObject, JsValue predicate)
     {
         if (thisObject is not ObjectInstance o)
         {
@@ -577,10 +585,10 @@ internal class IteratorPrototype : Prototype
         }
 
         // Validate predicate first, close on failure
-        ICallable predicate;
+        ICallable predicateCallable;
         try
         {
-            predicate = GetCallable(arguments.At(0));
+            predicateCallable = GetCallable(predicate);
         }
         catch
         {
@@ -597,7 +605,7 @@ internal class IteratorPrototype : Prototype
             try
             {
                 var value = iteratorResult.Get(CommonProperties.Value);
-                var result = predicate.Call(Undefined, [value, counter]);
+                var result = predicateCallable.Call(Undefined, [value, counter]);
                 if (TypeConverter.ToBoolean(result))
                 {
                     iterated.Close(CompletionType.Normal);
@@ -616,22 +624,26 @@ internal class IteratorPrototype : Prototype
         return Undefined;
     }
 
-    private static JsValue ToIterator(JsValue thisObject, JsCallArguments arguments)
-    {
-        return thisObject;
-    }
+    [JsSymbolFunction("Iterator", Length = 0, Flags = PropertyFlag.NonEnumerable)]
+    private static JsValue ToIterator(JsValue thisObject) => thisObject;
 
-    private static JsValue Dispose(JsValue thisObject, JsCallArguments arguments)
+    [JsSymbolFunction("Dispose", Length = 0, Flags = PropertyFlag.NonEnumerable)]
+    private static JsValue Dispose(JsValue thisObject)
     {
         var method = thisObject.AsObject().GetMethod(CommonProperties.Return);
         if (method is not null)
         {
-            method.Call(thisObject, arguments);
+            method.Call(thisObject, Arguments.Empty);
         }
 
         return Undefined;
     }
 
+    [JsFunction(Length = 0, Name = "next")]
+    private JsValue NextHandler(JsValue thisObject) => Next(thisObject, Arguments.Empty);
+
+    // Kept with the JsCallArguments signature so still-hand-written subclasses (Array/RegExpString/String
+    // IteratorPrototype) can pass it as a ClrFunction delegate from their Initialize bodies.
     internal JsValue Next(JsValue thisObject, JsCallArguments arguments)
     {
         var iterator = thisObject as IteratorInstance;

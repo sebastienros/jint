@@ -1,17 +1,18 @@
 using Jint.Native.Iterator;
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.Map;
 
 /// <summary>
 /// https://tc39.es/ecma262/#sec-%mapiteratorprototype%-object
 /// </summary>
-internal sealed class MapIteratorPrototype : IteratorPrototype
+[JsObject]
+internal sealed partial class MapIteratorPrototype : IteratorPrototype
 {
+    [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString MapIteratorToStringTag = new("Map Iterator");
+
     internal MapIteratorPrototype(
         Engine engine,
         Realm realm,
@@ -21,18 +22,12 @@ internal sealed class MapIteratorPrototype : IteratorPrototype
 
     protected override void Initialize()
     {
-        var properties = new PropertyDictionary(1, checkExistingKeys: false)
-        {
-            [KnownKeys.Next] = new(new ClrFunction(Engine, "next", Next, 0, PropertyFlag.Configurable), true, false, true)
-        };
-        SetProperties(properties);
-
-        var symbols = new SymbolDictionary(1)
-        {
-            [GlobalSymbolRegistry.ToStringTag] = new("Map Iterator", PropertyFlag.Configurable)
-        };
-        SetSymbols(symbols);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
     }
+
+    [JsFunction(Length = 0, Name = "next")]
+    private JsValue NextHandler(JsValue thisObject) => Next(thisObject, Arguments.Empty);
 
     internal IteratorInstance ConstructEntryIterator(JsMap map)
     {
