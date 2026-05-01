@@ -178,10 +178,10 @@ internal sealed partial class PlainTimePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaintime.prototype.until
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsDuration Until(JsValue thisObject, JsValue arg0, JsValue optionsArg)
+    private JsDuration Until(JsValue thisObject, JsValue other, JsValue options)
     {
         var plainTime = ValidatePlainTime(thisObject);
-        var other = _constructor.ToTemporalTime(arg0, "constrain");
+        var otherTime = _constructor.ToTemporalTime(other, "constrain");
         // Time units for PlainTime operations
         var timeUnits = new[] { "hour", "minute", "second", "millisecond", "microsecond", "nanosecond" };
 
@@ -191,7 +191,7 @@ internal sealed partial class PlainTimePrototype : Prototype
 
         var settings = TemporalHelpers.GetDifferenceSettings(
             _realm,
-            optionsArg,
+            options,
             "until",
             fallbackSmallestUnit,
             fallbackLargestUnit,
@@ -207,17 +207,17 @@ internal sealed partial class PlainTimePrototype : Prototype
         ValidateUnitRange(largestUnit, settings.SmallestUnit);
         ValidateRoundingIncrement(settings.SmallestUnit, settings.RoundingIncrement);
 
-        return DifferenceTemporalPlainTime(plainTime, other, largestUnit, settings.SmallestUnit, settings.RoundingMode, settings.RoundingIncrement, negate: false);
+        return DifferenceTemporalPlainTime(plainTime, otherTime, largestUnit, settings.SmallestUnit, settings.RoundingMode, settings.RoundingIncrement, negate: false);
     }
 
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaintime.prototype.since
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsDuration Since(JsValue thisObject, JsValue arg0, JsValue optionsArg)
+    private JsDuration Since(JsValue thisObject, JsValue other, JsValue options)
     {
         var plainTime = ValidatePlainTime(thisObject);
-        var other = _constructor.ToTemporalTime(arg0, "constrain");
+        var otherTime = _constructor.ToTemporalTime(other, "constrain");
         // Time units for PlainTime operations
         var timeUnits = new[] { "hour", "minute", "second", "millisecond", "microsecond", "nanosecond" };
 
@@ -228,7 +228,7 @@ internal sealed partial class PlainTimePrototype : Prototype
 
         var settings = TemporalHelpers.GetDifferenceSettings(
             _realm,
-            optionsArg,
+            options,
             "since",
             fallbackSmallestUnit,
             fallbackLargestUnit,
@@ -244,7 +244,7 @@ internal sealed partial class PlainTimePrototype : Prototype
         ValidateUnitRange(largestUnit, settings.SmallestUnit);
         ValidateRoundingIncrement(settings.SmallestUnit, settings.RoundingIncrement);
 
-        return DifferenceTemporalPlainTime(plainTime, other, largestUnit, settings.SmallestUnit, settings.RoundingMode, settings.RoundingIncrement, negate: true);
+        return DifferenceTemporalPlainTime(plainTime, otherTime, largestUnit, settings.SmallestUnit, settings.RoundingMode, settings.RoundingIncrement, negate: true);
     }
 
     /// <summary>
@@ -378,11 +378,12 @@ internal sealed partial class PlainTimePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaintime.prototype.equals
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsBoolean Equals(JsValue thisObject, JsValue arg0)
+    private JsBoolean Equals(JsValue thisObject, JsValue other)
     {
         var plainTime = ValidatePlainTime(thisObject);
-        var other = _constructor.ToTemporalTime(arg0, "constrain");
-        var result = TemporalHelpers.CompareIsoTimes(plainTime.IsoTime, other.IsoTime) == 0;
+        var result = TemporalHelpers.CompareIsoTimes(
+            plainTime.IsoTime,
+            _constructor.ToTemporalTime(other, "constrain").IsoTime) == 0;
         return result ? JsBoolean.True : JsBoolean.False;
     }
 
@@ -390,10 +391,10 @@ internal sealed partial class PlainTimePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaintime.prototype.tostring
     /// </summary>
     [JsFunction(Length = 0)]
-    private JsString ToString(JsValue thisObject, JsValue arg0)
+    private JsString ToString(JsValue thisObject, JsValue optionsArg)
     {
         var plainTime = ValidatePlainTime(thisObject);
-        var options = GetOptionsObject(arg0);
+        var options = GetOptionsObject(optionsArg);
 
         // Default precision: auto (show subsecond digits as needed)
         var precision = -1; // -1 means auto

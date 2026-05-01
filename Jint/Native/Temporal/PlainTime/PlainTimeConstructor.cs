@@ -107,11 +107,11 @@ internal sealed partial class PlainTimeConstructor : Constructor
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaintime.compare
     /// </summary>
     [JsFunction(Length = 2)]
-    private JsNumber Compare(JsValue thisObject, JsValue arg0, JsValue arg1)
+    private JsNumber Compare(JsValue thisObject, JsValue one, JsValue two)
     {
-        var one = ToTemporalTime(arg0, "constrain");
-        var two = ToTemporalTime(arg1, "constrain");
-        return JsNumber.Create(TemporalHelpers.CompareIsoTimes(one.IsoTime, two.IsoTime));
+        return JsNumber.Create(TemporalHelpers.CompareIsoTimes(
+            ToTemporalTime(one, "constrain").IsoTime,
+            ToTemporalTime(two, "constrain").IsoTime));
     }
 
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)

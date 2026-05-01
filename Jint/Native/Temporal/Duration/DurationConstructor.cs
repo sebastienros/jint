@@ -49,15 +49,12 @@ internal sealed partial class DurationConstructor : Constructor
     /// https://tc39.es/proposal-temporal/#sec-temporal.duration.compare
     /// </summary>
     [JsFunction(Length = 2)]
-    private JsNumber Compare(JsValue thisObject, JsValue arg0, JsValue arg1, JsValue options)
+    private JsNumber Compare(JsValue thisObject, JsValue one, JsValue two, JsValue options)
     {
-        var one = ToTemporalDuration(arg0);
-        var two = ToTemporalDuration(arg1);
+        var d1 = ToTemporalDuration(one).DurationRecord;
+        var d2 = ToTemporalDuration(two).DurationRecord;
         var optionsObj = TemporalHelpers.GetOptionsObject(_realm, options);
         var relativeToResult = TemporalHelpers.GetTemporalRelativeToOption(_engine, _realm, optionsObj);
-
-        var d1 = one.DurationRecord;
-        var d2 = two.DurationRecord;
 
         // Step 5: If all components are equal, return +0
         if (d1.Years == d2.Years && d1.Months == d2.Months && d1.Weeks == d2.Weeks &&

@@ -397,10 +397,10 @@ internal sealed partial class PlainDateTimePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindatetime.prototype.withplaindate
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsPlainDateTime WithPlainDate(JsValue thisObject, JsValue arg0)
+    private JsPlainDateTime WithPlainDate(JsValue thisObject, JsValue plainDateLike)
     {
         var plainDateTime = ValidatePlainDateTime(thisObject);
-        var plainDate = _realm.Intrinsics.TemporalPlainDate.ToTemporalDate(arg0, "constrain");
+        var plainDate = _realm.Intrinsics.TemporalPlainDate.ToTemporalDate(plainDateLike, "constrain");
         return _constructor.Construct(new IsoDateTime(plainDate.IsoDate, plainDateTime.IsoDateTime.Time), plainDate.Calendar);
     }
 
@@ -504,13 +504,13 @@ internal sealed partial class PlainDateTimePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindatetime.prototype.until
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsDuration Until(JsValue thisObject, JsValue arg0, JsValue optionsArg)
+    private JsDuration Until(JsValue thisObject, JsValue other, JsValue options)
     {
         var plainDateTime = ValidatePlainDateTime(thisObject);
-        var other = _constructor.ToTemporalDateTime(arg0, "constrain");
+        var otherDateTime = _constructor.ToTemporalDateTime(other, "constrain");
 
         // Calendar equality check (before reading options per spec)
-        if (!string.Equals(plainDateTime.Calendar, other.Calendar, StringComparison.Ordinal))
+        if (!string.Equals(plainDateTime.Calendar, otherDateTime.Calendar, StringComparison.Ordinal))
         {
             Throw.RangeError(_realm, "Calendars must match for date-time difference operations");
         }
@@ -524,7 +524,7 @@ internal sealed partial class PlainDateTimePrototype : Prototype
 
         var settings = TemporalHelpers.GetDifferenceSettings(
             _realm,
-            optionsArg,
+            options,
             "until",
             fallbackSmallestUnit,
             fallbackLargestUnit,
@@ -537,20 +537,20 @@ internal sealed partial class PlainDateTimePrototype : Prototype
             largestUnit = TemporalHelpers.LargerOfTwoTemporalUnits(settings.SmallestUnit, "day");
         }
 
-        return DifferenceTemporalPlainDateTime(plainDateTime, other, largestUnit, settings.SmallestUnit, settings.RoundingIncrement, settings.RoundingMode, negate: false);
+        return DifferenceTemporalPlainDateTime(plainDateTime, otherDateTime, largestUnit, settings.SmallestUnit, settings.RoundingIncrement, settings.RoundingMode, negate: false);
     }
 
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindatetime.prototype.since
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsDuration Since(JsValue thisObject, JsValue arg0, JsValue optionsArg)
+    private JsDuration Since(JsValue thisObject, JsValue other, JsValue options)
     {
         var plainDateTime = ValidatePlainDateTime(thisObject);
-        var other = _constructor.ToTemporalDateTime(arg0, "constrain");
+        var otherDateTime = _constructor.ToTemporalDateTime(other, "constrain");
 
         // Calendar equality check (before reading options per spec)
-        if (!string.Equals(plainDateTime.Calendar, other.Calendar, StringComparison.Ordinal))
+        if (!string.Equals(plainDateTime.Calendar, otherDateTime.Calendar, StringComparison.Ordinal))
         {
             Throw.RangeError(_realm, "Calendars must match for date-time difference operations");
         }
@@ -564,7 +564,7 @@ internal sealed partial class PlainDateTimePrototype : Prototype
 
         var settings = TemporalHelpers.GetDifferenceSettings(
             _realm,
-            optionsArg,
+            options,
             "since",
             fallbackSmallestUnit,
             fallbackLargestUnit,
@@ -577,7 +577,7 @@ internal sealed partial class PlainDateTimePrototype : Prototype
             largestUnit = TemporalHelpers.LargerOfTwoTemporalUnits(settings.SmallestUnit, "day");
         }
 
-        return DifferenceTemporalPlainDateTime(plainDateTime, other, largestUnit, settings.SmallestUnit, settings.RoundingIncrement, settings.RoundingMode, negate: true);
+        return DifferenceTemporalPlainDateTime(plainDateTime, otherDateTime, largestUnit, settings.SmallestUnit, settings.RoundingIncrement, settings.RoundingMode, negate: true);
     }
 
     /// <summary>
@@ -750,12 +750,12 @@ internal sealed partial class PlainDateTimePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindatetime.prototype.equals
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsBoolean Equals(JsValue thisObject, JsValue arg0)
+    private JsBoolean Equals(JsValue thisObject, JsValue other)
     {
         var plainDateTime = ValidatePlainDateTime(thisObject);
-        var other = _constructor.ToTemporalDateTime(arg0, "constrain");
-        var result = TemporalHelpers.CompareIsoDateTimes(plainDateTime.IsoDateTime, other.IsoDateTime) == 0 &&
-                     string.Equals(plainDateTime.Calendar, other.Calendar, StringComparison.Ordinal);
+        var otherDateTime = _constructor.ToTemporalDateTime(other, "constrain");
+        var result = TemporalHelpers.CompareIsoDateTimes(plainDateTime.IsoDateTime, otherDateTime.IsoDateTime) == 0 &&
+                     string.Equals(plainDateTime.Calendar, otherDateTime.Calendar, StringComparison.Ordinal);
         return result ? JsBoolean.True : JsBoolean.False;
     }
 

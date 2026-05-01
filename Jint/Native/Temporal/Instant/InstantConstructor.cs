@@ -101,12 +101,10 @@ internal sealed partial class InstantConstructor : Constructor
     /// https://tc39.es/proposal-temporal/#sec-temporal.instant.compare
     /// </summary>
     [JsFunction(Length = 2)]
-    private JsNumber Compare(JsValue thisObject, JsValue arg0, JsValue arg1)
+    private JsNumber Compare(JsValue thisObject, JsValue one, JsValue two)
     {
-        var one = ToTemporalInstant(arg0);
-        var two = ToTemporalInstant(arg1);
-
-        return JsNumber.Create(one.EpochNanoseconds.CompareTo(two.EpochNanoseconds));
+        return JsNumber.Create(
+            ToTemporalInstant(one).EpochNanoseconds.CompareTo(ToTemporalInstant(two).EpochNanoseconds));
     }
 
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)

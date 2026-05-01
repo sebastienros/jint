@@ -199,11 +199,11 @@ internal sealed partial class PlainDateConstructor : Constructor
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.compare
     /// </summary>
     [JsFunction(Length = 2)]
-    private JsNumber Compare(JsValue thisObject, JsValue arg0, JsValue arg1)
+    private JsNumber Compare(JsValue thisObject, JsValue one, JsValue two)
     {
-        var one = ToTemporalDate(arg0, "constrain");
-        var two = ToTemporalDate(arg1, "constrain");
-        return JsNumber.Create(TemporalHelpers.CompareIsoDates(one.IsoDate, two.IsoDate));
+        return JsNumber.Create(TemporalHelpers.CompareIsoDates(
+            ToTemporalDate(one, "constrain").IsoDate,
+            ToTemporalDate(two, "constrain").IsoDate));
     }
 
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)

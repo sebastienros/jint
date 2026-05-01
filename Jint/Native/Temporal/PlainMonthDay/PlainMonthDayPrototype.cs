@@ -216,15 +216,15 @@ internal sealed partial class PlainMonthDayPrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plainmonthday.prototype.equals
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsBoolean Equals(JsValue thisObject, JsValue arg0)
+    private JsBoolean Equals(JsValue thisObject, JsValue other)
     {
         var md = ValidatePlainMonthDay(thisObject);
-        var other = _constructor.ToTemporalMonthDay(arg0, "constrain");
+        var otherMd = _constructor.ToTemporalMonthDay(other, "constrain");
 
-        return md.IsoDate.Year == other.IsoDate.Year &&
-               md.IsoDate.Month == other.IsoDate.Month &&
-               md.IsoDate.Day == other.IsoDate.Day &&
-               string.Equals(md.Calendar, other.Calendar, StringComparison.Ordinal)
+        return md.IsoDate.Year == otherMd.IsoDate.Year &&
+               md.IsoDate.Month == otherMd.IsoDate.Month &&
+               md.IsoDate.Day == otherMd.IsoDate.Day &&
+               string.Equals(md.Calendar, otherMd.Calendar, StringComparison.Ordinal)
             ? JsBoolean.True
             : JsBoolean.False;
     }

@@ -81,11 +81,11 @@ internal sealed partial class PlainYearMonthConstructor : Constructor
     /// https://tc39.es/proposal-temporal/#sec-temporal.plainyearmonth.compare
     /// </summary>
     [JsFunction(Length = 2)]
-    private JsNumber Compare(JsValue thisObject, JsValue arg0, JsValue arg1)
+    private JsNumber Compare(JsValue thisObject, JsValue one, JsValue two)
     {
-        var one = ToTemporalYearMonth(arg0, "constrain");
-        var two = ToTemporalYearMonth(arg1, "constrain");
-        return JsNumber.Create(CompareIsoYearMonth(one.IsoDate, two.IsoDate));
+        return JsNumber.Create(CompareIsoYearMonth(
+            ToTemporalYearMonth(one, "constrain").IsoDate,
+            ToTemporalYearMonth(two, "constrain").IsoDate));
     }
 
     private static int CompareIsoYearMonth(IsoDate one, IsoDate two)

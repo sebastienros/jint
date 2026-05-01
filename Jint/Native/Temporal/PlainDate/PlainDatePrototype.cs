@@ -432,13 +432,13 @@ internal sealed partial class PlainDatePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.until
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsDuration Until(JsValue thisObject, JsValue arg0, JsValue optionsArg)
+    private JsDuration Until(JsValue thisObject, JsValue other, JsValue options)
     {
         var plainDate = ValidatePlainDate(thisObject);
-        var other = _constructor.ToTemporalDate(arg0, "constrain");
+        var otherDate = _constructor.ToTemporalDate(other, "constrain");
 
         // Step 3: Calendar equality check (before reading options per spec)
-        if (!string.Equals(plainDate.Calendar, other.Calendar, StringComparison.Ordinal))
+        if (!string.Equals(plainDate.Calendar, otherDate.Calendar, StringComparison.Ordinal))
         {
             Throw.RangeError(_realm, "Calendars must match for date difference operations");
         }
@@ -452,7 +452,7 @@ internal sealed partial class PlainDatePrototype : Prototype
 
         var settings = TemporalHelpers.GetDifferenceSettings(
             _realm,
-            optionsArg,
+            options,
             "until",
             fallbackSmallestUnit,
             fallbackLargestUnit,
@@ -467,20 +467,20 @@ internal sealed partial class PlainDatePrototype : Prototype
 
         ValidateUnitRange(largestUnit, settings.SmallestUnit);
 
-        return DifferenceTemporalPlainDate(plainDate, other, largestUnit, settings.SmallestUnit, settings.RoundingIncrement, settings.RoundingMode, negate: false);
+        return DifferenceTemporalPlainDate(plainDate, otherDate, largestUnit, settings.SmallestUnit, settings.RoundingIncrement, settings.RoundingMode, negate: false);
     }
 
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.since
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsDuration Since(JsValue thisObject, JsValue arg0, JsValue optionsArg)
+    private JsDuration Since(JsValue thisObject, JsValue other, JsValue options)
     {
         var plainDate = ValidatePlainDate(thisObject);
-        var other = _constructor.ToTemporalDate(arg0, "constrain");
+        var otherDate = _constructor.ToTemporalDate(other, "constrain");
 
         // Step 3: Calendar equality check (before reading options per spec)
-        if (!string.Equals(plainDate.Calendar, other.Calendar, StringComparison.Ordinal))
+        if (!string.Equals(plainDate.Calendar, otherDate.Calendar, StringComparison.Ordinal))
         {
             Throw.RangeError(_realm, "Calendars must match for date difference operations");
         }
@@ -495,7 +495,7 @@ internal sealed partial class PlainDatePrototype : Prototype
 
         var settings = TemporalHelpers.GetDifferenceSettings(
             _realm,
-            optionsArg,
+            options,
             "since",
             fallbackSmallestUnit,
             fallbackLargestUnit,
@@ -510,7 +510,7 @@ internal sealed partial class PlainDatePrototype : Prototype
 
         ValidateUnitRange(largestUnit, settings.SmallestUnit);
 
-        return DifferenceTemporalPlainDate(plainDate, other, largestUnit, settings.SmallestUnit, settings.RoundingIncrement, settings.RoundingMode, negate: true);
+        return DifferenceTemporalPlainDate(plainDate, otherDate, largestUnit, settings.SmallestUnit, settings.RoundingIncrement, settings.RoundingMode, negate: true);
     }
 
     /// <summary>
@@ -601,12 +601,12 @@ internal sealed partial class PlainDatePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.equals
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsBoolean Equals(JsValue thisObject, JsValue arg0)
+    private JsBoolean Equals(JsValue thisObject, JsValue other)
     {
         var plainDate = ValidatePlainDate(thisObject);
-        var other = _constructor.ToTemporalDate(arg0, "constrain");
-        var result = TemporalHelpers.CompareIsoDates(plainDate.IsoDate, other.IsoDate) == 0 &&
-                     string.Equals(plainDate.Calendar, other.Calendar, StringComparison.Ordinal);
+        var otherDate = _constructor.ToTemporalDate(other, "constrain");
+        var result = TemporalHelpers.CompareIsoDates(plainDate.IsoDate, otherDate.IsoDate) == 0 &&
+                     string.Equals(plainDate.Calendar, otherDate.Calendar, StringComparison.Ordinal);
         return result ? JsBoolean.True : JsBoolean.False;
     }
 

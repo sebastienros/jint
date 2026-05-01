@@ -45,12 +45,10 @@ internal sealed partial class ZonedDateTimeConstructor : Constructor
     /// https://tc39.es/proposal-temporal/#sec-temporal.zoneddatetime.compare
     /// </summary>
     [JsFunction(Length = 2)]
-    private JsNumber Compare(JsValue thisObject, JsValue arg0, JsValue arg1)
+    private JsNumber Compare(JsValue thisObject, JsValue one, JsValue two)
     {
-        var one = ToTemporalZonedDateTime(arg0, Undefined);
-        var two = ToTemporalZonedDateTime(arg1, Undefined);
-
-        var cmp = one.EpochNanoseconds.CompareTo(two.EpochNanoseconds);
+        var cmp = ToTemporalZonedDateTime(one, Undefined).EpochNanoseconds.CompareTo(
+            ToTemporalZonedDateTime(two, Undefined).EpochNanoseconds);
         return JsNumber.Create(cmp < 0 ? -1 : cmp > 0 ? 1 : 0);
     }
 

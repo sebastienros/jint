@@ -514,12 +514,11 @@ internal sealed partial class InstantPrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.instant.prototype.equals
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsBoolean Equals(JsValue thisObject, JsValue arg0)
+    private JsBoolean Equals(JsValue thisObject, JsValue other)
     {
         var instant = ValidateInstant(thisObject);
-        var other = _constructor.ToTemporalInstant(arg0);
-
-        return instant.EpochNanoseconds == other.EpochNanoseconds ? JsBoolean.True : JsBoolean.False;
+        return instant.EpochNanoseconds == _constructor.ToTemporalInstant(other).EpochNanoseconds
+            ? JsBoolean.True : JsBoolean.False;
     }
 
     /// <summary>
@@ -819,10 +818,10 @@ internal sealed partial class InstantPrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.instant.prototype.tozoneddatetimeiso
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsZonedDateTime ToZonedDateTimeISO(JsValue thisObject, JsValue arg0)
+    private JsZonedDateTime ToZonedDateTimeISO(JsValue thisObject, JsValue timeZone)
     {
         var instant = ValidateInstant(thisObject);
-        var timeZoneId = TemporalHelpers.ToTemporalTimeZoneIdentifier(_engine, _realm, arg0);
+        var timeZoneId = TemporalHelpers.ToTemporalTimeZoneIdentifier(_engine, _realm, timeZone);
 
         return new JsZonedDateTime(_engine, _realm.Intrinsics.TemporalZonedDateTime.PrototypeObject,
             instant.EpochNanoseconds, timeZoneId, "iso8601");
