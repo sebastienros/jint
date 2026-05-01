@@ -4,14 +4,14 @@ using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.Date;
 
 /// <summary>
 /// https://tc39.es/ecma262/#sec-date-constructor
 /// </summary>
-internal sealed class DateConstructor : Constructor
+[JsObject]
+internal sealed partial class DateConstructor : Constructor
 {
     internal static readonly DateTime Epoch = new(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
     private static readonly JsString _functionName = new JsString("Date");
@@ -33,23 +33,12 @@ internal sealed class DateConstructor : Constructor
 
     internal DatePrototype PrototypeObject { get; }
 
-    protected override void Initialize()
-    {
-        const PropertyFlag LengthFlags = PropertyFlag.Configurable;
-        const PropertyFlag PropertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-
-        var properties = new PropertyDictionary(3, checkExistingKeys: false)
-        {
-            ["parse"] = new(new ClrFunction(Engine, "parse", Parse, 1, LengthFlags), PropertyFlags),
-            ["UTC"] = new(new ClrFunction(Engine, "UTC", Utc, 7, LengthFlags), PropertyFlags),
-            ["now"] = new(new ClrFunction(Engine, "now", Now, 0, LengthFlags), PropertyFlags)
-        };
-        SetProperties(properties);
-    }
+    protected override void Initialize() => CreateProperties_Generated();
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.parse
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsValue Parse(JsValue thisObject, JsCallArguments arguments)
     {
         var dateString = TypeConverter.ToString(arguments.At(0));
@@ -74,6 +63,7 @@ internal sealed class DateConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.utc
     /// </summary>
+    [JsFunction(Length = 7, Name = "UTC")]
     private static JsValue Utc(JsValue thisObject, JsCallArguments arguments)
     {
         var y = TypeConverter.ToNumber(arguments.At(0));
@@ -97,6 +87,7 @@ internal sealed class DateConstructor : Constructor
         return finalDate.TimeClip().ToJsValue();
     }
 
+    [JsFunction(Length = 0)]
     private JsValue Now(JsValue thisObject, JsCallArguments arguments)
     {
         return (long) (_timeSystem.GetUtcNow().DateTime - Epoch).TotalMilliseconds;

@@ -10,12 +10,22 @@ namespace Jint.Native.Number;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-number-constructor
 /// </summary>
-internal sealed class NumberConstructor : Constructor
+[JsObject]
+internal sealed partial class NumberConstructor : Constructor
 {
     private static readonly JsString _functionName = new JsString("Number");
 
     private const long MinSafeInteger = -9007199254740991;
     internal const long MaxSafeInteger = 9007199254740991;
+
+    [JsProperty(Name = "MAX_VALUE", Flags = PropertyFlag.AllForbidden)] private static readonly JsNumber MaxValue = new(double.MaxValue);
+    [JsProperty(Name = "MIN_VALUE", Flags = PropertyFlag.AllForbidden)] private static readonly JsNumber MinValueField = new(double.Epsilon);
+    [JsProperty(Name = "NaN", Flags = PropertyFlag.AllForbidden)] private static readonly JsNumber NaNField = JsNumber.DoubleNaN;
+    [JsProperty(Name = "NEGATIVE_INFINITY", Flags = PropertyFlag.AllForbidden)] private static readonly JsNumber NegativeInfinityField = JsNumber.DoubleNegativeInfinity;
+    [JsProperty(Name = "POSITIVE_INFINITY", Flags = PropertyFlag.AllForbidden)] private static readonly JsNumber PositiveInfinityField = JsNumber.DoublePositiveInfinity;
+    [JsProperty(Name = "EPSILON", Flags = PropertyFlag.AllForbidden)] private static readonly JsNumber Epsilon = new(JsNumber.JavaScriptEpsilon);
+    [JsProperty(Name = "MIN_SAFE_INTEGER", Flags = PropertyFlag.AllForbidden)] private static readonly JsNumber MinSafeIntegerField = new(MinSafeInteger);
+    [JsProperty(Name = "MAX_SAFE_INTEGER", Flags = PropertyFlag.AllForbidden)] private static readonly JsNumber MaxSafeIntegerField = new(MaxSafeInteger);
 
     public NumberConstructor(
         Engine engine,
@@ -32,26 +42,18 @@ internal sealed class NumberConstructor : Constructor
 
     protected override void Initialize()
     {
-        var properties = new PropertyDictionary(15, checkExistingKeys: false)
-        {
-            ["MAX_VALUE"] = new PropertyDescriptor(new PropertyDescriptor(double.MaxValue, PropertyFlag.AllForbidden)),
-            ["MIN_VALUE"] = new PropertyDescriptor(new PropertyDescriptor(double.Epsilon, PropertyFlag.AllForbidden)),
-            ["NaN"] = new PropertyDescriptor(new PropertyDescriptor(double.NaN, PropertyFlag.AllForbidden)),
-            ["NEGATIVE_INFINITY"] = new PropertyDescriptor(new PropertyDescriptor(double.NegativeInfinity, PropertyFlag.AllForbidden)),
-            ["POSITIVE_INFINITY"] = new PropertyDescriptor(new PropertyDescriptor(double.PositiveInfinity, PropertyFlag.AllForbidden)),
-            ["EPSILON"] = new PropertyDescriptor(new PropertyDescriptor(JsNumber.JavaScriptEpsilon, PropertyFlag.AllForbidden)),
-            ["MIN_SAFE_INTEGER"] = new PropertyDescriptor(new PropertyDescriptor(MinSafeInteger, PropertyFlag.AllForbidden)),
-            ["MAX_SAFE_INTEGER"] = new PropertyDescriptor(new PropertyDescriptor(MaxSafeInteger, PropertyFlag.AllForbidden)),
-            ["isFinite"] = new PropertyDescriptor(new ClrFunction(Engine, "isFinite", IsFinite, 1, PropertyFlag.Configurable), true, false, true),
-            ["isInteger"] = new PropertyDescriptor(new ClrFunction(Engine, "isInteger", IsInteger, 1, PropertyFlag.Configurable), true, false, true),
-            ["isNaN"] = new PropertyDescriptor(new ClrFunction(Engine, "isNaN", IsNaN, 1, PropertyFlag.Configurable), true, false, true),
-            ["isSafeInteger"] = new PropertyDescriptor(new ClrFunction(Engine, "isSafeInteger", IsSafeInteger, 1, PropertyFlag.Configurable), true, false, true),
-            ["parseFloat"] = new PropertyDescriptor(new ClrFunction(Engine, "parseFloat", GlobalObject.ParseFloat, 0, PropertyFlag.Configurable), true, false, true),
-            ["parseInt"] = new PropertyDescriptor(new ClrFunction(Engine, "parseInt", GlobalObject.ParseInt, 0, PropertyFlag.Configurable), true, false, true)
-        };
-        SetProperties(properties);
+        CreateProperties_Generated();
+
+        // Per spec, Number.parseInt and Number.parseFloat are the same function objects as the global
+        // parseInt / parseFloat. Pre-source-gen Jint's behaviour relied on ClrFunction.Equals comparing
+        // the underlying delegate; the source generator's per-method dispatcher would break that
+        // identity, so register parseInt/parseFloat hand-rolled and let them keep the same delegate.
+        const PropertyFlag PropertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
+        SetProperty("parseInt", new PropertyDescriptor(new ClrFunction(Engine, "parseInt", GlobalObject.ParseInt, 0, PropertyFlag.Configurable), PropertyFlags));
+        SetProperty("parseFloat", new PropertyDescriptor(new ClrFunction(Engine, "parseFloat", GlobalObject.ParseFloat, 0, PropertyFlag.Configurable), PropertyFlags));
     }
 
+    [JsFunction(Length = 1)]
     private static JsValue IsFinite(JsValue thisObject, JsCallArguments arguments)
     {
         if (!(arguments.At(0) is JsNumber num))
@@ -62,6 +64,7 @@ internal sealed class NumberConstructor : Constructor
         return double.IsInfinity(num._value) || double.IsNaN(num._value) ? JsBoolean.False : JsBoolean.True;
     }
 
+    [JsFunction(Length = 1)]
     private static JsValue IsInteger(JsValue thisObject, JsCallArguments arguments)
     {
         if (!(arguments.At(0) is JsNumber num))
@@ -79,6 +82,7 @@ internal sealed class NumberConstructor : Constructor
         return integer == num._value;
     }
 
+    [JsFunction(Length = 1)]
     private static JsValue IsNaN(JsValue thisObject, JsCallArguments arguments)
     {
         if (!(arguments.At(0) is JsNumber num))
@@ -89,6 +93,7 @@ internal sealed class NumberConstructor : Constructor
         return double.IsNaN(num._value);
     }
 
+    [JsFunction(Length = 1)]
     private static JsValue IsSafeInteger(JsValue thisObject, JsCallArguments arguments)
     {
         if (!(arguments.At(0) is JsNumber num))

@@ -1,11 +1,11 @@
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.Error;
 
-public sealed class ErrorConstructor : Constructor
+[JsObject]
+public sealed partial class ErrorConstructor : Constructor
 {
     private readonly Func<Intrinsics, ObjectInstance> _intrinsicDefaultProto;
 
@@ -26,14 +26,7 @@ public sealed class ErrorConstructor : Constructor
 
     internal ErrorPrototype PrototypeObject { get; }
 
-    protected override void Initialize()
-    {
-        var properties = new PropertyDictionary(3, checkExistingKeys: false)
-        {
-            ["isError"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunction(Engine, "isError", IsError, 1), PropertyFlag.NonEnumerable)),
-        };
-        SetProperties(properties);
-    }
+    protected override void Initialize() => CreateProperties_Generated();
 
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
@@ -97,8 +90,6 @@ public sealed class ErrorConstructor : Constructor
     /// <summary>
     /// https://tc39.es/proposal-is-error/
     /// </summary>
-    private static JsValue IsError(JsValue? thisObj, JsCallArguments arguments)
-    {
-        return arguments.At(0) is JsError;
-    }
+    [JsFunction(Length = 1)]
+    private static JsValue IsError(JsValue thisObject, JsValue arg) => arg is JsError;
 }
