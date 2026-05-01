@@ -10,8 +10,11 @@ namespace Jint.Native.Iterator;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-asynciteratorprototype
 /// </summary>
-internal sealed class AsyncIteratorPrototype : Prototype
+[JsObject]
+internal sealed partial class AsyncIteratorPrototype : Prototype
 {
+    private static readonly JsString AsyncIteratorToStringTag = new("AsyncIterator");
+
     internal AsyncIteratorPrototype(
         Engine engine,
         Realm realm,
@@ -22,46 +25,40 @@ internal sealed class AsyncIteratorPrototype : Prototype
 
     protected override void Initialize()
     {
-        const PropertyFlag Flags = PropertyFlag.Writable | PropertyFlag.Configurable;
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
+    }
 
-        var properties = new PropertyDictionary(12, checkExistingKeys: false)
-        {
-            [KnownKeys.Constructor] = new GetSetPropertyDescriptor(
-                get: new ClrFunction(_engine, "get constructor", (_, _) => _engine.Intrinsics.AsyncIterator, 0, PropertyFlag.Configurable),
-                set: new ClrFunction(_engine, "set constructor", (thisObject, arguments) =>
-                {
-                    SetterThatIgnoresPrototypeProperties(thisObject, _engine.Intrinsics.AsyncIterator.PrototypeObject, CommonProperties.Constructor, arguments.At(0));
-                    return Undefined;
-                }, 1, PropertyFlag.Configurable),
-                PropertyFlag.Configurable),
-            ["map"] = new(new ClrFunction(_engine, "map", Map, 1, PropertyFlag.Configurable), Flags),
-            ["filter"] = new(new ClrFunction(_engine, "filter", Filter, 1, PropertyFlag.Configurable), Flags),
-            ["take"] = new(new ClrFunction(_engine, "take", Take, 1, PropertyFlag.Configurable), Flags),
-            ["drop"] = new(new ClrFunction(_engine, "drop", Drop, 1, PropertyFlag.Configurable), Flags),
-            ["flatMap"] = new(new ClrFunction(_engine, "flatMap", FlatMap, 1, PropertyFlag.Configurable), Flags),
-            ["reduce"] = new(new ClrFunction(_engine, "reduce", Reduce, 1, PropertyFlag.Configurable), Flags),
-            ["toArray"] = new(new ClrFunction(_engine, "toArray", ToArray, 0, PropertyFlag.Configurable), Flags),
-            ["forEach"] = new(new ClrFunction(_engine, "forEach", ForEach, 1, PropertyFlag.Configurable), Flags),
-            ["some"] = new(new ClrFunction(_engine, "some", Some, 1, PropertyFlag.Configurable), Flags),
-            ["every"] = new(new ClrFunction(_engine, "every", Every, 1, PropertyFlag.Configurable), Flags),
-            ["find"] = new(new ClrFunction(_engine, "find", Find, 1, PropertyFlag.Configurable), Flags),
-        };
-        SetProperties(properties);
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-get-asynciteratorprototype-constructor
+    /// </summary>
+    [JsAccessor("constructor")]
+    private AsyncIteratorConstructor ConstructorGet(JsValue thisObject) => _engine.Intrinsics.AsyncIterator;
 
-        var symbols = new SymbolDictionary(3)
-        {
-            [GlobalSymbolRegistry.AsyncIterator] = new(new ClrFunction(Engine, "[Symbol.asyncIterator]", AsyncIterator, 0, PropertyFlag.Configurable), Flags),
-            [GlobalSymbolRegistry.AsyncDispose] = new(new ClrFunction(Engine, "[Symbol.asyncDispose]", AsyncDispose, 0, PropertyFlag.Configurable), Flags),
-            [GlobalSymbolRegistry.ToStringTag] = new GetSetPropertyDescriptor(
-                get: new ClrFunction(_engine, "get [Symbol.toStringTag]", (_, _) => "AsyncIterator", 0, PropertyFlag.Configurable),
-                set: new ClrFunction(_engine, "set [Symbol.toStringTag]", (thisObject, arguments) =>
-                {
-                    SetterThatIgnoresPrototypeProperties(thisObject, _engine.Intrinsics.AsyncIterator.PrototypeObject, GlobalSymbolRegistry.ToStringTag, arguments.At(0));
-                    return Undefined;
-                }, 0, PropertyFlag.Configurable),
-                PropertyFlag.Configurable)
-        };
-        SetSymbols(symbols);
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-set-asynciteratorprototype-constructor
+    /// </summary>
+    [JsAccessor("constructor", AccessorKind.Set)]
+    private JsValue ConstructorSet(JsValue thisObject, JsValue value)
+    {
+        SetterThatIgnoresPrototypeProperties(thisObject, _engine.Intrinsics.AsyncIterator.PrototypeObject, CommonProperties.Constructor, value);
+        return Undefined;
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-get-asynciteratorprototype-@@tostringtag
+    /// </summary>
+    [JsSymbolAccessor("ToStringTag")]
+    private static JsString ToStringTagGet(JsValue thisObject) => AsyncIteratorToStringTag;
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-set-asynciteratorprototype-@@tostringtag
+    /// </summary>
+    [JsSymbolAccessor("ToStringTag", AccessorKind.Set)]
+    private JsValue ToStringTagSet(JsValue thisObject, JsValue value)
+    {
+        SetterThatIgnoresPrototypeProperties(thisObject, _engine.Intrinsics.AsyncIterator.PrototypeObject, GlobalSymbolRegistry.ToStringTag, value);
+        return Undefined;
     }
 
     /// <summary>
@@ -306,15 +303,14 @@ internal sealed class AsyncIteratorPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-asynciteratorprototype-asynciterator
     /// </summary>
-    private static JsValue AsyncIterator(JsValue thisObject, JsCallArguments arguments)
-    {
-        return thisObject;
-    }
+    [JsSymbolFunction("AsyncIterator", Length = 0, Flags = PropertyFlag.Configurable | PropertyFlag.Writable)]
+    private static JsValue AsyncIterator(JsValue thisObject) => thisObject;
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%asynciteratorprototype%-@@asyncDispose
     /// </summary>
-    private JsValue AsyncDispose(JsValue thisObject, JsCallArguments arguments)
+    [JsSymbolFunction("AsyncDispose", Length = 0, Flags = PropertyFlag.Configurable | PropertyFlag.Writable)]
+    private JsValue AsyncDispose(JsValue thisObject)
     {
         var o = thisObject;
         var promiseCapability = PromiseConstructor.NewPromiseCapability(_engine, _engine.Realm.Intrinsics.Promise);
@@ -367,30 +363,35 @@ internal sealed class AsyncIteratorPrototype : Prototype
 
     // ---- Helper-returning methods ----
 
+    [JsFunction(Length = 1)]
     private AsyncMapIterator Map(JsValue thisObject, JsValue[] arguments)
     {
         var o = ValidateThisAndGetCallable(thisObject, arguments, "map", out var mapper);
         return new AsyncMapIterator(_engine, GetIteratorDirect(o), mapper);
     }
 
+    [JsFunction(Length = 1)]
     private AsyncFilterIterator Filter(JsValue thisObject, JsValue[] arguments)
     {
         var o = ValidateThisAndGetCallable(thisObject, arguments, "filter", out var predicate);
         return new AsyncFilterIterator(_engine, GetIteratorDirect(o), predicate);
     }
 
+    [JsFunction(Length = 1)]
     private AsyncTakeIterator Take(JsValue thisObject, JsValue[] arguments)
     {
         var o = ValidateThisAndGetLimit(thisObject, arguments, "take", out var limit);
         return new AsyncTakeIterator(_engine, GetIteratorDirect(o), limit);
     }
 
+    [JsFunction(Length = 1)]
     private AsyncDropIterator Drop(JsValue thisObject, JsValue[] arguments)
     {
         var o = ValidateThisAndGetLimit(thisObject, arguments, "drop", out var limit);
         return new AsyncDropIterator(_engine, GetIteratorDirect(o), limit);
     }
 
+    [JsFunction(Length = 1)]
     private AsyncFlatMapIterator FlatMap(JsValue thisObject, JsValue[] arguments)
     {
         var o = ValidateThisAndGetCallable(thisObject, arguments, "flatMap", out var mapper);
@@ -399,6 +400,7 @@ internal sealed class AsyncIteratorPrototype : Prototype
 
     // ---- Consuming methods (return promises) ----
 
+    [JsFunction(Length = 1)]
     private JsValue Reduce(JsValue thisObject, JsValue[] arguments)
     {
         var o = ValidateThisAndGetCallable(thisObject, arguments, "reduce", out var reducer);
@@ -462,6 +464,7 @@ internal sealed class AsyncIteratorPrototype : Prototype
             counter: counter);
     }
 
+    [JsFunction(Length = 0)]
     private JsValue ToArray(JsValue thisObject, JsValue[] arguments)
     {
         if (thisObject is not ObjectInstance o)
@@ -496,6 +499,7 @@ internal sealed class AsyncIteratorPrototype : Prototype
             });
     }
 
+    [JsFunction(Length = 1)]
     private JsValue ForEach(JsValue thisObject, JsValue[] arguments)
     {
         var o = ValidateThisAndGetCallable(thisObject, arguments, "forEach", out var procedure);
@@ -509,6 +513,7 @@ internal sealed class AsyncIteratorPrototype : Prototype
         return promiseCapability.PromiseInstance;
     }
 
+    [JsFunction(Length = 1)]
     private JsValue Some(JsValue thisObject, JsValue[] arguments)
     {
         var o = ValidateThisAndGetCallable(thisObject, arguments, "some", out var predicate);
@@ -528,6 +533,7 @@ internal sealed class AsyncIteratorPrototype : Prototype
         return promiseCapability.PromiseInstance;
     }
 
+    [JsFunction(Length = 1)]
     private JsValue Every(JsValue thisObject, JsValue[] arguments)
     {
         var o = ValidateThisAndGetCallable(thisObject, arguments, "every", out var predicate);
@@ -547,6 +553,7 @@ internal sealed class AsyncIteratorPrototype : Prototype
         return promiseCapability.PromiseInstance;
     }
 
+    [JsFunction(Length = 1)]
     private JsValue Find(JsValue thisObject, JsValue[] arguments)
     {
         var o = ValidateThisAndGetCallable(thisObject, arguments, "find", out var predicate);
