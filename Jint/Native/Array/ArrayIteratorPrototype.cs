@@ -1,20 +1,24 @@
 using Jint.Native.ArrayBuffer;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Native.TypedArray;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
+using FunctionInstance = Jint.Native.Function.Function;
 
 namespace Jint.Native.Array;
 
 /// <summary>
 /// https://tc39.es/ecma262/#sec-%arrayiteratorprototype%-object
 /// </summary>
-internal sealed class ArrayIteratorPrototype : IteratorPrototype
+[JsObject]
+internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
 {
-    private ClrFunction? _originalNextFunction;
+    [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString ArrayIteratorToStringTag = new("Array Iterator");
+
+    // Captured once Initialize runs; HasOriginalNext below identity-compares against this snapshot
+    // to detect whether user code has overridden `next` on the prototype.
+    private FunctionInstance _originalNextFunction = null!;
 
     internal ArrayIteratorPrototype(
         Engine engine,
@@ -25,19 +29,16 @@ internal sealed class ArrayIteratorPrototype : IteratorPrototype
 
     protected override void Initialize()
     {
-        _originalNextFunction = new ClrFunction(Engine, "next", Next, 0, PropertyFlag.Configurable);
-        var properties = new PropertyDictionary(1, checkExistingKeys: false)
-        {
-            [KnownKeys.Next] = new(_originalNextFunction, PropertyFlag.NonEnumerable)
-        };
-        SetProperties(properties);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
 
-        var symbols = new SymbolDictionary(1)
-        {
-            [GlobalSymbolRegistry.ToStringTag] = new("Array Iterator", PropertyFlag.Configurable)
-        };
-        SetSymbols(symbols);
+        // Snapshot the prototype's `next` function before any user code can replace it,
+        // so HasOriginalNext can detect overrides via ReferenceEquals.
+        _originalNextFunction = (FunctionInstance) GetOwnProperty("next").Value!;
     }
+
+    [JsFunction(Length = 0, Name = "next")]
+    private JsValue NextHandler(JsValue thisObject) => Next(thisObject, Arguments.Empty);
 
     internal IteratorInstance Construct(ObjectInstance array, ArrayIteratorType kind)
     {
