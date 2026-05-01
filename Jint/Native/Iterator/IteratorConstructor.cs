@@ -3,11 +3,11 @@ using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.Iterator;
 
-internal sealed class IteratorConstructor : Constructor
+[JsObject]
+internal sealed partial class IteratorConstructor : Constructor
 {
     private static readonly JsString _functionName = new("Iterator");
 
@@ -26,19 +26,7 @@ internal sealed class IteratorConstructor : Constructor
 
     internal IteratorPrototype PrototypeObject { get; }
 
-    protected override void Initialize()
-    {
-        const PropertyFlag PropertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-        const PropertyFlag LengthFlags = PropertyFlag.Configurable;
-        var properties = new PropertyDictionary(4, checkExistingKeys: false)
-        {
-            ["concat"] = new(new PropertyDescriptor(new ClrFunction(Engine, "concat", Concat, 0, LengthFlags), PropertyFlags)),
-            ["from"] = new(new PropertyDescriptor(new ClrFunction(Engine, "from", From, 1, LengthFlags), PropertyFlags)),
-            ["zip"] = new(new PropertyDescriptor(new ClrFunction(Engine, "zip", Zip, 1, LengthFlags), PropertyFlags)),
-            ["zipKeyed"] = new(new PropertyDescriptor(new ClrFunction(Engine, "zipKeyed", ZipKeyed, 1, LengthFlags), PropertyFlags)),
-        };
-        SetProperties(properties);
-    }
+    protected override void Initialize() => CreateProperties_Generated();
 
     public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
     {
@@ -56,6 +44,7 @@ internal sealed class IteratorConstructor : Constructor
     /// <summary>
     /// https://tc39.es/proposal-iterator-sequencing/#sec-iterator.concat
     /// </summary>
+    [JsFunction(Length = 0)]
     private JsValue Concat(JsValue thisObject, JsValue[] arguments)
     {
         // 1. Let iterables be a new empty List.
@@ -92,10 +81,10 @@ internal sealed class IteratorConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-iterator.from
     /// </summary>
-    private JsValue From(JsValue thisObject, JsValue[] arguments)
+    [JsFunction(Length = 1)]
+    private JsValue From(JsValue thisObject, JsValue o)
     {
         // 1. If O is a String, set O to ! ToObject(O).
-        var o = arguments.At(0);
 
         // 2. Let iteratorRecord be ? GetIteratorFlattenable(O, iterate-strings).
         var iteratorRecord = GetIteratorFlattenable(o, StringHandlingType.IterateStrings, out var underlyingIterator);
@@ -196,11 +185,9 @@ internal sealed class IteratorConstructor : Constructor
     /// <summary>
     /// https://tc39.es/proposal-joint-iteration/#sec-iterator.zip
     /// </summary>
-    private JsValue Zip(JsValue thisObject, JsValue[] arguments)
+    [JsFunction(Length = 1)]
+    private JsValue Zip(JsValue thisObject, JsValue iterables, JsValue options)
     {
-        var iterables = arguments.At(0);
-        var options = arguments.At(1);
-
         // 1. If iterables is not an Object, throw a TypeError exception.
         if (iterables is not ObjectInstance iterablesObj)
         {
@@ -397,11 +384,9 @@ internal sealed class IteratorConstructor : Constructor
     /// <summary>
     /// https://tc39.es/proposal-joint-iteration/#sec-iterator.zipkeyed
     /// </summary>
-    private JsValue ZipKeyed(JsValue thisObject, JsValue[] arguments)
+    [JsFunction(Length = 1)]
+    private JsValue ZipKeyed(JsValue thisObject, JsValue iterables, JsValue options)
     {
-        var iterables = arguments.At(0);
-        var options = arguments.At(1);
-
         // 1. If iterables is not an Object, throw a TypeError exception.
         if (iterables is not ObjectInstance iterablesObj)
         {

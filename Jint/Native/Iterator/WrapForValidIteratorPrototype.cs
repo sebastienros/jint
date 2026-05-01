@@ -1,7 +1,6 @@
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.Iterator;
 
@@ -9,7 +8,8 @@ namespace Jint.Native.Iterator;
 /// https://tc39.es/ecma262/#sec-%wrapforvaliditeratorprototype%-object
 /// The %WrapForValidIteratorPrototype% object is the prototype of wrapped iterator objects from Iterator.from.
 /// </summary>
-internal sealed class WrapForValidIteratorPrototype : Prototype
+[JsObject]
+internal sealed partial class WrapForValidIteratorPrototype : Prototype
 {
     internal WrapForValidIteratorPrototype(
         Engine engine,
@@ -19,20 +19,13 @@ internal sealed class WrapForValidIteratorPrototype : Prototype
         _prototype = iteratorPrototype;
     }
 
-    protected override void Initialize()
-    {
-        var properties = new PropertyDictionary(2, checkExistingKeys: false)
-        {
-            [KnownKeys.Next] = new PropertyDescriptor(new ClrFunction(_engine, "next", Next, 0, PropertyFlag.Configurable), PropertyFlag.Writable | PropertyFlag.Configurable),
-            [KnownKeys.Return] = new PropertyDescriptor(new ClrFunction(_engine, "return", Return, 0, PropertyFlag.Configurable), PropertyFlag.Writable | PropertyFlag.Configurable),
-        };
-        SetProperties(properties);
-    }
+    protected override void Initialize() => CreateProperties_Generated();
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%wrapforvaliditeratorprototype%.next
     /// </summary>
-    private JsValue Next(JsValue thisObject, JsValue[] arguments)
+    [JsFunction(Length = 0)]
+    private JsValue Next(JsValue thisObject)
     {
         // 1. Let O be this value.
         // 2. Perform ? RequireInternalSlot(O, [[Iterated]]).
@@ -51,7 +44,8 @@ internal sealed class WrapForValidIteratorPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%wrapforvaliditeratorprototype%.return
     /// </summary>
-    private JsValue Return(JsValue thisObject, JsValue[] arguments)
+    [JsFunction(Length = 0)]
+    private JsValue Return(JsValue thisObject)
     {
         // 1. Let O be this value.
         // 2. Perform ? RequireInternalSlot(O, [[Iterated]]).

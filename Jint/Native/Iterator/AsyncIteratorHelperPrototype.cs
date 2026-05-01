@@ -1,6 +1,5 @@
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.Iterator;
 
@@ -8,7 +7,8 @@ namespace Jint.Native.Iterator;
 /// https://tc39.es/ecma262/#sec-%asynciteratorhelperprototype%-object
 /// The %AsyncIteratorHelperPrototype% object is the prototype of async iterator helper objects.
 /// </summary>
-internal sealed class AsyncIteratorHelperPrototype : Prototype
+[JsObject]
+internal sealed partial class AsyncIteratorHelperPrototype : Prototype
 {
     internal AsyncIteratorHelperPrototype(
         Engine engine,
@@ -18,20 +18,13 @@ internal sealed class AsyncIteratorHelperPrototype : Prototype
         _prototype = asyncIteratorPrototype;
     }
 
-    protected override void Initialize()
-    {
-        var properties = new PropertyDictionary(2, checkExistingKeys: false)
-        {
-            [KnownKeys.Next] = new PropertyDescriptor(new ClrFunction(_engine, "next", Next, 0, PropertyFlag.Configurable), PropertyFlag.Writable | PropertyFlag.Configurable),
-            [KnownKeys.Return] = new PropertyDescriptor(new ClrFunction(_engine, "return", Return, 0, PropertyFlag.Configurable), PropertyFlag.Writable | PropertyFlag.Configurable),
-        };
-        SetProperties(properties);
-    }
+    protected override void Initialize() => CreateProperties_Generated();
 
     /// <summary>
     /// %AsyncIteratorHelperPrototype%.next()
     /// </summary>
-    private JsValue Next(JsValue thisObject, JsValue[] arguments)
+    [JsFunction(Length = 0)]
+    private JsValue Next(JsValue thisObject)
     {
         if (thisObject is AsyncIteratorHelper helper)
         {
@@ -45,7 +38,8 @@ internal sealed class AsyncIteratorHelperPrototype : Prototype
     /// <summary>
     /// %AsyncIteratorHelperPrototype%.return()
     /// </summary>
-    private JsValue Return(JsValue thisObject, JsValue[] arguments)
+    [JsFunction(Length = 0)]
+    private JsValue Return(JsValue thisObject)
     {
         if (thisObject is AsyncIteratorHelper helper)
         {

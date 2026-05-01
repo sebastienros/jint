@@ -11,7 +11,8 @@ namespace Jint.Native.Iterator;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-asynciterator-constructor
 /// </summary>
-internal sealed class AsyncIteratorConstructor : Constructor
+[JsObject]
+internal sealed partial class AsyncIteratorConstructor : Constructor
 {
     private static readonly JsString _functionName = new("AsyncIterator");
 
@@ -30,16 +31,7 @@ internal sealed class AsyncIteratorConstructor : Constructor
 
     internal AsyncIteratorPrototype PrototypeObject { get; }
 
-    protected override void Initialize()
-    {
-        const PropertyFlag PropertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-        const PropertyFlag LengthFlags = PropertyFlag.Configurable;
-        var properties = new PropertyDictionary(1, checkExistingKeys: false)
-        {
-            ["from"] = new(new PropertyDescriptor(new ClrFunction(Engine, "from", From, 1, LengthFlags), PropertyFlags)),
-        };
-        SetProperties(properties);
-    }
+    protected override void Initialize() => CreateProperties_Generated();
 
     public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
     {
@@ -57,10 +49,9 @@ internal sealed class AsyncIteratorConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-asynciterator.from
     /// </summary>
-    private JsValue From(JsValue thisObject, JsValue[] arguments)
+    [JsFunction(Length = 1)]
+    private JsValue From(JsValue thisObject, JsValue o)
     {
-        var o = arguments.At(0);
-
         // 1. If O is not an Object, throw a TypeError exception.
         if (o is not ObjectInstance obj)
         {
@@ -144,7 +135,8 @@ internal sealed class WrapForValidAsyncIterator : ObjectInstance
 /// <summary>
 /// https://tc39.es/ecma262/#sec-%wrapforvalidasynciteratorprototype%-object
 /// </summary>
-internal sealed class WrapForValidAsyncIteratorPrototype : Prototype
+[JsObject]
+internal sealed partial class WrapForValidAsyncIteratorPrototype : Prototype
 {
     internal WrapForValidAsyncIteratorPrototype(
         Engine engine,
@@ -154,21 +146,14 @@ internal sealed class WrapForValidAsyncIteratorPrototype : Prototype
         _prototype = asyncIteratorPrototype;
     }
 
-    protected override void Initialize()
-    {
-        var properties = new PropertyDictionary(2, checkExistingKeys: false)
-        {
-            [KnownKeys.Next] = new PropertyDescriptor(new ClrFunction(_engine, "next", Next, 0, PropertyFlag.Configurable), PropertyFlag.Writable | PropertyFlag.Configurable),
-            [KnownKeys.Return] = new PropertyDescriptor(new ClrFunction(_engine, "return", Return, 0, PropertyFlag.Configurable), PropertyFlag.Writable | PropertyFlag.Configurable),
-        };
-        SetProperties(properties);
-    }
+    protected override void Initialize() => CreateProperties_Generated();
 
     /// <summary>
     /// %WrapForValidAsyncIteratorPrototype%.next()
     /// Delegates to the underlying iterator's next() and wraps in a promise.
     /// </summary>
-    private JsValue Next(JsValue thisObject, JsValue[] arguments)
+    [JsFunction(Length = 0)]
+    private JsValue Next(JsValue thisObject)
     {
         if (thisObject is not WrapForValidAsyncIterator wrapper)
         {
@@ -218,7 +203,8 @@ internal sealed class WrapForValidAsyncIteratorPrototype : Prototype
     /// <summary>
     /// %WrapForValidAsyncIteratorPrototype%.return()
     /// </summary>
-    private JsValue Return(JsValue thisObject, JsValue[] arguments)
+    [JsFunction(Length = 0)]
+    private JsValue Return(JsValue thisObject)
     {
         if (thisObject is not WrapForValidAsyncIterator wrapper)
         {

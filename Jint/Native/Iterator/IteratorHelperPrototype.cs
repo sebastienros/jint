@@ -1,6 +1,5 @@
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.Iterator;
 
@@ -8,7 +7,8 @@ namespace Jint.Native.Iterator;
 /// https://tc39.es/ecma262/#sec-%iteratorhelperprototype%-object
 /// The %IteratorHelperPrototype% object is the prototype of iterator helper objects.
 /// </summary>
-internal sealed class IteratorHelperPrototype : Prototype
+[JsObject]
+internal sealed partial class IteratorHelperPrototype : Prototype
 {
     private readonly IteratorPrototype _iteratorPrototype;
 
@@ -21,20 +21,13 @@ internal sealed class IteratorHelperPrototype : Prototype
         _prototype = iteratorPrototype;
     }
 
-    protected override void Initialize()
-    {
-        var properties = new PropertyDictionary(2, checkExistingKeys: false)
-        {
-            [KnownKeys.Next] = new PropertyDescriptor(new ClrFunction(_engine, "next", Next, 0, PropertyFlag.Configurable), PropertyFlag.Writable | PropertyFlag.Configurable),
-            [KnownKeys.Return] = new PropertyDescriptor(new ClrFunction(_engine, "return", Return, 0, PropertyFlag.Configurable), PropertyFlag.Writable | PropertyFlag.Configurable),
-        };
-        SetProperties(properties);
-    }
+    protected override void Initialize() => CreateProperties_Generated();
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%iteratorhelperprototype%.next
     /// </summary>
-    private JsValue Next(JsValue thisObject, JsValue[] arguments)
+    [JsFunction(Length = 0)]
+    private JsValue Next(JsValue thisObject)
     {
         // 1. Return ? GeneratorResume(this value, undefined, "Iterator Helper").
         if (thisObject is IteratorHelper helper)
@@ -59,7 +52,8 @@ internal sealed class IteratorHelperPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%iteratorhelperprototype%.return
     /// </summary>
-    private JsValue Return(JsValue thisObject, JsValue[] arguments)
+    [JsFunction(Length = 0)]
+    private JsValue Return(JsValue thisObject)
     {
         // 1. Let O be this value.
         // 2. Perform ? RequireInternalSlot(O, [[UnderlyingIterator]]).
