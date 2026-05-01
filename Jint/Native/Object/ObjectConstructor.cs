@@ -33,17 +33,12 @@ public sealed partial class ObjectConstructor : Constructor
     /// https://tc39.es/ecma262/#sec-object.assign
     /// </summary>
     [JsFunction(Length = 2)]
-    private JsValue Assign(JsValue thisObject, JsCallArguments arguments)
+    private JsValue Assign(JsValue thisObject, JsValue target, [Rest] ReadOnlySpan<JsValue> sources)
     {
-        var to = TypeConverter.ToObject(_realm, arguments.At(0));
-        if (arguments.Length < 2)
+        var to = TypeConverter.ToObject(_realm, target);
+        for (var i = 0; i < sources.Length; i++)
         {
-            return to;
-        }
-
-        for (var i = 1; i < arguments.Length; i++)
-        {
-            var nextSource = arguments[i];
+            var nextSource = sources[i];
             if (nextSource.IsNullOrUndefined())
             {
                 continue;
