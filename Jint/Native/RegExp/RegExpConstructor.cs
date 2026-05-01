@@ -4,7 +4,6 @@ using System.Threading;
 using Jint.Collections;
 using Jint.Native.Function;
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -12,7 +11,8 @@ using Jint.Runtime.RegExp;
 
 namespace Jint.Native.RegExp;
 
-public sealed class RegExpConstructor : Constructor
+[JsObject]
+public sealed partial class RegExpConstructor : Constructor
 {
     private static readonly JsString _functionName = new JsString("RegExp");
     private static readonly Regex DummyRegex = new("(?:)", RegexOptions.None, TimeSpan.FromSeconds(1));
@@ -57,11 +57,24 @@ public sealed class RegExpConstructor : Constructor
 
     protected override void Initialize()
     {
-        const PropertyFlag LengthFlags = PropertyFlag.Configurable;
-        const PropertyFlag PropertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
+        AddLegacyAccessors();
+    }
 
-        // B.2.4 Legacy static accessor helpers
-        JsValue LegacyGetter(Func<RegExpConstructor, string> getter, JsValue thisObj, JsCallArguments _)
+    [JsSymbolAccessor("Species")]
+    private static JsValue Species(JsValue thisObject) => thisObject;
+
+    // B.2.4 Legacy static accessors. Kept hand-rolled (rather than [JsAccessor]) because the
+    // accessor function names are non-identifier strings like "$&" / "$_" / "$1" / "$`" — when
+    // the source generator names the underlying function "get $&", `Function.prototype.toString`
+    // returns text that fails test262's native-function-syntax matcher. Building the accessors
+    // here with empty-named ClrFunctions preserves the pre-source-gen behaviour.
+    private void AddLegacyAccessors()
+    {
+        const PropertyFlag LengthFlags = PropertyFlag.Configurable;
+
+        JsValue LegacyGetter(Func<RegExpConstructor, string> getter, JsValue thisObj)
         {
             if (!ReferenceEquals(thisObj, this))
             {
@@ -73,12 +86,12 @@ public sealed class RegExpConstructor : Constructor
         GetSetPropertyDescriptor CreateLegacyReadOnlyAccessor(Func<RegExpConstructor, string> getter)
         {
             return new GetSetPropertyDescriptor(
-                get: new ClrFunction(Engine, "", (thisObj, args) => LegacyGetter(getter, thisObj, args), 0, LengthFlags),
+                get: new ClrFunction(Engine, "", (thisObj, _) => LegacyGetter(getter, thisObj), 0, LengthFlags),
                 set: Undefined,
                 flags: PropertyFlag.Configurable);
         }
 
-        // input/$_ - readable and writable
+        // input/$_ — readable and writable
         var inputGetter = new ClrFunction(Engine, "get input", (thisObj, _) =>
         {
             if (!ReferenceEquals(thisObj, this)) Throw.TypeError(_realm, "Getter called on non-RegExp constructor");
@@ -92,7 +105,7 @@ public sealed class RegExpConstructor : Constructor
         }, 1, LengthFlags);
         var inputAccessor = new GetSetPropertyDescriptor(get: inputGetter, set: inputSetter, flags: PropertyFlag.Configurable);
 
-        // $1-$9 - readable, [[Set]]: undefined per B.2.4
+        // $1-$9 — readable, [[Set]]: undefined per B.2.4
         GetSetPropertyDescriptor CreateParenAccessor(int index)
         {
             var i = index;
@@ -106,42 +119,31 @@ public sealed class RegExpConstructor : Constructor
                 flags: PropertyFlag.Configurable);
         }
 
-        var properties = new PropertyDictionary(20, checkExistingKeys: false)
-        {
-            ["escape"] = new PropertyDescriptor(new ClrFunction(Engine, "escape", Escape, 1, LengthFlags), PropertyFlags),
-            // B.2.4 Legacy static accessors
-            ["input"] = inputAccessor,
-            ["$_"] = inputAccessor,
-            ["lastMatch"] = CreateLegacyReadOnlyAccessor(static c => c._legacyLastMatch),
-            ["$&"] = CreateLegacyReadOnlyAccessor(static c => c._legacyLastMatch),
-            ["lastParen"] = CreateLegacyReadOnlyAccessor(static c => c._legacyLastParen),
-            ["$+"] = CreateLegacyReadOnlyAccessor(static c => c._legacyLastParen),
-            ["leftContext"] = CreateLegacyReadOnlyAccessor(static c => c._legacyLeftContext),
-            ["$`"] = CreateLegacyReadOnlyAccessor(static c => c._legacyLeftContext),
-            ["rightContext"] = CreateLegacyReadOnlyAccessor(static c => c._legacyRightContext),
-            ["$'"] = CreateLegacyReadOnlyAccessor(static c => c._legacyRightContext),
-            ["$1"] = CreateParenAccessor(0),
-            ["$2"] = CreateParenAccessor(1),
-            ["$3"] = CreateParenAccessor(2),
-            ["$4"] = CreateParenAccessor(3),
-            ["$5"] = CreateParenAccessor(4),
-            ["$6"] = CreateParenAccessor(5),
-            ["$7"] = CreateParenAccessor(6),
-            ["$8"] = CreateParenAccessor(7),
-            ["$9"] = CreateParenAccessor(8),
-        };
-        SetProperties(properties);
-
-        var symbols = new SymbolDictionary(1)
-        {
-            [GlobalSymbolRegistry.Species] = new GetSetPropertyDescriptor(get: new ClrFunction(_engine, "get [Symbol.species]", (thisObj, _) => thisObj, 0, PropertyFlag.Configurable), set: Undefined, PropertyFlag.Configurable)
-        };
-        SetSymbols(symbols);
+        SetProperty("input", inputAccessor);
+        SetProperty("$_", inputAccessor);
+        SetProperty("lastMatch", CreateLegacyReadOnlyAccessor(static c => c._legacyLastMatch));
+        SetProperty("$&", CreateLegacyReadOnlyAccessor(static c => c._legacyLastMatch));
+        SetProperty("lastParen", CreateLegacyReadOnlyAccessor(static c => c._legacyLastParen));
+        SetProperty("$+", CreateLegacyReadOnlyAccessor(static c => c._legacyLastParen));
+        SetProperty("leftContext", CreateLegacyReadOnlyAccessor(static c => c._legacyLeftContext));
+        SetProperty("$`", CreateLegacyReadOnlyAccessor(static c => c._legacyLeftContext));
+        SetProperty("rightContext", CreateLegacyReadOnlyAccessor(static c => c._legacyRightContext));
+        SetProperty("$'", CreateLegacyReadOnlyAccessor(static c => c._legacyRightContext));
+        SetProperty("$1", CreateParenAccessor(0));
+        SetProperty("$2", CreateParenAccessor(1));
+        SetProperty("$3", CreateParenAccessor(2));
+        SetProperty("$4", CreateParenAccessor(3));
+        SetProperty("$5", CreateParenAccessor(4));
+        SetProperty("$6", CreateParenAccessor(5));
+        SetProperty("$7", CreateParenAccessor(6));
+        SetProperty("$8", CreateParenAccessor(7));
+        SetProperty("$9", CreateParenAccessor(8));
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-regexp.escape
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsString Escape(JsValue thisObject, JsCallArguments arguments)
     {
         var s = arguments.At(0);
