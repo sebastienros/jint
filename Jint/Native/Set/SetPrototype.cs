@@ -16,10 +16,6 @@ internal sealed partial class SetPrototype : Prototype
     [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly SetConstructor _constructor;
 
-    // Pre-existing quirk: TC39 spec does not require a `length` property on Set.prototype
-    // (length lives on the constructor). Preserved here verbatim from the pre-source-gen Initialize body.
-    [JsProperty(Name = "length", Flags = PropertyFlag.Configurable)] private static readonly JsNumber SetLength = JsNumber.PositiveZero;
-
     [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString SetToStringTag = new("Set");
 
     internal SetPrototype(

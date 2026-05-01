@@ -16,10 +16,6 @@ internal sealed partial class MapPrototype : Prototype
     [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly MapConstructor _mapConstructor;
 
-    // Pre-existing quirk: TC39 spec does not require a `length` property on Map.prototype
-    // (length lives on the constructor). Preserved here verbatim from the pre-source-gen Initialize body.
-    [JsProperty(Name = "length", Flags = PropertyFlag.Configurable)] private static readonly JsNumber MapLength = JsNumber.PositiveZero;
-
     [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString MapToStringTag = new("Map");
 
     internal MapPrototype(

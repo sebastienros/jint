@@ -15,10 +15,6 @@ internal sealed partial class WeakMapPrototype : Prototype
     [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly WeakMapConstructor _constructor;
 
-    // Pre-existing quirk: TC39 spec does not require a `length` property on WeakMap.prototype
-    // (length lives on the constructor). Preserved here verbatim from the pre-source-gen Initialize body.
-    [JsProperty(Name = "length", Flags = PropertyFlag.Configurable)] private static readonly JsNumber WeakMapLength = JsNumber.PositiveZero;
-
     [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString WeakMapToStringTag = new("WeakMap");
 
     internal WeakMapPrototype(

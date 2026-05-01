@@ -16,10 +16,6 @@ internal sealed partial class WeakSetPrototype : Prototype
     [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly WeakSetConstructor _constructor;
 
-    // Pre-existing quirk: TC39 spec does not require a `length` property on WeakSet.prototype
-    // (length lives on the constructor). Preserved here verbatim from the pre-source-gen Initialize body.
-    [JsProperty(Name = "length", Flags = PropertyFlag.Configurable)] private static readonly JsNumber WeakSetLength = JsNumber.PositiveZero;
-
     [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString WeakSetToStringTag = new("WeakSet");
 
     // Captured once Initialize runs; the WeakSet constructor's array fast path
