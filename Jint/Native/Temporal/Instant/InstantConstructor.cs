@@ -11,7 +11,8 @@ namespace Jint.Native.Temporal;
 /// <summary>
 /// https://tc39.es/proposal-temporal/#sec-temporal.instant
 /// </summary>
-internal sealed class InstantConstructor : Constructor
+[JsObject]
+internal sealed partial class InstantConstructor : Constructor
 {
     private static readonly JsString _functionName = new("Instant");
 
@@ -33,24 +34,13 @@ internal sealed class InstantConstructor : Constructor
 
     public InstantPrototype PrototypeObject { get; }
 
-    protected override void Initialize()
-    {
-        const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
-        const PropertyFlag LengthFlags = PropertyFlag.Configurable;
+    protected override void Initialize() => CreateProperties_Generated();
 
-        var properties = new PropertyDictionary(4, checkExistingKeys: false)
-        {
-            ["from"] = new(new ClrFunction(Engine, "from", From, 1, LengthFlags), PropertyFlags),
-            ["fromEpochMilliseconds"] = new(new ClrFunction(Engine, "fromEpochMilliseconds", FromEpochMilliseconds, 1, LengthFlags), PropertyFlags),
-            ["fromEpochNanoseconds"] = new(new ClrFunction(Engine, "fromEpochNanoseconds", FromEpochNanoseconds, 1, LengthFlags), PropertyFlags),
-            ["compare"] = new(new ClrFunction(Engine, "compare", Compare, 2, LengthFlags), PropertyFlags),
-        };
-        SetProperties(properties);
-    }
 
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.instant.from
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsInstant From(JsValue thisObject, JsCallArguments arguments)
     {
         var item = arguments.At(0);
@@ -60,6 +50,7 @@ internal sealed class InstantConstructor : Constructor
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.instant.fromepochmilliseconds
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsInstant FromEpochMilliseconds(JsValue thisObject, JsCallArguments arguments)
     {
         var epochMilliseconds = arguments.At(0);
@@ -89,6 +80,7 @@ internal sealed class InstantConstructor : Constructor
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.instant.fromepochnanoseconds
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsInstant FromEpochNanoseconds(JsValue thisObject, JsCallArguments arguments)
     {
         var epochNanoseconds = arguments.At(0);
@@ -112,6 +104,7 @@ internal sealed class InstantConstructor : Constructor
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.instant.compare
     /// </summary>
+    [JsFunction(Length = 2)]
     private JsNumber Compare(JsValue thisObject, JsCallArguments arguments)
     {
         var one = ToTemporalInstant(arguments.At(0));

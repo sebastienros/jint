@@ -10,7 +10,8 @@ namespace Jint.Native.Temporal;
 /// <summary>
 /// https://tc39.es/proposal-temporal/#sec-temporal.plainyearmonth
 /// </summary>
-internal sealed class PlainYearMonthConstructor : Constructor
+[JsObject]
+internal sealed partial class PlainYearMonthConstructor : Constructor
 {
     private static readonly JsString _functionName = new("PlainYearMonth");
     private static readonly char[] DateTimeSeparators = { '-', 'T', ' ', '[' };
@@ -29,22 +30,13 @@ internal sealed class PlainYearMonthConstructor : Constructor
 
     public PlainYearMonthPrototype PrototypeObject { get; }
 
-    protected override void Initialize()
-    {
-        const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
-        const PropertyFlag LengthFlags = PropertyFlag.Configurable;
+    protected override void Initialize() => CreateProperties_Generated();
 
-        var properties = new PropertyDictionary(2, checkExistingKeys: false)
-        {
-            ["from"] = new(new ClrFunction(Engine, "from", From, 1, LengthFlags), PropertyFlags),
-            ["compare"] = new(new ClrFunction(Engine, "compare", Compare, 2, LengthFlags), PropertyFlags),
-        };
-        SetProperties(properties);
-    }
 
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plainyearmonth.from
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsPlainYearMonth From(JsValue thisObject, JsCallArguments arguments)
     {
         var item = arguments.At(0);
@@ -91,6 +83,7 @@ internal sealed class PlainYearMonthConstructor : Constructor
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plainyearmonth.compare
     /// </summary>
+    [JsFunction(Length = 2)]
     private JsNumber Compare(JsValue thisObject, JsCallArguments arguments)
     {
         var one = ToTemporalYearMonth(arguments.At(0), "constrain");

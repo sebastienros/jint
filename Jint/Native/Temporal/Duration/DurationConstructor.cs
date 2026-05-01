@@ -9,7 +9,8 @@ namespace Jint.Native.Temporal;
 /// <summary>
 /// https://tc39.es/proposal-temporal/#sec-temporal.duration
 /// </summary>
-internal sealed class DurationConstructor : Constructor
+[JsObject]
+internal sealed partial class DurationConstructor : Constructor
 {
     private static readonly JsString _functionName = new("Duration");
 
@@ -27,22 +28,13 @@ internal sealed class DurationConstructor : Constructor
 
     public DurationPrototype PrototypeObject { get; }
 
-    protected override void Initialize()
-    {
-        const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
-        const PropertyFlag LengthFlags = PropertyFlag.Configurable;
+    protected override void Initialize() => CreateProperties_Generated();
 
-        var properties = new PropertyDictionary(2, checkExistingKeys: false)
-        {
-            ["from"] = new(new ClrFunction(Engine, "from", From, 1, LengthFlags), PropertyFlags),
-            ["compare"] = new(new ClrFunction(Engine, "compare", Compare, 2, LengthFlags), PropertyFlags),
-        };
-        SetProperties(properties);
-    }
 
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.duration.from
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsDuration From(JsValue thisObject, JsCallArguments arguments)
     {
         var item = arguments.At(0);
@@ -57,6 +49,7 @@ internal sealed class DurationConstructor : Constructor
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.duration.compare
     /// </summary>
+    [JsFunction(Length = 2)]
     private JsNumber Compare(JsValue thisObject, JsCallArguments arguments)
     {
         var one = ToTemporalDuration(arguments.At(0));

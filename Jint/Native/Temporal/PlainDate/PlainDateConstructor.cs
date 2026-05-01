@@ -10,7 +10,8 @@ namespace Jint.Native.Temporal;
 /// <summary>
 /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate
 /// </summary>
-internal sealed class PlainDateConstructor : Constructor
+[JsObject]
+internal sealed partial class PlainDateConstructor : Constructor
 {
     private static readonly JsString _functionName = new("PlainDate");
 
@@ -28,22 +29,13 @@ internal sealed class PlainDateConstructor : Constructor
 
     public PlainDatePrototype PrototypeObject { get; }
 
-    protected override void Initialize()
-    {
-        const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
-        const PropertyFlag LengthFlags = PropertyFlag.Configurable;
+    protected override void Initialize() => CreateProperties_Generated();
 
-        var properties = new PropertyDictionary(2, checkExistingKeys: false)
-        {
-            ["from"] = new(new ClrFunction(Engine, "from", From, 1, LengthFlags), PropertyFlags),
-            ["compare"] = new(new ClrFunction(Engine, "compare", Compare, 2, LengthFlags), PropertyFlags),
-        };
-        SetProperties(properties);
-    }
 
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.from
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsPlainDate From(JsValue thisObject, JsCallArguments arguments)
     {
         var item = arguments.At(0);
@@ -209,6 +201,7 @@ internal sealed class PlainDateConstructor : Constructor
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.compare
     /// </summary>
+    [JsFunction(Length = 2)]
     private JsNumber Compare(JsValue thisObject, JsCallArguments arguments)
     {
         var one = ToTemporalDate(arguments.At(0), "constrain");

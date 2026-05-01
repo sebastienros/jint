@@ -10,7 +10,8 @@ namespace Jint.Native.Temporal;
 /// <summary>
 /// https://tc39.es/proposal-temporal/#sec-temporal.plainmonthday
 /// </summary>
-internal sealed class PlainMonthDayConstructor : Constructor
+[JsObject]
+internal sealed partial class PlainMonthDayConstructor : Constructor
 {
     private static readonly JsString _functionName = new("PlainMonthDay");
     private static readonly char[] TimeSuffixChars = { 'T', ' ', '[' };
@@ -29,21 +30,13 @@ internal sealed class PlainMonthDayConstructor : Constructor
 
     public PlainMonthDayPrototype PrototypeObject { get; }
 
-    protected override void Initialize()
-    {
-        const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
-        const PropertyFlag LengthFlags = PropertyFlag.Configurable;
+    protected override void Initialize() => CreateProperties_Generated();
 
-        var properties = new PropertyDictionary(1, checkExistingKeys: false)
-        {
-            ["from"] = new(new ClrFunction(Engine, "from", From, 1, LengthFlags), PropertyFlags),
-        };
-        SetProperties(properties);
-    }
 
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plainmonthday.from
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsPlainMonthDay From(JsValue thisObject, JsCallArguments arguments)
     {
         var item = arguments.At(0);

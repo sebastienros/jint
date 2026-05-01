@@ -12,9 +12,13 @@ namespace Jint.Native.Temporal;
 /// <summary>
 /// https://tc39.es/proposal-temporal/#sec-properties-of-the-temporal-plaintime-prototype-object
 /// </summary>
-internal sealed class PlainTimePrototype : Prototype
+[JsObject]
+internal sealed partial class PlainTimePrototype : Prototype
 {
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly PlainTimeConstructor _constructor;
+
+    [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString PlainTimeToStringTag = new("Temporal.PlainTime");
 
     internal PlainTimePrototype(
         Engine engine,
@@ -28,38 +32,10 @@ internal sealed class PlainTimePrototype : Prototype
 
     protected override void Initialize()
     {
-        const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
-        const PropertyFlag LengthFlags = PropertyFlag.Configurable;
-
-        var properties = new PropertyDictionary(18, checkExistingKeys: false)
-        {
-            ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
-            ["with"] = new(new ClrFunction(Engine, "with", With, 1, LengthFlags), PropertyFlags),
-            ["add"] = new(new ClrFunction(Engine, "add", Add, 1, LengthFlags), PropertyFlags),
-            ["subtract"] = new(new ClrFunction(Engine, "subtract", Subtract, 1, LengthFlags), PropertyFlags),
-            ["until"] = new(new ClrFunction(Engine, "until", Until, 1, LengthFlags), PropertyFlags),
-            ["since"] = new(new ClrFunction(Engine, "since", Since, 1, LengthFlags), PropertyFlags),
-            ["round"] = new(new ClrFunction(Engine, "round", Round, 1, LengthFlags), PropertyFlags),
-            ["equals"] = new(new ClrFunction(Engine, "equals", Equals, 1, LengthFlags), PropertyFlags),
-            ["toString"] = new(new ClrFunction(Engine, "toString", ToString, 0, LengthFlags), PropertyFlags),
-            ["toJSON"] = new(new ClrFunction(Engine, "toJSON", ToJSON, 0, LengthFlags), PropertyFlags),
-            ["toLocaleString"] = new(new ClrFunction(Engine, "toLocaleString", ToLocaleString, 0, LengthFlags), PropertyFlags),
-            ["valueOf"] = new(new ClrFunction(Engine, "valueOf", ValueOf, 0, LengthFlags), PropertyFlags),
-            ["hour"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get hour", GetHour, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
-            ["minute"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get minute", GetMinute, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
-            ["second"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get second", GetSecond, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
-            ["millisecond"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get millisecond", GetMillisecond, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
-            ["microsecond"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get microsecond", GetMicrosecond, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
-            ["nanosecond"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get nanosecond", GetNanosecond, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
-        };
-        SetProperties(properties);
-
-        var symbols = new SymbolDictionary(1)
-        {
-            [GlobalSymbolRegistry.ToStringTag] = new("Temporal.PlainTime", PropertyFlag.Configurable)
-        };
-        SetSymbols(symbols);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
     }
+
 
     private JsPlainTime ValidatePlainTime(JsValue thisObject)
     {
@@ -69,16 +45,23 @@ internal sealed class PlainTimePrototype : Prototype
         return null!;
     }
 
-    private JsNumber GetHour(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainTime(thisObject).IsoTime.Hour);
-    private JsNumber GetMinute(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainTime(thisObject).IsoTime.Minute);
-    private JsNumber GetSecond(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainTime(thisObject).IsoTime.Second);
-    private JsNumber GetMillisecond(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainTime(thisObject).IsoTime.Millisecond);
-    private JsNumber GetMicrosecond(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainTime(thisObject).IsoTime.Microsecond);
-    private JsNumber GetNanosecond(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainTime(thisObject).IsoTime.Nanosecond);
+    [JsAccessor("hour")]
+    private JsNumber GetHour(JsValue thisObject) => JsNumber.Create(ValidatePlainTime(thisObject).IsoTime.Hour);
+    [JsAccessor("minute")]
+    private JsNumber GetMinute(JsValue thisObject) => JsNumber.Create(ValidatePlainTime(thisObject).IsoTime.Minute);
+    [JsAccessor("second")]
+    private JsNumber GetSecond(JsValue thisObject) => JsNumber.Create(ValidatePlainTime(thisObject).IsoTime.Second);
+    [JsAccessor("millisecond")]
+    private JsNumber GetMillisecond(JsValue thisObject) => JsNumber.Create(ValidatePlainTime(thisObject).IsoTime.Millisecond);
+    [JsAccessor("microsecond")]
+    private JsNumber GetMicrosecond(JsValue thisObject) => JsNumber.Create(ValidatePlainTime(thisObject).IsoTime.Microsecond);
+    [JsAccessor("nanosecond")]
+    private JsNumber GetNanosecond(JsValue thisObject) => JsNumber.Create(ValidatePlainTime(thisObject).IsoTime.Nanosecond);
 
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaintime.prototype.with
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsPlainTime With(JsValue thisObject, JsCallArguments arguments)
     {
         var plainTime = ValidatePlainTime(thisObject);
@@ -153,6 +136,7 @@ internal sealed class PlainTimePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaintime.prototype.add
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsPlainTime Add(JsValue thisObject, JsCallArguments arguments)
     {
         var plainTime = ValidatePlainTime(thisObject);
@@ -164,6 +148,7 @@ internal sealed class PlainTimePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaintime.prototype.subtract
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsPlainTime Subtract(JsValue thisObject, JsCallArguments arguments)
     {
         var plainTime = ValidatePlainTime(thisObject);
@@ -197,6 +182,7 @@ internal sealed class PlainTimePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaintime.prototype.until
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsDuration Until(JsValue thisObject, JsCallArguments arguments)
     {
         var plainTime = ValidatePlainTime(thisObject);
@@ -234,6 +220,7 @@ internal sealed class PlainTimePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaintime.prototype.since
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsDuration Since(JsValue thisObject, JsCallArguments arguments)
     {
         var plainTime = ValidatePlainTime(thisObject);
@@ -340,6 +327,7 @@ internal sealed class PlainTimePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaintime.prototype.round
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsPlainTime Round(JsValue thisObject, JsCallArguments arguments)
     {
         var plainTime = ValidatePlainTime(thisObject);
@@ -400,6 +388,7 @@ internal sealed class PlainTimePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaintime.prototype.equals
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsBoolean Equals(JsValue thisObject, JsCallArguments arguments)
     {
         var plainTime = ValidatePlainTime(thisObject);
@@ -411,6 +400,7 @@ internal sealed class PlainTimePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaintime.prototype.tostring
     /// </summary>
+    [JsFunction(Length = 0)]
     private JsString ToString(JsValue thisObject, JsCallArguments arguments)
     {
         var plainTime = ValidatePlainTime(thisObject);
@@ -521,6 +511,7 @@ internal sealed class PlainTimePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaintime.prototype.tojson
     /// </summary>
+    [JsFunction(Length = 0)]
     private JsString ToJSON(JsValue thisObject, JsCallArguments arguments)
     {
         var plainTime = ValidatePlainTime(thisObject);
@@ -530,6 +521,7 @@ internal sealed class PlainTimePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sup-temporal.plaintime.prototype.tolocalestring
     /// </summary>
+    [JsFunction(Length = 0)]
     private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
     {
         var plainTime = ValidatePlainTime(thisObject);
@@ -548,6 +540,7 @@ internal sealed class PlainTimePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaintime.prototype.valueof
     /// </summary>
+    [JsFunction(Length = 0)]
     private JsValue ValueOf(JsValue thisObject, JsCallArguments arguments)
     {
         Throw.TypeError(_realm, "Temporal.PlainTime cannot be converted to a primitive value");

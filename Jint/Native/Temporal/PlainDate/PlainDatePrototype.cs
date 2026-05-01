@@ -12,9 +12,13 @@ namespace Jint.Native.Temporal;
 /// <summary>
 /// https://tc39.es/proposal-temporal/#sec-properties-of-the-temporal-plaindate-prototype-object
 /// </summary>
-internal sealed class PlainDatePrototype : Prototype
+[JsObject]
+internal sealed partial class PlainDatePrototype : Prototype
 {
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly PlainDateConstructor _constructor;
+
+    [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString PlainDateToStringTag = new("Temporal.PlainDate");
 
     internal PlainDatePrototype(
         Engine engine,
@@ -28,52 +32,10 @@ internal sealed class PlainDatePrototype : Prototype
 
     protected override void Initialize()
     {
-        const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
-        const PropertyFlag LengthFlags = PropertyFlag.Configurable;
-
-        var properties = new PropertyDictionary(32, checkExistingKeys: false)
-        {
-            ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
-            ["with"] = new(new ClrFunction(Engine, "with", With, 1, LengthFlags), PropertyFlags),
-            ["withCalendar"] = new(new ClrFunction(Engine, "withCalendar", WithCalendar, 1, LengthFlags), PropertyFlags),
-            ["add"] = new(new ClrFunction(Engine, "add", Add, 1, LengthFlags), PropertyFlags),
-            ["subtract"] = new(new ClrFunction(Engine, "subtract", Subtract, 1, LengthFlags), PropertyFlags),
-            ["until"] = new(new ClrFunction(Engine, "until", Until, 1, LengthFlags), PropertyFlags),
-            ["since"] = new(new ClrFunction(Engine, "since", Since, 1, LengthFlags), PropertyFlags),
-            ["equals"] = new(new ClrFunction(Engine, "equals", Equals, 1, LengthFlags), PropertyFlags),
-            ["toString"] = new(new ClrFunction(Engine, "toString", ToString, 0, LengthFlags), PropertyFlags),
-            ["toJSON"] = new(new ClrFunction(Engine, "toJSON", ToJSON, 0, LengthFlags), PropertyFlags),
-            ["toLocaleString"] = new(new ClrFunction(Engine, "toLocaleString", ToLocaleString, 0, LengthFlags), PropertyFlags),
-            ["valueOf"] = new(new ClrFunction(Engine, "valueOf", ValueOf, 0, LengthFlags), PropertyFlags),
-            ["toPlainDateTime"] = new(new ClrFunction(Engine, "toPlainDateTime", ToPlainDateTime, 0, LengthFlags), PropertyFlags),
-            ["toPlainYearMonth"] = new(new ClrFunction(Engine, "toPlainYearMonth", ToPlainYearMonth, 0, LengthFlags), PropertyFlags),
-            ["toPlainMonthDay"] = new(new ClrFunction(Engine, "toPlainMonthDay", ToPlainMonthDay, 0, LengthFlags), PropertyFlags),
-            ["toZonedDateTime"] = new(new ClrFunction(Engine, "toZonedDateTime", ToZonedDateTime, 1, LengthFlags), PropertyFlags),
-            ["calendarId"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get calendarId", GetCalendarId, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
-            ["era"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get era", GetEra, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
-            ["eraYear"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get eraYear", GetEraYear, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
-            ["year"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get year", GetYear, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
-            ["month"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get month", GetMonth, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
-            ["monthCode"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get monthCode", GetMonthCode, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
-            ["day"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get day", GetDay, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
-            ["dayOfWeek"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get dayOfWeek", GetDayOfWeek, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
-            ["dayOfYear"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get dayOfYear", GetDayOfYear, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
-            ["weekOfYear"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get weekOfYear", GetWeekOfYear, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
-            ["yearOfWeek"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get yearOfWeek", GetYearOfWeek, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
-            ["daysInWeek"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get daysInWeek", GetDaysInWeek, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
-            ["daysInMonth"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get daysInMonth", GetDaysInMonth, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
-            ["daysInYear"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get daysInYear", GetDaysInYear, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
-            ["monthsInYear"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get monthsInYear", GetMonthsInYear, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
-            ["inLeapYear"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get inLeapYear", GetInLeapYear, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
-        };
-        SetProperties(properties);
-
-        var symbols = new SymbolDictionary(1)
-        {
-            [GlobalSymbolRegistry.ToStringTag] = new("Temporal.PlainDate", PropertyFlag.Configurable)
-        };
-        SetSymbols(symbols);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
     }
+
 
     private JsPlainDate ValidatePlainDate(JsValue thisObject)
     {
@@ -83,84 +45,100 @@ internal sealed class PlainDatePrototype : Prototype
         return null!;
     }
 
-    private JsString GetCalendarId(JsValue thisObject, JsCallArguments arguments) => new JsString(ValidatePlainDate(thisObject).Calendar);
+    [JsAccessor("calendarId")]
+    private JsString GetCalendarId(JsValue thisObject) => new JsString(ValidatePlainDate(thisObject).Calendar);
 
-    private JsValue GetEra(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("era")]
+    private JsValue GetEra(JsValue thisObject)
     {
         var pd = ValidatePlainDate(thisObject);
         var era = TemporalHelpers.CalendarEra(pd.Calendar, pd.IsoDate);
         return era is not null ? new JsString(era) : Undefined;
     }
 
-    private JsValue GetEraYear(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("eraYear")]
+    private JsValue GetEraYear(JsValue thisObject)
     {
         var pd = ValidatePlainDate(thisObject);
         var eraYear = TemporalHelpers.CalendarEraYear(pd.Calendar, pd.IsoDate);
         return eraYear.HasValue ? JsNumber.Create(eraYear.Value) : Undefined;
     }
 
-    private JsNumber GetYear(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("year")]
+    private JsNumber GetYear(JsValue thisObject)
     {
         var pd = ValidatePlainDate(thisObject);
         return JsNumber.Create(TemporalHelpers.CalendarYear(pd.Calendar, pd.IsoDate, _engine));
     }
-    private JsNumber GetMonth(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("month")]
+    private JsNumber GetMonth(JsValue thisObject)
     {
         var pd = ValidatePlainDate(thisObject);
         return JsNumber.Create(TemporalHelpers.CalendarMonth(pd.Calendar, pd.IsoDate, _engine));
     }
-    private JsString GetMonthCode(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("monthCode")]
+    private JsString GetMonthCode(JsValue thisObject)
     {
         var pd = ValidatePlainDate(thisObject);
         return new JsString(TemporalHelpers.CalendarMonthCode(pd.Calendar, pd.IsoDate, _engine));
     }
-    private JsNumber GetDay(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("day")]
+    private JsNumber GetDay(JsValue thisObject)
     {
         var pd = ValidatePlainDate(thisObject);
         return JsNumber.Create(TemporalHelpers.CalendarDay(pd.Calendar, pd.IsoDate, _engine));
     }
-    private JsNumber GetDayOfWeek(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidatePlainDate(thisObject).IsoDate.DayOfWeek());
-    private JsNumber GetDayOfYear(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("dayOfWeek")]
+    private JsNumber GetDayOfWeek(JsValue thisObject) => JsNumber.Create(ValidatePlainDate(thisObject).IsoDate.DayOfWeek());
+    [JsAccessor("dayOfYear")]
+    private JsNumber GetDayOfYear(JsValue thisObject)
     {
         var pd = ValidatePlainDate(thisObject);
         return JsNumber.Create(TemporalHelpers.CalendarDayOfYear(pd.Calendar, pd.IsoDate, _engine));
     }
-    private JsValue GetWeekOfYear(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("weekOfYear")]
+    private JsValue GetWeekOfYear(JsValue thisObject)
     {
         var pd = ValidatePlainDate(thisObject);
         return string.Equals(pd.Calendar, "iso8601", StringComparison.Ordinal) ? JsNumber.Create(pd.IsoDate.WeekOfYear()) : Undefined;
     }
 
-    private JsValue GetYearOfWeek(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("yearOfWeek")]
+    private JsValue GetYearOfWeek(JsValue thisObject)
     {
         var pd = ValidatePlainDate(thisObject);
         return string.Equals(pd.Calendar, "iso8601", StringComparison.Ordinal) ? JsNumber.Create(pd.IsoDate.YearOfWeek()) : Undefined;
     }
 
-    private JsNumber GetDaysInWeek(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("daysInWeek")]
+    private JsNumber GetDaysInWeek(JsValue thisObject)
     {
         ValidatePlainDate(thisObject);
         return JsNumber.Create(7);
     }
 
-    private JsNumber GetDaysInMonth(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("daysInMonth")]
+    private JsNumber GetDaysInMonth(JsValue thisObject)
     {
         var pd = ValidatePlainDate(thisObject);
         return JsNumber.Create(TemporalHelpers.CalendarDaysInMonth(pd.Calendar, pd.IsoDate, _engine));
     }
-    private JsNumber GetDaysInYear(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("daysInYear")]
+    private JsNumber GetDaysInYear(JsValue thisObject)
     {
         var pd = ValidatePlainDate(thisObject);
         return JsNumber.Create(TemporalHelpers.CalendarDaysInYear(pd.Calendar, pd.IsoDate, _engine));
     }
 
-    private JsNumber GetMonthsInYear(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("monthsInYear")]
+    private JsNumber GetMonthsInYear(JsValue thisObject)
     {
         var pd = ValidatePlainDate(thisObject);
         return JsNumber.Create(TemporalHelpers.CalendarMonthsInYear(pd.Calendar, pd.IsoDate, _engine));
     }
 
-    private JsBoolean GetInLeapYear(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("inLeapYear")]
+    private JsBoolean GetInLeapYear(JsValue thisObject)
     {
         var pd = ValidatePlainDate(thisObject);
         return TemporalHelpers.CalendarInLeapYear(pd.Calendar, pd.IsoDate, _engine) ? JsBoolean.True : JsBoolean.False;
@@ -169,6 +147,7 @@ internal sealed class PlainDatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.with
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsPlainDate With(JsValue thisObject, JsCallArguments arguments)
     {
         var plainDate = ValidatePlainDate(thisObject);
@@ -387,6 +366,7 @@ internal sealed class PlainDatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.withcalendar
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsPlainDate WithCalendar(JsValue thisObject, JsCallArguments arguments)
     {
         var plainDate = ValidatePlainDate(thisObject);
@@ -399,6 +379,7 @@ internal sealed class PlainDatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.add
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsPlainDate Add(JsValue thisObject, JsCallArguments arguments)
     {
         var plainDate = ValidatePlainDate(thisObject);
@@ -413,6 +394,7 @@ internal sealed class PlainDatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.subtract
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsPlainDate Subtract(JsValue thisObject, JsCallArguments arguments)
     {
         var plainDate = ValidatePlainDate(thisObject);
@@ -457,6 +439,7 @@ internal sealed class PlainDatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.until
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsDuration Until(JsValue thisObject, JsCallArguments arguments)
     {
         var plainDate = ValidatePlainDate(thisObject);
@@ -500,6 +483,7 @@ internal sealed class PlainDatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.since
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsDuration Since(JsValue thisObject, JsCallArguments arguments)
     {
         var plainDate = ValidatePlainDate(thisObject);
@@ -628,6 +612,7 @@ internal sealed class PlainDatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.equals
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsBoolean Equals(JsValue thisObject, JsCallArguments arguments)
     {
         var plainDate = ValidatePlainDate(thisObject);
@@ -640,6 +625,7 @@ internal sealed class PlainDatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.tostring
     /// </summary>
+    [JsFunction(Length = 0)]
     private JsString ToString(JsValue thisObject, JsCallArguments arguments)
     {
         var plainDate = ValidatePlainDate(thisObject);
@@ -670,6 +656,7 @@ internal sealed class PlainDatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.tojson
     /// </summary>
+    [JsFunction(Length = 0)]
     private JsString ToJSON(JsValue thisObject, JsCallArguments arguments)
     {
         var plainDate = ValidatePlainDate(thisObject);
@@ -679,6 +666,7 @@ internal sealed class PlainDatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sup-temporal.plaindate.prototype.tolocalestring
     /// </summary>
+    [JsFunction(Length = 0)]
     private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
     {
         var plainDate = ValidatePlainDate(thisObject);
@@ -704,6 +692,7 @@ internal sealed class PlainDatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.valueof
     /// </summary>
+    [JsFunction(Length = 0)]
     private JsValue ValueOf(JsValue thisObject, JsCallArguments arguments)
     {
         Throw.TypeError(_realm, "Temporal.PlainDate cannot be converted to a primitive value");
@@ -713,6 +702,7 @@ internal sealed class PlainDatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.toplaindatetime
     /// </summary>
+    [JsFunction(Length = 0)]
     private JsPlainDateTime ToPlainDateTime(JsValue thisObject, JsCallArguments arguments)
     {
         var plainDate = ValidatePlainDate(thisObject);
@@ -745,6 +735,7 @@ internal sealed class PlainDatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.toplainyearmonth
     /// </summary>
+    [JsFunction(Length = 0)]
     private JsPlainYearMonth ToPlainYearMonth(JsValue thisObject, JsCallArguments arguments)
     {
         var plainDate = ValidatePlainDate(thisObject);
@@ -758,6 +749,7 @@ internal sealed class PlainDatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.toplainmonthday
     /// </summary>
+    [JsFunction(Length = 0)]
     private JsPlainMonthDay ToPlainMonthDay(JsValue thisObject, JsCallArguments arguments)
     {
         var plainDate = ValidatePlainDate(thisObject);
@@ -810,6 +802,7 @@ internal sealed class PlainDatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.tozoneddatetime
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsZonedDateTime ToZonedDateTime(JsValue thisObject, JsCallArguments arguments)
     {
         var plainDate = ValidatePlainDate(thisObject);

@@ -10,7 +10,8 @@ namespace Jint.Native.Temporal;
 /// <summary>
 /// https://tc39.es/proposal-temporal/#sec-temporal.zoneddatetime
 /// </summary>
-internal sealed class ZonedDateTimeConstructor : Constructor
+[JsObject]
+internal sealed partial class ZonedDateTimeConstructor : Constructor
 {
     private static readonly JsString _functionName = new("ZonedDateTime");
 
@@ -28,22 +29,13 @@ internal sealed class ZonedDateTimeConstructor : Constructor
 
     public ZonedDateTimePrototype PrototypeObject { get; }
 
-    protected override void Initialize()
-    {
-        const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
-        const PropertyFlag LengthFlags = PropertyFlag.Configurable;
+    protected override void Initialize() => CreateProperties_Generated();
 
-        var properties = new PropertyDictionary(2, checkExistingKeys: false)
-        {
-            ["from"] = new(new ClrFunction(Engine, "from", From, 1, LengthFlags), PropertyFlags),
-            ["compare"] = new(new ClrFunction(Engine, "compare", Compare, 2, LengthFlags), PropertyFlags),
-        };
-        SetProperties(properties);
-    }
 
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.zoneddatetime.from
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsZonedDateTime From(JsValue thisObject, JsCallArguments arguments)
     {
         var item = arguments.At(0);
@@ -54,6 +46,7 @@ internal sealed class ZonedDateTimeConstructor : Constructor
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.zoneddatetime.compare
     /// </summary>
+    [JsFunction(Length = 2)]
     private JsNumber Compare(JsValue thisObject, JsCallArguments arguments)
     {
         var one = ToTemporalZonedDateTime(arguments.At(0), Undefined);

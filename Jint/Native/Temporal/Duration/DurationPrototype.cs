@@ -10,9 +10,13 @@ namespace Jint.Native.Temporal;
 /// <summary>
 /// https://tc39.es/proposal-temporal/#sec-properties-of-the-temporal-duration-prototype-object
 /// </summary>
-internal sealed class DurationPrototype : Prototype
+[JsObject]
+internal sealed partial class DurationPrototype : Prototype
 {
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly DurationConstructor _constructor;
+
+    [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString DurationToStringTag = new("Temporal.Duration");
 
     internal DurationPrototype(
         Engine engine,
@@ -26,44 +30,10 @@ internal sealed class DurationPrototype : Prototype
 
     protected override void Initialize()
     {
-        const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
-        const PropertyFlag LengthFlags = PropertyFlag.Configurable;
-
-        var properties = new PropertyDictionary(24, checkExistingKeys: false)
-        {
-            ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
-            ["with"] = new(new ClrFunction(Engine, "with", With, 1, LengthFlags), PropertyFlags),
-            ["negated"] = new(new ClrFunction(Engine, "negated", Negated, 0, LengthFlags), PropertyFlags),
-            ["abs"] = new(new ClrFunction(Engine, "abs", Abs, 0, LengthFlags), PropertyFlags),
-            ["add"] = new(new ClrFunction(Engine, "add", Add, 1, LengthFlags), PropertyFlags),
-            ["subtract"] = new(new ClrFunction(Engine, "subtract", Subtract, 1, LengthFlags), PropertyFlags),
-            ["round"] = new(new ClrFunction(Engine, "round", Round, 1, LengthFlags), PropertyFlags),
-            ["total"] = new(new ClrFunction(Engine, "total", Total, 1, LengthFlags), PropertyFlags),
-            ["toString"] = new(new ClrFunction(Engine, "toString", ToStringMethod, 0, LengthFlags), PropertyFlags),
-            ["toJSON"] = new(new ClrFunction(Engine, "toJSON", ToJSON, 0, LengthFlags), PropertyFlags),
-            ["toLocaleString"] = new(new ClrFunction(Engine, "toLocaleString", ToLocaleString, 0, LengthFlags), PropertyFlags),
-            ["valueOf"] = new(new ClrFunction(Engine, "valueOf", ValueOf, 0, LengthFlags), PropertyFlags),
-            ["years"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get years", GetYears, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
-            ["months"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get months", GetMonths, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
-            ["weeks"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get weeks", GetWeeks, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
-            ["days"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get days", GetDays, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
-            ["hours"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get hours", GetHours, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
-            ["minutes"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get minutes", GetMinutes, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
-            ["seconds"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get seconds", GetSeconds, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
-            ["milliseconds"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get milliseconds", GetMilliseconds, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
-            ["microseconds"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get microseconds", GetMicroseconds, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
-            ["nanoseconds"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get nanoseconds", GetNanoseconds, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
-            ["sign"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get sign", GetSign, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
-            ["blank"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get blank", GetBlank, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable),
-        };
-        SetProperties(properties);
-
-        var symbols = new SymbolDictionary(1)
-        {
-            [GlobalSymbolRegistry.ToStringTag] = new("Temporal.Duration", PropertyFlag.Configurable)
-        };
-        SetSymbols(symbols);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
     }
+
 
     private JsDuration ValidateDuration(JsValue thisObject)
     {
@@ -73,22 +43,35 @@ internal sealed class DurationPrototype : Prototype
         return null!;
     }
 
-    private JsNumber GetYears(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidateDuration(thisObject).Years);
-    private JsNumber GetMonths(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidateDuration(thisObject).Months);
-    private JsNumber GetWeeks(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidateDuration(thisObject).Weeks);
-    private JsNumber GetDays(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidateDuration(thisObject).Days);
-    private JsNumber GetHours(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidateDuration(thisObject).Hours);
-    private JsNumber GetMinutes(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidateDuration(thisObject).Minutes);
-    private JsNumber GetSeconds(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidateDuration(thisObject).Seconds);
-    private JsNumber GetMilliseconds(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidateDuration(thisObject).Milliseconds);
-    private JsNumber GetMicroseconds(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidateDuration(thisObject).Microseconds);
-    private JsNumber GetNanoseconds(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidateDuration(thisObject).Nanoseconds);
-    private JsNumber GetSign(JsValue thisObject, JsCallArguments arguments) => JsNumber.Create(ValidateDuration(thisObject).DurationRecord.Sign());
-    private JsBoolean GetBlank(JsValue thisObject, JsCallArguments arguments) => ValidateDuration(thisObject).DurationRecord.IsZero() ? JsBoolean.True : JsBoolean.False;
+    [JsAccessor("years")]
+    private JsNumber GetYears(JsValue thisObject) => JsNumber.Create(ValidateDuration(thisObject).Years);
+    [JsAccessor("months")]
+    private JsNumber GetMonths(JsValue thisObject) => JsNumber.Create(ValidateDuration(thisObject).Months);
+    [JsAccessor("weeks")]
+    private JsNumber GetWeeks(JsValue thisObject) => JsNumber.Create(ValidateDuration(thisObject).Weeks);
+    [JsAccessor("days")]
+    private JsNumber GetDays(JsValue thisObject) => JsNumber.Create(ValidateDuration(thisObject).Days);
+    [JsAccessor("hours")]
+    private JsNumber GetHours(JsValue thisObject) => JsNumber.Create(ValidateDuration(thisObject).Hours);
+    [JsAccessor("minutes")]
+    private JsNumber GetMinutes(JsValue thisObject) => JsNumber.Create(ValidateDuration(thisObject).Minutes);
+    [JsAccessor("seconds")]
+    private JsNumber GetSeconds(JsValue thisObject) => JsNumber.Create(ValidateDuration(thisObject).Seconds);
+    [JsAccessor("milliseconds")]
+    private JsNumber GetMilliseconds(JsValue thisObject) => JsNumber.Create(ValidateDuration(thisObject).Milliseconds);
+    [JsAccessor("microseconds")]
+    private JsNumber GetMicroseconds(JsValue thisObject) => JsNumber.Create(ValidateDuration(thisObject).Microseconds);
+    [JsAccessor("nanoseconds")]
+    private JsNumber GetNanoseconds(JsValue thisObject) => JsNumber.Create(ValidateDuration(thisObject).Nanoseconds);
+    [JsAccessor("sign")]
+    private JsNumber GetSign(JsValue thisObject) => JsNumber.Create(ValidateDuration(thisObject).DurationRecord.Sign());
+    [JsAccessor("blank")]
+    private JsBoolean GetBlank(JsValue thisObject) => ValidateDuration(thisObject).DurationRecord.IsZero() ? JsBoolean.True : JsBoolean.False;
 
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.duration.prototype.with
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsDuration With(JsValue thisObject, JsCallArguments arguments)
     {
         var duration = ValidateDuration(thisObject);
@@ -157,6 +140,7 @@ internal sealed class DurationPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.duration.prototype.negated
     /// </summary>
+    [JsFunction(Length = 0)]
     private JsDuration Negated(JsValue thisObject, JsCallArguments arguments)
     {
         var duration = ValidateDuration(thisObject);
@@ -166,6 +150,7 @@ internal sealed class DurationPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.duration.prototype.abs
     /// </summary>
+    [JsFunction(Length = 0)]
     private JsDuration Abs(JsValue thisObject, JsCallArguments arguments)
     {
         var duration = ValidateDuration(thisObject);
@@ -176,6 +161,7 @@ internal sealed class DurationPrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.duration.prototype.add
     /// https://tc39.es/proposal-temporal/#sec-temporal-adddurations
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsDuration Add(JsValue thisObject, JsCallArguments arguments)
     {
         var duration = ValidateDuration(thisObject);
@@ -187,6 +173,7 @@ internal sealed class DurationPrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.duration.prototype.subtract
     /// https://tc39.es/proposal-temporal/#sec-temporal-adddurations
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsDuration Subtract(JsValue thisObject, JsCallArguments arguments)
     {
         var duration = ValidateDuration(thisObject);
@@ -245,6 +232,7 @@ internal sealed class DurationPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.duration.prototype.round
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsDuration Round(JsValue thisObject, JsCallArguments arguments)
     {
         var duration = ValidateDuration(thisObject);
@@ -1273,6 +1261,7 @@ internal sealed class DurationPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.duration.prototype.total
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsNumber Total(JsValue thisObject, JsCallArguments arguments)
     {
         var duration = ValidateDuration(thisObject);
@@ -1373,6 +1362,7 @@ internal sealed class DurationPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.duration.prototype.tostring
     /// </summary>
+    [JsFunction(Length = 0, Name = "toString")]
     private JsString ToStringMethod(JsValue thisObject, JsCallArguments arguments)
     {
         var duration = ValidateDuration(thisObject);
@@ -1553,6 +1543,7 @@ internal sealed class DurationPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.duration.prototype.tojson
     /// </summary>
+    [JsFunction(Length = 0)]
     private JsString ToJSON(JsValue thisObject, JsCallArguments arguments)
     {
         var duration = ValidateDuration(thisObject);
@@ -1562,6 +1553,7 @@ internal sealed class DurationPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.duration.prototype.tolocalestring
     /// </summary>
+    [JsFunction(Length = 0)]
     private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
     {
         var duration = ValidateDuration(thisObject);
@@ -1591,6 +1583,7 @@ internal sealed class DurationPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.duration.prototype.valueof
     /// </summary>
+    [JsFunction(Length = 0)]
     private JsValue ValueOf(JsValue thisObject, JsCallArguments arguments)
     {
         Throw.TypeError(_realm, "Cannot convert Temporal.Duration to a primitive value");
