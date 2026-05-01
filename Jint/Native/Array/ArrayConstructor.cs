@@ -13,7 +13,8 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.Array;
 
-public sealed class ArrayConstructor : Constructor
+[JsObject]
+public sealed partial class ArrayConstructor : Constructor
 {
     private static readonly JsString _functionName = new JsString("Array");
 
@@ -34,25 +35,14 @@ public sealed class ArrayConstructor : Constructor
 
     protected override void Initialize()
     {
-        var properties = new PropertyDictionary(4, checkExistingKeys: false)
-        {
-            ["from"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunction(Engine, "from", From, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable)),
-            ["fromAsync"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunction(Engine, "fromAsync", FromAsync, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable)),
-            ["isArray"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunction(Engine, "isArray", IsArray, 1), PropertyFlag.NonEnumerable)),
-            ["of"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunction(Engine, "of", Of, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable))
-        };
-        SetProperties(properties);
-
-        var symbols = new SymbolDictionary(1)
-        {
-            [GlobalSymbolRegistry.Species] = new GetSetPropertyDescriptor(get: new ClrFunction(Engine, "get [Symbol.species]", Species, 0, PropertyFlag.Configurable), set: Undefined, PropertyFlag.Configurable),
-        };
-        SetSymbols(symbols);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.from
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsValue From(JsValue thisObject, JsCallArguments arguments)
     {
         var items = arguments.At(0);
@@ -96,6 +86,7 @@ public sealed class ArrayConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.fromasync
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsValue FromAsync(JsValue thisObject, JsCallArguments arguments)
     {
         var asyncItems = arguments.At(0);
@@ -687,6 +678,7 @@ public sealed class ArrayConstructor : Constructor
         }
     }
 
+    [JsFunction(Length = 0)]
     private JsValue Of(JsValue thisObject, JsCallArguments arguments)
     {
         var len = arguments.Length;
@@ -725,11 +717,10 @@ public sealed class ArrayConstructor : Constructor
         return a;
     }
 
-    private static JsValue Species(JsValue thisObject, JsCallArguments arguments)
-    {
-        return thisObject;
-    }
+    [JsSymbolAccessor("Species")]
+    private static JsValue Species(JsValue thisObject) => thisObject;
 
+    [JsFunction(Length = 1)]
     private static JsValue IsArray(JsValue thisObject, JsCallArguments arguments)
     {
         var o = arguments.At(0);
