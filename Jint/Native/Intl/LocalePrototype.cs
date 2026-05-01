@@ -1,18 +1,20 @@
 using Jint.Native.Intl.Data;
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.Intl;
 
 /// <summary>
 /// https://tc39.es/ecma402/#sec-properties-of-intl-locale-prototype-object
 /// </summary>
-internal sealed class LocalePrototype : Prototype
+[JsObject]
+internal sealed partial class LocalePrototype : Prototype
 {
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly LocaleConstructor _constructor;
+
+    [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString LocaleToStringTag = new("Intl.Locale");
 
     public LocalePrototype(Engine engine,
         Realm realm,
@@ -25,97 +27,8 @@ internal sealed class LocalePrototype : Prototype
 
     protected override void Initialize()
     {
-        const PropertyFlag LengthFlags = PropertyFlag.Configurable;
-        const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
-        const PropertyFlag AccessorFlags = PropertyFlag.Configurable;
-
-        var properties = new PropertyDictionary(11, checkExistingKeys: false)
-        {
-            ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
-            ["maximize"] = new PropertyDescriptor(new ClrFunction(Engine, "maximize", Maximize, 0, LengthFlags), PropertyFlags),
-            ["minimize"] = new PropertyDescriptor(new ClrFunction(Engine, "minimize", Minimize, 0, LengthFlags), PropertyFlags),
-            ["toString"] = new PropertyDescriptor(new ClrFunction(Engine, "toString", ToLocaleString, 0, LengthFlags), PropertyFlags),
-            ["getCalendars"] = new PropertyDescriptor(new ClrFunction(Engine, "getCalendars", GetCalendars, 0, LengthFlags), PropertyFlags),
-            ["getCollations"] = new PropertyDescriptor(new ClrFunction(Engine, "getCollations", GetCollations, 0, LengthFlags), PropertyFlags),
-            ["getHourCycles"] = new PropertyDescriptor(new ClrFunction(Engine, "getHourCycles", GetHourCycles, 0, LengthFlags), PropertyFlags),
-            ["getNumberingSystems"] = new PropertyDescriptor(new ClrFunction(Engine, "getNumberingSystems", GetNumberingSystems, 0, LengthFlags), PropertyFlags),
-            ["getTimeZones"] = new PropertyDescriptor(new ClrFunction(Engine, "getTimeZones", GetTimeZones, 0, LengthFlags), PropertyFlags),
-            ["getTextInfo"] = new PropertyDescriptor(new ClrFunction(Engine, "getTextInfo", GetTextInfo, 0, LengthFlags), PropertyFlags),
-            ["getWeekInfo"] = new PropertyDescriptor(new ClrFunction(Engine, "getWeekInfo", GetWeekInfo, 0, LengthFlags), PropertyFlags),
-        };
-        SetProperties(properties);
-
-        // Accessor properties - accessor properties don't have writable attribute
-        SetAccessor("baseName", new GetSetPropertyDescriptor(
-            new ClrFunction(Engine, "get baseName", GetBaseName, 0, LengthFlags),
-            Undefined,
-            AccessorFlags));
-
-        SetAccessor("calendar", new GetSetPropertyDescriptor(
-            new ClrFunction(Engine, "get calendar", GetCalendar, 0, LengthFlags),
-            Undefined,
-            AccessorFlags));
-
-        SetAccessor("caseFirst", new GetSetPropertyDescriptor(
-            new ClrFunction(Engine, "get caseFirst", GetCaseFirst, 0, LengthFlags),
-            Undefined,
-            AccessorFlags));
-
-        SetAccessor("collation", new GetSetPropertyDescriptor(
-            new ClrFunction(Engine, "get collation", GetCollation, 0, LengthFlags),
-            Undefined,
-            AccessorFlags));
-
-        SetAccessor("hourCycle", new GetSetPropertyDescriptor(
-            new ClrFunction(Engine, "get hourCycle", GetHourCycle, 0, LengthFlags),
-            Undefined,
-            AccessorFlags));
-
-        SetAccessor("language", new GetSetPropertyDescriptor(
-            new ClrFunction(Engine, "get language", GetLanguage, 0, LengthFlags),
-            Undefined,
-            AccessorFlags));
-
-        SetAccessor("numberingSystem", new GetSetPropertyDescriptor(
-            new ClrFunction(Engine, "get numberingSystem", GetNumberingSystem, 0, LengthFlags),
-            Undefined,
-            AccessorFlags));
-
-        SetAccessor("numeric", new GetSetPropertyDescriptor(
-            new ClrFunction(Engine, "get numeric", GetNumeric, 0, LengthFlags),
-            Undefined,
-            AccessorFlags));
-
-        SetAccessor("region", new GetSetPropertyDescriptor(
-            new ClrFunction(Engine, "get region", GetRegion, 0, LengthFlags),
-            Undefined,
-            AccessorFlags));
-
-        SetAccessor("script", new GetSetPropertyDescriptor(
-            new ClrFunction(Engine, "get script", GetScript, 0, LengthFlags),
-            Undefined,
-            AccessorFlags));
-
-        SetAccessor("firstDayOfWeek", new GetSetPropertyDescriptor(
-            new ClrFunction(Engine, "get firstDayOfWeek", GetFirstDayOfWeek, 0, LengthFlags),
-            Undefined,
-            AccessorFlags));
-
-        SetAccessor("variants", new GetSetPropertyDescriptor(
-            new ClrFunction(Engine, "get variants", GetVariants, 0, LengthFlags),
-            Undefined,
-            AccessorFlags));
-
-        var symbols = new SymbolDictionary(1)
-        {
-            [GlobalSymbolRegistry.ToStringTag] = new("Intl.Locale", PropertyFlag.Configurable)
-        };
-        SetSymbols(symbols);
-    }
-
-    private void SetAccessor(string name, GetSetPropertyDescriptor descriptor)
-    {
-        SetProperty(name, descriptor);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
     }
 
     private JsLocale ValidateLocale(JsValue thisObject)
@@ -132,7 +45,8 @@ internal sealed class LocalePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-Intl.Locale.prototype.maximize
     /// </summary>
-    private ObjectInstance Maximize(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0)]
+    private ObjectInstance Maximize(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
 
@@ -146,7 +60,8 @@ internal sealed class LocalePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-Intl.Locale.prototype.minimize
     /// </summary>
-    private ObjectInstance Minimize(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0)]
+    private ObjectInstance Minimize(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
 
@@ -159,67 +74,78 @@ internal sealed class LocalePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-Intl.Locale.prototype.toString
     /// </summary>
-    private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0, Name = "toString")]
+    private JsValue ToLocaleString(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
         return locale.Locale;
     }
 
-    private JsValue GetBaseName(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("baseName")]
+    private JsValue GetBaseName(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
         return locale.BaseName;
     }
 
-    private JsValue GetCalendar(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("calendar")]
+    private JsValue GetCalendar(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
         return locale.Calendar ?? Undefined;
     }
 
-    private JsValue GetCaseFirst(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("caseFirst")]
+    private JsValue GetCaseFirst(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
         return locale.CaseFirst ?? Undefined;
     }
 
-    private JsValue GetCollation(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("collation")]
+    private JsValue GetCollation(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
         return locale.Collation ?? Undefined;
     }
 
-    private JsValue GetHourCycle(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("hourCycle")]
+    private JsValue GetHourCycle(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
         return locale.HourCycle ?? Undefined;
     }
 
-    private JsValue GetLanguage(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("language")]
+    private JsValue GetLanguage(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
         return locale.Language;
     }
 
-    private JsValue GetNumberingSystem(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("numberingSystem")]
+    private JsValue GetNumberingSystem(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
         return locale.NumberingSystem ?? Undefined;
     }
 
-    private JsBoolean GetNumeric(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("numeric")]
+    private JsBoolean GetNumeric(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
         return locale.Numeric.HasValue ? (locale.Numeric.Value ? JsBoolean.True : JsBoolean.False) : JsBoolean.False;
     }
 
-    private JsValue GetRegion(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("region")]
+    private JsValue GetRegion(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
         return locale.Region ?? Undefined;
     }
 
-    private JsValue GetScript(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("script")]
+    private JsValue GetScript(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
         return locale.Script ?? Undefined;
@@ -229,7 +155,8 @@ internal sealed class LocalePrototype : Prototype
     /// https://tc39.es/ecma402/#sec-Intl.Locale.prototype.variants
     /// Returns hyphen-separated variants string or undefined if no variants.
     /// </summary>
-    private JsValue GetVariants(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("variants")]
+    private JsValue GetVariants(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
         var variants = locale.Variants;
@@ -242,7 +169,8 @@ internal sealed class LocalePrototype : Prototype
         return string.Join("-", variants);
     }
 
-    private JsValue GetFirstDayOfWeek(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("firstDayOfWeek")]
+    private JsValue GetFirstDayOfWeek(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
 
@@ -259,7 +187,8 @@ internal sealed class LocalePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-Intl.Locale.prototype.getCalendars
     /// </summary>
-    private JsArray GetCalendars(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0)]
+    private JsArray GetCalendars(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
 
@@ -273,7 +202,8 @@ internal sealed class LocalePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-Intl.Locale.prototype.getCollations
     /// </summary>
-    private JsArray GetCollations(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0)]
+    private JsArray GetCollations(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
 
@@ -286,7 +216,8 @@ internal sealed class LocalePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-Intl.Locale.prototype.getHourCycles
     /// </summary>
-    private JsArray GetHourCycles(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0)]
+    private JsArray GetHourCycles(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
         var culture = locale.CultureInfo;
@@ -305,7 +236,8 @@ internal sealed class LocalePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-Intl.Locale.prototype.getNumberingSystems
     /// </summary>
-    private JsArray GetNumberingSystems(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0)]
+    private JsArray GetNumberingSystems(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
 
@@ -319,7 +251,8 @@ internal sealed class LocalePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-Intl.Locale.prototype.getTimeZones
     /// </summary>
-    private JsValue GetTimeZones(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0)]
+    private JsValue GetTimeZones(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
 
@@ -360,7 +293,8 @@ internal sealed class LocalePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-Intl.Locale.prototype.getTextInfo
     /// </summary>
-    private JsObject GetTextInfo(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0)]
+    private JsObject GetTextInfo(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
         var culture = locale.CultureInfo;
@@ -378,7 +312,8 @@ internal sealed class LocalePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-Intl.Locale.prototype.getWeekInfo
     /// </summary>
-    private JsObject GetWeekInfo(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0)]
+    private JsObject GetWeekInfo(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
         var region = locale.Region;

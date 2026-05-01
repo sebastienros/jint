@@ -1,17 +1,19 @@
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.Intl;
 
 /// <summary>
 /// https://tc39.es/ecma402/#sec-properties-of-intl-pluralrules-prototype-object
 /// </summary>
-internal sealed class PluralRulesPrototype : Prototype
+[JsObject]
+internal sealed partial class PluralRulesPrototype : Prototype
 {
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly PluralRulesConstructor _constructor;
+
+    [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString PluralRulesToStringTag = new("Intl.PluralRules");
 
     public PluralRulesPrototype(
         Engine engine,
@@ -25,23 +27,8 @@ internal sealed class PluralRulesPrototype : Prototype
 
     protected override void Initialize()
     {
-        const PropertyFlag LengthFlags = PropertyFlag.Configurable;
-        const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
-
-        var properties = new PropertyDictionary(4, checkExistingKeys: false)
-        {
-            ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
-            ["select"] = new PropertyDescriptor(new ClrFunction(Engine, "select", Select, 1, LengthFlags), PropertyFlags),
-            ["selectRange"] = new PropertyDescriptor(new ClrFunction(Engine, "selectRange", SelectRange, 2, LengthFlags), PropertyFlags),
-            ["resolvedOptions"] = new PropertyDescriptor(new ClrFunction(Engine, "resolvedOptions", ResolvedOptions, 0, LengthFlags), PropertyFlags),
-        };
-        SetProperties(properties);
-
-        var symbols = new SymbolDictionary(1)
-        {
-            [GlobalSymbolRegistry.ToStringTag] = new("Intl.PluralRules", PropertyFlag.Configurable)
-        };
-        SetSymbols(symbols);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
     }
 
     private JsPluralRules ValidatePluralRules(JsValue thisObject)
@@ -58,11 +45,10 @@ internal sealed class PluralRulesPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.pluralrules.prototype.select
     /// </summary>
-    private JsValue Select(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue Select(JsValue thisObject, JsValue n)
     {
         var pluralRules = ValidatePluralRules(thisObject);
-        var n = arguments.At(0);
-
         var x = TypeConverter.ToNumber(n);
         return pluralRules.Select(x);
     }
@@ -70,11 +56,10 @@ internal sealed class PluralRulesPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.pluralrules.prototype.selectrange
     /// </summary>
-    private JsValue SelectRange(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private JsValue SelectRange(JsValue thisObject, JsValue start, JsValue end)
     {
         var pluralRules = ValidatePluralRules(thisObject);
-        var start = arguments.At(0);
-        var end = arguments.At(1);
 
         if (start.IsUndefined())
         {
@@ -102,7 +87,8 @@ internal sealed class PluralRulesPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.pluralrules.prototype.resolvedoptions
     /// </summary>
-    private JsObject ResolvedOptions(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0)]
+    private JsObject ResolvedOptions(JsValue thisObject)
     {
         var pluralRules = ValidatePluralRules(thisObject);
 

@@ -1,18 +1,19 @@
 using System.Linq;
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.Intl;
 
 /// <summary>
 /// https://tc39.es/ecma402/#intl-object
 /// </summary>
-internal sealed class IntlInstance : ObjectInstance
+[JsObject]
+internal sealed partial class IntlInstance : ObjectInstance
 {
     private readonly Realm _realm;
+
+    [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString IntlToStringTag = new("Intl");
 
     internal IntlInstance(
         Engine engine,
@@ -30,47 +31,40 @@ internal sealed class IntlInstance : ObjectInstance
 
     protected override void Initialize()
     {
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
+
+        // Constructor references aren't generator-friendly (they pull from _realm.Intrinsics);
+        // register them after generated properties to avoid a separate generator feature.
         const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
-
-        var properties = new PropertyDictionary(13, checkExistingKeys: false)
-        {
-            ["Collator"] = new(_realm.Intrinsics.Collator, PropertyFlags),
-            ["DateTimeFormat"] = new(_realm.Intrinsics.DateTimeFormat, PropertyFlags),
-            ["DisplayNames"] = new(_realm.Intrinsics.DisplayNames, PropertyFlags),
-            ["DurationFormat"] = new(_realm.Intrinsics.DurationFormat, PropertyFlags),
-            ["ListFormat"] = new(_realm.Intrinsics.ListFormat, PropertyFlags),
-            ["Locale"] = new(_realm.Intrinsics.Locale, PropertyFlags),
-            ["NumberFormat"] = new(_realm.Intrinsics.NumberFormat, PropertyFlags),
-            ["PluralRules"] = new(_realm.Intrinsics.PluralRules, PropertyFlags),
-            ["RelativeTimeFormat"] = new(_realm.Intrinsics.RelativeTimeFormat, PropertyFlags),
-            ["Segmenter"] = new(_realm.Intrinsics.Segmenter, PropertyFlags),
-            ["getCanonicalLocales"] = new(new ClrFunction(Engine, "getCanonicalLocales", GetCanonicalLocales, 1, PropertyFlag.Configurable), PropertyFlags),
-            ["supportedValuesOf"] = new(new ClrFunction(Engine, "supportedValuesOf", SupportedValuesOf, 1, PropertyFlag.Configurable), PropertyFlags),
-        };
-        SetProperties(properties);
-
-        var symbols = new SymbolDictionary(1)
-        {
-            [GlobalSymbolRegistry.ToStringTag] = new("Intl", PropertyFlag.Configurable)
-        };
-        SetSymbols(symbols);
+        SetProperty("Collator", new PropertyDescriptor(_realm.Intrinsics.Collator, PropertyFlags));
+        SetProperty("DateTimeFormat", new PropertyDescriptor(_realm.Intrinsics.DateTimeFormat, PropertyFlags));
+        SetProperty("DisplayNames", new PropertyDescriptor(_realm.Intrinsics.DisplayNames, PropertyFlags));
+        SetProperty("DurationFormat", new PropertyDescriptor(_realm.Intrinsics.DurationFormat, PropertyFlags));
+        SetProperty("ListFormat", new PropertyDescriptor(_realm.Intrinsics.ListFormat, PropertyFlags));
+        SetProperty("Locale", new PropertyDescriptor(_realm.Intrinsics.Locale, PropertyFlags));
+        SetProperty("NumberFormat", new PropertyDescriptor(_realm.Intrinsics.NumberFormat, PropertyFlags));
+        SetProperty("PluralRules", new PropertyDescriptor(_realm.Intrinsics.PluralRules, PropertyFlags));
+        SetProperty("RelativeTimeFormat", new PropertyDescriptor(_realm.Intrinsics.RelativeTimeFormat, PropertyFlags));
+        SetProperty("Segmenter", new PropertyDescriptor(_realm.Intrinsics.Segmenter, PropertyFlags));
     }
 
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.getcanonicallocales
     /// </summary>
-    private JsArray GetCanonicalLocales(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsArray GetCanonicalLocales(JsValue thisObject, JsValue locales)
     {
-        var locales = arguments.At(0);
         return new JsArray(_engine, IntlUtilities.CanonicalizeLocaleList(_engine, locales).Select(x => new JsString(x)).ToArray<JsValue>());
     }
 
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.supportedvaluesof
     /// </summary>
-    private JsValue SupportedValuesOf(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue SupportedValuesOf(JsValue thisObject, JsValue keyArg)
     {
-        var key = TypeConverter.ToString(arguments.At(0));
+        var key = TypeConverter.ToString(keyArg);
 
         string[] values;
         switch (key)

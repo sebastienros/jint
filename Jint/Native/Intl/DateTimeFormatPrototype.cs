@@ -1,6 +1,5 @@
 using System.Numerics;
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Native.Temporal;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -11,9 +10,13 @@ namespace Jint.Native.Intl;
 /// <summary>
 /// https://tc39.es/ecma402/#sec-properties-of-intl-datetimeformat-prototype-object
 /// </summary>
-internal sealed class DateTimeFormatPrototype : Prototype
+[JsObject]
+internal sealed partial class DateTimeFormatPrototype : Prototype
 {
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly DateTimeFormatConstructor _constructor;
+
+    [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString DateTimeFormatToStringTag = new("Intl.DateTimeFormat");
 
     public DateTimeFormatPrototype(Engine engine,
         Realm realm,
@@ -26,35 +29,8 @@ internal sealed class DateTimeFormatPrototype : Prototype
 
     protected override void Initialize()
     {
-        const PropertyFlag LengthFlags = PropertyFlag.Configurable;
-        const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
-
-        var properties = new PropertyDictionary(5, checkExistingKeys: false)
-        {
-            ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
-            ["resolvedOptions"] = new PropertyDescriptor(new ClrFunction(Engine, "resolvedOptions", ResolvedOptions, 0, LengthFlags), PropertyFlags),
-            ["formatToParts"] = new PropertyDescriptor(new ClrFunction(Engine, "formatToParts", FormatToParts, 1, LengthFlags), PropertyFlags),
-            ["formatRange"] = new PropertyDescriptor(new ClrFunction(Engine, "formatRange", FormatRange, 2, LengthFlags), PropertyFlags),
-            ["formatRangeToParts"] = new PropertyDescriptor(new ClrFunction(Engine, "formatRangeToParts", FormatRangeToParts, 2, LengthFlags), PropertyFlags),
-        };
-        SetProperties(properties);
-
-        // format is an accessor property - accessor properties don't have writable attribute
-        SetAccessor("format", new GetSetPropertyDescriptor(
-            new ClrFunction(Engine, "get format", GetFormat, 0, LengthFlags),
-            Undefined,
-            PropertyFlag.Configurable));
-
-        var symbols = new SymbolDictionary(1)
-        {
-            [GlobalSymbolRegistry.ToStringTag] = new("Intl.DateTimeFormat", PropertyFlag.Configurable)
-        };
-        SetSymbols(symbols);
-    }
-
-    private void SetAccessor(string name, GetSetPropertyDescriptor descriptor)
-    {
-        SetProperty(name, descriptor);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
     }
 
     private JsDateTimeFormat ValidateDateTimeFormat(JsValue thisObject)
@@ -71,7 +47,8 @@ internal sealed class DateTimeFormatPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.datetimeformat.prototype.format
     /// </summary>
-    private ClrFunction GetFormat(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("format")]
+    private ClrFunction GetFormat(JsValue thisObject)
     {
         var dateTimeFormat = ValidateDateTimeFormat(thisObject);
 
@@ -99,10 +76,10 @@ internal sealed class DateTimeFormatPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.datetimeformat.prototype.formattoparts
     /// </summary>
-    private JsArray FormatToParts(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsArray FormatToParts(JsValue thisObject, JsValue dateValue)
     {
         var dateTimeFormat = ValidateDateTimeFormat(thisObject);
-        var dateValue = arguments.At(0);
         var formattable = ToDateTimeFormattable(dateValue);
 
         List<JsDateTimeFormat.DateTimePart> parts;
@@ -775,7 +752,8 @@ internal sealed class DateTimeFormatPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.datetimeformat.prototype.resolvedoptions
     /// </summary>
-    private JsObject ResolvedOptions(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0)]
+    private JsObject ResolvedOptions(JsValue thisObject)
     {
         var dateTimeFormat = ValidateDateTimeFormat(thisObject);
 
@@ -896,12 +874,10 @@ internal sealed class DateTimeFormatPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.datetimeformat.prototype.formatrange
     /// </summary>
-    private JsValue FormatRange(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private JsValue FormatRange(JsValue thisObject, JsValue startDate, JsValue endDate)
     {
         var dateTimeFormat = ValidateDateTimeFormat(thisObject);
-
-        var startDate = arguments.At(0);
-        var endDate = arguments.At(1);
 
         // Validate arguments
         if (startDate.IsUndefined() || endDate.IsUndefined())
@@ -986,12 +962,10 @@ internal sealed class DateTimeFormatPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.datetimeformat.prototype.formatrangetoparts
     /// </summary>
-    private JsArray FormatRangeToParts(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private JsArray FormatRangeToParts(JsValue thisObject, JsValue startDate, JsValue endDate)
     {
         var dateTimeFormat = ValidateDateTimeFormat(thisObject);
-
-        var startDate = arguments.At(0);
-        var endDate = arguments.At(1);
 
         // Validate arguments
         if (startDate.IsUndefined() || endDate.IsUndefined())

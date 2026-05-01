@@ -1,19 +1,22 @@
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.Intl;
 
 /// <summary>
 /// https://tc39.es/ecma402/#sec-properties-of-intl-displaynames-prototype-object
 /// </summary>
-internal sealed class DisplayNamesPrototype : Prototype
+[JsObject]
+internal sealed partial class DisplayNamesPrototype : Prototype
 {
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly DisplayNamesConstructor _constructor;
 
-    public DisplayNamesPrototype(Engine engine,
+    [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString DisplayNamesToStringTag = new("Intl.DisplayNames");
+
+    public DisplayNamesPrototype(
+        Engine engine,
         Realm realm,
         DisplayNamesConstructor constructor,
         ObjectPrototype objectPrototype) : base(engine, realm)
@@ -24,22 +27,8 @@ internal sealed class DisplayNamesPrototype : Prototype
 
     protected override void Initialize()
     {
-        const PropertyFlag LengthFlags = PropertyFlag.Configurable;
-        const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
-
-        var properties = new PropertyDictionary(3, checkExistingKeys: false)
-        {
-            ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
-            ["of"] = new PropertyDescriptor(new ClrFunction(Engine, "of", Of, 1, LengthFlags), PropertyFlags),
-            ["resolvedOptions"] = new PropertyDescriptor(new ClrFunction(Engine, "resolvedOptions", ResolvedOptions, 0, LengthFlags), PropertyFlags),
-        };
-        SetProperties(properties);
-
-        var symbols = new SymbolDictionary(1)
-        {
-            [GlobalSymbolRegistry.ToStringTag] = new("Intl.DisplayNames", PropertyFlag.Configurable)
-        };
-        SetSymbols(symbols);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
     }
 
     private JsDisplayNames ValidateDisplayNames(JsValue thisObject)
@@ -56,10 +45,10 @@ internal sealed class DisplayNamesPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.displaynames.prototype.of
     /// </summary>
-    private JsValue Of(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue Of(JsValue thisObject, JsValue code)
     {
         var displayNames = ValidateDisplayNames(thisObject);
-        var code = arguments.At(0);
 
         // code argument is required
         if (code.IsUndefined())
@@ -398,7 +387,8 @@ internal sealed class DisplayNamesPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.displaynames.prototype.resolvedoptions
     /// </summary>
-    private JsObject ResolvedOptions(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0)]
+    private JsObject ResolvedOptions(JsValue thisObject)
     {
         var displayNames = ValidateDisplayNames(thisObject);
 

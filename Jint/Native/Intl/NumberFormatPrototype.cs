@@ -2,7 +2,6 @@ using System.Globalization;
 using System.Numerics;
 using Jint.Native.BigInt;
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -12,9 +11,13 @@ namespace Jint.Native.Intl;
 /// <summary>
 /// https://tc39.es/ecma402/#sec-properties-of-intl-numberformat-prototype-object
 /// </summary>
-internal sealed class NumberFormatPrototype : Prototype
+[JsObject]
+internal sealed partial class NumberFormatPrototype : Prototype
 {
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly NumberFormatConstructor _constructor;
+
+    [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString NumberFormatToStringTag = new("Intl.NumberFormat");
 
     public NumberFormatPrototype(
         Engine engine,
@@ -28,35 +31,8 @@ internal sealed class NumberFormatPrototype : Prototype
 
     protected override void Initialize()
     {
-        const PropertyFlag LengthFlags = PropertyFlag.Configurable;
-        const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
-
-        var properties = new PropertyDictionary(5, checkExistingKeys: false)
-        {
-            ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
-            ["resolvedOptions"] = new PropertyDescriptor(new ClrFunction(Engine, "resolvedOptions", ResolvedOptions, 0, LengthFlags), PropertyFlags),
-            ["formatToParts"] = new PropertyDescriptor(new ClrFunction(Engine, "formatToParts", FormatToParts, 1, LengthFlags), PropertyFlags),
-            ["formatRange"] = new PropertyDescriptor(new ClrFunction(Engine, "formatRange", FormatRange, 2, LengthFlags), PropertyFlags),
-            ["formatRangeToParts"] = new PropertyDescriptor(new ClrFunction(Engine, "formatRangeToParts", FormatRangeToParts, 2, LengthFlags), PropertyFlags),
-        };
-        SetProperties(properties);
-
-        // format is an accessor property - accessor properties don't have writable attribute
-        SetAccessor("format", new GetSetPropertyDescriptor(
-            new ClrFunction(Engine, "get format", GetFormat, 0, LengthFlags),
-            Undefined,
-            PropertyFlag.Configurable));
-
-        var symbols = new SymbolDictionary(1)
-        {
-            [GlobalSymbolRegistry.ToStringTag] = new("Intl.NumberFormat", PropertyFlag.Configurable)
-        };
-        SetSymbols(symbols);
-    }
-
-    private void SetAccessor(string name, GetSetPropertyDescriptor descriptor)
-    {
-        SetProperty(name, descriptor);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
     }
 
     private JsNumberFormat ValidateNumberFormat(JsValue thisObject)
@@ -73,7 +49,8 @@ internal sealed class NumberFormatPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.numberformat.prototype.format
     /// </summary>
-    private ClrFunction GetFormat(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("format")]
+    private ClrFunction GetFormat(JsValue thisObject)
     {
         var numberFormat = ValidateNumberFormat(thisObject);
 
@@ -217,7 +194,8 @@ internal sealed class NumberFormatPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.numberformat.prototype.resolvedoptions
     /// </summary>
-    private JsObject ResolvedOptions(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0)]
+    private JsObject ResolvedOptions(JsValue thisObject)
     {
         var numberFormat = ValidateNumberFormat(thisObject);
 
@@ -284,10 +262,10 @@ internal sealed class NumberFormatPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.numberformat.prototype.formattoparts
     /// </summary>
-    private JsArray FormatToParts(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsArray FormatToParts(JsValue thisObject, JsValue value)
     {
         var numberFormat = ValidateNumberFormat(thisObject);
-        var value = arguments.At(0);
 
         double number;
         if (value.IsUndefined())
@@ -318,12 +296,10 @@ internal sealed class NumberFormatPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.numberformat.prototype.formatrange
     /// </summary>
-    private JsValue FormatRange(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private JsValue FormatRange(JsValue thisObject, JsValue start, JsValue end)
     {
         var numberFormat = ValidateNumberFormat(thisObject);
-
-        var start = arguments.At(0);
-        var end = arguments.At(1);
 
         // Validate arguments
         if (start.IsUndefined() || end.IsUndefined())
@@ -503,12 +479,10 @@ internal sealed class NumberFormatPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.numberformat.prototype.formatrangetoparts
     /// </summary>
-    private JsArray FormatRangeToParts(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private JsArray FormatRangeToParts(JsValue thisObject, JsValue start, JsValue end)
     {
         var numberFormat = ValidateNumberFormat(thisObject);
-
-        var start = arguments.At(0);
-        var end = arguments.At(1);
 
         // Validate arguments
         if (start.IsUndefined() || end.IsUndefined())

@@ -1,19 +1,21 @@
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.Intl;
 
 /// <summary>
 /// https://tc39.es/ecma402/#sec-properties-of-intl-relativetimeformat-prototype-object
 /// </summary>
-internal sealed class RelativeTimeFormatPrototype : Prototype
+[JsObject]
+internal sealed partial class RelativeTimeFormatPrototype : Prototype
 {
     private static readonly string[] ValidUnits = ["second", "seconds", "minute", "minutes", "hour", "hours", "day", "days", "week", "weeks", "month", "months", "quarter", "quarters", "year", "years"];
 
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly RelativeTimeFormatConstructor _constructor;
+
+    [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString RelativeTimeFormatToStringTag = new("Intl.RelativeTimeFormat");
 
     public RelativeTimeFormatPrototype(
         Engine engine,
@@ -27,23 +29,8 @@ internal sealed class RelativeTimeFormatPrototype : Prototype
 
     protected override void Initialize()
     {
-        const PropertyFlag LengthFlags = PropertyFlag.Configurable;
-        const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
-
-        var properties = new PropertyDictionary(4, checkExistingKeys: false)
-        {
-            ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
-            ["format"] = new PropertyDescriptor(new ClrFunction(Engine, "format", Format, 2, LengthFlags), PropertyFlags),
-            ["formatToParts"] = new PropertyDescriptor(new ClrFunction(Engine, "formatToParts", FormatToParts, 2, LengthFlags), PropertyFlags),
-            ["resolvedOptions"] = new PropertyDescriptor(new ClrFunction(Engine, "resolvedOptions", ResolvedOptions, 0, LengthFlags), PropertyFlags),
-        };
-        SetProperties(properties);
-
-        var symbols = new SymbolDictionary(1)
-        {
-            [GlobalSymbolRegistry.ToStringTag] = new("Intl.RelativeTimeFormat", PropertyFlag.Configurable)
-        };
-        SetSymbols(symbols);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
     }
 
     private JsRelativeTimeFormat ValidateRelativeTimeFormat(JsValue thisObject)
@@ -60,11 +47,10 @@ internal sealed class RelativeTimeFormatPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.relativetimeformat.prototype.format
     /// </summary>
-    private JsValue Format(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private JsValue Format(JsValue thisObject, JsValue value, JsValue unit)
     {
         var relativeTimeFormat = ValidateRelativeTimeFormat(thisObject);
-        var value = arguments.At(0);
-        var unit = arguments.At(1);
 
         var numericValue = TypeConverter.ToNumber(value);
         if (double.IsNaN(numericValue) || double.IsInfinity(numericValue))
@@ -85,11 +71,10 @@ internal sealed class RelativeTimeFormatPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.relativetimeformat.prototype.formattoparts
     /// </summary>
-    private JsArray FormatToParts(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private JsArray FormatToParts(JsValue thisObject, JsValue value, JsValue unit)
     {
         var relativeTimeFormat = ValidateRelativeTimeFormat(thisObject);
-        var value = arguments.At(0);
-        var unit = arguments.At(1);
 
         var numericValue = TypeConverter.ToNumber(value);
         if (double.IsNaN(numericValue) || double.IsInfinity(numericValue))
@@ -110,7 +95,8 @@ internal sealed class RelativeTimeFormatPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.relativetimeformat.prototype.resolvedoptions
     /// </summary>
-    private JsObject ResolvedOptions(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0)]
+    private JsObject ResolvedOptions(JsValue thisObject)
     {
         var relativeTimeFormat = ValidateRelativeTimeFormat(thisObject);
 

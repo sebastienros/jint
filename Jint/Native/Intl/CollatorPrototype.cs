@@ -1,5 +1,4 @@
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -9,9 +8,13 @@ namespace Jint.Native.Intl;
 /// <summary>
 /// https://tc39.es/ecma402/#sec-properties-of-the-intl-collator-prototype-object
 /// </summary>
-internal sealed class CollatorPrototype : Prototype
+[JsObject]
+internal sealed partial class CollatorPrototype : Prototype
 {
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly CollatorConstructor _constructor;
+
+    [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString CollatorToStringTag = new("Intl.Collator");
 
     public CollatorPrototype(Engine engine,
         Realm realm,
@@ -24,32 +27,8 @@ internal sealed class CollatorPrototype : Prototype
 
     protected override void Initialize()
     {
-        const PropertyFlag LengthFlags = PropertyFlag.Configurable;
-        const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
-
-        var properties = new PropertyDictionary(2, checkExistingKeys: false)
-        {
-            ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
-            ["resolvedOptions"] = new PropertyDescriptor(new ClrFunction(Engine, "resolvedOptions", ResolvedOptions, 0, LengthFlags), PropertyFlags),
-        };
-        SetProperties(properties);
-
-        // compare is an accessor property - accessor properties don't have writable attribute
-        SetAccessor("compare", new GetSetPropertyDescriptor(
-            new ClrFunction(Engine, "get compare", GetCompare, 0, LengthFlags),
-            Undefined,
-            PropertyFlag.Configurable));
-
-        var symbols = new SymbolDictionary(1)
-        {
-            [GlobalSymbolRegistry.ToStringTag] = new("Intl.Collator", PropertyFlag.Configurable)
-        };
-        SetSymbols(symbols);
-    }
-
-    private void SetAccessor(string name, GetSetPropertyDescriptor descriptor)
-    {
-        SetProperty(name, descriptor);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
     }
 
     private JsCollator ValidateCollator(JsValue thisObject)
@@ -66,7 +45,8 @@ internal sealed class CollatorPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.collator.prototype.compare
     /// </summary>
-    private ClrFunction GetCompare(JsValue thisObject, JsCallArguments arguments)
+    [JsAccessor("compare")]
+    private ClrFunction GetCompare(JsValue thisObject)
     {
         var collator = ValidateCollator(thisObject);
 
@@ -84,7 +64,8 @@ internal sealed class CollatorPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.collator.prototype.resolvedoptions
     /// </summary>
-    private JsObject ResolvedOptions(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0)]
+    private JsObject ResolvedOptions(JsValue thisObject)
     {
         var collator = ValidateCollator(thisObject);
 

@@ -11,7 +11,8 @@ namespace Jint.Native.Intl;
 /// <summary>
 /// https://tc39.es/proposal-intl-duration-format/
 /// </summary>
-internal sealed class DurationFormatConstructor : Constructor
+[JsObject]
+internal sealed partial class DurationFormatConstructor : Constructor
 {
     private static readonly JsString _functionName = new("DurationFormat");
     private static readonly string[] LocaleMatcherValues = ["lookup", "best fit"];
@@ -33,15 +34,7 @@ internal sealed class DurationFormatConstructor : Constructor
         _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
     }
 
-    protected override void Initialize()
-    {
-        const PropertyFlag PropertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-        var properties = new PropertyDictionary(1, checkExistingKeys: false)
-        {
-            ["supportedLocalesOf"] = new(new ClrFunction(Engine, "supportedLocalesOf", SupportedLocalesOf, 1, PropertyFlag.Configurable), PropertyFlags)
-        };
-        SetProperties(properties);
-    }
+    protected override void Initialize() => CreateProperties_Generated();
 
     public DurationFormatPrototype PrototypeObject { get; }
 
@@ -338,10 +331,9 @@ internal sealed class DurationFormatConstructor : Constructor
     /// <summary>
     /// https://tc39.es/proposal-intl-duration-format/#sec-intl.durationformat.supportedlocalesof
     /// </summary>
-    private JsArray SupportedLocalesOf(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsArray SupportedLocalesOf(JsValue thisObject, JsValue locales, JsValue options)
     {
-        var locales = arguments.At(0);
-        var options = arguments.At(1);
 
         var requestedLocales = IntlUtilities.CanonicalizeLocaleList(_engine, locales);
         var availableLocales = IntlUtilities.GetAvailableLocales();

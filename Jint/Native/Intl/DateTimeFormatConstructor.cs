@@ -23,7 +23,8 @@ internal enum DateTimeDefaults { Date, Time, YearMonth, MonthDay, ZonedDateTime,
 /// <summary>
 /// https://tc39.es/ecma402/#sec-intl-datetimeformat-constructor
 /// </summary>
-internal sealed class DateTimeFormatConstructor : Constructor
+[JsObject]
+internal sealed partial class DateTimeFormatConstructor : Constructor
 {
     private static readonly JsString _functionName = new("DateTimeFormat");
     private static readonly StringSearchValues LocaleMatcherValues = new(["lookup", "best fit"], StringComparison.Ordinal);
@@ -62,15 +63,7 @@ internal sealed class DateTimeFormatConstructor : Constructor
         _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
     }
 
-    protected override void Initialize()
-    {
-        const PropertyFlag PropertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-        var properties = new PropertyDictionary(1, checkExistingKeys: false)
-        {
-            ["supportedLocalesOf"] = new(new ClrFunction(Engine, "supportedLocalesOf", SupportedLocalesOf, 1, PropertyFlag.Configurable), PropertyFlags)
-        };
-        SetProperties(properties);
-    }
+    protected override void Initialize() => CreateProperties_Generated();
 
     public DateTimeFormatPrototype PrototypeObject { get; }
 
@@ -703,10 +696,9 @@ internal sealed class DateTimeFormatConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.datetimeformat.supportedlocalesof
     /// </summary>
-    private JsArray SupportedLocalesOf(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsArray SupportedLocalesOf(JsValue thisObject, JsValue locales, JsValue options)
     {
-        var locales = arguments.At(0);
-        var options = arguments.At(1);
 
         var requestedLocales = IntlUtilities.CanonicalizeLocaleList(_engine, locales);
         var availableLocales = IntlUtilities.GetAvailableLocales();

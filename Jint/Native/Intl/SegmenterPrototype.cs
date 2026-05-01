@@ -1,17 +1,19 @@
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.Intl;
 
 /// <summary>
 /// https://tc39.es/ecma402/#sec-properties-of-intl-segmenter-prototype-object
 /// </summary>
-internal sealed class SegmenterPrototype : Prototype
+[JsObject]
+internal sealed partial class SegmenterPrototype : Prototype
 {
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly SegmenterConstructor _constructor;
+
+    [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString SegmenterToStringTag = new("Intl.Segmenter");
 
     public SegmenterPrototype(
         Engine engine,
@@ -25,22 +27,8 @@ internal sealed class SegmenterPrototype : Prototype
 
     protected override void Initialize()
     {
-        const PropertyFlag LengthFlags = PropertyFlag.Configurable;
-        const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
-
-        var properties = new PropertyDictionary(3, checkExistingKeys: false)
-        {
-            ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
-            ["segment"] = new PropertyDescriptor(new ClrFunction(Engine, "segment", Segment, 1, LengthFlags), PropertyFlags),
-            ["resolvedOptions"] = new PropertyDescriptor(new ClrFunction(Engine, "resolvedOptions", ResolvedOptions, 0, LengthFlags), PropertyFlags),
-        };
-        SetProperties(properties);
-
-        var symbols = new SymbolDictionary(1)
-        {
-            [GlobalSymbolRegistry.ToStringTag] = new("Intl.Segmenter", PropertyFlag.Configurable)
-        };
-        SetSymbols(symbols);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
     }
 
     private JsSegmenter ValidateSegmenter(JsValue thisObject)
@@ -57,11 +45,10 @@ internal sealed class SegmenterPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.segmenter.prototype.segment
     /// </summary>
-    private JsSegments Segment(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsSegments Segment(JsValue thisObject, JsValue input)
     {
         var segmenter = ValidateSegmenter(thisObject);
-        var input = arguments.At(0);
-
         var stringInput = TypeConverter.ToString(input);
         return segmenter.Segment(_engine, stringInput);
     }
@@ -69,7 +56,8 @@ internal sealed class SegmenterPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.segmenter.prototype.resolvedoptions
     /// </summary>
-    private JsObject ResolvedOptions(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0)]
+    private JsObject ResolvedOptions(JsValue thisObject)
     {
         var segmenter = ValidateSegmenter(thisObject);
 
