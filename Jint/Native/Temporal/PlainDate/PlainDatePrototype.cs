@@ -148,7 +148,7 @@ internal sealed partial class PlainDatePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.with
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsPlainDate With(JsValue thisObject, JsValue temporalDateLike, JsValue optionsArg)
+    private JsPlainDate With(JsValue thisObject, JsValue temporalDateLike, JsValue options)
     {
         var plainDate = ValidatePlainDate(thisObject);
         if (!temporalDateLike.IsObject())
@@ -238,10 +238,10 @@ internal sealed partial class PlainDatePrototype : Prototype
             Throw.TypeError(_realm, "Temporal date-like object must have at least one temporal property");
         }
 
-        // Read options BEFORE any validation (per spec: abstractops.html)
-        // All options must be read before algorithmic validation
-        var options = GetOptionsObject(optionsArg);
-        var overflow = TemporalHelpers.GetOverflowOption(_realm, (JsValue?) options ?? JsValue.Undefined);
+        // Read resolvedOptions BEFORE any validation (per spec: abstractops.html)
+        // All resolvedOptions must be read before algorithmic validation
+        var resolvedOptions = GetOptionsObject(options);
+        var overflow = TemporalHelpers.GetOverflowOption(_realm, (JsValue?) resolvedOptions ?? JsValue.Undefined);
 
         // Handle non-ISO calendars
         if (NonIsoCalendars.IsNonIsoCalendar(plainDate.Calendar))
@@ -376,12 +376,12 @@ internal sealed partial class PlainDatePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.add
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsPlainDate Add(JsValue thisObject, JsValue temporalDurationLike, JsValue optionsArg)
+    private JsPlainDate Add(JsValue thisObject, JsValue temporalDurationLike, JsValue options)
     {
         var plainDate = ValidatePlainDate(thisObject);
         var duration = ToTemporalDurationRecord(temporalDurationLike);
-        var options = GetOptionsObject(optionsArg);
-        var overflow = TemporalHelpers.GetOverflowOption(_realm, (JsValue?) options ?? JsValue.Undefined);
+        var resolvedOptions = GetOptionsObject(options);
+        var overflow = TemporalHelpers.GetOverflowOption(_realm, (JsValue?) resolvedOptions ?? JsValue.Undefined);
         return AddDurationToDate(plainDate, duration, overflow);
     }
 
@@ -389,12 +389,12 @@ internal sealed partial class PlainDatePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.subtract
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsPlainDate Subtract(JsValue thisObject, JsValue temporalDurationLike, JsValue optionsArg)
+    private JsPlainDate Subtract(JsValue thisObject, JsValue temporalDurationLike, JsValue options)
     {
         var plainDate = ValidatePlainDate(thisObject);
         var duration = ToTemporalDurationRecord(temporalDurationLike);
-        var options = GetOptionsObject(optionsArg);
-        var overflow = TemporalHelpers.GetOverflowOption(_realm, (JsValue?) options ?? JsValue.Undefined);
+        var resolvedOptions = GetOptionsObject(options);
+        var overflow = TemporalHelpers.GetOverflowOption(_realm, (JsValue?) resolvedOptions ?? JsValue.Undefined);
 
         // Negate the duration
         var negated = new DurationRecord(

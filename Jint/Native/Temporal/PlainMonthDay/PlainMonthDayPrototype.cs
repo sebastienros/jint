@@ -62,7 +62,7 @@ internal sealed partial class PlainMonthDayPrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plainmonthday.prototype.with
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsPlainMonthDay With(JsValue thisObject, JsValue temporalMonthDayLike, JsValue optionsArg)
+    private JsPlainMonthDay With(JsValue thisObject, JsValue temporalMonthDayLike, JsValue options)
     {
         var md = ValidatePlainMonthDay(thisObject);
         if (!temporalMonthDayLike.IsObject())
@@ -149,7 +149,7 @@ internal sealed partial class PlainMonthDayPrototype : Prototype
         }
 
         // Read options BEFORE any validation (per spec)
-        var overflow = TemporalHelpers.GetOverflowOption(_realm, optionsArg);
+        var overflow = TemporalHelpers.GetOverflowOption(_realm, options);
 
         // For non-ISO calendars, monthCode is required when month is provided
         if (!string.Equals(md.Calendar, "iso8601", StringComparison.Ordinal) &&

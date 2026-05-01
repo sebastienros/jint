@@ -62,7 +62,7 @@ internal sealed partial class PlainTimePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaintime.prototype.with
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsPlainTime With(JsValue thisObject, JsValue temporalTimeLike, JsValue optionsArg)
+    private JsPlainTime With(JsValue thisObject, JsValue temporalTimeLike, JsValue options)
     {
         var plainTime = ValidatePlainTime(thisObject);
         if (!temporalTimeLike.IsObject())
@@ -110,16 +110,16 @@ internal sealed partial class PlainTimePrototype : Prototype
         }
 
         // Check for fundamentally invalid values (negative, would never be valid)
-        // This ensures RangeError is thrown before TypeError for options
+        // This ensures RangeError is thrown before TypeError for resolvedOptions
         if (hour < 0 || minute < 0 || second < 0 ||
             millisecond < 0 || microsecond < 0 || nanosecond < 0)
         {
             Throw.RangeError(_realm, "Invalid time");
         }
 
-        // Get options via GetOptionsObject (after validating partial values)
-        var options = GetOptionsObject(optionsArg);
-        var overflow = TemporalHelpers.GetOverflowOption(_realm, (JsValue?) options ?? Undefined);
+        // Get resolvedOptions via GetOptionsObject (after validating partial values)
+        var resolvedOptions = GetOptionsObject(options);
+        var overflow = TemporalHelpers.GetOverflowOption(_realm, (JsValue?) resolvedOptions ?? Undefined);
 
         var time = TemporalHelpers.RegulateIsoTime(hour, minute, second, millisecond, microsecond, nanosecond, overflow);
         if (time is null)
@@ -391,19 +391,19 @@ internal sealed partial class PlainTimePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaintime.prototype.tostring
     /// </summary>
     [JsFunction(Length = 0)]
-    private JsString ToString(JsValue thisObject, JsValue optionsArg)
+    private JsString ToString(JsValue thisObject, JsValue options)
     {
         var plainTime = ValidatePlainTime(thisObject);
-        var options = GetOptionsObject(optionsArg);
+        var resolvedOptions = GetOptionsObject(options);
 
         // Default precision: auto (show subsecond digits as needed)
         var precision = -1; // -1 means auto
 
-        if (options is not null)
+        if (resolvedOptions is not null)
         {
             // Read properties in spec order: fractionalSecondDigits, roundingMode, smallestUnit
             // 1. Read fractionalSecondDigits first
-            var fsdValue = options.Get("fractionalSecondDigits");
+            var fsdValue = resolvedOptions.Get("fractionalSecondDigits");
             if (!fsdValue.IsUndefined())
             {
                 if (fsdValue.IsNumber())
@@ -435,10 +435,10 @@ internal sealed partial class PlainTimePrototype : Prototype
             }
 
             // 2. Read roundingMode
-            var roundingMode = TemporalHelpers.GetRoundingModeOption(_realm, options, "trunc");
+            var roundingMode = TemporalHelpers.GetRoundingModeOption(_realm, resolvedOptions, "trunc");
 
             // 3. Read smallestUnit (ALWAYS overrides fractionalSecondDigits when present)
-            var smallestUnitValue = options.Get("smallestUnit");
+            var smallestUnitValue = resolvedOptions.Get("smallestUnit");
             if (!smallestUnitValue.IsUndefined())
             {
                 var str = TypeConverter.ToString(smallestUnitValue);

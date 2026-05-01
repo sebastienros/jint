@@ -160,7 +160,7 @@ internal sealed partial class PlainDateTimePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindatetime.prototype.with
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsPlainDateTime With(JsValue thisObject, JsValue temporalDateTimeLike, JsValue optionsArg)
+    private JsPlainDateTime With(JsValue thisObject, JsValue temporalDateTimeLike, JsValue options)
     {
         var plainDateTime = ValidatePlainDateTime(thisObject);
         // IsPartialTemporalObject (spec: abstractops.html#sec-temporal-ispartialtemporalobject)
@@ -341,7 +341,7 @@ internal sealed partial class PlainDateTimePrototype : Prototype
 
         // Read options AFTER reading fields but BEFORE algorithmic validation
         // https://tc39.es/proposal-temporal/#sec-temporal.plaindatetime.prototype.with
-        var overflow = TemporalHelpers.GetOverflowOption(_realm, optionsArg);
+        var overflow = TemporalHelpers.GetOverflowOption(_realm, options);
 
         // Process monthCode (after reading options, before algorithmic validation)
         int? monthFromCode = null;
@@ -763,7 +763,7 @@ internal sealed partial class PlainDateTimePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindatetime.prototype.tostring
     /// </summary>
     [JsFunction(Length = 0)]
-    private JsString ToString(JsValue thisObject, JsValue optionsArg)
+    private JsString ToString(JsValue thisObject, JsValue options)
     {
         var plainDateTime = ValidatePlainDateTime(thisObject);
         var calendarName = "auto";
@@ -771,14 +771,12 @@ internal sealed partial class PlainDateTimePrototype : Prototype
         var roundingMode = "trunc";
         var isoDateTime = plainDateTime.IsoDateTime;
 
-        if (!optionsArg.IsUndefined())
+        if (!options.IsUndefined())
         {
-            if (!optionsArg.IsObject())
+            if (!options.IsObject())
             {
                 Throw.TypeError(_realm, "Options must be an object");
             }
-
-            var options = optionsArg.AsObject();
 
             // Read options in strict alphabetical order per spec:
             // calendarName, fractionalSecondDigits, roundingMode, smallestUnit
@@ -994,7 +992,7 @@ internal sealed partial class PlainDateTimePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindatetime.prototype.tozoneddatetime
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsZonedDateTime ToZonedDateTime(JsValue thisObject, JsValue timeZoneLike, JsValue optionsArg)
+    private JsZonedDateTime ToZonedDateTime(JsValue thisObject, JsValue timeZoneLike, JsValue options)
     {
         var plainDateTime = ValidatePlainDateTime(thisObject);
         // Validate time zone
@@ -1002,14 +1000,14 @@ internal sealed partial class PlainDateTimePrototype : Prototype
 
         // Get disambiguation option
         var disambiguation = "compatible";
-        if (!optionsArg.IsUndefined())
+        if (!options.IsUndefined())
         {
-            if (!optionsArg.IsObject())
+            if (!options.IsObject())
             {
                 Throw.TypeError(_realm, "Options must be an object");
             }
 
-            var disValue = optionsArg.AsObject().Get("disambiguation");
+            var disValue = options.AsObject().Get("disambiguation");
             if (!disValue.IsUndefined())
             {
                 disambiguation = TypeConverter.ToString(disValue);
