@@ -264,12 +264,9 @@ internal sealed partial class ZonedDateTimePrototype : Prototype
 
     // Methods
     [JsFunction(Length = 1)]
-    private JsZonedDateTime With(JsValue thisObject, JsCallArguments arguments)
+    private JsZonedDateTime With(JsValue thisObject, JsValue temporalZonedDateTimeLike, JsValue options)
     {
         var zdt = ValidateZonedDateTime(thisObject);
-        var temporalZonedDateTimeLike = arguments.At(0);
-        var options = arguments.At(1);
-
         if (!temporalZonedDateTimeLike.IsObject())
         {
             Throw.TypeError(_realm, "with requires an object argument");
@@ -538,11 +535,10 @@ internal sealed partial class ZonedDateTimePrototype : Prototype
     }
 
     [JsFunction(Length = 0)]
-    private JsZonedDateTime WithPlainTime(JsValue thisObject, JsCallArguments arguments)
+    private JsZonedDateTime WithPlainTime(JsValue thisObject, JsValue plainTimeLike)
     {
         // https://tc39.es/proposal-temporal/#sec-temporal.zoneddatetime.prototype.withplaintime
         var zdt = ValidateZonedDateTime(thisObject);
-        var plainTimeLike = arguments.At(0);
         var provider = _engine.Options.Temporal.TimeZoneProvider;
 
         BigInteger epochNs;
@@ -571,23 +567,19 @@ internal sealed partial class ZonedDateTimePrototype : Prototype
     }
 
     [JsFunction(Length = 1)]
-    private JsZonedDateTime WithTimeZone(JsValue thisObject, JsCallArguments arguments)
+    private JsZonedDateTime WithTimeZone(JsValue thisObject, JsValue timeZoneLike)
     {
         var zdt = ValidateZonedDateTime(thisObject);
-        var timeZoneLike = arguments.At(0);
-
         var timeZone = ToTemporalTimeZoneIdentifier(timeZoneLike);
         return _constructor.Construct(zdt.EpochNanoseconds, timeZone, zdt.Calendar);
     }
 
     [JsFunction(Length = 1)]
-    private JsZonedDateTime WithCalendar(JsValue thisObject, JsCallArguments arguments)
+    private JsZonedDateTime WithCalendar(JsValue thisObject, JsValue calendarLike)
     {
         // https://tc39.es/proposal-temporal/#sec-temporal.zoneddatetime.prototype.withcalendar
         // Step 1-2: Validate this value
         var zdt = ValidateZonedDateTime(thisObject);
-        var calendarLike = arguments.At(0);
-
         // Step 3: Let calendar be ? ToTemporalCalendarIdentifier(calendarLike)
         var calendar = TemporalHelpers.ToTemporalCalendarIdentifier(_realm, calendarLike);
 
@@ -596,12 +588,9 @@ internal sealed partial class ZonedDateTimePrototype : Prototype
     }
 
     [JsFunction(Length = 1)]
-    private JsZonedDateTime Add(JsValue thisObject, JsCallArguments arguments)
+    private JsZonedDateTime Add(JsValue thisObject, JsValue temporalDurationLike, JsValue options)
     {
         var zdt = ValidateZonedDateTime(thisObject);
-        var temporalDurationLike = arguments.At(0);
-        var options = arguments.At(1);
-
         var duration = ToDurationRecord(temporalDurationLike);
         var overflow = TemporalHelpers.GetOverflowOption(_realm, options);
 
@@ -615,12 +604,9 @@ internal sealed partial class ZonedDateTimePrototype : Prototype
     }
 
     [JsFunction(Length = 1)]
-    private JsZonedDateTime Subtract(JsValue thisObject, JsCallArguments arguments)
+    private JsZonedDateTime Subtract(JsValue thisObject, JsValue temporalDurationLike, JsValue options)
     {
         var zdt = ValidateZonedDateTime(thisObject);
-        var temporalDurationLike = arguments.At(0);
-        var options = arguments.At(1);
-
         var duration = ToDurationRecord(temporalDurationLike);
         var negatedDuration = duration.Negated();
         var overflow = TemporalHelpers.GetOverflowOption(_realm, options);
@@ -635,23 +621,17 @@ internal sealed partial class ZonedDateTimePrototype : Prototype
     }
 
     [JsFunction(Length = 1)]
-    private JsDuration Until(JsValue thisObject, JsCallArguments arguments)
+    private JsDuration Until(JsValue thisObject, JsValue other, JsValue options)
     {
         var zdt = ValidateZonedDateTime(thisObject);
-        var other = arguments.At(0);
-        var options = arguments.At(1);
-
         var otherZdt = _constructor.ToTemporalZonedDateTime(other, Undefined);
         return DifferenceZonedDateTime(zdt, otherZdt, options, "until");
     }
 
     [JsFunction(Length = 1)]
-    private JsDuration Since(JsValue thisObject, JsCallArguments arguments)
+    private JsDuration Since(JsValue thisObject, JsValue other, JsValue options)
     {
         var zdt = ValidateZonedDateTime(thisObject);
-        var other = arguments.At(0);
-        var options = arguments.At(1);
-
         var otherZdt = _constructor.ToTemporalZonedDateTime(other, Undefined);
         return DifferenceZonedDateTime(zdt, otherZdt, options, "since");
     }
@@ -660,11 +640,9 @@ internal sealed partial class ZonedDateTimePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.zoneddatetime.prototype.round
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsValue Round(JsValue thisObject, JsCallArguments arguments)
+    private JsValue Round(JsValue thisObject, JsValue roundTo)
     {
         var zdt = ValidateZonedDateTime(thisObject);
-        var roundTo = arguments.At(0);
-
         if (roundTo.IsUndefined())
         {
             Throw.TypeError(_realm, "roundTo is required");
@@ -800,7 +778,7 @@ internal sealed partial class ZonedDateTimePrototype : Prototype
     }
 
     [JsFunction(Length = 0)]
-    private JsZonedDateTime StartOfDay(JsValue thisObject, JsCallArguments arguments)
+    private JsZonedDateTime StartOfDay(JsValue thisObject)
     {
         var zdt = ValidateZonedDateTime(thisObject);
         var provider = _engine.Options.Temporal.TimeZoneProvider;
@@ -815,11 +793,9 @@ internal sealed partial class ZonedDateTimePrototype : Prototype
     }
 
     [JsFunction(Length = 1)]
-    private JsValue GetTimeZoneTransition(JsValue thisObject, JsCallArguments arguments)
+    private JsValue GetTimeZoneTransition(JsValue thisObject, JsValue directionArg)
     {
         var zdt = ValidateZonedDateTime(thisObject);
-        var directionArg = arguments.At(0);
-
         if (directionArg.IsUndefined())
         {
             Throw.TypeError(_realm, "direction is required");
@@ -871,14 +847,14 @@ internal sealed partial class ZonedDateTimePrototype : Prototype
     }
 
     [JsFunction(Length = 0)]
-    private JsInstant ToInstant(JsValue thisObject, JsCallArguments arguments)
+    private JsInstant ToInstant(JsValue thisObject)
     {
         var zdt = ValidateZonedDateTime(thisObject);
         return _realm.Intrinsics.TemporalInstant.Construct(zdt.EpochNanoseconds);
     }
 
     [JsFunction(Length = 0)]
-    private JsPlainDate ToPlainDate(JsValue thisObject, JsCallArguments arguments)
+    private JsPlainDate ToPlainDate(JsValue thisObject)
     {
         var zdt = ValidateZonedDateTime(thisObject);
         var dt = zdt.GetIsoDateTime();
@@ -886,7 +862,7 @@ internal sealed partial class ZonedDateTimePrototype : Prototype
     }
 
     [JsFunction(Length = 0)]
-    private JsPlainTime ToPlainTime(JsValue thisObject, JsCallArguments arguments)
+    private JsPlainTime ToPlainTime(JsValue thisObject)
     {
         var zdt = ValidateZonedDateTime(thisObject);
         var dt = zdt.GetIsoDateTime();
@@ -894,7 +870,7 @@ internal sealed partial class ZonedDateTimePrototype : Prototype
     }
 
     [JsFunction(Length = 0)]
-    private JsPlainDateTime ToPlainDateTime(JsValue thisObject, JsCallArguments arguments)
+    private JsPlainDateTime ToPlainDateTime(JsValue thisObject)
     {
         var zdt = ValidateZonedDateTime(thisObject);
         var dt = zdt.GetIsoDateTime();
@@ -902,7 +878,7 @@ internal sealed partial class ZonedDateTimePrototype : Prototype
     }
 
     [JsFunction(Length = 0)]
-    private JsPlainYearMonth ToPlainYearMonth(JsValue thisObject, JsCallArguments arguments)
+    private JsPlainYearMonth ToPlainYearMonth(JsValue thisObject)
     {
         var zdt = ValidateZonedDateTime(thisObject);
         var dt = zdt.GetIsoDateTime();
@@ -910,7 +886,7 @@ internal sealed partial class ZonedDateTimePrototype : Prototype
     }
 
     [JsFunction(Length = 0)]
-    private JsPlainMonthDay ToPlainMonthDay(JsValue thisObject, JsCallArguments arguments)
+    private JsPlainMonthDay ToPlainMonthDay(JsValue thisObject)
     {
         var zdt = ValidateZonedDateTime(thisObject);
         var dt = zdt.GetIsoDateTime();
@@ -918,11 +894,9 @@ internal sealed partial class ZonedDateTimePrototype : Prototype
     }
 
     [JsFunction(Length = 1)]
-    private JsBoolean Equals(JsValue thisObject, JsCallArguments arguments)
+    private JsBoolean Equals(JsValue thisObject, JsValue other)
     {
         var zdt = ValidateZonedDateTime(thisObject);
-        var other = arguments.At(0);
-
         var otherZdt = _constructor.ToTemporalZonedDateTime(other, Undefined);
 
         var sameEpoch = zdt.EpochNanoseconds == otherZdt.EpochNanoseconds;
@@ -933,11 +907,9 @@ internal sealed partial class ZonedDateTimePrototype : Prototype
     }
 
     [JsFunction(Length = 0, Name = "toString")]
-    private JsString ToStringMethod(JsValue thisObject, JsCallArguments arguments)
+    private JsString ToStringMethod(JsValue thisObject, JsValue options)
     {
         var zdt = ValidateZonedDateTime(thisObject);
-        var options = arguments.At(0);
-
         // Validate options parameter
         if (!options.IsUndefined() && !options.IsObject())
         {
@@ -1130,7 +1102,7 @@ internal sealed partial class ZonedDateTimePrototype : Prototype
     }
 
     [JsFunction(Length = 0)]
-    private JsString ToJSON(JsValue thisObject, JsCallArguments arguments)
+    private JsString ToJSON(JsValue thisObject)
     {
         var zdt = ValidateZonedDateTime(thisObject);
         return new JsString(FormatZonedDateTime(zdt, "auto", "auto", "auto", null));
@@ -1140,12 +1112,9 @@ internal sealed partial class ZonedDateTimePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sup-temporal.zoneddatetime.prototype.tolocalestring
     /// </summary>
     [JsFunction(Length = 0)]
-    private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
+    private JsValue ToLocaleString(JsValue thisObject, JsValue locales, JsValue options)
     {
         var zdt = ValidateZonedDateTime(thisObject);
-        var locales = arguments.At(0);
-        var options = arguments.At(1);
-
         // Per spec: CreateDateTimeFormat with required=~any~, defaults=~all~, toLocaleStringTimeZone=ZDT.[[TimeZone]]
         // Uses ZonedDateTime defaults which include timeZoneName: "short"
         // This will throw TypeError if user passes a timeZone option
@@ -1173,7 +1142,7 @@ internal sealed partial class ZonedDateTimePrototype : Prototype
     }
 
     [JsFunction(Length = 0)]
-    private JsValue ValueOf(JsValue thisObject, JsCallArguments arguments)
+    private JsValue ValueOf(JsValue thisObject)
     {
         Throw.TypeError(_realm, "ZonedDateTime.prototype.valueOf is not allowed");
         return Undefined;

@@ -35,9 +35,8 @@ internal sealed partial class DurationConstructor : Constructor
     /// https://tc39.es/proposal-temporal/#sec-temporal.duration.from
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsDuration From(JsValue thisObject, JsCallArguments arguments)
+    private JsDuration From(JsValue thisObject, JsValue item)
     {
-        var item = arguments.At(0);
         // If item is already a Duration, create a copy (spec requires a new object)
         if (item is JsDuration duration)
         {
@@ -50,12 +49,10 @@ internal sealed partial class DurationConstructor : Constructor
     /// https://tc39.es/proposal-temporal/#sec-temporal.duration.compare
     /// </summary>
     [JsFunction(Length = 2)]
-    private JsNumber Compare(JsValue thisObject, JsCallArguments arguments)
+    private JsNumber Compare(JsValue thisObject, JsValue arg0, JsValue arg1, JsValue options)
     {
-        var one = ToTemporalDuration(arguments.At(0));
-        var two = ToTemporalDuration(arguments.At(1));
-        var options = arguments.At(2);
-
+        var one = ToTemporalDuration(arg0);
+        var two = ToTemporalDuration(arg1);
         var optionsObj = TemporalHelpers.GetOptionsObject(_realm, options);
         var relativeToResult = TemporalHelpers.GetTemporalRelativeToOption(_engine, _realm, optionsObj);
 

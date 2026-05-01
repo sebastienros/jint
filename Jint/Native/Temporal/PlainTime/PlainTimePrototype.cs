@@ -62,12 +62,9 @@ internal sealed partial class PlainTimePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaintime.prototype.with
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsPlainTime With(JsValue thisObject, JsCallArguments arguments)
+    private JsPlainTime With(JsValue thisObject, JsValue temporalTimeLike, JsValue optionsArg)
     {
         var plainTime = ValidatePlainTime(thisObject);
-        var temporalTimeLike = arguments.At(0);
-        var optionsArg = arguments.At(1);
-
         if (!temporalTimeLike.IsObject())
         {
             Throw.TypeError(_realm, "Temporal time-like must be an object");
@@ -137,10 +134,9 @@ internal sealed partial class PlainTimePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaintime.prototype.add
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsPlainTime Add(JsValue thisObject, JsCallArguments arguments)
+    private JsPlainTime Add(JsValue thisObject, JsValue temporalDurationLike)
     {
         var plainTime = ValidatePlainTime(thisObject);
-        var temporalDurationLike = arguments.At(0);
         var duration = ToTemporalDurationRecord(temporalDurationLike);
         return AddDurationToTime(plainTime.IsoTime, duration, 1);
     }
@@ -149,10 +145,9 @@ internal sealed partial class PlainTimePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaintime.prototype.subtract
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsPlainTime Subtract(JsValue thisObject, JsCallArguments arguments)
+    private JsPlainTime Subtract(JsValue thisObject, JsValue temporalDurationLike)
     {
         var plainTime = ValidatePlainTime(thisObject);
-        var temporalDurationLike = arguments.At(0);
         var duration = ToTemporalDurationRecord(temporalDurationLike);
         return AddDurationToTime(plainTime.IsoTime, duration, -1);
     }
@@ -183,12 +178,10 @@ internal sealed partial class PlainTimePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaintime.prototype.until
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsDuration Until(JsValue thisObject, JsCallArguments arguments)
+    private JsDuration Until(JsValue thisObject, JsValue arg0, JsValue optionsArg)
     {
         var plainTime = ValidatePlainTime(thisObject);
-        var other = _constructor.ToTemporalTime(arguments.At(0), "constrain");
-        var optionsArg = arguments.At(1);
-
+        var other = _constructor.ToTemporalTime(arg0, "constrain");
         // Time units for PlainTime operations
         var timeUnits = new[] { "hour", "minute", "second", "millisecond", "microsecond", "nanosecond" };
 
@@ -221,12 +214,10 @@ internal sealed partial class PlainTimePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaintime.prototype.since
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsDuration Since(JsValue thisObject, JsCallArguments arguments)
+    private JsDuration Since(JsValue thisObject, JsValue arg0, JsValue optionsArg)
     {
         var plainTime = ValidatePlainTime(thisObject);
-        var other = _constructor.ToTemporalTime(arguments.At(0), "constrain");
-        var optionsArg = arguments.At(1);
-
+        var other = _constructor.ToTemporalTime(arg0, "constrain");
         // Time units for PlainTime operations
         var timeUnits = new[] { "hour", "minute", "second", "millisecond", "microsecond", "nanosecond" };
 
@@ -328,11 +319,9 @@ internal sealed partial class PlainTimePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaintime.prototype.round
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsPlainTime Round(JsValue thisObject, JsCallArguments arguments)
+    private JsPlainTime Round(JsValue thisObject, JsValue roundTo)
     {
         var plainTime = ValidatePlainTime(thisObject);
-        var roundTo = arguments.At(0);
-
         if (roundTo.IsUndefined())
         {
             Throw.TypeError(_realm, "Options required");
@@ -389,10 +378,10 @@ internal sealed partial class PlainTimePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaintime.prototype.equals
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsBoolean Equals(JsValue thisObject, JsCallArguments arguments)
+    private JsBoolean Equals(JsValue thisObject, JsValue arg0)
     {
         var plainTime = ValidatePlainTime(thisObject);
-        var other = _constructor.ToTemporalTime(arguments.At(0), "constrain");
+        var other = _constructor.ToTemporalTime(arg0, "constrain");
         var result = TemporalHelpers.CompareIsoTimes(plainTime.IsoTime, other.IsoTime) == 0;
         return result ? JsBoolean.True : JsBoolean.False;
     }
@@ -401,10 +390,10 @@ internal sealed partial class PlainTimePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaintime.prototype.tostring
     /// </summary>
     [JsFunction(Length = 0)]
-    private JsString ToString(JsValue thisObject, JsCallArguments arguments)
+    private JsString ToString(JsValue thisObject, JsValue arg0)
     {
         var plainTime = ValidatePlainTime(thisObject);
-        var options = GetOptionsObject(arguments.At(0));
+        var options = GetOptionsObject(arg0);
 
         // Default precision: auto (show subsecond digits as needed)
         var precision = -1; // -1 means auto
@@ -512,7 +501,7 @@ internal sealed partial class PlainTimePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaintime.prototype.tojson
     /// </summary>
     [JsFunction(Length = 0)]
-    private JsString ToJSON(JsValue thisObject, JsCallArguments arguments)
+    private JsString ToJSON(JsValue thisObject)
     {
         var plainTime = ValidatePlainTime(thisObject);
         return new JsString(FormatTime(plainTime.IsoTime, -1));
@@ -522,12 +511,9 @@ internal sealed partial class PlainTimePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sup-temporal.plaintime.prototype.tolocalestring
     /// </summary>
     [JsFunction(Length = 0)]
-    private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
+    private JsValue ToLocaleString(JsValue thisObject, JsValue locales, JsValue options)
     {
         var plainTime = ValidatePlainTime(thisObject);
-        var locales = arguments.At(0);
-        var options = arguments.At(1);
-
         // Per spec: CreateDateTimeFormat with required=~time~, defaults=~time~
         var dtf = _realm.Intrinsics.DateTimeFormat.CreateDateTimeFormat(
             locales, options, required: Intl.DateTimeRequired.Time, defaults: Intl.DateTimeDefaults.Time);
@@ -541,7 +527,7 @@ internal sealed partial class PlainTimePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaintime.prototype.valueof
     /// </summary>
     [JsFunction(Length = 0)]
-    private JsValue ValueOf(JsValue thisObject, JsCallArguments arguments)
+    private JsValue ValueOf(JsValue thisObject)
     {
         Throw.TypeError(_realm, "Temporal.PlainTime cannot be converted to a primitive value");
         return Undefined;

@@ -41,9 +41,8 @@ internal sealed partial class InstantConstructor : Constructor
     /// https://tc39.es/proposal-temporal/#sec-temporal.instant.from
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsInstant From(JsValue thisObject, JsCallArguments arguments)
+    private JsInstant From(JsValue thisObject, JsValue item)
     {
-        var item = arguments.At(0);
         return ToTemporalInstant(item);
     }
 
@@ -51,9 +50,8 @@ internal sealed partial class InstantConstructor : Constructor
     /// https://tc39.es/proposal-temporal/#sec-temporal.instant.fromepochmilliseconds
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsInstant FromEpochMilliseconds(JsValue thisObject, JsCallArguments arguments)
+    private JsInstant FromEpochMilliseconds(JsValue thisObject, JsValue epochMilliseconds)
     {
-        var epochMilliseconds = arguments.At(0);
         var ms = TypeConverter.ToNumber(epochMilliseconds);
 
         // NumberToBigInt: must be an integral number
@@ -81,10 +79,8 @@ internal sealed partial class InstantConstructor : Constructor
     /// https://tc39.es/proposal-temporal/#sec-temporal.instant.fromepochnanoseconds
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsInstant FromEpochNanoseconds(JsValue thisObject, JsCallArguments arguments)
+    private JsInstant FromEpochNanoseconds(JsValue thisObject, JsValue epochNanoseconds)
     {
-        var epochNanoseconds = arguments.At(0);
-
         if (epochNanoseconds is not JsBigInt bigInt)
         {
             Throw.TypeError(_realm, "epochNanoseconds must be a BigInt");
@@ -105,10 +101,10 @@ internal sealed partial class InstantConstructor : Constructor
     /// https://tc39.es/proposal-temporal/#sec-temporal.instant.compare
     /// </summary>
     [JsFunction(Length = 2)]
-    private JsNumber Compare(JsValue thisObject, JsCallArguments arguments)
+    private JsNumber Compare(JsValue thisObject, JsValue arg0, JsValue arg1)
     {
-        var one = ToTemporalInstant(arguments.At(0));
-        var two = ToTemporalInstant(arguments.At(1));
+        var one = ToTemporalInstant(arg0);
+        var two = ToTemporalInstant(arg1);
 
         return JsNumber.Create(one.EpochNanoseconds.CompareTo(two.EpochNanoseconds));
     }

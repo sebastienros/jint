@@ -148,12 +148,9 @@ internal sealed partial class PlainDatePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.with
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsPlainDate With(JsValue thisObject, JsCallArguments arguments)
+    private JsPlainDate With(JsValue thisObject, JsValue temporalDateLike, JsValue optionsArg)
     {
         var plainDate = ValidatePlainDate(thisObject);
-        var temporalDateLike = arguments.At(0);
-        var optionsArg = arguments.At(1);
-
         if (!temporalDateLike.IsObject())
         {
             Throw.TypeError(_realm, "Temporal date-like must be an object");
@@ -367,10 +364,9 @@ internal sealed partial class PlainDatePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.withcalendar
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsPlainDate WithCalendar(JsValue thisObject, JsCallArguments arguments)
+    private JsPlainDate WithCalendar(JsValue thisObject, JsValue calendarArg)
     {
         var plainDate = ValidatePlainDate(thisObject);
-        var calendarArg = arguments.At(0);
         var calendar = ToTemporalCalendarIdentifier(calendarArg);
 
         return _constructor.Construct(plainDate.IsoDate, calendar);
@@ -380,11 +376,9 @@ internal sealed partial class PlainDatePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.add
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsPlainDate Add(JsValue thisObject, JsCallArguments arguments)
+    private JsPlainDate Add(JsValue thisObject, JsValue temporalDurationLike, JsValue optionsArg)
     {
         var plainDate = ValidatePlainDate(thisObject);
-        var temporalDurationLike = arguments.At(0);
-        var optionsArg = arguments.At(1);
         var duration = ToTemporalDurationRecord(temporalDurationLike);
         var options = GetOptionsObject(optionsArg);
         var overflow = TemporalHelpers.GetOverflowOption(_realm, (JsValue?) options ?? JsValue.Undefined);
@@ -395,11 +389,9 @@ internal sealed partial class PlainDatePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.subtract
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsPlainDate Subtract(JsValue thisObject, JsCallArguments arguments)
+    private JsPlainDate Subtract(JsValue thisObject, JsValue temporalDurationLike, JsValue optionsArg)
     {
         var plainDate = ValidatePlainDate(thisObject);
-        var temporalDurationLike = arguments.At(0);
-        var optionsArg = arguments.At(1);
         var duration = ToTemporalDurationRecord(temporalDurationLike);
         var options = GetOptionsObject(optionsArg);
         var overflow = TemporalHelpers.GetOverflowOption(_realm, (JsValue?) options ?? JsValue.Undefined);
@@ -440,18 +432,16 @@ internal sealed partial class PlainDatePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.until
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsDuration Until(JsValue thisObject, JsCallArguments arguments)
+    private JsDuration Until(JsValue thisObject, JsValue arg0, JsValue optionsArg)
     {
         var plainDate = ValidatePlainDate(thisObject);
-        var other = _constructor.ToTemporalDate(arguments.At(0), "constrain");
+        var other = _constructor.ToTemporalDate(arg0, "constrain");
 
         // Step 3: Calendar equality check (before reading options per spec)
         if (!string.Equals(plainDate.Calendar, other.Calendar, StringComparison.Ordinal))
         {
             Throw.RangeError(_realm, "Calendars must match for date difference operations");
         }
-
-        var optionsArg = arguments.At(1);
 
         // Date units for PlainDate operations (no time units allowed)
         var dateUnits = new[] { "year", "month", "week", "day" };
@@ -484,18 +474,16 @@ internal sealed partial class PlainDatePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.since
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsDuration Since(JsValue thisObject, JsCallArguments arguments)
+    private JsDuration Since(JsValue thisObject, JsValue arg0, JsValue optionsArg)
     {
         var plainDate = ValidatePlainDate(thisObject);
-        var other = _constructor.ToTemporalDate(arguments.At(0), "constrain");
+        var other = _constructor.ToTemporalDate(arg0, "constrain");
 
         // Step 3: Calendar equality check (before reading options per spec)
         if (!string.Equals(plainDate.Calendar, other.Calendar, StringComparison.Ordinal))
         {
             Throw.RangeError(_realm, "Calendars must match for date difference operations");
         }
-
-        var optionsArg = arguments.At(1);
 
         // Date units for PlainDate operations (no time units allowed)
         var dateUnits = new[] { "year", "month", "week", "day" };
@@ -613,10 +601,10 @@ internal sealed partial class PlainDatePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.equals
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsBoolean Equals(JsValue thisObject, JsCallArguments arguments)
+    private JsBoolean Equals(JsValue thisObject, JsValue arg0)
     {
         var plainDate = ValidatePlainDate(thisObject);
-        var other = _constructor.ToTemporalDate(arguments.At(0), "constrain");
+        var other = _constructor.ToTemporalDate(arg0, "constrain");
         var result = TemporalHelpers.CompareIsoDates(plainDate.IsoDate, other.IsoDate) == 0 &&
                      string.Equals(plainDate.Calendar, other.Calendar, StringComparison.Ordinal);
         return result ? JsBoolean.True : JsBoolean.False;
@@ -626,11 +614,9 @@ internal sealed partial class PlainDatePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.tostring
     /// </summary>
     [JsFunction(Length = 0)]
-    private JsString ToString(JsValue thisObject, JsCallArguments arguments)
+    private JsString ToString(JsValue thisObject, JsValue optionsValue)
     {
         var plainDate = ValidatePlainDate(thisObject);
-        var optionsValue = arguments.At(0);
-
         var calendarName = "auto";
 
         if (!optionsValue.IsUndefined())
@@ -657,7 +643,7 @@ internal sealed partial class PlainDatePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.tojson
     /// </summary>
     [JsFunction(Length = 0)]
-    private JsString ToJSON(JsValue thisObject, JsCallArguments arguments)
+    private JsString ToJSON(JsValue thisObject)
     {
         var plainDate = ValidatePlainDate(thisObject);
         return new JsString(FormatDate(plainDate.IsoDate, plainDate.Calendar));
@@ -667,12 +653,9 @@ internal sealed partial class PlainDatePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sup-temporal.plaindate.prototype.tolocalestring
     /// </summary>
     [JsFunction(Length = 0)]
-    private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
+    private JsValue ToLocaleString(JsValue thisObject, JsValue locales, JsValue options)
     {
         var plainDate = ValidatePlainDate(thisObject);
-        var locales = arguments.At(0);
-        var options = arguments.At(1);
-
         // Per spec: CreateDateTimeFormat with required=~date~, defaults=~date~
         var dtf = _realm.Intrinsics.DateTimeFormat.CreateDateTimeFormat(
             locales, options, required: Intl.DateTimeRequired.Date, defaults: Intl.DateTimeDefaults.Date);
@@ -693,7 +676,7 @@ internal sealed partial class PlainDatePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.valueof
     /// </summary>
     [JsFunction(Length = 0)]
-    private JsValue ValueOf(JsValue thisObject, JsCallArguments arguments)
+    private JsValue ValueOf(JsValue thisObject)
     {
         Throw.TypeError(_realm, "Temporal.PlainDate cannot be converted to a primitive value");
         return Undefined;
@@ -703,11 +686,9 @@ internal sealed partial class PlainDatePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.toplaindatetime
     /// </summary>
     [JsFunction(Length = 0)]
-    private JsPlainDateTime ToPlainDateTime(JsValue thisObject, JsCallArguments arguments)
+    private JsPlainDateTime ToPlainDateTime(JsValue thisObject, JsValue temporalTime)
     {
         var plainDate = ValidatePlainDate(thisObject);
-        var temporalTime = arguments.At(0);
-
         IsoTime time;
         if (temporalTime.IsUndefined())
         {
@@ -736,7 +717,7 @@ internal sealed partial class PlainDatePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.toplainyearmonth
     /// </summary>
     [JsFunction(Length = 0)]
-    private JsPlainYearMonth ToPlainYearMonth(JsValue thisObject, JsCallArguments arguments)
+    private JsPlainYearMonth ToPlainYearMonth(JsValue thisObject)
     {
         var plainDate = ValidatePlainDate(thisObject);
         // Use the first day of the calendar month for the reference day; for non-ISO calendars
@@ -750,7 +731,7 @@ internal sealed partial class PlainDatePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.toplainmonthday
     /// </summary>
     [JsFunction(Length = 0)]
-    private JsPlainMonthDay ToPlainMonthDay(JsValue thisObject, JsCallArguments arguments)
+    private JsPlainMonthDay ToPlainMonthDay(JsValue thisObject)
     {
         var plainDate = ValidatePlainDate(thisObject);
 
@@ -803,11 +784,9 @@ internal sealed partial class PlainDatePrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.tozoneddatetime
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsZonedDateTime ToZonedDateTime(JsValue thisObject, JsCallArguments arguments)
+    private JsZonedDateTime ToZonedDateTime(JsValue thisObject, JsValue item)
     {
         var plainDate = ValidatePlainDate(thisObject);
-        var item = arguments.At(0);
-
         string timeZone;
         JsValue plainTimeValue;
 

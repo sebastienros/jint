@@ -135,12 +135,11 @@ internal sealed partial class RegExpPrototype : Prototype
     /// https://tc39.es/ecma262/#sec-regexp.prototype-@@replace
     /// </summary>
     [JsSymbolFunction("Replace", Length = 2, Flags = global::Jint.Runtime.Descriptors.PropertyFlag.Configurable | global::Jint.Runtime.Descriptors.PropertyFlag.Writable)]
-    private JsValue Replace(JsValue thisObject, JsCallArguments arguments)
+    private JsValue Replace(JsValue thisObject, JsValue stringArg, JsValue replaceValue)
     {
         var rx = AssertThisIsObjectInstance(thisObject, "RegExp.prototype.replace");
-        var s = TypeConverter.ToString(arguments.At(0));
+        var s = TypeConverter.ToString(stringArg);
         var lengthS = s.Length;
-        var replaceValue = arguments.At(1);
         var functionalReplace = replaceValue is ICallable;
 
         // we need heavier logic if we have named captures
@@ -493,11 +492,10 @@ internal sealed partial class RegExpPrototype : Prototype
     /// https://tc39.es/ecma262/#sec-regexp.prototype-@@split
     /// </summary>
     [JsSymbolFunction("Split", Length = 2, Flags = global::Jint.Runtime.Descriptors.PropertyFlag.Configurable | global::Jint.Runtime.Descriptors.PropertyFlag.Writable)]
-    private JsValue Split(JsValue thisObject, JsCallArguments arguments)
+    private JsValue Split(JsValue thisObject, JsValue stringArg, JsValue limit)
     {
         var rx = AssertThisIsObjectInstance(thisObject, "RegExp.prototype.split");
-        var s = TypeConverter.ToString(arguments.At(0));
-        var limit = arguments.At(1);
+        var s = TypeConverter.ToString(stringArg);
         var c = SpeciesConstructor(rx, _realm.Intrinsics.RegExp);
         var flags = TypeConverter.ToJsString(rx.Get(PropertyFlags));
         var unicodeMatching = flags.Contains('u') || flags.Contains('v');
@@ -661,7 +659,7 @@ internal sealed partial class RegExpPrototype : Prototype
     }
 
     [JsFunction(Length = 0, Name = "toString")]
-    private JsValue ToRegExpString(JsValue thisObject, JsCallArguments arguments)
+    private JsValue ToRegExpString(JsValue thisObject)
     {
         var r = AssertThisIsObjectInstance(thisObject, "RegExp.prototype.toString");
 
@@ -672,10 +670,10 @@ internal sealed partial class RegExpPrototype : Prototype
     }
 
     [JsFunction(Length = 1)]
-    private JsValue Test(JsValue thisObject, JsCallArguments arguments)
+    private JsValue Test(JsValue thisObject, JsValue stringArg)
     {
         var r = AssertThisIsObjectInstance(thisObject, "RegExp.prototype.test");
-        var s = TypeConverter.ToString(arguments.At(0));
+        var s = TypeConverter.ToString(stringArg);
 
         if (r is JsRegExp R && R.HasDefaultRegExpExec)
         {
@@ -740,11 +738,11 @@ internal sealed partial class RegExpPrototype : Prototype
     /// https://tc39.es/ecma262/#sec-regexp.prototype-@@search
     /// </summary>
     [JsSymbolFunction("Search", Length = 1, Flags = global::Jint.Runtime.Descriptors.PropertyFlag.Configurable | global::Jint.Runtime.Descriptors.PropertyFlag.Writable)]
-    private JsValue Search(JsValue thisObject, JsCallArguments arguments)
+    private JsValue Search(JsValue thisObject, JsValue stringArg)
     {
         var rx = AssertThisIsObjectInstance(thisObject, "RegExp.prototype.search");
 
-        var s = TypeConverter.ToString(arguments.At(0));
+        var s = TypeConverter.ToString(stringArg);
         var previousLastIndex = rx.Get(JsRegExp.PropertyLastIndex);
         if (!SameValue(previousLastIndex, 0))
         {
@@ -783,11 +781,11 @@ internal sealed partial class RegExpPrototype : Prototype
     /// https://tc39.es/ecma262/#sec-regexp.prototype-@@match
     /// </summary>
     [JsSymbolFunction("Match", Length = 1, Flags = global::Jint.Runtime.Descriptors.PropertyFlag.Configurable | global::Jint.Runtime.Descriptors.PropertyFlag.Writable)]
-    private JsValue Match(JsValue thisObject, JsCallArguments arguments)
+    private JsValue Match(JsValue thisObject, JsValue stringArg)
     {
         var rx = AssertThisIsObjectInstance(thisObject, "RegExp.prototype.match");
 
-        var s = TypeConverter.ToString(arguments.At(0));
+        var s = TypeConverter.ToString(stringArg);
         var flags = TypeConverter.ToString(rx.Get(PropertyFlags));
         var global = flags.Contains('g');
         if (!global)
@@ -909,11 +907,11 @@ internal sealed partial class RegExpPrototype : Prototype
     /// https://tc39.es/ecma262/#sec-regexp-prototype-matchall
     /// </summary>
     [JsSymbolFunction("MatchAll", Length = 1, Flags = global::Jint.Runtime.Descriptors.PropertyFlag.Configurable | global::Jint.Runtime.Descriptors.PropertyFlag.Writable)]
-    private JsValue MatchAll(JsValue thisObject, JsCallArguments arguments)
+    private JsValue MatchAll(JsValue thisObject, JsValue stringArg)
     {
         var r = AssertThisIsObjectInstance(thisObject, "RegExp.prototype.matchAll");
 
-        var s = TypeConverter.ToString(arguments.At(0));
+        var s = TypeConverter.ToString(stringArg);
         var c = SpeciesConstructor(r, _realm.Intrinsics.RegExp);
 
         var flags = TypeConverter.ToJsString(r.Get(PropertyFlags));
@@ -1467,7 +1465,7 @@ internal sealed partial class RegExpPrototype : Prototype
     /// B.2.5.1
     /// </summary>
     [JsFunction(Length = 2)]
-    private JsValue Compile(JsValue thisObject, JsCallArguments arguments)
+    private JsValue Compile(JsValue thisObject, JsValue pattern, JsValue flags)
     {
         // 1. Let O be the this value.
         // 2. Perform ? RequireInternalSlot(O, [[RegExpMatcher]]).
@@ -1485,9 +1483,6 @@ internal sealed partial class RegExpPrototype : Prototype
             Throw.TypeError(_realm, "RegExp.prototype.compile cannot be used on RegExp subclass or cross-realm instances");
             return default!;
         }
-
-        var pattern = arguments.At(0);
-        var flags = arguments.At(1);
 
         JsValue p;
         JsValue f;

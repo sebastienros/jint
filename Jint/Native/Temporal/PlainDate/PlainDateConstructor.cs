@@ -36,11 +36,8 @@ internal sealed partial class PlainDateConstructor : Constructor
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.from
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsPlainDate From(JsValue thisObject, JsCallArguments arguments)
+    private JsPlainDate From(JsValue thisObject, JsValue item, JsValue optionsValue)
     {
-        var item = arguments.At(0);
-        var optionsValue = arguments.At(1);
-
         // For PlainDate/PlainDateTime/ZonedDateTime, validate options first (for observable side effects) then convert
         if (item is JsPlainDate || item is JsPlainDateTime || item is JsZonedDateTime)
         {
@@ -202,10 +199,10 @@ internal sealed partial class PlainDateConstructor : Constructor
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.compare
     /// </summary>
     [JsFunction(Length = 2)]
-    private JsNumber Compare(JsValue thisObject, JsCallArguments arguments)
+    private JsNumber Compare(JsValue thisObject, JsValue arg0, JsValue arg1)
     {
-        var one = ToTemporalDate(arguments.At(0), "constrain");
-        var two = ToTemporalDate(arguments.At(1), "constrain");
+        var one = ToTemporalDate(arg0, "constrain");
+        var two = ToTemporalDate(arg1, "constrain");
         return JsNumber.Create(TemporalHelpers.CompareIsoDates(one.IsoDate, two.IsoDate));
     }
 

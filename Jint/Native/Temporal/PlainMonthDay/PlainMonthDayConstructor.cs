@@ -37,11 +37,8 @@ internal sealed partial class PlainMonthDayConstructor : Constructor
     /// https://tc39.es/proposal-temporal/#sec-temporal.plainmonthday.from
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsPlainMonthDay From(JsValue thisObject, JsCallArguments arguments)
+    private JsPlainMonthDay From(JsValue thisObject, JsValue item, JsValue optionsValue)
     {
-        var item = arguments.At(0);
-        var optionsValue = arguments.At(1);
-
         // For existing PlainMonthDay (cloning), validate options first then convert
         if (item is JsPlainMonthDay)
         {

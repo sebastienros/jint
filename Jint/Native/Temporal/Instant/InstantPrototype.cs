@@ -77,11 +77,9 @@ internal sealed partial class InstantPrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.instant.prototype.add
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsInstant Add(JsValue thisObject, JsCallArguments arguments)
+    private JsInstant Add(JsValue thisObject, JsValue temporalDurationLike)
     {
         var instant = ValidateInstant(thisObject);
-        var temporalDurationLike = arguments.At(0);
-
         var duration = _realm.Intrinsics.TemporalDuration.ToTemporalDuration(temporalDurationLike);
         var d = duration.DurationRecord;
 
@@ -106,11 +104,9 @@ internal sealed partial class InstantPrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.instant.prototype.subtract
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsInstant Subtract(JsValue thisObject, JsCallArguments arguments)
+    private JsInstant Subtract(JsValue thisObject, JsValue temporalDurationLike)
     {
         var instant = ValidateInstant(thisObject);
-        var temporalDurationLike = arguments.At(0);
-
         var duration = _realm.Intrinsics.TemporalDuration.ToTemporalDuration(temporalDurationLike);
         var d = duration.DurationRecord;
 
@@ -291,11 +287,9 @@ internal sealed partial class InstantPrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.instant.prototype.round
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsInstant Round(JsValue thisObject, JsCallArguments arguments)
+    private JsInstant Round(JsValue thisObject, JsValue roundTo)
     {
         var instant = ValidateInstant(thisObject);
-        var roundTo = arguments.At(0);
-
         // Step 3: If roundTo is undefined, throw TypeError
         if (roundTo.IsUndefined())
         {
@@ -520,10 +514,10 @@ internal sealed partial class InstantPrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.instant.prototype.equals
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsBoolean Equals(JsValue thisObject, JsCallArguments arguments)
+    private JsBoolean Equals(JsValue thisObject, JsValue arg0)
     {
         var instant = ValidateInstant(thisObject);
-        var other = _constructor.ToTemporalInstant(arguments.At(0));
+        var other = _constructor.ToTemporalInstant(arg0);
 
         return instant.EpochNanoseconds == other.EpochNanoseconds ? JsBoolean.True : JsBoolean.False;
     }
@@ -532,11 +526,9 @@ internal sealed partial class InstantPrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.instant.prototype.tostring
     /// </summary>
     [JsFunction(Length = 0, Name = "toString")]
-    private JsString ToStringMethod(JsValue thisObject, JsCallArguments arguments)
+    private JsString ToStringMethod(JsValue thisObject, JsValue options)
     {
         var instant = ValidateInstant(thisObject);
-        var options = arguments.At(0);
-
         // Step 2: GetOptionsObject
         ObjectInstance? optionsObj = null;
         if (!options.IsUndefined())
@@ -786,7 +778,7 @@ internal sealed partial class InstantPrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.instant.prototype.tojson
     /// </summary>
     [JsFunction(Length = 0)]
-    private JsString ToJSON(JsValue thisObject, JsCallArguments arguments)
+    private JsString ToJSON(JsValue thisObject)
     {
         var instant = ValidateInstant(thisObject);
         return new JsString(FormatInstant(instant.EpochNanoseconds, "UTC", -1));
@@ -796,12 +788,9 @@ internal sealed partial class InstantPrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sup-temporal.instant.prototype.tolocalestring
     /// </summary>
     [JsFunction(Length = 0)]
-    private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
+    private JsValue ToLocaleString(JsValue thisObject, JsValue locales, JsValue options)
     {
         var instant = ValidateInstant(thisObject);
-        var locales = arguments.At(0);
-        var options = arguments.At(1);
-
         // Per spec: CreateDateTimeFormat with required=~any~, defaults=~all~
         var dtf = _realm.Intrinsics.DateTimeFormat.CreateDateTimeFormat(
             locales, options, required: Intl.DateTimeRequired.Any, defaults: Intl.DateTimeDefaults.All);
@@ -820,7 +809,7 @@ internal sealed partial class InstantPrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.instant.prototype.valueof
     /// </summary>
     [JsFunction(Length = 0)]
-    private JsValue ValueOf(JsValue thisObject, JsCallArguments arguments)
+    private JsValue ValueOf(JsValue thisObject)
     {
         Throw.TypeError(_realm, "Cannot convert Temporal.Instant to a primitive value");
         return Undefined;
@@ -830,10 +819,10 @@ internal sealed partial class InstantPrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.instant.prototype.tozoneddatetimeiso
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsZonedDateTime ToZonedDateTimeISO(JsValue thisObject, JsCallArguments arguments)
+    private JsZonedDateTime ToZonedDateTimeISO(JsValue thisObject, JsValue arg0)
     {
         var instant = ValidateInstant(thisObject);
-        var timeZoneId = TemporalHelpers.ToTemporalTimeZoneIdentifier(_engine, _realm, arguments.At(0));
+        var timeZoneId = TemporalHelpers.ToTemporalTimeZoneIdentifier(_engine, _realm, arg0);
 
         return new JsZonedDateTime(_engine, _realm.Intrinsics.TemporalZonedDateTime.PrototypeObject,
             instant.EpochNanoseconds, timeZoneId, "iso8601");

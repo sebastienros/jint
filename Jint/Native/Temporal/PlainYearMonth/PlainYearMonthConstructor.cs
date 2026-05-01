@@ -37,11 +37,8 @@ internal sealed partial class PlainYearMonthConstructor : Constructor
     /// https://tc39.es/proposal-temporal/#sec-temporal.plainyearmonth.from
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsPlainYearMonth From(JsValue thisObject, JsCallArguments arguments)
+    private JsPlainYearMonth From(JsValue thisObject, JsValue item, JsValue optionsValue)
     {
-        var item = arguments.At(0);
-        var optionsValue = arguments.At(1);
-
         // For PlainYearMonth, validate options first (for observable side effects) then convert
         if (item is JsPlainYearMonth)
         {
@@ -84,10 +81,10 @@ internal sealed partial class PlainYearMonthConstructor : Constructor
     /// https://tc39.es/proposal-temporal/#sec-temporal.plainyearmonth.compare
     /// </summary>
     [JsFunction(Length = 2)]
-    private JsNumber Compare(JsValue thisObject, JsCallArguments arguments)
+    private JsNumber Compare(JsValue thisObject, JsValue arg0, JsValue arg1)
     {
-        var one = ToTemporalYearMonth(arguments.At(0), "constrain");
-        var two = ToTemporalYearMonth(arguments.At(1), "constrain");
+        var one = ToTemporalYearMonth(arg0, "constrain");
+        var two = ToTemporalYearMonth(arg1, "constrain");
         return JsNumber.Create(CompareIsoYearMonth(one.IsoDate, two.IsoDate));
     }
 

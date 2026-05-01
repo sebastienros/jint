@@ -144,10 +144,8 @@ public sealed partial class RegExpConstructor : Constructor
     /// https://tc39.es/ecma262/#sec-regexp.escape
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsString Escape(JsValue thisObject, JsCallArguments arguments)
+    private JsString Escape(JsValue thisObject, JsValue s)
     {
-        var s = arguments.At(0);
-
         // 1. If S is not a String, throw a TypeError exception.
         if (!s.IsString())
         {

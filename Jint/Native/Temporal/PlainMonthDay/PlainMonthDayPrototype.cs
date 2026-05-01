@@ -62,12 +62,9 @@ internal sealed partial class PlainMonthDayPrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plainmonthday.prototype.with
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsPlainMonthDay With(JsValue thisObject, JsCallArguments arguments)
+    private JsPlainMonthDay With(JsValue thisObject, JsValue temporalMonthDayLike, JsValue optionsArg)
     {
         var md = ValidatePlainMonthDay(thisObject);
-        var temporalMonthDayLike = arguments.At(0);
-        var optionsArg = arguments.At(1);
-
         if (!temporalMonthDayLike.IsObject())
         {
             Throw.TypeError(_realm, "with argument must be an object");
@@ -219,10 +216,10 @@ internal sealed partial class PlainMonthDayPrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plainmonthday.prototype.equals
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsBoolean Equals(JsValue thisObject, JsCallArguments arguments)
+    private JsBoolean Equals(JsValue thisObject, JsValue arg0)
     {
         var md = ValidatePlainMonthDay(thisObject);
-        var other = _constructor.ToTemporalMonthDay(arguments.At(0), "constrain");
+        var other = _constructor.ToTemporalMonthDay(arg0, "constrain");
 
         return md.IsoDate.Year == other.IsoDate.Year &&
                md.IsoDate.Month == other.IsoDate.Month &&
@@ -236,10 +233,9 @@ internal sealed partial class PlainMonthDayPrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plainmonthday.prototype.tostring
     /// </summary>
     [JsFunction(Length = 0, Name = "toString")]
-    private JsString ToTemporalString(JsValue thisObject, JsCallArguments arguments)
+    private JsString ToTemporalString(JsValue thisObject, JsValue optionsValue)
     {
         var md = ValidatePlainMonthDay(thisObject);
-        var optionsValue = arguments.At(0);
         var options = TemporalHelpers.GetOptionsObject(_realm, optionsValue);
         var showCalendar = GetCalendarNameOption(options);
 
@@ -282,7 +278,7 @@ internal sealed partial class PlainMonthDayPrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plainmonthday.prototype.tojson
     /// </summary>
     [JsFunction(Length = 0)]
-    private JsString ToJSON(JsValue thisObject, JsCallArguments arguments)
+    private JsString ToJSON(JsValue thisObject)
     {
         var md = ValidatePlainMonthDay(thisObject);
         // toJSON uses "auto" for calendarName: include year+calendar for non-ISO
@@ -299,12 +295,9 @@ internal sealed partial class PlainMonthDayPrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sup-temporal.plainmonthday.prototype.tolocalestring
     /// </summary>
     [JsFunction(Length = 0)]
-    private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
+    private JsValue ToLocaleString(JsValue thisObject, JsValue locales, JsValue options)
     {
         var md = ValidatePlainMonthDay(thisObject);
-        var locales = arguments.At(0);
-        var options = arguments.At(1);
-
         // Per spec: CreateDateTimeFormat with required=~date~, defaults=~date~
         // But for PlainMonthDay, we use month-day specific defaults (no year)
         var dtf = _realm.Intrinsics.DateTimeFormat.CreateDateTimeFormat(
@@ -324,7 +317,7 @@ internal sealed partial class PlainMonthDayPrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plainmonthday.prototype.valueof
     /// </summary>
     [JsFunction(Length = 0)]
-    private JsValue ValueOf(JsValue thisObject, JsCallArguments arguments)
+    private JsValue ValueOf(JsValue thisObject)
     {
         Throw.TypeError(_realm, "Temporal.PlainMonthDay cannot be converted to a primitive value");
         return Undefined;
@@ -334,11 +327,9 @@ internal sealed partial class PlainMonthDayPrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.plainmonthday.prototype.toplaindate
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsPlainDate ToPlainDate(JsValue thisObject, JsCallArguments arguments)
+    private JsPlainDate ToPlainDate(JsValue thisObject, JsValue item)
     {
         var md = ValidatePlainMonthDay(thisObject);
-        var item = arguments.At(0);
-
         if (!item.IsObject())
         {
             Throw.TypeError(_realm, "toPlainDate requires an object argument");

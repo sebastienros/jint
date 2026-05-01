@@ -72,11 +72,9 @@ internal sealed partial class DurationPrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.duration.prototype.with
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsDuration With(JsValue thisObject, JsCallArguments arguments)
+    private JsDuration With(JsValue thisObject, JsValue temporalDurationLike)
     {
         var duration = ValidateDuration(thisObject);
-        var temporalDurationLike = arguments.At(0);
-
         if (!temporalDurationLike.IsObject())
         {
             Throw.TypeError(_realm, "Duration-like object expected");
@@ -141,7 +139,7 @@ internal sealed partial class DurationPrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.duration.prototype.negated
     /// </summary>
     [JsFunction(Length = 0)]
-    private JsDuration Negated(JsValue thisObject, JsCallArguments arguments)
+    private JsDuration Negated(JsValue thisObject)
     {
         var duration = ValidateDuration(thisObject);
         return _constructor.Construct(duration.DurationRecord.Negated());
@@ -151,7 +149,7 @@ internal sealed partial class DurationPrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.duration.prototype.abs
     /// </summary>
     [JsFunction(Length = 0)]
-    private JsDuration Abs(JsValue thisObject, JsCallArguments arguments)
+    private JsDuration Abs(JsValue thisObject)
     {
         var duration = ValidateDuration(thisObject);
         return _constructor.Construct(duration.DurationRecord.Abs());
@@ -162,10 +160,9 @@ internal sealed partial class DurationPrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal-adddurations
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsDuration Add(JsValue thisObject, JsCallArguments arguments)
+    private JsDuration Add(JsValue thisObject, JsValue other)
     {
         var duration = ValidateDuration(thisObject);
-        var other = arguments.At(0);
         return AddDurations(1, duration, other);
     }
 
@@ -174,10 +171,9 @@ internal sealed partial class DurationPrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal-adddurations
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsDuration Subtract(JsValue thisObject, JsCallArguments arguments)
+    private JsDuration Subtract(JsValue thisObject, JsValue other)
     {
         var duration = ValidateDuration(thisObject);
-        var other = arguments.At(0);
         return AddDurations(-1, duration, other);
     }
 
@@ -233,11 +229,9 @@ internal sealed partial class DurationPrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.duration.prototype.round
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsDuration Round(JsValue thisObject, JsCallArguments arguments)
+    private JsDuration Round(JsValue thisObject, JsValue options)
     {
         var duration = ValidateDuration(thisObject);
-        var options = arguments.At(0);
-
         if (options.IsUndefined())
         {
             Throw.TypeError(_realm, "Options argument is required");
@@ -1262,11 +1256,9 @@ internal sealed partial class DurationPrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.duration.prototype.total
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsNumber Total(JsValue thisObject, JsCallArguments arguments)
+    private JsNumber Total(JsValue thisObject, JsValue options)
     {
         var duration = ValidateDuration(thisObject);
-        var options = arguments.At(0);
-
         if (options.IsUndefined())
         {
             Throw.TypeError(_realm, "Options argument is required");
@@ -1363,11 +1355,9 @@ internal sealed partial class DurationPrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.duration.prototype.tostring
     /// </summary>
     [JsFunction(Length = 0, Name = "toString")]
-    private JsString ToStringMethod(JsValue thisObject, JsCallArguments arguments)
+    private JsString ToStringMethod(JsValue thisObject, JsValue options)
     {
         var duration = ValidateDuration(thisObject);
-        var options = arguments.At(0);
-
         // Default: auto precision, trunc rounding, no rounding needed
         int precision = -1; // -1 means "auto"
         string roundingMode = "trunc";
@@ -1544,7 +1534,7 @@ internal sealed partial class DurationPrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.duration.prototype.tojson
     /// </summary>
     [JsFunction(Length = 0)]
-    private JsString ToJSON(JsValue thisObject, JsCallArguments arguments)
+    private JsString ToJSON(JsValue thisObject)
     {
         var duration = ValidateDuration(thisObject);
         return new JsString(TemporalHelpers.FormatDuration(duration.DurationRecord));
@@ -1554,12 +1544,9 @@ internal sealed partial class DurationPrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.duration.prototype.tolocalestring
     /// </summary>
     [JsFunction(Length = 0)]
-    private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
+    private JsValue ToLocaleString(JsValue thisObject, JsValue locales, JsValue options)
     {
         var duration = ValidateDuration(thisObject);
-        var locales = arguments.At(0);
-        var options = arguments.At(1);
-
         // Per spec: new Intl.DurationFormat(locales, options).format(this)
         var durationFormat = (Intl.JsDurationFormat) _realm.Intrinsics.DurationFormat.Construct([locales, options], Undefined);
         // Convert Temporal DurationRecord to Intl DurationRecord
@@ -1584,7 +1571,7 @@ internal sealed partial class DurationPrototype : Prototype
     /// https://tc39.es/proposal-temporal/#sec-temporal.duration.prototype.valueof
     /// </summary>
     [JsFunction(Length = 0)]
-    private JsValue ValueOf(JsValue thisObject, JsCallArguments arguments)
+    private JsValue ValueOf(JsValue thisObject)
     {
         Throw.TypeError(_realm, "Cannot convert Temporal.Duration to a primitive value");
         return Undefined;
