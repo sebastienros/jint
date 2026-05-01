@@ -1,20 +1,30 @@
 #pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of prototype methods return JsValue
 
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
+using FunctionInstance = Jint.Native.Function.Function;
 
 namespace Jint.Native.WeakSet;
 
 /// <summary>
 /// https://tc39.es/ecma262/#sec-weakset-objects
 /// </summary>
-internal sealed class WeakSetPrototype : Prototype
+[JsObject]
+internal sealed partial class WeakSetPrototype : Prototype
 {
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly WeakSetConstructor _constructor;
-    internal ClrFunction _originalAddFunction = null!;
+
+    // Pre-existing quirk: TC39 spec does not require a `length` property on WeakSet.prototype
+    // (length lives on the constructor). Preserved here verbatim from the pre-source-gen Initialize body.
+    [JsProperty(Name = "length", Flags = PropertyFlag.Configurable)] private static readonly JsNumber WeakSetLength = JsNumber.PositiveZero;
+
+    [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString WeakSetToStringTag = new("WeakSet");
+
+    // Captured once Initialize runs; the WeakSet constructor's array fast path
+    // identity-compares against this snapshot to detect a user-overridden `add`.
+    internal FunctionInstance OriginalAddFunction { get; private set; } = null!;
 
     internal WeakSetPrototype(
         Engine engine,
@@ -28,43 +38,34 @@ internal sealed class WeakSetPrototype : Prototype
 
     protected override void Initialize()
     {
-        _originalAddFunction = new ClrFunction(Engine, "add", Add, 1, PropertyFlag.Configurable);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
 
-        const PropertyFlag PropertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-        var properties = new PropertyDictionary(5, checkExistingKeys: false)
-        {
-            ["length"] = new(0, PropertyFlag.Configurable),
-            ["constructor"] = new(_constructor, PropertyFlag.NonEnumerable),
-            ["delete"] = new(new ClrFunction(Engine, "delete", Delete, 1, PropertyFlag.Configurable), PropertyFlags),
-            ["add"] = new(_originalAddFunction, PropertyFlags),
-            ["has"] = new(new ClrFunction(Engine, "has", Has, 1, PropertyFlag.Configurable), PropertyFlags),
-        };
-        SetProperties(properties);
-
-        var symbols = new SymbolDictionary(1)
-        {
-            [GlobalSymbolRegistry.ToStringTag] = new("WeakSet", false, false, true)
-        };
-        SetSymbols(symbols);
+        // Snapshot the prototype's `add` function before any user code can replace it,
+        // so the constructor's array fast path can detect overrides via ReferenceEquals.
+        OriginalAddFunction = (FunctionInstance) GetOwnProperty("add").Value!;
     }
 
-    private JsValue Add(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue Add(JsValue thisObject, JsValue value)
     {
         var set = AssertWeakSetInstance(thisObject);
-        set.WeakSetAdd(arguments.At(0));
+        set.WeakSetAdd(value);
         return thisObject;
     }
 
-    private JsValue Delete(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue Delete(JsValue thisObject, JsValue value)
     {
         var set = AssertWeakSetInstance(thisObject);
-        return set.WeakSetDelete(arguments.At(0)) ? JsBoolean.True : JsBoolean.False;
+        return set.WeakSetDelete(value) ? JsBoolean.True : JsBoolean.False;
     }
 
-    private JsValue Has(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue Has(JsValue thisObject, JsValue value)
     {
         var set = AssertWeakSetInstance(thisObject);
-        return set.WeakSetHas(arguments.At(0)) ? JsBoolean.True : JsBoolean.False;
+        return set.WeakSetHas(value) ? JsBoolean.True : JsBoolean.False;
     }
 
     private JsWeakSet AssertWeakSetInstance(JsValue thisObject)

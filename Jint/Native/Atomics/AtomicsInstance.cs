@@ -7,20 +7,21 @@ using System.Threading;
 using Jint.Native.ArrayBuffer;
 using Jint.Native.Object;
 using Jint.Native.Promise;
-using Jint.Native.Symbol;
 using Jint.Native.TypedArray;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.Atomics;
 
 /// <summary>
 /// https://tc39.es/ecma262/#sec-atomics-object
 /// </summary>
-internal sealed class AtomicsInstance : ObjectInstance
+[JsObject]
+internal sealed partial class AtomicsInstance : ObjectInstance
 {
     private readonly Realm _realm;
+
+    [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString AtomicsToStringTag = new("Atomics");
 
     /// <summary>
     /// Global waiters list for Atomics.wait/notify.
@@ -221,67 +222,34 @@ internal sealed class AtomicsInstance : ObjectInstance
 
     protected override void Initialize()
     {
-        const PropertyFlag LengthFlags = PropertyFlag.Configurable;
-        var properties = new PropertyDictionary(14, checkExistingKeys: false)
-        {
-            ["add"] = new(new ClrFunction(Engine, "add", Add, 3, LengthFlags), true, false, true),
-            ["and"] = new(new ClrFunction(Engine, "and", And, 3, LengthFlags), true, false, true),
-            ["compareExchange"] = new(new ClrFunction(Engine, "compareExchange", CompareExchange, 4, LengthFlags), true, false, true),
-            ["exchange"] = new(new ClrFunction(Engine, "exchange", Exchange, 3, LengthFlags), true, false, true),
-            ["isLockFree"] = new(new ClrFunction(Engine, "isLockFree", IsLockFree, 1, LengthFlags), true, false, true),
-            ["load"] = new(new ClrFunction(Engine, "load", Load, 2, LengthFlags), true, false, true),
-            ["notify"] = new(new ClrFunction(Engine, "notify", Notify, 3, LengthFlags), true, false, true),
-            ["or"] = new(new ClrFunction(Engine, "or", Or, 3, LengthFlags), true, false, true),
-            ["pause"] = new(new ClrFunction(Engine, "pause", Pause, 0, LengthFlags), true, false, true),
-            ["store"] = new(new ClrFunction(Engine, "store", Store, 3, LengthFlags), true, false, true),
-            ["sub"] = new(new ClrFunction(Engine, "sub", Sub, 3, LengthFlags), true, false, true),
-            ["wait"] = new(new ClrFunction(Engine, "wait", Wait, 4, LengthFlags), true, false, true),
-            ["waitAsync"] = new(new ClrFunction(Engine, "waitAsync", WaitAsync, 4, LengthFlags), true, false, true),
-            ["xor"] = new(new ClrFunction(Engine, "xor", Xor, 3, LengthFlags), true, false, true),
-        };
-        SetProperties(properties);
-
-        var symbols = new SymbolDictionary(1)
-        {
-            [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("Atomics", PropertyFlag.Configurable)
-        };
-        SetSymbols(symbols);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-atomics.add
     /// </summary>
-    private JsValue Add(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 3)]
+    private JsValue Add(JsValue thisObject, JsValue typedArray, JsValue index, JsValue value)
     {
-        var typedArray = arguments.At(0);
-        var index = arguments.At(1);
-        var value = arguments.At(2);
-
         return AtomicReadModifyWrite(typedArray, index, value, AtomicOperation.Add);
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-atomics.and
     /// </summary>
-    private JsValue And(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 3)]
+    private JsValue And(JsValue thisObject, JsValue typedArray, JsValue index, JsValue value)
     {
-        var typedArray = arguments.At(0);
-        var index = arguments.At(1);
-        var value = arguments.At(2);
-
         return AtomicReadModifyWrite(typedArray, index, value, AtomicOperation.And);
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-atomics.compareexchange
     /// </summary>
-    private JsValue CompareExchange(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 4)]
+    private JsValue CompareExchange(JsValue thisObject, JsValue typedArray, JsValue index, JsValue expectedValue, JsValue replacementValue)
     {
-        var typedArray = arguments.At(0);
-        var index = arguments.At(1);
-        var expectedValue = arguments.At(2);
-        var replacementValue = arguments.At(3);
-
         var taRecord = ValidateIntegerTypedArray(typedArray);
         var byteIndexInBuffer = ValidateAtomicAccess(taRecord, index);
         var ta = taRecord.Object;
@@ -306,21 +274,18 @@ internal sealed class AtomicsInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-atomics.exchange
     /// </summary>
-    private JsValue Exchange(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 3)]
+    private JsValue Exchange(JsValue thisObject, JsValue typedArray, JsValue index, JsValue value)
     {
-        var typedArray = arguments.At(0);
-        var index = arguments.At(1);
-        var value = arguments.At(2);
-
         return AtomicReadModifyWrite(typedArray, index, value, AtomicOperation.Exchange);
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-atomics.islockfree
     /// </summary>
-    private static JsValue IsLockFree(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private static JsValue IsLockFree(JsValue thisObject, JsValue size)
     {
-        var size = arguments.At(0);
         var n = TypeConverter.ToIntegerOrInfinity(size);
 
         // Per spec: size 1, 2, 8 are implementation-defined, size 4 must return true
@@ -338,11 +303,9 @@ internal sealed class AtomicsInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-atomics.load
     /// </summary>
-    private JsValue Load(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private JsValue Load(JsValue thisObject, JsValue typedArray, JsValue index)
     {
-        var typedArray = arguments.At(0);
-        var index = arguments.At(1);
-
         var taRecord = ValidateIntegerTypedArray(typedArray);
         var byteIndexInBuffer = ValidateAtomicAccess(taRecord, index);
         var ta = taRecord.Object;
@@ -354,12 +317,9 @@ internal sealed class AtomicsInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-atomics.notify
     /// </summary>
-    private JsValue Notify(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 3)]
+    private JsValue Notify(JsValue thisObject, JsValue typedArray, JsValue index, JsValue count)
     {
-        var typedArray = arguments.At(0);
-        var index = arguments.At(1);
-        var count = arguments.At(2);
-
         var taRecord = ValidateIntegerTypedArray(typedArray, waitable: true);
         var byteIndexInBuffer = ValidateAtomicAccess(taRecord, index);
         var ta = taRecord.Object;
@@ -406,21 +366,18 @@ internal sealed class AtomicsInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-atomics.or
     /// </summary>
-    private JsValue Or(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 3)]
+    private JsValue Or(JsValue thisObject, JsValue typedArray, JsValue index, JsValue value)
     {
-        var typedArray = arguments.At(0);
-        var index = arguments.At(1);
-        var value = arguments.At(2);
-
         return AtomicReadModifyWrite(typedArray, index, value, AtomicOperation.Or);
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-atomics.pause
     /// </summary>
-    private JsValue Pause(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0)]
+    private JsValue Pause(JsValue thisObject, JsValue iterationNumber)
     {
-        var iterationNumber = arguments.At(0);
         if (!iterationNumber.IsUndefined())
         {
             if (!iterationNumber.IsNumber())
@@ -453,12 +410,9 @@ internal sealed class AtomicsInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-atomics.store
     /// </summary>
-    private JsValue Store(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 3)]
+    private JsValue Store(JsValue thisObject, JsValue typedArray, JsValue index, JsValue value)
     {
-        var typedArray = arguments.At(0);
-        var index = arguments.At(1);
-        var value = arguments.At(2);
-
         var taRecord = ValidateIntegerTypedArray(typedArray);
         var byteIndexInBuffer = ValidateAtomicAccess(taRecord, index);
         var ta = taRecord.Object;
@@ -491,25 +445,18 @@ internal sealed class AtomicsInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-atomics.sub
     /// </summary>
-    private JsValue Sub(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 3)]
+    private JsValue Sub(JsValue thisObject, JsValue typedArray, JsValue index, JsValue value)
     {
-        var typedArray = arguments.At(0);
-        var index = arguments.At(1);
-        var value = arguments.At(2);
-
         return AtomicReadModifyWrite(typedArray, index, value, AtomicOperation.Sub);
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-atomics.wait
     /// </summary>
-    private JsValue Wait(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 4)]
+    private JsValue Wait(JsValue thisObject, JsValue typedArray, JsValue index, JsValue value, JsValue timeout)
     {
-        var typedArray = arguments.At(0);
-        var index = arguments.At(1);
-        var value = arguments.At(2);
-        var timeout = arguments.At(3);
-
         var taRecord = ValidateIntegerTypedArray(typedArray, waitable: true, requireShared: true);
         var byteIndexInBuffer = ValidateAtomicAccess(taRecord, index);
         var ta = taRecord.Object;
@@ -630,13 +577,9 @@ internal sealed class AtomicsInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-atomics.waitasync
     /// </summary>
-    private JsValue WaitAsync(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 4)]
+    private JsValue WaitAsync(JsValue thisObject, JsValue typedArray, JsValue index, JsValue value, JsValue timeout)
     {
-        var typedArray = arguments.At(0);
-        var index = arguments.At(1);
-        var value = arguments.At(2);
-        var timeout = arguments.At(3);
-
         var taRecord = ValidateIntegerTypedArray(typedArray, waitable: true, requireShared: true);
         var byteIndexInBuffer = ValidateAtomicAccess(taRecord, index);
         var ta = taRecord.Object;
@@ -753,12 +696,9 @@ internal sealed class AtomicsInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-atomics.xor
     /// </summary>
-    private JsValue Xor(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 3)]
+    private JsValue Xor(JsValue thisObject, JsValue typedArray, JsValue index, JsValue value)
     {
-        var typedArray = arguments.At(0);
-        var index = arguments.At(1);
-        var value = arguments.At(2);
-
         return AtomicReadModifyWrite(typedArray, index, value, AtomicOperation.Xor);
     }
 

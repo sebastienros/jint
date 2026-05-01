@@ -1,13 +1,12 @@
 using Jint.Native.Function;
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.Set;
 
-public sealed class SetConstructor : Constructor
+[JsObject]
+public sealed partial class SetConstructor : Constructor
 {
     private static readonly JsString _functionName = new("Set");
 
@@ -26,15 +25,7 @@ public sealed class SetConstructor : Constructor
 
     internal SetPrototype PrototypeObject { get; }
 
-    protected override void Initialize()
-    {
-        var symbols = new SymbolDictionary(1)
-        {
-            [GlobalSymbolRegistry.Species] = new GetSetPropertyDescriptor(get: new ClrFunction(_engine, "get [Symbol.species]", Species, 0, PropertyFlag.Configurable), set: Undefined, PropertyFlag.Configurable)
-        };
-
-        SetSymbols(symbols);
-    }
+    protected override void Initialize() => CreateSymbols_Generated();
 
     public JsSet Construct() => ConstructSet(this);
 
@@ -103,7 +94,8 @@ public sealed class SetConstructor : Constructor
         return set;
     }
 
-    private static JsValue Species(JsValue thisObject, JsCallArguments arguments)
+    [JsSymbolAccessor("Species")]
+    private static JsValue Species(JsValue thisObject)
     {
         return thisObject;
     }
