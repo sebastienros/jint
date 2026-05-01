@@ -115,16 +115,19 @@ internal static class Emitter
               .Append(obj.Name).Append("Function.Slot.").Append(fn.ClrName).Append("), ").Append(fn.FlagsExpression).AppendLine(");");
         }
 
-        // Accessors: GetSetPropertyDescriptor wrapping eagerly-allocated dispatcher slots.
+        // Accessors: LazyGetSetPropertyDescriptor — dispatcher Functions allocate on first read,
+        // so prototypes with many never-read accessors (Temporal date/time has 10-20 each) skip the
+        // up-front allocations. The shape mirrors the data-property [JsFunction] emission above.
         var accessorNames = new List<string>(accessorsByName.Keys);
         accessorNames.Sort(StringComparer.Ordinal);
         foreach (var name in accessorNames)
         {
             var (getFn, setFn, flagsExpr) = accessorsByName[name];
-            sb.Append("        properties[\"").Append(EscapeStringLit(name)).Append("\"] = new global::Jint.Runtime.Descriptors.GetSetPropertyDescriptor(");
+            sb.Append("        properties[\"").Append(EscapeStringLit(name)).Append("\"] = new global::Jint.Runtime.Descriptors.Specialized.LazyGetSetPropertyDescriptor<")
+              .Append(obj.Name).Append(">(this, ");
             if (getFn is not null)
             {
-                sb.Append("new __").Append(obj.Name).Append("Function(this, __").Append(obj.Name).Append("Function.Slot.").Append(getFn.ClrName).Append(')');
+                sb.Append("static host => new __").Append(obj.Name).Append("Function(host, __").Append(obj.Name).Append("Function.Slot.").Append(getFn.ClrName).Append(')');
             }
             else
             {
@@ -133,7 +136,7 @@ internal static class Emitter
             sb.Append(", ");
             if (setFn is not null)
             {
-                sb.Append("new __").Append(obj.Name).Append("Function(this, __").Append(obj.Name).Append("Function.Slot.").Append(setFn.ClrName).Append(')');
+                sb.Append("static host => new __").Append(obj.Name).Append("Function(host, __").Append(obj.Name).Append("Function.Slot.").Append(setFn.ClrName).Append(')');
             }
             else
             {
@@ -384,17 +387,18 @@ internal static class Emitter
               .Append(obj.Name).Append("Function.Slot.").Append(fn.ClrName).Append("), ").Append(fn.FlagsExpression).AppendLine(");");
         }
 
-        // Symbol-keyed accessors: GetSetPropertyDescriptor wrapping eagerly-allocated dispatcher slots,
-        // registered under GlobalSymbolRegistry.<SymbolName>.
+        // Symbol-keyed accessors: LazyGetSetPropertyDescriptor — dispatcher Functions allocate on
+        // first read, registered under GlobalSymbolRegistry.<SymbolName>.
         var symbolAccessorNames = new List<string>(symbolAccessorsByName.Keys);
         symbolAccessorNames.Sort(StringComparer.Ordinal);
         foreach (var name in symbolAccessorNames)
         {
             var (getFn, setFn, flagsExpr) = symbolAccessorsByName[name];
-            sb.Append("        symbols[global::Jint.Native.Symbol.GlobalSymbolRegistry.").Append(name).Append("] = new global::Jint.Runtime.Descriptors.GetSetPropertyDescriptor(");
+            sb.Append("        symbols[global::Jint.Native.Symbol.GlobalSymbolRegistry.").Append(name).Append("] = new global::Jint.Runtime.Descriptors.Specialized.LazyGetSetPropertyDescriptor<")
+              .Append(obj.Name).Append(">(this, ");
             if (getFn is not null)
             {
-                sb.Append("new __").Append(obj.Name).Append("Function(this, __").Append(obj.Name).Append("Function.Slot.").Append(getFn.ClrName).Append(')');
+                sb.Append("static host => new __").Append(obj.Name).Append("Function(host, __").Append(obj.Name).Append("Function.Slot.").Append(getFn.ClrName).Append(')');
             }
             else
             {
@@ -403,7 +407,7 @@ internal static class Emitter
             sb.Append(", ");
             if (setFn is not null)
             {
-                sb.Append("new __").Append(obj.Name).Append("Function(this, __").Append(obj.Name).Append("Function.Slot.").Append(setFn.ClrName).Append(')');
+                sb.Append("static host => new __").Append(obj.Name).Append("Function(host, __").Append(obj.Name).Append("Function.Slot.").Append(setFn.ClrName).Append(')');
             }
             else
             {

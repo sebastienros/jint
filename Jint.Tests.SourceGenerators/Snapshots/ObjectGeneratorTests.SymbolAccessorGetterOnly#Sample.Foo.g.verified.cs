@@ -16,7 +16,7 @@ internal sealed partial class Foo
     private void CreateSymbols_Generated()
     {
         var symbols = new global::Jint.Collections.DictionarySlim<global::Jint.Native.JsSymbol, global::Jint.Runtime.Descriptors.PropertyDescriptor>(1);
-        symbols[global::Jint.Native.Symbol.GlobalSymbolRegistry.Species] = new global::Jint.Runtime.Descriptors.GetSetPropertyDescriptor(new __FooFunction(this, __FooFunction.Slot.Species), null, global::Jint.Runtime.Descriptors.PropertyFlag.EnumerableSet | global::Jint.Runtime.Descriptors.PropertyFlag.Configurable);
+        symbols[global::Jint.Native.Symbol.GlobalSymbolRegistry.Species] = new global::Jint.Runtime.Descriptors.Specialized.LazyGetSetPropertyDescriptor<Foo>(this, static host => new __FooFunction(host, __FooFunction.Slot.Species), null, global::Jint.Runtime.Descriptors.PropertyFlag.EnumerableSet | global::Jint.Runtime.Descriptors.PropertyFlag.Configurable);
         SetSymbols(symbols);
     }
 
