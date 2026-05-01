@@ -1,7 +1,6 @@
 using Jint.Native.Function;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -15,7 +14,8 @@ internal sealed record PromiseCapability(
     JsValue ResolveObj,
     JsValue RejectObj);
 
-internal sealed class PromiseConstructor : Constructor
+[JsObject]
+internal sealed partial class PromiseConstructor : Constructor
 {
     private static readonly JsString _functionName = new JsString("Promise");
 
@@ -36,31 +36,12 @@ internal sealed class PromiseConstructor : Constructor
 
     protected override void Initialize()
     {
-        const PropertyFlag PropertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-        const PropertyFlag LengthFlags = PropertyFlag.Configurable;
-        var properties = new PropertyDictionary(10, checkExistingKeys: false)
-        {
-            ["all"] = new(new PropertyDescriptor(new ClrFunction(Engine, "all", All, 1, LengthFlags), PropertyFlags)),
-            ["allKeyed"] = new(new PropertyDescriptor(new ClrFunction(Engine, "allKeyed", AllKeyed, 1, LengthFlags), PropertyFlags)),
-            ["allSettled"] = new(new PropertyDescriptor(new ClrFunction(Engine, "allSettled", AllSettled, 1, LengthFlags), PropertyFlags)),
-            ["allSettledKeyed"] = new(new PropertyDescriptor(new ClrFunction(Engine, "allSettledKeyed", AllSettledKeyed, 1, LengthFlags), PropertyFlags)),
-            ["any"] = new(new PropertyDescriptor(new ClrFunction(Engine, "any", Any, 1, LengthFlags), PropertyFlags)),
-            ["race"] = new(new PropertyDescriptor(new ClrFunction(Engine, "race", Race, 1, LengthFlags), PropertyFlags)),
-            ["reject"] = new(new PropertyDescriptor(new ClrFunction(Engine, "reject", Reject, 1, LengthFlags), PropertyFlags)),
-            ["resolve"] = new(new PropertyDescriptor(new ClrFunction(Engine, "resolve", Resolve, 1, LengthFlags), PropertyFlags)),
-            ["try"] = new(new PropertyDescriptor(new ClrFunction(Engine, "try", Try, 1, LengthFlags), PropertyFlags)),
-            ["withResolvers"] = new(new PropertyDescriptor(new ClrFunction(Engine, "withResolvers", WithResolvers, 0, LengthFlags), PropertyFlags)),
-        };
-        SetProperties(properties);
-
-        var symbols = new SymbolDictionary(1)
-        {
-            [GlobalSymbolRegistry.Species] = new GetSetPropertyDescriptor(
-                get: new ClrFunction(_engine, "get [Symbol.species]", (thisObj, _) => thisObj, 0, PropertyFlag.Configurable),
-                set: Undefined, PropertyFlag.Configurable)
-        };
-        SetSymbols(symbols);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
     }
+
+    [JsSymbolAccessor("Species")]
+    private static JsValue Species(JsValue thisObject) => thisObject;
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-promise-executor
@@ -110,6 +91,7 @@ internal sealed class PromiseConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-promise.resolve
     /// </summary>
+    [JsFunction(Length = 1, Name = "resolve")]
     internal JsValue Resolve(JsValue thisObject, JsCallArguments arguments)
     {
         if (!thisObject.IsObject())
@@ -126,6 +108,7 @@ internal sealed class PromiseConstructor : Constructor
         return PromiseResolve(thisObject, x);
     }
 
+    [JsFunction(Length = 0)]
     private JsObject WithResolvers(JsValue thisObject, JsCallArguments arguments)
     {
         var promiseCapability = NewPromiseCapability(_engine, thisObject);
@@ -162,6 +145,7 @@ internal sealed class PromiseConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-promise.reject
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsValue Reject(JsValue thisObject, JsCallArguments arguments)
     {
         if (!thisObject.IsObject())
@@ -186,6 +170,7 @@ internal sealed class PromiseConstructor : Constructor
     /// <summary>
     /// https://tc39.es/proposal-promise-try/
     /// </summary>
+    [JsFunction(Length = 1, Name = "try")]
     private JsValue Try(JsValue thisObject, JsCallArguments arguments)
     {
         if (!thisObject.IsObject())
@@ -210,6 +195,7 @@ internal sealed class PromiseConstructor : Constructor
     }
 
     // https://tc39.es/proposal-await-dictionary/#sec-promise.allkeyed
+    [JsFunction(Length = 1)]
     private JsValue AllKeyed(JsValue thisObject, JsCallArguments arguments)
     {
         if (!thisObject.IsObject())
@@ -249,6 +235,7 @@ internal sealed class PromiseConstructor : Constructor
     }
 
     // https://tc39.es/proposal-await-dictionary/#sec-promise.allsettledkeyed
+    [JsFunction(Length = 1)]
     private JsValue AllSettledKeyed(JsValue thisObject, JsCallArguments arguments)
     {
         if (!thisObject.IsObject())
@@ -458,6 +445,7 @@ internal sealed class PromiseConstructor : Constructor
     }
 
     // https://tc39.es/ecma262/#sec-promise.all
+    [JsFunction(Length = 1)]
     private JsValue All(JsValue thisObject, JsCallArguments arguments)
     {
         if (!TryGetPromiseCapabilityAndIterator(thisObject, arguments, "Promise.all", out var capability, out var promiseResolve, out var iterator))
@@ -559,6 +547,7 @@ internal sealed class PromiseConstructor : Constructor
     }
 
     // https://tc39.es/ecma262/#sec-promise.allsettled
+    [JsFunction(Length = 1)]
     private JsValue AllSettled(JsValue thisObject, JsCallArguments arguments)
     {
         if (!TryGetPromiseCapabilityAndIterator(thisObject, arguments, "Promise.allSettled", out var capability, out var promiseResolve, out var iterator))
@@ -682,6 +671,7 @@ internal sealed class PromiseConstructor : Constructor
     }
 
     // https://tc39.es/ecma262/#sec-promise.any
+    [JsFunction(Length = 1)]
     private JsValue Any(JsValue thisObject, JsCallArguments arguments)
     {
         if (!TryGetPromiseCapabilityAndIterator(thisObject, arguments, "Promise.any", out var capability, out var promiseResolve, out var iterator))
@@ -792,6 +782,7 @@ internal sealed class PromiseConstructor : Constructor
     }
 
     // https://tc39.es/ecma262/#sec-promise.race
+    [JsFunction(Length = 1)]
     private JsValue Race(JsValue thisObject, JsCallArguments arguments)
     {
         if (!TryGetPromiseCapabilityAndIterator(thisObject, arguments, "Promise.race", out var capability, out var promiseResolve, out var iterator))
