@@ -284,7 +284,7 @@ public sealed partial class Intrinsics
         _date ??= new DateConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
     internal MathInstance Math =>
-        _math ??= new MathInstance(_engine, Object.PrototypeObject);
+        _math ??= new MathInstance(_engine, _realm, Object.PrototypeObject);
 
     internal JsonInstance Json =>
         _json ??= new JsonInstance(_engine, _realm, Object.PrototypeObject);

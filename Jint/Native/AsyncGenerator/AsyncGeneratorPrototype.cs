@@ -12,6 +12,8 @@ namespace Jint.Native.AsyncGenerator;
 [JsObject]
 internal sealed partial class AsyncGeneratorPrototype : ObjectInstance
 {
+    private readonly Realm _realm;
+
     [JsProperty(Name = "constructor", Flags = PropertyFlag.Configurable)]
     private readonly AsyncGeneratorFunctionPrototype _constructor;
 
@@ -19,9 +21,11 @@ internal sealed partial class AsyncGeneratorPrototype : ObjectInstance
 
     internal AsyncGeneratorPrototype(
         Engine engine,
+        Realm realm,
         AsyncGeneratorFunctionPrototype constructor,
         AsyncIteratorPrototype asyncIteratorPrototype) : base(engine)
     {
+        _realm = realm;
         _constructor = constructor;
         _prototype = asyncIteratorPrototype;
     }
@@ -92,8 +96,8 @@ internal sealed partial class AsyncGeneratorPrototype : ObjectInstance
     /// </summary>
     private JsValue CreateRejectedPromiseWithTypeError(string message)
     {
-        var promiseCapability = PromiseConstructor.NewPromiseCapability(_engine, _engine.Realm.Intrinsics.Promise);
-        var error = _engine.Realm.Intrinsics.TypeError.Construct(message);
+        var promiseCapability = PromiseConstructor.NewPromiseCapability(_engine, _realm.Intrinsics.Promise);
+        var error = _realm.Intrinsics.TypeError.Construct(message);
         promiseCapability.Reject.Call(Undefined, new[] { error });
         return promiseCapability.PromiseInstance;
     }

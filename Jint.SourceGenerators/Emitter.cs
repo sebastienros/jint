@@ -179,12 +179,16 @@ internal static class Emitter
         sb.AppendLine("        private readonly Slot _slot;");
         sb.AppendLine();
 
+        // Use host._realm — the realm captured at host construction time (= host's home realm) — not
+        // host.Engine.Realm, which is the *currently active* realm. Lazy descriptors materialize on
+        // first read; if first access is cross-realm (e.g. via ShadowRealm), Engine.Realm would be the
+        // wrong realm and the dispatcher Function would carry the wrong [[Realm]] internal slot.
         sb.Append("        internal ").Append(typeName).Append("(").Append(obj.Name).AppendLine(" host, Slot slot)");
-        sb.AppendLine("            : base(host.Engine, host.Engine.Realm, GetName(slot))");
+        sb.AppendLine("            : base(host.Engine, host._realm, GetName(slot))");
         sb.AppendLine("        {");
         sb.AppendLine("            _host = host;");
         sb.AppendLine("            _slot = slot;");
-        sb.AppendLine("            _prototype = host.Engine.Realm.Intrinsics.Function.PrototypeObject;");
+        sb.AppendLine("            _prototype = host._realm.Intrinsics.Function.PrototypeObject;");
         sb.AppendLine("            _length = new global::Jint.Runtime.Descriptors.PropertyDescriptor(global::Jint.Native.JsNumber.Create(GetLength(slot)), global::Jint.Runtime.Descriptors.PropertyFlag.Configurable);");
         sb.AppendLine("        }");
         sb.AppendLine();

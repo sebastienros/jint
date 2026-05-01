@@ -8,6 +8,7 @@ namespace Jint.Native.Math;
 [JsObject]
 internal sealed partial class MathInstance : ObjectInstance
 {
+    private readonly Realm _realm;
     private Random? _random;
 
     [JsProperty(Name = "E", Flags = PropertyFlag.AllForbidden)] private static readonly JsNumber EValue = new(System.Math.E);
@@ -21,8 +22,9 @@ internal sealed partial class MathInstance : ObjectInstance
 
     [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString MathToStringTag = new("Math");
 
-    internal MathInstance(Engine engine, ObjectPrototype objectPrototype) : base(engine)
+    internal MathInstance(Engine engine, Realm realm, ObjectPrototype objectPrototype) : base(engine)
     {
+        _realm = realm;
         _prototype = objectPrototype;
     }
 
@@ -1036,10 +1038,10 @@ internal sealed partial class MathInstance : ObjectInstance
         var items = arguments.At(0);
         if (items.IsNullOrUndefined())
         {
-            Throw.TypeError(_engine.Realm);
+            Throw.TypeError(_realm);
         }
 
-        var iteratorRecord = items.GetIterator(_engine.Realm);
+        var iteratorRecord = items.GetIterator(_realm);
         var state = JsNumber.NegativeZero._value;
         List<double> sum = [];
         long count = 0;
@@ -1052,12 +1054,12 @@ internal sealed partial class MathInstance : ObjectInstance
                 count++;
                 if (count > 9007199254740992)
                 {
-                    Throw.RangeError(_engine.Realm);
+                    Throw.RangeError(_realm);
                 }
 
                 if (value is not JsNumber jsNumber)
                 {
-                    Throw.TypeError(_engine.Realm, "Input is not a number: " + next);
+                    Throw.TypeError(_realm, "Input is not a number: " + next);
                     return default;
                 }
 

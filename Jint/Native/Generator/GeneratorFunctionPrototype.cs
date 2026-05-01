@@ -21,7 +21,7 @@ internal sealed class GeneratorFunctionPrototype : Prototype
     {
         _constructor = constructor;
         _prototype = prototype;
-        PrototypeObject = new GeneratorPrototype(engine, this, iteratorPrototype);
+        PrototypeObject = new GeneratorPrototype(engine, engine.Realm, this, iteratorPrototype);
     }
 
     public GeneratorPrototype PrototypeObject { get; }

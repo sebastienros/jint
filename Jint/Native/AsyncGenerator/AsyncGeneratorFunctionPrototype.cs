@@ -21,7 +21,7 @@ internal sealed class AsyncGeneratorFunctionPrototype : Prototype
     {
         _constructor = constructor;
         _prototype = prototype;
-        PrototypeObject = new AsyncGeneratorPrototype(engine, this, asyncIteratorPrototype);
+        PrototypeObject = new AsyncGeneratorPrototype(engine, engine.Realm, this, asyncIteratorPrototype);
     }
 
     public AsyncGeneratorPrototype PrototypeObject { get; }

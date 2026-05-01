@@ -11,6 +11,8 @@ namespace Jint.Native.Generator;
 [JsObject]
 internal sealed partial class GeneratorPrototype : ObjectInstance
 {
+    private readonly Realm _realm;
+
     [JsProperty(Name = "constructor", Flags = PropertyFlag.Configurable)]
     private readonly GeneratorFunctionPrototype _constructor;
 
@@ -18,9 +20,11 @@ internal sealed partial class GeneratorPrototype : ObjectInstance
 
     internal GeneratorPrototype(
         Engine engine,
+        Realm realm,
         GeneratorFunctionPrototype constructor,
         IteratorPrototype iteratorPrototype) : base(engine)
     {
+        _realm = realm;
         _constructor = constructor;
         _prototype = iteratorPrototype;
     }
@@ -68,7 +72,7 @@ internal sealed partial class GeneratorPrototype : ObjectInstance
         var generatorInstance = thisObj as GeneratorInstance;
         if (generatorInstance is null)
         {
-            Runtime.Throw.TypeError(_engine.Realm, "object must be a Generator instance");
+            Runtime.Throw.TypeError(_realm, "object must be a Generator instance");
         }
 
         return generatorInstance;
