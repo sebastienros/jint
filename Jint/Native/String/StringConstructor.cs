@@ -6,7 +6,6 @@ using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Native.String;
@@ -14,7 +13,8 @@ namespace Jint.Native.String;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-string-constructor
 /// </summary>
-internal sealed class StringConstructor : Constructor
+[JsObject]
+internal sealed partial class StringConstructor : Constructor
 {
     private static readonly JsString _functionName = new JsString("String");
 
@@ -33,21 +33,13 @@ internal sealed class StringConstructor : Constructor
 
     public StringPrototype PrototypeObject { get; }
 
-    protected override void Initialize()
-    {
-        var properties = new PropertyDictionary(3, checkExistingKeys: false)
-        {
-            ["fromCharCode"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunction(Engine, "fromCharCode", FromCharCode, 1), PropertyFlag.NonEnumerable)),
-            ["fromCodePoint"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunction(Engine, "fromCodePoint", FromCodePoint, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable)),
-            ["raw"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunction(Engine, "raw", Raw, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable))
-        };
-        SetProperties(properties);
-    }
+    protected override void Initialize() => CreateProperties_Generated();
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.fromcharcode
     /// </summary>
-    private static JsValue FromCharCode(JsValue? thisObj, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private static JsValue FromCharCode(JsValue thisObject, JsCallArguments arguments)
     {
         var length = arguments.Length;
 
@@ -78,6 +70,7 @@ internal sealed class StringConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.fromcodepoint
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsValue FromCodePoint(JsValue thisObject, JsCallArguments arguments)
     {
         JsNumber codePoint;
@@ -130,6 +123,7 @@ rangeError:
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.raw
     /// </summary>
+    [JsFunction(Length = 1)]
     private JsValue Raw(JsValue thisObject, JsCallArguments arguments)
     {
         var cooked = TypeConverter.ToObject(_realm, arguments.At(0));
