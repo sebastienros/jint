@@ -1,5 +1,3 @@
-#pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of constructor methods return JsValue
-
 using Jint.Native.Iterator;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -33,7 +31,7 @@ public sealed partial class ObjectConstructor : Constructor
     /// https://tc39.es/ecma262/#sec-object.assign
     /// </summary>
     [JsFunction(Length = 2)]
-    private JsValue Assign(JsValue thisObject, JsValue target, [Rest] ReadOnlySpan<JsValue> sources)
+    private ObjectInstance Assign(JsValue thisObject, JsValue target, [Rest] ReadOnlySpan<JsValue> sources)
     {
         var to = TypeConverter.ToObject(_realm, target);
         for (var i = 0; i < sources.Length; i++)
@@ -63,18 +61,17 @@ public sealed partial class ObjectConstructor : Constructor
     /// https://tc39.es/ecma262/#sec-object.entries
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsValue Entries(JsValue thisObject, JsValue value)
+    private JsArray Entries(JsValue thisObject, JsValue value)
     {
         var obj = TypeConverter.ToObject(_realm, value);
-        var nameList = obj.EnumerableOwnProperties(EnumerableOwnPropertyNamesKind.KeyValue);
-        return nameList;
+        return obj.EnumerableOwnProperties(EnumerableOwnPropertyNamesKind.KeyValue);
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.fromentries
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsValue FromEntries(JsValue thisObject, JsValue iterable)
+    private ObjectInstance FromEntries(JsValue thisObject, JsValue iterable)
     {
         TypeConverter.RequireObjectCoercible(_engine, iterable);
 
@@ -198,7 +195,7 @@ public sealed partial class ObjectConstructor : Constructor
     /// https://tc39.es/ecma262/#sec-object.hasown
     /// </summary>
     [JsFunction(Length = 2)]
-    private JsValue HasOwn(JsValue thisObject, JsValue value, JsValue propertyKey)
+    private JsBoolean HasOwn(JsValue thisObject, JsValue value, JsValue propertyKey)
     {
         var o = TypeConverter.ToObject(_realm, value);
         var property = TypeConverter.ToPropertyKey(propertyKey);
@@ -222,7 +219,7 @@ public sealed partial class ObjectConstructor : Constructor
     /// https://tc39.es/ecma262/#sec-object.getownpropertydescriptors
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsValue GetOwnPropertyDescriptors(JsValue thisObject, JsValue value)
+    private ObjectInstance GetOwnPropertyDescriptors(JsValue thisObject, JsValue value)
     {
         var o = TypeConverter.ToObject(_realm, value);
         var ownKeys = o.GetOwnPropertyKeys();
@@ -243,7 +240,7 @@ public sealed partial class ObjectConstructor : Constructor
     /// https://tc39.es/ecma262/#sec-object.getownpropertynames
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsValue GetOwnPropertyNames(JsValue thisObject, JsValue value)
+    private JsArray GetOwnPropertyNames(JsValue thisObject, JsValue value)
     {
         var o = TypeConverter.ToObject(_realm, value);
         var names = o.GetOwnPropertyKeys(Types.String);
@@ -254,7 +251,7 @@ public sealed partial class ObjectConstructor : Constructor
     /// https://tc39.es/ecma262/#sec-object.getownpropertysymbols
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsValue GetOwnPropertySymbols(JsValue thisObject, JsValue value)
+    private JsArray GetOwnPropertySymbols(JsValue thisObject, JsValue value)
     {
         var o = TypeConverter.ToObject(_realm, value);
         var keys = o.GetOwnPropertyKeys(Types.Symbol);
@@ -265,7 +262,7 @@ public sealed partial class ObjectConstructor : Constructor
     /// https://tc39.es/ecma262/#sec-object.create
     /// </summary>
     [JsFunction(Length = 2)]
-    private JsValue Create(JsValue thisObject, JsValue prototype, JsValue properties)
+    private ObjectInstance Create(JsValue thisObject, JsValue prototype, JsValue properties)
     {
         if (!prototype.IsObject() && !prototype.IsNull())
         {
@@ -308,7 +305,7 @@ public sealed partial class ObjectConstructor : Constructor
     /// https://tc39.es/ecma262/#sec-object.defineproperties
     /// </summary>
     [JsFunction(Length = 2)]
-    private JsValue DefineProperties(JsValue thisObject, JsValue value, JsValue properties)
+    private ObjectInstance DefineProperties(JsValue thisObject, JsValue value, JsValue properties)
     {
         var o = value as ObjectInstance;
         if (o is null)
@@ -322,7 +319,7 @@ public sealed partial class ObjectConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-objectdefineproperties
     /// </summary>
-    private JsValue ObjectDefineProperties(ObjectInstance o, JsValue properties)
+    private ObjectInstance ObjectDefineProperties(ObjectInstance o, JsValue properties)
     {
         var props = TypeConverter.ToObject(_realm, properties);
         var keys = props.GetOwnPropertyKeys();
@@ -414,7 +411,7 @@ public sealed partial class ObjectConstructor : Constructor
     /// https://tc39.es/ecma262/#sec-object.issealed
     /// </summary>
     [JsFunction(Length = 1)]
-    private static JsValue IsSealed(JsValue thisObject, JsValue value)
+    private static JsBoolean IsSealed(JsValue thisObject, JsValue value)
     {
         if (value is not ObjectInstance o)
         {
@@ -428,7 +425,7 @@ public sealed partial class ObjectConstructor : Constructor
     /// https://tc39.es/ecma262/#sec-object.isfrozen
     /// </summary>
     [JsFunction(Length = 1)]
-    private static JsValue IsFrozen(JsValue thisObject, JsValue value)
+    private static JsBoolean IsFrozen(JsValue thisObject, JsValue value)
     {
         if (value is not ObjectInstance o)
         {
@@ -441,7 +438,7 @@ public sealed partial class ObjectConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-testintegritylevel
     /// </summary>
-    private static JsValue TestIntegrityLevel(ObjectInstance o, IntegrityLevel level)
+    private static JsBoolean TestIntegrityLevel(ObjectInstance o, IntegrityLevel level)
     {
         if (o.Extensible)
         {
@@ -489,7 +486,7 @@ public sealed partial class ObjectConstructor : Constructor
     /// https://tc39.es/ecma262/#sec-object.keys
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsValue Keys(JsValue thisObject, JsValue value)
+    private JsArray Keys(JsValue thisObject, JsValue value)
     {
         var o = TypeConverter.ToObject(_realm, value);
         return o.EnumerableOwnProperties(EnumerableOwnPropertyNamesKind.Key);
@@ -499,7 +496,7 @@ public sealed partial class ObjectConstructor : Constructor
     /// https://tc39.es/ecma262/#sec-object.values
     /// </summary>
     [JsFunction(Length = 1)]
-    private JsValue Values(JsValue thisObject, JsValue value)
+    private JsArray Values(JsValue thisObject, JsValue value)
     {
         var o = TypeConverter.ToObject(_realm, value);
         return o.EnumerableOwnProperties(EnumerableOwnPropertyNamesKind.Value);
@@ -509,7 +506,7 @@ public sealed partial class ObjectConstructor : Constructor
     /// https://tc39.es/proposal-array-grouping/#sec-object.groupby
     /// </summary>
     [JsFunction(Length = 2)]
-    private JsValue GroupBy(JsValue thisObject, JsValue items, JsValue callbackfn)
+    private JsObject GroupBy(JsValue thisObject, JsValue items, JsValue callbackfn)
     {
         var grouping = GroupByHelper.GroupBy(_engine, _realm, items, callbackfn, mapMode: false);
 
