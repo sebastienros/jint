@@ -3,11 +3,11 @@
 using Jint.Native.Iterator;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.Object;
 
-public sealed class ObjectConstructor : Constructor
+[JsObject]
+public sealed partial class ObjectConstructor : Constructor
 {
     private static readonly JsString _name = new JsString("Object");
 
@@ -26,41 +26,13 @@ public sealed class ObjectConstructor : Constructor
     protected override void Initialize()
     {
         _prototype = _realm.Intrinsics.Function.PrototypeObject;
-
-        const PropertyFlag PropertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-        const PropertyFlag LengthFlags = PropertyFlag.Configurable;
-        var properties = new PropertyDictionary(16, checkExistingKeys: false)
-        {
-            ["assign"] = new PropertyDescriptor(new ClrFunction(Engine, "assign", Assign, 2, LengthFlags), PropertyFlags),
-            ["entries"] = new PropertyDescriptor(new ClrFunction(Engine, "entries", Entries, 1, LengthFlags), PropertyFlags),
-            ["fromEntries"] = new PropertyDescriptor(new ClrFunction(Engine, "fromEntries", FromEntries, 1, LengthFlags), PropertyFlags),
-            ["getPrototypeOf"] = new PropertyDescriptor(new ClrFunction(Engine, "getPrototypeOf", GetPrototypeOf, 1), PropertyFlags),
-            ["getOwnPropertyDescriptor"] = new PropertyDescriptor(new ClrFunction(Engine, "getOwnPropertyDescriptor", GetOwnPropertyDescriptor, 2, LengthFlags), PropertyFlags),
-            ["getOwnPropertyDescriptors"] = new PropertyDescriptor(new ClrFunction(Engine, "getOwnPropertyDescriptors", GetOwnPropertyDescriptors, 1, LengthFlags), PropertyFlags),
-            ["getOwnPropertyNames"] = new PropertyDescriptor(new ClrFunction(Engine, "getOwnPropertyNames", GetOwnPropertyNames, 1), PropertyFlags),
-            ["getOwnPropertySymbols"] = new PropertyDescriptor(new ClrFunction(Engine, "getOwnPropertySymbols", GetOwnPropertySymbols, 1, LengthFlags), PropertyFlags),
-            ["groupBy"] = new PropertyDescriptor(new ClrFunction(Engine, "groupBy", GroupBy, 2, PropertyFlag.Configurable), PropertyFlags),
-            ["create"] = new PropertyDescriptor(new ClrFunction(Engine, "create", Create, 2), PropertyFlags),
-            ["defineProperty"] = new PropertyDescriptor(new ClrFunction(Engine, "defineProperty", DefineProperty, 3), PropertyFlags),
-            ["defineProperties"] = new PropertyDescriptor(new ClrFunction(Engine, "defineProperties", DefineProperties, 2), PropertyFlags),
-            ["is"] = new PropertyDescriptor(new ClrFunction(Engine, "is", Is, 2, LengthFlags), PropertyFlags),
-            ["seal"] = new PropertyDescriptor(new ClrFunction(Engine, "seal", Seal, 1, LengthFlags), PropertyFlags),
-            ["freeze"] = new PropertyDescriptor(new ClrFunction(Engine, "freeze", Freeze, 1), PropertyFlags),
-            ["preventExtensions"] = new PropertyDescriptor(new ClrFunction(Engine, "preventExtensions", PreventExtensions, 1), PropertyFlags),
-            ["isSealed"] = new PropertyDescriptor(new ClrFunction(Engine, "isSealed", IsSealed, 1), PropertyFlags),
-            ["isFrozen"] = new PropertyDescriptor(new ClrFunction(Engine, "isFrozen", IsFrozen, 1), PropertyFlags),
-            ["isExtensible"] = new PropertyDescriptor(new ClrFunction(Engine, "isExtensible", IsExtensible, 1), PropertyFlags),
-            ["keys"] = new PropertyDescriptor(new ClrFunction(Engine, "keys", Keys, 1, LengthFlags), PropertyFlags),
-            ["values"] = new PropertyDescriptor(new ClrFunction(Engine, "values", Values, 1, LengthFlags), PropertyFlags),
-            ["setPrototypeOf"] = new PropertyDescriptor(new ClrFunction(Engine, "setPrototypeOf", SetPrototypeOf, 2, LengthFlags), PropertyFlags),
-            ["hasOwn"] = new PropertyDescriptor(new ClrFunction(Engine, "hasOwn", HasOwn, 2, LengthFlags), PropertyFlags),
-        };
-        SetProperties(properties);
+        CreateProperties_Generated();
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.assign
     /// </summary>
+    [JsFunction(Length = 2)]
     private JsValue Assign(JsValue thisObject, JsCallArguments arguments)
     {
         var to = TypeConverter.ToObject(_realm, arguments.At(0));
@@ -95,9 +67,10 @@ public sealed class ObjectConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.entries
     /// </summary>
-    private JsValue Entries(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue Entries(JsValue thisObject, JsValue value)
     {
-        var obj = TypeConverter.ToObject(_realm, arguments.At(0));
+        var obj = TypeConverter.ToObject(_realm, value);
         var nameList = obj.EnumerableOwnProperties(EnumerableOwnPropertyNamesKind.KeyValue);
         return nameList;
     }
@@ -105,15 +78,15 @@ public sealed class ObjectConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.fromentries
     /// </summary>
-    private JsValue FromEntries(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue FromEntries(JsValue thisObject, JsValue iterable)
     {
-        var iterable = arguments.At(0);
         TypeConverter.RequireObjectCoercible(_engine, iterable);
 
         var obj = _realm.Intrinsics.Object.Construct(0);
 
         var adder = CreateDataPropertyOnObject.Instance;
-        var iterator = arguments.At(0).GetIterator(_realm);
+        var iterator = iterable.GetIterator(_realm);
 
         IteratorProtocol.AddEntriesFromIterable(obj, iterator, adder);
 
@@ -123,9 +96,10 @@ public sealed class ObjectConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.is
     /// </summary>
-    private static JsValue Is(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private static JsValue Is(JsValue thisObject, JsValue value1, JsValue value2)
     {
-        return SameValue(arguments.At(0), arguments.At(1));
+        return SameValue(value1, value2);
     }
 
     /// <summary>
@@ -193,21 +167,21 @@ public sealed class ObjectConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.getprototypeof
     /// </summary>
-    public JsValue GetPrototypeOf(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    public JsValue GetPrototypeOf(JsValue thisObject, JsValue value)
     {
-        var obj = TypeConverter.ToObject(_realm, arguments.At(0));
+        var obj = TypeConverter.ToObject(_realm, value);
         return obj.Prototype ?? Null;
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.setprototypeof
     /// </summary>
-    private JsValue SetPrototypeOf(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private JsValue SetPrototypeOf(JsValue thisObject, JsValue oArg, JsValue prototype)
     {
-        var oArg = arguments.At(0);
         TypeConverter.RequireObjectCoercible(_engine, oArg);
 
-        var prototype = arguments.At(1);
         if (!prototype.IsObject() && !prototype.IsNull())
         {
             Throw.TypeError(_realm, $"Object prototype may only be an Object or null: {prototype}");
@@ -228,22 +202,22 @@ public sealed class ObjectConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.hasown
     /// </summary>
-    private JsValue HasOwn(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private JsValue HasOwn(JsValue thisObject, JsValue value, JsValue propertyKey)
     {
-        var o = TypeConverter.ToObject(_realm, arguments.At(0));
-        var property = TypeConverter.ToPropertyKey(arguments.At(1));
+        var o = TypeConverter.ToObject(_realm, value);
+        var property = TypeConverter.ToPropertyKey(propertyKey);
         return o.HasOwnProperty(property) ? JsBoolean.True : JsBoolean.False;
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.getownpropertydescriptor
     /// </summary>
-    internal JsValue GetOwnPropertyDescriptor(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    internal JsValue GetOwnPropertyDescriptor(JsValue thisObject, JsValue value, JsValue propertyKey)
     {
-        var o = TypeConverter.ToObject(_realm, arguments.At(0));
-
-        var p = arguments.At(1);
-        var name = TypeConverter.ToPropertyKey(p);
+        var o = TypeConverter.ToObject(_realm, value);
+        var name = TypeConverter.ToPropertyKey(propertyKey);
 
         var desc = o.GetOwnProperty(name);
         return PropertyDescriptor.FromPropertyDescriptor(Engine, desc);
@@ -252,9 +226,10 @@ public sealed class ObjectConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.getownpropertydescriptors
     /// </summary>
-    private JsValue GetOwnPropertyDescriptors(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue GetOwnPropertyDescriptors(JsValue thisObject, JsValue value)
     {
-        var o = TypeConverter.ToObject(_realm, arguments.At(0));
+        var o = TypeConverter.ToObject(_realm, value);
         var ownKeys = o.GetOwnPropertyKeys();
         var descriptors = _realm.Intrinsics.Object.Construct(0);
         foreach (var key in ownKeys)
@@ -272,9 +247,10 @@ public sealed class ObjectConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.getownpropertynames
     /// </summary>
-    private JsValue GetOwnPropertyNames(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue GetOwnPropertyNames(JsValue thisObject, JsValue value)
     {
-        var o = TypeConverter.ToObject(_realm, arguments.At(0));
+        var o = TypeConverter.ToObject(_realm, value);
         var names = o.GetOwnPropertyKeys(Types.String);
         return _realm.Intrinsics.Array.ConstructFast(names);
     }
@@ -282,9 +258,10 @@ public sealed class ObjectConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.getownpropertysymbols
     /// </summary>
-    private JsValue GetOwnPropertySymbols(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue GetOwnPropertySymbols(JsValue thisObject, JsValue value)
     {
-        var o = TypeConverter.ToObject(_realm, arguments.At(0));
+        var o = TypeConverter.ToObject(_realm, value);
         var keys = o.GetOwnPropertyKeys(Types.Symbol);
         return _realm.Intrinsics.Array.ConstructFast(keys);
     }
@@ -292,9 +269,9 @@ public sealed class ObjectConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.create
     /// </summary>
-    private JsValue Create(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private JsValue Create(JsValue thisObject, JsValue prototype, JsValue properties)
     {
-        var prototype = arguments.At(0);
         if (!prototype.IsObject() && !prototype.IsNull())
         {
             Throw.TypeError(_realm, "Object prototype may only be an Object or null: " + prototype);
@@ -303,7 +280,6 @@ public sealed class ObjectConstructor : Constructor
         var obj = Engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
         obj._prototype = prototype.IsNull() ? null : prototype.AsObject();
 
-        var properties = arguments.At(1);
         if (!properties.IsUndefined())
         {
             ObjectDefineProperties(obj, properties);
@@ -315,37 +291,36 @@ public sealed class ObjectConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.defineproperty
     /// </summary>
-    private JsValue DefineProperty(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 3)]
+    private JsValue DefineProperty(JsValue thisObject, JsValue value, JsValue propertyKey, JsValue attributes)
     {
-        if (arguments.At(0) is not ObjectInstance o)
+        if (value is not ObjectInstance o)
         {
             Throw.TypeError(_realm, "Object.defineProperty called on non-object");
             return null;
         }
 
-        var p = arguments.At(1);
-        var name = TypeConverter.ToPropertyKey(p);
+        var name = TypeConverter.ToPropertyKey(propertyKey);
 
-        var attributes = arguments.At(2);
         var desc = PropertyDescriptor.ToPropertyDescriptor(_realm, attributes);
 
         o.DefinePropertyOrThrow(name, desc);
 
-        return arguments.At(0);
+        return value;
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.defineproperties
     /// </summary>
-    private JsValue DefineProperties(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private JsValue DefineProperties(JsValue thisObject, JsValue value, JsValue properties)
     {
-        var o = arguments.At(0) as ObjectInstance;
+        var o = value as ObjectInstance;
         if (o is null)
         {
             Throw.TypeError(_realm, "Object.defineProperties called on non-object");
         }
 
-        var properties = arguments.At(1);
         return ObjectDefineProperties(o, properties);
     }
 
@@ -382,11 +357,12 @@ public sealed class ObjectConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.seal
     /// </summary>
-    private JsValue Seal(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue Seal(JsValue thisObject, JsValue value)
     {
-        if (arguments.At(0) is not ObjectInstance o)
+        if (value is not ObjectInstance o)
         {
-            return arguments.At(0);
+            return value;
         }
 
         var status = o.SetIntegrityLevel(IntegrityLevel.Sealed);
@@ -402,11 +378,12 @@ public sealed class ObjectConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.freeze
     /// </summary>
-    private JsValue Freeze(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue Freeze(JsValue thisObject, JsValue value)
     {
-        if (arguments.At(0) is not ObjectInstance o)
+        if (value is not ObjectInstance o)
         {
-            return arguments.At(0);
+            return value;
         }
 
         var status = o.SetIntegrityLevel(IntegrityLevel.Frozen);
@@ -422,11 +399,12 @@ public sealed class ObjectConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.preventextensions
     /// </summary>
-    private JsValue PreventExtensions(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue PreventExtensions(JsValue thisObject, JsValue value)
     {
-        if (arguments.At(0) is not ObjectInstance o)
+        if (value is not ObjectInstance o)
         {
-            return arguments.At(0);
+            return value;
         }
 
         if (!o.PreventExtensions())
@@ -440,9 +418,10 @@ public sealed class ObjectConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.issealed
     /// </summary>
-    private static JsValue IsSealed(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private static JsValue IsSealed(JsValue thisObject, JsValue value)
     {
-        if (arguments.At(0) is not ObjectInstance o)
+        if (value is not ObjectInstance o)
         {
             return JsBoolean.True;
         }
@@ -453,9 +432,10 @@ public sealed class ObjectConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.isfrozen
     /// </summary>
-    private static JsValue IsFrozen(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private static JsValue IsFrozen(JsValue thisObject, JsValue value)
     {
-        if (arguments.At(0) is not ObjectInstance o)
+        if (value is not ObjectInstance o)
         {
             return JsBoolean.True;
         }
@@ -499,9 +479,10 @@ public sealed class ObjectConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.isextensible
     /// </summary>
-    private static JsValue IsExtensible(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private static JsValue IsExtensible(JsValue thisObject, JsValue value)
     {
-        if (arguments.At(0) is not ObjectInstance o)
+        if (value is not ObjectInstance o)
         {
             return JsBoolean.False;
         }
@@ -512,28 +493,29 @@ public sealed class ObjectConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.keys
     /// </summary>
-    private JsValue Keys(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue Keys(JsValue thisObject, JsValue value)
     {
-        var o = TypeConverter.ToObject(_realm, arguments.At(0));
+        var o = TypeConverter.ToObject(_realm, value);
         return o.EnumerableOwnProperties(EnumerableOwnPropertyNamesKind.Key);
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.values
     /// </summary>
-    private JsValue Values(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue Values(JsValue thisObject, JsValue value)
     {
-        var o = TypeConverter.ToObject(_realm, arguments.At(0));
+        var o = TypeConverter.ToObject(_realm, value);
         return o.EnumerableOwnProperties(EnumerableOwnPropertyNamesKind.Value);
     }
 
     /// <summary>
     /// https://tc39.es/proposal-array-grouping/#sec-object.groupby
     /// </summary>
-    private JsValue GroupBy(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2)]
+    private JsValue GroupBy(JsValue thisObject, JsValue items, JsValue callbackfn)
     {
-        var items = arguments.At(0);
-        var callbackfn = arguments.At(1);
         var grouping = GroupByHelper.GroupBy(_engine, _realm, items, callbackfn, mapMode: false);
 
         var obj = OrdinaryObjectCreate(_engine, null);

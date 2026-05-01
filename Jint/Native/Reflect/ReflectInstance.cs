@@ -156,7 +156,7 @@ internal sealed partial class ReflectInstance : ObjectInstance
         {
             Throw.TypeError(_realm, "Reflect.getOwnPropertyDescriptor called on non-object");
         }
-        return _realm.Intrinsics.Object.GetOwnPropertyDescriptor(Undefined, [target, propertyKey]);
+        return _realm.Intrinsics.Object.GetOwnPropertyDescriptor(Undefined, target, propertyKey);
     }
 
     [JsFunction]
@@ -204,7 +204,7 @@ internal sealed partial class ReflectInstance : ObjectInstance
             Throw.TypeError(_realm, "Reflect.getPrototypeOf called on non-object");
         }
 
-        return _realm.Intrinsics.Object.GetPrototypeOf(Undefined, [target]);
+        return _realm.Intrinsics.Object.GetPrototypeOf(Undefined, target);
     }
 
     [JsFunction]
