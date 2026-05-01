@@ -88,15 +88,18 @@ internal static class Emitter
         sb.AppendLine("    private void CreateProperties_Generated()");
         sb.AppendLine("    {");
 
-        if (totalEntries == 0)
+        if (totalEntries == 0 && obj.ExtraCapacity == 0)
         {
             sb.AppendLine("        // no [JsFunction] / [JsProperty] / [JsAccessor] / [JsThrowerAccessor] members");
             sb.AppendLine("    }");
             return;
         }
 
+        // [JsObject(ExtraCapacity=N)] presizes the dictionary for post-CreateProperties_Generated
+        // SetProperty calls (e.g. cross-realm constructor refs in IntlInstance/TemporalInstance) so
+        // the dictionary doesn't grow + transition list→hash during init.
         sb.Append("        var properties = new global::Jint.Collections.HybridDictionary<global::Jint.Runtime.Descriptors.PropertyDescriptor>(")
-          .Append(totalEntries)
+          .Append(totalEntries + obj.ExtraCapacity)
           .AppendLine(", checkExistingKeys: false);");
 
         foreach (var prop in obj.Properties)

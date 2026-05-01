@@ -8,7 +8,10 @@ namespace Jint.Native.Intl;
 /// <summary>
 /// https://tc39.es/ecma402/#intl-object
 /// </summary>
-[JsObject]
+// ExtraCapacity = 10 covers the post-Initialize SetProperty calls below for the 10 sub-namespace
+// constructor refs (Collator/DateTimeFormat/.../Segmenter), which can't be expressed via [JsProperty]
+// because they read from _realm.Intrinsics.X (not generator-friendly).
+[JsObject(ExtraCapacity = 10)]
 internal sealed partial class IntlInstance : ObjectInstance
 {
     private readonly Realm _realm;

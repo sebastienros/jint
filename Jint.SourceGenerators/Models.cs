@@ -32,6 +32,7 @@ internal sealed record class ObjectDefinition(
     string Name,
     string Accessibility,
     bool IsSealed,
+    int ExtraCapacity,
     EquatableArray<FunctionDefinition> Functions,
     EquatableArray<PropertyDefinition> Properties,
     EquatableArray<SymbolDefinition> Symbols,
@@ -94,6 +95,17 @@ internal sealed record class ObjectDefinition(
         var ns = typeSymbol.ContainingNamespace.IsGlobalNamespace
             ? string.Empty
             : typeSymbol.ContainingNamespace.ToDisplayString();
+
+        // Read [JsObject(ExtraCapacity = N)] for hosts that add properties post-CreateProperties_Generated.
+        var extraCapacity = 0;
+        foreach (var attr in typeSymbol.GetAttributes())
+        {
+            if (attr.AttributeClass?.Name != "JsObjectAttribute") continue;
+            foreach (var named in attr.NamedArguments)
+            {
+                if (named.Key == "ExtraCapacity" && named.Value.Value is int v) extraCapacity = v;
+            }
+        }
 
         var functions = new List<FunctionDefinition>();
         var properties = new List<PropertyDefinition>();
@@ -288,6 +300,7 @@ internal sealed record class ObjectDefinition(
             Name: typeSymbol.Name,
             Accessibility: AccessibilityToString(typeSymbol.DeclaredAccessibility),
             IsSealed: typeSymbol.IsSealed,
+            ExtraCapacity: extraCapacity,
             Functions: functions.ToEquatableArray(),
             Properties: properties.ToEquatableArray(),
             Symbols: symbols.ToEquatableArray(),

@@ -8,6 +8,14 @@ namespace Jint;
 [global::System.Diagnostics.Conditional("JINT_SOURCE_GENERATORS")]
 internal sealed class JsObjectAttribute : global::System.Attribute
 {
+    /// <summary>
+    /// Extra capacity to add to the generated property dictionary's initial size, on top of the
+    /// statically declared [JsFunction]/[JsAccessor]/[JsProperty] entries. Use when the host's
+    /// Initialize() body adds further properties post-CreateProperties_Generated() (e.g. cross-realm
+    /// constructor references in IntlInstance / TemporalInstance) — presizes the HybridDictionary
+    /// to avoid the list→hash transition during init.
+    /// </summary>
+    public int ExtraCapacity { get; set; }
 }
 
 [global::System.AttributeUsage(global::System.AttributeTargets.Method)]

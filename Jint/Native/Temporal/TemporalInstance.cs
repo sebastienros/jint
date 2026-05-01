@@ -8,7 +8,9 @@ namespace Jint.Native.Temporal;
 /// The Temporal namespace object.
 /// https://tc39.es/proposal-temporal/#sec-temporal-objects
 /// </summary>
-[JsObject]
+// ExtraCapacity = 9 covers the post-Initialize SetProperty calls below for Duration/Instant/PlainDate/
+// PlainDateTime/PlainMonthDay/PlainTime/PlainYearMonth/ZonedDateTime/Now (cross-realm references).
+[JsObject(ExtraCapacity = 9)]
 internal sealed partial class TemporalInstance : ObjectInstance
 {
     private readonly Realm _realm;
@@ -26,6 +28,7 @@ internal sealed partial class TemporalInstance : ObjectInstance
 
     protected override void Initialize()
     {
+        CreateProperties_Generated();
         CreateSymbols_Generated();
 
         // Constructor references aren't generator-friendly (they pull from _realm.Intrinsics);
