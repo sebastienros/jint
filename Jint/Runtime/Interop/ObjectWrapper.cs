@@ -357,6 +357,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         var protoResult = Prototype?.Get(property, receiver) ?? Undefined;
         if (protoResult.IsUndefined()
             && property is JsString
+            && !_typeDescriptor.IsDictionary
             && _engine.Options.Interop.ThrowOnUnresolvedMember)
         {
             throw new MissingMemberException($"Cannot access property '{property}' on type '{ClrType.FullName}");

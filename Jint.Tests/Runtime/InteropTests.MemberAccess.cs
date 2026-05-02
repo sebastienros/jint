@@ -359,6 +359,45 @@ public partial class InteropTests
         engine.Invoking(e => e.Evaluate("obj.NewProperty = 5")).Should().Throw<MissingMemberException>();
     }
 
+    [Fact]
+    public void StrictAccessReturnsUndefinedForMissingDictionaryKey()
+    {
+        // dictionaries are key-value stores — missing keys return undefined even with strict access,
+        // matching ordinary JS object semantics (regression test for #2445)
+        var engine = new Engine(options => options.Interop.ThrowOnUnresolvedMember = true);
+        engine.SetValue("dict", new Dictionary<string, string> { ["Foo"] = "bar" });
+
+        engine.Evaluate("dict['Foo']").AsString().Should().Be("bar");
+        engine.Evaluate("dict['Missing']").Should().Be(JsValue.Undefined);
+
+        // real CLR members on the dictionary still resolve
+        engine.Evaluate("dict.Count").AsNumber().Should().Be(1);
+    }
+
+    [Fact]
+    public void StrictAccessReturnsUndefinedForMissingNonGenericDictionaryKey()
+    {
+        // covers the IsDictionary && !IsStringKeyedGenericDictionary branch (Hashtable etc.)
+        var engine = new Engine(options => options.Interop.ThrowOnUnresolvedMember = true);
+        var hashtable = new Hashtable { ["Foo"] = "bar" };
+        engine.SetValue("dict", hashtable);
+
+        engine.Evaluate("dict['Foo']").AsString().Should().Be("bar");
+        engine.Evaluate("dict['Missing']").Should().Be(JsValue.Undefined);
+    }
+
+    [Fact]
+    public void StrictAccessReturnsUndefinedForMissingReadOnlyDictionaryKey()
+    {
+        // IReadOnlyDictionary<string, T> goes through the same string-keyed-generic path
+        var engine = new Engine(options => options.Interop.ThrowOnUnresolvedMember = true);
+        IReadOnlyDictionary<string, int> dict = new Dictionary<string, int> { ["answer"] = 42 };
+        engine.SetValue("dict", dict);
+
+        engine.Evaluate("dict['answer']").AsNumber().Should().Be(42);
+        engine.Evaluate("dict['missing']").Should().Be(JsValue.Undefined);
+    }
+
     public class ClassWithPropertyToHide
     {
         public int x { get; set; } = 2;
