@@ -74,7 +74,7 @@ internal sealed partial class StringPrototype : StringInstance
     }
 
     [JsFunction(Name = "toString")]
-    private JsValue ToStringString(JsValue thisObject, JsCallArguments arguments)
+    private JsValue ToStringString(JsValue thisObject)
     {
         if (thisObject.IsString())
         {
@@ -164,7 +164,7 @@ internal sealed partial class StringPrototype : StringInstance
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [JsFunction]
     [RequireObjectCoercible]
-    private static JsValue Trim(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Trim(JsValue thisObject)
     {
         var s = TypeConverter.ToJsString(thisObject);
         if (s.Length == 0 || (!IsWhiteSpaceEx(s[0]) && !IsWhiteSpaceEx(s[s.Length - 1])))
@@ -179,7 +179,7 @@ internal sealed partial class StringPrototype : StringInstance
     /// </summary>
     [JsFunction]
     [RequireObjectCoercible]
-    private static JsValue TrimStart(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue TrimStart(JsValue thisObject)
     {
         var s = TypeConverter.ToJsString(thisObject);
         if (s.Length == 0 || !IsWhiteSpaceEx(s[0]))
@@ -194,7 +194,7 @@ internal sealed partial class StringPrototype : StringInstance
     /// </summary>
     [JsFunction]
     [RequireObjectCoercible]
-    private static JsValue TrimEnd(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue TrimEnd(JsValue thisObject)
     {
         var s = TypeConverter.ToJsString(thisObject);
         if (s.Length == 0 || !IsWhiteSpaceEx(s[s.Length - 1]))
@@ -236,7 +236,7 @@ internal sealed partial class StringPrototype : StringInstance
 
     [JsFunction]
     [RequireObjectCoercible]
-    private static JsValue ToUpperCase(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue ToUpperCase(JsValue thisObject)
     {
         var s = TypeConverter.ToString(thisObject);
         return new JsString(ToUpperCaseWithSpecialCasing(s, CultureInfo.InvariantCulture));
@@ -434,7 +434,7 @@ internal sealed partial class StringPrototype : StringInstance
 
     [JsFunction]
     [RequireObjectCoercible]
-    private static JsValue ToLowerCase(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue ToLowerCase(JsValue thisObject)
     {
         var s = TypeConverter.ToString(thisObject);
         return ToLowerCaseWithSpecialCasing(s, CultureInfo.InvariantCulture);
@@ -1632,7 +1632,7 @@ internal sealed partial class StringPrototype : StringInstance
     }
 
     [JsFunction]
-    private JsValue ValueOf(JsValue thisObject, JsCallArguments arguments)
+    private JsValue ValueOf(JsValue thisObject)
     {
         if (thisObject is StringInstance si)
         {
@@ -1873,7 +1873,7 @@ internal sealed partial class StringPrototype : StringInstance
 
     [JsFunction]
     [RequireObjectCoercible]
-    private static JsValue IsWellFormed(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue IsWellFormed(JsValue thisObject)
     {
         var s = TypeConverter.ToString(thisObject);
 
@@ -1882,7 +1882,7 @@ internal sealed partial class StringPrototype : StringInstance
 
     [JsFunction]
     [RequireObjectCoercible]
-    private static JsValue ToWellFormed(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue ToWellFormed(JsValue thisObject)
     {
         var s = TypeConverter.ToString(thisObject);
 

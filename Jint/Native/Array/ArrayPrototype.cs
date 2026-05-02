@@ -87,7 +87,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
     }
 
     [JsFunction]
-    private ObjectInstance Keys(JsValue thisObject, JsCallArguments arguments)
+    private ObjectInstance Keys(JsValue thisObject)
     {
         if (thisObject is ObjectInstance oi && oi.IsArrayLike)
         {
@@ -99,7 +99,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
     }
 
     [JsFunction]
-    internal ObjectInstance Values(JsValue thisObject, JsCallArguments arguments)
+    internal ObjectInstance Values(JsValue thisObject)
     {
         if (thisObject is ObjectInstance oi && oi.IsArrayLike)
         {
@@ -150,7 +150,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
     }
 
     [JsFunction]
-    private ObjectInstance Entries(JsValue thisObject, JsCallArguments arguments)
+    private ObjectInstance Entries(JsValue thisObject)
     {
         if (thisObject is ObjectInstance oi && oi.IsArrayLike)
         {
@@ -1302,7 +1302,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
     }
 
     [JsFunction]
-    private JsValue Shift(JsValue thisObject, JsCallArguments arguments)
+    private JsValue Shift(JsValue thisObject)
     {
         var o = ArrayOperations.For(_realm, thisObject, forWrite: true);
         var len = o.GetLength();
@@ -1336,7 +1336,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
     /// https://tc39.es/ecma262/#sec-array.prototype.reverse
     /// </summary>
     [JsFunction]
-    private JsValue Reverse(JsValue thisObject, JsCallArguments arguments)
+    private JsValue Reverse(JsValue thisObject)
     {
         var o = ArrayOperations.For(_realm, thisObject, forWrite: true);
         var len = o.GetLongLength();
@@ -1651,7 +1651,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
     }
 
     [JsFunction]
-    private JsValue ToReversed(JsValue thisObject, JsCallArguments arguments)
+    private JsValue ToReversed(JsValue thisObject)
     {
         var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
 
@@ -1907,7 +1907,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
     }
 
     [JsFunction]
-    public JsValue Pop(JsValue thisObject, JsCallArguments arguments)
+    public JsValue Pop(JsValue thisObject)
     {
         if (thisObject is JsArray { CanUseFastAccess: true } array)
         {

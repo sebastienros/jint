@@ -88,14 +88,14 @@ internal sealed partial class DateConstructor : Constructor
     }
 
     [JsFunction]
-    private JsValue Now(JsValue thisObject, JsCallArguments arguments)
+    private JsValue Now(JsValue thisObject)
     {
         return (long) (_timeSystem.GetUtcNow().DateTime - Epoch).TotalMilliseconds;
     }
 
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
-        return PrototypeObject.ToString(Construct(Arguments.Empty, thisObject), Arguments.Empty);
+        return PrototypeObject.ToString(Construct(Arguments.Empty, thisObject));
     }
 
     /// <summary>
