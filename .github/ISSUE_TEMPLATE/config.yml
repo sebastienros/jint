@@ -1,1 +1,14 @@
 blank_issues_enabled: false
+contact_links:
+  - name: Question / usage help — GitHub Discussions
+    url: https://github.com/sebastienros/jint/discussions
+    about: Ask how to do something with Jint. Discussions reach a wider audience than issues.
+  - name: Stack Overflow [jint]
+    url: https://stackoverflow.com/questions/tagged/jint
+    about: Searchable Q&A with the [jint] tag.
+  - name: Parser bug (Acornima)
+    url: https://github.com/adams85/acornima/issues
+    about: Jint uses Acornima for parsing. Pure parser bugs (syntax errors, AST issues) belong there.
+  - name: Report a security vulnerability
+    url: https://github.com/sebastienros/jint/security/advisories/new
+    about: Please report security issues privately, not as public issues.

@@ -1,0 +1,178 @@
+name: Bug report
+description: Report a defect in Jint so it can be reproduced and fixed.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report. To help us reproduce and fix the issue
+        quickly, please fill in every required field below. Issues missing version, repro, or
+        environment information are very hard to act on and may be closed with a request for more
+        detail.
+
+        - Have a usage question instead? Please use [Discussions](https://github.com/sebastienros/jint/discussions) or [Stack Overflow `[jint]`](https://stackoverflow.com/questions/tagged/jint).
+        - Believe you found a security vulnerability? Do **not** open a public issue. Use [Security Advisories](https://github.com/sebastienros/jint/security/advisories/new) instead.
+        - Pure parser bugs (syntax errors, AST issues) belong in [Acornima](https://github.com/adams85/acornima/issues) — Jint uses it for parsing.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Pre-flight checks
+      description: Please confirm all of the following before filing.
+      options:
+        - label: I have searched [open](https://github.com/sebastienros/jint/issues) and [closed](https://github.com/sebastienros/jint/issues?q=is%3Aissue+is%3Aclosed) issues and could not find a duplicate.
+          required: true
+        - label: I can reproduce this against the latest Jint release (or current `main`).
+          required: true
+        - label: I have confirmed the issue is in Jint, not in [Acornima](https://github.com/adams85/acornima) (the parser is external).
+          required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: A clear and concise description of what is going wrong.
+      placeholder: When I evaluate `[...]` with `Engine` configured `[...]` the engine `[...]`.
+    validations:
+      required: true
+
+  - type: textarea
+    id: js-repro
+    attributes:
+      label: Minimal JavaScript repro
+      description: |
+        The smallest JavaScript snippet that reproduces the bug. Prefer something runnable in
+        `Jint.Repl` (`echo "<code>" | dotnet run --project Jint.Repl --configuration Release -- -t 10`).
+      render: js
+      placeholder: |
+        var x = { a: 1 };
+        JSON.stringify(x);
+    validations:
+      required: true
+
+  - type: textarea
+    id: csharp-host
+    attributes:
+      label: C# host code
+      description: |
+        `Engine` setup, `Options` configuration, interop registrations, or a small xUnit test against
+        `main`. Required when the bug only reproduces with specific host configuration (CLR interop,
+        modules, constraints, custom converters, etc.).
+      render: csharp
+    validations:
+      required: false
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect Jint to do? If based on the ECMAScript spec or another engine, link the relevant section.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior / exception
+      description: What did Jint actually do? Include the full exception message and stack trace as text (not a screenshot) so it stays searchable.
+      render: text
+    validations:
+      required: true
+
+  - type: input
+    id: version-jint
+    attributes:
+      label: Jint version
+      description: The exact version from your project file or `dotnet list package`.
+      placeholder: e.g. 4.7.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: version-dotnet
+    attributes:
+      label: .NET runtime
+      options:
+        - net10.0
+        - net9.0
+        - net8.0
+        - net6.0 (out of support)
+        - .NET Framework 4.8 / 4.7.2
+        - .NET Standard 2.0/2.1 consumer
+        - Other (specify in Additional context)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - Linux
+        - macOS
+        - Container (Docker / Kubernetes)
+        - Other (specify in Additional context)
+    validations:
+      required: false
+
+  - type: dropdown
+    id: aot
+    attributes:
+      label: AOT / trimming
+      description: Does the bug only occur when AOT'd or trimmed?
+      options:
+        - "No — JIT, no trimming"
+        - NativeAOT
+        - ReadyToRun
+        - IL trimming enabled
+        - Not sure
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: engine-config
+    attributes:
+      label: Engine configuration
+      description: Select all that apply — these toggle the code paths involved.
+      options:
+        - label: CLR interop enabled (`AllowClr()`)
+        - label: Modules enabled (`EnableModules`)
+        - label: Strict mode
+        - label: Debugger enabled (`DebugMode` / `DebuggerStatementHandling`)
+        - label: Execution constraints set (`TimeoutInterval` / `LimitMemory` / `MaxStatements`)
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of Jint does this touch? Pick the closest match — it helps with triage labels.
+      options:
+        - CLR interop
+        - ECMAScript language / parser
+        - Modules
+        - Async / Promises
+        - Date / time
+        - Intl
+        - RegExp
+        - Debugger
+        - Performance
+        - Execution constraints
+        - Other (describe below)
+    validations:
+      required: false
+
+  - type: input
+    id: regression
+    attributes:
+      label: Regression?
+      description: If this used to work, what was the last Jint version that worked?
+      placeholder: e.g. worked in 4.6.0, broke in 4.7.0
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Anything else that might help — links to related issues, the ECMAScript spec, profiler output, etc.
+    validations:
+      required: false

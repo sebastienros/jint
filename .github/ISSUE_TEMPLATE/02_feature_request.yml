@@ -1,0 +1,86 @@
+name: Feature request
+description: Suggest a new feature, API addition, or behavior change.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for proposing an improvement. Jint tries to follow the ECMAScript specification
+        closely and keep its public API small and stable, so feature requests are most likely to
+        land when they include a clear problem statement and a concrete proposal. Please discuss
+        substantial changes here before opening a pull request.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Pre-flight checks
+      options:
+        - label: I have searched [open](https://github.com/sebastienros/jint/issues) and [closed](https://github.com/sebastienros/jint/issues?q=is%3Aissue+is%3Aclosed) issues and could not find an existing proposal.
+          required: true
+        - label: I have confirmed this is not already supported by Jint.
+          required: true
+        - label: For ECMAScript proposals — I have linked the [TC39 proposal](https://github.com/tc39/proposals) and noted its stage. Jint generally implements Stage 4 features.
+          required: false
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the use case and why the current API or behavior makes it hard. Concrete scenarios beat abstract wishes.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: |
+        Describe the API surface or behavior you would like. For new APIs, include a usage example.
+        For language features, link the relevant ECMAScript spec section or TC39 proposal.
+      render: csharp
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches you tried, workarounds you currently use, or designs you explicitly want to avoid.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      description: Which part of Jint would this touch? Pick the closest match.
+      options:
+        - CLR interop
+        - ECMAScript language / parser
+        - Modules
+        - Async / Promises
+        - Date / time
+        - Intl
+        - RegExp
+        - Debugger
+        - Performance
+        - Execution constraints
+        - Public API surface
+        - Other (describe in proposal)
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      options:
+        - label: I am willing to submit a pull request for this if the proposal is accepted.
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Links to prior art, related issues, the ECMAScript spec, or behavior in other engines (V8, SpiderMonkey, JavaScriptCore).
+    validations:
+      required: false
