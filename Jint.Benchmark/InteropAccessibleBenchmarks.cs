@@ -1,31 +1,26 @@
 using System.Reflection;
 using BenchmarkDotNet.Attributes;
+using Jint;
 using Jint.Native;
 
 namespace Jint.Benchmark;
 
 /// <summary>
-/// CLR interop bench. Gates [JsAccessible] (Phase 3 of the source-gen plan), which will replace
-/// the reflection-based PropertyAccessor / FieldAccessor / MethodDescriptor paths with directly-
-/// generated typed accessors and a pre-built TypeDescriptor seeded via [ModuleInitializer].
+/// CLR interop bench. Gates [JsAccessible] (Phase 3 of the source-gen plan), which replaces the
+/// reflection-based PropertyAccessor / FieldAccessor / MethodDescriptor paths with directly-
+/// generated typed accessors and registers them via [ModuleInitializer].
 ///
-/// Pre-Phase-3 baseline cost (per the runtime survey in plans/we-have-created-source-wise-falcon.md):
-///   - Property get/set: 2-5µs (PropertyInfo.GetValue/SetValue + boxing)
-///   - Method invocation (1-arg): 5-10µs (MethodInfo.Invoke + arg boxing)
-///   - Cold first-touch on a new CLR type: 50-200µs (TypeDescriptor reflection scan)
-///
-/// Phase 3 target: 30-80ns / 100-200ns / 0 respectively. This file establishes the baseline so
-/// PR9-10 can demonstrate the win.
-///
-/// The benchmark types live inside this class — same pattern as InteropBenchmark.Person —
-/// so when [JsAccessible] lands the same source files can grow `[JsAccessible]` on Player and
-/// the bench runs both paths.
+/// Scripts are pre-compiled with <see cref="Engine.PrepareScript"/> and executed via
+/// <see cref="Engine.Evaluate(Acornima.Prepared{Acornima.Ast.Script})"/> — the parse cost paid
+/// once at <c>GlobalSetup</c>. Per-iteration time isolates the property-access / method-invocation
+/// hot path, which is exactly what [JsAccessible] targets.
 /// </summary>
 [MemoryDiagnoser]
 public class InteropAccessibleBenchmarks
 {
     private const int OperationsPerInvoke = 1_000;
 
+    [JsAccessible]
     public sealed class Player
     {
         public int Score { get; set; }
@@ -40,6 +35,14 @@ public class InteropAccessibleBenchmarks
     private Engine _engineSet = null!;
     private Engine _engineMethod = null!;
     private Engine _engineMixed = null!;
+
+    private Prepared<Script> _scriptGetInt;
+    private Prepared<Script> _scriptGetString;
+    private Prepared<Script> _scriptGetBool;
+    private Prepared<Script> _scriptSetInt;
+    private Prepared<Script> _scriptInvokeOneArg;
+    private Prepared<Script> _scriptInvokeNoArgs;
+    private Prepared<Script> _scriptMixed;
 
     [GlobalSetup]
     public void GlobalSetup()
@@ -58,56 +61,67 @@ public class InteropAccessibleBenchmarks
         _engineMixed = new Engine(cfg => cfg.AllowClr(typeof(Player).GetTypeInfo().Assembly));
         _engineMixed.SetValue("p", new Player { Name = "dave", Score = 0, Alive = true });
 
+        _scriptGetInt = Engine.PrepareScript("p.Score");
+        _scriptGetString = Engine.PrepareScript("p.Name");
+        _scriptGetBool = Engine.PrepareScript("p.Alive");
+        _scriptSetInt = Engine.PrepareScript("p.Score = 1");
+        _scriptInvokeOneArg = Engine.PrepareScript("p.AddPoints(1)");
+        _scriptInvokeNoArgs = Engine.PrepareScript("p.Describe()");
+        _scriptMixed = Engine.PrepareScript("p.Name; p.Describe()");
+
         // Warm the access caches.
-        _engineGet.Execute("p.Score; p.Name; p.Alive");
-        _engineSet.Execute("p.Score = 1");
-        _engineMethod.Execute("p.AddPoints(1); p.Describe()");
-        _engineMixed.Execute("p.Score; p.AddPoints(1); p.Describe()");
+        _engineGet.Evaluate(_scriptGetInt);
+        _engineGet.Evaluate(_scriptGetString);
+        _engineGet.Evaluate(_scriptGetBool);
+        _engineSet.Evaluate(_scriptSetInt);
+        _engineMethod.Evaluate(_scriptInvokeOneArg);
+        _engineMethod.Evaluate(_scriptInvokeNoArgs);
+        _engineMixed.Evaluate(_scriptMixed);
     }
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
     public void PropertyGet_Int()
     {
-        for (var i = 0; i < OperationsPerInvoke; i++) _engineGet.Execute("p.Score");
+        for (var i = 0; i < OperationsPerInvoke; i++) _engineGet.Evaluate(_scriptGetInt);
     }
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
     public void PropertyGet_String()
     {
-        for (var i = 0; i < OperationsPerInvoke; i++) _engineGet.Execute("p.Name");
+        for (var i = 0; i < OperationsPerInvoke; i++) _engineGet.Evaluate(_scriptGetString);
     }
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
     public void PropertyGet_Bool()
     {
-        for (var i = 0; i < OperationsPerInvoke; i++) _engineGet.Execute("p.Alive");
+        for (var i = 0; i < OperationsPerInvoke; i++) _engineGet.Evaluate(_scriptGetBool);
     }
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
     public void PropertySet_Int()
     {
-        for (var i = 0; i < OperationsPerInvoke; i++) _engineSet.Execute("p.Score = 1");
+        for (var i = 0; i < OperationsPerInvoke; i++) _engineSet.Evaluate(_scriptSetInt);
     }
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
     public void MethodInvoke_OneArg()
     {
-        for (var i = 0; i < OperationsPerInvoke; i++) _engineMethod.Execute("p.AddPoints(1)");
+        for (var i = 0; i < OperationsPerInvoke; i++) _engineMethod.Evaluate(_scriptInvokeOneArg);
     }
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
     public void MethodInvoke_NoArgs()
     {
-        for (var i = 0; i < OperationsPerInvoke; i++) _engineMethod.Execute("p.Describe()");
+        for (var i = 0; i < OperationsPerInvoke; i++) _engineMethod.Evaluate(_scriptInvokeNoArgs);
     }
 
     /// <summary>Mixed get + method-invoke pattern — the realistic interop call site. The script
     /// reads p.Name (fast property get), then invokes p.Describe() (method call returning a string).
-    /// Both touch the reflection-based dispatch paths but neither mutates state, so the bench is
-    /// safe to run repeatedly without accumulating.</summary>
+    /// Both touch the dispatch paths but neither mutates state, so the bench is safe to run
+    /// repeatedly without accumulating.</summary>
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
     public void Mixed_GetMethodInvoke()
     {
-        for (var i = 0; i < OperationsPerInvoke; i++) _engineMixed.Execute("p.Name; p.Describe()");
+        for (var i = 0; i < OperationsPerInvoke; i++) _engineMixed.Evaluate(_scriptMixed);
     }
 }
