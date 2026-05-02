@@ -40,7 +40,7 @@ internal sealed partial class InstantConstructor : Constructor
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.instant.from
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsInstant From(JsValue thisObject, JsValue item)
     {
         return ToTemporalInstant(item);
@@ -49,7 +49,7 @@ internal sealed partial class InstantConstructor : Constructor
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.instant.fromepochmilliseconds
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsInstant FromEpochMilliseconds(JsValue thisObject, JsValue epochMilliseconds)
     {
         var ms = TypeConverter.ToNumber(epochMilliseconds);
@@ -78,7 +78,7 @@ internal sealed partial class InstantConstructor : Constructor
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.instant.fromepochnanoseconds
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsInstant FromEpochNanoseconds(JsValue thisObject, JsValue epochNanoseconds)
     {
         if (epochNanoseconds is not JsBigInt bigInt)
@@ -100,7 +100,7 @@ internal sealed partial class InstantConstructor : Constructor
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.instant.compare
     /// </summary>
-    [JsFunction(Length = 2)]
+    [JsFunction]
     private JsNumber Compare(JsValue thisObject, JsValue one, JsValue two)
     {
         return JsNumber.Create(

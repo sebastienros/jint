@@ -53,7 +53,7 @@ internal sealed partial class BigIntPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-bigint.prototype.valueof
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue ValueOf(JsValue thisObject)
     {
         if (thisObject is BigIntInstance ni)

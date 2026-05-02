@@ -1,17 +1,16 @@
 #pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of constructor methods return JsValue
 
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.TypedArray;
 
 /// <summary>
 /// https://tc39.es/ecma262/#sec-%typedarray%-intrinsic-object
 /// </summary>
-internal sealed class IntrinsicTypedArrayConstructor : Constructor
+[JsObject]
+internal sealed partial class IntrinsicTypedArrayConstructor : Constructor
 {
     internal IntrinsicTypedArrayConstructor(
         Engine engine,
@@ -30,34 +29,21 @@ internal sealed class IntrinsicTypedArrayConstructor : Constructor
 
     protected override void Initialize()
     {
-        var properties = new PropertyDictionary(2, false)
-        {
-            ["from"] = new(new PropertyDescriptor(new ClrFunction(Engine, "from", From, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable)),
-            ["of"] = new(new PropertyDescriptor(new ClrFunction(Engine, "of", Of, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable))
-        };
-        SetProperties(properties);
-
-        var symbols = new SymbolDictionary(1)
-        {
-            [GlobalSymbolRegistry.Species] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get [Symbol.species]", Species, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable)
-        };
-        SetSymbols(symbols);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%typedarray%.from
     /// </summary>
-    private JsValue From(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue From(JsValue thisObject, JsValue source, JsValue mapFunction, JsValue thisArg)
     {
         var c = thisObject;
         if (!c.IsConstructor)
         {
             Throw.TypeError(_realm, "Value is not a constructor");
         }
-
-        var source = arguments.At(0);
-        var mapFunction = arguments.At(1);
-        var thisArg = arguments.At(2);
 
         var mapping = !mapFunction.IsUndefined();
         if (mapping)
@@ -68,7 +54,7 @@ internal sealed class IntrinsicTypedArrayConstructor : Constructor
             }
         }
 
-        var usingIterator = GetMethod(_realm, source, GlobalSymbolRegistry.Iterator);
+        var usingIterator = GetMethod(_realm, source, Symbol.GlobalSymbolRegistry.Iterator);
         if (usingIterator is not null)
         {
             var values = TypedArrayConstructor.IterableToList(_realm, source, usingIterator);
@@ -123,9 +109,10 @@ internal sealed class IntrinsicTypedArrayConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%typedarray%.of
     /// </summary>
-    private JsValue Of(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction]
+    private JsValue Of(JsValue thisObject, [Rest] ReadOnlySpan<JsValue> items)
     {
-        var len = arguments.Length;
+        var len = items.Length;
 
         if (!thisObject.IsConstructor)
         {
@@ -134,12 +121,9 @@ internal sealed class IntrinsicTypedArrayConstructor : Constructor
 
         var newObj = TypedArrayCreate(_realm, (IConstructor) thisObject, [len]);
 
-        var k = 0;
-        while (k < len)
+        for (var k = 0; k < len; k++)
         {
-            var kValue = arguments[k];
-            newObj[k] = kValue;
-            k++;
+            newObj[k] = items[k];
         }
 
         return newObj;
@@ -184,10 +168,11 @@ internal sealed class IntrinsicTypedArrayConstructor : Constructor
         return taRecord.Object;
     }
 
-    private static JsValue Species(JsValue thisObject, JsCallArguments arguments)
-    {
-        return thisObject;
-    }
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-get-%typedarray%-@@species
+    /// </summary>
+    [JsSymbolAccessor("Species")]
+    private static JsValue Species(JsValue thisObject) => thisObject;
 
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {

@@ -76,7 +76,7 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.datetimeformat.prototype.formattoparts
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsArray FormatToParts(JsValue thisObject, JsValue dateValue)
     {
         var dateTimeFormat = ValidateDateTimeFormat(thisObject);
@@ -752,7 +752,7 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.datetimeformat.prototype.resolvedoptions
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsObject ResolvedOptions(JsValue thisObject)
     {
         var dateTimeFormat = ValidateDateTimeFormat(thisObject);
@@ -874,7 +874,7 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.datetimeformat.prototype.formatrange
     /// </summary>
-    [JsFunction(Length = 2)]
+    [JsFunction]
     private JsValue FormatRange(JsValue thisObject, JsValue startDate, JsValue endDate)
     {
         var dateTimeFormat = ValidateDateTimeFormat(thisObject);
@@ -962,7 +962,7 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.datetimeformat.prototype.formatrangetoparts
     /// </summary>
-    [JsFunction(Length = 2)]
+    [JsFunction]
     private JsArray FormatRangeToParts(JsValue thisObject, JsValue startDate, JsValue endDate)
     {
         var dateTimeFormat = ValidateDateTimeFormat(thisObject);

@@ -90,6 +90,6 @@ public sealed partial class ErrorConstructor : Constructor
     /// <summary>
     /// https://tc39.es/proposal-is-error/
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private static JsValue IsError(JsValue thisObject, JsValue arg) => arg is JsError;
 }

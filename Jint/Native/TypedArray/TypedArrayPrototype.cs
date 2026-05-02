@@ -1,3 +1,4 @@
+using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.TypedArray;
@@ -5,10 +6,14 @@ namespace Jint.Native.TypedArray;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-typedarray-prototype-objects
 /// </summary>
-internal sealed class TypedArrayPrototype : Prototype
+[JsObject]
+internal sealed partial class TypedArrayPrototype : Prototype
 {
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly TypedArrayConstructor _constructor;
-    private readonly TypedArrayElementType _arrayElementType;
+
+    [JsProperty(Name = "BYTES_PER_ELEMENT", Flags = PropertyFlag.AllForbidden)]
+    private readonly JsNumber _bytesPerElement;
 
     internal TypedArrayPrototype(
         Engine engine,
@@ -18,16 +23,8 @@ internal sealed class TypedArrayPrototype : Prototype
     {
         _prototype = objectPrototype;
         _constructor = constructor;
-        _arrayElementType = type;
+        _bytesPerElement = JsNumber.Create(type.GetElementSize());
     }
 
-    protected override void Initialize()
-    {
-        var properties = new PropertyDictionary(2, checkExistingKeys: false)
-        {
-            ["BYTES_PER_ELEMENT"] = new(JsNumber.Create(_arrayElementType.GetElementSize()), PropertyFlag.AllForbidden),
-            ["constructor"] = new(_constructor, PropertyFlag.NonEnumerable),
-        };
-        SetProperties(properties);
-    }
+    protected override void Initialize() => CreateProperties_Generated();
 }

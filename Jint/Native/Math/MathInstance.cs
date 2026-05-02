@@ -34,7 +34,7 @@ internal sealed partial class MathInstance : ObjectInstance
         CreateSymbols_Generated();
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private static JsValue Abs(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x))
@@ -53,7 +53,7 @@ internal sealed partial class MathInstance : ObjectInstance
         return System.Math.Abs(x);
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private static JsValue Acos(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x) || (x > 1) || (x < -1))
@@ -68,7 +68,7 @@ internal sealed partial class MathInstance : ObjectInstance
         return System.Math.Acos(x);
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private static JsValue Acosh(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x) || x < 1)
@@ -79,7 +79,7 @@ internal sealed partial class MathInstance : ObjectInstance
         return System.Math.Log(x + System.Math.Sqrt(x * x - 1.0));
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private static JsValue Asin(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x) || (x > 1) || (x < -1))
@@ -94,7 +94,7 @@ internal sealed partial class MathInstance : ObjectInstance
         return System.Math.Asin(x);
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private static JsValue Asinh(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsInfinity(x) || NumberInstance.IsPositiveZero(x) || NumberInstance.IsNegativeZero(x))
@@ -105,7 +105,7 @@ internal sealed partial class MathInstance : ObjectInstance
         return System.Math.Log(x + System.Math.Sqrt(x * x + 1.0));
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private static JsValue Atan(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x))
@@ -127,7 +127,7 @@ internal sealed partial class MathInstance : ObjectInstance
 
         return System.Math.Atan(x);
     }
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private static JsValue Atanh(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x))
@@ -143,7 +143,7 @@ internal sealed partial class MathInstance : ObjectInstance
         return 0.5 * System.Math.Log((1.0 + x) / (1.0 - x));
     }
 
-    [JsFunction(Length = 2)]
+    [JsFunction]
     private static JsValue Atan2(JsValue thisObject, [ToNumber] double y, [ToNumber] double x)
     {
         // If either x or y is NaN, the result is NaN.
@@ -289,7 +289,7 @@ internal sealed partial class MathInstance : ObjectInstance
         return System.Math.Atan2(y, x);
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private static JsValue Ceil(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x))
@@ -323,7 +323,7 @@ internal sealed partial class MathInstance : ObjectInstance
         return System.Math.Ceiling(x);
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private static JsValue Cos(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x))
@@ -346,7 +346,7 @@ internal sealed partial class MathInstance : ObjectInstance
         return System.Math.Cos(x);
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private static JsValue Cosh(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x))
@@ -369,7 +369,7 @@ internal sealed partial class MathInstance : ObjectInstance
         return System.Math.Cosh(x);
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private static JsValue Exp(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x))
@@ -392,7 +392,7 @@ internal sealed partial class MathInstance : ObjectInstance
         return System.Math.Exp(x);
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private static JsNumber Expm1(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x) || NumberInstance.IsPositiveZero(x) || NumberInstance.IsNegativeZero(x) || double.IsPositiveInfinity(x))
@@ -407,7 +407,7 @@ internal sealed partial class MathInstance : ObjectInstance
         return JsNumber.Create(System.Math.Exp(x) - 1.0);
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private static JsValue Floor(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x))
@@ -434,7 +434,7 @@ internal sealed partial class MathInstance : ObjectInstance
         return System.Math.Floor(x);
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private static JsValue Log(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x))
@@ -461,7 +461,7 @@ internal sealed partial class MathInstance : ObjectInstance
         return System.Math.Log(x);
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private static JsValue Log1p(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x))
@@ -487,7 +487,7 @@ internal sealed partial class MathInstance : ObjectInstance
         return System.Math.Log(1 + x);
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private static JsValue Log2(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x))
@@ -514,7 +514,7 @@ internal sealed partial class MathInstance : ObjectInstance
         return System.Math.Log(x, 2);
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private static JsValue Log10(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x))
@@ -623,7 +623,7 @@ internal sealed partial class MathInstance : ObjectInstance
         return lowest;
     }
 
-    [JsFunction(Length = 2)]
+    [JsFunction]
     private static JsValue Pow(JsValue thisObject, [ToNumber] double x, [ToNumber] double y)
     {
         // check easy case where values are valid
@@ -775,7 +775,7 @@ internal sealed partial class MathInstance : ObjectInstance
         return System.Math.Pow(x, y);
     }
 
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue Random(JsValue thisObject)
     {
         if (_random == null)
@@ -786,7 +786,7 @@ internal sealed partial class MathInstance : ObjectInstance
         return _random.NextDouble();
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private static JsValue Round(JsValue thisObject, [ToNumber] double x)
     {
         var round = System.Math.Round(x);
@@ -833,7 +833,7 @@ internal sealed partial class MathInstance : ObjectInstance
 #endif
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private static JsValue Sin(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x))
@@ -856,7 +856,7 @@ internal sealed partial class MathInstance : ObjectInstance
         return System.Math.Sin(x);
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private static JsValue Sinh(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x))
@@ -883,25 +883,25 @@ internal sealed partial class MathInstance : ObjectInstance
         return System.Math.Sinh(x);
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private static JsValue Sqrt(JsValue thisObject, [ToNumber] double x)
     {
         return System.Math.Sqrt(x);
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private static JsValue Tan(JsValue thisObject, [ToNumber] double x)
     {
         return System.Math.Tan(x);
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private static JsValue Tanh(JsValue thisObject, [ToNumber] double x)
     {
         return System.Math.Tanh(x);
     }
 
-    [JsFunction(Length = 1, Name = "trunc")]
+    [JsFunction(Name = "trunc")]
     private static JsValue Truncate(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x))
@@ -927,7 +927,7 @@ internal sealed partial class MathInstance : ObjectInstance
         return System.Math.Truncate(x);
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private static JsValue Sign(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x))
@@ -953,7 +953,7 @@ internal sealed partial class MathInstance : ObjectInstance
         return System.Math.Sign(x);
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private static JsValue Cbrt(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x))
@@ -1120,13 +1120,13 @@ internal sealed partial class MathInstance : ObjectInstance
         return Math.SumPrecise.Sum(sum);
     }
 
-    [JsFunction(Length = 2)]
+    [JsFunction]
     private static JsValue Imul(JsValue thisObject, [ToInt32] int x, [ToInt32] int y)
     {
         return x * y;
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private static JsValue Clz32(JsValue thisObject, [ToInt32] int x)
     {
         if (x < 0)

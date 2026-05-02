@@ -128,7 +128,7 @@ internal sealed partial class DataViewPrototype : Prototype
     }
 
     // 1-byte reads have no endianness; spec passes byteOffset only and Length is 1.
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue GetInt8(JsValue thisObject, JsValue byteOffset)
     {
         return GetViewValue(thisObject, byteOffset, JsBoolean.True, TypedArrayElementType.Int8);
@@ -146,7 +146,7 @@ internal sealed partial class DataViewPrototype : Prototype
         return GetViewValue(thisObject, byteOffset, littleEndian, TypedArrayElementType.Int32);
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue GetUint8(JsValue thisObject, JsValue byteOffset)
     {
         return GetViewValue(thisObject, byteOffset, JsBoolean.True, TypedArrayElementType.Uint8);
@@ -194,7 +194,7 @@ internal sealed partial class DataViewPrototype : Prototype
         return SetViewValue(thisObject, byteOffset, littleEndian, TypedArrayElementType.Float64, value);
     }
 
-    [JsFunction(Length = 2)]
+    [JsFunction]
     private JsValue SetInt8(JsValue thisObject, JsValue byteOffset, JsValue value)
     {
         return SetViewValue(thisObject, byteOffset, JsBoolean.True, TypedArrayElementType.Int8, value);
@@ -212,7 +212,7 @@ internal sealed partial class DataViewPrototype : Prototype
         return SetViewValue(thisObject, byteOffset, littleEndian, TypedArrayElementType.Int32, value);
     }
 
-    [JsFunction(Length = 2)]
+    [JsFunction]
     private JsValue SetUint8(JsValue thisObject, JsValue byteOffset, JsValue value)
     {
         return SetViewValue(thisObject, byteOffset, JsBoolean.True, TypedArrayElementType.Uint8, value);

@@ -38,7 +38,7 @@ internal sealed partial class GeneratorPrototype : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-generator.prototype.next
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private ObjectInstance Next(JsValue thisObject, JsValue value)
     {
         var g = AssertGeneratorInstance(thisObject);
@@ -48,7 +48,7 @@ internal sealed partial class GeneratorPrototype : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-generator.prototype.return
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Return(JsValue thisObject, JsValue value)
     {
         var g = AssertGeneratorInstance(thisObject);
@@ -59,7 +59,7 @@ internal sealed partial class GeneratorPrototype : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-generator.prototype.throw
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Throw(JsValue thisObject, JsValue exception)
     {
         var g = AssertGeneratorInstance(thisObject);

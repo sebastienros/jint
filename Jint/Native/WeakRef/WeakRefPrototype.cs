@@ -31,7 +31,7 @@ internal sealed partial class WeakRefPrototype : Prototype
         CreateSymbols_Generated();
     }
 
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue Deref(JsValue thisObject)
     {
         if (thisObject is JsWeakRef weakRef)

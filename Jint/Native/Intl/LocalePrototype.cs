@@ -45,7 +45,7 @@ internal sealed partial class LocalePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-Intl.Locale.prototype.maximize
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private ObjectInstance Maximize(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
@@ -60,7 +60,7 @@ internal sealed partial class LocalePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-Intl.Locale.prototype.minimize
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private ObjectInstance Minimize(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
@@ -74,7 +74,7 @@ internal sealed partial class LocalePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-Intl.Locale.prototype.toString
     /// </summary>
-    [JsFunction(Length = 0, Name = "toString")]
+    [JsFunction(Name = "toString")]
     private JsValue ToLocaleString(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
@@ -187,7 +187,7 @@ internal sealed partial class LocalePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-Intl.Locale.prototype.getCalendars
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsArray GetCalendars(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
@@ -202,7 +202,7 @@ internal sealed partial class LocalePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-Intl.Locale.prototype.getCollations
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsArray GetCollations(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
@@ -216,7 +216,7 @@ internal sealed partial class LocalePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-Intl.Locale.prototype.getHourCycles
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsArray GetHourCycles(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
@@ -236,7 +236,7 @@ internal sealed partial class LocalePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-Intl.Locale.prototype.getNumberingSystems
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsArray GetNumberingSystems(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
@@ -251,7 +251,7 @@ internal sealed partial class LocalePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-Intl.Locale.prototype.getTimeZones
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue GetTimeZones(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
@@ -293,7 +293,7 @@ internal sealed partial class LocalePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-Intl.Locale.prototype.getTextInfo
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsObject GetTextInfo(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
@@ -312,7 +312,7 @@ internal sealed partial class LocalePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-Intl.Locale.prototype.getWeekInfo
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsObject GetWeekInfo(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);

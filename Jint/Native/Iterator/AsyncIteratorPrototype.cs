@@ -363,35 +363,35 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
 
     // ---- Helper-returning methods ----
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private AsyncMapIterator Map(JsValue thisObject, JsValue mapperArg)
     {
         var o = ValidateThisAndGetCallable(thisObject, mapperArg, "map", out var mapper);
         return new AsyncMapIterator(_engine, GetIteratorDirect(o), mapper);
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private AsyncFilterIterator Filter(JsValue thisObject, JsValue predicateArg)
     {
         var o = ValidateThisAndGetCallable(thisObject, predicateArg, "filter", out var predicate);
         return new AsyncFilterIterator(_engine, GetIteratorDirect(o), predicate);
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private AsyncTakeIterator Take(JsValue thisObject, JsValue limitArg)
     {
         var o = ValidateThisAndGetLimit(thisObject, limitArg, "take", out var limit);
         return new AsyncTakeIterator(_engine, GetIteratorDirect(o), limit);
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private AsyncDropIterator Drop(JsValue thisObject, JsValue limitArg)
     {
         var o = ValidateThisAndGetLimit(thisObject, limitArg, "drop", out var limit);
         return new AsyncDropIterator(_engine, GetIteratorDirect(o), limit);
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private AsyncFlatMapIterator FlatMap(JsValue thisObject, JsValue mapperArg)
     {
         var o = ValidateThisAndGetCallable(thisObject, mapperArg, "flatMap", out var mapper);
@@ -464,7 +464,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
             counter: counter);
     }
 
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue ToArray(JsValue thisObject)
     {
         if (thisObject is not ObjectInstance o)
@@ -499,7 +499,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
             });
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue ForEach(JsValue thisObject, JsValue procedureArg)
     {
         var o = ValidateThisAndGetCallable(thisObject, procedureArg, "forEach", out var procedure);
@@ -513,7 +513,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
         return promiseCapability.PromiseInstance;
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Some(JsValue thisObject, JsValue predicateArg)
     {
         var o = ValidateThisAndGetCallable(thisObject, predicateArg, "some", out var predicate);
@@ -533,7 +533,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
         return promiseCapability.PromiseInstance;
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Every(JsValue thisObject, JsValue predicateArg)
     {
         var o = ValidateThisAndGetCallable(thisObject, predicateArg, "every", out var predicate);
@@ -553,7 +553,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
         return promiseCapability.PromiseInstance;
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Find(JsValue thisObject, JsValue predicateArg)
     {
         var o = ValidateThisAndGetCallable(thisObject, predicateArg, "find", out var predicate);

@@ -39,7 +39,7 @@ internal sealed partial class AsyncGeneratorPrototype : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-asyncgenerator-prototype-next
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Next(JsValue thisObject, JsValue value)
     {
         // Per spec: If generator is not valid, return a rejected promise
@@ -55,7 +55,7 @@ internal sealed partial class AsyncGeneratorPrototype : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-asyncgenerator-prototype-return
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Return(JsValue thisObject, JsValue value)
     {
         // Per spec: If generator is not valid, return a rejected promise
@@ -71,7 +71,7 @@ internal sealed partial class AsyncGeneratorPrototype : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-asyncgenerator-prototype-throw
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Throw(JsValue thisObject, JsValue exception)
     {
         // Per spec: If generator is not valid, return a rejected promise

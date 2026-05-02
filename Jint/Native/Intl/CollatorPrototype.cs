@@ -64,7 +64,7 @@ internal sealed partial class CollatorPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.collator.prototype.resolvedoptions
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsObject ResolvedOptions(JsValue thisObject)
     {
         var collator = ValidateCollator(thisObject);

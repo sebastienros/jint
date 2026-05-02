@@ -32,7 +32,7 @@ internal sealed partial class BigIntConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-bigint.asintn
     /// </summary>
-    [JsFunction(Length = 2)]
+    [JsFunction]
     private JsValue AsIntN(JsValue thisObject, JsValue bitsValue, JsValue bigintValue)
     {
         var bits = (int) TypeConverter.ToIndex(_realm, bitsValue);
@@ -50,7 +50,7 @@ internal sealed partial class BigIntConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-bigint.asuintn
     /// </summary>
-    [JsFunction(Length = 2)]
+    [JsFunction]
     private JsValue AsUintN(JsValue thisObject, JsValue bitsValue, JsValue bigintValue)
     {
         var bits = (int) TypeConverter.ToIndex(_realm, bitsValue);

@@ -47,7 +47,7 @@ internal sealed partial class SymbolPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-symbol.prototype.tostring
     /// </summary>
-    [JsFunction(Length = 0, Name = "toString")]
+    [JsFunction(Name = "toString")]
     private JsValue ToSymbolString(JsValue thisObject)
     {
         var sym = ThisSymbolValue(thisObject);
@@ -57,7 +57,7 @@ internal sealed partial class SymbolPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-symbol.prototype.valueof
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue ValueOf(JsValue thisObject)
     {
         return ThisSymbolValue(thisObject);

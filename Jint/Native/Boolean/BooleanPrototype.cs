@@ -28,7 +28,7 @@ internal sealed partial class BooleanPrototype : BooleanInstance
 
     protected override void Initialize() => CreateProperties_Generated();
 
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue ValueOf(JsValue thisObject)
     {
         if (thisObject._type == InternalTypes.Boolean)
@@ -45,7 +45,7 @@ internal sealed partial class BooleanPrototype : BooleanInstance
         return Undefined;
     }
 
-    [JsFunction(Length = 0, Name = "toString")]
+    [JsFunction(Name = "toString")]
     private JsString ToBooleanString(JsValue thisObject)
     {
         var b = ValueOf(thisObject);

@@ -45,7 +45,7 @@ internal sealed partial class SegmenterPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.segmenter.prototype.segment
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsSegments Segment(JsValue thisObject, JsValue input)
     {
         var segmenter = ValidateSegmenter(thisObject);
@@ -56,7 +56,7 @@ internal sealed partial class SegmenterPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.segmenter.prototype.resolvedoptions
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsObject ResolvedOptions(JsValue thisObject)
     {
         var segmenter = ValidateSegmenter(thisObject);

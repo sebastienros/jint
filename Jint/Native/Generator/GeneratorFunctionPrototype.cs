@@ -1,6 +1,5 @@
-﻿using Jint.Native.Function;
+using Jint.Native.Function;
 using Jint.Native.Iterator;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
@@ -9,9 +8,17 @@ namespace Jint.Native.Generator;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-the-generatorfunction-prototype-object
 /// </summary>
-internal sealed class GeneratorFunctionPrototype : Prototype
+[JsObject]
+internal sealed partial class GeneratorFunctionPrototype : Prototype
 {
-    private readonly GeneratorFunctionConstructor? _constructor;
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.Configurable)]
+    private readonly GeneratorFunctionConstructor _constructor;
+
+    [JsProperty(Name = "prototype", Flags = PropertyFlag.Configurable)]
+    private readonly GeneratorPrototype _prototypeObject;
+
+    [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)]
+    private static readonly JsString ToStringTagValue = new("GeneratorFunction");
 
     internal GeneratorFunctionPrototype(
         Engine engine,
@@ -21,23 +28,14 @@ internal sealed class GeneratorFunctionPrototype : Prototype
     {
         _constructor = constructor;
         _prototype = prototype;
-        PrototypeObject = new GeneratorPrototype(engine, engine.Realm, this, iteratorPrototype);
+        _prototypeObject = new GeneratorPrototype(engine, engine.Realm, this, iteratorPrototype);
     }
 
-    public GeneratorPrototype PrototypeObject { get; }
+    public GeneratorPrototype PrototypeObject => _prototypeObject;
 
     protected override void Initialize()
     {
-        var properties = new PropertyDictionary(2, checkExistingKeys: false)
-        {
-            [KnownKeys.Constructor] = new PropertyDescriptor(_constructor, PropertyFlag.Configurable),
-            [KnownKeys.Prototype] = new PropertyDescriptor(PrototypeObject, PropertyFlag.Configurable)
-        };
-        SetProperties(properties);
-        var symbols = new SymbolDictionary(1)
-        {
-            [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("GeneratorFunction", PropertyFlag.Configurable)
-        };
-        SetSymbols(symbols);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
     }
 }

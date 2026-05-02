@@ -26,7 +26,7 @@ internal sealed partial class StringIteratorPrototype : IteratorPrototype
         CreateSymbols_Generated();
     }
 
-    [JsFunction(Length = 0, Name = "next")]
+    [JsFunction(Name = "next")]
     private JsValue NextHandler(JsValue thisObject) => Next(thisObject, Arguments.Empty);
 
     public ObjectInstance Construct(string str)

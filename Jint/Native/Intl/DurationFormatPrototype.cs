@@ -47,7 +47,7 @@ internal sealed partial class DurationFormatPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-intl-duration-format/#sec-intl.durationformat.prototype.format
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Format(JsValue thisObject, JsValue duration)
     {
         var durationFormat = ValidateDurationFormat(thisObject);
@@ -58,7 +58,7 @@ internal sealed partial class DurationFormatPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-intl-duration-format/#sec-intl.durationformat.prototype.formattoparts
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsArray FormatToParts(JsValue thisObject, JsValue duration)
     {
         var durationFormat = ValidateDurationFormat(thisObject);
@@ -69,7 +69,7 @@ internal sealed partial class DurationFormatPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-intl-duration-format/#sec-intl.durationformat.prototype.resolvedoptions
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsObject ResolvedOptions(JsValue thisObject)
     {
         var durationFormat = ValidateDurationFormat(thisObject);

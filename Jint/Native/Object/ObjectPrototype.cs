@@ -86,7 +86,7 @@ public sealed partial class ObjectPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.prototype.__defineGetter__
     /// </summary>
-    [JsFunction(Length = 2, Name = "__defineGetter__")]
+    [JsFunction(Name = "__defineGetter__")]
     private JsValue DefineGetter(JsValue thisObject, JsValue p, JsValue getter)
     {
         var o = TypeConverter.ToObject(_realm, thisObject);
@@ -106,7 +106,7 @@ public sealed partial class ObjectPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.prototype.__defineSetter__
     /// </summary>
-    [JsFunction(Length = 2, Name = "__defineSetter__")]
+    [JsFunction(Name = "__defineSetter__")]
     private JsValue DefineSetter(JsValue thisObject, JsValue p, JsValue setter)
     {
         var o = TypeConverter.ToObject(_realm, thisObject);
@@ -126,7 +126,7 @@ public sealed partial class ObjectPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.prototype.__lookupGetter__
     /// </summary>
-    [JsFunction(Length = 1, Name = "__lookupGetter__")]
+    [JsFunction(Name = "__lookupGetter__")]
     private JsValue LookupGetter(JsValue thisObject, JsValue p)
     {
         var o = TypeConverter.ToObject(_realm, thisObject);
@@ -155,7 +155,7 @@ public sealed partial class ObjectPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.prototype.__lookupSetter__
     /// </summary>
-    [JsFunction(Length = 1, Name = "__lookupSetter__")]
+    [JsFunction(Name = "__lookupSetter__")]
     private JsValue LookupSetter(JsValue thisObject, JsValue p)
     {
         var o = TypeConverter.ToObject(_realm, thisObject);
@@ -181,7 +181,7 @@ public sealed partial class ObjectPrototype : Prototype
         }
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue PropertyIsEnumerable(JsValue thisObject, JsValue v)
     {
         var p = TypeConverter.ToPropertyKey(v);
@@ -194,14 +194,14 @@ public sealed partial class ObjectPrototype : Prototype
         return desc.Enumerable;
     }
 
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue ValueOf(JsValue thisObject)
     {
         var o = TypeConverter.ToObject(_realm, thisObject);
         return o;
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue IsPrototypeOf(JsValue thisObject, JsValue arg)
     {
         if (!arg.IsObject())
@@ -231,7 +231,7 @@ public sealed partial class ObjectPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.prototype.tolocalestring
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue ToLocaleString(JsValue thisObject)
     {
         return Invoke(thisObject, "toString", []);
@@ -240,7 +240,7 @@ public sealed partial class ObjectPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.prototype.tostring
     /// </summary>
-    [JsFunction(Length = 0, Name = "toString")]
+    [JsFunction(Name = "toString")]
     internal JsValue ToObjectString(JsValue thisObject)
     {
         if (thisObject.IsUndefined())
@@ -279,7 +279,7 @@ public sealed partial class ObjectPrototype : Prototype
     /// <summary>
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.2.4.5
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue HasOwnProperty(JsValue thisObject, JsValue v)
     {
         var p = TypeConverter.ToPropertyKey(v);

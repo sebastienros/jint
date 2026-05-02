@@ -35,14 +35,14 @@ internal sealed partial class AsyncDisposableStackPrototype : Prototype
         SetProperty(GlobalSymbolRegistry.AsyncDispose, GetOwnProperty("disposeAsync"));
     }
 
-    [JsFunction(Length = 2)]
+    [JsFunction]
     private JsValue Adopt(JsValue thisObject, JsValue value, JsValue onDispose)
     {
         var stack = AssertDisposableStack(thisObject);
         return stack.Adopt(value, onDispose);
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Defer(JsValue thisObject, JsValue onDispose)
     {
         var stack = AssertDisposableStack(thisObject);
@@ -50,7 +50,7 @@ internal sealed partial class AsyncDisposableStackPrototype : Prototype
         return Undefined;
     }
 
-    [JsFunction(Length = 0, Name = "disposeAsync")]
+    [JsFunction(Name = "disposeAsync")]
     private JsValue Dispose(JsValue thisObject)
     {
         // Per spec: create promise capability first, then validate receiver.
@@ -76,7 +76,7 @@ internal sealed partial class AsyncDisposableStackPrototype : Prototype
         return stack.State == DisposableState.Disposed ? JsBoolean.True : JsBoolean.False;
     }
 
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue Move(JsValue thisObject)
     {
         var stack = AssertDisposableStack(thisObject);
@@ -88,7 +88,7 @@ internal sealed partial class AsyncDisposableStackPrototype : Prototype
         return stack.Move(newDisposableStack);
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Use(JsValue thisObject, JsValue value)
     {
         var stack = AssertDisposableStack(thisObject);

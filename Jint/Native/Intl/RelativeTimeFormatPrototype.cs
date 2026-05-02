@@ -47,7 +47,7 @@ internal sealed partial class RelativeTimeFormatPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.relativetimeformat.prototype.format
     /// </summary>
-    [JsFunction(Length = 2)]
+    [JsFunction]
     private JsValue Format(JsValue thisObject, JsValue value, JsValue unit)
     {
         var relativeTimeFormat = ValidateRelativeTimeFormat(thisObject);
@@ -71,7 +71,7 @@ internal sealed partial class RelativeTimeFormatPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.relativetimeformat.prototype.formattoparts
     /// </summary>
-    [JsFunction(Length = 2)]
+    [JsFunction]
     private JsArray FormatToParts(JsValue thisObject, JsValue value, JsValue unit)
     {
         var relativeTimeFormat = ValidateRelativeTimeFormat(thisObject);
@@ -95,7 +95,7 @@ internal sealed partial class RelativeTimeFormatPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.relativetimeformat.prototype.resolvedoptions
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsObject ResolvedOptions(JsValue thisObject)
     {
         var relativeTimeFormat = ValidateRelativeTimeFormat(thisObject);

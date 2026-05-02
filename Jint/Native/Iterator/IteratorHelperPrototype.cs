@@ -26,7 +26,7 @@ internal sealed partial class IteratorHelperPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%iteratorhelperprototype%.next
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue Next(JsValue thisObject)
     {
         // 1. Return ? GeneratorResume(this value, undefined, "Iterator Helper").
@@ -52,7 +52,7 @@ internal sealed partial class IteratorHelperPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%iteratorhelperprototype%.return
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue Return(JsValue thisObject)
     {
         // 1. Let O be this value.

@@ -37,7 +37,7 @@ internal sealed partial class SharedArrayBufferConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-arraybuffer.isview
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private static JsValue IsView(JsValue thisObject, JsValue arg)
     {
         return arg is JsDataView or JsTypedArray;

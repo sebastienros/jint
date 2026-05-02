@@ -229,7 +229,7 @@ internal sealed partial class AtomicsInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-atomics.add
     /// </summary>
-    [JsFunction(Length = 3)]
+    [JsFunction]
     private JsValue Add(JsValue thisObject, JsValue typedArray, JsValue index, JsValue value)
     {
         return AtomicReadModifyWrite(typedArray, index, value, AtomicOperation.Add);
@@ -238,7 +238,7 @@ internal sealed partial class AtomicsInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-atomics.and
     /// </summary>
-    [JsFunction(Length = 3)]
+    [JsFunction]
     private JsValue And(JsValue thisObject, JsValue typedArray, JsValue index, JsValue value)
     {
         return AtomicReadModifyWrite(typedArray, index, value, AtomicOperation.And);
@@ -247,7 +247,7 @@ internal sealed partial class AtomicsInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-atomics.compareexchange
     /// </summary>
-    [JsFunction(Length = 4)]
+    [JsFunction]
     private JsValue CompareExchange(JsValue thisObject, JsValue typedArray, JsValue index, JsValue expectedValue, JsValue replacementValue)
     {
         var taRecord = ValidateIntegerTypedArray(typedArray);
@@ -274,7 +274,7 @@ internal sealed partial class AtomicsInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-atomics.exchange
     /// </summary>
-    [JsFunction(Length = 3)]
+    [JsFunction]
     private JsValue Exchange(JsValue thisObject, JsValue typedArray, JsValue index, JsValue value)
     {
         return AtomicReadModifyWrite(typedArray, index, value, AtomicOperation.Exchange);
@@ -283,7 +283,7 @@ internal sealed partial class AtomicsInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-atomics.islockfree
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private static JsValue IsLockFree(JsValue thisObject, JsValue size)
     {
         var n = TypeConverter.ToIntegerOrInfinity(size);
@@ -303,7 +303,7 @@ internal sealed partial class AtomicsInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-atomics.load
     /// </summary>
-    [JsFunction(Length = 2)]
+    [JsFunction]
     private JsValue Load(JsValue thisObject, JsValue typedArray, JsValue index)
     {
         var taRecord = ValidateIntegerTypedArray(typedArray);
@@ -317,7 +317,7 @@ internal sealed partial class AtomicsInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-atomics.notify
     /// </summary>
-    [JsFunction(Length = 3)]
+    [JsFunction]
     private JsValue Notify(JsValue thisObject, JsValue typedArray, JsValue index, JsValue count)
     {
         var taRecord = ValidateIntegerTypedArray(typedArray, waitable: true);
@@ -366,7 +366,7 @@ internal sealed partial class AtomicsInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-atomics.or
     /// </summary>
-    [JsFunction(Length = 3)]
+    [JsFunction]
     private JsValue Or(JsValue thisObject, JsValue typedArray, JsValue index, JsValue value)
     {
         return AtomicReadModifyWrite(typedArray, index, value, AtomicOperation.Or);
@@ -410,7 +410,7 @@ internal sealed partial class AtomicsInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-atomics.store
     /// </summary>
-    [JsFunction(Length = 3)]
+    [JsFunction]
     private JsValue Store(JsValue thisObject, JsValue typedArray, JsValue index, JsValue value)
     {
         var taRecord = ValidateIntegerTypedArray(typedArray);
@@ -445,7 +445,7 @@ internal sealed partial class AtomicsInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-atomics.sub
     /// </summary>
-    [JsFunction(Length = 3)]
+    [JsFunction]
     private JsValue Sub(JsValue thisObject, JsValue typedArray, JsValue index, JsValue value)
     {
         return AtomicReadModifyWrite(typedArray, index, value, AtomicOperation.Sub);
@@ -454,7 +454,7 @@ internal sealed partial class AtomicsInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-atomics.wait
     /// </summary>
-    [JsFunction(Length = 4)]
+    [JsFunction]
     private JsValue Wait(JsValue thisObject, JsValue typedArray, JsValue index, JsValue value, JsValue timeout)
     {
         var taRecord = ValidateIntegerTypedArray(typedArray, waitable: true, requireShared: true);
@@ -577,7 +577,7 @@ internal sealed partial class AtomicsInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-atomics.waitasync
     /// </summary>
-    [JsFunction(Length = 4)]
+    [JsFunction]
     private JsValue WaitAsync(JsValue thisObject, JsValue typedArray, JsValue index, JsValue value, JsValue timeout)
     {
         var taRecord = ValidateIntegerTypedArray(typedArray, waitable: true, requireShared: true);
@@ -696,7 +696,7 @@ internal sealed partial class AtomicsInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-atomics.xor
     /// </summary>
-    [JsFunction(Length = 3)]
+    [JsFunction]
     private JsValue Xor(JsValue thisObject, JsValue typedArray, JsValue index, JsValue value)
     {
         return AtomicReadModifyWrite(typedArray, index, value, AtomicOperation.Xor);

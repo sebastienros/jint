@@ -4,9 +4,17 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.SuppressedError;
 
-internal sealed class SuppressedErrorPrototype : Prototype
+[JsObject]
+internal sealed partial class SuppressedErrorPrototype : Prototype
 {
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly SuppressedErrorConstructor _constructor;
+
+    [JsProperty(Name = "message", Flags = PropertyFlag.NonEnumerable)]
+    private static readonly JsString MessageDefault = JsString.Empty;
+
+    [JsProperty(Name = "name", Flags = PropertyFlag.NonEnumerable)]
+    private static readonly JsString NameValue = new("SuppressedError");
 
     internal SuppressedErrorPrototype(
         Engine engine,
@@ -19,14 +27,5 @@ internal sealed class SuppressedErrorPrototype : Prototype
         _prototype = prototype;
     }
 
-    protected override void Initialize()
-    {
-        var properties = new PropertyDictionary(3, checkExistingKeys: false)
-        {
-            ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
-            ["message"] = new PropertyDescriptor(JsString.Empty, PropertyFlag.Configurable | PropertyFlag.Writable),
-            ["name"] = new PropertyDescriptor("SuppressedError", PropertyFlag.Configurable | PropertyFlag.Writable),
-        };
-        SetProperties(properties);
-    }
+    protected override void Initialize() => CreateProperties_Generated();
 }

@@ -46,14 +46,14 @@ internal sealed partial class MapPrototype : Prototype
         return JsNumber.Create(0);
     }
 
-    [JsFunction(Length = 1, Name = "get")]
+    [JsFunction(Name = "get")]
     private JsValue MapGet(JsValue thisObject, JsValue key)
     {
         var map = AssertMapInstance(thisObject);
         return map.Get(key);
     }
 
-    [JsFunction(Length = 2)]
+    [JsFunction]
     private JsValue GetOrInsert(JsValue thisObject, JsValue key, JsValue value)
     {
         var map = AssertMapInstance(thisObject);
@@ -61,7 +61,7 @@ internal sealed partial class MapPrototype : Prototype
         return map.GetOrInsert(checkedKey, value);
     }
 
-    [JsFunction(Length = 2)]
+    [JsFunction]
     private JsValue GetOrInsertComputed(JsValue thisObject, JsValue key, JsValue callbackfn)
     {
         var map = AssertMapInstance(thisObject);
@@ -70,7 +70,7 @@ internal sealed partial class MapPrototype : Prototype
         return map.GetOrInsertComputed(checkedKey, callable);
     }
 
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue Clear(JsValue thisObject)
     {
         var map = AssertMapInstance(thisObject);
@@ -78,7 +78,7 @@ internal sealed partial class MapPrototype : Prototype
         return Undefined;
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Delete(JsValue thisObject, JsValue key)
     {
         var map = AssertMapInstance(thisObject);
@@ -87,7 +87,7 @@ internal sealed partial class MapPrototype : Prototype
             : JsBoolean.False;
     }
 
-    [JsFunction(Length = 2, Name = "set")]
+    [JsFunction(Name = "set")]
     private JsValue MapSet(JsValue thisObject, JsValue key, JsValue value)
     {
         var map = AssertMapInstance(thisObject);
@@ -95,7 +95,7 @@ internal sealed partial class MapPrototype : Prototype
         return thisObject;
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Has(JsValue thisObject, JsValue key)
     {
         var map = AssertMapInstance(thisObject);
@@ -115,21 +115,21 @@ internal sealed partial class MapPrototype : Prototype
         return Undefined;
     }
 
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private ObjectInstance Entries(JsValue thisObject)
     {
         var map = AssertMapInstance(thisObject);
         return map.Iterator();
     }
 
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private ObjectInstance Keys(JsValue thisObject)
     {
         var map = AssertMapInstance(thisObject);
         return map.Keys();
     }
 
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private ObjectInstance Values(JsValue thisObject)
     {
         var map = AssertMapInstance(thisObject);

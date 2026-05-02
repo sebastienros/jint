@@ -23,7 +23,7 @@ internal sealed partial class AsyncIteratorHelperPrototype : Prototype
     /// <summary>
     /// %AsyncIteratorHelperPrototype%.next()
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue Next(JsValue thisObject)
     {
         if (thisObject is AsyncIteratorHelper helper)
@@ -38,7 +38,7 @@ internal sealed partial class AsyncIteratorHelperPrototype : Prototype
     /// <summary>
     /// %AsyncIteratorHelperPrototype%.return()
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue Return(JsValue thisObject)
     {
         if (thisObject is AsyncIteratorHelper helper)

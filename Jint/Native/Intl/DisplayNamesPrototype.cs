@@ -45,7 +45,7 @@ internal sealed partial class DisplayNamesPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.displaynames.prototype.of
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Of(JsValue thisObject, JsValue code)
     {
         var displayNames = ValidateDisplayNames(thisObject);
@@ -387,7 +387,7 @@ internal sealed partial class DisplayNamesPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.displaynames.prototype.resolvedoptions
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsObject ResolvedOptions(JsValue thisObject)
     {
         var displayNames = ValidateDisplayNames(thisObject);

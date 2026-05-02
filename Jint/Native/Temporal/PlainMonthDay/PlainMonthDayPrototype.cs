@@ -215,7 +215,7 @@ internal sealed partial class PlainMonthDayPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plainmonthday.prototype.equals
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsBoolean Equals(JsValue thisObject, JsValue other)
     {
         var md = ValidatePlainMonthDay(thisObject);
@@ -277,7 +277,7 @@ internal sealed partial class PlainMonthDayPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plainmonthday.prototype.tojson
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsString ToJSON(JsValue thisObject)
     {
         var md = ValidatePlainMonthDay(thisObject);
@@ -316,7 +316,7 @@ internal sealed partial class PlainMonthDayPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plainmonthday.prototype.valueof
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue ValueOf(JsValue thisObject)
     {
         Throw.TypeError(_realm, "Temporal.PlainMonthDay cannot be converted to a primitive value");
@@ -326,7 +326,7 @@ internal sealed partial class PlainMonthDayPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plainmonthday.prototype.toplaindate
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsPlainDate ToPlainDate(JsValue thisObject, JsValue item)
     {
         var md = ValidatePlainMonthDay(thisObject);

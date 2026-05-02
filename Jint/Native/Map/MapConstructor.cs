@@ -81,7 +81,7 @@ public sealed partial class MapConstructor : Constructor
     /// <summary>
     /// https://tc39.es/proposal-array-grouping/#sec-map.groupby
     /// </summary>
-    [JsFunction(Length = 2)]
+    [JsFunction]
     private JsValue GroupBy(JsValue thisObject, JsValue items, JsValue callbackfn)
     {
         var grouping = GroupByHelper.GroupBy(_engine, _realm, items, callbackfn, mapMode: true);

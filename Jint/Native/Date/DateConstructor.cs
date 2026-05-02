@@ -87,7 +87,7 @@ internal sealed partial class DateConstructor : Constructor
         return finalDate.TimeClip().ToJsValue();
     }
 
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue Now(JsValue thisObject, JsCallArguments arguments)
     {
         return (long) (_timeSystem.GetUtcNow().DateTime - Epoch).TotalMilliseconds;

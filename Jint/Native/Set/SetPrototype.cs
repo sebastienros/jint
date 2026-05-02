@@ -48,7 +48,7 @@ internal sealed partial class SetPrototype : Prototype
         return JsNumber.Create(0);
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Add(JsValue thisObject, JsValue value)
     {
         var set = AssertSetInstance(thisObject);
@@ -60,7 +60,7 @@ internal sealed partial class SetPrototype : Prototype
         return thisObject;
     }
 
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue Clear(JsValue thisObject)
     {
         var set = AssertSetInstance(thisObject);
@@ -68,7 +68,7 @@ internal sealed partial class SetPrototype : Prototype
         return Undefined;
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsBoolean Delete(JsValue thisObject, JsValue value)
     {
         var set = AssertSetInstance(thisObject);
@@ -77,7 +77,7 @@ internal sealed partial class SetPrototype : Prototype
             : JsBoolean.False;
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsSet Difference(JsValue thisObject, JsValue other)
     {
         var set = AssertSetInstance(thisObject);
@@ -137,7 +137,7 @@ internal sealed partial class SetPrototype : Prototype
         return resultSetData;
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsBoolean IsDisjointFrom(JsValue thisObject, JsValue other)
     {
         var set = AssertSetInstance(thisObject);
@@ -191,7 +191,7 @@ internal sealed partial class SetPrototype : Prototype
     }
 
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsSet Intersection(JsValue thisObject, JsValue other)
     {
         var set = AssertSetInstance(thisObject);
@@ -260,7 +260,7 @@ internal sealed partial class SetPrototype : Prototype
         return resultSetData;
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsSet SymmetricDifference(JsValue thisObject, JsValue other)
     {
         var set = AssertSetInstance(thisObject);
@@ -309,7 +309,7 @@ internal sealed partial class SetPrototype : Prototype
         return resultSetData;
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsBoolean IsSubsetOf(JsValue thisObject, JsValue other)
     {
         var set = AssertSetInstance(thisObject);
@@ -350,7 +350,7 @@ internal sealed partial class SetPrototype : Prototype
         return JsBoolean.True;
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsBoolean IsSupersetOf(JsValue thisObject, JsValue other)
     {
         var set = AssertSetInstance(thisObject);
@@ -389,7 +389,7 @@ internal sealed partial class SetPrototype : Prototype
     }
 
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsBoolean Has(JsValue thisObject, JsValue value)
     {
         var set = AssertSetInstance(thisObject);
@@ -398,7 +398,7 @@ internal sealed partial class SetPrototype : Prototype
             : JsBoolean.False;
     }
 
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private ObjectInstance Entries(JsValue thisObject)
     {
         var set = AssertSetInstance(thisObject);
@@ -416,7 +416,7 @@ internal sealed partial class SetPrototype : Prototype
         return Undefined;
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsSet Union(JsValue thisObject, JsValue other)
     {
         var set = AssertSetInstance(thisObject);
@@ -474,7 +474,7 @@ internal sealed partial class SetPrototype : Prototype
         return new SetRecord(Set: obj, Size: intSize, Has: (ICallable) has, Keys: (ICallable) keys);
     }
 
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private ObjectInstance Values(JsValue thisObject)
     {
         var set = AssertSetInstance(thisObject);

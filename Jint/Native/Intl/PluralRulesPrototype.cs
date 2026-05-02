@@ -45,7 +45,7 @@ internal sealed partial class PluralRulesPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.pluralrules.prototype.select
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Select(JsValue thisObject, JsValue n)
     {
         var pluralRules = ValidatePluralRules(thisObject);
@@ -56,7 +56,7 @@ internal sealed partial class PluralRulesPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.pluralrules.prototype.selectrange
     /// </summary>
-    [JsFunction(Length = 2)]
+    [JsFunction]
     private JsValue SelectRange(JsValue thisObject, JsValue start, JsValue end)
     {
         var pluralRules = ValidatePluralRules(thisObject);
@@ -87,7 +87,7 @@ internal sealed partial class PluralRulesPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.pluralrules.prototype.resolvedoptions
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsObject ResolvedOptions(JsValue thisObject)
     {
         var pluralRules = ValidatePluralRules(thisObject);

@@ -53,7 +53,7 @@ internal sealed partial class ProxyConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-proxy.revocable
     /// </summary>
-    [JsFunction(Length = 2)]
+    [JsFunction]
     private JsValue Revocable(JsValue thisObject, JsValue target, JsValue handler)
     {
         var p = ProxyCreate(target, handler);

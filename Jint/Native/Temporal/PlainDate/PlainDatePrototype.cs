@@ -363,7 +363,7 @@ internal sealed partial class PlainDatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.withcalendar
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsPlainDate WithCalendar(JsValue thisObject, JsValue calendarArg)
     {
         var plainDate = ValidatePlainDate(thisObject);
@@ -600,7 +600,7 @@ internal sealed partial class PlainDatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.equals
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsBoolean Equals(JsValue thisObject, JsValue other)
     {
         var plainDate = ValidatePlainDate(thisObject);
@@ -642,7 +642,7 @@ internal sealed partial class PlainDatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.tojson
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsString ToJSON(JsValue thisObject)
     {
         var plainDate = ValidatePlainDate(thisObject);
@@ -675,7 +675,7 @@ internal sealed partial class PlainDatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.valueof
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue ValueOf(JsValue thisObject)
     {
         Throw.TypeError(_realm, "Temporal.PlainDate cannot be converted to a primitive value");
@@ -716,7 +716,7 @@ internal sealed partial class PlainDatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.toplainyearmonth
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsPlainYearMonth ToPlainYearMonth(JsValue thisObject)
     {
         var plainDate = ValidatePlainDate(thisObject);
@@ -730,7 +730,7 @@ internal sealed partial class PlainDatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.toplainmonthday
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsPlainMonthDay ToPlainMonthDay(JsValue thisObject)
     {
         var plainDate = ValidatePlainDate(thisObject);
@@ -783,7 +783,7 @@ internal sealed partial class PlainDatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate.prototype.tozoneddatetime
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsZonedDateTime ToZonedDateTime(JsValue thisObject, JsValue item)
     {
         var plainDate = ValidatePlainDate(thisObject);

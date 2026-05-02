@@ -26,7 +26,8 @@ internal sealed class AsyncFromSyncIterator : ObjectInstance
 /// <summary>
 /// https://tc39.es/ecma262/#sec-%asyncfromsynciteratorprototype%-object
 /// </summary>
-internal sealed class AsyncFromSyncIteratorPrototype : ObjectInstance
+[JsObject]
+internal sealed partial class AsyncFromSyncIteratorPrototype : ObjectInstance
 {
     private readonly Realm _realm;
 
@@ -36,37 +37,23 @@ internal sealed class AsyncFromSyncIteratorPrototype : ObjectInstance
         _prototype = asyncIteratorPrototype;
     }
 
-    protected override void Initialize()
-    {
-        var properties = new PropertyDictionary(3, checkExistingKeys: false)
-        {
-            [KnownKeys.Next] = new PropertyDescriptor(new ClrFunction(_engine, "next", Next, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
-            [KnownKeys.Return] = new PropertyDescriptor(new ClrFunction(_engine, "return", Return, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
-            [KnownKeys.Throw] = new PropertyDescriptor(new ClrFunction(_engine, "throw", Throw, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
-        };
-        SetProperties(properties);
-    }
+    protected override void Initialize() => CreateProperties_Generated();
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%asyncfromsynciteratorprototype%.next
     /// </summary>
-    private JsValue Next(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue Next(AsyncFromSyncIterator thisObject, JsValue[] arguments)
     {
-        var asyncIterator = thisObject as AsyncFromSyncIterator;
-        if (asyncIterator is null)
-        {
-            Runtime.Throw.TypeError(_realm, "Method called on incompatible receiver");
-        }
-
         var promiseCapability = PromiseConstructor.NewPromiseCapability(_engine, _realm.Intrinsics.Promise);
-        var syncIterator = asyncIterator!.SyncIterator;
+        var syncIterator = thisObject.SyncIterator;
         var value = arguments.At(0);
 
         ObjectInstance result;
         try
         {
-            // Per spec step 5: Let nextResult be IteratorNext(syncIteratorRecord, value).
-            // Uses the cached [[NextMethod]] from the iterator record and forwards the value.
+            // Per spec step 5: "If value is present" — distinguish 0-arg call from 1-arg call so the
+            // wrapped sync iterator's next receives the same argument count.
             result = syncIterator.IteratorNext(arguments.Length > 0 ? value : null);
         }
         catch (JavaScriptException e)
@@ -81,16 +68,11 @@ internal sealed class AsyncFromSyncIteratorPrototype : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%asyncfromsynciteratorprototype%.return
     /// </summary>
-    private JsValue Return(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue Return(AsyncFromSyncIterator thisObject, JsValue[] arguments)
     {
-        var asyncIterator = thisObject as AsyncFromSyncIterator;
-        if (asyncIterator is null)
-        {
-            Runtime.Throw.TypeError(_realm, "Method called on incompatible receiver");
-        }
-
         var promiseCapability = PromiseConstructor.NewPromiseCapability(_engine, _realm.Intrinsics.Promise);
-        var syncIterator = asyncIterator!.SyncIterator;
+        var syncIterator = thisObject.SyncIterator;
         var value = arguments.At(0);
 
         // Get the return method from the sync iterator (IfAbruptRejectPromise)
@@ -138,16 +120,11 @@ internal sealed class AsyncFromSyncIteratorPrototype : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%asyncfromsynciteratorprototype%.throw
     /// </summary>
-    private JsValue Throw(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsValue Throw(AsyncFromSyncIterator thisObject, JsValue[] arguments)
     {
-        var asyncIterator = thisObject as AsyncFromSyncIterator;
-        if (asyncIterator is null)
-        {
-            Runtime.Throw.TypeError(_realm, "Method called on incompatible receiver");
-        }
-
         var promiseCapability = PromiseConstructor.NewPromiseCapability(_engine, _realm.Intrinsics.Promise);
-        var syncIterator = asyncIterator!.SyncIterator;
+        var syncIterator = thisObject.SyncIterator;
         var value = arguments.At(0);
 
         // Get the throw method from the sync iterator (IfAbruptRejectPromise)

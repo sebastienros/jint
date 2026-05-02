@@ -44,7 +44,7 @@ internal sealed partial class IteratorConstructor : Constructor
     /// <summary>
     /// https://tc39.es/proposal-iterator-sequencing/#sec-iterator.concat
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue Concat(JsValue thisObject, JsValue[] arguments)
     {
         // 1. Let iterables be a new empty List.
@@ -81,7 +81,7 @@ internal sealed partial class IteratorConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-iterator.from
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue From(JsValue thisObject, JsValue o)
     {
         // 1. If O is a String, set O to ! ToObject(O).

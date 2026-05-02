@@ -678,7 +678,7 @@ public sealed partial class ArrayConstructor : Constructor
         }
     }
 
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue Of(JsValue thisObject, JsCallArguments arguments)
     {
         var len = arguments.Length;

@@ -55,7 +55,7 @@ internal sealed partial class IntlInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.getcanonicallocales
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsArray GetCanonicalLocales(JsValue thisObject, JsValue locales)
     {
         return new JsArray(_engine, IntlUtilities.CanonicalizeLocaleList(_engine, locales).Select(x => new JsString(x)).ToArray<JsValue>());
@@ -64,7 +64,7 @@ internal sealed partial class IntlInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.supportedvaluesof
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue SupportedValuesOf(JsValue thisObject, JsValue keyArg)
     {
         var key = TypeConverter.ToString(keyArg);

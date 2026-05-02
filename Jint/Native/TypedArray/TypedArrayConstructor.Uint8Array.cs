@@ -8,8 +8,16 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.TypedArray;
 
-public sealed class Uint8ArrayConstructor : TypedArrayConstructor
+[JsObject]
+public sealed partial class Uint8ArrayConstructor : TypedArrayConstructor
 {
+    // Uint8 element size is fixed at 1; the base class also tracks BYTES_PER_ELEMENT but its
+    // generator-emitted CreateProperties_Generated() is private, so this subclass redeclares the
+    // entry locally. Duplicate, but cheap (single static field) and avoids fragile base.Initialize
+    // chaining (SetProperties replaces _properties wholesale).
+    [JsProperty(Name = "BYTES_PER_ELEMENT", Flags = PropertyFlag.AllForbidden)]
+    private static readonly JsNumber BytesPerElementValue = JsNumber.PositiveOne;
+
     internal Uint8ArrayConstructor(
         Engine engine,
         Realm realm,
@@ -18,17 +26,7 @@ public sealed class Uint8ArrayConstructor : TypedArrayConstructor
     {
     }
 
-    protected override void Initialize()
-    {
-        const PropertyFlag PropertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-        var properties = new PropertyDictionary(3, checkExistingKeys: false)
-        {
-            ["BYTES_PER_ELEMENT"] = new(new PropertyDescriptor(JsNumber.PositiveOne, PropertyFlag.AllForbidden)),
-            ["fromBase64"] = new(new ClrFunction(Engine, "fromBase64", FromBase64, 1, PropertyFlag.Configurable), PropertyFlags),
-            ["fromHex"] = new(new ClrFunction(Engine, "fromHex", FromHex, 1, PropertyFlag.Configurable), PropertyFlags),
-        };
-        SetProperties(properties);
-    }
+    protected override void Initialize() => CreateProperties_Generated();
 
     public JsTypedArray Construct(ReadOnlySpan<byte> values)
     {
@@ -37,16 +35,15 @@ public sealed class Uint8ArrayConstructor : TypedArrayConstructor
         return array;
     }
 
-    private JsTypedArray FromBase64(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsTypedArray FromBase64(JsValue thisObject, JsValue s, JsValue options)
     {
-        var s = arguments.At(0);
-
         if (!s.IsString())
         {
             Throw.TypeError(_realm, "fromBase64 must be called with a string");
         }
 
-        var opts = GetOptionsObject(_engine, arguments.At(1));
+        var opts = GetOptionsObject(_engine, options);
         var alphabet = GetAndValidateAlphabetOption(_engine, opts);
         var lastChunkHandling = GetAndValidateLastChunkHandling(_engine, opts);
 
@@ -292,10 +289,9 @@ public sealed class Uint8ArrayConstructor : TypedArrayConstructor
         into.AddRange(bytes);
     }
 
-    private JsTypedArray FromHex(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction]
+    private JsTypedArray FromHex(JsValue thisObject, JsValue s)
     {
-        var s = arguments.At(0);
-
         if (!s.IsString())
         {
             Throw.TypeError(_realm, "fromHex must be called with a string");

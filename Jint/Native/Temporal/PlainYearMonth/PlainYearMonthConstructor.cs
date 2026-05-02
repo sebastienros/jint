@@ -80,7 +80,7 @@ internal sealed partial class PlainYearMonthConstructor : Constructor
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plainyearmonth.compare
     /// </summary>
-    [JsFunction(Length = 2)]
+    [JsFunction]
     private JsNumber Compare(JsValue thisObject, JsValue one, JsValue two)
     {
         return JsNumber.Create(CompareIsoYearMonth(

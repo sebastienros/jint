@@ -37,7 +37,7 @@ internal sealed partial class ErrorPrototype : ErrorInstance
 
     protected override void Initialize() => CreateProperties_Generated();
 
-    [JsFunction(Length = 0)]
+    [JsFunction]
     public JsValue ToString(JsValue thisObject)
     {
         var o = thisObject.TryCast<ObjectInstance>();

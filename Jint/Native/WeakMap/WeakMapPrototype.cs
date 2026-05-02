@@ -33,14 +33,14 @@ internal sealed partial class WeakMapPrototype : Prototype
         CreateSymbols_Generated();
     }
 
-    [JsFunction(Length = 1, Name = "get")]
+    [JsFunction(Name = "get")]
     private JsValue MapGet(JsValue thisObject, JsValue key)
     {
         var map = AssertWeakMapInstance(thisObject);
         return map.WeakMapGet(key);
     }
 
-    [JsFunction(Length = 2)]
+    [JsFunction]
     private JsValue GetOrInsert(JsValue thisObject, JsValue key, JsValue value)
     {
         var map = AssertWeakMapInstance(thisObject);
@@ -48,7 +48,7 @@ internal sealed partial class WeakMapPrototype : Prototype
         return map.GetOrInsert(checkedKey, value);
     }
 
-    [JsFunction(Length = 2)]
+    [JsFunction]
     private JsValue GetOrInsertComputed(JsValue thisObject, JsValue key, JsValue callbackfn)
     {
         var map = AssertWeakMapInstance(thisObject);
@@ -67,14 +67,14 @@ internal sealed partial class WeakMapPrototype : Prototype
         return key;
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Delete(JsValue thisObject, JsValue key)
     {
         var map = AssertWeakMapInstance(thisObject);
         return map.WeakMapDelete(key) ? JsBoolean.True : JsBoolean.False;
     }
 
-    [JsFunction(Length = 2, Name = "set")]
+    [JsFunction(Name = "set")]
     private JsValue MapSet(JsValue thisObject, JsValue key, JsValue value)
     {
         var map = AssertWeakMapInstance(thisObject);
@@ -82,7 +82,7 @@ internal sealed partial class WeakMapPrototype : Prototype
         return thisObject;
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Has(JsValue thisObject, JsValue key)
     {
         var map = AssertWeakMapInstance(thisObject);

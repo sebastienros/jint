@@ -41,7 +41,7 @@ internal sealed partial class NumberPrototype : NumberInstance
     /// https://tc39.es/ecma262/#sec-number.prototype.tolocalestring
     /// https://tc39.es/ecma402/#sup-number.prototype.tolocalestring
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
     {
         if (!thisObject.IsNumber() && thisObject is not NumberInstance)
@@ -59,7 +59,7 @@ internal sealed partial class NumberPrototype : NumberInstance
         return numberFormat.Format(x);
     }
 
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue ValueOf(JsValue thisObject)
     {
         if (thisObject is NumberInstance ni)
@@ -78,7 +78,7 @@ internal sealed partial class NumberPrototype : NumberInstance
 
     private const double Ten21 = 1e21;
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue ToFixed(JsValue thisObject, [ToInteger] double fAsDouble)
     {
         var f = (int) fAsDouble;

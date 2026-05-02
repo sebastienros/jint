@@ -11,9 +11,13 @@ namespace Jint.Native.TypedArray;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-typedarray-constructors
 /// </summary>
-public abstract class TypedArrayConstructor : Constructor
+[JsObject]
+public abstract partial class TypedArrayConstructor : Constructor
 {
     private readonly TypedArrayElementType _arrayElementType;
+
+    [JsProperty(Name = "BYTES_PER_ELEMENT", Flags = PropertyFlag.AllForbidden)]
+    private readonly JsNumber _bytesPerElement;
 
     internal TypedArrayConstructor(
         Engine engine,
@@ -23,6 +27,7 @@ public abstract class TypedArrayConstructor : Constructor
         TypedArrayElementType type) : base(engine, realm, new JsString(type.GetTypedArrayName()))
     {
         _arrayElementType = type;
+        _bytesPerElement = JsNumber.Create(type.GetElementSize());
         _prototype = functionPrototype;
 
         PrototypeObject = type == TypedArrayElementType.Uint8
@@ -35,14 +40,7 @@ public abstract class TypedArrayConstructor : Constructor
 
     private Prototype PrototypeObject { get; }
 
-    protected override void Initialize()
-    {
-        var properties = new PropertyDictionary(1, false)
-        {
-            ["BYTES_PER_ELEMENT"] = new(new PropertyDescriptor(JsNumber.Create(_arrayElementType.GetElementSize()), PropertyFlag.AllForbidden))
-        };
-        SetProperties(properties);
-    }
+    protected override void Initialize() => CreateProperties_Generated();
 
     public JsTypedArray Construct(JsArrayBuffer buffer, int? byteOffset = null, int? length = null)
     {

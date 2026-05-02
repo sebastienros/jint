@@ -119,7 +119,7 @@ internal sealed partial class FunctionPrototype : Function
     /// <summary>
     /// https://tc39.es/ecma262/#sec-function.prototype.tostring
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue ToString(JsValue thisObject)
     {
         if (thisObject.IsObject() && thisObject.IsCallable)
@@ -134,7 +134,7 @@ internal sealed partial class FunctionPrototype : Function
     /// <summary>
     /// https://tc39.es/ecma262/#sec-function.prototype.apply
     /// </summary>
-    [JsFunction(Length = 2)]
+    [JsFunction]
     private JsValue Apply(ICallable thisObject, JsValue thisArg, JsValue argArray)
     {
         if (argArray.IsNullOrUndefined())

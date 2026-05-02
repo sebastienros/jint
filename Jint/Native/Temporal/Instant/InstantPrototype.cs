@@ -76,7 +76,7 @@ internal sealed partial class InstantPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.instant.prototype.add
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsInstant Add(JsValue thisObject, JsValue temporalDurationLike)
     {
         var instant = ValidateInstant(thisObject);
@@ -103,7 +103,7 @@ internal sealed partial class InstantPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.instant.prototype.subtract
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsInstant Subtract(JsValue thisObject, JsValue temporalDurationLike)
     {
         var instant = ValidateInstant(thisObject);
@@ -286,7 +286,7 @@ internal sealed partial class InstantPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.instant.prototype.round
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsInstant Round(JsValue thisObject, JsValue roundTo)
     {
         var instant = ValidateInstant(thisObject);
@@ -513,7 +513,7 @@ internal sealed partial class InstantPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.instant.prototype.equals
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsBoolean Equals(JsValue thisObject, JsValue other)
     {
         var instant = ValidateInstant(thisObject);
@@ -776,7 +776,7 @@ internal sealed partial class InstantPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.instant.prototype.tojson
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsString ToJSON(JsValue thisObject)
     {
         var instant = ValidateInstant(thisObject);
@@ -807,7 +807,7 @@ internal sealed partial class InstantPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.instant.prototype.valueof
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue ValueOf(JsValue thisObject)
     {
         Throw.TypeError(_realm, "Cannot convert Temporal.Instant to a primitive value");
@@ -817,7 +817,7 @@ internal sealed partial class InstantPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.instant.prototype.tozoneddatetimeiso
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsZonedDateTime ToZonedDateTimeISO(JsValue thisObject, JsValue timeZone)
     {
         var instant = ValidateInstant(thisObject);

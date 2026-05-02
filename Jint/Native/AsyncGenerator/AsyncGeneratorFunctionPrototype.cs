@@ -1,6 +1,5 @@
-﻿using Jint.Native.Function;
+using Jint.Native.Function;
 using Jint.Native.Iterator;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
@@ -9,9 +8,17 @@ namespace Jint.Native.AsyncGenerator;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-asyncgeneratorfunction-prototype
 /// </summary>
-internal sealed class AsyncGeneratorFunctionPrototype : Prototype
+[JsObject]
+internal sealed partial class AsyncGeneratorFunctionPrototype : Prototype
 {
-    private readonly AsyncGeneratorFunctionConstructor? _constructor;
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.Configurable)]
+    private readonly AsyncGeneratorFunctionConstructor _constructor;
+
+    [JsProperty(Name = "prototype", Flags = PropertyFlag.Configurable)]
+    private readonly AsyncGeneratorPrototype _prototypeObject;
+
+    [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)]
+    private static readonly JsString ToStringTagValue = new("AsyncGeneratorFunction");
 
     internal AsyncGeneratorFunctionPrototype(
         Engine engine,
@@ -21,23 +28,14 @@ internal sealed class AsyncGeneratorFunctionPrototype : Prototype
     {
         _constructor = constructor;
         _prototype = prototype;
-        PrototypeObject = new AsyncGeneratorPrototype(engine, engine.Realm, this, asyncIteratorPrototype);
+        _prototypeObject = new AsyncGeneratorPrototype(engine, engine.Realm, this, asyncIteratorPrototype);
     }
 
-    public AsyncGeneratorPrototype PrototypeObject { get; }
+    public AsyncGeneratorPrototype PrototypeObject => _prototypeObject;
 
     protected override void Initialize()
     {
-        var properties = new PropertyDictionary(2, checkExistingKeys: false)
-        {
-            [KnownKeys.Constructor] = new PropertyDescriptor(_constructor, PropertyFlag.Configurable),
-            [KnownKeys.Prototype] = new PropertyDescriptor(PrototypeObject, PropertyFlag.Configurable)
-        };
-        SetProperties(properties);
-        var symbols = new SymbolDictionary(1)
-        {
-            [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("AsyncGeneratorFunction", PropertyFlag.Configurable)
-        };
-        SetSymbols(symbols);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
     }
 }

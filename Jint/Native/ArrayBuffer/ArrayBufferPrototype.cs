@@ -102,7 +102,7 @@ internal sealed partial class ArrayBufferPrototype : Prototype
     /// https://tc39.es/ecma262/#sec-arraybuffer.prototype.resize
     /// https://tc39.es/proposal-immutable-arraybuffer/#sec-arraybuffer.prototype.resize
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Resize(JsValue thisObject, JsValue newLength)
     {
         var o = thisObject as JsArrayBuffer;
@@ -150,7 +150,7 @@ internal sealed partial class ArrayBufferPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-arraybuffer.prototype.slice
     /// </summary>
-    [JsFunction(Length = 2)]
+    [JsFunction]
     private JsValue Slice(JsValue thisObject, JsValue start, JsValue end)
     {
         var o = thisObject as JsArrayBuffer;
@@ -268,7 +268,7 @@ internal sealed partial class ArrayBufferPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-immutable-arraybuffer/#sec-arraybuffer.prototype.slicetoimmutable
     /// </summary>
-    [JsFunction(Length = 2)]
+    [JsFunction]
     private JsValue SliceToImmutable(JsValue thisObject, JsValue start, JsValue end)
     {
         // 1. Let O be the this value.

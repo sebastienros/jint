@@ -1,9 +1,7 @@
 using System.Numerics;
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.Temporal;
 
@@ -11,9 +9,13 @@ namespace Jint.Native.Temporal;
 /// The Temporal.Now object.
 /// https://tc39.es/proposal-temporal/#sec-temporal-now-object
 /// </summary>
-internal sealed class TemporalNow : ObjectInstance
+[JsObject]
+internal sealed partial class TemporalNow : ObjectInstance
 {
     private readonly Realm _realm;
+
+    [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)]
+    private static readonly JsString ToStringTagValue = new("Temporal.Now");
 
     internal TemporalNow(
         Engine engine,
@@ -26,34 +28,15 @@ internal sealed class TemporalNow : ObjectInstance
 
     protected override void Initialize()
     {
-        const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
-        const PropertyFlag LengthFlags = PropertyFlag.Configurable;
-
-        var properties = new PropertyDictionary(8, checkExistingKeys: false)
-        {
-            ["timeZoneId"] = new(new ClrFunction(Engine, "timeZoneId", TimeZoneId, 0, LengthFlags), PropertyFlags),
-            ["instant"] = new(new ClrFunction(Engine, "instant", Instant, 0, LengthFlags), PropertyFlags),
-            ["plainDateTime"] = new(new ClrFunction(Engine, "plainDateTime", PlainDateTime, 1, LengthFlags), PropertyFlags),
-            ["plainDateTimeISO"] = new(new ClrFunction(Engine, "plainDateTimeISO", PlainDateTimeISO, 0, LengthFlags), PropertyFlags),
-            ["zonedDateTime"] = new(new ClrFunction(Engine, "zonedDateTime", ZonedDateTime, 1, LengthFlags), PropertyFlags),
-            ["zonedDateTimeISO"] = new(new ClrFunction(Engine, "zonedDateTimeISO", ZonedDateTimeISO, 0, LengthFlags), PropertyFlags),
-            ["plainDate"] = new(new ClrFunction(Engine, "plainDate", PlainDate, 1, LengthFlags), PropertyFlags),
-            ["plainDateISO"] = new(new ClrFunction(Engine, "plainDateISO", PlainDateISO, 0, LengthFlags), PropertyFlags),
-            ["plainTimeISO"] = new(new ClrFunction(Engine, "plainTimeISO", PlainTimeISO, 0, LengthFlags), PropertyFlags),
-        };
-        SetProperties(properties);
-
-        var symbols = new SymbolDictionary(1)
-        {
-            [GlobalSymbolRegistry.ToStringTag] = new("Temporal.Now", PropertyFlag.Configurable)
-        };
-        SetSymbols(symbols);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
     }
 
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.now.timezoneid
     /// </summary>
-    private JsString TimeZoneId(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction]
+    private JsString TimeZoneId(JsValue thisObject)
     {
         var provider = _engine.Options.Temporal.TimeZoneProvider;
         return new JsString(provider.GetDefaultTimeZone());
@@ -62,7 +45,8 @@ internal sealed class TemporalNow : ObjectInstance
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.now.instant
     /// </summary>
-    private JsInstant Instant(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction]
+    private JsInstant Instant(JsValue thisObject)
     {
         var epochNs = SystemUTCEpochNanoseconds();
         return new JsInstant(_engine, _realm.Intrinsics.TemporalInstant.PrototypeObject, epochNs);
@@ -71,11 +55,9 @@ internal sealed class TemporalNow : ObjectInstance
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.now.plaindatetime
     /// </summary>
-    private JsPlainDateTime PlainDateTime(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsPlainDateTime PlainDateTime(JsValue thisObject, JsValue calendarLike, JsValue temporalTimeZoneLike)
     {
-        var calendarLike = arguments.At(0);
-        var temporalTimeZoneLike = arguments.At(1);
-
         var calendar = ToTemporalCalendarIdentifier(calendarLike);
         var timeZoneId = ToTemporalTimeZoneIdentifier(temporalTimeZoneLike);
 
@@ -88,9 +70,10 @@ internal sealed class TemporalNow : ObjectInstance
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.now.plaindatetimeiso
     /// </summary>
-    private JsPlainDateTime PlainDateTimeISO(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0)]
+    private JsPlainDateTime PlainDateTimeISO(JsValue thisObject, JsValue temporalTimeZoneLike)
     {
-        var timeZoneId = ToTemporalTimeZoneIdentifier(arguments.At(0));
+        var timeZoneId = ToTemporalTimeZoneIdentifier(temporalTimeZoneLike);
 
         var epochNs = SystemUTCEpochNanoseconds();
         var isoDateTime = GetIsoDateTimeFor(timeZoneId, epochNs);
@@ -101,11 +84,9 @@ internal sealed class TemporalNow : ObjectInstance
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.now.zoneddatetime
     /// </summary>
-    private JsZonedDateTime ZonedDateTime(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsZonedDateTime ZonedDateTime(JsValue thisObject, JsValue calendarLike, JsValue temporalTimeZoneLike)
     {
-        var calendarLike = arguments.At(0);
-        var temporalTimeZoneLike = arguments.At(1);
-
         var calendar = ToTemporalCalendarIdentifier(calendarLike);
         var timeZoneId = ToTemporalTimeZoneIdentifier(temporalTimeZoneLike);
 
@@ -117,9 +98,10 @@ internal sealed class TemporalNow : ObjectInstance
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.now.zoneddatetimeiso
     /// </summary>
-    private JsZonedDateTime ZonedDateTimeISO(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0)]
+    private JsZonedDateTime ZonedDateTimeISO(JsValue thisObject, JsValue temporalTimeZoneLike)
     {
-        var timeZoneId = ToTemporalTimeZoneIdentifier(arguments.At(0));
+        var timeZoneId = ToTemporalTimeZoneIdentifier(temporalTimeZoneLike);
 
         var epochNs = SystemUTCEpochNanoseconds();
 
@@ -129,11 +111,9 @@ internal sealed class TemporalNow : ObjectInstance
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.now.plaindate
     /// </summary>
-    private JsPlainDate PlainDate(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsPlainDate PlainDate(JsValue thisObject, JsValue calendarLike, JsValue temporalTimeZoneLike)
     {
-        var calendarLike = arguments.At(0);
-        var temporalTimeZoneLike = arguments.At(1);
-
         var calendar = ToTemporalCalendarIdentifier(calendarLike);
         var timeZoneId = ToTemporalTimeZoneIdentifier(temporalTimeZoneLike);
 
@@ -146,9 +126,10 @@ internal sealed class TemporalNow : ObjectInstance
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.now.plaindateiso
     /// </summary>
-    private JsPlainDate PlainDateISO(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0)]
+    private JsPlainDate PlainDateISO(JsValue thisObject, JsValue temporalTimeZoneLike)
     {
-        var timeZoneId = ToTemporalTimeZoneIdentifier(arguments.At(0));
+        var timeZoneId = ToTemporalTimeZoneIdentifier(temporalTimeZoneLike);
 
         var epochNs = SystemUTCEpochNanoseconds();
         var isoDateTime = GetIsoDateTimeFor(timeZoneId, epochNs);
@@ -159,9 +140,10 @@ internal sealed class TemporalNow : ObjectInstance
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.now.plaintimeiso
     /// </summary>
-    private JsPlainTime PlainTimeISO(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0)]
+    private JsPlainTime PlainTimeISO(JsValue thisObject, JsValue temporalTimeZoneLike)
     {
-        var timeZoneId = ToTemporalTimeZoneIdentifier(arguments.At(0));
+        var timeZoneId = ToTemporalTimeZoneIdentifier(temporalTimeZoneLike);
 
         var epochNs = SystemUTCEpochNanoseconds();
         var isoDateTime = GetIsoDateTimeFor(timeZoneId, epochNs);
@@ -175,7 +157,6 @@ internal sealed class TemporalNow : ObjectInstance
     private BigInteger SystemUTCEpochNanoseconds()
     {
         var now = _engine.Options.TimeSystem.GetUtcNow();
-        // Convert DateTimeOffset to nanoseconds since Unix epoch
         var milliseconds = now.ToUnixTimeMilliseconds();
         return (BigInteger) milliseconds * 1_000_000;
     }
@@ -214,5 +195,4 @@ internal sealed class TemporalNow : ObjectInstance
 
         return TemporalHelpers.ToTemporalTimeZoneIdentifier(_engine, _realm, timeZoneLike);
     }
-
 }

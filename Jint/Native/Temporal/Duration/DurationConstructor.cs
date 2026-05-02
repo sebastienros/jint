@@ -34,7 +34,7 @@ internal sealed partial class DurationConstructor : Constructor
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.duration.from
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsDuration From(JsValue thisObject, JsValue item)
     {
         // If item is already a Duration, create a copy (spec requires a new object)

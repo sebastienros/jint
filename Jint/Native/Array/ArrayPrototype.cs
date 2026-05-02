@@ -86,7 +86,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
         SetSymbols(symbols);
     }
 
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private ObjectInstance Keys(JsValue thisObject, JsCallArguments arguments)
     {
         if (thisObject is ObjectInstance oi && oi.IsArrayLike)
@@ -98,7 +98,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
         return null;
     }
 
-    [JsFunction(Length = 0)]
+    [JsFunction]
     internal ObjectInstance Values(JsValue thisObject, JsCallArguments arguments)
     {
         if (thisObject is ObjectInstance oi && oi.IsArrayLike)
@@ -149,7 +149,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
         return new JsArray(_engine, a);
     }
 
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private ObjectInstance Entries(JsValue thisObject, JsCallArguments arguments)
     {
         if (thisObject is ObjectInstance oi && oi.IsArrayLike)
@@ -514,7 +514,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.flat
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue Flat(JsValue thisObject, JsCallArguments arguments)
     {
         var operations = ArrayOperations.For(_realm, thisObject, forWrite: false);
@@ -1301,7 +1301,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
         return a;
     }
 
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue Shift(JsValue thisObject, JsCallArguments arguments)
     {
         var o = ArrayOperations.For(_realm, thisObject, forWrite: true);
@@ -1335,7 +1335,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.reverse
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue Reverse(JsValue thisObject, JsCallArguments arguments)
     {
         var o = ArrayOperations.For(_realm, thisObject, forWrite: true);
@@ -1437,7 +1437,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.tolocalestring
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
     {
         const string Separator = ",";
@@ -1631,7 +1631,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
         return true;
     }
 
-    [JsFunction(Length = 0)]
+    [JsFunction]
     internal JsValue ToString(JsValue thisObject, JsCallArguments arguments)
     {
         var array = TypeConverter.ToObject(_realm, thisObject);
@@ -1650,7 +1650,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
         return func(array, Arguments.Empty);
     }
 
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue ToReversed(JsValue thisObject, JsCallArguments arguments)
     {
         var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
@@ -1906,7 +1906,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
         return n;
     }
 
-    [JsFunction(Length = 0)]
+    [JsFunction]
     public JsValue Pop(JsValue thisObject, JsCallArguments arguments)
     {
         if (thisObject is JsArray { CanUseFastAccess: true } array)

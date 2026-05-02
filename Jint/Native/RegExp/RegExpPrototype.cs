@@ -53,60 +53,99 @@ internal sealed partial class RegExpPrototype : Prototype
         CreateProperties_Generated();
         CreateSymbols_Generated();
 
-        // Eight RegExp.prototype get accessors (dotAll, global, hasIndices, ignoreCase, multiline,
-        // source, sticky, unicode, unicodeSets, flags) stay hand-written. Each shares a "this could be
-        // RegExp.prototype itself → return undefined" path that doesn't fit the generator's cast model.
-        // Source and Flags are full methods; the rest reduce to a property name + JsRegExp accessor via
-        // CreateGetAccessorDescriptor.
-        AddRegExpAccessors();
+        // exec stays manually registered: HasDefaultRegExpExec compares by reference against the
+        // ClrFunction wrapping _defaultExec to detect "user replaced exec on the prototype". The
+        // generator's lazy descriptor would create a different Function instance each realm, breaking
+        // that identity check until first access.
+        SetOwnProperty("exec", new PropertyDescriptor(new ClrFunction(Engine, "exec", _defaultExec, 1, PropertyFlag.Configurable), PropertyFlag.Configurable | PropertyFlag.Writable));
     }
 
-    private void AddRegExpAccessors()
+    // Spec: each prototype getter, when called on RegExp.prototype itself (not a JsRegExp instance),
+    // returns undefined (or a default for source). Cannot use cast typing on thisObject — that would
+    // raise TypeError before the proto-check runs.
+
+    [JsAccessor("dotAll")]
+    private JsValue DotAllGet(JsValue thisObject)
     {
-        const PropertyFlag lengthFlags = PropertyFlag.Configurable;
-
-        GetSetPropertyDescriptor CreateGetAccessorDescriptor(string name, Func<JsRegExp, JsValue> valueExtractor, JsValue? protoValue = null)
-        {
-            var propertyName = name.StartsWith("get ", StringComparison.Ordinal) ? name.Substring(4) : name;
-            return new GetSetPropertyDescriptor(
-                get: new ClrFunction(Engine, name, (thisObj, arguments) =>
-                {
-                    if (ReferenceEquals(thisObj, this))
-                    {
-                        return protoValue ?? Undefined;
-                    }
-
-                    var r = thisObj as JsRegExp;
-                    if (r is null)
-                    {
-                        Throw.TypeError(_realm, $"RegExp.prototype.{propertyName} getter called on non-RegExp object");
-                    }
-
-                    return valueExtractor(r);
-                }, 0, lengthFlags),
-                set: Undefined,
-                flags: PropertyFlag.Configurable);
-        }
-
-        // exec stays manually registered as a ClrFunction so HasDefaultExec's identity check works.
-        SetOwnProperty("exec", new PropertyDescriptor(new ClrFunction(Engine, "exec", _defaultExec, 1, lengthFlags), PropertyFlag.Configurable | PropertyFlag.Writable));
-
-        SetOwnProperty("dotAll", CreateGetAccessorDescriptor("get dotAll", static r => r.DotAll));
-        SetOwnProperty("flags", new GetSetPropertyDescriptor(get: new ClrFunction(Engine, "get flags", Flags, 0, lengthFlags), set: Undefined, flags: PropertyFlag.Configurable));
-        SetOwnProperty("global", CreateGetAccessorDescriptor("get global", static r => r.Global));
-        SetOwnProperty("hasIndices", CreateGetAccessorDescriptor("get hasIndices", static r => r.Indices));
-        SetOwnProperty("ignoreCase", CreateGetAccessorDescriptor("get ignoreCase", static r => r.IgnoreCase));
-        SetOwnProperty("multiline", CreateGetAccessorDescriptor("get multiline", static r => r.Multiline));
-        SetOwnProperty("source", new GetSetPropertyDescriptor(get: new ClrFunction(Engine, "get source", Source, 0, lengthFlags), set: Undefined, flags: PropertyFlag.Configurable));
-        SetOwnProperty("sticky", CreateGetAccessorDescriptor("get sticky", static r => r.Sticky));
-        SetOwnProperty("unicode", CreateGetAccessorDescriptor("get unicode", static r => r.Unicode));
-        SetOwnProperty("unicodeSets", CreateGetAccessorDescriptor("get unicodeSets", static r => r.UnicodeSets));
+        if (ReferenceEquals(thisObject, this)) return Undefined;
+        var r = thisObject as JsRegExp;
+        if (r is null) Throw.TypeError(_realm, "RegExp.prototype.dotAll getter called on non-RegExp object");
+        return r.DotAll;
     }
+
+    [JsAccessor("global")]
+    private JsValue GlobalGet(JsValue thisObject)
+    {
+        if (ReferenceEquals(thisObject, this)) return Undefined;
+        var r = thisObject as JsRegExp;
+        if (r is null) Throw.TypeError(_realm, "RegExp.prototype.global getter called on non-RegExp object");
+        return r.Global;
+    }
+
+    [JsAccessor("hasIndices")]
+    private JsValue HasIndicesGet(JsValue thisObject)
+    {
+        if (ReferenceEquals(thisObject, this)) return Undefined;
+        var r = thisObject as JsRegExp;
+        if (r is null) Throw.TypeError(_realm, "RegExp.prototype.hasIndices getter called on non-RegExp object");
+        return r.Indices;
+    }
+
+    [JsAccessor("ignoreCase")]
+    private JsValue IgnoreCaseGet(JsValue thisObject)
+    {
+        if (ReferenceEquals(thisObject, this)) return Undefined;
+        var r = thisObject as JsRegExp;
+        if (r is null) Throw.TypeError(_realm, "RegExp.prototype.ignoreCase getter called on non-RegExp object");
+        return r.IgnoreCase;
+    }
+
+    [JsAccessor("multiline")]
+    private JsValue MultilineGet(JsValue thisObject)
+    {
+        if (ReferenceEquals(thisObject, this)) return Undefined;
+        var r = thisObject as JsRegExp;
+        if (r is null) Throw.TypeError(_realm, "RegExp.prototype.multiline getter called on non-RegExp object");
+        return r.Multiline;
+    }
+
+    [JsAccessor("sticky")]
+    private JsValue StickyGet(JsValue thisObject)
+    {
+        if (ReferenceEquals(thisObject, this)) return Undefined;
+        var r = thisObject as JsRegExp;
+        if (r is null) Throw.TypeError(_realm, "RegExp.prototype.sticky getter called on non-RegExp object");
+        return r.Sticky;
+    }
+
+    [JsAccessor("unicode")]
+    private JsValue UnicodeGet(JsValue thisObject)
+    {
+        if (ReferenceEquals(thisObject, this)) return Undefined;
+        var r = thisObject as JsRegExp;
+        if (r is null) Throw.TypeError(_realm, "RegExp.prototype.unicode getter called on non-RegExp object");
+        return r.Unicode;
+    }
+
+    [JsAccessor("unicodeSets")]
+    private JsValue UnicodeSetsGet(JsValue thisObject)
+    {
+        if (ReferenceEquals(thisObject, this)) return Undefined;
+        var r = thisObject as JsRegExp;
+        if (r is null) Throw.TypeError(_realm, "RegExp.prototype.unicodeSets getter called on non-RegExp object");
+        return r.UnicodeSets;
+    }
+
+    [JsAccessor("flags")]
+    private JsValue FlagsGet(JsValue thisObject) => Flags(thisObject);
+
+    [JsAccessor("source")]
+    private JsValue SourceGet(JsValue thisObject) => Source(thisObject);
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-get-regexp.prototype.source
     /// </summary>
-    private JsValue Source(JsValue thisObject, JsCallArguments arguments)
+    private JsValue Source(JsValue thisObject)
     {
         if (ReferenceEquals(thisObject, this))
         {
@@ -637,7 +676,7 @@ internal sealed partial class RegExpPrototype : Prototype
         return a;
     }
 
-    private JsValue Flags(JsValue thisObject, JsCallArguments arguments)
+    private JsValue Flags(JsValue thisObject)
     {
         var r = AssertThisIsObjectInstance(thisObject, "RegExp.prototype.flags");
 
@@ -658,7 +697,7 @@ internal sealed partial class RegExpPrototype : Prototype
         return result;
     }
 
-    [JsFunction(Length = 0, Name = "toString")]
+    [JsFunction(Name = "toString")]
     private JsValue ToRegExpString(JsValue thisObject)
     {
         var r = AssertThisIsObjectInstance(thisObject, "RegExp.prototype.toString");
@@ -669,7 +708,7 @@ internal sealed partial class RegExpPrototype : Prototype
         return "/" + pattern + "/" + flags;
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Test(JsValue thisObject, JsValue stringArg)
     {
         var r = AssertThisIsObjectInstance(thisObject, "RegExp.prototype.test");
@@ -1464,7 +1503,7 @@ internal sealed partial class RegExpPrototype : Prototype
     /// https://tc39.es/ecma262/#sec-regexp.prototype.compile
     /// B.2.5.1
     /// </summary>
-    [JsFunction(Length = 2)]
+    [JsFunction]
     private JsValue Compile(JsValue thisObject, JsValue pattern, JsValue flags)
     {
         // 1. Let O be the this value.

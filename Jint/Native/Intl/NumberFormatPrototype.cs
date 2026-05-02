@@ -194,7 +194,7 @@ internal sealed partial class NumberFormatPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.numberformat.prototype.resolvedoptions
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsObject ResolvedOptions(JsValue thisObject)
     {
         var numberFormat = ValidateNumberFormat(thisObject);
@@ -262,7 +262,7 @@ internal sealed partial class NumberFormatPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.numberformat.prototype.formattoparts
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsArray FormatToParts(JsValue thisObject, JsValue value)
     {
         var numberFormat = ValidateNumberFormat(thisObject);
@@ -296,7 +296,7 @@ internal sealed partial class NumberFormatPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.numberformat.prototype.formatrange
     /// </summary>
-    [JsFunction(Length = 2)]
+    [JsFunction]
     private JsValue FormatRange(JsValue thisObject, JsValue start, JsValue end)
     {
         var numberFormat = ValidateNumberFormat(thisObject);
@@ -479,7 +479,7 @@ internal sealed partial class NumberFormatPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.numberformat.prototype.formatrangetoparts
     /// </summary>
-    [JsFunction(Length = 2)]
+    [JsFunction]
     private JsArray FormatRangeToParts(JsValue thisObject, JsValue start, JsValue end)
     {
         var numberFormat = ValidateNumberFormat(thisObject);

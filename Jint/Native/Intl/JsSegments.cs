@@ -1,10 +1,8 @@
 using System.Globalization;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.Intl;
 
@@ -12,14 +10,17 @@ namespace Jint.Native.Intl;
 /// https://tc39.es/ecma402/#sec-segments-objects
 /// Represents the Segments object returned by Intl.Segmenter.prototype.segment().
 /// </summary>
-internal sealed class JsSegments : ObjectInstance
+[JsObject]
+internal sealed partial class JsSegments : ObjectInstance
 {
+    private readonly Realm _realm;
     private readonly JsSegmenter _segmenter;
     private readonly string _input;
     private readonly List<SegmentData> _segments;
 
     internal JsSegments(Engine engine, JsSegmenter segmenter, string input) : base(engine)
     {
+        _realm = engine.Realm;
         _segmenter = segmenter;
         _input = input;
         _segments = ComputeSegments(input, segmenter.Granularity);
@@ -27,59 +28,40 @@ internal sealed class JsSegments : ObjectInstance
 
     protected override void Initialize()
     {
-        var properties = new PropertyDictionary(1, checkExistingKeys: false)
-        {
-            ["containing"] = new PropertyDescriptor(new ClrFunction(_engine, "containing", Containing, 1, PropertyFlag.Configurable), PropertyFlag.Writable | PropertyFlag.Configurable)
-        };
-        SetProperties(properties);
-
-        var symbols = new SymbolDictionary(1)
-        {
-            [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(new ClrFunction(_engine, "[Symbol.iterator]", GetIterator, 0, PropertyFlag.Configurable), PropertyFlag.Writable | PropertyFlag.Configurable)
-        };
-        SetSymbols(symbols);
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
     }
 
     /// <summary>
     /// https://tc39.es/ecma402/#sec-%segmentsprototype%.containing
     /// </summary>
-    private JsValue Containing(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction]
+    private static JsValue Containing(JsSegments thisObject, [ToInteger] double n)
     {
-        // 1. Let segments be the this value.
-        // 2. Perform ? RequireInternalSlot(segments, [[SegmentsSegmenter]]).
-        if (thisObject is not JsSegments segments)
+        if (n < 0 || n >= thisObject._input.Length)
         {
-            Throw.TypeError(_engine.Realm, "containing requires a Segments object");
-            return JsValue.Undefined;
+            return Undefined;
         }
 
-        var index = arguments.At(0);
-        var n = TypeConverter.ToInteger(index);
-
-        if (n < 0 || n >= segments._input.Length)
-        {
-            return JsValue.Undefined;
-        }
-
-        // Find the segment containing this index
         var intIndex = (int) n;
-        foreach (var segment in segments._segments)
+        foreach (var segment in thisObject._segments)
         {
             if (intIndex >= segment.Index && intIndex < segment.Index + segment.Segment.Length)
             {
-                return segments.CreateSegmentDataObject(segment);
+                return thisObject.CreateSegmentDataObject(segment);
             }
         }
 
-        return JsValue.Undefined;
+        return Undefined;
     }
 
     /// <summary>
     /// https://tc39.es/ecma402/#sec-%segmentsprototype%-@@iterator
     /// </summary>
-    private SegmentIterator GetIterator(JsValue thisObject, JsCallArguments arguments)
+    [JsSymbolFunction("Iterator", Flags = PropertyFlag.Writable | PropertyFlag.Configurable)]
+    private static SegmentIterator GetIterator(JsSegments thisObject)
     {
-        return new SegmentIterator(_engine, this);
+        return new SegmentIterator(thisObject._engine, thisObject);
     }
 
     internal IEnumerable<SegmentData> GetSegments() => _segments;

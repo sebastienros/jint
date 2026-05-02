@@ -396,7 +396,7 @@ internal sealed partial class PlainDateTimePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindatetime.prototype.withplaindate
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsPlainDateTime WithPlainDate(JsValue thisObject, JsValue plainDateLike)
     {
         var plainDateTime = ValidatePlainDateTime(thisObject);
@@ -428,7 +428,7 @@ internal sealed partial class PlainDateTimePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindatetime.prototype.withcalendar
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsPlainDateTime WithCalendar(JsValue thisObject, JsValue calendarArg)
     {
         // https://tc39.es/proposal-temporal/#sec-temporal.plaindatetime.prototype.withcalendar
@@ -635,7 +635,7 @@ internal sealed partial class PlainDateTimePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindatetime.prototype.round
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsPlainDateTime Round(JsValue thisObject, JsValue roundTo)
     {
         var plainDateTime = ValidatePlainDateTime(thisObject);
@@ -749,7 +749,7 @@ internal sealed partial class PlainDateTimePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindatetime.prototype.equals
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsBoolean Equals(JsValue thisObject, JsValue other)
     {
         var plainDateTime = ValidatePlainDateTime(thisObject);
@@ -925,7 +925,7 @@ internal sealed partial class PlainDateTimePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindatetime.prototype.tojson
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsString ToJSON(JsValue thisObject)
     {
         var plainDateTime = ValidatePlainDateTime(thisObject);
@@ -959,7 +959,7 @@ internal sealed partial class PlainDateTimePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindatetime.prototype.valueof
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue ValueOf(JsValue thisObject)
     {
         Throw.TypeError(_realm, "Temporal.PlainDateTime cannot be converted to a primitive value");
@@ -969,7 +969,7 @@ internal sealed partial class PlainDateTimePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindatetime.prototype.toplaindate
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsPlainDate ToPlainDate(JsValue thisObject)
     {
         var plainDateTime = ValidatePlainDateTime(thisObject);
@@ -980,7 +980,7 @@ internal sealed partial class PlainDateTimePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindatetime.prototype.toplaintime
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsPlainTime ToPlainTime(JsValue thisObject)
     {
         var plainDateTime = ValidatePlainDateTime(thisObject);

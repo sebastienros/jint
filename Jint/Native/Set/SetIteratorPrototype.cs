@@ -26,7 +26,7 @@ internal sealed partial class SetIteratorPrototype : IteratorPrototype
         CreateSymbols_Generated();
     }
 
-    [JsFunction(Length = 0, Name = "next")]
+    [JsFunction(Name = "next")]
     private JsValue NextHandler(JsValue thisObject) => Next(thisObject, Arguments.Empty);
 
     internal IteratorInstance ConstructEntryIterator(JsSet set)

@@ -49,7 +49,7 @@ internal sealed partial class AsyncIteratorConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-asynciterator.from
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue From(JsValue thisObject, JsValue o)
     {
         // 1. If O is not an Object, throw a TypeError exception.
@@ -152,7 +152,7 @@ internal sealed partial class WrapForValidAsyncIteratorPrototype : Prototype
     /// %WrapForValidAsyncIteratorPrototype%.next()
     /// Delegates to the underlying iterator's next() and wraps in a promise.
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue Next(JsValue thisObject)
     {
         if (thisObject is not WrapForValidAsyncIterator wrapper)
@@ -203,7 +203,7 @@ internal sealed partial class WrapForValidAsyncIteratorPrototype : Prototype
     /// <summary>
     /// %WrapForValidAsyncIteratorPrototype%.return()
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue Return(JsValue thisObject)
     {
         if (thisObject is not WrapForValidAsyncIterator wrapper)

@@ -34,7 +34,7 @@ internal sealed partial class ShadowRealmPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-shadowrealm/#sec-shadowrealm.prototype.evaluate
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Evaluate(JsValue thisObject, JsValue sourceText)
     {
         var shadowRealm = ValidateShadowRealmObject(thisObject);
@@ -57,7 +57,7 @@ internal sealed partial class ShadowRealmPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-shadowrealm/#sec-shadowrealm.prototype.importvalue
     /// </summary>
-    [JsFunction(Length = 2)]
+    [JsFunction]
     private JsValue ImportValue(JsValue thisObject, JsValue specifier, JsValue exportName)
     {
         var O = ValidateShadowRealmObject(thisObject);

@@ -42,7 +42,7 @@ internal sealed partial class WeakSetPrototype : Prototype
         OriginalAddFunction = (FunctionInstance) GetOwnProperty("add").Value!;
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Add(JsValue thisObject, JsValue value)
     {
         var set = AssertWeakSetInstance(thisObject);
@@ -50,14 +50,14 @@ internal sealed partial class WeakSetPrototype : Prototype
         return thisObject;
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Delete(JsValue thisObject, JsValue value)
     {
         var set = AssertWeakSetInstance(thisObject);
         return set.WeakSetDelete(value) ? JsBoolean.True : JsBoolean.False;
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Has(JsValue thisObject, JsValue value)
     {
         var set = AssertWeakSetInstance(thisObject);

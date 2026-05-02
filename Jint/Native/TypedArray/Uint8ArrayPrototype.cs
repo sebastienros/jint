@@ -7,9 +7,14 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.TypedArray;
 
-internal sealed class Uint8ArrayPrototype : Prototype
+[JsObject]
+internal sealed partial class Uint8ArrayPrototype : Prototype
 {
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly TypedArrayConstructor _constructor;
+
+    [JsProperty(Name = "BYTES_PER_ELEMENT", Flags = PropertyFlag.AllForbidden)]
+    private static readonly JsNumber BytesPerElementValue = JsNumber.PositiveOne;
 
     public Uint8ArrayPrototype(
         Engine engine,
@@ -19,35 +24,21 @@ internal sealed class Uint8ArrayPrototype : Prototype
     {
         _prototype = objectPrototype;
         _constructor = constructor;
-
     }
 
-    protected override void Initialize()
-    {
-        const PropertyFlag PropertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-        var properties = new PropertyDictionary(6, checkExistingKeys: false)
-        {
-            ["BYTES_PER_ELEMENT"] = new(JsNumber.PositiveOne, PropertyFlag.AllForbidden),
-            ["constructor"] = new(_constructor, PropertyFlag.NonEnumerable),
-            ["setFromBase64"] = new(new ClrFunction(Engine, "setFromBase64", SetFromBase64, 1, PropertyFlag.Configurable), PropertyFlags),
-            ["setFromHex"] = new(new ClrFunction(Engine, "setFromHex", SetFromHex, 1, PropertyFlag.Configurable), PropertyFlags),
-            ["toBase64"] = new(new ClrFunction(Engine, "toBase64", ToBase64, 0, PropertyFlag.Configurable), PropertyFlags),
-            ["toHex"] = new(new ClrFunction(Engine, "toHex", ToHex, 0, PropertyFlag.Configurable), PropertyFlags),
-        };
-        SetProperties(properties);
-    }
+    protected override void Initialize() => CreateProperties_Generated();
 
-    private JsObject SetFromBase64(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1)]
+    private JsObject SetFromBase64(JsValue thisObject, JsValue s, JsValue options)
     {
         var into = ValidateUint8Array(thisObject);
-        var s = arguments.At(0);
 
         if (!s.IsString())
         {
             Throw.TypeError(_realm, "setFromBase64 must be called with a string");
         }
 
-        var opts = Uint8ArrayConstructor.GetOptionsObject(_engine, arguments.At(1));
+        var opts = Uint8ArrayConstructor.GetOptionsObject(_engine, options);
         var alphabet = Uint8ArrayConstructor.GetAndValidateAlphabetOption(_engine, opts);
         var lastChunkHandling = Uint8ArrayConstructor.GetAndValidateLastChunkHandling(_engine, opts);
 
@@ -86,10 +77,10 @@ internal sealed class Uint8ArrayPrototype : Prototype
         }
     }
 
-    private JsObject SetFromHex(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction]
+    private JsObject SetFromHex(JsValue thisObject, JsValue s)
     {
         var into = ValidateUint8Array(thisObject);
-        var s = arguments.At(0);
 
         if (!s.IsString())
         {
@@ -117,11 +108,12 @@ internal sealed class Uint8ArrayPrototype : Prototype
         return resultObject;
     }
 
-    private JsValue ToBase64(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0)]
+    private JsValue ToBase64(JsValue thisObject, JsValue options)
     {
         var o = ValidateUint8Array(thisObject);
 
-        var opts = Uint8ArrayConstructor.GetOptionsObject(_engine, arguments.At(0));
+        var opts = Uint8ArrayConstructor.GetOptionsObject(_engine, options);
         var alphabet = Uint8ArrayConstructor.GetAndValidateAlphabetOption(_engine, opts);
 
         var omitPadding = TypeConverter.ToBoolean(opts.Get("omitPadding"));
@@ -148,7 +140,8 @@ internal sealed class Uint8ArrayPrototype : Prototype
         return outAscii;
     }
 
-    private JsValue ToHex(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction]
+    private JsValue ToHex(JsValue thisObject)
     {
         var o = ValidateUint8Array(thisObject);
         var toEncode = GetUint8ArrayBytes(o);

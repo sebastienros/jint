@@ -65,7 +65,7 @@ internal sealed partial class FinalizationRegistryPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-finalization-registry.prototype.unregister
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Unregister(JsValue thisObject, JsValue unregisterToken)
     {
         var finalizationRegistry = AssertFinalizationRegistryInstance(thisObject);

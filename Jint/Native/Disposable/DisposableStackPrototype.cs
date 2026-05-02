@@ -34,14 +34,14 @@ internal sealed partial class DisposableStackPrototype : Prototype
         SetProperty(GlobalSymbolRegistry.Dispose, GetOwnProperty("dispose"));
     }
 
-    [JsFunction(Length = 2)]
+    [JsFunction]
     private JsValue Adopt(JsValue thisObject, JsValue value, JsValue onDispose)
     {
         var stack = AssertDisposableStack(thisObject);
         return stack.Adopt(value, onDispose);
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Defer(JsValue thisObject, JsValue onDispose)
     {
         var stack = AssertDisposableStack(thisObject);
@@ -49,7 +49,7 @@ internal sealed partial class DisposableStackPrototype : Prototype
         return Undefined;
     }
 
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue Dispose(JsValue thisObject)
     {
         var stack = AssertDisposableStack(thisObject);
@@ -63,7 +63,7 @@ internal sealed partial class DisposableStackPrototype : Prototype
         return stack.State == DisposableState.Disposed ? JsBoolean.True : JsBoolean.False;
     }
 
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue Move(JsValue thisObject)
     {
         var stack = AssertDisposableStack(thisObject);
@@ -75,7 +75,7 @@ internal sealed partial class DisposableStackPrototype : Prototype
         return stack.Move(newDisposableStack);
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Use(JsValue thisObject, JsValue value)
     {
         var stack = AssertDisposableStack(thisObject);

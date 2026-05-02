@@ -48,7 +48,7 @@ internal sealed partial class SharedArrayBufferPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-sharedarraybuffer.prototype.slice
     /// </summary>
-    [JsFunction(Length = 2)]
+    [JsFunction]
     private JsSharedArrayBuffer Slice(JsValue thisObject, JsValue start, JsValue end)
     {
         var o = thisObject as JsSharedArrayBuffer;
@@ -145,7 +145,7 @@ internal sealed partial class SharedArrayBufferPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-sharedarraybuffer.prototype.grow
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Grow(JsValue thisObject, JsValue newLength)
     {
         var o = thisObject as JsSharedArrayBuffer;

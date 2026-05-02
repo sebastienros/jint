@@ -46,7 +46,7 @@ internal sealed partial class ListFormatPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.listformat.prototype.format
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Format(JsValue thisObject, JsValue list)
     {
         var listFormat = ValidateListFormat(thisObject);
@@ -57,7 +57,7 @@ internal sealed partial class ListFormatPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.listformat.prototype.formattoparts
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsArray FormatToParts(JsValue thisObject, JsValue list)
     {
         var listFormat = ValidateListFormat(thisObject);
@@ -68,7 +68,7 @@ internal sealed partial class ListFormatPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.listformat.prototype.resolvedoptions
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsObject ResolvedOptions(JsValue thisObject)
     {
         var listFormat = ValidateListFormat(thisObject);

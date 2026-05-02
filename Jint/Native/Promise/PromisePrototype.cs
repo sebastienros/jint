@@ -38,7 +38,7 @@ internal sealed partial class PromisePrototype : Prototype
     // 3. Let C be ? SpeciesConstructor(promise, %Promise%).
     // 4. Let resultCapability be ? NewPromiseCapability(C).
     // 5. Return PerformPromiseThen(promise, onFulfilled, onRejected, resultCapability).
-    [JsFunction(Length = 2)]
+    [JsFunction]
     private JsValue Then(JsValue thisObject, JsValue onFulfilled, JsValue onRejected)
     {
         // 1. Let promise be the this value.
@@ -66,12 +66,12 @@ internal sealed partial class PromisePrototype : Prototype
     //
     // 1. Let promise be the this value.
     // 2. Return ? Invoke(promise, "then", « undefined, onRejected »).
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Catch(JsValue thisObject, JsValue onRejected) =>
         _engine.Invoke(thisObject, "then", [Undefined, onRejected]);
 
     // https://tc39.es/ecma262/#sec-promise.prototype.finally
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Finally(JsValue thisObject, JsValue onFinally)
     {
         // 1. Let promise be the this value.

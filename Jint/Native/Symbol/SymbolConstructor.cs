@@ -68,7 +68,7 @@ internal sealed partial class SymbolConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-symbol.for
     /// </summary>
-    [JsFunction(Length = 1, Name = "for")]
+    [JsFunction(Name = "for")]
     private JsValue For(JsValue thisObject, JsValue key)
     {
         var stringKey = TypeConverter.ToJsString(key);
@@ -87,7 +87,7 @@ internal sealed partial class SymbolConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-symbol.keyfor
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue KeyFor(JsValue thisObject, JsValue sym)
     {
         var symbol = sym as JsSymbol;

@@ -24,7 +24,7 @@ internal sealed partial class WrapForValidIteratorPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%wrapforvaliditeratorprototype%.next
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue Next(JsValue thisObject)
     {
         // 1. Let O be this value.
@@ -44,7 +44,7 @@ internal sealed partial class WrapForValidIteratorPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%wrapforvaliditeratorprototype%.return
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue Return(JsValue thisObject)
     {
         // 1. Let O be this value.

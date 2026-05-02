@@ -133,7 +133,7 @@ internal sealed partial class PlainTimePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaintime.prototype.add
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsPlainTime Add(JsValue thisObject, JsValue temporalDurationLike)
     {
         var plainTime = ValidatePlainTime(thisObject);
@@ -144,7 +144,7 @@ internal sealed partial class PlainTimePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaintime.prototype.subtract
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsPlainTime Subtract(JsValue thisObject, JsValue temporalDurationLike)
     {
         var plainTime = ValidatePlainTime(thisObject);
@@ -318,7 +318,7 @@ internal sealed partial class PlainTimePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaintime.prototype.round
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsPlainTime Round(JsValue thisObject, JsValue roundTo)
     {
         var plainTime = ValidatePlainTime(thisObject);
@@ -377,7 +377,7 @@ internal sealed partial class PlainTimePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaintime.prototype.equals
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsBoolean Equals(JsValue thisObject, JsValue other)
     {
         var plainTime = ValidatePlainTime(thisObject);
@@ -501,7 +501,7 @@ internal sealed partial class PlainTimePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaintime.prototype.tojson
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsString ToJSON(JsValue thisObject)
     {
         var plainTime = ValidatePlainTime(thisObject);
@@ -527,7 +527,7 @@ internal sealed partial class PlainTimePrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaintime.prototype.valueof
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue ValueOf(JsValue thisObject)
     {
         Throw.TypeError(_realm, "Temporal.PlainTime cannot be converted to a primitive value");

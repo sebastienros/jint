@@ -90,7 +90,7 @@ internal partial class IteratorPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-iterator.prototype.map
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Map(JsValue thisObject, JsValue mapper)
     {
         // 1. Let O be the this value.
@@ -147,7 +147,7 @@ internal partial class IteratorPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-iterator.prototype.filter
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Filter(JsValue thisObject, JsValue predicate)
     {
         // 1. Let O be the this value.
@@ -180,7 +180,7 @@ internal partial class IteratorPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-iterator.prototype.take
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Take(JsValue thisObject, JsValue limit)
     {
         // 1. Let O be the this value.
@@ -233,7 +233,7 @@ internal partial class IteratorPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-iterator.prototype.drop
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Drop(JsValue thisObject, JsValue limit)
     {
         // 1. Let O be the this value.
@@ -286,7 +286,7 @@ internal partial class IteratorPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-iterator.prototype.flatmap
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue FlatMap(JsValue thisObject, JsValue mapper)
     {
         // 1. Let O be the this value.
@@ -394,7 +394,7 @@ internal partial class IteratorPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-iterator.prototype.toarray
     /// </summary>
-    [JsFunction(Length = 0)]
+    [JsFunction]
     private JsValue ToArray(JsValue thisObject)
     {
         if (thisObject is not ObjectInstance o)
@@ -425,7 +425,7 @@ internal partial class IteratorPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-iterator.prototype.foreach
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue ForEach(JsValue thisObject, JsValue procedure)
     {
         if (thisObject is not ObjectInstance o)
@@ -471,7 +471,7 @@ internal partial class IteratorPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-iterator.prototype.some
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Some(JsValue thisObject, JsValue predicate)
     {
         if (thisObject is not ObjectInstance o)
@@ -523,7 +523,7 @@ internal partial class IteratorPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-iterator.prototype.every
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Every(JsValue thisObject, JsValue predicate)
     {
         if (thisObject is not ObjectInstance o)
@@ -575,7 +575,7 @@ internal partial class IteratorPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-iterator.prototype.find
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction]
     private JsValue Find(JsValue thisObject, JsValue predicate)
     {
         if (thisObject is not ObjectInstance o)
@@ -639,7 +639,7 @@ internal partial class IteratorPrototype : Prototype
         return Undefined;
     }
 
-    [JsFunction(Length = 0, Name = "next")]
+    [JsFunction(Name = "next")]
     private JsValue NextHandler(JsValue thisObject) => Next(thisObject, Arguments.Empty);
 
     // Kept with the JsCallArguments signature so still-hand-written subclasses (Array/RegExpString/String
