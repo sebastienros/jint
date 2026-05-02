@@ -269,6 +269,18 @@ public static class OptionsExtensions
     }
 
     /// <summary>
+    /// When enabled, JavaScript prototype methods take precedence over CLR methods of the same name on wrapped CLR objects
+    /// whose prototype is not the default Object prototype (e.g. <c>Array.prototype</c> attached to wrapped <see cref="System.Collections.Generic.IList{T}"/>).
+    /// Avoids semantic mismatches such as <c>List&lt;T&gt;.Reverse()</c> returning <c>void</c> while
+    /// <c>Array.prototype.reverse</c> returns the array.
+    /// </summary>
+    public static Options PreferJsPrototypeMethods(this Options options, bool prefer = true)
+    {
+        options.Interop.PreferJsPrototypeMethods = prefer;
+        return options;
+    }
+
+    /// <summary>
     /// Registers some custom logic to apply on an <see cref="Engine"/> instance when the options
     /// are loaded.
     /// </summary>

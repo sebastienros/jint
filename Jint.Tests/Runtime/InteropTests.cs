@@ -3260,6 +3260,106 @@ public partial class InteropTests : IDisposable
     }
 
     [Fact]
+    public void ListReverseDefaultsToClrSemantics()
+    {
+        // Default: List<T>.Reverse() (void) wins over Array.prototype.reverse — locks in current behavior.
+        // CLR void is exposed to JS as null (not undefined), and the list is reversed in place.
+        var engine = new Jint.Engine();
+        var list = new List<int> { 1, 2, 3 };
+        engine.SetValue("list", list);
+
+        var result = engine.Evaluate("list.reverse()");
+        Assert.True(result.IsNull());
+        Assert.Equal(new[] { 3, 2, 1 }, list);
+    }
+
+    [Fact]
+    public void PreferJsPrototypeMethodsMakesArrayReverseWin()
+    {
+        var engine = new Jint.Engine(cfg => cfg.PreferJsPrototypeMethods());
+        var list = new List<int> { 1, 2, 3 };
+        engine.SetValue("list", list);
+
+        Assert.True(engine.Evaluate("list.reverse() === list").AsBoolean());
+        Assert.Equal(new[] { 3, 2, 1 }, list);
+    }
+
+    [Fact]
+    public void PreferJsPrototypeMethodsMakesArraySortWin()
+    {
+        // Without the flag List<int>.Sort gives ascending int sort and returns void.
+        // With the flag, Array.prototype.sort returns the array and uses JS string-compare semantics
+        // ([10, 2, 1] -> [1, 10, 2] because "10" < "2" lexicographically).
+        var engine = new Jint.Engine(cfg => cfg.PreferJsPrototypeMethods());
+        var list = new List<int> { 10, 2, 1 };
+        engine.SetValue("list", list);
+
+        Assert.Equal("[1,10,2]", engine.Evaluate("JSON.stringify(list.sort())").AsString());
+    }
+
+    [Fact]
+    public void PreferJsPrototypeMethodsLeavesNonClashingClrMethodsAlone()
+    {
+        // Methods without an Array.prototype counterpart must still resolve to CLR.
+        var engine = new Jint.Engine(cfg => cfg.PreferJsPrototypeMethods());
+        var list = new List<string> { "A", "B" };
+        engine.SetValue("list", list);
+
+        engine.Evaluate("list.Add('C')");
+        Assert.Equal(3, list.Count);
+        Assert.Equal("C", list[2]);
+
+        engine.Evaluate("list.RemoveAt(0)");
+        Assert.Equal(new[] { "B", "C" }, list);
+    }
+
+    [Fact]
+    public void PreferJsPrototypeMethodsKeepsLengthMappedToCount()
+    {
+        // length is served by the fast path in ObjectWrapper.Get — must be unaffected.
+        var engine = new Jint.Engine(cfg => cfg.PreferJsPrototypeMethods());
+        var list = new List<int> { 10, 20, 30, 40 };
+        engine.SetValue("list", list);
+
+        Assert.Equal(4, engine.Evaluate("list.length").AsNumber());
+    }
+
+    [Fact]
+    public void PreferJsPrototypeMethodsDoesNotAffectPlainObjectWrapper()
+    {
+        // POCOs get Object.prototype, which the check explicitly skips, so CLR ToString still wins.
+        var engine = new Jint.Engine(cfg => cfg.PreferJsPrototypeMethods());
+        engine.SetValue("obj", new ClassWithToString());
+
+        Assert.Equal("Test", engine.Evaluate("obj.toString()").AsString());
+    }
+
+    [Fact]
+    public void ListReverseCanBeFixedTodayWithMemberFilter()
+    {
+        // Documents the workaround that works without the new flag, on existing Jint versions.
+        var engine = new Jint.Engine(options => options.SetTypeResolver(new TypeResolver
+        {
+            MemberFilter = m =>
+            {
+                if (m is System.Reflection.MethodInfo mi
+                    && mi.DeclaringType is { } dt
+                    && typeof(System.Collections.IList).IsAssignableFrom(dt))
+                {
+                    return mi.Name is not ("Reverse" or "Sort");
+                }
+                return true;
+            }
+        }));
+
+        var list = new List<int> { 1, 2, 3 };
+        engine.SetValue("list", list);
+
+        Assert.True(engine.Evaluate("list.reverse() === list").AsBoolean());
+        Assert.Equal(new[] { 3, 2, 1 }, list);
+    }
+
+    [Fact]
     public void ShouldBeJavaScriptException()
     {
         var engine = new Engine(cfg => cfg.AllowClr().AllowOperatorOverloading().CatchClrExceptions());

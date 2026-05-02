@@ -407,6 +407,15 @@ public class Options
         public bool AttachArrayPrototype { get; set; } = true;
 
         /// <summary>
+        /// When true, JavaScript prototype methods take precedence over CLR methods of the same name on wrapped CLR objects
+        /// whose prototype is not the default Object prototype (e.g. <c>Array.prototype</c> attached to wrapped <see cref="System.Collections.Generic.IList{T}"/>).
+        /// Avoids semantic mismatches such as <c>List&lt;T&gt;.Reverse()</c> returning <c>void</c> while
+        /// <c>Array.prototype.reverse</c> returns the array. Has no effect when no JS prototype is attached
+        /// (i.e. <see cref="AttachArrayPrototype"/> is false or the wrapped type is not array-like). Defaults to false for backward compatibility.
+        /// </summary>
+        public bool PreferJsPrototypeMethods { get; set; }
+
+        /// <summary>
         /// Whether the engine should throw an error when a member is not found on a CLR object. Defaults to false.
         /// </summary>
         public bool ThrowOnUnresolvedMember { get; set; }

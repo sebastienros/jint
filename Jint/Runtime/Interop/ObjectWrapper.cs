@@ -507,6 +507,18 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             }
         }
 
+        if (!isDictionary
+            && _engine.Options.Interop.PreferJsPrototypeMethods
+            && _prototype is not null
+            && !ReferenceEquals(_prototype, _engine.Realm.Intrinsics.Object.PrototypeObject)
+            && _prototype.Get(property, this) is { } protoValue
+            && protoValue.IsCallable)
+        {
+            // Let outer Get fall through to the attached prototype (Array.prototype, etc.)
+            // rather than dispatching to a same-named CLR method whose semantics may differ.
+            return PropertyDescriptor.Undefined;
+        }
+
         var result = Engine.Options.Interop.MemberAccessor(Engine, Target, member);
         if (result is not null)
         {
