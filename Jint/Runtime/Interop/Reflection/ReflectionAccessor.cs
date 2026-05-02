@@ -13,9 +13,10 @@ using Jint.Runtime.Descriptors.Specialized;
 namespace Jint.Runtime.Interop.Reflection;
 
 /// <summary>
-/// Strategy to read and write CLR object properties and fields.
+/// Strategy to read and write CLR object properties and fields. Public so that the
+/// <c>[JsAccessible]</c> source generator can emit typed subclasses in user assemblies.
 /// </summary>
-internal abstract class ReflectionAccessor
+public abstract class ReflectionAccessor
 {
     private readonly Type? _memberType;
     private readonly PropertyInfo? _indexer;
@@ -100,7 +101,7 @@ internal abstract class ReflectionAccessor
     /// declared member also carries, and its value is then described by the indexer's type — so the
     /// caller must convert by this type rather than by <see cref="MemberType"/>.
     /// </summary>
-    public object? GetValue(Engine engine, object target, string memberName, out Type? valueType)
+    public virtual object? GetValue(Engine engine, object target, string memberName, out Type? valueType)
     {
         valueType = _memberType;
 
@@ -171,7 +172,7 @@ internal abstract class ReflectionAccessor
         }
     }
 
-    public void SetValue(Engine engine, object target, string memberName, JsValue value)
+    public virtual void SetValue(Engine engine, object target, string memberName, JsValue value)
     {
         // compiled fast lane: an exact-typed value is written without boxing and without the
         // conversion dispatch below; anything else declines here having written nothing
