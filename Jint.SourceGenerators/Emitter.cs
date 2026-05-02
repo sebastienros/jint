@@ -56,17 +56,30 @@ internal static class Emitter
     }
 
     /// <summary>
-    /// Emits one <c>private static readonly PropertyDescriptor</c> field per static
-    /// <c>[JsProperty]</c> entry. Lets <c>CreateProperties_Generated</c> reference a shared
-    /// descriptor instead of allocating a new one per Engine. Skipped for instance properties
-    /// (their value depends on the host instance, so the descriptor must be per-instance).
+    /// Emits one <c>private static readonly PropertyDescriptor</c> field per
+    /// <em>spec-immutable</em> static <c>[JsProperty]</c> entry — i.e. <c>IsStatic &amp;&amp; IsImmutable</c>
+    /// (default flags = <c>PropertyFlag.AllForbidden</c> — Configurable=Writable=Enumerable=false,
+    /// all explicitly set). JS code can't mutate such a descriptor: <c>writable=false</c> blocks
+    /// value writes, <c>configurable=false</c> blocks <c>defineProperty</c> redefinition and
+    /// <c>delete</c>. So sharing across Engines is safe by construction — same pattern as
+    /// <c>PropertyDescriptor.AllForbiddenDescriptor</c> already in the runtime.
+    /// <para>
+    /// Mutable static <c>[JsProperty]</c> entries (e.g. <c>Error.prototype.message</c> with
+    /// <c>NonEnumerable</c> flags — configurable=writable=true) are deliberately NOT cached here:
+    /// test262's <c>verifyProperty</c> mutates property attributes, so a static descriptor's
+    /// <c>_flags</c> would leak across parallel Engines, manifesting as flaky
+    /// <c>NativeErrors/*/prototype/message.js</c> failures. Per-Engine descriptors keep mutations
+    /// scoped to the Engine that performed them.
+    /// </para>
+    /// Instance <c>[JsProperty]</c> entries are also skipped here — the value depends on the host
+    /// instance, so the descriptor must be per-instance regardless of immutability.
     /// </summary>
     private static void EmitStaticPropertyDescriptors(StringBuilder sb, ObjectDefinition obj)
     {
         var emitted = false;
         foreach (var prop in obj.Properties)
         {
-            if (!prop.IsStatic) continue;
+            if (!prop.IsStatic || !prop.IsImmutable) continue;
             sb.Append("    private static readonly global::Jint.Runtime.Descriptors.PropertyDescriptor __")
               .Append(obj.Name).Append("_Property_").Append(prop.ClrName)
               .Append(" = new(").Append(obj.Name).Append('.').Append(prop.ClrName).Append(", ")
@@ -181,29 +194,48 @@ internal static class Emitter
         // AddDangerous skips the duplicate-key lookup and writes directly to the backing array.
         // Safe here because every key emitted below is unique by construction (JINT012 forbids
         // overload-style duplicates).
-        // Static [JsProperty] entries reference a class-scope cached PropertyDescriptor (emitted in
-        // EmitStaticPropertyDescriptors below) so the descriptor allocates once per process, not
-        // per Engine. Instance [JsProperty] needs a per-instance descriptor (the value differs).
+        //
+        // Static + spec-immutable [JsProperty] (IsStatic && IsImmutable, i.e. AllForbidden flags):
+        // share a single PropertyDescriptor across Engines via the field emitted in
+        // EmitStaticPropertyDescriptors. JS can't mutate the descriptor (writable=false,
+        // configurable=false), so the cache is safe.
+        //
+        // Static + mutable [JsProperty] (e.g. NonEnumerable on Error.prototype.message): allocate
+        // per Engine. test262's verifyProperty mutates attributes, so a shared descriptor would
+        // leak across parallel Engines.
+        //
+        // Instance [JsProperty]: always per-Engine (value depends on the host instance).
         foreach (var prop in obj.Properties)
         {
-            if (prop.IsStatic)
+            if (prop.IsStatic && prop.IsImmutable)
             {
                 sb.Append("        properties.AddDangerous(__Key_").Append(SanitizeIdentifier(prop.JsName)).Append(", __").Append(obj.Name).Append("_Property_").Append(prop.ClrName).AppendLine(");");
             }
             else
             {
                 sb.Append("        properties.AddDangerous(__Key_").Append(SanitizeIdentifier(prop.JsName)).Append(", new global::Jint.Runtime.Descriptors.PropertyDescriptor(");
+                if (prop.IsStatic) sb.Append(obj.Name).Append('.');
                 sb.Append(prop.ClrName).Append(", ");
                 sb.Append(prop.FlagsExpression);
                 sb.AppendLine("));");
             }
         }
 
+        // Slot elimination (Phase 2d): single-slot hosts get a constructor that takes no slot arg.
+        var singleSlot = obj.Functions.Count == 1;
         foreach (var fn in dataProperties)
         {
             sb.Append("        properties.AddDangerous(__Key_").Append(SanitizeIdentifier(fn.JsName)).Append(", new global::Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<")
-              .Append(obj.Name).Append(">(this, static host => new __").Append(obj.Name).Append("Function(host, __")
-              .Append(obj.Name).Append("Function.Slot.").Append(fn.ClrName).Append("), ").Append(fn.FlagsExpression).AppendLine("));");
+              .Append(obj.Name).Append(">(this, static host => new __").Append(obj.Name);
+            if (singleSlot)
+            {
+                sb.Append("Function(host)");
+            }
+            else
+            {
+                sb.Append("Function(host, __").Append(obj.Name).Append("Function.Slot.").Append(fn.ClrName).Append(")");
+            }
+            sb.Append(", ").Append(fn.FlagsExpression).AppendLine("));");
         }
 
         // [JsIntrinsicReference]: LazyPropertyDescriptor whose factory hands back a realm intrinsic
@@ -229,7 +261,9 @@ internal static class Emitter
               .Append(obj.Name).Append(">(this, ");
             if (getFn is not null)
             {
-                sb.Append("static host => new __").Append(obj.Name).Append("Function(host, __").Append(obj.Name).Append("Function.Slot.").Append(getFn.ClrName).Append(')');
+                sb.Append("static host => new __").Append(obj.Name);
+                if (singleSlot) sb.Append("Function(host)");
+                else            sb.Append("Function(host, __").Append(obj.Name).Append("Function.Slot.").Append(getFn.ClrName).Append(')');
             }
             else
             {
@@ -238,7 +272,9 @@ internal static class Emitter
             sb.Append(", ");
             if (setFn is not null)
             {
-                sb.Append("static host => new __").Append(obj.Name).Append("Function(host, __").Append(obj.Name).Append("Function.Slot.").Append(setFn.ClrName).Append(')');
+                sb.Append("static host => new __").Append(obj.Name);
+                if (singleSlot) sb.Append("Function(host)");
+                else            sb.Append("Function(host, __").Append(obj.Name).Append("Function.Slot.").Append(setFn.ClrName).Append(')');
             }
             else
             {
@@ -265,40 +301,72 @@ internal static class Emitter
     private static void EmitDispatcher(StringBuilder sb, ObjectDefinition obj)
     {
         var typeName = "__" + obj.Name + "Function";
+        // Slot elimination: hosts with exactly one [JsFunction]/[JsAccessor]/[JsSymbol*] entry get
+        // a simplified dispatcher — no Slot enum, no `_slot` field, no switch in Call/GetName/
+        // GetLength. The dispatcher constructor stops taking the slot parameter, so the lambda
+        // factory in CreateProperties_Generated drops the second arg too. Saves 1 ushort field +
+        // the enum metadata; small but real for the ~10 single-function hosts (e.g. ArrayBuffer.
+        // isView, Error.toString, Atomics ops live alongside others so they don't qualify, but
+        // hosts like ArrayBufferConstructor / ArrayIteratorPrototype do).
+        var singleSlot = obj.Functions.Count == 1;
 
         sb.Append("    private sealed class ").Append(typeName).AppendLine(" : global::Jint.Native.Function.Function");
         sb.AppendLine("    {");
-        sb.AppendLine("        internal enum Slot : ushort");
-        sb.AppendLine("        {");
-        foreach (var fn in obj.Functions)
+        if (!singleSlot)
         {
-            sb.Append("            ").Append(fn.ClrName).AppendLine(",");
+            sb.AppendLine("        internal enum Slot : ushort");
+            sb.AppendLine("        {");
+            foreach (var fn in obj.Functions)
+            {
+                sb.Append("            ").Append(fn.ClrName).AppendLine(",");
+            }
+            sb.AppendLine("        }");
         }
-        sb.AppendLine("        }");
         sb.AppendLine();
 
         sb.Append("        private readonly ").Append(obj.Name).AppendLine(" _host;");
-        sb.AppendLine("        private readonly Slot _slot;");
+        if (!singleSlot)
+        {
+            sb.AppendLine("        private readonly Slot _slot;");
+        }
         sb.AppendLine();
 
         // Use host._realm — the realm captured at host construction time (= host's home realm) — not
         // host.Engine.Realm, which is the *currently active* realm. Lazy descriptors materialize on
         // first read; if first access is cross-realm (e.g. via ShadowRealm), Engine.Realm would be the
         // wrong realm and the dispatcher Function would carry the wrong [[Realm]] internal slot.
-        sb.Append("        internal ").Append(typeName).Append("(").Append(obj.Name).AppendLine(" host, Slot slot)");
-        sb.AppendLine("            : base(host.Engine, host._realm, GetName(slot))");
-        sb.AppendLine("        {");
-        sb.AppendLine("            _host = host;");
-        sb.AppendLine("            _slot = slot;");
-        sb.AppendLine("            _prototype = host._realm.Intrinsics.Function.PrototypeObject;");
-        sb.AppendLine("            _length = new global::Jint.Runtime.Descriptors.PropertyDescriptor(global::Jint.Native.JsNumber.Create(GetLength(slot)), global::Jint.Runtime.Descriptors.PropertyFlag.Configurable);");
-        sb.AppendLine("        }");
+        if (singleSlot)
+        {
+            // No slot parameter — only one entry, name/length are constants captured directly below.
+            var only = obj.Functions[0];
+            sb.Append("        internal ").Append(typeName).Append("(").Append(obj.Name).AppendLine(" host)");
+            sb.Append("            : base(host.Engine, host._realm, global::Jint.Native.JsString.CachedCreate(\"").Append(EscapeStringLit(only.FunctionName)).AppendLine("\"))");
+            sb.AppendLine("        {");
+            sb.AppendLine("            _host = host;");
+            sb.AppendLine("            _prototype = host._realm.Intrinsics.Function.PrototypeObject;");
+            sb.Append("            _length = new global::Jint.Runtime.Descriptors.PropertyDescriptor(global::Jint.Native.JsNumber.Create(").Append(only.Length).AppendLine("), global::Jint.Runtime.Descriptors.PropertyFlag.Configurable);");
+            sb.AppendLine("        }");
+        }
+        else
+        {
+            sb.Append("        internal ").Append(typeName).Append("(").Append(obj.Name).AppendLine(" host, Slot slot)");
+            sb.AppendLine("            : base(host.Engine, host._realm, GetName(slot))");
+            sb.AppendLine("        {");
+            sb.AppendLine("            _host = host;");
+            sb.AppendLine("            _slot = slot;");
+            sb.AppendLine("            _prototype = host._realm.Intrinsics.Function.PrototypeObject;");
+            sb.AppendLine("            _length = new global::Jint.Runtime.Descriptors.PropertyDescriptor(global::Jint.Native.JsNumber.Create(GetLength(slot)), global::Jint.Runtime.Descriptors.PropertyFlag.Configurable);");
+            sb.AppendLine("        }");
+        }
         sb.AppendLine();
 
         sb.AppendLine("        protected internal override global::Jint.Native.JsValue Call(global::Jint.Native.JsValue thisObject, global::Jint.Native.JsValue[] arguments)");
         sb.AppendLine("        {");
-        sb.AppendLine("            switch (_slot)");
-        sb.AppendLine("            {");
+        if (!singleSlot)
+        {
+            sb.AppendLine("            switch (_slot)");
+            sb.AppendLine("            {");
+        }
         foreach (var fn in obj.Functions)
         {
             // If thisObject is typed as a JsValue subtype or ICallable, emit a cast + TypeError precondition.
@@ -312,74 +380,167 @@ internal static class Emitter
                 }
             }
 
-            if (castType is not null || fn.RequireObjectCoercible)
+            // Coerced [Rest]: param is `[Rest, ToX] ReadOnlySpan<T>`. Generator emits a Span<T>
+            // local with stackalloc for ≤16 elements and a heap array for larger sizes, then
+            // populates it via TypeConverter.ToX in a separate pass *before* calling the host
+            // method (the spec requires every element's coercion to run before any scanning logic
+            // — observable via valueOf side effects).
+            ParameterDefinition? coercedRest = null;
+            foreach (var p in fn.Parameters)
             {
-                sb.Append("                case Slot.").Append(fn.ClrName).AppendLine(":");
-                sb.AppendLine("                {");
+                if (p.Kind == ParameterKind.Rest && p.CoercionKind is not null)
+                {
+                    coercedRest = p;
+                    break;
+                }
+            }
+
+            // Indent: "                " (16 sp) for switch-case body, "            " (12 sp) for flat single-slot body.
+            var bodyIndent = singleSlot ? "            " : "                ";
+
+            if (castType is not null || fn.RequireObjectCoercible || coercedRest is not null)
+            {
+                if (!singleSlot)
+                {
+                    sb.Append("                case Slot.").Append(fn.ClrName).AppendLine(":");
+                    sb.AppendLine("                {");
+                }
                 if (fn.RequireObjectCoercible)
                 {
-                    sb.AppendLine("                    global::Jint.Runtime.TypeConverter.RequireObjectCoercible(_host._engine, thisObject);");
+                    sb.Append(bodyIndent).Append("    ").AppendLine("global::Jint.Runtime.TypeConverter.RequireObjectCoercible(_host._engine, thisObject);");
                 }
                 if (castType is not null)
                 {
-                    sb.Append("                    var __cast = thisObject as global::").Append(castType).AppendLine(";");
+                    sb.Append(bodyIndent).Append("    ").Append("var __cast = thisObject as global::").Append(castType).AppendLine(";");
                     // Use the host's _realm (which carries the realm where the host was constructed) — not the
                     // dispatcher's own _realm, which only reflects the engine's active realm at first access of
                     // the lazy descriptor. Cross-realm tests like apply/this-not-callable-realm depend on this.
-                    sb.Append("                    if (__cast is null) global::Jint.Runtime.Throw.TypeError(_host._realm, \"")
+                    sb.Append(bodyIndent).Append("    ").Append("if (__cast is null) global::Jint.Runtime.Throw.TypeError(_host._realm, \"")
                       .Append(EscapeStringLit(fn.FunctionName))
                       .Append(" requires 'this' to be of type ")
                       .Append(EscapeStringLit(castType.Substring(castType.LastIndexOf('.') + 1)))
                       .AppendLine("\");");
                 }
-                sb.Append("                    return ");
+                if (coercedRest is { } cr)
+                {
+                    EmitCoercedRestPreamble(sb, cr, singleSlot);
+                }
+                sb.Append(bodyIndent).Append("    ").Append("return ");
                 EmitInvocation(sb, obj, fn);
                 sb.AppendLine(";");
-                sb.AppendLine("                }");
+                if (!singleSlot)
+                {
+                    sb.AppendLine("                }");
+                }
             }
             else
             {
-                sb.Append("                case Slot.").Append(fn.ClrName).Append(": return ");
+                if (singleSlot)
+                {
+                    sb.Append("            return ");
+                }
+                else
+                {
+                    sb.Append("                case Slot.").Append(fn.ClrName).Append(": return ");
+                }
                 EmitInvocation(sb, obj, fn);
                 sb.AppendLine(";");
             }
         }
-        sb.AppendLine("                default: throw UnknownSlot(_slot);");
-        sb.AppendLine("            }");
-        sb.AppendLine("        }");
-        sb.AppendLine();
-
-        sb.AppendLine("        private static global::Jint.Native.JsString GetName(Slot slot)");
-        sb.AppendLine("        {");
-        sb.AppendLine("            switch (slot)");
-        sb.AppendLine("            {");
-        foreach (var fn in obj.Functions)
+        if (!singleSlot)
         {
-            sb.Append("                case Slot.").Append(fn.ClrName).Append(": return global::Jint.Native.JsString.CachedCreate(\"").Append(EscapeStringLit(fn.FunctionName)).AppendLine("\");");
+            sb.AppendLine("                default: throw UnknownSlot(_slot);");
+            sb.AppendLine("            }");
         }
-        sb.AppendLine("                default: throw UnknownSlot(slot);");
-        sb.AppendLine("            }");
         sb.AppendLine("        }");
-        sb.AppendLine();
 
-        sb.AppendLine("        private static int GetLength(Slot slot)");
-        sb.AppendLine("        {");
-        sb.AppendLine("            switch (slot)");
-        sb.AppendLine("            {");
-        foreach (var fn in obj.Functions)
+        if (!singleSlot)
         {
-            sb.Append("                case Slot.").Append(fn.ClrName).Append(": return ").Append(fn.Length).AppendLine(";");
-        }
-        sb.AppendLine("                default: throw UnknownSlot(slot);");
-        sb.AppendLine("            }");
-        sb.AppendLine("        }");
-        sb.AppendLine();
+            sb.AppendLine();
+            sb.AppendLine("        private static global::Jint.Native.JsString GetName(Slot slot)");
+            sb.AppendLine("        {");
+            sb.AppendLine("            switch (slot)");
+            sb.AppendLine("            {");
+            foreach (var fn in obj.Functions)
+            {
+                sb.Append("                case Slot.").Append(fn.ClrName).Append(": return global::Jint.Native.JsString.CachedCreate(\"").Append(EscapeStringLit(fn.FunctionName)).AppendLine("\");");
+            }
+            sb.AppendLine("                default: throw UnknownSlot(slot);");
+            sb.AppendLine("            }");
+            sb.AppendLine("        }");
+            sb.AppendLine();
 
-        sb.AppendLine("        private static global::System.InvalidOperationException UnknownSlot(Slot slot)");
-        sb.AppendLine("            => new global::System.InvalidOperationException(\"Unknown slot \" + slot + \" — generator/runtime mismatch.\");");
+            sb.AppendLine("        private static int GetLength(Slot slot)");
+            sb.AppendLine("        {");
+            sb.AppendLine("            switch (slot)");
+            sb.AppendLine("            {");
+            foreach (var fn in obj.Functions)
+            {
+                sb.Append("                case Slot.").Append(fn.ClrName).Append(": return ").Append(fn.Length).AppendLine(";");
+            }
+            sb.AppendLine("                default: throw UnknownSlot(slot);");
+            sb.AppendLine("            }");
+            sb.AppendLine("        }");
+            sb.AppendLine();
+
+            sb.AppendLine("        private static global::System.InvalidOperationException UnknownSlot(Slot slot)");
+            sb.AppendLine("            => new global::System.InvalidOperationException(\"Unknown slot \" + slot + \" — generator/runtime mismatch.\");");
+        }
 
         sb.AppendLine("    }");
     }
+
+    /// <summary>
+    /// Emits the stackalloc-or-heap span + coerce-loop preamble for a coerced <c>[Rest]</c>
+    /// parameter (e.g. <c>[Rest, ToNumber] ReadOnlySpan&lt;double&gt;</c>). Written into local
+    /// <c>__coerced</c> which <see cref="EmitInvocation"/> then references. Stackalloc threshold
+    /// is 16 elements — the same convention <c>MathInstance.Max/Min/Hypot</c> used pre-migration.
+    /// </summary>
+    private static void EmitCoercedRestPreamble(StringBuilder sb, ParameterDefinition p, bool singleSlot)
+    {
+        var (csharpType, _) = ConversionTargetTypeNames(p.CoercionKind!.Value);
+        var converter = ConversionConverterCall(p.CoercionKind!.Value);
+        var startExpr = p.Position == 0 ? "0" : "global::System.Math.Min(" + p.Position + ", arguments.Length)";
+        var lenExpr   = p.Position == 0 ? "arguments.Length" : "global::System.Math.Max(0, arguments.Length - " + p.Position + ")";
+        // Switch-case body lives at 16 sp; flat single-slot Call body at 12 sp. Inner indent +4.
+        var i = singleSlot ? "            " : "                    ";
+
+        sb.Append(i).Append("var __values = new global::System.ReadOnlySpan<global::Jint.Native.JsValue>(arguments, ").Append(startExpr).Append(", ").Append(lenExpr).AppendLine(");");
+        sb.Append(i).Append("global::System.Span<").Append(csharpType).AppendLine("> __coerced = __values.Length <= 16");
+        sb.Append(i).Append("    ? stackalloc ").Append(csharpType).AppendLine("[__values.Length]");
+        sb.Append(i).Append("    : new ").Append(csharpType).AppendLine("[__values.Length];");
+        sb.Append(i).AppendLine("for (var __i = 0; __i < __values.Length; __i++)");
+        sb.Append(i).AppendLine("{");
+        sb.Append(i).Append("    __coerced[__i] = ").Append(converter).AppendLine("(__values[__i]);");
+        sb.Append(i).AppendLine("}");
+    }
+
+    private static (string csharpType, string attrName) ConversionTargetTypeNames(ParameterKind kind) => kind switch
+    {
+        ParameterKind.ToNumber  => ("double", "ToNumber"),
+        ParameterKind.ToInt32   => ("int", "ToInt32"),
+        ParameterKind.ToUint32  => ("uint", "ToUint32"),
+        ParameterKind.ToInteger => ("double", "ToInteger"),
+        ParameterKind.ToLength  => ("ulong", "ToLength"),
+        ParameterKind.ToString  => ("string", "ToString"),
+        ParameterKind.ToJsString => ("global::Jint.Native.JsString", "ToJsString"),
+        ParameterKind.ToObject  => ("global::Jint.Native.Object.ObjectInstance", "ToObject"),
+        _ => throw new System.InvalidOperationException($"ConversionTargetTypeNames called with non-coercion kind {kind}"),
+    };
+
+    private static string ConversionConverterCall(ParameterKind kind) => kind switch
+    {
+        ParameterKind.ToNumber   => "global::Jint.Runtime.TypeConverter.ToNumber",
+        ParameterKind.ToInt32    => "global::Jint.Runtime.TypeConverter.ToInt32",
+        ParameterKind.ToUint32   => "global::Jint.Runtime.TypeConverter.ToUint32",
+        ParameterKind.ToInteger  => "global::Jint.Runtime.TypeConverter.ToInteger",
+        ParameterKind.ToLength   => "global::Jint.Runtime.TypeConverter.ToLength",
+        ParameterKind.ToString   => "global::Jint.Runtime.TypeConverter.ToString",
+        ParameterKind.ToJsString => "global::Jint.Runtime.TypeConverter.ToJsString",
+        // [ToObject] needs the realm — for a coerced rest this would have to capture _realm; not
+        // useful in practice (no built-in variadic takes ObjectInstance[]) so we throw.
+        _ => throw new System.InvalidOperationException($"Coerced [Rest] does not support {kind}"),
+    };
 
     private static void EmitInvocation(StringBuilder sb, ObjectDefinition obj, FunctionDefinition fn)
     {
@@ -425,9 +586,15 @@ internal static class Emitter
                     sb.Append("global::Jint.Runtime.TypeConverter.ToObject(_realm, global::Jint.Runtime.Arguments.At(arguments, ").Append(p.Position).Append("))");
                     break;
                 case ParameterKind.Rest:
-                    // Slice past the fixed positional value parameters into a ReadOnlySpan over the array tail; no allocation.
-                    if (p.Position == 0)
+                    if (p.CoercionKind is not null)
                     {
+                        // Coerced [Rest]: the dispatcher's preamble (EmitCoercedRestPreamble) has
+                        // already populated `__coerced`; just pass it through.
+                        sb.Append("__coerced");
+                    }
+                    else if (p.Position == 0)
+                    {
+                        // Slice past the fixed positional value parameters into a ReadOnlySpan over the array tail; no allocation.
                         sb.Append("new global::System.ReadOnlySpan<global::Jint.Native.JsValue>(arguments, 0, arguments.Length)");
                     }
                     else
@@ -486,11 +653,14 @@ internal static class Emitter
             sb.AppendLine(");");
         }
 
+        var singleSlot = obj.Functions.Count == 1;
         foreach (var fn in symbolFunctions)
         {
             sb.Append("        symbols[global::Jint.Native.Symbol.GlobalSymbolRegistry.").Append(fn.JsName).Append("] = new global::Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<")
-              .Append(obj.Name).Append(">(this, static host => new __").Append(obj.Name).Append("Function(host, __")
-              .Append(obj.Name).Append("Function.Slot.").Append(fn.ClrName).Append("), ").Append(fn.FlagsExpression).AppendLine(");");
+              .Append(obj.Name).Append(">(this, static host => new __").Append(obj.Name);
+            if (singleSlot) sb.Append("Function(host)");
+            else            sb.Append("Function(host, __").Append(obj.Name).Append("Function.Slot.").Append(fn.ClrName).Append(")");
+            sb.Append(", ").Append(fn.FlagsExpression).AppendLine(");");
         }
 
         // Symbol-keyed accessors: LazyGetSetPropertyDescriptor — dispatcher Functions allocate on
@@ -504,7 +674,9 @@ internal static class Emitter
               .Append(obj.Name).Append(">(this, ");
             if (getFn is not null)
             {
-                sb.Append("static host => new __").Append(obj.Name).Append("Function(host, __").Append(obj.Name).Append("Function.Slot.").Append(getFn.ClrName).Append(')');
+                sb.Append("static host => new __").Append(obj.Name);
+                if (singleSlot) sb.Append("Function(host)");
+                else            sb.Append("Function(host, __").Append(obj.Name).Append("Function.Slot.").Append(getFn.ClrName).Append(')');
             }
             else
             {
@@ -513,7 +685,9 @@ internal static class Emitter
             sb.Append(", ");
             if (setFn is not null)
             {
-                sb.Append("static host => new __").Append(obj.Name).Append("Function(host, __").Append(obj.Name).Append("Function.Slot.").Append(setFn.ClrName).Append(')');
+                sb.Append("static host => new __").Append(obj.Name);
+                if (singleSlot) sb.Append("Function(host)");
+                else            sb.Append("Function(host, __").Append(obj.Name).Append("Function.Slot.").Append(setFn.ClrName).Append(')');
             }
             else
             {

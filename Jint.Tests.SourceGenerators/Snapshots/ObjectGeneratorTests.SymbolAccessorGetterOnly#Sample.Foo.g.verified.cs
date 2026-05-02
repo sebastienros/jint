@@ -16,57 +16,26 @@ internal sealed partial class Foo
     private void CreateSymbols_Generated()
     {
         var symbols = new global::Jint.Collections.DictionarySlim<global::Jint.Native.JsSymbol, global::Jint.Runtime.Descriptors.PropertyDescriptor>(1);
-        symbols[global::Jint.Native.Symbol.GlobalSymbolRegistry.Species] = new global::Jint.Runtime.Descriptors.Specialized.LazyGetSetPropertyDescriptor<Foo>(this, static host => new __FooFunction(host, __FooFunction.Slot.Species), null, global::Jint.Runtime.Descriptors.PropertyFlag.EnumerableSet | global::Jint.Runtime.Descriptors.PropertyFlag.Configurable);
+        symbols[global::Jint.Native.Symbol.GlobalSymbolRegistry.Species] = new global::Jint.Runtime.Descriptors.Specialized.LazyGetSetPropertyDescriptor<Foo>(this, static host => new __FooFunction(host), null, global::Jint.Runtime.Descriptors.PropertyFlag.EnumerableSet | global::Jint.Runtime.Descriptors.PropertyFlag.Configurable);
         SetSymbols(symbols);
     }
 
     private sealed class __FooFunction : global::Jint.Native.Function.Function
     {
-        internal enum Slot : ushort
-        {
-            Species,
-        }
 
         private readonly Foo _host;
-        private readonly Slot _slot;
 
-        internal __FooFunction(Foo host, Slot slot)
-            : base(host.Engine, host._realm, GetName(slot))
+        internal __FooFunction(Foo host)
+            : base(host.Engine, host._realm, global::Jint.Native.JsString.CachedCreate("get [Symbol.species]"))
         {
             _host = host;
-            _slot = slot;
             _prototype = host._realm.Intrinsics.Function.PrototypeObject;
-            _length = new global::Jint.Runtime.Descriptors.PropertyDescriptor(global::Jint.Native.JsNumber.Create(GetLength(slot)), global::Jint.Runtime.Descriptors.PropertyFlag.Configurable);
+            _length = new global::Jint.Runtime.Descriptors.PropertyDescriptor(global::Jint.Native.JsNumber.Create(0), global::Jint.Runtime.Descriptors.PropertyFlag.Configurable);
         }
 
         protected internal override global::Jint.Native.JsValue Call(global::Jint.Native.JsValue thisObject, global::Jint.Native.JsValue[] arguments)
         {
-            switch (_slot)
-            {
-                case Slot.Species: return Foo.Species(thisObject);
-                default: throw UnknownSlot(_slot);
-            }
+            return Foo.Species(thisObject);
         }
-
-        private static global::Jint.Native.JsString GetName(Slot slot)
-        {
-            switch (slot)
-            {
-                case Slot.Species: return global::Jint.Native.JsString.CachedCreate("get [Symbol.species]");
-                default: throw UnknownSlot(slot);
-            }
-        }
-
-        private static int GetLength(Slot slot)
-        {
-            switch (slot)
-            {
-                case Slot.Species: return 0;
-                default: throw UnknownSlot(slot);
-            }
-        }
-
-        private static global::System.InvalidOperationException UnknownSlot(Slot slot)
-            => new global::System.InvalidOperationException("Unknown slot " + slot + " — generator/runtime mismatch.");
     }
 }

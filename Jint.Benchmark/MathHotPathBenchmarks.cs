@@ -13,7 +13,6 @@ namespace Jint.Benchmark;
 /// Each tight loop runs 1000 calls inside one prepared script so we measure dispatch + call cost,
 /// not script-eval/parse overhead. OperationsPerInvoke amortises BDN's per-iteration noise.
 /// </summary>
-[ShortRunJob]
 [MemoryDiagnoser]
 public class MathHotPathBenchmarks
 {

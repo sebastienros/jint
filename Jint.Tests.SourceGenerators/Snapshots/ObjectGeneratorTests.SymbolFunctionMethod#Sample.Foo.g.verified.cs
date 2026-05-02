@@ -16,57 +16,26 @@ internal sealed partial class Foo
     private void CreateSymbols_Generated()
     {
         var symbols = new global::Jint.Collections.DictionarySlim<global::Jint.Native.JsSymbol, global::Jint.Runtime.Descriptors.PropertyDescriptor>(1);
-        symbols[global::Jint.Native.Symbol.GlobalSymbolRegistry.HasInstance] = new global::Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<Foo>(this, static host => new __FooFunction(host, __FooFunction.Slot.HasInstance), global::Jint.Runtime.Descriptors.PropertyFlag.AllForbidden);
+        symbols[global::Jint.Native.Symbol.GlobalSymbolRegistry.HasInstance] = new global::Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<Foo>(this, static host => new __FooFunction(host), global::Jint.Runtime.Descriptors.PropertyFlag.AllForbidden);
         SetSymbols(symbols);
     }
 
     private sealed class __FooFunction : global::Jint.Native.Function.Function
     {
-        internal enum Slot : ushort
-        {
-            HasInstance,
-        }
 
         private readonly Foo _host;
-        private readonly Slot _slot;
 
-        internal __FooFunction(Foo host, Slot slot)
-            : base(host.Engine, host._realm, GetName(slot))
+        internal __FooFunction(Foo host)
+            : base(host.Engine, host._realm, global::Jint.Native.JsString.CachedCreate("[Symbol.hasInstance]"))
         {
             _host = host;
-            _slot = slot;
             _prototype = host._realm.Intrinsics.Function.PrototypeObject;
-            _length = new global::Jint.Runtime.Descriptors.PropertyDescriptor(global::Jint.Native.JsNumber.Create(GetLength(slot)), global::Jint.Runtime.Descriptors.PropertyFlag.Configurable);
+            _length = new global::Jint.Runtime.Descriptors.PropertyDescriptor(global::Jint.Native.JsNumber.Create(1), global::Jint.Runtime.Descriptors.PropertyFlag.Configurable);
         }
 
         protected internal override global::Jint.Native.JsValue Call(global::Jint.Native.JsValue thisObject, global::Jint.Native.JsValue[] arguments)
         {
-            switch (_slot)
-            {
-                case Slot.HasInstance: return Foo.HasInstance(thisObject, global::Jint.Runtime.Arguments.At(arguments, 0));
-                default: throw UnknownSlot(_slot);
-            }
+            return Foo.HasInstance(thisObject, global::Jint.Runtime.Arguments.At(arguments, 0));
         }
-
-        private static global::Jint.Native.JsString GetName(Slot slot)
-        {
-            switch (slot)
-            {
-                case Slot.HasInstance: return global::Jint.Native.JsString.CachedCreate("[Symbol.hasInstance]");
-                default: throw UnknownSlot(slot);
-            }
-        }
-
-        private static int GetLength(Slot slot)
-        {
-            switch (slot)
-            {
-                case Slot.HasInstance: return 1;
-                default: throw UnknownSlot(slot);
-            }
-        }
-
-        private static global::System.InvalidOperationException UnknownSlot(Slot slot)
-            => new global::System.InvalidOperationException("Unknown slot " + slot + " — generator/runtime mismatch.");
     }
 }

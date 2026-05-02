@@ -436,7 +436,7 @@ internal enum ParameterKind
     AllArguments,
 }
 
-internal sealed record class ParameterDefinition(ParameterKind Kind, int Position, string? CastTargetType = null);
+internal sealed record class ParameterDefinition(ParameterKind Kind, int Position, string? CastTargetType = null, ParameterKind? CoercionKind = null);
 
 internal enum RegistrationKind
 {
@@ -627,20 +627,15 @@ internal sealed record class FunctionDefinition(
                 return null;
             }
 
-            // Detect conversion attributes — at most one per parameter, and not combinable with [Rest].
+            // Detect conversion attributes — at most one per parameter. Combinable with [Rest] when
+            // the parameter is `ReadOnlySpan<T>` whose element type matches the converter's return
+            // type — generator emits a stackalloc-or-heap span + coerce-loop preamble in the
+            // dispatcher (replaces the hand-rolled pattern in MathInstance.Max/Min/Hypot etc.).
             var conversion = DetectConversion(param, method, diagnostics, out var failed);
             if (failed) return null;
 
             if (ObjectDefinition.HasAttribute(param, "RestAttribute"))
             {
-                if (conversion is not null)
-                {
-                    diagnostics.Add(new DiagnosticInfo(
-                        DiagnosticDescriptors.ConflictingConversionAttributes,
-                        param.Locations.FirstOrDefault(),
-                        param.Name, method.Name));
-                    return null;
-                }
                 if (!isLast)
                 {
                     diagnostics.Add(new DiagnosticInfo(
@@ -649,6 +644,23 @@ internal sealed record class FunctionDefinition(
                         param.Name, method.Name, "[Rest] must be the last parameter"));
                     return null;
                 }
+
+                if (conversion is { } restCoercion)
+                {
+                    // Coerced [Rest]: parameter must be ReadOnlySpan<T> where T matches the converter's CLR return type.
+                    if (!IsReadOnlySpanOfCoercionTarget(param.Type, restCoercion))
+                    {
+                        var expected = ExpectedConversionType(restCoercion);
+                        diagnostics.Add(new DiagnosticInfo(
+                            DiagnosticDescriptors.ConversionTypeMismatch,
+                            param.Locations.FirstOrDefault(),
+                            param.Name, method.Name, expected.attrName, param.Type.ToDisplayString(), "ReadOnlySpan<" + expected.csharpName + ">"));
+                        return null;
+                    }
+                    parameters.Add(new ParameterDefinition(ParameterKind.Rest, valuePosition, CoercionKind: restCoercion));
+                    continue;
+                }
+
                 if (!IsReadOnlySpanOfJsValue(param.Type, pc))
                 {
                     diagnostics.Add(new DiagnosticInfo(
@@ -787,6 +799,19 @@ internal sealed record class FunctionDefinition(
         return named.TypeArguments.Length == 1 && pc.IsJsValueOrSubtype(named.TypeArguments[0]);
     }
 
+    /// <summary>
+    /// True when <paramref name="t"/> is <c>ReadOnlySpan&lt;E&gt;</c> with E matching the CLR
+    /// return type of the given coercion. Same element-type table as
+    /// <see cref="ParameterTypeMatches"/> for single-parameter coercions.
+    /// </summary>
+    private static bool IsReadOnlySpanOfCoercionTarget(ITypeSymbol t, ParameterKind coercion)
+    {
+        if (t is not INamedTypeSymbol named) return false;
+        if (named.ConstructedFrom.ToDisplayString() != "System.ReadOnlySpan<T>") return false;
+        if (named.TypeArguments.Length != 1) return false;
+        return ParameterTypeMatches(named.TypeArguments[0], coercion);
+    }
+
     private static bool IsJsValueArray(ITypeSymbol t, ParseContext pc)
     {
         return t is IArrayTypeSymbol arr && pc.IsJsValueOrSubtype(arr.ElementType);
@@ -854,8 +879,23 @@ internal sealed record class PropertyDefinition(
     string ClrName,
     string JsName,
     bool IsStatic,
-    string FlagsExpression)
+    string FlagsExpression,
+    bool IsImmutable)
 {
+    /// <summary>
+    /// True when the property descriptor is spec-immutable from JS — i.e. flags ==
+    /// <c>PropertyFlag.AllForbidden</c> (Configurable=Writable=Enumerable=false, all explicitly set,
+    /// the default for <c>[JsProperty]</c>). JS code can't mutate the descriptor:
+    /// <c>writable=false</c> blocks value writes; <c>configurable=false</c> blocks
+    /// <c>defineProperty</c> redefinition and <c>delete</c>. Combined with <c>IsStatic</c>, this
+    /// makes the descriptor safe to share across Engines as a <c>private static readonly
+    /// PropertyDescriptor</c> field — same pattern as <c>PropertyDescriptor.AllForbiddenDescriptor</c>.
+    /// Static <c>[JsProperty]</c> with mutable flags (e.g. <c>NonEnumerable</c> on
+    /// <c>Error.prototype.message</c>) cannot be shared because <c>verifyProperty</c> in test262
+    /// mutates attributes — a static descriptor would leak mutations across parallel Engines.
+    /// </summary>
+    private const int AllForbiddenFlags = 42; // Enumerable|EnumerableSet|Writable|WritableSet|Configurable|ConfigurableSet bits = 0|2|0|8|0|32
+
     public static PropertyDefinition? FromField(IFieldSymbol field, ParseContext pc, List<DiagnosticInfo> diagnostics)
     {
         if (!field.IsReadOnly || !pc.IsJsValueOrSubtype(field.Type))
@@ -872,12 +912,14 @@ internal sealed record class PropertyDefinition(
         var flagsExplicit = ObjectDefinition.HasNamedArg(attr, "Flags")
             ? ObjectDefinition.GetNamedArg(attr, "Flags") as int?
             : null;
+        var resolvedFlags = flagsExplicit ?? AllForbiddenFlags; // [JsProperty] default is AllForbidden
 
         return new PropertyDefinition(
             ClrName: field.Name,
             JsName: !string.IsNullOrWhiteSpace(name) ? name! : field.Name,
             IsStatic: field.IsStatic,
-            FlagsExpression: FlagExpression.From(flagsExplicit, "AllForbidden"));
+            FlagsExpression: FlagExpression.From(flagsExplicit, "AllForbidden"),
+            IsImmutable: resolvedFlags == AllForbiddenFlags);
     }
 
     public static PropertyDefinition? FromProperty(IPropertySymbol property, ParseContext pc, List<DiagnosticInfo> diagnostics)
@@ -896,11 +938,13 @@ internal sealed record class PropertyDefinition(
         var flagsExplicit = ObjectDefinition.HasNamedArg(attr, "Flags")
             ? ObjectDefinition.GetNamedArg(attr, "Flags") as int?
             : null;
+        var resolvedFlags = flagsExplicit ?? AllForbiddenFlags;
 
         return new PropertyDefinition(
             ClrName: property.Name,
             JsName: !string.IsNullOrWhiteSpace(name) ? name! : property.Name,
             IsStatic: property.IsStatic,
-            FlagsExpression: FlagExpression.From(flagsExplicit, "AllForbidden"));
+            FlagsExpression: FlagExpression.From(flagsExplicit, "AllForbidden"),
+            IsImmutable: resolvedFlags == AllForbiddenFlags);
     }
 }

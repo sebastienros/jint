@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -545,24 +546,20 @@ internal sealed partial class MathInstance : ObjectInstance
     /// https://tc39.es/ecma262/#sec-math.max
     /// </summary>
     [JsFunction(Length = 2)]
-    private static JsValue Max(JsValue thisObject, [Rest] ReadOnlySpan<JsValue> values)
+    private static JsValue Max(JsValue thisObject, [Rest, ToNumber] ReadOnlySpan<double> values)
     {
+        // [Rest, ToNumber] makes the dispatcher coerce every element via TypeConverter.ToNumber
+        // BEFORE this body runs (spec requirement — observable via valueOf side effects). The
+        // span is stack-allocated for ≤16 elements, heap for larger.
         if (values.Length == 0)
         {
             return JsNumber.DoubleNegativeInfinity;
         }
 
-        // Spec requires ToNumber on every element before scanning (observable via valueOf).
-        Span<double> coerced = values.Length <= 16 ? stackalloc double[values.Length] : new double[values.Length];
+        var highest = double.NegativeInfinity;
         for (var i = 0; i < values.Length; i++)
         {
-            coerced[i] = TypeConverter.ToNumber(values[i]);
-        }
-
-        var highest = double.NegativeInfinity;
-        for (var i = 0; i < coerced.Length; i++)
-        {
-            var number = coerced[i];
+            var number = values[i];
             if (double.IsNaN(number))
             {
                 return JsNumber.DoubleNaN;
@@ -586,24 +583,18 @@ internal sealed partial class MathInstance : ObjectInstance
     /// https://tc39.es/ecma262/#sec-math.min
     /// </summary>
     [JsFunction(Length = 2)]
-    private static JsValue Min(JsValue thisObject, [Rest] ReadOnlySpan<JsValue> values)
+    private static JsValue Min(JsValue thisObject, [Rest, ToNumber] ReadOnlySpan<double> values)
     {
+        // [Rest, ToNumber] preamble coerces every element first (see Max for spec-side rationale).
         if (values.Length == 0)
         {
             return JsNumber.DoublePositiveInfinity;
         }
 
-        // Spec requires ToNumber on every element before scanning (observable via valueOf).
-        Span<double> coerced = values.Length <= 16 ? stackalloc double[values.Length] : new double[values.Length];
+        var lowest = double.PositiveInfinity;
         for (var i = 0; i < values.Length; i++)
         {
-            coerced[i] = TypeConverter.ToNumber(values[i]);
-        }
-
-        var lowest = double.PositiveInfinity;
-        for (var i = 0; i < coerced.Length; i++)
-        {
-            var number = coerced[i];
+            var number = values[i];
             if (double.IsNaN(number))
             {
                 return JsNumber.DoubleNaN;
@@ -883,19 +874,28 @@ internal sealed partial class MathInstance : ObjectInstance
         return System.Math.Sinh(x);
     }
 
+    // The 3 wrappers below are pure forwards to System.Math — single-line bodies that the JIT can
+    // inline into the dispatcher's switch case so the call site collapses to the underlying intrinsic.
+    // Without the hint, the generator's `Call(...)` dispatcher (one switch with ~30 cases) is large
+    // enough that JIT may decline to inline these tiny callees by default. Spec edge cases (NaN,
+    // ±0, ±Infinity) are handled by the System.Math implementations themselves for these three.
+
     [JsFunction]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static JsValue Sqrt(JsValue thisObject, [ToNumber] double x)
     {
         return System.Math.Sqrt(x);
     }
 
     [JsFunction]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static JsValue Tan(JsValue thisObject, [ToNumber] double x)
     {
         return System.Math.Tan(x);
     }
 
     [JsFunction]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static JsValue Tanh(JsValue thisObject, [ToNumber] double x)
     {
         return System.Math.Tanh(x);
@@ -985,19 +985,13 @@ internal sealed partial class MathInstance : ObjectInstance
     /// https://tc39.es/ecma262/#sec-math.hypot
     /// </summary>
     [JsFunction(Length = 2)]
-    private static JsValue Hypot(JsValue thisObject, [Rest] ReadOnlySpan<JsValue> values)
+    private static JsValue Hypot(JsValue thisObject, [Rest, ToNumber] ReadOnlySpan<double> values)
     {
-        // Spec requires ToNumber on every element before scanning. Any Infinity returns +Infinity
+        // [Rest, ToNumber] preamble coerces every element first. Any Infinity returns +Infinity
         // (even if a later value is NaN); otherwise NaN; otherwise sum-of-squares root.
-        Span<double> coerced = values.Length <= 16 ? stackalloc double[values.Length] : new double[values.Length];
         for (var i = 0; i < values.Length; i++)
         {
-            coerced[i] = TypeConverter.ToNumber(values[i]);
-        }
-
-        for (var i = 0; i < coerced.Length; i++)
-        {
-            if (double.IsInfinity(coerced[i]))
+            if (double.IsInfinity(values[i]))
             {
                 return JsNumber.DoublePositiveInfinity;
             }
@@ -1005,9 +999,9 @@ internal sealed partial class MathInstance : ObjectInstance
 
         var onlyZero = true;
         double y = 0;
-        for (var i = 0; i < coerced.Length; i++)
+        for (var i = 0; i < values.Length; i++)
         {
-            var number = coerced[i];
+            var number = values[i];
             if (double.IsNaN(number))
             {
                 return JsNumber.DoubleNaN;
@@ -1121,6 +1115,7 @@ internal sealed partial class MathInstance : ObjectInstance
     }
 
     [JsFunction]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static JsValue Imul(JsValue thisObject, [ToInt32] int x, [ToInt32] int y)
     {
         return x * y;

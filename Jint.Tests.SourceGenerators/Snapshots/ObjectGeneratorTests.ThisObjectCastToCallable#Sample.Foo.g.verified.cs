@@ -12,62 +12,28 @@ internal sealed partial class Foo
     private void CreateProperties_Generated()
     {
         var properties = new global::Jint.Collections.StringDictionarySlim<global::Jint.Runtime.Descriptors.PropertyDescriptor>(1);
-        properties.AddDangerous(__Key_invoke, new global::Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<Foo>(this, static host => new __FooFunction(host, __FooFunction.Slot.Invoke), global::Jint.Runtime.Descriptors.PropertyFlag.NonEnumerable));
+        properties.AddDangerous(__Key_invoke, new global::Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<Foo>(this, static host => new __FooFunction(host), global::Jint.Runtime.Descriptors.PropertyFlag.NonEnumerable));
         SetProperties(properties);
     }
 
     private sealed class __FooFunction : global::Jint.Native.Function.Function
     {
-        internal enum Slot : ushort
-        {
-            Invoke,
-        }
 
         private readonly Foo _host;
-        private readonly Slot _slot;
 
-        internal __FooFunction(Foo host, Slot slot)
-            : base(host.Engine, host._realm, GetName(slot))
+        internal __FooFunction(Foo host)
+            : base(host.Engine, host._realm, global::Jint.Native.JsString.CachedCreate("invoke"))
         {
             _host = host;
-            _slot = slot;
             _prototype = host._realm.Intrinsics.Function.PrototypeObject;
-            _length = new global::Jint.Runtime.Descriptors.PropertyDescriptor(global::Jint.Native.JsNumber.Create(GetLength(slot)), global::Jint.Runtime.Descriptors.PropertyFlag.Configurable);
+            _length = new global::Jint.Runtime.Descriptors.PropertyDescriptor(global::Jint.Native.JsNumber.Create(0), global::Jint.Runtime.Descriptors.PropertyFlag.Configurable);
         }
 
         protected internal override global::Jint.Native.JsValue Call(global::Jint.Native.JsValue thisObject, global::Jint.Native.JsValue[] arguments)
         {
-            switch (_slot)
-            {
-                case Slot.Invoke:
-                {
-                    var __cast = thisObject as global::Jint.Native.ICallable;
-                    if (__cast is null) global::Jint.Runtime.Throw.TypeError(_host._realm, "invoke requires 'this' to be of type ICallable");
-                    return Foo.Invoke(__cast);
-                }
-                default: throw UnknownSlot(_slot);
-            }
+                var __cast = thisObject as global::Jint.Native.ICallable;
+                if (__cast is null) global::Jint.Runtime.Throw.TypeError(_host._realm, "invoke requires 'this' to be of type ICallable");
+                return Foo.Invoke(__cast);
         }
-
-        private static global::Jint.Native.JsString GetName(Slot slot)
-        {
-            switch (slot)
-            {
-                case Slot.Invoke: return global::Jint.Native.JsString.CachedCreate("invoke");
-                default: throw UnknownSlot(slot);
-            }
-        }
-
-        private static int GetLength(Slot slot)
-        {
-            switch (slot)
-            {
-                case Slot.Invoke: return 0;
-                default: throw UnknownSlot(slot);
-            }
-        }
-
-        private static global::System.InvalidOperationException UnknownSlot(Slot slot)
-            => new global::System.InvalidOperationException("Unknown slot " + slot + " — generator/runtime mismatch.");
     }
 }

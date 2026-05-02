@@ -685,4 +685,63 @@ public class ObjectGeneratorTests
             }
             """);
     }
+
+    [Test]
+    public Task CoercedRestSpan()
+    {
+        // [Rest, ToNumber] ReadOnlySpan<double>: dispatcher emits a stackalloc-or-heap span +
+        // coerce-loop preamble that runs before the host method (per spec, every element's
+        // ToNumber must complete before any scanning logic — observable via valueOf side effects).
+        // This shape replaces the hand-rolled pattern in MathInstance.Max/Min/Hypot.
+        return VerifyGenerator("""
+            using System;
+            using Jint;
+            using Jint.Native;
+            using Jint.Native.Object;
+
+            namespace Sample;
+
+            [JsObject]
+            internal sealed partial class Foo : ObjectInstance
+            {
+                internal Foo(Engine engine) : base(engine) { }
+
+                [JsFunction(Length = 2)]
+                private static JsValue Max(JsValue thisObject, [Rest, ToNumber] ReadOnlySpan<double> values)
+                {
+                    var highest = double.NegativeInfinity;
+                    for (var i = 0; i < values.Length; i++) if (values[i] > highest) highest = values[i];
+                    return JsNumber.Create(highest);
+                }
+
+                protected override void Initialize() => CreateProperties_Generated();
+            }
+            """);
+    }
+
+    [Test]
+    public Task CoercedRestSpanTypeMismatch_ProducesDiagnostic()
+    {
+        // [Rest, ToNumber] requires ReadOnlySpan<double>. Span<int> here is wrong — JINT013 fires.
+        return VerifyGenerator("""
+            using System;
+            using Jint;
+            using Jint.Native;
+            using Jint.Native.Object;
+
+            namespace Sample;
+
+            [JsObject]
+            internal sealed partial class Foo : ObjectInstance
+            {
+                internal Foo(Engine engine) : base(engine) { }
+
+                [JsFunction(Length = 2)]
+                private static JsValue Bad(JsValue thisObject, [Rest, ToNumber] ReadOnlySpan<int> values)
+                    => JsValue.Undefined;
+
+                protected override void Initialize() => CreateProperties_Generated();
+            }
+            """);
+    }
 }

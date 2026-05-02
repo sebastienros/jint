@@ -6,7 +6,6 @@ namespace Sample;
 
 internal sealed partial class Foo
 {
-    private static readonly global::Jint.Runtime.Descriptors.PropertyDescriptor __Foo_Property_MutableTag = new(Foo.MutableTag, global::Jint.Runtime.Descriptors.PropertyFlag.NonEnumerable);
     private static readonly global::Jint.Runtime.Descriptors.PropertyDescriptor __Foo_Property_PiValue = new(Foo.PiValue, global::Jint.Runtime.Descriptors.PropertyFlag.AllForbidden);
     private static readonly global::Jint.Runtime.Descriptors.PropertyDescriptor __Foo_Property_Answer = new(Foo.Answer, global::Jint.Runtime.Descriptors.PropertyFlag.AllForbidden);
 
@@ -18,7 +17,7 @@ internal sealed partial class Foo
     private void CreateProperties_Generated()
     {
         var properties = new global::Jint.Collections.StringDictionarySlim<global::Jint.Runtime.Descriptors.PropertyDescriptor>(3);
-        properties.AddDangerous(__Key_MutableTag, __Foo_Property_MutableTag);
+        properties.AddDangerous(__Key_MutableTag, new global::Jint.Runtime.Descriptors.PropertyDescriptor(Foo.MutableTag, global::Jint.Runtime.Descriptors.PropertyFlag.NonEnumerable));
         properties.AddDangerous(__Key_PI, __Foo_Property_PiValue);
         properties.AddDangerous(__Key_answer, __Foo_Property_Answer);
         SetProperties(properties);

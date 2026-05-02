@@ -1,0 +1,17 @@
+﻿{
+  Diagnostics: [
+    {
+      Location: : (13,86)-(13,92),
+      Message: Parameter 'values' on method 'Bad' has [ToNumber] but the CLR type is 'System.ReadOnlySpan<int>' — expected 'ReadOnlySpan<double>',
+      Severity: Error,
+      Descriptor: {
+        Id: JINT013,
+        Title: Conversion attribute requires a matching CLR parameter type,
+        MessageFormat: Parameter '{0}' on method '{1}' has [{2}] but the CLR type is '{3}' — expected '{4}',
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Error,
+        IsEnabledByDefault: true
+      }
+    }
+  ]
+}

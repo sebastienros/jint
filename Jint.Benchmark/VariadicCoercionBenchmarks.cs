@@ -13,7 +13,6 @@ namespace Jint.Benchmark;
 /// All three should win equally from [Coerced&lt;T&gt;] vs the current emit which boxes into
 /// arguments[] and re-coerces inside the host method.
 /// </summary>
-[ShortRunJob]
 [MemoryDiagnoser]
 public class VariadicCoercionBenchmarks
 {
