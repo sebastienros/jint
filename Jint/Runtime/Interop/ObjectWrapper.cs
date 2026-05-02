@@ -346,13 +346,23 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         }
 
         // slow path requires us to create a property descriptor that might get cached or not
-        var desc = GetOwnProperty(property, mustBeReadable: true, mustBeWritable: false);
+        // suppress ThrowOnUnresolvedMember here so we can fall back to the prototype chain
+        // (e.g. valueOf/toString from Object.prototype during implicit coercion)
+        var desc = GetOwnProperty(property, mustBeReadable: true, mustBeWritable: false, throwOnError: false);
         if (desc != PropertyDescriptor.Undefined)
         {
             return UnwrapJsValue(desc, receiver);
         }
 
-        return Prototype?.Get(property, receiver) ?? Undefined;
+        var protoResult = Prototype?.Get(property, receiver) ?? Undefined;
+        if (protoResult.IsUndefined()
+            && property is JsString
+            && _engine.Options.Interop.ThrowOnUnresolvedMember)
+        {
+            throw new MissingMemberException($"Cannot access property '{property}' on type '{ClrType.FullName}");
+        }
+
+        return protoResult;
     }
 
     public override List<JsValue> GetOwnPropertyKeys(Types types = Types.Empty | Types.String | Types.Symbol)
@@ -450,7 +460,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         return GetOwnProperty(property, mustBeReadable: false, mustBeWritable: false);
     }
 
-    private PropertyDescriptor GetOwnProperty(JsValue property, bool mustBeReadable, bool mustBeWritable)
+    private PropertyDescriptor GetOwnProperty(JsValue property, bool mustBeReadable, bool mustBeWritable, bool throwOnError = true)
     {
         if (TryGetProperty(property, out var x))
         {
@@ -503,7 +513,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             return new PropertyDescriptor(result, PropertyFlag.OnlyEnumerable);
         }
 
-        var accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, ClrType, member, mustBeReadable, mustBeWritable);
+        var accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, ClrType, member, mustBeReadable, mustBeWritable, throwOnError);
         var actualType = Target.GetType();
         if (ClrType != actualType)
         {
@@ -513,11 +523,11 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             //   that should take precedence over the indexer
             if (accessor == ConstantValueAccessor.NullAccessor)
             {
-                accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, actualType, member, mustBeReadable, mustBeWritable);
+                accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, actualType, member, mustBeReadable, mustBeWritable, throwOnError);
             }
             else if (accessor is IndexerAccessor)
             {
-                var runtimeAccessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, actualType, member, mustBeReadable, mustBeWritable);
+                var runtimeAccessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, actualType, member, mustBeReadable, mustBeWritable, throwOnError);
                 if (runtimeAccessor is not IndexerAccessor && runtimeAccessor != ConstantValueAccessor.NullAccessor)
                 {
                     // Prefer direct property/field/method from runtime type over indexer from declared type
@@ -553,7 +563,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             };
         }
 
-        var accessor = engine.Options.Interop.TypeResolver.GetAccessor(engine, target.GetType(), member.Name, mustBeReadable: false, mustBeWritable: false, Factory);
+        var accessor = engine.Options.Interop.TypeResolver.GetAccessor(engine, target.GetType(), member.Name, mustBeReadable: false, mustBeWritable: false, accessorFactory: Factory);
         return accessor.CreatePropertyDescriptor(engine, target, member.Name);
     }
 

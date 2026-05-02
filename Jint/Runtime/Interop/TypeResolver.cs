@@ -76,6 +76,7 @@ public sealed class TypeResolver
         string member,
         bool mustBeReadable,
         bool mustBeWritable,
+        bool throwOnError = true,
         Func<ReflectionAccessor?>? accessorFactory = null)
     {
         var key = new Engine.ClrPropertyDescriptorFactoriesKey(type, member);
@@ -83,10 +84,16 @@ public sealed class TypeResolver
         var factories = engine._reflectionAccessors;
         if (factories.TryGetValue(key, out var accessor))
         {
+            if (throwOnError
+                && ReferenceEquals(accessor, ConstantValueAccessor.NullAccessor)
+                && engine.Options.Interop.ThrowOnUnresolvedMember)
+            {
+                throw new MissingMemberException($"Cannot access property '{member}' on type '{type.FullName}");
+            }
             return accessor;
         }
 
-        accessor = accessorFactory?.Invoke() ?? ResolvePropertyDescriptorFactory(engine, type, member, mustBeReadable, mustBeWritable);
+        accessor = accessorFactory?.Invoke() ?? ResolvePropertyDescriptorFactory(engine, type, member, mustBeReadable, mustBeWritable, throwOnError);
 
         // don't cache if numeric indexer
         if (uint.TryParse(member, out _))
@@ -109,7 +116,8 @@ public sealed class TypeResolver
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.Interfaces)] Type type,
         string memberName,
         bool mustBeReadable,
-        bool mustBeWritable)
+        bool mustBeWritable,
+        bool throwOnError)
     {
         var isInteger = long.TryParse(memberName, NumberStyles.Integer, CultureInfo.InvariantCulture, out _);
 
@@ -260,7 +268,7 @@ public sealed class TypeResolver
             }
         }
 
-        if (engine.Options.Interop.ThrowOnUnresolvedMember)
+        if (throwOnError && engine.Options.Interop.ThrowOnUnresolvedMember)
         {
             throw new MissingMemberException($"Cannot access property '{memberName}' on type '{type.FullName}");
         }

@@ -299,6 +299,66 @@ public partial class InteropTests
         engine.Invoking(e => e.Evaluate("obj.AgeMissing")).Should().Throw<MissingMemberException>();
     }
 
+    private class ClassWithToString
+    {
+        public override string ToString() => "Test";
+    }
+
+    private class ClassWithCustomValueOf
+    {
+        public int ValueOf() => 42;
+        public override string ToString() => "Custom";
+    }
+
+    [Fact]
+    public void ImplicitStringCoercionShouldNotThrowForMissingValueOf()
+    {
+        // default settings — works as before via NullAccessor + prototype fallback
+        var engine = new Engine();
+        engine.SetValue("obj", new ClassWithToString());
+        engine.Evaluate("'prefix' + obj").AsString().Should().Be("prefixTest");
+
+        // bug regression — strict access must NOT block the implicit coercion
+        engine = new Engine(options => options.Interop.ThrowOnUnresolvedMember = true);
+        engine.SetValue("obj", new ClassWithToString());
+        engine.Evaluate("'prefix' + obj").AsString().Should().Be("prefixTest");
+
+        // valueOf via prototype returns the wrapper itself (Object.prototype.valueOf)
+        var wrapped = engine.Evaluate("obj");
+        engine.Evaluate("obj.valueOf()").Should().Be(wrapped);
+
+        // strict access still throws for genuinely missing members
+        engine.Invoking(e => e.Evaluate("obj.AgeMissing")).Should().Throw<MissingMemberException>();
+    }
+
+    [Fact]
+    public void NumericCoercionFallsBackToToStringWithStrictAccess()
+    {
+        // Number(obj): valueOf -> proto returns wrapper (not primitive) -> toString -> CLR ToString -> "Test" -> NaN
+        var engine = new Engine(options => options.Interop.ThrowOnUnresolvedMember = true);
+        engine.SetValue("obj", new ClassWithToString());
+        engine.Evaluate("Number(obj)").AsNumber().Should().Be(double.NaN);
+    }
+
+    [Fact]
+    public void CustomValueOfStillUsedWithStrictAccess()
+    {
+        // CLR ValueOf() resolves via case-insensitive first-char match — must take precedence over prototype's valueOf
+        var engine = new Engine(options => options.Interop.ThrowOnUnresolvedMember = true);
+        engine.SetValue("obj", new ClassWithCustomValueOf());
+        engine.Evaluate("'x' + obj").AsString().Should().Be("x42");
+        engine.Evaluate("Number(obj)").AsNumber().Should().Be(42);
+    }
+
+    [Fact]
+    public void StrictAccessStillThrowsForMissingWrites()
+    {
+        // Set policy unchanged: writing to an unknown member with strict mode throws
+        var engine = new Engine(options => options.Interop.ThrowOnUnresolvedMember = true);
+        engine.SetValue("obj", new ClassWithToString());
+        engine.Invoking(e => e.Evaluate("obj.NewProperty = 5")).Should().Throw<MissingMemberException>();
+    }
+
     public class ClassWithPropertyToHide
     {
         public int x { get; set; } = 2;
