@@ -1,0 +1,17 @@
+﻿{
+  Diagnostics: [
+    {
+      Location: : (10,30)-(10,33),
+      Message: [JsIntrinsicReference("Array")] appears more than once on 'Foo',
+      Severity: Error,
+      Descriptor: {
+        Id: JINT021,
+        Title: Duplicate [JsIntrinsicReference] name on the same class,
+        MessageFormat: [JsIntrinsicReference("{0}")] appears more than once on '{1}',
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Error,
+        IsEnabledByDefault: true
+      }
+    }
+  ]
+}

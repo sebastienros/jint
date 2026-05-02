@@ -6,11 +6,13 @@ namespace Sample;
 
 internal sealed partial class Foo
 {
+    private static readonly global::Jint.Key __Key_invoke = "invoke";
+
     /// <summary>Generated property registration. Call from <c>Initialize()</c>.</summary>
     private void CreateProperties_Generated()
     {
-        var properties = new global::Jint.Collections.HybridDictionary<global::Jint.Runtime.Descriptors.PropertyDescriptor>(1, checkExistingKeys: false);
-        properties["invoke"] = new global::Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<Foo>(this, static host => new __FooFunction(host, __FooFunction.Slot.Invoke), global::Jint.Runtime.Descriptors.PropertyFlag.NonEnumerable);
+        var properties = new global::Jint.Collections.StringDictionarySlim<global::Jint.Runtime.Descriptors.PropertyDescriptor>(1);
+        properties.AddDangerous(__Key_invoke, new global::Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<Foo>(this, static host => new __FooFunction(host, __FooFunction.Slot.Invoke), global::Jint.Runtime.Descriptors.PropertyFlag.NonEnumerable));
         SetProperties(properties);
     }
 

@@ -6,12 +6,15 @@ namespace Sample;
 
 internal sealed partial class Foo
 {
+    private static readonly global::Jint.Key __Key_imul = "imul";
+    private static readonly global::Jint.Key __Key_popCount = "popCount";
+
     /// <summary>Generated property registration. Call from <c>Initialize()</c>.</summary>
     private void CreateProperties_Generated()
     {
-        var properties = new global::Jint.Collections.HybridDictionary<global::Jint.Runtime.Descriptors.PropertyDescriptor>(2, checkExistingKeys: false);
-        properties["imul"] = new global::Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<Foo>(this, static host => new __FooFunction(host, __FooFunction.Slot.Imul), global::Jint.Runtime.Descriptors.PropertyFlag.NonEnumerable);
-        properties["popCount"] = new global::Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<Foo>(this, static host => new __FooFunction(host, __FooFunction.Slot.PopCount), global::Jint.Runtime.Descriptors.PropertyFlag.NonEnumerable);
+        var properties = new global::Jint.Collections.StringDictionarySlim<global::Jint.Runtime.Descriptors.PropertyDescriptor>(2);
+        properties.AddDangerous(__Key_imul, new global::Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<Foo>(this, static host => new __FooFunction(host, __FooFunction.Slot.Imul), global::Jint.Runtime.Descriptors.PropertyFlag.NonEnumerable));
+        properties.AddDangerous(__Key_popCount, new global::Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<Foo>(this, static host => new __FooFunction(host, __FooFunction.Slot.PopCount), global::Jint.Runtime.Descriptors.PropertyFlag.NonEnumerable));
         SetProperties(properties);
     }
 

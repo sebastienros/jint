@@ -6,13 +6,21 @@ namespace Sample;
 
 internal sealed partial class Foo
 {
+    private static readonly global::Jint.Runtime.Descriptors.PropertyDescriptor __Foo_Property_MutableTag = new(Foo.MutableTag, global::Jint.Runtime.Descriptors.PropertyFlag.NonEnumerable);
+    private static readonly global::Jint.Runtime.Descriptors.PropertyDescriptor __Foo_Property_PiValue = new(Foo.PiValue, global::Jint.Runtime.Descriptors.PropertyFlag.AllForbidden);
+    private static readonly global::Jint.Runtime.Descriptors.PropertyDescriptor __Foo_Property_Answer = new(Foo.Answer, global::Jint.Runtime.Descriptors.PropertyFlag.AllForbidden);
+
+    private static readonly global::Jint.Key __Key_MutableTag = "MutableTag";
+    private static readonly global::Jint.Key __Key_PI = "PI";
+    private static readonly global::Jint.Key __Key_answer = "answer";
+
     /// <summary>Generated property registration. Call from <c>Initialize()</c>.</summary>
     private void CreateProperties_Generated()
     {
-        var properties = new global::Jint.Collections.HybridDictionary<global::Jint.Runtime.Descriptors.PropertyDescriptor>(3, checkExistingKeys: false);
-        properties["MutableTag"] = new global::Jint.Runtime.Descriptors.PropertyDescriptor(Foo.MutableTag, global::Jint.Runtime.Descriptors.PropertyFlag.NonEnumerable);
-        properties["PI"] = new global::Jint.Runtime.Descriptors.PropertyDescriptor(Foo.PiValue, global::Jint.Runtime.Descriptors.PropertyFlag.AllForbidden);
-        properties["answer"] = new global::Jint.Runtime.Descriptors.PropertyDescriptor(Foo.Answer, global::Jint.Runtime.Descriptors.PropertyFlag.AllForbidden);
+        var properties = new global::Jint.Collections.StringDictionarySlim<global::Jint.Runtime.Descriptors.PropertyDescriptor>(3);
+        properties.AddDangerous(__Key_MutableTag, __Foo_Property_MutableTag);
+        properties.AddDangerous(__Key_PI, __Foo_Property_PiValue);
+        properties.AddDangerous(__Key_answer, __Foo_Property_Answer);
         SetProperties(properties);
     }
 }

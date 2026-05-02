@@ -9,7 +9,7 @@ internal sealed partial class Foo
     /// <summary>Generated property registration. Call from <c>Initialize()</c>.</summary>
     private void CreateProperties_Generated()
     {
-        // no [JsFunction] / [JsProperty] / [JsAccessor] / [JsThrowerAccessor] members
+        // no [JsFunction] / [JsProperty] / [JsAccessor] / [JsThrowerAccessor] / [JsIntrinsicReference] members
     }
 
     /// <summary>Generated symbol-keyed registration. Call from <c>Initialize()</c>.</summary>

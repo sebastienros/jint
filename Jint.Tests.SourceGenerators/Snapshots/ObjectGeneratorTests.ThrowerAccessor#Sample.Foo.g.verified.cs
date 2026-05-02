@@ -6,13 +6,16 @@ namespace Sample;
 
 internal sealed partial class Foo
 {
+    private static readonly global::Jint.Key __Key_arguments = "arguments";
+    private static readonly global::Jint.Key __Key_caller = "caller";
+
     /// <summary>Generated property registration. Call from <c>Initialize()</c>.</summary>
     private void CreateProperties_Generated()
     {
-        var properties = new global::Jint.Collections.HybridDictionary<global::Jint.Runtime.Descriptors.PropertyDescriptor>(2, checkExistingKeys: false);
+        var properties = new global::Jint.Collections.StringDictionarySlim<global::Jint.Runtime.Descriptors.PropertyDescriptor>(2);
         var __thrower = new global::Jint.Runtime.Descriptors.GetSetPropertyDescriptor.ThrowerPropertyDescriptor(_engine, global::Jint.Runtime.Descriptors.PropertyFlag.Configurable);
-        properties["arguments"] = __thrower;
-        properties["caller"] = __thrower;
+        properties.AddDangerous(__Key_arguments, __thrower);
+        properties.AddDangerous(__Key_caller, __thrower);
         SetProperties(properties);
     }
 }

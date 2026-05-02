@@ -6,15 +6,21 @@ namespace Sample;
 
 internal sealed partial class Foo
 {
+    private static readonly global::Jint.Key __Key_byteAt = "byteAt";
+    private static readonly global::Jint.Key __Key_echo = "echo";
+    private static readonly global::Jint.Key __Key_echoJs = "echoJs";
+    private static readonly global::Jint.Key __Key_trunc = "trunc";
+    private static readonly global::Jint.Key __Key_wrap = "wrap";
+
     /// <summary>Generated property registration. Call from <c>Initialize()</c>.</summary>
     private void CreateProperties_Generated()
     {
-        var properties = new global::Jint.Collections.HybridDictionary<global::Jint.Runtime.Descriptors.PropertyDescriptor>(5, checkExistingKeys: false);
-        properties["byteAt"] = new global::Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<Foo>(this, static host => new __FooFunction(host, __FooFunction.Slot.ByteAt), global::Jint.Runtime.Descriptors.PropertyFlag.NonEnumerable);
-        properties["echo"] = new global::Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<Foo>(this, static host => new __FooFunction(host, __FooFunction.Slot.Echo), global::Jint.Runtime.Descriptors.PropertyFlag.NonEnumerable);
-        properties["echoJs"] = new global::Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<Foo>(this, static host => new __FooFunction(host, __FooFunction.Slot.EchoJs), global::Jint.Runtime.Descriptors.PropertyFlag.NonEnumerable);
-        properties["trunc"] = new global::Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<Foo>(this, static host => new __FooFunction(host, __FooFunction.Slot.Trunc), global::Jint.Runtime.Descriptors.PropertyFlag.NonEnumerable);
-        properties["wrap"] = new global::Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<Foo>(this, static host => new __FooFunction(host, __FooFunction.Slot.Wrap), global::Jint.Runtime.Descriptors.PropertyFlag.NonEnumerable);
+        var properties = new global::Jint.Collections.StringDictionarySlim<global::Jint.Runtime.Descriptors.PropertyDescriptor>(5);
+        properties.AddDangerous(__Key_byteAt, new global::Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<Foo>(this, static host => new __FooFunction(host, __FooFunction.Slot.ByteAt), global::Jint.Runtime.Descriptors.PropertyFlag.NonEnumerable));
+        properties.AddDangerous(__Key_echo, new global::Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<Foo>(this, static host => new __FooFunction(host, __FooFunction.Slot.Echo), global::Jint.Runtime.Descriptors.PropertyFlag.NonEnumerable));
+        properties.AddDangerous(__Key_echoJs, new global::Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<Foo>(this, static host => new __FooFunction(host, __FooFunction.Slot.EchoJs), global::Jint.Runtime.Descriptors.PropertyFlag.NonEnumerable));
+        properties.AddDangerous(__Key_trunc, new global::Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<Foo>(this, static host => new __FooFunction(host, __FooFunction.Slot.Trunc), global::Jint.Runtime.Descriptors.PropertyFlag.NonEnumerable));
+        properties.AddDangerous(__Key_wrap, new global::Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<Foo>(this, static host => new __FooFunction(host, __FooFunction.Slot.Wrap), global::Jint.Runtime.Descriptors.PropertyFlag.NonEnumerable));
         SetProperties(properties);
     }
 

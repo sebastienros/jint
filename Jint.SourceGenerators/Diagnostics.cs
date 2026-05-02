@@ -99,4 +99,12 @@ internal static class DiagnosticDescriptors
         category: "Jint.SourceGenerators",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor DuplicateIntrinsicReference = new(
+        id: "JINT021",
+        title: "Duplicate [JsIntrinsicReference] name on the same class",
+        messageFormat: "[JsIntrinsicReference(\"{0}\")] appears more than once on '{1}'",
+        category: "Jint.SourceGenerators",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 }

@@ -611,4 +611,78 @@ public class ObjectGeneratorTests
             }
             """);
     }
+
+    [Test]
+    public Task IntrinsicReference()
+    {
+        return VerifyGenerator("""
+            using Jint;
+            using Jint.Native;
+            using Jint.Native.Object;
+            using Jint.Runtime;
+
+            namespace Sample;
+
+            // Mix of plain names and IntrinsicMember overrides — covers the four casing/name patterns
+            // GlobalObject uses: identical (Array), case-mismatch (JSON→Json), expansion (Generator→
+            // GeneratorFunction), and lowercase JsName (eval→Eval).
+            [JsObject]
+            [JsIntrinsicReference("Array")]
+            [JsIntrinsicReference("JSON", IntrinsicMember = "Json")]
+            [JsIntrinsicReference("Generator", IntrinsicMember = "GeneratorFunction")]
+            [JsIntrinsicReference("eval", IntrinsicMember = "Eval")]
+            internal sealed partial class Foo : ObjectInstance
+            {
+                private readonly Realm _realm;
+                internal Foo(Engine engine, Realm realm) : base(engine) { _realm = realm; }
+                protected override void Initialize() => CreateProperties_Generated();
+            }
+            """);
+    }
+
+    [Test]
+    public Task DuplicateIntrinsicReference_ProducesDiagnostic()
+    {
+        return VerifyGenerator("""
+            using Jint;
+            using Jint.Native;
+            using Jint.Native.Object;
+            using Jint.Runtime;
+
+            namespace Sample;
+
+            [JsObject]
+            [JsIntrinsicReference("Array")]
+            [JsIntrinsicReference("Array")]
+            internal sealed partial class Foo : ObjectInstance
+            {
+                private readonly Realm _realm;
+                internal Foo(Engine engine, Realm realm) : base(engine) { _realm = realm; }
+                protected override void Initialize() => CreateProperties_Generated();
+            }
+            """);
+    }
+
+    [Test]
+    public Task IntrinsicReferenceWithoutRealmField_ProducesDiagnostic()
+    {
+        return VerifyGenerator("""
+            using Jint;
+            using Jint.Native;
+            using Jint.Native.Object;
+
+            namespace Sample;
+
+            // [JsIntrinsicReference]'s emitted lambda body is `host => host._realm.Intrinsics.X`;
+            // without an accessible _realm field on the host, the generated code wouldn't compile —
+            // catch it via JINT018 at generator time rather than letting the C# compiler complain.
+            [JsObject]
+            [JsIntrinsicReference("Array")]
+            internal sealed partial class Foo : ObjectInstance
+            {
+                internal Foo(Engine engine) : base(engine) { }
+                protected override void Initialize() => CreateProperties_Generated();
+            }
+            """);
+    }
 }

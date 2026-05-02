@@ -10,6 +10,10 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Global;
 
+// ExtraCapacity = 3 presizes the generator-emitted HybridDictionary for the 3 entries that
+// can't be expressed declaratively (parseInt, parseFloat, globalThis — see Initialize). Without
+// this hint the dictionary is sized for 68 and resizes when those 3 are added post-init.
+[JsObject(ExtraCapacity = 3)]
 public sealed partial class GlobalObject : ObjectInstance
 {
     private readonly Realm _realm;
@@ -23,7 +27,8 @@ public sealed partial class GlobalObject : ObjectInstance
         _realm = realm;
     }
 
-    private JsValue ToStringString(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Name = "toString", Length = 1)]
+    private JsValue ToStringString(JsValue thisObject)
     {
         return _realm.Intrinsics.Object.PrototypeObject.ToObjectString(thisObject);
     }
@@ -241,10 +246,9 @@ public sealed partial class GlobalObject : ObjectInstance
     /// <summary>
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.4
     /// </summary>
-    private static JsValue IsNaN(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction]
+    private static JsValue IsNaN(JsValue thisObject, JsValue value)
     {
-        var value = arguments.At(0);
-
         if (ReferenceEquals(value, JsNumber.DoubleNaN))
         {
             return true;
@@ -257,20 +261,11 @@ public sealed partial class GlobalObject : ObjectInstance
     /// <summary>
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.5
     /// </summary>
-    private static JsValue IsFinite(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction]
+    private static JsValue IsFinite(JsValue thisObject, JsValue value)
     {
-        if (arguments.Length != 1)
-        {
-            return false;
-        }
-
-        var n = TypeConverter.ToNumber(arguments.At(0));
-        if (double.IsNaN(n) || double.IsInfinity(n))
-        {
-            return false;
-        }
-
-        return true;
+        var n = TypeConverter.ToNumber(value);
+        return !double.IsNaN(n) && !double.IsInfinity(n);
     }
 
     private const string UriReservedString = ";/?:@&=+$,";
@@ -285,32 +280,31 @@ public sealed partial class GlobalObject : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-encodeuri-uri
     /// </summary>
-    private JsValue EncodeUri(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Name = "encodeURI")]
+    private JsValue EncodeUri(JsValue thisObject, [ToString] string uri)
     {
-        var uriString = TypeConverter.ToString(arguments.At(0));
-        return Encode(uriString, UnescapedUriSet);
+        return Encode(uri, UnescapedUriSet);
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-encodeuricomponent-uricomponent
     /// </summary>
-    private JsValue EncodeUriComponent(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Name = "encodeURIComponent")]
+    private JsValue EncodeUriComponent(JsValue thisObject, [ToString] string uri)
     {
-        var uriString = TypeConverter.ToString(arguments.At(0));
-
-        return Encode(uriString, UriUnescaped);
+        return Encode(uri, UriUnescaped);
     }
 
     [MethodImpl(512)]
-    private JsValue Encode(string uriString, SearchValues<char> allowedCharacters)
+    private JsValue Encode(string uri, SearchValues<char> allowedCharacters)
     {
-        var strLen = uriString.Length;
-        var builder = new ValueStringBuilder(uriString.Length);
+        var strLen = uri.Length;
+        var builder = new ValueStringBuilder(uri.Length);
         Span<byte> buffer = stackalloc byte[4];
 
         for (var k = 0; k < strLen; k++)
         {
-            var c = uriString[k];
+            var c = uri[k];
             if (allowedCharacters.Contains(c))
             {
                 builder.Append(c);
@@ -335,7 +329,7 @@ public sealed partial class GlobalObject : ObjectInstance
                         goto uriError;
                     }
 
-                    var kChar = (int) uriString[k];
+                    var kChar = (int) uri[k];
                     if (kChar is < 0xDC00 or > 0xDFFF)
                     {
                         goto uriError;
@@ -397,28 +391,26 @@ uriError:
         return JsEmpty.Instance;
     }
 
-    private JsValue DecodeUri(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Name = "decodeURI")]
+    private JsValue DecodeUri(JsValue thisObject, [ToString] string uri)
     {
-        var uriString = TypeConverter.ToString(arguments.At(0));
-
-        return Decode(uriString, ReservedUriSet);
+        return Decode(uri, ReservedUriSet);
     }
 
-    private JsValue DecodeUriComponent(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Name = "decodeURIComponent")]
+    private JsValue DecodeUriComponent(JsValue thisObject, [ToString] string uri)
     {
-        var componentString = TypeConverter.ToString(arguments.At(0));
-
-        return Decode(componentString, null);
+        return Decode(uri, null);
     }
 
     [MethodImpl(512)]
-    private JsValue Decode(string uriString, SearchValues<char>? reservedSet)
+    private JsValue Decode(string uri, SearchValues<char>? reservedSet)
     {
-        var strLen = uriString.Length;
+        var strLen = uri.Length;
 
-        if (!uriString.Contains('%'))
+        if (!uri.Contains('%'))
         {
-            return uriString;
+            return uri;
         }
 
         var builder = new ValueStringBuilder(stackalloc char[256]);
@@ -427,7 +419,7 @@ uriError:
         Span<byte> octets = stackalloc byte[4];
         for (var k = 0; k < strLen; k++)
         {
-            var C = uriString[k];
+            var C = uri[k];
             if (C != '%')
             {
                 builder.Append(C);
@@ -440,8 +432,8 @@ uriError:
                     goto uriError;
                 }
 
-                var c1 = uriString[k + 1];
-                var c2 = uriString[k + 2];
+                var c1 = uri[k + 1];
+                var c2 = uri[k + 2];
                 if (!IsValidHexaChar(c1) || !IsValidHexaChar(c2))
                 {
                     goto uriError;
@@ -461,7 +453,7 @@ uriError:
                     }
                     else
                     {
-                        builder.Append(uriString.AsSpan(start, k - start + 1));
+                        builder.Append(uri.AsSpan(start, k - start + 1));
                     }
                 }
                 else
@@ -486,13 +478,13 @@ uriError:
                     for (var j = 1; j < n; j++)
                     {
                         k++;
-                        if (uriString[k] != '%')
+                        if (uri[k] != '%')
                         {
                             goto uriError;
                         }
 
-                        c1 = uriString[k + 1];
-                        c2 = uriString[k + 2];
+                        c1 = uri[k + 1];
+                        c2 = uri[k + 2];
                         if (!IsValidHexaChar(c1) || !IsValidHexaChar(c2))
                         {
                             goto uriError;
@@ -628,13 +620,12 @@ uriError:
     /// <summary>
     /// https://tc39.es/ecma262/#sec-escape-string
     /// </summary>
-    private JsValue Escape(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction]
+    private static JsValue Escape(JsValue thisObject, [ToString] string uri)
     {
-        var uriString = TypeConverter.ToString(arguments.At(0));
+        var builder = new ValueStringBuilder(uri.Length);
 
-        var builder = new ValueStringBuilder(uriString.Length);
-
-        foreach (var c in uriString)
+        foreach (var c in uri)
         {
             if (EscapeAllowList.Contains(c))
             {
@@ -658,34 +649,33 @@ uriError:
     /// <summary>
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-B.2.2
     /// </summary>
-    private JsValue Unescape(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction]
+    private static JsValue Unescape(JsValue thisObject, [ToString] string uri)
     {
-        var uriString = TypeConverter.ToString(arguments.At(0));
-
-        if (!uriString.Contains('%'))
+        if (!uri.Contains('%'))
         {
-            return uriString;
+            return uri;
         }
 
-        var strLen = uriString.Length;
+        var strLen = uri.Length;
         var builder = new ValueStringBuilder(stackalloc char[256]);
         builder.EnsureCapacity(strLen);
 
         for (var k = 0; k < strLen; k++)
         {
-            var c = uriString[k];
+            var c = uri[k];
             if (c == '%')
             {
                 if (k <= strLen - 6
-                    && uriString[k + 1] == 'u'
-                    && AreValidHexChars(uriString.AsSpan(k + 2, 4)))
+                    && uri[k + 1] == 'u'
+                    && AreValidHexChars(uri.AsSpan(k + 2, 4)))
                 {
-                    c = ParseHexString(uriString.AsSpan(k + 2, 4));
+                    c = ParseHexString(uri.AsSpan(k + 2, 4));
                     k += 5;
                 }
-                else if (k <= strLen - 3 && AreValidHexChars(uriString.AsSpan(k + 1, 2)))
+                else if (k <= strLen - 3 && AreValidHexChars(uri.AsSpan(k + 1, 2)))
                 {
-                    c = ParseHexString(uriString.AsSpan(k + 1, 2));
+                    c = ParseHexString(uri.AsSpan(k + 1, 2));
                     k += 2;
                 }
             }

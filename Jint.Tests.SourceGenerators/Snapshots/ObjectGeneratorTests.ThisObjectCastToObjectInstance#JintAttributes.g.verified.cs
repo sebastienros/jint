@@ -127,6 +127,29 @@ internal sealed class JsThrowerAccessorAttribute : global::System.Attribute
     public global::Jint.Runtime.Descriptors.PropertyFlag Flags { get; set; } = global::Jint.Runtime.Descriptors.PropertyFlag.Configurable;
 }
 
+// Class-level, repeats. Registers a lazy property descriptor that resolves to
+// host._realm.Intrinsics.<IntrinsicMember> on first read. Same shape as a [JsFunction] lazy
+// descriptor — Function objects allocate on first access only — but the value source is the
+// realm's intrinsic constructor object instead of a generated dispatcher. Used by GlobalObject
+// to expose the ~50 constructor properties (Array, Object, JSON, etc.) without eagerly
+// resolving every realm intrinsic during Initialize.
+// IntrinsicMember defaults to JsName; override for casing/name mismatches:
+//   [JsIntrinsicReference("JSON", IntrinsicMember = "Json")]
+//   [JsIntrinsicReference("URIError", IntrinsicMember = "UriError")]
+//   [JsIntrinsicReference("Generator", IntrinsicMember = "GeneratorFunction")]
+//   [JsIntrinsicReference("eval", IntrinsicMember = "Eval")]
+// Requires the host to have an accessible Realm-typed _realm field (same JINT018 constraint as
+// a method that casts thisObject).
+[global::System.AttributeUsage(global::System.AttributeTargets.Class, AllowMultiple = true)]
+[global::System.Diagnostics.Conditional("JINT_SOURCE_GENERATORS")]
+internal sealed class JsIntrinsicReferenceAttribute : global::System.Attribute
+{
+    public JsIntrinsicReferenceAttribute(string jsName) { JsName = jsName; }
+    public string JsName { get; }
+    public string? IntrinsicMember { get; set; }
+    public global::Jint.Runtime.Descriptors.PropertyFlag Flags { get; set; } = global::Jint.Runtime.Descriptors.PropertyFlag.Configurable | global::Jint.Runtime.Descriptors.PropertyFlag.Writable;
+}
+
 // Like [JsFunction] but registers in SymbolDictionary instead of PropertyDictionary.
 // SymbolName must match a static property on Jint.Native.Symbol.GlobalSymbolRegistry.
 [global::System.AttributeUsage(global::System.AttributeTargets.Method)]

@@ -24,6 +24,7 @@ internal static class Emitter
         sb.Append("partial class ").AppendLine(obj.Name);
         sb.AppendLine("{");
 
+        EmitStaticPropertyDescriptors(sb, obj);
         EmitInitialize(sb, obj);
 
         var hasSymbolMembers = false;
@@ -51,6 +52,75 @@ internal static class Emitter
         }
 
         sb.AppendLine("}");
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Emits one <c>private static readonly PropertyDescriptor</c> field per static
+    /// <c>[JsProperty]</c> entry. Lets <c>CreateProperties_Generated</c> reference a shared
+    /// descriptor instead of allocating a new one per Engine. Skipped for instance properties
+    /// (their value depends on the host instance, so the descriptor must be per-instance).
+    /// </summary>
+    private static void EmitStaticPropertyDescriptors(StringBuilder sb, ObjectDefinition obj)
+    {
+        var emitted = false;
+        foreach (var prop in obj.Properties)
+        {
+            if (!prop.IsStatic) continue;
+            sb.Append("    private static readonly global::Jint.Runtime.Descriptors.PropertyDescriptor __")
+              .Append(obj.Name).Append("_Property_").Append(prop.ClrName)
+              .Append(" = new(").Append(obj.Name).Append('.').Append(prop.ClrName).Append(", ")
+              .Append(prop.FlagsExpression).AppendLine(");");
+            emitted = true;
+        }
+        if (emitted) sb.AppendLine();
+    }
+
+    /// <summary>
+    /// Emits one <c>private static readonly Key __Key_&lt;name&gt;</c> field per unique JsName used
+    /// in <c>CreateProperties_Generated</c>. Without this, every <c>properties.AddDangerous("name",...)</c>
+    /// call triggers <c>string→Key</c> implicit conversion which recomputes the FNV hash on every
+    /// Engine init. Caching the Key once per process saves ~10-20ns per entry × N entries — for
+    /// GlobalObject (71 entries) that's ~700-1400ns of Engine startup.
+    /// </summary>
+    private static void EmitStaticKeyCache(StringBuilder sb, ObjectDefinition obj, IReadOnlyList<FunctionDefinition> dataProperties, IReadOnlyDictionary<string, (FunctionDefinition? Get, FunctionDefinition? Set, string Flags)> accessorsByName)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var emitted = false;
+        foreach (var name in EnumerateAllJsNames(obj, dataProperties, accessorsByName))
+        {
+            if (!seen.Add(name)) continue;
+            sb.Append("    private static readonly global::Jint.Key __Key_")
+              .Append(SanitizeIdentifier(name))
+              .Append(" = \"").Append(EscapeStringLit(name)).AppendLine("\";");
+            emitted = true;
+        }
+        if (emitted) sb.AppendLine();
+    }
+
+    private static IEnumerable<string> EnumerateAllJsNames(ObjectDefinition obj, IReadOnlyList<FunctionDefinition> dataProperties, IReadOnlyDictionary<string, (FunctionDefinition? Get, FunctionDefinition? Set, string Flags)> accessorsByName)
+    {
+        foreach (var prop in obj.Properties) yield return prop.JsName;
+        foreach (var fn in dataProperties) yield return fn.JsName;
+        foreach (var ir in obj.IntrinsicReferences) yield return ir.JsName;
+        foreach (var name in accessorsByName.Keys) yield return name;
+        foreach (var thr in obj.ThrowerAccessors) yield return thr.JsName;
+    }
+
+    /// <summary>
+    /// Maps a JsName to a valid C# identifier suffix for the cached Key field. Mostly identity since
+    /// every property/function name in the migrated surface is already a valid identifier; the
+    /// fallback handles any future edge cases (digits, dollar signs, symbols).
+    /// </summary>
+    private static string SanitizeIdentifier(string name)
+    {
+        var sb = new StringBuilder(name.Length);
+        for (var i = 0; i < name.Length; i++)
+        {
+            var c = name[i];
+            if (i == 0 && char.IsDigit(c)) sb.Append('_');
+            sb.Append(char.IsLetterOrDigit(c) || c == '_' ? c : '_');
+        }
         return sb.ToString();
     }
 
@@ -82,7 +152,9 @@ internal static class Emitter
             }
         }
 
-        var totalEntries = dataProperties.Count + obj.Properties.Count + accessorsByName.Count + obj.ThrowerAccessors.Count;
+        var totalEntries = dataProperties.Count + obj.Properties.Count + accessorsByName.Count + obj.ThrowerAccessors.Count + obj.IntrinsicReferences.Count;
+
+        if (totalEntries > 0) EmitStaticKeyCache(sb, obj, dataProperties, accessorsByName);
 
         sb.AppendLine("    /// <summary>Generated property registration. Call from <c>Initialize()</c>.</summary>");
         sb.AppendLine("    private void CreateProperties_Generated()");
@@ -90,7 +162,7 @@ internal static class Emitter
 
         if (totalEntries == 0 && obj.ExtraCapacity == 0)
         {
-            sb.AppendLine("        // no [JsFunction] / [JsProperty] / [JsAccessor] / [JsThrowerAccessor] members");
+            sb.AppendLine("        // no [JsFunction] / [JsProperty] / [JsAccessor] / [JsThrowerAccessor] / [JsIntrinsicReference] members");
             sb.AppendLine("    }");
             return;
         }
@@ -98,24 +170,51 @@ internal static class Emitter
         // [JsObject(ExtraCapacity=N)] presizes the dictionary for post-CreateProperties_Generated
         // SetProperty calls (e.g. cross-realm constructor refs in IntlInstance/TemporalInstance) so
         // the dictionary doesn't grow + transition list→hash during init.
-        sb.Append("        var properties = new global::Jint.Collections.HybridDictionary<global::Jint.Runtime.Descriptors.PropertyDescriptor>(")
+        // Emit StringDictionarySlim directly instead of HybridDictionary — SetProperties has an
+        // overload that wraps the slim dict at the end (one allocation), so we skip the wrapper
+        // overhead during the bulk insert (no null-check delegation per AddDangerous call) and
+        // save the HybridDictionary instance (~32 bytes per Engine init).
+        sb.Append("        var properties = new global::Jint.Collections.StringDictionarySlim<global::Jint.Runtime.Descriptors.PropertyDescriptor>(")
           .Append(totalEntries + obj.ExtraCapacity)
-          .AppendLine(", checkExistingKeys: false);");
+          .AppendLine(");");
 
+        // AddDangerous skips the duplicate-key lookup and writes directly to the backing array.
+        // Safe here because every key emitted below is unique by construction (JINT012 forbids
+        // overload-style duplicates).
+        // Static [JsProperty] entries reference a class-scope cached PropertyDescriptor (emitted in
+        // EmitStaticPropertyDescriptors below) so the descriptor allocates once per process, not
+        // per Engine. Instance [JsProperty] needs a per-instance descriptor (the value differs).
         foreach (var prop in obj.Properties)
         {
-            sb.Append("        properties[\"").Append(EscapeStringLit(prop.JsName)).Append("\"] = new global::Jint.Runtime.Descriptors.PropertyDescriptor(");
-            if (prop.IsStatic) sb.Append(obj.Name).Append('.');
-            sb.Append(prop.ClrName).Append(", ");
-            sb.Append(prop.FlagsExpression);
-            sb.AppendLine(");");
+            if (prop.IsStatic)
+            {
+                sb.Append("        properties.AddDangerous(__Key_").Append(SanitizeIdentifier(prop.JsName)).Append(", __").Append(obj.Name).Append("_Property_").Append(prop.ClrName).AppendLine(");");
+            }
+            else
+            {
+                sb.Append("        properties.AddDangerous(__Key_").Append(SanitizeIdentifier(prop.JsName)).Append(", new global::Jint.Runtime.Descriptors.PropertyDescriptor(");
+                sb.Append(prop.ClrName).Append(", ");
+                sb.Append(prop.FlagsExpression);
+                sb.AppendLine("));");
+            }
         }
 
         foreach (var fn in dataProperties)
         {
-            sb.Append("        properties[\"").Append(EscapeStringLit(fn.JsName)).Append("\"] = new global::Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<")
+            sb.Append("        properties.AddDangerous(__Key_").Append(SanitizeIdentifier(fn.JsName)).Append(", new global::Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<")
               .Append(obj.Name).Append(">(this, static host => new __").Append(obj.Name).Append("Function(host, __")
-              .Append(obj.Name).Append("Function.Slot.").Append(fn.ClrName).Append("), ").Append(fn.FlagsExpression).AppendLine(");");
+              .Append(obj.Name).Append("Function.Slot.").Append(fn.ClrName).Append("), ").Append(fn.FlagsExpression).AppendLine("));");
+        }
+
+        // [JsIntrinsicReference]: LazyPropertyDescriptor whose factory hands back a realm intrinsic
+        // (e.g. host._realm.Intrinsics.Array). Same lazy shape as [JsFunction] but the value source is
+        // an intrinsic constructor object, not a generated dispatcher Function. Used by GlobalObject
+        // for the constructor properties on globalThis.
+        foreach (var ir in obj.IntrinsicReferences)
+        {
+            sb.Append("        properties.AddDangerous(__Key_").Append(SanitizeIdentifier(ir.JsName)).Append(", new global::Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<")
+              .Append(obj.Name).Append(">(this, static host => host._realm.Intrinsics.")
+              .Append(ir.IntrinsicMember).Append(", ").Append(ir.FlagsExpression).AppendLine("));");
         }
 
         // Accessors: LazyGetSetPropertyDescriptor — dispatcher Functions allocate on first read,
@@ -126,7 +225,7 @@ internal static class Emitter
         foreach (var name in accessorNames)
         {
             var (getFn, setFn, flagsExpr) = accessorsByName[name];
-            sb.Append("        properties[\"").Append(EscapeStringLit(name)).Append("\"] = new global::Jint.Runtime.Descriptors.Specialized.LazyGetSetPropertyDescriptor<")
+            sb.Append("        properties.AddDangerous(__Key_").Append(SanitizeIdentifier(name)).Append(", new global::Jint.Runtime.Descriptors.Specialized.LazyGetSetPropertyDescriptor<")
               .Append(obj.Name).Append(">(this, ");
             if (getFn is not null)
             {
@@ -145,7 +244,7 @@ internal static class Emitter
             {
                 sb.Append("null");
             }
-            sb.Append(", ").Append(flagsExpr).AppendLine(");");
+            sb.Append(", ").Append(flagsExpr).AppendLine("));");
         }
 
         // Thrower accessors: a single shared instance per host, assigned to each name.
@@ -155,7 +254,7 @@ internal static class Emitter
             sb.Append("        var __thrower = new global::Jint.Runtime.Descriptors.GetSetPropertyDescriptor.ThrowerPropertyDescriptor(_engine, ").Append(obj.ThrowerAccessors[0].FlagsExpression).AppendLine(");");
             foreach (var thr in obj.ThrowerAccessors)
             {
-                sb.Append("        properties[\"").Append(EscapeStringLit(thr.JsName)).AppendLine("\"] = __thrower;");
+                sb.Append("        properties.AddDangerous(__Key_").Append(SanitizeIdentifier(thr.JsName)).AppendLine(", __thrower);");
             }
         }
 

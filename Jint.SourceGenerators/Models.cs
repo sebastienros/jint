@@ -37,6 +37,7 @@ internal sealed record class ObjectDefinition(
     EquatableArray<PropertyDefinition> Properties,
     EquatableArray<SymbolDefinition> Symbols,
     EquatableArray<ThrowerAccessorDefinition> ThrowerAccessors,
+    EquatableArray<IntrinsicReferenceDefinition> IntrinsicReferences,
     EquatableArray<DiagnosticInfo> DiagnosticInfos)
 {
     public string HintName => string.IsNullOrEmpty(Namespace)
@@ -111,8 +112,10 @@ internal sealed record class ObjectDefinition(
         var properties = new List<PropertyDefinition>();
         var symbols = new List<SymbolDefinition>();
         var throwerAccessors = new List<ThrowerAccessorDefinition>();
+        var intrinsicReferences = new List<IntrinsicReferenceDefinition>();
         HashSet<string>? seenFunctionClrNames = null;
         HashSet<string>? seenThrowerNames = null;
+        HashSet<string>? seenIntrinsicReferenceNames = null;
         // For JINT017: tracks the FlagsExpression first seen per accessor JsName so we can flag a
         // conflict at the SECOND method's location (not the class identifier).
         Dictionary<string, string>? accessorFlagsByJsName = null;
@@ -135,6 +138,36 @@ internal sealed record class ObjectDefinition(
             }
             var flagsExplicit = HasNamedArg(attr, "Flags") ? GetNamedArg(attr, "Flags") as int? : null;
             throwerAccessors.Add(new ThrowerAccessorDefinition(name!, FlagExpression.From(flagsExplicit, "Configurable")));
+        }
+
+        // Class-level [JsIntrinsicReference("JsName", IntrinsicMember = "?")] — repeats permitted.
+        // Each one becomes a LazyPropertyDescriptor that resolves to host._realm.Intrinsics.<IntrinsicMember>.
+        // Default Flags = Configurable | Writable (= 20), matching the global property descriptor flags
+        // expected by ECMA for constructor properties on globalThis.
+        foreach (var attr in typeSymbol.GetAttributes())
+        {
+            if (attr.AttributeClass?.Name != "JsIntrinsicReferenceAttribute") continue;
+            if (attr.ConstructorArguments.Length == 0) continue;
+            var jsName = attr.ConstructorArguments[0].Value as string;
+            if (string.IsNullOrWhiteSpace(jsName)) continue;
+            seenIntrinsicReferenceNames ??= new HashSet<string>(StringComparer.Ordinal);
+            if (!seenIntrinsicReferenceNames.Add(jsName!))
+            {
+                diagnostics.Add(new DiagnosticInfo(
+                    DiagnosticDescriptors.DuplicateIntrinsicReference,
+                    location,
+                    jsName!, typeSymbol.Name));
+                continue;
+            }
+            var intrinsicMember = (GetNamedArg(attr, "IntrinsicMember") as string);
+            if (string.IsNullOrWhiteSpace(intrinsicMember)) intrinsicMember = jsName;
+            var refFlagsExplicit = HasNamedArg(attr, "Flags")
+                ? GetNamedArg(attr, "Flags") as int?
+                : (int?) 20; // Configurable | Writable
+            intrinsicReferences.Add(new IntrinsicReferenceDefinition(
+                JsName: jsName!,
+                IntrinsicMember: intrinsicMember!,
+                FlagsExpression: FlagExpression.From(refFlagsExplicit, "Configurable")));
         }
 
         foreach (var member in typeSymbol.GetMembers())
@@ -272,7 +305,9 @@ internal sealed record class ObjectDefinition(
             }
         }
 
-        // JINT018: any function uses cast (non-JsValue thisObject) but the host has no accessible _realm field?
+        // JINT018: any function uses cast (non-JsValue thisObject) OR any [JsIntrinsicReference] is
+        // declared (its emitted lambda body reads host._realm.Intrinsics.X) — but the host has no
+        // accessible _realm field?
         var usesCast = false;
         foreach (var fn in functions)
         {
@@ -282,7 +317,8 @@ internal sealed record class ObjectDefinition(
             }
             if (usesCast) break;
         }
-        if (usesCast && !HasAccessibleRealmField(typeSymbol))
+        var needsRealm = usesCast || intrinsicReferences.Count > 0;
+        if (needsRealm && !HasAccessibleRealmField(typeSymbol))
         {
             diagnostics.Add(new DiagnosticInfo(
                 DiagnosticDescriptors.MissingRealmField,
@@ -294,6 +330,7 @@ internal sealed record class ObjectDefinition(
         properties.Sort(static (a, b) => string.CompareOrdinal(a.JsName, b.JsName));
         symbols.Sort(static (a, b) => string.CompareOrdinal(a.SymbolName, b.SymbolName));
         throwerAccessors.Sort(static (a, b) => string.CompareOrdinal(a.JsName, b.JsName));
+        intrinsicReferences.Sort(static (a, b) => string.CompareOrdinal(a.JsName, b.JsName));
 
         return new ObjectDefinition(
             Namespace: ns,
@@ -305,6 +342,7 @@ internal sealed record class ObjectDefinition(
             Properties: properties.ToEquatableArray(),
             Symbols: symbols.ToEquatableArray(),
             ThrowerAccessors: throwerAccessors.ToEquatableArray(),
+            IntrinsicReferences: intrinsicReferences.ToEquatableArray(),
             DiagnosticInfos: diagnostics.ToEquatableArray());
     }
 
@@ -411,6 +449,8 @@ internal enum RegistrationKind
 }
 
 internal sealed record class ThrowerAccessorDefinition(string JsName, string FlagsExpression);
+
+internal sealed record class IntrinsicReferenceDefinition(string JsName, string IntrinsicMember, string FlagsExpression);
 
 internal sealed record class FunctionDefinition(
     string ClrName,
