@@ -269,9 +269,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
             return false;
         }
-        else if (ReferenceEquals(receiver, this)
-            && _typeDescriptor.IsGenericDictionary
-            && !_typeDescriptor.IsStringKeyedGenericDictionary)
+        else if (ReferenceEquals(receiver, this) && _typeDescriptor.IsNonStringKeyedGenericDictionary)
         {
             // non-string-keyed CLR generic dictionary (e.g. Dictionary<TestModel, string>).
             // Matches the receiver gate in Get: when [[Set]] arrives via Proxy/Reflect.set with a
@@ -337,8 +335,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             }
             else if (!property.IsString()
                 && !property.IsSymbol()
-                && _typeDescriptor.IsGenericDictionary
-                && !_typeDescriptor.IsStringKeyedGenericDictionary
+                && _typeDescriptor.IsNonStringKeyedGenericDictionary
                 && TryConvertJsValueToDictionaryKey(property, _typeDescriptor.GenericDictionaryKeyType!, out var clrKey))
             {
                 _typeDescriptor.TryRemoveDictionaryValue(Target, clrKey!);
@@ -353,8 +350,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     {
         if (!property.IsString()
             && !property.IsSymbol()
-            && _typeDescriptor.IsGenericDictionary
-            && !_typeDescriptor.IsStringKeyedGenericDictionary
+            && _typeDescriptor.IsNonStringKeyedGenericDictionary
             && TryConvertJsValueToDictionaryKey(property, _typeDescriptor.GenericDictionaryKeyType!, out var clrKey))
         {
             // Prototype chain is intentionally skipped: non-string non-symbol keys can't resolve
@@ -444,8 +440,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             }
         }
         else if (ReferenceEquals(receiver, this)
-            && _typeDescriptor.IsGenericDictionary
-            && !_typeDescriptor.IsStringKeyedGenericDictionary
+            && _typeDescriptor.IsNonStringKeyedGenericDictionary
             && !property.IsSymbol()
             && !property.IsString()
             && TryConvertJsValueToDictionaryKey(property, _typeDescriptor.GenericDictionaryKeyType!, out var clrKey))
@@ -601,9 +596,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             return PropertyDescriptor.Undefined;
         }
 
-        if (!property.IsString()
-            && _typeDescriptor.IsGenericDictionary
-            && !_typeDescriptor.IsStringKeyedGenericDictionary)
+        if (!property.IsString() && _typeDescriptor.IsNonStringKeyedGenericDictionary)
         {
             // non-string-keyed CLR generic dictionary — resolve via underlying CLR key, not string
             if (TryConvertJsValueToDictionaryKey(property, _typeDescriptor.GenericDictionaryKeyType!, out var clrKey)

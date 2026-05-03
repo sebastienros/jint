@@ -86,6 +86,7 @@ internal sealed class TypeDescriptor
     public bool IsDictionary { get; }
     public bool IsStringKeyedGenericDictionary => _tryGetValueMethod is not null && _keyType == _stringType;
     public bool IsGenericDictionary => _tryGetValueMethod is not null;
+    public bool IsNonStringKeyedGenericDictionary => _tryGetValueMethod is not null && _keyType != _stringType;
     public Type? GenericDictionaryKeyType => _keyType;
     public Type? GenericDictionaryValueType => _valueType;
     public bool IsEnumerable { get; }
@@ -267,7 +268,7 @@ internal sealed class TypeDescriptor
         try
         {
             object?[] parameters = [key, _valueType!.IsValueType ? Activator.CreateInstance(_valueType) : null];
-            var result = (bool) _tryGetValueMethod!.Invoke(target, parameters)!;
+            var result = _tryGetValueMethod!.Invoke(target, parameters) is true;
             o = parameters[1];
             return result;
         }
@@ -285,7 +286,16 @@ internal sealed class TypeDescriptor
             return false;
         }
 
-        return _genericContainsKeyMethod.Invoke(target, [key]) is true;
+        // Standard IDictionary<,>.ContainsKey returns false for missing keys, but custom
+        // implementations might throw — match TryGetDictionaryValue's defensive catch.
+        try
+        {
+            return _genericContainsKeyMethod.Invoke(target, [key]) is true;
+        }
+        catch (TargetInvocationException tie) when (tie.InnerException is KeyNotFoundException)
+        {
+            return false;
+        }
     }
 
     public bool TrySetDictionaryValue(object target, object key, object? value)
@@ -313,6 +323,15 @@ internal sealed class TypeDescriptor
             return false;
         }
 
-        return _genericRemoveMethod.Invoke(target, [key]) is true;
+        // Standard IDictionary<,>.Remove returns false for missing keys, but custom
+        // implementations might throw — match TryGetDictionaryValue's defensive catch.
+        try
+        {
+            return _genericRemoveMethod.Invoke(target, [key]) is true;
+        }
+        catch (TargetInvocationException tie) when (tie.InnerException is KeyNotFoundException)
+        {
+            return false;
+        }
     }
 }

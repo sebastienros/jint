@@ -703,7 +703,7 @@ public partial class InteropTests : IDisposable
     }
 
     [Fact]
-    public void ObjectKeyDictionary_SetWithIncompatibleValueType_Fails()
+    public void ObjectKeyDictionary_SetWithIncompatibleValueType_SloppyMode_NoOp()
     {
         var model = new DictionaryKeyModel();
         var dictionary = new Dictionary<DictionaryKeyModel, int>
@@ -779,6 +779,23 @@ public partial class InteropTests : IDisposable
         Assert.True(_engine.Evaluate("obj[undefined] === undefined").AsBoolean());
         Assert.False(_engine.Evaluate("null in obj").AsBoolean());
         Assert.False(_engine.Evaluate("delete obj[null]; null in obj").AsBoolean());
+    }
+
+    [Fact]
+    public void ObjectKeyDictionary_NullKeyAssignment_SloppyMode_NoOp()
+    {
+        // mirror of the read-side null guard: assigning to obj[null] must not crash with
+        // ArgumentNullException when reflectively invoking the indexer setter, and must not
+        // pollute the dictionary with a null key.
+        var dictionary = new Dictionary<DictionaryKeyModel, string>
+        {
+            [new DictionaryKeyModel()] = "value1",
+        };
+        _engine.SetValue("obj", dictionary);
+
+        _engine.Execute("obj[null] = 'should not stick';");
+        Assert.Single(dictionary);
+        Assert.DoesNotContain("should not stick", dictionary.Values);
     }
 
     [Fact]

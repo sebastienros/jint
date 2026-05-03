@@ -130,8 +130,7 @@ public sealed class Reference
         // for ObjectWrapper to resolve the underlying CLR key.
         if (!_referencedName.IsSymbol()
             && _base is Interop.ObjectWrapper wrapper
-            && wrapper._typeDescriptor.IsGenericDictionary
-            && !wrapper._typeDescriptor.IsStringKeyedGenericDictionary)
+            && wrapper._typeDescriptor.IsNonStringKeyedGenericDictionary)
         {
             return;
         }
