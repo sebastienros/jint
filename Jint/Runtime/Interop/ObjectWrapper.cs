@@ -269,10 +269,14 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
             return false;
         }
-        else if (_typeDescriptor.IsGenericDictionary
+        else if (ReferenceEquals(receiver, this)
+            && _typeDescriptor.IsGenericDictionary
             && !_typeDescriptor.IsStringKeyedGenericDictionary)
         {
-            // non-string-keyed CLR generic dictionary (e.g. Dictionary<TestModel, string>)
+            // non-string-keyed CLR generic dictionary (e.g. Dictionary<TestModel, string>).
+            // Matches the receiver gate in Get: when [[Set]] arrives via Proxy/Reflect.set with a
+            // different receiver, fall through to the spec-compliant slow path instead of mutating
+            // the underlying dict directly.
             if (!_engine.Options.Interop.AllowWrite || !Extensible)
             {
                 return false;
@@ -353,6 +357,8 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             && !_typeDescriptor.IsStringKeyedGenericDictionary
             && TryConvertJsValueToDictionaryKey(property, _typeDescriptor.GenericDictionaryKeyType!, out var clrKey))
         {
+            // Prototype chain is intentionally skipped: non-string non-symbol keys can't resolve
+            // to Object.prototype members (which are all string/symbol-keyed). Same rationale as Get.
             return _typeDescriptor.ContainsDictionaryKey(Target, clrKey!);
         }
 
@@ -362,7 +368,14 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     private bool TryConvertJsValueToDictionaryKey(JsValue property, Type keyType, out object? key)
     {
         var raw = property.ToObject();
-        if (raw is not null && keyType.IsInstanceOfType(raw))
+        if (raw is null)
+        {
+            // standard Dictionary<,> throws ArgumentNullException on null keys; bail before invoking
+            key = null;
+            return false;
+        }
+
+        if (keyType.IsInstanceOfType(raw))
         {
             key = raw;
             return true;
@@ -372,7 +385,9 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
     private bool TryConvertJsValueToDictionaryValue(JsValue value, Type valueType, out object? converted)
     {
-        if (valueType.IsAssignableFrom(typeof(JsValue)))
+        // Pass the JsValue through only for an exact JsValue target. A broader IsAssignableFrom check
+        // would also match Dictionary<_, object>, where callers expect the unwrapped CLR value.
+        if (valueType == typeof(JsValue))
         {
             converted = value;
             return true;
@@ -435,6 +450,8 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             && !property.IsString()
             && TryConvertJsValueToDictionaryKey(property, _typeDescriptor.GenericDictionaryKeyType!, out var clrKey))
         {
+            // Prototype chain is intentionally skipped on miss: non-string non-symbol keys can't
+            // resolve to Object.prototype members (which are all string/symbol-keyed).
             return _typeDescriptor.TryGetDictionaryValue(Target, clrKey!, out var raw)
                 ? FromObject(_engine, raw)
                 : Undefined;

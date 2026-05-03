@@ -765,6 +765,80 @@ public partial class InteropTests : IDisposable
     }
 
     [Fact]
+    public void ObjectKeyDictionary_NullKeyReturnsUndefined()
+    {
+        // null/undefined JS keys must short-circuit cleanly, not crash with ArgumentNullException
+        // when reflectively invoking Dictionary<TKey, TValue>.TryGetValue/ContainsKey/Remove.
+        var dictionary = new Dictionary<DictionaryKeyModel, string>
+        {
+            [new DictionaryKeyModel()] = "value1",
+        };
+        _engine.SetValue("obj", dictionary);
+
+        Assert.True(_engine.Evaluate("obj[null] === undefined").AsBoolean());
+        Assert.True(_engine.Evaluate("obj[undefined] === undefined").AsBoolean());
+        Assert.False(_engine.Evaluate("null in obj").AsBoolean());
+        Assert.False(_engine.Evaluate("delete obj[null]; null in obj").AsBoolean());
+    }
+
+    [Fact]
+    public void ObjectKeyDictionary_ObjectValuedDictionary_StoresUnwrappedClrValue()
+    {
+        // Dictionary<TKey, object> must receive the unwrapped CLR value, not the raw JsValue —
+        // otherwise C# callers reading the dictionary back get JsString/JsNumber surprises.
+        var model = new DictionaryKeyModel();
+        var dictionary = new Dictionary<DictionaryKeyModel, object>();
+        _engine.SetValue("obj", dictionary);
+        _engine.SetValue("model", model);
+
+        _engine.Execute("obj[model] = 'hello';");
+        Assert.Equal("hello", dictionary[model]);
+        Assert.IsType<string>(dictionary[model]);
+    }
+
+    [Fact]
+    public void ObjectKeyDictionary_SetWithIncompatibleValueType_StrictMode_Throws()
+    {
+        // strict mode must escalate the [[Set]] failure to a TypeError
+        var model = new DictionaryKeyModel();
+        var dictionary = new Dictionary<DictionaryKeyModel, int>
+        {
+            [model] = 42,
+        };
+        _engine.SetValue("obj", dictionary);
+        _engine.SetValue("model", model);
+
+        var ex = Assert.Throws<JavaScriptException>(() => _engine.Execute("'use strict'; obj[model] = 'not an int';"));
+        Assert.Contains("Cannot assign", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(42, dictionary[model]);
+    }
+
+    [Fact]
+    public void ObjectKeyDictionary_FrozenWrapper_BlocksWrites()
+    {
+        // Object.freeze on the wrapper sets Extensible=false, which the [[Set]] path treats as
+        // a blanket write block (matching the existing string-keyed dict behavior). Lock in the
+        // contract so a future change to relax this is a deliberate decision, not a regression.
+        var model = new DictionaryKeyModel();
+        var dictionary = new Dictionary<DictionaryKeyModel, string>
+        {
+            [model] = "value1",
+        };
+        _engine.SetValue("obj", dictionary);
+        _engine.SetValue("model", model);
+
+        _engine.Execute("Object.freeze(obj);");
+
+        // sloppy mode: silent failure, value unchanged
+        _engine.Execute("obj[model] = 'updated';");
+        Assert.Equal("value1", dictionary[model]);
+
+        // strict mode: TypeError, value unchanged
+        Assert.Throws<JavaScriptException>(() => _engine.Execute("'use strict'; obj[model] = 'updated';"));
+        Assert.Equal("value1", dictionary[model]);
+    }
+
+    [Fact]
     public void CanUseIndexOnCollection()
     {
         var collection = new System.Collections.ObjectModel.Collection<string>();
