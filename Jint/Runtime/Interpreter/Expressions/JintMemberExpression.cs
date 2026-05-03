@@ -207,6 +207,19 @@ internal sealed class JintMemberExpression : JintExpression
                 return baseObject.Get(determinedProperty, baseObject);
             }
 
+            // JsString primitive: skip ToObject's StringInstance allocation for the hot `s.length`
+            // case. `for (var i = 0; i < data.length; i++)` re-reads .length every iteration —
+            // observed in dromaeo-string-base64 / sunspider string-base64.
+            //
+            // Other paths fall through to GetV (which allocates a wrapper but is correct) — the
+            // wrapper is needed for spec-compliant numeric-index lookup like t['0'] returning
+            // the indexed char via StringInstance.GetOwnProperty's ToNumber coercion. v4.8.0
+            // allocated for these too via Engine.GetValue's ToObject path.
+            if (baseValue is JsString jsString && CommonProperties.Length.Equals(determinedProperty))
+            {
+                return JsNumber.Create((uint) jsString.Length);
+            }
+
             return baseValue.GetV(engine.Realm, determinedProperty);
         }
 
