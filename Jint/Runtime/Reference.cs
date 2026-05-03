@@ -111,6 +111,7 @@ public sealed class Reference
         ((Environment) _base).InitializeBinding(TypeConverter.ToString(_referencedName), value, hint);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void EvaluateAndCachePropertyKey()
     {
         // hot path: strings are already valid property keys (ToPropertyKey is a no-op for strings)
@@ -119,6 +120,12 @@ public sealed class Reference
             return;
         }
 
+        EvaluateAndCachePropertyKeySlow();
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void EvaluateAndCachePropertyKeySlow()
+    {
         if (_referencedName.IsInteger() && _base.IsIntegerIndexedArray)
         {
             return;

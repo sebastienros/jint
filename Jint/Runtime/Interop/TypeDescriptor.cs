@@ -21,7 +21,6 @@ internal sealed class TypeDescriptor
     private static readonly Type _stringType = typeof(string);
 
     private readonly MethodInfo? _tryGetValueMethod;
-    private readonly MethodInfo? _removeMethod;
     private readonly PropertyInfo? _keysAccessor;
     private readonly Type? _keyType;
     private readonly Type? _valueType;
@@ -40,7 +39,6 @@ internal sealed class TypeDescriptor
             out var isEnumerable,
             out var isDictionary,
             out _tryGetValueMethod,
-            out _removeMethod,
             out _keysAccessor,
             out _keyType,
             out _valueType,
@@ -53,6 +51,9 @@ internal sealed class TypeDescriptor
 
         IntegerIndexerProperty = integerIndexer;
         IsDictionary = _tryGetValueMethod is not null || isDictionary;
+        IsGenericDictionary = _tryGetValueMethod is not null;
+        IsStringKeyedGenericDictionary = IsGenericDictionary && _keyType == _stringType;
+        IsNonStringKeyedGenericDictionary = IsGenericDictionary && _keyType != _stringType;
 
         // dictionaries are considered normal-object-like
         IsArrayLike = !IsDictionary && isCollection;
@@ -84,9 +85,9 @@ internal sealed class TypeDescriptor
     public PropertyInfo? IntegerIndexerProperty { get; }
 
     public bool IsDictionary { get; }
-    public bool IsStringKeyedGenericDictionary => _tryGetValueMethod is not null && _keyType == _stringType;
-    public bool IsGenericDictionary => _tryGetValueMethod is not null;
-    public bool IsNonStringKeyedGenericDictionary => _tryGetValueMethod is not null && _keyType != _stringType;
+    public bool IsStringKeyedGenericDictionary { get; }
+    public bool IsGenericDictionary { get; }
+    public bool IsNonStringKeyedGenericDictionary { get; }
     public Type? GenericDictionaryKeyType => _keyType;
     public Type? GenericDictionaryValueType => _valueType;
     public bool IsEnumerable { get; }
@@ -95,8 +96,6 @@ internal sealed class TypeDescriptor
     public PropertyInfo? LengthProperty { get; }
 
     public bool Iterable => IsArrayLike || IsDictionary || IsEnumerable;
-
-    public MethodInfo? RemoveMethod => _removeMethod;
 
     public PropertyInfo? KeysAccessor => _keysAccessor;
 
@@ -116,7 +115,6 @@ internal sealed class TypeDescriptor
         out bool isEnumerable,
         out bool isDictionary,
         out MethodInfo? tryGetValueMethod,
-        out MethodInfo? removeMethod,
         out PropertyInfo? keysAccessor,
         out Type? keyType,
         out Type? valueType,
@@ -133,7 +131,6 @@ internal sealed class TypeDescriptor
             out isEnumerable,
             out isDictionary,
             out tryGetValueMethod,
-            out removeMethod,
             out keysAccessor,
             out keyType,
             out valueType,
@@ -153,7 +150,6 @@ internal sealed class TypeDescriptor
                 out var isEnumerableForSubType,
                 out var isDictionaryForSubType,
                 out var tryGetValueMethodForSubType,
-                out var removeMethodForSubType,
                 out var keysAccessorForSubType,
                 out var keyTypeForSubType,
                 out var valueTypeForSubType,
@@ -170,7 +166,6 @@ internal sealed class TypeDescriptor
             isDictionary |= isDictionaryForSubType;
 
             tryGetValueMethod ??= tryGetValueMethodForSubType;
-            removeMethod ??= removeMethodForSubType;
             keysAccessor ??= keysAccessorForSubType;
             keyType ??= keyTypeForSubType;
             valueType ??= valueTypeForSubType;
@@ -190,7 +185,6 @@ internal sealed class TypeDescriptor
         out bool isEnumerable,
         out bool isDictionary,
         out MethodInfo? tryGetValueMethod,
-        out MethodInfo? removeMethod,
         out PropertyInfo? keysAccessor,
         out Type? keyType,
         out Type? valueType,
@@ -209,7 +203,6 @@ internal sealed class TypeDescriptor
         lengthProperty = type.GetProperty("Count") ?? type.GetProperty("Length");
 
         tryGetValueMethod = null;
-        removeMethod = null;
         keysAccessor = null;
         keyType = null;
         valueType = null;
@@ -240,12 +233,6 @@ internal sealed class TypeDescriptor
 
                 if (isGenericDictionary)
                 {
-                    // existing string-keyed Remove(string) lookup is preserved for backwards-compat
-                    if (genericKeyType == _stringType)
-                    {
-                        removeMethod ??= type.GetMethod("Remove");
-                    }
-
                     genericRemoveMethod ??= type.GetMethod("Remove", [genericKeyType]);
                     var indexerProperty = type.GetProperty("Item", [genericKeyType]);
                     genericIndexerSetMethod ??= indexerProperty?.GetSetMethod();
@@ -281,21 +268,8 @@ internal sealed class TypeDescriptor
 
     public bool ContainsDictionaryKey(object target, object key)
     {
-        if (_genericContainsKeyMethod is null)
-        {
-            return false;
-        }
-
-        // Standard IDictionary<,>.ContainsKey returns false for missing keys, but custom
-        // implementations might throw — match TryGetDictionaryValue's defensive catch.
-        try
-        {
-            return _genericContainsKeyMethod.Invoke(target, [key]) is true;
-        }
-        catch (TargetInvocationException tie) when (tie.InnerException is KeyNotFoundException)
-        {
-            return false;
-        }
+        return _genericContainsKeyMethod is not null
+            && _genericContainsKeyMethod.Invoke(target, [key]) is true;
     }
 
     public bool TrySetDictionaryValue(object target, object key, object? value)
@@ -318,20 +292,7 @@ internal sealed class TypeDescriptor
 
     public bool TryRemoveDictionaryValue(object target, object key)
     {
-        if (_genericRemoveMethod is null)
-        {
-            return false;
-        }
-
-        // Standard IDictionary<,>.Remove returns false for missing keys, but custom
-        // implementations might throw — match TryGetDictionaryValue's defensive catch.
-        try
-        {
-            return _genericRemoveMethod.Invoke(target, [key]) is true;
-        }
-        catch (TargetInvocationException tie) when (tie.InnerException is KeyNotFoundException)
-        {
-            return false;
-        }
+        return _genericRemoveMethod is not null
+            && _genericRemoveMethod.Invoke(target, [key]) is true;
     }
 }

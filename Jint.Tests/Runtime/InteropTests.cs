@@ -750,6 +750,32 @@ public partial class InteropTests : IDisposable
     }
 
     [Fact]
+    public void IntegerKeyedDictionary_ResolvesByNumericKey()
+    {
+        // Dictionary<int, T> went through the IsStringKeyedGenericDictionary path before this
+        // change (which stringified the int and likely failed); now it routes through the
+        // non-string-keyed path and resolves directly via the int key.
+        var dictionary = new Dictionary<int, string>
+        {
+            [1] = "one",
+            [2] = "two",
+        };
+        _engine.SetValue("obj", dictionary);
+
+        Assert.Equal("one", _engine.Evaluate("'' + obj[1]").AsString());
+        Assert.Equal("two", _engine.Evaluate("'' + obj[2]").AsString());
+        Assert.True(_engine.Evaluate("obj[3] === undefined").AsBoolean());
+        Assert.True(_engine.Evaluate("1 in obj").AsBoolean());
+        Assert.False(_engine.Evaluate("3 in obj").AsBoolean());
+
+        _engine.Execute("obj[3] = 'three';");
+        Assert.Equal("three", dictionary[3]);
+
+        _engine.Execute("delete obj[1];");
+        Assert.False(dictionary.ContainsKey(1));
+    }
+
+    [Fact]
     public void ObjectKeyDictionary_SymbolKeyHandledByBase()
     {
         // symbol keys must not be hijacked by the new non-string-keyed dict branches —

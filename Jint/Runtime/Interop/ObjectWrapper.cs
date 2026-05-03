@@ -329,9 +329,9 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     {
         if (_engine.Options.Interop.AllowWrite)
         {
-            if (property is JsString jsString && _typeDescriptor.RemoveMethod is not null)
+            if (property is JsString jsString && _typeDescriptor.IsStringKeyedGenericDictionary)
             {
-                _typeDescriptor.RemoveMethod.Invoke(Target, [jsString.ToString()]);
+                _typeDescriptor.TryRemoveDictionaryValue(Target, jsString.ToString());
             }
             else if (!property.IsString()
                 && !property.IsSymbol()
