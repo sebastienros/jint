@@ -278,8 +278,10 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                 return false;
             }
 
-            if (!TryConvertJsValueToDictionaryKey(property, _typeDescriptor.GenericDictionaryKeyType!, out var clrKey)
-                || !TryConvertJsValueToDictionaryValue(value, _typeDescriptor.GenericDictionaryValueType!, out var clrValue))
+            var keyType = _typeDescriptor.GenericDictionaryKeyType!;
+            var valueType = _typeDescriptor.GenericDictionaryValueType!;
+            if (!TryConvertJsValueToDictionaryKey(property, keyType, out var clrKey)
+                || !TryConvertJsValueToDictionaryValue(value, valueType, out var clrValue))
             {
                 return false;
             }
@@ -413,7 +415,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             else
             {
                 if (_typeDescriptor.IsStringKeyedGenericDictionary
-                    && _typeDescriptor.TryGetValue(Target, property.ToString(), out var value))
+                    && _typeDescriptor.TryGetDictionaryValue(Target, property.ToString(), out var value))
                 {
                     // Check stored properties first - frozen/sealed objects have descriptors in _properties
                     // that must be respected to return the same (frozen) instance
@@ -608,7 +610,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         var isDictionary = _typeDescriptor.IsStringKeyedGenericDictionary;
         if (isDictionary)
         {
-            if (_typeDescriptor.TryGetValue(Target, member, out var value))
+            if (_typeDescriptor.TryGetDictionaryValue(Target, member, out var value))
             {
                 var flags = PropertyFlag.Enumerable;
                 if (_engine.Options.Interop.AllowWrite)

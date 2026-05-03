@@ -288,7 +288,7 @@ public class DefaultTypeConverter : ITypeConverter
                 var keys = (IEnumerable<string>) typeDescriptor.KeysAccessor.GetValue(value)!;
                 foreach (var key in keys)
                 {
-                    if (typeDescriptor.TryGetValue(value, key, out var sourceVal))
+                    if (typeDescriptor.TryGetDictionaryValue(value, key, out var sourceVal))
                     {
                         targetDict[key] = Convert(sourceVal, targetValueType, formatProvider);
                     }
@@ -306,8 +306,8 @@ public class DefaultTypeConverter : ITypeConverter
                         continue;
                     }
 
-                    if (typeDescriptor.TryGetValue(value, member.Name, out var val)
-                        || typeDescriptor.TryGetValue(value, member.Name.UpperToLowerCamelCase(), out val))
+                    if (typeDescriptor.TryGetDictionaryValue(value, member.Name, out var val)
+                        || typeDescriptor.TryGetDictionaryValue(value, member.Name.UpperToLowerCamelCase(), out val))
                     {
                         var output = Convert(val, member.GetDefinedType(), formatProvider);
                         member.SetValue(obj, output);

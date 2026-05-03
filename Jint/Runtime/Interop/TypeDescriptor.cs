@@ -234,6 +234,9 @@ internal sealed class TypeDescriptor
                 keyType ??= genericKeyType;
                 valueType ??= type.GenericTypeArguments[1];
 
+                // ContainsKey is declared on both IDictionary<,> and IReadOnlyDictionary<,>
+                genericContainsKeyMethod ??= type.GetMethod("ContainsKey", [genericKeyType]);
+
                 if (isGenericDictionary)
                 {
                     // existing string-keyed Remove(string) lookup is preserved for backwards-compat
@@ -242,7 +245,6 @@ internal sealed class TypeDescriptor
                         removeMethod ??= type.GetMethod("Remove");
                     }
 
-                    genericContainsKeyMethod ??= type.GetMethod("ContainsKey", [genericKeyType]);
                     genericRemoveMethod ??= type.GetMethod("Remove", [genericKeyType]);
                     var indexerProperty = type.GetProperty("Item", [genericKeyType]);
                     genericIndexerSetMethod ??= indexerProperty?.GetSetMethod();
@@ -258,30 +260,10 @@ internal sealed class TypeDescriptor
         }
     }
 
-    public bool TryGetValue(object target, string member, [NotNullWhen(true)] out object? o)
-    {
-        if (!IsStringKeyedGenericDictionary)
-        {
-            Throw.InvalidOperationException("Not a string-keyed dictionary");
-        }
-
-        // we could throw when indexing with an invalid key
-        try
-        {
-            object?[] parameters = [member, _valueType!.IsValueType ? Activator.CreateInstance(_valueType) : null];
-            var result = (bool) _tryGetValueMethod!.Invoke(target, parameters)!;
-            o = parameters[1];
-            return result;
-        }
-        catch (TargetInvocationException tie) when (tie.InnerException is KeyNotFoundException)
-        {
-            o = null;
-            return false;
-        }
-    }
-
     public bool TryGetDictionaryValue(object target, object key, out object? o)
     {
+        // IDictionary<,>.TryGetValue / IReadOnlyDictionary<,>.TryGetValue do not throw KeyNotFoundException,
+        // but a custom implementation of either interface might — keep the catch defensively.
         try
         {
             object?[] parameters = [key, _valueType!.IsValueType ? Activator.CreateInstance(_valueType) : null];
@@ -303,14 +285,7 @@ internal sealed class TypeDescriptor
             return false;
         }
 
-        try
-        {
-            return _genericContainsKeyMethod.Invoke(target, [key]) is true;
-        }
-        catch (TargetInvocationException tie) when (tie.InnerException is KeyNotFoundException)
-        {
-            return false;
-        }
+        return _genericContainsKeyMethod.Invoke(target, [key]) is true;
     }
 
     public bool TrySetDictionaryValue(object target, object key, object? value)
@@ -338,13 +313,6 @@ internal sealed class TypeDescriptor
             return false;
         }
 
-        try
-        {
-            return _genericRemoveMethod.Invoke(target, [key]) is true;
-        }
-        catch (TargetInvocationException tie) when (tie.InnerException is KeyNotFoundException)
-        {
-            return false;
-        }
+        return _genericRemoveMethod.Invoke(target, [key]) is true;
     }
 }

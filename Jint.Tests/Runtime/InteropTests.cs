@@ -556,6 +556,12 @@ public partial class InteropTests : IDisposable
     {
     }
 
+    public enum DictionaryKeyEnum
+    {
+        Foo,
+        Bar,
+    }
+
     [Fact]
     public void CanGetIndexUsingObjectKey()
     {
@@ -652,6 +658,23 @@ public partial class InteropTests : IDisposable
     }
 
     [Fact]
+    public void ReadOnlyDictionary_WithObjectKey_HasReturnsTrueForPresentKey()
+    {
+        var present = new DictionaryKeyModel();
+        var absent = new DictionaryKeyModel();
+        IReadOnlyDictionary<DictionaryKeyModel, string> readOnly = new Dictionary<DictionaryKeyModel, string>
+        {
+            [present] = "value1",
+        };
+        _engine.SetValue("obj", readOnly);
+        _engine.SetValue("present", present);
+        _engine.SetValue("absent", absent);
+
+        Assert.True(_engine.Evaluate("present in obj").AsBoolean());
+        Assert.False(_engine.Evaluate("absent in obj").AsBoolean());
+    }
+
+    [Fact]
     public void ObjectKeyDictionary_DerivedKeyTypeWorks()
     {
         var derived = new DictionaryKeyDerivedModel();
@@ -693,6 +716,52 @@ public partial class InteropTests : IDisposable
         // assigning a non-numeric string to an int-valued dictionary must not throw and must not corrupt the entry
         _engine.Execute("obj[model] = 'not an int';");
         Assert.Equal(42, dictionary[model]);
+    }
+
+    [Fact]
+    public void ObjectKeyDictionary_EnumKey()
+    {
+        var dictionary = new Dictionary<DictionaryKeyEnum, string>
+        {
+            [DictionaryKeyEnum.Foo] = "fooValue",
+            [DictionaryKeyEnum.Bar] = "barValue",
+        };
+        _engine.SetValue("obj", dictionary);
+        _engine.SetValue("foo", DictionaryKeyEnum.Foo);
+        _engine.SetValue("bar", DictionaryKeyEnum.Bar);
+
+        Assert.Equal("fooValue", _engine.Evaluate("'' + obj[foo]").AsString());
+        Assert.Equal("barValue", _engine.Evaluate("'' + obj[bar]").AsString());
+    }
+
+    [Fact]
+    public void ObjectKeyDictionary_IntegerKeyReturnsUndefined()
+    {
+        // a JS number key against an object-keyed dictionary should return undefined cleanly,
+        // not throw, and not match by coincidence
+        var model = new DictionaryKeyModel();
+        var dictionary = new Dictionary<DictionaryKeyModel, string>
+        {
+            [model] = "value1",
+        };
+        _engine.SetValue("obj", dictionary);
+
+        Assert.True(_engine.Evaluate("obj[42] === undefined").AsBoolean());
+    }
+
+    [Fact]
+    public void ObjectKeyDictionary_SymbolKeyHandledByBase()
+    {
+        // symbol keys must not be hijacked by the new non-string-keyed dict branches —
+        // Symbol.iterator should still resolve to the iterator function (Dictionary<,> is enumerable)
+        var model = new DictionaryKeyModel();
+        var dictionary = new Dictionary<DictionaryKeyModel, string>
+        {
+            [model] = "value1",
+        };
+        _engine.SetValue("obj", dictionary);
+
+        Assert.Equal("function", _engine.Evaluate("typeof obj[Symbol.iterator]").AsString());
     }
 
     [Fact]
