@@ -991,6 +991,64 @@ public sealed partial class ArrayPrototype : ArrayInstance
 
         var instance = _realm.Intrinsics.Array.ArraySpeciesCreate(obj, actualDeleteCount);
         var a = ArrayOperations.For(instance, forWrite: true);
+
+        // Fast path: dense JsArray with default prototype, fits in uint, and the result array
+        // is also a fresh dense JsArray we can fill via Array.Copy. Replaces three O(n) loops
+        // (capture deleted, shift tail, write inserts) with up to three Array.Copy calls.
+        if (len + (ulong) items.Length <= uint.MaxValue
+            && actualStart <= uint.MaxValue && actualDeleteCount <= uint.MaxValue
+            && o.Target is JsArray jsArr && jsArr._dense is { } srcDense && jsArr.CanUseFastAccess
+            && a.Target is JsArray resultArr && resultArr._dense is not null)
+        {
+            var startU = (uint) actualStart;
+            var deleteU = (uint) actualDeleteCount;
+            var insertU = (uint) items.Length;
+            var lenU = (uint) len;
+            var newLenU = (uint) (len - actualDeleteCount + (ulong) items.Length);
+
+            // 1. Copy deleted slots into the result array.
+            if (deleteU > 0)
+            {
+                resultArr.EnsureCapacity(deleteU);
+                var availableInSource = startU < (uint) srcDense.Length
+                    ? System.Math.Min(deleteU, (uint) srcDense.Length - startU)
+                    : 0u;
+                if (availableInSource > 0)
+                {
+                    System.Array.Copy(srcDense, startU, resultArr._dense!, 0, availableInSource);
+                }
+            }
+            resultArr.SetLength(deleteU);
+
+            // 2. Shift the tail to its new position.
+            var tailStart = startU + deleteU;
+            var tailCount = lenU - tailStart;
+            if (tailCount > 0 && insertU != deleteU)
+            {
+                jsArr.TryMoveDenseRange(sourceIndex: tailStart, destIndex: startU + insertU, count: tailCount);
+            }
+
+            // 3. Clear stale slots when shrinking.
+            if (newLenU < lenU)
+            {
+                jsArr.ClearDenseRange(newLenU, lenU - newLenU);
+            }
+
+            // 4. Write the inserted items. Amortized grow for the case where step 2 didn't
+            // run (insertU == deleteU or tailCount == 0) yet we still need write capacity.
+            if (insertU > 0)
+            {
+                jsArr.EnsureCapacityAmortized(startU + insertU);
+                for (uint k = 0; k < insertU; k++)
+                {
+                    jsArr._dense![startU + k] = items[(int) k];
+                }
+            }
+
+            jsArr.SetLength(newLenU);
+            return resultArr;
+        }
+
         for (uint k = 0; k < actualDeleteCount; k++)
         {
             var index = actualStart + k;
@@ -1067,6 +1125,29 @@ public sealed partial class ArrayPrototype : ArrayInstance
         if (len + argCount > ArrayOperations.MaxArrayLikeLength)
         {
             Throw.TypeError(_realm, "Invalid array length");
+        }
+
+        // Fast path: dense JsArray with default prototype — bulk Array.Copy right by argCount
+        // then write the new front slots, instead of O(n) per-element Set/HasProperty.
+        if (argCount > 0 && len <= uint.MaxValue && o.Target is JsArray jsArr
+            && jsArr._dense is not null && jsArr.CanUseFastAccess
+            && len + argCount <= ArrayInstance.MaxDenseArrayLengthInternal)
+        {
+            var lenU = (uint) len;
+            var newLenU = lenU + argCount;
+            // Amortized grow so back-to-back unshift loops don't incur O(N²) Array.Resize work
+            // (matches the doubling growth that the slow path's per-element Set() relies on).
+            jsArr.EnsureCapacityAmortized(newLenU);
+            if (lenU > 0)
+            {
+                System.Array.Copy(jsArr._dense!, 0, jsArr._dense!, argCount, lenU);
+            }
+            for (uint j = 0; j < argCount; j++)
+            {
+                jsArr._dense![j] = arguments[(int) j];
+            }
+            jsArr.SetLength(newLenU);
+            return newLenU;
         }
 
         // only prepare for larger if we cannot rely on default growth algorithm
@@ -1312,7 +1393,18 @@ public sealed partial class ArrayPrototype : ArrayInstance
             return Undefined;
         }
 
-        var first = o.Get(0);
+        // Fast path: dense JsArray with default prototype — single Array.Copy left by 1
+        // replaces O(n) per-element Set/HasProperty calls.
+        if (o.Target is JsArray jsArr && jsArr._dense is { } dense && jsArr.CanUseFastAccess)
+        {
+            var first = (len <= (uint) dense.Length ? dense[0] : null) ?? Undefined;
+            jsArr.TryMoveDenseRange(sourceIndex: 1, destIndex: 0, count: len - 1);
+            jsArr.ClearDenseRange(len - 1, 1);
+            jsArr.SetLength((ulong) (len - 1));
+            return first;
+        }
+
+        var firstSlow = o.Get(0);
         for (uint k = 1; k < len; k++)
         {
             var to = k - 1;
@@ -1329,7 +1421,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
         o.DeletePropertyOrThrow(len - 1);
         o.SetLength(len - 1);
 
-        return first;
+        return firstSlow;
     }
 
     /// <summary>

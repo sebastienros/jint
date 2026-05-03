@@ -9,138 +9,138 @@ dotnet run -c Release --allCategories EngineComparison
 * tests are run in global engine strict mode, as YantraJS always uses strict mode which improves performance
 * `Jint` and `Jint_ParsedScript` shows the difference between always parsing the script source file and reusing parsed `Script` instance.
 
-Last updated 2026-03-01
+Last updated 2026-05-03
 
-* Jint 4.6.1
+* Jint 4.8.0
 * Jurassic 3.2.9
-* NiL.JS 2.6.1712
-* YantraJS.Core 1.2.301
+* NiL.JS 2.6.1721
+* YantraJS.Core 1.2.334
 
 ```
 
-BenchmarkDotNet v0.15.8, Windows 11 (10.0.26200.7840/25H2/2025Update/HudsonValley2)
+BenchmarkDotNet v0.15.8, Windows 11 (10.0.26200.8246/25H2/2025Update/HudsonValley2)
 AMD Ryzen 9 5950X 3.40GHz, 1 CPU, 32 logical and 16 physical cores
-.NET SDK 10.0.103
-  [Host]     : .NET 10.0.3 (10.0.3, 10.0.326.7603), X64 RyuJIT x86-64-v3
-  DefaultJob : .NET 10.0.3 (10.0.3, 10.0.326.7603), X64 RyuJIT x86-64-v3
+.NET SDK 10.0.203
+  [Host]     : .NET 10.0.7 (10.0.7, 10.0.726.21808), X64 RyuJIT x86-64-v3
+  DefaultJob : .NET 10.0.7 (10.0.7, 10.0.726.21808), X64 RyuJIT x86-64-v3
 
 
 ```
-| Method            | FileName             | Mean             | StdDev         | Median           | Rank | Allocated     |
-|------------------ |--------------------- |-----------------:|---------------:|-----------------:|-----:|--------------:|
-| Jint              | array-stress         |     4,691.616 μs |     17.0325 μs |     4,696.770 μs |    1 |    6748.79 KB |
-| Jint_ParsedScript | array-stress         |     4,708.329 μs |     27.4563 μs |     4,714.834 μs |    1 |    6712.54 KB |
-| NilJS             | array-stress         |     5,050.918 μs |     24.1263 μs |     5,039.567 μs |    2 |    4521.19 KB |
-| Jurassic          | array-stress         |     9,206.247 μs |     50.4266 μs |     9,213.697 μs |    3 |   11644.86 KB |
-| YantraJS          | array-stress         |    15,396.920 μs |    172.8415 μs |    15,478.598 μs |    4 |   86548.68 KB |
-|                   |                      |                  |                |                  |      |               |
-| YantraJS          | dromaeo-3d-cube      |     3,261.457 μs |     48.4388 μs |     3,261.962 μs |    1 |   10695.01 KB |
-| NilJS             | dromaeo-3d-cube      |     6,509.515 μs |     45.1234 μs |     6,518.614 μs |    2 |    4903.32 KB |
-| Jint_ParsedScript | dromaeo-3d-cube      |    13,228.323 μs |     29.6305 μs |    13,220.320 μs |    3 |    5421.53 KB |
-| Jint              | dromaeo-3d-cube      |    13,259.427 μs |     64.6836 μs |    13,268.498 μs |    3 |    5784.63 KB |
-| Jurassic          | dromaeo-3d-cube      |    53,666.467 μs |    486.3579 μs |    53,650.550 μs |    4 |   10654.72 KB |
-|                   |                      |                  |                |                  |      |               |
-| Jurassic          | droma(...)odern [22] |               NA |             NA |               NA |    ? |            NA |
-| YantraJS          | droma(...)odern [22] |     3,024.308 μs |     35.1755 μs |     3,024.986 μs |    1 |   10452.92 KB |
-| NilJS             | droma(...)odern [22] |     7,203.517 μs |     40.8363 μs |     7,195.374 μs |    2 |    5977.95 KB |
-| Jint              | droma(...)odern [22] |    13,170.754 μs |     66.6874 μs |    13,152.802 μs |    3 |    5291.46 KB |
-| Jint_ParsedScript | droma(...)odern [22] |    13,714.986 μs |     96.4996 μs |    13,702.873 μs |    4 |    4930.14 KB |
-|                   |                      |                  |                |                  |      |               |
-| NilJS             | dromaeo-core-eval    |     1,272.317 μs |      9.3278 μs |     1,268.690 μs |    1 |     1577.1 KB |
-| Jint              | dromaeo-core-eval    |     2,525.904 μs |     23.4180 μs |     2,511.754 μs |    2 |     360.92 KB |
-| Jint_ParsedScript | dromaeo-core-eval    |     2,542.429 μs |     14.0752 μs |     2,545.205 μs |    2 |      337.3 KB |
-| YantraJS          | dromaeo-core-eval    |     4,387.624 μs |     80.1260 μs |     4,356.207 μs |    3 |   36529.26 KB |
-| Jurassic          | dromaeo-core-eval    |    16,196.879 μs |    137.7718 μs |    16,103.456 μs |    4 |    2876.11 KB |
-|                   |                      |                  |                |                  |      |               |
-| Jurassic          | droma(...)odern [24] |               NA |             NA |               NA |    ? |            NA |
-| NilJS             | droma(...)odern [24] |     1,479.726 μs |     13.4973 μs |     1,482.924 μs |    1 |    1575.94 KB |
-| Jint_ParsedScript | droma(...)odern [24] |     2,504.267 μs |     13.8348 μs |     2,507.193 μs |    2 |     336.95 KB |
-| Jint              | droma(...)odern [24] |     2,580.271 μs |      7.6896 μs |     2,578.716 μs |    3 |     359.67 KB |
-| YantraJS          | droma(...)odern [24] |     4,459.993 μs |     82.0219 μs |     4,458.036 μs |    4 |   36529.38 KB |
-|                   |                      |                  |                |                  |      |               |
-| Jint              | dromaeo-object-array |    32,117.117 μs |    320.3459 μs |    32,225.750 μs |    1 |   96290.54 KB |
-| Jint_ParsedScript | dromaeo-object-array |    33,036.621 μs |    354.2772 μs |    33,104.734 μs |    1 |   96233.61 KB |
-| Jurassic          | dromaeo-object-array |    37,392.516 μs |    457.9002 μs |    37,559.164 μs |    2 |   25808.58 KB |
-| NilJS             | dromaeo-object-array |    53,241.602 μs |    733.3681 μs |    52,963.585 μs |    3 |   17862.17 KB |
-| YantraJS          | dromaeo-object-array |    67,266.373 μs |  1,809.8205 μs |    67,874.471 μs |    4 | 1265136.13 KB |
-|                   |                      |                  |                |                  |      |               |
-| Jurassic          | droma(...)odern [27] |               NA |             NA |               NA |    ? |            NA |
-| Jint              | droma(...)odern [27] |    32,734.302 μs |    508.0678 μs |    32,967.300 μs |    1 |   96289.81 KB |
-| Jint_ParsedScript | droma(...)odern [27] |    34,250.823 μs |    252.1166 μs |    34,190.947 μs |    2 |   96235.32 KB |
-| NilJS             | droma(...)odern [27] |    53,863.733 μs |    269.7683 μs |    53,850.830 μs |    3 |   17863.19 KB |
-| YantraJS          | droma(...)odern [27] |    76,244.086 μs |  1,861.5264 μs |    77,095.669 μs |    4 | 1268927.74 KB |
-|                   |                      |                  |                |                  |      |               |
-| Jint_ParsedScript | droma(...)egexp [21] |    95,485.275 μs |  3,980.1824 μs |    95,663.620 μs |    1 |  145346.22 KB |
-| Jint              | droma(...)egexp [21] |   151,314.551 μs |  9,138.8180 μs |   151,138.533 μs |    2 |  151305.22 KB |
-| NilJS             | droma(...)egexp [21] |   531,372.379 μs |  7,276.1515 μs |   530,397.550 μs |    3 |  767094.38 KB |
-| Jurassic          | droma(...)egexp [21] |   708,152.418 μs | 16,521.4057 μs |   711,786.100 μs |    4 |  826669.16 KB |
-| YantraJS          | droma(...)egexp [21] | 1,061,324.245 μs | 23,494.1166 μs | 1,063,029.400 μs |    5 | 1160463.81 KB |
-|                   |                      |                  |                |                  |      |               |
-| Jurassic          | droma(...)odern [28] |               NA |             NA |               NA |    ? |            NA |
-| Jint_ParsedScript | droma(...)odern [28] |    97,881.258 μs |  4,590.8004 μs |    97,112.333 μs |    1 |  151615.38 KB |
-| Jint              | droma(...)odern [28] |   151,527.870 μs | 15,229.3341 μs |   150,456.900 μs |    2 |  148812.27 KB |
-| NilJS             | droma(...)odern [28] |   533,492.806 μs | 10,604.1301 μs |   531,319.500 μs |    3 |  766253.38 KB |
-| YantraJS          | droma(...)odern [28] | 1,054,218.960 μs | 31,368.6551 μs | 1,059,431.000 μs |    4 | 1154824.82 KB |
-|                   |                      |                  |                |                  |      |               |
-| NilJS             | droma(...)tring [21] |   144,388.575 μs |  3,693.8766 μs |   144,360.367 μs |    1 | 1354866.88 KB |
-| Jint_ParsedScript | droma(...)tring [21] |   174,392.785 μs |  7,429.0888 μs |   173,322.133 μs |    2 | 1302862.09 KB |
-| YantraJS          | droma(...)tring [21] |   194,913.575 μs |  6,740.5396 μs |   195,749.233 μs |    3 | 1673875.06 KB |
-| Jurassic          | droma(...)tring [21] |   225,891.690 μs |  5,343.8812 μs |   225,844.433 μs |    4 | 1430414.53 KB |
-| Jint              | droma(...)tring [21] |   229,886.706 μs | 71,180.7863 μs |   180,669.167 μs |    5 | 1303014.04 KB |
-|                   |                      |                  |                |                  |      |               |
-| Jurassic          | droma(...)odern [28] |               NA |             NA |               NA |    ? |            NA |
-| NilJS             | droma(...)odern [28] |   147,794.780 μs |  4,632.3069 μs |   148,534.633 μs |    1 | 1354920.03 KB |
-| Jint_ParsedScript | droma(...)odern [28] |   177,155.292 μs |  7,261.1855 μs |   176,953.550 μs |    2 | 1302772.05 KB |
-| YantraJS          | droma(...)odern [28] |   192,820.336 μs |  8,497.2666 μs |   191,434.567 μs |    3 | 1677377.26 KB |
-| Jint              | droma(...)odern [28] |   239,253.797 μs | 76,484.0724 μs |   182,877.650 μs |    3 | 1303074.31 KB |
-|                   |                      |                  |                |                  |      |               |
-| NilJS             | droma(...)ase64 [21] |    26,340.913 μs |    198.9573 μs |    26,430.794 μs |    1 |   19588.58 KB |
-| Jint              | droma(...)ase64 [21] |    28,422.226 μs |     65.0186 μs |    28,432.869 μs |    2 |    2421.23 KB |
-| Jint_ParsedScript | droma(...)ase64 [21] |    28,847.812 μs |    168.9030 μs |    28,810.209 μs |    2 |    2309.92 KB |
-| YantraJS          | droma(...)ase64 [21] |    38,987.504 μs |    922.2634 μs |    38,943.408 μs |    3 |  760372.05 KB |
-| Jurassic          | droma(...)ase64 [21] |    47,416.892 μs |    286.3888 μs |    47,453.645 μs |    4 |   73290.47 KB |
-|                   |                      |                  |                |                  |      |               |
-| Jurassic          | droma(...)odern [28] |               NA |             NA |               NA |    ? |            NA |
-| Jint              | droma(...)odern [28] |    33,036.355 μs |     71.0817 μs |    33,004.000 μs |    1 |    2421.24 KB |
-| NilJS             | droma(...)odern [28] |    33,116.482 μs |    231.6549 μs |    33,158.093 μs |    1 |   31360.18 KB |
-| Jint_ParsedScript | droma(...)odern [28] |    36,905.425 μs |    222.7873 μs |    36,802.261 μs |    2 |    2309.98 KB |
-| YantraJS          | droma(...)odern [28] |    39,365.056 μs |    705.5726 μs |    39,291.075 μs |    3 |  761588.59 KB |
-|                   |                      |                  |                |                  |      |               |
-| Jint_ParsedScript | evaluation           |         5.197 μs |      0.0644 μs |         5.173 μs |    1 |       22.6 KB |
-| Jint              | evaluation           |        15.932 μs |      0.0864 μs |        15.922 μs |    2 |      34.52 KB |
-| NilJS             | evaluation           |        26.889 μs |      0.0903 μs |        26.905 μs |    3 |      22.36 KB |
-| YantraJS          | evaluation           |       122.493 μs |      2.0514 μs |       123.048 μs |    4 |     924.33 KB |
-| Jurassic          | evaluation           |     2,015.653 μs |      8.9151 μs |     2,014.522 μs |    5 |     418.92 KB |
-|                   |                      |                  |                |                  |      |               |
-| Jurassic          | evaluation-modern    |               NA |             NA |               NA |    ? |            NA |
-| Jint_ParsedScript | evaluation-modern    |         5.275 μs |      0.0769 μs |         5.270 μs |    1 |      22.34 KB |
-| Jint              | evaluation-modern    |        15.328 μs |      0.1349 μs |        15.305 μs |    2 |      34.82 KB |
-| NilJS             | evaluation-modern    |        27.372 μs |      0.2383 μs |        27.330 μs |    3 |      22.35 KB |
-| YantraJS          | evaluation-modern    |       121.993 μs |      2.5549 μs |       122.139 μs |    4 |      924.3 KB |
-|                   |                      |                  |                |                  |      |               |
-| Jint_ParsedScript | linq-js              |        59.702 μs |      0.4075 μs |        59.762 μs |    1 |     180.67 KB |
-| YantraJS          | linq-js              |       351.259 μs |      3.4444 μs |       350.863 μs |    2 |    1467.33 KB |
-| Jint              | linq-js              |     1,255.229 μs |      8.6941 μs |     1,257.645 μs |    3 |    1299.95 KB |
-| NilJS             | linq-js              |     4,087.173 μs |     33.0994 μs |     4,088.310 μs |    4 |    2739.46 KB |
-| Jurassic          | linq-js              |    36,843.230 μs |    484.8170 μs |    36,891.627 μs |    5 |    9103.59 KB |
-|                   |                      |                  |                |                  |      |               |
-| Jint_ParsedScript | minimal              |         1.698 μs |      0.0257 μs |         1.703 μs |    1 |      14.91 KB |
-| Jint              | minimal              |         2.812 μs |      0.0173 μs |         2.811 μs |    2 |      16.91 KB |
-| NilJS             | minimal              |         2.826 μs |      0.0106 μs |         2.825 μs |    2 |       4.51 KB |
-| YantraJS          | minimal              |       129.871 μs |      8.0617 μs |       129.180 μs |    3 |     919.22 KB |
-| Jurassic          | minimal              |     2,225.560 μs |      9.7999 μs |     2,224.859 μs |    4 |     385.19 KB |
-|                   |                      |                  |                |                  |      |               |
-| YantraJS          | stopwatch            |    73,079.255 μs |  3,263.4883 μs |    73,055.613 μs |    1 |  219944.24 KB |
-| NilJS             | stopwatch            |   152,174.728 μs |  4,460.1733 μs |   152,703.100 μs |    2 |   94876.49 KB |
-| Jurassic          | stopwatch            |   161,037.916 μs |  5,878.3002 μs |   159,930.150 μs |    2 |  156932.58 KB |
-| Jint              | stopwatch            |   230,005.112 μs |  5,216.7066 μs |   228,664.567 μs |    3 |   60456.74 KB |
-| Jint_ParsedScript | stopwatch            |   247,600.049 μs |  7,371.2674 μs |   247,241.867 μs |    4 |   60419.34 KB |
-|                   |                      |                  |                |                  |      |               |
-| YantraJS          | stopwatch-modern     |    66,467.444 μs |    845.1552 μs |    66,285.750 μs |    1 |  238322.26 KB |
-| Jurassic          | stopwatch-modern     |   152,886.837 μs |  1,082.4752 μs |   152,660.825 μs |    2 |  288625.79 KB |
-| NilJS             | stopwatch-modern     |   252,079.271 μs |  1,817.7111 μs |   252,044.050 μs |    3 |  324502.66 KB |
-| Jint              | stopwatch-modern     |   277,991.452 μs | 10,096.6550 μs |   272,907.800 μs |    4 |   60672.24 KB |
-| Jint_ParsedScript | stopwatch-modern     |   285,139.187 μs |  2,595.5357 μs |   283,688.850 μs |    4 |   60635.06 KB |
+| Method            | FileName             | Mean             | StdDev          | Median           | Rank | Allocated     |
+|------------------ |--------------------- |-----------------:|----------------:|-----------------:|-----:|--------------:|
+| Jint              | array-stress         |     3,533.001 μs |       7.6367 μs |     3,535.903 μs |    1 |    1940.45 KB |
+| Jint_ParsedScript | array-stress         |     3,651.231 μs |       5.8406 μs |     3,650.981 μs |    2 |    1911.66 KB |
+| NilJS             | array-stress         |     4,707.643 μs |      14.4053 μs |     4,708.506 μs |    3 |    4521.19 KB |
+| Jurassic          | array-stress         |     8,844.746 μs |      42.1863 μs |     8,836.739 μs |    4 |   11644.87 KB |
+| YantraJS          | array-stress         |    15,037.398 μs |     478.6350 μs |    15,211.663 μs |    5 |   86559.47 KB |
+|                   |                      |                  |                 |                  |      |               |
+| YantraJS          | dromaeo-3d-cube      |     2,975.874 μs |      44.1024 μs |     2,966.238 μs |    1 |   10692.56 KB |
+| NilJS             | dromaeo-3d-cube      |     5,951.302 μs |      14.9877 μs |     5,954.822 μs |    2 |    4903.32 KB |
+| Jint_ParsedScript | dromaeo-3d-cube      |    11,886.489 μs |      64.7087 μs |    11,870.198 μs |    3 |    6072.38 KB |
+| Jint              | dromaeo-3d-cube      |    12,438.565 μs |     103.4839 μs |    12,478.516 μs |    4 |    6375.01 KB |
+| Jurassic          | dromaeo-3d-cube      |    53,881.945 μs |     210.5017 μs |    53,799.850 μs |    5 |   10654.72 KB |
+|                   |                      |                  |                 |                  |      |               |
+| Jurassic          | droma(...)odern [22] |               NA |              NA |               NA |    ? |            NA |
+| YantraJS          | droma(...)odern [22] |     3,019.459 μs |      49.0287 μs |     3,007.408 μs |    1 |   10450.47 KB |
+| NilJS             | droma(...)odern [22] |     7,563.750 μs |     147.1253 μs |     7,560.542 μs |    2 |    5977.95 KB |
+| Jint_ParsedScript | droma(...)odern [22] |    12,688.439 μs |     243.1855 μs |    12,566.492 μs |    3 |    6071.52 KB |
+| Jint              | droma(...)odern [22] |    12,886.968 μs |     205.4522 μs |    12,948.674 μs |    3 |    6373.95 KB |
+|                   |                      |                  |                 |                  |      |               |
+| NilJS             | dromaeo-core-eval    |     1,273.334 μs |      14.8007 μs |     1,273.958 μs |    1 |     1577.1 KB |
+| Jint_ParsedScript | dromaeo-core-eval    |     2,547.151 μs |      50.6741 μs |     2,530.190 μs |    2 |    1324.59 KB |
+| Jint              | dromaeo-core-eval    |     2,653.478 μs |      82.1488 μs |     2,626.988 μs |    2 |    1344.95 KB |
+| YantraJS          | dromaeo-core-eval    |     4,295.002 μs |      32.3982 μs |     4,296.717 μs |    3 |   36525.82 KB |
+| Jurassic          | dromaeo-core-eval    |    18,121.533 μs |     321.6612 μs |    18,135.747 μs |    4 |    2876.04 KB |
+|                   |                      |                  |                 |                  |      |               |
+| Jurassic          | droma(...)odern [24] |               NA |              NA |               NA |    ? |            NA |
+| NilJS             | droma(...)odern [24] |     1,561.127 μs |      18.4452 μs |     1,554.537 μs |    1 |    1575.94 KB |
+| Jint              | droma(...)odern [24] |     2,544.973 μs |      33.3845 μs |     2,535.798 μs |    2 |     1343.9 KB |
+| Jint_ParsedScript | droma(...)odern [24] |     2,703.006 μs |      40.5775 μs |     2,699.204 μs |    3 |    1324.26 KB |
+| YantraJS          | droma(...)odern [24] |     4,425.681 μs |     122.5312 μs |     4,370.231 μs |    4 |   36525.94 KB |
+|                   |                      |                  |                 |                  |      |               |
+| Jint              | dromaeo-object-array |    17,432.945 μs |     330.5420 μs |    17,404.367 μs |    1 |   10512.39 KB |
+| Jint_ParsedScript | dromaeo-object-array |    18,992.221 μs |     409.9450 μs |    18,921.875 μs |    2 |   10464.18 KB |
+| Jurassic          | dromaeo-object-array |    37,884.989 μs |     887.8029 μs |    37,759.204 μs |    3 |   25808.85 KB |
+| NilJS             | dromaeo-object-array |    54,790.363 μs |     312.6086 μs |    54,749.000 μs |    4 |   17862.17 KB |
+| YantraJS          | dromaeo-object-array |    76,740.618 μs |   1,430.5283 μs |    76,985.762 μs |    5 | 1265132.98 KB |
+|                   |                      |                  |                 |                  |      |               |
+| Jurassic          | droma(...)odern [27] |               NA |              NA |               NA |    ? |            NA |
+| Jint              | droma(...)odern [27] |    18,324.411 μs |     384.6255 μs |    18,143.150 μs |    1 |   10513.08 KB |
+| Jint_ParsedScript | droma(...)odern [27] |    20,083.403 μs |     542.0078 μs |    19,947.159 μs |    2 |   10465.93 KB |
+| NilJS             | droma(...)odern [27] |    54,684.835 μs |     215.5602 μs |    54,674.022 μs |    3 |   17863.19 KB |
+| YantraJS          | droma(...)odern [27] |    79,095.895 μs |   2,274.2224 μs |    77,912.262 μs |    4 | 1268924.67 KB |
+|                   |                      |                  |                 |                  |      |               |
+| Jint_ParsedScript | droma(...)egexp [21] |   104,677.338 μs |   4,439.3757 μs |   104,395.275 μs |    1 |  162504.67 KB |
+| Jint              | droma(...)egexp [21] |   139,649.992 μs |  10,465.3316 μs |   137,521.467 μs |    2 |  163274.49 KB |
+| NilJS             | droma(...)egexp [21] |   548,893.146 μs |  12,991.1462 μs |   545,651.200 μs |    3 |  766689.91 KB |
+| Jurassic          | droma(...)egexp [21] |   719,344.843 μs |  11,014.1862 μs |   720,642.650 μs |    4 |  821609.84 KB |
+| YantraJS          | droma(...)egexp [21] | 1,445,028.508 μs | 108,673.0499 μs | 1,460,676.600 μs |    5 | 1152391.32 KB |
+|                   |                      |                  |                 |                  |      |               |
+| Jurassic          | droma(...)odern [28] |               NA |              NA |               NA |    ? |            NA |
+| Jint_ParsedScript | droma(...)odern [28] |   160,398.950 μs |   6,859.6553 μs |   162,703.433 μs |    1 |  162863.27 KB |
+| Jint              | droma(...)odern [28] |   207,784.571 μs |   7,233.1945 μs |   208,624.433 μs |    2 |  162948.93 KB |
+| NilJS             | droma(...)odern [28] |   757,689.644 μs |  88,638.7260 μs |   778,966.950 μs |    3 |  767264.39 KB |
+| YantraJS          | droma(...)odern [28] | 1,077,192.027 μs |  11,344.5171 μs | 1,075,658.600 μs |    4 | 1162835.16 KB |
+|                   |                      |                  |                 |                  |      |               |
+| Jint              | droma(...)tring [21] |   173,837.020 μs |   5,371.5216 μs |   172,753.567 μs |    1 | 1304324.96 KB |
+| NilJS             | droma(...)tring [21] |   180,356.518 μs |   7,242.7912 μs |   179,883.083 μs |    1 | 1354915.83 KB |
+| Jint_ParsedScript | droma(...)tring [21] |   185,724.091 μs |   7,386.9326 μs |   184,825.633 μs |    1 | 1304219.63 KB |
+| YantraJS          | droma(...)tring [21] |   236,224.612 μs |  10,942.2860 μs |   236,532.833 μs |    2 | 1673943.14 KB |
+| Jurassic          | droma(...)tring [21] |   289,323.391 μs |  36,855.7302 μs |   293,969.900 μs |    3 | 1430447.37 KB |
+|                   |                      |                  |                 |                  |      |               |
+| Jurassic          | droma(...)odern [28] |               NA |              NA |               NA |    ? |            NA |
+| NilJS             | droma(...)odern [28] |   182,199.635 μs |   5,634.5102 μs |   182,610.375 μs |    1 | 1354978.47 KB |
+| Jint              | droma(...)odern [28] |   217,426.803 μs |  17,630.3511 μs |   219,195.500 μs |    2 |  1304331.2 KB |
+| YantraJS          | droma(...)odern [28] |   222,445.947 μs |  14,514.7690 μs |   219,882.967 μs |    2 | 1677310.09 KB |
+| Jint_ParsedScript | droma(...)odern [28] |   241,302.877 μs |  16,109.5879 μs |   244,123.100 μs |    3 |  1304001.8 KB |
+|                   |                      |                  |                 |                  |      |               |
+| Jint              | droma(...)ase64 [21] |    30,518.458 μs |     148.9001 μs |    30,467.134 μs |    1 |     3773.4 KB |
+| NilJS             | droma(...)ase64 [21] |    33,186.506 μs |   8,493.5127 μs |    28,461.479 μs |    1 |   19588.61 KB |
+| Jint_ParsedScript | droma(...)ase64 [21] |    42,119.534 μs |  13,340.0448 μs |    32,260.403 μs |    2 |    3675.61 KB |
+| Jurassic          | droma(...)ase64 [21] |    48,709.844 μs |     872.4823 μs |    48,333.127 μs |    3 |   73289.53 KB |
+| YantraJS          | droma(...)ase64 [21] |    59,573.814 μs |   2,258.3502 μs |    60,295.982 μs |    4 |  760369.11 KB |
+|                   |                      |                  |                 |                  |      |               |
+| Jurassic          | droma(...)odern [28] |               NA |              NA |               NA |    ? |            NA |
+| Jint_ParsedScript | droma(...)odern [28] |    32,129.737 μs |     102.7067 μs |    32,136.906 μs |    1 |    3675.69 KB |
+| Jint              | droma(...)odern [28] |    33,149.610 μs |     184.1730 μs |    33,148.646 μs |    2 |    3773.89 KB |
+| NilJS             | droma(...)odern [28] |    33,890.752 μs |     219.7029 μs |    33,929.593 μs |    2 |   31360.28 KB |
+| YantraJS          | droma(...)odern [28] |    37,921.333 μs |   1,735.8423 μs |    37,402.909 μs |    3 |  761585.45 KB |
+|                   |                      |                  |                 |                  |      |               |
+| Jint_ParsedScript | evaluation           |         4.802 μs |       0.0327 μs |         4.809 μs |    1 |       23.3 KB |
+| Jint              | evaluation           |        14.858 μs |       0.0468 μs |        14.867 μs |    2 |      33.94 KB |
+| NilJS             | evaluation           |        25.341 μs |       0.1225 μs |        25.323 μs |    3 |      22.36 KB |
+| YantraJS          | evaluation           |       137.833 μs |       6.1581 μs |       135.114 μs |    4 |     935.05 KB |
+| Jurassic          | evaluation           |     2,083.457 μs |      12.0802 μs |     2,080.864 μs |    5 |     418.81 KB |
+|                   |                      |                  |                 |                  |      |               |
+| Jurassic          | evaluation-modern    |               NA |              NA |               NA |    ? |            NA |
+| Jint_ParsedScript | evaluation-modern    |         4.842 μs |       0.0975 μs |         4.809 μs |    1 |      22.75 KB |
+| Jint              | evaluation-modern    |        14.484 μs |       0.0716 μs |        14.470 μs |    2 |      33.87 KB |
+| NilJS             | evaluation-modern    |        26.138 μs |       0.1034 μs |        26.133 μs |    3 |      22.35 KB |
+| YantraJS          | evaluation-modern    |       150.818 μs |       9.7280 μs |       151.446 μs |    4 |     935.02 KB |
+|                   |                      |                  |                 |                  |      |               |
+| Jint_ParsedScript | linq-js              |        57.898 μs |       0.3332 μs |        57.973 μs |    1 |     186.83 KB |
+| YantraJS          | linq-js              |       399.431 μs |       5.8884 μs |       401.252 μs |    2 |    1473.29 KB |
+| Jint              | linq-js              |     1,248.876 μs |      10.4707 μs |     1,246.267 μs |    3 |    1286.02 KB |
+| NilJS             | linq-js              |     3,986.681 μs |      15.6964 μs |     3,979.943 μs |    4 |    2739.46 KB |
+| Jurassic          | linq-js              |    36,746.000 μs |   1,201.2314 μs |    36,538.457 μs |    5 |    9102.24 KB |
+|                   |                      |                  |                 |                  |      |               |
+| Jint_ParsedScript | minimal              |         1.611 μs |       0.0419 μs |         1.590 μs |    1 |      15.27 KB |
+| NilJS             | minimal              |         2.620 μs |       0.0104 μs |         2.620 μs |    2 |       4.51 KB |
+| Jint              | minimal              |         2.919 μs |       0.0261 μs |         2.913 μs |    3 |      17.19 KB |
+| YantraJS          | minimal              |       130.423 μs |       1.5840 μs |       130.605 μs |    4 |     929.87 KB |
+| Jurassic          | minimal              |     2,263.180 μs |       7.1142 μs |     2,263.679 μs |    5 |     385.19 KB |
+|                   |                      |                  |                 |                  |      |               |
+| YantraJS          | stopwatch            |    68,140.457 μs |   2,703.8970 μs |    67,666.837 μs |    1 |  219954.96 KB |
+| NilJS             | stopwatch            |   134,223.171 μs |   1,019.1089 μs |   134,178.750 μs |    2 |   94876.49 KB |
+| Jurassic          | stopwatch            |   139,452.179 μs |   1,061.5619 μs |   139,450.212 μs |    2 |  156932.58 KB |
+| Jint              | stopwatch            |   199,938.744 μs |     476.8276 μs |   200,125.333 μs |    3 |   39418.89 KB |
+| Jint_ParsedScript | stopwatch            |   203,129.997 μs |   1,015.4587 μs |   203,037.367 μs |    3 |   39387.13 KB |
+|                   |                      |                  |                 |                  |      |               |
+| YantraJS          | stopwatch-modern     |    65,962.307 μs |     341.4732 μs |    65,915.113 μs |    1 |  238332.97 KB |
+| Jurassic          | stopwatch-modern     |   153,177.090 μs |   1,453.3715 μs |   152,457.575 μs |    2 |  288625.25 KB |
+| NilJS             | stopwatch-modern     |   226,962.231 μs |   2,431.0559 μs |   226,595.833 μs |    3 |  324502.66 KB |
+| Jint              | stopwatch-modern     |   255,795.133 μs |  13,625.7925 μs |   252,197.567 μs |    4 |   39635.13 KB |
+| Jint_ParsedScript | stopwatch-modern     |   270,806.054 μs |   2,846.7509 μs |   269,562.350 μs |    4 |   39602.85 KB |
 
 Benchmarks with issues:
   EngineComparisonBenchmark.Jurassic: DefaultJob [FileName=droma(...)odern [22]]

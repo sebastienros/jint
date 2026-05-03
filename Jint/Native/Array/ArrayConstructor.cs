@@ -796,7 +796,10 @@ public sealed partial class ArrayConstructor : Constructor
             {
                 case JsNumber number:
                     ValidateLength(number._value);
-                    instance = ArrayCreate((ulong) number._value, prototypeObject);
+                    // `new Array(N)` is a length declaration; the slots are notionally sparse
+                    // and may never be written. Use the lazy variant so we don't allocate a
+                    // JsValue?[N] backing array up front (~80 MB on dromaeo-object-array).
+                    instance = ArrayCreateLazy((ulong) number._value, prototypeObject);
                     break;
                 case IObjectWrapper objectWrapper:
                     instance = objectWrapper.Target is IEnumerable enumerable
@@ -839,6 +842,28 @@ public sealed partial class ArrayConstructor : Constructor
 
         proto ??= PrototypeObject;
         var instance = new JsArray(Engine, (uint) length, (uint) length)
+        {
+            _prototype = proto
+        };
+        return instance;
+    }
+
+    /// <summary>
+    /// Like <see cref="ArrayCreate"/> but defers backing-array allocation until a slot is
+    /// actually written. Use for the user-facing <c>new Array(N)</c> path where the slots
+    /// are notionally sparse. Internal callers that immediately fill <paramref name="length"/>
+    /// consecutive slots should use <see cref="ArrayCreate"/> so the doubling-growth loop is
+    /// amortized over a single up-front allocation.
+    /// </summary>
+    internal JsArray ArrayCreateLazy(ulong length, ObjectInstance? proto = null)
+    {
+        if (length > ArrayOperations.MaxArrayLength)
+        {
+            Throw.RangeError(_realm, "Invalid array length " + length);
+        }
+
+        proto ??= PrototypeObject;
+        var instance = new JsArray(Engine, capacity: 0, length: (uint) length)
         {
             _prototype = proto
         };

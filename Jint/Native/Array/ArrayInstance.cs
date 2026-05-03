@@ -13,6 +13,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
     internal PropertyDescriptor? _length;
 
     private const int MaxDenseArrayLength = 10_000_000;
+    internal const int MaxDenseArrayLengthInternal = MaxDenseArrayLength;
 
     // we have dense and sparse, we usually can start with dense and fall back to sparse when necessary
     // when we have plain JsValues, _denseValues is used - if any operation occurs which requires setting more property flags
@@ -32,7 +33,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
 
     private protected ArrayInstance(Engine engine, uint capacity = 0, uint length = 0) : base(engine, type: InternalTypes.Object | InternalTypes.Array)
     {
-        InitializePrototypeAndValidateCapacity(engine, capacity);
+        InitializePrototypeAndValidateCapacity(engine, System.Math.Max(capacity, length));
 
         if (capacity < MaxDenseArrayLength)
         {
@@ -59,6 +60,9 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         _constructor = engine.Realm.Intrinsics.Array;
         _prototype = _constructor.PrototypeObject;
 
+        // Validates against the larger of the physical backing capacity and the declared length:
+        // a `new Array(N)` with capacity 0 but length N must still respect MaxArraySize so callers
+        // can't sidestep the constraint via a logical-only allocation followed by `.join()` etc.
         if (capacity > 0 && capacity > engine.Options.Constraints.MaxArraySize)
         {
             ThrowMaximumArraySizeReachedException(engine, capacity);
@@ -874,10 +878,18 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
             ? System.Math.Max(index, System.Math.Max(dense.Length, 2)) * 2
             : 0;
 
+        // Lazy-backed arrays from `new Array(N)` start with _dense.Length=0 but _length=N;
+        // a write to an index within N is not sparse intent, just realising the lazy capacity.
+        // Compare against the larger of the physical backing length and the declared length.
+        var declaredLength = _length is { } lengthDesc && lengthDesc._value is JsNumber lengthNumber
+            ? (uint) lengthNumber._value
+            : 0u;
+        var denseHeadroom = System.Math.Max((uint) (dense?.Length ?? 0), declaredLength);
+
         var canUseDense = dense != null
                           && index < MaxDenseArrayLength
                           && newSize < MaxDenseArrayLength
-                          && index < dense.Length + 50; // looks sparse
+                          && index < denseHeadroom + 50; // looks sparse
 
         if (canUseDense)
         {
@@ -949,6 +961,87 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         }
 
         _dense = null;
+    }
+
+    /// <summary>
+    /// Bulk-moves a contiguous range of dense slots: equivalent to
+    /// <c>Array.Copy(_dense, sourceIndex, _dense, destIndex, count)</c>, growing the backing
+    /// if needed. Returns <c>false</c> if the array is sparse, the prototype chain can observe
+    /// element access (so per-element semantics differ from a memmove), or the move would
+    /// overflow <see cref="MaxDenseArrayLength"/>. Caller is responsible for clearing any
+    /// vacated tail slots and updating <c>_length</c>.
+    /// </summary>
+    internal bool TryMoveDenseRange(uint sourceIndex, uint destIndex, uint count)
+    {
+        if (count == 0)
+        {
+            return true;
+        }
+
+        var dense = _dense;
+        if (dense is null || !CanUseFastAccess)
+        {
+            return false;
+        }
+
+        var requiredCapacity = System.Math.Max(sourceIndex + count, destIndex + count);
+        if (requiredCapacity > MaxDenseArrayLength)
+        {
+            return false;
+        }
+        if (requiredCapacity > (uint) dense.Length)
+        {
+            EnsureCapacityAmortized(requiredCapacity);
+            dense = _dense!;
+        }
+
+        System.Array.Copy(dense, sourceIndex, dense, destIndex, count);
+        return true;
+    }
+
+    /// <summary>
+    /// Variant of <see cref="EnsureCapacity"/> that grows geometrically when a grow is needed
+    /// (doubles current size, falling back to <paramref name="capacity"/> if that overflows the
+    /// dense bound). Use for hot paths that call this in a loop (e.g. repeated push/unshift) so
+    /// the cumulative copy cost stays amortized O(N) instead of O(N²).
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void EnsureCapacityAmortized(uint capacity)
+    {
+        var dense = _dense;
+        if (dense is null || capacity <= (uint) dense.Length)
+        {
+            return;
+        }
+        var doubled = (uint) dense.Length * 2;
+        if (doubled < 4)
+        {
+            doubled = 4;
+        }
+        var grown = System.Math.Max(doubled, capacity);
+        if (grown > MaxDenseArrayLength)
+        {
+            grown = capacity;
+        }
+        EnsureCapacity(grown);
+    }
+
+    /// <summary>
+    /// Sets <c>_dense[startIndex .. startIndex + count]</c> to null, clamped to the current
+    /// dense length. No-op if the array is sparse.
+    /// </summary>
+    internal void ClearDenseRange(uint startIndex, uint count)
+    {
+        var dense = _dense;
+        if (dense is null || count == 0)
+        {
+            return;
+        }
+        var end = System.Math.Min(startIndex + count, (uint) dense.Length);
+        if (startIndex < end)
+        {
+            System.Array.Clear(dense, (int) startIndex, (int) (end - startIndex));
+        }
     }
 
     internal void EnsureCapacity(uint capacity, bool force = false)
