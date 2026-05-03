@@ -19,7 +19,7 @@ namespace Jint.Native.String;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-the-string-prototype-object
 /// </summary>
-[JsObject]
+[JsObject(ExtraCapacity = 2)]
 internal sealed partial class StringPrototype : StringInstance
 {
     private readonly Realm _realm;
@@ -50,9 +50,13 @@ internal sealed partial class StringPrototype : StringInstance
         CreateProperties_Generated();
 
         // B.2.3: trimLeft/trimRight are aliases for trimStart/trimEnd. Aliasing the same descriptor
-        // instance shares the same lazy-resolved Function reference.
-        SetOwnProperty("trimLeft", GetOwnProperty("trimStart"));
-        SetOwnProperty("trimRight", GetOwnProperty("trimEnd"));
+        // instance shares the same lazy-resolved Function reference. AddDangerous skips
+        // duplicate-key probing and SetOwnProperty's validation pipeline; ExtraCapacity=2 on
+        // [JsObject] presizes the dict so these adds don't trigger a resize.
+        _properties!.TryGetValue("trimStart", out var trimStartDescriptor);
+        _properties.TryGetValue("trimEnd", out var trimEndDescriptor);
+        _properties.AddDangerous("trimLeft", trimStartDescriptor);
+        _properties.AddDangerous("trimRight", trimEndDescriptor);
 
         // [Symbol.iterator] kept hand-written: needs to capture _originalIteratorFunction for
         // the HasOriginalIterator fast-path detection used by string iteration consumers.

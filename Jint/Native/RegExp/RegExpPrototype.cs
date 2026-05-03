@@ -14,7 +14,7 @@ using Jint.Runtime.RegExp;
 
 namespace Jint.Native.RegExp;
 
-[JsObject]
+[JsObject(ExtraCapacity = 1)]
 internal sealed partial class RegExpPrototype : Prototype
 {
     private static readonly JsString PropertyExec = new("exec");
@@ -56,8 +56,9 @@ internal sealed partial class RegExpPrototype : Prototype
         // exec stays manually registered: HasDefaultRegExpExec compares by reference against the
         // ClrFunction wrapping _defaultExec to detect "user replaced exec on the prototype". The
         // generator's lazy descriptor would create a different Function instance each realm, breaking
-        // that identity check until first access.
-        SetOwnProperty("exec", new PropertyDescriptor(new ClrFunction(Engine, "exec", _defaultExec, 1, PropertyFlag.Configurable), PropertyFlag.Configurable | PropertyFlag.Writable));
+        // that identity check until first access. AddDangerous skips SetOwnProperty's validation;
+        // ExtraCapacity=1 on [JsObject] presizes the dict so this add doesn't trigger a resize.
+        _properties!.AddDangerous("exec", new PropertyDescriptor(new ClrFunction(Engine, "exec", _defaultExec, 1, PropertyFlag.Configurable), PropertyFlag.Configurable | PropertyFlag.Writable));
     }
 
     // Spec: each prototype getter, when called on RegExp.prototype itself (not a JsRegExp instance),

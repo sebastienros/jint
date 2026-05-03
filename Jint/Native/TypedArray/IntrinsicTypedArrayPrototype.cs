@@ -18,7 +18,7 @@ namespace Jint.Native.TypedArray;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-the-%typedarrayprototype%-object
 /// </summary>
-[JsObject]
+[JsObject(ExtraCapacity = 1)]
 internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
 {
     private const int ConstraintCheckInterval = 10_000;
@@ -43,11 +43,13 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
 
         // Per spec (ECMA-262 23.2.3.32) the initial value of %TypedArray%.prototype.toString is the
         // SAME function object as %Array.prototype.toString%. Hand-write this entry — the generator
-        // can't express "alias to another realm intrinsic" through [JsFunction].
-        SetOwnProperty("toString", new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => prototype._realm.Intrinsics.Array.PrototypeObject.Get("toString"), PropertyFlags));
+        // can't express "alias to another realm intrinsic" through [JsFunction]. AddDangerous skips
+        // SetOwnProperty's validation; ExtraCapacity=1 on [JsObject] presizes the dict.
+        _properties!.AddDangerous("toString", new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => prototype._realm.Intrinsics.Array.PrototypeObject.Get("toString"), PropertyFlags));
 
         // Per spec, %TypedArray%.prototype[@@iterator] is the SAME function object as
         // %TypedArray%.prototype.values. Materialize the generated `values` slot and reuse it.
+        // (Symbol additions stay as SetOwnProperty — they go to _symbols, not _properties.)
         var valuesValue = GetOwnProperty("values").Value;
         SetOwnProperty(GlobalSymbolRegistry.Iterator, new PropertyDescriptor(valuesValue, PropertyFlags));
     }

@@ -16,7 +16,7 @@ namespace Jint.Native.Date;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-the-date-prototype-object
 /// </summary>
-[JsObject]
+[JsObject(ExtraCapacity = 1)]
 internal sealed partial class DatePrototype : Prototype
 {
     // ES6 section 20.3.1.1 Time Values and Time Range
@@ -47,9 +47,10 @@ internal sealed partial class DatePrototype : Prototype
         CreateSymbols_Generated();
         // Annex B 7.1.2: Date.prototype.toGMTString must be the same function reference as toUTCString.
         // Aliasing the same descriptor instance — the lazy resolver fires once and both keys see the
-        // same Function object.
-        var utcDesc = GetOwnProperty("toUTCString");
-        SetOwnProperty("toGMTString", utcDesc);
+        // same Function object. AddDangerous skips SetOwnProperty's validation; ExtraCapacity=1 on
+        // [JsObject] presizes the dict so this add doesn't trigger a resize.
+        _properties!.TryGetValue("toUTCString", out var utcDesc);
+        _properties.AddDangerous("toGMTString", utcDesc);
     }
 
     /// <summary>
