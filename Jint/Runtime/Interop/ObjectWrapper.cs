@@ -269,6 +269,23 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
             return false;
         }
+        else if (_typeDescriptor.IsGenericDictionary
+            && !_typeDescriptor.IsStringKeyedGenericDictionary)
+        {
+            // non-string-keyed CLR generic dictionary (e.g. Dictionary<TestModel, string>)
+            if (!_engine.Options.Interop.AllowWrite || !Extensible)
+            {
+                return false;
+            }
+
+            if (!TryConvertJsValueToDictionaryKey(property, _typeDescriptor.GenericDictionaryKeyType!, out var clrKey)
+                || !TryConvertJsValueToDictionaryValue(value, _typeDescriptor.GenericDictionaryValueType!, out var clrValue))
+            {
+                return false;
+            }
+
+            return _typeDescriptor.TrySetDictionaryValue(Target, clrKey!, clrValue);
+        }
 
         return SetSlow(property, value);
     }
@@ -306,13 +323,78 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
     public override void RemoveOwnProperty(JsValue property)
     {
-        if (_engine.Options.Interop.AllowWrite && property is JsString jsString && _typeDescriptor.RemoveMethod is not null)
+        if (_engine.Options.Interop.AllowWrite)
         {
-            _typeDescriptor.RemoveMethod.Invoke(Target, [jsString.ToString()]);
+            if (property is JsString jsString && _typeDescriptor.RemoveMethod is not null)
+            {
+                _typeDescriptor.RemoveMethod.Invoke(Target, [jsString.ToString()]);
+            }
+            else if (!property.IsString()
+                && !property.IsSymbol()
+                && _typeDescriptor.IsGenericDictionary
+                && !_typeDescriptor.IsStringKeyedGenericDictionary
+                && TryConvertJsValueToDictionaryKey(property, _typeDescriptor.GenericDictionaryKeyType!, out var clrKey))
+            {
+                _typeDescriptor.TryRemoveDictionaryValue(Target, clrKey!);
+            }
         }
 
         // also remove from _properties cache to avoid stale entries
         base.RemoveOwnProperty(property);
+    }
+
+    public override bool HasProperty(JsValue property)
+    {
+        if (!property.IsString()
+            && !property.IsSymbol()
+            && _typeDescriptor.IsGenericDictionary
+            && !_typeDescriptor.IsStringKeyedGenericDictionary
+            && TryConvertJsValueToDictionaryKey(property, _typeDescriptor.GenericDictionaryKeyType!, out var clrKey))
+        {
+            return _typeDescriptor.ContainsDictionaryKey(Target, clrKey!);
+        }
+
+        return base.HasProperty(property);
+    }
+
+    private bool TryConvertJsValueToDictionaryKey(JsValue property, Type keyType, out object? key)
+    {
+        var raw = property.ToObject();
+        if (raw is not null && keyType.IsInstanceOfType(raw))
+        {
+            key = raw;
+            return true;
+        }
+        return _engine.TypeConverter.TryConvert(raw, keyType, CultureInfo.InvariantCulture, out key);
+    }
+
+    private bool TryConvertJsValueToDictionaryValue(JsValue value, Type valueType, out object? converted)
+    {
+        if (valueType.IsAssignableFrom(typeof(JsValue)))
+        {
+            converted = value;
+            return true;
+        }
+
+        var raw = value.ToObject();
+        if (raw is null)
+        {
+            if (!valueType.IsValueType || Nullable.GetUnderlyingType(valueType) is not null)
+            {
+                converted = null;
+                return true;
+            }
+            converted = null;
+            return false;
+        }
+
+        if (valueType.IsInstanceOfType(raw))
+        {
+            converted = raw;
+            return true;
+        }
+
+        return _engine.TypeConverter.TryConvert(raw, valueType, CultureInfo.InvariantCulture, out converted);
     }
 
     public override JsValue Get(JsValue property, JsValue receiver)
@@ -343,6 +425,17 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                     return FromObject(_engine, value);
                 }
             }
+        }
+        else if (ReferenceEquals(receiver, this)
+            && _typeDescriptor.IsGenericDictionary
+            && !_typeDescriptor.IsStringKeyedGenericDictionary
+            && !property.IsSymbol()
+            && !property.IsString()
+            && TryConvertJsValueToDictionaryKey(property, _typeDescriptor.GenericDictionaryKeyType!, out var clrKey))
+        {
+            return _typeDescriptor.TryGetDictionaryValue(Target, clrKey!, out var raw)
+                ? FromObject(_engine, raw)
+                : Undefined;
         }
 
         // slow path requires us to create a property descriptor that might get cached or not
@@ -486,6 +579,24 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             }
 
             // not that safe
+            return PropertyDescriptor.Undefined;
+        }
+
+        if (!property.IsString()
+            && _typeDescriptor.IsGenericDictionary
+            && !_typeDescriptor.IsStringKeyedGenericDictionary)
+        {
+            // non-string-keyed CLR generic dictionary — resolve via underlying CLR key, not string
+            if (TryConvertJsValueToDictionaryKey(property, _typeDescriptor.GenericDictionaryKeyType!, out var clrKey)
+                && _typeDescriptor.TryGetDictionaryValue(Target, clrKey!, out var raw))
+            {
+                var flags = PropertyFlag.Enumerable;
+                if (_engine.Options.Interop.AllowWrite)
+                {
+                    flags |= PropertyFlag.Configurable;
+                }
+                return new PropertyDescriptor(FromObject(_engine, raw), flags);
+            }
             return PropertyDescriptor.Undefined;
         }
 

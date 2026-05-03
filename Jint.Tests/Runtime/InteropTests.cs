@@ -547,6 +547,154 @@ public partial class InteropTests : IDisposable
             ");
     }
 
+    public class DictionaryKeyModel
+    {
+        public string Value { get; set; } = "test";
+    }
+
+    public class DictionaryKeyDerivedModel : DictionaryKeyModel
+    {
+    }
+
+    [Fact]
+    public void CanGetIndexUsingObjectKey()
+    {
+        // repro from https://github.com/sebastienros/jint/issues/2441
+        var model = new DictionaryKeyModel();
+        var dictionary = new Dictionary<DictionaryKeyModel, string>
+        {
+            [model] = "value1",
+        };
+        _engine.SetValue("obj", dictionary);
+        _engine.SetValue("model", model);
+
+        var result = _engine.Evaluate("'' + obj[model]");
+        Assert.Equal("value1", result.AsString());
+    }
+
+    [Fact]
+    public void CanSetIndexUsingObjectKey()
+    {
+        var model = new DictionaryKeyModel();
+        var dictionary = new Dictionary<DictionaryKeyModel, string>
+        {
+            [model] = "value1",
+        };
+        _engine.SetValue("obj", dictionary);
+        _engine.SetValue("model", model);
+
+        _engine.Execute("obj[model] = 'updated';");
+        Assert.Equal("updated", dictionary[model]);
+    }
+
+    [Fact]
+    public void ObjectKeyDictionary_MissingKeyReturnsUndefined()
+    {
+        var model = new DictionaryKeyModel();
+        var other = new DictionaryKeyModel();
+        var dictionary = new Dictionary<DictionaryKeyModel, string>
+        {
+            [model] = "value1",
+        };
+        _engine.SetValue("obj", dictionary);
+        _engine.SetValue("present", model);
+        _engine.SetValue("absent", other);
+
+        Assert.Equal("value1", _engine.Evaluate("obj[present]").AsString());
+        Assert.True(_engine.Evaluate("obj[absent] === undefined").AsBoolean());
+    }
+
+    [Fact]
+    public void ObjectKeyDictionary_HasReturnsTrueForPresentKey()
+    {
+        var present = new DictionaryKeyModel();
+        var absent = new DictionaryKeyModel();
+        var dictionary = new Dictionary<DictionaryKeyModel, string>
+        {
+            [present] = "value1",
+        };
+        _engine.SetValue("obj", dictionary);
+        _engine.SetValue("present", present);
+        _engine.SetValue("absent", absent);
+
+        Assert.True(_engine.Evaluate("present in obj").AsBoolean());
+        Assert.False(_engine.Evaluate("absent in obj").AsBoolean());
+    }
+
+    [Fact]
+    public void ObjectKeyDictionary_DeleteRemovesEntry()
+    {
+        var model = new DictionaryKeyModel();
+        var dictionary = new Dictionary<DictionaryKeyModel, string>
+        {
+            [model] = "value1",
+        };
+        _engine.SetValue("obj", dictionary);
+        _engine.SetValue("model", model);
+
+        _engine.Execute("delete obj[model];");
+        Assert.False(dictionary.ContainsKey(model));
+    }
+
+    [Fact]
+    public void ReadOnlyDictionary_WithObjectKey_AllowsRead()
+    {
+        var model = new DictionaryKeyModel();
+        var dictionary = new Dictionary<DictionaryKeyModel, string>
+        {
+            [model] = "value1",
+        };
+        IReadOnlyDictionary<DictionaryKeyModel, string> readOnly = dictionary;
+        _engine.SetValue("obj", readOnly);
+        _engine.SetValue("model", model);
+
+        Assert.Equal("value1", _engine.Evaluate("'' + obj[model]").AsString());
+    }
+
+    [Fact]
+    public void ObjectKeyDictionary_DerivedKeyTypeWorks()
+    {
+        var derived = new DictionaryKeyDerivedModel();
+        var dictionary = new Dictionary<DictionaryKeyModel, string>
+        {
+            [derived] = "fromDerived",
+        };
+        _engine.SetValue("obj", dictionary);
+        _engine.SetValue("model", derived);
+
+        Assert.Equal("fromDerived", _engine.Evaluate("'' + obj[model]").AsString());
+    }
+
+    [Fact]
+    public void ObjectKeyDictionary_StructKey()
+    {
+        var key = Guid.NewGuid();
+        var dictionary = new Dictionary<Guid, string>
+        {
+            [key] = "valueForGuid",
+        };
+        _engine.SetValue("obj", dictionary);
+        _engine.SetValue("key", key);
+
+        Assert.Equal("valueForGuid", _engine.Evaluate("'' + obj[key]").AsString());
+    }
+
+    [Fact]
+    public void ObjectKeyDictionary_SetWithIncompatibleValueType_Fails()
+    {
+        var model = new DictionaryKeyModel();
+        var dictionary = new Dictionary<DictionaryKeyModel, int>
+        {
+            [model] = 42,
+        };
+        _engine.SetValue("obj", dictionary);
+        _engine.SetValue("model", model);
+
+        // assigning a non-numeric string to an int-valued dictionary must not throw and must not corrupt the entry
+        _engine.Execute("obj[model] = 'not an int';");
+        Assert.Equal(42, dictionary[model]);
+    }
+
     [Fact]
     public void CanUseIndexOnCollection()
     {
