@@ -75,9 +75,12 @@ public sealed class ScriptFunction : Function, IConstructor
                     Throw.TypeError(calleeContext.Realm, $"Class constructor {_functionDefinition.Name} cannot be invoked without 'new'");
                 }
 
-                // Capture funcEnv for end-of-call pool return when bindings can't escape
+                // Capture funcEnv for end-of-call pool return when bindings can't escape.
+                // Skip for direct-recursive functions: the pool's single slot can't help recursion
+                // (only the topmost frame is reusable), and the Interlocked.Exchange ops in the
+                // finally block are pure overhead in tight recursive loops.
                 state = _functionDefinition.Initialize();
-                if (state is { EnvironmentMayEscape: false })
+                if (state is { EnvironmentMayEscape: false, IsDirectRecursive: false })
                 {
                     funcEnv = (FunctionEnvironment) calleeContext.LexicalEnvironment;
                 }

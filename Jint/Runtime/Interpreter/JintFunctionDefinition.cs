@@ -308,6 +308,11 @@ internal sealed class JintFunctionDefinition
         public int VarSlotCount;
         public bool CanUseFastFDI;
         public bool EnvironmentMayEscape;
+        // True when the function body contains a direct call to itself by name. For tight
+        // recursion (e.g. fib/ack/tak), the per-call pool fields below add atomic-op overhead
+        // without saving allocations: the single pool slot can only cache the topmost frame —
+        // every recursive call beyond that allocates a fresh env anyway. Bypass the pool here.
+        public bool IsDirectRecursive;
         public Binding[]? _cachedSlots;
         public Environments.FunctionEnvironment? _cachedEnv;
 
@@ -580,6 +585,16 @@ internal sealed class JintFunctionDefinition
             state.EnvironmentMayEscape = EnvironmentEscapeAstVisitor.MayEscape(function);
         }
 
+        // Detect direct named self-call (function fib(n) { ...fib(n-1)... }). For these, the
+        // env pool's single slot is useless — only the topmost frame benefits, the rest allocate
+        // anyway — and the 4 Interlocked.Exchange ops per call dominate over the saved allocs
+        // on tight recursion (controlflow-recursive: ~500k calls per iteration).
+        var name = function.Id?.Name;
+        if (name is not null && !state.EnvironmentMayEscape)
+        {
+            state.IsDirectRecursive = SelfCallAstVisitor.ContainsCallTo(function.Body, name);
+        }
+
         state.SourceText = new SourceText(fullSourceText);
 
         return state;
@@ -829,6 +844,36 @@ Start:
                         }
 
                         break;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Looks for a direct call (`name(...)`) anywhere inside a node tree. Used to detect
+    /// recursive functions so they can opt out of the FunctionEnvironment pool. Recurses into
+    /// inner functions/classes since the same name in a nested closure is still a self-call
+    /// (closure captures the outer binding). False positives are acceptable — the only effect
+    /// is that the pool is bypassed for that function, which is the conservative direction.
+    /// </summary>
+    internal static class SelfCallAstVisitor
+    {
+        internal static bool ContainsCallTo(Node node, string name)
+        {
+            foreach (var childNode in node.ChildNodes)
+            {
+                if (childNode.Type == NodeType.CallExpression
+                    && ((CallExpression) childNode).Callee is Identifier id
+                    && string.Equals(id.Name, name, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+
+                if (!childNode.ChildNodes.IsEmpty() && ContainsCallTo(childNode, name))
+                {
+                    return true;
                 }
             }
 

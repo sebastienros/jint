@@ -111,7 +111,7 @@ internal static class JintEnvironment
         // slot-binding cache caches resolve-env references and trusts that they remain stable for
         // the lifetime of the function instance that captured them. If the EnvironmentMayEscape gate
         // is widened beyond closure-targets, that cache must be revisited.
-        if (state is { EnvironmentMayEscape: false }
+        if (state is { EnvironmentMayEscape: false, IsDirectRecursive: false }
             && Interlocked.Exchange(ref state._cachedEnv, null) is { } cachedEnv
             && ReferenceEquals(cachedEnv._engine, engine))
         {
@@ -129,8 +129,10 @@ internal static class JintEnvironment
         if (state is { UseFixedSlots: true })
         {
             env._slotNames = state.SlotNames;
-            // Try to reuse cached slots from previous call to same function (thread-safe)
-            var cached = Interlocked.Exchange(ref state._cachedSlots, null);
+            // Try to reuse cached slots from previous call to same function (thread-safe). Skip
+            // for direct-recursive functions: the single pool slot is useless for recursion and
+            // the atomic ops dominate over the saved alloc on tight recursive loops.
+            var cached = state.IsDirectRecursive ? null : Interlocked.Exchange(ref state._cachedSlots, null);
             env._slots = cached ?? new Binding[state.SlotNames!.Length];
         }
 
