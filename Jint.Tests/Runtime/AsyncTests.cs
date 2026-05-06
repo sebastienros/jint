@@ -2108,6 +2108,26 @@ public class AsyncTests
         Assert.Equal("10,20,30", result.AsString());
     }
 
+    [Fact]
+    public void AwaitInsideForOfLoopShouldWorkWithHeadDestructuring()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            (async function() {
+                var results = [];
+                var items = { a: 1, b: 2 };
+                for (const [key, value] of Object.entries(items)) {
+                    var r = await Promise.resolve(value * 10);
+                    results.push(key + ":" + r);
+                }
+                return results.join(",");
+            })()
+            """);
+
+        result = result.UnwrapIfPromise();
+        Assert.Equal("a:10,b:20", result.AsString());
+    }
+
     class TestAsyncClass
     {
         private readonly ConcurrentBag<string> _values = new();

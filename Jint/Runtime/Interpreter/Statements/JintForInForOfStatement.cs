@@ -455,6 +455,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     context.Engine.Debugger.OnStep(_leftNode);
                 }
 
+                var valueForResume = nextValue;
                 var status = CompletionType.Normal;
                 if (!destructuring)
                 {
@@ -482,13 +483,10 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 }
                 else
                 {
-                    // Save the original iterator value before destructuring (for potential resume)
-                    var iteratorValue = nextValue;
-
                     nextValue = DestructuringPatternAssignmentExpression.ProcessPatterns(
                         context,
                         _assignmentPattern!,
-                        iteratorValue,
+                        valueForResume,
                         iterationEnv,
                         checkPatternPropertyReference: _lhsKind != LhsKind.VarBinding);
 
@@ -500,7 +498,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                         if (_iterationKind == IterationKind.AsyncIterate && suspendable is not null)
                         {
                             var asyncSD = suspendable.Data.GetOrCreate<ForAwaitSuspendData>(this);
-                            asyncSD.CurrentValue = iteratorValue;
+                            asyncSD.CurrentValue = valueForResume;
                             asyncSD.AccumulatedValue = v;
                         }
                         completionType = CompletionType.Return;
@@ -561,7 +559,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 {
                     var data = generator.Data.GetOrCreate<ForOfSuspendData>(this, iteratorRecord);
                     data.AccumulatedValue = v;
-                    data.CurrentValue = nextValue;
+                    data.CurrentValue = valueForResume;
                     data.IterationEnv = iterationEnv;
                     data.OuterEnv = oldEnv;
                 }
@@ -574,7 +572,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 {
                     var asyncData = asyncFnBody.Data.GetOrCreate<ForOfSuspendData>(this, iteratorRecord);
                     asyncData.AccumulatedValue = v;
-                    asyncData.CurrentValue = nextValue;
+                    asyncData.CurrentValue = valueForResume;
                     asyncData.IterationEnv = iterationEnv;
                     asyncData.OuterEnv = oldEnv;
                 }
