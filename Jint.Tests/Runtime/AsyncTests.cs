@@ -2168,6 +2168,47 @@ public class AsyncTests
         Assert.Equal("1,2,3", result.AsString());
     }
 
+    [Fact]
+    public void AwaitInsideForOfLoopShouldPreserveOneShotIteratorDestructuringWithLetBinding()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            (async function() {
+                function* gen() { yield 42; }
+                var out = [];
+                for (let [x] of [gen()]) {
+                    await Promise.resolve();
+                    out.push(x);
+                }
+                return out.join(",");
+            })()
+            """);
+
+        result = result.UnwrapIfPromise();
+        Assert.Equal("42", result.AsString());
+    }
+
+    [Fact]
+    public void AwaitInsideForOfLoopShouldPreserveOneShotIteratorDestructuringWithAssignmentTarget()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            (async function() {
+                function* gen() { yield 7; }
+                var out = [];
+                var x;
+                for ([x] of [gen()]) {
+                    await Promise.resolve();
+                    out.push(x);
+                }
+                return out.join(",");
+            })()
+            """);
+
+        result = result.UnwrapIfPromise();
+        Assert.Equal("7", result.AsString());
+    }
+
     class TestAsyncClass
     {
         private readonly ConcurrentBag<string> _values = new();
