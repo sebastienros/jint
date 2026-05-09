@@ -14,9 +14,9 @@ namespace Jint;
 /// helper is unavailable.
 /// </remarks>
 [Serializable]
-public sealed class JintExceptionLocation
+internal sealed class JintExceptionLocation
 {
-    public JintExceptionLocation(string? sourceFile, int startLine, int startColumn, int endLine, int endColumn)
+    internal JintExceptionLocation(string? sourceFile, int startLine, int startColumn, int endLine, int endColumn)
     {
         SourceFile = sourceFile;
         StartLine = startLine;
@@ -25,20 +25,15 @@ public sealed class JintExceptionLocation
         EndColumn = endColumn;
     }
 
-    /// <summary>The source file the JavaScript was parsed from, or <see langword="null"/>.</summary>
-    public string? SourceFile { get; }
+    internal string? SourceFile { get; }
 
-    /// <summary>One-based line number of the first character of the source span.</summary>
-    public int StartLine { get; }
+    internal int StartLine { get; }
 
-    /// <summary>Zero-based column index of the first character of the source span.</summary>
-    public int StartColumn { get; }
+    internal int StartColumn { get; }
 
-    /// <summary>One-based line number of the last character of the source span.</summary>
-    public int EndLine { get; }
+    internal int EndLine { get; }
 
-    /// <summary>Zero-based column index of the last character of the source span.</summary>
-    public int EndColumn { get; }
+    internal int EndColumn { get; }
 
     internal static JintExceptionLocation FromSourceLocation(in SourceLocation location)
     {
