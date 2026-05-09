@@ -2485,6 +2485,24 @@ public partial class InteropTests : IDisposable
     }
 
     [Fact]
+    public void CaughtClrExceptionShouldExposeJavaScriptLocation()
+    {
+        var engine = new Engine(o => o.CatchClrExceptions())
+            .SetValue("Thrower", typeof(Thrower));
+
+        const string script = @"// line 1
+// line 2
+new Thrower().ThrowExceptionWithMessage('boom');";
+
+        var ex = Assert.Throws<JavaScriptException>(() => engine.Execute(script));
+        Assert.Equal("boom", ex.Message);
+        Assert.NotEqual(default, ex.Location);
+        Assert.Equal(3, ex.Location.Start.Line);
+        Assert.NotNull(ex.JavaScriptStackTrace);
+        Assert.Contains("3:", ex.JavaScriptStackTrace);
+    }
+
+    [Fact]
     public void ShouldNotCatchClrFromApply()
     {
         var engine = new Engine(options =>

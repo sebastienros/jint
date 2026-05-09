@@ -170,13 +170,24 @@ internal static class Throw
 
     /// <summary>
     /// Creates and throws a JavaScript exception from a CLR exception, applying any configured decorator.
+    /// When the engine has an active syntax element, the resulting <see cref="Jint.Runtime.JavaScriptException"/>
+    /// is annotated with the current JavaScript source location and call-stack string.
     /// </summary>
     [DoesNotReturn]
     public static void FromClrException(Engine engine, Exception clrException)
     {
         var error = engine.Realm.Intrinsics.Error.Construct(clrException.Message);
         engine.Options.Interop.ClrExceptionErrorDecorator?.Invoke(engine, error, clrException);
-        throw new JavaScriptException(error);
+
+        var jsException = new JavaScriptException(error);
+        var location = engine._lastSyntaxElement?.Location ?? default;
+        if (location != default)
+        {
+            // overwriteExisting:false preserves a "stack" property a decorator may have written
+            // (e.g. copying clrException.StackTrace onto the JS Error).
+            jsException.SetJavaScriptCallstack(engine, location, overwriteExisting: false);
+        }
+        throw jsException;
     }
 
     [DoesNotReturn]

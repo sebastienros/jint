@@ -365,6 +365,97 @@ try {
         ContainsIgnoringNewLineDifferences(expected, ex.ToString());
     }
 
+    [Fact]
+    public void BubbledClrExceptionShouldExposeJavaScriptLocation()
+    {
+        var engine = new Engine();
+        engine.SetValue("HelloWorld", new HelloWorld());
+        const string script = @"// line 1
+// line 2
+HelloWorld.ThrowException();";
+
+        var ex = Assert.Throws<DivideByZeroException>(() => engine.Execute(script));
+
+        Assert.True(JintException.TryGetJavaScriptLocation(ex, out var location));
+        Assert.Equal(3, location.Start.Line);
+
+        Assert.True(JintException.TryGetJavaScriptCallStack(ex, out var callStack));
+        Assert.Contains("3:", callStack);
+
+        // Original CLR identity preserved.
+        ContainsIgnoringNewLineDifferences("HelloWorld", ex.ToString());
+    }
+
+    [Fact]
+    public void BubbledClrExceptionLocationSurvivesNestedCalls()
+    {
+        var engine = new Engine();
+        engine.SetValue("Thrower", typeof(Domain.Thrower));
+
+        const string script = @"
+function inner() {
+    new Thrower().ThrowNotSupportedException();
+}
+function outer() { inner(); }
+outer();";
+
+        var ex = Assert.Throws<NotSupportedException>(() => engine.Execute(script));
+
+        Assert.True(JintException.TryGetJavaScriptLocation(ex, out var location));
+        // Innermost JS site is the `new Thrower()...` call on line 3.
+        Assert.Equal(3, location.Start.Line);
+    }
+
+    [Fact]
+    public void BubbledClrExceptionFromConstructorExposesLocation()
+    {
+        var engine = new Engine();
+        engine.SetValue("Ctor", typeof(ThrowingCtor));
+
+        var ex = Assert.Throws<InvalidOperationException>(() => engine.Execute(@"
+new Ctor();"));
+
+        Assert.True(JintException.TryGetJavaScriptLocation(ex, out var location));
+        Assert.Equal(2, location.Start.Line);
+    }
+
+    [Fact]
+    public void BubbledClrExceptionFromGetterExposesLocation()
+    {
+        var engine = new Engine();
+        engine.SetValue("instance", new ThrowingGetter());
+
+        var ex = Assert.Throws<InvalidOperationException>(() => engine.Execute(@"
+var x = instance.Boom;"));
+
+        Assert.True(JintException.TryGetJavaScriptLocation(ex, out var location));
+        Assert.Equal(2, location.Start.Line);
+    }
+
+    [Fact]
+    public void TryGetJavaScriptLocationReturnsFalseForUnannotatedException()
+    {
+        var unrelated = new InvalidOperationException();
+        Assert.False(JintException.TryGetJavaScriptLocation(unrelated, out _));
+        Assert.False(JintException.TryGetJavaScriptCallStack(unrelated, out _));
+
+        Assert.False(JintException.TryGetJavaScriptLocation(null, out _));
+        Assert.False(JintException.TryGetJavaScriptCallStack(null, out _));
+    }
+
+    private sealed class ThrowingCtor
+    {
+        public ThrowingCtor()
+        {
+            throw new InvalidOperationException("ctor boom");
+        }
+    }
+
+    private sealed class ThrowingGetter
+    {
+        public int Boom => throw new InvalidOperationException("getter boom");
+    }
+
     [Theory]
     [InlineData("Error")]
     [InlineData("EvalError")]

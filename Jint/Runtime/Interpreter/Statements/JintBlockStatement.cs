@@ -217,6 +217,8 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
             }
             else
             {
+                var locationNode = (Node?) context.Engine._lastSyntaxElement ?? _singleStatement!._statement;
+                ExceptionDataHelper.TryAttachJavaScriptLocation(ex, context.Engine, locationNode.Location);
                 throw;
             }
         }

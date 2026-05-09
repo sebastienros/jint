@@ -137,6 +137,8 @@ internal sealed class JintStatementList
             }
             else
             {
+                var locationNode = (Node?) context.Engine._lastSyntaxElement ?? temp[i].Statement._statement;
+                ExceptionDataHelper.TryAttachJavaScriptLocation(ex, context.Engine, locationNode.Location);
                 throw;
             }
         }
