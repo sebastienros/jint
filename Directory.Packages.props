@@ -13,7 +13,7 @@
     <PackageVersion Include="GitHubActionsTestLogger" Version="3.0.4" />
     <PackageVersion Include="ICU4N" Version="60.1.0-alpha.439" />
     <PackageVersion Include="Jurassic" Version="3.2.9" />
-    <PackageVersion Include="Meziantou.Analyzer" Version="3.0.62" />
+    <PackageVersion Include="Meziantou.Analyzer" Version="3.0.77" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="5.3.0" PrivateAssets="all" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.3.0" PrivateAssets="all" />
     <PackageVersion Include="Verify.SourceGenerators" Version="2.5.0" />
@@ -34,7 +34,7 @@
     <PackageVersion Include="Test262Harness" Version="1.0.5" />
     <PackageVersion Include="xunit.v3.mtp-off" Version="3.2.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" PrivateAssets="all" />
-    <PackageVersion Include="YantraJS.Core" Version="1.2.342" />
+    <PackageVersion Include="YantraJS.Core" Version="1.2.344" />
     <PackageVersion Include="Zio" Version="0.22.2" />
   </ItemGroup>
   <ItemGroup>
