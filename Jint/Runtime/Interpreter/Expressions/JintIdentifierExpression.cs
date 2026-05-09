@@ -94,8 +94,13 @@ internal sealed class JintIdentifierExpression : JintExpression
         // Slot-cache fast path: walk from the current env up the chain looking for the cached
         // resolving env via ReferenceEquals. When found, read the slot value directly,
         // skipping HasBinding + SlotIndexOf at every intermediate env.
+        // Engine-identity gate: a Prepared<Script> reused across multiple Engine instances
+        // shares JintIdentifierExpression nodes, so the cached env may be from a previous
+        // Engine. Skipping the walk when engines differ avoids 4 wasted hops per call —
+        // significant on harnesses (DromaeoBenchmark, SunSpiderBenchmark) that create a
+        // new Engine per iteration.
         var cachedSlotEnv = _cachedSlotEnv;
-        if (cachedSlotEnv is not null)
+        if (cachedSlotEnv is not null && ReferenceEquals(cachedSlotEnv._engine, engine))
         {
             var search = env;
             for (var hops = 0; hops < MaxSlotCacheChainDepth && search is not null; hops++)
