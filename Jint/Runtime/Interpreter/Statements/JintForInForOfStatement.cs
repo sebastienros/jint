@@ -303,6 +303,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
 
                 DeclarativeEnvironment? iterationEnv = null;
                 JsValue nextValue;
+                var skipLhsSetup = false;
 
                 // Skip TryIteratorStep if we're resuming and already have a current value
                 // (this happens when yield occurred during body execution or destructuring)
@@ -310,7 +311,9 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 {
                     nextValue = suspendData.CurrentValue;
                     iterationEnv = suspendData.IterationEnv;
+                    skipLhsSetup = suspendData.LhsBindingComplete;
                     suspendData.CurrentValue = null; // Clear after use
+                    suspendData.LhsBindingComplete = false; // Save block re-sets if body re-suspends
                     resuming = false; // Only skip step on first iteration after resume
 
                     // Restore the iteration environment if it was saved
@@ -425,113 +428,120 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
 
                 close = true;
 
-                object lhsRef = null!;
-                if (lhsKind != LhsKind.LexicalBinding)
-                {
-                    if (!destructuring)
-                    {
-                        lhsRef = lhs!.Evaluate(context);
-                    }
-                }
-                else
-                {
-                    iterationEnv = JintEnvironment.NewDeclarativeEnvironment(engine, oldEnv);
-                    if (_tdzNames != null)
-                    {
-                        BindingInstantiation(iterationEnv);
-                    }
-                    engine.UpdateLexicalEnvironment(iterationEnv);
-
-                    if (!destructuring)
-                    {
-                        var identifier = (Identifier) ((VariableDeclaration) _leftNode).Declarations[0].Id;
-                        lhsName ??= identifier.Name;
-                        lhsRef = engine.ResolveBinding(lhsName);
-                    }
-                }
-
-                if (context.DebugMode)
-                {
-                    context.Engine.Debugger.OnStep(_leftNode);
-                }
-
                 var valueForResume = nextValue;
                 var status = CompletionType.Normal;
-                if (!destructuring)
+
+                // Skip lhs setup (env creation, BindingInstantiation, destructuring/init) on body
+                // resume — bindings already exist in the restored iterationEnv. Re-running
+                // destructuring against `valueForResume` would consume a one-shot iterator twice.
+                if (!skipLhsSetup)
                 {
-                    if (context.IsAbrupt())
+                    object lhsRef = null!;
+                    if (lhsKind != LhsKind.LexicalBinding)
                     {
-                        close = true;
-                        status = context.Completion;
+                        if (!destructuring)
+                        {
+                            lhsRef = lhs!.Evaluate(context);
+                        }
                     }
                     else
                     {
-                        var reference = lhsRef as Reference;
-                        if (reference is null)
+                        iterationEnv = JintEnvironment.NewDeclarativeEnvironment(engine, oldEnv);
+                        if (_tdzNames != null)
                         {
-                            Throw.ReferenceError(engine.Realm, "Invalid left-hand side in assignment");
+                            BindingInstantiation(iterationEnv);
                         }
-                        if (lhsKind == LhsKind.LexicalBinding || _leftNode.Type == NodeType.Identifier && !reference.IsUnresolvableReference)
+                        engine.UpdateLexicalEnvironment(iterationEnv);
+
+                        if (!destructuring)
                         {
-                            reference.InitializeReferencedBinding(nextValue, _disposeHint);
+                            var identifier = (Identifier) ((VariableDeclaration) _leftNode).Declarations[0].Id;
+                            lhsName ??= identifier.Name;
+                            lhsRef = engine.ResolveBinding(lhsName);
+                        }
+                    }
+
+                    if (context.DebugMode)
+                    {
+                        context.Engine.Debugger.OnStep(_leftNode);
+                    }
+
+                    if (!destructuring)
+                    {
+                        if (context.IsAbrupt())
+                        {
+                            close = true;
+                            status = context.Completion;
                         }
                         else
                         {
-                            engine.PutValue(reference, nextValue);
+                            var reference = lhsRef as Reference;
+                            if (reference is null)
+                            {
+                                Throw.ReferenceError(engine.Realm, "Invalid left-hand side in assignment");
+                            }
+                            if (lhsKind == LhsKind.LexicalBinding || _leftNode.Type == NodeType.Identifier && !reference.IsUnresolvableReference)
+                            {
+                                reference.InitializeReferencedBinding(nextValue, _disposeHint);
+                            }
+                            else
+                            {
+                                engine.PutValue(reference, nextValue);
+                            }
                         }
-                    }
-                }
-                else
-                {
-                    nextValue = DestructuringPatternAssignmentExpression.ProcessPatterns(
-                        context,
-                        _assignmentPattern!,
-                        valueForResume,
-                        iterationEnv,
-                        checkPatternPropertyReference: _lhsKind != LhsKind.VarBinding);
-
-                    // Check for suspension after destructuring (yield inside pattern)
-                    if (context.IsSuspended())
-                    {
-                        close = false; // Don't close iterator, we'll resume later
-                        // Save the ORIGINAL iterator value for replay when resuming
-                        if (_iterationKind == IterationKind.AsyncIterate && suspendable is not null)
-                        {
-                            var asyncSD = suspendable.Data.GetOrCreate<ForAwaitSuspendData>(this);
-                            asyncSD.CurrentValue = valueForResume;
-                            asyncSD.AccumulatedValue = v;
-                        }
-                        completionType = CompletionType.Return;
-                        return new Completion(CompletionType.Return, suspendable?.SuspendedValue ?? nextValue, _statement!);
-                    }
-
-                    // Check for return request after destructuring (e.g., generator.return() was called)
-                    if (suspendable?.ReturnRequested == true)
-                    {
-                        completionType = CompletionType.Return;
-                        close = false; // Prevent double-close in finally
-                        suspendable.Data.Clear(this);
-                        iteratorRecord.Close(completionType);
-                        var returnValue = suspendable.SuspendedValue ?? nextValue;
-                        return new Completion(CompletionType.Return, returnValue, _statement!);
-                    }
-
-                    status = context.Completion;
-
-                    if (lhsKind == LhsKind.Assignment)
-                    {
-                        // DestructuringAssignmentEvaluation of assignmentPattern using nextValue as the argument.
-                    }
-#pragma warning disable MA0140
-                    else if (lhsKind == LhsKind.VarBinding)
-                    {
-                        // BindingInitialization for lhs passing nextValue and undefined as the arguments.
                     }
                     else
                     {
-                        // BindingInitialization for lhs passing nextValue and iterationEnv as arguments
-                    }
+                        nextValue = DestructuringPatternAssignmentExpression.ProcessPatterns(
+                            context,
+                            _assignmentPattern!,
+                            valueForResume,
+                            iterationEnv,
+                            checkPatternPropertyReference: _lhsKind != LhsKind.VarBinding);
+
+                        // Check for suspension after destructuring (yield inside pattern)
+                        if (context.IsSuspended())
+                        {
+                            close = false; // Don't close iterator, we'll resume later
+                            // Save the ORIGINAL iterator value for replay when resuming
+                            if (_iterationKind == IterationKind.AsyncIterate && suspendable is not null)
+                            {
+                                var asyncSD = suspendable.Data.GetOrCreate<ForAwaitSuspendData>(this);
+                                asyncSD.CurrentValue = valueForResume;
+                                asyncSD.AccumulatedValue = v;
+                            }
+                            completionType = CompletionType.Return;
+                            return new Completion(CompletionType.Return, suspendable?.SuspendedValue ?? nextValue, _statement!);
+                        }
+
+                        // Check for return request after destructuring (e.g., generator.return() was called)
+                        if (suspendable?.ReturnRequested == true)
+                        {
+                            completionType = CompletionType.Return;
+                            close = false; // Prevent double-close in finally
+                            suspendable.Data.Clear(this);
+                            iteratorRecord.Close(completionType);
+                            var returnValue = suspendable.SuspendedValue ?? nextValue;
+                            return new Completion(CompletionType.Return, returnValue, _statement!);
+                        }
+
+                        status = context.Completion;
+
+                        if (lhsKind == LhsKind.Assignment)
+                        {
+                            // DestructuringAssignmentEvaluation of assignmentPattern using nextValue as the argument.
+                        }
+#pragma warning disable MA0140
+                        else if (lhsKind == LhsKind.VarBinding)
+                        {
+                            // BindingInitialization for lhs passing nextValue and undefined as the arguments.
+                        }
+                        else
+                        {
+                            // BindingInitialization for lhs passing nextValue and iterationEnv as arguments
+                        }
 #pragma warning restore MA0140
+                    }
                 }
 
                 if (status != CompletionType.Normal)
@@ -562,6 +572,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     data.CurrentValue = valueForResume;
                     data.IterationEnv = iterationEnv;
                     data.OuterEnv = oldEnv;
+                    data.LhsBindingComplete = true;
                 }
 
                 // For async functions with sync iterators, save state so that if an await
@@ -575,6 +586,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     asyncData.CurrentValue = valueForResume;
                     asyncData.IterationEnv = iterationEnv;
                     asyncData.OuterEnv = oldEnv;
+                    asyncData.LhsBindingComplete = true;
                 }
 
                 var result = stmt.Execute(context);

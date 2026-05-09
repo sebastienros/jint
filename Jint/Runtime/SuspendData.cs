@@ -60,6 +60,15 @@ internal sealed class ForOfSuspendData : SuspendData
     /// block-scoped environment from let declarations inside the loop body.
     /// </summary>
     public Environments.Environment? OuterEnv { get; set; }
+
+    /// <summary>
+    /// True when the iteration's lhs setup (iteration env creation, BindingInstantiation,
+    /// destructuring/simple-binding initialization) had already completed for the current
+    /// value before suspension occurred (i.e. suspension happened inside the loop body, not
+    /// inside destructuring). On resume, the lhs setup must be skipped to avoid re-running
+    /// destructuring against a one-shot iterator that has already been consumed.
+    /// </summary>
+    public bool LhsBindingComplete { get; set; }
 }
 
 /// <summary>
