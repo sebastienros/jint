@@ -1,4 +1,5 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.Diagnostics;
+using System.Text.RegularExpressions;
 using Jint.Native;
 
 namespace Jint.Tests.Runtime;
@@ -155,5 +156,81 @@ public class RegExpTests
         var engine = new Engine();
         var result = engine.Evaluate("/[^]?(:[rp][el]a[\\w-]+)[^]/.test(':reagent-')").AsBoolean();
         Assert.True(result);
+    }
+
+    // Regression tests for https://github.com/sebastienros/jint/issues/2454
+    //
+    // The TestRegex pattern triggers Jint's custom (QuickJS-port) regex engine via
+    // RegExpConstructor.NeedCustomEngine — that engine has no built-in match timeout
+    // (unlike .NET Regex which embeds MatchTimeout), so each prototype method must
+    // honor the prepare-time RegexTimeout when calling the custom engine.
+
+    [Theory]
+    // RegExp.prototype[@@match] without /g → slow path (RegExpExec → CustomEngineBuiltinExec).
+    [InlineData("'{0}'.match(/{1}/)")]
+    // RegExp.prototype[@@match] with /g → custom-engine fast loop in Match().
+    [InlineData("'{0}'.match(/{1}/g)")]
+    // RegExp.prototype[@@replace] with /g → custom-engine fast loop in Replace().
+    [InlineData("'{0}'.replace(/{1}/g, 'X')")]
+    // RegExp.prototype.test() → custom-engine IsMatch fast path.
+    [InlineData("/{1}/.test('{0}')")]
+    // RegExp.prototype[@@search] → custom-engine Execute fast path.
+    [InlineData("'{0}'.search(/{1}/)")]
+    public void PreparedScriptHonorsRegexTimeoutForCustomEngine(string scriptTemplate)
+    {
+        var script = scriptTemplate.Replace("{0}", TestedValue).Replace("{1}", TestRegex);
+        AssertPrepareTimeRegexTimeoutFires(script);
+    }
+
+    [Fact]
+    public void PreparedModuleHonorsRegexTimeoutForCustomEngine()
+    {
+        var preparationOptions = ModulePreparationOptions.Default with
+        {
+            ParsingOptions = ModulePreparationOptions.Default.ParsingOptions with
+            {
+                RegexTimeout = TimeSpan.FromSeconds(1),
+            },
+        };
+
+        var preparedModule = Engine.PrepareModule(
+            $"export default '{TestedValue}'.match(/{TestRegex}/)",
+            options: preparationOptions);
+
+        // Engine has no RegexTimeoutInterval set (defaults to 10s) — only the prepare-time
+        // 1s timeout should apply. The 5s upper bound catches a regression to the 10s default.
+        var engine = new Engine();
+        engine.Modules.Add("__main__", x => x.AddModule(preparedModule));
+
+        var sw = Stopwatch.StartNew();
+        Assert.Throws<RegexMatchTimeoutException>(() => engine.Modules.Import("__main__"));
+        sw.Stop();
+
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(5),
+            $"Expected RegexMatchTimeoutException within 5s, took {sw.Elapsed.TotalSeconds:F1}s");
+    }
+
+    private static void AssertPrepareTimeRegexTimeoutFires(string script)
+    {
+        var preparationOptions = ScriptPreparationOptions.Default with
+        {
+            ParsingOptions = ScriptPreparationOptions.Default.ParsingOptions with
+            {
+                RegexTimeout = TimeSpan.FromSeconds(1),
+            },
+        };
+
+        var preparedScript = Engine.PrepareScript(script, options: preparationOptions);
+
+        // Engine has no RegexTimeoutInterval set (defaults to 10s) — only the prepare-time
+        // 1s timeout should apply. The 5s upper bound catches a regression to the 10s default.
+        var engine = new Engine();
+
+        var sw = Stopwatch.StartNew();
+        Assert.Throws<RegexMatchTimeoutException>(() => engine.Execute(preparedScript));
+        sw.Stop();
+
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(5),
+            $"Expected RegexMatchTimeoutException within 5s, took {sw.Elapsed.TotalSeconds:F1}s");
     }
 }

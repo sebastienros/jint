@@ -218,7 +218,7 @@ internal sealed partial class RegExpPrototype : Prototype
 
             while (count < maxCount && searchStart <= s.Length)
             {
-                var result = customEngine.Execute(s, searchStart);
+                var result = ExecuteWithTimeout(customRei, customEngine, s, searchStart);
                 if (!result.Success)
                 {
                     break;
@@ -723,7 +723,7 @@ internal sealed partial class RegExpPrototype : Prototype
                 var customEngine = R.CustomEngine!;
                 if (!R.Sticky && !R.Global)
                 {
-                    return customEngine.IsMatch(s, 0);
+                    return IsMatchWithTimeout(R, customEngine, s, 0);
                 }
 
                 var lastIndex = (int) TypeConverter.ToLength(R.Get(JsRegExp.PropertyLastIndex));
@@ -734,7 +734,7 @@ internal sealed partial class RegExpPrototype : Prototype
                 }
 
                 // For global/sticky, we need the match position to update lastIndex
-                var result = customEngine.Execute(s, lastIndex);
+                var result = ExecuteWithTimeout(R, customEngine, s, lastIndex);
                 if (!result.Success || (R.Sticky && result.Index != lastIndex))
                 {
                     R.Set(JsRegExp.PropertyLastIndex, 0, throwOnError: true);
@@ -792,7 +792,7 @@ internal sealed partial class RegExpPrototype : Prototype
         // Fast path for custom engine: only need the index, skip full result array
         if (rx is JsRegExp { HasDefaultRegExpExec: true, UsesDotNetEngine: false } customR)
         {
-            var searchResult = customR.CustomEngine!.Execute(s, 0);
+            var searchResult = ExecuteWithTimeout(customR, customR.CustomEngine!, s, 0);
             var currentLastIndex2 = rx.Get(JsRegExp.PropertyLastIndex);
             if (!SameValue(currentLastIndex2, previousLastIndex))
             {
@@ -846,7 +846,7 @@ internal sealed partial class RegExpPrototype : Prototype
             int lastIndex = 0;
             while (lastIndex <= s.Length)
             {
-                var result = customEngine.Execute(s, lastIndex);
+                var result = ExecuteWithTimeout(rei, customEngine, s, lastIndex);
                 if (!result.Success)
                 {
                     break;
@@ -1138,24 +1138,7 @@ internal sealed partial class RegExpPrototype : Prototype
             return Null;
         }
 
-        var regexTimeout = R.Engine.Options.Constraints.RegexTimeout;
-        RegExpMatchResult result;
-        if (regexTimeout.TotalMilliseconds > 0 && regexTimeout != Timeout.InfiniteTimeSpan)
-        {
-            using var cts = new CancellationTokenSource(regexTimeout);
-            try
-            {
-                result = customEngine.Execute(s, (int) lastIndex, cts.Token);
-            }
-            catch (OperationCanceledException)
-            {
-                throw new RegexMatchTimeoutException(s, R.Source ?? "", regexTimeout);
-            }
-        }
-        else
-        {
-            result = customEngine.Execute(s, (int) lastIndex);
-        }
+        var result = ExecuteWithTimeout(R, customEngine, s, (int) lastIndex);
         var success = result.Success && (!sticky || result.Index == (int) lastIndex);
 
         if (!success)
@@ -1175,6 +1158,59 @@ internal sealed partial class RegExpPrototype : Prototype
         }
 
         return CreateReturnValueArrayFromCustom(R, result, s, hasIndices);
+    }
+
+    /// <summary>
+    /// Effective per-match timeout for a custom-engine regex. Prefers the prepare-time value
+    /// carried via <see cref="RegExpParseResult.AdditionalData"/>; falls back to the engine's
+    /// configured constraint for runtime-built regexes (where the same value was used at compile time).
+    /// </summary>
+    private static TimeSpan GetCustomEngineTimeout(JsRegExp R) =>
+        (R.ParseResult.AdditionalData as Engine.RegexConversionOptions)?.Timeout
+        ?? R.Engine.Options.Constraints.RegexTimeout;
+
+    /// <summary>
+    /// Runs the custom regex engine with timeout enforcement. Throws <see cref="RegexMatchTimeoutException"/>
+    /// when the configured timeout elapses — mirrors how <see cref="Regex.Match(string,int)"/> uses
+    /// <see cref="Regex.MatchTimeout"/> on the .NET path.
+    /// </summary>
+    private static RegExpMatchResult ExecuteWithTimeout(JsRegExp R, JintRegExpEngine engine, string s, int startIndex)
+    {
+        var timeout = GetCustomEngineTimeout(R);
+        if (timeout.TotalMilliseconds > 0 && timeout != Timeout.InfiniteTimeSpan)
+        {
+            using var cts = new CancellationTokenSource(timeout);
+            try
+            {
+                return engine.Execute(s, startIndex, cts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                throw new RegexMatchTimeoutException(s, R.Source ?? "", timeout);
+            }
+        }
+        return engine.Execute(s, startIndex);
+    }
+
+    /// <summary>
+    /// IsMatch counterpart of <see cref="ExecuteWithTimeout"/>.
+    /// </summary>
+    private static bool IsMatchWithTimeout(JsRegExp R, JintRegExpEngine engine, string s, int startIndex)
+    {
+        var timeout = GetCustomEngineTimeout(R);
+        if (timeout.TotalMilliseconds > 0 && timeout != Timeout.InfiniteTimeSpan)
+        {
+            using var cts = new CancellationTokenSource(timeout);
+            try
+            {
+                return engine.IsMatch(s, startIndex, cts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                throw new RegexMatchTimeoutException(s, R.Source ?? "", timeout);
+            }
+        }
+        return engine.IsMatch(s, startIndex);
     }
 
     /// <summary>

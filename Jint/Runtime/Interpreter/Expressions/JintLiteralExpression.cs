@@ -101,7 +101,10 @@ internal sealed class JintLiteralExpression : JintExpression
             var customEngine = RegExpConstructor.TryCompileWithCustomEngine(context.Engine.Realm,
                 pattern, flags, conversionOptions.Timeout);
 
-            cachedParseResult = RegExpParseResult.ForSuccess(customEngine);
+            // Carry the conversion options forward so CustomEngineBuiltinExec can honor
+            // the prepare-time RegexTimeout instead of falling back to engine constraints
+            // (the .NET Regex path embeds the timeout in MatchTimeout, the custom engine has no such carrier).
+            cachedParseResult = RegExpParseResult.ForSuccess(customEngine, additionalData: conversionOptions);
             regExpLiteral.UserData = cachedParseResult; // cache for next evaluation
             return regExpConstructor.Construct(cachedParseResult, pattern, flags);
         }
