@@ -226,33 +226,38 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
             : null;
 
         var jsValues = _engine._jsValueArrayPool.RentArray(1);
-        foreach (var property in properties)
+        try
         {
-            // Evaluate property access in the current execution context.
-            // The VariableEnvironment has already been set up correctly for eval in FunctionDeclarationInstantiation.
-            if (property is AssignmentProperty p)
+            foreach (var property in properties)
             {
-                var propertyName = p.GetKey(_engine);
-                processedProperties?.Add(propertyName.ToString());
-                jsValues[0] = argumentObject.Get(propertyName);
-                SetFunctionParameter(context, p.Value, jsValues, 0, initiallyEmpty);
-            }
-            else
-            {
-                if (((RestElement) property).Argument is Identifier restIdentifier)
+                // Evaluate property access in the current execution context.
+                // The VariableEnvironment has already been set up correctly for eval in FunctionDeclarationInstantiation.
+                if (property is AssignmentProperty p)
                 {
-                    var rest = _engine.Realm.Intrinsics.Object.Construct((argumentObject.Properties?.Count ?? 0) - processedProperties!.Count);
-                    argumentObject.CopyDataProperties(rest, processedProperties);
-                    SetItemSafely(restIdentifier.Name, rest, initiallyEmpty);
+                    var propertyName = p.GetKey(_engine);
+                    processedProperties?.Add(propertyName.ToString());
+                    jsValues[0] = argumentObject.Get(propertyName);
+                    SetFunctionParameter(context, p.Value, jsValues, 0, initiallyEmpty);
                 }
                 else
                 {
-                    Throw.SyntaxError(_functionObject._realm, "Object rest parameter can only be objects");
+                    if (((RestElement) property).Argument is Identifier restIdentifier)
+                    {
+                        var rest = _engine.Realm.Intrinsics.Object.Construct((argumentObject.Properties?.Count ?? 0) - processedProperties!.Count);
+                        argumentObject.CopyDataProperties(rest, processedProperties);
+                        SetItemSafely(restIdentifier.Name, rest, initiallyEmpty);
+                    }
+                    else
+                    {
+                        Throw.SyntaxError(_functionObject._realm, "Object rest parameter can only be objects");
+                    }
                 }
             }
         }
-
-        _engine._jsValueArrayPool.ReturnArray(jsValues);
+        finally
+        {
+            _engine._jsValueArrayPool.ReturnArray(jsValues);
+        }
     }
 
     private void HandleArrayPattern(EvaluationContext context, bool initiallyEmpty, JsValue argument, ArrayPattern arrayPattern)

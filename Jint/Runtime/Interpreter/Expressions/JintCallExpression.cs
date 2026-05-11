@@ -111,62 +111,63 @@ internal sealed class JintCallExpression : JintExpression
             return func; // Return any value, caller will check Suspended
         }
 
-        if (!func.IsObject() && !engine._referenceResolver.TryGetCallable(engine, reference, out func))
+        try
         {
-            ThrowMemberIsNotFunction(referenceRecord, reference, engine);
-        }
-
-        var callable = func as ICallable;
-        if (callable is null)
-        {
-            ThrowReferenceNotFunction(referenceRecord, reference, engine);
-        }
-
-        if (tailCall)
-        {
-            // TODO tail call
-            // PrepareForTailCall();
-        }
-
-        // ensure logic is in sync between Call, Construct and JintCallExpression!
-
-        JsValue result;
-        if (callable is Function functionInstance)
-        {
-            var callStack = engine.CallStack;
-            var recursionDepth = callStack.Push(functionInstance, _calleeExpression, engine.ExecutionContext);
-
-            if (recursionDepth > engine.Options.Constraints.MaxRecursionDepth)
+            if (!func.IsObject() && !engine._referenceResolver.TryGetCallable(engine, reference, out func))
             {
-                // automatically pops the current element as it was never reached
-                Throw.RecursionDepthOverflowException(callStack);
+                ThrowMemberIsNotFunction(referenceRecord, reference, engine);
             }
 
-            try
+            var callable = func as ICallable;
+            if (callable is null)
             {
-                result = functionInstance.Call(thisObject, arguments);
+                ThrowReferenceNotFunction(referenceRecord, reference, engine);
             }
-            finally
+
+            if (tailCall)
             {
-                // if call stack was reset due to recursive call to engine or similar, we might not have it anymore
-                if (callStack.Count > 0)
+                // TODO tail call
+                // PrepareForTailCall();
+            }
+
+            // ensure logic is in sync between Call, Construct and JintCallExpression!
+
+            if (callable is Function functionInstance)
+            {
+                var callStack = engine.CallStack;
+                var recursionDepth = callStack.Push(functionInstance, _calleeExpression, engine.ExecutionContext);
+
+                if (recursionDepth > engine.Options.Constraints.MaxRecursionDepth)
                 {
-                    callStack.Pop();
+                    // automatically pops the current element as it was never reached
+                    Throw.RecursionDepthOverflowException(callStack);
+                }
+
+                try
+                {
+                    return functionInstance.Call(thisObject, arguments);
+                }
+                finally
+                {
+                    // if call stack was reset due to recursive call to engine or similar, we might not have it anymore
+                    if (callStack.Count > 0)
+                    {
+                        callStack.Pop();
+                    }
                 }
             }
-        }
-        else
-        {
-            result = callable.Call(thisObject, arguments);
-        }
 
-        if (rented)
-        {
-            engine._jsValueArrayPool.ReturnArray(arguments);
+            return callable.Call(thisObject, arguments);
         }
+        finally
+        {
+            if (rented)
+            {
+                engine._jsValueArrayPool.ReturnArray(arguments);
+            }
 
-        engine._referencePool.Return(referenceRecord);
-        return result;
+            engine._referencePool.Return(referenceRecord);
+        }
     }
 
     [DoesNotReturn]
@@ -193,6 +194,11 @@ internal sealed class JintCallExpression : JintExpression
 
         if (argList.Length == 0)
         {
+            if (rented)
+            {
+                engine._jsValueArrayPool.ReturnArray(argList);
+            }
+            engine._referencePool.Return(referenceRecord);
             return JsValue.Undefined;
         }
 
@@ -201,15 +207,18 @@ internal sealed class JintCallExpression : JintExpression
         var strictCaller = StrictModeScope.IsStrictModeCode;
         var evalRealm = evalFunctionInstance._realm;
         var direct = !_expression.IsOptional();
-        var value = evalFunctionInstance.PerformEval(evalArg, evalRealm, strictCaller, direct);
-
-        if (rented)
+        try
         {
-            engine._jsValueArrayPool.ReturnArray(argList);
+            return evalFunctionInstance.PerformEval(evalArg, evalRealm, strictCaller, direct);
         }
-        engine._referencePool.Return(referenceRecord);
-
-        return value;
+        finally
+        {
+            if (rented)
+            {
+                engine._jsValueArrayPool.ReturnArray(argList);
+            }
+            engine._referencePool.Return(referenceRecord);
+        }
     }
 
     private ObjectInstance SuperCall(EvaluationContext context)
@@ -235,20 +244,25 @@ internal sealed class JintCallExpression : JintExpression
             Throw.TypeError(engine.Realm, "Not a constructor");
         }
 
-        var result = ((IConstructor) func).Construct(argList, newTarget);
-
-        var thisER = (FunctionEnvironment) engine.ExecutionContext.GetThisEnvironment();
-        thisER.BindThisValue(result);
-        var F = thisER._functionObject;
-
-        result.InitializeInstanceElements((ScriptFunction) F);
-
-        if (rented)
+        try
         {
-            engine._jsValueArrayPool.ReturnArray(argList);
-        }
+            var result = ((IConstructor) func).Construct(argList, newTarget);
 
-        return result;
+            var thisER = (FunctionEnvironment) engine.ExecutionContext.GetThisEnvironment();
+            thisER.BindThisValue(result);
+            var F = thisER._functionObject;
+
+            result.InitializeInstanceElements((ScriptFunction) F);
+
+            return result;
+        }
+        finally
+        {
+            if (rented)
+            {
+                engine._jsValueArrayPool.ReturnArray(argList);
+            }
+        }
     }
 
     /// <summary>

@@ -44,11 +44,14 @@ internal sealed class JintTaggedTemplateExpression : JintExpression
             ? reference.Base
             : JsValue.Undefined;
 
-        var result = tagger.Call(thisObject, args);
-
-        engine._jsValueArrayPool.ReturnArray(args);
-
-        return result;
+        try
+        {
+            return tagger.Call(thisObject, args);
+        }
+        finally
+        {
+            engine._jsValueArrayPool.ReturnArray(args);
+        }
     }
 
     /// <summary>

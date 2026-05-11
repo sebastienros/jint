@@ -449,23 +449,29 @@ public sealed partial class ArrayPrototype : ArrayInstance
         uint to = 0;
         var args = _engine._jsValueArrayPool.RentArray(3);
         args[2] = o.Target;
-        for (uint k = 0; k < len; k++)
+        try
         {
-            if (o.TryGetValue(k, out var kvalue))
+            for (uint k = 0; k < len; k++)
             {
-                args[0] = kvalue;
-                args[1] = k;
-                var selected = callable.Call(thisArg, args);
-                if (TypeConverter.ToBoolean(selected))
+                if (o.TryGetValue(k, out var kvalue))
                 {
-                    operations.CreateDataPropertyOrThrow(to, kvalue);
-                    to++;
+                    args[0] = kvalue;
+                    args[1] = k;
+                    var selected = callable.Call(thisArg, args);
+                    if (TypeConverter.ToBoolean(selected))
+                    {
+                        operations.CreateDataPropertyOrThrow(to, kvalue);
+                        to++;
+                    }
                 }
             }
-        }
 
-        operations.SetLength(to);
-        _engine._jsValueArrayPool.ReturnArray(args);
+            operations.SetLength(to);
+        }
+        finally
+        {
+            _engine._jsValueArrayPool.ReturnArray(args);
+        }
 
         return a;
     }
@@ -497,17 +503,24 @@ public sealed partial class ArrayPrototype : ArrayInstance
         var a = ArrayOperations.For(_realm.Intrinsics.Array.ArraySpeciesCreate(TypeConverter.ToObject(_realm, thisObject), (uint) len), forWrite: true);
         var args = _engine._jsValueArrayPool.RentArray(3);
         args[2] = o.Target;
-        for (uint k = 0; k < len; k++)
+        try
         {
-            if (o.TryGetValue(k, out var kvalue))
+            for (uint k = 0; k < len; k++)
             {
-                args[0] = kvalue;
-                args[1] = k;
-                var mappedValue = callable.Call(thisArg, args);
-                a.CreateDataPropertyOrThrow(k, mappedValue);
+                if (o.TryGetValue(k, out var kvalue))
+                {
+                    args[0] = kvalue;
+                    args[1] = k;
+                    var mappedValue = callable.Call(thisArg, args);
+                    a.CreateDataPropertyOrThrow(k, mappedValue);
+                }
             }
         }
-        _engine._jsValueArrayPool.ReturnArray(args);
+        finally
+        {
+            _engine._jsValueArrayPool.ReturnArray(args);
+        }
+
         return a.Target;
     }
 
@@ -645,16 +658,22 @@ public sealed partial class ArrayPrototype : ArrayInstance
 
         var args = _engine._jsValueArrayPool.RentArray(3);
         args[2] = o.Target;
-        for (uint k = 0; k < len; k++)
+        try
         {
-            if (o.TryGetValue(k, out var kvalue))
+            for (uint k = 0; k < len; k++)
             {
-                args[0] = kvalue;
-                args[1] = k;
-                callable.Call(thisArg, args);
+                if (o.TryGetValue(k, out var kvalue))
+                {
+                    args[0] = kvalue;
+                    args[1] = k;
+                    callable.Call(thisArg, args);
+                }
             }
         }
-        _engine._jsValueArrayPool.ReturnArray(args);
+        finally
+        {
+            _engine._jsValueArrayPool.ReturnArray(args);
+        }
 
         return Undefined;
     }
@@ -760,20 +779,26 @@ public sealed partial class ArrayPrototype : ArrayInstance
 
         var args = _engine._jsValueArrayPool.RentArray(3);
         args[2] = o.Target;
-        for (uint k = 0; k < len; k++)
+        try
         {
-            if (o.TryGetValue(k, out var kvalue))
+            for (uint k = 0; k < len; k++)
             {
-                args[0] = kvalue;
-                args[1] = k;
-                var testResult = callable.Call(thisArg, args);
-                if (!TypeConverter.ToBoolean(testResult))
+                if (o.TryGetValue(k, out var kvalue))
                 {
-                    return JsBoolean.False;
+                    args[0] = kvalue;
+                    args[1] = k;
+                    var testResult = callable.Call(thisArg, args);
+                    if (!TypeConverter.ToBoolean(testResult))
+                    {
+                        return JsBoolean.False;
+                    }
                 }
             }
         }
-        _engine._jsValueArrayPool.ReturnArray(args);
+        finally
+        {
+            _engine._jsValueArrayPool.ReturnArray(args);
+        }
 
         return JsBoolean.True;
     }

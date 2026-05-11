@@ -26,17 +26,25 @@ internal sealed class JintNewExpression : JintExpression
 
         if (!jsValue.IsConstructor)
         {
+            if (rented)
+            {
+                engine._jsValueArrayPool.ReturnArray(arguments);
+            }
+
             Throw.TypeError(engine.Realm, $"{_calleeExpression.SourceText} is not a constructor");
         }
 
-        // construct the new instance using the Function's constructor method
-        var instance = engine.Construct(jsValue, arguments, jsValue, _calleeExpression);
-
-        if (rented)
+        try
         {
-            engine._jsValueArrayPool.ReturnArray(arguments);
+            // construct the new instance using the Function's constructor method
+            return engine.Construct(jsValue, arguments, jsValue, _calleeExpression);
         }
-
-        return instance;
+        finally
+        {
+            if (rented)
+            {
+                engine._jsValueArrayPool.ReturnArray(arguments);
+            }
+        }
     }
 }

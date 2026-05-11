@@ -61,34 +61,39 @@ public sealed class JsSet : ObjectInstance, IEnumerable<JsValue>
         var args = _engine._jsValueArrayPool.RentArray(3);
         args[2] = this;
 
-        var i = 0;
-        while (i < _set._list.Count)
+        try
         {
-            var value = _set._list[i];
-            args[0] = value;
-            args[1] = value;
-            callable.Call(thisArg, args);
+            var i = 0;
+            while (i < _set._list.Count)
+            {
+                var value = _set._list[i];
+                args[0] = value;
+                args[1] = value;
+                callable.Call(thisArg, args);
 
-            // Adjust position for mutations during callback
-            if (i < _set._list.Count && SameComparison(_set._list[i], value))
-            {
-                // Common fast path: value still at same position
-                i++;
-            }
-            else if (_set.Contains(value))
-            {
-                var newIndex = _set._list.IndexOf(value);
-                if (newIndex < i)
+                // Adjust position for mutations during callback
+                if (i < _set._list.Count && SameComparison(_set._list[i], value))
                 {
-                    // Value moved backward (entries before it were deleted)
-                    i = newIndex + 1;
+                    // Common fast path: value still at same position
+                    i++;
                 }
-                // else: value was deleted and re-added at end, keep i (entries shifted left)
+                else if (_set.Contains(value))
+                {
+                    var newIndex = _set._list.IndexOf(value);
+                    if (newIndex < i)
+                    {
+                        // Value moved backward (entries before it were deleted)
+                        i = newIndex + 1;
+                    }
+                    // else: value was deleted and re-added at end, keep i (entries shifted left)
+                }
+                // else: value was deleted, entries shifted left so i now points to next entry
             }
-            // else: value was deleted, entries shifted left so i now points to next entry
         }
-
-        _engine._jsValueArrayPool.ReturnArray(args);
+        finally
+        {
+            _engine._jsValueArrayPool.ReturnArray(args);
+        }
     }
 
     private static bool SameComparison(JsValue a, JsValue b)

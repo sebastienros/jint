@@ -1275,25 +1275,31 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         var a = _engine.Realm.Intrinsics.Array.ArrayCreate(len);
         var args = _engine._jsValueArrayPool.RentArray(3);
         args[2] = this;
-        for (uint k = 0; k < len; k++)
+        try
         {
-            if (TryGetValue(k, out var kvalue))
+            for (uint k = 0; k < len; k++)
             {
-                args[0] = kvalue;
-                args[1] = k;
-                var mappedValue = callable.Call(thisArg, args);
-                if (a._dense != null && k < (uint) a._dense.Length)
+                if (TryGetValue(k, out var kvalue))
                 {
-                    a._dense[k] = mappedValue;
-                }
-                else
-                {
-                    a.WriteArrayValue(k, mappedValue);
+                    args[0] = kvalue;
+                    args[1] = k;
+                    var mappedValue = callable.Call(thisArg, args);
+                    if (a._dense != null && k < (uint) a._dense.Length)
+                    {
+                        a._dense[k] = mappedValue;
+                    }
+                    else
+                    {
+                        a.WriteArrayValue(k, mappedValue);
+                    }
                 }
             }
         }
+        finally
+        {
+            _engine._jsValueArrayPool.ReturnArray(args);
+        }
 
-        _engine._jsValueArrayPool.ReturnArray(args);
         return a;
     }
 
@@ -1319,48 +1325,52 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
 
         var args = _engine._jsValueArrayPool.RentArray(3);
         args[2] = this;
-
-        if (!fromEnd)
+        try
         {
-            for (uint k = 0; k < len; k++)
+            if (!fromEnd)
             {
-                if (TryGetValue(k, out var kvalue) || visitUnassigned)
+                for (uint k = 0; k < len; k++)
                 {
-                    kvalue ??= Undefined;
-                    args[0] = kvalue;
-                    args[1] = k;
-                    var testResult = callable.Call(thisArg, args);
-                    if (TypeConverter.ToBoolean(testResult))
+                    if (TryGetValue(k, out var kvalue) || visitUnassigned)
                     {
-                        index = k;
-                        value = kvalue;
-                        return true;
+                        kvalue ??= Undefined;
+                        args[0] = kvalue;
+                        args[1] = k;
+                        var testResult = callable.Call(thisArg, args);
+                        if (TypeConverter.ToBoolean(testResult))
+                        {
+                            index = k;
+                            value = kvalue;
+                            return true;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                for (long k = len - 1; k >= 0; k--)
+                {
+                    var idx = (uint) k;
+                    if (TryGetValue(idx, out var kvalue) || visitUnassigned)
+                    {
+                        kvalue ??= Undefined;
+                        args[0] = kvalue;
+                        args[1] = idx;
+                        var testResult = callable.Call(thisArg, args);
+                        if (TypeConverter.ToBoolean(testResult))
+                        {
+                            index = idx;
+                            value = kvalue;
+                            return true;
+                        }
                     }
                 }
             }
         }
-        else
+        finally
         {
-            for (long k = len - 1; k >= 0; k--)
-            {
-                var idx = (uint) k;
-                if (TryGetValue(idx, out var kvalue) || visitUnassigned)
-                {
-                    kvalue ??= Undefined;
-                    args[0] = kvalue;
-                    args[1] = idx;
-                    var testResult = callable.Call(thisArg, args);
-                    if (TypeConverter.ToBoolean(testResult))
-                    {
-                        index = idx;
-                        value = kvalue;
-                        return true;
-                    }
-                }
-            }
+            _engine._jsValueArrayPool.ReturnArray(args);
         }
-
-        _engine._jsValueArrayPool.ReturnArray(args);
 
         index = 0;
         value = Undefined;

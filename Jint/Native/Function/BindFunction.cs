@@ -49,10 +49,14 @@ public sealed class BindFunction : ObjectInstance, IConstructor, ICallable
         }
 
         var args = CreateArguments(arguments);
-        var value = f.Call(BoundThis, args);
-        _engine._jsValueArrayPool.ReturnArray(args);
-
-        return value;
+        try
+        {
+            return f.Call(BoundThis, args);
+        }
+        finally
+        {
+            _engine._jsValueArrayPool.ReturnArray(args);
+        }
     }
 
     ObjectInstance IConstructor.Construct(JsCallArguments arguments, JsValue newTarget)
@@ -70,10 +74,14 @@ public sealed class BindFunction : ObjectInstance, IConstructor, ICallable
             newTarget = BoundTargetFunction;
         }
 
-        var value = target.Construct(args, newTarget);
-        _engine._jsValueArrayPool.ReturnArray(args);
-
-        return value;
+        try
+        {
+            return target.Construct(args, newTarget);
+        }
+        finally
+        {
+            _engine._jsValueArrayPool.ReturnArray(args);
+        }
     }
 
     internal override bool OrdinaryHasInstance(JsValue v)

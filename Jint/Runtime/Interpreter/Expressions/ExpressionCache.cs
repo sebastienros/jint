@@ -78,7 +78,16 @@ internal sealed class ExpressionCache
         var arguments = context.Engine._jsValueArrayPool.RentArray(_expressions.Length);
         rented = true;
 
-        BuildArguments(context, arguments);
+        try
+        {
+            BuildArguments(context, arguments);
+        }
+        catch
+        {
+            context.Engine._jsValueArrayPool.ReturnArray(arguments);
+            rented = false;
+            throw;
+        }
 
         return arguments;
     }

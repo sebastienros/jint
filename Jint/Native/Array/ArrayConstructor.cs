@@ -609,26 +609,31 @@ public sealed partial class ArrayConstructor : Constructor
 
         var target = ArrayOperations.For(a, forWrite: true);
         uint n = 0;
-        for (uint i = 0; i < length; i++)
+        try
         {
-            var value = source.Get(i);
+            for (uint i = 0; i < length; i++)
+            {
+                var value = source.Get(i);
+                if (callable is not null)
+                {
+                    args![0] = value;
+                    args[1] = i;
+                    value = callable.Call(thisArg, args);
+
+                    // function can alter data
+                    length = source.GetLength();
+                }
+
+                target.CreateDataPropertyOrThrow(i, value);
+                n++;
+            }
+        }
+        finally
+        {
             if (callable is not null)
             {
-                args![0] = value;
-                args[1] = i;
-                value = callable.Call(thisArg, args);
-
-                // function can alter data
-                length = source.GetLength();
+                _engine._jsValueArrayPool.ReturnArray(args!);
             }
-
-            target.CreateDataPropertyOrThrow(i, value);
-            n++;
-        }
-
-        if (callable is not null)
-        {
-            _engine._jsValueArrayPool.ReturnArray(args!);
         }
 
         target.SetLength(length);
@@ -874,14 +879,20 @@ public sealed partial class ArrayConstructor : Constructor
     {
         var jsArray = Construct(Arguments.Empty);
         var tempArray = _engine._jsValueArrayPool.RentArray(1);
-        foreach (var item in enumerable)
+        try
         {
-            var jsItem = FromObject(Engine, item);
-            tempArray[0] = jsItem;
-            _realm.Intrinsics.Array.PrototypeObject.Push(jsArray, tempArray);
+            foreach (var item in enumerable)
+            {
+                var jsItem = FromObject(Engine, item);
+                tempArray[0] = jsItem;
+                _realm.Intrinsics.Array.PrototypeObject.Push(jsArray, tempArray);
+            }
+        }
+        finally
+        {
+            _engine._jsValueArrayPool.ReturnArray(tempArray);
         }
 
-        _engine._jsValueArrayPool.ReturnArray(tempArray);
         return jsArray;
     }
 

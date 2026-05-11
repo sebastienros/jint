@@ -392,17 +392,22 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
 
         var args = _engine._jsValueArrayPool.RentArray(3);
         args[2] = o;
-        for (var k = 0; k < len; k++)
+        try
         {
-            args[0] = o[k];
-            args[1] = k;
-            if (!TypeConverter.ToBoolean(predicate.Call(thisArg, args)))
+            for (var k = 0; k < len; k++)
             {
-                return JsBoolean.False;
+                args[0] = o[k];
+                args[1] = k;
+                if (!TypeConverter.ToBoolean(predicate.Call(thisArg, args)))
+                {
+                    return JsBoolean.False;
+                }
             }
         }
-
-        _engine._jsValueArrayPool.ReturnArray(args);
+        finally
+        {
+            _engine._jsValueArrayPool.ReturnArray(args);
+        }
 
         return JsBoolean.True;
     }
@@ -499,20 +504,25 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
 
         var args = _engine._jsValueArrayPool.RentArray(3);
         args[2] = o;
-        for (var k = 0; k < len; k++)
+        try
         {
-            var kValue = o[k];
-            args[0] = kValue;
-            args[1] = k;
-            var selected = callbackfn.Call(thisArg, args);
-            if (TypeConverter.ToBoolean(selected))
+            for (var k = 0; k < len; k++)
             {
-                kept.Add(kValue);
-                captured++;
+                var kValue = o[k];
+                args[0] = kValue;
+                args[1] = k;
+                var selected = callbackfn.Call(thisArg, args);
+                if (TypeConverter.ToBoolean(selected))
+                {
+                    kept.Add(kValue);
+                    captured++;
+                }
             }
         }
-
-        _engine._jsValueArrayPool.ReturnArray(args);
+        finally
+        {
+            _engine._jsValueArrayPool.ReturnArray(args);
+        }
 
         var a = _realm.Intrinsics.TypedArray.TypedArraySpeciesCreate(o, [captured]);
         for (var n = 0; n < captured; ++n)
@@ -568,33 +578,40 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
 
         var args = _engine._jsValueArrayPool.RentArray(3);
         args[2] = o;
-        if (!fromEnd)
+        try
         {
-            for (var k = 0; k < len; k++)
+            if (!fromEnd)
             {
-                var kNumber = JsNumber.Create(k);
-                var kValue = o[k];
-                args[0] = kValue;
-                args[1] = kNumber;
-                if (TypeConverter.ToBoolean(predicate.Call(thisArg, args)))
+                for (var k = 0; k < len; k++)
                 {
-                    return new KeyValuePair<JsValue, JsValue>(kNumber, kValue);
+                    var kNumber = JsNumber.Create(k);
+                    var kValue = o[k];
+                    args[0] = kValue;
+                    args[1] = kNumber;
+                    if (TypeConverter.ToBoolean(predicate.Call(thisArg, args)))
+                    {
+                        return new KeyValuePair<JsValue, JsValue>(kNumber, kValue);
+                    }
+                }
+            }
+            else
+            {
+                for (var k = (int) (len - 1); k >= 0; k--)
+                {
+                    var kNumber = JsNumber.Create(k);
+                    var kValue = o[k];
+                    args[0] = kValue;
+                    args[1] = kNumber;
+                    if (TypeConverter.ToBoolean(predicate.Call(thisArg, args)))
+                    {
+                        return new KeyValuePair<JsValue, JsValue>(kNumber, kValue);
+                    }
                 }
             }
         }
-        else
+        finally
         {
-            for (var k = (int) (len - 1); k >= 0; k--)
-            {
-                var kNumber = JsNumber.Create(k);
-                var kValue = o[k];
-                args[0] = kValue;
-                args[1] = kNumber;
-                if (TypeConverter.ToBoolean(predicate.Call(thisArg, args)))
-                {
-                    return new KeyValuePair<JsValue, JsValue>(kNumber, kValue);
-                }
-            }
+            _engine._jsValueArrayPool.ReturnArray(args);
         }
 
         return new KeyValuePair<JsValue, JsValue>(JsNumber.IntegerNegativeOne, Undefined);
@@ -614,15 +631,20 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
 
         var args = _engine._jsValueArrayPool.RentArray(3);
         args[2] = o;
-        for (var k = 0; k < len; k++)
+        try
         {
-            var kValue = o[k];
-            args[0] = kValue;
-            args[1] = k;
-            callbackfn.Call(thisArg, args);
+            for (var k = 0; k < len; k++)
+            {
+                var kValue = o[k];
+                args[0] = kValue;
+                args[1] = k;
+                callbackfn.Call(thisArg, args);
+            }
         }
-
-        _engine._jsValueArrayPool.ReturnArray(args);
+        finally
+        {
+            _engine._jsValueArrayPool.ReturnArray(args);
+        }
 
         return Undefined;
     }
@@ -857,15 +879,21 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         var a = _realm.Intrinsics.TypedArray.TypedArraySpeciesCreate(o, [len]);
         var args = _engine._jsValueArrayPool.RentArray(3);
         args[2] = o;
-        for (var k = 0; k < len; k++)
+        try
         {
-            args[0] = o[k];
-            args[1] = k;
-            var mappedValue = callable.Call(thisArg, args);
-            a[k] = mappedValue;
+            for (var k = 0; k < len; k++)
+            {
+                args[0] = o[k];
+                args[1] = k;
+                var mappedValue = callable.Call(thisArg, args);
+                a[k] = mappedValue;
+            }
+        }
+        finally
+        {
+            _engine._jsValueArrayPool.ReturnArray(args);
         }
 
-        _engine._jsValueArrayPool.ReturnArray(args);
         return a;
     }
 
@@ -903,17 +931,22 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
 
         var args = _engine._jsValueArrayPool.RentArray(4);
         args[3] = o;
-        while (k < len)
+        try
         {
-            var kValue = o[k];
-            args[0] = accumulator;
-            args[1] = kValue;
-            args[2] = k;
-            accumulator = callbackfn.Call(Undefined, args);
-            k++;
+            while (k < len)
+            {
+                var kValue = o[k];
+                args[0] = accumulator;
+                args[1] = kValue;
+                args[2] = k;
+                accumulator = callbackfn.Call(Undefined, args);
+                k++;
+            }
         }
-
-        _engine._jsValueArrayPool.ReturnArray(args);
+        finally
+        {
+            _engine._jsValueArrayPool.ReturnArray(args);
+        }
 
         return accumulator;
     }
@@ -951,15 +984,21 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
 
         var jsValues = _engine._jsValueArrayPool.RentArray(4);
         jsValues[3] = o;
-        for (; k >= 0; k--)
+        try
         {
-            jsValues[0] = accumulator;
-            jsValues[1] = o[(int) k];
-            jsValues[2] = k;
-            accumulator = callbackfn.Call(Undefined, jsValues);
+            for (; k >= 0; k--)
+            {
+                jsValues[0] = accumulator;
+                jsValues[1] = o[(int) k];
+                jsValues[2] = k;
+                accumulator = callbackfn.Call(Undefined, jsValues);
+            }
+        }
+        finally
+        {
+            _engine._jsValueArrayPool.ReturnArray(jsValues);
         }
 
-        _engine._jsValueArrayPool.ReturnArray(jsValues);
         return accumulator;
     }
 
@@ -1284,17 +1323,23 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
 
         var args = _engine._jsValueArrayPool.RentArray(3);
         args[2] = o;
-        for (var k = 0; k < len; k++)
+        try
         {
-            args[0] = o[k];
-            args[1] = k;
-            if (TypeConverter.ToBoolean(callbackfn.Call(thisArg, args)))
+            for (var k = 0; k < len; k++)
             {
-                return JsBoolean.True;
+                args[0] = o[k];
+                args[1] = k;
+                if (TypeConverter.ToBoolean(callbackfn.Call(thisArg, args)))
+                {
+                    return JsBoolean.True;
+                }
             }
         }
+        finally
+        {
+            _engine._jsValueArrayPool.ReturnArray(args);
+        }
 
-        _engine._jsValueArrayPool.ReturnArray(args);
         return JsBoolean.False;
     }
 

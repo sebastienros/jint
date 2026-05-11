@@ -580,9 +580,14 @@ public static class JsValueExtensions
             var engine = objectInstance.Engine;
             var arguments = engine._jsValueArrayPool.RentArray(1);
             arguments[0] = arg1;
-            var result = engine.Call(value, arguments);
-            engine._jsValueArrayPool.ReturnArray(arguments);
-            return result;
+            try
+            {
+                return engine.Call(value, arguments);
+            }
+            finally
+            {
+                engine._jsValueArrayPool.ReturnArray(arguments);
+            }
         }
 
         return ThrowNotObject(value);
@@ -597,9 +602,14 @@ public static class JsValueExtensions
             var arguments = engine._jsValueArrayPool.RentArray(2);
             arguments[0] = arg1;
             arguments[1] = arg2;
-            var result = engine.Call(value, arguments);
-            engine._jsValueArrayPool.ReturnArray(arguments);
-            return result;
+            try
+            {
+                return engine.Call(value, arguments);
+            }
+            finally
+            {
+                engine._jsValueArrayPool.ReturnArray(arguments);
+            }
         }
 
         return ThrowNotObject(value);
@@ -615,9 +625,14 @@ public static class JsValueExtensions
             arguments[0] = arg1;
             arguments[1] = arg2;
             arguments[2] = arg3;
-            var result = engine.Call(value, arguments);
-            engine._jsValueArrayPool.ReturnArray(arguments);
-            return result;
+            try
+            {
+                return engine.Call(value, arguments);
+            }
+            finally
+            {
+                engine._jsValueArrayPool.ReturnArray(arguments);
+            }
         }
 
         return ThrowNotObject(value);

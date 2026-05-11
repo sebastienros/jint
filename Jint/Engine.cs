@@ -858,33 +858,39 @@ public sealed partial class Engine : IDisposable
                 items[i] = JsValue.FromObject(this, arguments[i]);
             }
 
-            // ensure logic is in sync between Call, Construct, engine.Invoke and JintCallExpression!
-            JsValue result;
             var thisObject = JsValue.FromObject(this, thisObj);
-            if (callable is Function functionInstance)
+            try
             {
-                var callStack = CallStack;
-                callStack.Push(functionInstance, expression: null, ExecutionContext);
-                try
+                // ensure logic is in sync between Call, Construct, engine.Invoke and JintCallExpression!
+                JsValue result;
+                if (callable is Function functionInstance)
                 {
-                    result = functionInstance.Call(thisObject, items);
-                }
-                finally
-                {
-                    // if call stack was reset due to recursive call to engine or similar, we might not have it anymore
-                    if (callStack.Count > 0)
+                    var callStack = CallStack;
+                    callStack.Push(functionInstance, expression: null, ExecutionContext);
+                    try
                     {
-                        callStack.Pop();
+                        result = functionInstance.Call(thisObject, items);
+                    }
+                    finally
+                    {
+                        // if call stack was reset due to recursive call to engine or similar, we might not have it anymore
+                        if (callStack.Count > 0)
+                        {
+                            callStack.Pop();
+                        }
                     }
                 }
-            }
-            else
-            {
-                result = callable.Call(thisObject, items);
-            }
+                else
+                {
+                    result = callable.Call(thisObject, items);
+                }
 
-            _jsValueArrayPool.ReturnArray(items);
-            return result;
+                return result;
+            }
+            finally
+            {
+                _jsValueArrayPool.ReturnArray(items);
+            }
         }
 
         return ExecuteWithConstraints(Options.Strict, DoInvoke);

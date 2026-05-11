@@ -1195,46 +1195,50 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
 
         var args = _engine._jsValueArrayPool.RentArray(3);
         args[2] = this;
-
-        if (!fromEnd)
+        try
         {
-            for (ulong k = 0; k < length; k++)
+            if (!fromEnd)
             {
-                if (TryGetValue(k, out var kvalue) || visitUnassigned)
+                for (ulong k = 0; k < length; k++)
                 {
-                    args[0] = kvalue;
-                    args[1] = k;
-                    var testResult = callable.Call(thisArg, args);
-                    if (TypeConverter.ToBoolean(testResult))
+                    if (TryGetValue(k, out var kvalue) || visitUnassigned)
                     {
-                        index = k;
-                        value = kvalue;
-                        return true;
+                        args[0] = kvalue;
+                        args[1] = k;
+                        var testResult = callable.Call(thisArg, args);
+                        if (TypeConverter.ToBoolean(testResult))
+                        {
+                            index = k;
+                            value = kvalue;
+                            return true;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                for (var k = (long) (length - 1); k >= 0; k--)
+                {
+                    if (TryGetValue((ulong) k, out var kvalue) || visitUnassigned)
+                    {
+                        kvalue ??= Undefined;
+                        args[0] = kvalue;
+                        args[1] = k;
+                        var testResult = callable.Call(thisArg, args);
+                        if (TypeConverter.ToBoolean(testResult))
+                        {
+                            index = (ulong) k;
+                            value = kvalue;
+                            return true;
+                        }
                     }
                 }
             }
         }
-        else
+        finally
         {
-            for (var k = (long) (length - 1); k >= 0; k--)
-            {
-                if (TryGetValue((ulong) k, out var kvalue) || visitUnassigned)
-                {
-                    kvalue ??= Undefined;
-                    args[0] = kvalue;
-                    args[1] = k;
-                    var testResult = callable.Call(thisArg, args);
-                    if (TypeConverter.ToBoolean(testResult))
-                    {
-                        index = (ulong) k;
-                        value = kvalue;
-                        return true;
-                    }
-                }
-            }
+            _engine._jsValueArrayPool.ReturnArray(args);
         }
-
-        _engine._jsValueArrayPool.ReturnArray(args);
 
         index = 0;
         value = Undefined;

@@ -94,34 +94,39 @@ public sealed class JsMap : ObjectInstance, IEnumerable<KeyValuePair<JsValue, Js
         var args = _engine._jsValueArrayPool.RentArray(3);
         args[2] = this;
 
-        var i = 0;
-        while (i < _map.Count)
+        try
         {
-            var key = _map.GetKey(i);
-            args[0] = _map[key];
-            args[1] = key;
-            callable.Call(thisArg, args);
+            var i = 0;
+            while (i < _map.Count)
+            {
+                var key = _map.GetKey(i);
+                args[0] = _map[key];
+                args[1] = key;
+                callable.Call(thisArg, args);
 
-            // Adjust position for mutations during callback
-            if (i < _map.Count && ReferenceEquals(_map.GetKey(i), key))
-            {
-                // Common fast path: key still at same position
-                i++;
-            }
-            else if (_map.ContainsKey(key))
-            {
-                var newIndex = _map.IndexOf(key);
-                if (newIndex < i)
+                // Adjust position for mutations during callback
+                if (i < _map.Count && ReferenceEquals(_map.GetKey(i), key))
                 {
-                    // Key moved backward (entries before it were deleted)
-                    i = newIndex + 1;
+                    // Common fast path: key still at same position
+                    i++;
                 }
-                // else: key was deleted and re-added at end, keep i (entries shifted left)
+                else if (_map.ContainsKey(key))
+                {
+                    var newIndex = _map.IndexOf(key);
+                    if (newIndex < i)
+                    {
+                        // Key moved backward (entries before it were deleted)
+                        i = newIndex + 1;
+                    }
+                    // else: key was deleted and re-added at end, keep i (entries shifted left)
+                }
+                // else: key was deleted, entries shifted left so i now points to next entry
             }
-            // else: key was deleted, entries shifted left so i now points to next entry
         }
-
-        _engine._jsValueArrayPool.ReturnArray(args);
+        finally
+        {
+            _engine._jsValueArrayPool.ReturnArray(args);
+        }
     }
 
     internal ObjectInstance Iterator() => _realm.Intrinsics.MapIteratorPrototype.ConstructEntryIterator(this);
