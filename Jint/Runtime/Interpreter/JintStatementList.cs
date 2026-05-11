@@ -106,6 +106,15 @@ internal sealed class JintStatementList
 
                 if (c.Type != CompletionType.Normal)
                 {
+                    if (!context.IsSuspended())
+                    {
+                        var asyncFunction = context.Engine.ExecutionContext.AsyncFunction;
+                        if (asyncFunction?._body != this)
+                        {
+                            Reset();
+                        }
+                    }
+
                     return c.UpdateEmpty(sl.Value);
                 }
 

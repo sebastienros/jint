@@ -18,6 +18,269 @@ public class AsyncTests
     }
 
     [Fact]
+    public void ShouldResumeAwaitInsideCatchWithoutReexecutingTryBlock()
+    {
+        var engine = new Engine();
+
+        var result = engine.Evaluate("""
+            (async () => {
+                let tries = 0;
+                try {
+                    tries++;
+                    await Promise.reject(new Error("boom"));
+                } catch (e) {
+                    await Promise.resolve();
+                    return tries;
+                }
+            })()
+            """).UnwrapIfPromise(TimeSpan.FromSeconds(1));
+
+        Assert.Equal(1, result.AsNumber());
+    }
+
+    [Fact]
+    public void ShouldNotLeakCatchBindingAfterAwaitInsideCatch()
+    {
+        var result = EvaluateAsyncJson("""
+            try {
+                throw 1;
+            } catch (e) {
+                await Promise.resolve();
+            }
+
+            try {
+                return { leaked: true, value: e };
+            } catch (err) {
+                return { leaked: false, name: err.name };
+            }
+            """);
+
+        Assert.Equal("""{"leaked":false,"name":"ReferenceError"}""", result);
+    }
+
+    [Fact]
+    public void ShouldPreserveCatchBindingAfterAwaitInsideCatch()
+    {
+        var result = EvaluateAsyncJson("""
+            try {
+                throw 42;
+            } catch (e) {
+                await Promise.resolve();
+                return { value: e };
+            }
+            """);
+
+        Assert.Equal("""{"value":42}""", result);
+    }
+
+    [Fact]
+    public void ShouldPreserveCatchReturnAcrossAwaitedFinallyAfterCatchResume()
+    {
+        var engine = new Engine();
+
+        var result = engine.Evaluate("""
+            (async () => {
+                try {
+                    throw 1;
+                } catch {
+                    await Promise.resolve();
+                    return 2;
+                } finally {
+                    await Promise.resolve();
+                }
+            })()
+            """).UnwrapIfPromise(TimeSpan.FromSeconds(1));
+
+        Assert.Equal(2, result.AsInteger());
+    }
+
+    [Fact]
+    public void ShouldPreserveCatchThrowAcrossAwaitedFinallyAfterCatchResume()
+    {
+        var engine = new Engine();
+
+        var result = engine.Evaluate("""
+            (async () => {
+                try {
+                    throw 1;
+                } catch {
+                    await Promise.resolve();
+                    throw 4;
+                } finally {
+                    await Promise.resolve();
+                }
+            })()
+            """);
+
+        var exception = Assert.Throws<PromiseRejectedException>(() => result.UnwrapIfPromise(TimeSpan.FromSeconds(1)));
+        Assert.Equal(4, exception.RejectedValue.AsInteger());
+    }
+
+    [Fact]
+    public void ShouldResumeAwaitInsideIfWithoutReexecutingTest()
+    {
+        var result = EvaluateAsyncJson("""
+            let tests = 0;
+            if (++tests === 1) {
+                await Promise.resolve();
+                return { tests };
+            }
+            return { tests, fellThrough: true };
+            """);
+
+        Assert.Equal("""{"tests":1}""", result);
+    }
+
+    [Fact]
+    public void ShouldNotExecuteElseWhileIfTestIsSuspended()
+    {
+        var result = EvaluateAsyncJson("""
+            let sideEffects = 0;
+            if (await Promise.resolve(true)) {
+            } else {
+                sideEffects++;
+            }
+            return { sideEffects };
+            """);
+
+        Assert.Equal("""{"sideEffects":0}""", result);
+    }
+
+    [Fact]
+    public void ShouldResumeAwaitInsideWhileBodyWithoutReexecutingTest()
+    {
+        var result = EvaluateAsyncJson("""
+            let tests = 0;
+            let bodies = 0;
+            while (++tests <= 1) {
+                bodies++;
+                await Promise.resolve();
+                return { tests, bodies };
+            }
+            return { tests, bodies, fellThrough: true };
+            """);
+
+        Assert.Equal("""{"tests":1,"bodies":1}""", result);
+    }
+
+    [Fact]
+    public void ShouldResumeAwaitInsideForBodyWithoutReexecutingTest()
+    {
+        var result = EvaluateAsyncJson("""
+            let inits = 0;
+            let tests = 0;
+            let updates = 0;
+            let bodies = 0;
+            for (inits++; ++tests <= 1; updates++) {
+                bodies++;
+                await Promise.resolve();
+                return { inits, tests, updates, bodies };
+            }
+            return { inits, tests, updates, bodies, fellThrough: true };
+            """);
+
+        Assert.Equal("""{"inits":1,"tests":1,"updates":0,"bodies":1}""", result);
+    }
+
+    [Fact]
+    public void ShouldResumeAwaitInsideForUpdateWithoutReexecutingBody()
+    {
+        var result = EvaluateAsyncJson("""
+            let bodies = 0;
+            for (let i = 0; i < 1; i += await Promise.resolve(1)) {
+                bodies++;
+            }
+            return { bodies };
+            """);
+
+        Assert.Equal("""{"bodies":1}""", result);
+    }
+
+    [Fact]
+    public void ShouldResumeAwaitInsideSwitchCaseWithoutReexecutingDiscriminant()
+    {
+        var result = EvaluateAsyncJson("""
+            let discriminants = 0;
+            switch (++discriminants) {
+                case 1:
+                    await Promise.resolve();
+                    return { discriminants };
+                default:
+                    return { discriminants, fellThrough: true };
+            }
+            """);
+
+        Assert.Equal("""{"discriminants":1}""", result);
+    }
+
+    [Fact]
+    public void ShouldResumeAwaitInsideSwitchCaseTestBeforeMatchingCase()
+    {
+        var result = EvaluateAsyncJson("""
+            switch (0) {
+                case await Promise.resolve(1):
+                    return { matched: true };
+                default:
+                    return { matched: false };
+            }
+            """);
+
+        Assert.Equal("""{"matched":false}""", result);
+    }
+
+    [Fact]
+    public void ShouldPreserveSwitchLexicalBindingAfterAwaitInsideCase()
+    {
+        var result = EvaluateAsyncJson("""
+            switch (1) {
+                case 1:
+                    let x = 1;
+                    await Promise.resolve();
+                    return { x };
+                default:
+                    return { x: 0 };
+            }
+            """);
+
+        Assert.Equal("""{"x":1}""", result);
+    }
+
+    [Fact]
+    public void ShouldClearSwitchSuspendDataAfterResumedBreak()
+    {
+        var result = EvaluateAsyncJson("""
+            const values = [];
+            for (let i = 0; i < 2; i++) {
+                switch (1) {
+                    case 1:
+                        let x = i;
+                        await Promise.resolve();
+                        values.push(x);
+                        break;
+                }
+            }
+            return { values };
+            """);
+
+        Assert.Equal("""{"values":[0,1]}""", result);
+    }
+
+    [Fact]
+    public void ShouldResumeAwaitInsideDoWhileTestWithoutReexecutingBody()
+    {
+        var result = EvaluateAsyncJson("""
+            let tests = 0;
+            let bodies = 0;
+            do {
+                bodies++;
+            } while (++tests < await Promise.resolve(1));
+            return { tests, bodies };
+            """);
+
+        Assert.Equal("""{"tests":1,"bodies":1}""", result);
+    }
+
+    [Fact]
     public void ShouldTaskConvertedToPromiseInJS()
     {
         Engine engine = new();
@@ -32,6 +295,16 @@ public class AsyncTests
             Assert.True(true);
             return 1;
         }
+    }
+
+    private static string EvaluateAsyncJson(string body)
+    {
+        var engine = new Engine();
+        return engine.Evaluate($$"""
+            (async () => {
+                {{body}}
+            })().then(JSON.stringify)
+            """).UnwrapIfPromise(TimeSpan.FromSeconds(1)).AsString();
     }
 
     [Fact]

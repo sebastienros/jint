@@ -23,36 +23,45 @@ internal sealed class JintDoWhileStatement : JintStatement<DoWhileStatement>
     {
         JsValue v = JsValue.Undefined;
         bool iterating;
+        var suspensionNode = GetSuspensionNode(context.Engine.ExecutionContext.Suspendable);
+        var skipBodyOnce = suspensionNode is not null && IsNodeInsideRange(suspensionNode, _statement.Test.Range);
 
         do
         {
             context.Engine.ExecutionContext.ClearCompletedAwaitsIfNotResuming();
 
-            var completion = _body.Execute(context);
-            if (!completion.Value.IsEmpty)
+            if (!skipBodyOnce)
             {
-                v = completion.Value;
-            }
-
-            // Check for generator suspension - if the generator is suspended, we need to exit the loop
-            if (context.IsSuspended())
-            {
-                var generator = context.Engine.ExecutionContext.Generator;
-                var suspendedValue = generator?._suspendedValue ?? completion.Value;
-                return new Completion(CompletionType.Return, suspendedValue, _statement);
-            }
-
-            if (completion.Type != CompletionType.Continue || !string.Equals(context.Target, _labelSetName, StringComparison.Ordinal))
-            {
-                if (completion.Type == CompletionType.Break && (context.Target == null || string.Equals(context.Target, _labelSetName, StringComparison.Ordinal)))
+                var completion = _body.Execute(context);
+                if (!completion.Value.IsEmpty)
                 {
-                    return new Completion(CompletionType.Normal, v, _statement);
+                    v = completion.Value;
                 }
 
-                if (completion.Type != CompletionType.Normal)
+                // Check for generator suspension - if the generator is suspended, we need to exit the loop
+                if (context.IsSuspended())
                 {
-                    return completion;
+                    var generator = context.Engine.ExecutionContext.Generator;
+                    var suspendedValue = generator?._suspendedValue ?? completion.Value;
+                    return new Completion(CompletionType.Return, suspendedValue, _statement);
                 }
+
+                if (completion.Type != CompletionType.Continue || !string.Equals(context.Target, _labelSetName, StringComparison.Ordinal))
+                {
+                    if (completion.Type == CompletionType.Break && (context.Target == null || string.Equals(context.Target, _labelSetName, StringComparison.Ordinal)))
+                    {
+                        return new Completion(CompletionType.Normal, v, _statement);
+                    }
+
+                    if (completion.Type != CompletionType.Normal)
+                    {
+                        return completion;
+                    }
+                }
+            }
+            else
+            {
+                skipBodyOnce = false;
             }
 
             if (context.DebugMode)

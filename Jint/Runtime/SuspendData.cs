@@ -81,6 +81,44 @@ internal sealed class ForLoopSuspendData : SuspendData
     /// The saved values of loop variables (let bindings in for loop init).
     /// </summary>
     public Dictionary<Key, JsValue>? BoundValues { get; set; }
+
+    /// <summary>
+    /// The accumulated completion value from previous iterations.
+    /// </summary>
+    public JsValue AccumulatedValue { get; set; } = JsValue.Undefined;
+}
+
+internal sealed class SwitchBlockSuspendData : SuspendData
+{
+    public JsValue Input { get; set; } = JsValue.Undefined;
+
+    public int DefaultCaseIndex { get; set; } = -1;
+
+    public JsValue AccumulatedValue { get; set; } = JsValue.Undefined;
+
+    public DeclarativeEnvironment? BlockEnvironment { get; set; }
+
+    public Environments.Environment? OuterEnvironment { get; set; }
+}
+
+/// <summary>
+/// Stores the left operand of a binary expression when evaluation suspends while
+/// evaluating the right operand.
+/// </summary>
+internal sealed class BinaryExpressionSuspendData : SuspendData
+{
+    public JsValue LeftValue { get; set; } = JsValue.Undefined;
+}
+
+/// <summary>
+/// Stores the outer lexical environment for a catch clause when execution suspends
+/// inside the catch body.
+/// </summary>
+internal sealed class CatchSuspendData : SuspendData
+{
+    public DeclarativeEnvironment? CatchEnvironment { get; set; }
+
+    public Environments.Environment? OuterEnvironment { get; set; }
 }
 
 /// <summary>

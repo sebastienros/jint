@@ -74,20 +74,15 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
         // If resuming from init expression, we must re-execute init to complete pending nested awaits
         var suspendable = engine.ExecutionContext.Suspendable;
 
-        // Get the resume node from the unified interface
-        Node? resumeNode = null;
-        if (suspendable is { IsResuming: true, LastSuspensionNode: not null })
-        {
-            // LastSuspensionNode could be a Node directly (yield) or a JintExpression (await)
-            resumeNode = suspendable.LastSuspensionNode as Node
-                ?? (suspendable.LastSuspensionNode as JintExpression)?._expression as Node;
-        }
+        var resumeNode = GetSuspensionNode(suspendable);
 
         // Only skip init when resuming from body/test/update, NOT from init
         var resumingInLoop = resumeNode is not null && IsNodeInsideForStatementExcludingInit(resumeNode);
+        var resumingInBody = resumeNode is not null && IsNodeInsideRange(resumeNode, _statement.Body.Range);
+        var resumingInUpdate = resumeNode is not null && _statement.Update is not null && IsNodeInsideRange(resumeNode, _statement.Update.Range);
 
         ForLoopSuspendData? suspendData = null;
-        if (resumingInLoop && _boundNames != null)
+        if (resumingInLoop)
         {
             suspendable?.Data.TryGet(this, out suspendData);
         }
@@ -152,7 +147,7 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                 }
             }
 
-            completion = ForBodyEvaluation(context);
+            completion = ForBodyEvaluation(context, suspendData?.AccumulatedValue ?? JsValue.Undefined, skipTestOnce: resumingInBody, resumeUpdateOnce: resumingInUpdate);
             return completion;
         }
         finally
@@ -230,11 +225,11 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
     /// <summary>
     /// https://tc39.es/ecma262/#sec-forbodyevaluation
     /// </summary>
-    private Completion ForBodyEvaluation(EvaluationContext context)
+    private Completion ForBodyEvaluation(EvaluationContext context, JsValue initialValue, bool skipTestOnce, bool resumeUpdateOnce)
     {
-        var v = JsValue.Undefined;
+        var v = initialValue;
 
-        if (_shouldCreatePerIterationEnvironment && !_canReuseIterationEnvironment)
+        if (!resumeUpdateOnce && _shouldCreatePerIterationEnvironment && !_canReuseIterationEnvironment)
         {
             CreatePerIterationEnvironment(context);
         }
@@ -245,7 +240,7 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
         {
             context.Engine.ExecutionContext.ClearCompletedAwaitsIfNotResuming();
 
-            if (_test != null)
+            if (!resumeUpdateOnce && !skipTestOnce && _test != null)
             {
                 debugHandler?.OnStep(_test._expression);
 
@@ -254,44 +249,54 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                     // Check for async suspension in test expression
                     if (context.IsSuspended())
                     {
+                        SaveAccumulatedValue(context, v);
                         return new Completion(CompletionType.Return, JsValue.Undefined, ((JintStatement) this)._statement);
                     }
 
+                    context.Engine.ExecutionContext.Suspendable?.Data.Clear(this);
                     return new Completion(CompletionType.Normal, v, ((JintStatement) this)._statement);
                 }
             }
 
-            var result = _body.Execute(context);
-            if (!result.Value.IsEmpty)
-            {
-                v = result.Value;
-            }
+            skipTestOnce = false;
 
-            // Check for suspension - if suspended, we need to exit the loop
             var suspendable = context.Engine.ExecutionContext.Suspendable;
-            if (context.IsSuspended())
+            if (!resumeUpdateOnce)
             {
-                var suspendedValue = suspendable?.SuspendedValue ?? result.Value;
-                return new Completion(CompletionType.Return, suspendedValue, ((JintStatement) this)._statement);
-            }
-
-            if (result.Type == CompletionType.Break && (context.Target == null || string.Equals(context.Target, _statement?.LabelSet?.Name, StringComparison.Ordinal)))
-            {
-                return new Completion(CompletionType.Normal, result.Value, ((JintStatement) this)._statement);
-            }
-
-            if (result.Type != CompletionType.Continue || (context.Target != null && !string.Equals(context.Target, _statement?.LabelSet?.Name, StringComparison.Ordinal)))
-            {
-                if (result.Type != CompletionType.Normal)
+                var result = _body.Execute(context);
+                if (!result.Value.IsEmpty)
                 {
-                    return result;
+                    v = result.Value;
+                }
+
+                // Check for suspension - if suspended, we need to exit the loop
+                if (context.IsSuspended())
+                {
+                    SaveAccumulatedValue(context, v);
+                    var suspendedValue = suspendable?.SuspendedValue ?? result.Value;
+                    return new Completion(CompletionType.Return, suspendedValue, ((JintStatement) this)._statement);
+                }
+
+                if (result.Type == CompletionType.Break && (context.Target == null || string.Equals(context.Target, _statement?.LabelSet?.Name, StringComparison.Ordinal)))
+                {
+                    suspendable?.Data.Clear(this);
+                    return new Completion(CompletionType.Normal, result.Value, ((JintStatement) this)._statement);
+                }
+
+                if (result.Type != CompletionType.Continue || (context.Target != null && !string.Equals(context.Target, _statement?.LabelSet?.Name, StringComparison.Ordinal)))
+                {
+                    if (result.Type != CompletionType.Normal)
+                    {
+                        return result;
+                    }
+                }
+
+                if (_shouldCreatePerIterationEnvironment && !_canReuseIterationEnvironment)
+                {
+                    CreatePerIterationEnvironment(context);
                 }
             }
-
-            if (_shouldCreatePerIterationEnvironment && !_canReuseIterationEnvironment)
-            {
-                CreatePerIterationEnvironment(context);
-            }
+            resumeUpdateOnce = false;
 
             if (_increment != null)
             {
@@ -301,6 +306,7 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                 // Check for suspension in update expression (e.g., yield in the update)
                 if (context.IsSuspended())
                 {
+                    SaveAccumulatedValue(context, v);
                     var suspendedValue = suspendable?.SuspendedValue ?? JsValue.Undefined;
                     return new Completion(CompletionType.Return, suspendedValue, ((JintStatement) this)._statement);
                 }
@@ -312,6 +318,15 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                     return new Completion(CompletionType.Return, returnValue, ((JintStatement) this)._statement);
                 }
             }
+        }
+    }
+
+    private void SaveAccumulatedValue(EvaluationContext context, JsValue value)
+    {
+        var suspendable = context.Engine.ExecutionContext.Suspendable;
+        if (suspendable is not null)
+        {
+            suspendable.Data.GetOrCreate<ForLoopSuspendData>(this).AccumulatedValue = value;
         }
     }
 

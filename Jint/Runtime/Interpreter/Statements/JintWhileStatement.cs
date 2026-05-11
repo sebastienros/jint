@@ -22,28 +22,36 @@ internal sealed class JintWhileStatement : JintStatement<WhileStatement>
     protected override Completion ExecuteInternal(EvaluationContext context)
     {
         var v = JsValue.Undefined;
+        var suspensionNode = GetSuspensionNode(context.Engine.ExecutionContext.Suspendable);
+        var skipTestOnce = suspensionNode is not null && IsNodeInsideRange(suspensionNode, _statement.Body.Range);
+
         while (true)
         {
             context.Engine.ExecutionContext.ClearCompletedAwaitsIfNotResuming();
 
-            if (context.DebugMode)
+            if (!skipTestOnce)
             {
-                context.Engine.Debugger.OnStep(_test._expression);
-            }
-
-            if (!_test.GetBooleanValue(context))
-            {
-                // GetBooleanValue returns false for both actual false condition
-                // and suspended evaluation (async/generator); check which case
-                if (context.IsSuspended())
+                if (context.DebugMode)
                 {
-                    var suspendable = context.Engine.ExecutionContext.Suspendable;
-                    var suspendedValue = suspendable?.SuspendedValue ?? JsValue.Undefined;
-                    return new Completion(CompletionType.Return, suspendedValue, _statement);
+                    context.Engine.Debugger.OnStep(_test._expression);
                 }
 
-                return new Completion(CompletionType.Normal, v, _statement);
+                if (!_test.GetBooleanValue(context))
+                {
+                    // GetBooleanValue returns false for both actual false condition
+                    // and suspended evaluation (async/generator); check which case
+                    if (context.IsSuspended())
+                    {
+                        var suspendable = context.Engine.ExecutionContext.Suspendable;
+                        var suspendedValue = suspendable?.SuspendedValue ?? JsValue.Undefined;
+                        return new Completion(CompletionType.Return, suspendedValue, _statement);
+                    }
+
+                    return new Completion(CompletionType.Normal, v, _statement);
+                }
             }
+
+            skipTestOnce = false;
 
             var completion = _body.Execute(context);
 

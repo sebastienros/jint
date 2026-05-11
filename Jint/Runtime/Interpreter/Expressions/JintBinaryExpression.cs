@@ -33,15 +33,35 @@ internal abstract class JintBinaryExpression : JintExpression
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected bool TryEvaluateOperands(EvaluationContext context, out JsValue left, out JsValue right)
     {
-        left = _left.GetValue(context);
-        if (context.IsSuspended())
+        var suspendable = context.Engine?.ExecutionContext.Suspendable;
+        if (suspendable is { IsResuming: true }
+            && suspendable.Data.TryGet(this, out BinaryExpressionSuspendData? suspendData))
         {
-            right = JsValue.Undefined;
-            return false;
+            left = suspendData!.LeftValue;
+        }
+        else
+        {
+            left = _left.GetValue(context);
+            if (context.IsSuspended())
+            {
+                right = JsValue.Undefined;
+                return false;
+            }
         }
 
         right = _right.GetValue(context);
-        return !context.IsSuspended();
+        if (context.IsSuspended())
+        {
+            if (suspendable is not null)
+            {
+                suspendable.Data.GetOrCreate<BinaryExpressionSuspendData>(this).LeftValue = left;
+            }
+
+            return false;
+        }
+
+        suspendable?.Data.Clear(this);
+        return true;
     }
 
     private readonly record struct MethodResolverState(JsCallArguments Arguments);

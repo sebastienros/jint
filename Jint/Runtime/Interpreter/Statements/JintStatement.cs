@@ -1,6 +1,8 @@
 using System.Runtime.CompilerServices;
+using Acornima;
 using Jint.Native;
 using Jint.Runtime.Interpreter.Expressions;
+using Range = Acornima.Range;
 
 namespace Jint.Runtime.Interpreter.Statements;
 
@@ -92,5 +94,21 @@ internal abstract class JintStatement
         }
 
         return null;
+    }
+
+    protected internal static Node? GetSuspensionNode(ISuspendable? suspendable)
+    {
+        if (suspendable is not { IsResuming: true, LastSuspensionNode: not null })
+        {
+            return null;
+        }
+
+        return suspendable.LastSuspensionNode as Node
+            ?? (suspendable.LastSuspensionNode as JintExpression)?._expression as Node;
+    }
+
+    protected internal static bool IsNodeInsideRange(Node node, in Range range)
+    {
+        return range.Start <= node.Range.Start && node.Range.End <= range.End;
     }
 }

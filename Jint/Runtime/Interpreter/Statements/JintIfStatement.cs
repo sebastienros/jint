@@ -24,32 +24,53 @@ internal sealed class JintIfStatement : JintStatement<IfStatement>
     protected override Completion ExecuteInternal(EvaluationContext context)
     {
         Completion result;
-        if (_test.GetBooleanValue(context))
+        var suspensionNode = GetSuspensionNode(context.Engine.ExecutionContext.Suspendable);
+        if (suspensionNode is not null && IsNodeInsideRange(suspensionNode, _statement.Consequent.Range))
         {
-            // B.3.2/B.3.3: IfStatement function declarations need runtime AnnexB handling
-            if (_consequentIsFunctionDecl && !StrictModeScope.IsStrictModeCode)
-            {
-                result = ExecuteAnnexBFunctionDeclaration(context, (FunctionDeclaration) _statement.Consequent);
-            }
-            else
-            {
-                result = _statementConsequent.Execute(context);
-            }
+            result = _statementConsequent.Execute(context);
         }
-        else if (_alternate != null)
+        else if (suspensionNode is not null
+            && _statement.Alternate is not null
+            && IsNodeInsideRange(suspensionNode, _statement.Alternate.Range))
         {
-            if (_alternateIsFunctionDecl && !StrictModeScope.IsStrictModeCode)
-            {
-                result = ExecuteAnnexBFunctionDeclaration(context, (FunctionDeclaration) _statement.Alternate!);
-            }
-            else
-            {
-                result = _alternate.Value.Execute(context);
-            }
+            result = _alternate!.Value.Execute(context);
         }
         else
         {
-            result = Completion.Empty();
+            var testResult = _test.GetBooleanValue(context);
+            if (context.IsSuspended())
+            {
+                var suspendable = context.Engine.ExecutionContext.Suspendable;
+                var suspendedValue = suspendable?.SuspendedValue ?? JsValue.Undefined;
+                result = new Completion(CompletionType.Return, suspendedValue, _statement);
+            }
+            else if (testResult)
+            {
+                // B.3.2/B.3.3: IfStatement function declarations need runtime AnnexB handling
+                if (_consequentIsFunctionDecl && !StrictModeScope.IsStrictModeCode)
+                {
+                    result = ExecuteAnnexBFunctionDeclaration(context, (FunctionDeclaration) _statement.Consequent);
+                }
+                else
+                {
+                    result = _statementConsequent.Execute(context);
+                }
+            }
+            else if (_alternate != null)
+            {
+                if (_alternateIsFunctionDecl && !StrictModeScope.IsStrictModeCode)
+                {
+                    result = ExecuteAnnexBFunctionDeclaration(context, (FunctionDeclaration) _statement.Alternate!);
+                }
+                else
+                {
+                    result = _alternate.Value.Execute(context);
+                }
+            }
+            else
+            {
+                result = Completion.Empty();
+            }
         }
 
         return result.UpdateEmpty(JsValue.Undefined);

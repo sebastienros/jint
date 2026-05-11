@@ -1,6 +1,5 @@
 using Jint.Native;
 using Jint.Runtime.Environments;
-using Range = Acornima.Range;
 
 namespace Jint.Runtime.Interpreter.Statements;
 
@@ -29,7 +28,8 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
 
         // Check if we're resuming from inside the catch or finally block
         // If so, skip the try block and go directly to the appropriate block
-        if (suspendable is { IsResuming: true, LastSuspensionNode: Node suspensionNode })
+        var suspensionNode = GetSuspensionNode(suspendable);
+        if (suspensionNode is not null)
         {
             if (_statement.Handler is not null && IsNodeInsideRange(suspensionNode, _statement.Handler.Range))
             {
@@ -39,7 +39,7 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
             if (_statement.Finalizer is not null && IsNodeInsideRange(suspensionNode, _statement.Finalizer.Range))
             {
                 // Resuming from inside finally block - execute finally directly
-                return ExecuteFinallyResume(context, suspendable);
+                return ExecuteFinallyResume(context, suspendable!);
             }
         }
 
@@ -47,7 +47,7 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
         if (suspendable is { IsResuming: true } && ReferenceEquals(suspendable.CurrentFinallyStatement, this))
         {
             // Resuming from inside finally block - execute finally directly
-            return ExecuteFinallyResume(context, suspendable);
+            return ExecuteFinallyResume(context, suspendable!);
         }
 
         var b = _block.Execute(context);
@@ -64,66 +64,7 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
             return b;
         }
 
-        if (_finalizer != null)
-        {
-            // Save the pending completion before running finally
-            // This is needed because if finally yields/awaits, we need to remember the
-            // original completion (throw/return) to restore after finally completes
-            if (suspendable is not null && (b.Type == CompletionType.Throw || b.Type == CompletionType.Return))
-            {
-                suspendable.PendingCompletionType = b.Type;
-                suspendable.PendingCompletionValue = b.Value;
-                suspendable.CurrentFinallyStatement = this;
-            }
-
-            // Clear _returnRequested before running finally block.
-            // Per ECMAScript spec, a return in the finally block supersedes any pending return.
-            // If we don't clear this, the finally block's statements will incorrectly use _suspendedValue.
-            var generator = engine.ExecutionContext.Generator;
-            if (generator is not null)
-            {
-                generator._returnRequested = false;
-            }
-
-            var asyncGenerator = engine.ExecutionContext.AsyncGenerator;
-            if (asyncGenerator is not null)
-            {
-                asyncGenerator._returnRequested = false;
-            }
-
-            var f = _finalizer.Execute(context);
-
-            // Check for suspension in finally
-            if (context.IsSuspended())
-            {
-                // Suspended in finally - the pending completion is preserved
-                return f;
-            }
-
-            // Clear the pending completion tracking if we completed normally
-            if (suspendable is not null && ReferenceEquals(suspendable.CurrentFinallyStatement, this))
-            {
-                suspendable.CurrentFinallyStatement = null;
-                suspendable.PendingCompletionType = CompletionType.Normal;
-                suspendable.PendingCompletionValue = null;
-            }
-
-            if (f.Type == CompletionType.Normal)
-            {
-                // Per spec: If F.[[type]] is normal, let F be B.
-                // And step 6: If F.[[value]] is empty, return undefined
-                return b.UpdateEmpty(JsValue.Undefined);
-            }
-
-            return f.UpdateEmpty(JsValue.Undefined);
-        }
-
-        return b.UpdateEmpty(JsValue.Undefined);
-    }
-
-    private static bool IsNodeInsideRange(Node node, in Range range)
-    {
-        return range.Start <= node.Range.Start && node.Range.End <= range.End;
+        return ExecuteFinalizer(context, b, engine, suspendable);
     }
 
     private Completion ExecuteCatchResume(EvaluationContext context)
@@ -139,26 +80,28 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
             return Completion.Empty();
         }
 
+        var engine = context.Engine;
+        var suspendable = engine.ExecutionContext.Suspendable;
+        var suspendData = GetCatchSuspendData(suspendable);
+        if (suspendData?.CatchEnvironment is not null)
+        {
+            engine.UpdateLexicalEnvironment(suspendData.CatchEnvironment);
+        }
+
         // Execute catch block (it will resume from the saved position)
         var b = _catch.Execute(context);
 
         // If suspended (yield/await), don't run the finally yet
         if (context.IsSuspended())
         {
+            RestoreOuterEnvironmentAfterCatchResume(engine, suspendData);
             return b;
         }
 
-        // Run finally if present
-        if (_finalizer != null)
-        {
-            var f = _finalizer.Execute(context);
-            if (f.Type != CompletionType.Normal)
-            {
-                return f.UpdateEmpty(JsValue.Undefined);
-            }
-        }
+        RestoreOuterEnvironmentAfterCatchResume(engine, suspendData);
+        suspendable?.Data.Clear(this);
 
-        return b.UpdateEmpty(JsValue.Undefined);
+        return ExecuteFinalizer(context, b, engine, suspendable);
     }
 
     private Completion ExecuteFinallyResume(EvaluationContext context, ISuspendable suspendable)
@@ -229,9 +172,100 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
 
             b = _catch.Execute(context);
 
+            var suspendable = engine.ExecutionContext.Suspendable;
+            if (context.IsSuspended() && suspendable is not null)
+            {
+                var suspendData = suspendable.Data.GetOrCreate<CatchSuspendData>(this);
+                suspendData.CatchEnvironment = catchEnv;
+                suspendData.OuterEnvironment = oldEnv;
+            }
+            else
+            {
+                suspendable?.Data.Clear(this);
+            }
+
             engine.UpdateLexicalEnvironment(oldEnv);
         }
 
         return b;
+    }
+
+    private Completion ExecuteFinalizer(EvaluationContext context, Completion b, Engine engine, ISuspendable? suspendable)
+    {
+        if (_finalizer is null)
+        {
+            return b.UpdateEmpty(JsValue.Undefined);
+        }
+
+        // Save the pending completion before running finally. If finally awaits,
+        // ExecuteFinallyResume restores this completion after the await resumes.
+        if (suspendable is not null && (b.Type == CompletionType.Throw || b.Type == CompletionType.Return))
+        {
+            suspendable.PendingCompletionType = b.Type;
+            suspendable.PendingCompletionValue = b.Value;
+            suspendable.CurrentFinallyStatement = this;
+        }
+
+        // Clear _returnRequested before running finally block.
+        // Per ECMAScript spec, a return in the finally block supersedes any pending return.
+        // If we don't clear this, the finally block's statements will incorrectly use _suspendedValue.
+        var generator = engine.ExecutionContext.Generator;
+        if (generator is not null)
+        {
+            generator._returnRequested = false;
+        }
+
+        var asyncGenerator = engine.ExecutionContext.AsyncGenerator;
+        if (asyncGenerator is not null)
+        {
+            asyncGenerator._returnRequested = false;
+        }
+
+        var f = _finalizer.Execute(context);
+
+        // Check for suspension in finally
+        if (context.IsSuspended())
+        {
+            // Suspended in finally - the pending completion is preserved
+            return f;
+        }
+
+        // Clear the pending completion tracking if we completed normally
+        if (suspendable is not null && ReferenceEquals(suspendable.CurrentFinallyStatement, this))
+        {
+            suspendable.CurrentFinallyStatement = null;
+            suspendable.PendingCompletionType = CompletionType.Normal;
+            suspendable.PendingCompletionValue = null;
+        }
+
+        if (f.Type == CompletionType.Normal)
+        {
+            // Per spec: If F.[[type]] is normal, let F be B.
+            // And step 6: If F.[[value]] is empty, return undefined
+            return b.UpdateEmpty(JsValue.Undefined);
+        }
+
+        return f.UpdateEmpty(JsValue.Undefined);
+    }
+
+    private CatchSuspendData? GetCatchSuspendData(ISuspendable? suspendable)
+    {
+        return suspendable?.Data.TryGet(this, out CatchSuspendData? suspendData) == true
+            ? suspendData
+            : null;
+    }
+
+    private static void RestoreOuterEnvironmentAfterCatchResume(Engine engine, CatchSuspendData? suspendData)
+    {
+        if (suspendData?.OuterEnvironment is not null)
+        {
+            engine.UpdateLexicalEnvironment(suspendData.OuterEnvironment);
+            return;
+        }
+
+        if (engine.ExecutionContext.LexicalEnvironment is DeclarativeEnvironment { _catchEnvironment: true, _outerEnv: { } outerEnv })
+        {
+            engine.UpdateLexicalEnvironment(outerEnv);
+        }
     }
 }
