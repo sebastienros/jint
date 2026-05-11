@@ -445,6 +445,8 @@ public class Options
 
     public class ConstraintOptions
     {
+        public const int DefaultBuiltInRecursionDepth = 256;
+
         /// <summary>
         /// Registered constraints.
         /// </summary>
@@ -464,6 +466,12 @@ public class Options
         /// When max stack size to be exceeded, Engine throws an exception <see cref="JavaScriptException" />.
         /// </remarks>
         public int MaxExecutionStackCount { get; set; } = StackGuard.Disabled;
+
+        /// <summary>
+        /// Maximum recursion depth allowed inside recursive native built-in implementations,
+        /// separate from JavaScript function recursion.
+        /// </summary>
+        public int MaxBuiltInRecursionDepth { get; set; } = DefaultBuiltInRecursionDepth;
 
         /// <summary>
         /// Maximum time a Regex is allowed to run, defaults to 10 seconds.

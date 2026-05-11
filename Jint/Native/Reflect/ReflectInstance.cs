@@ -44,7 +44,7 @@ internal sealed partial class ReflectInstance : ObjectInstance
 
         // 3. Perform PrepareForTailCall().
 
-        return ((ICallable) target).Call(thisArgument, args);
+        return _engine.CallFromNative((ICallable) target, thisArgument, args);
     }
 
     /// <summary>
@@ -64,7 +64,7 @@ internal sealed partial class ReflectInstance : ObjectInstance
 
         var args = FunctionPrototype.CreateListFromArrayLike(_realm, arguments.At(1));
 
-        return target.Construct(args, newTargetArgument);
+        return _engine.Construct(target, args, newTargetArgument, expression: null);
     }
 
     /// <summary>

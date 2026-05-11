@@ -108,17 +108,17 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     internal static ObjectInstance Construct(IConstructor f, IConstructor? newTarget, JsCallArguments argumentsList)
     {
         newTarget ??= f;
-        return f.Construct(argumentsList, (JsValue) newTarget);
+        return ((ObjectInstance) f).Engine.Construct(f, argumentsList, (JsValue) newTarget, expression: null);
     }
 
     internal static ObjectInstance Construct(IConstructor f, JsCallArguments argumentsList)
     {
-        return f.Construct(argumentsList, (JsValue) f);
+        return ((ObjectInstance) f).Engine.Construct(f, argumentsList, (JsValue) f, expression: null);
     }
 
     internal static ObjectInstance Construct(IConstructor f)
     {
-        return f.Construct([], (JsValue) f);
+        return ((ObjectInstance) f).Engine.Construct(f, [], (JsValue) f, expression: null);
     }
 
 
@@ -1637,7 +1637,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             return default;
         }
 
-        return callable.Call(v, arguments);
+        return _engine.CallFromNative(callable, v, arguments);
     }
 
 

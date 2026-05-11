@@ -28,6 +28,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
     private readonly ArrayConstructor _constructor;
 
     private readonly ObjectTraverseStack _joinStack;
+    private int _joinDepth;
     internal JsValue? _originalIteratorFunction;
 
     internal ArrayPrototype(
@@ -568,8 +569,15 @@ public sealed partial class ArrayPrototype : ArrayInstance
         ulong start,
         double depth,
         ICallable? mapperFunction = null,
-        JsValue? thisArg = null)
+        JsValue? thisArg = null,
+        int recursionDepth = 0)
     {
+        var maxDepth = _engine.Options.Constraints.MaxBuiltInRecursionDepth;
+        if (maxDepth >= 0 && recursionDepth > maxDepth)
+        {
+            Throw.RangeError(_realm, $"Array flattening exceeds maximum depth of {maxDepth}");
+        }
+
         var targetIndex = start;
         ulong sourceIndex = 0;
 
@@ -580,56 +588,67 @@ public sealed partial class ArrayPrototype : ArrayInstance
             callArguments[2] = source.Target;
         }
 
-        while (sourceIndex < sourceLen)
+        try
         {
-            var exists = source.HasProperty(sourceIndex);
-            if (exists)
+            while (sourceIndex < sourceLen)
             {
-                var element = source.Get(sourceIndex);
-                if (mapperFunction is not null)
+                var exists = source.HasProperty(sourceIndex);
+                if (exists)
                 {
-                    callArguments[0] = element;
-                    callArguments[1] = JsNumber.Create(sourceIndex);
-                    element = mapperFunction.Call(thisArg ?? Undefined, callArguments);
-                }
-
-                var shouldFlatten = false;
-                if (depth > 0)
-                {
-                    shouldFlatten = element.IsArray();
-                }
-
-                if (shouldFlatten)
-                {
-                    var newDepth = double.IsPositiveInfinity(depth)
-                        ? depth
-                        : depth - 1;
-
-                    var objectInstance = (ObjectInstance) element;
-                    var elementLen = objectInstance.GetLength();
-                    targetIndex = FlattenIntoArray(target, ArrayOperations.For(objectInstance, forWrite: false), elementLen, targetIndex, newDepth);
-                }
-                else
-                {
-                    if (targetIndex >= NumberConstructor.MaxSafeInteger)
+                    var element = source.Get(sourceIndex);
+                    if (mapperFunction is not null)
                     {
-                        Throw.TypeError(_realm, "Invalid array length");
+                        callArguments[0] = element;
+                        callArguments[1] = JsNumber.Create(sourceIndex);
+                        element = mapperFunction.Call(thisArg ?? Undefined, callArguments);
                     }
 
-                    target.CreateDataPropertyOrThrow(targetIndex, element);
-                    targetIndex += 1;
+                    var shouldFlatten = false;
+                    if (depth > 0)
+                    {
+                        shouldFlatten = element.IsArray();
+                    }
+
+                    if (shouldFlatten)
+                    {
+                        var newDepth = double.IsPositiveInfinity(depth)
+                            ? depth
+                            : depth - 1;
+
+                        var objectInstance = (ObjectInstance) element;
+                        var elementLen = objectInstance.GetLength();
+                        targetIndex = FlattenIntoArray(
+                            target,
+                            ArrayOperations.For(objectInstance, forWrite: false),
+                            elementLen,
+                            targetIndex,
+                            newDepth,
+                            recursionDepth: recursionDepth + 1);
+                    }
+                    else
+                    {
+                        if (targetIndex >= NumberConstructor.MaxSafeInteger)
+                        {
+                            Throw.TypeError(_realm, "Invalid array length");
+                        }
+
+                        target.CreateDataPropertyOrThrow(targetIndex, element);
+                        targetIndex += 1;
+                    }
                 }
+
+                sourceIndex++;
             }
 
-            sourceIndex++;
+            return targetIndex;
         }
-
-        if (mapperFunction is not null)
+        finally
         {
-            _engine._jsValueArrayPool.ReturnArray(callArguments);
+            if (mapperFunction is not null)
+            {
+                _engine._jsValueArrayPool.ReturnArray(callArguments);
+            }
         }
-
-        return targetIndex;
     }
 
     [JsFunction(Length = 1)]
@@ -1492,38 +1511,43 @@ public sealed partial class ArrayPrototype : ArrayInstance
             return JsString.Empty;
         }
 
-        if (!_joinStack.TryEnter(thisObject))
+        if (!TryEnterJoin(thisObject))
         {
             return JsString.Empty;
         }
 
-        static string StringFromJsValue(JsValue value)
+        try
         {
-            return value.IsNullOrUndefined()
-                ? ""
-                : TypeConverter.ToString(value);
-        }
-
-        var s = StringFromJsValue(o.Get(0));
-        if (len == 1)
-        {
-            _joinStack.Exit();
-            return s;
-        }
-
-        using var sb = new ValueStringBuilder();
-        sb.Append(s);
-        for (uint k = 1; k < len; k++)
-        {
-            if (sep != "")
+            static string StringFromJsValue(JsValue value)
             {
-                sb.Append(sep);
+                return value.IsNullOrUndefined()
+                    ? ""
+                    : TypeConverter.ToString(value);
             }
-            sb.Append(StringFromJsValue(o.Get(k)));
-        }
-        _joinStack.Exit();
 
-        return sb.ToString();
+            var s = StringFromJsValue(o.Get(0));
+            if (len == 1)
+            {
+                return s;
+            }
+
+            using var sb = new ValueStringBuilder();
+            sb.Append(s);
+            for (uint k = 1; k < len; k++)
+            {
+                if (sep != "")
+                {
+                    sb.Append(sep);
+                }
+                sb.Append(StringFromJsValue(o.Get(k)));
+            }
+
+            return sb.ToString();
+        }
+        finally
+        {
+            ExitJoin();
+        }
     }
 
     /// <summary>
@@ -1541,32 +1565,62 @@ public sealed partial class ArrayPrototype : ArrayInstance
             return JsString.Empty;
         }
 
-        if (!_joinStack.TryEnter(thisObject))
+        if (!TryEnterJoin(thisObject))
         {
             return JsString.Empty;
         }
 
-        // Per ECMA-402, always pass locales and options to element's toLocaleString
-        var locales = arguments.At(0);
-        var options = arguments.At(1);
-        var invokeArgs = new[] { locales, options };
-
-        using var r = new ValueStringBuilder();
-        for (uint k = 0; k < len; k++)
+        try
         {
-            if (k > 0)
-            {
-                r.Append(Separator);
-            }
-            if (array.TryGetValue(k, out var nextElement) && !nextElement.IsNullOrUndefined())
-            {
-                var s = TypeConverter.ToString(Invoke(nextElement, "toLocaleString", invokeArgs));
-                r.Append(s);
-            }
-        }
-        _joinStack.Exit();
+            // Per ECMA-402, always pass locales and options to element's toLocaleString
+            var locales = arguments.At(0);
+            var options = arguments.At(1);
+            var invokeArgs = new[] { locales, options };
 
-        return r.ToString();
+            using var r = new ValueStringBuilder();
+            for (uint k = 0; k < len; k++)
+            {
+                if (k > 0)
+                {
+                    r.Append(Separator);
+                }
+                if (array.TryGetValue(k, out var nextElement) && !nextElement.IsNullOrUndefined())
+                {
+                    var s = TypeConverter.ToString(Invoke(nextElement, "toLocaleString", invokeArgs));
+                    r.Append(s);
+                }
+            }
+
+            return r.ToString();
+        }
+        finally
+        {
+            ExitJoin();
+        }
+    }
+
+    private bool TryEnterJoin(JsValue value)
+    {
+        if (!_joinStack.TryEnter(value))
+        {
+            return false;
+        }
+
+        var maxDepth = _engine.Options.Constraints.MaxBuiltInRecursionDepth;
+        if (maxDepth >= 0 && _joinDepth >= maxDepth)
+        {
+            _joinStack.Exit();
+            Throw.RangeError(_realm, $"Array string conversion exceeds maximum depth of {maxDepth}");
+        }
+
+        _joinDepth++;
+        return true;
+    }
+
+    private void ExitJoin()
+    {
+        _joinStack.Exit();
+        _joinDepth--;
     }
 
     /// <summary>

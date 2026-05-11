@@ -49,10 +49,14 @@ public sealed class BindFunction : ObjectInstance, IConstructor, ICallable
         }
 
         var args = CreateArguments(arguments);
-        var value = f.Call(BoundThis, args);
-        _engine._jsValueArrayPool.ReturnArray(args);
-
-        return value;
+        try
+        {
+            return _engine.CallFromNative(f, BoundThis, args);
+        }
+        finally
+        {
+            _engine._jsValueArrayPool.ReturnArray(args);
+        }
     }
 
     ObjectInstance IConstructor.Construct(JsCallArguments arguments, JsValue newTarget)
@@ -70,7 +74,7 @@ public sealed class BindFunction : ObjectInstance, IConstructor, ICallable
             newTarget = BoundTargetFunction;
         }
 
-        var value = target.Construct(args, newTarget);
+        var value = _engine.Construct(target, args, newTarget, expression: null);
         _engine._jsValueArrayPool.ReturnArray(args);
 
         return value;
