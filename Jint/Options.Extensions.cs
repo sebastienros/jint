@@ -110,6 +110,15 @@ public static class OptionsExtensions
         return options;
     }
 
+    /// <summary>
+    /// Hides selected built-ins from the global object.
+    /// </summary>
+    public static Options DisableGlobalBuiltIns(this Options options, GlobalBuiltIn builtIns)
+    {
+        options.Builtins.DisabledGlobalBuiltIns |= builtIns;
+        return options;
+    }
+
     public static Options AddExtensionMethods(this Options options, params Type[] types)
     {
         options.Interop.ExtensionMethodTypes.AddRange(types);

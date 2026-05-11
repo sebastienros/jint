@@ -57,6 +57,11 @@ public class Options
     public HostOptions Host { get; } = new();
 
     /// <summary>
+    /// JavaScript built-in object options.
+    /// </summary>
+    public BuiltinOptions Builtins { get; } = new();
+
+    /// <summary>
     /// Module options
     /// </summary>
     public ModuleOptions Modules { get; } = new();
@@ -520,6 +525,14 @@ public class Options
         public Func<Function, Node, string?> FunctionToStringHandler { get; set; } = (_, _) => null;
     }
 
+    public class BuiltinOptions
+    {
+        /// <summary>
+        /// Global built-ins that should not be exposed as properties on the global object.
+        /// </summary>
+        public GlobalBuiltIn DisabledGlobalBuiltIns { get; set; }
+    }
+
     /// <summary>
     /// Module related customization
     /// </summary>
@@ -624,6 +637,48 @@ public enum ValueCoercionType
     /// All coercion rules enabled.
     /// </summary>
     All = Boolean | Number | String
+}
+
+/// <summary>
+/// JavaScript built-ins that can be hidden from the global object.
+/// </summary>
+[Flags]
+public enum GlobalBuiltIn
+{
+    /// <summary>
+    /// No global built-ins.
+    /// </summary>
+    None = 0,
+
+    /// <summary>
+    /// The ArrayBuffer global constructor.
+    /// </summary>
+    ArrayBuffer = 1 << 0,
+
+    /// <summary>
+    /// The SharedArrayBuffer global constructor.
+    /// </summary>
+    SharedArrayBuffer = 1 << 1,
+
+    /// <summary>
+    /// The DataView global constructor.
+    /// </summary>
+    DataView = 1 << 2,
+
+    /// <summary>
+    /// The TypedArray abstract constructor and concrete typed array global constructors.
+    /// </summary>
+    TypedArray = 1 << 3,
+
+    /// <summary>
+    /// The Atomics global object.
+    /// </summary>
+    Atomics = 1 << 4,
+
+    /// <summary>
+    /// The ShadowRealm global constructor.
+    /// </summary>
+    ShadowRealm = 1 << 5
 }
 
 /// <summary>

@@ -85,6 +85,7 @@ public partial class GlobalObject
         const PropertyFlag LengthFlags = PropertyFlag.Configurable;
 
         CreateProperties_Generated();
+        HideDisabledGlobalBuiltIns();
 
         // After CreateProperties_Generated, _properties is the HybridDictionary wrapper around the
         // generator-built StringDictionarySlim. AddDangerous skips both duplicate-key lookup and
@@ -102,5 +103,59 @@ public partial class GlobalObject
         _properties!.AddDangerous("parseInt", new LazyPropertyDescriptor<GlobalObject>(this, static global => new ClrFunction(global._engine, "parseInt", ParseInt, 2, LengthFlags), PropertyFlags));
         _properties.AddDangerous("parseFloat", new LazyPropertyDescriptor<GlobalObject>(this, static global => new ClrFunction(global._engine, "parseFloat", ParseFloat, 1, LengthFlags), PropertyFlags));
         _properties.AddDangerous("globalThis", new PropertyDescriptor(this, PropertyFlags));
+    }
+
+    private void HideDisabledGlobalBuiltIns()
+    {
+        var disabledBuiltIns = _engine.Options.Builtins.DisabledGlobalBuiltIns;
+        if (disabledBuiltIns == GlobalBuiltIn.None)
+        {
+            return;
+        }
+
+        void Remove(string name) => _properties!.Remove(name);
+        bool IsDisabled(GlobalBuiltIn builtIn) => (disabledBuiltIns & builtIn) != GlobalBuiltIn.None;
+
+        if (IsDisabled(GlobalBuiltIn.ArrayBuffer))
+        {
+            Remove("ArrayBuffer");
+        }
+
+        if (IsDisabled(GlobalBuiltIn.Atomics))
+        {
+            Remove("Atomics");
+        }
+
+        if (IsDisabled(GlobalBuiltIn.DataView))
+        {
+            Remove("DataView");
+        }
+
+        if (IsDisabled(GlobalBuiltIn.ShadowRealm))
+        {
+            Remove("ShadowRealm");
+        }
+
+        if (IsDisabled(GlobalBuiltIn.SharedArrayBuffer))
+        {
+            Remove("SharedArrayBuffer");
+        }
+
+        if (IsDisabled(GlobalBuiltIn.TypedArray))
+        {
+            Remove("BigInt64Array");
+            Remove("BigUint64Array");
+            Remove("Float16Array");
+            Remove("Float32Array");
+            Remove("Float64Array");
+            Remove("Int16Array");
+            Remove("Int32Array");
+            Remove("Int8Array");
+            Remove("TypedArray");
+            Remove("Uint16Array");
+            Remove("Uint32Array");
+            Remove("Uint8Array");
+            Remove("Uint8ClampedArray");
+        }
     }
 }
