@@ -2009,8 +2009,9 @@ var prep = function (fn) { fn(); };
     [Fact]
     public void ShouldSetYearBefore1970()
     {
-
-        RunTest(@"
+        new Engine(options => options.LocalTimeZone(TimeZoneInfo.Utc))
+            .SetValue("equal", new Action<object, object>(Assert.Equal))
+            .Execute(@"
                 var d = new Date('1969-01-01T08:17:00Z');
                 d.setYear(2015);
                 equal('2015-01-01T08:17:00.000Z', d.toISOString());
