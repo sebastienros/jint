@@ -1,3 +1,5 @@
+using Jint.Runtime;
+
 namespace Jint.Tests.Runtime;
 
 public class StringTests
@@ -78,6 +80,18 @@ bar += 'bar';
         var engine = new Engine();
         Assert.Equal(0, engine.Evaluate("''.indexOf('', 0)"));
         Assert.Equal(0, engine.Evaluate("''.indexOf('', 1)"));
+    }
+
+    [Fact]
+    public void RepeatRejectsCountsThatCannotFitInClrStringCapacity()
+    {
+        var engine = new Engine();
+        var repeatCount = ClrLimits.MaxArrayLength / 2 + 1UL;
+
+        var exception = Assert.Throws<JavaScriptException>(
+            () => engine.Evaluate($"'xx'.repeat({repeatCount});"));
+
+        Assert.True(exception.Error.InstanceofOperator(engine.Intrinsics.RangeError));
     }
 
     [Fact]

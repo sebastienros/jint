@@ -160,7 +160,9 @@ internal sealed partial class FunctionPrototype : Function
             Throw.TypeError(realm, "CreateListFromArrayLike called on non-object");
         }
         var operations = ArrayOperations.For(argArrayObj, forWrite: false);
-        var argList = elementTypes is null ? operations.GetAll() : operations.GetAll(elementTypes.Value);
+        var argList = elementTypes is null
+            ? operations.GetAll(errorRealm: realm)
+            : operations.GetAll(elementTypes.Value, errorRealm: realm);
         return argList;
     }
 

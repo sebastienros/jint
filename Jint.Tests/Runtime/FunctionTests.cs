@@ -17,6 +17,40 @@ public class FunctionTests
     }
 
     [Fact]
+    public void ApplyRejectsArrayLikeArgumentsThatCannotBeMaterialized()
+    {
+        var engine = new Engine();
+        var length = ClrLimits.MaxArrayLength + 1UL;
+
+        var exception = Assert.Throws<JavaScriptException>(
+            () => engine.Evaluate($"(function(){{}}).apply(null, {{ length: {length} }});"));
+
+        Assert.True(exception.Error.InstanceofOperator(engine.Intrinsics.RangeError));
+    }
+
+    [Fact]
+    public void FunctionPrototypeApplyThrowsRangeErrorFromTheFunctionsRealm()
+    {
+        var engine = new Engine();
+        var otherGlobal = engine._host.CreateRealm().GlobalObject;
+        otherGlobal.Set("global", otherGlobal);
+        engine.SetValue("other", otherGlobal);
+        var length = ClrLimits.MaxArrayLength + 1UL;
+
+        var script = @"
+            var threw = false;
+            try {
+                other.Function.prototype.apply.call(function () {}, null, { length: LENGTH });
+            } catch (e) {
+                threw = (e instanceof other.RangeError) && !(e instanceof RangeError);
+            }
+            threw
+        ".Replace("LENGTH", length.ToString());
+
+        Assert.True(((JsBoolean) engine.Evaluate(script))._value);
+    }
+
+    [Fact]
     public void FunctionPrototypeApplyThrowsTypeErrorFromTheFunctionsRealm()
     {
         // Regression for the source-gen [JsFunction]/ICallable cast precondition: when

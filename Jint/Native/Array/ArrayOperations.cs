@@ -80,12 +80,19 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
 
     public virtual JsValue[] GetAll(
         Types elementTypes = Types.Undefined | Types.Null | Types.Boolean | Types.String | Types.Symbol | Types.Number | Types.BigInt | Types.Object,
-        bool skipHoles = false)
+        bool skipHoles = false,
+        Realm? errorRealm = null)
     {
         uint writeIndex = 0;
-        var n = (int) GetLength();
+        var length = GetLongLength();
+        if (length > ClrLimits.MaxArrayLength)
+        {
+            Throw.RangeError(errorRealm ?? Target.Engine.Realm, "Invalid array-like length");
+        }
+
+        var n = (int) length;
         var jsValues = new JsValue[n];
-        for (uint i = 0; i < (uint) jsValues.Length; i++)
+        for (uint i = 0; i < (uint) n; i++)
         {
             var jsValue = skipHoles && !HasProperty(i) ? JsValue.Undefined : Get(i);
             if ((jsValue.Type & elementTypes) == Types.Empty)
@@ -267,13 +274,18 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
 
         public override JsValue[] GetAll(
             Types elementTypes = Types.Empty | Types.Undefined | Types.Null | Types.Boolean | Types.String | Types.Number | Types.Symbol | Types.BigInt | Types.Object,
-            bool skipHoles = false)
+            bool skipHoles = false,
+            Realm? errorRealm = null)
         {
             var n = _target.GetLength();
+            if (n > ClrLimits.MaxArrayLength)
+            {
+                Throw.RangeError(errorRealm ?? _target.Engine.Realm, "Invalid array-like length");
+            }
 
             if (_target._dense == null || _target._dense.Length < n)
             {
-                return base.GetAll(elementTypes, skipHoles);
+                return base.GetAll(elementTypes, skipHoles, errorRealm);
             }
 
             // optimized

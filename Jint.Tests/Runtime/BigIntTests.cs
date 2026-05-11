@@ -124,4 +124,34 @@ public class BigIntTests
         var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("2n ** -1n"));
         Assert.Contains("Exponent must be positive", ex.Message);
     }
+
+    [Theory]
+    [InlineData("BigInt.asIntN(2147483648, 1n)")]
+    [InlineData("BigInt.asUintN(2147483648, 1n)")]
+    public void FixedWidthBigIntOperationsRejectUnsupportedBitCounts(string expression)
+    {
+        var engine = new Engine();
+
+        var exception = Assert.Throws<JavaScriptException>(() => engine.Evaluate(expression));
+
+        Assert.True(exception.Error.InstanceofOperator(engine.Intrinsics.RangeError));
+    }
+
+    [Theory]
+    [InlineData("BigInt.asIntN")]
+    [InlineData("BigInt.asUintN")]
+    public void FixedWidthBigIntOperationsConvertBigIntOperandBeforeRejectingUnsupportedBitCounts(string operation)
+    {
+        var engine = new Engine();
+
+        var exception = Assert.Throws<JavaScriptException>(() => engine.Evaluate($$"""
+            {{operation}}(2147483648, {
+                [Symbol.toPrimitive]() {
+                    throw new Error('boom');
+                }
+            });
+            """));
+
+        Assert.Equal("boom", exception.Error.AsObject().Get("message").AsString());
+    }
 }

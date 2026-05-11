@@ -1861,12 +1861,18 @@ internal sealed partial class StringPrototype : StringInstance
             return JsString.Empty;
         }
 
+        var resultLength = n * s.Length;
+        if (resultLength > ClrLimits.MaxArrayLength)
+        {
+            Throw.RangeError(_realm, "Invalid string length");
+        }
+
         if (s.Length == 1)
         {
             return new string(s[0], (int) n);
         }
 
-        var sb = new ValueStringBuilder((int) (n * s.Length));
+        var sb = new ValueStringBuilder((int) resultLength);
         for (var i = 0; i < n; ++i)
         {
             sb.Append(s);

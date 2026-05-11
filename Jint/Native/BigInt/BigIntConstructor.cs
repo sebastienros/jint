@@ -35,13 +35,14 @@ internal sealed partial class BigIntConstructor : Constructor
     [JsFunction]
     private JsValue AsIntN(JsValue thisObject, JsValue bitsValue, JsValue bigintValue)
     {
-        var bits = (int) TypeConverter.ToIndex(_realm, bitsValue);
+        var bits = TypeConverter.ToIndex(_realm, bitsValue);
         var bigint = bigintValue.ToBigInteger(_engine);
+        var supportedBits = ToSupportedBitCount(bits);
 
-        var mod = TypeConverter.BigIntegerModulo(bigint, BigInteger.Pow(2, bits));
-        if (bits > 0 && mod >= BigInteger.Pow(2, bits - 1))
+        var mod = TypeConverter.BigIntegerModulo(bigint, BigInteger.Pow(2, supportedBits));
+        if (supportedBits > 0 && mod >= BigInteger.Pow(2, supportedBits - 1))
         {
-            return (mod - BigInteger.Pow(2, bits));
+            return (mod - BigInteger.Pow(2, supportedBits));
         }
 
         return mod;
@@ -53,12 +54,23 @@ internal sealed partial class BigIntConstructor : Constructor
     [JsFunction]
     private JsValue AsUintN(JsValue thisObject, JsValue bitsValue, JsValue bigintValue)
     {
-        var bits = (int) TypeConverter.ToIndex(_realm, bitsValue);
+        var bits = TypeConverter.ToIndex(_realm, bitsValue);
         var bigint = bigintValue.ToBigInteger(_engine);
+        var supportedBits = ToSupportedBitCount(bits);
 
-        var result = TypeConverter.BigIntegerModulo(bigint, BigInteger.Pow(2, bits));
+        var result = TypeConverter.BigIntegerModulo(bigint, BigInteger.Pow(2, supportedBits));
 
         return result;
+    }
+
+    private int ToSupportedBitCount(ulong bits)
+    {
+        if (bits > int.MaxValue)
+        {
+            Throw.RangeError(_realm, "Invalid bit count");
+        }
+
+        return (int) bits;
     }
 
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
