@@ -412,6 +412,63 @@ public class AsyncTests
     }
 
     [Fact]
+    public void ShouldNotReevaluateCallArgumentsBeforeAwait()
+    {
+        var result = EvaluateAsyncJson("""
+            let i = 0;
+            const foo = (a, b, c) => ({ a, b, c });
+            const r = foo(++i, ++i, await Promise.resolve(++i));
+            return { r, i };
+            """);
+
+        Assert.Equal("""{"r":{"a":1,"b":2,"c":3},"i":3}""", result);
+    }
+
+    [Fact]
+    public void ShouldNotReevaluateCallArgumentsAcrossMultipleAwaits()
+    {
+        var result = EvaluateAsyncJson("""
+            let i = 0;
+            const foo = (a, b, c, d) => ({ a, b, c, d });
+            const r = foo(++i, await Promise.resolve(++i), ++i, await Promise.resolve(++i));
+            return { r, i };
+            """);
+
+        Assert.Equal("""{"r":{"a":1,"b":2,"c":3,"d":4},"i":4}""", result);
+    }
+
+    [Fact]
+    public void ShouldNotReevaluateNewExpressionArgumentsBeforeAwait()
+    {
+        var result = EvaluateAsyncJson("""
+            let i = 0;
+            class C {
+                constructor(a, b, c) { this.a = a; this.b = b; this.c = c; }
+            }
+            const obj = new C(++i, ++i, await Promise.resolve(++i));
+            return { obj: { a: obj.a, b: obj.b, c: obj.c }, i };
+            """);
+
+        Assert.Equal("""{"obj":{"a":1,"b":2,"c":3},"i":3}""", result);
+    }
+
+    [Fact]
+    public void ShouldHandleCallExpressionWithAwaitOnlyInLastArgument()
+    {
+        // Confirms the suspend-data is cleared after completion: a subsequent
+        // call to the same call site should not see stale state.
+        var result = EvaluateAsyncJson("""
+            let i = 0;
+            const foo = (a, b) => a + b;
+            const first = foo(++i, await Promise.resolve(10));
+            const second = foo(++i, await Promise.resolve(20));
+            return { first, second, i };
+            """);
+
+        Assert.Equal("""{"first":11,"second":22,"i":2}""", result);
+    }
+
+    [Fact]
     public void ShouldTaskConvertedToPromiseInJS()
     {
         Engine engine = new();

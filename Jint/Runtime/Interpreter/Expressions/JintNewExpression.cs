@@ -18,11 +18,23 @@ internal sealed class JintNewExpression : JintExpression
         // todo: optimize by defining a common abstract class or interface
         var jsValue = _calleeExpression.GetValue(context);
 
-        var arguments = _arguments.ArgumentListEvaluation(context, out var rented);
+        if (context.IsSuspended())
+        {
+            return jsValue;
+        }
+
+        var arguments = _arguments.ArgumentListEvaluation(context, this, out var rented);
 
         // Reset the location to the "new" keyword so that if an Error object is
         // constructed below, the stack trace will capture the correct location.
         context.LastSyntaxElement = _expression;
+
+        if (context.IsSuspended())
+        {
+            // Argument list suspended mid-evaluation. ExpressionCache keeps the buffer
+            // alive in suspend data and returns rented=false.
+            return jsValue;
+        }
 
         if (!jsValue.IsConstructor)
         {

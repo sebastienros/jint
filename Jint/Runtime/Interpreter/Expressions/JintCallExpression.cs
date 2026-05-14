@@ -99,11 +99,13 @@ internal sealed class JintCallExpression : JintExpression
             thisObject = JsValue.Undefined;
         }
 
-        var arguments = this._arguments.ArgumentListEvaluation(context, out var rented);
+        var arguments = this._arguments.ArgumentListEvaluation(context, this, out var rented);
 
         // Check for generator suspension after argument evaluation
         if (context.IsSuspended())
         {
+            // When suspended mid-arglist, ExpressionCache keeps the array alive
+            // in suspend data and returns rented=false, so we don't release it here.
             if (rented && arguments is not null)
             {
                 engine._jsValueArrayPool.ReturnArray(arguments);
@@ -189,7 +191,7 @@ internal sealed class JintCallExpression : JintExpression
 
     private JsValue HandleEval(EvaluationContext context, JsValue func, Engine engine, Reference referenceRecord)
     {
-        var argList = _arguments.ArgumentListEvaluation(context, out var rented);
+        var argList = _arguments.ArgumentListEvaluation(context, this, out var rented);
 
         if (argList.Length == 0)
         {
@@ -224,7 +226,7 @@ internal sealed class JintCallExpression : JintExpression
 
         var argList = defaultSuperCall
             ? _arguments.DefaultSuperCallArgumentListEvaluation(context)
-            : _arguments.ArgumentListEvaluation(context, out rented);
+            : _arguments.ArgumentListEvaluation(context, this, out rented);
 
         if (func is null || !func.IsConstructor)
         {

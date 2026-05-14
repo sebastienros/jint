@@ -137,6 +137,19 @@ internal sealed class AssignmentSuspendData : SuspendData
 }
 
 /// <summary>
+/// Stores the in-progress argument buffer and resume index for a call/new
+/// expression when evaluation suspends inside one of the arguments. Reused on
+/// resume so already-evaluated arguments (which may have observable side
+/// effects) are not re-evaluated.
+/// </summary>
+internal sealed class CallArgumentsSuspendData : SuspendData
+{
+    public JsValue[] Buffer { get; set; } = [];
+
+    public int NextIndex { get; set; }
+}
+
+/// <summary>
 /// Stores the state of a for-await-of loop when an async function awaits inside it.
 /// </summary>
 internal sealed class ForAwaitSuspendData : SuspendData

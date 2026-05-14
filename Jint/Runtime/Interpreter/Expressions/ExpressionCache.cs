@@ -60,7 +60,7 @@ internal sealed class ExpressionCache
         }
     }
 
-    public JsValue[] ArgumentListEvaluation(EvaluationContext context, out bool rented)
+    public JsValue[] ArgumentListEvaluation(EvaluationContext context, object key, out bool rented)
     {
         rented = false;
         if (_fullyCached)
@@ -75,18 +75,50 @@ internal sealed class ExpressionCache
             return args.ToArray();
         }
 
-        var arguments = context.Engine._jsValueArrayPool.RentArray(_expressions.Length);
+        var suspendable = context.Engine.ExecutionContext.Suspendable;
+
+        JsValue[] arguments;
+        int startIndex;
+        if (suspendable is { IsResuming: true }
+            && suspendable.Data.TryGet(key, out CallArgumentsSuspendData? suspendData))
+        {
+            // Resume: reuse the partially-filled buffer so already-evaluated
+            // arguments (which may have observable side effects) are not re-evaluated.
+            arguments = suspendData!.Buffer;
+            startIndex = suspendData.NextIndex;
+        }
+        else
+        {
+            arguments = context.Engine._jsValueArrayPool.RentArray(_expressions.Length);
+            startIndex = 0;
+        }
+
+        var nextIndex = BuildArguments(context, arguments, startIndex);
+
+        if (context.IsSuspended())
+        {
+            // Buffer is kept alive in suspend data; caller must NOT return it to the pool.
+            if (suspendable is not null)
+            {
+                var data = suspendable.Data.GetOrCreate<CallArgumentsSuspendData>(key);
+                data.Buffer = arguments;
+                data.NextIndex = nextIndex;
+            }
+
+            return arguments;
+        }
+
+        // Completed normally — caller now owns the array and should return it to the pool.
+        suspendable?.Data.Clear(key);
         rented = true;
-
-        BuildArguments(context, arguments);
-
         return arguments;
     }
 
-    internal void BuildArguments(EvaluationContext context, JsValue[] targetArray)
+    internal int BuildArguments(EvaluationContext context, JsValue[] targetArray, int startIndex = 0)
     {
         var expressions = _expressions;
-        for (uint i = 0; i < (uint) expressions.Length; i++)
+        int i = startIndex;
+        for (; (uint) i < (uint) expressions.Length; i++)
         {
             targetArray[i] = GetValue(context, expressions[i])!;
 
@@ -94,9 +126,11 @@ internal sealed class ExpressionCache
             // This is needed because yield expressions return normally instead of throwing
             if (context.IsSuspended())
             {
-                return;
+                return i;
             }
         }
+
+        return i;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
