@@ -86,6 +86,14 @@ internal sealed class JintAssignmentExpression : JintExpression
         if (context.OperatorOverloadingAllowed)
         {
             newLeftValue = EvaluateOperatorOverloading(context, originalLeftValue, newLeftValue, ref handledByOverload);
+
+            // RHS suspended during the overloading attempt; save LHS state and bail
+            // so the operator-switch below doesn't double-evaluate _right.
+            if (context.IsSuspended())
+            {
+                HandleSuspendedRight(engine, suspendable, lref, originalLeftValue, lhsHasSideEffects);
+                return newLeftValue!;
+            }
         }
 
         var wasMutatedInPlace = false;
@@ -472,6 +480,17 @@ internal sealed class JintAssignmentExpression : JintExpression
         if (operatorClrName != null)
         {
             var rval = _right.GetValue(context);
+
+            // If RHS suspended, return immediately so the caller can detect
+            // IsSuspended and save state. Without this, the operator-switch
+            // below would call _right.GetValue again, re-running side effects
+            // inside the await argument and registering a second pair of
+            // promise handlers.
+            if (context.IsSuspended())
+            {
+                return rval;
+            }
+
             if (JintBinaryExpression.TryOperatorOverloading(context, originalLeftValue, rval, operatorClrName, out var result))
             {
                 newLeftValue = JsValue.FromObject(context.Engine, result);

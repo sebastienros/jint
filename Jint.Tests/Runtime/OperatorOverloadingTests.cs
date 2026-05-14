@@ -368,4 +368,28 @@ public class OperatorOverloadingTests
         Assert.Equal("(1, 2)", engine.Evaluate("new String(v1)").As<StringInstance>().StringData.ToString());
         Assert.Equal("### (1, 2) ###", engine.Evaluate("'### ' + v1 + ' ###'"));
     }
+
+    [Fact]
+    public void ShouldNotDoubleEvaluateRhsOnSuspensionWithOperatorOverloading()
+    {
+        var sideEffectCount = 0;
+        _engine.SetValue("incrementCounter", new Func<int>(() => System.Threading.Interlocked.Increment(ref sideEffectCount)));
+
+        var result = _engine.Evaluate("""
+            (async () => {
+                let v = new Vector2(1, 2);
+                v += await Promise.resolve(new Vector2(incrementCounter(), 10));
+                return [v.X, v.Y, incrementCounter];
+            })().then(r => r.slice(0, 2))
+            """).UnwrapIfPromise(TimeSpan.FromSeconds(1));
+
+        // The RHS expression (Promise.resolve(new Vector2(++counter, 10))) must run
+        // exactly once even though _right.GetValue is structurally called twice
+        // (once in EvaluateOperatorOverloading, once in the operator switch).
+        Assert.Equal(1, sideEffectCount);
+
+        var arr = result.As<Native.JsArray>();
+        Assert.Equal(2.0, arr.Get(0).AsNumber());   // v.X = 1 + 1 = 2
+        Assert.Equal(12.0, arr.Get(1).AsNumber());  // v.Y = 2 + 10 = 12
+    }
 }
