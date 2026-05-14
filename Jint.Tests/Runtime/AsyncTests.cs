@@ -469,6 +469,43 @@ public class AsyncTests
     }
 
     [Fact]
+    public void ShouldNotReevaluateArrayLiteralElementsBeforeAwait()
+    {
+        var result = EvaluateAsyncJson("""
+            let i = 0;
+            const a = [++i, ++i, await Promise.resolve(++i)];
+            return { a, i };
+            """);
+
+        Assert.Equal("""{"a":[1,2,3],"i":3}""", result);
+    }
+
+    [Fact]
+    public void ShouldNotReevaluateArrayLiteralAcrossMultipleAwaits()
+    {
+        var result = EvaluateAsyncJson("""
+            let i = 0;
+            const a = [++i, await Promise.resolve(++i), ++i, await Promise.resolve(++i)];
+            return { a, i };
+            """);
+
+        Assert.Equal("""{"a":[1,2,3,4],"i":4}""", result);
+    }
+
+    [Fact]
+    public void ShouldClearArrayLiteralSuspendDataBetweenCalls()
+    {
+        var result = EvaluateAsyncJson("""
+            let i = 0;
+            const first = [++i, await Promise.resolve(10)];
+            const second = [++i, await Promise.resolve(20)];
+            return { first, second, i };
+            """);
+
+        Assert.Equal("""{"first":[1,10],"second":[2,20],"i":2}""", result);
+    }
+
+    [Fact]
     public void ShouldTaskConvertedToPromiseInJS()
     {
         Engine engine = new();

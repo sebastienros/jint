@@ -496,6 +496,25 @@ public class GeneratorTests
     }
 
     [Fact]
+    public void ShouldNotReevaluateArrayLiteralElementsBeforeYield()
+    {
+        const string Script = """
+            (function () {
+                function* gen() {
+                    let i = 0;
+                    const a = [++i, ++i, yield ++i];
+                    return [a, i];
+                }
+                const g = gen();
+                g.next();
+                return JSON.stringify(g.next("done").value);
+            })()
+            """;
+
+        Assert.Equal("""[[1,2,"done"],3]""", _engine.Evaluate(Script));
+    }
+
+    [Fact]
     public void ShouldResumeYieldInsideCatchInAsyncGenerator()
     {
         // Async generators share ISuspendable.Data with sync generators / async
