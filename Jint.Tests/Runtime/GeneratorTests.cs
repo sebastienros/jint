@@ -535,6 +535,27 @@ public class GeneratorTests
     }
 
     [Fact]
+    public void ShouldNotReevaluateMemberObjectAcrossPropertyYield()
+    {
+        const string Script = """
+            (function () {
+                function* gen() {
+                    let calls = 0;
+                    const obj = { val: 1 };
+                    const get = () => (calls++, obj);
+                    const v = get()[yield "wait"];
+                    return [v, calls];
+                }
+                const g = gen();
+                g.next();
+                return JSON.stringify(g.next("val").value);
+            })()
+            """;
+
+        Assert.Equal("[1,1]", _engine.Evaluate(Script));
+    }
+
+    [Fact]
     public void ShouldNotReevaluateNullishCoalescingLeftOperandAfterYield()
     {
         const string Script = """

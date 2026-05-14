@@ -163,6 +163,21 @@ internal sealed class SpreadArgumentsSuspendData : SuspendData
 }
 
 /// <summary>
+/// Stores the resolved object-side state of a member expression (e.g.
+/// <c>getObj()[await x]</c>) so that, when the property side suspends, the
+/// object expression — which may have observable side effects — is not
+/// re-evaluated on resume.
+/// </summary>
+internal sealed class MemberExpressionSuspendData : SuspendData
+{
+    public JsValue BaseValue { get; set; } = JsValue.Undefined;
+
+    public object? BaseReferenceName { get; set; }
+
+    public JsValue? ActualThis { get; set; }
+}
+
+/// <summary>
 /// Stores the state of a for-await-of loop when an async function awaits inside it.
 /// </summary>
 internal sealed class ForAwaitSuspendData : SuspendData

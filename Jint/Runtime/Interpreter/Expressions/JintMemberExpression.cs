@@ -82,61 +82,102 @@ internal sealed class JintMemberExpression : JintExpression
 
         var engine = context.Engine;
         var strict = StrictModeScope.IsStrictModeCode;
-        if (_objectExpression is JintIdentifierExpression identifierExpression)
-        {
-            var identifier = identifierExpression.Identifier;
-            baseReferenceName = identifier.Key.Name;
-            var env = engine.ExecutionContext.LexicalEnvironment;
-            JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
-                env,
-                identifier,
-                strict,
-                out _,
-                out baseValue);
-        }
-        else if (_objectExpression is JintThisExpression thisExpression)
-        {
-            baseValue = (JsValue?) thisExpression.GetValue(context);
-        }
-        else if (_objectExpression is JintSuperExpression)
-        {
-            var env = (FunctionEnvironment) engine.ExecutionContext.GetThisEnvironment();
-            actualThis = env.GetThisBinding();
-            baseValue = env.GetSuperBase();
-        }
+        var suspendable = engine.ExecutionContext.Suspendable;
 
-        if (baseValue is null)
+        if (suspendable is { IsResuming: true }
+            && suspendable.Data.TryGet(this, out MemberExpressionSuspendData? suspendData))
         {
-            // fast checks failed
-            var baseReference = _objectExpression.Evaluate(context);
-            if (ReferenceEquals(JsValue.Undefined, baseReference))
+            // Resume: reuse the previously-resolved object state so a side-effectful
+            // object expression (e.g. getObj()[await x]) doesn't run twice.
+            baseValue = suspendData!.BaseValue;
+            baseReferenceName = suspendData.BaseReferenceName;
+            actualThis = suspendData.ActualThis;
+        }
+        else
+        {
+            if (_objectExpression is JintIdentifierExpression identifierExpression)
+            {
+                var identifier = identifierExpression.Identifier;
+                baseReferenceName = identifier.Key.Name;
+                var env = engine.ExecutionContext.LexicalEnvironment;
+                JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
+                    env,
+                    identifier,
+                    strict,
+                    out _,
+                    out baseValue);
+            }
+            else if (_objectExpression is JintThisExpression thisExpression)
+            {
+                baseValue = (JsValue?) thisExpression.GetValue(context);
+            }
+            else if (_objectExpression is JintSuperExpression)
+            {
+                var env = (FunctionEnvironment) engine.ExecutionContext.GetThisEnvironment();
+                actualThis = env.GetThisBinding();
+                baseValue = env.GetSuperBase();
+            }
+
+            if (baseValue is null)
+            {
+                // fast checks failed
+                var baseReference = _objectExpression.Evaluate(context);
+                if (context.IsSuspended())
+                {
+                    // The object-side expression itself suspended (e.g. it's a call
+                    // expression with an awaiting argument). Do NOT save suspend data:
+                    // on resume we re-evaluate _objectExpression so it produces the
+                    // real result via its own resume mechanism. Returning a sentinel
+                    // Reference here matches previous behavior; the caller's IsSuspended
+                    // check bails before use.
+                    return context.Engine._referencePool.Rent(JsValue.Undefined, JsValue.Undefined, StrictModeScope.IsStrictModeCode, thisValue: null);
+                }
+                if (ReferenceEquals(JsValue.Undefined, baseReference))
+                {
+                    return JsValue.Undefined;
+                }
+                if (baseReference is Reference reference)
+                {
+                    baseReferenceName = reference.ReferencedName;
+                    baseValue = engine.GetValue(reference, returnReferenceToPool: true);
+                }
+                else
+                {
+                    baseValue = engine.GetValue(baseReference, returnReferenceToPool: false);
+                }
+            }
+
+            if (baseValue.IsNullOrUndefined() && (_memberExpression.Optional || _objectExpression._expression.IsOptional()))
             {
                 return JsValue.Undefined;
             }
-            if (baseReference is Reference reference)
-            {
-                baseReferenceName = reference.ReferencedName;
-                baseValue = engine.GetValue(reference, returnReferenceToPool: true);
-            }
-            else
-            {
-                baseValue = engine.GetValue(baseReference, returnReferenceToPool: false);
-            }
-        }
-
-        if (baseValue.IsNullOrUndefined() && (_memberExpression.Optional || _objectExpression._expression.IsOptional()))
-        {
-            return JsValue.Undefined;
         }
 
         var property = _determinedProperty ?? _propertyExpression!.GetValue(context);
 
-        if (property.IsPrivateName())
+        if (context.IsSuspended())
         {
-            return MakePrivateReference(engine, baseValue, property);
+            // Property-side suspended. Save the resolved object state so resume
+            // doesn't re-evaluate the (potentially side-effectful) object side.
+            if (suspendable is not null)
+            {
+                var data = suspendable.Data.GetOrCreate<MemberExpressionSuspendData>(this);
+                data.BaseValue = baseValue!;
+                data.BaseReferenceName = baseReferenceName;
+                data.ActualThis = actualThis;
+            }
+        }
+        else
+        {
+            suspendable?.Data.Clear(this);
         }
 
-        return context.Engine._referencePool.Rent(baseValue, property, StrictModeScope.IsStrictModeCode, thisValue: actualThis);
+        if (property.IsPrivateName())
+        {
+            return MakePrivateReference(engine, baseValue!, property);
+        }
+
+        return context.Engine._referencePool.Rent(baseValue!, property, StrictModeScope.IsStrictModeCode, thisValue: actualThis);
     }
 
     /// <summary>

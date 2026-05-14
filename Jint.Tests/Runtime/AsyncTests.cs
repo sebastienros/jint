@@ -580,6 +580,34 @@ public class AsyncTests
     }
 
     [Fact]
+    public void ShouldNotReevaluateMemberExpressionObjectAcrossPropertyAwait()
+    {
+        var result = EvaluateAsyncJson("""
+            let calls = 0;
+            const obj = { val: 1 };
+            const get = () => (calls++, obj);
+            const v = get()[await Promise.resolve("val")];
+            return { v, calls };
+            """);
+
+        Assert.Equal("""{"v":1,"calls":1}""", result);
+    }
+
+    [Fact]
+    public void ShouldNotReevaluateMemberExpressionObjectAcrossAwaitInChain()
+    {
+        var result = EvaluateAsyncJson("""
+            let calls = 0;
+            const obj = { foo: { bar: 42 } };
+            const get = () => (calls++, obj);
+            const v = get().foo[await Promise.resolve("bar")];
+            return { v, calls };
+            """);
+
+        Assert.Equal("""{"v":42,"calls":1}""", result);
+    }
+
+    [Fact]
     public void ShouldTaskConvertedToPromiseInJS()
     {
         Engine engine = new();
