@@ -535,6 +535,25 @@ public class GeneratorTests
     }
 
     [Fact]
+    public void ShouldNotReevaluateTemplateLiteralInterpolationsBeforeYield()
+    {
+        const string Script = """
+            (function () {
+                function* gen() {
+                    let i = 0;
+                    const s = `${++i}-${yield "wait"}-${++i}`;
+                    return [s, i];
+                }
+                const g = gen();
+                g.next();
+                return JSON.stringify(g.next("X").value);
+            })()
+            """;
+
+        Assert.Equal("""["1-X-2",2]""", _engine.Evaluate(Script));
+    }
+
+    [Fact]
     public void ShouldNotReevaluateObjectLiteralPropertiesBeforeYield()
     {
         const string Script = """

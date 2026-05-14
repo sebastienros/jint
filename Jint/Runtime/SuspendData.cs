@@ -197,6 +197,36 @@ internal sealed class ObjectExpressionSuspendData : SuspendData
 }
 
 /// <summary>
+/// Stores the partially-built template literal accumulator and next interpolation
+/// index. The accumulator includes the quasi text up to and including the one at
+/// <see cref="NextExpressionIndex"/> (which was appended just before the
+/// interpolation that suspended).
+/// </summary>
+internal sealed class TemplateLiteralSuspendData : SuspendData
+{
+    public System.Text.StringBuilder Accumulator { get; set; } = new();
+
+    public int NextExpressionIndex { get; set; }
+}
+
+/// <summary>
+/// Stores the resolved tag callable, this binding, and partially-evaluated
+/// arguments array for a tagged template expression. <c>Args[0]</c> is the
+/// template object; <c>Args[1..]</c> are the already-evaluated interpolation
+/// values up to (but not including) <see cref="NextExpressionIndex"/>.
+/// </summary>
+internal sealed class TaggedTemplateSuspendData : SuspendData
+{
+    public ICallable Tagger { get; set; } = null!;
+
+    public JsValue ThisObject { get; set; } = JsValue.Undefined;
+
+    public JsValue[] Args { get; set; } = [];
+
+    public int NextExpressionIndex { get; set; }
+}
+
+/// <summary>
 /// Stores the state of a for-await-of loop when an async function awaits inside it.
 /// </summary>
 internal sealed class ForAwaitSuspendData : SuspendData

@@ -650,6 +650,45 @@ public class AsyncTests
     }
 
     [Fact]
+    public void ShouldNotReevaluateTemplateLiteralInterpolationsBeforeAwait()
+    {
+        var result = EvaluateAsyncJson("""
+            let i = 0;
+            const s = `${++i}-${await Promise.resolve("x")}-${++i}`;
+            return { s, i };
+            """);
+
+        Assert.Equal("""{"s":"1-x-2","i":2}""", result);
+    }
+
+    [Fact]
+    public void ShouldNotEvaluateLaterInterpolationsAfterSuspensionInTemplateLiteral()
+    {
+        // Without the IsSuspended-break inside the interpolation loop, `++j` would
+        // also run during the suspended pass, doubling its side effect on resume.
+        var result = EvaluateAsyncJson("""
+            let j = 0;
+            const s = `${await Promise.resolve("mid")}-${++j}`;
+            return { s, j };
+            """);
+
+        Assert.Equal("""{"s":"mid-1","j":1}""", result);
+    }
+
+    [Fact]
+    public void ShouldNotReevaluateTaggedTemplateInterpolationsBeforeAwait()
+    {
+        var result = EvaluateAsyncJson("""
+            let i = 0;
+            const tag = (strings, ...values) => values.join("|");
+            const s = tag`${++i}-${await Promise.resolve("x")}-${++i}`;
+            return { s, i };
+            """);
+
+        Assert.Equal("""{"s":"1|x|2","i":2}""", result);
+    }
+
+    [Fact]
     public void ShouldTaskConvertedToPromiseInJS()
     {
         Engine engine = new();

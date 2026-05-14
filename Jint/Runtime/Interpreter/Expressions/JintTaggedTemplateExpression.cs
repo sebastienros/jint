@@ -20,33 +20,72 @@ internal sealed class JintTaggedTemplateExpression : JintExpression
     protected override object EvaluateInternal(EvaluationContext context)
     {
         var engine = context.Engine;
-
-        var identifier = _tagIdentifier.Evaluate(context);
-        var tagger = engine.GetValue(identifier) as ICallable;
-        if (tagger is null)
-        {
-            Throw.TypeError(engine.Realm, "Argument must be callable");
-        }
-
+        var suspendable = engine.ExecutionContext.Suspendable;
         ref readonly var expressions = ref _quasi._expressions;
 
-        var args = engine._jsValueArrayPool.RentArray(expressions.Length + 1);
+        ICallable tagger;
+        JsValue thisObject;
+        JsValue[] args;
+        int startIndex;
 
-        var template = GetTemplateObject(context);
-        args[0] = template;
-
-        for (var i = 0; i < expressions.Length; ++i)
+        if (suspendable is { IsResuming: true }
+            && suspendable.Data.TryGet(this, out TaggedTemplateSuspendData? suspendData))
         {
-            args[i + 1] = expressions[i].GetValue(context);
+            tagger = suspendData!.Tagger;
+            thisObject = suspendData.ThisObject;
+            args = suspendData.Args;
+            startIndex = suspendData.NextExpressionIndex;
+        }
+        else
+        {
+            var identifier = _tagIdentifier.Evaluate(context);
+            if (context.IsSuspended())
+            {
+                // _tagIdentifier (e.g. a member expression) suspended; that expression
+                // owns its own resume handling. Don't proceed with sentinel data.
+                return JsValue.Undefined;
+            }
+
+            var taggerCandidate = engine.GetValue(identifier) as ICallable;
+            if (taggerCandidate is null)
+            {
+                Throw.TypeError(engine.Realm, "Argument must be callable");
+            }
+            tagger = taggerCandidate;
+
+            thisObject = identifier is Reference reference && reference.IsPropertyReference
+                ? reference.Base
+                : JsValue.Undefined;
+
+            args = engine._jsValueArrayPool.RentArray(expressions.Length + 1);
+            args[0] = GetTemplateObject(context);
+            startIndex = 0;
         }
 
-        var thisObject = identifier is Reference reference && reference.IsPropertyReference
-            ? reference.Base
-            : JsValue.Undefined;
+        for (var i = startIndex; i < expressions.Length; ++i)
+        {
+            args[i + 1] = expressions[i].GetValue(context);
+
+            // Without this break, side effects in interpolations after a suspended
+            // one would continue to run during the suspended pass.
+            if (context.IsSuspended())
+            {
+                if (suspendable is not null)
+                {
+                    var data = suspendable.Data.GetOrCreate<TaggedTemplateSuspendData>(this);
+                    data.Tagger = tagger;
+                    data.ThisObject = thisObject;
+                    data.Args = args;
+                    data.NextExpressionIndex = i;
+                }
+                return JsValue.Undefined;
+            }
+        }
 
         var result = tagger.Call(thisObject, args);
 
         engine._jsValueArrayPool.ReturnArray(args);
+        suspendable?.Data.Clear(this);
 
         return result;
     }
