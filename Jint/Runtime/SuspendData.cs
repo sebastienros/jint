@@ -137,12 +137,12 @@ internal sealed class AssignmentSuspendData : SuspendData
 }
 
 /// <summary>
-/// Stores the in-progress argument buffer and resume index for a call/new
-/// expression when evaluation suspends inside one of the arguments. Reused on
-/// resume so already-evaluated arguments (which may have observable side
-/// effects) are not re-evaluated.
+/// Stores an in-progress JsValue buffer and the next index to resume at when
+/// evaluation of a sequence of sibling expressions (call/new arguments, array
+/// literal elements) suspends. Reused on resume so already-evaluated entries
+/// — which may have observable side effects — are not re-evaluated.
 /// </summary>
-internal sealed class CallArgumentsSuspendData : SuspendData
+internal sealed class ExpressionBufferSuspendData : SuspendData
 {
     public JsValue[] Buffer { get; set; } = [];
 

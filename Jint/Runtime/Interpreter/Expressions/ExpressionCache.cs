@@ -80,7 +80,7 @@ internal sealed class ExpressionCache
         JsValue[] arguments;
         int startIndex;
         if (suspendable is { IsResuming: true }
-            && suspendable.Data.TryGet(key, out CallArgumentsSuspendData? suspendData))
+            && suspendable.Data.TryGet(key, out ExpressionBufferSuspendData? suspendData))
         {
             // Resume: reuse the partially-filled buffer so already-evaluated
             // arguments (which may have observable side effects) are not re-evaluated.
@@ -100,7 +100,7 @@ internal sealed class ExpressionCache
             // Buffer is kept alive in suspend data; caller must NOT return it to the pool.
             if (suspendable is not null)
             {
-                var data = suspendable.Data.GetOrCreate<CallArgumentsSuspendData>(key);
+                var data = suspendable.Data.GetOrCreate<ExpressionBufferSuspendData>(key);
                 data.Buffer = arguments;
                 data.NextIndex = nextIndex;
             }
