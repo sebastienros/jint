@@ -43,10 +43,21 @@ internal sealed class JintAssignmentExpression : JintExpression
     {
         var engine = context.Engine;
         var strict = StrictModeScope.IsStrictModeCode;
+        var suspendable = engine.ExecutionContext.Suspendable;
 
         JsValue originalLeftValue;
         Reference lref;
-        if (_leftIdentifier is not null && JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
+        bool lhsHasSideEffects;
+        if (suspendable is { IsResuming: true }
+            && suspendable.Data.TryGet(this, out AssignmentSuspendData? suspendData))
+        {
+            // Resuming: skip LHS re-evaluation. The slow path may have observable
+            // side effects (obj[++i]), so we reuse the saved Reference + original value.
+            lref = suspendData!.Lref;
+            originalLeftValue = suspendData.OriginalLeftValue;
+            lhsHasSideEffects = true;
+        }
+        else if (_leftIdentifier is not null && JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
                 engine.ExecutionContext.LexicalEnvironment,
                 _leftIdentifier.Identifier,
                 strict,
@@ -55,6 +66,7 @@ internal sealed class JintAssignmentExpression : JintExpression
         {
             originalLeftValue = temp;
             lref = engine._referencePool.Rent(identifierEnvironment, _leftIdentifier.Identifier.Value, strict, thisValue: null);
+            lhsHasSideEffects = false;
         }
         else
         {
@@ -65,6 +77,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                 Throw.ReferenceError(context.Engine.Realm, "Invalid left-hand side in assignment");
             }
             originalLeftValue = context.Engine.GetValue(lref, returnReferenceToPool: false);
+            lhsHasSideEffects = true;
         }
 
         var handledByOverload = false;
@@ -85,7 +98,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                         var rval = _right.GetValue(context);
                         if (context.IsSuspended())
                         {
-                            engine._referencePool.Return(lref);
+                            HandleSuspendedRight(engine, suspendable, lref, originalLeftValue, lhsHasSideEffects);
                             return rval;
                         }
 
@@ -127,7 +140,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                         var rval = _right.GetValue(context);
                         if (context.IsSuspended())
                         {
-                            engine._referencePool.Return(lref);
+                            HandleSuspendedRight(engine, suspendable, lref, originalLeftValue, lhsHasSideEffects);
                             return rval;
                         }
 
@@ -153,7 +166,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                         var rval = _right.GetValue(context);
                         if (context.IsSuspended())
                         {
-                            engine._referencePool.Return(lref);
+                            HandleSuspendedRight(engine, suspendable, lref, originalLeftValue, lhsHasSideEffects);
                             return rval;
                         }
 
@@ -183,7 +196,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                         var rval = _right.GetValue(context);
                         if (context.IsSuspended())
                         {
-                            engine._referencePool.Return(lref);
+                            HandleSuspendedRight(engine, suspendable, lref, originalLeftValue, lhsHasSideEffects);
                             return rval;
                         }
 
@@ -196,7 +209,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                         var rval = _right.GetValue(context);
                         if (context.IsSuspended())
                         {
-                            engine._referencePool.Return(lref);
+                            HandleSuspendedRight(engine, suspendable, lref, originalLeftValue, lhsHasSideEffects);
                             return rval;
                         }
 
@@ -209,7 +222,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                         var rval = _right.GetValue(context);
                         if (context.IsSuspended())
                         {
-                            engine._referencePool.Return(lref);
+                            HandleSuspendedRight(engine, suspendable, lref, originalLeftValue, lhsHasSideEffects);
                             return rval;
                         }
 
@@ -222,7 +235,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                         var rval = _right.GetValue(context);
                         if (context.IsSuspended())
                         {
-                            engine._referencePool.Return(lref);
+                            HandleSuspendedRight(engine, suspendable, lref, originalLeftValue, lhsHasSideEffects);
                             return rval;
                         }
 
@@ -235,7 +248,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                         var rval = _right.GetValue(context);
                         if (context.IsSuspended())
                         {
-                            engine._referencePool.Return(lref);
+                            HandleSuspendedRight(engine, suspendable, lref, originalLeftValue, lhsHasSideEffects);
                             return rval;
                         }
 
@@ -248,7 +261,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                         var rval = _right.GetValue(context);
                         if (context.IsSuspended())
                         {
-                            engine._referencePool.Return(lref);
+                            HandleSuspendedRight(engine, suspendable, lref, originalLeftValue, lhsHasSideEffects);
                             return rval;
                         }
 
@@ -261,7 +274,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                         var rval = _right.GetValue(context);
                         if (context.IsSuspended())
                         {
-                            engine._referencePool.Return(lref);
+                            HandleSuspendedRight(engine, suspendable, lref, originalLeftValue, lhsHasSideEffects);
                             return rval;
                         }
 
@@ -274,7 +287,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                         var rval = _right.GetValue(context);
                         if (context.IsSuspended())
                         {
-                            engine._referencePool.Return(lref);
+                            HandleSuspendedRight(engine, suspendable, lref, originalLeftValue, lhsHasSideEffects);
                             return rval;
                         }
 
@@ -287,13 +300,14 @@ internal sealed class JintAssignmentExpression : JintExpression
                         if (!originalLeftValue.IsNullOrUndefined())
                         {
                             engine._referencePool.Return(lref);
+                            suspendable?.Data.Clear(this);
                             return originalLeftValue;
                         }
 
                         var rval = NamedEvaluation(context, _right);
                         if (context.IsSuspended())
                         {
-                            engine._referencePool.Return(lref);
+                            HandleSuspendedRight(engine, suspendable, lref, originalLeftValue, lhsHasSideEffects);
                             return rval;
                         }
 
@@ -306,13 +320,14 @@ internal sealed class JintAssignmentExpression : JintExpression
                         if (!TypeConverter.ToBoolean(originalLeftValue))
                         {
                             engine._referencePool.Return(lref);
+                            suspendable?.Data.Clear(this);
                             return originalLeftValue;
                         }
 
                         var rval = NamedEvaluation(context, _right);
                         if (context.IsSuspended())
                         {
-                            engine._referencePool.Return(lref);
+                            HandleSuspendedRight(engine, suspendable, lref, originalLeftValue, lhsHasSideEffects);
                             return rval;
                         }
 
@@ -325,13 +340,14 @@ internal sealed class JintAssignmentExpression : JintExpression
                         if (TypeConverter.ToBoolean(originalLeftValue))
                         {
                             engine._referencePool.Return(lref);
+                            suspendable?.Data.Clear(this);
                             return originalLeftValue;
                         }
 
                         var rval = NamedEvaluation(context, _right);
                         if (context.IsSuspended())
                         {
-                            engine._referencePool.Return(lref);
+                            HandleSuspendedRight(engine, suspendable, lref, originalLeftValue, lhsHasSideEffects);
                             return rval;
                         }
 
@@ -344,7 +360,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                         var rval = _right.GetValue(context);
                         if (context.IsSuspended())
                         {
-                            engine._referencePool.Return(lref);
+                            HandleSuspendedRight(engine, suspendable, lref, originalLeftValue, lhsHasSideEffects);
                             return rval;
                         }
 
@@ -387,7 +403,26 @@ internal sealed class JintAssignmentExpression : JintExpression
         }
 
         engine._referencePool.Return(lref);
+        suspendable?.Data.Clear(this);
         return newLeftValue!;
+    }
+
+    private void HandleSuspendedRight(Engine engine, ISuspendable? suspendable, Reference lref, JsValue originalLeftValue, bool lhsHasSideEffects)
+    {
+        // Only the slow path's LHS can have observable side effects (e.g. obj[++i]).
+        // For that case, hold the Reference + value across the suspension so the next
+        // resume reuses them. For the side-effect-free fast path, return the Reference
+        // to the pool — no benefit in retaining it.
+        if (lhsHasSideEffects && suspendable is not null)
+        {
+            var data = suspendable.Data.GetOrCreate<AssignmentSuspendData>(this);
+            data.Lref = lref;
+            data.OriginalLeftValue = originalLeftValue;
+        }
+        else
+        {
+            engine._referencePool.Return(lref);
+        }
     }
 
     private JsValue? EvaluateOperatorOverloading(EvaluationContext context, JsValue originalLeftValue, JsValue? newLeftValue, ref bool handledByOverload)

@@ -358,6 +358,60 @@ public class AsyncTests
     }
 
     [Fact]
+    public void ShouldNotReevaluateCompoundAssignmentLhsAfterAwait()
+    {
+        var result = EvaluateAsyncJson("""
+            const obj = { 0: 0 };
+            let i = -1;
+            obj[++i] += await Promise.resolve(5);
+            return { obj, i };
+            """);
+
+        Assert.Equal("""{"obj":{"0":5},"i":0}""", result);
+    }
+
+    [Fact]
+    public void ShouldNotReevaluatePropertyAssignmentLhsAfterAwait()
+    {
+        var result = EvaluateAsyncJson("""
+            const obj = { x: 10 };
+            let touches = 0;
+            const accessor = () => (touches++, obj);
+            accessor().x -= await Promise.resolve(3);
+            return { obj, touches };
+            """);
+
+        Assert.Equal("""{"obj":{"x":7},"touches":1}""", result);
+    }
+
+    [Fact]
+    public void ShouldPreserveCompoundAssignmentLhsAcrossNullishCoalescing()
+    {
+        var result = EvaluateAsyncJson("""
+            const obj = { 0: null };
+            let i = -1;
+            obj[++i] ??= await Promise.resolve("filled");
+            return { obj, i };
+            """);
+
+        Assert.Equal("""{"obj":{"0":"filled"},"i":0}""", result);
+    }
+
+    [Fact]
+    public void ShouldNotReevaluateCompoundAssignmentLhsOnSimpleIdentifierAfterAwait()
+    {
+        // Simple-identifier LHS goes through the fast path (no observable side
+        // effect to preserve), but the result still has to be correct.
+        var result = EvaluateAsyncJson("""
+            let x = 7;
+            x *= await Promise.resolve(3);
+            return { x };
+            """);
+
+        Assert.Equal("""{"x":21}""", result);
+    }
+
+    [Fact]
     public void ShouldTaskConvertedToPromiseInJS()
     {
         Engine engine = new();

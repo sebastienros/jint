@@ -124,6 +124,19 @@ internal sealed class CatchSuspendData : SuspendData
 }
 
 /// <summary>
+/// Stores the resolved LHS Reference and pre-mutation value of a compound assignment
+/// (e.g. obj[++i] += await y) when evaluation suspends inside the right-hand side.
+/// Reused on resume so the LHS — which may have observable side effects in its index
+/// or property accessor — is not re-evaluated.
+/// </summary>
+internal sealed class AssignmentSuspendData : SuspendData
+{
+    public Reference Lref { get; set; } = null!;
+
+    public JsValue OriginalLeftValue { get; set; } = JsValue.Undefined;
+}
+
+/// <summary>
 /// Stores the state of a for-await-of loop when an async function awaits inside it.
 /// </summary>
 internal sealed class ForAwaitSuspendData : SuspendData
