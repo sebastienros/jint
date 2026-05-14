@@ -16,7 +16,7 @@
 
   <ItemGroup>
     <PackageReference Include="Acornima.Extras" />
-    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="AwesomeAssertions" />
     <PackageReference Include="Flurl.Http.Signed" />
     <PackageReference Include="GitHubActionsTestLogger" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />

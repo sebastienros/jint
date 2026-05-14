@@ -20,7 +20,7 @@
 
   <ItemGroup>
     <PackageReference Include="Acornima.Extras" />
-    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="AwesomeAssertions" />
     <PackageReference Include="Flurl.Http.Signed" />
     <PackageReference Include="GitHubActionsTestLogger" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
@@ -33,7 +33,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Using Include="FluentAssertions" />
+    <Using Include="AwesomeAssertions" />
     <Using Include="Xunit" />
   </ItemGroup>
 

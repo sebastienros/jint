@@ -1,6 +1,6 @@
 using System.Dynamic;
 using System.Text;
-using FluentAssertions;
+using AwesomeAssertions;
 using Jint.Runtime.Interop;
 
 namespace Jint.Tests.PublicInterface;

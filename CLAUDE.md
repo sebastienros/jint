@@ -195,7 +195,7 @@ Split into a separate file when:
 
 - **Jint.Tests/**: Main test suite using xUnit v3
   - Organized by topic (Runtime/, Parser/, Debugger/, etc.)
-  - Uses FluentAssertions for readable assertions
+  - Uses AwesomeAssertions for readable assertions
   - Embedded test scripts in Runtime/Scripts/ and Parser/Scripts/
   - Use timeout of 30 seconds when invoking test runner
 

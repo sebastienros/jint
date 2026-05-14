@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using Jint.Native;
 
 namespace Jint.Tests.Runtime;
