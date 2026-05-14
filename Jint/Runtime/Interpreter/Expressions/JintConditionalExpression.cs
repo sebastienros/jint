@@ -1,3 +1,5 @@
+using Jint.Native;
+
 namespace Jint.Runtime.Interpreter.Expressions;
 
 internal sealed class JintConditionalExpression : JintExpression
@@ -15,16 +17,39 @@ internal sealed class JintConditionalExpression : JintExpression
 
     protected override object EvaluateInternal(EvaluationContext context)
     {
-        var testValue = _test.GetValue(context);
-
-        // Check for generator suspension after evaluating test
-        if (context.IsSuspended())
+        JsValue testValue;
+        var suspendable = context.Engine?.ExecutionContext.Suspendable;
+        if (suspendable is { IsResuming: true }
+            && suspendable.Data.TryGet(this, out LeftOperandSuspendData? suspendData))
         {
-            return testValue;
+            testValue = suspendData!.LeftValue;
+        }
+        else
+        {
+            testValue = _test.GetValue(context);
+
+            // Check for generator suspension after evaluating test
+            if (context.IsSuspended())
+            {
+                return testValue;
+            }
         }
 
-        return TypeConverter.ToBoolean(testValue)
+        var result = TypeConverter.ToBoolean(testValue)
             ? _consequent.GetValue(context)
             : _alternate.GetValue(context);
+
+        if (context.IsSuspended())
+        {
+            if (suspendable is not null)
+            {
+                suspendable.Data.GetOrCreate<LeftOperandSuspendData>(this).LeftValue = testValue;
+            }
+
+            return result;
+        }
+
+        suspendable?.Data.Clear(this);
+        return result;
     }
 }

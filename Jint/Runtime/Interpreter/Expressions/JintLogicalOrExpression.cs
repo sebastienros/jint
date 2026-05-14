@@ -15,24 +15,48 @@ internal sealed class JintLogicalOrExpression : JintExpression
 
     protected override object EvaluateInternal(EvaluationContext context)
     {
-        var left = _left.GetValue(context);
-
-        // Check for generator suspension after evaluating left operand
-        if (context.IsSuspended())
+        JsValue left;
+        var suspendable = context.Engine?.ExecutionContext.Suspendable;
+        if (suspendable is { IsResuming: true }
+            && suspendable.Data.TryGet(this, out LeftOperandSuspendData? suspendData))
         {
-            return left;
+            left = suspendData!.LeftValue;
+        }
+        else
+        {
+            left = _left.GetValue(context);
+
+            // Check for generator suspension after evaluating left operand
+            if (context.IsSuspended())
+            {
+                return left;
+            }
         }
 
         if (left is JsBoolean b && b._value)
         {
+            suspendable?.Data.Clear(this);
             return b;
         }
 
         if (TypeConverter.ToBoolean(left))
         {
+            suspendable?.Data.Clear(this);
             return left;
         }
 
-        return _right.GetValue(context);
+        var right = _right.GetValue(context);
+        if (context.IsSuspended())
+        {
+            if (suspendable is not null)
+            {
+                suspendable.Data.GetOrCreate<LeftOperandSuspendData>(this).LeftValue = left;
+            }
+
+            return right;
+        }
+
+        suspendable?.Data.Clear(this);
+        return right;
     }
 }

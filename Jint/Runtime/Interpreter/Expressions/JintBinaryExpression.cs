@@ -35,7 +35,7 @@ internal abstract class JintBinaryExpression : JintExpression
     {
         var suspendable = context.Engine?.ExecutionContext.Suspendable;
         if (suspendable is { IsResuming: true }
-            && suspendable.Data.TryGet(this, out BinaryExpressionSuspendData? suspendData))
+            && suspendable.Data.TryGet(this, out LeftOperandSuspendData? suspendData))
         {
             left = suspendData!.LeftValue;
         }
@@ -54,7 +54,7 @@ internal abstract class JintBinaryExpression : JintExpression
         {
             if (suspendable is not null)
             {
-                suspendable.Data.GetOrCreate<BinaryExpressionSuspendData>(this).LeftValue = left;
+                suspendable.Data.GetOrCreate<LeftOperandSuspendData>(this).LeftValue = left;
             }
 
             return false;

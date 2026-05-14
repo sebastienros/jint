@@ -102,10 +102,12 @@ internal sealed class SwitchBlockSuspendData : SuspendData
 }
 
 /// <summary>
-/// Stores the left operand of a binary expression when evaluation suspends while
-/// evaluating the right operand.
+/// Stores the already-evaluated left operand of a binary, logical, or conditional
+/// expression when evaluation suspends inside the right operand / branch. Reused
+/// on resume so the left side (which may have observable side effects) is not
+/// re-evaluated.
 /// </summary>
-internal sealed class BinaryExpressionSuspendData : SuspendData
+internal sealed class LeftOperandSuspendData : SuspendData
 {
     public JsValue LeftValue { get; set; } = JsValue.Undefined;
 }

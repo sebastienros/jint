@@ -281,6 +281,83 @@ public class AsyncTests
     }
 
     [Fact]
+    public void ShouldNotReevaluateBinaryLeftOperandAfterAwait()
+    {
+        var result = EvaluateAsyncJson("""
+            let d = 0;
+            const sum = (++d) + (await Promise.resolve(10));
+            return { d, sum };
+            """);
+
+        Assert.Equal("""{"d":1,"sum":11}""", result);
+    }
+
+    [Fact]
+    public void ShouldNotReevaluateLogicalAndLeftOperandAfterAwait()
+    {
+        var result = EvaluateAsyncJson("""
+            let d = 0;
+            const ok = (++d > 0) && (await Promise.resolve(true));
+            return { d, ok };
+            """);
+
+        Assert.Equal("""{"d":1,"ok":true}""", result);
+    }
+
+    [Fact]
+    public void ShouldNotReevaluateLogicalOrLeftOperandAfterAwait()
+    {
+        var result = EvaluateAsyncJson("""
+            let d = 0;
+            const ok = (++d <= 0) || (await Promise.resolve(true));
+            return { d, ok };
+            """);
+
+        Assert.Equal("""{"d":1,"ok":true}""", result);
+    }
+
+    [Fact]
+    public void ShouldNotReevaluateConditionalTestAfterAwait()
+    {
+        var result = EvaluateAsyncJson("""
+            let d = 0;
+            const value = (++d > 0) ? (await Promise.resolve("yes")) : "no";
+            return { d, value };
+            """);
+
+        Assert.Equal("""{"d":1,"value":"yes"}""", result);
+    }
+
+    [Fact]
+    public void ShouldNotReevaluateConditionalTestWhenAlternateAwaits()
+    {
+        var result = EvaluateAsyncJson("""
+            let d = 0;
+            const value = (++d > 1) ? "yes" : (await Promise.resolve("no"));
+            return { d, value };
+            """);
+
+        Assert.Equal("""{"d":1,"value":"no"}""", result);
+    }
+
+    [Fact]
+    public void ShouldShortCircuitLogicalAndWithoutSavingLeftOperand()
+    {
+        // Left short-circuits to false: right (await) should never run, and a
+        // subsequent expression using the same `&&` should still re-evaluate left.
+        var result = EvaluateAsyncJson("""
+            let d = 0;
+            let awaits = 0;
+            const a = (d > 0) && (await Promise.resolve(++awaits));
+            d = 1;
+            const b = (d > 0) && (await Promise.resolve(++awaits));
+            return { a, b, awaits };
+            """);
+
+        Assert.Equal("""{"a":false,"b":1,"awaits":1}""", result);
+    }
+
+    [Fact]
     public void ShouldTaskConvertedToPromiseInJS()
     {
         Engine engine = new();
