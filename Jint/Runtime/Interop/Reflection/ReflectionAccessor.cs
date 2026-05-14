@@ -13,9 +13,10 @@ using Jint.Runtime.Descriptors.Specialized;
 namespace Jint.Runtime.Interop.Reflection;
 
 /// <summary>
-/// Strategy to read and write CLR object properties and fields.
+/// Strategy to read and write CLR object properties and fields. Public so that the
+/// <c>[JsAccessible]</c> source generator can emit typed subclasses in user assemblies.
 /// </summary>
-internal abstract class ReflectionAccessor
+public abstract class ReflectionAccessor
 {
     private readonly Type? _memberType;
     private readonly PropertyInfo? _indexer;
@@ -38,7 +39,7 @@ internal abstract class ReflectionAccessor
 
     protected abstract void DoSetValue(object target, string memberName, object? value);
 
-    public object? GetValue(Engine engine, object target, string memberName)
+    public virtual object? GetValue(Engine engine, object target, string memberName)
     {
         var constantValue = ConstantValue;
         if (constantValue is not null)
@@ -85,7 +86,7 @@ internal abstract class ReflectionAccessor
         }
     }
 
-    public void SetValue(Engine engine, object target, string memberName, JsValue value)
+    public virtual void SetValue(Engine engine, object target, string memberName, JsValue value)
     {
         object? converted;
         if (_memberType == typeof(JsValue))
