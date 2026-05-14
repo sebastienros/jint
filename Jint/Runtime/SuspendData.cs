@@ -178,6 +178,25 @@ internal sealed class MemberExpressionSuspendData : SuspendData
 }
 
 /// <summary>
+/// Stores the partially-built object and resume index for an object literal
+/// (e.g. <c>{ a: ++i, b: await x, c: ++j }</c>) when evaluation suspends.
+/// Without preservation, the leading properties would re-evaluate on resume,
+/// doubling their side effects.
+/// </summary>
+internal sealed class ObjectExpressionSuspendData : SuspendData
+{
+    public ObjectInstance? Target { get; set; }
+
+    /// <summary>
+    /// Used by the fast-path builder, which accumulates into a separate
+    /// PropertyDictionary that's installed on Target at the end.
+    /// </summary>
+    public PropertyDictionary? FastProperties { get; set; }
+
+    public int NextIndex { get; set; }
+}
+
+/// <summary>
 /// Stores the state of a for-await-of loop when an async function awaits inside it.
 /// </summary>
 internal sealed class ForAwaitSuspendData : SuspendData

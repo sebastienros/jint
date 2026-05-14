@@ -608,6 +608,48 @@ public class AsyncTests
     }
 
     [Fact]
+    public void ShouldNotReevaluateObjectLiteralPropertiesBeforeAwait()
+    {
+        var result = EvaluateAsyncJson("""
+            let i = 0;
+            const o = { a: ++i, b: ++i, c: await Promise.resolve(++i) };
+            return { o, i };
+            """);
+
+        Assert.Equal("""{"o":{"a":1,"b":2,"c":3},"i":3}""", result);
+    }
+
+    [Fact]
+    public void ShouldNotReevaluateObjectLiteralPropertiesAcrossMultipleAwaits()
+    {
+        var result = EvaluateAsyncJson("""
+            let i = 0;
+            const o = {
+                a: ++i,
+                b: await Promise.resolve(++i),
+                c: ++i,
+                d: await Promise.resolve(++i)
+            };
+            return { o, i };
+            """);
+
+        Assert.Equal("""{"o":{"a":1,"b":2,"c":3,"d":4},"i":4}""", result);
+    }
+
+    [Fact]
+    public void ShouldNotReevaluateComputedKeyAcrossAwaitInObjectLiteral()
+    {
+        var result = EvaluateAsyncJson("""
+            let i = 0;
+            const k = () => "k" + (++i);
+            const o = { [k()]: 1, value: await Promise.resolve("done") };
+            return { o, i };
+            """);
+
+        Assert.Equal("""{"o":{"k1":1,"value":"done"},"i":1}""", result);
+    }
+
+    [Fact]
     public void ShouldTaskConvertedToPromiseInJS()
     {
         Engine engine = new();

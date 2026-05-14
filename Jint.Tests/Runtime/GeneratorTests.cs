@@ -535,6 +535,25 @@ public class GeneratorTests
     }
 
     [Fact]
+    public void ShouldNotReevaluateObjectLiteralPropertiesBeforeYield()
+    {
+        const string Script = """
+            (function () {
+                function* gen() {
+                    let i = 0;
+                    const o = { a: ++i, b: ++i, c: yield ++i };
+                    return [o, i];
+                }
+                const g = gen();
+                g.next();
+                return JSON.stringify(g.next("done").value);
+            })()
+            """;
+
+        Assert.Equal("""[{"a":1,"b":2,"c":"done"},3]""", _engine.Evaluate(Script));
+    }
+
+    [Fact]
     public void ShouldNotReevaluateMemberObjectAcrossPropertyYield()
     {
         const string Script = """
