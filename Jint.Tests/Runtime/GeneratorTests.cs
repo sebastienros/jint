@@ -266,4 +266,258 @@ public class GeneratorTests
         Assert.Equal(1, _engine.Evaluate("sequence.next().value"));
         Assert.Equal(2, _engine.Evaluate("sequence.next().value"));
     }
+
+    // The following tests mirror PR #2469's AsyncTests for control-flow resume but
+    // using yield in a sync generator. The PR's fix is shared infrastructure
+    // (ISuspendable.Data, GetSuspensionNode, IsNodeInsideRange), so these are
+    // regression guards against drift between the async and sync resume paths.
+
+    [Fact]
+    public void ShouldResumeYieldInsideCatchWithoutReexecutingTryBlock()
+    {
+        const string Script = """
+            (function () {
+                function* gen() {
+                    let tries = 0;
+                    try {
+                        tries++;
+                        throw 1;
+                    } catch (e) {
+                        yield;
+                        return tries;
+                    }
+                }
+                const g = gen();
+                g.next();
+                return g.next().value;
+            })()
+            """;
+
+        Assert.Equal(1, _engine.Evaluate(Script));
+    }
+
+    [Fact]
+    public void ShouldResumeYieldInsideIfWithoutReexecutingTest()
+    {
+        const string Script = """
+            (function () {
+                function* gen() {
+                    let tests = 0;
+                    if (++tests === 1) {
+                        yield;
+                        return tests;
+                    }
+                    return -1;
+                }
+                const g = gen();
+                g.next();
+                return g.next().value;
+            })()
+            """;
+
+        Assert.Equal(1, _engine.Evaluate(Script));
+    }
+
+    [Fact]
+    public void ShouldResumeYieldInsideForBodyWithoutReexecutingTest()
+    {
+        const string Script = """
+            (function () {
+                function* gen() {
+                    let inits = 0, tests = 0, updates = 0, bodies = 0;
+                    for (inits++; ++tests <= 1; updates++) {
+                        bodies++;
+                        yield;
+                        return [inits, tests, updates, bodies];
+                    }
+                    return [inits, tests, updates, bodies, "fellThrough"];
+                }
+                const g = gen();
+                g.next();
+                return JSON.stringify(g.next().value);
+            })()
+            """;
+
+        Assert.Equal("[1,1,0,1]", _engine.Evaluate(Script));
+    }
+
+    [Fact]
+    public void ShouldResumeYieldInsideSwitchCaseWithoutReexecutingDiscriminant()
+    {
+        const string Script = """
+            (function () {
+                function* gen() {
+                    let discriminants = 0;
+                    switch (++discriminants) {
+                        case 1:
+                            yield;
+                            return discriminants;
+                        default:
+                            return -1;
+                    }
+                }
+                const g = gen();
+                g.next();
+                return g.next().value;
+            })()
+            """;
+
+        Assert.Equal(1, _engine.Evaluate(Script));
+    }
+
+    [Fact]
+    public void ShouldNotReevaluateBinaryLeftOperandAfterYield()
+    {
+        const string Script = """
+            (function () {
+                function* gen() {
+                    let d = 0;
+                    const sum = (++d) + (yield 10);
+                    return [d, sum];
+                }
+                const g = gen();
+                g.next();              // yields 10
+                return JSON.stringify(g.next(5).value);  // resume with 5 → sum = 1 + 5 = 6
+            })()
+            """;
+
+        Assert.Equal("[1,6]", _engine.Evaluate(Script));
+    }
+
+    [Fact]
+    public void ShouldNotReevaluateLogicalAndLeftOperandAfterYield()
+    {
+        const string Script = """
+            (function () {
+                function* gen() {
+                    let d = 0;
+                    const ok = (++d > 0) && (yield true);
+                    return [d, ok];
+                }
+                const g = gen();
+                g.next();
+                return JSON.stringify(g.next(7).value);
+            })()
+            """;
+
+        Assert.Equal("[1,7]", _engine.Evaluate(Script));
+    }
+
+    [Fact]
+    public void ShouldNotReevaluateCallArgumentsBeforeYield()
+    {
+        const string Script = """
+            (function () {
+                function* gen() {
+                    let i = 0;
+                    const foo = (a, b, c) => [a, b, c];
+                    const r = foo(++i, ++i, yield ++i);
+                    return [r, i];
+                }
+                const g = gen();
+                g.next();                          // yields 3
+                return JSON.stringify(g.next("done").value);
+            })()
+            """;
+
+        Assert.Equal("""[[1,2,"done"],3]""", _engine.Evaluate(Script));
+    }
+
+    [Fact]
+    public void ShouldNotReevaluateCompoundAssignmentLhsAfterYield()
+    {
+        const string Script = """
+            (function () {
+                function* gen() {
+                    const obj = { 0: 0 };
+                    let i = -1;
+                    obj[++i] += yield;
+                    return [obj, i];
+                }
+                const g = gen();
+                g.next();
+                return JSON.stringify(g.next(5).value);
+            })()
+            """;
+
+        Assert.Equal("""[{"0":5},0]""", _engine.Evaluate(Script));
+    }
+
+    [Fact]
+    public void ShouldPreserveSwitchLexicalBindingAfterYieldInsideCase()
+    {
+        const string Script = """
+            (function () {
+                function* gen() {
+                    switch (1) {
+                        case 1:
+                            let x = 1;
+                            yield;
+                            return x;
+                        default:
+                            return 0;
+                    }
+                }
+                const g = gen();
+                g.next();
+                return g.next().value;
+            })()
+            """;
+
+        Assert.Equal(1, _engine.Evaluate(Script));
+    }
+
+    [Fact]
+    public void ShouldClearSwitchSuspendDataAfterResumedBreakInGenerator()
+    {
+        const string Script = """
+            (function () {
+                function* gen() {
+                    const values = [];
+                    for (let i = 0; i < 2; i++) {
+                        switch (1) {
+                            case 1:
+                                let x = i;
+                                yield;
+                                values.push(x);
+                                break;
+                        }
+                    }
+                    return values;
+                }
+                const g = gen();
+                g.next();         // yields, x=0 in iter 0
+                g.next();         // resumes, pushes 0; yields, x=1 in iter 1
+                return JSON.stringify(g.next().value);  // resumes, pushes 1; loop exits
+            })()
+            """;
+
+        Assert.Equal("[0,1]", _engine.Evaluate(Script));
+    }
+
+    [Fact]
+    public void ShouldResumeYieldInsideCatchInAsyncGenerator()
+    {
+        // Async generators share ISuspendable.Data with sync generators / async
+        // functions, so the same control-flow resume fixes apply.
+        var result = _engine.Evaluate("""
+            (async () => {
+                async function* gen() {
+                    let tries = 0;
+                    try {
+                        tries++;
+                        throw 1;
+                    } catch (e) {
+                        yield;
+                        return tries;
+                    }
+                }
+                const g = gen();
+                await g.next();
+                return (await g.next()).value;
+            })()
+            """).UnwrapIfPromise(TimeSpan.FromSeconds(1));
+
+        Assert.Equal(1, result.AsNumber());
+    }
 }
