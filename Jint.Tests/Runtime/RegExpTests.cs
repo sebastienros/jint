@@ -189,7 +189,7 @@ public class RegExpTests
         {
             ParsingOptions = ModulePreparationOptions.Default.ParsingOptions with
             {
-                RegexTimeout = TimeSpan.FromSeconds(1),
+                RegexTimeout = PrepareTimeRegexTimeout,
             },
         };
 
@@ -197,18 +197,24 @@ public class RegExpTests
             $"export default '{TestedValue}'.match(/{TestRegex}/)",
             options: preparationOptions);
 
-        // Engine has no RegexTimeoutInterval set (defaults to 10s) — only the prepare-time
-        // 1s timeout should apply. The 5s upper bound catches a regression to the 10s default.
-        var engine = new Engine();
+        // Engine is set to a long timeout so a regression that drops the prepare-time
+        // timeout on the floor falls through to ~EngineRegexTimeoutSeconds rather than
+        // the modest default — keeping a clear gap above the assertion threshold even
+        // on slow Windows CI runners where cancellation lag can be several seconds.
+        var engine = new Engine(o => o.RegexTimeoutInterval(TimeSpan.FromSeconds(EngineRegexTimeoutSeconds)));
         engine.Modules.Add("__main__", x => x.AddModule(preparedModule));
 
         var sw = Stopwatch.StartNew();
         Assert.Throws<RegexMatchTimeoutException>(() => engine.Modules.Import("__main__"));
         sw.Stop();
 
-        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(5),
-            $"Expected RegexMatchTimeoutException within 5s, took {sw.Elapsed.TotalSeconds:F1}s");
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(MaxAcceptableTimeoutSeconds),
+            $"Expected RegexMatchTimeoutException within {MaxAcceptableTimeoutSeconds}s, took {sw.Elapsed.TotalSeconds:F1}s");
     }
+
+    private const int EngineRegexTimeoutSeconds = 30;
+    private const int MaxAcceptableTimeoutSeconds = 15;
+    private static readonly TimeSpan PrepareTimeRegexTimeout = TimeSpan.FromSeconds(1);
 
     private static void AssertPrepareTimeRegexTimeoutFires(string script)
     {
@@ -216,21 +222,23 @@ public class RegExpTests
         {
             ParsingOptions = ScriptPreparationOptions.Default.ParsingOptions with
             {
-                RegexTimeout = TimeSpan.FromSeconds(1),
+                RegexTimeout = PrepareTimeRegexTimeout,
             },
         };
 
         var preparedScript = Engine.PrepareScript(script, options: preparationOptions);
 
-        // Engine has no RegexTimeoutInterval set (defaults to 10s) — only the prepare-time
-        // 1s timeout should apply. The 5s upper bound catches a regression to the 10s default.
-        var engine = new Engine();
+        // Engine is set to a long timeout so a regression that drops the prepare-time
+        // timeout on the floor falls through to ~EngineRegexTimeoutSeconds rather than
+        // the modest default — keeping a clear gap above the assertion threshold even
+        // on slow Windows CI runners where cancellation lag can be several seconds.
+        var engine = new Engine(o => o.RegexTimeoutInterval(TimeSpan.FromSeconds(EngineRegexTimeoutSeconds)));
 
         var sw = Stopwatch.StartNew();
         Assert.Throws<RegexMatchTimeoutException>(() => engine.Execute(preparedScript));
         sw.Stop();
 
-        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(5),
-            $"Expected RegexMatchTimeoutException within 5s, took {sw.Elapsed.TotalSeconds:F1}s");
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(MaxAcceptableTimeoutSeconds),
+            $"Expected RegexMatchTimeoutException within {MaxAcceptableTimeoutSeconds}s, took {sw.Elapsed.TotalSeconds:F1}s");
     }
 }

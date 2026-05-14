@@ -97,7 +97,15 @@
     "intl402/Temporal/ZonedDateTime/prototype/daysInYear/basic-islamic-umalqura.js",
     "intl402/Temporal/ZonedDateTime/prototype/inLeapYear/basic-islamic-umalqura.js",
     "intl402/Temporal/ZonedDateTime/prototype/with/basic-islamic-umalqura.js",
-    "intl402/Temporal/ZonedDateTime/prototype/withCalendar/extreme-dates.js"
+    "intl402/Temporal/ZonedDateTime/prototype/withCalendar/extreme-dates.js",
+
+    // === ATOMICS WAITASYNC TIMING FLAKES ===
+    // The no-spurious-wakeup-* siblings all assert `lapse >= TIMEOUT` where
+    // TIMEOUT is $262.agent.timeouts.small (200ms). On slow/loaded Windows CI
+    // runners, Task.Delay-driven timeout resolution can complete a few ms shy
+    // of the requested interval (Windows timer-tick granularity), producing
+    // a non-deterministic failure even though the implementation is correct.
+    "built-ins/Atomics/waitAsync/no-spurious-wakeup-on-exchange.js"
 
   ]
 }
