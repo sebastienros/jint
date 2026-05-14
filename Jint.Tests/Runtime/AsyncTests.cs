@@ -506,6 +506,67 @@ public class AsyncTests
     }
 
     [Fact]
+    public void ShouldNotReiterateOneShotSpreadIteratorAcrossAwaitInArrayLiteral()
+    {
+        // A custom iterator stored in `g` is drained on first pass. Without
+        // preservation, the spread re-iterates `g` on resume and gets nothing.
+        var result = EvaluateAsyncJson("""
+            function* gen() { yield "a"; yield "b"; yield "c"; }
+            const g = gen();
+            const r = [...g, await Promise.resolve("d")];
+            return { r };
+            """);
+
+        Assert.Equal("""{"r":["a","b","c","d"]}""", result);
+    }
+
+    [Fact]
+    public void ShouldNotReiterateOneShotSpreadIteratorAcrossAwaitInCallArguments()
+    {
+        var result = EvaluateAsyncJson("""
+            function* gen() { yield 1; yield 2; yield 3; }
+            const g = gen();
+            const sum = (...vals) => vals.reduce((a, b) => a + b, 0);
+            const total = sum(...g, await Promise.resolve(10));
+            return { total };
+            """);
+
+        Assert.Equal("""{"total":16}""", result);
+    }
+
+    [Fact]
+    public void ShouldPreserveTargetAcrossMultipleSuspensionsInSpreadArguments()
+    {
+        var result = EvaluateAsyncJson("""
+            function* gen() { yield "x"; yield "y"; }
+            const g = gen();
+            const a = [
+                await Promise.resolve("start"),
+                ...g,
+                await Promise.resolve("end")
+            ];
+            return { a };
+            """);
+
+        Assert.Equal("""{"a":["start","x","y","end"]}""", result);
+    }
+
+    [Fact]
+    public void ShouldNotEvaluateLaterArgumentsAfterSuspensionInSpread()
+    {
+        // Without the IsSuspended-check-before-Add fix, `++j` would run during
+        // the suspended pass after the await sentinel is appended.
+        var result = EvaluateAsyncJson("""
+            let j = 0;
+            const arr = [1];
+            const r = [...arr, await Promise.resolve("mid"), ++j];
+            return { r, j };
+            """);
+
+        Assert.Equal("""{"r":[1,"mid",1],"j":1}""", result);
+    }
+
+    [Fact]
     public void ShouldTaskConvertedToPromiseInJS()
     {
         Engine engine = new();

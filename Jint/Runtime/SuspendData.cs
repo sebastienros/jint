@@ -150,6 +150,19 @@ internal sealed class ExpressionBufferSuspendData : SuspendData
 }
 
 /// <summary>
+/// Stores the partial target list and next expression index for an argument
+/// list that contains spread elements (call/new/array-literal). Without
+/// preservation, one-shot iterators (e.g. generators) would be re-iterated
+/// on resume and yield empty — producing the wrong result.
+/// </summary>
+internal sealed class SpreadArgumentsSuspendData : SuspendData
+{
+    public List<JsValue> Target { get; set; } = new();
+
+    public int NextExpressionIndex { get; set; }
+}
+
+/// <summary>
 /// Stores the state of a for-await-of loop when an async function awaits inside it.
 /// </summary>
 internal sealed class ForAwaitSuspendData : SuspendData

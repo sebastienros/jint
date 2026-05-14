@@ -70,8 +70,7 @@ internal sealed class ExpressionCache
 
         if (HasSpreads)
         {
-            var args = new List<JsValue>(_expressions.Length);
-            BuildArgumentsWithSpreads(context, args);
+            var args = ArgumentListEvaluationWithSpreadsResumable(context, key);
             return args.ToArray();
         }
 
@@ -184,19 +183,31 @@ internal sealed class ExpressionCache
         return args.ToArray();
     }
 
-    internal void BuildArgumentsWithSpreads(EvaluationContext context, List<JsValue> target)
+    /// <summary>
+    /// Iterates argument expressions, expanding spreads into <paramref name="target"/>.
+    /// Returns the next expression index to resume at if suspension occurs; otherwise
+    /// <c>_expressions.Length</c>. Suspension inside iterator <c>.next()</c> calls is
+    /// not possible (spread protocol is synchronous); suspension can only happen at:
+    /// - The <c>_argument</c> of a spread (e.g. <c>...(await fn())</c>) — captured before iteration starts.
+    /// - A non-spread element's <c>GetValue</c> — captured before <c>target.Add</c>.
+    /// </summary>
+    internal int BuildArgumentsWithSpreads(EvaluationContext context, List<JsValue> target, int startIndex = 0)
     {
-        foreach (var expression in _expressions)
+        var expressions = _expressions;
+        int i = startIndex;
+        for (; (uint) i < (uint) expressions.Length; i++)
         {
+            var expression = expressions[i];
             if (expression is JintSpreadExpression jse)
             {
                 jse.GetValueAndCheckIterator(context, out var objectInstance, out var iterator);
 
                 // If generator suspended during spread expression evaluation, stop processing
-                // The iterator will be null because we haven't started iteration yet
+                // The iterator will be null because we haven't started iteration yet.
+                // Resume re-evaluates the spread (the await inside is cached).
                 if (context.IsSuspended())
                 {
-                    return;
+                    return i;
                 }
 
                 // optimize for array unless someone has touched the iterator
@@ -217,15 +228,62 @@ internal sealed class ExpressionCache
             }
             else
             {
-                target.Add(GetValue(context, expression)!);
+                var value = GetValue(context, expression)!;
 
-                // Check for generator suspension after each expression evaluation
+                // Check for generator suspension BEFORE appending — so resume doesn't see
+                // a leftover sentinel value at this index.
                 if (context.IsSuspended())
                 {
-                    return;
+                    return i;
                 }
+
+                target.Add(value);
             }
         }
+
+        return i;
+    }
+
+    /// <summary>
+    /// Resume-aware variant of <see cref="BuildArgumentsWithSpreads"/> for use by callers
+    /// that build an argument list with possible spread elements. The buffer list and
+    /// next-expression index are preserved across suspension in
+    /// <see cref="SpreadArgumentsSuspendData"/> keyed by <paramref name="key"/>.
+    /// </summary>
+    internal List<JsValue> ArgumentListEvaluationWithSpreadsResumable(EvaluationContext context, object key)
+    {
+        var suspendable = context.Engine.ExecutionContext.Suspendable;
+        List<JsValue> target;
+        int startIndex;
+        if (suspendable is { IsResuming: true }
+            && suspendable.Data.TryGet(key, out SpreadArgumentsSuspendData? suspendData))
+        {
+            target = suspendData!.Target;
+            startIndex = suspendData.NextExpressionIndex;
+        }
+        else
+        {
+            target = new List<JsValue>(_expressions.Length);
+            startIndex = 0;
+        }
+
+        var nextIndex = BuildArgumentsWithSpreads(context, target, startIndex);
+
+        if (context.IsSuspended())
+        {
+            if (suspendable is not null)
+            {
+                var data = suspendable.Data.GetOrCreate<SpreadArgumentsSuspendData>(key);
+                data.Target = target;
+                data.NextExpressionIndex = nextIndex;
+            }
+        }
+        else
+        {
+            suspendable?.Data.Clear(key);
+        }
+
+        return target;
     }
 
     private sealed class ArraySpreadProtocol : IteratorProtocol

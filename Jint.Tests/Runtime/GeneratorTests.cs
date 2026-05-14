@@ -515,6 +515,26 @@ public class GeneratorTests
     }
 
     [Fact]
+    public void ShouldNotReiterateOneShotSpreadIteratorAcrossYield()
+    {
+        const string Script = """
+            (function () {
+                function* inner() { yield "a"; yield "b"; yield "c"; }
+                function* outer() {
+                    const g = inner();
+                    const r = [...g, yield "wait"];
+                    return r;
+                }
+                const o = outer();
+                o.next();
+                return JSON.stringify(o.next("d").value);
+            })()
+            """;
+
+        Assert.Equal("""["a","b","c","d"]""", _engine.Evaluate(Script));
+    }
+
+    [Fact]
     public void ShouldResumeYieldInsideCatchInAsyncGenerator()
     {
         // Async generators share ISuspendable.Data with sync generators / async

@@ -60,10 +60,10 @@ internal sealed class JintArrayExpression : JintExpression
             return new JsArray(engine, values);
         }
 
-        var array = new List<JsValue>();
-        _arguments.BuildArgumentsWithSpreads(context, array);
+        var array = _arguments.ArgumentListEvaluationWithSpreadsResumable(context, this);
 
-        // If generator suspended during argument evaluation, return undefined
+        // If generator suspended during argument evaluation, the partial target
+        // is preserved in suspend data; on resume we continue from there.
         if (context.IsSuspended())
         {
             return JsValue.Undefined;
