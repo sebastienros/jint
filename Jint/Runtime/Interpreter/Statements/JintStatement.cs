@@ -96,7 +96,7 @@ internal abstract class JintStatement
         return null;
     }
 
-    protected internal static Node? GetSuspensionNode(ISuspendable? suspendable)
+    internal static Node? GetSuspensionNode(ISuspendable? suspendable)
     {
         if (suspendable is not { IsResuming: true, LastSuspensionNode: not null })
         {
@@ -107,7 +107,7 @@ internal abstract class JintStatement
             ?? (suspendable.LastSuspensionNode as JintExpression)?._expression as Node;
     }
 
-    protected internal static bool IsNodeInsideRange(Node node, in Range range)
+    internal static bool IsNodeInsideRange(Node node, in Range range)
     {
         return range.Start <= node.Range.Start && node.Range.End <= range.End;
     }
