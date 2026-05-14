@@ -535,6 +535,26 @@ public class GeneratorTests
     }
 
     [Fact]
+    public void ShouldNotReevaluateNullishCoalescingLeftOperandAfterYield()
+    {
+        const string Script = """
+            (function () {
+                function* gen() {
+                    let d = 0;
+                    const getNullish = () => (++d, null);
+                    const v = getNullish() ?? (yield "wait");
+                    return [d, v];
+                }
+                const g = gen();
+                g.next();
+                return JSON.stringify(g.next("done").value);
+            })()
+            """;
+
+        Assert.Equal("""[1,"done"]""", _engine.Evaluate(Script));
+    }
+
+    [Fact]
     public void ShouldResumeYieldInsideCatchInAsyncGenerator()
     {
         // Async generators share ISuspendable.Data with sync generators / async

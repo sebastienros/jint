@@ -567,6 +567,19 @@ public class AsyncTests
     }
 
     [Fact]
+    public void ShouldNotReevaluateNullishCoalescingLeftOperandAfterAwait()
+    {
+        var result = EvaluateAsyncJson("""
+            let d = 0;
+            const getNullish = () => (++d, null);
+            const v = getNullish() ?? (await Promise.resolve("filled"));
+            return { d, v };
+            """);
+
+        Assert.Equal("""{"d":1,"v":"filled"}""", result);
+    }
+
+    [Fact]
     public void ShouldTaskConvertedToPromiseInJS()
     {
         Engine engine = new();

@@ -39,16 +39,48 @@ internal sealed class NullishCoalescingExpression : JintExpression
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private JsValue EvaluateConstantOrExpression(EvaluationContext context)
     {
-        var left = _left.GetValue(context);
-
-        // Check for generator suspension after evaluating left operand
-        if (context.IsSuspended())
+        JsValue left;
+        var suspendable = context.Engine?.ExecutionContext.Suspendable;
+        if (suspendable is { IsResuming: true }
+            && suspendable.Data.TryGet(this, out LeftOperandSuspendData? suspendData))
         {
+            left = suspendData!.LeftValue;
+        }
+        else
+        {
+            left = _left.GetValue(context);
+
+            // Check for generator suspension after evaluating left operand
+            if (context.IsSuspended())
+            {
+                return left;
+            }
+        }
+
+        if (!left.IsNullOrUndefined())
+        {
+            suspendable?.Data.Clear(this);
             return left;
         }
 
-        return !left.IsNullOrUndefined()
-            ? left
-            : _constant ?? _right!.GetValue(context);
+        if (_constant is not null)
+        {
+            suspendable?.Data.Clear(this);
+            return _constant;
+        }
+
+        var right = _right!.GetValue(context);
+        if (context.IsSuspended())
+        {
+            if (suspendable is not null)
+            {
+                suspendable.Data.GetOrCreate<LeftOperandSuspendData>(this).LeftValue = left;
+            }
+
+            return right;
+        }
+
+        suspendable?.Data.Clear(this);
+        return right;
     }
 }
