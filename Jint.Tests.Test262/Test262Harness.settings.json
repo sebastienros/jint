@@ -1,5 +1,5 @@
 {
-  "SuiteGitSha": "2b2ecead6e828dd9af13a9ec72065e645724a50f",
+  "SuiteGitSha": "673e9bacbe28590f501e2dcd817aadcc31899191",
   //"SuiteDirectory": "//mnt/c/work/test262",
   "TargetPath": "./Generated",
   "Namespace": "Jint.Tests.Test262",

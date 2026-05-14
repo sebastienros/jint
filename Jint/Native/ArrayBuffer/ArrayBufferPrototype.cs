@@ -272,15 +272,13 @@ internal sealed partial class ArrayBufferPrototype : Prototype
     private JsValue SliceToImmutable(JsValue thisObject, JsValue start, JsValue end)
     {
         // 1. Let O be the this value.
+        // 2. Perform ? RequireInternalSlot(O, [[ArrayBufferData]]).
+        // 3. If IsSharedArrayBuffer(O) is true, throw a TypeError exception.
         var o = thisObject as JsArrayBuffer;
         if (o is null || o.IsSharedArrayBuffer)
         {
             Throw.TypeError(_realm, "Method ArrayBuffer.prototype.sliceToImmutable called on incompatible receiver " + thisObject);
         }
-
-        // 2. Perform ? RequireInternalSlot(O, [[ArrayBufferData]]).
-        // 3. If IsSharedArrayBuffer(O) is true, throw a TypeError exception.
-        // (already checked above)
 
         // 4. If IsDetachedBuffer(O) is true, throw a TypeError exception.
         o.AssertNotDetached();
@@ -288,10 +286,9 @@ internal sealed partial class ArrayBufferPrototype : Prototype
         // 5. Let len be O.[[ArrayBufferByteLength]].
         var len = o.ArrayBufferByteLength;
 
-        // 6. Let relativeStart be ? ToIntegerOrInfinity(start).
+        // 6. Let bounds be ? ResolveBounds(len, start, end).
+        // 6.1 Let relativeStart be ? ToIntegerOrInfinity(start).
         var relativeStart = TypeConverter.ToIntegerOrInfinity(start);
-
-        // 7-8. Set first based on relativeStart
         var first = relativeStart switch
         {
             double.NegativeInfinity => 0,
@@ -299,18 +296,8 @@ internal sealed partial class ArrayBufferPrototype : Prototype
             _ => (int) System.Math.Min(relativeStart, len)
         };
 
-        // 9-10. Set relativeEnd based on end
-        double relativeEnd;
-        if (end.IsUndefined())
-        {
-            relativeEnd = len;
-        }
-        else
-        {
-            relativeEnd = TypeConverter.ToIntegerOrInfinity(end);
-        }
-
-        // 11-12. Set final based on relativeEnd
+        // 6.5 If end is undefined, let relativeEnd be len; else let relativeEnd be ? ToIntegerOrInfinity(end).
+        var relativeEnd = end.IsUndefined() ? len : TypeConverter.ToIntegerOrInfinity(end);
         var final = relativeEnd switch
         {
             double.NegativeInfinity => 0,
@@ -318,28 +305,29 @@ internal sealed partial class ArrayBufferPrototype : Prototype
             _ => (int) System.Math.Min(relativeEnd, len)
         };
 
-        // 13. Let newLen be max(final - first, 0).
-        var newLen = (uint) System.Math.Max(final - first, 0);
-
-        // 14. Let new be ? AllocateArrayBuffer(%ArrayBuffer%, newLen).
-        var newBuffer = _engine.Realm.Intrinsics.ArrayBuffer.AllocateArrayBuffer(_engine.Realm.Intrinsics.ArrayBuffer, newLen);
-
-        // 15. If IsDetachedBuffer(O) is true, throw a TypeError exception.
+        // After coercion, the buffer may have been detached and/or resized — re-check detachment
+        // *before* the currentLen<final bounds check so detach yields TypeError, not RangeError.
         o.AssertNotDetached();
 
-        // 16. Let fromBuf be O.[[ArrayBufferData]].
+        // 9. Let newLen be max(final - first, 0).
+        var newLen = (uint) System.Math.Max(final - first, 0);
+
+        // 12. Let fromBuf be O.[[ArrayBufferData]].
         var fromBuf = o.ArrayBufferData!;
 
-        // 17. Let toBuf be new.[[ArrayBufferData]].
-        var toBuf = newBuffer.ArrayBufferData!;
+        // 13. Let currentLen be O.[[ArrayBufferByteLength]].
+        // 14. If currentLen < final, throw a RangeError exception.
+        if (o.ArrayBufferByteLength < final)
+        {
+            Throw.RangeError(_realm, "ArrayBuffer has shrunk below the resolved end during argument coercion");
+        }
 
-        // 18. Perform CopyDataBlockBytes(toBuf, 0, fromBuf, first, newLen).
-        System.Array.Copy(fromBuf, first, toBuf, 0, newLen);
-
-        // 19. Set new.[[ArrayBufferImmutable]] to true.
+        // 15. Let newBuffer be ? AllocateImmutableArrayBuffer(%ArrayBuffer%, newLen, fromBuf, first, newLen).
+        var newBuffer = _engine.Realm.Intrinsics.ArrayBuffer.AllocateArrayBuffer(_engine.Realm.Intrinsics.ArrayBuffer, newLen);
+        System.Array.Copy(fromBuf, first, newBuffer.ArrayBufferData!, 0, newLen);
         newBuffer._isImmutable = true;
 
-        // 20. Return new.
+        // 16. Return newBuffer.
         return newBuffer;
     }
 

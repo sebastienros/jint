@@ -64,7 +64,16 @@ internal sealed class FinalizationRegistryInstance : ObjectInstance
         ~Observer()
 #pragma warning restore MA0055
         {
-            _callable.Callback.Call(Undefined);
+            try
+            {
+                _callable.Callback.Call(Undefined);
+            }
+            catch
+            {
+                // FinalizationRegistry cleanup callbacks are spec'd to run in a Job
+                // isolated from any calling context. Exceptions must never escape
+                // the GC finalizer thread or they will terminate the host process.
+            }
         }
     }
 }

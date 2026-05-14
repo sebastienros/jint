@@ -60,6 +60,7 @@ internal sealed partial class IntrinsicTypedArrayConstructor : Constructor
             var values = TypedArrayConstructor.IterableToList(_realm, source, usingIterator);
             var iteratorLen = values.Count;
             var iteratorTarget = TypedArrayCreate(_realm, (IConstructor) c, [iteratorLen]);
+            iteratorTarget._viewedArrayBuffer.AssertNotImmutable();
             for (var k = 0; k < iteratorLen; ++k)
             {
                 var kValue = values[k];
@@ -82,6 +83,7 @@ internal sealed partial class IntrinsicTypedArrayConstructor : Constructor
 
         var argumentList = new JsValue[] { JsNumber.Create(len) };
         var targetObj = TypedArrayCreate(_realm, (IConstructor) c, argumentList);
+        targetObj._viewedArrayBuffer.AssertNotImmutable();
 
         var mappingArgs = mapping ? new JsValue[2] : null;
         for (uint k = 0; k < len; ++k)
@@ -120,6 +122,7 @@ internal sealed partial class IntrinsicTypedArrayConstructor : Constructor
         }
 
         var newObj = TypedArrayCreate(_realm, (IConstructor) thisObject, [len]);
+        newObj._viewedArrayBuffer.AssertNotImmutable();
 
         for (var k = 0; k < len; k++)
         {

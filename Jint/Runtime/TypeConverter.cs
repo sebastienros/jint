@@ -232,6 +232,12 @@ public static class TypeConverter
         }
 
         input = StringPrototype.TrimEx(input);
+        if (input.Length == 0)
+        {
+            // The pre-trim IsNullOrWhiteSpace check can miss BOM and other characters
+            // that Jint's TrimEx considers whitespace per the ECMAScript spec.
+            return 0;
+        }
         firstChar = input[0];
 
         const NumberStyles NumberStyles = NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign |

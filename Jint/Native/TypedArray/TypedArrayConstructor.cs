@@ -102,7 +102,7 @@ public abstract partial class TypedArrayConstructor : Constructor
     /// </summary>
     internal static List<JsValue> IterableToList(Realm realm, JsValue items, ICallable? method = null)
     {
-        var iteratorRecord = items.GetIterator(realm);
+        var iteratorRecord = items.GetIterator(realm, method: method);
         var values = new List<JsValue>();
         while (iteratorRecord.TryIteratorStep(out var nextItem))
         {

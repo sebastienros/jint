@@ -47,6 +47,7 @@ internal sealed partial class Uint8ArrayPrototype : Prototype
         {
             Throw.TypeError(_realm, "TypedArray is out of bounds");
         }
+        into._viewedArrayBuffer.AssertNotImmutable();
 
         var byteLength = taRecord.TypedArrayLength;
         var result = Uint8ArrayConstructor.FromBase64(_engine, s.ToString(), alphabet.ToString(), lastChunkHandling.ToString(), byteLength);
@@ -92,6 +93,7 @@ internal sealed partial class Uint8ArrayPrototype : Prototype
         {
             Throw.TypeError(_realm, "TypedArray is out of bounds");
         }
+        into._viewedArrayBuffer.AssertNotImmutable();
 
         var byteLength = taRecord.TypedArrayLength;
         var result = Uint8ArrayConstructor.FromHex(_engine, s.ToString(), byteLength);
