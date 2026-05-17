@@ -69,6 +69,19 @@ internal sealed class ForOfSuspendData : SuspendData
     /// destructuring against a one-shot iterator that has already been consumed.
     /// </summary>
     public bool LhsBindingComplete { get; set; }
+
+    /// <summary>
+    /// True while the iteration's async-dispose chain is in flight. On resume, the
+    /// for-of statement must read <see cref="DisposeResult"/> and act on it instead
+    /// of resuming the body.
+    /// </summary>
+    public bool DisposeInProgress { get; set; }
+
+    /// <summary>
+    /// The final completion of the dispose chain (body+dispose), set by the dispose
+    /// chain's continueWith callback just before the async function is resumed.
+    /// </summary>
+    public Completion DisposeResult { get; set; }
 }
 
 /// <summary>
@@ -252,6 +265,32 @@ internal sealed class ForAwaitSuspendData : SuspendData
     /// When set, the resume should skip the iterator step and use this value.
     /// </summary>
     public JsValue? CurrentValue { get; set; }
+
+    /// <summary>
+    /// The iteration environment for the current iteration, retained across an
+    /// async-dispose suspension so the dispose state machine can advance on resume.
+    /// </summary>
+    public DeclarativeEnvironment? IterationEnv { get; set; }
+
+    /// <summary>
+    /// The outer environment of the for-of loop body evaluation, restored on
+    /// resume from an async-dispose suspension.
+    /// </summary>
+    public Environments.Environment? OuterEnv { get; set; }
+
+    /// <summary>
+    /// True while the iteration's async-dispose chain is in flight. On resume,
+    /// the for-of statement must read <see cref="DisposeResult"/> and act on it
+    /// instead of awaiting the next iterator result.
+    /// </summary>
+    public bool DisposeInProgress { get; set; }
+
+    /// <summary>
+    /// The final completion of the dispose chain (body+dispose), set by the
+    /// dispose chain's continueWith callback just before the async function
+    /// is resumed.
+    /// </summary>
+    public Completion DisposeResult { get; set; }
 }
 
 /// <summary>

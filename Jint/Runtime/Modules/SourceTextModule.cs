@@ -407,17 +407,24 @@ internal class SourceTextModule : CyclicModule
                 }
                 catch (JavaScriptException e)
                 {
-                    if (!_environment.HasDisposeResources)
+                    // Leave the module's execution context up front so the dispose chain's
+                    // Promise.then callbacks don't run with it still on the stack — same
+                    // rationale as the AsyncGenerator path (see AsyncGeneratorInstance).
+                    var env = _environment;
+                    _engine.LeaveExecutionContext();
+                    _tlaAsyncInstance!._state = AsyncFunctionState.Completed;
+                    var cap = capability!;
+                    if (!env.HasDisposeResources)
                     {
-                        SettleTlaRejection(capability!, e.Error);
+                        cap.Reject.Call(JsValue.Undefined, e.Error);
                     }
                     else
                     {
                         DisposeResourcesHelper.DisposeAndThen(
                             _engine,
-                            _environment,
+                            env,
                             new Completion(CompletionType.Throw, e.Error, null!),
-                            final => SettleTlaRejection(capability!, final.Value));
+                            final => cap.Reject.Call(JsValue.Undefined, final.Value));
                     }
                     return new Completion(CompletionType.Normal, JsValue.Undefined, null!);
                 }
@@ -431,17 +438,24 @@ internal class SourceTextModule : CyclicModule
                     return new Completion(CompletionType.Normal, JsValue.Undefined, null!);
                 }
 
-                // Module body complete - dispose any (potentially async-dispose) resources
-                // before settling the capability. Settlement is deferred until the dispose
-                // chain finishes so top-level `await using` can suspend correctly.
-                if (!_environment.HasDisposeResources)
+                // Module body complete. Leave context BEFORE dispatching the dispose chain
+                // so its Promise.then callbacks run with the caller's context on top, not
+                // the module's — otherwise a later sync await would mis-route via this
+                // module's _tlaAsyncInstance.
                 {
-                    SettleTlaCompletion(capability!, result);
-                }
-                else
-                {
-                    DisposeResourcesHelper.DisposeAndThen(_engine, _environment, result,
-                        final => SettleTlaCompletion(capability!, final));
+                    var env = _environment;
+                    _engine.LeaveExecutionContext();
+                    _tlaAsyncInstance._state = AsyncFunctionState.Completed;
+                    var cap = capability!;
+                    if (!env.HasDisposeResources)
+                    {
+                        SettleTla(cap, result);
+                    }
+                    else
+                    {
+                        DisposeResourcesHelper.DisposeAndThen(_engine, env, result,
+                            final => SettleTla(cap, final));
+                    }
                 }
 
                 return new Completion(CompletionType.Normal, JsValue.Undefined, null!);
@@ -449,11 +463,8 @@ internal class SourceTextModule : CyclicModule
         }
     }
 
-    private void SettleTlaCompletion(PromiseCapability capability, Completion final)
+    private static void SettleTla(PromiseCapability capability, Completion final)
     {
-        _engine.LeaveExecutionContext();
-        _tlaAsyncInstance!._state = AsyncFunctionState.Completed;
-
         if (final.Type == CompletionType.Normal)
         {
             capability.Resolve.Call(JsValue.Undefined, JsValue.Undefined);
@@ -466,12 +477,5 @@ internal class SourceTextModule : CyclicModule
         {
             capability.Resolve.Call(JsValue.Undefined, final.Value);
         }
-    }
-
-    private void SettleTlaRejection(PromiseCapability capability, JsValue error)
-    {
-        _engine.LeaveExecutionContext();
-        _tlaAsyncInstance!._state = AsyncFunctionState.Completed;
-        capability.Reject.Call(JsValue.Undefined, error);
     }
 }

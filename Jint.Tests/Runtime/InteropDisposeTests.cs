@@ -264,6 +264,101 @@ public class InteropDisposeTests
     }
 
     /// <summary>
+    /// TLA module with a genuinely-async dispose (Task.Delay). Confirms the module's
+    /// execution context is correctly popped before dispatching the dispose chain so
+    /// the Promise.then callbacks don't run with the module context still on the
+    /// engine stack.
+    /// </summary>
+    [Fact]
+    public void ShouldAsyncDisposeInTopLevelAwaitModuleWithGenuinelyAsyncTask()
+    {
+        var engine = new Engine(o => o.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
+        var disposable = new DelayedAsyncDisposable();
+        engine.SetValue("getAsync", () => disposable);
+
+        engine.Modules.Add("tla-dispose-delayed", "await using d = getAsync();");
+        engine.Modules.Import("tla-dispose-delayed");
+
+        disposable.Disposed.Should().BeTrue();
+    }
+
+    /// <summary>
+    /// `for (await using x of arr)` inside an async function with a genuinely-async
+    /// DisposeAsync, single iteration. Exercises JintForInForOfStatement's
+    /// per-iteration dispose state-machine drive.
+    /// </summary>
+    [Fact]
+    public async Task ShouldAsyncDisposeInForOfWithGenuinelyAsyncTask_SingleIteration()
+    {
+        var engine = new Engine(o => o.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
+        var order = new List<string>();
+        engine.SetValue("make", new Func<string, DelayedTrackedDisposable>(name => new DelayedTrackedDisposable(name, order)));
+
+        await engine.EvaluateAsync("""
+            (async () => {
+                for (await using x of [make('A')]) {
+                    // body intentionally empty
+                }
+            })()
+            """);
+
+        order.Should().Equal("A");
+    }
+
+    /// <summary>
+    /// `for (await using x of arr)` inside an async function with a genuinely-async
+    /// DisposeAsync. Exercises JintForInForOfStatement's per-iteration dispose
+    /// state-machine drive — the spec-mandated Await between iterations must
+    /// consume a real microtask tick and must not deadlock the way #2477 did.
+    /// </summary>
+    [Fact]
+    public async Task ShouldAsyncDisposeInForOfWithGenuinelyAsyncTask()
+    {
+        var engine = new Engine(o => o.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
+        var order = new List<string>();
+        engine.SetValue("make", new Func<string, DelayedTrackedDisposable>(name => new DelayedTrackedDisposable(name, order)));
+
+        await engine.EvaluateAsync("""
+            (async () => {
+                for (await using x of [make('A'), make('B'), make('C')]) {
+                    // body intentionally empty — dispose-only test
+                }
+            })()
+            """);
+
+        order.Should().Equal("A", "B", "C");
+    }
+
+    /// <summary>
+    /// `for (await using x of arr)` where the dispose method rejects. Confirms
+    /// the rejection from a per-iteration dispose surfaces as the loop's
+    /// rejection and stops further iterations.
+    /// </summary>
+    [Fact]
+    public async Task ShouldAsyncDisposeInForOfPropagatesRejection()
+    {
+        var engine = new Engine(o => o.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
+        var order = new List<string>();
+        engine.SetValue("makeOk", new Func<string, DelayedTrackedDisposable>(name => new DelayedTrackedDisposable(name, order)));
+        engine.SetValue("makeBad", new Func<FaultingAsyncDisposable>(() => new FaultingAsyncDisposable()));
+
+        await Assert.ThrowsAsync<PromiseRejectedException>(async () =>
+        {
+            await engine.EvaluateAsync("""
+                (async () => {
+                    for (await using x of [makeOk('A'), makeBad(), makeOk('C')]) {
+                        // body intentionally empty
+                    }
+                })()
+                """);
+        });
+
+        // 'A' disposed first (LIFO of one), then 'makeBad' threw — 'C' should not be
+        // reached because the loop's iteration aborts on dispose rejection.
+        order.Should().Equal("A");
+    }
+
+    /// <summary>
     /// `await using` inside an async generator body — exercises the Pattern B
     /// refactor in AsyncGeneratorInstance.
     /// </summary>
@@ -326,6 +421,24 @@ public class InteropDisposeTests
         {
             _order.Add(_name);
             return default;
+        }
+    }
+
+    private class DelayedTrackedDisposable : IAsyncDisposable
+    {
+        private readonly string _name;
+        private readonly List<string> _order;
+
+        public DelayedTrackedDisposable(string name, List<string> order)
+        {
+            _name = name;
+            _order = order;
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            await Task.Delay(5).ConfigureAwait(false);
+            _order.Add(_name);
         }
     }
 
