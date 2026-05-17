@@ -34,7 +34,10 @@ internal sealed class DisposeCapability
     private readonly Engine _engine;
     private readonly List<DisposableResource> _disposableResourceStack = [];
 
-    // State preserved across suspensions (3.e.ii.1, 3.d.i, 4.a).
+    // State preserved across suspensions (3.e.ii.1, 3.d.i, 4.a). Not reentrant —
+    // a single DisposeCapability instance can only drive one in-flight dispose at a
+    // time. This matches the engine's single-thread-per-Engine assumption: a JS
+    // dispose method cannot synchronously re-enter dispose on its own capability.
     private int _disposeIndex;
     private bool _disposeHasAwaited;
     private bool _disposeNeedsAwait;
@@ -212,12 +215,6 @@ internal sealed class DisposeCapability
                 catch (JavaScriptException e)
                 {
                     HandleDisposeException(e.Error);
-                    _disposeIndex--;
-                    continue;
-                }
-                catch (PromiseRejectedException e)
-                {
-                    HandleDisposeException(e.RejectedValue);
                     _disposeIndex--;
                     continue;
                 }

@@ -216,6 +216,79 @@ public class InteropDisposeTests
         disposable.Disposed.Should().BeTrue();
     }
 
+    /// <summary>
+    /// AsyncDisposableStack.prototype.disposeAsync must consume the spec-mandated
+    /// Await(undefined) microtask tick even when the only resource is null. The
+    /// expected interleaving puts 'job 1' (two ticks deep) before 'dispose' (also
+    /// two ticks deep: one for the Await(undefined), one for the .then handler).
+    /// Without the tick, 'dispose' would fire synchronously and produce
+    /// ['dispose', 'job 1', 'job 2'] instead.
+    /// Mirrors built-ins/AsyncDisposableStack/prototype/disposeAsync/
+    /// explicit-await-for-null.js from Test262.
+    /// </summary>
+    [Fact]
+    public async Task ShouldAsyncDisposableStackConsumeAwaitTickForNull()
+    {
+        var engine = new Engine();
+        var result = await engine.EvaluateAsync("""
+            (async function () {
+                const stack = new AsyncDisposableStack();
+                const sequence = [];
+                stack.use(null);
+                await Promise.all([
+                    Promise.resolve().then(() => 0).then(() => { sequence.push('job 1'); }),
+                    stack.disposeAsync().then(() => { sequence.push('dispose'); }),
+                    Promise.resolve().then(() => 0).then(() => { sequence.push('job 2'); })
+                ]);
+                return sequence.join(',');
+            })()
+            """);
+        result.AsString().Should().Be("job 1,dispose,job 2");
+    }
+
+    /// <summary>
+    /// Top-level `await using` in a module — exercises the Pattern B refactor in
+    /// SourceTextModule's TLA execution path.
+    /// </summary>
+    [Fact]
+    public void ShouldAsyncDisposeInTopLevelAwaitModule()
+    {
+        var engine = new Engine(o => o.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
+        var disposable = new AsyncDisposable();
+        engine.SetValue("getAsync", () => disposable);
+
+        engine.Modules.Add("tla-dispose", "await using d = getAsync();");
+        engine.Modules.Import("tla-dispose");
+
+        disposable.Disposed.Should().BeTrue();
+    }
+
+    /// <summary>
+    /// `await using` inside an async generator body — exercises the Pattern B
+    /// refactor in AsyncGeneratorInstance.
+    /// </summary>
+    [Fact]
+    public async Task ShouldAsyncDisposeInAsyncGenerator()
+    {
+        var engine = new Engine(o => o.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
+        var disposable = new AsyncDisposable();
+        engine.SetValue("getAsync", () => disposable);
+
+        await engine.EvaluateAsync("""
+            (async () => {
+                async function* gen() {
+                    await using d = getAsync();
+                    yield 1;
+                }
+                const it = gen();
+                await it.next();
+                await it.next();
+            })()
+            """);
+
+        disposable.Disposed.Should().BeTrue();
+    }
+
     private class AsyncDisposable : IAsyncDisposable
     {
         public bool Disposed { get; private set; }

@@ -163,6 +163,8 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
         ISuspendable suspendable)
     {
         var engine = context.Engine;
+        // suspendable.IsResuming setter delegates to asyncFn._isResuming, so this
+        // single assignment clears both the interface flag and the underlying field.
         suspendable.IsResuming = false;
 
         var asyncFn = engine.ExecutionContext.AsyncFunction!;
@@ -170,7 +172,6 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
         var awaitThrew = asyncFn._resumeWithThrow;
         asyncFn._resumeValue = null;
         asyncFn._resumeWithThrow = false;
-        asyncFn._isResuming = false;
         asyncFn._lastAwaitNode = null;
 
         // Use the env captured at suspend time, in case the env-setup branch above

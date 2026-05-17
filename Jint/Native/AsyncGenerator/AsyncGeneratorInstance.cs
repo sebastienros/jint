@@ -261,7 +261,12 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
         }
         catch (JavaScriptException ex)
         {
+            // Leave context up front so any async dispose work below runs (and its
+            // Promise.then callbacks fire) without the generator's execution context
+            // still on the stack — otherwise outer `await`s in the caller would
+            // mis-route through SuspendForAwaitInAsyncGenerator.
             var env = _engine.ExecutionContext.LexicalEnvironment;
+            _engine.LeaveExecutionContext();
             if (!env.HasDisposeResources)
             {
                 SettleResumeRejection(ex.Error, promiseCapability);
@@ -295,8 +300,12 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
             return;
         }
 
-        // Generator body completed — dispose resources before leaving context.
+        // Generator body completed — leave the generator's execution context BEFORE
+        // dispatching dispose so its async Promise.then chain doesn't run with the
+        // generator's context still on the stack. Settlement helpers below assume
+        // the context has already been popped.
         var lexEnv = _engine.ExecutionContext.LexicalEnvironment;
+        _engine.LeaveExecutionContext();
         if (!lexEnv.HasDisposeResources)
         {
             SettleResumeCompletion(result, promiseCapability);
@@ -308,7 +317,8 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
 
     private void SettleResumeRejection(JsValue error, PromiseCapability promiseCapability)
     {
-        _engine.LeaveExecutionContext();
+        // Note: caller (ResumeExecution / its callback) has already left the
+        // generator's execution context.
         _currentPromiseCapability = null;
         _asyncGeneratorState = AsyncGeneratorState.Completed;
         _completedAwaits = null;
@@ -318,7 +328,6 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
 
     private void SettleResumeCompletion(Completion final, PromiseCapability promiseCapability)
     {
-        _engine.LeaveExecutionContext();
         _currentPromiseCapability = null;
 
         if (final.Type == CompletionType.Throw)
@@ -473,8 +482,10 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
                 return;
             }
 
-            // Generator completed — dispose resources before leaving context.
+            // Generator completed — leave the generator's execution context BEFORE
+            // dispatching dispose (see ResumeExecution for the same rationale).
             var lexEnv = _engine.ExecutionContext.LexicalEnvironment;
+            _engine.LeaveExecutionContext();
             if (!lexEnv.HasDisposeResources)
             {
                 SettleDelegationCompletion(bodyResult, promiseCapability);
@@ -486,6 +497,7 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
         catch (JavaScriptException ex)
         {
             var env = _engine.ExecutionContext.LexicalEnvironment;
+            _engine.LeaveExecutionContext();
             if (!env.HasDisposeResources)
             {
                 SettleDelegationRejection(ex.Error, promiseCapability);
@@ -501,8 +513,7 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
 
     private void SettleDelegationCompletion(Completion final, PromiseCapability? promiseCapability)
     {
-        _engine.LeaveExecutionContext();
-
+        // Note: caller has already left the generator's execution context.
         _currentPromiseCapability = null;
 
         if (final.Type == CompletionType.Throw)
@@ -529,7 +540,7 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
 
     private void SettleDelegationRejection(JsValue error, PromiseCapability? promiseCapability)
     {
-        _engine.LeaveExecutionContext();
+        // Note: caller has already left the generator's execution context.
         _currentPromiseCapability = null;
         _asyncGeneratorState = AsyncGeneratorState.Completed;
         _completedAwaits = null;
