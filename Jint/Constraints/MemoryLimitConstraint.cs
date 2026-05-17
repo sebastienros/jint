@@ -6,6 +6,7 @@ public sealed class MemoryLimitConstraint : Constraint
 {
     private readonly long _memoryLimit;
     private long _initialMemoryUsage;
+    private int _initialThreadId;
 
 #if !NET8_0_OR_GREATER
     private static readonly Func<long>? _getAllocatedBytesForCurrentThread;
@@ -33,6 +34,15 @@ public sealed class MemoryLimitConstraint : Constraint
             return;
         }
 
+        // GC.GetAllocatedBytesForCurrentThread() is per-thread. If an async continuation
+        // resumed on a different thread pool thread, comparing counters across threads is
+        // meaningless and can produce false positives or silently bypass the limit.
+        // Skipping the check is the safe fallback for that case.
+        if (Environment.CurrentManagedThreadId != _initialThreadId)
+        {
+            return;
+        }
+
 #if NET8_0_OR_GREATER
         var usage = GC.GetAllocatedBytesForCurrentThread();
 #else
@@ -51,6 +61,7 @@ public sealed class MemoryLimitConstraint : Constraint
 
     public override void Reset()
     {
+        _initialThreadId = Environment.CurrentManagedThreadId;
 #if NET8_0_OR_GREATER
         _initialMemoryUsage = GC.GetAllocatedBytesForCurrentThread();
 #else
