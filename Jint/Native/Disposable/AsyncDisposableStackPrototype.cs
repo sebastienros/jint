@@ -59,8 +59,31 @@ internal sealed partial class AsyncDisposableStackPrototype : Prototype
         try
         {
             var stack = AssertDisposableStack(thisObject);
-            var result = stack.Dispose();
-            capability.Resolve.Call(Undefined, result);
+            if (!stack.TryMarkDisposed())
+            {
+                // Already disposed — resolve with undefined.
+                capability.Resolve.Call(Undefined, Undefined);
+                return capability.PromiseInstance;
+            }
+
+            // Drive the dispose state machine via Promise.then chains so each
+            // spec-defined Await(...) consumes a real microtask tick. Settlement
+            // of the returned promise is deferred until the dispose chain finishes.
+            DisposeResourcesHelper.DisposeAndThen(
+                _engine,
+                stack.DisposeCapability,
+                new Completion(CompletionType.Normal, Undefined, _engine.GetLastSyntaxElement()),
+                final =>
+                {
+                    if (final.Type == CompletionType.Throw)
+                    {
+                        capability.Reject.Call(Undefined, final.Value);
+                    }
+                    else
+                    {
+                        capability.Resolve.Call(Undefined, Undefined);
+                    }
+                });
         }
         catch (JavaScriptException e)
         {

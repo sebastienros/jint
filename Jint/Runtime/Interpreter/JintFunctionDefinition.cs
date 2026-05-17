@@ -179,8 +179,15 @@ internal sealed class JintFunctionDefinition
         catch (JavaScriptException e)
         {
             // Per spec: DisposeResources before rejecting. Use the helper so async-dispose
-            // resources are awaited via the state machine instead of sync-blocking.
+            // resources are awaited via the state machine instead of sync-blocking. Skip
+            // the helper entirely if the env has no disposables — common-case hot path.
             var env = engine.ExecutionContext.LexicalEnvironment;
+            if (!env.HasDisposeResources)
+            {
+                asyncInstance._state = AsyncFunctionState.Completed;
+                asyncInstance._capability.Reject.Call(JsValue.Undefined, e.Error);
+                return;
+            }
             DisposeResourcesHelper.DisposeAndThen(
                 engine,
                 env,
@@ -203,29 +210,36 @@ internal sealed class JintFunctionDefinition
 
         // Per spec AsyncBlockStart step 3.f: DisposeResources after body completes.
         // Settlement of the function's return promise is deferred until the dispose chain
-        // (which may itself await) finishes.
+        // (which may itself await) finishes. Fast-path skip when no disposables registered.
         var lexEnv = engine.ExecutionContext.LexicalEnvironment;
-        DisposeResourcesHelper.DisposeAndThen(engine, lexEnv, result, final =>
+        if (!lexEnv.HasDisposeResources)
         {
-            asyncInstance._state = AsyncFunctionState.Completed;
+            SettleAsyncFunctionCompletion(asyncInstance, result);
+            return;
+        }
+        DisposeResourcesHelper.DisposeAndThen(engine, lexEnv, result, final => SettleAsyncFunctionCompletion(asyncInstance, final));
+    }
 
-            if (final.Type == CompletionType.Throw)
-            {
-                asyncInstance._capability.Reject.Call(JsValue.Undefined, final.Value);
-            }
-            else if (final.Type == CompletionType.Normal)
-            {
-                asyncInstance._capability.Resolve.Call(JsValue.Undefined, JsValue.Undefined);
-            }
-            else if (final.Type == CompletionType.Return)
-            {
-                asyncInstance._capability.Resolve.Call(JsValue.Undefined, final.Value);
-            }
-            else
-            {
-                asyncInstance._capability.Reject.Call(JsValue.Undefined, final.Value);
-            }
-        });
+    private static void SettleAsyncFunctionCompletion(AsyncFunctionInstance asyncInstance, Completion final)
+    {
+        asyncInstance._state = AsyncFunctionState.Completed;
+
+        if (final.Type == CompletionType.Throw)
+        {
+            asyncInstance._capability.Reject.Call(JsValue.Undefined, final.Value);
+        }
+        else if (final.Type == CompletionType.Normal)
+        {
+            asyncInstance._capability.Resolve.Call(JsValue.Undefined, JsValue.Undefined);
+        }
+        else if (final.Type == CompletionType.Return)
+        {
+            asyncInstance._capability.Resolve.Call(JsValue.Undefined, final.Value);
+        }
+        else
+        {
+            asyncInstance._capability.Reject.Call(JsValue.Undefined, final.Value);
+        }
     }
 
     /// <summary>

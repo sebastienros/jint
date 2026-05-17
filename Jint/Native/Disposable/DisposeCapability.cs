@@ -46,6 +46,12 @@ internal sealed class DisposeCapability
         _engine = engine;
     }
 
+    /// <summary>
+    /// Fast check used by callers to avoid allocating dispose-completion closures
+    /// when nothing is registered.
+    /// </summary>
+    public bool HasResources => _disposableResourceStack.Count > 0;
+
     public void AddDisposableResource(JsValue v, DisposeHint hint, ICallable? method = null)
     {
         DisposableResource resource;

@@ -342,6 +342,8 @@ internal class DeclarativeEnvironment : Environment
 
     internal sealed override Completion DisposeResources(Completion c) => _disposeCapability?.DisposeResources(c) ?? c;
 
+    internal sealed override bool HasDisposeResources => _disposeCapability?.HasResources == true;
+
     /// <summary>
     /// Begin dispose via the state machine. Returns either Done with the final Completion,
     /// or Suspend with a Promise the caller must await before calling

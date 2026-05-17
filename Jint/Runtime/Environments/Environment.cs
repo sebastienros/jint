@@ -111,6 +111,13 @@ internal abstract class Environment : JsValue
     internal virtual Completion DisposeResources(Completion c) => c;
 
     /// <summary>
+    /// Fast bool check for whether this environment has any disposable resources to
+    /// process. Lets callers skip allocating a continueWith closure when there's no
+    /// dispose work to do — the dispose hot path on every async function/generator exit.
+    /// </summary>
+    internal virtual bool HasDisposeResources => false;
+
+    /// <summary>
     /// Begin dispose via the state machine. Default returns Done immediately for
     /// environments that don't track disposable resources.
     /// </summary>

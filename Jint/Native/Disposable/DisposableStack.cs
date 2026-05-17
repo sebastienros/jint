@@ -24,6 +24,12 @@ internal sealed class DisposableStack : ObjectInstance
 
     public DisposableState State { get; private set; }
 
+    /// <summary>
+    /// Exposes the internal dispose capability so async callers (AsyncDisposableStack)
+    /// can drive the state machine via <see cref="DisposeResourcesHelper"/>.
+    /// </summary>
+    internal DisposeCapability DisposeCapability => _disposeCapability;
+
     public JsValue Dispose()
     {
         if (State == DisposableState.Disposed)
@@ -38,6 +44,23 @@ internal sealed class DisposableStack : ObjectInstance
             Throw.JavaScriptException(_engine, completion.Value, completion);
         }
         return completion.Value;
+    }
+
+    /// <summary>
+    /// Marks the stack disposed and returns the dispose state machine's initial step
+    /// for the async path. The caller (AsyncDisposableStack.prototype.disposeAsync)
+    /// drives the state machine via <see cref="DisposeResourcesHelper"/> so that each
+    /// spec-defined Await consumes a real microtask tick.
+    /// Returns null if the stack was already disposed.
+    /// </summary>
+    internal bool TryMarkDisposed()
+    {
+        if (State == DisposableState.Disposed)
+        {
+            return false;
+        }
+        State = DisposableState.Disposed;
+        return true;
     }
 
     public void Defer(JsValue onDispose)

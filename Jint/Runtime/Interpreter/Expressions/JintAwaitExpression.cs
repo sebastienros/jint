@@ -243,16 +243,18 @@ internal sealed class JintAwaitExpression : JintExpression
         catch (JavaScriptException e)
         {
             var env = engine.ExecutionContext.LexicalEnvironment;
+            if (!env.HasDisposeResources)
+            {
+                engine.LeaveExecutionContext();
+                asyncInstance._state = AsyncFunctionState.Completed;
+                asyncInstance._capability.Reject.Call(JsValue.Undefined, e.Error);
+                return;
+            }
             DisposeResourcesHelper.DisposeAndThen(
                 engine,
                 env,
                 new Completion(CompletionType.Throw, e.Error, null!),
-                final =>
-                {
-                    engine.LeaveExecutionContext();
-                    asyncInstance._state = AsyncFunctionState.Completed;
-                    asyncInstance._capability.Reject.Call(JsValue.Undefined, final.Value);
-                });
+                final => SettleAsyncResumeCompletion(engine, asyncInstance, final));
             return;
         }
 
@@ -263,23 +265,31 @@ internal sealed class JintAwaitExpression : JintExpression
         }
 
         var lexEnv = engine.ExecutionContext.LexicalEnvironment;
-        DisposeResourcesHelper.DisposeAndThen(engine, lexEnv, result, final =>
+        if (!lexEnv.HasDisposeResources)
         {
-            engine.LeaveExecutionContext();
-            asyncInstance._state = AsyncFunctionState.Completed;
+            SettleAsyncResumeCompletion(engine, asyncInstance, result);
+            return;
+        }
+        DisposeResourcesHelper.DisposeAndThen(engine, lexEnv, result,
+            final => SettleAsyncResumeCompletion(engine, asyncInstance, final));
+    }
 
-            if (final.Type == CompletionType.Throw)
-            {
-                asyncInstance._capability.Reject.Call(JsValue.Undefined, final.Value);
-            }
-            else if (final.Type == CompletionType.Return)
-            {
-                asyncInstance._capability.Resolve.Call(JsValue.Undefined, final.Value);
-            }
-            else
-            {
-                asyncInstance._capability.Resolve.Call(JsValue.Undefined, JsValue.Undefined);
-            }
-        });
+    private static void SettleAsyncResumeCompletion(Engine engine, AsyncFunctionInstance asyncInstance, Completion final)
+    {
+        engine.LeaveExecutionContext();
+        asyncInstance._state = AsyncFunctionState.Completed;
+
+        if (final.Type == CompletionType.Throw)
+        {
+            asyncInstance._capability.Reject.Call(JsValue.Undefined, final.Value);
+        }
+        else if (final.Type == CompletionType.Return)
+        {
+            asyncInstance._capability.Resolve.Call(JsValue.Undefined, final.Value);
+        }
+        else
+        {
+            asyncInstance._capability.Resolve.Call(JsValue.Undefined, JsValue.Undefined);
+        }
     }
 }

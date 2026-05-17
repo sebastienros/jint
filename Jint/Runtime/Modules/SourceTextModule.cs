@@ -407,16 +407,18 @@ internal class SourceTextModule : CyclicModule
                 }
                 catch (JavaScriptException e)
                 {
-                    DisposeResourcesHelper.DisposeAndThen(
-                        _engine,
-                        _environment,
-                        new Completion(CompletionType.Throw, e.Error, null!),
-                        final =>
-                        {
-                            _engine.LeaveExecutionContext();
-                            _tlaAsyncInstance._state = AsyncFunctionState.Completed;
-                            capability!.Reject.Call(JsValue.Undefined, final.Value);
-                        });
+                    if (!_environment.HasDisposeResources)
+                    {
+                        SettleTlaRejection(capability!, e.Error);
+                    }
+                    else
+                    {
+                        DisposeResourcesHelper.DisposeAndThen(
+                            _engine,
+                            _environment,
+                            new Completion(CompletionType.Throw, e.Error, null!),
+                            final => SettleTlaRejection(capability!, final.Value));
+                    }
                     return new Completion(CompletionType.Normal, JsValue.Undefined, null!);
                 }
 
@@ -432,27 +434,44 @@ internal class SourceTextModule : CyclicModule
                 // Module body complete - dispose any (potentially async-dispose) resources
                 // before settling the capability. Settlement is deferred until the dispose
                 // chain finishes so top-level `await using` can suspend correctly.
-                DisposeResourcesHelper.DisposeAndThen(_engine, _environment, result, final =>
+                if (!_environment.HasDisposeResources)
                 {
-                    _engine.LeaveExecutionContext();
-                    _tlaAsyncInstance._state = AsyncFunctionState.Completed;
-
-                    if (final.Type == CompletionType.Normal)
-                    {
-                        capability!.Resolve.Call(JsValue.Undefined, JsValue.Undefined);
-                    }
-                    else if (final.Type == CompletionType.Throw)
-                    {
-                        capability!.Reject.Call(JsValue.Undefined, final.Value);
-                    }
-                    else
-                    {
-                        capability!.Resolve.Call(JsValue.Undefined, final.Value);
-                    }
-                });
+                    SettleTlaCompletion(capability!, result);
+                }
+                else
+                {
+                    DisposeResourcesHelper.DisposeAndThen(_engine, _environment, result,
+                        final => SettleTlaCompletion(capability!, final));
+                }
 
                 return new Completion(CompletionType.Normal, JsValue.Undefined, null!);
             }
         }
+    }
+
+    private void SettleTlaCompletion(PromiseCapability capability, Completion final)
+    {
+        _engine.LeaveExecutionContext();
+        _tlaAsyncInstance!._state = AsyncFunctionState.Completed;
+
+        if (final.Type == CompletionType.Normal)
+        {
+            capability.Resolve.Call(JsValue.Undefined, JsValue.Undefined);
+        }
+        else if (final.Type == CompletionType.Throw)
+        {
+            capability.Reject.Call(JsValue.Undefined, final.Value);
+        }
+        else
+        {
+            capability.Resolve.Call(JsValue.Undefined, final.Value);
+        }
+    }
+
+    private void SettleTlaRejection(PromiseCapability capability, JsValue error)
+    {
+        _engine.LeaveExecutionContext();
+        _tlaAsyncInstance!._state = AsyncFunctionState.Completed;
+        capability.Reject.Call(JsValue.Undefined, error);
     }
 }

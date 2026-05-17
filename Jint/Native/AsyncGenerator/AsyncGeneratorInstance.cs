@@ -262,19 +262,16 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
         catch (JavaScriptException ex)
         {
             var env = _engine.ExecutionContext.LexicalEnvironment;
+            if (!env.HasDisposeResources)
+            {
+                SettleResumeRejection(ex.Error, promiseCapability);
+                return;
+            }
             DisposeResourcesHelper.DisposeAndThen(
                 _engine,
                 env,
                 new Completion(CompletionType.Throw, ex.Error, null!),
-                final =>
-                {
-                    _engine.LeaveExecutionContext();
-                    _currentPromiseCapability = null;
-                    _asyncGeneratorState = AsyncGeneratorState.Completed;
-                    _completedAwaits = null;
-                    AsyncGeneratorReject(final.Value, promiseCapability);
-                    AsyncGeneratorResumeNext();
-                });
+                final => SettleResumeRejection(final.Value, promiseCapability));
             return;
         }
 
@@ -300,44 +297,61 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
 
         // Generator body completed — dispose resources before leaving context.
         var lexEnv = _engine.ExecutionContext.LexicalEnvironment;
-        DisposeResourcesHelper.DisposeAndThen(_engine, lexEnv, result, final =>
+        if (!lexEnv.HasDisposeResources)
         {
-            _engine.LeaveExecutionContext();
+            SettleResumeCompletion(result, promiseCapability);
+            return;
+        }
+        DisposeResourcesHelper.DisposeAndThen(_engine, lexEnv, result,
+            final => SettleResumeCompletion(final, promiseCapability));
+    }
 
-            _currentPromiseCapability = null;
+    private void SettleResumeRejection(JsValue error, PromiseCapability promiseCapability)
+    {
+        _engine.LeaveExecutionContext();
+        _currentPromiseCapability = null;
+        _asyncGeneratorState = AsyncGeneratorState.Completed;
+        _completedAwaits = null;
+        AsyncGeneratorReject(error, promiseCapability);
+        AsyncGeneratorResumeNext();
+    }
 
-            if (final.Type == CompletionType.Throw)
+    private void SettleResumeCompletion(Completion final, PromiseCapability promiseCapability)
+    {
+        _engine.LeaveExecutionContext();
+        _currentPromiseCapability = null;
+
+        if (final.Type == CompletionType.Throw)
+        {
+            _asyncGeneratorState = AsyncGeneratorState.Completed;
+            _completedAwaits = null;
+            AsyncGeneratorReject(final.Value, promiseCapability);
+        }
+        else if (final.Type == CompletionType.Return)
+        {
+            // Per spec 13.10.1: "return;" (no expression) does NOT await the return value,
+            // but "return expr;" does call Await(exprValue) before returning.
+            // When the return statement has no argument, we can resolve directly.
+            if (final._source is ReturnStatement { Argument: null })
             {
                 _asyncGeneratorState = AsyncGeneratorState.Completed;
                 _completedAwaits = null;
-                AsyncGeneratorReject(final.Value, promiseCapability);
+                AsyncGeneratorResolve(final.Value, true, promiseCapability);
             }
-            else if (final.Type == CompletionType.Return)
+            else
             {
-                // Per spec 13.10.1: "return;" (no expression) does NOT await the return value,
-                // but "return expr;" does call Await(exprValue) before returning.
-                // When the return statement has no argument, we can resolve directly.
-                if (final._source is ReturnStatement { Argument: null })
-                {
-                    _asyncGeneratorState = AsyncGeneratorState.Completed;
-                    _completedAwaits = null;
-                    AsyncGeneratorResolve(final.Value, true, promiseCapability);
-                }
-                else
-                {
-                    _asyncGeneratorState = AsyncGeneratorState.AwaitingReturn;
-                    AsyncGeneratorAwaitReturn(final.Value, promiseCapability);
-                }
+                _asyncGeneratorState = AsyncGeneratorState.AwaitingReturn;
+                AsyncGeneratorAwaitReturn(final.Value, promiseCapability);
             }
-            else if (final.Type == CompletionType.Normal)
-            {
-                _asyncGeneratorState = AsyncGeneratorState.Completed;
-                _completedAwaits = null;
-                AsyncGeneratorResolve(Undefined, true, promiseCapability);
-            }
+        }
+        else if (final.Type == CompletionType.Normal)
+        {
+            _asyncGeneratorState = AsyncGeneratorState.Completed;
+            _completedAwaits = null;
+            AsyncGeneratorResolve(Undefined, true, promiseCapability);
+        }
 
-            AsyncGeneratorResumeNext();
-        });
+        AsyncGeneratorResumeNext();
     }
 
     /// <summary>
@@ -461,54 +475,69 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
 
             // Generator completed — dispose resources before leaving context.
             var lexEnv = _engine.ExecutionContext.LexicalEnvironment;
-            DisposeResourcesHelper.DisposeAndThen(_engine, lexEnv, bodyResult, final =>
+            if (!lexEnv.HasDisposeResources)
             {
-                _engine.LeaveExecutionContext();
-
-                _currentPromiseCapability = null;
-
-                if (final.Type == CompletionType.Throw)
-                {
-                    _asyncGeneratorState = AsyncGeneratorState.Completed;
-                    _completedAwaits = null;
-                    if (promiseCapability is not null)
-                    {
-                        AsyncGeneratorReject(final.Value, promiseCapability);
-                    }
-                }
-                else
-                {
-                    _asyncGeneratorState = AsyncGeneratorState.Completed;
-                    _completedAwaits = null;
-                    if (promiseCapability is not null)
-                    {
-                        var completionValue = final.Type == CompletionType.Return ? final.Value : Undefined;
-                        AsyncGeneratorResolve(completionValue, true, promiseCapability);
-                    }
-                }
-                AsyncGeneratorResumeNext();
-            });
+                SettleDelegationCompletion(bodyResult, promiseCapability);
+                return;
+            }
+            DisposeResourcesHelper.DisposeAndThen(_engine, lexEnv, bodyResult,
+                final => SettleDelegationCompletion(final, promiseCapability));
         }
         catch (JavaScriptException ex)
         {
             var env = _engine.ExecutionContext.LexicalEnvironment;
+            if (!env.HasDisposeResources)
+            {
+                SettleDelegationRejection(ex.Error, promiseCapability);
+                return;
+            }
             DisposeResourcesHelper.DisposeAndThen(
                 _engine,
                 env,
                 new Completion(CompletionType.Throw, ex.Error, null!),
-                final =>
-                {
-                    _engine.LeaveExecutionContext();
-                    _currentPromiseCapability = null;
-                    _asyncGeneratorState = AsyncGeneratorState.Completed;
-                    _completedAwaits = null;
-                    if (promiseCapability is not null)
-                    {
-                        AsyncGeneratorReject(final.Value, promiseCapability);
-                    }
-                    AsyncGeneratorResumeNext();
-                });
+                final => SettleDelegationRejection(final.Value, promiseCapability));
         }
+    }
+
+    private void SettleDelegationCompletion(Completion final, PromiseCapability? promiseCapability)
+    {
+        _engine.LeaveExecutionContext();
+
+        _currentPromiseCapability = null;
+
+        if (final.Type == CompletionType.Throw)
+        {
+            _asyncGeneratorState = AsyncGeneratorState.Completed;
+            _completedAwaits = null;
+            if (promiseCapability is not null)
+            {
+                AsyncGeneratorReject(final.Value, promiseCapability);
+            }
+        }
+        else
+        {
+            _asyncGeneratorState = AsyncGeneratorState.Completed;
+            _completedAwaits = null;
+            if (promiseCapability is not null)
+            {
+                var completionValue = final.Type == CompletionType.Return ? final.Value : Undefined;
+                AsyncGeneratorResolve(completionValue, true, promiseCapability);
+            }
+        }
+        AsyncGeneratorResumeNext();
+    }
+
+    private void SettleDelegationRejection(JsValue error, PromiseCapability? promiseCapability)
+    {
+        _engine.LeaveExecutionContext();
+        _currentPromiseCapability = null;
+        _asyncGeneratorState = AsyncGeneratorState.Completed;
+        _completedAwaits = null;
+        if (promiseCapability is not null)
+        {
+            AsyncGeneratorReject(error, promiseCapability);
+        }
+        AsyncGeneratorResumeNext();
     }
 
     /// <summary>
