@@ -74,7 +74,8 @@ public abstract partial class Function : ObjectInstance, ICallable
 
     internal override bool IsCallable => true;
 
-    JsValue ICallable.Call(JsValue thisObject, params JsCallArguments arguments) => Call(thisObject, arguments);
+    JsValue ICallable.Call(JsValue thisObject, params JsCallArguments arguments)
+        => _engine.CallFromNative(this, thisObject, arguments);
 
     /// <summary>
     /// Executed when a function object is used as a function

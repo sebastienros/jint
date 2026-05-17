@@ -21,6 +21,7 @@ public sealed class JsonSerializer
     private string _gap = string.Empty;
     private List<JsValue>? _propertyList;
     private JsValue _replacerFunction = JsValue.Undefined;
+    private int _serializeDepth;
 
     private static readonly JsString toJsonProperty = new("toJSON");
 
@@ -37,6 +38,7 @@ public sealed class JsonSerializer
     public JsValue Serialize(JsValue value, JsValue replacer, JsValue space)
     {
         _stack = new ObjectTraverseStack(_engine);
+        _serializeDepth = 0;
 
         // for JSON.stringify(), any function passed as the first argument will return undefined
         // if the replacer is not defined. The function is not called either.
@@ -429,58 +431,61 @@ public sealed class JsonSerializer
             return;
         }
 
-        _stack.Enter(value);
+        EnterSerializeNode(value);
         var stepback = _indent;
-        if (_gap.Length > 0)
+        try
         {
-            _indent += _gap;
-        }
-
-        const char separator = ',';
-        bool hasPrevious = false;
-
-        for (int i = 0; i < len; i++)
-        {
-            if (hasPrevious)
+            if (_gap.Length > 0)
             {
-                json.Append(separator);
+                _indent += _gap;
             }
-            else
+
+            const char separator = ',';
+            bool hasPrevious = false;
+
+            for (int i = 0; i < len; i++)
             {
-                json.Append('[');
+                if (hasPrevious)
+                {
+                    json.Append(separator);
+                }
+                else
+                {
+                    json.Append('[');
+                }
+
+                if (_gap.Length > 0)
+                {
+                    json.Append('\n');
+                    json.Append(_indent);
+                }
+
+                if (SerializeJSONProperty(i, value, ref json) == SerializeResult.Undefined)
+                {
+                    json.Append("null");
+                }
+
+                hasPrevious = true;
+            }
+
+            if (!hasPrevious)
+            {
+                json.Append("[]");
+                return;
             }
 
             if (_gap.Length > 0)
             {
                 json.Append('\n');
-                json.Append(_indent);
+                json.Append(stepback);
             }
-
-            if (SerializeJSONProperty(i, value, ref json) == SerializeResult.Undefined)
-            {
-                json.Append("null");
-            }
-
-            hasPrevious = true;
+            json.Append(']');
         }
-
-        if (!hasPrevious)
+        finally
         {
-            _stack.Exit();
             _indent = stepback;
-            json.Append("[]");
-            return;
+            ExitSerializeNode();
         }
-
-        if (_gap.Length > 0)
-        {
-            json.Append('\n');
-            json.Append(stepback);
-        }
-        json.Append(']');
-
-        _stack.Exit();
-        _indent = stepback;
     }
 
     /// <summary>
@@ -497,69 +502,92 @@ public sealed class JsonSerializer
             return;
         }
 
-        _stack.Enter(value);
+        EnterSerializeNode(value);
         var stepback = _indent;
-        if (_gap.Length > 0)
+        try
         {
-            _indent += _gap;
-        }
-
-        const char separator = ',';
-        var hasPrevious = false;
-        for (var i = 0; i < enumeration.Keys.Count; i++)
-        {
-            var p = enumeration.Keys[i];
-            int position = json.Length;
-
-            if (hasPrevious)
+            if (_gap.Length > 0)
             {
-                json.Append(separator);
+                _indent += _gap;
             }
-            else
+
+            const char separator = ',';
+            var hasPrevious = false;
+            for (var i = 0; i < enumeration.Keys.Count; i++)
             {
-                json.Append('{');
+                var p = enumeration.Keys[i];
+                int position = json.Length;
+
+                if (hasPrevious)
+                {
+                    json.Append(separator);
+                }
+                else
+                {
+                    json.Append('{');
+                }
+
+                if (_gap.Length > 0)
+                {
+                    json.Append('\n');
+                    json.Append(_indent);
+                }
+
+                QuoteJSONString(p.ToString(), ref json);
+                json.Append(':');
+                if (_gap.Length > 0)
+                {
+                    json.Append(' ');
+                }
+
+                if (SerializeJSONProperty(p, value, ref json) == SerializeResult.Undefined)
+                {
+                    json.Length = position;
+                }
+                else
+                {
+                    hasPrevious = true;
+                }
+            }
+
+            if (!hasPrevious)
+            {
+                json.Append("{}");
+                return;
             }
 
             if (_gap.Length > 0)
             {
                 json.Append('\n');
-                json.Append(_indent);
+                json.Append(stepback);
             }
-
-            QuoteJSONString(p.ToString(), ref json);
-            json.Append(':');
-            if (_gap.Length > 0)
-            {
-                json.Append(' ');
-            }
-
-            if (SerializeJSONProperty(p, value, ref json) == SerializeResult.Undefined)
-            {
-                json.Length = position;
-            }
-            else
-            {
-                hasPrevious = true;
-            }
+            json.Append('}');
         }
+        finally
+        {
+            _indent = stepback;
+            ExitSerializeNode();
+        }
+    }
 
-        if (!hasPrevious)
+    private void EnterSerializeNode(ObjectInstance value)
+    {
+        _stack.Enter(value);
+
+        var maxDepth = _engine.Options.Constraints.MaxBuiltInRecursionDepth;
+        if (maxDepth >= 0 && _serializeDepth >= maxDepth)
         {
             _stack.Exit();
-            _indent = stepback;
-            json.Append("{}");
-            return;
+            Throw.RangeError(_engine.Realm, $"JSON serialization exceeds maximum depth of {maxDepth}");
         }
 
-        if (_gap.Length > 0)
-        {
-            json.Append('\n');
-            json.Append(stepback);
-        }
-        json.Append('}');
+        _serializeDepth++;
+    }
 
+    private void ExitSerializeNode()
+    {
         _stack.Exit();
-        _indent = stepback;
+        _serializeDepth--;
     }
 
     private enum SerializeResult

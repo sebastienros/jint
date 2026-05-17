@@ -61,7 +61,7 @@ public sealed partial class ArrayConstructor : Constructor
             ObjectInstance instance;
             if (!ReferenceEquals(this, thisObject) && thisObject is IConstructor constructor)
             {
-                instance = constructor.Construct([], thisObject);
+                instance = _engine.Construct(constructor, [], thisObject, expression: null);
             }
             else
             {
@@ -192,7 +192,7 @@ public sealed partial class ArrayConstructor : Constructor
         ObjectInstance instance;
         if (!ReferenceEquals(this, c) && c is IConstructor constructor)
         {
-            instance = constructor.Construct([], c);
+            instance = _engine.Construct(constructor, [], c, expression: null);
         }
         else
         {
@@ -443,7 +443,7 @@ public sealed partial class ArrayConstructor : Constructor
             ObjectInstance a;
             if (!ReferenceEquals(c, this) && c is IConstructor constructor)
             {
-                a = constructor.Construct([(JsNumber) longLen], c);
+                a = _engine.Construct(constructor, [(JsNumber) longLen], c, expression: null);
             }
             else
             {
@@ -596,7 +596,7 @@ public sealed partial class ArrayConstructor : Constructor
         if (!ReferenceEquals(thisObj, this) && thisObj is IConstructor constructor)
         {
             var argumentsList = new JsValue[] { length };
-            a = Construct(constructor, argumentsList);
+            a = _engine.Construct(constructor, argumentsList, (JsValue) constructor, expression: null);
         }
         else
         {
@@ -685,7 +685,7 @@ public sealed partial class ArrayConstructor : Constructor
         ObjectInstance a;
         if (thisObject.IsConstructor)
         {
-            a = ((IConstructor) thisObject).Construct([len], thisObject);
+            a = _engine.Construct((IConstructor) thisObject, [len], thisObject, expression: null);
         }
         else
         {
@@ -944,7 +944,7 @@ public sealed partial class ArrayConstructor : Constructor
             Throw.TypeError(_realm, $"{c} is not a constructor");
         }
 
-        return ((IConstructor) c).Construct([JsNumber.Create(length)], c);
+        return _engine.Construct((IConstructor) c, [JsNumber.Create(length)], c, expression: null);
     }
 
     internal JsArray CreateArrayFromList<T>(List<T> values) where T : JsValue

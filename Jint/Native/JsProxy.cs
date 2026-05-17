@@ -60,7 +60,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             Throw.TypeError(_engine.Realm, _target + " is not a function");
         }
 
-        return callable.Call(thisObject, arguments);
+        return _engine.CallFromNative(callable, thisObject, arguments);
     }
 
     /// <summary>
@@ -82,7 +82,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             {
                 Throw.TypeError(_engine.Realm);
             }
-            return constructor.Construct(arguments, newTarget);
+            return _engine.Construct(constructor, arguments, newTarget, expression: null);
         }
 
         var oi = result as ObjectInstance;
@@ -596,7 +596,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
                 Throw.TypeError(_engine.Realm, $"{_handler} returned for property '{propertyName}' of object '{_target}' is not a function");
             }
 
-            result = callable.Call(_handler, arguments);
+            result = _engine.CallFromNative(callable, _handler, arguments);
             return true;
         }
 

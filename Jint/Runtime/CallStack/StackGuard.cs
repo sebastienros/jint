@@ -21,9 +21,15 @@ internal sealed class StackGuard
 
     public bool TryEnterOnCurrentStack()
     {
-        if (_engine.Options.Constraints.MaxExecutionStackCount == Disabled)
+        var maxExecutionStackCount = _engine.Options.Constraints.MaxExecutionStackCount;
+        if (maxExecutionStackCount == Disabled)
         {
             return true;
+        }
+
+        if (_engine.CallStack.Count > maxExecutionStackCount)
+        {
+            Throw.RangeError(_engine.Realm, "Maximum call stack size exceeded");
         }
 
 #if NETFRAMEWORK || NETSTANDARD2_0
@@ -42,7 +48,7 @@ internal sealed class StackGuard
         }
 #endif
 
-        if (_engine.CallStack.Count > _engine.Options.Constraints.MaxExecutionStackCount)
+        if (_engine.CallStack.Count > maxExecutionStackCount)
         {
             Throw.RangeError(_engine.Realm, "Maximum call stack size exceeded");
         }

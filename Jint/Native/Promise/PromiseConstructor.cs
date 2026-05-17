@@ -908,7 +908,7 @@ internal sealed partial class PromiseConstructor : Constructor
 
         var executor = new ClrFunction(engine, "", Executor, 2, PropertyFlag.Configurable);
 
-        var instance = ctor.Construct([executor], c);
+        var instance = engine.Construct(ctor, [executor], c, expression: null);
 
         ICallable? resolve = null;
         ICallable? reject = null;

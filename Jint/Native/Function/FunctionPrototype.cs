@@ -139,12 +139,12 @@ internal sealed partial class FunctionPrototype : Function
     {
         if (argArray.IsNullOrUndefined())
         {
-            return thisObject.Call(thisArg, Arguments.Empty);
+            return Engine.CallFromNative(thisObject, thisArg, Arguments.Empty);
         }
 
         var argList = CreateListFromArrayLike(_realm, argArray);
 
-        var result = thisObject.Call(thisArg, argList);
+        var result = Engine.CallFromNative(thisObject, thisArg, argList);
 
         return result;
     }
@@ -170,7 +170,7 @@ internal sealed partial class FunctionPrototype : Function
     /// https://tc39.es/ecma262/#sec-function.prototype.call
     /// </summary>
     [JsFunction(Length = 1, Name = "call")]
-    private static JsValue CallImpl(ICallable thisObject, JsCallArguments arguments)
+    private JsValue CallImpl(ICallable thisObject, JsCallArguments arguments)
     {
         JsValue[] values = [];
         if (arguments.Length > 1)
@@ -179,7 +179,7 @@ internal sealed partial class FunctionPrototype : Function
             System.Array.Copy(arguments, 1, values, 0, arguments.Length - 1);
         }
 
-        var result = thisObject.Call(arguments.At(0), values);
+        var result = Engine.CallFromNative(thisObject, arguments.At(0), values);
 
         return result;
     }
