@@ -3,6 +3,7 @@ using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.AsyncFunction;
 using Jint.Native.AsyncGenerator;
+using Jint.Native.Disposable;
 using Jint.Native.Generator;
 using Jint.Native.Promise;
 using Jint.Runtime.Environments;
@@ -177,11 +178,25 @@ internal sealed class JintFunctionDefinition
         }
         catch (JavaScriptException e)
         {
-            // Per spec: DisposeResources before rejecting
+            // Per spec: DisposeResources before rejecting. Use the helper so async-dispose
+            // resources are awaited via the state machine instead of sync-blocking. Skip
+            // the helper entirely if the env has no disposables — common-case hot path.
             var env = engine.ExecutionContext.LexicalEnvironment;
-            var disposeResult = env.DisposeResources(new Completion(CompletionType.Throw, e.Error, null!));
-            asyncInstance._state = AsyncFunctionState.Completed;
-            asyncInstance._capability.Reject.Call(JsValue.Undefined, disposeResult.Value);
+            if (!env.HasDisposeResources)
+            {
+                asyncInstance._state = AsyncFunctionState.Completed;
+                asyncInstance._capability.Reject.Call(JsValue.Undefined, e.Error);
+                return;
+            }
+            DisposeResourcesHelper.DisposeAndThen(
+                engine,
+                env,
+                new Completion(CompletionType.Throw, e.Error, null!),
+                final =>
+                {
+                    asyncInstance._state = AsyncFunctionState.Completed;
+                    asyncInstance._capability.Reject.Call(JsValue.Undefined, final.Value);
+                });
             return;
         }
 
@@ -193,28 +208,37 @@ internal sealed class JintFunctionDefinition
             return;
         }
 
-        // Per spec AsyncBlockStart step 3.f: DisposeResources after body completes
+        // Per spec AsyncBlockStart step 3.f: DisposeResources after body completes.
+        // Settlement of the function's return promise is deferred until the dispose chain
+        // (which may itself await) finishes. Fast-path skip when no disposables registered.
         var lexEnv = engine.ExecutionContext.LexicalEnvironment;
-        result = lexEnv.DisposeResources(result);
+        if (!lexEnv.HasDisposeResources)
+        {
+            SettleAsyncFunctionCompletion(asyncInstance, result);
+            return;
+        }
+        DisposeResourcesHelper.DisposeAndThen(engine, lexEnv, result, final => SettleAsyncFunctionCompletion(asyncInstance, final));
+    }
 
-        // Completed - resolve or reject the async function's return promise
+    private static void SettleAsyncFunctionCompletion(AsyncFunctionInstance asyncInstance, Completion final)
+    {
         asyncInstance._state = AsyncFunctionState.Completed;
 
-        if (result.Type == CompletionType.Throw)
+        if (final.Type == CompletionType.Throw)
         {
-            asyncInstance._capability.Reject.Call(JsValue.Undefined, result.Value);
+            asyncInstance._capability.Reject.Call(JsValue.Undefined, final.Value);
         }
-        else if (result.Type == CompletionType.Normal)
+        else if (final.Type == CompletionType.Normal)
         {
             asyncInstance._capability.Resolve.Call(JsValue.Undefined, JsValue.Undefined);
         }
-        else if (result.Type == CompletionType.Return)
+        else if (final.Type == CompletionType.Return)
         {
-            asyncInstance._capability.Resolve.Call(JsValue.Undefined, result.Value);
+            asyncInstance._capability.Resolve.Call(JsValue.Undefined, final.Value);
         }
         else
         {
-            asyncInstance._capability.Reject.Call(JsValue.Undefined, result.Value);
+            asyncInstance._capability.Reject.Call(JsValue.Undefined, final.Value);
         }
     }
 

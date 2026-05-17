@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using Jint.Native;
 using Jint.Native.AsyncFunction;
+using Jint.Native.Disposable;
 using Jint.Native.Object;
 using Jint.Native.Promise;
 using Jint.Runtime.Environments;
@@ -406,11 +407,26 @@ internal class SourceTextModule : CyclicModule
                 }
                 catch (JavaScriptException e)
                 {
-                    result = _environment.DisposeResources(new Completion(CompletionType.Throw, e.Error, null!));
+                    // Leave the module's execution context up front so the dispose chain's
+                    // Promise.then callbacks don't run with it still on the stack — same
+                    // rationale as the AsyncGenerator path (see AsyncGeneratorInstance).
+                    var env = _environment;
                     _engine.LeaveExecutionContext();
-                    _tlaAsyncInstance._state = AsyncFunctionState.Completed;
-                    capability!.Reject.Call(JsValue.Undefined, e.Error);
-                    return result;
+                    _tlaAsyncInstance!._state = AsyncFunctionState.Completed;
+                    var cap = capability!;
+                    if (!env.HasDisposeResources)
+                    {
+                        cap.Reject.Call(JsValue.Undefined, e.Error);
+                    }
+                    else
+                    {
+                        DisposeResourcesHelper.DisposeAndThen(
+                            _engine,
+                            env,
+                            new Completion(CompletionType.Throw, e.Error, null!),
+                            final => cap.Reject.Call(JsValue.Undefined, final.Value));
+                    }
+                    return new Completion(CompletionType.Normal, JsValue.Undefined, null!);
                 }
 
                 // Check if we suspended at an await
@@ -422,27 +438,44 @@ internal class SourceTextModule : CyclicModule
                     return new Completion(CompletionType.Normal, JsValue.Undefined, null!);
                 }
 
-                result = _environment.DisposeResources(result);
-                _engine.LeaveExecutionContext();
-
-                // Completed - resolve or reject via the capability
-                _tlaAsyncInstance._state = AsyncFunctionState.Completed;
-
-                if (result.Type == CompletionType.Normal)
+                // Module body complete. Leave context BEFORE dispatching the dispose chain
+                // so its Promise.then callbacks run with the caller's context on top, not
+                // the module's — otherwise a later sync await would mis-route via this
+                // module's _tlaAsyncInstance.
                 {
-                    capability!.Resolve.Call(JsValue.Undefined, JsValue.Undefined);
-                }
-                else if (result.Type == CompletionType.Throw)
-                {
-                    capability!.Reject.Call(JsValue.Undefined, result.Value);
-                }
-                else
-                {
-                    capability!.Resolve.Call(JsValue.Undefined, result.Value);
+                    var env = _environment;
+                    _engine.LeaveExecutionContext();
+                    _tlaAsyncInstance._state = AsyncFunctionState.Completed;
+                    var cap = capability!;
+                    if (!env.HasDisposeResources)
+                    {
+                        SettleTla(cap, result);
+                    }
+                    else
+                    {
+                        DisposeResourcesHelper.DisposeAndThen(_engine, env, result,
+                            final => SettleTla(cap, final));
+                    }
                 }
 
-                return result;
+                return new Completion(CompletionType.Normal, JsValue.Undefined, null!);
             }
+        }
+    }
+
+    private static void SettleTla(PromiseCapability capability, Completion final)
+    {
+        if (final.Type == CompletionType.Normal)
+        {
+            capability.Resolve.Call(JsValue.Undefined, JsValue.Undefined);
+        }
+        else if (final.Type == CompletionType.Throw)
+        {
+            capability.Reject.Call(JsValue.Undefined, final.Value);
+        }
+        else
+        {
+            capability.Resolve.Call(JsValue.Undefined, final.Value);
         }
     }
 }

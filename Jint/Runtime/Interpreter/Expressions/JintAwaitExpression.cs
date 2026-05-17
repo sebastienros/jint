@@ -1,6 +1,7 @@
 using Jint.Native;
 using Jint.Native.AsyncFunction;
 using Jint.Native.AsyncGenerator;
+using Jint.Native.Disposable;
 using Jint.Native.Promise;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -242,10 +243,18 @@ internal sealed class JintAwaitExpression : JintExpression
         catch (JavaScriptException e)
         {
             var env = engine.ExecutionContext.LexicalEnvironment;
-            var disposeResult = env.DisposeResources(new Completion(CompletionType.Throw, e.Error, null!));
-            engine.LeaveExecutionContext();
-            asyncInstance._state = AsyncFunctionState.Completed;
-            asyncInstance._capability.Reject.Call(JsValue.Undefined, disposeResult.Value);
+            if (!env.HasDisposeResources)
+            {
+                engine.LeaveExecutionContext();
+                asyncInstance._state = AsyncFunctionState.Completed;
+                asyncInstance._capability.Reject.Call(JsValue.Undefined, e.Error);
+                return;
+            }
+            DisposeResourcesHelper.DisposeAndThen(
+                engine,
+                env,
+                new Completion(CompletionType.Throw, e.Error, null!),
+                final => SettleAsyncResumeCompletion(engine, asyncInstance, final));
             return;
         }
 
@@ -256,19 +265,27 @@ internal sealed class JintAwaitExpression : JintExpression
         }
 
         var lexEnv = engine.ExecutionContext.LexicalEnvironment;
-        result = lexEnv.DisposeResources(result);
+        if (!lexEnv.HasDisposeResources)
+        {
+            SettleAsyncResumeCompletion(engine, asyncInstance, result);
+            return;
+        }
+        DisposeResourcesHelper.DisposeAndThen(engine, lexEnv, result,
+            final => SettleAsyncResumeCompletion(engine, asyncInstance, final));
+    }
 
+    private static void SettleAsyncResumeCompletion(Engine engine, AsyncFunctionInstance asyncInstance, Completion final)
+    {
         engine.LeaveExecutionContext();
-
         asyncInstance._state = AsyncFunctionState.Completed;
 
-        if (result.Type == CompletionType.Throw)
+        if (final.Type == CompletionType.Throw)
         {
-            asyncInstance._capability.Reject.Call(JsValue.Undefined, result.Value);
+            asyncInstance._capability.Reject.Call(JsValue.Undefined, final.Value);
         }
-        else if (result.Type == CompletionType.Return)
+        else if (final.Type == CompletionType.Return)
         {
-            asyncInstance._capability.Resolve.Call(JsValue.Undefined, result.Value);
+            asyncInstance._capability.Resolve.Call(JsValue.Undefined, final.Value);
         }
         else
         {

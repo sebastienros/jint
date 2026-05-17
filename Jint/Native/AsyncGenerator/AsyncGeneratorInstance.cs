@@ -1,3 +1,4 @@
+using Jint.Native.Disposable;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Native.Promise;
@@ -260,14 +261,22 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
         }
         catch (JavaScriptException ex)
         {
+            // Leave context up front so any async dispose work below runs (and its
+            // Promise.then callbacks fire) without the generator's execution context
+            // still on the stack — otherwise outer `await`s in the caller would
+            // mis-route through SuspendForAwaitInAsyncGenerator.
             var env = _engine.ExecutionContext.LexicalEnvironment;
-            var disposeResult = env.DisposeResources(new Completion(CompletionType.Throw, ex.Error, null!));
             _engine.LeaveExecutionContext();
-            _currentPromiseCapability = null;
-            _asyncGeneratorState = AsyncGeneratorState.Completed;
-            _completedAwaits = null;
-            AsyncGeneratorReject(disposeResult.Value, promiseCapability);
-            AsyncGeneratorResumeNext();
+            if (!env.HasDisposeResources)
+            {
+                SettleResumeRejection(ex.Error, promiseCapability);
+                return;
+            }
+            DisposeResourcesHelper.DisposeAndThen(
+                _engine,
+                env,
+                new Completion(CompletionType.Throw, ex.Error, null!),
+                final => SettleResumeRejection(final.Value, promiseCapability));
             return;
         }
 
@@ -291,38 +300,60 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
             return;
         }
 
-        // Generator body completed — dispose resources before leaving context
+        // Generator body completed — leave the generator's execution context BEFORE
+        // dispatching dispose so its async Promise.then chain doesn't run with the
+        // generator's context still on the stack. Settlement helpers below assume
+        // the context has already been popped.
         var lexEnv = _engine.ExecutionContext.LexicalEnvironment;
-        result = lexEnv.DisposeResources(result);
-
         _engine.LeaveExecutionContext();
+        if (!lexEnv.HasDisposeResources)
+        {
+            SettleResumeCompletion(result, promiseCapability);
+            return;
+        }
+        DisposeResourcesHelper.DisposeAndThen(_engine, lexEnv, result,
+            final => SettleResumeCompletion(final, promiseCapability));
+    }
 
+    private void SettleResumeRejection(JsValue error, PromiseCapability promiseCapability)
+    {
+        // Note: caller (ResumeExecution / its callback) has already left the
+        // generator's execution context.
+        _currentPromiseCapability = null;
+        _asyncGeneratorState = AsyncGeneratorState.Completed;
+        _completedAwaits = null;
+        AsyncGeneratorReject(error, promiseCapability);
+        AsyncGeneratorResumeNext();
+    }
+
+    private void SettleResumeCompletion(Completion final, PromiseCapability promiseCapability)
+    {
         _currentPromiseCapability = null;
 
-        if (result.Type == CompletionType.Throw)
+        if (final.Type == CompletionType.Throw)
         {
             _asyncGeneratorState = AsyncGeneratorState.Completed;
             _completedAwaits = null;
-            AsyncGeneratorReject(result.Value, promiseCapability);
+            AsyncGeneratorReject(final.Value, promiseCapability);
         }
-        else if (result.Type == CompletionType.Return)
+        else if (final.Type == CompletionType.Return)
         {
             // Per spec 13.10.1: "return;" (no expression) does NOT await the return value,
             // but "return expr;" does call Await(exprValue) before returning.
             // When the return statement has no argument, we can resolve directly.
-            if (result._source is ReturnStatement { Argument: null })
+            if (final._source is ReturnStatement { Argument: null })
             {
                 _asyncGeneratorState = AsyncGeneratorState.Completed;
                 _completedAwaits = null;
-                AsyncGeneratorResolve(result.Value, true, promiseCapability);
+                AsyncGeneratorResolve(final.Value, true, promiseCapability);
             }
             else
             {
                 _asyncGeneratorState = AsyncGeneratorState.AwaitingReturn;
-                AsyncGeneratorAwaitReturn(result.Value, promiseCapability);
+                AsyncGeneratorAwaitReturn(final.Value, promiseCapability);
             }
         }
-        else if (result.Type == CompletionType.Normal)
+        else if (final.Type == CompletionType.Normal)
         {
             _asyncGeneratorState = AsyncGeneratorState.Completed;
             _completedAwaits = null;
@@ -451,49 +482,73 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
                 return;
             }
 
-            // Generator completed — dispose resources before leaving context
+            // Generator completed — leave the generator's execution context BEFORE
+            // dispatching dispose (see ResumeExecution for the same rationale).
             var lexEnv = _engine.ExecutionContext.LexicalEnvironment;
-            bodyResult = lexEnv.DisposeResources(bodyResult);
-
             _engine.LeaveExecutionContext();
-
-            _currentPromiseCapability = null;
-
-            if (bodyResult.Type == CompletionType.Throw)
+            if (!lexEnv.HasDisposeResources)
             {
-                _asyncGeneratorState = AsyncGeneratorState.Completed;
-                _completedAwaits = null;
-                if (promiseCapability is not null)
-                {
-                    AsyncGeneratorReject(bodyResult.Value, promiseCapability);
-                }
+                SettleDelegationCompletion(bodyResult, promiseCapability);
+                return;
             }
-            else
-            {
-                _asyncGeneratorState = AsyncGeneratorState.Completed;
-                _completedAwaits = null;
-                if (promiseCapability is not null)
-                {
-                    var completionValue = bodyResult.Type == CompletionType.Return ? bodyResult.Value : Undefined;
-                    AsyncGeneratorResolve(completionValue, true, promiseCapability);
-                }
-            }
-            AsyncGeneratorResumeNext();
+            DisposeResourcesHelper.DisposeAndThen(_engine, lexEnv, bodyResult,
+                final => SettleDelegationCompletion(final, promiseCapability));
         }
         catch (JavaScriptException ex)
         {
             var env = _engine.ExecutionContext.LexicalEnvironment;
-            var disposeResult = env.DisposeResources(new Completion(CompletionType.Throw, ex.Error, null!));
             _engine.LeaveExecutionContext();
-            _currentPromiseCapability = null;
+            if (!env.HasDisposeResources)
+            {
+                SettleDelegationRejection(ex.Error, promiseCapability);
+                return;
+            }
+            DisposeResourcesHelper.DisposeAndThen(
+                _engine,
+                env,
+                new Completion(CompletionType.Throw, ex.Error, null!),
+                final => SettleDelegationRejection(final.Value, promiseCapability));
+        }
+    }
+
+    private void SettleDelegationCompletion(Completion final, PromiseCapability? promiseCapability)
+    {
+        // Note: caller has already left the generator's execution context.
+        _currentPromiseCapability = null;
+
+        if (final.Type == CompletionType.Throw)
+        {
             _asyncGeneratorState = AsyncGeneratorState.Completed;
             _completedAwaits = null;
             if (promiseCapability is not null)
             {
-                AsyncGeneratorReject(disposeResult.Value, promiseCapability);
+                AsyncGeneratorReject(final.Value, promiseCapability);
             }
-            AsyncGeneratorResumeNext();
         }
+        else
+        {
+            _asyncGeneratorState = AsyncGeneratorState.Completed;
+            _completedAwaits = null;
+            if (promiseCapability is not null)
+            {
+                var completionValue = final.Type == CompletionType.Return ? final.Value : Undefined;
+                AsyncGeneratorResolve(completionValue, true, promiseCapability);
+            }
+        }
+        AsyncGeneratorResumeNext();
+    }
+
+    private void SettleDelegationRejection(JsValue error, PromiseCapability? promiseCapability)
+    {
+        // Note: caller has already left the generator's execution context.
+        _currentPromiseCapability = null;
+        _asyncGeneratorState = AsyncGeneratorState.Completed;
+        _completedAwaits = null;
+        if (promiseCapability is not null)
+        {
+            AsyncGeneratorReject(error, promiseCapability);
+        }
+        AsyncGeneratorResumeNext();
     }
 
     /// <summary>
