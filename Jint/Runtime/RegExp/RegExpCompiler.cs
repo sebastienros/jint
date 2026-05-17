@@ -1241,7 +1241,16 @@ default_escape:
                                     else
                                     {
                                         _pos = savedPos;
-                                        if (IsUnicode)
+                                        if (IsUnicode
+                                            && (!UnicodeSets
+                                                || !inclass
+                                                || _pattern[_pos] is not
+                                                (
+                                                    '!' or '#' or '%' or '&'
+                                                    or ',' or '-' or ':' or ';'
+                                                    or '<' or '=' or '>' or '@'
+                                                    or '`' or '~'
+                                                )))
                                         {
                                             throw new RegExpSyntaxException("invalid escape sequence in regular expression");
                                         }
@@ -1274,7 +1283,7 @@ default_escape:
                 case '^':
                 case '`':
                 case '~':
-                    if (UnicodeSets && _pos + 1 < _patternEnd && _pattern[_pos + 1] == c)
+                    if (UnicodeSets && inclass && _pos + 1 < _patternEnd && _pattern[_pos + 1] == c)
                     {
                         // Forbidden double characters in unicode-sets mode
                         throw new RegExpSyntaxException("invalid class set operation in regular expression");
@@ -1290,7 +1299,7 @@ default_escape:
                 case '/':
                 case '-':
                 case '|':
-                    if (UnicodeSets)
+                    if (UnicodeSets && inclass)
                     {
                         throw new RegExpSyntaxException("invalid character in class in regular expression");
                     }
