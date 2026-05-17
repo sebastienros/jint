@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using Jint.Native;
+using Jint.Native.Disposable;
 
 namespace Jint.Runtime.Environments;
 
@@ -108,6 +109,22 @@ internal abstract class Environment : JsValue
     internal JsValue? NewTarget { get; set; }
 
     internal virtual Completion DisposeResources(Completion c) => c;
+
+    /// <summary>
+    /// Begin dispose via the state machine. Default returns Done immediately for
+    /// environments that don't track disposable resources.
+    /// </summary>
+    internal virtual DisposeStepResult BeginDisposeResources(Completion c) => DisposeStepResult.Done(c);
+
+    /// <summary>
+    /// Continue dispose after an awaited promise settled. Must not be called on
+    /// an environment that didn't return a Suspend from BeginDisposeResources.
+    /// </summary>
+    internal virtual DisposeStepResult ContinueDisposeResources(JsValue awaitResult, bool awaitThrew)
+    {
+        Throw.InvalidOperationException("ContinueDisposeResources called without a pending Suspend.");
+        return default;
+    }
 
     /// <summary>
     /// Helper to cache JsString/Key when environments use different lookups.

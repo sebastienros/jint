@@ -1,6 +1,7 @@
 using Jint.Native;
 using Jint.Native.AsyncFunction;
 using Jint.Native.AsyncGenerator;
+using Jint.Native.Disposable;
 using Jint.Native.Promise;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -242,10 +243,16 @@ internal sealed class JintAwaitExpression : JintExpression
         catch (JavaScriptException e)
         {
             var env = engine.ExecutionContext.LexicalEnvironment;
-            var disposeResult = env.DisposeResources(new Completion(CompletionType.Throw, e.Error, null!));
-            engine.LeaveExecutionContext();
-            asyncInstance._state = AsyncFunctionState.Completed;
-            asyncInstance._capability.Reject.Call(JsValue.Undefined, disposeResult.Value);
+            DisposeResourcesHelper.DisposeAndThen(
+                engine,
+                env,
+                new Completion(CompletionType.Throw, e.Error, null!),
+                final =>
+                {
+                    engine.LeaveExecutionContext();
+                    asyncInstance._state = AsyncFunctionState.Completed;
+                    asyncInstance._capability.Reject.Call(JsValue.Undefined, final.Value);
+                });
             return;
         }
 
@@ -256,23 +263,23 @@ internal sealed class JintAwaitExpression : JintExpression
         }
 
         var lexEnv = engine.ExecutionContext.LexicalEnvironment;
-        result = lexEnv.DisposeResources(result);
-
-        engine.LeaveExecutionContext();
-
-        asyncInstance._state = AsyncFunctionState.Completed;
-
-        if (result.Type == CompletionType.Throw)
+        DisposeResourcesHelper.DisposeAndThen(engine, lexEnv, result, final =>
         {
-            asyncInstance._capability.Reject.Call(JsValue.Undefined, result.Value);
-        }
-        else if (result.Type == CompletionType.Return)
-        {
-            asyncInstance._capability.Resolve.Call(JsValue.Undefined, result.Value);
-        }
-        else
-        {
-            asyncInstance._capability.Resolve.Call(JsValue.Undefined, JsValue.Undefined);
-        }
+            engine.LeaveExecutionContext();
+            asyncInstance._state = AsyncFunctionState.Completed;
+
+            if (final.Type == CompletionType.Throw)
+            {
+                asyncInstance._capability.Reject.Call(JsValue.Undefined, final.Value);
+            }
+            else if (final.Type == CompletionType.Return)
+            {
+                asyncInstance._capability.Resolve.Call(JsValue.Undefined, final.Value);
+            }
+            else
+            {
+                asyncInstance._capability.Resolve.Call(JsValue.Undefined, JsValue.Undefined);
+            }
+        });
     }
 }

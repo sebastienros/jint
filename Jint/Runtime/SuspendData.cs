@@ -270,10 +270,11 @@ internal sealed class BlockSuspendData : SuspendData
     public Jint.Runtime.Environments.Environment? OuterEnvironment { get; set; }
 
     /// <summary>
-    /// Whether DisposeResources has already been called for this block.
-    /// When true, resumption should skip disposal and just continue.
+    /// True while this block is suspended mid-dispose. On resume, the block
+    /// must not re-execute its body — it must call ContinueDisposeResources
+    /// to advance the dispose state machine.
     /// </summary>
-    public bool DisposalComplete { get; set; }
+    public bool DisposeInProgress { get; set; }
 }
 
 /// <summary>

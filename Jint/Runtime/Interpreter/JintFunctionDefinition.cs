@@ -3,6 +3,7 @@ using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.AsyncFunction;
 using Jint.Native.AsyncGenerator;
+using Jint.Native.Disposable;
 using Jint.Native.Generator;
 using Jint.Native.Promise;
 using Jint.Runtime.Environments;
@@ -177,11 +178,18 @@ internal sealed class JintFunctionDefinition
         }
         catch (JavaScriptException e)
         {
-            // Per spec: DisposeResources before rejecting
+            // Per spec: DisposeResources before rejecting. Use the helper so async-dispose
+            // resources are awaited via the state machine instead of sync-blocking.
             var env = engine.ExecutionContext.LexicalEnvironment;
-            var disposeResult = env.DisposeResources(new Completion(CompletionType.Throw, e.Error, null!));
-            asyncInstance._state = AsyncFunctionState.Completed;
-            asyncInstance._capability.Reject.Call(JsValue.Undefined, disposeResult.Value);
+            DisposeResourcesHelper.DisposeAndThen(
+                engine,
+                env,
+                new Completion(CompletionType.Throw, e.Error, null!),
+                final =>
+                {
+                    asyncInstance._state = AsyncFunctionState.Completed;
+                    asyncInstance._capability.Reject.Call(JsValue.Undefined, final.Value);
+                });
             return;
         }
 
@@ -193,29 +201,31 @@ internal sealed class JintFunctionDefinition
             return;
         }
 
-        // Per spec AsyncBlockStart step 3.f: DisposeResources after body completes
+        // Per spec AsyncBlockStart step 3.f: DisposeResources after body completes.
+        // Settlement of the function's return promise is deferred until the dispose chain
+        // (which may itself await) finishes.
         var lexEnv = engine.ExecutionContext.LexicalEnvironment;
-        result = lexEnv.DisposeResources(result);
+        DisposeResourcesHelper.DisposeAndThen(engine, lexEnv, result, final =>
+        {
+            asyncInstance._state = AsyncFunctionState.Completed;
 
-        // Completed - resolve or reject the async function's return promise
-        asyncInstance._state = AsyncFunctionState.Completed;
-
-        if (result.Type == CompletionType.Throw)
-        {
-            asyncInstance._capability.Reject.Call(JsValue.Undefined, result.Value);
-        }
-        else if (result.Type == CompletionType.Normal)
-        {
-            asyncInstance._capability.Resolve.Call(JsValue.Undefined, JsValue.Undefined);
-        }
-        else if (result.Type == CompletionType.Return)
-        {
-            asyncInstance._capability.Resolve.Call(JsValue.Undefined, result.Value);
-        }
-        else
-        {
-            asyncInstance._capability.Reject.Call(JsValue.Undefined, result.Value);
-        }
+            if (final.Type == CompletionType.Throw)
+            {
+                asyncInstance._capability.Reject.Call(JsValue.Undefined, final.Value);
+            }
+            else if (final.Type == CompletionType.Normal)
+            {
+                asyncInstance._capability.Resolve.Call(JsValue.Undefined, JsValue.Undefined);
+            }
+            else if (final.Type == CompletionType.Return)
+            {
+                asyncInstance._capability.Resolve.Call(JsValue.Undefined, final.Value);
+            }
+            else
+            {
+                asyncInstance._capability.Reject.Call(JsValue.Undefined, final.Value);
+            }
+        });
     }
 
     /// <summary>

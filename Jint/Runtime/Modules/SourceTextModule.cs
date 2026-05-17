@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using Jint.Native;
 using Jint.Native.AsyncFunction;
+using Jint.Native.Disposable;
 using Jint.Native.Object;
 using Jint.Native.Promise;
 using Jint.Runtime.Environments;
@@ -406,11 +407,17 @@ internal class SourceTextModule : CyclicModule
                 }
                 catch (JavaScriptException e)
                 {
-                    result = _environment.DisposeResources(new Completion(CompletionType.Throw, e.Error, null!));
-                    _engine.LeaveExecutionContext();
-                    _tlaAsyncInstance._state = AsyncFunctionState.Completed;
-                    capability!.Reject.Call(JsValue.Undefined, e.Error);
-                    return result;
+                    DisposeResourcesHelper.DisposeAndThen(
+                        _engine,
+                        _environment,
+                        new Completion(CompletionType.Throw, e.Error, null!),
+                        final =>
+                        {
+                            _engine.LeaveExecutionContext();
+                            _tlaAsyncInstance._state = AsyncFunctionState.Completed;
+                            capability!.Reject.Call(JsValue.Undefined, final.Value);
+                        });
+                    return new Completion(CompletionType.Normal, JsValue.Undefined, null!);
                 }
 
                 // Check if we suspended at an await
@@ -422,26 +429,29 @@ internal class SourceTextModule : CyclicModule
                     return new Completion(CompletionType.Normal, JsValue.Undefined, null!);
                 }
 
-                result = _environment.DisposeResources(result);
-                _engine.LeaveExecutionContext();
-
-                // Completed - resolve or reject via the capability
-                _tlaAsyncInstance._state = AsyncFunctionState.Completed;
-
-                if (result.Type == CompletionType.Normal)
+                // Module body complete - dispose any (potentially async-dispose) resources
+                // before settling the capability. Settlement is deferred until the dispose
+                // chain finishes so top-level `await using` can suspend correctly.
+                DisposeResourcesHelper.DisposeAndThen(_engine, _environment, result, final =>
                 {
-                    capability!.Resolve.Call(JsValue.Undefined, JsValue.Undefined);
-                }
-                else if (result.Type == CompletionType.Throw)
-                {
-                    capability!.Reject.Call(JsValue.Undefined, result.Value);
-                }
-                else
-                {
-                    capability!.Resolve.Call(JsValue.Undefined, result.Value);
-                }
+                    _engine.LeaveExecutionContext();
+                    _tlaAsyncInstance._state = AsyncFunctionState.Completed;
 
-                return result;
+                    if (final.Type == CompletionType.Normal)
+                    {
+                        capability!.Resolve.Call(JsValue.Undefined, JsValue.Undefined);
+                    }
+                    else if (final.Type == CompletionType.Throw)
+                    {
+                        capability!.Reject.Call(JsValue.Undefined, final.Value);
+                    }
+                    else
+                    {
+                        capability!.Resolve.Call(JsValue.Undefined, final.Value);
+                    }
+                });
+
+                return new Completion(CompletionType.Normal, JsValue.Undefined, null!);
             }
         }
     }
