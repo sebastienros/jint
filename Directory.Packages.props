@@ -31,7 +31,7 @@
     <PackageVersion Include="SourceMaps" Version="0.3.0" />
     <PackageVersion Include="Spectre.Console.Cli" Version="0.45.0" />
     <PackageVersion Include="System.Text.Json" Version="10.0.8" />
-    <PackageVersion Include="Test262Harness" Version="1.0.5" />
+    <PackageVersion Include="Test262Harness" Version="1.0.6" />
     <PackageVersion Include="xunit.v3.mtp-off" Version="3.2.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" PrivateAssets="all" />
     <PackageVersion Include="YantraJS.Core" Version="1.2.366" />
