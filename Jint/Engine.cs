@@ -19,6 +19,7 @@ using Jint.Runtime.Interop.Reflection;
 using Jint.Runtime.Interpreter;
 using Jint.Runtime.Interpreter.Expressions;
 using Environment = Jint.Runtime.Environments.Environment;
+using Volatile = System.Threading.Volatile;
 
 namespace Jint;
 
@@ -42,6 +43,21 @@ public sealed partial class Engine : IDisposable
     internal EventLoop EventLoop => _eventLoop;
 
     private readonly Agent _agent = new();
+
+    /// <summary>
+    /// Monotonically increasing generation counter, bumped by <see cref="ResetState"/>.
+    /// Captured by async settle closures at registration time so that late-arriving
+    /// <c>Task.ContinueWith</c> callbacks from a prior execution cycle are silently
+    /// dropped instead of enqueuing stale work onto the event loop.
+    /// </summary>
+    private volatile int _executionGeneration;
+
+    /// <summary>
+    /// Number of outstanding <c>AwaitPromiseSettlementAsync</c> calls.
+    /// Incremented before the async wait loop, decremented in its finally block.
+    /// Checked by <see cref="ResetState"/> to prevent reset while an async evaluation is suspended.
+    /// </summary>
+    internal int _pendingAsyncOperations;
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-IncrementModuleAsyncEvaluationCount
@@ -166,6 +182,94 @@ public sealed partial class Engine : IDisposable
     {
         _host = Options.Host.Factory(this);
         _host.Initialize(this);
+    }
+
+    /// <summary>
+    /// Resets the engine to a clean execution state, keeping Intrinsics and configuration intact.
+    /// This is significantly cheaper than creating a new Engine instance because it avoids
+    /// reconstructing Options, Parser, Intrinsics (Object/Function constructors and their prototypes),
+    /// and all cached CLR metadata.
+    /// </summary>
+    /// <remarks>
+    /// After calling this method the engine is in a state equivalent to a freshly constructed engine
+    /// with the same options — global variables, functions, and modules from prior executions are cleared.
+    /// The built-in prototypes (Array.prototype, Object.prototype, etc.) are preserved as-is; if prior
+    /// scripts mutated them (e.g. <c>Array.prototype.custom = ...</c>), those mutations will persist.
+    /// For sandboxed/trusted scripts that do not modify built-in prototypes, this is safe and fast.
+    /// If the debugger has been used (<see cref="Debugger"/>), its internal state (breakpoints, step mode)
+    /// is preserved across resets.
+    /// Programmatic module registrations (<see cref="ModuleOperations.Add(string, string)"/>) are cleared;
+    /// re-register them after reset if needed.
+    /// Custom <see cref="Host"/> subclasses should place per-execution setup in
+    /// <see cref="Host.PostInitialize"/> (which is re-invoked on reset), not in
+    /// <see cref="Host.InitializeHostDefinedRealm"/> (which only runs at construction time).
+    /// This method must only be called when no script is executing on the engine and no
+    /// <see cref="EvaluateAsync(string, string?, System.Threading.CancellationToken)"/> Task is pending.
+    /// Calling it from within a JavaScript callback or during active execution throws <see cref="InvalidOperationException"/>.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">Thrown when called during script execution or while an async evaluation is pending.</exception>
+    public void ResetState()
+    {
+        if (_activeEvaluationContext is not null)
+        {
+            Throw.InvalidOperationException("ResetState cannot be called while script is executing");
+        }
+
+        if (Volatile.Read(ref _pendingAsyncOperations) > 0)
+        {
+            Throw.InvalidOperationException("ResetState cannot be called while an async evaluation (EvaluateAsync/ExecuteAsync/InvokeAsync) is pending");
+        }
+
+        unchecked { _executionGeneration++; }
+
+        // Capture realm before clearing execution context stack
+        var realm = Realm;
+
+        _completionValue = JsValue.Undefined;
+        _activeEvaluationContext = null;
+        _error = null;
+        _lastSyntaxElement = null;
+        _realmInConstruction = null;
+        ModuleAsyncEvaluationCount = 0;
+
+        _executionContexts.Clear();
+        CallStack.Clear();
+        _eventLoop.Reset();
+        _agent.ClearKeptObjects();
+
+        // Set _realmInConstruction so ObjectInstance constructors can resolve the realm
+        // while the execution context stack is still empty (same pattern as Host.CreateRealm)
+        _realmInConstruction = realm;
+        try
+        {
+            _host.RebuildGlobals(realm);
+            realm._templateMap.Clear();
+        }
+        finally
+        {
+            _realmInConstruction = null;
+        }
+
+        // Re-enter root execution context (same as Host.InitializeHostDefinedRealm)
+        var globalEnv = realm.GlobalEnv;
+        var newContext = new ExecutionContext(
+            scriptOrModule: null,
+            lexicalEnvironment: globalEnv,
+            variableEnvironment: globalEnv,
+            privateEnvironment: null,
+            realm: realm,
+            function: null);
+        _executionContexts.Push(newContext);
+
+        // Clear per-execution caches
+        GlobalSymbolRegistry.Reset();
+
+        ClearObjectWrapperCache();
+
+        // Re-apply options (registers CLR interop globals, require(), etc.)
+        Options.Apply(this);
+
+        ResetConstraints();
     }
 
     internal ref readonly ExecutionContext ExecutionContext
@@ -499,9 +603,15 @@ public sealed partial class Engine : IDisposable
 
         var (resolve, reject) = promise.CreateResolvingFunctions();
 
+        var capturedGeneration = _executionGeneration;
 
         Action<JsValue> SettleWith(Function settle) => value =>
         {
+            if (capturedGeneration != _executionGeneration)
+            {
+                return;
+            }
+
             // Enqueue to event loop to ensure thread safety - the settle operation
             // may be called from a background thread (e.g., Task.ContinueWith callback)
             // but JavaScript execution must happen on the thread that owns the Engine.
@@ -537,8 +647,15 @@ public sealed partial class Engine : IDisposable
 
         var (resolve, reject) = promise.CreateResolvingFunctions();
 
+        var capturedGeneration = _executionGeneration;
+
         Action<object?> SettleWithClr(Function settle) => clrValue =>
         {
+            if (capturedGeneration != _executionGeneration)
+            {
+                return;
+            }
+
             // Enqueue to event loop to ensure thread safety - both the FromObject conversion
             // and the settle operation are performed on the main thread, not the background
             // thread that completed the Task.
@@ -1866,6 +1983,11 @@ public sealed partial class Engine : IDisposable
     }
 
     public void Dispose()
+    {
+        ClearObjectWrapperCache();
+    }
+
+    private void ClearObjectWrapperCache()
     {
         if (_objectWrapperCache is null)
         {

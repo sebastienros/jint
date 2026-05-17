@@ -70,6 +70,8 @@ internal sealed class ExecutionContextStack
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Pop() => _stack.PopAndDiscard();
 
+    public void Clear() => _stack.Clear();
+
     public IScriptOrModule? GetActiveScriptOrModule()
     {
         var array = _stack._array;
