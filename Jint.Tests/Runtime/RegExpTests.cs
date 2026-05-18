@@ -151,6 +151,30 @@ public class RegExpTests
     }
 
     [Fact]
+    public void ShouldAllowClassSetSyntaxCharacterOutsideClassSetForFlagV()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate(@"new RegExp('/-', 'v').test('/-')");
+        Assert.True(result.AsBoolean());
+    }
+
+    [Fact]
+    public void ShouldAllowClassSetReservedDoublePunctuatorCharactersOutsideClassSetForFlagV()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate(@"new RegExp('&&!!##%%,,::;;<<==>>@@``~~', 'v').test('&&!!##%%,,::;;<<==>>@@``~~')");
+        Assert.True(result.AsBoolean());
+    }
+
+    [Fact]
+    public void ShouldAllowEscapedClassSetReservedPunctuatorsForFlagV()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate(@"new RegExp('[\\!\\#\\%\\&\\,\\-\\:\\;\\<\\=\\>\\@\\`\\~]{14}', 'v').test('!#%&,-:;<=>@`~')");
+        Assert.True(result.AsBoolean());
+    }
+
+    [Fact]
     public void Issue506()
     {
         var engine = new Engine();
