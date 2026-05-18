@@ -221,10 +221,17 @@ while (true)
         JsValue str = result;
         if (!result.IsPrimitive() && result is not IJsPrimitive)
         {
-            str = serializer.Serialize(result, JsValue.Undefined, "  ");
-            if (str == JsValue.Undefined)
+            if (result is JsRegExp jsRegExp)
             {
-                str = result;
+                str = result.ToString();
+            }
+            else
+            {
+                str = serializer.Serialize(result, JsValue.Undefined, "  ");
+                if (str == JsValue.Undefined)
+                {
+                    str = result;
+                }
             }
         }
         else if (result.IsString())
