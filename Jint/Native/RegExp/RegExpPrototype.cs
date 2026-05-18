@@ -164,11 +164,7 @@ internal sealed partial class RegExpPrototype : Prototype
             return JsRegExp.regExpForMatchingAllCharacters;
         }
 
-
-        return r.Source
-            .Replace("\\/", "/") // ensure forward-slashes
-            .Replace("/", "\\/") // then escape again
-            .Replace("\n", "\\n");
+        return r.Source;
     }
 
     /// <summary>

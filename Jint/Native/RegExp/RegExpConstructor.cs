@@ -449,10 +449,13 @@ public sealed partial class RegExpConstructor : Constructor
 
     internal JsRegExp RegExpInitialize(JsRegExp r, JsValue pattern, JsValue flags, bool throwOnLastIndex = false)
     {
+        // This method is called when a RegExp object is created at run-time, e.g.,
+        // `new RegExp("abc", "i")`, `RegExp("abc", "i")`, `/x/.compile("abc", "i")`, `"x".match("abc")`, etc.
+
         var p = pattern.IsUndefined() ? "" : TypeConverter.ToString(pattern);
         if (string.IsNullOrEmpty(p))
         {
-            p = "(?:)";
+            p = JsRegExp.regExpForMatchingAllCharacters;
         }
 
         var f = flags.IsUndefined() ? "" : TypeConverter.ToString(flags);
@@ -496,8 +499,10 @@ public sealed partial class RegExpConstructor : Constructor
             r.ParseResult = regExpParseResult;
         }
 
+        // The pattern may contain characters that are not valid in a regexp literal ('/' and new line characters),
+        // so such cases needs to be escaped.
+        r.Source = EscapeRegExpSource(p);
         r.Flags = f;
-        r.Source = p;
 
         if (throwOnLastIndex)
         {
@@ -884,6 +889,67 @@ public sealed partial class RegExpConstructor : Constructor
         return -1;
     }
 
+    private static string EscapeRegExpSource(string source)
+    {
+        StringBuilder? sb = null;
+        var inClass = false;
+        var chunkStart = 0;
+        for (var i = 0; i < source.Length; i++)
+        {
+            var ch = source[i];
+            switch (ch)
+            {
+                case '[':
+                    inClass = true;
+                    break;
+                case ']' when inClass:
+                    inClass = false;
+                    break;
+                case '\\':
+                    if (++i >= source.Length)
+                    {
+                        break;
+                    }
+                    ch = source[i];
+                    // Backslash is omitted when a new line character follows.
+                    if (ch is '\n' or '\r' or '\u2028' or '\u2029')
+                    {
+                        (sb ??= new()).Append(source, chunkStart, (i - 1) - chunkStart);
+                        goto AppendEscapedNewLine;
+                    }
+                    break;
+                case '/' when !inClass:
+                    (sb ??= new()).Append(source, chunkStart, i - chunkStart);
+                    sb.Append('\\').Append(ch);
+                    chunkStart = i + 1;
+                    break;
+                case '\n':
+                case '\r':
+                case '\u2028':
+                case '\u2029':
+                    (sb ??= new()).Append(source, chunkStart, i - chunkStart);
+AppendEscapedNewLine:
+                    sb.Append(ch switch
+                    {
+                        '\n' => @"\n",
+                        '\r' => @"\r",
+                        '\u2028' => @"\u2028",
+                        _ => @"\u2029"
+                    });
+                    chunkStart = i + 1;
+                    break;
+            }
+        }
+
+        if (sb is not null)
+        {
+            sb.Append(source, chunkStart, source.Length - chunkStart);
+            source = sb.ToString();
+        }
+
+        return source;
+    }
+
     /// <summary>
     /// Attempt to compile the regex pattern using the custom Jint regex engine.
     /// </summary>
@@ -955,10 +1021,15 @@ public sealed partial class RegExpConstructor : Constructor
 
     internal JsRegExp Construct(RegExpParseResult parseResult, string source, string flags)
     {
+        // This method is called to create a JsRegExp object from a regexp literal, e.g., `/abc/i`.
+
         var r = RegExpAlloc(this);
         r.Value = parseResult.Regex ?? DummyRegex;
+
+        // Source is already a valid, properly escaped JS regexp pattern.
         r.Source = source;
         r.Flags = flags;
+
         r.ParseResult = parseResult;
         RegExpInitialize(r);
         return r;
@@ -966,8 +1037,12 @@ public sealed partial class RegExpConstructor : Constructor
 
     public JsRegExp Construct(Regex regExp, string source, string flags)
     {
+        // This method is called to create a JsRegExp object from a .NET Regex directly.
+
         var r = RegExpAlloc(this);
         r.Value = regExp;
+
+        // Source is a .NET Regex pattern, not a valid JS regexp pattern!
         r.Source = source;
         r.Flags = flags;
 
