@@ -1035,14 +1035,17 @@ AppendEscapedNewLine:
         return r;
     }
 
-    public JsRegExp Construct(Regex regExp, string source, string flags)
+    public JsRegExp Construct(Regex regExp, string source = "?[native regex]", string flags = "")
     {
         // This method is called to create a JsRegExp object from a .NET Regex directly.
 
         var r = RegExpAlloc(this);
         r.Value = regExp;
 
-        // Source is a .NET Regex pattern, not a valid JS regexp pattern!
+        // We shouldn't return the .NET pattern as if it were a JS pattern since that would be
+        // incorrect and misleading. We could try to convert the .NET pattern to a JS one,
+        // but that would be a huge (if not impossible) task. So let's use an invalid pattern
+        // giving a hint about the situation.
         r.Source = source;
         r.Flags = flags;
 
