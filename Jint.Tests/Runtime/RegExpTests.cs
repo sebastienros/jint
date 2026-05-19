@@ -78,6 +78,28 @@ public class RegExpTests
     }
 
     [Fact]
+    public void ToStringPreserversOriginalPatternOfLiteral()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("/^x\\/\\\\r\\n\\u2028\\u2029\\0\0|[x/\\\\r\\n\\u2028\\u2029\\0\0]$/");
+
+        var jsRegExp = Assert.IsType<JsRegExp>(result);
+        Assert.Equal("^x\\/\\\\r\\n\\u2028\\u2029\\0\0|[x/\\\\r\\n\\u2028\\u2029\\0\0]$", jsRegExp.Source);
+        Assert.Equal("/^x\\/\\\\r\\n\\u2028\\u2029\\0\0|[x/\\\\r\\n\\u2028\\u2029\\0\0]$/", jsRegExp.ToString());
+    }
+
+    [Fact]
+    public void ToStringCorrectlyEscapesProblematicCharacters()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate(@"new RegExp('^x/\\\r\n\u2028\u2029\\0\0|[x/\\\r\n\u2028\u2029\\0\0]$')");
+
+        var jsRegExp = Assert.IsType<JsRegExp>(result);
+        Assert.Equal("^x\\/\\r\\n\\u2028\\u2029\\0\0|[x/\\r\\n\\u2028\\u2029\\0\0]$", jsRegExp.Source);
+        Assert.Equal("/^x\\/\\r\\n\\u2028\\u2029\\0\0|[x/\\r\\n\\u2028\\u2029\\0\0]$/", jsRegExp.ToString());
+    }
+
+    [Fact]
     public void ShouldNotThrowErrorOnIncompatibleRegex()
     {
         var engine = new Engine();
