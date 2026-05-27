@@ -159,7 +159,7 @@ internal sealed class JintCallExpression : JintExpression
         }
         else
         {
-            result = callable.Call(thisObject, arguments);
+            result = engine.Call(callable, thisObject, arguments, _calleeExpression);
         }
 
         if (rented)
@@ -237,7 +237,7 @@ internal sealed class JintCallExpression : JintExpression
             Throw.TypeError(engine.Realm, "Not a constructor");
         }
 
-        var result = ((IConstructor) func).Construct(argList, newTarget);
+        var result = engine.Construct((IConstructor) func, argList, newTarget, _calleeExpression);
 
         var thisER = (FunctionEnvironment) engine.ExecutionContext.GetThisEnvironment();
         thisER.BindThisValue(result);

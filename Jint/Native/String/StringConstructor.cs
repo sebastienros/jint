@@ -16,6 +16,8 @@ namespace Jint.Native.String;
 [JsObject]
 internal sealed partial class StringConstructor : Constructor
 {
+    private const int MaxStackallocChars = 256;
+
     private static readonly JsString _functionName = new JsString("String");
 
     public StringConstructor(
@@ -54,7 +56,7 @@ internal sealed partial class StringConstructor : Constructor
         }
 
 #if SUPPORTS_SPAN_PARSE
-        var elements = length < 512 ? stackalloc char[length] : new char[length];
+        var elements = length <= MaxStackallocChars ? stackalloc char[length] : new char[length];
 #else
         var elements = new char[length];
 #endif

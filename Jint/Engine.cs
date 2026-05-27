@@ -37,6 +37,7 @@ public sealed partial class Engine : IDisposable
     private JsValue _completionValue = JsValue.Undefined;
     internal EvaluationContext? _activeEvaluationContext;
     internal ErrorDispatchInfo? _error;
+    private int _nativeCallDepth;
 
     private readonly EventLoop _eventLoop = new();
     internal EventLoop EventLoop => _eventLoop;
@@ -858,31 +859,8 @@ public sealed partial class Engine : IDisposable
                 items[i] = JsValue.FromObject(this, arguments[i]);
             }
 
-            // ensure logic is in sync between Call, Construct, engine.Invoke and JintCallExpression!
-            JsValue result;
             var thisObject = JsValue.FromObject(this, thisObj);
-            if (callable is Function functionInstance)
-            {
-                var callStack = CallStack;
-                callStack.Push(functionInstance, expression: null, ExecutionContext);
-                try
-                {
-                    result = functionInstance.Call(thisObject, items);
-                }
-                finally
-                {
-                    // if call stack was reset due to recursive call to engine or similar, we might not have it anymore
-                    if (callStack.Count > 0)
-                    {
-                        callStack.Pop();
-                    }
-                }
-            }
-            else
-            {
-                result = callable.Call(thisObject, items);
-            }
-
+            var result = Call(callable, thisObject, items, expression: null);
             _jsValueArrayPool.ReturnArray(items);
             return result;
         }
@@ -931,7 +909,7 @@ public sealed partial class Engine : IDisposable
                 Throw.TypeErrorNoEngine("Can only invoke functions");
             }
 
-            return callable.Call(v, arguments);
+            return CallFromNative(callable, v, arguments);
         }
         finally
         {
@@ -1734,7 +1712,70 @@ public sealed partial class Engine : IDisposable
             return Call(functionInstance, thisObject, arguments, expression);
         }
 
-        return callable.Call(thisObject, arguments);
+        if (!_stackGuard.TryEnterOnCurrentStack())
+        {
+            return StackGuard.RunOnEmptyStack(static state =>
+            {
+                return state.Item1.Call(state.Item2, state.Item3, state.Item4, state.Item5);
+            }, Tuple.Create(this, callable, thisObject, arguments, expression));
+        }
+
+        EnterNativeCall();
+        try
+        {
+            return callable.Call(thisObject, arguments);
+        }
+        finally
+        {
+            LeaveNativeCall();
+        }
+    }
+
+    internal JsValue CallFromNative(ICallable callable, JsValue thisObject, JsCallArguments arguments)
+    {
+        if (callable is Function functionInstance)
+        {
+            return CallFromNative(functionInstance, thisObject, arguments);
+        }
+
+        if (!_stackGuard.TryEnterOnCurrentStack())
+        {
+            return StackGuard.RunOnEmptyStack(static state =>
+            {
+                return state.Item1.CallFromNative(state.Item2, state.Item3, state.Item4);
+            }, Tuple.Create(this, callable, thisObject, arguments));
+        }
+
+        EnterNativeCall();
+        try
+        {
+            return callable.Call(thisObject, arguments);
+        }
+        finally
+        {
+            LeaveNativeCall();
+        }
+    }
+
+    internal JsValue CallFromNative(Function function, JsValue thisObject, JsCallArguments arguments)
+    {
+        if (!_stackGuard.TryEnterOnCurrentStack())
+        {
+            return StackGuard.RunOnEmptyStack(static state =>
+            {
+                return state.Item1.CallFromNative(state.Item2, state.Item3, state.Item4);
+            }, Tuple.Create(this, function, thisObject, arguments));
+        }
+
+        EnterNativeCall();
+        try
+        {
+            return function.Call(thisObject, arguments);
+        }
+        finally
+        {
+            LeaveNativeCall();
+        }
     }
 
     /// <summary>
@@ -1776,12 +1817,38 @@ public sealed partial class Engine : IDisposable
         JsValue newTarget,
         JintExpression? expression)
     {
+        return Construct((IConstructor) constructor, arguments, newTarget, expression);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal ObjectInstance Construct(
+        IConstructor constructor,
+        JsCallArguments arguments,
+        JsValue newTarget,
+        JintExpression? expression)
+    {
         if (constructor is Function functionInstance)
         {
             return Construct(functionInstance, arguments, newTarget, expression);
         }
 
-        return ((IConstructor) constructor).Construct(arguments, newTarget);
+        if (!_stackGuard.TryEnterOnCurrentStack())
+        {
+            return StackGuard.RunOnEmptyStack(static state =>
+            {
+                return state.Item1.Construct(state.Item2, state.Item3, state.Item4, state.Item5);
+            }, Tuple.Create(this, constructor, arguments, newTarget, expression));
+        }
+
+        EnterNativeCall();
+        try
+        {
+            return constructor.Construct(arguments, newTarget);
+        }
+        finally
+        {
+            LeaveNativeCall();
+        }
     }
 
     internal JsValue Call(Function function, JsValue thisObject)
@@ -1794,6 +1861,14 @@ public sealed partial class Engine : IDisposable
         JintExpression? expression)
     {
         // ensure logic is in sync between Call, Construct, engine.Invoke and JintCallExpression!
+
+        if (!_stackGuard.TryEnterOnCurrentStack())
+        {
+            return StackGuard.RunOnEmptyStack(static state =>
+            {
+                return state.Item1.Call(state.Item2, state.Item3, state.Item4, state.Item5);
+            }, Tuple.Create(this, function, thisObject, arguments, expression));
+        }
 
         var recursionDepth = CallStack.Push(function, expression, ExecutionContext);
 
@@ -1828,6 +1903,14 @@ public sealed partial class Engine : IDisposable
     {
         // ensure logic is in sync between Call, Construct, engine.Invoke and JintCallExpression!
 
+        if (!_stackGuard.TryEnterOnCurrentStack())
+        {
+            return StackGuard.RunOnEmptyStack(static state =>
+            {
+                return state.Item1.Construct(state.Item2, state.Item3, state.Item4, state.Item5);
+            }, Tuple.Create(this, function, arguments, newTarget, expression));
+        }
+
         var recursionDepth = CallStack.Push(function, expression, ExecutionContext);
 
         if (recursionDepth > Options.Constraints.MaxRecursionDepth)
@@ -1843,10 +1926,29 @@ public sealed partial class Engine : IDisposable
         }
         finally
         {
-            CallStack.Pop();
+            if (CallStack.Count > 0)
+            {
+                CallStack.Pop();
+            }
         }
 
         return result;
+    }
+
+    private void EnterNativeCall()
+    {
+        var maxDepth = Options.Constraints.MaxBuiltInRecursionDepth;
+        if (maxDepth >= 0 && _nativeCallDepth >= maxDepth)
+        {
+            Throw.RangeError(Realm, "Maximum call stack size exceeded");
+        }
+
+        _nativeCallDepth++;
+    }
+
+    private void LeaveNativeCall()
+    {
+        _nativeCallDepth--;
     }
 
     internal void SignalError(ErrorDispatchInfo error)
