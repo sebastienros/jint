@@ -15,6 +15,8 @@ namespace Jint.Native.Json;
 
 public sealed class JsonSerializer
 {
+    private const int ConstraintCheckInterval = 10_000;
+
     private readonly Engine _engine;
     private ObjectTraverseStack _stack = null!;
     private string? _indent;
@@ -87,6 +89,11 @@ public sealed class JsonSerializer
                 var k = 0;
                 while (k < len)
                 {
+                    if (k > 0 && k % ConstraintCheckInterval == 0)
+                    {
+                        _engine.Constraints.Check();
+                    }
+
                     var prop = JsString.Create(k);
                     var v = replacer.Get(prop);
                     var item = JsValue.Undefined;
@@ -441,6 +448,11 @@ public sealed class JsonSerializer
 
         for (int i = 0; i < len; i++)
         {
+            if (i > 0 && i % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             if (hasPrevious)
             {
                 json.Append(separator);
@@ -508,6 +520,11 @@ public sealed class JsonSerializer
         var hasPrevious = false;
         for (var i = 0; i < enumeration.Keys.Count; i++)
         {
+            if (i > 0 && i % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             var p = enumeration.Keys[i];
             int position = json.Length;
 

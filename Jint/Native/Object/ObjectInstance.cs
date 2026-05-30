@@ -1196,10 +1196,16 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         var args = _engine._jsValueArrayPool.RentArray(3);
         args[2] = this;
 
+        const int ConstraintCheckInterval = 10_000;
         if (!fromEnd)
         {
             for (ulong k = 0; k < length; k++)
             {
+                if (k > 0 && k % ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
+
                 if (TryGetValue(k, out var kvalue) || visitUnassigned)
                 {
                     args[0] = kvalue;
@@ -1218,6 +1224,11 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         {
             for (var k = (long) (length - 1); k >= 0; k--)
             {
+                if (k % ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
+
                 if (TryGetValue((ulong) k, out var kvalue) || visitUnassigned)
                 {
                     kvalue ??= Undefined;

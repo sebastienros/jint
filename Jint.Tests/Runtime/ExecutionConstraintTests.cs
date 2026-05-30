@@ -356,6 +356,87 @@ myarr[0](0);
         Assert.Throws<MemoryLimitExceededException>(() => engine.Evaluate("var arr = new Uint8Array(100000000); arr.with(0, 1);"));
     }
 
+    // https://github.com/sebastienros/jint/issues/2486
+    [Fact]
+    public void ShouldThrowRangeErrorWhenPadStartExceedsMaxStringLength()
+    {
+        // The result length (2147483647) exceeds ClrLimits.MaxArrayLength, so the size cap converts
+        // a would-be OutOfMemoryException into a catchable RangeError without any constraints set.
+        var engine = new Engine();
+        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("'x'.padStart(2147483647)"));
+        Assert.Contains("Invalid string length", ex.Message);
+    }
+
+    // https://github.com/sebastienros/jint/issues/2486
+    [Fact]
+    public void ShouldLimitStringSizeForPadEnd()
+    {
+        // The result (536870911) is below the size cap, so it must be built incrementally and the
+        // memory limit must be able to interrupt it instead of allocating ~1 GB up front.
+        var engine = new Engine(o => o.LimitMemory(4_000_000));
+        Assert.Throws<MemoryLimitExceededException>(() => engine.Evaluate("'x'.padEnd(536870911, 'ab')"));
+    }
+
+    // https://github.com/sebastienros/jint/issues/2486
+    [Fact]
+    public void ShouldLimitArraySizeForArrayFrom()
+    {
+        var engine = new Engine(o => o.LimitMemory(4_000_000));
+        Assert.Throws<MemoryLimitExceededException>(() => engine.Evaluate("Array.from({ length: 50000000 });"));
+    }
+
+    [Fact]
+    public void ShouldLimitStringSizeForStringRaw()
+    {
+        var engine = new Engine(o => o.LimitMemory(4_000_000));
+        Assert.Throws<MemoryLimitExceededException>(() => engine.Evaluate("String.raw({ raw: { length: 50000000 } });"));
+    }
+
+    [Fact]
+    public void ShouldLimitArraySizeForSort()
+    {
+        // The element-collection loop in sort is interruptible: a low statement budget aborts it.
+        var engine = new Engine(o => o.MaxStatements(1_000));
+        Assert.Throws<StatementsCountOverflowException>(() => engine.Evaluate("new Array(50000000).sort();"));
+    }
+
+    [Fact]
+    public void ShouldLimitArraySizeForForEachWithEmptyCallback()
+    {
+        // Even an empty callback must not let a huge array run uninterrupted.
+        var engine = new Engine(o => o.MaxStatements(1_000));
+        Assert.Throws<StatementsCountOverflowException>(() => engine.Evaluate("new Array(50000000).fill(0).forEach(function () {});"));
+    }
+
+    [Fact]
+    public void PadStartAndPadEndProduceCorrectResults()
+    {
+        var engine = new Engine();
+        Assert.Equal("005", engine.Evaluate("'5'.padStart(3, '0')").AsString());
+        Assert.Equal("500", engine.Evaluate("'5'.padEnd(3, '0')").AsString());
+        Assert.Equal("ab", engine.Evaluate("'ab'.padStart(1)").AsString());
+        Assert.Equal("    x", engine.Evaluate("'x'.padStart(5)").AsString());
+        Assert.Equal("x    ", engine.Evaluate("'x'.padEnd(5)").AsString());
+        // Empty fill string returns the input unchanged.
+        Assert.Equal("x", engine.Evaluate("'x'.padEnd(5, '')").AsString());
+        Assert.Equal("1231231abc", engine.Evaluate("'abc'.padStart(10, '123')").AsString());
+        Assert.Equal("abc1231231", engine.Evaluate("'abc'.padEnd(10, '123')").AsString());
+    }
+
+    [Fact]
+    public void PadStartEvaluatesFillStringAfterLengthCheck()
+    {
+        // Per spec (https://tc39.es/ecma262/#sec-stringpad) the fillString is resolved only after the
+        // maxLength <= stringLength early return, so its ToString side effect must not run here.
+        var engine = new Engine();
+        var result = engine.Evaluate(
+            "var sideEffect = false;" +
+            "var fill = { toString() { sideEffect = true; return '0'; } };" +
+            "'abc'.padStart(2, fill);" +
+            "sideEffect;");
+        Assert.False(result.AsBoolean());
+    }
+
     [Fact]
     public void ShouldConsiderConstraintsWhenCallingInvoke()
     {

@@ -16,6 +16,8 @@ namespace Jint.Native.Array;
 [JsObject]
 public sealed partial class ArrayConstructor : Constructor
 {
+    private const int ConstraintCheckInterval = 10_000;
+
     private static readonly JsString _functionName = new JsString("Array");
 
     internal ArrayConstructor(
@@ -611,6 +613,12 @@ public sealed partial class ArrayConstructor : Constructor
         uint n = 0;
         for (uint i = 0; i < length; i++)
         {
+            // Check constraints periodically so a huge array-like length cannot run uninterrupted.
+            if (i > 0 && i % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             var value = source.Get(i);
             if (callable is not null)
             {
@@ -874,8 +882,16 @@ public sealed partial class ArrayConstructor : Constructor
     {
         var jsArray = Construct(Arguments.Empty);
         var tempArray = _engine._jsValueArrayPool.RentArray(1);
+        long count = 0;
         foreach (var item in enumerable)
         {
+            // Check constraints periodically so a huge enumerable cannot run uninterrupted.
+            if (count > 0 && count % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+            count++;
+
             var jsItem = FromObject(Engine, item);
             tempArray[0] = jsItem;
             _realm.Intrinsics.Array.PrototypeObject.Push(jsArray, tempArray);

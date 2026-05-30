@@ -17,6 +17,8 @@ namespace Jint.Native.RegExp;
 [JsObject(ExtraCapacity = 1)]
 internal sealed partial class RegExpPrototype : Prototype
 {
+    private const int ConstraintCheckInterval = 10_000;
+
     private static readonly JsString PropertyExec = new("exec");
     private static readonly JsString PropertyIndex = new("index");
     private static readonly JsString PropertyInput = new("input");
@@ -214,6 +216,11 @@ internal sealed partial class RegExpPrototype : Prototype
 
             while (count < maxCount && searchStart <= s.Length)
             {
+                if (count > 0 && count % ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
+
                 var result = ExecuteWithTimeout(customRei, customEngine, s, searchStart);
                 if (!result.Success)
                 {
@@ -303,8 +310,14 @@ internal sealed partial class RegExpPrototype : Prototype
 
         var results = new List<ObjectInstance>();
 
+        var matchCount = 0;
         while (true)
         {
+            if (++matchCount % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             var result = RegExpExec(rx, s);
             if (result.IsNull())
             {
@@ -332,6 +345,11 @@ internal sealed partial class RegExpPrototype : Prototype
         var captures = new List<string>();
         for (var i = 0; i < results.Count; i++)
         {
+            if (i > 0 && i % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             var result = results[i];
             var nCaptures = (int) result.GetLength();
             nCaptures = System.Math.Max(nCaptures - 1, 0);
@@ -568,15 +586,21 @@ internal sealed partial class RegExpPrototype : Prototype
             if (string.Equals(R.Source, JsRegExp.regExpForMatchingAllCharacters, StringComparison.Ordinal))
             {
                 // if empty string, just a string split
-                return StringPrototype.SplitWithStringSeparator(_realm, "", s, (uint) s.Length);
+                return StringPrototype.SplitWithStringSeparator(_engine, _realm, "", s, (uint) s.Length);
             }
 
             var a = _realm.Intrinsics.Array.Construct(Arguments.Empty);
 
             int lastIndex = 0;
             uint index = 0;
+            var matchCount = 0;
             for (var match = R.Value.Match(s, 0); match.Success; match = match.NextMatch())
             {
+                if (++matchCount % ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
+
                 if (match.Length == 0 && (match.Index == 0 || match.Index == s.Length || match.Index == lastIndex))
                 {
                     continue;
@@ -624,8 +648,14 @@ internal sealed partial class RegExpPrototype : Prototype
         var a = _realm.Intrinsics.Array.ArrayCreate(0);
         ulong previousStringIndex = 0;
         ulong currentIndex = 0;
+        var iterations = 0;
         while (currentIndex < (ulong) s.Length)
         {
+            if (++iterations % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             splitter.Set(JsRegExp.PropertyLastIndex, currentIndex, true);
             var z = RegExpExec(splitter, s);
             if (z.IsNull())
@@ -842,6 +872,11 @@ internal sealed partial class RegExpPrototype : Prototype
             int lastIndex = 0;
             while (lastIndex <= s.Length)
             {
+                if (n > 0 && n % ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
+
                 var result = ExecuteWithTimeout(rei, customEngine, s, lastIndex);
                 if (!result.Success)
                 {
@@ -884,6 +919,11 @@ internal sealed partial class RegExpPrototype : Prototype
                 uint li = 0;
                 while (true)
                 {
+                    if (li > 0 && li % ConstraintCheckInterval == 0)
+                    {
+                        _engine.Constraints.Check();
+                    }
+
                     match = match.NextMatch();
                     if (!match.Success || match.Index != ++li)
                         break;
@@ -904,6 +944,11 @@ internal sealed partial class RegExpPrototype : Prototype
                 a.SetLength((uint) matches.Count);
                 for (var i = 0; i < matches.Count; i++)
                 {
+                    if (i > 0 && i % ConstraintCheckInterval == 0)
+                    {
+                        _engine.Constraints.Check();
+                    }
+
                     a.SetIndexValue((uint) i, matches[i].Value, updateLength: false);
                 }
                 return a;
@@ -919,6 +964,11 @@ internal sealed partial class RegExpPrototype : Prototype
         uint n = 0;
         while (true)
         {
+            if (n > 0 && n % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             var result = RegExpExec(rx, s);
             if (result.IsNull())
             {
@@ -1074,8 +1124,14 @@ internal sealed partial class RegExpPrototype : Prototype
         }
 
         var startAt = (int) lastIndex;
+        var iterations = 0;
         while (true)
         {
+            if (++iterations % ConstraintCheckInterval == 0)
+            {
+                R.Engine.Constraints.Check();
+            }
+
             match = R.Value.Match(s, startAt);
 
             // The conversion of Unicode regex patterns to .NET Regex has some flaws:

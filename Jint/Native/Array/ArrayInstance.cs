@@ -1320,10 +1320,16 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         var args = _engine._jsValueArrayPool.RentArray(3);
         args[2] = this;
 
+        const int ConstraintCheckInterval = 10_000;
         if (!fromEnd)
         {
             for (uint k = 0; k < len; k++)
             {
+                if (k > 0 && k % ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
+
                 if (TryGetValue(k, out var kvalue) || visitUnassigned)
                 {
                     kvalue ??= Undefined;
@@ -1343,6 +1349,11 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         {
             for (long k = len - 1; k >= 0; k--)
             {
+                if (k % ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
+
                 var idx = (uint) k;
                 if (TryGetValue(idx, out var kvalue) || visitUnassigned)
                 {

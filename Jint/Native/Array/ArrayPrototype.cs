@@ -347,6 +347,12 @@ public sealed partial class ArrayPrototype : ArrayInstance
         var i = (ulong) k;
         for (; ; i--)
         {
+            // Slow scan over a (possibly huge) length; check constraints periodically.
+            if (i % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             var kPresent = o.HasProperty(i);
             if (kPresent)
             {
@@ -396,6 +402,11 @@ public sealed partial class ArrayPrototype : ArrayInstance
             var kPresent = false;
             while (kPresent == false && k < len)
             {
+                if (k > 0 && k % ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
+
                 if (kPresent = o.TryGetValue((uint) k, out var temp))
                 {
                     accumulator = temp;
@@ -414,6 +425,11 @@ public sealed partial class ArrayPrototype : ArrayInstance
         args[3] = o.Target;
         while (k < len)
         {
+            if (k > 0 && k % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             var i = (uint) k;
             if (o.TryGetValue(i, out var kvalue))
             {
@@ -451,6 +467,11 @@ public sealed partial class ArrayPrototype : ArrayInstance
         args[2] = o.Target;
         for (uint k = 0; k < len; k++)
         {
+            if (k > 0 && k % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             if (o.TryGetValue(k, out var kvalue))
             {
                 args[0] = kvalue;
@@ -499,6 +520,11 @@ public sealed partial class ArrayPrototype : ArrayInstance
         args[2] = o.Target;
         for (uint k = 0; k < len; k++)
         {
+            if (k > 0 && k % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             if (o.TryGetValue(k, out var kvalue))
             {
                 args[0] = kvalue;
@@ -582,6 +608,11 @@ public sealed partial class ArrayPrototype : ArrayInstance
 
         while (sourceIndex < sourceLen)
         {
+            if (sourceIndex > 0 && sourceIndex % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             var exists = source.HasProperty(sourceIndex);
             if (exists)
             {
@@ -647,6 +678,11 @@ public sealed partial class ArrayPrototype : ArrayInstance
         args[2] = o.Target;
         for (uint k = 0; k < len; k++)
         {
+            if (k > 0 && k % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             if (o.TryGetValue(k, out var kvalue))
             {
                 args[0] = kvalue;
@@ -723,6 +759,11 @@ public sealed partial class ArrayPrototype : ArrayInstance
 
         while (k < len)
         {
+            if (k > 0 && k % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             var value = o.Get((ulong) k);
             if (SameValueZeroComparer.Equals(value, searchElement))
             {
@@ -762,6 +803,11 @@ public sealed partial class ArrayPrototype : ArrayInstance
         args[2] = o.Target;
         for (uint k = 0; k < len; k++)
         {
+            if (k > 0 && k % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             if (o.TryGetValue(k, out var kvalue))
             {
                 args[0] = kvalue;
@@ -847,6 +893,11 @@ public sealed partial class ArrayPrototype : ArrayInstance
 
         for (; k < len; k++)
         {
+            if (k % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             var kPresent = o.HasProperty(k);
             if (kPresent)
             {
@@ -1051,6 +1102,11 @@ public sealed partial class ArrayPrototype : ArrayInstance
 
         for (uint k = 0; k < actualDeleteCount; k++)
         {
+            if (k > 0 && k % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             var index = actualStart + k;
             if (o.HasProperty(index))
             {
@@ -1066,6 +1122,11 @@ public sealed partial class ArrayPrototype : ArrayInstance
         {
             for (ulong k = actualStart; k < len - actualDeleteCount; k++)
             {
+                if (k % ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
+
                 var from = k + actualDeleteCount;
                 var to = k + (ulong) items.Length;
                 if (o.HasProperty(from))
@@ -1081,6 +1142,11 @@ public sealed partial class ArrayPrototype : ArrayInstance
 
             for (var k = len; k > len - actualDeleteCount + (ulong) items.Length; k--)
             {
+                if (k % ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
+
                 o.DeletePropertyOrThrow(k - 1);
             }
         }
@@ -1088,6 +1154,11 @@ public sealed partial class ArrayPrototype : ArrayInstance
         {
             for (var k = len - actualDeleteCount; k > actualStart; k--)
             {
+                if (k % ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
+
                 var from = k + actualDeleteCount - 1;
                 var to = k + (ulong) items.Length - 1;
                 if (o.HasProperty(from))
@@ -1159,6 +1230,11 @@ public sealed partial class ArrayPrototype : ArrayInstance
         var minIndex = o.GetSmallestIndex(len);
         for (var k = len; k > minIndex; k--)
         {
+            if (k % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             var from = k - 1;
             var to = k + argCount - 1;
             if (o.TryGetValue(from, out var fromValue))
@@ -1199,6 +1275,11 @@ public sealed partial class ArrayPrototype : ArrayInstance
         var items = new List<JsValue>((int) System.Math.Min(1024, len));
         for (ulong k = 0; k < len; ++k)
         {
+            if (k > 0 && k % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             if (obj.TryGetValue(k, out var kValue))
             {
                 items.Add(kValue);
@@ -1231,12 +1312,22 @@ public sealed partial class ArrayPrototype : ArrayInstance
 
             for (uint j = 0; j < itemCount; j++)
             {
+                if (j > 0 && j % ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
+
                 obj.Set(j, items[(int) j], updateLength: false, throwOnError: true);
             }
 
             // Holes (TryGetValue returned false) only need clearing when the input had holes.
             for (uint j = (uint) itemCount; j < len; ++j)
             {
+                if (j % ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
+
                 obj.DeletePropertyOrThrow(j);
             }
         }
@@ -1253,7 +1344,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
     /// per comparison, which is O(n log n) ToString allocations. Cache the coerced key once per
     /// element (Schwartzian transform), then sort indices stably (tiebreak by original index).
     /// </summary>
-    private static void SortByCachedStringKeys(List<JsValue> items)
+    private void SortByCachedStringKeys(List<JsValue> items)
     {
         var itemCount = items.Count;
         if (itemCount <= 1)
@@ -1264,6 +1355,12 @@ public sealed partial class ArrayPrototype : ArrayInstance
         var keys = new string?[itemCount];
         for (var i = 0; i < itemCount; i++)
         {
+            // ToString coercion per element can be costly; check constraints periodically.
+            if (i > 0 && i % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             var v = items[i];
             // Spec: undefined elements sort to the end and are not coerced via ToString.
             keys[i] = v.IsUndefined() ? null : TypeConverter.ToString(v);
@@ -1373,6 +1470,11 @@ public sealed partial class ArrayPrototype : ArrayInstance
             var operations = ArrayOperations.For(a, forWrite: true);
             for (uint n = 0; k < final; k++, n++)
             {
+                if (n > 0 && n % ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
+
                 if (o.TryGetValue(k, out var kValue))
                 {
                     operations.CreateDataPropertyOrThrow(n, kValue);
@@ -1407,6 +1509,11 @@ public sealed partial class ArrayPrototype : ArrayInstance
         var firstSlow = o.Get(0);
         for (uint k = 1; k < len; k++)
         {
+            if (k % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             var to = k - 1;
             if (o.TryGetValue(k, out var fromVal))
             {
@@ -1515,6 +1622,11 @@ public sealed partial class ArrayPrototype : ArrayInstance
         sb.Append(s);
         for (uint k = 1; k < len; k++)
         {
+            if (k % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             if (sep != "")
             {
                 sb.Append(sep);
@@ -1556,6 +1668,11 @@ public sealed partial class ArrayPrototype : ArrayInstance
         {
             if (k > 0)
             {
+                if (k % ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
+
                 r.Append(Separator);
             }
             if (array.TryGetValue(k, out var nextElement) && !nextElement.IsNullOrUndefined())
@@ -1614,6 +1731,11 @@ public sealed partial class ArrayPrototype : ArrayInstance
 
                     for (uint k = 0; k < len; k++)
                     {
+                        if (k > 0 && k % ConstraintCheckInterval == 0)
+                        {
+                            _engine.Constraints.Check();
+                        }
+
                         operations.TryGetValue(k, out var subElement);
                         aOperations.CreateDataPropertyOrThrow(n, subElement);
                         n++;
@@ -1856,6 +1978,11 @@ public sealed partial class ArrayPrototype : ArrayInstance
 
         while (i < actualStart)
         {
+            if (i > 0 && i % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             a.SetIndexValue(i, o.Get(i), updateLength: false);
             i++;
         }
@@ -1868,6 +1995,11 @@ public sealed partial class ArrayPrototype : ArrayInstance
 
         while (i < newLen)
         {
+            if (i % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             var fromValue = o.Get(r);
             a.SetIndexValue(i, fromValue, updateLength: false);
 
@@ -1939,6 +2071,11 @@ public sealed partial class ArrayPrototype : ArrayInstance
             var kPresent = false;
             while (kPresent == false && k >= 0)
             {
+                if (k % ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
+
                 if ((kPresent = o.TryGetValue((ulong) k, out var temp)))
                 {
                     accumulator = temp;
@@ -1957,6 +2094,11 @@ public sealed partial class ArrayPrototype : ArrayInstance
         jsValues[3] = o.Target;
         for (; k >= 0; k--)
         {
+            if (k % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             if (o.TryGetValue((ulong) k, out var kvalue))
             {
                 jsValues[0] = accumulator;
