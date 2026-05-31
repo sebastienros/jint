@@ -16,7 +16,7 @@ namespace Jint.Native.String;
 [JsObject]
 internal sealed partial class StringConstructor : Constructor
 {
-    private const int ConstraintCheckInterval = 10_000;
+    private const int ConstraintCheckInterval = Engine.ConstraintCheckInterval;
 
     private static readonly JsString _functionName = new JsString("String");
 
@@ -55,12 +55,8 @@ internal sealed partial class StringConstructor : Constructor
             return JsString.Create((char) TypeConverter.ToUint16(arguments[0]));
         }
 
-        // Convert a would-be OutOfMemoryException into a catchable RangeError, mirroring repeat.
-        if ((uint) length > ClrLimits.MaxArrayLength)
-        {
-            Throw.RangeError(_realm, "Invalid string length");
-        }
-
+        // length is arguments.Length, already bounded by the materialized arguments array, so no
+        // size cap is needed here (unlike padStart/repeat whose length comes from a JS number).
 #if SUPPORTS_SPAN_PARSE
         var elements = length < 512 ? stackalloc char[length] : new char[length];
 #else

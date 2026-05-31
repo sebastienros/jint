@@ -1320,58 +1320,64 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         var args = _engine._jsValueArrayPool.RentArray(3);
         args[2] = this;
 
-        const int ConstraintCheckInterval = 10_000;
-        if (!fromEnd)
+        // try/finally so the rented pool array is returned on every exit path: the early
+        // return-on-match below and a periodic Check() throw both previously leaked it.
+        try
         {
-            for (uint k = 0; k < len; k++)
+            if (!fromEnd)
             {
-                if (k > 0 && k % ConstraintCheckInterval == 0)
+                for (uint k = 0; k < len; k++)
                 {
-                    _engine.Constraints.Check();
-                }
-
-                if (TryGetValue(k, out var kvalue) || visitUnassigned)
-                {
-                    kvalue ??= Undefined;
-                    args[0] = kvalue;
-                    args[1] = k;
-                    var testResult = callable.Call(thisArg, args);
-                    if (TypeConverter.ToBoolean(testResult))
+                    if (k > 0 && k % Engine.ConstraintCheckInterval == 0)
                     {
-                        index = k;
-                        value = kvalue;
-                        return true;
+                        _engine.Constraints.Check();
+                    }
+
+                    if (TryGetValue(k, out var kvalue) || visitUnassigned)
+                    {
+                        kvalue ??= Undefined;
+                        args[0] = kvalue;
+                        args[1] = k;
+                        var testResult = callable.Call(thisArg, args);
+                        if (TypeConverter.ToBoolean(testResult))
+                        {
+                            index = k;
+                            value = kvalue;
+                            return true;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                for (long k = len - 1; k >= 0; k--)
+                {
+                    if (k % Engine.ConstraintCheckInterval == 0)
+                    {
+                        _engine.Constraints.Check();
+                    }
+
+                    var idx = (uint) k;
+                    if (TryGetValue(idx, out var kvalue) || visitUnassigned)
+                    {
+                        kvalue ??= Undefined;
+                        args[0] = kvalue;
+                        args[1] = idx;
+                        var testResult = callable.Call(thisArg, args);
+                        if (TypeConverter.ToBoolean(testResult))
+                        {
+                            index = idx;
+                            value = kvalue;
+                            return true;
+                        }
                     }
                 }
             }
         }
-        else
+        finally
         {
-            for (long k = len - 1; k >= 0; k--)
-            {
-                if (k % ConstraintCheckInterval == 0)
-                {
-                    _engine.Constraints.Check();
-                }
-
-                var idx = (uint) k;
-                if (TryGetValue(idx, out var kvalue) || visitUnassigned)
-                {
-                    kvalue ??= Undefined;
-                    args[0] = kvalue;
-                    args[1] = idx;
-                    var testResult = callable.Call(thisArg, args);
-                    if (TypeConverter.ToBoolean(testResult))
-                    {
-                        index = idx;
-                        value = kvalue;
-                        return true;
-                    }
-                }
-            }
+            _engine._jsValueArrayPool.ReturnArray(args);
         }
-
-        _engine._jsValueArrayPool.ReturnArray(args);
 
         index = 0;
         value = Undefined;

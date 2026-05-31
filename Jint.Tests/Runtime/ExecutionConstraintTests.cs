@@ -1,3 +1,4 @@
+using Jint.Constraints;
 using Jint.Native.Function;
 using Jint.Runtime;
 
@@ -401,11 +402,13 @@ myarr[0](0);
     }
 
     [Fact]
-    public void ShouldLimitArraySizeForForEachWithEmptyCallback()
+    public void ShouldLimitArraySizeForForEach()
     {
-        // Even an empty callback must not let a huge array run uninterrupted.
+        // forEach over a huge (sparse) array must be interruptible even though the callback never
+        // runs for holes. A sparse array is used so the guard exercised is forEach's own loop, not
+        // fill's (fill on a dense 50M array would trip the limit before forEach was ever reached).
         var engine = new Engine(o => o.MaxStatements(1_000));
-        Assert.Throws<StatementsCountOverflowException>(() => engine.Evaluate("new Array(50000000).fill(0).forEach(function () {});"));
+        Assert.Throws<StatementsCountOverflowException>(() => engine.Evaluate("new Array(50000000).forEach(function () {});"));
     }
 
     [Fact]
@@ -435,6 +438,68 @@ myarr[0](0);
             "'abc'.padStart(2, fill);" +
             "sideEffect;");
         Assert.False(result.AsBoolean());
+    }
+
+    [Fact]
+    public void JoinReleasesJoinStackWhenInterrupted()
+    {
+        // Regression: when a constraint interrupts a large join mid-loop, the array must not be left
+        // on the engine's long-lived join stack — otherwise a later join of the same array would
+        // wrongly return "" via false cyclic-reference detection.
+        var engine = new Engine(o => o.MaxStatements(10_000_000));
+        engine.Evaluate("var a = []; for (var i = 0; i < 20000; i++) a[i] = i;");
+
+        var maxStatements = engine.Constraints.Find<MaxStatementsConstraint>()!;
+        maxStatements.MaxStatements = 1;
+        engine.Constraints.Reset();
+        Assert.Throws<StatementsCountOverflowException>(() => engine.Evaluate("a.join(',')"));
+
+        // With a generous budget the same array must join correctly (not the empty string).
+        maxStatements.MaxStatements = 10_000_000;
+        engine.Constraints.Reset();
+        Assert.StartsWith("0,1,2,3,", engine.Evaluate("a.join(',')").AsString());
+    }
+
+    [Fact]
+    public void ShouldLimitArrayFromWithNativeIterator()
+    {
+        // Array.from over a native (statement-free) string iterator must be interruptible via the
+        // shared iterator-protocol guard; the string iterator runs no JS statements per element.
+        var engine = new Engine(o => o.MaxStatements(10_000_000));
+        engine.Evaluate("var s = 'x'; for (var i = 0; i < 17; i++) s += s;"); // 131072 chars
+
+        var maxStatements = engine.Constraints.Find<MaxStatementsConstraint>()!;
+        maxStatements.MaxStatements = 1;
+        engine.Constraints.Reset();
+        Assert.Throws<StatementsCountOverflowException>(() => engine.Evaluate("Array.from(s);"));
+    }
+
+    [Fact]
+    public void ShouldLimitObjectKeysForLargeArray()
+    {
+        // Object.keys is a pure native enumeration with no JS callback to self-throttle; it must be
+        // interruptible by the constraint check in EnumerableOwnProperties.
+        var engine = new Engine(o => o.MaxStatements(10_000_000));
+        engine.Evaluate("var a = []; for (var i = 0; i < 30000; i++) a[i] = i;");
+
+        var maxStatements = engine.Constraints.Find<MaxStatementsConstraint>()!;
+        maxStatements.MaxStatements = 1;
+        engine.Constraints.Reset();
+        Assert.Throws<StatementsCountOverflowException>(() => engine.Evaluate("Object.keys(a);"));
+    }
+
+    [Fact]
+    public void ShouldLimitMapForEachWithNativeCallback()
+    {
+        // A native (CLR) callback does not self-throttle via statement checks, so Map.prototype.forEach
+        // must be interruptible by its own constraint check.
+        var engine = new Engine(o => o.MaxStatements(10_000_000));
+        engine.Evaluate("var m = new Map(); for (var i = 0; i < 30000; i++) m.set(i, i);");
+
+        var maxStatements = engine.Constraints.Find<MaxStatementsConstraint>()!;
+        maxStatements.MaxStatements = 1;
+        engine.Constraints.Reset();
+        Assert.Throws<StatementsCountOverflowException>(() => engine.Evaluate("m.forEach(Math.max);"));
     }
 
     [Fact]

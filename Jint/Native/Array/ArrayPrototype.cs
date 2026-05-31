@@ -20,7 +20,7 @@ namespace Jint.Native.Array;
 [JsObject]
 public sealed partial class ArrayPrototype : ArrayInstance
 {
-    private const int ConstraintCheckInterval = 10_000;
+    private const int ConstraintCheckInterval = Engine.ConstraintCheckInterval;
 
     private readonly Realm _realm;
 
@@ -1611,31 +1611,38 @@ public sealed partial class ArrayPrototype : ArrayInstance
                 : TypeConverter.ToString(value);
         }
 
-        var s = StringFromJsValue(o.Get(0));
-        if (len == 1)
+        // try/finally so a Constraints.Check() throw inside the loop cannot leak the entry on the
+        // long-lived join stack (which would corrupt cyclic-join detection for later calls).
+        try
+        {
+            var s = StringFromJsValue(o.Get(0));
+            if (len == 1)
+            {
+                return s;
+            }
+
+            using var sb = new ValueStringBuilder();
+            sb.Append(s);
+            for (uint k = 1; k < len; k++)
+            {
+                if (k % ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
+
+                if (sep != "")
+                {
+                    sb.Append(sep);
+                }
+                sb.Append(StringFromJsValue(o.Get(k)));
+            }
+
+            return sb.ToString();
+        }
+        finally
         {
             _joinStack.Exit();
-            return s;
         }
-
-        using var sb = new ValueStringBuilder();
-        sb.Append(s);
-        for (uint k = 1; k < len; k++)
-        {
-            if (k % ConstraintCheckInterval == 0)
-            {
-                _engine.Constraints.Check();
-            }
-
-            if (sep != "")
-            {
-                sb.Append(sep);
-            }
-            sb.Append(StringFromJsValue(o.Get(k)));
-        }
-        _joinStack.Exit();
-
-        return sb.ToString();
     }
 
     /// <summary>
@@ -1663,27 +1670,35 @@ public sealed partial class ArrayPrototype : ArrayInstance
         var options = arguments.At(1);
         var invokeArgs = new[] { locales, options };
 
-        using var r = new ValueStringBuilder();
-        for (uint k = 0; k < len; k++)
+        // try/finally so a Constraints.Check() throw inside the loop cannot leak the entry on the
+        // long-lived join stack (which would corrupt cyclic-join detection for later calls).
+        try
         {
-            if (k > 0)
+            using var r = new ValueStringBuilder();
+            for (uint k = 0; k < len; k++)
             {
-                if (k % ConstraintCheckInterval == 0)
+                if (k > 0)
                 {
-                    _engine.Constraints.Check();
+                    if (k % ConstraintCheckInterval == 0)
+                    {
+                        _engine.Constraints.Check();
+                    }
+
+                    r.Append(Separator);
                 }
+                if (array.TryGetValue(k, out var nextElement) && !nextElement.IsNullOrUndefined())
+                {
+                    var s = TypeConverter.ToString(Invoke(nextElement, "toLocaleString", invokeArgs));
+                    r.Append(s);
+                }
+            }
 
-                r.Append(Separator);
-            }
-            if (array.TryGetValue(k, out var nextElement) && !nextElement.IsNullOrUndefined())
-            {
-                var s = TypeConverter.ToString(Invoke(nextElement, "toLocaleString", invokeArgs));
-                r.Append(s);
-            }
+            return r.ToString();
         }
-        _joinStack.Exit();
-
-        return r.ToString();
+        finally
+        {
+            _joinStack.Exit();
+        }
     }
 
     /// <summary>

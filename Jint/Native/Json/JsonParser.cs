@@ -39,7 +39,7 @@ internal readonly struct JsonParseResult
 
 public sealed class JsonParser
 {
-    private const int ConstraintCheckInterval = 10_000;
+    private const int ConstraintCheckInterval = Engine.ConstraintCheckInterval;
 
     private readonly Engine _engine;
     private readonly int _maxDepth;

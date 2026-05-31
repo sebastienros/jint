@@ -16,7 +16,7 @@ namespace Jint.Native.Array;
 [JsObject]
 public sealed partial class ArrayConstructor : Constructor
 {
-    private const int ConstraintCheckInterval = 10_000;
+    private const int ConstraintCheckInterval = Engine.ConstraintCheckInterval;
 
     private static readonly JsString _functionName = new JsString("Array");
 
@@ -882,22 +882,29 @@ public sealed partial class ArrayConstructor : Constructor
     {
         var jsArray = Construct(Arguments.Empty);
         var tempArray = _engine._jsValueArrayPool.RentArray(1);
-        long count = 0;
-        foreach (var item in enumerable)
+        // try/finally so the rented pool array is returned even when a periodic Check() throws.
+        try
         {
-            // Check constraints periodically so a huge enumerable cannot run uninterrupted.
-            if (count > 0 && count % ConstraintCheckInterval == 0)
+            long count = 0;
+            foreach (var item in enumerable)
             {
-                _engine.Constraints.Check();
-            }
-            count++;
+                // Check constraints periodically so a huge enumerable cannot run uninterrupted.
+                if (count > 0 && count % ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
+                count++;
 
-            var jsItem = FromObject(Engine, item);
-            tempArray[0] = jsItem;
-            _realm.Intrinsics.Array.PrototypeObject.Push(jsArray, tempArray);
+                var jsItem = FromObject(Engine, item);
+                tempArray[0] = jsItem;
+                _realm.Intrinsics.Array.PrototypeObject.Push(jsArray, tempArray);
+            }
+        }
+        finally
+        {
+            _engine._jsValueArrayPool.ReturnArray(tempArray);
         }
 
-        _engine._jsValueArrayPool.ReturnArray(tempArray);
         return jsArray;
     }
 

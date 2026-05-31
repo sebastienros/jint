@@ -15,7 +15,7 @@ namespace Jint.Native.Json;
 
 public sealed class JsonSerializer
 {
-    private const int ConstraintCheckInterval = 10_000;
+    private const int ConstraintCheckInterval = Engine.ConstraintCheckInterval;
 
     private readonly Engine _engine;
     private ObjectTraverseStack _stack = null!;

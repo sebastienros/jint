@@ -1196,56 +1196,62 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         var args = _engine._jsValueArrayPool.RentArray(3);
         args[2] = this;
 
-        const int ConstraintCheckInterval = 10_000;
-        if (!fromEnd)
+        // try/finally so the rented pool array is returned on every exit path: the early
+        // return-on-match below and a periodic Check() throw both previously leaked it.
+        try
         {
-            for (ulong k = 0; k < length; k++)
+            if (!fromEnd)
             {
-                if (k > 0 && k % ConstraintCheckInterval == 0)
+                for (ulong k = 0; k < length; k++)
                 {
-                    _engine.Constraints.Check();
-                }
-
-                if (TryGetValue(k, out var kvalue) || visitUnassigned)
-                {
-                    args[0] = kvalue;
-                    args[1] = k;
-                    var testResult = callable.Call(thisArg, args);
-                    if (TypeConverter.ToBoolean(testResult))
+                    if (k > 0 && k % Engine.ConstraintCheckInterval == 0)
                     {
-                        index = k;
-                        value = kvalue;
-                        return true;
+                        _engine.Constraints.Check();
+                    }
+
+                    if (TryGetValue(k, out var kvalue) || visitUnassigned)
+                    {
+                        args[0] = kvalue;
+                        args[1] = k;
+                        var testResult = callable.Call(thisArg, args);
+                        if (TypeConverter.ToBoolean(testResult))
+                        {
+                            index = k;
+                            value = kvalue;
+                            return true;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                for (var k = (long) (length - 1); k >= 0; k--)
+                {
+                    if (k % Engine.ConstraintCheckInterval == 0)
+                    {
+                        _engine.Constraints.Check();
+                    }
+
+                    if (TryGetValue((ulong) k, out var kvalue) || visitUnassigned)
+                    {
+                        kvalue ??= Undefined;
+                        args[0] = kvalue;
+                        args[1] = k;
+                        var testResult = callable.Call(thisArg, args);
+                        if (TypeConverter.ToBoolean(testResult))
+                        {
+                            index = (ulong) k;
+                            value = kvalue;
+                            return true;
+                        }
                     }
                 }
             }
         }
-        else
+        finally
         {
-            for (var k = (long) (length - 1); k >= 0; k--)
-            {
-                if (k % ConstraintCheckInterval == 0)
-                {
-                    _engine.Constraints.Check();
-                }
-
-                if (TryGetValue((ulong) k, out var kvalue) || visitUnassigned)
-                {
-                    kvalue ??= Undefined;
-                    args[0] = kvalue;
-                    args[1] = k;
-                    var testResult = callable.Call(thisArg, args);
-                    if (TypeConverter.ToBoolean(testResult))
-                    {
-                        index = (ulong) k;
-                        value = kvalue;
-                        return true;
-                    }
-                }
-            }
+            _engine._jsValueArrayPool.ReturnArray(args);
         }
-
-        _engine._jsValueArrayPool.ReturnArray(args);
 
         index = 0;
         value = Undefined;
@@ -1488,6 +1494,12 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
 
         for (var i = 0; i < ownKeys.Count; i++)
         {
+            // Pure native enumeration over a JS-controlled key count; check constraints periodically.
+            if (i > 0 && i % Engine.ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             var property = ownKeys[i];
 
             if (!property.IsString())

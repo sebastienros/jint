@@ -62,8 +62,15 @@ public sealed class JsSet : ObjectInstance, IEnumerable<JsValue>
         args[2] = this;
 
         var i = 0;
+        var iterations = 0;
         while (i < _set._list.Count)
         {
+            // A native (CLR) callback does not self-throttle via statement checks; check periodically.
+            if (++iterations % Engine.ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             var value = _set._list[i];
             args[0] = value;
             args[1] = value;

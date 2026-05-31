@@ -17,7 +17,7 @@ namespace Jint.Native.RegExp;
 [JsObject(ExtraCapacity = 1)]
 internal sealed partial class RegExpPrototype : Prototype
 {
-    private const int ConstraintCheckInterval = 10_000;
+    private const int ConstraintCheckInterval = Engine.ConstraintCheckInterval;
 
     private static readonly JsString PropertyExec = new("exec");
     private static readonly JsString PropertyIndex = new("index");

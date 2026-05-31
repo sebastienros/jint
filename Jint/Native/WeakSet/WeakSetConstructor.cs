@@ -44,8 +44,16 @@ internal sealed class WeakSetConstructor : Constructor
             // check fast path
             if (arg1 is JsArray array && ReferenceEquals(adder, _engine.Realm.Intrinsics.WeakSet.PrototypeObject.OriginalAddFunction))
             {
+                var index = 0;
                 foreach (var value in array)
                 {
+                    // Check constraints periodically so a huge source array cannot run uninterrupted.
+                    if (index > 0 && index % Engine.ConstraintCheckInterval == 0)
+                    {
+                        _engine.Constraints.Check();
+                    }
+                    index++;
+
                     set.WeakSetAdd(value);
                 }
 
@@ -62,8 +70,15 @@ internal sealed class WeakSetConstructor : Constructor
             try
             {
                 var args = new JsValue[1];
+                var iterations = 0;
                 do
                 {
+                    // Check constraints periodically so a huge (or native-backed) iterable cannot run uninterrupted.
+                    if (++iterations % Engine.ConstraintCheckInterval == 0)
+                    {
+                        _engine.Constraints.Check();
+                    }
+
                     if (!iterable.TryIteratorStep(out var next))
                     {
                         return set;

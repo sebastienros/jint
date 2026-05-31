@@ -22,7 +22,7 @@ namespace Jint.Native.String;
 [JsObject(ExtraCapacity = 2)]
 internal sealed partial class StringPrototype : StringInstance
 {
-    private const int ConstraintCheckInterval = 10_000;
+    private const int ConstraintCheckInterval = Engine.ConstraintCheckInterval;
 
     private readonly Realm _realm;
 
@@ -1739,7 +1739,8 @@ internal sealed partial class StringPrototype : StringInstance
         // Build incrementally: do not pre-rent the full (possibly huge) target up front, and check
         // the engine constraints periodically so timeout/memory/statements limits can interrupt a
         // large fill instead of allocating until the CLR throws OutOfMemoryException.
-        var sb = new ValueStringBuilder(System.Math.Min(targetLength, ConstraintCheckInterval));
+        // 'using' so the pooled buffer is returned even when a periodic Check() throws mid-fill.
+        using var sb = new ValueStringBuilder(System.Math.Min(targetLength, ConstraintCheckInterval));
         if (!padStart)
         {
             sb.Append(sourceString);
@@ -1939,7 +1940,8 @@ internal sealed partial class StringPrototype : StringInstance
             return new string(s[0], (int) n);
         }
 
-        var sb = new ValueStringBuilder((int) resultLength);
+        // 'using' so the pooled buffer is returned even when a periodic Check() throws mid-build.
+        using var sb = new ValueStringBuilder((int) resultLength);
         for (var i = 0; i < n; ++i)
         {
             if (i > 0 && i % ConstraintCheckInterval == 0)
@@ -1971,7 +1973,8 @@ internal sealed partial class StringPrototype : StringInstance
         var strLen = s.Length;
         var k = 0;
 
-        var result = new ValueStringBuilder();
+        // 'using' so the pooled buffer is returned even when a periodic Check() throws mid-build.
+        using var result = new ValueStringBuilder();
         while (k < strLen)
         {
             if (k > 0 && k % ConstraintCheckInterval == 0)

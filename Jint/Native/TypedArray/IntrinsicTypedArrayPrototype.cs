@@ -21,7 +21,7 @@ namespace Jint.Native.TypedArray;
 [JsObject(ExtraCapacity = 1)]
 internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
 {
-    private const int ConstraintCheckInterval = 10_000;
+    private const int ConstraintCheckInterval = Engine.ConstraintCheckInterval;
 
     [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly IntrinsicTypedArrayConstructor _constructor;
