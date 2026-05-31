@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.InteropServices;
 using Jint.Native.Array;
 using Jint.Native.ArrayBuffer;
 using Jint.Native.Object;
@@ -295,8 +296,22 @@ public abstract partial class TypedArrayConstructor : Constructor
         return obj;
     }
 
-    internal static void FillTypedArrayInstance<T>(JsTypedArray target, ReadOnlySpan<T> values)
+    internal static void FillTypedArrayInstance<T>(JsTypedArray target, ReadOnlySpan<T> values) where T : struct
     {
+        if (values.IsEmpty)
+        {
+            return;
+        }
+
+        // Each concrete constructor passes the CLR element type that exactly matches the target's element type, so on
+        // little-endian platforms the source bytes already are the buffer's storage representation and can be copied
+        // in bulk without any per-element conversion. Fall back to element-by-element conversion on big-endian.
+        if (BitConverter.IsLittleEndian)
+        {
+            MemoryMarshal.AsBytes(values).CopyTo(target._viewedArrayBuffer._arrayBufferData!.AsSpan(target._byteOffset));
+            return;
+        }
+
         for (var i = 0; i < values.Length; ++i)
         {
             target.DoIntegerIndexedElementSet(i, Convert.ToDouble(values[i], CultureInfo.InvariantCulture));
