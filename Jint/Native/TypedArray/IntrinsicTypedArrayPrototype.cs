@@ -1,6 +1,7 @@
 #pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of prototype methods return JsValue
 
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using Jint.Native.Array;
 using Jint.Native.ArrayBuffer;
@@ -318,45 +319,16 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
 
             var elementSize = o._arrayElementType.GetElementSize();
             var byteOffset = o._byteOffset;
-            var bufferByteLimit = len * elementSize + byteOffset;
             var toByteIndex = targetIndex * elementSize + byteOffset;
             var fromByteIndex = startIndex * elementSize + byteOffset;
             var countBytes = count * elementSize;
 
-            int direction;
-            if (fromByteIndex < toByteIndex && toByteIndex < fromByteIndex + countBytes)
-            {
-                direction = -1;
-                fromByteIndex = fromByteIndex + countBytes - 1;
-                toByteIndex = toByteIndex + countBytes - 1;
-            }
-            else
-            {
-                direction = 1;
-            }
-
-            var initialCountBytes = countBytes;
-            while (countBytes > 0)
-            {
-                if (fromByteIndex < bufferByteLimit && toByteIndex < bufferByteLimit)
-                {
-                    var value = buffer.GetValueFromBuffer((int) fromByteIndex, TypedArrayElementType.Uint8, isTypedArray: true, ArrayBufferOrder.Unordered);
-                    buffer.SetValueInBuffer((int) toByteIndex, TypedArrayElementType.Uint8, value, isTypedArray: true, ArrayBufferOrder.Unordered);
-                    fromByteIndex += direction;
-                    toByteIndex += direction;
-                    countBytes--;
-
-                    // Check constraints periodically to prevent long-running operations
-                    if ((initialCountBytes - countBytes) % ConstraintCheckInterval == 0)
-                    {
-                        _engine.Constraints.Check();
-                    }
-                }
-                else
-                {
-                    countBytes = 0;
-                }
-            }
+            // count is already clamped so the whole [fromByteIndex, +countBytes) and [toByteIndex, +countBytes)
+            // ranges stay within the buffer. System.Array.Copy has memmove semantics, so it copies overlapping
+            // regions correctly without the spec's explicit forward/backward direction handling.
+            buffer.AssertNotImmutable();
+            _engine.Constraints.Check();
+            System.Array.Copy(buffer._arrayBufferData!, fromByteIndex, buffer._arrayBufferData!, toByteIndex, countBytes);
         }
 
         return o;
@@ -471,16 +443,30 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         len = taRecord.TypedArrayLength;
         endIndex = System.Math.Min(endIndex, len);
 
-        o._viewedArrayBuffer.AssertNotDetached();
+        var buffer = o._viewedArrayBuffer;
+        buffer.AssertNotDetached();
 
-        for (var i = k; i < endIndex; ++i)
+        if (k < endIndex)
         {
-            o[i] = value;
+            // Seed the first element through the normal indexer (this applies per-type clamping/rounding and the
+            // immutable-buffer check), then replicate its on-buffer byte pattern across the remaining range with
+            // exponential doubling. This is endian-agnostic (whole-element byte blocks are copied verbatim) and
+            // avoids re-encoding the value for every element.
+            o[k] = value;
 
-            // Check constraints periodically to prevent memory exhaustion in large fills
-            if (i > k && (i - k) % ConstraintCheckInterval == 0)
+            var elementSize = o._arrayElementType.GetElementSize();
+            var data = buffer._arrayBufferData!;
+            var startByte = k * elementSize + o._byteOffset;
+            var count = (int) endIndex - k;
+
+            _engine.Constraints.Check();
+
+            var filled = 1;
+            while (filled < count)
             {
-                _engine.Constraints.Check();
+                var copy = System.Math.Min(filled, count - filled);
+                System.Array.Copy(data, startByte, data, startByte + filled * elementSize, copy * elementSize);
+                filled += copy;
             }
         }
 
@@ -692,6 +678,11 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
             }
         }
 
+        if (TryFastIntegerSearch(o, searchElement, (int) k, (int) len, last: false, out var fastIndex))
+        {
+            return fastIndex >= 0 ? JsBoolean.True : JsBoolean.False;
+        }
+
         while (k < len)
         {
             if (k > 0 && k % ConstraintCheckInterval == 0)
@@ -748,6 +739,11 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
             {
                 k = 0;
             }
+        }
+
+        if (TryFastIntegerSearch(o, searchElement, (int) k, (int) len, last: false, out var fastIndex))
+        {
+            return fastIndex < 0 ? JsNumber.IntegerNegativeOne : JsNumber.Create(fastIndex);
         }
 
         for (; k < len; k++)
@@ -864,6 +860,11 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         else
         {
             k = (long) (len + n);
+        }
+
+        if (TryFastIntegerSearch(o, searchElement, (int) k, (int) len, last: true, out var fastIndex))
+        {
+            return fastIndex < 0 ? JsNumber.IntegerNegativeOne : JsNumber.Create(fastIndex);
         }
 
         for (; k >= 0; k--)
@@ -1033,28 +1034,39 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         var o = taRecord.Object;
         var len = taRecord.TypedArrayLength;
 
-        var middle = (int) System.Math.Floor(len / 2.0);
-        var lower = 0;
-        while (lower != middle)
-        {
-            var upper = len - lower - 1;
+        var buffer = o._viewedArrayBuffer;
+        buffer.AssertNotImmutable();
 
-            var lowerValue = o[lower];
-            var upperValue = o[upper];
-
-            o[lower] = upperValue;
-            o[upper] = lowerValue;
-
-            lower++;
-
-            // Check constraints periodically to prevent long-running operations
-            if (lower > 0 && lower % ConstraintCheckInterval == 0)
-            {
-                _engine.Constraints.Check();
-            }
-        }
+        // Reverse the element order directly in the backing buffer. Reinterpreting the bytes as a span of the
+        // element-sized integer and using the vectorized Span<T>.Reverse swaps whole element blocks by position,
+        // which preserves each element's bit-level encoding (endian-agnostic) and avoids JsValue allocation.
+        _engine.Constraints.Check();
+        ReverseElements(buffer._arrayBufferData!, o._byteOffset, (int) len, o._arrayElementType.GetElementSize());
 
         return o;
+    }
+
+    /// <summary>
+    /// Reverses <paramref name="len"/> element-sized blocks in place starting at <paramref name="byteOffset"/>.
+    /// Endian-agnostic: whole element blocks are swapped by position, so each element's bytes are preserved.
+    /// </summary>
+    private static void ReverseElements(byte[] data, int byteOffset, int len, int elementSize)
+    {
+        switch (elementSize)
+        {
+            case 1:
+                data.AsSpan(byteOffset, len).Reverse();
+                break;
+            case 2:
+                MemoryMarshal.Cast<byte, short>(data.AsSpan(byteOffset, len * 2)).Reverse();
+                break;
+            case 4:
+                MemoryMarshal.Cast<byte, int>(data.AsSpan(byteOffset, len * 4)).Reverse();
+                break;
+            case 8:
+                MemoryMarshal.Cast<byte, long>(data.AsSpan(byteOffset, len * 8)).Reverse();
+                break;
+        }
     }
 
     /// <summary>
@@ -1132,42 +1144,39 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
             Throw.TypeError(_realm, "Cannot mix BigInt and other types, use explicit conversions");
         }
 
-        var same = SameValue(srcBuffer, targetBuffer);
-        int srcByteIndex;
-        if (same)
-        {
-            var srcByteLength = srcRecord.TypedArrayByteLength;
-            srcBuffer = srcBuffer.CloneArrayBuffer(_realm.Intrinsics.ArrayBuffer, srcByteOffset, srcByteLength);
-            // %ArrayBuffer% is used to clone srcBuffer because is it known to not have any observable side-effects.
-            srcByteIndex = 0;
-        }
-        else
-        {
-            srcByteIndex = srcByteOffset;
-        }
-
         var targetByteIndex = (int) (targetOffset * targetElementSize + targetByteOffset);
-        var limit = targetByteIndex + targetElementSize * srcLength;
 
-        var processed = 0;
         if (srcType == targetType)
         {
-            // NOTE: If srcType and targetType are the same, the transfer must be performed in a manner that preserves the bit-level encoding of the source data.
-            while (targetByteIndex < limit)
-            {
-                var value = srcBuffer.GetValueFromBuffer(srcByteIndex, TypedArrayElementType.Uint8, isTypedArray: true, ArrayBufferOrder.Unordered);
-                targetBuffer.SetValueInBuffer(targetByteIndex, TypedArrayElementType.Uint8, value, isTypedArray: true, ArrayBufferOrder.Unordered);
-                srcByteIndex += 1;
-                targetByteIndex += 1;
-
-                if (++processed % ConstraintCheckInterval == 0)
-                {
-                    _engine.Constraints.Check();
-                }
-            }
+            // NOTE: If srcType and targetType are the same, the transfer must be performed in a manner that
+            // preserves the bit-level encoding of the source data, i.e. it is a plain byte copy.
+            // System.Array.Copy has memmove semantics, so it copies correctly even when the source and target
+            // share the same buffer (overlapping regions). The spec clones the source buffer first only to avoid
+            // observable side-effects of a forward element-by-element copy; a byte move has no such side-effects,
+            // so the clone is unnecessary here.
+            targetBuffer.AssertNotImmutable();
+            _engine.Constraints.Check();
+            System.Array.Copy(srcBuffer._arrayBufferData!, srcByteOffset, targetBuffer._arrayBufferData!, targetByteIndex, targetElementSize * srcLength);
         }
         else
         {
+            int srcByteIndex;
+            if (SameValue(srcBuffer, targetBuffer))
+            {
+                // The source and target share a buffer but use different element sizes, so an in-place
+                // overlapping read/write could corrupt not-yet-read source bytes. Clone the source region first.
+                // %ArrayBuffer% is used to clone srcBuffer because it is known to not have any observable side-effects.
+                var srcByteLength = srcRecord.TypedArrayByteLength;
+                srcBuffer = srcBuffer.CloneArrayBuffer(_realm.Intrinsics.ArrayBuffer, srcByteOffset, srcByteLength);
+                srcByteIndex = 0;
+            }
+            else
+            {
+                srcByteIndex = srcByteOffset;
+            }
+
+            var limit = targetByteIndex + targetElementSize * srcLength;
+            var processed = 0;
             while (targetByteIndex < limit)
             {
                 var value = srcBuffer.GetValueFromBuffer(srcByteIndex, srcType, isTypedArray: true, ArrayBufferOrder.Unordered);
@@ -1329,27 +1338,37 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
                     n++;
                 }
             }
-            else
+            else if (countBytes > 0)
             {
+                // Same element type: a plain byte copy preserving the bit-level encoding.
                 var srcBuffer = o._viewedArrayBuffer;
                 var targetBuffer = a._viewedArrayBuffer;
                 var elementSize = srcType.GetElementSize();
-                var srcByteOffset = o._byteOffset;
+                var srcByteIndex = startIndex * elementSize + o._byteOffset;
                 var targetByteIndex = a._byteOffset;
-                var srcByteIndex = (int) startIndex * elementSize + srcByteOffset;
-                var limit = targetByteIndex + countBytes * elementSize;
-                var copied = 0;
-                while (targetByteIndex < limit)
-                {
-                    var value = srcBuffer.GetValueFromBuffer(srcByteIndex, TypedArrayElementType.Uint8, true, ArrayBufferOrder.Unordered);
-                    targetBuffer.SetValueInBuffer(targetByteIndex, TypedArrayElementType.Uint8, value, true, ArrayBufferOrder.Unordered);
-                    srcByteIndex++;
-                    targetByteIndex++;
+                var byteCount = (int) countBytes * elementSize;
 
-                    if (++copied % ConstraintCheckInterval == 0)
+                _engine.Constraints.Check();
+
+                if (SameValue(srcBuffer, targetBuffer))
+                {
+                    // A @@species constructor returned a target that aliases the source buffer. The spec performs a
+                    // forward byte-by-byte copy, which "smears" the source when the target region overlaps ahead of
+                    // it; System.Array.Copy (memmove) would not reproduce that, so copy forward explicitly here.
+                    var data = srcBuffer._arrayBufferData!;
+                    for (var i = 0; i < byteCount; i++)
                     {
-                        _engine.Constraints.Check();
+                        data[targetByteIndex + i] = data[srcByteIndex + i];
+
+                        if ((i + 1) % ConstraintCheckInterval == 0)
+                        {
+                            _engine.Constraints.Check();
+                        }
                     }
+                }
+                else
+                {
+                    System.Array.Copy(srcBuffer._arrayBufferData!, srcByteIndex, targetBuffer._arrayBufferData!, targetByteIndex, byteCount);
                 }
             }
         }
@@ -1595,18 +1614,16 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         var len = taRecord.TypedArrayLength;
 
         var a = TypedArrayCreateSameType(o, [JsNumber.Create(len)]);
-        uint k = 0;
-        while (k < len)
-        {
-            var from = len - k - 1;
-            a[k++] = o.Get(from);
 
-            // Check constraints periodically to prevent long-running operations
-            if (k > 0 && k % ConstraintCheckInterval == 0)
-            {
-                _engine.Constraints.Check();
-            }
-        }
+        // The result has the same element type, so bulk-copy the source bytes into the fresh target and then
+        // reverse the element order in place, avoiding any per-element JsValue decode/encode.
+        var elementSize = o._arrayElementType.GetElementSize();
+        var dstData = a._viewedArrayBuffer._arrayBufferData!;
+        var dstByteOffset = a._byteOffset;
+
+        _engine.Constraints.Check();
+        System.Array.Copy(o._viewedArrayBuffer._arrayBufferData!, o._byteOffset, dstData, dstByteOffset, (long) len * elementSize);
+        ReverseElements(dstData, dstByteOffset, (int) len, elementSize);
 
         return a;
     }
@@ -1668,18 +1685,12 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
 
         var a = TypedArrayCreateSameType(o, [JsNumber.Create(len)]);
 
-        var k = 0;
-        while (k < len)
-        {
-            a[k] = k == (int) actualIndex ? value : o.Get(k);
-            k++;
-
-            // Check constraints periodically to prevent long-running operations
-            if (k > 0 && k % ConstraintCheckInterval == 0)
-            {
-                _engine.Constraints.Check();
-            }
-        }
+        // The result has the same element type, so bulk-copy the source bytes into the freshly created target
+        // and then overwrite the single replaced element (whose value is already coerced above).
+        var elementSize = o._arrayElementType.GetElementSize();
+        _engine.Constraints.Check();
+        System.Array.Copy(o._viewedArrayBuffer._arrayBufferData!, o._byteOffset, a._viewedArrayBuffer._arrayBufferData!, a._byteOffset, len * elementSize);
+        a[(int) actualIndex] = value;
 
         return a;
     }
@@ -1689,6 +1700,118 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         var constructor = exemplar._arrayElementType.GetConstructor(_realm.Intrinsics);
         var result = IntrinsicTypedArrayConstructor.TypedArrayCreate(_realm, constructor, argumentList);
         return result;
+    }
+
+    /// <summary>
+    /// Vectorized search fast path used by indexOf/lastIndexOf/includes. It applies only when the element type is a
+    /// non-BigInt integer type, the platform is little-endian, and <paramref name="searchElement"/> is a Number that
+    /// is exactly representable in that element type. Under those conditions strict equality and SameValueZero both
+    /// reduce to plain integer equality (no NaN/-0 distinctions), so the vectorized span IndexOf/LastIndexOf
+    /// yields the correct result. A search value that is not exactly representable cannot equal any
+    /// stored element, so the result is "not found". Returns <c>false</c> to signal the caller to fall back to the
+    /// generic element loop (floats, BigInt, big-endian, or a non-Number search element).
+    /// </summary>
+    private static bool TryFastIntegerSearch(JsTypedArray o, JsValue searchElement, int fromInclusive, int len, bool last, out int index)
+    {
+        index = -1;
+
+        var type = o._arrayElementType;
+        if (!BitConverter.IsLittleEndian
+            || searchElement is not JsNumber number
+            || type.IsBigIntElementType()
+            || type is TypedArrayElementType.Float16 or TypedArrayElementType.Float32 or TypedArrayElementType.Float64)
+        {
+            return false;
+        }
+
+        var d = number._value;
+        var byteOffset = o._byteOffset;
+        var elementSize = type.GetElementSize();
+        var data = o._viewedArrayBuffer._arrayBufferData;
+
+        // The caller coerces fromIndex/searchElement before reaching here, which can run user code that detaches or
+        // shrinks the buffer. If the buffer is gone or the captured length no longer fits, fall back to the generic
+        // per-element loop, which validates each index against the array's current length.
+        if (data is null || (long) byteOffset + (long) len * elementSize > data.Length)
+        {
+            return false;
+        }
+
+        switch (type)
+        {
+            case TypedArrayElementType.Int8:
+                if ((double) (sbyte) d == d)
+                {
+                    index = SearchSpan(MemoryMarshal.Cast<byte, sbyte>(data.AsSpan(byteOffset, len)), (sbyte) d, fromInclusive, last);
+                }
+                return true;
+            case TypedArrayElementType.Uint8:
+            case TypedArrayElementType.Uint8C:
+                if ((double) (byte) d == d)
+                {
+                    index = SearchSpan(data.AsSpan(byteOffset, len), (byte) d, fromInclusive, last);
+                }
+                return true;
+            case TypedArrayElementType.Int16:
+                if ((double) (short) d == d)
+                {
+                    index = SearchSpan(MemoryMarshal.Cast<byte, short>(data.AsSpan(byteOffset, len * 2)), (short) d, fromInclusive, last);
+                }
+                return true;
+            case TypedArrayElementType.Uint16:
+                if ((double) (ushort) d == d)
+                {
+                    index = SearchSpan(MemoryMarshal.Cast<byte, ushort>(data.AsSpan(byteOffset, len * 2)), (ushort) d, fromInclusive, last);
+                }
+                return true;
+            case TypedArrayElementType.Int32:
+                if ((double) (int) d == d)
+                {
+                    index = SearchSpan(MemoryMarshal.Cast<byte, int>(data.AsSpan(byteOffset, len * 4)), (int) d, fromInclusive, last);
+                }
+                return true;
+            case TypedArrayElementType.Uint32:
+                if ((double) (uint) d == d)
+                {
+                    index = SearchSpan(MemoryMarshal.Cast<byte, uint>(data.AsSpan(byteOffset, len * 4)), (uint) d, fromInclusive, last);
+                }
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private static int SearchSpan<T>(Span<T> span, T value, int fromInclusive, bool last) where T : IEquatable<T>
+    {
+        if (last)
+        {
+            // backward search over [0, fromInclusive]
+            if (fromInclusive < 0)
+            {
+                return -1;
+            }
+
+            if (fromInclusive >= span.Length)
+            {
+                fromInclusive = span.Length - 1;
+            }
+
+            return span.Slice(0, fromInclusive + 1).LastIndexOf(value);
+        }
+
+        // forward search over [fromInclusive, len)
+        if (fromInclusive < 0)
+        {
+            fromInclusive = 0;
+        }
+
+        if (fromInclusive >= span.Length)
+        {
+            return -1;
+        }
+
+        var relative = span.Slice(fromInclusive).IndexOf(value);
+        return relative < 0 ? -1 : fromInclusive + relative;
     }
 
     private ICallable? GetCompareFunction(JsValue compareArg)
