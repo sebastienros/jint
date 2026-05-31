@@ -16,6 +16,8 @@ namespace Jint.Native.String;
 [JsObject]
 internal sealed partial class StringConstructor : Constructor
 {
+    private const int ConstraintCheckInterval = Engine.ConstraintCheckInterval;
+
     private static readonly JsString _functionName = new JsString("String");
 
     public StringConstructor(
@@ -39,7 +41,7 @@ internal sealed partial class StringConstructor : Constructor
     /// https://tc39.es/ecma262/#sec-string.fromcharcode
     /// </summary>
     [JsFunction(Length = 1)]
-    private static JsValue FromCharCode(JsValue thisObject, JsCallArguments arguments)
+    private JsValue FromCharCode(JsValue thisObject, JsCallArguments arguments)
     {
         var length = arguments.Length;
 
@@ -53,6 +55,8 @@ internal sealed partial class StringConstructor : Constructor
             return JsString.Create((char) TypeConverter.ToUint16(arguments[0]));
         }
 
+        // length is arguments.Length, already bounded by the materialized arguments array, so no
+        // size cap is needed here (unlike padStart/repeat whose length comes from a JS number).
 #if SUPPORTS_SPAN_PARSE
         var elements = length < 512 ? stackalloc char[length] : new char[length];
 #else
@@ -60,6 +64,12 @@ internal sealed partial class StringConstructor : Constructor
 #endif
         for (var i = 0; i < elements.Length; i++)
         {
+            // Spread can inflate the argument count; check constraints periodically.
+            if (i > 0 && i % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             var nextCu = TypeConverter.ToUint16(arguments[i]);
             elements[i] = (char) nextCu;
         }
@@ -75,8 +85,16 @@ internal sealed partial class StringConstructor : Constructor
     {
         JsNumber codePoint;
         using var result = new ValueStringBuilder(stackalloc char[128]);
+        var processed = 0;
         foreach (var a in arguments)
         {
+            // Spread can inflate the argument count; check constraints periodically.
+            if (processed > 0 && processed % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+            processed++;
+
             int point;
             codePoint = TypeConverter.ToJsNumber(a);
             if (codePoint.IsInteger())
@@ -139,8 +157,14 @@ rangeError:
         using var result = new ValueStringBuilder();
         for (var i = 0; i < length; i++)
         {
+            // Check constraints periodically so a huge raw.length cannot run uninterrupted.
             if (i > 0)
             {
+                if (i % ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
+
                 if (i < arguments.Length && !arguments[i].IsUndefined())
                 {
                     result.Append(TypeConverter.ToString(arguments[i]));

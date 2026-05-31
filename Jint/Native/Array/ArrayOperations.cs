@@ -94,6 +94,13 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
         var jsValues = new JsValue[n];
         for (uint i = 0; i < (uint) n; i++)
         {
+            // Slow array-like expansion (e.g. Function.prototype.apply / Reflect.apply on a huge
+            // {length} object): per-element property Get; check constraints periodically.
+            if (i > 0 && i % Engine.ConstraintCheckInterval == 0)
+            {
+                Target.Engine.Constraints.Check();
+            }
+
             var jsValue = skipHoles && !HasProperty(i) ? JsValue.Undefined : Get(i);
             if ((jsValue.Type & elementTypes) == Types.Empty)
             {

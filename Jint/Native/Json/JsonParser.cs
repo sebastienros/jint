@@ -39,6 +39,8 @@ internal readonly struct JsonParseResult
 
 public sealed class JsonParser
 {
+    private const int ConstraintCheckInterval = Engine.ConstraintCheckInterval;
+
     private readonly Engine _engine;
     private readonly int _maxDepth;
 
@@ -338,8 +340,14 @@ public sealed class JsonParser
         ++_index;
 
         using var sb = new ValueStringBuilder(stackalloc char[64]);
+        var scanned = 0;
         while (_index < _length)
         {
+            if (++scanned % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             char ch = _source[_index++];
 
             if (ch == quote)
@@ -563,8 +571,14 @@ public sealed class JsonParser
         JsValue[] buffer = ArrayPool<JsValue>.Shared.Rent(16);
         try
         {
+            var elementCount = 0;
             while (!Match(']'))
             {
+                if (++elementCount % ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
+
                 buffer[bufferIndex++] = ParseJsonValue(ref state);
 
                 if (!Match(']'))
@@ -638,8 +652,14 @@ public sealed class JsonParser
 
         var obj = new JsObject(_engine);
 
+        var memberCount = 0;
         while (!Match('}'))
         {
+            if (++memberCount % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             Tokens type = _lookahead.Type;
             if (type != Tokens.String)
             {
@@ -816,8 +836,14 @@ public sealed class JsonParser
         JsValue[] buffer = ArrayPool<JsValue>.Shared.Rent(16);
         try
         {
+            var elementCount = 0;
             while (!Match(']'))
             {
+                if (++elementCount % ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
+
                 var elementResult = ParseJsonValueWithSourceInfo(ref state);
                 buffer[bufferIndex++] = elementResult.Value;
                 if (elementResult.Node != null)
@@ -900,8 +926,14 @@ public sealed class JsonParser
 
         var obj = new JsObject(_engine);
 
+        var memberCount = 0;
         while (!Match('}'))
         {
+            if (++memberCount % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             Tokens type = _lookahead.Type;
             if (type != Tokens.String)
             {

@@ -1,3 +1,4 @@
+using Jint.Constraints;
 using Jint.Native.Function;
 using Jint.Runtime;
 
@@ -354,6 +355,151 @@ myarr[0](0);
     {
         var engine = new Engine(o => o.MaxStatements(1_000).LimitMemory(4_000_000));
         Assert.Throws<MemoryLimitExceededException>(() => engine.Evaluate("var arr = new Uint8Array(100000000); arr.with(0, 1);"));
+    }
+
+    // https://github.com/sebastienros/jint/issues/2486
+    [Fact]
+    public void ShouldThrowRangeErrorWhenPadStartExceedsMaxStringLength()
+    {
+        // The result length (2147483647) exceeds ClrLimits.MaxArrayLength, so the size cap converts
+        // a would-be OutOfMemoryException into a catchable RangeError without any constraints set.
+        var engine = new Engine();
+        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("'x'.padStart(2147483647)"));
+        Assert.Contains("Invalid string length", ex.Message);
+    }
+
+    // https://github.com/sebastienros/jint/issues/2486
+    [Fact]
+    public void ShouldLimitStringSizeForPadEnd()
+    {
+        // The result (536870911) is below the size cap, so it must be built incrementally and the
+        // memory limit must be able to interrupt it instead of allocating ~1 GB up front.
+        var engine = new Engine(o => o.LimitMemory(4_000_000));
+        Assert.Throws<MemoryLimitExceededException>(() => engine.Evaluate("'x'.padEnd(536870911, 'ab')"));
+    }
+
+    // https://github.com/sebastienros/jint/issues/2486
+    [Fact]
+    public void ShouldLimitArraySizeForArrayFrom()
+    {
+        var engine = new Engine(o => o.LimitMemory(4_000_000));
+        Assert.Throws<MemoryLimitExceededException>(() => engine.Evaluate("Array.from({ length: 50000000 });"));
+    }
+
+    [Fact]
+    public void ShouldLimitStringSizeForStringRaw()
+    {
+        var engine = new Engine(o => o.LimitMemory(4_000_000));
+        Assert.Throws<MemoryLimitExceededException>(() => engine.Evaluate("String.raw({ raw: { length: 50000000 } });"));
+    }
+
+    [Fact]
+    public void ShouldLimitArraySizeForSort()
+    {
+        // The element-collection loop in sort is interruptible: a low statement budget aborts it.
+        var engine = new Engine(o => o.MaxStatements(1_000));
+        Assert.Throws<StatementsCountOverflowException>(() => engine.Evaluate("new Array(50000000).sort();"));
+    }
+
+    [Fact]
+    public void ShouldLimitArraySizeForForEach()
+    {
+        // forEach over a huge (sparse) array must be interruptible even though the callback never
+        // runs for holes. A sparse array is used so the guard exercised is forEach's own loop, not
+        // fill's (fill on a dense 50M array would trip the limit before forEach was ever reached).
+        var engine = new Engine(o => o.MaxStatements(1_000));
+        Assert.Throws<StatementsCountOverflowException>(() => engine.Evaluate("new Array(50000000).forEach(function () {});"));
+    }
+
+    [Fact]
+    public void PadStartAndPadEndProduceCorrectResults()
+    {
+        var engine = new Engine();
+        Assert.Equal("005", engine.Evaluate("'5'.padStart(3, '0')").AsString());
+        Assert.Equal("500", engine.Evaluate("'5'.padEnd(3, '0')").AsString());
+        Assert.Equal("ab", engine.Evaluate("'ab'.padStart(1)").AsString());
+        Assert.Equal("    x", engine.Evaluate("'x'.padStart(5)").AsString());
+        Assert.Equal("x    ", engine.Evaluate("'x'.padEnd(5)").AsString());
+        // Empty fill string returns the input unchanged.
+        Assert.Equal("x", engine.Evaluate("'x'.padEnd(5, '')").AsString());
+        Assert.Equal("1231231abc", engine.Evaluate("'abc'.padStart(10, '123')").AsString());
+        Assert.Equal("abc1231231", engine.Evaluate("'abc'.padEnd(10, '123')").AsString());
+    }
+
+    [Fact]
+    public void PadStartEvaluatesFillStringAfterLengthCheck()
+    {
+        // Per spec (https://tc39.es/ecma262/#sec-stringpad) the fillString is resolved only after the
+        // maxLength <= stringLength early return, so its ToString side effect must not run here.
+        var engine = new Engine();
+        var result = engine.Evaluate(
+            "var sideEffect = false;" +
+            "var fill = { toString() { sideEffect = true; return '0'; } };" +
+            "'abc'.padStart(2, fill);" +
+            "sideEffect;");
+        Assert.False(result.AsBoolean());
+    }
+
+    [Fact]
+    public void JoinReleasesJoinStackWhenInterrupted()
+    {
+        // Regression: when a constraint interrupts a large join mid-loop, the array must not be left
+        // on the engine's long-lived join stack — otherwise a later join of the same array would
+        // wrongly return "" via false cyclic-reference detection.
+        var engine = new Engine(o => o.MaxStatements(10_000_000));
+        engine.Evaluate("var a = []; for (var i = 0; i < 20000; i++) a[i] = i;");
+
+        var maxStatements = engine.Constraints.Find<MaxStatementsConstraint>()!;
+        maxStatements.MaxStatements = 1;
+        engine.Constraints.Reset();
+        Assert.Throws<StatementsCountOverflowException>(() => engine.Evaluate("a.join(',')"));
+
+        // With a generous budget the same array must join correctly (not the empty string).
+        maxStatements.MaxStatements = 10_000_000;
+        engine.Constraints.Reset();
+        Assert.StartsWith("0,1,2,3,", engine.Evaluate("a.join(',')").AsString());
+    }
+
+    [Fact]
+    public void ShouldLimitArrayFromWithNativeIterator()
+    {
+        // Array.from over a native (statement-free) string iterator must be interruptible via the
+        // shared iterator-protocol guard; the string iterator runs no JS statements per element.
+        var engine = new Engine(o => o.MaxStatements(10_000_000));
+        engine.Evaluate("var s = 'x'; for (var i = 0; i < 17; i++) s += s;"); // 131072 chars
+
+        var maxStatements = engine.Constraints.Find<MaxStatementsConstraint>()!;
+        maxStatements.MaxStatements = 1;
+        engine.Constraints.Reset();
+        Assert.Throws<StatementsCountOverflowException>(() => engine.Evaluate("Array.from(s);"));
+    }
+
+    [Fact]
+    public void ShouldLimitObjectKeysForLargeArray()
+    {
+        // Object.keys is a pure native enumeration with no JS callback to self-throttle; it must be
+        // interruptible by the constraint check in EnumerableOwnProperties.
+        var engine = new Engine(o => o.MaxStatements(10_000_000));
+        engine.Evaluate("var a = []; for (var i = 0; i < 30000; i++) a[i] = i;");
+
+        var maxStatements = engine.Constraints.Find<MaxStatementsConstraint>()!;
+        maxStatements.MaxStatements = 1;
+        engine.Constraints.Reset();
+        Assert.Throws<StatementsCountOverflowException>(() => engine.Evaluate("Object.keys(a);"));
+    }
+
+    [Fact]
+    public void ShouldLimitMapForEachWithNativeCallback()
+    {
+        // A native (CLR) callback does not self-throttle via statement checks, so Map.prototype.forEach
+        // must be interruptible by its own constraint check.
+        var engine = new Engine(o => o.MaxStatements(10_000_000));
+        engine.Evaluate("var m = new Map(); for (var i = 0; i < 30000; i++) m.set(i, i);");
+
+        var maxStatements = engine.Constraints.Find<MaxStatementsConstraint>()!;
+        maxStatements.MaxStatements = 1;
+        engine.Constraints.Reset();
+        Assert.Throws<StatementsCountOverflowException>(() => engine.Evaluate("m.forEach(Math.max);"));
     }
 
     [Fact]

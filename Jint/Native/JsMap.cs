@@ -95,8 +95,15 @@ public sealed class JsMap : ObjectInstance, IEnumerable<KeyValuePair<JsValue, Js
         args[2] = this;
 
         var i = 0;
+        var iterations = 0;
         while (i < _map.Count)
         {
+            // A native (CLR) callback does not self-throttle via statement checks; check periodically.
+            if (++iterations % Engine.ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             var key = _map.GetKey(i);
             args[0] = _map[key];
             args[1] = key;

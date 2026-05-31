@@ -50,8 +50,15 @@ public sealed partial class SetConstructor : Constructor
             try
             {
                 var args = new JsValue[1];
+                var iterations = 0;
                 do
                 {
+                    // Check constraints periodically so a huge (or native-backed) iterable cannot run uninterrupted.
+                    if (++iterations % Engine.ConstraintCheckInterval == 0)
+                    {
+                        _engine.Constraints.Check();
+                    }
+
                     if (!iterable.TryIteratorStep(out var next))
                     {
                         return set;

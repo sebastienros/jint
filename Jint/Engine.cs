@@ -28,6 +28,13 @@ namespace Jint;
 [DebuggerTypeProxy(typeof(EngineDebugView))]
 public sealed partial class Engine : IDisposable
 {
+    /// <summary>
+    /// How often (in loop iterations) bulk built-in operations should call <see cref="ConstraintOperations.Check"/>
+    /// so that long native loops over JS-controlled sizes remain interruptible by execution constraints.
+    /// Single source of truth shared by every built-in that uses the periodic-check idiom.
+    /// </summary>
+    internal const int ConstraintCheckInterval = 10_000;
+
     private static readonly Options _defaultEngineOptions = new();
 
     private readonly Parser _defaultParser;

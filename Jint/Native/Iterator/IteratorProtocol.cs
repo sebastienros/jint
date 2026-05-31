@@ -26,10 +26,18 @@ internal abstract class IteratorProtocol
     {
         var args = _engine._jsValueArrayPool.RentArray(_argCount);
         var done = false;
+        var iterations = 0;
         try
         {
             while (ShouldContinue)
             {
+                // Check constraints periodically so a huge (or native-backed) iterator cannot run
+                // uninterrupted; the surrounding try closes the iterator and returns the pool array.
+                if (++iterations % Engine.ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
+
                 if (!_iterator.TryIteratorStep(out var item))
                 {
                     done = true;
@@ -79,10 +87,18 @@ internal abstract class IteratorProtocol
         var args = target.Engine._jsValueArrayPool.RentArray(2);
 
         var skipClose = true;
+        var iterations = 0;
         try
         {
             do
             {
+                // Check constraints periodically so a huge (or native-backed) iterable cannot run
+                // uninterrupted (covers new Map/WeakMap and Object.fromEntries).
+                if (++iterations % Engine.ConstraintCheckInterval == 0)
+                {
+                    target.Engine.Constraints.Check();
+                }
+
                 if (!iterable.TryIteratorStep(out var nextItem))
                 {
                     return;

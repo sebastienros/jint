@@ -21,7 +21,7 @@ namespace Jint.Native.TypedArray;
 [JsObject(ExtraCapacity = 1)]
 internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
 {
-    private const int ConstraintCheckInterval = 10_000;
+    private const int ConstraintCheckInterval = Engine.ConstraintCheckInterval;
 
     [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly IntrinsicTypedArrayConstructor _constructor;
@@ -394,6 +394,11 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         args[2] = o;
         for (var k = 0; k < len; k++)
         {
+            if (k > 0 && k % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             args[0] = o[k];
             args[1] = k;
             if (!TypeConverter.ToBoolean(predicate.Call(thisArg, args)))
@@ -501,6 +506,11 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         args[2] = o;
         for (var k = 0; k < len; k++)
         {
+            if (k > 0 && k % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             var kValue = o[k];
             args[0] = kValue;
             args[1] = k;
@@ -572,6 +582,11 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         {
             for (var k = 0; k < len; k++)
             {
+                if (k > 0 && k % ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
+
                 var kNumber = JsNumber.Create(k);
                 var kValue = o[k];
                 args[0] = kValue;
@@ -586,6 +601,11 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         {
             for (var k = (int) (len - 1); k >= 0; k--)
             {
+                if (k % ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
+
                 var kNumber = JsNumber.Create(k);
                 var kValue = o[k];
                 args[0] = kValue;
@@ -616,6 +636,11 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         args[2] = o;
         for (var k = 0; k < len; k++)
         {
+            if (k > 0 && k % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             var kValue = o[k];
             args[0] = kValue;
             args[1] = k;
@@ -669,6 +694,11 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
 
         while (k < len)
         {
+            if (k > 0 && k % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             var value = o[(int) k];
             if (SameValueZeroComparer.Equals(value, searchElement))
             {
@@ -722,6 +752,11 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
 
         for (; k < len; k++)
         {
+            if (k % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             var kPresent = o.HasProperty(k);
             if (kPresent)
             {
@@ -770,6 +805,11 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         result.Append(s);
         for (var k = 1; k < len; k++)
         {
+            if (k % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             result.Append(sep);
             result.Append(StringFromJsValue(o[k]));
         }
@@ -828,6 +868,11 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
 
         for (; k >= 0; k--)
         {
+            if (k % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             var kPresent = o.HasProperty(k);
             if (kPresent)
             {
@@ -859,6 +904,11 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         args[2] = o;
         for (var k = 0; k < len; k++)
         {
+            if (k > 0 && k % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             args[0] = o[k];
             args[1] = k;
             var mappedValue = callable.Call(thisArg, args);
@@ -905,6 +955,11 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         args[3] = o;
         while (k < len)
         {
+            if (k > 0 && k % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             var kValue = o[k];
             args[0] = accumulator;
             args[1] = kValue;
@@ -953,6 +1008,11 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         jsValues[3] = o;
         for (; k >= 0; k--)
         {
+            if (k % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             jsValues[0] = accumulator;
             jsValues[1] = o[(int) k];
             jsValues[2] = k;
@@ -1089,6 +1149,7 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         var targetByteIndex = (int) (targetOffset * targetElementSize + targetByteOffset);
         var limit = targetByteIndex + targetElementSize * srcLength;
 
+        var processed = 0;
         if (srcType == targetType)
         {
             // NOTE: If srcType and targetType are the same, the transfer must be performed in a manner that preserves the bit-level encoding of the source data.
@@ -1098,6 +1159,11 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
                 targetBuffer.SetValueInBuffer(targetByteIndex, TypedArrayElementType.Uint8, value, isTypedArray: true, ArrayBufferOrder.Unordered);
                 srcByteIndex += 1;
                 targetByteIndex += 1;
+
+                if (++processed % ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
             }
         }
         else
@@ -1108,6 +1174,11 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
                 targetBuffer.SetValueInBuffer(targetByteIndex, targetType, value, isTypedArray: true, ArrayBufferOrder.Unordered);
                 srcByteIndex += srcElementSize;
                 targetByteIndex += targetElementSize;
+
+                if (++processed % ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
             }
         }
     }
@@ -1143,6 +1214,11 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         var k = 0;
         while (k < srcLength)
         {
+            if (k > 0 && k % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             var jsValue = src.Get((ulong) k);
             target.IntegerIndexedElementSet(targetOffset + k, jsValue);
             k++;
@@ -1242,6 +1318,11 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
                 var n = 0;
                 while (startIndex < endIndex)
                 {
+                    if (n > 0 && n % ConstraintCheckInterval == 0)
+                    {
+                        _engine.Constraints.Check();
+                    }
+
                     var kValue = o[startIndex];
                     a[n] = kValue;
                     startIndex++;
@@ -1257,12 +1338,18 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
                 var targetByteIndex = a._byteOffset;
                 var srcByteIndex = (int) startIndex * elementSize + srcByteOffset;
                 var limit = targetByteIndex + countBytes * elementSize;
+                var copied = 0;
                 while (targetByteIndex < limit)
                 {
                     var value = srcBuffer.GetValueFromBuffer(srcByteIndex, TypedArrayElementType.Uint8, true, ArrayBufferOrder.Unordered);
                     targetBuffer.SetValueInBuffer(targetByteIndex, TypedArrayElementType.Uint8, value, true, ArrayBufferOrder.Unordered);
                     srcByteIndex++;
                     targetByteIndex++;
+
+                    if (++copied % ConstraintCheckInterval == 0)
+                    {
+                        _engine.Constraints.Check();
+                    }
                 }
             }
         }
@@ -1286,6 +1373,11 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         args[2] = o;
         for (var k = 0; k < len; k++)
         {
+            if (k > 0 && k % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             args[0] = o[k];
             args[1] = k;
             if (TypeConverter.ToBoolean(callbackfn.Call(thisArg, args)))
@@ -1328,6 +1420,11 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
 
         for (var i = 0; i < (uint) array.Length; ++i)
         {
+            if (i > 0 && i % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             o[i] = array[i];
         }
 
@@ -1448,6 +1545,11 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         {
             if (k > 0)
             {
+                if (k % ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
+
                 r.Append(Separator);
             }
             if (array.TryGetValue(k, out var nextElement) && !nextElement.IsNullOrUndefined())
@@ -1525,6 +1627,11 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         var array = SortArray(buffer, compareFn, o);
         for (var i = 0; (uint) i < (uint) array.Length; ++i)
         {
+            if (i > 0 && i % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             a[i] = array[i];
         }
 

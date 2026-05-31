@@ -22,6 +22,8 @@ namespace Jint.Native.String;
 [JsObject(ExtraCapacity = 2)]
 internal sealed partial class StringPrototype : StringInstance
 {
+    private const int ConstraintCheckInterval = Engine.ConstraintCheckInterval;
+
     private readonly Realm _realm;
 
     [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
@@ -240,7 +242,7 @@ internal sealed partial class StringPrototype : StringInstance
 
     [JsFunction]
     [RequireObjectCoercible]
-    private static JsValue ToUpperCase(JsValue thisObject)
+    private JsValue ToUpperCase(JsValue thisObject)
     {
         var s = TypeConverter.ToString(thisObject);
         return new JsString(ToUpperCaseWithSpecialCasing(s, CultureInfo.InvariantCulture));
@@ -251,7 +253,7 @@ internal sealed partial class StringPrototype : StringInstance
     /// expansions (e.g. ß → SS, ﬀ → FF, Greek titlecase → upper + Ι).
     /// https://www.unicode.org/Public/UCD/latest/ucd/SpecialCasing.txt
     /// </summary>
-    private static string ToUpperCaseWithSpecialCasing(string s, CultureInfo culture)
+    private string ToUpperCaseWithSpecialCasing(string s, CultureInfo culture)
     {
         // Fast path: no codepoint in the string has a SpecialCasing expansion.
         if (!NeedsUpperSpecialCasing(s))
@@ -264,6 +266,11 @@ internal sealed partial class StringPrototype : StringInstance
         var sb = new ValueStringBuilder(stackBuffer);
         for (var i = 0; i < s.Length; i++)
         {
+            if (i > 0 && i % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             var c = s[i];
             var mapped = GetSpecialUpperCasing(c);
             if (mapped is not null)
@@ -438,7 +445,7 @@ internal sealed partial class StringPrototype : StringInstance
 
     [JsFunction]
     [RequireObjectCoercible]
-    private static JsValue ToLowerCase(JsValue thisObject)
+    private JsValue ToLowerCase(JsValue thisObject)
     {
         var s = TypeConverter.ToString(thisObject);
         return ToLowerCaseWithSpecialCasing(s, CultureInfo.InvariantCulture);
@@ -449,7 +456,7 @@ internal sealed partial class StringPrototype : StringInstance
     /// Handles Final_Sigma, Turkish/Azeri I-dot, Lithuanian soft-dotted, and İ decomposition.
     /// https://unicode.org/reports/tr21/tr21-5.html#SpecialCasing
     /// </summary>
-    private static string ToLowerCaseWithSpecialCasing(string s, CultureInfo culture)
+    private string ToLowerCaseWithSpecialCasing(string s, CultureInfo culture)
     {
         var langName = culture.TwoLetterISOLanguageName;
         var isTurkishOrAzeri = string.Equals(langName, "tr", StringComparison.Ordinal) ||
@@ -468,6 +475,11 @@ internal sealed partial class StringPrototype : StringInstance
 
         for (var i = 0; i < s.Length; i++)
         {
+            if (i > 0 && i % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             var c = s[i];
 
             // Greek Final_Sigma (all locales)
@@ -1099,10 +1111,10 @@ internal sealed partial class StringPrototype : StringInstance
             return arrayInstance;
         }
 
-        return SplitWithStringSeparator(_realm, separator, s, lim);
+        return SplitWithStringSeparator(_engine, _realm, separator, s, lim);
     }
 
-    internal static JsValue SplitWithStringSeparator(Realm realm, JsValue separator, string s, uint lim)
+    internal static JsValue SplitWithStringSeparator(Engine engine, Realm realm, JsValue separator, string s, uint lim)
     {
         var segments = StringExecutionContext.Current.SplitSegmentList;
         segments.Clear();
@@ -1117,6 +1129,11 @@ internal sealed partial class StringPrototype : StringInstance
 
             for (var i = 0; i < s.Length; i++)
             {
+                if (i > 0 && i % ConstraintCheckInterval == 0)
+                {
+                    engine.Constraints.Check();
+                }
+
                 segments.Add(TypeConverter.ToString(s[i]));
             }
         }
@@ -1131,6 +1148,11 @@ internal sealed partial class StringPrototype : StringInstance
         var a = realm.Intrinsics.Array.ArrayCreate(length);
         for (int i = 0; i < length; i++)
         {
+            if (i > 0 && i % ConstraintCheckInterval == 0)
+            {
+                engine.Constraints.Check();
+            }
+
             a.SetIndexValue((uint) i, segments[i], updateLength: false);
         }
 
@@ -1353,9 +1375,15 @@ internal sealed partial class StringPrototype : StringInstance
         var endOfLastMatch = 0;
         using var result = new ValueStringBuilder();
 
+        var matchCount = 0;
         var position = StringIndexOf(thisString, searchString, 0);
         while (position != -1)
         {
+            if (++matchCount % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             string replacement;
             var preserved = thisString.Substring(endOfLastMatch, position - endOfLastMatch);
             if (functionalReplace)
@@ -1657,9 +1685,9 @@ internal sealed partial class StringPrototype : StringInstance
     /// </summary>
     [JsFunction(Length = 1)]
     [RequireObjectCoercible]
-    private static JsValue PadStart(JsValue thisObject, JsCallArguments arguments)
+    private JsValue PadStart(JsValue thisObject, JsCallArguments arguments)
     {
-        return StringPad(thisObject, arguments, true);
+        return StringPad(thisObject, arguments, padStart: true);
     }
 
     /// <summary>
@@ -1667,39 +1695,79 @@ internal sealed partial class StringPrototype : StringInstance
     /// </summary>
     [JsFunction(Length = 1)]
     [RequireObjectCoercible]
-    private static JsValue PadEnd(JsValue thisObject, JsCallArguments arguments)
+    private JsValue PadEnd(JsValue thisObject, JsCallArguments arguments)
     {
-        return StringPad(thisObject, arguments, false);
+        return StringPad(thisObject, arguments, padStart: false);
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-stringpad
     /// </summary>
-    private static JsValue StringPad(JsValue thisObject, JsCallArguments arguments, bool padStart)
+    private JsValue StringPad(JsValue thisObject, JsCallArguments arguments, bool padStart)
     {
         var s = TypeConverter.ToJsString(thisObject);
 
-        var targetLength = TypeConverter.ToInt32(arguments.At(0));
-        var padStringValue = arguments.At(1);
-
-        var padString = padStringValue.IsUndefined()
-            ? " "
-            : TypeConverter.ToString(padStringValue);
-
-        if (s.Length > targetLength || padString.Length == 0)
+        // ToLength (not ToInt32) so large values don't wrap and bypass the size cap below.
+        var intMaxLength = TypeConverter.ToLength(arguments.At(0));
+        if (intMaxLength <= (ulong) s.Length)
         {
             return s;
         }
 
-        targetLength -= s.Length;
-        if (targetLength > padString.Length)
+        // Per spec the fill string is resolved (and its ToString side effect runs) only after the
+        // length check above; the previous implementation evaluated it too early.
+        var padStringValue = arguments.At(1);
+        var padString = padStringValue.IsUndefined()
+            ? " "
+            : TypeConverter.ToString(padStringValue);
+
+        if (padString.Length == 0)
         {
-            padString = string.Join("", System.Linq.Enumerable.Repeat(padString, (targetLength / padString.Length) + 1));
+            return s;
         }
 
-        return padStart
-            ? $"{padString.Substring(0, targetLength)}{s}"
-            : $"{s}{padString.Substring(0, targetLength)}";
+        // Convert a would-be OutOfMemoryException into a catchable RangeError, mirroring repeat.
+        if (intMaxLength > ClrLimits.MaxArrayLength)
+        {
+            Throw.RangeError(_realm, "Invalid string length");
+        }
+
+        var targetLength = (int) intMaxLength;
+        var sourceString = s.ToString();
+        var fillLength = targetLength - sourceString.Length;
+
+        // Build incrementally: do not pre-rent the full (possibly huge) target up front, and check
+        // the engine constraints periodically so timeout/memory/statements limits can interrupt a
+        // large fill instead of allocating until the CLR throws OutOfMemoryException.
+        // 'using' so the pooled buffer is returned even when a periodic Check() throws mid-fill.
+        using var sb = new ValueStringBuilder(System.Math.Min(targetLength, ConstraintCheckInterval));
+        if (!padStart)
+        {
+            sb.Append(sourceString);
+        }
+
+        var remaining = fillLength;
+        var sinceCheck = 0;
+        var padSpan = padString.AsSpan();
+        while (remaining > 0)
+        {
+            var take = System.Math.Min(padSpan.Length, remaining);
+            sb.Append(take == padSpan.Length ? padSpan : padSpan.Slice(0, take));
+            remaining -= take;
+            sinceCheck += take;
+            if (sinceCheck >= ConstraintCheckInterval && remaining > 0)
+            {
+                sinceCheck = 0;
+                _engine.Constraints.Check();
+            }
+        }
+
+        if (padStart)
+        {
+            sb.Append(sourceString);
+        }
+
+        return sb.ToString();
     }
 
     /// <summary>
@@ -1872,9 +1940,15 @@ internal sealed partial class StringPrototype : StringInstance
             return new string(s[0], (int) n);
         }
 
-        var sb = new ValueStringBuilder((int) resultLength);
+        // 'using' so the pooled buffer is returned even when a periodic Check() throws mid-build.
+        using var sb = new ValueStringBuilder((int) resultLength);
         for (var i = 0; i < n; ++i)
         {
+            if (i > 0 && i % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             sb.Append(s);
         }
 
@@ -1892,16 +1966,22 @@ internal sealed partial class StringPrototype : StringInstance
 
     [JsFunction]
     [RequireObjectCoercible]
-    private static JsValue ToWellFormed(JsValue thisObject)
+    private JsValue ToWellFormed(JsValue thisObject)
     {
         var s = TypeConverter.ToString(thisObject);
 
         var strLen = s.Length;
         var k = 0;
 
-        var result = new ValueStringBuilder();
+        // 'using' so the pooled buffer is returned even when a periodic Check() throws mid-build.
+        using var result = new ValueStringBuilder();
         while (k < strLen)
         {
+            if (k > 0 && k % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
             var cp = CodePointAt(s, k);
             if (cp.IsUnpairedSurrogate)
             {

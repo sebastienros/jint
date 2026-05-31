@@ -44,8 +44,16 @@ public sealed partial class ObjectConstructor : Constructor
 
             var from = TypeConverter.ToObject(_realm, nextSource);
             var keys = from.GetOwnPropertyKeys();
+            var processed = 0;
             foreach (var nextKey in keys)
             {
+                // Pure native key copy over a JS-controlled key count; check constraints periodically.
+                if (processed > 0 && processed % Engine.ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
+                processed++;
+
                 var desc = from.GetOwnProperty(nextKey);
                 if (desc != PropertyDescriptor.Undefined && desc.Enumerable)
                 {
