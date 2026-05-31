@@ -72,7 +72,11 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
     /// </summary>
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
-        return Construct(arguments, this);
+        var dateTimeFormat = Construct(arguments, this);
+
+        // Normative-optional ChainDateTimeFormat: when called as a plain function on a DateTimeFormat
+        // receiver, stash the formatter under %Intl%.[[FallbackSymbol]] and return the receiver.
+        return IntlUtilities.ChainLegacyConstructor(_realm, this, thisObject, dateTimeFormat);
     }
 
     /// <summary>

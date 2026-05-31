@@ -15,6 +15,7 @@ internal sealed class JsPluralRules : ObjectInstance
         string locale,
         string pluralRuleType,
         string notation,
+        string? compactDisplay,
         int minimumIntegerDigits,
         int? minimumFractionDigits,
         int? maximumFractionDigits,
@@ -30,6 +31,7 @@ internal sealed class JsPluralRules : ObjectInstance
         Locale = locale;
         PluralRuleType = pluralRuleType;
         Notation = notation;
+        CompactDisplay = compactDisplay;
         MinimumIntegerDigits = minimumIntegerDigits;
         MinimumFractionDigits = minimumFractionDigits;
         MaximumFractionDigits = maximumFractionDigits;
@@ -56,6 +58,12 @@ internal sealed class JsPluralRules : ObjectInstance
     /// The notation style: "standard", "compact", "scientific", or "engineering".
     /// </summary>
     internal string Notation { get; }
+
+    /// <summary>
+    /// The compact display form ("short" or "long"); only set when <see cref="Notation"/> is "compact",
+    /// otherwise null per the [[CompactDisplay]] internal slot semantics.
+    /// </summary>
+    internal string? CompactDisplay { get; }
 
     /// <summary>
     /// Minimum integer digits.

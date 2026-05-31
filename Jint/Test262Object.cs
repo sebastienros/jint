@@ -4,6 +4,7 @@ using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Environments;
 using Jint.Runtime.Interop;
 
 namespace Jint;
@@ -44,8 +45,14 @@ internal static class Test262Object
             (_, _) =>
             {
                 var realm = engine._host.CreateRealm();
-                realm.GlobalObject.Set("global", realm.GlobalObject);
-                return realm.GlobalObject;
+                var newGlobal = realm.GlobalObject;
+                newGlobal.Set("global", newGlobal);
+                // Per test262 INTERPRETING.md, the object returned by createRealm exposes an evalScript
+                // that evaluates in the new realm. Provide it so cross-realm tests (e.g. FallbackSymbol
+                // per-realm) can run code against the freshly created realm's intrinsics.
+                newGlobal.Set("evalScript", new ClrFunction(engine, "evalScript",
+                    (_, args) => EvaluateInRealm(engine, realm, args.At(0).AsString())));
+                return newGlobal;
             }), true, true, true));
 
         o.FastSetProperty("detachArrayBuffer", new PropertyDescriptor(new ClrFunction(engine, "detachArrayBuffer",
@@ -68,6 +75,37 @@ internal static class Test262Object
 
         engine.SetValue("$262", o);
         return o;
+    }
+
+    /// <summary>
+    /// Evaluates a script in the global scope of <paramref name="realm"/> (rather than the engine's
+    /// currently active realm), mirroring InitializeHostDefinedRealm: a global execution context for the
+    /// target realm is pushed for the duration of the evaluation.
+    /// </summary>
+    private static JsValue EvaluateInRealm(Engine engine, Realm realm, string source)
+    {
+        var script = Engine.PrepareScript(source, options: new ScriptPreparationOptions
+        {
+            ParsingOptions = ScriptParsingOptions.Default with { Tolerant = false },
+        });
+
+        var context = new ExecutionContext(
+            scriptOrModule: null,
+            lexicalEnvironment: realm.GlobalEnv,
+            variableEnvironment: realm.GlobalEnv,
+            privateEnvironment: null,
+            realm: realm,
+            function: null);
+
+        engine.EnterExecutionContext(context);
+        try
+        {
+            return engine.Evaluate(script);
+        }
+        finally
+        {
+            engine.LeaveExecutionContext();
+        }
     }
 
     /// <summary>

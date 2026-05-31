@@ -42,6 +42,14 @@ internal sealed partial class NumberFormatPrototype : Prototype
             return numberFormat;
         }
 
+        // UnwrapNumberFormat: a legacy-constructed wrapper keeps the real formatter under the
+        // per-realm %Intl%.[[FallbackSymbol]] property.
+        var unwrapped = IntlUtilities.UnwrapLegacyConstructor(_realm, _realm.Intrinsics.NumberFormat, thisObject);
+        if (unwrapped is JsNumberFormat unwrappedNumberFormat)
+        {
+            return unwrappedNumberFormat;
+        }
+
         Throw.TypeError(_realm, "Value is not an Intl.NumberFormat");
         return null!; // Never reached
     }

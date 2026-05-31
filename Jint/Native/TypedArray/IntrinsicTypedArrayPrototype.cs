@@ -247,7 +247,7 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
     [JsFunction(Length = 2)]
     private JsValue CopyWithin(JsValue thisObject, JsValue target, JsValue start, JsValue end)
     {
-        var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
+        var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst, isWrite: true);
         var o = taRecord.Object;
         var len = taRecord.TypedArrayLength;
 
@@ -390,7 +390,7 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
     [JsFunction(Length = 1)]
     private JsValue Fill(JsValue thisObject, JsValue jsValue, JsValue start, JsValue end)
     {
-        var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
+        var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst, isWrite: true);
         var o = taRecord.Object;
         var len = taRecord.TypedArrayLength;
 
@@ -510,7 +510,7 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
 
         _engine._jsValueArrayPool.ReturnArray(args);
 
-        var a = _realm.Intrinsics.TypedArray.TypedArraySpeciesCreate(o, [captured]);
+        var a = _realm.Intrinsics.TypedArray.TypedArraySpeciesCreate(o, [captured], isWrite: true);
         for (var n = 0; n < captured; ++n)
         {
             a[n] = kept[n];
@@ -900,7 +900,7 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
 
         var callable = GetCallable(callbackFn);
 
-        var a = _realm.Intrinsics.TypedArray.TypedArraySpeciesCreate(o, [len]);
+        var a = _realm.Intrinsics.TypedArray.TypedArraySpeciesCreate(o, [len], isWrite: true);
         var args = _engine._jsValueArrayPool.RentArray(3);
         args[2] = o;
         for (var k = 0; k < len; k++)
@@ -1030,7 +1030,7 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
     [JsFunction]
     private ObjectInstance Reverse(JsValue thisObject)
     {
-        var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
+        var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst, isWrite: true);
         var o = taRecord.Object;
         var len = taRecord.TypedArrayLength;
 
@@ -1080,6 +1080,10 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         {
             Throw.TypeError(_realm, $"Method TypedArray.prototype.set called on incompatible receiver {thisObject}");
         }
+
+        // https://tc39.es/proposal-immutable-arraybuffer/ — set must reject an immutable target before
+        // reading the offset or source arguments.
+        target._viewedArrayBuffer.AssertNotImmutable();
 
         var targetOffset = TypeConverter.ToIntegerOrInfinity(offset);
         if (targetOffset < 0)
@@ -1308,7 +1312,7 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         }
 
         var countBytes = System.Math.Max(endIndex - startIndex, 0);
-        var a = _realm.Intrinsics.TypedArray.TypedArraySpeciesCreate(o, [countBytes]);
+        var a = _realm.Intrinsics.TypedArray.TypedArraySpeciesCreate(o, [countBytes], isWrite: true);
 
         if (countBytes > 0)
         {
@@ -1422,7 +1426,7 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
          * an object that has a fixed length and whose integer-indexed properties are not sparse.
          */
 
-        var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
+        var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst, isWrite: true);
         var o = taRecord.Object;
         var len = taRecord.TypedArrayLength;
 

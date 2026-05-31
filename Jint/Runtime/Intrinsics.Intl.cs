@@ -1,3 +1,4 @@
+using Jint.Native;
 using Jint.Native.Intl;
 
 namespace Jint.Runtime;
@@ -5,6 +6,16 @@ namespace Jint.Runtime;
 public sealed partial class Intrinsics
 {
     private IntlInstance? _intl;
+    private JsSymbol? _intlLegacyConstructedSymbol;
+
+    /// <summary>
+    /// The per-realm %Intl%.[[FallbackSymbol]] — a Symbol with the description
+    /// "IntlLegacyConstructedSymbol" used by the normative-optional legacy constructor mode of
+    /// Intl.Collator / Intl.DateTimeFormat / Intl.NumberFormat (ChainXxx / UnwrapXxx).
+    /// </summary>
+    internal JsSymbol IntlLegacyConstructedSymbol =>
+        _intlLegacyConstructedSymbol ??= new JsSymbol("IntlLegacyConstructedSymbol");
+
     private CollatorConstructor? _collator;
     private DateTimeFormatConstructor? _dateTimeFormat;
     private DisplayNamesConstructor? _displayNames;

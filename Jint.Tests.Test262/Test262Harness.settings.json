@@ -1,5 +1,5 @@
 {
-  "SuiteGitSha": "673e9bacbe28590f501e2dcd817aadcc31899191",
+  "SuiteGitSha": "4249661388e5d3f92a85186213da140a6481490f",
   //"SuiteDirectory": "//mnt/c/work/test262",
   "TargetPath": "./Generated",
   "Namespace": "Jint.Tests.Test262",
@@ -12,6 +12,15 @@
   "ExcludedDirectories": [
   ],
   "ExcludedFiles": [
+
+    // %TypedArray%.prototype.slice creates its destination via TypedArraySpeciesCreate(..., write), which
+    // (correctly) rejects an immutable backing buffer — see the passing slice/speciesctor-destination-
+    // backed-by-immutable-buffer.js. This test was broadened to run against every buffer-arg factory
+    // (including makeImmutableArrayBuffer) yet still expects the element copy to succeed, so when the
+    // source — and therefore the same-buffer species destination — is immutable, a spec-conformant slice
+    // throws instead of producing the expected array. The test does not declare the immutable-arraybuffer
+    // feature; it is incompatible with an engine that implements it.
+    "built-ins/TypedArray/prototype/slice/speciesctor-return-same-buffer-with-offset.js",
 
     // === INTL402 EXCLUSIONS ===
     // The following tests require full CLDR locale data support which is not available in the default provider.
@@ -97,7 +106,17 @@
     "intl402/Temporal/ZonedDateTime/prototype/daysInYear/basic-islamic-umalqura.js",
     "intl402/Temporal/ZonedDateTime/prototype/inLeapYear/basic-islamic-umalqura.js",
     "intl402/Temporal/ZonedDateTime/prototype/with/basic-islamic-umalqura.js",
-    "intl402/Temporal/ZonedDateTime/prototype/withCalendar/extreme-dates.js"
+    "intl402/Temporal/ZonedDateTime/prototype/withCalendar/extreme-dates.js",
+
+    // === SOURCE-PHASE IMPORT RE-EXPORT ===
+    // These exercise re-exporting a source-phase import (`import source x from '<module source>'; export { x }`).
+    // The `<module source>` specifier must resolve to a module that exposes a [[ModuleSource]] (i.e. a
+    // WebAssembly module). Jint has no WebAssembly module support, so the import cannot be loaded and the
+    // re-exported binding can never become an %AbstractModuleSource% instance. The basic source-phase
+    // rejection behaviour (import-source.js) is still covered and passes.
+    "language/module-code/source-phase-import/reexport-source-binding-named-import.js",
+    "language/module-code/source-phase-import/reexport-source-binding-namespace-get.js",
+    "language/module-code/ambiguous-export-bindings/namespace-unambiguous-if-import-source-and-export.js"
 
   ],
   // Timing-sensitive suites: serialise the whole generated test method instead of

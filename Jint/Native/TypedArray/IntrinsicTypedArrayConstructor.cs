@@ -135,11 +135,11 @@ internal sealed partial class IntrinsicTypedArrayConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#typedarray-species-create
     /// </summary>
-    internal JsTypedArray TypedArraySpeciesCreate(JsTypedArray exemplar, JsCallArguments argumentList)
+    internal JsTypedArray TypedArraySpeciesCreate(JsTypedArray exemplar, JsCallArguments argumentList, bool isWrite = false)
     {
         var defaultConstructor = exemplar._arrayElementType.GetConstructor(_realm.Intrinsics)!;
         var constructor = SpeciesConstructor(exemplar, defaultConstructor);
-        var result = TypedArrayCreate(_realm, constructor, argumentList);
+        var result = TypedArrayCreate(_realm, constructor, argumentList, isWrite);
         if (result._contentType != exemplar._contentType)
         {
             Throw.TypeError(_realm, "Content type mismatch");
@@ -151,10 +151,10 @@ internal sealed partial class IntrinsicTypedArrayConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#typedarray-create
     /// </summary>
-    internal static JsTypedArray TypedArrayCreate(Realm realm, IConstructor constructor, JsCallArguments arguments)
+    internal static JsTypedArray TypedArrayCreate(Realm realm, IConstructor constructor, JsCallArguments arguments, bool isWrite = false)
     {
         var newTypedArray = Construct(constructor, arguments);
-        var taRecord = newTypedArray.ValidateTypedArray(realm);
+        var taRecord = newTypedArray.ValidateTypedArray(realm, isWrite: isWrite);
 
         if (arguments.Length == 1 && arguments[0] is JsNumber number)
         {

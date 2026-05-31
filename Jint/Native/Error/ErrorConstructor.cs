@@ -55,12 +55,10 @@ public sealed partial class ErrorConstructor : Constructor
             o.CreateNonEnumerableDataPropertyOrThrow(CommonProperties.Message, msg);
         }
 
-        var stackString = BuildStackString();
-        if (stackString is not null)
-        {
-            var stackDesc = new PropertyDescriptor(stackString, PropertyFlag.NonEnumerable);
-            o.DefinePropertyOrThrow(CommonProperties.Stack, stackDesc);
-        }
+        // Per the error-stack-accessor proposal, "stack" is no longer an own data property of the
+        // instance; it is exposed via the get/set accessor on %Error.prototype%. The captured trace
+        // is stored in the [[ErrorData]]-bearing instance and returned by that getter.
+        o._stack = BuildStackTraceString(_engine, this);
 
         var options = arguments.At(1);
         if (!options.IsUndefined())
@@ -69,22 +67,26 @@ public sealed partial class ErrorConstructor : Constructor
         }
 
         return o;
+    }
 
-        JsValue? BuildStackString()
+    /// <summary>
+    /// Builds the implementation-defined stack trace string for an error being constructed by
+    /// <paramref name="constructor"/>. Returns <c>null</c> when there is no active script location.
+    /// </summary>
+    internal static JsValue? BuildStackTraceString(Engine engine, JsValue constructor)
+    {
+        var lastSyntaxNode = engine.GetLastSyntaxElement();
+        if (lastSyntaxNode == null)
         {
-            var lastSyntaxNode = _engine.GetLastSyntaxElement();
-            if (lastSyntaxNode == null)
-            {
-                return null;
-            }
-
-            var callStack = _engine.CallStack;
-            var currentFunction = callStack.TryPeek(out var element) ? element.Function : null;
-
-            // If the current function is the ErrorConstructor itself (i.e. "throw new Error(...)" was called
-            // from script), exclude it from the stack trace, because the trace should begin at the throw point.
-            return callStack.BuildCallStackString(_engine, lastSyntaxNode.Location, currentFunction == this ? 1 : 0);
+            return null;
         }
+
+        var callStack = engine.CallStack;
+        var currentFunction = callStack.TryPeek(out var element) ? element.Function : null;
+
+        // If the current function is the error constructor itself (i.e. "throw new Error(...)" was called
+        // from script), exclude it from the stack trace, because the trace should begin at the throw point.
+        return callStack.BuildCallStackString(engine, lastSyntaxNode.Location, currentFunction == constructor ? 1 : 0);
     }
 
     /// <summary>
