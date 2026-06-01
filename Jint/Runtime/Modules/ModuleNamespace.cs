@@ -212,6 +212,18 @@ internal sealed class ModuleNamespace : ObjectInstance
             return Module.GetModuleNamespace(targetModule);
         }
 
+        if (string.Equals(binding.BindingName, "*source*", StringComparison.Ordinal))
+        {
+            // Namespace [[Get]] of a re-exported source-phase binding returns the [[ModuleSource]].
+            var source = targetModule.ModuleSource;
+            if (source is null)
+            {
+                Throw.ReferenceError(_engine.Realm, "Module source binding has no module source");
+            }
+
+            return source;
+        }
+
         var targetEnv = targetModule._environment;
         if (targetEnv is null)
         {

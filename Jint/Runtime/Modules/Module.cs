@@ -22,6 +22,14 @@ public abstract class Module : JsValue, IScriptOrModule
     protected internal readonly Realm _realm;
     internal ModuleEnvironment _environment;
 
+    /// <summary>
+    /// The module's [[ModuleSource]] internal slot — an %AbstractModuleSource% instance for module types
+    /// that have a source representation (e.g. WebAssembly), or null otherwise. Used by source-phase
+    /// imports (<c>import source x from "..."</c>). Populated by the host via
+    /// <see cref="ModuleLoader.GetModuleSource"/>.
+    /// </summary>
+    internal ObjectInstance ModuleSource { get; set; }
+
     public string Location { get; }
 
     internal Module(Engine engine, Realm realm, string location) : base(InternalTypes.Module)
