@@ -5,12 +5,19 @@ namespace Jint.Native.TypedArray;
 
 internal static class TypeArrayHelper
 {
-    internal static IntrinsicTypedArrayPrototype.TypedArrayWithBufferWitnessRecord ValidateTypedArray(this JsValue o, Realm realm, ArrayBufferOrder order = ArrayBufferOrder.Unordered)
+    internal static IntrinsicTypedArrayPrototype.TypedArrayWithBufferWitnessRecord ValidateTypedArray(this JsValue o, Realm realm, ArrayBufferOrder order = ArrayBufferOrder.Unordered, bool isWrite = false)
     {
         if (o is not JsTypedArray typedArray)
         {
             Throw.TypeError(realm, "this is not a typed array.");
             return default;
+        }
+
+        // https://tc39.es/proposal-immutable-arraybuffer/ — if the access mode is write and the
+        // backing buffer is immutable, throw a TypeError before any further observable side effects.
+        if (isWrite)
+        {
+            typedArray._viewedArrayBuffer.AssertNotImmutable();
         }
 
         var taRecord = IntrinsicTypedArrayPrototype.MakeTypedArrayWithBufferWitnessRecord(typedArray, order);

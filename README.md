@@ -147,6 +147,7 @@ and many more.
 - ✔ Await Dictionary (`Promise.allKeyed`, `Promise.allSettledKeyed`)
 - ✔ Decorators (`@decorator` syntax for classes, methods, fields, and accessors)
 - ✔ `Error.isError`
+- ✔ `Error.prototype.stack` accessor (error-stack-accessor)
 - ✔ Explicit Resource Management (`using` and `await using`)
 - ✔ Immutable Arraybuffers
 - ✔ Import Bytes (`import x from './file' with { type: 'bytes' }`)

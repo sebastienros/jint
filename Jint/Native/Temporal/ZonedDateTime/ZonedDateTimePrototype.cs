@@ -726,6 +726,15 @@ internal sealed partial class ZonedDateTimePrototype : Prototype
             var startNs = TemporalHelpers.GetStartOfDay(_realm, provider, timeZone, dateStart);
             var endNs = TemporalHelpers.GetStartOfDay(_realm, provider, timeZone, dateEnd);
 
+            // Repeated-midnight handling (https://github.com/tc39/proposal-temporal/issues/3312): when a
+            // fall-back transition interleaves pieces of two calendar days, thisNs can fall in the second
+            // piece of dateStart and land at/after endNs (the first start-of-day of dateEnd). Clamp it so
+            // it stays inside the [startNs, endNs) day window and still rounds to a start-of-day.
+            if (thisNs >= endNs)
+            {
+                thisNs = endNs - BigInteger.One;
+            }
+
             // Calculate day length (may not be exactly 24 hours due to DST)
             var dayLengthNs = (long) (endNs - startNs);
 

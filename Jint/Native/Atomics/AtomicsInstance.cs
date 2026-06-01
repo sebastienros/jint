@@ -250,7 +250,7 @@ internal sealed partial class AtomicsInstance : ObjectInstance
     [JsFunction]
     private JsValue CompareExchange(JsValue thisObject, JsValue typedArray, JsValue index, JsValue expectedValue, JsValue replacementValue)
     {
-        var taRecord = ValidateIntegerTypedArray(typedArray);
+        var taRecord = ValidateIntegerTypedArray(typedArray, isWrite: true);
         var byteIndexInBuffer = ValidateAtomicAccess(taRecord, index);
         var ta = taRecord.Object;
 
@@ -413,7 +413,7 @@ internal sealed partial class AtomicsInstance : ObjectInstance
     [JsFunction]
     private JsValue Store(JsValue thisObject, JsValue typedArray, JsValue index, JsValue value)
     {
-        var taRecord = ValidateIntegerTypedArray(typedArray);
+        var taRecord = ValidateIntegerTypedArray(typedArray, isWrite: true);
         var byteIndexInBuffer = ValidateAtomicAccess(taRecord, index);
         var ta = taRecord.Object;
 
@@ -705,9 +705,9 @@ internal sealed partial class AtomicsInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-validateintegertypedarray
     /// </summary>
-    private IntrinsicTypedArrayPrototype.TypedArrayWithBufferWitnessRecord ValidateIntegerTypedArray(JsValue typedArray, bool waitable = false, bool requireShared = false)
+    private IntrinsicTypedArrayPrototype.TypedArrayWithBufferWitnessRecord ValidateIntegerTypedArray(JsValue typedArray, bool waitable = false, bool requireShared = false, bool isWrite = false)
     {
-        var taRecord = typedArray.ValidateTypedArray(_realm, ArrayBufferOrder.Unordered);
+        var taRecord = typedArray.ValidateTypedArray(_realm, ArrayBufferOrder.Unordered, isWrite: isWrite);
         var ta = taRecord.Object;
         var type = ta._arrayElementType;
 
@@ -789,7 +789,7 @@ internal sealed partial class AtomicsInstance : ObjectInstance
     /// </summary>
     private JsValue AtomicReadModifyWrite(JsValue typedArrayValue, JsValue index, JsValue value, AtomicOperation op)
     {
-        var taRecord = ValidateIntegerTypedArray(typedArrayValue);
+        var taRecord = ValidateIntegerTypedArray(typedArrayValue, isWrite: true);
         var byteIndexInBuffer = ValidateAtomicAccess(taRecord, index);
         var ta = taRecord.Object;
 

@@ -38,6 +38,9 @@ internal sealed partial class Uint8ArrayPrototype : Prototype
             Throw.TypeError(_realm, "setFromBase64 must be called with a string");
         }
 
+        // Reject an immutable backing buffer before reading the options object (https://tc39.es/proposal-immutable-arraybuffer/).
+        into._viewedArrayBuffer.AssertNotImmutable();
+
         var opts = Uint8ArrayConstructor.GetOptionsObject(_engine, options);
         var alphabet = Uint8ArrayConstructor.GetAndValidateAlphabetOption(_engine, opts);
         var lastChunkHandling = Uint8ArrayConstructor.GetAndValidateLastChunkHandling(_engine, opts);
@@ -47,7 +50,6 @@ internal sealed partial class Uint8ArrayPrototype : Prototype
         {
             Throw.TypeError(_realm, "TypedArray is out of bounds");
         }
-        into._viewedArrayBuffer.AssertNotImmutable();
 
         var byteLength = taRecord.TypedArrayLength;
         var result = Uint8ArrayConstructor.FromBase64(_engine, s.ToString(), alphabet.ToString(), lastChunkHandling.ToString(), byteLength);
@@ -88,12 +90,14 @@ internal sealed partial class Uint8ArrayPrototype : Prototype
             Throw.TypeError(_realm, "setFromHex must be called with a string");
         }
 
+        // Reject an immutable backing buffer before any further processing (https://tc39.es/proposal-immutable-arraybuffer/).
+        into._viewedArrayBuffer.AssertNotImmutable();
+
         var taRecord = IntrinsicTypedArrayPrototype.MakeTypedArrayWithBufferWitnessRecord(into, ArrayBufferOrder.SeqCst);
         if (taRecord.IsTypedArrayOutOfBounds)
         {
             Throw.TypeError(_realm, "TypedArray is out of bounds");
         }
-        into._viewedArrayBuffer.AssertNotImmutable();
 
         var byteLength = taRecord.TypedArrayLength;
         var result = Uint8ArrayConstructor.FromHex(_engine, s.ToString(), byteLength);

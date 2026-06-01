@@ -51,7 +51,11 @@ internal sealed partial class NumberFormatConstructor : Constructor
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
         // Per spec: If NewTarget is undefined, let newTarget be the active function object
-        return Construct(arguments, this);
+        var numberFormat = Construct(arguments, this);
+
+        // Normative-optional ChainNumberFormat: when called as a plain function on a NumberFormat
+        // receiver, stash the formatter under %Intl%.[[FallbackSymbol]] and return the receiver.
+        return IntlUtilities.ChainLegacyConstructor(_realm, this, thisObject, numberFormat);
     }
 
     /// <summary>

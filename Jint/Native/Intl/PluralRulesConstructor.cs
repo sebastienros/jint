@@ -18,6 +18,7 @@ internal sealed partial class PluralRulesConstructor : Constructor
     private static readonly StringSearchValues LocaleMatcherValues = new(["lookup", "best fit"], StringComparison.Ordinal);
     private static readonly StringSearchValues TypeValues = new(["cardinal", "ordinal"], StringComparison.Ordinal);
     private static readonly StringSearchValues NotationValues = new(["standard", "scientific", "engineering", "compact"], StringComparison.Ordinal);
+    private static readonly StringSearchValues CompactDisplayValues = new(["short", "long"], StringComparison.Ordinal);
     private static readonly StringSearchValues RoundingModeValues = new(["ceil", "floor", "expand", "trunc", "halfCeil", "halfFloor", "halfExpand", "halfTrunc", "halfEven"], StringComparison.Ordinal);
     private static readonly StringSearchValues RoundingPriorityValues = new(["auto", "morePrecision", "lessPrecision"], StringComparison.Ordinal);
     private static readonly StringSearchValues TrailingZeroDisplayValues = new(["auto", "stripIfInteger"], StringComparison.Ordinal);
@@ -72,6 +73,10 @@ internal sealed partial class PluralRulesConstructor : Constructor
         // Read notation option
         var notation = GetStringOption(optionsObj, "notation", NotationValues, "standard");
 
+        // Read compactDisplay option (always read for option-validation/observable-getter order, but
+        // only retained as [[CompactDisplay]] when notation is "compact").
+        var compactDisplay = GetStringOption(optionsObj, "compactDisplay", CompactDisplayValues, "short");
+
         // Digit options - must be read in spec order (SetNumberFormatDigitOptions)
         var minimumIntegerDigits = GetNumberOption(optionsObj, "minimumIntegerDigits", 1, 21, 1);
 
@@ -125,6 +130,7 @@ internal sealed partial class PluralRulesConstructor : Constructor
             resolvedLocale,
             type,
             notation,
+            string.Equals(notation, "compact", StringComparison.Ordinal) ? compactDisplay : null,
             minimumIntegerDigits,
             minimumFractionDigits,
             maximumFractionDigits,

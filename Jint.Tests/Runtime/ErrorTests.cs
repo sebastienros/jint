@@ -186,10 +186,22 @@ var b = function(v) {
     }
 
     [Fact]
-    public void ErrorObjectHasOwnPropertyStack()
+    public void ErrorObjectHasStackAccessorOnPrototype()
     {
-        var res = new Engine().Evaluate(@"Error().hasOwnProperty('stack')").AsBoolean();
-        Assert.True(res);
+        var engine = new Engine();
+
+        // Per the error-stack-accessor proposal, "stack" is an accessor property on Error.prototype,
+        // not an own data property of the instance.
+        Assert.False(engine.Evaluate(@"Error().hasOwnProperty('stack')").AsBoolean());
+
+        Assert.True(engine.Evaluate(@"Error.prototype.hasOwnProperty('stack')").AsBoolean());
+
+        var descriptorType = engine.Evaluate(
+            @"typeof Object.getOwnPropertyDescriptor(Error.prototype, 'stack').get").AsString();
+        Assert.Equal("function", descriptorType);
+
+        // The inherited accessor still produces a string for an error instance.
+        Assert.Equal("string", engine.Evaluate(@"typeof Error().stack").AsString());
     }
 
     private class Folder

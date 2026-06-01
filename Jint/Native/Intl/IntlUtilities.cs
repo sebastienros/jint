@@ -1,9 +1,11 @@
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text.RegularExpressions;
+using Jint.Native.Function;
 using Jint.Native.Intl.Data;
 using Jint.Native.Object;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Intl;
 
@@ -13,6 +15,41 @@ namespace Jint.Native.Intl;
 /// </summary>
 internal static class IntlUtilities
 {
+    /// <summary>
+    /// Implements the normative-optional legacy-constructor chaining behaviour shared by
+    /// Intl.Collator, Intl.DateTimeFormat and Intl.NumberFormat (ChainCollator / ChainDateTimeFormat /
+    /// ChainNumberFormat). When the constructor is invoked as a plain function (NewTarget is undefined)
+    /// and the receiver is an instance of the constructor, the freshly created formatter is stashed on
+    /// the receiver under the per-realm %Intl%.[[FallbackSymbol]] and the receiver is returned.
+    /// https://tc39.es/ecma402/#sec-chaindatetimeformat
+    /// </summary>
+    internal static JsValue ChainLegacyConstructor(Realm realm, Constructor constructor, JsValue thisObject, ObjectInstance instance)
+    {
+        if (thisObject is ObjectInstance receiver && constructor.OrdinaryHasInstance(thisObject))
+        {
+            var fallbackSymbol = realm.Intrinsics.IntlLegacyConstructedSymbol;
+            receiver.DefinePropertyOrThrow(fallbackSymbol, new PropertyDescriptor(instance, PropertyFlag.AllForbidden));
+            return receiver;
+        }
+
+        return instance;
+    }
+
+    /// <summary>
+    /// Implements the unwrap step shared by UnwrapCollator / UnwrapDateTimeFormat / UnwrapNumberFormat:
+    /// when <paramref name="thisObject"/> is an instance of the constructor that lacks the internal slot
+    /// (i.e. it is a legacy-constructed wrapper rather than a real formatter), the actual formatter is
+    /// read from the per-realm %Intl%.[[FallbackSymbol]] property. Returns the value to validate.
+    /// </summary>
+    internal static JsValue UnwrapLegacyConstructor(Realm realm, Constructor constructor, JsValue thisObject)
+    {
+        if (thisObject is ObjectInstance && constructor.OrdinaryHasInstance(thisObject))
+        {
+            return thisObject.Get(realm.Intrinsics.IntlLegacyConstructedSymbol);
+        }
+
+        return thisObject;
+    }
     // Cache for CultureInfo instances to avoid repeated allocations.
     // CultureInfo with useUserOverride:false is immutable, safe to cache and share.
     private static readonly ConcurrentDictionary<string, CultureInfo?> _cultureCache = new(StringComparer.OrdinalIgnoreCase);

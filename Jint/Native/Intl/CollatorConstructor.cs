@@ -66,6 +66,8 @@ internal sealed partial class CollatorConstructor : Constructor
     /// </summary>
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
+        // Intl.Collator has no normative-optional legacy-constructor (ChainCollator) behaviour — unlike
+        // NumberFormat/DateTimeFormat it always returns a fresh instance and ignores the this value.
         return Construct(arguments, this);
     }
 

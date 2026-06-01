@@ -449,7 +449,13 @@ internal sealed partial class ZonedDateTimeConstructor : Constructor
         }
 
         var calendarId = result.Calendar ?? "iso8601";
-        var canonicalCalendar = TemporalHelpers.CanonicalizeCalendar(calendarId) ?? calendarId;
+        var canonicalCalendar = TemporalHelpers.CanonicalizeCalendar(calendarId);
+        if (canonicalCalendar is null)
+        {
+            // A syntactically valid but not-yet-adopted calendar annotation (e.g. "bangla") must be rejected.
+            Throw.RangeError(_realm, $"Invalid calendar: {calendarId}");
+        }
+
         return Construct(epochNs, timeZone, canonicalCalendar);
     }
 

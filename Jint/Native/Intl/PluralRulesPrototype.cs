@@ -101,6 +101,13 @@ internal sealed partial class PluralRulesPrototype : Prototype
         result.CreateDataPropertyOrThrow("locale", pluralRules.Locale);
         result.CreateDataPropertyOrThrow("type", pluralRules.PluralRuleType);
         result.CreateDataPropertyOrThrow("notation", pluralRules.Notation);
+
+        // [[CompactDisplay]] is only present (non-undefined) when notation is "compact".
+        if (pluralRules.CompactDisplay is not null)
+        {
+            result.CreateDataPropertyOrThrow("compactDisplay", pluralRules.CompactDisplay);
+        }
+
         result.CreateDataPropertyOrThrow("minimumIntegerDigits", pluralRules.MinimumIntegerDigits);
 
         // Include either fraction digits or significant digits (not both)

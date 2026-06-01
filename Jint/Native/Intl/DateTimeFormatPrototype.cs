@@ -40,6 +40,14 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
             return dateTimeFormat;
         }
 
+        // UnwrapDateTimeFormat: a legacy-constructed wrapper keeps the real formatter under the
+        // per-realm %Intl%.[[FallbackSymbol]] property.
+        var unwrapped = IntlUtilities.UnwrapLegacyConstructor(_realm, _realm.Intrinsics.DateTimeFormat, thisObject);
+        if (unwrapped is JsDateTimeFormat unwrappedDateTimeFormat)
+        {
+            return unwrappedDateTimeFormat;
+        }
+
         Throw.TypeError(_realm, "Value is not an Intl.DateTimeFormat");
         return null!; // Never reached
     }
