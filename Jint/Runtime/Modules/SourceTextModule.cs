@@ -142,7 +142,12 @@ internal class SourceTextModule : CyclicModule
             if (string.Equals(exportName, e.ExportName, StringComparison.Ordinal))
             {
                 var importedModule = _engine._host.GetImportedModule(this, e.ModuleRequest!.Value);
-                if (string.Equals(e.ImportName, "*", StringComparison.Ordinal))
+                if (string.Equals(e.ImportName, "*source*", StringComparison.Ordinal))
+                {
+                    // Re-export of a source-phase import (import source x from "..."; export { x };).
+                    return new ResolvedBinding(importedModule, "*source*");
+                }
+                else if (string.Equals(e.ImportName, "*", StringComparison.Ordinal))
                 {
                     // 1. Assert: module does not provide the direct binding for this export.
                     return new ResolvedBinding(importedModule, "*namespace*");
@@ -217,17 +222,24 @@ internal class SourceTextModule : CyclicModule
             {
                 var ie = _importEntries[i];
 
-                if (ie.Phase == ModuleImportPhase.Source)
-                {
-                    // SourceTextModules have no [[ModuleSource]] representation. Throw TypeError here
-                    // rather than SyntaxError — test262 `import-source.js` explicitly rejects SyntaxError
-                    // for this case, expecting a host-defined non-SyntaxError rejection.
-                    Throw.TypeError(_realm, "Source phase import is not supported for JavaScript modules");
-                }
-
                 var importedModule = _engine._host.GetImportedModule(this, ie.ModuleRequest);
 
-                if (ie.Phase == ModuleImportPhase.Defer)
+                if (ie.Phase == ModuleImportPhase.Source)
+                {
+                    // import source x from "module" - bind x to the imported module's [[ModuleSource]].
+                    var source = importedModule.ModuleSource;
+                    if (source is null)
+                    {
+                        // The module has no [[ModuleSource]] (e.g. an ordinary JavaScript module). Throw a
+                        // TypeError rather than SyntaxError — test262 `import-source.js` expects a
+                        // host-defined non-SyntaxError rejection for this case.
+                        Throw.TypeError(_realm, "Source phase import is not supported for this module");
+                    }
+
+                    env.CreateImmutableBinding(ie.LocalName, strict: true);
+                    env.InitializeBinding(ie.LocalName, source, DisposeHint.Normal);
+                }
+                else if (ie.Phase == ModuleImportPhase.Defer)
                 {
                     // import defer * as ns from "module" - create deferred namespace
                     var ns = GetModuleNamespace(importedModule, ModuleImportPhase.Defer);
@@ -248,7 +260,19 @@ internal class SourceTextModule : CyclicModule
                         Throw.SyntaxError(_realm, "Ambiguous import statement for identifier " + ie.ImportName);
                     }
 
-                    if (string.Equals(resolution.BindingName, "*namespace*", StringComparison.Ordinal))
+                    if (string.Equals(resolution.BindingName, "*source*", StringComparison.Ordinal))
+                    {
+                        // Named import of a re-exported source-phase binding: bind to the [[ModuleSource]].
+                        var source = resolution.Module.ModuleSource;
+                        if (source is null)
+                        {
+                            Throw.SyntaxError(_realm, "Re-exported source binding has no module source");
+                        }
+
+                        env.CreateImmutableBinding(ie.LocalName, strict: true);
+                        env.InitializeBinding(ie.LocalName, source, DisposeHint.Normal);
+                    }
+                    else if (string.Equals(resolution.BindingName, "*namespace*", StringComparison.Ordinal))
                     {
                         var ns = GetModuleNamespace(resolution.Module);
                         env.CreateImmutableBinding(ie.LocalName, strict: true);

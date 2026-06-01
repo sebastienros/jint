@@ -132,7 +132,13 @@ internal sealed class HoistingScope
                             var ie = importEntries[j];
                             if (string.Equals(ie.LocalName, ee.LocalName, StringComparison.Ordinal))
                             {
-                                if (ie.Phase == ModuleImportPhase.Defer)
+                                if (ie.Phase == ModuleImportPhase.Source)
+                                {
+                                    // Re-export of a source-phase import (import source x from "..."; export { x };).
+                                    // ParseModule reclassifies this as an indirect export whose ImportName is ~source~.
+                                    indirectExportEntries.Add(new(ee.ExportName, ie.ModuleRequest, "*source*", null));
+                                }
+                                else if (ie.Phase == ModuleImportPhase.Defer)
                                 {
                                     // Deferred namespace imports re-exported should be treated as local exports
                                     // so the deferred namespace object is returned from the environment binding

@@ -13,13 +13,17 @@
   ],
   "ExcludedFiles": [
 
-    // %TypedArray%.prototype.slice creates its destination via TypedArraySpeciesCreate(..., write), which
-    // (correctly) rejects an immutable backing buffer — see the passing slice/speciesctor-destination-
-    // backed-by-immutable-buffer.js. This test was broadened to run against every buffer-arg factory
-    // (including makeImmutableArrayBuffer) yet still expects the element copy to succeed, so when the
-    // source — and therefore the same-buffer species destination — is immutable, a spec-conformant slice
-    // throws instead of producing the expected array. The test does not declare the immutable-arraybuffer
-    // feature; it is incompatible with an engine that implements it.
+    // Upstream test262 bug (reported upstream). Introduced in test262 commit 21513be91f
+    // ("[immutable-arraybuffer] Coverage for read-only TypedArray methods", #4547): this test was
+    // broadened from includeArgFactories ["passthrough"] to ALL buffer-arg factories — including
+    // makeImmutableArrayBuffer — yet still expects the element copy to succeed and does NOT declare the
+    // immutable-arraybuffer feature. Per the proposal-immutable-arraybuffer spec, %TypedArray%.prototype.slice
+    // step 13 calls TypedArraySpeciesCreate(O, «count», ~write~) and ValidateTypedArray throws a TypeError
+    // when the destination buffer is immutable (step 14 asserts it is non-immutable), with no special-casing
+    // for a shared source/destination buffer. So when the source — and thus the same-buffer species
+    // destination — is immutable, a spec-conformant slice throws instead of producing [20,20,20,60]. The
+    // sibling map/filter speciesctor-destination-backed-by-immutable-buffer.js tests correctly declare the
+    // feature and expect the throw. Excluded until the upstream test excludes the immutable factory.
     "built-ins/TypedArray/prototype/slice/speciesctor-return-same-buffer-with-offset.js",
 
     // === INTL402 EXCLUSIONS ===
@@ -106,17 +110,7 @@
     "intl402/Temporal/ZonedDateTime/prototype/daysInYear/basic-islamic-umalqura.js",
     "intl402/Temporal/ZonedDateTime/prototype/inLeapYear/basic-islamic-umalqura.js",
     "intl402/Temporal/ZonedDateTime/prototype/with/basic-islamic-umalqura.js",
-    "intl402/Temporal/ZonedDateTime/prototype/withCalendar/extreme-dates.js",
-
-    // === SOURCE-PHASE IMPORT RE-EXPORT ===
-    // These exercise re-exporting a source-phase import (`import source x from '<module source>'; export { x }`).
-    // The `<module source>` specifier must resolve to a module that exposes a [[ModuleSource]] (i.e. a
-    // WebAssembly module). Jint has no WebAssembly module support, so the import cannot be loaded and the
-    // re-exported binding can never become an %AbstractModuleSource% instance. The basic source-phase
-    // rejection behaviour (import-source.js) is still covered and passes.
-    "language/module-code/source-phase-import/reexport-source-binding-named-import.js",
-    "language/module-code/source-phase-import/reexport-source-binding-namespace-get.js",
-    "language/module-code/ambiguous-export-bindings/namespace-unambiguous-if-import-source-and-export.js"
+    "intl402/Temporal/ZonedDateTime/prototype/withCalendar/extreme-dates.js"
 
   ],
   // Timing-sensitive suites: serialise the whole generated test method instead of
