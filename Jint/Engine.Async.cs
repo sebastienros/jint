@@ -47,7 +47,7 @@ public partial class Engine
     /// <returns>The engine instance for chaining, after all async work completes.</returns>
     public async Task<Engine> ExecuteAsync(string code, string? source = null, CancellationToken cancellationToken = default)
     {
-        var result = Execute(code, source)._completionValue;
+        var result = Evaluate(code, source);
         if (result is JsPromise)
         {
             await UnwrapResultAsync(result, cancellationToken).ConfigureAwait(false);

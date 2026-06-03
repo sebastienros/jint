@@ -41,7 +41,16 @@ public sealed partial class Engine : IDisposable
     private ParserOptions? _defaultModuleParserOptions; // cache default ParserOptions for ModuleBuilder instances
 
     private readonly ExecutionContextStack _executionContexts;
-    private JsValue _completionValue = JsValue.Undefined;
+
+    // Invariant for engine-level ambient mutable fields (e.g. _activeEvaluationContext, _error,
+    // _lastSyntaxElement): they must not hold an in-flight result across a call that can re-enter
+    // the engine (anything that may run RunAvailableContinuations, or a CLR callback that calls
+    // Evaluate/Execute/Invoke). Either save-and-restore around the re-entrant region (see the
+    // ownsContext pattern in ExecuteWithConstraints and ShadowRealm), or carry the value out-of-band
+    // rather than in a field. A script's completion value used to live here as a field and was
+    // clobbered by a re-entrant drain (https://github.com/sebastienros/jint/issues/2492); it is now
+    // returned from ScriptEvaluation as a per-frame local. _error and _lastSyntaxElement are safe
+    // because they are produced and consumed synchronously with no re-entrant drain in between.
     internal EvaluationContext? _activeEvaluationContext;
     internal ErrorDispatchInfo? _error;
 
@@ -385,7 +394,7 @@ public sealed partial class Engine : IDisposable
     /// Evaluates code and returns last return value.
     /// </summary>
     public JsValue Evaluate(in Prepared<Script> preparedScript)
-        => Execute(preparedScript)._completionValue;
+        => ExecuteForCompletion(preparedScript);
 
     /// <summary>
     /// Executes code into engine and returns the engine instance (useful for chaining).
@@ -417,6 +426,17 @@ public sealed partial class Engine : IDisposable
     /// </summary>
     public Engine Execute(in Prepared<Script> preparedScript)
     {
+        ExecuteForCompletion(preparedScript);
+        return this;
+    }
+
+    /// <summary>
+    /// Shared core for <see cref="Execute(in Prepared{Script})"/> and <see cref="Evaluate(in Prepared{Script})"/>.
+    /// Returns the script's completion value directly (a per-frame local), so a re-entrant drain
+    /// during <see cref="RunAvailableContinuations"/> cannot clobber it via shared engine state.
+    /// </summary>
+    private JsValue ExecuteForCompletion(in Prepared<Script> preparedScript)
+    {
         if (!preparedScript.IsValid)
         {
             Throw.InvalidPreparedScriptArgumentException(nameof(preparedScript));
@@ -425,15 +445,14 @@ public sealed partial class Engine : IDisposable
         var script = preparedScript.Program;
         var parserOptions = preparedScript.ParserOptions;
         var strict = _isStrict || script.Strict;
-        ExecuteWithConstraints(strict, () => ScriptEvaluation(new ScriptRecord(Realm, script, script.Location.SourceFile), parserOptions));
-
-        return this;
+        // The lambda captures the locals (script, parserOptions), never the `in` parameter.
+        return ExecuteWithConstraints(strict, () => ScriptEvaluation(new ScriptRecord(Realm, script, script.Location.SourceFile), parserOptions));
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-runtime-semantics-scriptevaluation
     /// </summary>
-    private Engine ScriptEvaluation(ScriptRecord scriptRecord, ParserOptions parserOptions)
+    private JsValue ScriptEvaluation(ScriptRecord scriptRecord, ParserOptions parserOptions)
     {
         Debugger.OnBeforeEvaluate(scriptRecord.EcmaScriptCode);
 
@@ -474,12 +493,17 @@ public sealed partial class Engine : IDisposable
                 throw ex;
             }
 
-            _completionValue = result.GetValueOrDefault();
+            // Capture into a local BEFORE draining the event loop. RunAvailableContinuations can
+            // re-enter the engine (e.g. an awaited dynamic import that invokes a CLR callback which
+            // calls Evaluate()); a deeper ScriptEvaluation must not be able to clobber this frame's
+            // result. A local is per-frame, so it survives re-entrancy (#2492). A completed script's
+            // value is fixed by its last statement — continuations cannot change it.
+            var completionValue = result.GetValueOrDefault();
 
             // TODO what about callstack and thrown exceptions?
             RunAvailableContinuations();
 
-            return this;
+            return completionValue;
         }
         finally
         {

@@ -122,6 +122,60 @@ public class ModuleTests
     }
 
     [Fact]
+    public void NestedEvaluateFromModuleExecutionDoesNotClobberCompletionValue()
+    {
+        // Regression test for https://github.com/sebastienros/jint/issues/2492
+        // A CLR function (importLibrary) calls back into engine.Evaluate(). While that nested
+        // Evaluate() drains the event loop, an awaited dynamic import runs module-two, which also
+        // calls importLibrary() -> a deeper Evaluate(). Pre-fix, the deeper completion value
+        // leaked into the field the first importLibrary('library-one') call read back, so it
+        // returned library-two's object and "firstLibrary.TextFunctions" was undefined.
+        var engine = new Engine();
+
+        const string libraryOne = @"(function () {
+            var $export = {};
+            $export.TextFunctions = { generateRandomText: function (length) { return ''; } };
+            return $export;
+        })();";
+
+        const string libraryTwo = @"(function () {
+            var $export = {};
+            $export.DateFunctions = { getCurrentDate: function () { return new Date(); } };
+            return $export;
+        })();";
+
+        engine.SetValue("importLibrary", new Func<string, JsValue>(name => name switch
+        {
+            "library-one" => engine.Evaluate(libraryOne),
+            "library-two" => engine.Evaluate(libraryTwo),
+            _ => JsValue.Undefined
+        }));
+
+        engine.Modules.Add("module-one", "export async function fetchSamplePost() { return new Promise((resolve) => { }); }");
+        engine.Modules.Add("module-two", @"
+            import * as bl from 'module-one';
+            export async function sample() {
+                const lib2 = importLibrary('library-two');
+                globalThis.currentDateFromLib2 = lib2.DateFunctions.getCurrentDate();
+                return await bl.fetchSamplePost();
+            }");
+
+        var result = engine.Evaluate(@"
+            var result = {};
+            (async () => {
+                const m2 = await import('module-two');
+                const obj = await m2.sample();
+                result.obj = obj;
+            })();
+            const firstLibrary = importLibrary('library-one');
+            result.someText = firstLibrary.TextFunctions.generateRandomText(10);
+            result;
+        ").AsObject();
+
+        Assert.Equal("", result.Get("someText").AsString());
+    }
+
+    [Fact]
     public void ShouldPropagateParseError()
     {
         _engine.Modules.Add("imported", "export const invalid;");
