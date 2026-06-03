@@ -2874,6 +2874,30 @@ x.test = {
     }
 
     [Fact]
+    public void NestedEvaluateDuringContinuationDrainDoesNotClobberOuterResult()
+    {
+        // Regression test for https://github.com/sebastienros/jint/issues/2492
+        // A queued microtask, drained while a nested Evaluate() is running, used to overwrite
+        // the engine-level completion value that the nested Evaluate() was about to return.
+        var engine = new Engine();
+        engine.SetValue("evalB", new Func<JsValue>(() => engine.Evaluate("'B'")));
+        engine.SetValue("evalC", new Func<JsValue>(() => engine.Evaluate("'C'")));
+
+        // Promise.resolve().then(evalC) queues a microtask. evalB()'s nested Evaluate drains it
+        // (RunAvailableContinuations), running evalC() -> a deeper Evaluate that completes with 'C'.
+        // Pre-fix, 'C' leaked into the shared field that evalB()'s Evaluate read back, so the
+        // outer script observed 'C' instead of 'B'.
+        var result = engine.Evaluate(@"
+            var captured;
+            Promise.resolve().then(() => { evalC(); });
+            captured = evalB();
+            captured;
+        ");
+
+        Assert.Equal("B", result.AsString());
+    }
+
+    [Fact]
     public void MemberExpressionInObjectProperty()
     {
         var engine = new Engine();
