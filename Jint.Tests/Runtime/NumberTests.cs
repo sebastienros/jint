@@ -164,4 +164,25 @@ public class NumberTests
         Assert.Equal(double.NegativeInfinity, engine.Evaluate("-'1e1000'").ToObject());
         Assert.Equal("-Infinity", engine.Evaluate("(-'1e1000').toString()").ToObject());
     }
+
+    [Fact]
+    public void Int32BoundaryArithmeticDoesNotOverflow()
+    {
+        var engine = new Engine();
+
+        // internally Integer-tagged int.MinValue / int.MaxValue values must widen
+        // to double on arithmetic instead of wrapping or raising hardware overflows
+        Assert.Equal(2147483648d, engine.Evaluate("var x = (1<<31)|0; -x").AsNumber());
+        Assert.Equal(2147483648d, engine.Evaluate("var x = (1<<31)|0; x / -1").AsNumber());
+        Assert.Equal(0d, engine.Evaluate("var x = (1<<31)|0; x % -1").AsNumber());
+        Assert.True(engine.Evaluate("var x = (1<<31)|0; Object.is(x % -1, -0)").AsBoolean());
+
+        Assert.Equal(2147483648d, engine.Evaluate("var a = 2147483647; a++; a").AsNumber());
+        Assert.Equal(2147483648d, engine.Evaluate("var a = 2147483647; ++a").AsNumber());
+        Assert.Equal(-2147483649d, engine.Evaluate("var b = (1<<31)|0; b--; b").AsNumber());
+        Assert.Equal(-2147483649d, engine.Evaluate("var b = (1<<31)|0; --b").AsNumber());
+
+        Assert.Equal(-2147483649d, engine.Evaluate("var c = (1<<31)|0; c -= 1; c").AsNumber());
+        Assert.Equal(2147483648d, engine.Evaluate("var d = 2147483647; d += 1; d").AsNumber());
+    }
 }

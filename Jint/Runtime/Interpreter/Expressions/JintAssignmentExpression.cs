@@ -154,7 +154,7 @@ internal sealed class JintAssignmentExpression : JintExpression
 
                         if (AreIntegerOperands(originalLeftValue, rval))
                         {
-                            newLeftValue = JsNumber.Create(originalLeftValue.AsInteger() - rval.AsInteger());
+                            newLeftValue = JsNumber.Create((long) originalLeftValue.AsInteger() - rval.AsInteger());
                         }
                         else if (JintBinaryExpression.AreNonBigIntOperands(originalLeftValue, rval))
                         {
