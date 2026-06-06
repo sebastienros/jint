@@ -185,4 +185,32 @@ public class NumberTests
         Assert.Equal(-2147483649d, engine.Evaluate("var c = (1<<31)|0; c -= 1; c").AsNumber());
         Assert.Equal(2147483648d, engine.Evaluate("var d = 2147483647; d += 1; d").AsNumber());
     }
+
+    [Fact]
+    public void CompoundAssignmentMatchesBinaryOperatorSemantics()
+    {
+        var engine = new Engine();
+
+        // undefined operands must coerce to NaN, not stay undefined
+        Assert.True(engine.Evaluate("var u; u *= 2; Number.isNaN(u)").AsBoolean());
+        Assert.True(engine.Evaluate("var u; u /= 2; Number.isNaN(u)").AsBoolean());
+        Assert.True(engine.Evaluate("var u; u -= 2; Number.isNaN(u)").AsBoolean());
+
+        // ** has spec semantics that differ from IEEE pow: (+/-1) ** Infinity is NaN
+        Assert.True(engine.Evaluate("var x = 1; x **= Infinity; Number.isNaN(x)").AsBoolean());
+        Assert.True(engine.Evaluate("var x = -1; x **= -Infinity; Number.isNaN(x)").AsBoolean());
+        Assert.Equal(8d, engine.Evaluate("var x = 2; x **= 3; x").AsNumber());
+
+        // compound bitwise/shift operators support BigInt like their binary forms
+        Assert.Equal("1", engine.Evaluate("var b = 3n; b &= 1n; b.toString()").AsString());
+        Assert.Equal("3", engine.Evaluate("var b = 2n; b |= 1n; b.toString()").AsString());
+        Assert.Equal("2", engine.Evaluate("var b = 3n; b ^= 1n; b.toString()").AsString());
+        Assert.Equal("8", engine.Evaluate("var b = 2n; b <<= 2n; b.toString()").AsString());
+        Assert.Equal("2", engine.Evaluate("var b = 8n; b >>= 2n; b.toString()").AsString());
+
+        // mixing BigInt and Number must throw TypeError for compound forms too
+        Assert.Throws<Jint.Runtime.JavaScriptException>(() => engine.Evaluate("var b = 3n; b &= 1;"));
+        Assert.Throws<Jint.Runtime.JavaScriptException>(() => engine.Evaluate("var b = 3; b &= 1n;"));
+        Assert.Throws<Jint.Runtime.JavaScriptException>(() => engine.Evaluate("var b = 1n; b >>>= 1n;"));
+    }
 }
