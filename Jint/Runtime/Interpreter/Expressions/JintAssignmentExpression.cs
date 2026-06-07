@@ -62,7 +62,8 @@ internal sealed class JintAssignmentExpression : JintExpression
                 _leftIdentifier.Identifier,
                 strict,
                 out var identifierEnvironment,
-                out var temp))
+                out var temp)
+            && temp is not null) // an uninitialized (TDZ) binding reports null; the Reference path below produces the proper ReferenceError
         {
             originalLeftValue = temp;
             lref = engine._referencePool.Rent(identifierEnvironment, _leftIdentifier.Identifier.Value, strict, thisValue: null);

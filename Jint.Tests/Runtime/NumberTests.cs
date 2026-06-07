@@ -212,5 +212,10 @@ public class NumberTests
         Assert.Throws<Jint.Runtime.JavaScriptException>(() => engine.Evaluate("var b = 3n; b &= 1;"));
         Assert.Throws<Jint.Runtime.JavaScriptException>(() => engine.Evaluate("var b = 3; b &= 1n;"));
         Assert.Throws<Jint.Runtime.JavaScriptException>(() => engine.Evaluate("var b = 1n; b >>>= 1n;"));
+
+        // compound assignment to an uninitialized (TDZ) binding must be a ReferenceError,
+        // not a NullReferenceException from the identifier fast path
+        var tdz = Assert.Throws<Jint.Runtime.JavaScriptException>(() => engine.Evaluate("(function() { { x += 1; let x; } })()"));
+        Assert.Equal("ReferenceError", tdz.Error.AsObject().Get("constructor").AsObject().Get("name").AsString());
     }
 }
