@@ -22,6 +22,16 @@ public class InteropExplicitTypeTests
         string I1.Name { get; } = "CI1 as I1";
     }
 
+    public class BaseValue
+    {
+        public string BaseOnly { get; } = "base";
+    }
+
+    public class DerivedValue : BaseValue
+    {
+        public int DerivedOnlyProperty { get; set; }
+    }
+
     public class Indexer<T>
     {
         private readonly T t;
@@ -65,6 +75,11 @@ public class InteropExplicitTypeTests
         public Indexer<I1> IndexerI1 { get; }
         public Indexer<Super> IndexerSuper { get; }
 
+    }
+
+    public class BaseValueHolder
+    {
+        public BaseValue Value { get; } = new DerivedValue();
     }
 
     private readonly Engine _engine;
@@ -143,6 +158,18 @@ public class InteropExplicitTypeTests
     public void SuperClassFromIndexer()
     {
         Assert.Equal(holder.IndexerSuper[0].Name, _engine.Evaluate("holder.IndexerSuper[0].Name"));
+    }
+
+    [Fact]
+    public void DerivedRuntimePropertyFromBaseDeclaredProperty()
+    {
+        var engine = new Engine(options => options.Interop.ThrowOnUnresolvedMember = true);
+        var holder = new BaseValueHolder();
+        engine.SetValue("holder", holder);
+
+        Assert.Equal("base", engine.Evaluate("holder.Value.BaseOnly"));
+        engine.Execute("const obj = holder.Value; obj.DerivedOnlyProperty = 123;");
+        Assert.Equal(123, ((DerivedValue) holder.Value).DerivedOnlyProperty);
     }
 
     public struct NullabeStruct : I1

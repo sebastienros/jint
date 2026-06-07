@@ -215,7 +215,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             if (_properties is null || !_properties.ContainsKey(member))
             {
                 // can try utilize fast path
-                var accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, ClrType, member, mustBeReadable: false, mustBeWritable: true);
+                var accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, ClrType, member, mustBeReadable: false, mustBeWritable: true, throwOnError: false);
                 var actualType = Target.GetType();
                 if (ClrType != actualType)
                 {
@@ -224,7 +224,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                     // that should take precedence over the indexer
                     if (accessor is IndexerAccessor)
                     {
-                        var runtimeAccessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, actualType, member, mustBeReadable: false, mustBeWritable: true);
+                        var runtimeAccessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, actualType, member, mustBeReadable: false, mustBeWritable: true, throwOnError: false);
                         if (runtimeAccessor is not IndexerAccessor && runtimeAccessor != ConstantValueAccessor.NullAccessor)
                         {
                             accessor = runtimeAccessor;
@@ -232,12 +232,17 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                     }
                     else if (ReferenceEquals(accessor, ConstantValueAccessor.NullAccessor))
                     {
-                        accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, actualType, member, mustBeReadable: false, mustBeWritable: true);
+                        accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, actualType, member, mustBeReadable: false, mustBeWritable: true, throwOnError: false);
                     }
                 }
 
                 if (ReferenceEquals(accessor, ConstantValueAccessor.NullAccessor))
                 {
+                    if (_engine.Options.Interop.ThrowOnUnresolvedMember)
+                    {
+                        throw new MissingMemberException($"Cannot access property '{member}' on type '{ClrType.FullName}");
+                    }
+
                     // there's no such property, but we can allow extending by calling base
                     // which will add properties, this allows for example JS class to extend a CLR type
                     return base.Set(property, value, receiver);
