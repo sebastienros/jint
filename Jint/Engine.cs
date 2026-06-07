@@ -1187,6 +1187,13 @@ public sealed partial class Engine : IDisposable
         var func = function._functionDefinition;
         var configuration = func!.Initialize();
 
+        // Fastest path: nothing to instantiate at all (no parameters, vars, lexical declarations,
+        // inner function declarations, arguments object or eval context).
+        if (configuration.CanUseEmptyFDI && !_isDebugMode)
+        {
+            return null;
+        }
+
         // Fast path for simple functions with fixed-slot storage
         if (configuration.CanUseFastFDI && !_isDebugMode)
         {
