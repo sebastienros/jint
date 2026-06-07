@@ -23,6 +23,16 @@ internal sealed class JintIdentifierExpression : JintExpression
     private DeclarativeEnvironment? _cachedSlotEnv;
     private int _cachedSlotIndex = -1;
 
+    // Version-based inline cache for global bindings: when top-level code (current lexical
+    // env IS the global env) resolves to a plain writable MutableBinding data property on the
+    // real GlobalObject, remember the descriptor. Valid while the global object's own-property
+    // shape and the set of global lexical declarations are unchanged — value writes mutate the
+    // descriptor in place and bump neither version. Mirrors JintMemberExpression's read cache.
+    internal GlobalEnvironment? _cachedGlobalEnv;
+    private Runtime.Descriptors.PropertyDescriptor? _cachedGlobalDescriptor;
+    private uint _cachedGlobalShapeVersion;
+    private int _cachedGlobalLexicalVersion;
+
     // Bounded walk: chain depth is typically 1-3 in real code; deeper chains fall through.
     private const int MaxSlotCacheChainDepth = 4;
 
@@ -136,6 +146,24 @@ internal sealed class JintIdentifierExpression : JintExpression
         }
 
 
+        // Global-binding fast path: top-level identifier reads hit the cached descriptor
+        // directly, skipping the property dictionary lookup entirely. The null pre-check keeps
+        // the cost for non-global identifiers to a single field test; the out-of-line validator
+        // keeps this method's code size unaffected.
+        if (_cachedGlobalEnv is not null)
+        {
+            var cachedGlobalDescriptor = TryGetValidatedGlobalDescriptor(engine, env);
+            if (cachedGlobalDescriptor is not null)
+            {
+                value = cachedGlobalDescriptor._value;
+                if (value is null)
+                {
+                    ThrowNotInitialized(engine);
+                }
+                return MaterializeIfArguments(value);
+            }
+        }
+
         if (ReferenceEquals(env, _cachedEnvironment)
             && _cachedStrict == strict
             && env.TryGetBinding(identifier, strict, out value))
@@ -174,6 +202,10 @@ internal sealed class JintIdentifierExpression : JintExpression
                     _cachedSlotIndex = slotIndex;
                 }
             }
+            else if (ReferenceEquals(identifierEnvironment, env) && identifierEnvironment is GlobalEnvironment globalEnv)
+            {
+                TryRememberGlobalBinding(globalEnv);
+            }
 
             if (value is null)
             {
@@ -187,6 +219,54 @@ internal sealed class JintIdentifierExpression : JintExpression
         }
 
         return MaterializeIfArguments(value);
+    }
+
+    /// <summary>
+    /// Validates the global-binding cache for the current environment: the current lexical env
+    /// must be the cached GlobalEnvironment itself (top-level code) and neither the global
+    /// object's own-property shape nor the global lexical declaration set may have changed.
+    /// Returns the cached plain writable data descriptor, or null on miss.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    internal Runtime.Descriptors.PropertyDescriptor? TryGetValidatedGlobalDescriptor(Engine engine, Environment env)
+    {
+        var cachedGlobalEnv = _cachedGlobalEnv;
+        if (cachedGlobalEnv is not null
+            && ReferenceEquals(env, cachedGlobalEnv)
+            && ReferenceEquals(cachedGlobalEnv._engine, engine)
+            && cachedGlobalEnv._global._propertiesVersion == _cachedGlobalShapeVersion
+            && cachedGlobalEnv._lexicalMutations == _cachedGlobalLexicalVersion)
+        {
+            return _cachedGlobalDescriptor;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Caches the resolved global binding when it is a plain writable MutableBinding data
+    /// property on the real GlobalObject and no lexical declaration shadows it. Both reads
+    /// and writes may then operate on the descriptor directly while the versions hold.
+    /// </summary>
+    internal void TryRememberGlobalBinding(GlobalEnvironment globalEnv)
+    {
+        var identifier = _identifier;
+        if (globalEnv._globalObject is not { } globalObject
+            || globalEnv._declarativeRecord.HasBinding(identifier.Key))
+        {
+            return;
+        }
+
+        if (globalObject._properties!.TryGetValue(identifier.Key, out var descriptor)
+            && descriptor.IsDataDescriptor()
+            && descriptor.Writable
+            && (descriptor._flags & Runtime.Descriptors.PropertyFlag.MutableBinding) != Runtime.Descriptors.PropertyFlag.None)
+        {
+            _cachedGlobalEnv = globalEnv;
+            _cachedGlobalDescriptor = descriptor;
+            _cachedGlobalShapeVersion = globalObject._propertiesVersion;
+            _cachedGlobalLexicalVersion = globalEnv._lexicalMutations;
+        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

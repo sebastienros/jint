@@ -1,6 +1,8 @@
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Native.Function;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 
 using Environment = Jint.Runtime.Environments.Environment;
@@ -597,6 +599,19 @@ internal sealed class JintAssignmentExpression : JintExpression
             var env = engine.ExecutionContext.LexicalEnvironment;
             var strict = StrictModeScope.IsStrictModeCode;
             var identifier = left.Identifier;
+
+            // Global-binding fast path: write directly through the cached plain writable
+            // MutableBinding data descriptor. The null pre-check keeps the cost for non-global
+            // identifiers to a single field test; the rest stays out-of-line.
+            if (left._cachedGlobalEnv is not null)
+            {
+                var cachedGlobalDescriptor = left.TryGetValidatedGlobalDescriptor(engine, env);
+                if (cachedGlobalDescriptor is not null)
+                {
+                    return AssignToCachedGlobalBinding(context, left, right, cachedGlobalDescriptor, hasEvalOrArguments, nameAnonymousFunction, strict);
+                }
+            }
+
             if (JintEnvironment.TryGetIdentifierEnvironmentWithBinding(
                     env,
                     identifier,
@@ -636,10 +651,74 @@ internal sealed class JintAssignmentExpression : JintExpression
                 }
 
                 environmentRecord.SetMutableBinding(identifier, rval, strict);
+
+                // Populate the global-binding cache from the write side too, so write-first
+                // patterns benefit from the next access on. Must run after the set: the set
+                // may have created the property (bumping the shape version).
+                if (ReferenceEquals(environmentRecord, env) && environmentRecord is GlobalEnvironment globalEnv)
+                {
+                    left.TryRememberGlobalBinding(globalEnv);
+                }
+
                 return rval;
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// The cached-global-binding arm of <see cref="AssignToIdentifier"/>; semantics are
+        /// identical to its slow path with the final store mirroring
+        /// GlobalObject.SetFromMutableBinding's writable MutableBinding data-property fast path.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static JsValue AssignToCachedGlobalBinding(
+            EvaluationContext context,
+            JintIdentifierExpression left,
+            JintExpression right,
+            PropertyDescriptor descriptor,
+            bool hasEvalOrArguments,
+            bool nameAnonymousFunction,
+            bool strict)
+        {
+            var engine = context.Engine;
+            var identifier = left.Identifier;
+
+            if (strict && hasEvalOrArguments && identifier.Key != KnownKeys.Eval)
+            {
+                Throw.SyntaxError(engine.Realm, "Invalid assignment target");
+            }
+
+            JsValue completion;
+            if (nameAnonymousFunction && right is JintClassExpression classExpression && right._expression.IsAnonymousFunctionDefinition())
+            {
+                completion = classExpression.EvaluateWithName(context, identifier.Value.ToString());
+            }
+            else
+            {
+                completion = right.GetValue(context);
+            }
+
+            if (context.IsAbrupt())
+            {
+                return completion;
+            }
+
+            // If generator suspended or return requested during right-hand side evaluation, don't assign
+            if (context.IsGeneratorAborted())
+            {
+                return completion;
+            }
+
+            var rval = completion.Clone();
+
+            if (nameAnonymousFunction && right._expression.IsFunctionDefinition() && right is not JintClassExpression)
+            {
+                ((Function) rval).SetFunctionName(identifier.Value);
+            }
+
+            descriptor._value = rval;
+            return rval;
         }
     }
 }
