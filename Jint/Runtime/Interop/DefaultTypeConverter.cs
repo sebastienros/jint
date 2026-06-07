@@ -54,31 +54,48 @@ public class DefaultTypeConverter : ITypeConverter
         _engine = engine;
     }
 
+    /// <summary>
+    /// Converts value to the given type, throwing if the conversion cannot be done.
+    /// Dispatches through the virtual <see cref="TryConvert"/> first so that subclass overrides are honored,
+    /// then falls back to the built-in conversion pipeline to produce a detailed error message and to honor
+    /// exception propagation semantics (<see cref="Options.InteropOptions.ExceptionHandler"/>).
+    /// </summary>
     public virtual object? Convert(
         object? value,
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicFields)] Type type,
         IFormatProvider formatProvider)
     {
-        if (!TryConvert(value, type, formatProvider, propagateException: true, out var converted, out var problemMessage))
+        if (TryConvert(value, type, formatProvider, out var converted))
+        {
+            return converted;
+        }
+
+        if (!TryConvertInternal(value, type, formatProvider, propagateException: true, out converted, out var problemMessage))
         {
             Throw.Error(_engine, problemMessage ?? $"Unable to convert {value} to type {type}");
         }
         return converted;
     }
 
+    /// <summary>
+    /// Converts value to the given type, returning false if the conversion cannot be done.
+    /// This is the extension point for custom conversions: both <see cref="Convert"/> and the engine's
+    /// interop paths dispatch through it. Overrides should call <c>base.TryConvert</c> as the fallback;
+    /// do not call <see cref="Convert"/> from an override as that would cause infinite recursion.
+    /// </summary>
     public virtual bool TryConvert(
         object? value,
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicFields)] Type type,
         IFormatProvider formatProvider,
         [NotNullWhen(true)] out object? converted)
     {
-        return TryConvert(value, type, formatProvider, propagateException: false, out converted, out _);
+        return TryConvertInternal(value, type, formatProvider, propagateException: false, out converted, out _);
     }
 
     private static readonly ConditionalWeakTable<IFunction, Func<object, Delegate>> _targetBinderDelegateCache = new();
     private static readonly ConditionalWeakTable<object, Delegate> _boundTargetDelegateCache = new();
 
-    private bool TryConvert(
+    private bool TryConvertInternal(
         object? value,
         [DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes)] Type type,
         IFormatProvider formatProvider,
