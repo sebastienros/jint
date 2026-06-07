@@ -437,6 +437,20 @@ public static class TypeConverter
     }
 
     /// <summary>
+    /// https://tc39.es/ecma262/#sec-touint32
+    /// </summary>
+    internal static uint ToUint32(double value)
+    {
+        if (value is >= 0.0 and <= uint.MaxValue)
+        {
+            // Double-to-uint cast is correct in this range
+            return (uint) value;
+        }
+
+        return (uint) DoubleToInt32Slow(value);
+    }
+
+    /// <summary>
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.5
     /// </summary>
     public static int ToInt32(JsValue o)
@@ -446,14 +460,7 @@ public static class TypeConverter
             return o.AsInteger();
         }
 
-        var doubleVal = ToNumber(o);
-        if (doubleVal >= -(double) int.MinValue && doubleVal <= int.MaxValue)
-        {
-            // Double-to-int cast is correct in this range
-            return (int) doubleVal;
-        }
-
-        return DoubleToInt32Slow(doubleVal);
+        return ToInt32(ToNumber(o));
     }
 
     /// <summary>
