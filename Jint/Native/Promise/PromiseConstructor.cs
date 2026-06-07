@@ -346,7 +346,18 @@ internal sealed partial class PromiseConstructor : Constructor
                 }, 1, PropertyFlag.Configurable);
 
                 remainingElementsCount++;
-                _engine.Invoke(nextPromise, "then", [onFulfilled, onRejected]);
+
+                // Perform ? Invoke(nextPromise, "then", « onFulfilled, onRejected »)
+                // Abrupt completions must reject the result capability (IfAbruptRejectPromise in the caller),
+                // so throw a catchable JavaScriptException instead of going through Engine.Invoke.
+                var then = nextPromise.GetV(_realm, "then");
+                if (then is not ICallable thenFunc)
+                {
+                    Throw.TypeError(_realm, $"{then} is not a function");
+                    return;
+                }
+
+                thenFunc.Call(nextPromise, onFulfilled, onRejected);
             }
             else
             {
@@ -367,7 +378,18 @@ internal sealed partial class PromiseConstructor : Constructor
                 }, 1, PropertyFlag.Configurable);
 
                 remainingElementsCount++;
-                _engine.Invoke(nextPromise, "then", [(JsValue) onFulfilled, resultCapability.RejectObj]);
+
+                // Perform ? Invoke(nextPromise, "then", « onFulfilled, resultCapability.[[Reject]] »)
+                // Abrupt completions must reject the result capability (IfAbruptRejectPromise in the caller),
+                // so throw a catchable JavaScriptException instead of going through Engine.Invoke.
+                var then = nextPromise.GetV(_realm, "then");
+                if (then is not ICallable thenFunc)
+                {
+                    Throw.TypeError(_realm, $"{then} is not a function");
+                    return;
+                }
+
+                thenFunc.Call(nextPromise, onFulfilled, resultCapability.RejectObj);
             }
 
             index++;
@@ -814,8 +836,16 @@ internal sealed partial class PromiseConstructor : Constructor
                 var nextPromise = promiseResolve.Call(thisObject, nextValue);
 
                 // i. Perform ? Invoke(nextPromise, "then", « resultCapability.[[Resolve]], resultCapability.[[Reject]] »).
+                // Abrupt completions must reject the result capability (IfAbruptRejectPromise in the caller),
+                // so throw a catchable JavaScriptException instead of going through Engine.Invoke.
+                var then = nextPromise.GetV(_realm, "then");
+                if (then is not ICallable thenFunc)
+                {
+                    Throw.TypeError(_realm, $"{then} is not a function");
+                    return capability.PromiseInstance;
+                }
 
-                _engine.Invoke(nextPromise, "then", [(JsValue) capability.Resolve, capability.RejectObj]);
+                thenFunc.Call(nextPromise, (JsValue) capability.Resolve, capability.RejectObj);
             } while (true);
         }
         catch (JavaScriptException e)
