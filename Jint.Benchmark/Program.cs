@@ -7,6 +7,11 @@ if (args.Length > 0 && args[0] == "--profile-memory")
     return MemoryProbe.Run(args);
 }
 
+if (args.Length > 0 && args[0] == "--profile-cpu")
+{
+    return CpuProfileDriver.Run(args);
+}
+
 BenchmarkSwitcher
     .FromAssembly(typeof(ArrayBenchmark).GetTypeInfo().Assembly)
     .Run(args);
