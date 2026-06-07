@@ -305,7 +305,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
 
     private List<JsValue> GetOwnPropertyKeysSorted(List<JsValue> initialOwnPropertyKeys, bool returningStringKeys, bool returningSymbols)
     {
-        var keys = new List<JsValue>(_properties?.Count ?? 0 + _symbols?.Count ?? 0 + initialOwnPropertyKeys.Count);
+        var keys = new List<JsValue>((_properties?.Count ?? 0) + (_symbols?.Count ?? 0) + initialOwnPropertyKeys.Count);
         if (returningStringKeys && _properties != null)
         {
             foreach (var pair in _properties)
