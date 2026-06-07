@@ -59,6 +59,20 @@ internal sealed class JintStatementList
         Completion c = Completion.Empty();
         Completion sl = c;
 
+        // Completion-value elision: inside function bodies Normal-completion values are
+        // spec-unobservable (only Return/Throw matter), so expression statements may skip
+        // materializing their value. Top-level lists (_statement == null: script, eval text,
+        // module, switch consequents) must surface real values for Engine.Evaluate/eval results.
+        var oldCompletionValuesObservable = context.CompletionValuesObservable;
+        if (_statement is FunctionBody)
+        {
+            context.CompletionValuesObservable = false;
+        }
+        else if (_statement is null)
+        {
+            context.CompletionValuesObservable = true;
+        }
+
         // The value of a StatementList is the value of the last value-producing item in the StatementList
         var lastValue = JsEmpty.Instance;
         var i = _index;
@@ -150,6 +164,10 @@ internal sealed class JintStatementList
                 ExceptionDataHelper.TryAttachJavaScriptLocation(ex, context.Engine, locationNode.Location);
                 throw;
             }
+        }
+        finally
+        {
+            context.CompletionValuesObservable = oldCompletionValuesObservable;
         }
 
         // Only apply the final UpdateEmpty(Undefined) at program/script level or function body level.

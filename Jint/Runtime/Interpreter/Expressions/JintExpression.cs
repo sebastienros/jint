@@ -55,6 +55,16 @@ internal abstract class JintExpression
     protected abstract object EvaluateInternal(EvaluationContext context);
 
     /// <summary>
+    /// Evaluates the expression for its side effects only; the caller guarantees the result
+    /// is unobservable (e.g. an expression statement inside a function body). Expression types
+    /// with a non-materializing fast path override this; the default matches <see cref="GetValue"/>.
+    /// </summary>
+    internal virtual void EvaluateAndDiscard(EvaluationContext context)
+    {
+        GetValue(context);
+    }
+
+    /// <summary>
     /// Resolves this expression as a boolean value.
     /// Comparison expressions override this to avoid creating a JsBoolean wrapper.
     /// </summary>

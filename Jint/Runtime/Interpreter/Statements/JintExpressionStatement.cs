@@ -1,3 +1,4 @@
+using Jint.Native;
 using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Runtime.Interpreter.Statements;
@@ -17,10 +18,18 @@ internal sealed class JintExpressionStatement : JintStatement<ExpressionStatemen
 
     protected override Completion ExecuteInternal(EvaluationContext context)
     {
-        var value = _identifierExpression is not null
-            ? _identifierExpression.GetValue(context)
-            : _expression.GetValue(context);
+        // generators/async functions surface suspended values through completions,
+        // so elision only applies in plain synchronous frames
+        if (context.CompletionValuesObservable || context.Engine.ExecutionContext.Suspendable is not null)
+        {
+            var value = _identifierExpression is not null
+                ? _identifierExpression.GetValue(context)
+                : _expression.GetValue(context);
 
-        return new Completion(context.Completion, value, _statement);
+            return new Completion(context.Completion, value, _statement);
+        }
+
+        _expression.EvaluateAndDiscard(context);
+        return new Completion(context.Completion, JsValue.Undefined, _statement);
     }
 }

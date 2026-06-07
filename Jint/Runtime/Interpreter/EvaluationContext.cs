@@ -57,6 +57,15 @@ internal sealed class EvaluationContext
 
     public readonly bool OperatorOverloadingAllowed;
 
+    /// <summary>
+    /// Whether Normal-completion values of statements are observable in the current frame.
+    /// True at script/module/eval top level (the value feeds Engine.Evaluate / eval results);
+    /// false inside function bodies, where the spec only surfaces Return/Throw completions -
+    /// letting expression statements skip materializing their value.
+    /// Maintained by <see cref="JintStatementList.Execute"/> with save/restore semantics.
+    /// </summary>
+    public bool CompletionValuesObservable = true;
+
     // completion record information
     public string? Target;
     public CompletionType Completion;

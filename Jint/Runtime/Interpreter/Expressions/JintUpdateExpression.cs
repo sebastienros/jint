@@ -42,6 +42,56 @@ internal sealed class JintUpdateExpression : JintExpression
         return fastResult ?? UpdateNonIdentifier(context);
     }
 
+    internal override void EvaluateAndDiscard(EvaluationContext context)
+    {
+        var oldSyntaxElement = context.LastSyntaxElement;
+        context.PrepareFor(_expression);
+
+        if (!TryUpdateUnboxed(context))
+        {
+            EvaluateInternal(context);
+        }
+
+        context.LastSyntaxElement = oldSyntaxElement;
+    }
+
+    /// <summary>
+    /// Discard-mode fast path: increments a slot-stored number binding without materializing
+    /// the old or new value. Anything that needs the full semantics (operator overloading,
+    /// generators/async, TDZ, const, non-number values, dictionary/global/object environments)
+    /// falls back to the materialized path which produces the exact errors and coercions.
+    /// </summary>
+    private bool TryUpdateUnboxed(EvaluationContext context)
+    {
+        var engine = context.Engine;
+        if (_leftIdentifier is null
+            || context.OperatorOverloadingAllowed
+            || engine.ExecutionContext.Suspendable is not null)
+        {
+            return false;
+        }
+
+        if (_evalOrArguments && StrictModeScope.IsStrictModeCode)
+        {
+            // full path raises the proper SyntaxError
+            return false;
+        }
+
+        var name = _leftIdentifier.Identifier;
+        if (!JintEnvironment.TryGetIdentifierEnvironmentWithBinding(
+                engine.ExecutionContext.LexicalEnvironment,
+                name,
+                out var record)
+            || record is not DeclarativeEnvironment declarativeEnvironment
+            || !declarativeEnvironment.TryGetNumberSlot(name.Key, out var slotIndex, out var value))
+        {
+            return false;
+        }
+
+        declarativeEnvironment.SetNumberSlot(slotIndex, value + _change);
+        return true;
+    }
+
     private JsValue UpdateNonIdentifier(EvaluationContext context)
     {
         var engine = context.Engine;

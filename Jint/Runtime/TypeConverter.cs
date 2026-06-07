@@ -425,6 +425,20 @@ public static class TypeConverter
     /// <summary>
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.5
     /// </summary>
+    internal static int ToInt32(double value)
+    {
+        if (value is >= int.MinValue and <= int.MaxValue)
+        {
+            // Double-to-int cast truncates toward zero, matching the spec in this range
+            return (int) value;
+        }
+
+        return DoubleToInt32Slow(value);
+    }
+
+    /// <summary>
+    /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.5
+    /// </summary>
     public static int ToInt32(JsValue o)
     {
         if (o._type == InternalTypes.Integer)

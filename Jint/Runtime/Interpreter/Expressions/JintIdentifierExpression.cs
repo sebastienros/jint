@@ -111,7 +111,10 @@ internal sealed class JintIdentifierExpression : JintExpression
                     var idx = _cachedSlotIndex;
                     if (slots is not null && (uint) idx < (uint) slots.Length)
                     {
-                        value = slots[idx].Value;
+                        ref var binding = ref slots[idx];
+                        value = binding.HasReferenceValue
+                            ? binding.Value
+                            : DeclarativeEnvironment.MaterializeUnboxedOrNull(ref binding);
                         if (value is null)
                         {
                             ThrowNotInitialized(engine);

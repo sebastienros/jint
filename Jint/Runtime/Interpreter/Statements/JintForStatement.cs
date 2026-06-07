@@ -15,6 +15,7 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
 
     private readonly JintExpression? _test;
     private readonly JintExpression? _increment;
+    private readonly bool _incrementCanDiscard;
 
     private readonly ProbablyBlockStatement _body;
     private readonly List<Key>? _boundNames;
@@ -60,6 +61,9 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
         if (statement.Update != null)
         {
             _increment = JintExpression.Build(statement.Update);
+            // restricted to types whose Evaluate() result is a plain value (never a Reference)
+            // so the discard path matches today's semantics exactly
+            _incrementCanDiscard = _increment is JintUpdateExpression or JintAssignmentExpression;
         }
     }
 
@@ -301,7 +305,16 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
             if (_increment != null)
             {
                 debugHandler?.OnStep(_increment._expression);
-                _increment.Evaluate(context);
+                if (_incrementCanDiscard)
+                {
+                    // update/compound assignment results are unobservable here and these
+                    // node types have non-materializing fast paths
+                    _increment.EvaluateAndDiscard(context);
+                }
+                else
+                {
+                    _increment.Evaluate(context);
+                }
 
                 // Check for suspension in update expression (e.g., yield in the update)
                 if (context.IsSuspended())
