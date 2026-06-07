@@ -216,7 +216,7 @@ start:
 
         public JintSwitchCase(SwitchCase switchCase)
         {
-            Consequent = new JintStatementList(statement: null, switchCase.Consequent);
+            Consequent = new JintStatementList(statement: null, switchCase.Consequent, CompletionValueObservability.Inherit);
             LexicalDeclarations = DeclarationCacheBuilder.Build(switchCase);
             Range = switchCase.Range;
             TestRange = switchCase.Test?.Range;

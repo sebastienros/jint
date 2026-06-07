@@ -1,6 +1,8 @@
 using Jint.Native;
 using Jint.Runtime.Environments;
 
+using Environment = Jint.Runtime.Environments.Environment;
+
 namespace Jint.Runtime.Interpreter.Expressions;
 
 internal sealed class JintUpdateExpression : JintExpression
@@ -11,6 +13,10 @@ internal sealed class JintUpdateExpression : JintExpression
 
     private readonly JintIdentifierExpression? _leftIdentifier;
     private readonly bool _evalOrArguments;
+
+    // Slot-location cache for the discard-mode fast path; see SlotLocationCache for the
+    // validity reasoning (with-statement shadowing, pooling, cross-engine sharing).
+    private SlotLocationCache _slotCache;
 
     public JintUpdateExpression(UpdateExpression expression) : base(expression)
     {
@@ -40,6 +46,53 @@ internal sealed class JintUpdateExpression : JintExpression
             : null;
 
         return fastResult ?? UpdateNonIdentifier(context);
+    }
+
+    internal override bool HasDiscardFastPath => true;
+
+    internal override void EvaluateAndDiscard(EvaluationContext context)
+    {
+        var oldSyntaxElement = context.LastSyntaxElement;
+        context.PrepareFor(_expression);
+
+        if (!TryUpdateUnboxed(context))
+        {
+            EvaluateInternal(context);
+        }
+
+        context.LastSyntaxElement = oldSyntaxElement;
+    }
+
+    /// <summary>
+    /// Discard-mode fast path: increments a slot-stored number binding without materializing
+    /// the old or new value. Anything that needs the full semantics (operator overloading,
+    /// generators/async, TDZ, const, non-number values, dictionary/global/object environments)
+    /// falls back to the materialized path which produces the exact errors and coercions.
+    /// </summary>
+    private bool TryUpdateUnboxed(EvaluationContext context)
+    {
+        var engine = context.Engine;
+        if (_leftIdentifier is null
+            || context.OperatorOverloadingAllowed
+            || engine.ExecutionContext.Suspendable is not null)
+        {
+            return false;
+        }
+
+        if (_evalOrArguments && StrictModeScope.IsStrictModeCode)
+        {
+            // full path raises the proper SyntaxError
+            return false;
+        }
+
+        if (!_slotCache.TryResolve(engine, engine.ExecutionContext.LexicalEnvironment, _leftIdentifier.Identifier, out var environment, out var slotIndex)
+            || !environment.TryGetNumberSlot(slotIndex, out var value))
+        {
+            return false;
+        }
+
+        environment.SetNumberSlot(slotIndex, value + _change);
+        return true;
     }
 
     private JsValue UpdateNonIdentifier(EvaluationContext context)
@@ -117,7 +170,8 @@ internal sealed class JintUpdateExpression : JintExpression
                 name,
                 strict,
                 out var environmentRecord,
-                out var value))
+                out var value)
+            && value is not null) // an uninitialized (TDZ) binding reports null; the Reference path produces the proper ReferenceError
         {
             if (_evalOrArguments && strict)
             {

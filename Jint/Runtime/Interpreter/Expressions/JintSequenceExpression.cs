@@ -5,6 +5,7 @@ namespace Jint.Runtime.Interpreter.Expressions;
 internal sealed class JintSequenceExpression : JintExpression
 {
     private readonly JintExpression[] _expressions;
+    private readonly bool _hasDiscardFastPath;
 
     public JintSequenceExpression(SequenceExpression expression) : base(expression)
     {
@@ -13,9 +14,34 @@ internal sealed class JintSequenceExpression : JintExpression
         for (var i = 0; i < (uint) temp.Length; i++)
         {
             temp[i] = Build(expressions[i]);
+            _hasDiscardFastPath |= temp[i].HasDiscardFastPath;
         }
 
         _expressions = temp;
+    }
+
+    internal override bool HasDiscardFastPath => _hasDiscardFastPath;
+
+    internal override void EvaluateAndDiscard(EvaluationContext context)
+    {
+        // suspension bookkeeping (resume index) lives in EvaluateInternal; only plain
+        // synchronous frames may forward the discard to operands (e.g. `i++, j--`)
+        if (context.Engine.ExecutionContext.Suspendable is not null)
+        {
+            GetValue(context);
+            return;
+        }
+
+        var oldSyntaxElement = context.LastSyntaxElement;
+        context.PrepareFor(_expression);
+
+        var expressions = _expressions;
+        for (var i = 0; i < expressions.Length; i++)
+        {
+            expressions[i].EvaluateAndDiscard(context);
+        }
+
+        context.LastSyntaxElement = oldSyntaxElement;
     }
 
     protected override object EvaluateInternal(EvaluationContext context)

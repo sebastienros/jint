@@ -15,6 +15,10 @@ internal sealed class JintAssignmentExpression : JintExpression
     private readonly JintExpression _right;
     private readonly Operator _operator;
 
+    // Slot-location cache for the discard-mode fast path; see SlotLocationCache for the
+    // validity reasoning (with-statement shadowing, pooling, cross-engine sharing).
+    private SlotLocationCache _slotCache;
+
     private JintAssignmentExpression(AssignmentExpression expression) : base(expression)
     {
         _left = Build((Expression) expression.Left);
@@ -62,7 +66,8 @@ internal sealed class JintAssignmentExpression : JintExpression
                 _leftIdentifier.Identifier,
                 strict,
                 out var identifierEnvironment,
-                out var temp))
+                out var temp)
+            && temp is not null) // an uninitialized (TDZ) binding reports null; the Reference path below produces the proper ReferenceError
         {
             originalLeftValue = temp;
             lref = engine._referencePool.Rent(identifierEnvironment, _leftIdentifier.Identifier.Value, strict, thisValue: null);
@@ -101,216 +106,6 @@ internal sealed class JintAssignmentExpression : JintExpression
         {
             switch (_operator)
             {
-                case Operator.AdditionAssignment:
-                    {
-                        var rval = _right.GetValue(context);
-                        if (context.IsSuspended())
-                        {
-                            HandleSuspendedRight(engine, suspendable, lref, originalLeftValue, lhsHasSideEffects);
-                            return rval;
-                        }
-
-                        if (AreIntegerOperands(originalLeftValue, rval))
-                        {
-                            newLeftValue = (long) originalLeftValue.AsInteger() + rval.AsInteger();
-                        }
-                        else
-                        {
-                            var lprim = TypeConverter.ToPrimitive(originalLeftValue);
-                            var rprim = TypeConverter.ToPrimitive(rval);
-
-                            if (lprim.IsString() || rprim.IsString())
-                            {
-                                wasMutatedInPlace = lprim is JsString.ConcatenatedString;
-                                if (lprim is not JsString jsString)
-                                {
-                                    jsString = new JsString.ConcatenatedString(TypeConverter.ToString(lprim));
-                                }
-
-                                newLeftValue = jsString.Append(rprim);
-                            }
-                            else if (JintBinaryExpression.AreNonBigIntOperands(originalLeftValue, rval))
-                            {
-                                newLeftValue = TypeConverter.ToNumber(lprim) + TypeConverter.ToNumber(rprim);
-                            }
-                            else
-                            {
-                                JintBinaryExpression.AssertValidBigIntArithmeticOperands(lprim, rprim);
-                                newLeftValue = JsBigInt.Create(TypeConverter.ToBigInt(lprim) + TypeConverter.ToBigInt(rprim));
-                            }
-                        }
-
-                        break;
-                    }
-
-                case Operator.SubtractionAssignment:
-                    {
-                        var rval = _right.GetValue(context);
-                        if (context.IsSuspended())
-                        {
-                            HandleSuspendedRight(engine, suspendable, lref, originalLeftValue, lhsHasSideEffects);
-                            return rval;
-                        }
-
-                        if (AreIntegerOperands(originalLeftValue, rval))
-                        {
-                            newLeftValue = JsNumber.Create((long) originalLeftValue.AsInteger() - rval.AsInteger());
-                        }
-                        else
-                        {
-                            var leftNumeric = TypeConverter.ToNumeric(originalLeftValue);
-                            var rightNumeric = TypeConverter.ToNumeric(rval);
-
-                            if (JintBinaryExpression.AreNonBigIntOperands(leftNumeric, rightNumeric))
-                            {
-                                newLeftValue = JsNumber.Create(leftNumeric.AsNumber() - rightNumeric.AsNumber());
-                            }
-                            else
-                            {
-                                JintBinaryExpression.AssertValidBigIntArithmeticOperands(leftNumeric, rightNumeric);
-                                newLeftValue = JsBigInt.Create(TypeConverter.ToBigInt(leftNumeric) - TypeConverter.ToBigInt(rightNumeric));
-                            }
-                        }
-
-                        break;
-                    }
-
-                case Operator.MultiplicationAssignment:
-                    {
-                        var rval = _right.GetValue(context);
-                        if (context.IsSuspended())
-                        {
-                            HandleSuspendedRight(engine, suspendable, lref, originalLeftValue, lhsHasSideEffects);
-                            return rval;
-                        }
-
-                        if (AreIntegerOperands(originalLeftValue, rval))
-                        {
-                            newLeftValue = (long) originalLeftValue.AsInteger() * rval.AsInteger();
-                        }
-                        else
-                        {
-                            var leftNumeric = TypeConverter.ToNumeric(originalLeftValue);
-                            var rightNumeric = TypeConverter.ToNumeric(rval);
-
-                            if (JintBinaryExpression.AreNonBigIntOperands(leftNumeric, rightNumeric))
-                            {
-                                newLeftValue = leftNumeric.AsNumber() * rightNumeric.AsNumber();
-                            }
-                            else
-                            {
-                                JintBinaryExpression.AssertValidBigIntArithmeticOperands(leftNumeric, rightNumeric);
-                                newLeftValue = JsBigInt.Create(TypeConverter.ToBigInt(leftNumeric) * TypeConverter.ToBigInt(rightNumeric));
-                            }
-                        }
-
-                        break;
-                    }
-
-                case Operator.DivisionAssignment:
-                    {
-                        var rval = _right.GetValue(context);
-                        if (context.IsSuspended())
-                        {
-                            HandleSuspendedRight(engine, suspendable, lref, originalLeftValue, lhsHasSideEffects);
-                            return rval;
-                        }
-
-                        newLeftValue = Divide(context, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval));
-                        break;
-                    }
-
-                case Operator.RemainderAssignment:
-                    {
-                        var rval = _right.GetValue(context);
-                        if (context.IsSuspended())
-                        {
-                            HandleSuspendedRight(engine, suspendable, lref, originalLeftValue, lhsHasSideEffects);
-                            return rval;
-                        }
-
-                        newLeftValue = Remainder(context, originalLeftValue, rval);
-                        break;
-                    }
-
-                case Operator.BitwiseAndAssignment:
-                    {
-                        var rval = _right.GetValue(context);
-                        if (context.IsSuspended())
-                        {
-                            HandleSuspendedRight(engine, suspendable, lref, originalLeftValue, lhsHasSideEffects);
-                            return rval;
-                        }
-
-                        newLeftValue = JintBinaryExpression.EvaluateBitwiseOperation(Operator.BitwiseAnd, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval), _left._expression);
-                        break;
-                    }
-
-                case Operator.BitwiseOrAssignment:
-                    {
-                        var rval = _right.GetValue(context);
-                        if (context.IsSuspended())
-                        {
-                            HandleSuspendedRight(engine, suspendable, lref, originalLeftValue, lhsHasSideEffects);
-                            return rval;
-                        }
-
-                        newLeftValue = JintBinaryExpression.EvaluateBitwiseOperation(Operator.BitwiseOr, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval), _left._expression);
-                        break;
-                    }
-
-                case Operator.BitwiseXorAssignment:
-                    {
-                        var rval = _right.GetValue(context);
-                        if (context.IsSuspended())
-                        {
-                            HandleSuspendedRight(engine, suspendable, lref, originalLeftValue, lhsHasSideEffects);
-                            return rval;
-                        }
-
-                        newLeftValue = JintBinaryExpression.EvaluateBitwiseOperation(Operator.BitwiseXor, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval), _left._expression);
-                        break;
-                    }
-
-                case Operator.LeftShiftAssignment:
-                    {
-                        var rval = _right.GetValue(context);
-                        if (context.IsSuspended())
-                        {
-                            HandleSuspendedRight(engine, suspendable, lref, originalLeftValue, lhsHasSideEffects);
-                            return rval;
-                        }
-
-                        newLeftValue = JintBinaryExpression.EvaluateBitwiseOperation(Operator.LeftShift, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval), _left._expression);
-                        break;
-                    }
-
-                case Operator.RightShiftAssignment:
-                    {
-                        var rval = _right.GetValue(context);
-                        if (context.IsSuspended())
-                        {
-                            HandleSuspendedRight(engine, suspendable, lref, originalLeftValue, lhsHasSideEffects);
-                            return rval;
-                        }
-
-                        newLeftValue = JintBinaryExpression.EvaluateBitwiseOperation(Operator.RightShift, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval), _left._expression);
-                        break;
-                    }
-
-                case Operator.UnsignedRightShiftAssignment:
-                    {
-                        var rval = _right.GetValue(context);
-                        if (context.IsSuspended())
-                        {
-                            HandleSuspendedRight(engine, suspendable, lref, originalLeftValue, lhsHasSideEffects);
-                            return rval;
-                        }
-
-                        newLeftValue = JintBinaryExpression.EvaluateBitwiseOperation(Operator.UnsignedRightShift, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval), _left._expression);
-                        break;
-                    }
-
                 case Operator.NullishCoalescingAssignment:
                     {
                         if (!originalLeftValue.IsNullOrUndefined())
@@ -371,7 +166,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                         break;
                     }
 
-                case Operator.ExponentiationAssignment:
+                default:
                     {
                         var rval = _right.GetValue(context);
                         if (context.IsSuspended())
@@ -380,13 +175,9 @@ internal sealed class JintAssignmentExpression : JintExpression
                             return rval;
                         }
 
-                        newLeftValue = JintBinaryExpression.Exponentiate(context, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval));
+                        newLeftValue = ComputeCompound(context, originalLeftValue, rval, ref wasMutatedInPlace);
                         break;
                     }
-
-                default:
-                    Throw.NotImplementedException();
-                    return default;
             }
         }
 
@@ -399,6 +190,217 @@ internal sealed class JintAssignmentExpression : JintExpression
         engine._referencePool.Return(lref);
         suspendable?.Data.Clear(this);
         return newLeftValue!;
+    }
+
+    /// <summary>
+    /// Computes the result of a compound assignment operator (everything except the
+    /// logical/nullish forms, which short-circuit before evaluating the right operand).
+    /// Operands are fully evaluated; shared by the materialized and discard-mode lanes.
+    /// </summary>
+    private JsValue ComputeCompound(EvaluationContext context, JsValue originalLeftValue, JsValue rval, ref bool wasMutatedInPlace)
+    {
+        switch (_operator)
+        {
+            case Operator.AdditionAssignment:
+                {
+                    if (AreIntegerOperands(originalLeftValue, rval))
+                    {
+                        return JsNumber.Create((long) originalLeftValue.AsInteger() + rval.AsInteger());
+                    }
+
+                    var lprim = TypeConverter.ToPrimitive(originalLeftValue);
+                    var rprim = TypeConverter.ToPrimitive(rval);
+
+                    if (lprim.IsString() || rprim.IsString())
+                    {
+                        wasMutatedInPlace = lprim is JsString.ConcatenatedString;
+                        if (lprim is not JsString jsString)
+                        {
+                            jsString = new JsString.ConcatenatedString(TypeConverter.ToString(lprim));
+                        }
+
+                        return jsString.Append(rprim);
+                    }
+
+                    if (JintBinaryExpression.AreNonBigIntOperands(originalLeftValue, rval))
+                    {
+                        return JsNumber.Create(TypeConverter.ToNumber(lprim) + TypeConverter.ToNumber(rprim));
+                    }
+
+                    JintBinaryExpression.AssertValidBigIntArithmeticOperands(lprim, rprim);
+                    return JsBigInt.Create(TypeConverter.ToBigInt(lprim) + TypeConverter.ToBigInt(rprim));
+                }
+
+            case Operator.SubtractionAssignment:
+                {
+                    if (AreIntegerOperands(originalLeftValue, rval))
+                    {
+                        return JsNumber.Create((long) originalLeftValue.AsInteger() - rval.AsInteger());
+                    }
+
+                    var leftNumeric = TypeConverter.ToNumeric(originalLeftValue);
+                    var rightNumeric = TypeConverter.ToNumeric(rval);
+
+                    if (JintBinaryExpression.AreNonBigIntOperands(leftNumeric, rightNumeric))
+                    {
+                        return JsNumber.Create(leftNumeric.AsNumber() - rightNumeric.AsNumber());
+                    }
+
+                    JintBinaryExpression.AssertValidBigIntArithmeticOperands(leftNumeric, rightNumeric);
+                    return JsBigInt.Create(TypeConverter.ToBigInt(leftNumeric) - TypeConverter.ToBigInt(rightNumeric));
+                }
+
+            case Operator.MultiplicationAssignment:
+                {
+                    if (AreIntegerOperands(originalLeftValue, rval))
+                    {
+                        return JsNumber.Create((long) originalLeftValue.AsInteger() * rval.AsInteger());
+                    }
+
+                    var leftNumeric = TypeConverter.ToNumeric(originalLeftValue);
+                    var rightNumeric = TypeConverter.ToNumeric(rval);
+
+                    if (JintBinaryExpression.AreNonBigIntOperands(leftNumeric, rightNumeric))
+                    {
+                        return leftNumeric.AsNumber() * rightNumeric.AsNumber();
+                    }
+
+                    JintBinaryExpression.AssertValidBigIntArithmeticOperands(leftNumeric, rightNumeric);
+                    return JsBigInt.Create(TypeConverter.ToBigInt(leftNumeric) * TypeConverter.ToBigInt(rightNumeric));
+                }
+
+            case Operator.DivisionAssignment:
+                return Divide(context, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval));
+
+            case Operator.RemainderAssignment:
+                return Remainder(context, originalLeftValue, rval);
+
+            case Operator.BitwiseAndAssignment:
+                return JintBinaryExpression.EvaluateBitwiseOperation(Operator.BitwiseAnd, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval), _left._expression);
+
+            case Operator.BitwiseOrAssignment:
+                return JintBinaryExpression.EvaluateBitwiseOperation(Operator.BitwiseOr, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval), _left._expression);
+
+            case Operator.BitwiseXorAssignment:
+                return JintBinaryExpression.EvaluateBitwiseOperation(Operator.BitwiseXor, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval), _left._expression);
+
+            case Operator.LeftShiftAssignment:
+                return JintBinaryExpression.EvaluateBitwiseOperation(Operator.LeftShift, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval), _left._expression);
+
+            case Operator.RightShiftAssignment:
+                return JintBinaryExpression.EvaluateBitwiseOperation(Operator.RightShift, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval), _left._expression);
+
+            case Operator.UnsignedRightShiftAssignment:
+                return JintBinaryExpression.EvaluateBitwiseOperation(Operator.UnsignedRightShift, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval), _left._expression);
+
+            case Operator.ExponentiationAssignment:
+                return JintBinaryExpression.Exponentiate(context, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval));
+
+            default:
+                Throw.NotImplementedException();
+                return null!;
+        }
+    }
+
+    internal override bool HasDiscardFastPath => true;
+
+    internal override void EvaluateAndDiscard(EvaluationContext context)
+    {
+        var oldSyntaxElement = context.LastSyntaxElement;
+        context.PrepareFor(_expression);
+
+        if (!TryCompoundUnboxed(context))
+        {
+            EvaluateInternal(context);
+        }
+
+        context.LastSyntaxElement = oldSyntaxElement;
+    }
+
+    /// <summary>
+    /// Discard-mode fast path: a numeric compound assignment to a slot-stored number binding
+    /// computes on raw doubles and stores unboxed, with no materialization of the old or new
+    /// value. The right-hand side runs exactly once; non-number results complete through the
+    /// shared <see cref="ComputeCompound"/>. Everything that needs the full semantics
+    /// (operator overloading, generators/async, logical/nullish forms, TDZ, const, non-number
+    /// left values, dictionary/global/object environments) falls back before any evaluation.
+    /// </summary>
+    private bool TryCompoundUnboxed(EvaluationContext context)
+    {
+        var engine = context.Engine;
+        if (_leftIdentifier is null
+            || context.OperatorOverloadingAllowed
+            || engine.ExecutionContext.Suspendable is not null
+            || _operator is Operator.NullishCoalescingAssignment or Operator.LogicalAndAssignment or Operator.LogicalOrAssignment)
+        {
+            return false;
+        }
+
+        if (!_slotCache.TryResolve(engine, engine.ExecutionContext.LexicalEnvironment, _leftIdentifier.Identifier, out var declarativeEnvironment, out var slotIndex)
+            || !declarativeEnvironment.TryGetNumberSlot(slotIndex, out var left))
+        {
+            return false;
+        }
+
+        var rval = _right.GetValue(context);
+
+        if (rval is JsNumber rightNumber && _operator != Operator.ExponentiationAssignment)
+        {
+            var right = rightNumber._value;
+            double result;
+            switch (_operator)
+            {
+                case Operator.AdditionAssignment:
+                    result = left + right;
+                    break;
+                case Operator.SubtractionAssignment:
+                    result = left - right;
+                    break;
+                case Operator.MultiplicationAssignment:
+                    result = left * right;
+                    break;
+                case Operator.DivisionAssignment:
+                    // IEEE 754 division matches the ECMAScript algorithm for all special cases
+                    result = left / right;
+                    break;
+                case Operator.RemainderAssignment:
+                    // IEEE 754 remainder (fmod) matches the ECMAScript algorithm for all special cases
+                    result = left % right;
+                    break;
+                case Operator.BitwiseAndAssignment:
+                    result = TypeConverter.ToInt32(left) & TypeConverter.ToInt32(right);
+                    break;
+                case Operator.BitwiseOrAssignment:
+                    result = TypeConverter.ToInt32(left) | TypeConverter.ToInt32(right);
+                    break;
+                case Operator.BitwiseXorAssignment:
+                    result = TypeConverter.ToInt32(left) ^ TypeConverter.ToInt32(right);
+                    break;
+                case Operator.LeftShiftAssignment:
+                    result = TypeConverter.ToInt32(left) << (int) (TypeConverter.ToUint32(right) & 0x1F);
+                    break;
+                case Operator.RightShiftAssignment:
+                    result = TypeConverter.ToInt32(left) >> (int) (TypeConverter.ToUint32(right) & 0x1F);
+                    break;
+                case Operator.UnsignedRightShiftAssignment:
+                    result = (uint) TypeConverter.ToInt32(left) >> (int) (TypeConverter.ToUint32(right) & 0x1F);
+                    break;
+                default:
+                    Throw.NotImplementedException();
+                    return false;
+            }
+
+            declarativeEnvironment.SetNumberSlot(slotIndex, result);
+            return true;
+        }
+
+        // rare: number op= non-number (string concat, BigInt mix error, exponentiation).
+        // The left operand is a number, never a ConcatenatedString, so in-place mutation
+        // cannot apply and the result is always stored.
+        var wasMutatedInPlace = false;
+        var newLeftValue = ComputeCompound(context, JsNumber.Create(left), rval, ref wasMutatedInPlace);
+        declarativeEnvironment.SetMutableBinding(_leftIdentifier.Identifier.Key, newLeftValue, StrictModeScope.IsStrictModeCode);
+        return true;
     }
 
     private void HandleSuspendedRight(Engine engine, ISuspendable? suspendable, Reference lref, JsValue originalLeftValue, bool lhsHasSideEffects)

@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Jint.Collections;
 using Jint.Native;
@@ -35,6 +36,85 @@ internal class DeclarativeEnvironment : Environment
         return -1;
     }
 
+    /// <summary>
+    /// Materializes an unboxed number binding with write-back caching so subsequent reads
+    /// return the same instance, or returns null when the binding is uninitialized (TDZ).
+    /// Cold by design: it runs at most once per unboxed write.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    internal static JsValue? MaterializeUnboxedOrNull(ref Binding binding)
+    {
+        if (!binding.IsUnboxedNumber)
+        {
+            return null;
+        }
+
+        var value = JsNumber.Create(binding.UnboxedNumber);
+        binding = binding.ChangeValue(value);
+        return value;
+    }
+
+    /// <summary>
+    /// Reads a slot-stored binding as a raw number for the numeric read-modify-write fast
+    /// paths. Succeeds only for initialized, mutable bindings currently holding a number
+    /// (unboxed or as a JsNumber), so that <see cref="SetNumberSlot"/> may store unchecked.
+    /// </summary>
+    internal bool TryGetNumberSlot(int slotIndex, out double value)
+    {
+        // bounds-checked like the identifier slot-cache read path: a cached index is
+        // deterministic per AST node, but a stale/torn cache must fall back, not throw
+        var slots = _slots;
+        if (slots is null || (uint) slotIndex >= (uint) slots.Length)
+        {
+            value = 0;
+            return false;
+        }
+
+        ref var binding = ref slots[slotIndex];
+        if (binding.Mutable)
+        {
+            if (binding.IsUnboxedNumber)
+            {
+                value = binding.UnboxedNumber;
+                return true;
+            }
+
+            if (binding.HasReferenceValue && binding.Value is JsNumber number)
+            {
+                value = number._value;
+                return true;
+            }
+        }
+
+        value = 0;
+        return false;
+    }
+
+    /// <summary>
+    /// Stores a raw number into a slot previously validated by <see cref="TryGetNumberSlot"/>
+    /// without materializing a JsNumber.
+    /// </summary>
+    internal void SetNumberSlot(int slotIndex, double value)
+    {
+        ref var binding = ref _slots![slotIndex];
+        Debug.Assert(binding.Mutable && binding.IsInitialized());
+        binding = binding.WithUnboxedNumber(value);
+    }
+
+    /// <summary>
+    /// Finds the fixed slot index for a name so callers can cache the location
+    /// (same lifetime guarantees as the identifier slot-binding cache).
+    /// </summary>
+    internal int FindSlotIndex(Key name)
+    {
+        if (_slots is not null && _slotNames is not null)
+        {
+            return SlotIndexOf(name);
+        }
+
+        return -1;
+    }
+
     internal sealed override bool HasBinding(BindingName name) => HasBinding(name.Key);
 
     internal sealed override bool HasBinding(Key name)
@@ -53,14 +133,15 @@ internal class DeclarativeEnvironment : Environment
             var index = SlotIndexOf(name.Key);
             if (index >= 0)
             {
-                value = _slots[index].Value;
+                ref var binding = ref _slots[index];
+                value = binding.HasReferenceValue ? binding.Value : MaterializeUnboxedOrNull(ref binding)!;
                 return true;
             }
         }
 
-        if (_dictionary?.TryGetValue(name.Key, out var binding) == true)
+        if (_dictionary?.TryGetValue(name.Key, out var dictionaryBinding) == true)
         {
-            value = binding.Value;
+            value = dictionaryBinding.Value;
             return true;
         }
 
@@ -244,10 +325,17 @@ internal class DeclarativeEnvironment : Environment
             if (index >= 0)
             {
                 ref var binding = ref _slots[index];
-                if (binding.IsInitialized())
+                if (binding.HasReferenceValue)
                 {
                     return binding.Value;
                 }
+
+                var materialized = MaterializeUnboxedOrNull(ref binding);
+                if (materialized is not null)
+                {
+                    return materialized;
+                }
+
                 ThrowUninitializedBindingError(name);
                 return null!;
             }

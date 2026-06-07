@@ -7,11 +7,24 @@ using Jint.Runtime.Interpreter.Statements;
 
 namespace Jint.Runtime.Interpreter;
 
+internal enum CompletionValueObservability : byte
+{
+    /// <summary>Keep the enclosing frame's observability (nested blocks, switch consequents).</summary>
+    Inherit = 0,
+
+    /// <summary>Completion values feed Engine.Evaluate / eval / module results (top-level lists).</summary>
+    Observable = 1,
+
+    /// <summary>Function bodies: only Return/Throw completions surface, Normal values may be elided.</summary>
+    NotObservable = 2,
+}
+
 internal sealed class JintStatementList
 {
     private readonly record struct Pair(JintStatement Statement, JsValue? Value);
 
     private readonly Statement? _statement;
+    private readonly CompletionValueObservability _observability;
 
     private readonly Pair[] _jintStatements;
     private uint _index;
@@ -26,13 +39,19 @@ internal sealed class JintStatementList
     }
 
     public JintStatementList(Program program)
-        : this(null, program.Body)
+        : this(null, program.Body, CompletionValueObservability.Observable)
     {
     }
 
-    public JintStatementList(Statement? statement, in NodeList<Statement> statements)
+    public JintStatementList(Statement? statement, in NodeList<Statement> statements, CompletionValueObservability? observability = null)
     {
         _statement = statement;
+        _observability = observability
+            ?? (statement is FunctionBody
+                ? CompletionValueObservability.NotObservable
+                : statement is null
+                    ? CompletionValueObservability.Observable
+                    : CompletionValueObservability.Inherit);
         var jintStatements = new Pair[statements.Count];
         for (var i = 0; i < jintStatements.Length; i++)
         {
@@ -58,6 +77,17 @@ internal sealed class JintStatementList
 
         Completion c = Completion.Empty();
         Completion sl = c;
+
+        // Completion-value elision: inside function bodies Normal-completion values are
+        // spec-unobservable (only Return/Throw matter), so expression statements may skip
+        // materializing their value; top-level lists (script, eval text, module) must surface
+        // real values for Engine.Evaluate/eval results, and nested lists (blocks, switch
+        // consequents) inherit the enclosing frame's observability.
+        var oldCompletionValuesObservable = context.CompletionValuesObservable;
+        if (_observability != CompletionValueObservability.Inherit)
+        {
+            context.CompletionValuesObservable = _observability == CompletionValueObservability.Observable;
+        }
 
         // The value of a StatementList is the value of the last value-producing item in the StatementList
         var lastValue = JsEmpty.Instance;
@@ -150,6 +180,10 @@ internal sealed class JintStatementList
                 ExceptionDataHelper.TryAttachJavaScriptLocation(ex, context.Engine, locationNode.Location);
                 throw;
             }
+        }
+        finally
+        {
+            context.CompletionValuesObservable = oldCompletionValuesObservable;
         }
 
         // Only apply the final UpdateEmpty(Undefined) at program/script level or function body level.
