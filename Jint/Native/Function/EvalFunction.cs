@@ -11,6 +11,35 @@ public sealed class EvalFunction : Function
 {
     private static readonly JsString _functionName = new("eval");
 
+    // Compilation cache for repeated eval of identical sources (a la V8's compilation cache).
+    // Keyed by source + parse strictness (cheap hash); the parse-affecting ParserOptions are
+    // validated on hit. Entries hold the parsed AST, the prebuilt statement tree and the
+    // static analysis flags. Parse failures are never cached.
+    private const int CacheCapacity = 32;
+    private const int CacheMaxSourceLength = 32 * 1024;
+    private Dictionary<CacheKey, CacheEntry>? _evalCache;
+
+    // Memoized `with`-adjustment of the active parser options (stable instance in steady state).
+    private ParserOptions? _lastBaseParserOptions;
+    private ParserOptions? _lastAdjustedParserOptions;
+
+    // Two-touch promotion: a source enters the cache only when seen twice, so one-shot eval
+    // workloads pay just a failed lookup + key compare instead of an insert per call.
+    private CacheKey _probationKey;
+
+    private readonly record struct CacheKey(string Source, bool StrictParse);
+
+    private sealed class CacheEntry
+    {
+        public required ParserOptions ParserOptions { get; init; }
+        public required Script Script { get; init; }
+        public required JintScript JintScript { get; init; }
+        public required bool ContainsArguments { get; init; }
+        public required bool ContainsNewTarget { get; init; }
+        public required bool ContainsSuperCall { get; init; }
+        public required bool ContainsSuperProperty { get; init; }
+    }
+
     internal EvalFunction(
         Engine engine,
         Realm realm,
@@ -72,34 +101,86 @@ public sealed class EvalFunction : Function
             }
         }
 
-        Script? script = null;
         var parserOptions = _engine.GetActiveParserOptions();
-        var adjustedParserOptions = parserOptions with
+        ParserOptions adjustedParserOptions;
+        if (ReferenceEquals(parserOptions, _lastBaseParserOptions))
         {
-            AllowReturnOutsideFunction = false,
-            AllowNewTargetOutsideFunction = true,
-            AllowSuperOutsideMethod = true,
-            // This is a workaround, just makes some tests pass. Actually, we need these checks (done either by the parser or by the runtime).
-            // TODO: implement a correct solution
-            CheckPrivateFields = false
-        };
-        var parser = _engine.GetParserFor(adjustedParserOptions);
+            adjustedParserOptions = _lastAdjustedParserOptions!;
+        }
+        else
+        {
+            adjustedParserOptions = parserOptions with
+            {
+                AllowReturnOutsideFunction = false,
+                AllowNewTargetOutsideFunction = true,
+                AllowSuperOutsideMethod = true,
+                // This is a workaround, just makes some tests pass. Actually, we need these checks (done either by the parser or by the runtime).
+                // TODO: implement a correct solution
+                CheckPrivateFields = false
+            };
+            _lastBaseParserOptions = parserOptions;
+            _lastAdjustedParserOptions = adjustedParserOptions;
+        }
+
         // For indirect eval, parse in non-strict mode (strictness only from "use strict" in code)
         // For direct eval, inherit caller's strictness
-        script = parser.ParseScriptGuarded(_engine.Realm, x.ToString(), strict: direct && strictCaller);
+        var strictParse = direct && strictCaller;
+        var source = x.ToString();
 
+        var cacheable = source.Length <= CacheMaxSourceLength;
+        var cacheKey = new CacheKey(source, strictParse);
+        if (!cacheable
+            || _evalCache is null
+            || !_evalCache.TryGetValue(cacheKey, out var cached)
+            || !(ReferenceEquals(cached.ParserOptions, adjustedParserOptions) || cached.ParserOptions.Equals(adjustedParserOptions)))
+        {
+            var parser = _engine.GetParserFor(adjustedParserOptions);
+            var parsedScript = parser.ParseScriptGuarded(_engine.Realm, source, strict: strictParse);
+
+            var analyzer = new EvalScriptAnalyzer();
+            analyzer.Visit(parsedScript);
+
+            cached = new CacheEntry
+            {
+                ParserOptions = adjustedParserOptions,
+                Script = parsedScript,
+                JintScript = new JintScript(parsedScript),
+                ContainsArguments = analyzer._containsArguments,
+                ContainsNewTarget = analyzer._containsNewTarget,
+                ContainsSuperCall = analyzer._containsSuperCall,
+                ContainsSuperProperty = analyzer._containsSuperProperty,
+            };
+
+            if (cacheable)
+            {
+                // Promote into the cache only on the second sighting of the same source.
+                if (cacheKey.Equals(_probationKey))
+                {
+                    var cache = _evalCache ??= new Dictionary<CacheKey, CacheEntry>();
+                    if (cache.Count >= CacheCapacity)
+                    {
+                        cache.Clear();
+                    }
+                    cache[cacheKey] = cached;
+                }
+                else
+                {
+                    _probationKey = cacheKey;
+                }
+            }
+        }
+
+        var script = cached.Script;
         var body = script.Body;
         if (body.Count == 0)
         {
             return Undefined;
         }
 
-        var analyzer = new EvalScriptAnalyzer();
-        analyzer.Visit(script);
         if (!inFunction)
         {
             // if body Contains NewTarget, throw a SyntaxError exception.
-            if (analyzer._containsNewTarget)
+            if (cached.ContainsNewTarget)
             {
                 Throw.SyntaxError(evalRealm, "new.target expression is not allowed here");
             }
@@ -108,7 +189,7 @@ public sealed class EvalFunction : Function
         if (!inMethod)
         {
             // if body Contains SuperProperty, throw a SyntaxError exception.
-            if (analyzer._containsSuperProperty)
+            if (cached.ContainsSuperProperty)
             {
                 Throw.SyntaxError(evalRealm, "'super' keyword unexpected here");
             }
@@ -117,7 +198,7 @@ public sealed class EvalFunction : Function
         if (!inDerivedConstructor)
         {
             // if body Contains SuperCall, throw a SyntaxError exception.
-            if (analyzer._containsSuperCall)
+            if (cached.ContainsSuperCall)
             {
                 Throw.SyntaxError(evalRealm, "'super' keyword unexpected here");
             }
@@ -126,7 +207,7 @@ public sealed class EvalFunction : Function
         if (inClassFieldInitializer)
         {
             // if ContainsArguments of body is true, throw a SyntaxError exception.
-            if (analyzer._containsArguments)
+            if (cached.ContainsArguments)
             {
                 Throw.SyntaxError(evalRealm, "'arguments' is not allowed in class field initializer or static initialization block");
             }
@@ -172,7 +253,7 @@ public sealed class EvalFunction : Function
             {
                 Engine.EvalDeclarationInstantiation(script, varEnv, lexEnv, privateEnv, strictEval);
 
-                var statement = new JintScript(script);
+                var statement = cached.JintScript;
                 var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
                 var result = statement.Execute(context);
 
