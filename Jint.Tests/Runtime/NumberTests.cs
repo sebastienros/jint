@@ -217,5 +217,8 @@ public class NumberTests
         // not a NullReferenceException from the identifier fast path
         var tdz = Assert.Throws<Jint.Runtime.JavaScriptException>(() => engine.Evaluate("(function() { { x += 1; let x; } })()"));
         Assert.Equal("ReferenceError", tdz.Error.AsObject().Get("constructor").AsObject().Get("name").AsString());
+
+        var tdzUpdate = Assert.Throws<Jint.Runtime.JavaScriptException>(() => engine.Evaluate("(function() { { y++; let y; } })()"));
+        Assert.Equal("ReferenceError", tdzUpdate.Error.AsObject().Get("constructor").AsObject().Get("name").AsString());
     }
 }

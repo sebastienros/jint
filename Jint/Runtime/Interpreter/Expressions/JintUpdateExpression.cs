@@ -117,7 +117,8 @@ internal sealed class JintUpdateExpression : JintExpression
                 name,
                 strict,
                 out var environmentRecord,
-                out var value))
+                out var value)
+            && value is not null) // an uninitialized (TDZ) binding reports null; the Reference path produces the proper ReferenceError
         {
             if (_evalOrArguments && strict)
             {
