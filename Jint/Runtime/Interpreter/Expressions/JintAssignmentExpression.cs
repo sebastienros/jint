@@ -15,6 +15,16 @@ internal sealed class JintAssignmentExpression : JintExpression
     private readonly JintExpression _right;
     private readonly Operator _operator;
 
+    // Slot-location cache for the discard-mode fast path; same validity reasoning as
+    // JintIdentifierExpression's slot-binding cache: closure-captured envs cannot be
+    // pooled, so the env reference is stable and slot indices are immutable.
+    // _discardFastPathDisabled marks nodes whose binding can never be slot-stored
+    // (global/object/dictionary environments) so failed attempts don't re-walk the chain.
+    private DeclarativeEnvironment? _cachedSlotEnv;
+    private int _cachedSlotIndex = -1;
+    private bool _discardFastPathDisabled;
+    private const int MaxSlotCacheChainDepth = 4;
+
     private JintAssignmentExpression(AssignmentExpression expression) : base(expression)
     {
         _left = Build((Expression) expression.Left);
@@ -323,6 +333,7 @@ internal sealed class JintAssignmentExpression : JintExpression
     {
         var engine = context.Engine;
         if (_leftIdentifier is null
+            || _discardFastPathDisabled
             || context.OperatorOverloadingAllowed
             || engine.ExecutionContext.Suspendable is not null
             || _operator is Operator.NullishCoalescingAssignment or Operator.LogicalAndAssignment or Operator.LogicalOrAssignment)
@@ -330,13 +341,54 @@ internal sealed class JintAssignmentExpression : JintExpression
             return false;
         }
 
-        var name = _leftIdentifier.Identifier;
-        if (!JintEnvironment.TryGetIdentifierEnvironmentWithBinding(
-                engine.ExecutionContext.LexicalEnvironment,
-                name,
-                out var record)
-            || record is not DeclarativeEnvironment declarativeEnvironment
-            || !declarativeEnvironment.TryGetNumberSlot(name.Key, out var slotIndex, out var left))
+        var env = engine.ExecutionContext.LexicalEnvironment;
+        DeclarativeEnvironment declarativeEnvironment;
+        int slotIndex;
+
+        var cachedSlotEnv = _cachedSlotEnv;
+        if (cachedSlotEnv is not null && ReferenceEquals(cachedSlotEnv._engine, engine))
+        {
+            var search = env;
+            var hops = 0;
+            for (; hops < MaxSlotCacheChainDepth && search is not null; hops++)
+            {
+                if (ReferenceEquals(search, cachedSlotEnv))
+                {
+                    break;
+                }
+                search = search._outerEnv;
+            }
+
+            if (search is null || hops == MaxSlotCacheChainDepth || !ReferenceEquals(search, cachedSlotEnv))
+            {
+                return false;
+            }
+
+            declarativeEnvironment = cachedSlotEnv;
+            slotIndex = _cachedSlotIndex;
+        }
+        else
+        {
+            var name = _leftIdentifier.Identifier;
+            if (!JintEnvironment.TryGetIdentifierEnvironmentWithBinding(env, name, out var record))
+            {
+                // unresolvable; the full path produces the proper error
+                return false;
+            }
+
+            if (record is not DeclarativeEnvironment resolved || (slotIndex = resolved.FindSlotIndex(name.Key)) < 0)
+            {
+                // the binding for this node can never be slot-stored; stop attempting
+                _discardFastPathDisabled = true;
+                return false;
+            }
+
+            declarativeEnvironment = resolved;
+            _cachedSlotEnv = resolved;
+            _cachedSlotIndex = slotIndex;
+        }
+
+        if (!declarativeEnvironment.TryGetNumberSlot(slotIndex, out var left))
         {
             return false;
         }
@@ -398,7 +450,7 @@ internal sealed class JintAssignmentExpression : JintExpression
         // cannot apply and the result is always stored.
         var wasMutatedInPlace = false;
         var newLeftValue = ComputeCompound(context, JsNumber.Create(left), rval, ref wasMutatedInPlace);
-        record.SetMutableBinding(name.Key, newLeftValue, StrictModeScope.IsStrictModeCode);
+        declarativeEnvironment.SetMutableBinding(_leftIdentifier.Identifier.Key, newLeftValue, StrictModeScope.IsStrictModeCode);
         return true;
     }
 

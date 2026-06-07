@@ -1,6 +1,8 @@
 using Jint.Native;
 using Jint.Runtime.Environments;
 
+using Environment = Jint.Runtime.Environments.Environment;
+
 namespace Jint.Runtime.Interpreter.Expressions;
 
 internal sealed class JintUpdateExpression : JintExpression
@@ -11,6 +13,16 @@ internal sealed class JintUpdateExpression : JintExpression
 
     private readonly JintIdentifierExpression? _leftIdentifier;
     private readonly bool _evalOrArguments;
+
+    // Slot-location cache for the discard-mode fast path; same validity reasoning as
+    // JintIdentifierExpression's slot-binding cache: closure-captured envs cannot be
+    // pooled, so the env reference is stable and slot indices are immutable.
+    // _discardFastPathDisabled marks nodes whose binding can never be slot-stored
+    // (global/object/dictionary environments) so failed attempts don't re-walk the chain.
+    private DeclarativeEnvironment? _cachedSlotEnv;
+    private int _cachedSlotIndex = -1;
+    private bool _discardFastPathDisabled;
+    private const int MaxSlotCacheChainDepth = 4;
 
     public JintUpdateExpression(UpdateExpression expression) : base(expression)
     {
@@ -65,6 +77,7 @@ internal sealed class JintUpdateExpression : JintExpression
     {
         var engine = context.Engine;
         if (_leftIdentifier is null
+            || _discardFastPathDisabled
             || context.OperatorOverloadingAllowed
             || engine.ExecutionContext.Suspendable is not null)
         {
@@ -77,18 +90,65 @@ internal sealed class JintUpdateExpression : JintExpression
             return false;
         }
 
-        var name = _leftIdentifier.Identifier;
-        if (!JintEnvironment.TryGetIdentifierEnvironmentWithBinding(
-                engine.ExecutionContext.LexicalEnvironment,
-                name,
-                out var record)
-            || record is not DeclarativeEnvironment declarativeEnvironment
-            || !declarativeEnvironment.TryGetNumberSlot(name.Key, out var slotIndex, out var value))
+        var env = engine.ExecutionContext.LexicalEnvironment;
+
+        var cachedSlotEnv = _cachedSlotEnv;
+        if (cachedSlotEnv is not null)
+        {
+            if (!ReferenceEquals(cachedSlotEnv._engine, engine))
+            {
+                return ResolveSlotAndUpdate(engine, env);
+            }
+
+            var search = env;
+            for (var hops = 0; hops < MaxSlotCacheChainDepth && search is not null; hops++)
+            {
+                if (ReferenceEquals(search, cachedSlotEnv))
+                {
+                    return TryUpdateSlot(cachedSlotEnv, _cachedSlotIndex);
+                }
+                search = search._outerEnv;
+            }
+
+            return false;
+        }
+
+        return ResolveSlotAndUpdate(engine, env);
+    }
+
+    private bool ResolveSlotAndUpdate(Engine engine, Environment env)
+    {
+        var name = _leftIdentifier!.Identifier;
+        if (!JintEnvironment.TryGetIdentifierEnvironmentWithBinding(env, name, out var record))
+        {
+            // unresolvable; the full path produces the proper error
+            return false;
+        }
+
+        if (record is DeclarativeEnvironment declarativeEnvironment)
+        {
+            var slotIndex = declarativeEnvironment.FindSlotIndex(name.Key);
+            if (slotIndex >= 0)
+            {
+                _cachedSlotEnv = declarativeEnvironment;
+                _cachedSlotIndex = slotIndex;
+                return TryUpdateSlot(declarativeEnvironment, slotIndex);
+            }
+        }
+
+        // the binding for this node can never be slot-stored; stop attempting
+        _discardFastPathDisabled = true;
+        return false;
+    }
+
+    private bool TryUpdateSlot(DeclarativeEnvironment environment, int slotIndex)
+    {
+        if (!environment.TryGetNumberSlot(slotIndex, out var value))
         {
             return false;
         }
 
-        declarativeEnvironment.SetNumberSlot(slotIndex, value + _change);
+        environment.SetNumberSlot(slotIndex, value + _change);
         return true;
     }
 
