@@ -63,7 +63,7 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
             _increment = JintExpression.Build(statement.Update);
             // restricted to types whose Evaluate() result is a plain value (never a Reference)
             // so the discard path matches today's semantics exactly
-            _incrementCanDiscard = _increment is JintUpdateExpression or JintAssignmentExpression;
+            _incrementCanDiscard = _increment.HasDiscardFastPath;
         }
     }
 

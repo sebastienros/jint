@@ -10,7 +10,7 @@ internal sealed class JintExpressionStatement : JintStatement<ExpressionStatemen
     // identifiers are queried the most
     private readonly JintIdentifierExpression? _identifierExpression;
 
-    // only these node types have a non-materializing discard path; gating here keeps
+    // only node types with a non-materializing discard path divert; gating here keeps
     // every other statement on the exact same call sequence as before
     private readonly bool _expressionCanDiscard;
 
@@ -18,7 +18,7 @@ internal sealed class JintExpressionStatement : JintStatement<ExpressionStatemen
     {
         _expression = JintExpression.Build(statement.Expression);
         _identifierExpression = _expression as JintIdentifierExpression;
-        _expressionCanDiscard = _expression is JintUpdateExpression or JintAssignmentExpression;
+        _expressionCanDiscard = _expression.HasDiscardFastPath;
     }
 
     protected override Completion ExecuteInternal(EvaluationContext context)

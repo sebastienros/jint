@@ -55,6 +55,13 @@ internal abstract class JintExpression
     protected abstract object EvaluateInternal(EvaluationContext context);
 
     /// <summary>
+    /// True when this expression type overrides <see cref="EvaluateAndDiscard"/> with a
+    /// non-materializing fast path; callers use it to keep every other expression on its
+    /// exact current call sequence.
+    /// </summary>
+    internal virtual bool HasDiscardFastPath => false;
+
+    /// <summary>
     /// Evaluates the expression for its side effects only; the caller guarantees the result
     /// is unobservable (e.g. an expression statement inside a function body). Expression types
     /// with a non-materializing fast path override this; the default matches <see cref="GetValue"/>.
