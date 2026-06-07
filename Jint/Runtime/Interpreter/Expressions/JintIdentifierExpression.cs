@@ -123,6 +123,14 @@ internal sealed class JintIdentifierExpression : JintExpression
                     }
                     break;
                 }
+
+                if (search is ObjectEnvironment)
+                {
+                    // a with-object between us and the cached slot may shadow the name
+                    // dynamically; only the full resolution can decide who owns the binding
+                    break;
+                }
+
                 search = search._outerEnv;
             }
         }
@@ -157,19 +165,13 @@ internal sealed class JintIdentifierExpression : JintExpression
             // Populate slot-binding cache when the resolved env stores this binding in a fixed slot.
             // Closure-captured envs cannot be pooled (escape detection prevents it), so caching the
             // env reference is safe; slot indices are immutable for the lifetime of the env.
-            if (identifierEnvironment is DeclarativeEnvironment denv
-                && denv._slots is not null
-                && denv._slotNames is { } slotNames)
+            if (identifierEnvironment is DeclarativeEnvironment denv)
             {
-                var key = identifier.Key;
-                for (var i = 0; i < slotNames.Length; i++)
+                var slotIndex = denv.FindSlotIndex(identifier.Key);
+                if (slotIndex >= 0)
                 {
-                    if (slotNames[i] == key)
-                    {
-                        _cachedSlotEnv = denv;
-                        _cachedSlotIndex = i;
-                        break;
-                    }
+                    _cachedSlotEnv = denv;
+                    _cachedSlotIndex = slotIndex;
                 }
             }
 

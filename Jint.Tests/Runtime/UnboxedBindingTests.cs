@@ -133,6 +133,44 @@ public class UnboxedBindingTests
     }
 
     [Fact]
+    public void WithStatementDynamicShadowingResolvesPerExecution()
+    {
+        // write paths: the slot-location cache must not skip a with-object that gains
+        // the property after the cache was populated
+        Assert.Equal("2|101", _engine.Evaluate(
+            "function f() { var i = 0; var r = ''; for (var k = 0; k < 3; k++) { var obj = (k === 1) ? { i: 100 } : {}; with (obj) { i++; } if (k === 1) { r = '' + obj.i; } } return i + '|' + r; } f();").AsString());
+
+        Assert.Equal("2|101", _engine.Evaluate(
+            "function g() { var i = 0; var r = ''; for (var k = 0; k < 3; k++) { var obj = (k === 1) ? { i: 100 } : {}; with (obj) { i += 1; } if (k === 1) { r = '' + obj.i; } } return i + '|' + r; } g();").AsString());
+
+        // read path: the identifier slot cache has the same obligation
+        Assert.Equal("42;999;", _engine.Evaluate(
+            "function h() { var i = 42; var out = ''; for (var k = 0; k < 2; k++) { var obj = (k === 1) ? { i: 999 } : {}; with (obj) { out += i + ';'; } } return out; } h();").AsString());
+
+        // a with-object that owns the property from the start
+        Assert.Equal("1|105", _engine.Evaluate(
+            "function w() { var s = 1; var o = { s: 100 }; with (o) { s += 5; } return s + '|' + o.s; } w();").AsString());
+    }
+
+    [Fact]
+    public void SequenceExpressionUpdatesInForLoop()
+    {
+        Assert.Equal("5|5", _engine.Evaluate(
+            "function f() { var i = 0, j = 10; for (; i < j; i++, j--) { } return i + '|' + j; } f();").AsString());
+        Assert.Equal(2.5, _engine.Evaluate(
+            "function f() { var a = 0, b = 0; for (var k = 0; k < 5; k++, a += 0.25, b += 0.25) { } return a + b; } f();").AsNumber());
+    }
+
+    [Fact]
+    public void SwitchBodiesInsideFunctionsStayCorrect()
+    {
+        Assert.Equal(0.75, _engine.Evaluate(
+            "function f() { var s = 0; switch (1) { case 1: s += 0.5; s += 0.25; break; } return s; } f();").AsNumber());
+        Assert.Equal(50d, _engine.Evaluate(
+            "function f() { var acc = 0; for (var i = 0; i < 100; i++) { switch (i % 2) { case 0: acc += 1; break; default: acc -= 0; break; } } return acc; } f();").AsNumber());
+    }
+
+    [Fact]
     public void ForLoopCountersStayCorrect()
     {
         Assert.Equal(100000d, _engine.Evaluate("function f() { var i; for (i = 0; i < 100000; i++) { } return i; } f()").AsNumber());

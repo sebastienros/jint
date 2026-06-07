@@ -15,15 +15,9 @@ internal sealed class JintAssignmentExpression : JintExpression
     private readonly JintExpression _right;
     private readonly Operator _operator;
 
-    // Slot-location cache for the discard-mode fast path; same validity reasoning as
-    // JintIdentifierExpression's slot-binding cache: closure-captured envs cannot be
-    // pooled, so the env reference is stable and slot indices are immutable.
-    // _discardFastPathDisabled marks nodes whose binding can never be slot-stored
-    // (global/object/dictionary environments) so failed attempts don't re-walk the chain.
-    private DeclarativeEnvironment? _cachedSlotEnv;
-    private int _cachedSlotIndex = -1;
-    private bool _discardFastPathDisabled;
-    private const int MaxSlotCacheChainDepth = 4;
+    // Slot-location cache for the discard-mode fast path; see SlotLocationCache for the
+    // validity reasoning (with-statement shadowing, pooling, cross-engine sharing).
+    private SlotLocationCache _slotCache;
 
     private JintAssignmentExpression(AssignmentExpression expression) : base(expression)
     {
@@ -308,6 +302,8 @@ internal sealed class JintAssignmentExpression : JintExpression
         }
     }
 
+    internal override bool HasDiscardFastPath => true;
+
     internal override void EvaluateAndDiscard(EvaluationContext context)
     {
         var oldSyntaxElement = context.LastSyntaxElement;
@@ -333,7 +329,6 @@ internal sealed class JintAssignmentExpression : JintExpression
     {
         var engine = context.Engine;
         if (_leftIdentifier is null
-            || _discardFastPathDisabled
             || context.OperatorOverloadingAllowed
             || engine.ExecutionContext.Suspendable is not null
             || _operator is Operator.NullishCoalescingAssignment or Operator.LogicalAndAssignment or Operator.LogicalOrAssignment)
@@ -341,54 +336,8 @@ internal sealed class JintAssignmentExpression : JintExpression
             return false;
         }
 
-        var env = engine.ExecutionContext.LexicalEnvironment;
-        DeclarativeEnvironment declarativeEnvironment;
-        int slotIndex;
-
-        var cachedSlotEnv = _cachedSlotEnv;
-        if (cachedSlotEnv is not null && ReferenceEquals(cachedSlotEnv._engine, engine))
-        {
-            var search = env;
-            var hops = 0;
-            for (; hops < MaxSlotCacheChainDepth && search is not null; hops++)
-            {
-                if (ReferenceEquals(search, cachedSlotEnv))
-                {
-                    break;
-                }
-                search = search._outerEnv;
-            }
-
-            if (search is null || hops == MaxSlotCacheChainDepth || !ReferenceEquals(search, cachedSlotEnv))
-            {
-                return false;
-            }
-
-            declarativeEnvironment = cachedSlotEnv;
-            slotIndex = _cachedSlotIndex;
-        }
-        else
-        {
-            var name = _leftIdentifier.Identifier;
-            if (!JintEnvironment.TryGetIdentifierEnvironmentWithBinding(env, name, out var record))
-            {
-                // unresolvable; the full path produces the proper error
-                return false;
-            }
-
-            if (record is not DeclarativeEnvironment resolved || (slotIndex = resolved.FindSlotIndex(name.Key)) < 0)
-            {
-                // the binding for this node can never be slot-stored; stop attempting
-                _discardFastPathDisabled = true;
-                return false;
-            }
-
-            declarativeEnvironment = resolved;
-            _cachedSlotEnv = resolved;
-            _cachedSlotIndex = slotIndex;
-        }
-
-        if (!declarativeEnvironment.TryGetNumberSlot(slotIndex, out var left))
+        if (!_slotCache.TryResolve(engine, engine.ExecutionContext.LexicalEnvironment, _leftIdentifier.Identifier, out var declarativeEnvironment, out var slotIndex)
+            || !declarativeEnvironment.TryGetNumberSlot(slotIndex, out var left))
         {
             return false;
         }
@@ -428,13 +377,13 @@ internal sealed class JintAssignmentExpression : JintExpression
                     result = TypeConverter.ToInt32(left) ^ TypeConverter.ToInt32(right);
                     break;
                 case Operator.LeftShiftAssignment:
-                    result = TypeConverter.ToInt32(left) << (int) (TypeConverter.ToUint32(rightNumber) & 0x1F);
+                    result = TypeConverter.ToInt32(left) << (int) (TypeConverter.ToUint32(right) & 0x1F);
                     break;
                 case Operator.RightShiftAssignment:
-                    result = TypeConverter.ToInt32(left) >> (int) (TypeConverter.ToUint32(rightNumber) & 0x1F);
+                    result = TypeConverter.ToInt32(left) >> (int) (TypeConverter.ToUint32(right) & 0x1F);
                     break;
                 case Operator.UnsignedRightShiftAssignment:
-                    result = (uint) TypeConverter.ToInt32(left) >> (int) (TypeConverter.ToUint32(rightNumber) & 0x1F);
+                    result = (uint) TypeConverter.ToInt32(left) >> (int) (TypeConverter.ToUint32(right) & 0x1F);
                     break;
                 default:
                     Throw.NotImplementedException();

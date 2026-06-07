@@ -61,7 +61,16 @@ internal class DeclarativeEnvironment : Environment
     /// </summary>
     internal bool TryGetNumberSlot(int slotIndex, out double value)
     {
-        ref var binding = ref _slots![slotIndex];
+        // bounds-checked like the identifier slot-cache read path: a cached index is
+        // deterministic per AST node, but a stale/torn cache must fall back, not throw
+        var slots = _slots;
+        if (slots is null || (uint) slotIndex >= (uint) slots.Length)
+        {
+            value = 0;
+            return false;
+        }
+
+        ref var binding = ref slots[slotIndex];
         if (binding.Mutable)
         {
             if (binding.IsUnboxedNumber)
