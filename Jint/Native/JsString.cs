@@ -203,6 +203,28 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         return new JsString(value);
     }
 
+    /// <summary>
+    /// Creates a string for a substring of <paramref name="source"/>. Large slices that cover
+    /// most of the source are returned as zero-copy views (<see cref="SlicedString"/>); small
+    /// slices are copied so a short-lived view can never pin a much larger backing string.
+    /// </summary>
+    internal static JsString CreateSliced(string source, int start, int length)
+    {
+        if (start == 0 && length == source.Length)
+        {
+            return new JsString(source);
+        }
+
+        // The view pins the whole source string; only worth it (and safe retention-wise)
+        // when the slice is large and covers at least half of the source.
+        if (length >= 512 && length * 2 >= source.Length)
+        {
+            return new SlicedString(source, start, length);
+        }
+
+        return new JsString(source.Substring(start, length));
+    }
+
     internal static JsString Create(int value)
     {
         var temp = _intToStringJsValue;
@@ -466,6 +488,80 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         internal override JsValue DoClone()
         {
             return new JsString(ToString());
+        }
+    }
+
+    /// <summary>
+    /// Zero-copy view over a section of a backing string, produced by slice/substring/substr
+    /// for large results. Immutable (unlike <see cref="ConcatenatedString"/>), so it never
+    /// requires cloning; the flat value is materialized lazily on first <see cref="ToString"/>.
+    /// </summary>
+    internal sealed class SlicedString : JsString
+    {
+        private readonly string _source;
+        private readonly int _start;
+        private readonly int _length;
+
+        internal SlicedString(string source, int start, int length)
+            : base(null!, InternalTypes.String)
+        {
+            _source = source;
+            _start = start;
+            _length = length;
+        }
+
+        public override string ToString()
+        {
+            return _value ??= _source.Substring(_start, _length);
+        }
+
+        public override char this[int index] => _source[_start + index];
+
+        public override int Length => _length;
+
+        private ReadOnlySpan<char> AsSpan() => _value is not null ? _value.AsSpan() : _source.AsSpan(_start, _length);
+
+        internal override JsString EnsureCapacity(int capacity)
+        {
+            // base implementation reads _value directly, which may not be materialized yet
+            return new ConcatenatedString(ToString(), capacity);
+        }
+
+        public override bool Equals(string? other)
+        {
+            return other is not null && _length == other.Length && AsSpan().SequenceEqual(other.AsSpan());
+        }
+
+        public override bool Equals(JsString? other)
+        {
+            if (other is null)
+            {
+                return false;
+            }
+
+            if (ReferenceEquals(this, other))
+            {
+                return true;
+            }
+
+            if (other.Length != _length)
+            {
+                return false;
+            }
+
+            var otherSpan = other is SlicedString otherSlice ? otherSlice.AsSpan() : other.ToString().AsSpan();
+            return AsSpan().SequenceEqual(otherSpan);
+        }
+
+        public override int GetHashCode()
+        {
+#if NETFRAMEWORK || NETSTANDARD2_0 || NETSTANDARD2_1
+            // netstandard2.1 lacks the (ReadOnlySpan<char>, StringComparison) overload
+            return StringComparer.Ordinal.GetHashCode(ToString());
+#else
+            // same hash as the equivalent flat string instance
+            return string.GetHashCode(AsSpan(), StringComparison.Ordinal);
+#endif
         }
     }
 }

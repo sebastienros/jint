@@ -280,7 +280,7 @@ public sealed class TypeReference : Constructor, IObjectWrapper
         }
         else
         {
-            var key = jsString._value;
+            var key = jsString.ToString();
 
             if (_properties?.TryGetValue(key, out var descriptor) != true)
             {
