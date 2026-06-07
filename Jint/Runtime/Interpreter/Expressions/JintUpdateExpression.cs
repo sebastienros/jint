@@ -72,7 +72,7 @@ internal sealed class JintUpdateExpression : JintExpression
         {
             if (isInteger)
             {
-                newValue = JsNumber.Create(value.AsInteger() + _change);
+                newValue = JsNumber.Create((long) value.AsInteger() + _change);
             }
             else if (!value.IsBigInt())
             {
@@ -142,7 +142,7 @@ internal sealed class JintUpdateExpression : JintExpression
             {
                 if (isInteger)
                 {
-                    newValue = JsNumber.Create(value.AsInteger() + _change);
+                    newValue = JsNumber.Create((long) value.AsInteger() + _change);
                 }
                 else if (value._type != InternalTypes.BigInt)
                 {

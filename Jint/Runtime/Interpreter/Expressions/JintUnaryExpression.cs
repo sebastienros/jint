@@ -289,7 +289,8 @@ internal sealed class JintUnaryExpression : JintExpression
             var asInteger = value.AsInteger();
             if (asInteger != 0)
             {
-                return JsNumber.Create(asInteger * -1);
+                // long math: -int.MinValue overflows int32
+                return JsNumber.Create(-(long) asInteger);
             }
         }
 

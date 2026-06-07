@@ -154,16 +154,22 @@ internal sealed class JintAssignmentExpression : JintExpression
 
                         if (AreIntegerOperands(originalLeftValue, rval))
                         {
-                            newLeftValue = JsNumber.Create(originalLeftValue.AsInteger() - rval.AsInteger());
-                        }
-                        else if (JintBinaryExpression.AreNonBigIntOperands(originalLeftValue, rval))
-                        {
-                            newLeftValue = JsNumber.Create(TypeConverter.ToNumber(originalLeftValue) - TypeConverter.ToNumber(rval));
+                            newLeftValue = JsNumber.Create((long) originalLeftValue.AsInteger() - rval.AsInteger());
                         }
                         else
                         {
-                            JintBinaryExpression.AssertValidBigIntArithmeticOperands(originalLeftValue, rval);
-                            newLeftValue = JsBigInt.Create(TypeConverter.ToBigInt(originalLeftValue) - TypeConverter.ToBigInt(rval));
+                            var leftNumeric = TypeConverter.ToNumeric(originalLeftValue);
+                            var rightNumeric = TypeConverter.ToNumeric(rval);
+
+                            if (JintBinaryExpression.AreNonBigIntOperands(leftNumeric, rightNumeric))
+                            {
+                                newLeftValue = JsNumber.Create(leftNumeric.AsNumber() - rightNumeric.AsNumber());
+                            }
+                            else
+                            {
+                                JintBinaryExpression.AssertValidBigIntArithmeticOperands(leftNumeric, rightNumeric);
+                                newLeftValue = JsBigInt.Create(TypeConverter.ToBigInt(leftNumeric) - TypeConverter.ToBigInt(rightNumeric));
+                            }
                         }
 
                         break;
@@ -182,18 +188,20 @@ internal sealed class JintAssignmentExpression : JintExpression
                         {
                             newLeftValue = (long) originalLeftValue.AsInteger() * rval.AsInteger();
                         }
-                        else if (originalLeftValue.IsUndefined() || rval.IsUndefined())
-                        {
-                            newLeftValue = JsValue.Undefined;
-                        }
-                        else if (JintBinaryExpression.AreNonBigIntOperands(originalLeftValue, rval))
-                        {
-                            newLeftValue = TypeConverter.ToNumber(originalLeftValue) * TypeConverter.ToNumber(rval);
-                        }
                         else
                         {
-                            JintBinaryExpression.AssertValidBigIntArithmeticOperands(originalLeftValue, rval);
-                            newLeftValue = JsBigInt.Create(TypeConverter.ToBigInt(originalLeftValue) * TypeConverter.ToBigInt(rval));
+                            var leftNumeric = TypeConverter.ToNumeric(originalLeftValue);
+                            var rightNumeric = TypeConverter.ToNumeric(rval);
+
+                            if (JintBinaryExpression.AreNonBigIntOperands(leftNumeric, rightNumeric))
+                            {
+                                newLeftValue = leftNumeric.AsNumber() * rightNumeric.AsNumber();
+                            }
+                            else
+                            {
+                                JintBinaryExpression.AssertValidBigIntArithmeticOperands(leftNumeric, rightNumeric);
+                                newLeftValue = JsBigInt.Create(TypeConverter.ToBigInt(leftNumeric) * TypeConverter.ToBigInt(rightNumeric));
+                            }
                         }
 
                         break;
@@ -208,7 +216,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                             return rval;
                         }
 
-                        newLeftValue = Divide(context, originalLeftValue, rval);
+                        newLeftValue = Divide(context, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval));
                         break;
                     }
 
@@ -234,7 +242,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                             return rval;
                         }
 
-                        newLeftValue = TypeConverter.ToInt32(originalLeftValue) & TypeConverter.ToInt32(rval);
+                        newLeftValue = JintBinaryExpression.EvaluateBitwiseOperation(Operator.BitwiseAnd, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval), _left._expression);
                         break;
                     }
 
@@ -247,7 +255,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                             return rval;
                         }
 
-                        newLeftValue = TypeConverter.ToInt32(originalLeftValue) | TypeConverter.ToInt32(rval);
+                        newLeftValue = JintBinaryExpression.EvaluateBitwiseOperation(Operator.BitwiseOr, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval), _left._expression);
                         break;
                     }
 
@@ -260,7 +268,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                             return rval;
                         }
 
-                        newLeftValue = TypeConverter.ToInt32(originalLeftValue) ^ TypeConverter.ToInt32(rval);
+                        newLeftValue = JintBinaryExpression.EvaluateBitwiseOperation(Operator.BitwiseXor, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval), _left._expression);
                         break;
                     }
 
@@ -273,7 +281,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                             return rval;
                         }
 
-                        newLeftValue = TypeConverter.ToInt32(originalLeftValue) << (int) (TypeConverter.ToUint32(rval) & 0x1F);
+                        newLeftValue = JintBinaryExpression.EvaluateBitwiseOperation(Operator.LeftShift, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval), _left._expression);
                         break;
                     }
 
@@ -286,7 +294,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                             return rval;
                         }
 
-                        newLeftValue = TypeConverter.ToInt32(originalLeftValue) >> (int) (TypeConverter.ToUint32(rval) & 0x1F);
+                        newLeftValue = JintBinaryExpression.EvaluateBitwiseOperation(Operator.RightShift, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval), _left._expression);
                         break;
                     }
 
@@ -299,7 +307,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                             return rval;
                         }
 
-                        newLeftValue = (uint) TypeConverter.ToInt32(originalLeftValue) >> (int) (TypeConverter.ToUint32(rval) & 0x1F);
+                        newLeftValue = JintBinaryExpression.EvaluateBitwiseOperation(Operator.UnsignedRightShift, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval), _left._expression);
                         break;
                     }
 
@@ -372,29 +380,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                             return rval;
                         }
 
-                        if (!originalLeftValue.IsBigInt() && !rval.IsBigInt())
-                        {
-                            newLeftValue = JsNumber.Create(Math.Pow(TypeConverter.ToNumber(originalLeftValue), TypeConverter.ToNumber(rval)));
-                        }
-                        else
-                        {
-                            var exponent = TypeConverter.ToBigInt(rval);
-                            if (exponent < 0)
-                            {
-                                Throw.RangeError(context.Engine.Realm, "Exponent must be positive");
-                            }
-
-                            if (exponent > int.MaxValue)
-                            {
-                                Throw.RangeError(context.Engine.Realm, "Maximum BigInt size exceeded");
-                            }
-
-                            var intExponent = (int) exponent;
-                            var baseValue = TypeConverter.ToBigInt(originalLeftValue);
-                            JintBinaryExpression.ValidateBigIntPowSize(context.Engine.Realm, baseValue, intExponent);
-                            newLeftValue = JsBigInt.Create(BigInteger.Pow(baseValue, intExponent));
-                        }
-
+                        newLeftValue = JintBinaryExpression.Exponentiate(context, TypeConverter.ToNumeric(originalLeftValue), TypeConverter.ToNumeric(rval));
                         break;
                     }
 

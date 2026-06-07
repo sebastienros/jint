@@ -818,121 +818,130 @@ internal abstract class JintBinaryExpression : JintExpression
             var left = TypeConverter.ToNumeric(leftReference);
             var right = TypeConverter.ToNumeric(rightReference);
 
-            JsValue result;
-            if (AreNonBigIntOperands(left, right))
+            return Exponentiate(context, left, right);
+        }
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-numeric-types-number-exponentiate (+ BigInt variant).
+    /// Operands must already be numeric (ToNumeric applied). Shared by ** and **=.
+    /// </summary>
+    internal static JsValue Exponentiate(EvaluationContext context, JsValue left, JsValue right)
+    {
+        JsValue result;
+        if (AreNonBigIntOperands(left, right))
+        {
+            // validation
+            var baseNumber = (JsNumber) left;
+            var exponentNumber = (JsNumber) right;
+
+            if (exponentNumber.IsNaN())
             {
-                // validation
-                var baseNumber = (JsNumber) left;
-                var exponentNumber = (JsNumber) right;
+                return JsNumber.DoubleNaN;
+            }
 
-                if (exponentNumber.IsNaN())
+            if (exponentNumber.IsZero())
+            {
+                return JsNumber.PositiveOne;
+            }
+
+            if (baseNumber.IsNaN())
+            {
+                return JsNumber.DoubleNaN;
+            }
+
+            var exponentValue = exponentNumber._value;
+            if (baseNumber.IsPositiveInfinity())
+            {
+                return exponentValue > 0 ? JsNumber.DoublePositiveInfinity : JsNumber.PositiveZero;
+            }
+
+            static bool IsOddIntegral(double value) => TypeConverter.IsIntegralNumber(value) && value % 2 != 0;
+
+            if (baseNumber.IsNegativeInfinity())
+            {
+                if (exponentValue > 0)
                 {
-                    return JsNumber.DoubleNaN;
-                }
-
-                if (exponentNumber.IsZero())
-                {
-                    return JsNumber.PositiveOne;
-                }
-
-                if (baseNumber.IsNaN())
-                {
-                    return JsNumber.DoubleNaN;
-                }
-
-                var exponentValue = exponentNumber._value;
-                if (baseNumber.IsPositiveInfinity())
-                {
-                    return exponentValue > 0 ? JsNumber.DoublePositiveInfinity : JsNumber.PositiveZero;
-                }
-
-                static bool IsOddIntegral(double value) => TypeConverter.IsIntegralNumber(value) && value % 2 != 0;
-
-                if (baseNumber.IsNegativeInfinity())
-                {
-                    if (exponentValue > 0)
-                    {
-                        return IsOddIntegral(exponentValue) ? JsNumber.DoubleNegativeInfinity : JsNumber.DoublePositiveInfinity;
-                    }
-
-                    return IsOddIntegral(exponentValue) ? JsNumber.NegativeZero : JsNumber.PositiveZero;
-                }
-
-                if (baseNumber.IsPositiveZero())
-                {
-                    return exponentValue > 0 ? JsNumber.PositiveZero : JsNumber.DoublePositiveInfinity;
-                }
-
-                if (baseNumber.IsNegativeZero())
-                {
-                    if (exponentValue > 0)
-                    {
-                        return IsOddIntegral(exponentValue) ? JsNumber.NegativeZero : JsNumber.PositiveZero;
-                    }
                     return IsOddIntegral(exponentValue) ? JsNumber.DoubleNegativeInfinity : JsNumber.DoublePositiveInfinity;
                 }
 
-                var baseValue = baseNumber._value;
-                if (exponentNumber.IsPositiveInfinity())
-                {
-                    var absBase = Math.Abs(baseValue);
-                    if (absBase > 1)
-                    {
-                        return JsNumber.DoublePositiveInfinity;
-                    }
-                    if (absBase == 1)
-                    {
-                        return JsNumber.DoubleNaN;
-                    }
+                return IsOddIntegral(exponentValue) ? JsNumber.NegativeZero : JsNumber.PositiveZero;
+            }
 
-                    return JsNumber.PositiveZero;
+            if (baseNumber.IsPositiveZero())
+            {
+                return exponentValue > 0 ? JsNumber.PositiveZero : JsNumber.DoublePositiveInfinity;
+            }
+
+            if (baseNumber.IsNegativeZero())
+            {
+                if (exponentValue > 0)
+                {
+                    return IsOddIntegral(exponentValue) ? JsNumber.NegativeZero : JsNumber.PositiveZero;
                 }
+                return IsOddIntegral(exponentValue) ? JsNumber.DoubleNegativeInfinity : JsNumber.DoublePositiveInfinity;
+            }
 
-                if (exponentNumber.IsNegativeInfinity())
+            var baseValue = baseNumber._value;
+            if (exponentNumber.IsPositiveInfinity())
+            {
+                var absBase = Math.Abs(baseValue);
+                if (absBase > 1)
                 {
-                    var absBase = Math.Abs(baseValue);
-                    if (absBase > 1)
-                    {
-                        return JsNumber.PositiveZero;
-                    }
-                    if (absBase == 1)
-                    {
-                        return JsNumber.DoubleNaN;
-                    }
-
                     return JsNumber.DoublePositiveInfinity;
                 }
-
-                if (baseValue < 0 && !TypeConverter.IsIntegralNumber(exponentValue))
+                if (absBase == 1)
                 {
                     return JsNumber.DoubleNaN;
                 }
 
-                result = JsNumber.Create(Math.Pow(baseNumber._value, exponentValue));
+                return JsNumber.PositiveZero;
             }
-            else
+
+            if (exponentNumber.IsNegativeInfinity())
             {
-                AssertValidBigIntArithmeticOperands(left, right);
-
-                var exponent = right.AsBigInt();
-                if (exponent < 0)
+                var absBase = Math.Abs(baseValue);
+                if (absBase > 1)
                 {
-                    Throw.RangeError(context.Engine.Realm, "Exponent must be positive");
+                    return JsNumber.PositiveZero;
+                }
+                if (absBase == 1)
+                {
+                    return JsNumber.DoubleNaN;
                 }
 
-                if (exponent > int.MaxValue)
-                {
-                    Throw.RangeError(context.Engine.Realm, "Maximum BigInt size exceeded");
-                }
-
-                var intExponent = (int) exponent;
-                var baseValue = left.AsBigInt();
-                ValidateBigIntPowSize(context.Engine.Realm, baseValue, intExponent);
-                result = JsBigInt.Create(BigInteger.Pow(baseValue, intExponent));
+                return JsNumber.DoublePositiveInfinity;
             }
 
-            return result;
+            if (baseValue < 0 && !TypeConverter.IsIntegralNumber(exponentValue))
+            {
+                return JsNumber.DoubleNaN;
+            }
+
+            result = JsNumber.Create(Math.Pow(baseNumber._value, exponentValue));
         }
+        else
+        {
+            AssertValidBigIntArithmeticOperands(left, right);
+
+            var exponent = right.AsBigInt();
+            if (exponent < 0)
+            {
+                Throw.RangeError(context.Engine.Realm, "Exponent must be positive");
+            }
+
+            if (exponent > int.MaxValue)
+            {
+                Throw.RangeError(context.Engine.Realm, "Maximum BigInt size exceeded");
+            }
+
+            var intExponent = (int) exponent;
+            var baseValue = left.AsBigInt();
+            ValidateBigIntPowSize(context.Engine.Realm, baseValue, intExponent);
+            result = JsBigInt.Create(BigInteger.Pow(baseValue, intExponent));
+        }
+
+        return result;
     }
 
     private sealed class InBinaryExpression : JintBinaryExpression
@@ -1030,114 +1039,119 @@ internal abstract class JintBinaryExpression : JintExpression
             var lnum = TypeConverter.ToNumeric(lval);
             var rnum = TypeConverter.ToNumeric(rval);
 
-            if (lnum.Type != rnum.Type)
-            {
-                Throw.TypeErrorNoEngine("Cannot mix BigInt and other types, use explicit conversions", _left._expression);
-            }
+            return EvaluateBitwiseOperation(_operator, lnum, rnum, _left._expression);
+        }
+    }
 
-            if (AreIntegerOperands(lnum, rnum))
-            {
-                int leftValue = lnum.AsInteger();
-                int rightValue = rnum.AsInteger();
-
-                JsValue? result = null;
-                switch (_operator)
-                {
-                    case Operator.BitwiseAnd:
-                        result = JsNumber.Create(leftValue & rightValue);
-                        break;
-                    case Operator.BitwiseOr:
-                        result = JsNumber.Create(leftValue | rightValue);
-                        break;
-                    case Operator.BitwiseXor:
-                        result = JsNumber.Create(leftValue ^ rightValue);
-                        break;
-                    case Operator.LeftShift:
-                        result = JsNumber.Create(leftValue << (int) ((uint) rightValue & 0x1F));
-                        break;
-                    case Operator.RightShift:
-                        result = JsNumber.Create(leftValue >> (int) ((uint) rightValue & 0x1F));
-                        break;
-                    case Operator.UnsignedRightShift:
-                        result = JsNumber.Create((uint) leftValue >> (int) ((uint) rightValue & 0x1F));
-                        break;
-                    default:
-                        Throw.ArgumentOutOfRangeException(nameof(_operator), "unknown shift operator");
-                        break;
-                }
-
-                return result;
-            }
-
-            return EvaluateNonInteger(lnum, rnum);
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-numberbitwiseop (+ BigInt variants and shift operators).
+    /// Operands must already be numeric (ToNumeric applied). Shared by the bitwise/shift
+    /// binary operators and their compound assignment forms.
+    /// </summary>
+    internal static JsValue EvaluateBitwiseOperation(Operator op, JsValue left, JsValue right, Node? location)
+    {
+        if (left.Type != right.Type)
+        {
+            Throw.TypeErrorNoEngine("Cannot mix BigInt and other types, use explicit conversions", location);
         }
 
-        private JsValue EvaluateNonInteger(JsValue left, JsValue right)
+        if (AreIntegerOperands(left, right))
         {
-            switch (_operator)
+            int leftValue = left.AsInteger();
+            int rightValue = right.AsInteger();
+
+            JsValue? result = null;
+            switch (op)
             {
                 case Operator.BitwiseAnd:
-                    {
-                        if (!left.IsBigInt())
-                        {
-                            return JsNumber.Create(TypeConverter.ToInt32(left) & TypeConverter.ToInt32(right));
-                        }
-
-                        return JsBigInt.Create(TypeConverter.ToBigInt(left) & TypeConverter.ToBigInt(right));
-                    }
-
+                    result = JsNumber.Create(leftValue & rightValue);
+                    break;
                 case Operator.BitwiseOr:
-                    {
-                        if (!left.IsBigInt())
-                        {
-                            return JsNumber.Create(TypeConverter.ToInt32(left) | TypeConverter.ToInt32(right));
-                        }
-                        return JsBigInt.Create(TypeConverter.ToBigInt(left) | TypeConverter.ToBigInt(right));
-                    }
-
+                    result = JsNumber.Create(leftValue | rightValue);
+                    break;
                 case Operator.BitwiseXor:
-                    {
-                        if (!left.IsBigInt())
-                        {
-                            return JsNumber.Create(TypeConverter.ToInt32(left) ^ TypeConverter.ToInt32(right));
-                        }
-                        return JsBigInt.Create(TypeConverter.ToBigInt(left) ^ TypeConverter.ToBigInt(right));
-                    }
-
+                    result = JsNumber.Create(leftValue ^ rightValue);
+                    break;
                 case Operator.LeftShift:
-                    {
-                        if (!left.IsBigInt())
-                        {
-                            return JsNumber.Create(TypeConverter.ToInt32(left) << (int) (TypeConverter.ToUint32(right) & 0x1F));
-                        }
-                        return JsBigInt.Create(TypeConverter.ToBigInt(left) << (int) TypeConverter.ToBigInt(right));
-                    }
-
+                    result = JsNumber.Create(leftValue << (int) ((uint) rightValue & 0x1F));
+                    break;
                 case Operator.RightShift:
-                    {
-                        if (!left.IsBigInt())
-                        {
-                            return JsNumber.Create(TypeConverter.ToInt32(left) >> (int) (TypeConverter.ToUint32(right) & 0x1F));
-                        }
-                        return JsBigInt.Create(TypeConverter.ToBigInt(left) >> (int) TypeConverter.ToBigInt(right));
-                    }
-
+                    result = JsNumber.Create(leftValue >> (int) ((uint) rightValue & 0x1F));
+                    break;
                 case Operator.UnsignedRightShift:
+                    result = JsNumber.Create((uint) leftValue >> (int) ((uint) rightValue & 0x1F));
+                    break;
+                default:
+                    Throw.ArgumentOutOfRangeException(nameof(op), "unknown shift operator");
+                    break;
+            }
+
+            return result!;
+        }
+
+        switch (op)
+        {
+            case Operator.BitwiseAnd:
+                {
+                    if (!left.IsBigInt())
                     {
-                        if (!left.IsBigInt())
-                        {
-                            return JsNumber.Create((uint) TypeConverter.ToInt32(left) >> (int) (TypeConverter.ToUint32(right) & 0x1F));
-                        }
-                        Throw.TypeErrorNoEngine("BigInts have no unsigned right shift, use >> instead", _left._expression);
-                        return null;
+                        return JsNumber.Create(TypeConverter.ToInt32(left) & TypeConverter.ToInt32(right));
                     }
 
-                default:
+                    return JsBigInt.Create(TypeConverter.ToBigInt(left) & TypeConverter.ToBigInt(right));
+                }
+
+            case Operator.BitwiseOr:
+                {
+                    if (!left.IsBigInt())
                     {
-                        Throw.ArgumentOutOfRangeException(nameof(_operator), "unknown shift operator");
-                        return null;
+                        return JsNumber.Create(TypeConverter.ToInt32(left) | TypeConverter.ToInt32(right));
                     }
-            }
+                    return JsBigInt.Create(TypeConverter.ToBigInt(left) | TypeConverter.ToBigInt(right));
+                }
+
+            case Operator.BitwiseXor:
+                {
+                    if (!left.IsBigInt())
+                    {
+                        return JsNumber.Create(TypeConverter.ToInt32(left) ^ TypeConverter.ToInt32(right));
+                    }
+                    return JsBigInt.Create(TypeConverter.ToBigInt(left) ^ TypeConverter.ToBigInt(right));
+                }
+
+            case Operator.LeftShift:
+                {
+                    if (!left.IsBigInt())
+                    {
+                        return JsNumber.Create(TypeConverter.ToInt32(left) << (int) (TypeConverter.ToUint32(right) & 0x1F));
+                    }
+                    return JsBigInt.Create(TypeConverter.ToBigInt(left) << (int) TypeConverter.ToBigInt(right));
+                }
+
+            case Operator.RightShift:
+                {
+                    if (!left.IsBigInt())
+                    {
+                        return JsNumber.Create(TypeConverter.ToInt32(left) >> (int) (TypeConverter.ToUint32(right) & 0x1F));
+                    }
+                    return JsBigInt.Create(TypeConverter.ToBigInt(left) >> (int) TypeConverter.ToBigInt(right));
+                }
+
+            case Operator.UnsignedRightShift:
+                {
+                    if (!left.IsBigInt())
+                    {
+                        return JsNumber.Create((uint) TypeConverter.ToInt32(left) >> (int) (TypeConverter.ToUint32(right) & 0x1F));
+                    }
+                    Throw.TypeErrorNoEngine("BigInts have no unsigned right shift, use >> instead", location);
+                    return null;
+                }
+
+            default:
+                {
+                    Throw.ArgumentOutOfRangeException(nameof(op), "unknown shift operator");
+                    return null;
+                }
         }
     }
 }

@@ -167,7 +167,8 @@ internal abstract class JintExpression
             }
             else
             {
-                var modulo = leftInteger % rightInteger;
+                // long math: int.MinValue % -1 raises a hardware overflow in 32-bit division
+                var modulo = (long) leftInteger % rightInteger;
                 if (modulo == 0 && leftInteger < 0)
                 {
                     result = JsNumber.NegativeZero;
@@ -278,9 +279,10 @@ internal abstract class JintExpression
             return lN > 0 ? double.PositiveInfinity : double.NegativeInfinity;
         }
 
-        if (lN % rN == 0 && (lN != 0 || rN > 0))
+        // long math: int.MinValue / -1 (and % -1) raises a hardware overflow in 32-bit division
+        if ((long) lN % rN == 0 && (lN != 0 || rN > 0))
         {
-            return JsNumber.Create(lN / rN);
+            return JsNumber.Create((long) lN / rN);
         }
 
         return (double) lN / rN;
