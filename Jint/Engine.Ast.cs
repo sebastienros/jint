@@ -87,7 +87,13 @@ public partial class Engine
 
                     if (!_bindingNames.TryGetValue(name, out var bindingName))
                     {
-                        _bindingNames[name] = bindingName = new Environment.BindingName(JsString.CachedCreate(name));
+                        // Build the binding name from the parser's own (deduplicated) string
+                        // instance: environment binding storage is keyed by Keys created from
+                        // the same parse, so Key comparisons stay on the reference-equality
+                        // fast path of string.Equals. Routing through a process-wide JsString
+                        // cache here would substitute string instances from unrelated parses
+                        // and force every lookup onto the memcmp path.
+                        _bindingNames[name] = bindingName = new Environment.BindingName(name);
                     }
 
                     node.UserData = bindingName;
