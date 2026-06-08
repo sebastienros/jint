@@ -15,6 +15,7 @@ public class GlobalAccessBenchmarks
     private Engine _engine = null!;
     private Prepared<Script> _globalVarLoop;
     private Prepared<Script> _localVarLoop;
+    private Prepared<Script> _globalUpdateLoop;
 
     [GlobalSetup]
     public void Setup()
@@ -41,10 +42,24 @@ public class GlobalAccessBenchmarks
             })();
             """, strict: true);
 
+        // Update-expression heavy: gx++, gy++, and the gi++/go++ loop counters are all global
+        // UpdateExpressions, which #2507 did not cache (it cached reads and simple assignments). The
+        // counters stay in the small-integer cache (reset each outer iteration) so the measurement is
+        // the binding-resolution cost, not JsNumber boxing — the stopwatch.js shape (x<1021, y<383).
+        _globalUpdateLoop = Engine.PrepareScript("""
+            gx = 0; gy = 0;
+            for (var go = 0; go < 1000; go++) {
+                for (var gi = 0; gi < 1000; gi++) { gx++; gy++; }
+                gx = 0; gy = 0;
+            }
+            gx + gy;
+            """, strict: true);
+
         _engine = new Engine(static options => options.Strict());
         _engine.Execute("var gx = 0; var gy = 0; var gz = 0;");
         _engine.Evaluate(_globalVarLoop);
         _engine.Evaluate(_localVarLoop);
+        _engine.Evaluate(_globalUpdateLoop);
     }
 
     [Benchmark]
@@ -52,4 +67,7 @@ public class GlobalAccessBenchmarks
 
     [Benchmark]
     public JsValue LocalVarLoop() => _engine.Evaluate(_localVarLoop);
+
+    [Benchmark]
+    public JsValue GlobalUpdateLoop() => _engine.Evaluate(_globalUpdateLoop);
 }
