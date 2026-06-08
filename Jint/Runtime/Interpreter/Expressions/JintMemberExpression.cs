@@ -320,15 +320,14 @@ internal sealed class JintMemberExpression : JintExpression
            && _objectExpression is JintIdentifierExpression or JintThisExpression;
 
     /// <summary>
-    /// Resolves the callee value and the call's <c>this</c> binding for an <see cref="IsFastCallEligible"/>
-    /// member call, reusing the same version-gated own-property inline cache as <see cref="GetValue"/> and
-    /// avoiding a <see cref="Reference"/> rent. <paramref name="thisObject"/> is the base value — the base
-    /// object, or for the rare primitive-base call the primitive itself — matching the property-reference
-    /// this-binding the slow path produces.
+    /// member call when the receiver is an object, reusing the same version-gated own-property inline
+    /// cache as <see cref="GetValue"/> and avoiding a <see cref="Reference"/> rent. <paramref name="thisObject"/>
+    /// is the receiver object, matching the property-reference this-binding the slow path produces. For a
+    /// primitive receiver this returns <see cref="JsValue.Undefined"/> so the caller falls through to the
+    /// Reference path (which never forces lazy-string materialization).
     /// </summary>
     internal JsValue GetCalleeForCall(EvaluationContext context, out JsValue thisObject)
     {
-        var engine = context.Engine;
         var determinedProperty = (JsString) _determinedProperty!;
 
         var baseValue = _objectExpression.GetValue(context);
@@ -339,10 +338,15 @@ internal sealed class JintMemberExpression : JintExpression
         }
 
         context.LastSyntaxElement = _expression;
-        thisObject = baseValue;
 
+        // Only object receivers take the fast path. Primitive receivers (string/number/...) — including
+        // custom JsString subclasses with lazy materialization — return undefined here so the caller
+        // falls through to the Reference path, which resolves them without forcing materialization. The
+        // identifier/`this` receiver is side-effect-free, so re-evaluating it on that path is unobservable.
         if (baseValue is ObjectInstance baseObject)
         {
+            thisObject = baseObject;
+
             if ((baseObject._type & InternalTypes.PlainObject) != InternalTypes.Empty)
             {
                 if (ReferenceEquals(baseObject, _cachedReadObject)
@@ -368,17 +372,7 @@ internal sealed class JintMemberExpression : JintExpression
             return baseObject.Get(determinedProperty, baseObject);
         }
 
-        if (baseValue.IsNullOrUndefined())
-        {
-            TypeConverter.CheckObjectCoercible(engine, baseValue, _memberExpression.Property, determinedProperty.ToString());
-        }
-
-        // JsString primitive: mirror GetValue's `s.length` fast path to avoid a StringInstance wrapper.
-        if (baseValue is JsString jsString && CommonProperties.Length.Equals(determinedProperty))
-        {
-            return JsNumber.Create((uint) jsString.Length);
-        }
-
-        return baseValue.GetV(engine.Realm, determinedProperty);
+        thisObject = JsValue.Undefined;
+        return JsValue.Undefined;
     }
 }
