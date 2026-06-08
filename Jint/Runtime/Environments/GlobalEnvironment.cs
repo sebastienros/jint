@@ -380,7 +380,7 @@ internal sealed class GlobalEnvironment : Environment
         // JT: Rather than introduce a new method for the debugger, I'm reusing this one,
         // which - in spite of the very general name - is actually only used by the debugger
         // at this point.
-        var names = new List<string>(_global._properties?.Count ?? 0 + _declarativeRecord._dictionary?.Count ?? 0);
+        var names = new List<string>((_global._properties?.Count ?? 0) + (_declarativeRecord._dictionary?.Count ?? 0));
         foreach (var name in _global.GetOwnProperties())
         {
             names.Add(name.Key.ToString());
