@@ -953,7 +953,7 @@ internal sealed partial class StringPrototype : StringInstance
             return JsString.Create(s[from]);
         }
 
-        return new JsString(s.Substring(from, length));
+        return JsString.CreateSliced(s, from, length);
     }
 
     /// <summary>
@@ -982,7 +982,7 @@ internal sealed partial class StringPrototype : StringInstance
         {
             return TypeConverter.ToString(s[startIndex]);
         }
-        return s.Substring(startIndex, l);
+        return JsString.CreateSliced(s, startIndex, l);
     }
 
     /// <summary>
@@ -1230,7 +1230,13 @@ internal sealed partial class StringPrototype : StringInstance
             return JsString.Create(s[from]);
         }
 
-        return s.Substring(from, span);
+        if (from == 0 && span == len)
+        {
+            // whole-string slice: strings are immutable, the receiver can be returned as-is
+            return s;
+        }
+
+        return JsString.CreateSliced(s.ToString(), from, span);
     }
 
     [JsFunction(Length = 1)]
