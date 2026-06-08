@@ -331,6 +331,12 @@ internal sealed class JintFunctionDefinition
         public int ParameterSlotCount;
         public int VarSlotCount;
         public bool CanUseFastFDI;
+        /// <summary>
+        /// True when FunctionDeclarationInstantiation has nothing to do at all: no parameters,
+        /// no vars, no lexical declarations, no inner function declarations, no arguments object
+        /// and no eval context. Lets calls skip FDI entirely (common for tiny closure methods).
+        /// </summary>
+        public bool CanUseEmptyFDI;
         public bool EnvironmentMayEscape;
         // True when the function body contains a direct call to itself by name. For tight
         // recursion (e.g. fib/ack/tak), the per-call pool fields below add atomic-op overhead
@@ -590,6 +596,19 @@ internal sealed class JintFunctionDefinition
                 state.CanUseFastFDI = lexicalBindingCount == 0;
             }
         }
+
+        // Empty-FDI: instantiation is a complete no-op. Common for tiny closure methods like
+        // `this.start = function () { ... }` that only touch captured or global state.
+        // IsSimpleParameterList is required because rest/pattern parameters bind via
+        // AddFunctionParameters from the AST and may not appear in ParameterNames
+        // (e.g. the synthesized default derived constructor `constructor(...args)`).
+        state.CanUseEmptyFDI = state.IsSimpleParameterList
+            && state.ParameterNames.Length == 0
+            && !state.NeedsEvalContext
+            && !state.ArgumentsObjectNeeded
+            && state.FunctionsToInitialize is null
+            && varsToInitialize.Count == 0
+            && state.LexicalDeclarations is null;
 
         // Compute EnvironmentMayEscape unconditionally so consumers (e.g. FunctionEnvironment pooling)
         // can rely on it without first checking UseFixedSlots. Generators / async functions / direct eval
