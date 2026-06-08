@@ -303,4 +303,82 @@ internal sealed class JintMemberExpression : JintExpression
 
         return engine.GetValue(reference, returnReferenceToPool: true);
     }
+
+    /// <summary>
+    /// Whether this member expression can serve as a call's callee via <see cref="GetCalleeForCall"/>
+    /// without renting a <see cref="Reference"/>: a non-computed, non-optional literal-name property
+    /// access on a side-effect-free, never-suspending base (a plain identifier or <c>this</c>). The
+    /// identifier/<c>this</c> restriction guarantees the base evaluates once with no observable side
+    /// effect, so the call's slow-path fallback (taken when the resolved value is not callable) never
+    /// double-evaluates anything observable.
+    /// </summary>
+    internal bool IsFastCallEligible
+        => _propertyExpression is null
+           && _determinedProperty is JsString
+           && !_memberExpression.Optional
+           && !_objectExpressionCanShortCircuit
+           && _objectExpression is JintIdentifierExpression or JintThisExpression;
+
+    /// <summary>
+    /// Resolves the callee value and the call's <c>this</c> binding for an <see cref="IsFastCallEligible"/>
+    /// member call, reusing the same version-gated own-property inline cache as <see cref="GetValue"/> and
+    /// avoiding a <see cref="Reference"/> rent. <paramref name="thisObject"/> is the base value — the base
+    /// object, or for the rare primitive-base call the primitive itself — matching the property-reference
+    /// this-binding the slow path produces.
+    /// </summary>
+    internal JsValue GetCalleeForCall(EvaluationContext context, out JsValue thisObject)
+    {
+        var engine = context.Engine;
+        var determinedProperty = (JsString) _determinedProperty!;
+
+        var baseValue = _objectExpression.GetValue(context);
+        if (context.IsSuspended())
+        {
+            thisObject = JsValue.Undefined;
+            return JsValue.Undefined;
+        }
+
+        context.LastSyntaxElement = _expression;
+        thisObject = baseValue;
+
+        if (baseValue is ObjectInstance baseObject)
+        {
+            if ((baseObject._type & InternalTypes.PlainObject) != InternalTypes.Empty)
+            {
+                if (ReferenceEquals(baseObject, _cachedReadObject)
+                    && baseObject._propertiesVersion == _cachedReadVersion
+                    && _cachedReadDescriptor is not null)
+                {
+                    return ObjectInstance.UnwrapJsValue(_cachedReadDescriptor, baseObject);
+                }
+
+                var ownDescriptor = baseObject.GetOwnProperty(determinedProperty);
+                if (!ReferenceEquals(ownDescriptor, PropertyDescriptor.Undefined))
+                {
+                    _cachedReadObject = baseObject;
+                    _cachedReadVersion = baseObject._propertiesVersion;
+                    _cachedReadDescriptor = ownDescriptor;
+                    return ObjectInstance.UnwrapJsValue(ownDescriptor, baseObject);
+                }
+
+                _cachedReadObject = null;
+                _cachedReadDescriptor = null;
+            }
+
+            return baseObject.Get(determinedProperty, baseObject);
+        }
+
+        if (baseValue.IsNullOrUndefined())
+        {
+            TypeConverter.CheckObjectCoercible(engine, baseValue, _memberExpression.Property, determinedProperty.ToString());
+        }
+
+        // JsString primitive: mirror GetValue's `s.length` fast path to avoid a StringInstance wrapper.
+        if (baseValue is JsString jsString && CommonProperties.Length.Equals(determinedProperty))
+        {
+            return JsNumber.Create((uint) jsString.Length);
+        }
+
+        return baseValue.GetV(engine.Realm, determinedProperty);
+    }
 }
