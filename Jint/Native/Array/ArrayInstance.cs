@@ -315,7 +315,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         }
 
         var temp = _dense;
-        var properties = new List<JsValue>(temp?.Length ?? 0 + 1);
+        var properties = new List<JsValue>((temp?.Length ?? _sparse!.Count) + 1);
         if (temp != null)
         {
             var length = System.Math.Min(temp.Length, GetLength());
