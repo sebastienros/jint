@@ -8,6 +8,18 @@ public sealed class Realm
 {
     internal readonly Dictionary<Node, JsArray> _templateMap = new();
 
+    /// <summary>
+    /// Compilation cache for repeated new Function(...) with identical sources,
+    /// see <see cref="Native.Function.Function"/> CreateDynamicFunction.
+    /// </summary>
+    internal Dictionary<Native.Function.DynamicFunctionCacheKey, Native.Function.DynamicFunctionCacheEntry>? _dynamicFunctionCache;
+
+    /// <summary>
+    /// Two-touch promotion slot for <see cref="_dynamicFunctionCache"/>: a source is cached
+    /// only when seen twice, keeping one-shot compilations insert-free.
+    /// </summary>
+    internal Native.Function.DynamicFunctionCacheKey _dynamicFunctionProbationKey;
+
 
     // helps when debugging which nested realm we are in...
 #if DEBUG

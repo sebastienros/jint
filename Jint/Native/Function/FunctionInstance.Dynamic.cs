@@ -7,11 +7,27 @@ using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Native.Function;
 
+/// <summary>
+/// Cache key for repeated new Function(...) compilations; the function kind is embedded in
+/// the source prefix so it does not need to be part of the key. Parse-affecting
+/// <see cref="ParserOptions"/> are validated on hit via <see cref="DynamicFunctionCacheEntry"/>.
+/// </summary>
+internal readonly record struct DynamicFunctionCacheKey(string FunctionExpression, bool Strict);
+
+internal sealed class DynamicFunctionCacheEntry
+{
+    public required ParserOptions ParserOptions { get; init; }
+    public required Runtime.Interpreter.JintFunctionDefinition Definition { get; init; }
+}
+
 #pragma warning disable MA0049
 public partial class Function
 #pragma warning restore MA0049
 {
     private static readonly JsString _functionNameAnonymous = new JsString("anonymous");
+
+    private const int DynamicFunctionCacheCapacity = 32;
+    private const int DynamicFunctionCacheMaxSourceLength = 32 * 1024;
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-createdynamicfunction
@@ -75,7 +91,7 @@ public partial class Function
             body = TypeConverter.ToString(arguments[argCount - 1]);
         }
 
-        IFunction? function = null;
+        JintFunctionDefinition? definition = null;
         try
         {
             string? functionExpression = null;
@@ -132,8 +148,44 @@ public partial class Function
             {
                 parserOptions = parserOptions with { AllowReturnOutsideFunction = true };
             }
-            Parser parser = new(parserOptions);
-            function = (IFunction) parser.ParseScriptGuarded(callerRealm, functionExpression, strict: _engine._isStrict).Body[0];
+
+            // Compilation cache for repeated new Function(...) with identical sources: the parsed
+            // function definition is shared (like closures sharing one definition); the resulting
+            // Function object below is always a fresh instance. Parse failures are never cached.
+            var cacheable = functionExpression!.Length <= DynamicFunctionCacheMaxSourceLength;
+            var cacheKey = new DynamicFunctionCacheKey(functionExpression, _engine._isStrict);
+            var cache = _realm._dynamicFunctionCache;
+            if (cacheable
+                && cache is not null
+                && cache.TryGetValue(cacheKey, out var cachedEntry)
+                && (ReferenceEquals(cachedEntry.ParserOptions, parserOptions) || cachedEntry.ParserOptions.Equals(parserOptions)))
+            {
+                definition = cachedEntry.Definition;
+            }
+            else
+            {
+                Parser parser = new(parserOptions);
+                var function = (IFunction) parser.ParseScriptGuarded(callerRealm, functionExpression, strict: _engine._isStrict).Body[0];
+                definition = new JintFunctionDefinition(function);
+
+                if (cacheable)
+                {
+                    // Promote into the cache only on the second sighting of the same source.
+                    if (cacheKey.Equals(_realm._dynamicFunctionProbationKey))
+                    {
+                        cache = _realm._dynamicFunctionCache ??= new Dictionary<DynamicFunctionCacheKey, DynamicFunctionCacheEntry>();
+                        if (cache.Count >= DynamicFunctionCacheCapacity)
+                        {
+                            cache.Clear();
+                        }
+                        cache[cacheKey] = new DynamicFunctionCacheEntry { ParserOptions = parserOptions, Definition = definition };
+                    }
+                    else
+                    {
+                        _realm._dynamicFunctionProbationKey = cacheKey;
+                    }
+                }
+            }
         }
         catch (ParseErrorException ex)
         {
@@ -145,8 +197,7 @@ public partial class Function
         var scope = realmF.GlobalEnv;
         PrivateEnvironment? privateEnv = null;
 
-        var definition = new JintFunctionDefinition(function);
-        Function F = OrdinaryFunctionCreate(proto, definition, function.IsStrict() ? FunctionThisMode.Strict : FunctionThisMode.Global, scope, privateEnv);
+        Function F = OrdinaryFunctionCreate(proto, definition!, definition!.Function.IsStrict() ? FunctionThisMode.Strict : FunctionThisMode.Global, scope, privateEnv);
         F.SetFunctionName(_functionNameAnonymous, force: true);
 
         if (kind == FunctionKind.Generator)
