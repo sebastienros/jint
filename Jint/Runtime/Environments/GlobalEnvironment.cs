@@ -25,10 +25,14 @@ internal sealed class GlobalEnvironment : Environment
     internal readonly ObjectInstance _global;
 
     // we expect it to be GlobalObject, but need to allow to something host-defined, like Window
-    private readonly GlobalObject? _globalObject;
+    internal readonly GlobalObject? _globalObject;
 
     // Environment records are needed by debugger
     internal readonly GlobalDeclarativeEnvironment _declarativeRecord;
+
+    // Bumped whenever the SET of lexical (let/const) declarations changes; lets identifier
+    // nodes cache resolved global-object bindings and detect later shadowing declarations.
+    internal int _lexicalMutations;
 
     public GlobalEnvironment(Engine engine, ObjectInstance global) : base(engine)
     {
@@ -124,6 +128,7 @@ internal sealed class GlobalEnvironment : Environment
             ThrowAlreadyDeclaredException(name);
         }
 
+        _lexicalMutations++;
         _declarativeRecord.CreateMutableBinding(name, canBeDeleted);
     }
 
@@ -137,6 +142,7 @@ internal sealed class GlobalEnvironment : Environment
             ThrowAlreadyDeclaredException(name);
         }
 
+        _lexicalMutations++;
         _declarativeRecord.CreateImmutableBinding(name, strict);
     }
 
@@ -249,6 +255,7 @@ internal sealed class GlobalEnvironment : Environment
     {
         if (_declarativeRecord.HasBinding(name))
         {
+            _lexicalMutations++;
             return _declarativeRecord.DeleteBinding(name);
         }
 
