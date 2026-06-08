@@ -1,6 +1,7 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using Jint.Native;
+using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
@@ -576,6 +577,19 @@ internal sealed class JintAssignmentExpression : JintExpression
 
             // If generator suspended or return requested during right-hand side evaluation, don't assign
             if (context.IsGeneratorAborted())
+            {
+                engine._referencePool.Return(lref);
+                return rval;
+            }
+
+            // Fast path for dense array element overwrite: arr[intIndex] = rval. Only overwrites an
+            // existing in-range slot (TryWriteExistingDense), so it never grows length, fills a hole,
+            // or triggers sparse conversion — those defer to the full PutValue path below.
+            if (lref.Base is JsArray array
+                && array.CanUseFastAccess
+                && lref.ReferencedName is JsNumber indexNumber
+                && ArrayInstance.IsArrayIndex(indexNumber, out var arrayIndex)
+                && array.TryWriteExistingDense(arrayIndex, rval))
             {
                 engine._referencePool.Return(lref);
                 return rval;
