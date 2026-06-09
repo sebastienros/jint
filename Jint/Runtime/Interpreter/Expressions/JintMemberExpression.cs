@@ -303,4 +303,76 @@ internal sealed class JintMemberExpression : JintExpression
 
         return engine.GetValue(reference, returnReferenceToPool: true);
     }
+
+    /// <summary>
+    /// Whether this member expression can serve as a call's callee via <see cref="GetCalleeForCall"/>
+    /// without renting a <see cref="Reference"/>: a non-computed, non-optional literal-name property
+    /// access on a side-effect-free, never-suspending base (a plain identifier or <c>this</c>). The
+    /// identifier/<c>this</c> restriction guarantees the base evaluates once with no observable side
+    /// effect, so the call's slow-path fallback (taken when the resolved value is not callable) never
+    /// double-evaluates anything observable.
+    /// </summary>
+    internal bool IsFastCallEligible
+        => _propertyExpression is null
+           && _determinedProperty is JsString
+           && !_memberExpression.Optional
+           && !_objectExpressionCanShortCircuit
+           && _objectExpression is JintIdentifierExpression or JintThisExpression;
+
+    /// <summary>
+    /// member call when the receiver is an object, reusing the same version-gated own-property inline
+    /// cache as <see cref="GetValue"/> and avoiding a <see cref="Reference"/> rent. <paramref name="thisObject"/>
+    /// is the receiver object, matching the property-reference this-binding the slow path produces. For a
+    /// primitive receiver this returns <see cref="JsValue.Undefined"/> so the caller falls through to the
+    /// Reference path (which never forces lazy-string materialization).
+    /// </summary>
+    internal JsValue GetCalleeForCall(EvaluationContext context, out JsValue thisObject)
+    {
+        var determinedProperty = (JsString) _determinedProperty!;
+
+        var baseValue = _objectExpression.GetValue(context);
+        if (context.IsSuspended())
+        {
+            thisObject = JsValue.Undefined;
+            return JsValue.Undefined;
+        }
+
+        context.LastSyntaxElement = _expression;
+
+        // Only object receivers take the fast path. Primitive receivers (string/number/...) — including
+        // custom JsString subclasses with lazy materialization — return undefined here so the caller
+        // falls through to the Reference path, which resolves them without forcing materialization. The
+        // identifier/`this` receiver is side-effect-free, so re-evaluating it on that path is unobservable.
+        if (baseValue is ObjectInstance baseObject)
+        {
+            thisObject = baseObject;
+
+            if ((baseObject._type & InternalTypes.PlainObject) != InternalTypes.Empty)
+            {
+                if (ReferenceEquals(baseObject, _cachedReadObject)
+                    && baseObject._propertiesVersion == _cachedReadVersion
+                    && _cachedReadDescriptor is not null)
+                {
+                    return ObjectInstance.UnwrapJsValue(_cachedReadDescriptor, baseObject);
+                }
+
+                var ownDescriptor = baseObject.GetOwnProperty(determinedProperty);
+                if (!ReferenceEquals(ownDescriptor, PropertyDescriptor.Undefined))
+                {
+                    _cachedReadObject = baseObject;
+                    _cachedReadVersion = baseObject._propertiesVersion;
+                    _cachedReadDescriptor = ownDescriptor;
+                    return ObjectInstance.UnwrapJsValue(ownDescriptor, baseObject);
+                }
+
+                _cachedReadObject = null;
+                _cachedReadDescriptor = null;
+            }
+
+            return baseObject.Get(determinedProperty, baseObject);
+        }
+
+        thisObject = JsValue.Undefined;
+        return JsValue.Undefined;
+    }
 }

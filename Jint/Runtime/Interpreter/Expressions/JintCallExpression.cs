@@ -35,69 +35,108 @@ internal sealed class JintCallExpression : JintExpression
 
         // https://tc39.es/ecma262/#sec-function-calls
 
-        var reference = _calleeExpression.Evaluate(context);
-
-        // Check for generator suspension after evaluating callee
-        if (context.IsSuspended())
-        {
-            return reference as JsValue ?? JsValue.Undefined;
-        }
-
-        if (ReferenceEquals(reference, JsValue.Undefined))
-        {
-            return JsValue.Undefined;
-        }
-
         var engine = context.Engine;
-        var func = engine.GetValue(reference, false);
 
-        if (func.IsNullOrUndefined() && _expression.IsOptional())
-        {
-            return JsValue.Undefined;
-        }
-
-        var referenceRecord = reference as Reference;
-        if (ReferenceEquals(func, engine.Realm.Intrinsics.Eval)
-            && referenceRecord != null
-            && !referenceRecord.IsPropertyReference
-            && CommonProperties.Eval.Equals(referenceRecord.ReferencedName))
-        {
-            return HandleEval(context, func, engine, referenceRecord);
-        }
-
-        var thisCall = (CallExpression) _expression;
-        var tailCall = IsInTailPosition(thisCall);
-
-        // https://tc39.es/ecma262/#sec-evaluatecall
-
+        object reference;
+        Reference? referenceRecord;
+        JsValue func;
         JsValue thisObject;
-        if (referenceRecord is not null)
-        {
-            if (referenceRecord.IsPropertyReference)
-            {
-                thisObject = referenceRecord.ThisValue;
-            }
-            else
-            {
-                var baseValue = referenceRecord.Base;
 
-                // deviation from the spec to support null-propagation helper
-                if (baseValue.IsNullOrUndefined()
-                    && engine._referenceResolver.TryUnresolvableReference(engine, referenceRecord, out var value))
-                {
-                    thisObject = value;
-                }
-                else
-                {
-                    var refEnv = (Environment) baseValue;
-                    thisObject = refEnv.WithBaseObject();
-                }
+        // Fast path: obj.method() / this.method() where the receiver is a plain identifier or `this`
+        // and the property is a literal name. Reuse the member expression's own-property inline cache
+        // to resolve the callee and `this` without renting a Reference. Only callables take the fast
+        // path; a non-callable result falls through to the Reference path so the exact "Property 'x'
+        // of object is not a function" error and this-binding are preserved (the identifier/`this`
+        // receiver is side-effect-free, so re-evaluating it on that rare path is unobservable).
+        JsValue? fastFunc = null;
+        var fastThis = JsValue.Undefined;
+        if (_calleeExpression is JintMemberExpression member
+            && member.IsFastCallEligible
+            && !engine._customResolver)
+        {
+            fastFunc = member.GetCalleeForCall(context, out fastThis);
+            if (context.IsSuspended())
+            {
+                return fastFunc;
             }
+            if (fastFunc is not ICallable)
+            {
+                fastFunc = null;
+            }
+        }
+
+        if (fastFunc is not null)
+        {
+            func = fastFunc;
+            thisObject = fastThis;
+            referenceRecord = null;
+            reference = fastFunc;
         }
         else
         {
-            thisObject = JsValue.Undefined;
+            var calleeReference = _calleeExpression.Evaluate(context);
+
+            // Check for generator suspension after evaluating callee
+            if (context.IsSuspended())
+            {
+                return calleeReference as JsValue ?? JsValue.Undefined;
+            }
+
+            if (ReferenceEquals(calleeReference, JsValue.Undefined))
+            {
+                return JsValue.Undefined;
+            }
+
+            func = engine.GetValue(calleeReference, false);
+
+            if (func.IsNullOrUndefined() && _expression.IsOptional())
+            {
+                return JsValue.Undefined;
+            }
+
+            referenceRecord = calleeReference as Reference;
+            if (ReferenceEquals(func, engine.Realm.Intrinsics.Eval)
+                && referenceRecord != null
+                && !referenceRecord.IsPropertyReference
+                && CommonProperties.Eval.Equals(referenceRecord.ReferencedName))
+            {
+                return HandleEval(context, func, engine, referenceRecord);
+            }
+
+            // https://tc39.es/ecma262/#sec-evaluatecall
+
+            if (referenceRecord is not null)
+            {
+                if (referenceRecord.IsPropertyReference)
+                {
+                    thisObject = referenceRecord.ThisValue;
+                }
+                else
+                {
+                    var baseValue = referenceRecord.Base;
+
+                    // deviation from the spec to support null-propagation helper
+                    if (baseValue.IsNullOrUndefined()
+                        && engine._referenceResolver.TryUnresolvableReference(engine, referenceRecord, out var value))
+                    {
+                        thisObject = value;
+                    }
+                    else
+                    {
+                        var refEnv = (Environment) baseValue;
+                        thisObject = refEnv.WithBaseObject();
+                    }
+                }
+            }
+            else
+            {
+                thisObject = JsValue.Undefined;
+            }
+
+            reference = calleeReference;
         }
+
+        var tailCall = IsInTailPosition((CallExpression) _expression);
 
         var arguments = this._arguments.ArgumentListEvaluation(context, this, out var rented);
 
