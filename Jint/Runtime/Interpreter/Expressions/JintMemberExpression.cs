@@ -1,4 +1,5 @@
 using Jint.Native;
+using Jint.Native.Array;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
@@ -15,6 +16,7 @@ internal sealed class JintMemberExpression : JintExpression
     private readonly JintExpression? _propertyExpression;
     private readonly JsValue? _determinedProperty;
     private readonly bool _objectExpressionCanShortCircuit;
+    private readonly bool _computedReadEligible;
     private ObjectInstance? _cachedReadObject;
     private PropertyDescriptor? _cachedReadDescriptor;
     private uint _cachedReadVersion;
@@ -26,6 +28,13 @@ internal sealed class JintMemberExpression : JintExpression
         _memberExpression = (MemberExpression) _expression;
         _objectExpression = Build(_memberExpression.Object);
         _objectExpressionCanShortCircuit = CanShortCircuit(_memberExpression.Object);
+
+        // Computed reads like a[i] / a[i][j] / a[0] (but not super[i] or optional a?.[i]) can take a
+        // dense-array fast path in GetValue that resolves base+index without a Reference rent.
+        _computedReadEligible = _memberExpression.Computed
+            && !_memberExpression.Optional
+            && !_objectExpressionCanShortCircuit
+            && _objectExpression is not JintSuperExpression;
 
         var determined = _expression.UserData as JsValue ?? InitializeDeterminedProperty(_memberExpression, cache: false);
 
@@ -264,12 +273,49 @@ internal sealed class JintMemberExpression : JintExpression
             return baseValue.GetV(engine.Realm, determinedProperty);
         }
 
+        // Fast path for computed dense-array element reads (a[i], a[i][j], a[0]) in non-suspendable
+        // contexts: resolve the base (recursively via GetValue, so chained reads stay rent-free) and
+        // the index once, then read the dense slot directly. A miss rents a Reference from the
+        // already-resolved operands — no re-evaluation — and completes through the normal path. The
+        // Suspendable==null gate means neither operand can suspend, so no suspend bookkeeping is needed.
+        if (_computedReadEligible
+            && !engine._customResolver
+            && engine.ExecutionContext.Suspendable is null)
+        {
+            var baseValue = _objectExpression.GetValue(context);
+            var property = _determinedProperty ?? _propertyExpression!.GetValue(context);
+            context.LastSyntaxElement = _expression;
+
+            if (baseValue is JsArray fastArray
+                && fastArray.CanUseFastAccess
+                && property is JsNumber fastIndexNumber
+                && ArrayInstance.IsArrayIndex(fastIndexNumber, out var fastIndex)
+                && fastArray.TryGetValueFast(fastIndex, out var fastValue))
+            {
+                return fastValue;
+            }
+
+            var rentedReference = engine._referencePool.Rent(baseValue, property, StrictModeScope.IsStrictModeCode, thisValue: null);
+            return CompleteReadFromReference(context, engine, rentedReference);
+        }
+
         var result = Evaluate(context);
         if (result is not Reference reference)
         {
             return (JsValue) result;
         }
 
+        return CompleteReadFromReference(context, engine, reference);
+    }
+
+    /// <summary>
+    /// Completes a read from an already-resolved <see cref="Reference"/>: string-character and
+    /// dense-array element fast paths, then the null-base coercibility check, then the full
+    /// <see cref="Engine.GetValue(Reference, bool)"/> pipeline. The reference is always returned to
+    /// the pool.
+    /// </summary>
+    private JsValue CompleteReadFromReference(EvaluationContext context, Engine engine, Reference reference)
+    {
         // Fast path for string character access: str[intIndex]
         if (_memberExpression.Computed
             && reference.Base is JsString str
@@ -284,6 +330,20 @@ internal sealed class JintMemberExpression : JintExpression
             }
 
             return JsValue.Undefined;
+        }
+
+        // Fast path for dense array element access: arr[intIndex] with a clean prototype chain.
+        // Skips Engine.GetValue's property pipeline; holes / out-of-range / sparse arrays fall
+        // through (TryGetValueFast returns false) so prototype-chain and length semantics are kept.
+        if (_memberExpression.Computed
+            && reference.Base is JsArray array
+            && array.CanUseFastAccess
+            && reference.ReferencedName is JsNumber arrayIndexNumber
+            && ArrayInstance.IsArrayIndex(arrayIndexNumber, out var arrayIndex)
+            && array.TryGetValueFast(arrayIndex, out var arrayValue))
+        {
+            engine._referencePool.Return(reference);
+            return arrayValue;
         }
 
         // Check if base is null/undefined before calling Engine.GetValue
