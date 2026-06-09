@@ -11,12 +11,29 @@ var stringArray = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'
 
     private Engine engine;
 
+    // A `for (let j ...)` re-entered 100k times via repeated inner() calls. With loop-env pooling the
+    // inner loop's environment is reset and reused instead of allocated on every entry. Counters stay
+    // in the int cache so the signal is the per-entry environment allocation, not JsNumber boxing.
+    private Prepared<Script> _reenteredInnerLetLoop;
 
     [GlobalSetup]
     public void Setup()
     {
         engine = new Engine();
         engine.Execute(script);
+
+        _reenteredInnerLetLoop = Engine.PrepareScript("""
+            function inner() { var s = 0; for (let j = 0; j < 4; j++) { s += j; } return s; }
+            var total = 0;
+            for (var k = 0; k < 100000; k++) { total = (total + inner()) & 1023; }
+            total;
+            """);
+    }
+
+    [Benchmark]
+    public void ReenteredInnerLetLoop()
+    {
+        engine.Evaluate(_reenteredInnerLetLoop);
     }
 
     [Benchmark]
