@@ -5,8 +5,10 @@ namespace Jint.Benchmark;
 
 /// <summary>
 /// Isolates String.prototype.slice/substring/substr cost over a large (128K char) string —
-/// the dromaeo-object-string shape where large slice results are assigned and discarded
-/// (measured: slice = 89.9%, substring = 9.2% of its 1.26 GB/op allocations).
+/// the dromaeo-object-string shape where large slice results are assigned and discarded.
+/// Both SliceLargeDiscard and SubstringLargeDiscard use the actual dromaeo arguments
+/// (start, -1): substring clamps the -1 to 0 and swaps, producing a 12000-char result that
+/// previously fell below the zero-copy retention guard and copied on every call.
 /// SliceSmall guards the small-result path; SliceThenRead guards lazy-materialization cost
 /// when the result is actually consumed.
 /// </summary>
@@ -39,7 +41,7 @@ public class StringSliceBenchmarks
                 var ret = null;
                 for (var i = 0; i < 5000; i++) {
                     ret = str.substring(0);
-                    ret = str.substring(12000, str.length - 1);
+                    ret = str.substring(12000, -1);
                 }
                 return ret.length;
             })();
