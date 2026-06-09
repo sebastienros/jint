@@ -1,3 +1,4 @@
+using System.Threading;
 using Jint.Native;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Expressions;
@@ -23,6 +24,13 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
     private readonly bool _shouldCreatePerIterationEnvironment;
     private readonly bool _canReuseIterationEnvironment;
 
+    // When the loop env can be reused across iterations AND nothing captures it, it can also be pooled
+    // across loop entries: a fixed-slot environment is reset and reused instead of allocated each entry.
+    private readonly bool _canPoolLoopEnv;
+    private readonly Key[]? _loopSlotNames;
+    private readonly Binding[]? _loopSlotTemplates;
+    private DeclarativeEnvironment? _cachedLoopEnv;
+
     public JintForStatement(ForStatement statement) : base(statement)
     {
         _body = new ProbablyBlockStatement(statement.Body);
@@ -45,6 +53,23 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                 if (_shouldCreatePerIterationEnvironment)
                 {
                     _canReuseIterationEnvironment = !ForLoopMayCapture(statement);
+
+                    // ...and pool that environment across loop entries via fixed slots (let bindings,
+                    // 1-16 names). Re-entries reset and reuse one DeclarativeEnvironment.
+                    if (_canReuseIterationEnvironment && _boundNames!.Count is > 0 and <= 16)
+                    {
+                        var slotNames = new Key[_boundNames.Count];
+                        var slotTemplates = new Binding[_boundNames.Count];
+                        for (var i = 0; i < _boundNames.Count; i++)
+                        {
+                            slotNames[i] = _boundNames[i];
+                            slotTemplates[i] = new Binding(null!, canBeDeleted: false, mutable: true, strict: false);
+                        }
+
+                        _loopSlotNames = slotNames;
+                        _loopSlotTemplates = slotTemplates;
+                        _canPoolLoopEnv = true;
+                    }
                 }
             }
             else
@@ -94,31 +119,57 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
         if (_boundNames != null)
         {
             oldEnv = engine.ExecutionContext.LexicalEnvironment;
-            loopEnv = JintEnvironment.NewDeclarativeEnvironment(engine, oldEnv);
-            var loopEnvRec = loopEnv;
-            var kind = _initStatement!._statement.Kind;
-            for (var i = 0; i < _boundNames.Count; i++)
+
+            if (_canPoolLoopEnv && suspendable is null)
             {
-                var name = _boundNames[i];
-                // const, using, and await using all create immutable bindings
-                if (kind is VariableDeclarationKind.Const or VariableDeclarationKind.Using or VariableDeclarationKind.AwaitUsing)
+                // Pooled fixed-slot environment, reset and reused across loop entries. ResetSlots leaves
+                // every binding uninitialized (TDZ re-established); the for-init then initializes them.
+                // Gated on a non-suspendable context so a pooled env never has to round-trip through the
+                // async/generator suspend/resume save-and-restore machinery.
+                var cachedEnv = Interlocked.Exchange(ref _cachedLoopEnv, null);
+                if (cachedEnv is not null && ReferenceEquals(cachedEnv._engine, engine))
                 {
-                    loopEnvRec.CreateImmutableBinding(name);
+                    cachedEnv._outerEnv = oldEnv;
+                    ResetSlots(cachedEnv._slots!, _loopSlotTemplates!);
+                    loopEnv = cachedEnv;
                 }
                 else
                 {
-                    loopEnvRec.CreateMutableBinding(name);
+                    loopEnv = JintEnvironment.NewDeclarativeEnvironment(engine, oldEnv);
+                    loopEnv._slotNames = _loopSlotNames;
+                    loopEnv._slots = (Binding[]) _loopSlotTemplates!.Clone();
                 }
+
+                engine.UpdateLexicalEnvironment(loopEnv);
             }
-
-            engine.UpdateLexicalEnvironment(loopEnv);
-
-            // Restore loop variable values if resuming
-            if (resumingInLoop && suspendData?.BoundValues is not null)
+            else
             {
-                foreach (var kvp in suspendData.BoundValues)
+                loopEnv = JintEnvironment.NewDeclarativeEnvironment(engine, oldEnv);
+                var loopEnvRec = loopEnv;
+                var kind = _initStatement!._statement.Kind;
+                for (var i = 0; i < _boundNames.Count; i++)
                 {
-                    loopEnvRec.InitializeBinding(kvp.Key, kvp.Value, DisposeHint.Normal);
+                    var name = _boundNames[i];
+                    // const, using, and await using all create immutable bindings
+                    if (kind is VariableDeclarationKind.Const or VariableDeclarationKind.Using or VariableDeclarationKind.AwaitUsing)
+                    {
+                        loopEnvRec.CreateImmutableBinding(name);
+                    }
+                    else
+                    {
+                        loopEnvRec.CreateMutableBinding(name);
+                    }
+                }
+
+                engine.UpdateLexicalEnvironment(loopEnv);
+
+                // Restore loop variable values if resuming
+                if (resumingInLoop && suspendData?.BoundValues is not null)
+                {
+                    foreach (var kvp in suspendData.BoundValues)
+                    {
+                        loopEnvRec.InitializeBinding(kvp.Key, kvp.Value, DisposeHint.Normal);
+                    }
                 }
             }
         }
@@ -181,8 +232,37 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                 }
 
                 loopEnv!.DisposeResources(completion);
+
+                // Cache the pooled environment for the next loop entry (only on clean, non-suspended
+                // completion; a suspended loop may still reference it).
+                if (_canPoolLoopEnv && !context.IsSuspended() && loopEnv._slots is not null)
+                {
+                    Interlocked.Exchange(ref _cachedLoopEnv, loopEnv);
+                }
+
                 engine.UpdateLexicalEnvironment(oldEnv);
             }
+        }
+    }
+
+    /// <summary>
+    /// Reset the slots of a reused loop environment to the pre-computed templates (every binding
+    /// uninitialized). Hand-rolled small-array fast path: loop headers hold 1-3 bindings.
+    /// </summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    private static void ResetSlots(Binding[] slots, Binding[] templates)
+    {
+        var len = slots.Length;
+        if (len == templates.Length && len <= 4)
+        {
+            for (var i = 0; i < len; i++)
+            {
+                slots[i] = templates[i];
+            }
+        }
+        else
+        {
+            templates.AsSpan().CopyTo(slots);
         }
     }
 

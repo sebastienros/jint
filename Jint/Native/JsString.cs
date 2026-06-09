@@ -203,10 +203,18 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         return new JsString(value);
     }
 
+    // A zero-copy view pins the whole source string, so a slice only becomes a view when retention
+    // stays bounded: either it covers at least half the source (≤ 2× the result is pinned), or the
+    // bytes it pins but never uses (source.Length - length) stay within this fixed budget. The latter
+    // catches a moderate slice of a large source — e.g. substring(12000, -1) of a ~128K string, the
+    // dromaeo-object-string shape — which otherwise copies on every call.
+    private const int SliceViewMaxWastedChars = 128 * 1024;
+
     /// <summary>
-    /// Creates a string for a substring of <paramref name="source"/>. Large slices that cover
-    /// most of the source are returned as zero-copy views (<see cref="SlicedString"/>); small
-    /// slices are copied so a short-lived view can never pin a much larger backing string.
+    /// Creates a string for a substring of <paramref name="source"/>. Large slices that cover most of
+    /// the source, or moderate slices whose unused pinned remainder stays within
+    /// <see cref="SliceViewMaxWastedChars"/>, are returned as zero-copy views (<see cref="SlicedString"/>);
+    /// smaller slices are copied so a short-lived view can never pin a much larger backing string.
     /// </summary>
     internal static JsString CreateSliced(string source, int start, int length)
     {
@@ -215,9 +223,8 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
             return new JsString(source);
         }
 
-        // The view pins the whole source string; only worth it (and safe retention-wise)
-        // when the slice is large and covers at least half of the source.
-        if (length >= 512 && length * 2 >= source.Length)
+        if (length >= 512
+            && (length * 2 >= source.Length || source.Length - length <= SliceViewMaxWastedChars))
         {
             return new SlicedString(source, start, length);
         }

@@ -777,6 +777,49 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         return TryGetValueUnlikely(index, out value);
     }
 
+    /// <summary>
+    /// Fast read of a present dense element: returns true only when <paramref name="index"/> is in
+    /// range and the slot is non-null (a real element, not a hole). Holes and out-of-range indices
+    /// return false so the caller falls back to the full lookup (prototype chain etc.). The caller
+    /// must have already verified <see cref="CanUseFastAccess"/>.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool TryGetValueFast(uint index, out JsValue value)
+    {
+        var temp = _dense;
+        if (temp is not null && index < (uint) temp.Length)
+        {
+            var v = temp[index];
+            if (v is not null)
+            {
+                value = v;
+                return true;
+            }
+        }
+
+        value = Undefined;
+        return false;
+    }
+
+    /// <summary>
+    /// Fast overwrite of an existing dense element: returns true only when <paramref name="index"/>
+    /// is in range and the slot is already non-null. This never grows the array, fills a hole, or
+    /// changes length, so growing/hole-filling writes return false and defer to the full set path.
+    /// The caller must have already verified <see cref="CanUseFastAccess"/>.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool TryWriteExistingDense(uint index, JsValue value)
+    {
+        var temp = _dense;
+        if (temp is not null && index < (uint) temp.Length && temp[index] is not null)
+        {
+            temp[index] = value;
+            return true;
+        }
+
+        return false;
+    }
+
     [MethodImpl(MethodImplOptions.NoInlining)]
     private bool TryGetValueUnlikely(uint index, out JsValue value)
     {
