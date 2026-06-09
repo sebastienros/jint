@@ -36,6 +36,8 @@ public class Options
 
     public delegate string SerializeToJsonDelegate(object? target, string space, string? currentIndent);
 
+    public delegate IEnumerable<JsValue>? ReportedPropertyKeysDelegate(Engine engine, object target);
+
     /// <summary>
     /// Execution constraints for the engine.
     /// </summary>
@@ -441,6 +443,16 @@ public class Options
         /// Reported member binding flags when reflecting, defaults to <see cref="BindingFlags.Instance" /> | <see cref="BindingFlags.Public" /> | <see cref="BindingFlags.Static" />.
         /// </summary>
         public BindingFlags ObjectWrapperReportedMethodBindingFlags { get; set; } = BindingFlags.Instance | BindingFlags.Public | BindingFlags.Static;
+
+        /// <summary>
+        /// Customizes the property keys reported by <see cref="ObjectWrapper"/> when a wrapped CLR object is
+        /// enumerated (JavaScript <c>for..in</c>, <c>Object.keys</c>, object spread, <c>JSON.stringify</c>).
+        /// When the delegate returns a non-null sequence, those keys replace the default reflected/dictionary
+        /// keys for the given target; returning <c>null</c> keeps the default behavior. Reported keys must be
+        /// resolvable through the wrapper's normal member/indexer access for their values to be readable.
+        /// Defaults to returning <c>null</c>.
+        /// </summary>
+        public ReportedPropertyKeysDelegate ObjectWrapperReportedPropertyKeys { get; set; } = static (_, _) => null;
     }
 
     public class ConstraintOptions
