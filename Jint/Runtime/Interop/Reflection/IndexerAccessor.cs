@@ -14,6 +14,9 @@ internal sealed class IndexerAccessor : ReflectionAccessor
 {
     private readonly object _key;
 
+    // the key never changes, safe to share between getter/ContainsKey invocations (contents are never mutated)
+    private readonly object[] _keyParameters;
+
     private readonly MethodInfo? _getter;
     private readonly MethodInfo? _setter;
     private readonly MethodInfo? _containsKey;
@@ -25,6 +28,7 @@ internal sealed class IndexerAccessor : ReflectionAccessor
 
         _containsKey = containsKey;
         _key = key;
+        _keyParameters = [key];
 
         _getter = indexer.GetGetMethod();
         _setter = indexer.GetSetMethod();
@@ -185,7 +189,7 @@ internal sealed class IndexerAccessor : ReflectionAccessor
             return null;
         }
 
-        object[] parameters = [_key];
+        var parameters = _keyParameters;
 
         if (_containsKey != null)
         {
@@ -220,7 +224,7 @@ internal sealed class IndexerAccessor : ReflectionAccessor
     {
         if (_containsKey != null)
         {
-            if (_containsKey.Invoke(target, [_key]) as bool? != true)
+            if (_containsKey.Invoke(target, _keyParameters) as bool? != true)
             {
                 return PropertyDescriptor.Undefined;
             }
