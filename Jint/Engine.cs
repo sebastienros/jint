@@ -94,6 +94,9 @@ public sealed partial class Engine : IDisposable
     // cache for already wrapped CLR objects to keep object identity
     internal ConditionalWeakTable<object, ObjectInstance>? _objectWrapperCache;
 
+    // bounded cache of most recently wrapped CLR objects, see Options.Interop.CacheRecentObjectWrappers
+    internal RecentObjectWrapperCache? _recentObjectWrapperCache;
+
     internal readonly JintCallStack CallStack;
     internal readonly StackGuard _stackGuard;
 

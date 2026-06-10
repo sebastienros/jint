@@ -80,6 +80,46 @@ public class WeakSetMapTests
     }
 
     [Fact]
+    public void RecentObjectWrapperCacheMaintainsIdentityForRepeatedWraps()
+    {
+        var engine = new Engine(options => options.Interop.CacheRecentObjectWrappers = true);
+
+        engine.SetValue("context", new { Item = new Item { Value = "Test" } });
+
+        Assert.Equal(true, engine.Evaluate("return context.Item === context.Item;"));
+
+        Assert.Equal(true, engine.Evaluate(@"
+		    var set1 = new WeakSet();
+		    set1.add(context.Item);
+		    return set1.has(context.Item);
+	    "));
+    }
+
+    [Fact]
+    public void RecentObjectWrapperCacheIsBounded()
+    {
+        var engine = new Engine(options => options.Interop.CacheRecentObjectWrappers = true);
+
+        var items = new List<Item>();
+        for (var i = 0; i < 16; i++)
+        {
+            items.Add(new Item { Value = i.ToString() });
+        }
+
+        engine.SetValue("items", items);
+
+        // touching more distinct objects than the cache holds must stay correct (oldest evicted)
+        Assert.Equal(true, engine.Evaluate(@"
+		    for (var i = 0; i < 16; i++) {
+		      if (items[i].Value !== '' + i) {
+		        return false;
+		      }
+		    }
+		    return items[15] === items[15];
+	    "));
+    }
+
+    [Fact]
     public void StringifyWithoutCircularReferences()
     {
         var parent = new Parent { Value = "Parent" };
