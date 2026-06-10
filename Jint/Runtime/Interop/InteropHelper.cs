@@ -327,13 +327,110 @@ internal sealed class InteropHelper
         return !type.IsValueType || Nullable.GetUnderlyingType(type) != null;
     }
 
+    // (double) long.MaxValue rounds up to 2^63 which overflows long, the bound must be exclusive
+    private const double LongMaxValueExclusiveUpperBound = 9223372036854775808d;
+
+    /// <summary>
+    /// Fast conversion for the dominant numeric argument shapes, avoiding the generic
+    /// converter and Convert.ChangeType. Only converts when the result is bit-exact with
+    /// the general conversion path; otherwise declines and the caller falls back.
+    /// </summary>
+    internal static bool TryConvertNumberFast(double value, Type parameterType, out object? converted)
+    {
+        if (parameterType == typeof(double))
+        {
+            converted = value;
+            return true;
+        }
+
+        if (TypeConverter.IsIntegralNumber(value))
+        {
+            if (parameterType == typeof(int))
+            {
+                if (value is >= int.MinValue and <= int.MaxValue)
+                {
+                    converted = (int) value;
+                    return true;
+                }
+            }
+            else if (parameterType == typeof(long))
+            {
+                if (value is >= long.MinValue and < LongMaxValueExclusiveUpperBound)
+                {
+                    converted = (long) value;
+                    return true;
+                }
+            }
+        }
+
+        converted = null;
+        return false;
+    }
+
 
     internal readonly record struct MethodMatch(MethodDescriptor Method, JsCallArguments Arguments, int Score = 0) : IComparable<MethodMatch>
     {
         public int CompareTo(MethodMatch other) => Score.CompareTo(other.Score);
     }
 
-    internal static IEnumerable<MethodMatch> FindBestMatch<TState>(
+    /// <summary>
+    /// Match candidates in preference order: either a single perfect match or a score-sorted
+    /// candidate list. A struct with a struct enumerator so the common single-match case does
+    /// not allocate; only the ambiguous multi-candidate case carries a list.
+    /// </summary>
+    internal readonly struct MethodMatches
+    {
+        private readonly MethodMatch _single;
+        private readonly List<MethodMatch>? _list;
+        private readonly bool _hasSingle;
+
+        private MethodMatches(in MethodMatch single, List<MethodMatch>? list, bool hasSingle)
+        {
+            _single = single;
+            _list = list;
+            _hasSingle = hasSingle;
+        }
+
+        public static MethodMatches Empty => default;
+
+        public static MethodMatches Single(in MethodMatch match) => new(match, list: null, hasSingle: true);
+
+        public static MethodMatches Sorted(List<MethodMatch> list) => new(default, list, hasSingle: false);
+
+        public MethodMatch FirstOrDefault()
+        {
+            if (_hasSingle)
+            {
+                return _single;
+            }
+
+            return _list is { Count: > 0 } ? _list[0] : default;
+        }
+
+        public Enumerator GetEnumerator() => new(this);
+
+        internal struct Enumerator
+        {
+            private readonly MethodMatches _matches;
+            private int _index;
+
+            internal Enumerator(in MethodMatches matches)
+            {
+                _matches = matches;
+                _index = -1;
+            }
+
+            public readonly MethodMatch Current => _matches._list is not null ? _matches._list[_index] : _matches._single;
+
+            public bool MoveNext()
+            {
+                var count = _matches._list?.Count ?? (_matches._hasSingle ? 1 : 0);
+                return ++_index < count;
+            }
+        }
+    }
+
+    internal static MethodMatches FindBestMatch<TState>(
         Engine engine,
         MethodDescriptor[] methods,
         Func<MethodDescriptor, TState, JsValue[]> argumentProvider,
@@ -350,9 +447,8 @@ internal sealed class InteropHelper
                 var score = CalculateMethodScore(engine, method, arguments);
                 if (score == 0)
                 {
-                    // perfect match
-                    yield return new MethodMatch(method, arguments);
-                    yield break;
+                    // perfect match, earlier non-perfect candidates are discarded
+                    return MethodMatches.Single(new MethodMatch(method, arguments));
                 }
 
                 if (score < 0)
@@ -368,7 +464,7 @@ internal sealed class InteropHelper
 
         if (matchingByParameterCount == null)
         {
-            yield break;
+            return MethodMatches.Empty;
         }
 
         if (matchingByParameterCount.Count > 1)
@@ -376,9 +472,6 @@ internal sealed class InteropHelper
             matchingByParameterCount.Sort();
         }
 
-        foreach (var match in matchingByParameterCount)
-        {
-            yield return match;
-        }
+        return MethodMatches.Sorted(matchingByParameterCount);
     }
 }

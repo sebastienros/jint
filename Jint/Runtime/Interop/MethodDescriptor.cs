@@ -36,6 +36,80 @@ internal sealed class MethodDescriptor
     public int ParameterDefaultValuesCount { get; }
     public bool IsExtensionMethod { get; }
 
+#if NET8_0_OR_GREATER
+    // lazily initialized fast invokers, benign race - last writer wins
+    private MethodInvoker? _methodInvoker;
+    private ConstructorInvoker? _constructorInvoker;
+#endif
+
+    /// <summary>
+    /// Invokes the method using a cached fast invoker when available. Target exceptions are
+    /// normalized to <see cref="TargetInvocationException"/> to match MethodBase.Invoke behavior.
+    /// </summary>
+    public object? Invoke(object? instance, object?[] parameters)
+    {
+#if NET8_0_OR_GREATER
+        return Invoke(instance, parameters.AsSpan());
+#else
+        return Method switch
+        {
+            MethodInfo m => m.Invoke(instance, parameters),
+            ConstructorInfo c => c.Invoke(parameters),
+            _ => throw new NotSupportedException("Method is unknown type"),
+        };
+#endif
+    }
+
+#if NET8_0_OR_GREATER
+    /// <summary>
+    /// Invokes the method using a cached fast invoker; the span may be a slice of a pooled,
+    /// oversized buffer. Target exceptions are normalized to <see cref="TargetInvocationException"/>.
+    /// </summary>
+    public object? Invoke(object? instance, Span<object?> parameters)
+    {
+        // MethodInvoker/ConstructorInvoker don't perform Type.Missing default-value
+        // substitution, fall back to MethodBase.Invoke when optional arguments are elided
+        if (ParameterDefaultValuesCount > 0)
+        {
+            for (var i = 0; i < parameters.Length; i++)
+            {
+                if (ReferenceEquals(parameters[i], System.Type.Missing))
+                {
+                    return Method switch
+                    {
+                        MethodInfo m => m.Invoke(instance, parameters.ToArray()),
+                        ConstructorInfo c => c.Invoke(parameters.ToArray()),
+                        _ => throw new NotSupportedException("Method is unknown type"),
+                    };
+                }
+            }
+        }
+
+        try
+        {
+            if (Method is MethodInfo methodInfo)
+            {
+                var invoker = _methodInvoker ??= MethodInvoker.Create(methodInfo);
+                return invoker.Invoke(instance, parameters);
+            }
+
+            if (Method is ConstructorInfo constructorInfo)
+            {
+                var invoker = _constructorInvoker ??= ConstructorInvoker.Create(constructorInfo);
+                return invoker.Invoke(parameters);
+            }
+        }
+        catch (Exception e) when (e is not TargetInvocationException)
+        {
+            // MethodBase.Invoke wraps exceptions thrown by the invoked member, the fast
+            // invokers rethrow them as-is - normalize so callers see the legacy shape
+            throw new TargetInvocationException(e);
+        }
+
+        throw new NotSupportedException("Method is unknown type");
+    }
+#endif
+
     public static MethodDescriptor[] Build<T>(List<T> source) where T : MethodBase
     {
         var descriptors = new MethodDescriptor[source.Count];
@@ -105,7 +179,7 @@ internal sealed class MethodDescriptor
 
     public JsValue Call(Engine engine, object? instance, JsCallArguments arguments)
     {
-        var parameters = new object?[arguments.Length];
+        object?[] parameters = arguments.Length == 0 ? [] : new object?[arguments.Length];
         var methodParameters = Parameters;
         var valueCoercionType = engine.Options.Interop.ValueCoercion;
 
@@ -127,6 +201,10 @@ internal sealed class MethodDescriptor
                     // undefined is considered missing, null is considered explicit value
                     converted = methodParameter.DefaultValue;
                 }
+                else if (value is JsNumber jsNumber && InteropHelper.TryConvertNumberFast(jsNumber._value, parameterType, out converted))
+                {
+                    // common numeric argument converted without the generic converter
+                }
                 else if (!ReflectionExtensions.TryConvertViaTypeCoercion(parameterType, valueCoercionType, value, out converted))
                 {
                     converted = engine.TypeConverter.Convert(
@@ -138,12 +216,7 @@ internal sealed class MethodDescriptor
                 parameters[i] = converted;
             }
 
-            var retVal = Method switch
-            {
-                MethodInfo m => m.Invoke(instance, parameters),
-                ConstructorInfo c => c.Invoke(parameters),
-                _ => throw new NotSupportedException("Method is unknown type"),
-            };
+            var retVal = Invoke(instance, parameters);
             return JsValue.FromObject(engine, retVal);
         }
         catch (TargetInvocationException exception)
