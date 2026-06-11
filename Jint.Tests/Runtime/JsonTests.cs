@@ -8,6 +8,48 @@ namespace Jint.Tests.Runtime;
 public class JsonTests
 {
     [Theory]
+    [InlineData(0)]
+    [InlineData(15)]
+    [InlineData(16)]
+    [InlineData(17)]
+    [InlineData(1000)]
+    public void CanParseArraysOfAnySize(int size)
+    {
+        var engine = new Engine();
+        var json = "[" + string.Join(",", Enumerable.Range(0, size)) + "]";
+        var ok = engine.Evaluate($"var a = JSON.parse('{json}'); a.length === {size} && ({size} === 0 || a[{size - 1}] === {size - 1})").AsBoolean();
+
+        Assert.True(ok);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(15)]
+    [InlineData(16)]
+    [InlineData(17)]
+    [InlineData(1000)]
+    public void CanParseArraysOfAnySizeWithReviver(int size)
+    {
+        var engine = new Engine();
+        var json = "[" + string.Join(",", Enumerable.Range(0, size)) + "]";
+        var ok = engine.Evaluate($"var a = JSON.parse('{json}', function (k, v) {{ return v; }}); a.length === {size} && ({size} === 0 || a[{size - 1}] === {size - 1})").AsBoolean();
+
+        Assert.True(ok);
+    }
+
+    [Fact]
+    public void CanParseNestedArrays()
+    {
+        var engine = new Engine();
+        var ok = engine.Evaluate("""
+            var a = JSON.parse('[[1,2,3],[4,5,[6,7,[8]]],9]');
+            JSON.stringify(a) === '[[1,2,3],[4,5,[6,7,[8]]],9]';
+            """).AsBoolean();
+
+        Assert.True(ok);
+    }
+
+    [Theory]
     [InlineData(@"JSON.parse(""{\""abc\\tdef\"": \""42\""}"");", "abc\tdef")]
     [InlineData(@"JSON.parse(""{\""abc\\ndef\"": \""42\""}"");", "abc\ndef")]
     [InlineData(@"JSON.parse(""{\""abc\\fdef\"": \""42\""}"");", "abc\fdef")]
