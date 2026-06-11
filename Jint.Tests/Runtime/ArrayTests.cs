@@ -118,6 +118,32 @@ public class ArrayTests
     }
 
     [Fact]
+    public void ConcatSparseModeReceiverDoesNotCrash()
+    {
+        var result = _engine.Evaluate("""
+            var s = [];
+            s[5000000] = 1;
+            var r = s.concat([2]);
+            JSON.stringify([r.length, r[5000000], r[5000001], 0 in r]);
+            """).AsString();
+
+        Assert.Equal("[5000002,1,2,false]", result);
+    }
+
+    [Fact]
+    public void ConcatSparseModeArgumentDoesNotCrash()
+    {
+        var result = _engine.Evaluate("""
+            var s = [];
+            s[5000000] = 1;
+            var r = ['x'].concat(s);
+            JSON.stringify([r.length, r[0], r[5000001], 1 in r]);
+            """).AsString();
+
+        Assert.Equal("[5000002,\"x\",1,false]", result);
+    }
+
+    [Fact]
     public void ArrayPrototypeToStringWithArray()
     {
         var result = _engine.Evaluate("Array.prototype.toString.call([1,2,3]);").AsString();

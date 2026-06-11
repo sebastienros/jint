@@ -1893,8 +1893,9 @@ public sealed partial class ArrayPrototype : ArrayInstance
         result = null!;
 
         // CanUseFastAccess does not catch a custom @@isConcatSpreadable symbol, so we still
-        // have to consult IsConcatSpreadable for each input.
-        if (!thisArr.IsConcatSpreadable)
+        // have to consult IsConcatSpreadable for each input. A sparse-mode receiver can also
+        // still be fast-access; it has no dense backing to bulk-copy from.
+        if (thisArr._dense is null || !thisArr.IsConcatSpreadable)
         {
             return false;
         }
@@ -1907,7 +1908,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
         for (var i = 0; i < arguments.Length; i++)
         {
             var e = arguments[i];
-            if (e is JsArray { CanUseFastAccess: true } ja && ja.IsConcatSpreadable)
+            if (e is JsArray { CanUseFastAccess: true } ja && ja._dense is not null && ja.IsConcatSpreadable)
             {
                 argInfo![i] = true;
                 totalLen += ja.GetLength();
