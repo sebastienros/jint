@@ -1,9 +1,9 @@
-using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
+using Jint.Pooling;
 using Jint.Runtime;
 
 namespace Jint.Native.Json;
@@ -545,30 +545,11 @@ public sealed class JsonParser
             ThrowDepthLimitReached(_lookahead);
         }
 
-        /*
-         To speed up performance, the list allocation is deferred.
-
-         First the elements are stored within an array received
-         from the .NET array pool.
-
-         If a list contains less elements that the size that array,
-         a Jint array is constructed with the values stored in that
-         array.
-
-         When the number of elements exceed the buffer size,
-         The elements-array gets created and filled with the content
-         of the array. The array will then turn into an
-         intermediate buffer which gets flushed to the list
-         when its full.
-        */
-        List<JsValue>? elements = null;
-
         Expect(ref state, '[');
 
-        int bufferIndex = 0;
-        JsArray? result = null;
-
-        JsValue[] buffer = ArrayPool<JsValue>.Shared.Rent(16);
+        // Elements accumulate in a pooled buffer and materialize as an exact-size dense
+        // array; nested arrays rent their own builders during the recursion.
+        var builder = new JsValueListBuilder(16);
         try
         {
             var elementCount = 0;
@@ -579,66 +560,23 @@ public sealed class JsonParser
                     _engine.Constraints.Check();
                 }
 
-                buffer[bufferIndex++] = ParseJsonValue(ref state);
+                builder.Add(ParseJsonValue(ref state));
 
                 if (!Match(']'))
                 {
                     Expect(ref state, ',');
                 }
-
-                if (bufferIndex >= buffer.Length)
-                {
-                    if (elements is null)
-                    {
-                        elements = new List<JsValue>(buffer);
-                    }
-                    else
-                    {
-                        elements.AddRange(buffer);
-                    }
-                    bufferIndex = 0;
-                }
             }
 
-            // BufferIndex = 0 has two meanings
-            // * Empty JSON array (elements will be null)
-            // * The buffer array has just been flushed (elements will NOT be null)
-            if (bufferIndex > 0)
-            {
-                if (elements is null)
-                {
-                    // No element list has been created, all values did fit into the array.
-                    // The Jint-Array can get constructed from that array.
-                    var data = new JsValue[bufferIndex];
-                    System.Array.Copy(buffer, data, length: bufferIndex);
-                    result = new JsArray(_engine, data);
-                }
-                else
-                {
-                    // An element list has been created. Flush the
-                    // remaining added items within the array to that list.
-                    for (var i = 0; i < bufferIndex; ++i)
-                    {
-                        elements.Add(buffer[i]);
-                    }
-                }
-            }
-            else if (elements is null)
-            {
-                // the JSON array did not have any elements
-                // aka: []
-                result = new JsArray(_engine);
-            }
+            Expect(ref state, ']');
+            state.CurrentDepth--;
+
+            return _engine.Realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
         }
         finally
         {
-            ArrayPool<JsValue>.Shared.Return(buffer);
+            builder.Dispose();
         }
-
-        Expect(ref state, ']');
-        state.CurrentDepth--;
-
-        return result ?? new JsArray(_engine, elements!.ToArray());
     }
 
     private JsObject ParseJsonObject(ref State state)
@@ -826,14 +764,10 @@ public sealed class JsonParser
 
         var startPos = _lookahead.Range.Start;
         var elements = new List<JsonParseNode>();
-        List<JsValue>? valueList = null;
 
         Expect(ref state, '[');
 
-        int bufferIndex = 0;
-        JsArray? result = null;
-
-        JsValue[] buffer = ArrayPool<JsValue>.Shared.Rent(16);
+        var builder = new JsValueListBuilder(16);
         try
         {
             var elementCount = 0;
@@ -845,7 +779,7 @@ public sealed class JsonParser
                 }
 
                 var elementResult = ParseJsonValueWithSourceInfo(ref state);
-                buffer[bufferIndex++] = elementResult.Value;
+                builder.Add(elementResult.Value);
                 if (elementResult.Node != null)
                 {
                     elements.Add(elementResult.Node);
@@ -855,61 +789,27 @@ public sealed class JsonParser
                 {
                     Expect(ref state, ',');
                 }
-
-                if (bufferIndex >= buffer.Length)
-                {
-                    if (valueList is null)
-                    {
-                        valueList = new List<JsValue>(buffer);
-                    }
-                    else
-                    {
-                        valueList.AddRange(buffer);
-                    }
-                    bufferIndex = 0;
-                }
             }
 
-            if (bufferIndex > 0)
+            Expect(ref state, ']');
+            var endPos = _index;
+            state.CurrentDepth--;
+
+            var arrayValue = _engine.Realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
+            var arrayNode = new JsonParseNode
             {
-                if (valueList is null)
-                {
-                    var data = new JsValue[bufferIndex];
-                    System.Array.Copy(buffer, data, length: bufferIndex);
-                    result = new JsArray(_engine, data);
-                }
-                else
-                {
-                    for (var i = 0; i < bufferIndex; ++i)
-                    {
-                        valueList.Add(buffer[i]);
-                    }
-                }
-            }
-            else if (valueList is null)
-            {
-                result = new JsArray(_engine);
-            }
+                Start = startPos,
+                End = endPos,
+                IsPrimitive = false,
+                Elements = elements
+            };
+
+            return new JsonParseResult(arrayValue, arrayNode);
         }
         finally
         {
-            ArrayPool<JsValue>.Shared.Return(buffer);
+            builder.Dispose();
         }
-
-        Expect(ref state, ']');
-        var endPos = _index;
-        state.CurrentDepth--;
-
-        var arrayValue = result ?? new JsArray(_engine, valueList!.ToArray());
-        var arrayNode = new JsonParseNode
-        {
-            Start = startPos,
-            End = endPos,
-            IsPrimitive = false,
-            Elements = elements
-        };
-
-        return new JsonParseResult(arrayValue, arrayNode);
     }
 
     private JsonParseResult ParseJsonObjectWithSourceInfo(ref State state)

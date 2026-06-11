@@ -1,4 +1,5 @@
 using Jint.Native;
+using Jint.Runtime;
 using Jint.Runtime.Interop;
 
 namespace Jint.Tests.Runtime;
@@ -13,6 +14,227 @@ public class ArrayTests
             .SetValue("log", new Action<object>(Console.WriteLine))
             .SetValue("assert", new Action<bool>(Assert.True))
             .SetValue("equal", new Action<object, object>(Assert.Equal));
+    }
+
+    [Fact]
+    public void FilterSkipsHoles()
+    {
+        var result = _engine.Evaluate("JSON.stringify([1,,3].filter(function(x) { return true; }))").AsString();
+
+        Assert.Equal("[1,3]", result);
+    }
+
+    [Fact]
+    public void FilterSubclassUsesSpecies()
+    {
+        var result = _engine.Evaluate("""
+            class A extends Array {}
+            var a = A.from([1, 2, 3, 4]);
+            var filtered = a.filter(x => x % 2 === 0);
+            filtered instanceof A && filtered.length === 2 && filtered[0] === 2 && filtered[1] === 4;
+            """).AsBoolean();
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void FilterRespectsOwnConstructorProperty()
+    {
+        var result = _engine.Evaluate("""
+            var a = [1, 2, 3, 4];
+            var captured = null;
+            a.constructor = function(len) { captured = len; return new Array(len); };
+            a.constructor[Symbol.species] = a.constructor;
+            var filtered = a.filter(x => x > 2);
+            captured === 0 && filtered.length === 2 && filtered[0] === 3 && filtered[1] === 4;
+            """).AsBoolean();
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void FilterThrowingCallbackLeavesEngineUsable()
+    {
+        Assert.Throws<JavaScriptException>(() => _engine.Evaluate("[1, 2, 3].filter(function(x) { if (x === 2) { throw new Error('boom'); } return true; })"));
+
+        var result = _engine.Evaluate("JSON.stringify([1, 2, 3, 4].filter(function(x) { return x % 2 === 0; }))").AsString();
+        Assert.Equal("[2,4]", result);
+    }
+
+    [Fact]
+    public void FilterCallbackMutatingSource()
+    {
+        // elements appended during iteration are not visited (len captured up front),
+        // shrinking makes the tail absent
+        var grow = _engine.Evaluate("""
+            var a = [1, 2, 3];
+            JSON.stringify(a.filter(function(x) { a.push(x * 10); return true; }));
+            """).AsString();
+        Assert.Equal("[1,2,3]", grow);
+
+        var shrink = _engine.Evaluate("""
+            var b = [1, 2, 3, 4, 5];
+            JSON.stringify(b.filter(function(x) { b.length = 2; return true; }));
+            """).AsString();
+        Assert.Equal("[1,2]", shrink);
+    }
+
+    [Fact]
+    public void FlatSkipsNestedHoles()
+    {
+        var result = _engine.Evaluate("JSON.stringify([1, [2, , 3], , [4]].flat())").AsString();
+
+        Assert.Equal("[1,2,3,4]", result);
+    }
+
+    [Fact]
+    public void FlatInfiniteDepth()
+    {
+        var result = _engine.Evaluate("JSON.stringify([1, [2, [3, [4, [5]]]]].flat(Infinity))").AsString();
+
+        Assert.Equal("[1,2,3,4,5]", result);
+    }
+
+    [Fact]
+    public void FlatSubclassUsesSpecies()
+    {
+        var result = _engine.Evaluate("""
+            class A extends Array {}
+            var a = A.from([[1], [2]]);
+            var flattened = a.flat();
+            flattened instanceof A && flattened.length === 2;
+            """).AsBoolean();
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void FlatMapThrowingMapperLeavesEngineUsable()
+    {
+        Assert.Throws<JavaScriptException>(() => _engine.Evaluate("[1, 2, 3].flatMap(function(x) { if (x === 2) { throw new Error('boom'); } return [x]; })"));
+
+        var result = _engine.Evaluate("JSON.stringify([1, 2].flatMap(function(x) { return [x, x * 10]; }))").AsString();
+        Assert.Equal("[1,10,2,20]", result);
+    }
+
+    [Fact]
+    public void ConcatGenericSpreadableAbsentIndicesBecomeUndefinedProperties()
+    {
+        // mirrors the long-standing slow-path deviation: absent indices of a generic
+        // spreadable are written as undefined-valued own properties, not holes
+        var result = _engine.Evaluate("""
+            var obj = { length: 3, 0: 'a', 2: 'c' };
+            obj[Symbol.isConcatSpreadable] = true;
+            var r = [].concat(obj);
+            JSON.stringify([r.length, 1 in r, r[0], r[2]]);
+            """).AsString();
+
+        Assert.Equal("[3,true,\"a\",\"c\"]", result);
+    }
+
+    [Fact]
+    public void ConcatMixedHoleyArrayAndSpreadableObject()
+    {
+        var result = _engine.Evaluate("""
+            var obj = { length: 3, 0: 'a', 2: 'c' };
+            obj[Symbol.isConcatSpreadable] = true;
+            var r = ['x'].concat([1, , 3], obj, 'tail');
+            JSON.stringify([r.length, 2 in r, 5 in r, r[0], r[1], r[3], r[4], r[6], r[7]]);
+            """).AsString();
+
+        Assert.Equal("[8,false,true,\"x\",1,3,\"a\",\"c\",\"tail\"]", result);
+    }
+
+    [Fact]
+    public void ConcatOwnConstructorPropertyFallsBackToSlowPath()
+    {
+        var result = _engine.Evaluate("""
+            var a = ['x'];
+            a.constructor = Array;
+            var r = a.concat([1, , 3]);
+            JSON.stringify([r.length, 2 in r, r[0], r[1], r[3]]);
+            """).AsString();
+
+        Assert.Equal("[4,false,\"x\",1,3]", result);
+    }
+
+    [Fact]
+    public void ConcatSparseModeReceiverDoesNotCrash()
+    {
+        var result = _engine.Evaluate("""
+            var s = [];
+            s[5000000] = 1;
+            var r = s.concat([2]);
+            JSON.stringify([r.length, r[5000000], r[5000001], 0 in r]);
+            """).AsString();
+
+        Assert.Equal("[5000002,1,2,false]", result);
+    }
+
+    [Fact]
+    public void ConcatSparseModeArgumentDoesNotCrash()
+    {
+        var result = _engine.Evaluate("""
+            var s = [];
+            s[5000000] = 1;
+            var r = ['x'].concat(s);
+            JSON.stringify([r.length, r[0], r[5000001], 1 in r]);
+            """).AsString();
+
+        Assert.Equal("[5000002,\"x\",1,false]", result);
+    }
+
+    [Fact]
+    public void ArrayFromIteratorCollectsAllValues()
+    {
+        var result = _engine.Evaluate("""
+            var fromSet = Array.from(new Set([1, 2, 3, 2, 1]));
+            function* gen() { yield 'a'; yield 'b'; }
+            var fromGen = Array.from(gen());
+            JSON.stringify([fromSet, fromGen]);
+            """).AsString();
+
+        Assert.Equal("[[1,2,3],[\"a\",\"b\"]]", result);
+    }
+
+    [Fact]
+    public void ArrayFromIteratorWithMapperPassesIndices()
+    {
+        var result = _engine.Evaluate("JSON.stringify(Array.from(new Set(['a', 'b']), function (v, i) { return v + i; }))").AsString();
+
+        Assert.Equal("[\"a0\",\"b1\"]", result);
+    }
+
+    [Fact]
+    public void ArrayFromThrowingMapperClosesIterator()
+    {
+        var result = _engine.Evaluate("""
+            var closed = false;
+            var iterable = {};
+            iterable[Symbol.iterator] = function () {
+                var i = 0;
+                return {
+                    next: function () { return { value: i++, done: i > 5 }; },
+                    return: function () { closed = true; return { done: true }; }
+                };
+            };
+            try { Array.from(iterable, function (x) { if (x === 2) { throw new Error('boom'); } return x; }); } catch (e) { }
+            closed;
+            """).AsBoolean();
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void ArrayFromSubclassUsesConstructor()
+    {
+        var result = _engine.Evaluate("""
+            class A extends Array {}
+            var a = A.from(new Set([1, 2]));
+            a instanceof A && a.length === 2 && a[0] === 1 && a[1] === 2;
+            """).AsBoolean();
+
+        Assert.True(result);
     }
 
     [Fact]
