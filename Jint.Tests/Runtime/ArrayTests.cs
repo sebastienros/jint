@@ -1,4 +1,5 @@
 using Jint.Native;
+using Jint.Runtime;
 using Jint.Runtime.Interop;
 
 namespace Jint.Tests.Runtime;
@@ -13,6 +14,69 @@ public class ArrayTests
             .SetValue("log", new Action<object>(Console.WriteLine))
             .SetValue("assert", new Action<bool>(Assert.True))
             .SetValue("equal", new Action<object, object>(Assert.Equal));
+    }
+
+    [Fact]
+    public void FilterSkipsHoles()
+    {
+        var result = _engine.Evaluate("JSON.stringify([1,,3].filter(function(x) { return true; }))").AsString();
+
+        Assert.Equal("[1,3]", result);
+    }
+
+    [Fact]
+    public void FilterSubclassUsesSpecies()
+    {
+        var result = _engine.Evaluate("""
+            class A extends Array {}
+            var a = A.from([1, 2, 3, 4]);
+            var filtered = a.filter(x => x % 2 === 0);
+            filtered instanceof A && filtered.length === 2 && filtered[0] === 2 && filtered[1] === 4;
+            """).AsBoolean();
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void FilterRespectsOwnConstructorProperty()
+    {
+        var result = _engine.Evaluate("""
+            var a = [1, 2, 3, 4];
+            var captured = null;
+            a.constructor = function(len) { captured = len; return new Array(len); };
+            a.constructor[Symbol.species] = a.constructor;
+            var filtered = a.filter(x => x > 2);
+            captured === 0 && filtered.length === 2 && filtered[0] === 3 && filtered[1] === 4;
+            """).AsBoolean();
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void FilterThrowingCallbackLeavesEngineUsable()
+    {
+        Assert.Throws<JavaScriptException>(() => _engine.Evaluate("[1, 2, 3].filter(function(x) { if (x === 2) { throw new Error('boom'); } return true; })"));
+
+        var result = _engine.Evaluate("JSON.stringify([1, 2, 3, 4].filter(function(x) { return x % 2 === 0; }))").AsString();
+        Assert.Equal("[2,4]", result);
+    }
+
+    [Fact]
+    public void FilterCallbackMutatingSource()
+    {
+        // elements appended during iteration are not visited (len captured up front),
+        // shrinking makes the tail absent
+        var grow = _engine.Evaluate("""
+            var a = [1, 2, 3];
+            JSON.stringify(a.filter(function(x) { a.push(x * 10); return true; }));
+            """).AsString();
+        Assert.Equal("[1,2,3]", grow);
+
+        var shrink = _engine.Evaluate("""
+            var b = [1, 2, 3, 4, 5];
+            JSON.stringify(b.filter(function(x) { b.length = 2; return true; }));
+            """).AsString();
+        Assert.Equal("[1,2]", shrink);
     }
 
     [Fact]

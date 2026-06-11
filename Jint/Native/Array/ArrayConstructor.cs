@@ -7,6 +7,7 @@ using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Native.Promise;
 using Jint.Native.Symbol;
+using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -920,6 +921,47 @@ public sealed partial class ArrayConstructor : Constructor
         var array = new JsValue[contents.Count];
         contents.CopyTo(array);
         return new JsArray(_engine, array);
+    }
+
+    /// <summary>
+    /// Materializes accumulated builder contents into a plain array instance via an
+    /// exact-size backing array the result takes ownership of. The caller still owns
+    /// the builder and is responsible for disposing it.
+    /// </summary>
+    internal JsArray ConstructFromBuilder(ref JsValueListBuilder builder)
+    {
+        var length = (uint) builder.Length;
+
+        // The ownership-taking constructor skips capacity validation; the incremental
+        // write path enforced MaxArraySize through EnsureCapacity, so keep parity here.
+        if (length > _engine.Options.Constraints.MaxArraySize)
+        {
+            ArrayInstance.ThrowMaximumArraySizeReachedException(_engine, length);
+        }
+
+        if (length < ArrayInstance.MaxDenseArrayLengthInternal)
+        {
+            return new JsArray(_engine, builder.ToArray());
+        }
+
+        // The incremental write path would have converted an array this large to sparse
+        // backing; preserve that policy by replaying the values into a sparse-backed array.
+        var a = ArrayCreate(length);
+        for (uint i = 0; i < length; i++)
+        {
+            if (i > 0 && i % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
+            var value = builder[(int) i];
+            if (value is not null)
+            {
+                a.SetIndexValue(i, value, updateLength: false);
+            }
+        }
+
+        return a;
     }
 
     /// <summary>

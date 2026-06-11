@@ -451,6 +451,12 @@ public sealed partial class ArrayPrototype : ArrayInstance
     [JsFunction(Length = 1)]
     private JsValue Filter(JsValue thisObject, JsCallArguments arguments)
     {
+        if (thisObject is JsArray { CanUseFastAccess: true } arrayInstance
+            && !arrayInstance.HasOwnProperty(CommonProperties.Constructor))
+        {
+            return arrayInstance.Filter(arguments);
+        }
+
         var callbackfn = arguments.At(0);
         var thisArg = arguments.At(1);
 
