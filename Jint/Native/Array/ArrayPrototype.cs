@@ -7,6 +7,7 @@ using Jint.Native.Iterator;
 using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
+using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
@@ -563,6 +564,23 @@ public sealed partial class ArrayPrototype : ArrayInstance
             depthNum = 0;
         }
 
+        if (thisObject is JsArray { CanUseFastAccess: true } jsArray
+            && !jsArray.HasOwnProperty(CommonProperties.Constructor))
+        {
+            // ArraySpeciesCreate would provably return a plain array; accumulate into a
+            // pooled buffer and materialize an exact-size result instead.
+            var builder = new JsValueListBuilder((int) System.Math.Min(sourceLen, 1024));
+            try
+            {
+                FlattenIntoArrayDense(ref builder, operations, sourceLen, depthNum);
+                return _realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
+            }
+            finally
+            {
+                builder.Dispose();
+            }
+        }
+
         var A = _realm.Intrinsics.Array.ArraySpeciesCreate(operations.Target, 0);
         FlattenIntoArray(A, operations, sourceLen, 0, depthNum);
         return A;
@@ -583,6 +601,21 @@ public sealed partial class ArrayPrototype : ArrayInstance
         if (!mapperFunction.IsCallable)
         {
             Throw.TypeError(_realm, $"{mapperFunction} is not a function");
+        }
+
+        if (thisObject is JsArray { CanUseFastAccess: true } jsArray
+            && !jsArray.HasOwnProperty(CommonProperties.Constructor))
+        {
+            var builder = new JsValueListBuilder((int) System.Math.Min(sourceLen, 1024));
+            try
+            {
+                FlattenIntoArrayDense(ref builder, O, sourceLen, 1, (ICallable) mapperFunction, thisArg);
+                return _realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
+            }
+            finally
+            {
+                builder.Dispose();
+            }
         }
 
         var A = _realm.Intrinsics.Array.ArraySpeciesCreate(O.Target, 0);
@@ -667,6 +700,84 @@ public sealed partial class ArrayPrototype : ArrayInstance
         }
 
         return targetIndex;
+    }
+
+    /// <summary>
+    /// <see cref="FlattenIntoArray"/> variant for a provably plain array result: appends
+    /// into the pooled builder instead of writing per element through the target object.
+    /// The textual structure is kept parallel to the generic variant; the target index is
+    /// implicit in the builder length and holes are skipped per spec (the exists check),
+    /// so the MaxSafeInteger target-index guard has no int-bounded equivalent here.
+    /// </summary>
+    private void FlattenIntoArrayDense(
+        ref JsValueListBuilder builder,
+        ArrayOperations source,
+        uint sourceLen,
+        double depth,
+        ICallable? mapperFunction = null,
+        JsValue? thisArg = null)
+    {
+        ulong sourceIndex = 0;
+
+        var callArguments = System.Array.Empty<JsValue>();
+        if (mapperFunction is not null)
+        {
+            callArguments = _engine._jsValueArrayPool.RentArray(3);
+            callArguments[2] = source.Target;
+        }
+
+        try
+        {
+            while (sourceIndex < sourceLen)
+            {
+                if (sourceIndex > 0 && sourceIndex % ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
+
+                var exists = source.HasProperty(sourceIndex);
+                if (exists)
+                {
+                    var element = source.Get(sourceIndex);
+                    if (mapperFunction is not null)
+                    {
+                        callArguments[0] = element;
+                        callArguments[1] = JsNumber.Create(sourceIndex);
+                        element = mapperFunction.Call(thisArg ?? Undefined, callArguments);
+                    }
+
+                    var shouldFlatten = false;
+                    if (depth > 0)
+                    {
+                        shouldFlatten = element.IsArray();
+                    }
+
+                    if (shouldFlatten)
+                    {
+                        var newDepth = double.IsPositiveInfinity(depth)
+                            ? depth
+                            : depth - 1;
+
+                        var objectInstance = (ObjectInstance) element;
+                        var elementLen = objectInstance.GetLength();
+                        FlattenIntoArrayDense(ref builder, ArrayOperations.For(objectInstance, forWrite: false), elementLen, newDepth);
+                    }
+                    else
+                    {
+                        builder.Add(element);
+                    }
+                }
+
+                sourceIndex++;
+            }
+        }
+        finally
+        {
+            if (mapperFunction is not null)
+            {
+                _engine._jsValueArrayPool.ReturnArray(callArguments);
+            }
+        }
     }
 
     [JsFunction(Length = 1)]

@@ -80,6 +80,44 @@ public class ArrayTests
     }
 
     [Fact]
+    public void FlatSkipsNestedHoles()
+    {
+        var result = _engine.Evaluate("JSON.stringify([1, [2, , 3], , [4]].flat())").AsString();
+
+        Assert.Equal("[1,2,3,4]", result);
+    }
+
+    [Fact]
+    public void FlatInfiniteDepth()
+    {
+        var result = _engine.Evaluate("JSON.stringify([1, [2, [3, [4, [5]]]]].flat(Infinity))").AsString();
+
+        Assert.Equal("[1,2,3,4,5]", result);
+    }
+
+    [Fact]
+    public void FlatSubclassUsesSpecies()
+    {
+        var result = _engine.Evaluate("""
+            class A extends Array {}
+            var a = A.from([[1], [2]]);
+            var flattened = a.flat();
+            flattened instanceof A && flattened.length === 2;
+            """).AsBoolean();
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void FlatMapThrowingMapperLeavesEngineUsable()
+    {
+        Assert.Throws<JavaScriptException>(() => _engine.Evaluate("[1, 2, 3].flatMap(function(x) { if (x === 2) { throw new Error('boom'); } return [x]; })"));
+
+        var result = _engine.Evaluate("JSON.stringify([1, 2].flatMap(function(x) { return [x, x * 10]; }))").AsString();
+        Assert.Equal("[1,10,2,20]", result);
+    }
+
+    [Fact]
     public void ArrayPrototypeToStringWithArray()
     {
         var result = _engine.Evaluate("Array.prototype.toString.call([1,2,3]);").AsString();
