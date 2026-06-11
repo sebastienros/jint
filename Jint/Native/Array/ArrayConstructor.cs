@@ -61,20 +61,16 @@ public sealed partial class ArrayConstructor : Constructor
         var usingIterator = GetMethod(_realm, items, GlobalSymbolRegistry.Iterator);
         if (usingIterator is not null)
         {
-            ObjectInstance instance;
             if (!ReferenceEquals(this, thisObject) && thisObject is IConstructor constructor)
             {
-                instance = constructor.Construct([], thisObject);
-            }
-            else
-            {
-                instance = ArrayCreate(0);
+                var instance = constructor.Construct([], thisObject);
+                var iterator = items.GetIterator(_realm, method: usingIterator);
+                var protocol = new ArrayProtocol(_engine, thisArg, instance, iterator, callable);
+                protocol.Execute();
+                return instance;
             }
 
-            var iterator = items.GetIterator(_realm, method: usingIterator);
-            var protocol = new ArrayProtocol(_engine, thisArg, instance, iterator, callable);
-            protocol.Execute();
-            return instance;
+            return ConstructFromIterator(items, usingIterator, callable, thisArg);
         }
 
         if (items is IObjectWrapper { Target: IEnumerable enumerable })
@@ -84,6 +80,66 @@ public sealed partial class ArrayConstructor : Constructor
 
         var source = ArrayOperations.For(_realm, items, forWrite: false);
         return ConstructArrayFromArrayLike(thisObject, source, callable, thisArg);
+    }
+
+    /// <summary>
+    /// Iterator branch of Array.from for the plain-array result: accumulates into a pooled
+    /// builder and materializes an exact-size dense array instead of per-item
+    /// CreateDataPropertyOrThrow writes. The loop structure mirrors
+    /// <see cref="IteratorProtocol.Execute"/>, including closing the iterator on abrupt
+    /// completion; materialization happens after the loop so a length-related throw does
+    /// not trigger an extra iterator close.
+    /// </summary>
+    private JsArray ConstructFromIterator(JsValue items, ICallable usingIterator, ICallable? callable, JsValue thisArg)
+    {
+        var iterator = items.GetIterator(_realm, method: usingIterator);
+
+        var builder = new JsValueListBuilder(16);
+        var args = _engine._jsValueArrayPool.RentArray(2);
+        try
+        {
+            var iterations = 0;
+            long index = -1;
+            try
+            {
+                while (true)
+                {
+                    if (++iterations % ConstraintCheckInterval == 0)
+                    {
+                        _engine.Constraints.Check();
+                    }
+
+                    if (!iterator.TryIteratorStep(out var item))
+                    {
+                        break;
+                    }
+
+                    var jsValue = item.Get(CommonProperties.Value);
+                    index++;
+
+                    if (callable is not null)
+                    {
+                        args[0] = jsValue;
+                        args[1] = index;
+                        jsValue = callable.Call(thisArg, args);
+                    }
+
+                    builder.Add(jsValue);
+                }
+            }
+            catch
+            {
+                iterator.Close(CompletionType.Throw);
+                throw;
+            }
+
+            return ConstructFromBuilder(ref builder);
+        }
+        finally
+        {
+            builder.Dispose();
+            _engine._jsValueArrayPool.ReturnArray(args);
+        }
     }
 
     /// <summary>

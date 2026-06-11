@@ -185,6 +185,59 @@ public class ArrayTests
     }
 
     [Fact]
+    public void ArrayFromIteratorCollectsAllValues()
+    {
+        var result = _engine.Evaluate("""
+            var fromSet = Array.from(new Set([1, 2, 3, 2, 1]));
+            function* gen() { yield 'a'; yield 'b'; }
+            var fromGen = Array.from(gen());
+            JSON.stringify([fromSet, fromGen]);
+            """).AsString();
+
+        Assert.Equal("[[1,2,3],[\"a\",\"b\"]]", result);
+    }
+
+    [Fact]
+    public void ArrayFromIteratorWithMapperPassesIndices()
+    {
+        var result = _engine.Evaluate("JSON.stringify(Array.from(new Set(['a', 'b']), function (v, i) { return v + i; }))").AsString();
+
+        Assert.Equal("[\"a0\",\"b1\"]", result);
+    }
+
+    [Fact]
+    public void ArrayFromThrowingMapperClosesIterator()
+    {
+        var result = _engine.Evaluate("""
+            var closed = false;
+            var iterable = {};
+            iterable[Symbol.iterator] = function () {
+                var i = 0;
+                return {
+                    next: function () { return { value: i++, done: i > 5 }; },
+                    return: function () { closed = true; return { done: true }; }
+                };
+            };
+            try { Array.from(iterable, function (x) { if (x === 2) { throw new Error('boom'); } return x; }); } catch (e) { }
+            closed;
+            """).AsBoolean();
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void ArrayFromSubclassUsesConstructor()
+    {
+        var result = _engine.Evaluate("""
+            class A extends Array {}
+            var a = A.from(new Set([1, 2]));
+            a instanceof A && a.length === 2 && a[0] === 1 && a[1] === 2;
+            """).AsBoolean();
+
+        Assert.True(result);
+    }
+
+    [Fact]
     public void ArrayPrototypeToStringWithArray()
     {
         var result = _engine.Evaluate("Array.prototype.toString.call([1,2,3]);").AsString();
