@@ -6,6 +6,34 @@ namespace Jint.Tests.Runtime;
 
 public class RegExpTests
 {
+    [Fact]
+    public void MatchGlobalUnicodeNoMatchesReturnsNull()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("'abc'.match(/\\d/gu) === null").AsBoolean();
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void MatchGlobalUnicodeCollectsAllMatches()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("JSON.stringify('a1b22c333'.match(/\\d+/gu))").AsString();
+
+        Assert.Equal("[\"1\",\"22\",\"333\"]", result);
+    }
+
+    [Fact]
+    public void MatchGlobalUnicodeEmptyMatchesAdvanceByCodePoint()
+    {
+        var engine = new Engine();
+        // 2 astral code points (4 UTF-16 units): empty matches at positions 0, 2, 4
+        var result = engine.Evaluate("'\\u{1F600}\\u{1F600}'.match(/(?:)/gu).length").AsNumber();
+
+        Assert.Equal(3, result);
+    }
+
     private const string TestRegex = "^(https?:\\/\\/)?([\\da-z\\.-]+)\\.([a-z\\.]{2,6})([\\/\\w\\.-]*)*\\/?$";
     private const string TestedValue = "https://archiverbx.blob.core.windows.net/static/C:/Users/USR/Documents/Projects/PROJ/static/images/full/1234567890.jpg";
 

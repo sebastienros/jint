@@ -7,6 +7,7 @@ using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.String;
 using Jint.Native.Symbol;
+using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -867,38 +868,41 @@ internal sealed partial class RegExpPrototype : Prototype
             // fast path for custom engine: call Execute directly, skip building
             // full JS result arrays per match (saves 15-20 allocations per match)
             var customEngine = rei.CustomEngine!;
-            var a = _realm.Intrinsics.Array.ArrayCreate(0);
-            uint n = 0;
-            int lastIndex = 0;
-            while (lastIndex <= s.Length)
+            var builder = new JsValueListBuilder(16);
+            try
             {
-                if (n > 0 && n % ConstraintCheckInterval == 0)
+                int lastIndex = 0;
+                while (lastIndex <= s.Length)
                 {
-                    _engine.Constraints.Check();
+                    if (builder.Length > 0 && builder.Length % ConstraintCheckInterval == 0)
+                    {
+                        _engine.Constraints.Check();
+                    }
+
+                    var result = ExecuteWithTimeout(rei, customEngine, s, lastIndex);
+                    if (!result.Success)
+                    {
+                        break;
+                    }
+
+                    builder.Add(result.Value);
+
+                    if (result.Length == 0)
+                    {
+                        lastIndex = (int) AdvanceStringIndex(s, (ulong) result.Index, fullUnicode);
+                    }
+                    else
+                    {
+                        lastIndex = result.Index + result.Length;
+                    }
                 }
 
-                var result = ExecuteWithTimeout(rei, customEngine, s, lastIndex);
-                if (!result.Success)
-                {
-                    break;
-                }
-
-                a.SetIndexValue(n, result.Value, updateLength: false);
-
-                if (result.Length == 0)
-                {
-                    lastIndex = (int) AdvanceStringIndex(s, (ulong) result.Index, fullUnicode);
-                }
-                else
-                {
-                    lastIndex = result.Index + result.Length;
-                }
-
-                n++;
+                return builder.Length == 0 ? Null : _realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
             }
-
-            a.SetLength(n);
-            return n == 0 ? Null : a;
+            finally
+            {
+                builder.Dispose();
+            }
         }
 
         if (!fullUnicode
@@ -960,32 +964,35 @@ internal sealed partial class RegExpPrototype : Prototype
 
     private JsValue MatchSlow(ObjectInstance rx, string s, bool fullUnicode)
     {
-        var a = _realm.Intrinsics.Array.ArrayCreate(0);
-        uint n = 0;
-        while (true)
+        var builder = new JsValueListBuilder(16);
+        try
         {
-            if (n > 0 && n % ConstraintCheckInterval == 0)
+            while (true)
             {
-                _engine.Constraints.Check();
-            }
+                if (builder.Length > 0 && builder.Length % ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
 
-            var result = RegExpExec(rx, s);
-            if (result.IsNull())
-            {
-                a.SetLength(n);
-                return n == 0 ? Null : a;
-            }
+                var result = RegExpExec(rx, s);
+                if (result.IsNull())
+                {
+                    return builder.Length == 0 ? Null : _realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
+                }
 
-            var matchStr = TypeConverter.ToString(result.Get(JsString.NumberZeroString));
-            a.SetIndexValue(n, matchStr, updateLength: false);
-            if (matchStr == "")
-            {
-                var thisIndex = TypeConverter.ToLength(rx.Get(JsRegExp.PropertyLastIndex));
-                var nextIndex = AdvanceStringIndex(s, thisIndex, fullUnicode);
-                rx.Set(JsRegExp.PropertyLastIndex, nextIndex, true);
+                var matchStr = TypeConverter.ToString(result.Get(JsString.NumberZeroString));
+                builder.Add(matchStr);
+                if (matchStr == "")
+                {
+                    var thisIndex = TypeConverter.ToLength(rx.Get(JsRegExp.PropertyLastIndex));
+                    var nextIndex = AdvanceStringIndex(s, thisIndex, fullUnicode);
+                    rx.Set(JsRegExp.PropertyLastIndex, nextIndex, true);
+                }
             }
-
-            n++;
+        }
+        finally
+        {
+            builder.Dispose();
         }
     }
 
