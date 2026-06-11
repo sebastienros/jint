@@ -1828,10 +1828,19 @@ public sealed partial class ArrayPrototype : ArrayInstance
         // Pre-sum total length so the output is allocated once at exact size and each source
         // can be copied via Array.Copy instead of element-by-element CreateDataPropertyOrThrow.
         if (thisObject is JsArray { CanUseFastAccess: true } thisArr
-            && !thisArr.HasOwnProperty(CommonProperties.Constructor)
-            && TryConcatAllJsArrayFast(thisArr, arguments, out var fastResult))
+            && !thisArr.HasOwnProperty(CommonProperties.Constructor))
         {
-            return fastResult;
+            if (TryConcatAllJsArrayFast(thisArr, arguments, out var fastResult))
+            {
+                return fastResult;
+            }
+
+            // The result is still provably a plain array (same gate as the Map/Filter fast
+            // paths); accumulate into a pooled buffer instead of per-element virtual writes.
+            if (CanConcatWithBuilder(thisArr, arguments))
+            {
+                return ConcatPlainTarget(thisArr, arguments);
+            }
         }
 
         var o = TypeConverter.ToObject(_realm, thisObject);
@@ -1886,6 +1895,100 @@ public sealed partial class ArrayPrototype : ArrayInstance
         a.DefineOwnProperty(CommonProperties.Length, new PropertyDescriptor(n, PropertyFlag.OnlyWritable));
 
         return a;
+    }
+
+    /// <summary>
+    /// JsArray sources are appended from their dense backing, so sparse-mode arrays (no
+    /// backing at all) and arrays whose declared length grossly exceeds the physical
+    /// backing (lazy <c>new Array(N)</c>, truncated-backing holey arrays) must stay on the
+    /// CopyValues slow path, which keeps such results compact instead of materializing
+    /// every hole. The +50 slack mirrors the engine's looks-sparse write heuristic.
+    /// All inspected state is engine-internal, so bailing here is unobservable.
+    /// </summary>
+    private static bool CanConcatWithBuilder(JsArray thisArr, JsCallArguments arguments)
+    {
+        if (thisArr._dense is null || thisArr.GetLength() > (ulong) thisArr._dense.Length + 50)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < arguments.Length; i++)
+        {
+            if (arguments[i] is JsArray ja
+                && (ja._dense is null || ja.GetLength() > (ulong) ja._dense.Length + 50))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private JsArray ConcatPlainTarget(JsArray thisArr, JsCallArguments arguments)
+    {
+        var initialCapacity = (ulong) thisArr.GetLength() + (ulong) arguments.Length;
+        var builder = new JsValueListBuilder((int) System.Math.Min(initialCapacity, 1024 * 1024));
+        try
+        {
+            AppendConcatItem(ref builder, thisArr);
+            for (var i = 0; i < arguments.Length; i++)
+            {
+                AppendConcatItem(ref builder, arguments[i]);
+            }
+
+            return _realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
+        }
+        finally
+        {
+            builder.Dispose();
+        }
+    }
+
+    private void AppendConcatItem(ref JsValueListBuilder builder, JsValue e)
+    {
+        if (e is ObjectInstance { IsConcatSpreadable: true } oi)
+        {
+            if (oi is JsArray eArray)
+            {
+                // CanConcatWithBuilder guarantees a dense backing with at most +50 logical
+                // tail; raw null entries flow through AddRange as holes, like CopyValues.
+                var len = eArray.GetLength();
+                var dense = eArray._dense!;
+                var copyLen = (int) System.Math.Min((uint) dense.Length, len);
+                builder.AddRange(dense.AsSpan(0, copyLen));
+                for (var k = (uint) copyLen; k < len; k++)
+                {
+                    builder.AddHole();
+                }
+            }
+            else
+            {
+                var operations = ArrayOperations.For(oi, forWrite: false);
+                var len = operations.GetLongLength();
+
+                if ((ulong) builder.Length + len > ArrayOperations.MaxArrayLikeLength)
+                {
+                    Throw.TypeError(_realm, "Invalid array length");
+                }
+
+                for (uint k = 0; k < len; k++)
+                {
+                    if (k > 0 && k % ConstraintCheckInterval == 0)
+                    {
+                        _engine.Constraints.Check();
+                    }
+
+                    // mirrors the generic slow path: absent indices append as undefined
+                    // (TryGetValue surfaces Undefined for them), they do not stay holes
+                    operations.TryGetValue(k, out var subElement);
+                    builder.Add(subElement);
+                }
+            }
+        }
+        else
+        {
+            builder.Add(e);
+        }
     }
 
     private bool TryConcatAllJsArrayFast(JsArray thisArr, JsCallArguments arguments, out JsArray result)

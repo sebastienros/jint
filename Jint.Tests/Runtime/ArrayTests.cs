@@ -118,6 +118,47 @@ public class ArrayTests
     }
 
     [Fact]
+    public void ConcatGenericSpreadableAbsentIndicesBecomeUndefinedProperties()
+    {
+        // mirrors the long-standing slow-path deviation: absent indices of a generic
+        // spreadable are written as undefined-valued own properties, not holes
+        var result = _engine.Evaluate("""
+            var obj = { length: 3, 0: 'a', 2: 'c' };
+            obj[Symbol.isConcatSpreadable] = true;
+            var r = [].concat(obj);
+            JSON.stringify([r.length, 1 in r, r[0], r[2]]);
+            """).AsString();
+
+        Assert.Equal("[3,true,\"a\",\"c\"]", result);
+    }
+
+    [Fact]
+    public void ConcatMixedHoleyArrayAndSpreadableObject()
+    {
+        var result = _engine.Evaluate("""
+            var obj = { length: 3, 0: 'a', 2: 'c' };
+            obj[Symbol.isConcatSpreadable] = true;
+            var r = ['x'].concat([1, , 3], obj, 'tail');
+            JSON.stringify([r.length, 2 in r, 5 in r, r[0], r[1], r[3], r[4], r[6], r[7]]);
+            """).AsString();
+
+        Assert.Equal("[8,false,true,\"x\",1,3,\"a\",\"c\",\"tail\"]", result);
+    }
+
+    [Fact]
+    public void ConcatOwnConstructorPropertyFallsBackToSlowPath()
+    {
+        var result = _engine.Evaluate("""
+            var a = ['x'];
+            a.constructor = Array;
+            var r = a.concat([1, , 3]);
+            JSON.stringify([r.length, 2 in r, r[0], r[1], r[3]]);
+            """).AsString();
+
+        Assert.Equal("[4,false,\"x\",1,3]", result);
+    }
+
+    [Fact]
     public void ConcatSparseModeReceiverDoesNotCrash()
     {
         var result = _engine.Evaluate("""
