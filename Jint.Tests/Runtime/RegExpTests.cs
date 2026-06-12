@@ -34,6 +34,40 @@ public class RegExpTests
         Assert.Equal(3, result);
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("u")]
+    public void SplitCollectsSegmentsCapturesAndTail(string flags)
+    {
+        // without flags exercises the .NET fast path, with 'u' the generic exec loop
+        var engine = new Engine();
+        var result = engine.Evaluate($"JSON.stringify('a1b22c'.split(/(\\d+)/{flags}))").AsString();
+
+        Assert.Equal("[\"a\",\"1\",\"b\",\"22\",\"c\"]", result);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("u")]
+    public void SplitHonorsLimit(string flags)
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate($"JSON.stringify(['a,b,c'.split(/,/{flags}, 2), 'a1b2c'.split(/(\\d)/{flags}, 2)])").AsString();
+
+        Assert.Equal("[[\"a\",\"b\"],[\"a\",\"1\"]]", result);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("u")]
+    public void SplitKeepsEmptyLeadingAndTrailingSegments(string flags)
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate($"JSON.stringify([',a,'.split(/,/{flags}), ''.split(/x/{flags}), ''.split(/(?:)/{flags})])").AsString();
+
+        Assert.Equal("[[\"\",\"a\",\"\"],[\"\"],[]]", result);
+    }
+
     private const string TestRegex = "^(https?:\\/\\/)?([\\da-z\\.-]+)\\.([a-z\\.]{2,6})([\\/\\w\\.-]*)*\\/?$";
     private const string TestedValue = "https://archiverbx.blob.core.windows.net/static/C:/Users/USR/Documents/Projects/PROJ/static/images/full/1234567890.jpg";
 
