@@ -67,6 +67,7 @@ public sealed class TypeReference : Constructor, IObjectWrapper
 
             var fromOptionsCreator = engine.Options.Interop.CreateTypeReferenceObject(engine, referenceType, arguments);
             ObjectInstance? result = null;
+            MethodDescriptor[]? constructors = null;
             if (fromOptionsCreator is not null)
             {
                 result = TypeConverter.ToObject(realm, FromObject(engine, fromOptionsCreator));
@@ -78,7 +79,7 @@ public sealed class TypeReference : Constructor, IObjectWrapper
             }
             else
             {
-                var constructors = _constructorCache.GetOrAdd(
+                constructors = _constructorCache.GetOrAdd(
                     referenceType,
                     t =>
                     {
@@ -198,7 +199,7 @@ public sealed class TypeReference : Constructor, IObjectWrapper
 
             if (result is null)
             {
-                Throw.TypeError(realm, $"Could not resolve a constructor for type {referenceType} for given arguments");
+                Throw.TypeError(realm, InteropErrorHelper.CreateNoMatchingConstructorMessage(referenceType, arguments, constructors));
             }
 
             result.SetPrototypeOf(state.TypeReference);

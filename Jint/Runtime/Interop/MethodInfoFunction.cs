@@ -189,7 +189,7 @@ internal sealed class MethodInfoFunction : Function
             return _fallbackFunctionInstance.Call(thisObject, jsArguments);
         }
 
-        Throw.TypeError(_engine.Realm, "No public methods with the specified arguments were found.");
+        Throw.TypeError(_engine.Realm, InteropErrorHelper.CreateNoMatchingMethodMessage(_targetType, _name, jsArguments, _methods));
         return null;
     }
 
