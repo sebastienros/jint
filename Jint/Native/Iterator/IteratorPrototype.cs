@@ -1,5 +1,6 @@
 using Jint.Native.Object;
 using Jint.Native.Symbol;
+using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
@@ -404,22 +405,37 @@ internal partial class IteratorPrototype : Prototype
         }
 
         var iterated = GetIteratorDirect(o);
-        var items = new JsArray(_engine);
-        while (iterated.TryIteratorStep(out var iteratorResult))
+        var builder = new JsValueListBuilder(16);
+        try
         {
-            try
+            var iterations = 0;
+            while (iterated.TryIteratorStep(out var iteratorResult))
             {
-                var value = iteratorResult.Get(CommonProperties.Value);
-                items.Push(value);
-            }
-            catch
-            {
-                iterated.Close(CompletionType.Throw);
-                throw;
-            }
-        }
+                try
+                {
+                    // Check constraints periodically so a huge (or native-backed) iterator
+                    // cannot run uninterrupted; the catch closes the iterator.
+                    if (++iterations % Engine.ConstraintCheckInterval == 0)
+                    {
+                        _engine.Constraints.Check();
+                    }
 
-        return items;
+                    var value = iteratorResult.Get(CommonProperties.Value);
+                    builder.Add(value);
+                }
+                catch
+                {
+                    iterated.Close(CompletionType.Throw);
+                    throw;
+                }
+            }
+
+            return _engine.Realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
+        }
+        finally
+        {
+            builder.Dispose();
+        }
     }
 
     /// <summary>
