@@ -1837,9 +1837,9 @@ public sealed partial class ArrayPrototype : ArrayInstance
 
             // The result is still provably a plain array (same gate as the Map/Filter fast
             // paths); accumulate into a pooled buffer instead of per-element virtual writes.
-            if (CanConcatWithBuilder(thisArr, arguments))
+            if (CanConcatWithBuilder(thisArr, arguments, out var sizeHint))
             {
-                return ConcatPlainTarget(thisArr, arguments);
+                return ConcatPlainTarget(thisArr, arguments, sizeHint);
             }
         }
 
@@ -1903,31 +1903,44 @@ public sealed partial class ArrayPrototype : ArrayInstance
     /// backing (lazy <c>new Array(N)</c>, truncated-backing holey arrays) must stay on the
     /// CopyValues slow path, which keeps such results compact instead of materializing
     /// every hole. The +50 slack mirrors the engine's looks-sparse write heuristic.
-    /// All inspected state is engine-internal, so bailing here is unobservable.
+    /// All inspected state is engine-internal, so bailing here is unobservable; the same
+    /// pass sums the known JsArray lengths into a rent-size hint for the builder.
+    /// Non-array spreadables read their length observably during processing, so they only
+    /// count one slot here and the builder grows if they spread larger.
     /// </summary>
-    private static bool CanConcatWithBuilder(JsArray thisArr, JsCallArguments arguments)
+    private static bool CanConcatWithBuilder(JsArray thisArr, JsCallArguments arguments, out ulong sizeHint)
     {
+        sizeHint = 0;
+
         if (thisArr._dense is null || thisArr.GetLength() > (ulong) thisArr._dense.Length + 50)
         {
             return false;
         }
 
+        sizeHint = thisArr.GetLength();
         for (var i = 0; i < arguments.Length; i++)
         {
-            if (arguments[i] is JsArray ja
-                && (ja._dense is null || ja.GetLength() > (ulong) ja._dense.Length + 50))
+            if (arguments[i] is JsArray ja)
             {
-                return false;
+                if (ja._dense is null || ja.GetLength() > (ulong) ja._dense.Length + 50)
+                {
+                    return false;
+                }
+
+                sizeHint += ja.GetLength();
+            }
+            else
+            {
+                sizeHint++;
             }
         }
 
         return true;
     }
 
-    private JsArray ConcatPlainTarget(JsArray thisArr, JsCallArguments arguments)
+    private JsArray ConcatPlainTarget(JsArray thisArr, JsCallArguments arguments, ulong sizeHint)
     {
-        var initialCapacity = (ulong) thisArr.GetLength() + (ulong) arguments.Length;
-        var builder = new JsValueListBuilder((int) System.Math.Min(initialCapacity, 1024 * 1024));
+        var builder = new JsValueListBuilder((int) System.Math.Min(sizeHint, 1024 * 1024));
         try
         {
             AppendConcatItem(ref builder, thisArr);
