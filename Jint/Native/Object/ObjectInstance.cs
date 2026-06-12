@@ -1489,8 +1489,19 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     {
         var ownKeys = GetOwnPropertyKeys(Types.String);
 
-        var array = Engine.Realm.Intrinsics.Array.ArrayCreate((uint) ownKeys.Count);
-        uint index = 0;
+        // ArrayCreate would validate this through the constructor; the ownership-taking
+        // constructor used below does not, so keep constraint parity explicitly.
+        if ((uint) ownKeys.Count > _engine.Options.Constraints.MaxArraySize)
+        {
+            ArrayInstance.ThrowMaximumArraySizeReachedException(_engine, (uint) ownKeys.Count);
+        }
+
+        // The output is bounded by (and usually equal to) the key count, so values are
+        // written straight into the final backing array and the result takes ownership
+        // without copying; only when keys get filtered out is an exact-size copy made,
+        // instead of retaining the over-allocated backing.
+        var target = new JsValue[ownKeys.Count];
+        var count = 0;
 
         for (var i = 0; i < ownKeys.Count; i++)
         {
@@ -1512,30 +1523,31 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             {
                 if (kind == EnumerableOwnPropertyNamesKind.Key)
                 {
-                    array.SetIndexValue(index, property, updateLength: false);
+                    target[count++] = property;
                 }
                 else
                 {
                     var value = Get(property);
                     if (kind == EnumerableOwnPropertyNamesKind.Value)
                     {
-                        array.SetIndexValue(index, value, updateLength: false);
+                        target[count++] = value;
                     }
                     else
                     {
-                        var objectInstance = _engine.Realm.Intrinsics.Array.ArrayCreate(2);
-                        objectInstance.SetIndexValue(0, property, updateLength: false);
-                        objectInstance.SetIndexValue(1, value, updateLength: false);
-                        array.SetIndexValue(index, objectInstance, updateLength: false);
+                        target[count++] = new JsArray(_engine, [property, value]);
                     }
                 }
-
-                index++;
             }
         }
 
-        array.SetLength(index);
-        return array;
+        if (count == target.Length)
+        {
+            return new JsArray(_engine, target);
+        }
+
+        var exact = new JsValue[count];
+        System.Array.Copy(target, exact, count);
+        return new JsArray(_engine, exact);
     }
 
     internal enum EnumerableOwnPropertyNamesKind
