@@ -146,14 +146,9 @@ internal sealed class RefStack<T> : IEnumerable<T> where T : struct
     {
         if (_size > 0)
         {
-#if NETFRAMEWORK || NETSTANDARD2_0
-            for (var i = 0; i < _size; i++)
-            {
-                _array[i] = default;
-            }
-#else
-            Array.Fill(_array, default, 0, _size);
-#endif
+            // Array.Clear zeroes the elements (== default(T) for the struct T) and is a JIT intrinsic on
+            // every target framework, so it beats both the manual loop (old targets) and Array.Fill(default).
+            Array.Clear(_array, 0, _size);
             _size = 0;
         }
     }
