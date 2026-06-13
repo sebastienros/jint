@@ -8,8 +8,9 @@ namespace Jint.Benchmark;
 /// EmptyClosureCall = 0-param/0-var closures where FunctionDeclarationInstantiation should be a no-op;
 /// CapturedVarReadWrite = closures reading/writing captured variables (environment-chain resolution);
 /// ParamLocalCall = guard for the existing fixed-slot fast-FDI path;
-/// ManyLocalCall = a function whose binding count (2 params + 18 vars) exceeds the 16 fixed-slot cap,
-/// so FunctionDeclarationInstantiation takes the dictionary-backed path (the DrawLine shape from 3d-cube).
+/// ManyLocalCall = a function with many locals (2 params + 18 vars = 20 bindings, the DrawLine shape from
+/// 3d-cube) that stresses per-call environment setup — exercises whichever FunctionDeclarationInstantiation
+/// path the fixed-slot cap routes that binding count to.
 /// </summary>
 [MemoryDiagnoser]
 [HideColumns("Error", "Gen0", "Gen1", "Gen2")]
@@ -74,9 +75,9 @@ public class ClosureCallBenchmarks
             })();
             """, strict: true);
 
-        // 2 params + 18 var locals = 20 bindings, above the 16 fixed-slot cap, so each call builds a
-        // dictionary-backed environment. The body has no inner closures, so the environment is pooled
-        // and reused across calls (mirrors 3d-cube's DrawLine).
+        // 2 params + 18 var locals = 20 bindings. The body has no inner closures, so the environment is
+        // pooled and reused across calls (mirrors 3d-cube's DrawLine). Whether per-call setup uses the
+        // array-backed fixed-slot path or the dictionary path depends on the fixed-slot cap.
         _manyLocalCall = Engine.PrepareScript("""
             (function() {
                 function compute(a, b) {

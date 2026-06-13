@@ -16,6 +16,12 @@ namespace Jint.Runtime.Interpreter;
 /// </summary>
 internal sealed class JintFunctionDefinition
 {
+    // Upper bound on bindings that qualify for the array-backed fixed-slot fast path. Above this a
+    // function falls back to the dictionary-backed environment. Sized so the common "many locals"
+    // shape (e.g. 3d-cube's DrawLine: 2 params + 17 vars) stays on the slot fast path while keeping
+    // the linear SlotIndexOf scan (on cache misses) short.
+    private const int MaxFixedSlots = 24;
+
     private JintExpression? _bodyExpression;
     private JintStatementList? _bodyStatementList;
 
@@ -566,7 +572,7 @@ internal sealed class JintFunctionDefinition
             }
 
             var totalSlots = state.ParameterNames.Length + varsToInitialize.Count + lexicalBindingCount;
-            if (lexicalBindingCount >= 0 && totalSlots is > 0 and <= 16)
+            if (lexicalBindingCount >= 0 && totalSlots > 0 && totalSlots <= MaxFixedSlots)
             {
                 var slotNames = new Key[totalSlots];
                 state.ParameterNames.CopyTo(slotNames, 0);
