@@ -199,7 +199,10 @@ public sealed class TypeReference : Constructor, IObjectWrapper
 
             if (result is null)
             {
-                Throw.TypeError(realm, InteropErrorHelper.CreateNoMatchingConstructorMessage(referenceType, arguments, constructors));
+                var message = engine.Options.Interop.ExposeDetailedResolutionErrors
+                    ? InteropErrorHelper.CreateNoMatchingConstructorMessage(referenceType, arguments, constructors)
+                    : $"Could not resolve a constructor for type {referenceType} for given arguments";
+                Throw.InteropResolutionError(realm, message, referenceType, memberName: null);
             }
 
             result.SetPrototypeOf(state.TypeReference);

@@ -432,6 +432,19 @@ public class Options
         public bool ThrowOnUnresolvedMember { get; set; }
 
         /// <summary>
+        /// When <c>true</c>, the <see cref="Jint.Runtime.JavaScriptException"/> thrown when a CLR method or
+        /// constructor call cannot be resolved gets a detailed message naming the target CLR type, the provided
+        /// argument types, and the candidate signatures. When <c>false</c> (the default) a terse message is used
+        /// instead, so that untrusted scripts cannot enumerate the host's CLR surface through the error text.
+        /// <para>
+        /// This only controls the script-visible message. The originating CLR <see cref="System.Type"/> is always
+        /// attached to the exception regardless of this setting and can be read host-side via
+        /// <see cref="JintException.TryGetClrType"/> (it is not exposed to the running script).
+        /// </para>
+        /// </summary>
+        public bool ExposeDetailedResolutionErrors { get; set; }
+
+        /// <summary>
         /// Types of CLR members reported by <see cref="ObjectWrapper"/> when enumerating properties/serializing <see cref="ObjectWrapper.ToObject"/>.
         /// Supported values are: <see cref="MemberTypes.Field"/>, <see cref="MemberTypes.Property"/>, <see cref="MemberTypes.Method"/>.
         /// All other values are ignored.

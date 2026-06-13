@@ -7,10 +7,13 @@ namespace Jint.Tests.Runtime;
 
 public partial class InteropTests
 {
+    private static Engine DetailedErrorsEngine() =>
+        new Engine(options => options.Interop.ExposeDetailedResolutionErrors = true);
+
     [Fact]
     public void FailedMethodResolutionReportsTargetTypeArgumentsAndCandidates()
     {
-        var engine = new Engine();
+        var engine = DetailedErrorsEngine();
         engine.SetValue("speaker", new Speaker());
 
         var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("speaker.Say('Hello', 'World')"));
@@ -23,7 +26,7 @@ public partial class InteropTests
     [Fact]
     public void FailedMethodResolutionDescribesArgumentKinds()
     {
-        var engine = new Engine();
+        var engine = DetailedErrorsEngine();
         engine.SetValue("speaker", new Speaker());
         engine.SetValue("other", new Speaker());
 
@@ -36,7 +39,7 @@ public partial class InteropTests
     [Fact]
     public void FailedMethodResolutionCapsReportedCandidates()
     {
-        var engine = new Engine();
+        var engine = DetailedErrorsEngine();
         engine.SetValue("picker", new OverloadPicker());
 
         var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("picker.Pick()"));
@@ -50,6 +53,7 @@ public partial class InteropTests
     public void FailedExtensionMethodResolutionReportsDeclaringTypeAndReceiver()
     {
         var options = new Options();
+        options.Interop.ExposeDetailedResolutionErrors = true;
         options.AddExtensionMethods(typeof(PersonExtensions));
 
         var engine = new Engine(options);
@@ -64,7 +68,7 @@ public partial class InteropTests
     [Fact]
     public void FailedConstructorResolutionReportsArgumentsAndCandidates()
     {
-        var engine = new Engine();
+        var engine = DetailedErrorsEngine();
         engine.SetValue("CtorFails", TypeReference.CreateTypeReference<CtorFails>(engine));
 
         var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("new CtorFails(1, 2)"));
@@ -72,6 +76,63 @@ public partial class InteropTests
         Assert.StartsWith("Could not resolve a constructor for type Jint.Tests.Runtime.CtorFails for given arguments", ex.Message);
         Assert.Contains("provided arguments: (number, number)", ex.Message);
         Assert.Contains("candidate signatures: CtorFails(String name)", ex.Message);
+    }
+
+    [Fact]
+    public void DefaultMethodResolutionErrorIsTerseAndHidesClrDetail()
+    {
+        var engine = new Engine();
+        engine.SetValue("speaker", new Speaker());
+
+        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("speaker.Say('Hello', 'World')"));
+
+        // the script-visible message must not leak the CLR type, member, argument types or signatures
+        Assert.Equal("No public methods with the specified arguments were found.", ex.Message);
+    }
+
+    [Fact]
+    public void DefaultConstructorResolutionErrorIsTerse()
+    {
+        var engine = new Engine();
+        engine.SetValue("CtorFails", TypeReference.CreateTypeReference<CtorFails>(engine));
+
+        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("new CtorFails(1, 2)"));
+
+        // historical terse text (names the type, as it always has) but none of the added detail
+        Assert.Equal("Could not resolve a constructor for type Jint.Tests.Runtime.CtorFails for given arguments", ex.Message);
+        Assert.DoesNotContain("provided arguments", ex.Message);
+        Assert.DoesNotContain("candidate signatures", ex.Message);
+    }
+
+    [Fact]
+    public void ClrTypeIsAvailableHostSideUnderSafeDefault()
+    {
+        // no options set: detailed messages are off, but the host can still recover the CLR type
+        var engine = new Engine();
+        engine.SetValue("speaker", new Speaker());
+
+        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("speaker.Say('Hello', 'World')"));
+
+        Assert.True(JintException.TryGetClrType(ex, out var type));
+        Assert.Equal(typeof(Speaker), type);
+
+        Assert.True(JintException.TryGetClrMemberName(ex, out var member));
+        Assert.Equal("Say", member);
+    }
+
+    [Fact]
+    public void ClrTypeIsAvailableForConstructorFailures()
+    {
+        var engine = new Engine();
+        engine.SetValue("CtorFails", TypeReference.CreateTypeReference<CtorFails>(engine));
+
+        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("new CtorFails(1, 2)"));
+
+        Assert.True(JintException.TryGetClrType(ex, out var type));
+        Assert.Equal(typeof(CtorFails), type);
+
+        // constructors carry no member name
+        Assert.False(JintException.TryGetClrMemberName(ex, out _));
     }
 }
 
