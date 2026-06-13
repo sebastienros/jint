@@ -149,6 +149,10 @@ internal static class DefaultObjectConverter
                 {
                     result = cached;
                 }
+                else if (engine._recentObjectWrapperCache?.TryGet(value) is { } recentlyWrapped)
+                {
+                    result = recentlyWrapped;
+                }
                 else
                 {
                     var wrapped = engine.Options.Interop.WrapObjectHandler.Invoke(engine, value, type);
@@ -161,10 +165,18 @@ internal static class DefaultObjectConverter
 
                     result = wrapped;
 
-                    if (engine.Options.Interop.TrackObjectWrapperIdentity && wrapped is not null)
+                    if (wrapped is not null)
                     {
-                        engine._objectWrapperCache ??= new ConditionalWeakTable<object, ObjectInstance>();
-                        engine._objectWrapperCache.Add(value, wrapped);
+                        if (engine.Options.Interop.TrackObjectWrapperIdentity)
+                        {
+                            engine._objectWrapperCache ??= new ConditionalWeakTable<object, ObjectInstance>();
+                            engine._objectWrapperCache.Add(value, wrapped);
+                        }
+                        else if (engine.Options.Interop.CacheRecentObjectWrappers)
+                        {
+                            engine._recentObjectWrapperCache ??= new RecentObjectWrapperCache();
+                            engine._recentObjectWrapperCache.Add(value, wrapped);
+                        }
                     }
                 }
             }
@@ -236,5 +248,41 @@ internal static class DefaultObjectConverter
         }
 
         return new JsArray(e, values);
+    }
+}
+
+/// <summary>
+/// Bounded ring of most recently wrapped CLR objects, looked up by reference identity.
+/// Strongly roots at most <see cref="Capacity"/> targets and their wrappers, so unlike
+/// the ConditionalWeakTable identity map it cannot grow without bound.
+/// </summary>
+internal sealed class RecentObjectWrapperCache
+{
+    private const int Capacity = 8;
+
+    private readonly object?[] _targets = new object?[Capacity];
+    private readonly ObjectInstance[] _wrappers = new ObjectInstance[Capacity];
+    private int _next;
+
+    public ObjectInstance? TryGet(object target)
+    {
+        var targets = _targets;
+        for (var i = 0; i < targets.Length; i++)
+        {
+            if (ReferenceEquals(targets[i], target))
+            {
+                return _wrappers[i];
+            }
+        }
+
+        return null;
+    }
+
+    public void Add(object target, ObjectInstance wrapper)
+    {
+        var index = _next;
+        _targets[index] = target;
+        _wrappers[index] = wrapper;
+        _next = (index + 1) & (Capacity - 1);
     }
 }

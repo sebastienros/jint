@@ -325,6 +325,15 @@ public class Options
         public bool TrackObjectWrapperIdentity { get; set; }
 
         /// <summary>
+        /// Whether a small bounded cache of most recently wrapped CLR objects is kept so that the same
+        /// object crossing into script repeatedly reuses its wrapper (by reference identity). A lighter
+        /// alternative to <see cref="TrackObjectWrapperIdentity"/> that cannot grow memory unbounded;
+        /// identity is only preserved for objects still present in the cache.
+        /// Defaults to false.
+        /// </summary>
+        public bool CacheRecentObjectWrappers { get; set; }
+
+        /// <summary>
         /// If no known type could be guessed, objects are by default wrapped as an
         /// ObjectInstance using class ObjectWrapper. This function can be used to
         /// change the behavior.
