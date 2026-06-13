@@ -95,7 +95,7 @@ public sealed partial class ArrayConstructor : Constructor
         var iterator = items.GetIterator(_realm, method: usingIterator);
 
         var builder = new JsValueListBuilder(16);
-        var args = _engine._jsValueArrayPool.RentArray(2);
+        var args = callable is not null ? _engine._jsValueArrayPool.RentArray(2) : null;
         try
         {
             var iterations = 0;
@@ -119,7 +119,7 @@ public sealed partial class ArrayConstructor : Constructor
 
                     if (callable is not null)
                     {
-                        args[0] = jsValue;
+                        args![0] = jsValue;
                         args[1] = index;
                         jsValue = callable.Call(thisArg, args);
                     }
@@ -138,7 +138,10 @@ public sealed partial class ArrayConstructor : Constructor
         finally
         {
             builder.Dispose();
-            _engine._jsValueArrayPool.ReturnArray(args);
+            if (args is not null)
+            {
+                _engine._jsValueArrayPool.ReturnArray(args);
+            }
         }
     }
 
