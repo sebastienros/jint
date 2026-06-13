@@ -7,6 +7,7 @@ using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.String;
 using Jint.Native.Symbol;
+using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -558,7 +559,6 @@ internal sealed partial class RegExpPrototype : Prototype
             rx,
             newFlags
         ]);
-        uint lengthA = 0;
         var lim = limit.IsUndefined() ? NumberConstructor.MaxSafeInteger : TypeConverter.ToUint32(limit);
 
         if (lim == 0)
@@ -589,118 +589,129 @@ internal sealed partial class RegExpPrototype : Prototype
                 return StringPrototype.SplitWithStringSeparator(_engine, _realm, "", s, (uint) s.Length);
             }
 
-            var a = _realm.Intrinsics.Array.Construct(Arguments.Empty);
-
-            int lastIndex = 0;
-            uint index = 0;
-            var matchCount = 0;
-            for (var match = R.Value.Match(s, 0); match.Success; match = match.NextMatch())
+            // the result is a plain array per spec (no species for the result), so segments
+            // accumulate in a pooled buffer and materialize at exact size
+            var builder = new JsValueListBuilder(16);
+            try
             {
-                if (++matchCount % ConstraintCheckInterval == 0)
+                int lastIndex = 0;
+                var matchCount = 0;
+                for (var match = R.Value.Match(s, 0); match.Success; match = match.NextMatch())
+                {
+                    if (++matchCount % ConstraintCheckInterval == 0)
+                    {
+                        _engine.Constraints.Check();
+                    }
+
+                    if (match.Length == 0 && (match.Index == 0 || match.Index == s.Length || match.Index == lastIndex))
+                    {
+                        continue;
+                    }
+
+                    builder.Add(s.Substring(lastIndex, match.Index - lastIndex));
+
+                    if (builder.Length >= lim)
+                    {
+                        return _realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
+                    }
+
+                    lastIndex = match.Index + match.Length;
+                    var actualGroupCount = GetActualRegexGroupCount(R, match);
+                    for (int i = 1; i < actualGroupCount; i++)
+                    {
+                        var group = match.Groups[i];
+                        var item = Undefined;
+                        if (group.Captures.Count > 0)
+                        {
+                            item = match.Groups[i].Value;
+                        }
+
+                        builder.Add(item);
+
+                        if (builder.Length >= lim)
+                        {
+                            return _realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
+                        }
+                    }
+                }
+
+                // Add the last part of the split
+                builder.Add(s.Substring(lastIndex));
+
+                return _realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
+            }
+            finally
+            {
+                builder.Dispose();
+            }
+        }
+
+        return SplitSlow(s, splitter, unicodeMatching, lim);
+    }
+
+    private JsArray SplitSlow(string s, ObjectInstance splitter, bool unicodeMatching, long lim)
+    {
+        var builder = new JsValueListBuilder(16);
+        try
+        {
+            ulong previousStringIndex = 0;
+            ulong currentIndex = 0;
+            var iterations = 0;
+            while (currentIndex < (ulong) s.Length)
+            {
+                if (++iterations % ConstraintCheckInterval == 0)
                 {
                     _engine.Constraints.Check();
                 }
 
-                if (match.Length == 0 && (match.Index == 0 || match.Index == s.Length || match.Index == lastIndex))
+                splitter.Set(JsRegExp.PropertyLastIndex, currentIndex, true);
+                var z = RegExpExec(splitter, s);
+                if (z.IsNull())
                 {
+                    currentIndex = AdvanceStringIndex(s, currentIndex, unicodeMatching);
                     continue;
                 }
 
-                // Add the match results to the array.
-                a.SetIndexValue(index++, s.Substring(lastIndex, match.Index - lastIndex), updateLength: true);
-
-                if (index >= lim)
+                var endIndex = TypeConverter.ToLength(splitter.Get(JsRegExp.PropertyLastIndex));
+                endIndex = System.Math.Min(endIndex, (ulong) s.Length);
+                if (endIndex == previousStringIndex)
                 {
-                    return a;
+                    currentIndex = AdvanceStringIndex(s, currentIndex, unicodeMatching);
+                    continue;
                 }
 
-                lastIndex = match.Index + match.Length;
-                var actualGroupCount = GetActualRegexGroupCount(R, match);
-                for (int i = 1; i < actualGroupCount; i++)
+                var t = s.Substring((int) previousStringIndex, (int) (currentIndex - previousStringIndex));
+                builder.Add(t);
+                if (builder.Length == lim)
                 {
-                    var group = match.Groups[i];
-                    var item = Undefined;
-                    if (group.Captures.Count > 0)
-                    {
-                        item = match.Groups[i].Value;
-                    }
+                    return _realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
+                }
 
-                    a.SetIndexValue(index++, item, updateLength: true);
-
-                    if (index >= lim)
+                previousStringIndex = endIndex;
+                var numberOfCaptures = (int) TypeConverter.ToLength(z.Get(CommonProperties.Length));
+                numberOfCaptures = System.Math.Max(numberOfCaptures - 1, 0);
+                var i = 1;
+                while (i <= numberOfCaptures)
+                {
+                    var nextCapture = z.Get(i);
+                    builder.Add(nextCapture);
+                    i++;
+                    if (builder.Length == lim)
                     {
-                        return a;
+                        return _realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
                     }
                 }
+
+                currentIndex = previousStringIndex;
             }
 
-            // Add the last part of the split
-            a.SetIndexValue(index, s.Substring(lastIndex), updateLength: true);
-
-            return a;
+            builder.Add(s.Substring((int) previousStringIndex, s.Length - (int) previousStringIndex));
+            return _realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
         }
-
-        return SplitSlow(s, splitter, unicodeMatching, lengthA, lim);
-    }
-
-    private JsArray SplitSlow(string s, ObjectInstance splitter, bool unicodeMatching, uint lengthA, long lim)
-    {
-        var a = _realm.Intrinsics.Array.ArrayCreate(0);
-        ulong previousStringIndex = 0;
-        ulong currentIndex = 0;
-        var iterations = 0;
-        while (currentIndex < (ulong) s.Length)
+        finally
         {
-            if (++iterations % ConstraintCheckInterval == 0)
-            {
-                _engine.Constraints.Check();
-            }
-
-            splitter.Set(JsRegExp.PropertyLastIndex, currentIndex, true);
-            var z = RegExpExec(splitter, s);
-            if (z.IsNull())
-            {
-                currentIndex = AdvanceStringIndex(s, currentIndex, unicodeMatching);
-                continue;
-            }
-
-            var endIndex = TypeConverter.ToLength(splitter.Get(JsRegExp.PropertyLastIndex));
-            endIndex = System.Math.Min(endIndex, (ulong) s.Length);
-            if (endIndex == previousStringIndex)
-            {
-                currentIndex = AdvanceStringIndex(s, currentIndex, unicodeMatching);
-                continue;
-            }
-
-            var t = s.Substring((int) previousStringIndex, (int) (currentIndex - previousStringIndex));
-            a.SetIndexValue(lengthA, t, updateLength: true);
-            lengthA++;
-            if (lengthA == lim)
-            {
-                return a;
-            }
-
-            previousStringIndex = endIndex;
-            var numberOfCaptures = (int) TypeConverter.ToLength(z.Get(CommonProperties.Length));
-            numberOfCaptures = System.Math.Max(numberOfCaptures - 1, 0);
-            var i = 1;
-            while (i <= numberOfCaptures)
-            {
-                var nextCapture = z.Get(i);
-                a.SetIndexValue(lengthA, nextCapture, updateLength: true);
-                i++;
-                lengthA++;
-                if (lengthA == lim)
-                {
-                    return a;
-                }
-            }
-
-            currentIndex = previousStringIndex;
+            builder.Dispose();
         }
-
-        a.SetIndexValue(lengthA, s.Substring((int) previousStringIndex, s.Length - (int) previousStringIndex), updateLength: true);
-        return a;
     }
 
     private JsValue Flags(JsValue thisObject)
@@ -867,38 +878,41 @@ internal sealed partial class RegExpPrototype : Prototype
             // fast path for custom engine: call Execute directly, skip building
             // full JS result arrays per match (saves 15-20 allocations per match)
             var customEngine = rei.CustomEngine!;
-            var a = _realm.Intrinsics.Array.ArrayCreate(0);
-            uint n = 0;
-            int lastIndex = 0;
-            while (lastIndex <= s.Length)
+            var builder = new JsValueListBuilder(16);
+            try
             {
-                if (n > 0 && n % ConstraintCheckInterval == 0)
+                int lastIndex = 0;
+                while (lastIndex <= s.Length)
                 {
-                    _engine.Constraints.Check();
+                    if (builder.Length > 0 && builder.Length % ConstraintCheckInterval == 0)
+                    {
+                        _engine.Constraints.Check();
+                    }
+
+                    var result = ExecuteWithTimeout(rei, customEngine, s, lastIndex);
+                    if (!result.Success)
+                    {
+                        break;
+                    }
+
+                    builder.Add(result.Value);
+
+                    if (result.Length == 0)
+                    {
+                        lastIndex = (int) AdvanceStringIndex(s, (ulong) result.Index, fullUnicode);
+                    }
+                    else
+                    {
+                        lastIndex = result.Index + result.Length;
+                    }
                 }
 
-                var result = ExecuteWithTimeout(rei, customEngine, s, lastIndex);
-                if (!result.Success)
-                {
-                    break;
-                }
-
-                a.SetIndexValue(n, result.Value, updateLength: false);
-
-                if (result.Length == 0)
-                {
-                    lastIndex = (int) AdvanceStringIndex(s, (ulong) result.Index, fullUnicode);
-                }
-                else
-                {
-                    lastIndex = result.Index + result.Length;
-                }
-
-                n++;
+                return builder.Length == 0 ? Null : _realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
             }
-
-            a.SetLength(n);
-            return n == 0 ? Null : a;
+            finally
+            {
+                builder.Dispose();
+            }
         }
 
         if (!fullUnicode
@@ -960,32 +974,35 @@ internal sealed partial class RegExpPrototype : Prototype
 
     private JsValue MatchSlow(ObjectInstance rx, string s, bool fullUnicode)
     {
-        var a = _realm.Intrinsics.Array.ArrayCreate(0);
-        uint n = 0;
-        while (true)
+        var builder = new JsValueListBuilder(16);
+        try
         {
-            if (n > 0 && n % ConstraintCheckInterval == 0)
+            while (true)
             {
-                _engine.Constraints.Check();
-            }
+                if (builder.Length > 0 && builder.Length % ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
 
-            var result = RegExpExec(rx, s);
-            if (result.IsNull())
-            {
-                a.SetLength(n);
-                return n == 0 ? Null : a;
-            }
+                var result = RegExpExec(rx, s);
+                if (result.IsNull())
+                {
+                    return builder.Length == 0 ? Null : _realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
+                }
 
-            var matchStr = TypeConverter.ToString(result.Get(JsString.NumberZeroString));
-            a.SetIndexValue(n, matchStr, updateLength: false);
-            if (matchStr == "")
-            {
-                var thisIndex = TypeConverter.ToLength(rx.Get(JsRegExp.PropertyLastIndex));
-                var nextIndex = AdvanceStringIndex(s, thisIndex, fullUnicode);
-                rx.Set(JsRegExp.PropertyLastIndex, nextIndex, true);
+                var matchStr = TypeConverter.ToString(result.Get(JsString.NumberZeroString));
+                builder.Add(matchStr);
+                if (matchStr == "")
+                {
+                    var thisIndex = TypeConverter.ToLength(rx.Get(JsRegExp.PropertyLastIndex));
+                    var nextIndex = AdvanceStringIndex(s, thisIndex, fullUnicode);
+                    rx.Set(JsRegExp.PropertyLastIndex, nextIndex, true);
+                }
             }
-
-            n++;
+        }
+        finally
+        {
+            builder.Dispose();
         }
     }
 

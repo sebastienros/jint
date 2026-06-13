@@ -83,6 +83,29 @@ internal static class Throw
         throw new JavaScriptException(realm.Intrinsics.TypeError, message).SetJavaScriptLocation(location);
     }
 
+    /// <summary>
+    /// Throws the TypeError used when an interop method or constructor call cannot be resolved.
+    /// The originating CLR <paramref name="clrType"/> (and optional <paramref name="memberName"/>) are
+    /// recorded on the error object so the host can read them via <see cref="JintException.TryGetClrType"/>
+    /// without parsing the message. They are CLR fields, not JavaScript properties, so the running script
+    /// cannot observe them; this is independent of <see cref="Options.InteropOptions.ExposeDetailedResolutionErrors"/>.
+    /// </summary>
+    [DoesNotReturn]
+    public static void InteropResolutionError(Realm realm, string message, Type clrType, string? memberName)
+    {
+        var location = realm.GlobalObject.Engine.GetLastSyntaxElement()?.Location ?? default;
+        var exception = new JavaScriptException(realm.Intrinsics.TypeError, message).SetJavaScriptLocation(location);
+
+        // The error value survives the interpreter's throw-completion reconstruction (the .NET exception
+        // instance does not), so record the CLR origin on the error object rather than on Exception.Data.
+        if (exception.Error is ErrorInstance errorInstance)
+        {
+            errorInstance.SetClrResolutionInfo(clrType, memberName);
+        }
+
+        throw exception;
+    }
+
     [DoesNotReturn]
     public static void RangeError(Realm realm, string? message = null)
     {

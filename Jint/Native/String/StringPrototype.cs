@@ -1139,9 +1139,30 @@ internal sealed partial class StringPrototype : StringInstance
         }
         else
         {
-            var array = StringExecutionContext.Current.SplitArray1;
-            array[0] = sep;
-            segments.AddRange(s.Split(array, StringSplitOptions.None));
+            // Direct scan instead of string.Split: avoids the throwaway result array
+            // string.Split allocates on every call, and stops scanning once lim
+            // segments have been collected.
+            var start = 0;
+            while ((uint) segments.Count < lim)
+            {
+                if (segments.Count > 0 && segments.Count % ConstraintCheckInterval == 0)
+                {
+                    engine.Constraints.Check();
+                }
+
+                var index = sep.Length == 1
+                    ? s.IndexOf(sep[0], start)
+                    : s.IndexOf(sep, start, StringComparison.Ordinal);
+
+                if (index < 0)
+                {
+                    segments.Add(start == 0 ? s : s.Substring(start));
+                    break;
+                }
+
+                segments.Add(s.Substring(start, index - start));
+                start = index + sep.Length;
+            }
         }
 
         var length = (uint) System.Math.Min(segments.Count, lim);

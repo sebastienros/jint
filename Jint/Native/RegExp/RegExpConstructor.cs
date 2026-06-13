@@ -473,10 +473,9 @@ public sealed partial class RegExpConstructor : Constructor
 
         if (!NeedCustomEngine(p, f))
         {
-#pragma warning disable CS0618 // Type or member is obsolete
-            regExpParseResult = Tokenizer.AdaptRegExp(p, f, compiled: false, parserOptions.RegexTimeout, throwIfNotAdaptable: false,
-#pragma warning restore CS0618 // Type or member is obsolete
-                Engine.BaseParserOptions.EcmaVersion, Engine.BaseParserOptions.ExperimentalESFeatures);
+#pragma warning disable CS0618 // ParserOptions.RegexTimeout is obsolete but is the supported timeout source.
+            regExpParseResult = RegExpParseCache.GetOrAdapt(p, f, compiled: false, parserOptions.RegexTimeout);
+#pragma warning restore CS0618
 
             if (regExpParseResult.Success)
             {

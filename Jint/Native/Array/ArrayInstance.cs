@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
+using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
@@ -777,6 +778,49 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         return TryGetValueUnlikely(index, out value);
     }
 
+    /// <summary>
+    /// Fast read of a present dense element: returns true only when <paramref name="index"/> is in
+    /// range and the slot is non-null (a real element, not a hole). Holes and out-of-range indices
+    /// return false so the caller falls back to the full lookup (prototype chain etc.). The caller
+    /// must have already verified <see cref="CanUseFastAccess"/>.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool TryGetValueFast(uint index, out JsValue value)
+    {
+        var temp = _dense;
+        if (temp is not null && index < (uint) temp.Length)
+        {
+            var v = temp[index];
+            if (v is not null)
+            {
+                value = v;
+                return true;
+            }
+        }
+
+        value = Undefined;
+        return false;
+    }
+
+    /// <summary>
+    /// Fast overwrite of an existing dense element: returns true only when <paramref name="index"/>
+    /// is in range and the slot is already non-null. This never grows the array, fills a hole, or
+    /// changes length, so growing/hole-filling writes return false and defer to the full set path.
+    /// The caller must have already verified <see cref="CanUseFastAccess"/>.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool TryWriteExistingDense(uint index, JsValue value)
+    {
+        var temp = _dense;
+        if (temp is not null && index < (uint) temp.Length && temp[index] is not null)
+        {
+            temp[index] = value;
+            return true;
+        }
+
+        return false;
+    }
+
     [MethodImpl(MethodImplOptions.NoInlining)]
     private bool TryGetValueUnlikely(uint index, out JsValue value)
     {
@@ -1297,6 +1341,54 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         return a;
     }
 
+    internal JsArray Filter(JsCallArguments arguments)
+    {
+        var callbackfn = arguments.At(0);
+        var thisArg = arguments.At(1);
+
+        var len = GetLength();
+
+        var callable = GetCallable(callbackfn);
+
+        // Output size is unknown (only bounded by len); accumulate into a pooled buffer and
+        // materialize an exact-size result instead of growing the result's dense backing by
+        // doubling. Capped initial rent so a large low-selectivity source doesn't rent ~len slots.
+        var builder = new JsValueListBuilder((int) System.Math.Min(len, 1024));
+        var args = _engine._jsValueArrayPool.RentArray(3);
+        args[2] = this;
+
+        // try/finally so the rented args array and the pooled builder buffer are released
+        // when the callback or a periodic Check() throws.
+        try
+        {
+            for (uint k = 0; k < len; k++)
+            {
+                if (k > 0 && k % Engine.ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
+
+                if (TryGetValue(k, out var kvalue))
+                {
+                    args[0] = kvalue;
+                    args[1] = k;
+                    var selected = callable.Call(thisArg, args);
+                    if (TypeConverter.ToBoolean(selected))
+                    {
+                        builder.Add(kvalue);
+                    }
+                }
+            }
+
+            return _engine.Realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
+        }
+        finally
+        {
+            builder.Dispose();
+            _engine._jsValueArrayPool.ReturnArray(args);
+        }
+    }
+
     /// <inheritdoc />
     internal sealed override bool FindWithCallback(
         JsCallArguments arguments,
@@ -1488,7 +1580,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         return "(" + (_length?._value!.AsNumber() ?? 0) + ")[]";
     }
 
-    private static void ThrowMaximumArraySizeReachedException(Engine engine, uint capacity)
+    internal static void ThrowMaximumArraySizeReachedException(Engine engine, uint capacity)
     {
         Throw.MemoryLimitExceededException(
             $"The array size {capacity} is larger than maximum allowed ({engine.Options.Constraints.MaxArraySize})"

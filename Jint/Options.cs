@@ -36,6 +36,8 @@ public class Options
 
     public delegate string SerializeToJsonDelegate(object? target, string space, string? currentIndent);
 
+    public delegate IEnumerable<JsValue>? ReportedPropertyKeysDelegate(Engine engine, object target);
+
     /// <summary>
     /// Execution constraints for the engine.
     /// </summary>
@@ -323,6 +325,15 @@ public class Options
         public bool TrackObjectWrapperIdentity { get; set; }
 
         /// <summary>
+        /// Whether a small bounded cache of most recently wrapped CLR objects is kept so that the same
+        /// object crossing into script repeatedly reuses its wrapper (by reference identity). A lighter
+        /// alternative to <see cref="TrackObjectWrapperIdentity"/> that cannot grow memory unbounded;
+        /// identity is only preserved for objects still present in the cache.
+        /// Defaults to false.
+        /// </summary>
+        public bool CacheRecentObjectWrappers { get; set; }
+
+        /// <summary>
         /// If no known type could be guessed, objects are by default wrapped as an
         /// ObjectInstance using class ObjectWrapper. This function can be used to
         /// change the behavior.
@@ -421,6 +432,19 @@ public class Options
         public bool ThrowOnUnresolvedMember { get; set; }
 
         /// <summary>
+        /// When <c>true</c>, the <see cref="Jint.Runtime.JavaScriptException"/> thrown when a CLR method or
+        /// constructor call cannot be resolved gets a detailed message naming the target CLR type, the provided
+        /// argument types, and the candidate signatures. When <c>false</c> (the default) a terse message is used
+        /// instead, so that untrusted scripts cannot enumerate the host's CLR surface through the error text.
+        /// <para>
+        /// This only controls the script-visible message. The originating CLR <see cref="System.Type"/> is always
+        /// attached to the exception regardless of this setting and can be read host-side via
+        /// <see cref="JintException.TryGetClrType"/> (it is not exposed to the running script).
+        /// </para>
+        /// </summary>
+        public bool ExposeDetailedResolutionErrors { get; set; }
+
+        /// <summary>
         /// Types of CLR members reported by <see cref="ObjectWrapper"/> when enumerating properties/serializing <see cref="ObjectWrapper.ToObject"/>.
         /// Supported values are: <see cref="MemberTypes.Field"/>, <see cref="MemberTypes.Property"/>, <see cref="MemberTypes.Method"/>.
         /// All other values are ignored.
@@ -441,6 +465,16 @@ public class Options
         /// Reported member binding flags when reflecting, defaults to <see cref="BindingFlags.Instance" /> | <see cref="BindingFlags.Public" /> | <see cref="BindingFlags.Static" />.
         /// </summary>
         public BindingFlags ObjectWrapperReportedMethodBindingFlags { get; set; } = BindingFlags.Instance | BindingFlags.Public | BindingFlags.Static;
+
+        /// <summary>
+        /// Customizes the property keys reported by <see cref="ObjectWrapper"/> when a wrapped CLR object is
+        /// enumerated (JavaScript <c>for..in</c>, <c>Object.keys</c>, object spread, <c>JSON.stringify</c>).
+        /// When the delegate returns a non-null sequence, those keys replace the default reflected/dictionary
+        /// keys for the given target; returning <c>null</c> keeps the default behavior. Reported keys must be
+        /// resolvable through the wrapper's normal member/indexer access for their values to be readable.
+        /// Defaults to returning <c>null</c>.
+        /// </summary>
+        public ReportedPropertyKeysDelegate ObjectWrapperReportedPropertyKeys { get; set; } = static (_, _) => null;
     }
 
     public class ConstraintOptions

@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter;
 using Environment = Jint.Runtime.Environments.Environment;
@@ -351,13 +352,31 @@ public abstract partial class Function : ObjectInstance, ICallable
         _constructorKind = ConstructorKind.Base;
         if (prototype is null)
         {
-            prototype = new ObjectInstanceWithConstructor(_engine, this)
+            // Lazily create the .prototype object. Functions that are never used as a constructor and
+            // whose .prototype is never read (e.g. the hundreds of helper functions declared by
+            // linq-js) then skip the ObjectInstanceWithConstructor + its two descriptor allocations.
+            // The value is memoized on first access, so .prototype identity is stable. Flags match the
+            // eager descriptor below: writable=writableProperty, enumerable=false, configurable=false.
+            var flags = PropertyFlag.WritableSet | PropertyFlag.EnumerableSet | PropertyFlag.ConfigurableSet;
+            if (writableProperty)
             {
-                _prototype = _realm.Intrinsics.Object.PrototypeObject
-            };
-        }
+                flags |= PropertyFlag.Writable;
+            }
 
-        _prototypeDescriptor = new PropertyDescriptor(prototype, writableProperty, enumerable: false, configurable: false);
+            _prototypeDescriptor = new LazyPropertyDescriptor<Function>(this, static f => f.CreateConstructorPrototype(), flags);
+        }
+        else
+        {
+            _prototypeDescriptor = new PropertyDescriptor(prototype, writableProperty, enumerable: false, configurable: false);
+        }
+    }
+
+    private ObjectInstanceWithConstructor CreateConstructorPrototype()
+    {
+        return new ObjectInstanceWithConstructor(_engine, this)
+        {
+            _prototype = _realm.Intrinsics.Object.PrototypeObject
+        };
     }
 
     internal void SetFunctionLength(JsNumber length)

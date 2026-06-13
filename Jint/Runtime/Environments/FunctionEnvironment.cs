@@ -56,7 +56,11 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
         _thisBindingStatus = functionObject._functionDefinition?.Function.Type is NodeType.ArrowFunctionExpression
             ? ThisBindingStatus.Lexical
             : ThisBindingStatus.Uninitialized;
-        _dictionary?.Clear();
+        // Keep the dictionary's grown capacity: a pooled env is reused for the same State (same binding
+        // names), so the next call refills it with an identical key count. Dropping back to the dummy
+        // arrays would force the dictionary to re-grow on every call (see 3d-cube's DrawLine: 2 params
+        // + 17 vars rebuilt 100k+ times per run).
+        _dictionary?.ClearPreservingCapacity();
         ClearDisposeCapability();
     }
 

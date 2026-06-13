@@ -64,6 +64,7 @@ public class GenericMethodTests
                 ");
         });
 
+        // detailed resolution errors are off by default, so the terse message is used
         Assert.Equal("No public methods with the specified arguments were found.", argException.Message);
     }
 

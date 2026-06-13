@@ -495,6 +495,20 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     {
         // prefer object order, add possible other properties after
         var includeStrings = (types & Types.String) != Types.Empty;
+
+        if (includeStrings)
+        {
+            var customKeys = _engine.Options.Interop.ObjectWrapperReportedPropertyKeys(_engine, Target);
+            if (customKeys is not null)
+            {
+                foreach (var key in customKeys)
+                {
+                    yield return key;
+                }
+                yield break; // non-null replaces the default key set
+            }
+        }
+
         if (includeStrings && _typeDescriptor.IsStringKeyedGenericDictionary) // expando object for instance
         {
             var keys = (ICollection<string>) _typeDescriptor.KeysAccessor!.GetValue(Target)!;

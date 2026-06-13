@@ -7,6 +7,7 @@ using Jint.Native.Iterator;
 using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
+using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
@@ -451,6 +452,12 @@ public sealed partial class ArrayPrototype : ArrayInstance
     [JsFunction(Length = 1)]
     private JsValue Filter(JsValue thisObject, JsCallArguments arguments)
     {
+        if (thisObject is JsArray { CanUseFastAccess: true } arrayInstance
+            && !arrayInstance.HasOwnProperty(CommonProperties.Constructor))
+        {
+            return arrayInstance.Filter(arguments);
+        }
+
         var callbackfn = arguments.At(0);
         var thisArg = arguments.At(1);
 
@@ -557,6 +564,23 @@ public sealed partial class ArrayPrototype : ArrayInstance
             depthNum = 0;
         }
 
+        if (thisObject is JsArray { CanUseFastAccess: true } jsArray
+            && !jsArray.HasOwnProperty(CommonProperties.Constructor))
+        {
+            // ArraySpeciesCreate would provably return a plain array; accumulate into a
+            // pooled buffer and materialize an exact-size result instead.
+            var builder = new JsValueListBuilder((int) System.Math.Min(sourceLen, 1024));
+            try
+            {
+                FlattenIntoArrayDense(ref builder, operations, sourceLen, depthNum);
+                return _realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
+            }
+            finally
+            {
+                builder.Dispose();
+            }
+        }
+
         var A = _realm.Intrinsics.Array.ArraySpeciesCreate(operations.Target, 0);
         FlattenIntoArray(A, operations, sourceLen, 0, depthNum);
         return A;
@@ -577,6 +601,21 @@ public sealed partial class ArrayPrototype : ArrayInstance
         if (!mapperFunction.IsCallable)
         {
             Throw.TypeError(_realm, $"{mapperFunction} is not a function");
+        }
+
+        if (thisObject is JsArray { CanUseFastAccess: true } jsArray
+            && !jsArray.HasOwnProperty(CommonProperties.Constructor))
+        {
+            var builder = new JsValueListBuilder((int) System.Math.Min(sourceLen, 1024));
+            try
+            {
+                FlattenIntoArrayDense(ref builder, O, sourceLen, 1, (ICallable) mapperFunction, thisArg);
+                return _realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
+            }
+            finally
+            {
+                builder.Dispose();
+            }
         }
 
         var A = _realm.Intrinsics.Array.ArraySpeciesCreate(O.Target, 0);
@@ -661,6 +700,84 @@ public sealed partial class ArrayPrototype : ArrayInstance
         }
 
         return targetIndex;
+    }
+
+    /// <summary>
+    /// <see cref="FlattenIntoArray"/> variant for a provably plain array result: appends
+    /// into the pooled builder instead of writing per element through the target object.
+    /// The textual structure is kept parallel to the generic variant; the target index is
+    /// implicit in the builder length and holes are skipped per spec (the exists check),
+    /// so the MaxSafeInteger target-index guard has no int-bounded equivalent here.
+    /// </summary>
+    private void FlattenIntoArrayDense(
+        ref JsValueListBuilder builder,
+        ArrayOperations source,
+        uint sourceLen,
+        double depth,
+        ICallable? mapperFunction = null,
+        JsValue? thisArg = null)
+    {
+        ulong sourceIndex = 0;
+
+        var callArguments = System.Array.Empty<JsValue>();
+        if (mapperFunction is not null)
+        {
+            callArguments = _engine._jsValueArrayPool.RentArray(3);
+            callArguments[2] = source.Target;
+        }
+
+        try
+        {
+            while (sourceIndex < sourceLen)
+            {
+                if (sourceIndex > 0 && sourceIndex % ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
+
+                var exists = source.HasProperty(sourceIndex);
+                if (exists)
+                {
+                    var element = source.Get(sourceIndex);
+                    if (mapperFunction is not null)
+                    {
+                        callArguments[0] = element;
+                        callArguments[1] = JsNumber.Create(sourceIndex);
+                        element = mapperFunction.Call(thisArg ?? Undefined, callArguments);
+                    }
+
+                    var shouldFlatten = false;
+                    if (depth > 0)
+                    {
+                        shouldFlatten = element.IsArray();
+                    }
+
+                    if (shouldFlatten)
+                    {
+                        var newDepth = double.IsPositiveInfinity(depth)
+                            ? depth
+                            : depth - 1;
+
+                        var objectInstance = (ObjectInstance) element;
+                        var elementLen = objectInstance.GetLength();
+                        FlattenIntoArrayDense(ref builder, ArrayOperations.For(objectInstance, forWrite: false), elementLen, newDepth);
+                    }
+                    else
+                    {
+                        builder.Add(element);
+                    }
+                }
+
+                sourceIndex++;
+            }
+        }
+        finally
+        {
+            if (mapperFunction is not null)
+            {
+                _engine._jsValueArrayPool.ReturnArray(callArguments);
+            }
+        }
     }
 
     [JsFunction(Length = 1)]
@@ -1711,10 +1828,19 @@ public sealed partial class ArrayPrototype : ArrayInstance
         // Pre-sum total length so the output is allocated once at exact size and each source
         // can be copied via Array.Copy instead of element-by-element CreateDataPropertyOrThrow.
         if (thisObject is JsArray { CanUseFastAccess: true } thisArr
-            && !thisArr.HasOwnProperty(CommonProperties.Constructor)
-            && TryConcatAllJsArrayFast(thisArr, arguments, out var fastResult))
+            && !thisArr.HasOwnProperty(CommonProperties.Constructor))
         {
-            return fastResult;
+            if (TryConcatAllJsArrayFast(thisArr, arguments, out var fastResult))
+            {
+                return fastResult;
+            }
+
+            // The result is still provably a plain array (same gate as the Map/Filter fast
+            // paths); accumulate into a pooled buffer instead of per-element virtual writes.
+            if (CanConcatWithBuilder(thisArr, arguments, out var sizeHint))
+            {
+                return ConcatPlainTarget(thisArr, arguments, sizeHint);
+            }
         }
 
         var o = TypeConverter.ToObject(_realm, thisObject);
@@ -1771,13 +1897,121 @@ public sealed partial class ArrayPrototype : ArrayInstance
         return a;
     }
 
+    /// <summary>
+    /// JsArray sources are appended from their dense backing, so sparse-mode arrays (no
+    /// backing at all) and arrays whose declared length grossly exceeds the physical
+    /// backing (lazy <c>new Array(N)</c>, truncated-backing holey arrays) must stay on the
+    /// CopyValues slow path, which keeps such results compact instead of materializing
+    /// every hole. The +50 slack mirrors the engine's looks-sparse write heuristic.
+    /// All inspected state is engine-internal, so bailing here is unobservable; the same
+    /// pass sums the known JsArray lengths into a rent-size hint for the builder.
+    /// Non-array spreadables read their length observably during processing, so they only
+    /// count one slot here and the builder grows if they spread larger.
+    /// </summary>
+    private static bool CanConcatWithBuilder(JsArray thisArr, JsCallArguments arguments, out ulong sizeHint)
+    {
+        sizeHint = 0;
+
+        if (thisArr._dense is null || thisArr.GetLength() > (ulong) thisArr._dense.Length + 50)
+        {
+            return false;
+        }
+
+        sizeHint = thisArr.GetLength();
+        for (var i = 0; i < arguments.Length; i++)
+        {
+            if (arguments[i] is JsArray ja)
+            {
+                if (ja._dense is null || ja.GetLength() > (ulong) ja._dense.Length + 50)
+                {
+                    return false;
+                }
+
+                sizeHint += ja.GetLength();
+            }
+            else
+            {
+                sizeHint++;
+            }
+        }
+
+        return true;
+    }
+
+    private JsArray ConcatPlainTarget(JsArray thisArr, JsCallArguments arguments, ulong sizeHint)
+    {
+        var builder = new JsValueListBuilder((int) System.Math.Min(sizeHint, 1024 * 1024));
+        try
+        {
+            AppendConcatItem(ref builder, thisArr);
+            for (var i = 0; i < arguments.Length; i++)
+            {
+                AppendConcatItem(ref builder, arguments[i]);
+            }
+
+            return _realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
+        }
+        finally
+        {
+            builder.Dispose();
+        }
+    }
+
+    private void AppendConcatItem(ref JsValueListBuilder builder, JsValue e)
+    {
+        if (e is ObjectInstance { IsConcatSpreadable: true } oi)
+        {
+            if (oi is JsArray eArray)
+            {
+                // CanConcatWithBuilder guarantees a dense backing with at most +50 logical
+                // tail; raw null entries flow through AddRange as holes, like CopyValues.
+                var len = eArray.GetLength();
+                var dense = eArray._dense!;
+                var copyLen = (int) System.Math.Min((uint) dense.Length, len);
+                builder.AddRange(dense.AsSpan(0, copyLen));
+                for (var k = (uint) copyLen; k < len; k++)
+                {
+                    builder.AddHole();
+                }
+            }
+            else
+            {
+                var operations = ArrayOperations.For(oi, forWrite: false);
+                var len = operations.GetLongLength();
+
+                if ((ulong) builder.Length + len > ArrayOperations.MaxArrayLikeLength)
+                {
+                    Throw.TypeError(_realm, "Invalid array length");
+                }
+
+                for (uint k = 0; k < len; k++)
+                {
+                    if (k > 0 && k % ConstraintCheckInterval == 0)
+                    {
+                        _engine.Constraints.Check();
+                    }
+
+                    // mirrors the generic slow path: absent indices append as undefined
+                    // (TryGetValue surfaces Undefined for them), they do not stay holes
+                    operations.TryGetValue(k, out var subElement);
+                    builder.Add(subElement);
+                }
+            }
+        }
+        else
+        {
+            builder.Add(e);
+        }
+    }
+
     private bool TryConcatAllJsArrayFast(JsArray thisArr, JsCallArguments arguments, out JsArray result)
     {
         result = null!;
 
         // CanUseFastAccess does not catch a custom @@isConcatSpreadable symbol, so we still
-        // have to consult IsConcatSpreadable for each input.
-        if (!thisArr.IsConcatSpreadable)
+        // have to consult IsConcatSpreadable for each input. A sparse-mode receiver can also
+        // still be fast-access; it has no dense backing to bulk-copy from.
+        if (thisArr._dense is null || !thisArr.IsConcatSpreadable)
         {
             return false;
         }
@@ -1790,7 +2024,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
         for (var i = 0; i < arguments.Length; i++)
         {
             var e = arguments[i];
-            if (e is JsArray { CanUseFastAccess: true } ja && ja.IsConcatSpreadable)
+            if (e is JsArray { CanUseFastAccess: true } ja && ja._dense is not null && ja.IsConcatSpreadable)
             {
                 argInfo![i] = true;
                 totalLen += ja.GetLength();

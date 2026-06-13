@@ -3132,6 +3132,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         var engine = new Engine(options => options.AllowClr());
         engine.SetValue("IntValueInput", TypeReference.CreateTypeReference(engine, typeof(IntValueInput)));
         var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("new IntValueInput().testFunc(NaN);").AsString());
+        // detailed resolution errors are off by default, so the terse message is used
         Assert.Equal("No public methods with the specified arguments were found.", ex.Message);
 
         Assert.Equal(123, engine.Evaluate("new IntValueInput().testFunc(123);").AsNumber());
@@ -3387,6 +3388,75 @@ new Thrower().ThrowExceptionWithMessage('boom');";
             ";
         result = engine.Evaluate(script).ToString();
         Assert.Equal("0,1,2", result);
+    }
+
+    [Fact]
+    public void ForInEnumeratesClrObjectUsingReportedPropertyKeys()
+    {
+        // https://github.com/sebastienros/jint/discussions/2513
+        var people = new ReportedKeysPeople(new[]
+        {
+            new ReportedKeysPerson("person1"),
+            new ReportedKeysPerson("person2"),
+        });
+
+        var engine = new Engine(cfg => cfg.Interop.ObjectWrapperReportedPropertyKeys =
+            static (_, target) => target is ReportedKeysPeople p ? p.Names.Select(n => (JsValue) n) : null);
+        engine.SetValue("people", people);
+
+        // indexer access keeps working
+        Assert.Equal("person1", engine.Evaluate("people['person1'].Name").AsString());
+
+        // for...in now enumerates the reported keys and the body resolves values via the indexer
+        var forIn = engine.Evaluate(@"
+            var result = '';
+            for (var p in people) { result += people[p].Name + ' '; }
+            result.trim();
+        ").AsString();
+        Assert.Equal("person1 person2", forIn);
+
+        // Object.keys shares the same enumeration path
+        Assert.Equal("person1,person2", engine.Evaluate("Object.keys(people).join(',')").AsString());
+
+        // regular CLR members remain accessible alongside the reported keys
+        Assert.Equal(2d, engine.Evaluate("people.Count").AsNumber());
+    }
+
+    [Fact]
+    public void ReportedPropertyKeysDefaultsToExistingEnumeration()
+    {
+        var engine = new Engine();
+        engine.SetValue("dictionary", new Dictionary<string, object>
+        {
+            { "foo", 1 },
+            { "bar", 2 },
+        });
+
+        // default delegate returns null, so dictionary enumeration is unchanged
+        Assert.Equal("foo,bar", engine.Evaluate("Object.keys(dictionary).join(',')").AsString());
+
+        var forIn = engine.Evaluate(@"
+            var keys = [];
+            for (var k in dictionary) keys.push(k);
+            keys.join(',');
+        ").AsString();
+        Assert.Equal("foo,bar", forIn);
+    }
+
+    public sealed class ReportedKeysPerson(string name)
+    {
+        public string Name => name;
+    }
+
+    public sealed class ReportedKeysPeople(IEnumerable<ReportedKeysPerson> people)
+    {
+        private readonly List<ReportedKeysPerson> _people = people.ToList();
+
+        public ReportedKeysPerson this[JsValue name] => _people.FirstOrDefault(p => p.Name == name.ToString());
+
+        public int Count => _people.Count;
+
+        public IEnumerable<string> Names => _people.Select(p => p.Name);
     }
 
     [Fact]

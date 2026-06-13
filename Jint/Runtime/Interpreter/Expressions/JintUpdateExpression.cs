@@ -162,6 +162,53 @@ internal sealed class JintUpdateExpression : JintExpression
 
     private JsValue? UpdateIdentifier(EvaluationContext context)
     {
+        var engine = context.Engine;
+
+        // Global-binding fast path: when this identifier resolves to a cached plain writable global
+        // data property, read and write its descriptor value directly — no environment chain walk and
+        // no second SetMutableBinding lookup. Mirrors the read cache in JintIdentifierExpression and the
+        // simple-assignment cache (AssignToCachedGlobalBinding). Operator-overloading-capable contexts
+        // fall through so a CLR op_Increment/op_Decrement is still honored.
+        if (_leftIdentifier!._cachedGlobalEnv is not null && !context.OperatorOverloadingAllowed)
+        {
+            var descriptor = _leftIdentifier.TryGetValidatedGlobalDescriptor(engine, engine.ExecutionContext.LexicalEnvironment);
+            if (descriptor is not null && descriptor._value is { } current)
+            {
+                if (_evalOrArguments && StrictModeScope.IsStrictModeCode)
+                {
+                    Throw.SyntaxError(engine.Realm);
+                }
+
+                JsValue newValue;
+                if (current._type == InternalTypes.Integer)
+                {
+                    newValue = JsNumber.Create((long) current.AsInteger() + _change);
+                }
+                else if (current._type != InternalTypes.BigInt)
+                {
+                    newValue = JsNumber.Create(TypeConverter.ToNumber(current) + _change);
+                }
+                else
+                {
+                    newValue = JsBigInt.Create(TypeConverter.ToBigInt(current) + _change);
+                }
+
+                descriptor._value = newValue;
+
+                if (_prefix)
+                {
+                    return newValue;
+                }
+
+                if (!current.IsBigInt() && !current.IsNumber())
+                {
+                    return JsNumber.Create(TypeConverter.ToNumber(current));
+                }
+
+                return current;
+            }
+        }
+
         var name = _leftIdentifier!.Identifier;
         var strict = StrictModeScope.IsStrictModeCode;
 
@@ -209,6 +256,14 @@ internal sealed class JintUpdateExpression : JintExpression
             }
 
             environmentRecord.SetMutableBinding(name.Key, newValue!, strict);
+
+            // Remember the binding so subsequent updates of this global take the fast path above,
+            // even when the identifier is never read elsewhere (e.g. a write-only counter).
+            if (environmentRecord is GlobalEnvironment globalEnv)
+            {
+                _leftIdentifier.TryRememberGlobalBinding(globalEnv);
+            }
+
             if (_prefix)
             {
                 return newValue;

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -154,112 +155,32 @@ internal sealed class MethodInfoFunction : Function
 
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments jsArguments)
     {
-        static JsCallArguments ArgumentProvider(MethodDescriptor method, MethodResolverState state)
-        {
-            if (method.IsExtensionMethod)
-            {
-                var jsArgumentsTemp = new JsValue[1 + state.Arguments.Length];
-                jsArgumentsTemp[0] = state.This;
-                Array.Copy(state.Arguments, 0, jsArgumentsTemp, 1, state.Arguments.Length);
-                return method.HasParams
-                    ? ProcessParamsArrays(state.Engine, method, jsArgumentsTemp)
-                    : jsArgumentsTemp;
-            }
-
-            return method.HasParams
-                ? ProcessParamsArrays(state.Engine, method, state.Arguments)
-                : state.Arguments;
-        }
-
         var converter = Engine.TypeConverter;
         var thisObj = thisObject.ToObject() ?? _target;
-        object?[]? parameters = null;
         var state = new MethodResolverState(_engine, thisObject, jsArguments);
-        foreach (var (method, arguments, _) in InteropHelper.FindBestMatch(_engine, _methods, ArgumentProvider, state))
+
+        if (_methods.Length == 1)
         {
-            var methodParameters = method.Parameters;
-            if (parameters == null || parameters.Length != methodParameters.Length)
+            // single candidate, no overload resolution needed - bind directly and skip scoring
+            var method = _methods[0];
+            var parameterInfos = method.Parameters;
+            var arguments = ArgumentProvider(method, state);
+            if (arguments.Length <= parameterInfos.Length
+                && arguments.Length >= parameterInfos.Length - method.ParameterDefaultValuesCount
+                && CanBindNullArguments(parameterInfos, arguments)
+                && TryCall(method, arguments, thisObj, converter, out var fastResult))
             {
-                parameters = new object[methodParameters.Length];
+                return fastResult;
             }
-
-            var argumentsMatch = true;
-            var resolvedMethod = ResolveMethod(method.Method, methodParameters, arguments);
-            // We only need to call GetParameters it if this ends up being a generic method (i.e. they will be different in that scenario)
-            if (resolvedMethod.IsGenericMethod)
+        }
+        else
+        {
+            foreach (var (method, arguments, _) in InteropHelper.FindBestMatch(_engine, _methods, static (method, state) => ArgumentProvider(method, state), state))
             {
-                methodParameters = resolvedMethod.GetParameters();
-            }
-            for (var i = 0; i < parameters.Length; i++)
-            {
-                var methodParameter = methodParameters[i];
-                var parameterType = methodParameter.ParameterType;
-                var argument = arguments.Length > i ? arguments[i] : null;
-                object? argumentObject = null;
-
-                if (typeof(JsValue).IsAssignableFrom(parameterType))
+                if (TryCall(method, arguments, thisObj, converter, out var result))
                 {
-                    parameters[i] = argument;
+                    return result;
                 }
-                else if (argument is null)
-                {
-                    // optional
-                    parameters[i] = System.Type.Missing;
-                }
-                else if (IsGenericParameter(argumentObject = argument.ToObject(), parameterType)) // don't think we need the condition preface of (argument == null) because of earlier condition
-                {
-                    // ^ this is the best way I could think of to only eval argument.ToObject() when needed.
-                    // But it's very cursed, I'm sorry.
-                    parameters[i] = argumentObject;
-                }
-                else if (parameterType == typeof(JsValue[]) && argument.IsArray())
-                {
-                    // Handle specific case of F(params JsValue[])
-                    var arrayInstance = argument.AsArray();
-                    var len = TypeConverter.ToInt32(arrayInstance.Get(CommonProperties.Length, this));
-                    var result = new JsValue[len];
-                    for (uint k = 0; k < len; k++)
-                    {
-                        result[k] = arrayInstance.TryGetValue(k, out var value) ? value : Undefined;
-                    }
-
-                    parameters[i] = result;
-                }
-                else
-                {
-                    if (!ReflectionExtensions.TryConvertViaTypeCoercion(parameterType, _engine.Options.Interop.ValueCoercion, argument, out parameters[i])
-                        && !converter.TryConvert(argumentObject, parameterType, CultureInfo.InvariantCulture, out parameters[i]))
-                    {
-                        argumentsMatch = false;
-                        break;
-                    }
-
-                    if (parameters[i] is LambdaExpression lambdaExpression)
-                    {
-                        parameters[i] = lambdaExpression.Compile();
-                    }
-                }
-            }
-
-            if (!argumentsMatch)
-            {
-                continue;
-            }
-
-            // todo: cache method info
-            try
-            {
-                if (method.Method is MethodInfo { IsGenericMethodDefinition: true })
-                {
-                    var result = resolvedMethod.Invoke(thisObj, parameters);
-                    return FromObjectWithType(Engine, result, type: (resolvedMethod as MethodInfo)?.ReturnType);
-                }
-
-                return FromObjectWithType(Engine, method.Method.Invoke(thisObj, parameters), type: (method.Method as MethodInfo)?.ReturnType);
-            }
-            catch (TargetInvocationException exception)
-            {
-                Throw.MeaningfulException(_engine, exception);
             }
         }
 
@@ -268,8 +189,149 @@ internal sealed class MethodInfoFunction : Function
             return _fallbackFunctionInstance.Call(thisObject, jsArguments);
         }
 
-        Throw.TypeError(_engine.Realm, "No public methods with the specified arguments were found.");
+        var message = _engine.Options.Interop.ExposeDetailedResolutionErrors
+            ? InteropErrorHelper.CreateNoMatchingMethodMessage(_targetType, _name, jsArguments, _methods)
+            : "No public methods with the specified arguments were found.";
+        Throw.InteropResolutionError(_engine.Realm, message, _targetType, _name);
         return null;
+    }
+
+    private static JsCallArguments ArgumentProvider(MethodDescriptor method, in MethodResolverState state)
+    {
+        if (method.IsExtensionMethod)
+        {
+            var jsArgumentsTemp = new JsValue[1 + state.Arguments.Length];
+            jsArgumentsTemp[0] = state.This;
+            Array.Copy(state.Arguments, 0, jsArgumentsTemp, 1, state.Arguments.Length);
+            return method.HasParams
+                ? ProcessParamsArrays(state.Engine, method, jsArgumentsTemp)
+                : jsArgumentsTemp;
+        }
+
+        return method.HasParams
+            ? ProcessParamsArrays(state.Engine, method, state.Arguments)
+            : state.Arguments;
+    }
+
+    /// <summary>
+    /// Mirrors the null/undefined rejection rule of overload scoring: null cannot bind to a
+    /// non-optional parameter of non-nullable value type (even when value coercion could
+    /// otherwise produce a value).
+    /// </summary>
+    private static bool CanBindNullArguments(ParameterInfo[] parameterInfos, JsCallArguments arguments)
+    {
+        for (var i = 0; i < arguments.Length; i++)
+        {
+            if (arguments[i].IsNullOrUndefined())
+            {
+                var parameter = parameterInfos[i];
+                if (!parameter.IsOptional && !InteropHelper.TypeIsNullable(parameter.ParameterType))
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private bool TryCall(
+        MethodDescriptor method,
+        JsCallArguments arguments,
+        object? thisObj,
+        ITypeConverter converter,
+        [NotNullWhen(true)] out JsValue? callResult)
+    {
+        callResult = null;
+
+        var methodParameters = method.Parameters;
+        var resolvedMethod = ResolveMethod(method.Method, methodParameters, arguments);
+        // We only need to call GetParameters it if this ends up being a generic method (i.e. they will be different in that scenario)
+        var isGenericDefinition = false;
+        if (resolvedMethod.IsGenericMethod)
+        {
+            methodParameters = resolvedMethod.GetParameters();
+            isGenericDefinition = method.Method is MethodInfo { IsGenericMethodDefinition: true };
+        }
+
+        // NOTE: pooling this buffer via ArrayPool was measured slower than allocation (tiny
+        // gen0 arrays), keep the plain exact-size allocation
+        var parameterCount = methodParameters.Length;
+        object?[] parameters = parameterCount == 0 ? [] : new object[parameterCount];
+
+        for (var i = 0; i < parameterCount; i++)
+        {
+            var methodParameter = methodParameters[i];
+            var parameterType = methodParameter.ParameterType;
+            var argument = arguments.Length > i ? arguments[i] : null;
+            object? argumentObject = null;
+
+            if (typeof(JsValue).IsAssignableFrom(parameterType))
+            {
+                parameters[i] = argument;
+            }
+            else if (argument is null)
+            {
+                // optional
+                parameters[i] = System.Type.Missing;
+            }
+            else if (IsGenericParameter(argumentObject = argument.ToObject(), parameterType)) // don't think we need the condition preface of (argument == null) because of earlier condition
+            {
+                // ^ this is the best way I could think of to only eval argument.ToObject() when needed.
+                // But it's very cursed, I'm sorry.
+                parameters[i] = argumentObject;
+            }
+            else if (parameterType == typeof(JsValue[]) && argument.IsArray())
+            {
+                // Handle specific case of F(params JsValue[])
+                var arrayInstance = argument.AsArray();
+                var len = TypeConverter.ToInt32(arrayInstance.Get(CommonProperties.Length, this));
+                var result = new JsValue[len];
+                for (uint k = 0; k < len; k++)
+                {
+                    result[k] = arrayInstance.TryGetValue(k, out var value) ? value : Undefined;
+                }
+
+                parameters[i] = result;
+            }
+            else if (argument is JsNumber jsNumber && InteropHelper.TryConvertNumberFast(jsNumber._value, parameterType, out parameters[i]))
+            {
+                // common numeric argument converted without the generic converter
+            }
+            else
+            {
+                if (!ReflectionExtensions.TryConvertViaTypeCoercion(parameterType, _engine.Options.Interop.ValueCoercion, argument, out parameters[i])
+                    && !converter.TryConvert(argumentObject, parameterType, CultureInfo.InvariantCulture, out parameters[i]))
+                {
+                    // arguments don't match this method
+                    return false;
+                }
+
+                if (parameters[i] is LambdaExpression lambdaExpression)
+                {
+                    parameters[i] = lambdaExpression.Compile();
+                }
+            }
+        }
+
+        try
+        {
+            if (isGenericDefinition)
+            {
+                // the resolved generic method differs per call, cannot use the cached invoker
+                var result = resolvedMethod.Invoke(thisObj, parameters);
+                callResult = FromObjectWithType(Engine, result, type: (resolvedMethod as MethodInfo)?.ReturnType);
+                return true;
+            }
+
+            callResult = FromObjectWithType(Engine, method.Invoke(thisObj, parameters), type: (method.Method as MethodInfo)?.ReturnType);
+            return true;
+        }
+        catch (TargetInvocationException exception)
+        {
+            Throw.MeaningfulException(_engine, exception);
+            return false;
+        }
     }
 
     /// <summary>

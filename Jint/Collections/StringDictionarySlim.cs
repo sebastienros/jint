@@ -79,6 +79,27 @@ internal sealed class StringDictionarySlim<TValue> : DictionaryBase<TValue>, IRe
         _entries = InitialEntries;
     }
 
+    /// <summary>
+    /// Empties the dictionary but keeps the already-grown bucket and entry arrays, so a pooled owner
+    /// that immediately refills it with a similar key count avoids re-growing from the one-element dummy
+    /// arrays. Unlike <see cref="Clear"/> (which drops back to the shared dummies to release memory), this
+    /// trades a small retained footprint for zero reallocation on the next fill. Invalidates enumerators.
+    /// </summary>
+    public void ClearPreservingCapacity()
+    {
+        if (_count == 0)
+        {
+            // Never grew past the shared dummy arrays — nothing to keep, nothing to clear.
+            return;
+        }
+
+        // Bindings are only added (never removed) during a refill, so used entries are dense in [0, _count).
+        Array.Clear(_buckets, 0, _buckets.Length);
+        Array.Clear(_entries, 0, _count);
+        _count = 0;
+        _freeList = -1;
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void SetOrUpdateValue<TState>(Key key, Func<TValue, TState, TValue> updater, TState state)
     {
