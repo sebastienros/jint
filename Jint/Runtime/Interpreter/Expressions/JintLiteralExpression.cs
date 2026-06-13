@@ -84,11 +84,10 @@ internal sealed class JintLiteralExpression : JintExpression
 
             if (!RegExpConstructor.NeedCustomEngine(pattern, flags))
             {
-#pragma warning disable CS0618 // Type or member is obsolete
-                cachedParseResult = Tokenizer.AdaptRegExp(
-#pragma warning restore CS0618 // Type or member is obsolete
-                    pattern, flags, conversionOptions.Compiled, conversionOptions.Timeout, throwIfNotAdaptable: false,
-                    Engine.BaseParserOptions.EcmaVersion, Engine.BaseParserOptions.ExperimentalESFeatures);
+                // Process-wide cache: a fresh-parse (source-mode) literal recompiles the same Regex every
+                // run because the per-node UserData cache above only survives in a reused Prepared<Script>.
+                cachedParseResult = RegExpParseCache.GetOrAdapt(
+                    pattern, flags, conversionOptions.Compiled, conversionOptions.Timeout);
 
                 if (cachedParseResult.Success)
                 {
