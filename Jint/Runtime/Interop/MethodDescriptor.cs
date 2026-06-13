@@ -1,6 +1,7 @@
 using Jint.Native;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Text;
 using Jint.Extensions;
 
 #pragma warning disable IL2072
@@ -175,6 +176,106 @@ internal sealed class MethodDescriptor
         Array.Sort(descriptors, CreateComparison);
 
         return descriptors;
+    }
+
+    /// <summary>
+    /// Renders a C#-like signature for error messages, e.g. "Say(String message)" or
+    /// "PersonExtensions.FizzBuzz(this Person person)". Cold path only.
+    /// </summary>
+    public override string ToString()
+    {
+        var sb = new StringBuilder();
+        if (Method is ConstructorInfo)
+        {
+            sb.Append(GetTypeName(Method.DeclaringType!));
+        }
+        else
+        {
+            if (IsExtensionMethod)
+            {
+                sb.Append(GetTypeName(Method.DeclaringType!)).Append('.');
+            }
+
+            sb.Append(Method.Name);
+
+            if (Method.IsGenericMethodDefinition)
+            {
+                sb.Append('<');
+                var genericArguments = Method.GetGenericArguments();
+                for (var i = 0; i < genericArguments.Length; i++)
+                {
+                    if (i > 0)
+                    {
+                        sb.Append(", ");
+                    }
+                    sb.Append(genericArguments[i].Name);
+                }
+                sb.Append('>');
+            }
+        }
+
+        sb.Append('(');
+        for (var i = 0; i < Parameters.Length; i++)
+        {
+            if (i > 0)
+            {
+                sb.Append(", ");
+            }
+
+            var parameter = Parameters[i];
+            if (i == 0 && IsExtensionMethod)
+            {
+                sb.Append("this ");
+            }
+            else if (HasParams && i == Parameters.Length - 1 && parameter.ParameterType.IsArray)
+            {
+                sb.Append("params ");
+            }
+
+            sb.Append(GetTypeName(parameter.ParameterType)).Append(' ').Append(parameter.Name);
+
+            if (parameter.HasDefaultValue)
+            {
+                sb.Append(" = ").Append(parameter.DefaultValue ?? "null");
+            }
+        }
+        sb.Append(')');
+
+        return sb.ToString();
+    }
+
+    private static string GetTypeName(Type type)
+    {
+        if (type.IsArray)
+        {
+            return GetTypeName(type.GetElementType()!) + "[]";
+        }
+
+        if (Nullable.GetUnderlyingType(type) is { } underlyingType)
+        {
+            return GetTypeName(underlyingType) + "?";
+        }
+
+        if (type.IsGenericType)
+        {
+            var name = type.Name;
+            var tickIndex = name.IndexOf('`');
+            var sb = new StringBuilder(tickIndex > 0 ? name.Substring(0, tickIndex) : name);
+            sb.Append('<');
+            var genericArguments = type.GetGenericArguments();
+            for (var i = 0; i < genericArguments.Length; i++)
+            {
+                if (i > 0)
+                {
+                    sb.Append(", ");
+                }
+                sb.Append(GetTypeName(genericArguments[i]));
+            }
+            sb.Append('>');
+            return sb.ToString();
+        }
+
+        return type.Name;
     }
 
     public JsValue Call(Engine engine, object? instance, JsCallArguments arguments)
