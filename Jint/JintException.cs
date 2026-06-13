@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using Jint.Native.Error;
 using Jint.Runtime;
 
 namespace Jint;
@@ -70,6 +71,40 @@ public abstract class JintException : Exception
         }
 
         callStack = null;
+        return false;
+    }
+
+    /// <summary>
+    /// If <paramref name="exception"/> was thrown because a CLR method or constructor call could not be
+    /// resolved (e.g. wrong number or types of arguments), returns the originating CLR <see cref="Type"/>.
+    /// This works regardless of <see cref="Jint.Options.InteropOptions.ExposeDetailedResolutionErrors"/>;
+    /// the type is host-only and never exposed to the running script.
+    /// </summary>
+    public static bool TryGetClrType(Exception? exception, [NotNullWhen(true)] out Type? clrType)
+    {
+        if (exception is JavaScriptException { Error: ErrorInstance { ClrResolutionType: { } type } })
+        {
+            clrType = type;
+            return true;
+        }
+
+        clrType = null;
+        return false;
+    }
+
+    /// <summary>
+    /// If <paramref name="exception"/> was thrown because a CLR method call could not be resolved,
+    /// returns the name of the member that was invoked. Constructors have no member name and return false.
+    /// </summary>
+    public static bool TryGetClrMemberName(Exception? exception, [NotNullWhen(true)] out string? memberName)
+    {
+        if (exception is JavaScriptException { Error: ErrorInstance { ClrResolutionMemberName: { } name } })
+        {
+            memberName = name;
+            return true;
+        }
+
+        memberName = null;
         return false;
     }
 }

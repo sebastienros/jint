@@ -3132,8 +3132,8 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         var engine = new Engine(options => options.AllowClr());
         engine.SetValue("IntValueInput", TypeReference.CreateTypeReference(engine, typeof(IntValueInput)));
         var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("new IntValueInput().testFunc(NaN);").AsString());
-        Assert.StartsWith("No public methods with the specified arguments were found.", ex.Message);
-        Assert.Contains("IntValueInput", ex.Message);
+        // detailed resolution errors are off by default, so the terse message is used
+        Assert.Equal("No public methods with the specified arguments were found.", ex.Message);
 
         Assert.Equal(123, engine.Evaluate("new IntValueInput().testFunc(123);").AsNumber());
     }

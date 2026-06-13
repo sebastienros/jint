@@ -64,9 +64,8 @@ public class GenericMethodTests
                 ");
         });
 
-        Assert.StartsWith("No public methods with the specified arguments were found.", argException.Message);
-        Assert.Contains("TestGenericClass", argException.Message);
-        Assert.Contains("Fancy", argException.Message);
+        // detailed resolution errors are off by default, so the terse message is used
+        Assert.Equal("No public methods with the specified arguments were found.", argException.Message);
     }
 
     // TPC: TODO: tldr; typescript transpiled to javascript does not include the types in the constructors - JINT should allow you to use generics without specifying type
