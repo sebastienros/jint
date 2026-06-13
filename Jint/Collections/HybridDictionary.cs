@@ -12,7 +12,7 @@ internal sealed class HybridDictionary<TValue> : IEngineDictionary<Key, TValue>,
     private const int FixedSizeCutoverPoint = 9;
 
     private readonly bool _checkExistingKeys;
-    private ListDictionary<TValue> _list;
+    private ArrayDictionary<TValue> _list;
     internal StringDictionarySlim<TValue> _dictionary;
 
     public HybridDictionary() : this(0, checkExistingKeys: true)
@@ -25,6 +25,12 @@ internal sealed class HybridDictionary<TValue> : IEngineDictionary<Key, TValue>,
         if (initialSize >= FixedSizeCutoverPoint)
         {
             _dictionary = new StringDictionarySlim<TValue>(initialSize);
+        }
+        else if (initialSize > 0)
+        {
+            // Honor the size hint (object literals, scopes) so the small backing array is allocated
+            // exactly once instead of growing from empty as entries are appended.
+            _list = new ArrayDictionary<TValue>(initialSize, checkExistingKeys);
         }
     }
 
@@ -53,9 +59,8 @@ internal sealed class HybridDictionary<TValue> : IEngineDictionary<Key, TValue>,
                 return ref _list[key];
             }
 
-            var head = new ListDictionary<TValue>.DictionaryNode { Key = key, Value = default };
-            _list = new ListDictionary<TValue>(head, _checkExistingKeys);
-            return ref head.Value;
+            _list = new ArrayDictionary<TValue>(capacity: 1, _checkExistingKeys);
+            return ref _list[key];
         }
     }
 
@@ -102,14 +107,8 @@ internal sealed class HybridDictionary<TValue> : IEngineDictionary<Key, TValue>,
             return ref _list.GetValueRefOrAddDefault(key, out exists);
         }
 
-        var head = new ListDictionary<TValue>.DictionaryNode
-        {
-            Key = key,
-        };
-
-        _list = new ListDictionary<TValue>(head, _checkExistingKeys);
-        exists = false;
-        return ref head.Value;
+        _list = new ArrayDictionary<TValue>(capacity: 1, _checkExistingKeys);
+        return ref _list.GetValueRefOrAddDefault(key, out exists);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -182,7 +181,7 @@ internal sealed class HybridDictionary<TValue> : IEngineDictionary<Key, TValue>,
             return _dictionary.TryAdd(key, value);
         }
 
-        _list ??= new ListDictionary<TValue>(key, value, _checkExistingKeys);
+        _list ??= new ArrayDictionary<TValue>(key, value, _checkExistingKeys);
 
         if (_list.Count + 1 >= CutoverPoint)
         {
@@ -205,7 +204,7 @@ internal sealed class HybridDictionary<TValue> : IEngineDictionary<Key, TValue>,
         {
             if (_list == null)
             {
-                _list = new ListDictionary<TValue>(key, value, _checkExistingKeys);
+                _list = new ArrayDictionary<TValue>(key, value, _checkExistingKeys);
             }
             else
             {
@@ -228,15 +227,15 @@ internal sealed class HybridDictionary<TValue> : IEngineDictionary<Key, TValue>,
     }
 
     /// <summary>
-    /// Clears all entries while keeping the backing dictionary's grown capacity, for pooled owners
-    /// (function environments) that refill with the same key count on every reuse. The cheap list
-    /// backing is cleared normally; only the dictionary's array growth is worth preserving.
+    /// Clears all entries while keeping the backing storage's grown capacity, for pooled owners
+    /// (function environments) that refill with the same key count on every reuse. Both the small
+    /// array backing and the dictionary backing retain their allocated buffers.
     /// See <see cref="StringDictionarySlim{TValue}.ClearPreservingCapacity"/>.
     /// </summary>
     public void ClearPreservingCapacity()
     {
         _dictionary?.ClearPreservingCapacity();
-        _list?.Clear();
+        _list?.ClearPreservingCapacity();
     }
 
     public bool ContainsKey(Key key)
