@@ -121,6 +121,7 @@
   // requested interval (timer-tick granularity), producing non-deterministic
   // failures even though the implementation is correct.
   "NonParallelFeatures": [
+    "Atomics",
     "Atomics.waitAsync"
   ]
 }
