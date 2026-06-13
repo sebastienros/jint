@@ -58,37 +58,19 @@ internal sealed class JintFunctionDefinition
         {
             // https://tc39.es/ecma262/#sec-runtime-semantics-evaluateconcisebody
             _bodyExpression ??= JintExpression.Build((Expression) Function.Body);
+
+            // The async path captures locals into a closure; keeping it in a separate non-inlined
+            // method ensures the C# compiler does not allocate that display class on the hot sync
+            // call path (every function call goes through EvaluateBody).
             if (Function.Async)
             {
-                // local copies to prevent capturing closure created on top of method
-                var function = functionObject;
-                var jsValues = argumentsList;
-
-                var promiseCapability = PromiseConstructor.NewPromiseCapability(context.Engine, context.Engine.Realm.Intrinsics.Promise);
-                // Expression bodies don't have a statement list (used only for resumption)
-                AsyncFunctionStart(context, promiseCapability, body: null, context =>
-                {
-                    context.Engine.FunctionDeclarationInstantiation(function, jsValues);
-                    context.RunBeforeExecuteStatementChecks(Function.Body);
-                    var jsValue = _bodyExpression.GetValue(context).Clone();
-
-                    // Check for async suspension - if suspended, return early to allow resumption
-                    if (context.IsSuspended())
-                    {
-                        return new Completion(CompletionType.Normal, jsValue, _bodyExpression._expression);
-                    }
-
-                    return new Completion(CompletionType.Return, jsValue, _bodyExpression._expression);
-                });
-                result = new Completion(CompletionType.Return, promiseCapability.PromiseInstance, Function.Body);
+                return EvaluateConciseBodyAsync(context, functionObject, argumentsList);
             }
-            else
-            {
-                argumentsInstance = context.Engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
-                context.RunBeforeExecuteStatementChecks(Function.Body);
-                var jsValue = _bodyExpression.GetValue(context).Clone();
-                result = new Completion(CompletionType.Return, jsValue, Function.Body);
-            }
+
+            argumentsInstance = context.Engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
+            context.RunBeforeExecuteStatementChecks(Function.Body);
+            var jsValue = _bodyExpression.GetValue(context).Clone();
+            result = new Completion(CompletionType.Return, jsValue, Function.Body);
         }
         else if (Function.Generator)
         {
@@ -98,33 +80,72 @@ internal sealed class JintFunctionDefinition
         }
         else
         {
+            // See note above: extracted so the closure's display class is not allocated per sync call.
             if (Function.Async)
             {
-                // local copies to prevent capturing closure created on top of method
-                var function = functionObject;
-                var arguments = argumentsList;
+                return EvaluateFunctionBodyAsync(context, functionObject, argumentsList);
+            }
 
-                var promiseCapability = PromiseConstructor.NewPromiseCapability(context.Engine, context.Engine.Realm.Intrinsics.Promise);
-                // Each async function invocation needs its own JintStatementList to track its own position
-                var bodyStatementList = new JintStatementList(Function);
-                AsyncFunctionStart(context, promiseCapability, bodyStatementList, context =>
-                {
-                    context.Engine.FunctionDeclarationInstantiation(function, arguments);
-                    return bodyStatementList.Execute(context);
-                });
-                result = new Completion(CompletionType.Return, promiseCapability.PromiseInstance, Function.Body);
-            }
-            else
-            {
-                // https://tc39.es/ecma262/#sec-runtime-semantics-evaluatefunctionbody
-                argumentsInstance = context.Engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
-                _bodyStatementList ??= new JintStatementList(Function);
-                result = _bodyStatementList.Execute(context);
-            }
+            // https://tc39.es/ecma262/#sec-runtime-semantics-evaluatefunctionbody
+            argumentsInstance = context.Engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
+            _bodyStatementList ??= new JintStatementList(Function);
+            result = _bodyStatementList.Execute(context);
         }
 
         argumentsInstance?.FunctionWasCalled();
         return result;
+    }
+
+    /// <summary>
+    /// Async concise-body (arrow expression body) evaluation. Kept out of <see cref="EvaluateBody"/>
+    /// so the captured-locals closure's display class is not allocated on the hot sync call path.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private Completion EvaluateConciseBodyAsync(EvaluationContext context, Function functionObject, JsCallArguments argumentsList)
+    {
+        // local copies to prevent capturing the method parameters
+        var function = functionObject;
+        var jsValues = argumentsList;
+
+        var promiseCapability = PromiseConstructor.NewPromiseCapability(context.Engine, context.Engine.Realm.Intrinsics.Promise);
+        // Expression bodies don't have a statement list (used only for resumption)
+        AsyncFunctionStart(context, promiseCapability, body: null, context =>
+        {
+            context.Engine.FunctionDeclarationInstantiation(function, jsValues);
+            context.RunBeforeExecuteStatementChecks(Function.Body);
+            var jsValue = _bodyExpression!.GetValue(context).Clone();
+
+            // Check for async suspension - if suspended, return early to allow resumption
+            if (context.IsSuspended())
+            {
+                return new Completion(CompletionType.Normal, jsValue, _bodyExpression._expression);
+            }
+
+            return new Completion(CompletionType.Return, jsValue, _bodyExpression._expression);
+        });
+        return new Completion(CompletionType.Return, promiseCapability.PromiseInstance, Function.Body);
+    }
+
+    /// <summary>
+    /// Async function-body evaluation. Kept out of <see cref="EvaluateBody"/> so the captured-locals
+    /// closure's display class is not allocated on the hot sync call path.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private Completion EvaluateFunctionBodyAsync(EvaluationContext context, Function functionObject, JsCallArguments argumentsList)
+    {
+        // local copies to prevent capturing the method parameters
+        var function = functionObject;
+        var arguments = argumentsList;
+
+        var promiseCapability = PromiseConstructor.NewPromiseCapability(context.Engine, context.Engine.Realm.Intrinsics.Promise);
+        // Each async function invocation needs its own JintStatementList to track its own position
+        var bodyStatementList = new JintStatementList(Function);
+        AsyncFunctionStart(context, promiseCapability, bodyStatementList, context =>
+        {
+            context.Engine.FunctionDeclarationInstantiation(function, arguments);
+            return bodyStatementList.Execute(context);
+        });
+        return new Completion(CompletionType.Return, promiseCapability.PromiseInstance, Function.Body);
     }
 
     /// <summary>
