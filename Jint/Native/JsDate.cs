@@ -12,7 +12,22 @@ public sealed class JsDate : ObjectInstance
     // Minimum allowed value to prevent DateTime overflow
     internal static readonly long Min = (long) -(DateConstructor.Epoch - DateTime.MinValue).TotalMilliseconds;
 
-    internal DatePresentation _dateValue;
+    // The clipped time value is decomposed into a long + a DateFlags byte rather than stored as the
+    // 16-byte DatePresentation struct: the flag byte rides in the object's existing field padding, so
+    // every JsDate instance is 8 bytes smaller on the hot `new Date()` allocation path. DatePresentation
+    // remains the transient computation/return type, reconstructed on access below.
+    private long _dateValueMs;
+    private DateFlags _dateFlags;
+
+    internal DatePresentation _dateValue
+    {
+        get => new(_dateValueMs, _dateFlags);
+        set
+        {
+            _dateValueMs = value.Value;
+            _dateFlags = value.Flags;
+        }
+    }
 
     public JsDate(Engine engine, DateTimeOffset value) : this(engine, value.UtcDateTime)
     {
