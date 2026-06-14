@@ -94,6 +94,11 @@ public sealed partial class Engine : IDisposable
     // cache for already wrapped CLR objects to keep object identity
     internal ConditionalWeakTable<object, ObjectInstance>? _objectWrapperCache;
 
+    // per-object private-element storage ([[PrivateElements]]). Kept off ObjectInstance in a weak table
+    // (keyed by the owning object) so the 8-byte reference doesn't bloat every object on the heap — only
+    // instances of JS classes that declare #private members ever allocate an entry here.
+    internal ConditionalWeakTable<ObjectInstance, Dictionary<PrivateName, PrivateElement>>? _privateElementStore;
+
     // bounded cache of most recently wrapped CLR objects, see Options.Interop.CacheRecentObjectWrappers
     internal RecentObjectWrapperCache? _recentObjectWrapperCache;
 

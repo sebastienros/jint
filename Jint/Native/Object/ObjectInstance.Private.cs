@@ -6,7 +6,9 @@ namespace Jint.Native.Object;
 
 public partial class ObjectInstance
 {
-    private Dictionary<PrivateName, PrivateElement>? _privateElements;
+    // [[PrivateElements]] is stored off-object in Engine._privateElementStore (a weak table keyed by this
+    // object) so the reference doesn't cost 8 bytes on every ObjectInstance; only objects of classes that
+    // declare #private members ever allocate an entry. See Engine._privateElementStore.
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-initializeinstanceelements
@@ -51,8 +53,8 @@ public partial class ObjectInstance
             Throw.TypeError(_engine.Realm, "Already present");
         }
 
-        _privateElements ??= [];
-        _privateElements.Add(method.Key, method);
+        var store = _engine._privateElementStore ??= new();
+        store.GetOrCreateValue(this).Add(method.Key, method);
     }
 
     /// <summary>
@@ -74,8 +76,8 @@ public partial class ObjectInstance
             Throw.TypeError(_engine.Realm, "Already present");
         }
 
-        _privateElements ??= [];
-        _privateElements.Add(property, new PrivateElement { Key = property, Kind = PrivateElementKind.Field, Value = value });
+        var store = _engine._privateElementStore ??= new();
+        store.GetOrCreateValue(this).Add(property, new PrivateElement { Key = property, Kind = PrivateElementKind.Field, Value = value });
     }
 
     /// <summary>
@@ -141,7 +143,13 @@ public partial class ObjectInstance
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal PrivateElement? PrivateElementFind(PrivateName property)
     {
-        return _privateElements?.TryGetValue(property, out var pe) == true ? pe : null;
+        var store = _engine._privateElementStore;
+        if (store is not null && store.TryGetValue(this, out var elements))
+        {
+            return elements.TryGetValue(property, out var pe) ? pe : null;
+        }
+
+        return null;
     }
 }
 
