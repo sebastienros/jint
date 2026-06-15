@@ -51,10 +51,25 @@ dotnet run -c Release --project Jint.Benchmark\Jint.Benchmark.csproj
 
 ### Quick Validation
 
-For fast feedback during development, use `--job short` to reduce warmup and iteration counts:
+To quickly verify that a benchmark *runs* during development, `--job short` reduces warmup and
+iteration counts:
 
 ```bash
 dotnet run -c Release --project Jint.Benchmark\Jint.Benchmark.csproj -- --filter "*EngineConstructionBenchmark*" --job short
+```
+
+> **Do not report or compare numbers from `--job short`.** With only ~3 iterations its run-to-run
+> variance (~10%) exceeds most of the wins we measure, so it is a smoke-test only. Use the default
+> job for any figures that end up in a README, PR, or commit message.
+
+### Engine comparison
+
+The cross-engine comparison (`EngineComparisonBenchmark`) has its own notes and published results in
+[`Jint.Benchmark/README.md`](Jint.Benchmark/README.md). Run it from the `Jint.Benchmark` directory so
+the `Scripts/*.js` files resolve:
+
+```bash
+dotnet run -c Release -- --allCategories EngineComparison
 ```
 
 ## Architecture

@@ -1,9 +1,11 @@
 ﻿using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Order;
+using BenchmarkDotNet.Reports;
 
 namespace Jint.Benchmark;
 
+[Config(typeof(Config))]
 [RankColumn]
 [MemoryDiagnoser]
 [Orderer(SummaryOrderPolicy.FastestToSlowest)]
@@ -12,6 +14,13 @@ namespace Jint.Benchmark;
 [BenchmarkCategory("EngineComparison")]
 public class EngineComparisonBenchmark
 {
+    // Widen the parameter column so full script names such as "dromaeo-object-string-modern"
+    // are printed instead of BenchmarkDotNet's default 20-char truncation ("droma(...)odern [28]").
+    public sealed class Config : ManualConfig
+    {
+        public Config() => WithSummaryStyle(SummaryStyle.Default.WithMaxParameterColumnWidth(40));
+    }
+
     private static readonly Dictionary<string, Prepared<Script>> _parsedScripts = new();
 
     private static readonly Dictionary<string, string> _files = new()
