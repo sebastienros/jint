@@ -38,7 +38,9 @@ public sealed partial class ArrayPrototype : ArrayInstance
         ObjectPrototype objectPrototype) : base(engine, InternalTypes.Object)
     {
         _prototype = objectPrototype;
-        _length = new PropertyDescriptor(JsNumber.PositiveZero, PropertyFlag.Writable);
+        // Array.prototype keeps an explicit length descriptor (preserves its exact PropertyFlag.Writable
+        // attributes; it's a one-time per-realm object so there is no allocation concern here).
+        _lengthDescriptor = new PropertyDescriptor(JsNumber.PositiveZero, PropertyFlag.Writable);
         _realm = realm;
         _constructor = arrayConstructor;
         _joinStack = new(engine);

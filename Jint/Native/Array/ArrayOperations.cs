@@ -262,10 +262,10 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
             => _target.GetSmallestIndex();
 
         public override uint GetLength()
-            => (uint) ((JsNumber) _target._length!._value!)._value;
+            => _target.GetLength();
 
         public override ulong GetLongLength()
-            => (ulong) ((JsNumber) _target._length!._value!)._value;
+            => _target.GetLongLength();
 
         public override void SetLength(ulong length)
             => _target.SetLength(length);
