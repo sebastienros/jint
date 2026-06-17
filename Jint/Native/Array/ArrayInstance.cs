@@ -11,7 +11,46 @@ namespace Jint.Native.Array;
 
 public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
 {
-    internal PropertyDescriptor? _length;
+    // The "length" own property. To avoid a per-array PropertyDescriptor allocation in the common case,
+    // the value is stored inline in _lengthValue and a descriptor (_lengthDescriptor) is materialized and
+    // cached only when a caller needs the object: [[GetOwnProperty]], [[DefineOwnProperty]] (incl. making
+    // length non-writable), or reflection. Once _lengthDescriptor is non-null it is authoritative.
+    // Inline state is always the default (writable, non-enumerable, non-configurable) because the only ways
+    // to alter length's attributes go through DefineLength, which materializes first. Both fields null means
+    // length has been removed (only reachable internally; length is normally non-configurable).
+    private JsNumber? _lengthValue;
+    private protected PropertyDescriptor? _lengthDescriptor;
+
+    /// <summary>Current length value (PositiveZero if length was removed).</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private JsNumber GetJsNumberLength()
+        => _lengthDescriptor is not null ? (JsNumber) _lengthDescriptor._value! : (_lengthValue ?? JsNumber.PositiveZero);
+
+    private bool HasLength => _lengthDescriptor is not null || _lengthValue is not null;
+
+    // Matches `_length is { Writable: true }`: present AND writable. Inline length is always writable
+    // (non-writable length only arises via DefineLength, which materializes the descriptor first).
+    private bool LengthIsWritable => _lengthDescriptor is not null ? _lengthDescriptor.Writable : _lengthValue is not null;
+
+    /// <summary>Materialize and cache the length descriptor for spec/reflection paths. Null only if removed.</summary>
+    private PropertyDescriptor? GetLengthDescriptor()
+        => _lengthDescriptor ??= _lengthValue is null ? null : new PropertyDescriptor(_lengthValue, PropertyFlag.OnlyWritable);
+
+    /// <summary>Update the length value (mutates the materialized descriptor when present, else inline).</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void SetLengthValue(JsNumber value)
+    {
+        if (_lengthDescriptor is not null)
+        {
+            _lengthDescriptor.Value = value;
+        }
+        else
+        {
+            _lengthValue = value;
+        }
+    }
+
+    internal ulong GetLongLength() => (ulong) GetJsNumberLength()._value;
 
     private const int MaxDenseArrayLength = 10_000_000;
     internal const int MaxDenseArrayLengthInternal = MaxDenseArrayLength;
@@ -45,7 +84,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
             _sparse = new Dictionary<uint, PropertyDescriptor?>(1024);
         }
 
-        _length = new PropertyDescriptor(length, PropertyFlag.OnlyWritable);
+        _lengthValue = JsNumber.Create(length);
     }
 
     private protected ArrayInstance(Engine engine, JsValue[] items) : base(engine, type: InternalTypes.Object | InternalTypes.Array)
@@ -53,7 +92,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         InitializePrototypeAndValidateCapacity(engine, capacity: 0);
 
         _dense = items;
-        _length = new PropertyDescriptor(items.Length, PropertyFlag.OnlyWritable);
+        _lengthValue = JsNumber.Create(items.Length);
     }
 
     private void InitializePrototypeAndValidateCapacity(Engine engine, uint capacity)
@@ -147,7 +186,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
             Throw.RangeError(_engine.Realm);
         }
 
-        var oldLenDesc = _length;
+        var oldLenDesc = GetLengthDescriptor();
         var oldLen = (uint) TypeConverter.ToNumber(oldLenDesc!.Value);
 
         newLenDesc.Value = newLen;
@@ -268,7 +307,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
 
     private bool DefineOwnProperty(uint index, PropertyDescriptor desc)
     {
-        var oldLenDesc = _length;
+        var oldLenDesc = GetLengthDescriptor();
         var oldLen = (uint) TypeConverter.ToNumber(oldLenDesc!.Value);
 
         if (index >= oldLen && !oldLenDesc.Writable)
@@ -294,15 +333,12 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal override uint GetLength() => (uint) GetJsNumberLength()._value;
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private JsNumber GetJsNumberLength() => _length is null ? JsNumber.PositiveZero : (JsNumber) _length._value!;
-
     protected sealed override bool TryGetProperty(JsValue property, [NotNullWhen(true)] out PropertyDescriptor? descriptor)
     {
         if (CommonProperties.Length.Equals(property))
         {
-            descriptor = _length;
-            return _length != null;
+            descriptor = GetLengthDescriptor();
+            return descriptor != null;
         }
 
         return base.TryGetProperty(property, out descriptor);
@@ -336,7 +372,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
             }
         }
 
-        if (_length != null)
+        if (HasLength)
         {
             properties.Add(CommonProperties.Length);
         }
@@ -357,9 +393,9 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
             yield return new KeyValuePair<string, JsValue>(TypeConverter.ToString(index), value);
         }
 
-        if (includeLength && _length != null)
+        if (includeLength && HasLength)
         {
-            yield return new KeyValuePair<string, JsValue>(CommonProperties.Length._value, _length.Value);
+            yield return new KeyValuePair<string, JsValue>(CommonProperties.Length._value, GetJsNumberLength());
         }
     }
 
@@ -395,9 +431,9 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
             }
         }
 
-        if (_length != null)
+        if (GetLengthDescriptor() is { } lengthDescriptor)
         {
-            yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Length, _length);
+            yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Length, lengthDescriptor);
         }
 
         foreach (var entry in base.GetOwnProperties())
@@ -410,7 +446,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
     {
         if (CommonProperties.Length.Equals(property))
         {
-            return _length ?? PropertyDescriptor.Undefined;
+            return GetLengthDescriptor() ?? PropertyDescriptor.Undefined;
         }
 
         if (IsArrayIndex(property, out var index))
@@ -445,10 +481,9 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
 
         if (CommonProperties.Length.Equals(property))
         {
-            var length = _length?._value;
-            if (length is not null)
+            if (HasLength)
             {
-                return length;
+                return GetJsNumberLength();
             }
         }
 
@@ -467,14 +502,14 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
             }
 
             if (CommonProperties.Length.Equals(property)
-                && _length is { Writable: true }
+                && LengthIsWritable
                 && value is JsNumber jsNumber
                 && jsNumber.IsInteger()
                 && jsNumber._value <= MaxDenseArrayLength
                 && jsNumber._value >= GetLength())
             {
                 // we don't need explicit resize
-                _length.Value = jsNumber;
+                SetLengthValue(jsNumber);
                 return true;
             }
         }
@@ -526,7 +561,8 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         }
         else if (CommonProperties.Length.Equals(property))
         {
-            _length = desc;
+            _lengthDescriptor = desc;
+            _lengthValue = null;
         }
         else
         {
@@ -565,7 +601,8 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
 
         if (CommonProperties.Length.Equals(property))
         {
-            _length = null;
+            _lengthDescriptor = null;
+            _lengthValue = null;
         }
 
         base.RemoveOwnProperty(property);
@@ -630,9 +667,11 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void SetLength(JsNumber length)
     {
-        if (Extensible && _length!._flags == PropertyFlag.OnlyWritable)
+        // Fast path requires length present with the default (writable, non-enum, non-config) attributes —
+        // which is exactly the inline state, or a materialized descriptor still carrying OnlyWritable.
+        if (Extensible && (_lengthDescriptor is null ? _lengthValue is not null : _lengthDescriptor._flags == PropertyFlag.OnlyWritable))
         {
-            _length!.Value = length;
+            SetLengthValue(length);
         }
         else
         {
@@ -925,9 +964,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         // Lazy-backed arrays from `new Array(N)` start with _dense.Length=0 but _length=N;
         // a write to an index within N is not sparse intent, just realising the lazy capacity.
         // Compare against the larger of the physical backing length and the declared length.
-        var declaredLength = _length is { } lengthDesc && lengthDesc._value is JsNumber lengthNumber
-            ? (uint) lengthNumber._value
-            : 0u;
+        var declaredLength = (uint) GetJsNumberLength()._value;
         var denseHeadroom = System.Math.Max((uint) (dense?.Length ?? 0), declaredLength);
 
         var canUseDense = dense != null
@@ -1204,7 +1241,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         // check if we can set length fast without breaking ECMA specification
         if (n < uint.MaxValue && CanSetLength())
         {
-            _length!.Value = newLength;
+            SetLengthValue(JsNumber.Create(newLength));
         }
         else
         {
@@ -1251,7 +1288,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         // check if we can set length fast without breaking ECMA specification
         if (n < ArrayOperations.MaxArrayLength && CanSetLength())
         {
-            _length!.Value = n;
+            SetLengthValue(JsNumber.Create(n));
         }
         else
         {
@@ -1287,11 +1324,17 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
 
     private bool CanSetLength()
     {
-        if (!_length!.IsAccessorDescriptor())
+        var desc = _lengthDescriptor;
+        if (desc is null)
         {
-            return _length.Writable;
+            // inline length is always writable
+            return true;
         }
-        var set = _length.Set;
+        if (!desc.IsAccessorDescriptor())
+        {
+            return desc.Writable;
+        }
+        var set = desc.Set;
         return set is not null && !set.IsUndefined();
     }
 
@@ -1577,7 +1620,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
     public sealed override string ToString()
     {
         // debugger can make things hard when evaluates computed values
-        return "(" + (_length?._value!.AsNumber() ?? 0) + ")[]";
+        return "(" + GetJsNumberLength()._value + ")[]";
     }
 
     internal static void ThrowMaximumArraySizeReachedException(Engine engine, uint capacity)

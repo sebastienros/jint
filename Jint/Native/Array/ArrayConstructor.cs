@@ -880,7 +880,7 @@ public sealed partial class ArrayConstructor : Constructor
                     break;
                 default:
                     instance = ArrayCreate(capacity, prototypeObject);
-                    instance._length!._value = JsNumber.PositiveZero;
+                    instance.SetLengthValue(JsNumber.PositiveZero);
                     instance.Push(arguments);
                     break;
             }
@@ -888,7 +888,7 @@ public sealed partial class ArrayConstructor : Constructor
         else
         {
             instance = ArrayCreate((ulong) arguments.Length, prototypeObject);
-            instance._length!._value = JsNumber.PositiveZero;
+            instance.SetLengthValue(JsNumber.PositiveZero);
             if (arguments.Length > 0)
             {
                 instance.Push(arguments);
