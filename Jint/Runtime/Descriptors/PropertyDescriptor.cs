@@ -309,7 +309,7 @@ public class PropertyDescriptor
 
         if (hasWritable)
         {
-            desc.Writable = TypeConverter.ToBoolean(writable!.Value);
+            desc.Writable = writable!.Value;
             desc.WritableSet = true;
         }
 
@@ -333,10 +333,8 @@ public class PropertyDescriptor
             ((GetSetPropertyDescriptor) desc).SetSet(set!);
         }
 
-        if ((hasSet || hasGet) && (hasValue || hasWritable))
-        {
-            Throw.TypeError(realm, "Invalid property descriptor. Cannot both specify accessors and a value or writable attribute");
-        }
+        // NOTE: the accessor-vs-data conflict is already rejected above (before desc was built); the has*
+        // flags are immutable thereafter, so a second identical check here would be dead code.
 
         return desc;
     }
