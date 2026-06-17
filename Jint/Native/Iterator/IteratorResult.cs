@@ -9,15 +9,22 @@ namespace Jint.Native.Iterator;
 /// </summary>
 internal sealed class IteratorResult : ObjectInstance
 {
-    // Store as PropertyDescriptor fields for fast access while supporting delete
-    // Null means the property has been deleted
+    // value/done are stored inline so a per-step result object allocates NO PropertyDescriptor on the hot
+    // iteration path: for-of / spread / destructuring / generators read them via Get(), served straight from
+    // these fields, and the result object is then discarded. A heap PropertyDescriptor is materialized (and
+    // cached, so [[DefineOwnProperty]] mutations persist) only on the cold reflective paths
+    // (GetOwnProperty / GetOwnProperties), or stored directly when a script redefines the property via
+    // SetOwnProperty — in which case the descriptor takes precedence over the inline value. A null inline
+    // value together with a null descriptor means the property has been deleted.
+    private JsValue? _value;
+    private JsValue? _done;
     private PropertyDescriptor? _valueDesc;
     private PropertyDescriptor? _doneDesc;
 
     public IteratorResult(Engine engine, JsValue value, JsBoolean done) : base(engine)
     {
-        _valueDesc = new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable);
-        _doneDesc = new PropertyDescriptor(done, PropertyFlag.ConfigurableEnumerableWritable);
+        _value = value;
+        _done = done;
     }
 
     public static IteratorResult CreateValueIteratorPosition(Engine engine, JsValue? value = null, JsBoolean? done = null)
@@ -37,12 +44,20 @@ internal sealed class IteratorResult : ObjectInstance
     {
         if (CommonProperties.Value.Equals(property))
         {
-            return _valueDesc?.Value ?? base.Get(property, receiver);
+            if (_valueDesc is not null)
+            {
+                return _valueDesc.Value;
+            }
+            return _value ?? base.Get(property, receiver);
         }
 
         if (CommonProperties.Done.Equals(property))
         {
-            return _doneDesc?.Value ?? base.Get(property, receiver);
+            if (_doneDesc is not null)
+            {
+                return _doneDesc.Value;
+            }
+            return _done ?? base.Get(property, receiver);
         }
 
         return base.Get(property, receiver);
@@ -52,11 +67,21 @@ internal sealed class IteratorResult : ObjectInstance
     {
         if (CommonProperties.Value.Equals(property))
         {
+            // Materialize lazily and cache: callers (e.g. ValidateAndApplyPropertyDescriptor) mutate the
+            // returned descriptor in place and expect the change to land in storage.
+            if (_valueDesc is null && _value is not null)
+            {
+                _valueDesc = new PropertyDescriptor(_value, PropertyFlag.ConfigurableEnumerableWritable);
+            }
             return _valueDesc ?? base.GetOwnProperty(property);
         }
 
         if (CommonProperties.Done.Equals(property))
         {
+            if (_doneDesc is null && _done is not null)
+            {
+                _doneDesc = new PropertyDescriptor(_done, PropertyFlag.ConfigurableEnumerableWritable);
+            }
             return _doneDesc ?? base.GetOwnProperty(property);
         }
 
@@ -65,16 +90,31 @@ internal sealed class IteratorResult : ObjectInstance
 
     public override bool Set(JsValue property, JsValue value, JsValue receiver)
     {
-        if (CommonProperties.Value.Equals(property) && _valueDesc is not null)
+        if (CommonProperties.Value.Equals(property))
         {
-            _valueDesc.Value = value;
-            return true;
+            if (_valueDesc is not null)
+            {
+                _valueDesc.Value = value;
+                return true;
+            }
+            if (_value is not null)
+            {
+                _value = value;
+                return true;
+            }
         }
-
-        if (CommonProperties.Done.Equals(property) && _doneDesc is not null)
+        else if (CommonProperties.Done.Equals(property))
         {
-            _doneDesc.Value = value;
-            return true;
+            if (_doneDesc is not null)
+            {
+                _doneDesc.Value = value;
+                return true;
+            }
+            if (_done is not null)
+            {
+                _done = value;
+                return true;
+            }
         }
 
         return base.Set(property, value, receiver);
@@ -101,12 +141,14 @@ internal sealed class IteratorResult : ObjectInstance
     {
         if (CommonProperties.Value.Equals(property))
         {
+            _value = null;
             _valueDesc = null;
             return;
         }
 
         if (CommonProperties.Done.Equals(property))
         {
+            _done = null;
             _doneDesc = null;
             return;
         }
@@ -120,11 +162,11 @@ internal sealed class IteratorResult : ObjectInstance
 
         if ((types & Types.String) != Types.Empty)
         {
-            if (_valueDesc is not null)
+            if (_value is not null || _valueDesc is not null)
             {
                 keys.Add(CommonProperties.Value);
             }
-            if (_doneDesc is not null)
+            if (_done is not null || _doneDesc is not null)
             {
                 keys.Add(CommonProperties.Done);
             }
@@ -141,13 +183,15 @@ internal sealed class IteratorResult : ObjectInstance
 
     public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
     {
-        if (_valueDesc is not null)
+        if (_value is not null || _valueDesc is not null)
         {
+            _valueDesc ??= new PropertyDescriptor(_value!, PropertyFlag.ConfigurableEnumerableWritable);
             yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Value, _valueDesc);
         }
 
-        if (_doneDesc is not null)
+        if (_done is not null || _doneDesc is not null)
         {
+            _doneDesc ??= new PropertyDescriptor(_done!, PropertyFlag.ConfigurableEnumerableWritable);
             yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Done, _doneDesc);
         }
 

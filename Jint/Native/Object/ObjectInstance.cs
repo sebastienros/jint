@@ -22,7 +22,7 @@ namespace Jint.Native.Object;
 [DebuggerTypeProxy(typeof(ObjectInstanceDebugView))]
 public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
 {
-    private bool _initialized;
+    private protected bool _initialized;
     private readonly ObjectClass _class;
 
     internal PropertyDictionary? _properties;
@@ -1385,6 +1385,39 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool CreateDataProperty(JsValue p, JsValue v)
     {
+        // Fast path for an ordinary, extensible object gaining a brand-new string-keyed data property.
+        // The generic DefineOwnProperty → ValidateAndApplyPropertyDescriptor route allocates a transient
+        // descriptor here and then a second, identical one to actually store (ValidateAndApply re-creates
+        // it), so an object filled via this.x= / spread / Object.assign pays two PropertyDescriptor
+        // allocations per property. When the receiver is a PlainObject (no exotic [[GetOwnProperty]]),
+        // extensible, and the key is absent, the result is simply "store one CEW data descriptor".
+        //
+        // Store through the virtual SetOwnProperty (exactly what ValidateAndApplyPropertyDescriptor uses)
+        // — NOT the raw SetProperty primitive — so side-effecting overrides still run. ObjectPrototype is
+        // itself a PlainObject and overrides SetOwnProperty to flip ObjectChangeFlags.ArrayIndex (which
+        // disables the array fast-access path); skipping it silently breaks inherited-index iteration in
+        // Array.prototype.concat/sort. No PlainObject overrides [[DefineOwnProperty]] without also
+        // overriding SetOwnProperty, so this routing is equivalent to the full path for every PlainObject.
+        //
+        // The `_initialized` gate keeps the absence check honest: a lazily-initialized PlainObject
+        // (intrinsic prototypes, GlobalObject, NumberPrototype) populates _properties in Initialize(), so
+        // before that runs a built-in key could be misread as absent and overwritten. Those objects are
+        // skipped here and handled by the generic path (whose GetOwnProperty runs EnsureInitialized).
+        // Ordinary user objects (JsObject) are born initialized, so they take this path with no per-object
+        // virtual Initialize() call.
+        if ((_type & InternalTypes.PlainObject) != InternalTypes.Empty
+            && _initialized
+            && Extensible
+            && p is JsString jsString)
+        {
+            Key key = jsString.ToString();
+            if (_properties is null || !_properties.TryGetValue(key, out _))
+            {
+                SetOwnProperty(p, new PropertyDescriptor(v, PropertyFlag.ConfigurableEnumerableWritable));
+                return true;
+            }
+        }
+
         return DefineOwnProperty(p, new PropertyDescriptor(v, PropertyFlag.ConfigurableEnumerableWritable));
     }
 
