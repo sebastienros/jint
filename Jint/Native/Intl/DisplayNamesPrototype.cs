@@ -118,7 +118,7 @@ internal sealed partial class DisplayNamesPrototype : Prototype
         }
 
         // Check for empty subtags (consecutive hyphens)
-        if (code.Contains("--"))
+        if (code.Contains("--", StringComparison.Ordinal))
         {
             return false;
         }

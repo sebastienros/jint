@@ -431,7 +431,7 @@ internal sealed class LocaleConstructor : Constructor
         }
 
         // Check for double dashes
-        if (stringValue.Contains("--"))
+        if (stringValue.Contains("--", StringComparison.Ordinal))
         {
             Throw.RangeError(_realm, $"Invalid variants option: {stringValue}");
         }

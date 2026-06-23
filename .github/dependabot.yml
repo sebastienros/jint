@@ -1,7 +1,11 @@
-# To get started with Dependabot version updates, you'll need to specify which
-# package ecosystems to update and where the package manifests are located.
-# Please see the documentation for all configuration options:
+# Dependabot version updates.
 # https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+#
+# Dependencies are split into logical groups so each weekly PR is cohesive and
+# easy to review/revert, instead of one large PR bumping everything at once.
+# A dependency is placed in the FIRST group whose patterns it matches, so the
+# groups below are ordered most-specific first, with the broad "microsoft"
+# catch-all last. Packages that match no group get their own individual PR.
 
 version: 2
 updates:
@@ -9,8 +13,45 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 10
     groups:
-       # Grouped version updates configuration
-       all-dependencies:
-          patterns:
-            - "*"
+      # Roslyn analyzers and source generators (build-time only).
+      analyzers:
+        patterns:
+          - "Meziantou.Analyzer"
+          - "Microsoft.CodeAnalysis.*"
+          - "PolySharp"
+      # Test frameworks, runners, adapters and assertion/helper libraries.
+      testing:
+        patterns:
+          - "xunit*"
+          - "NUnit*"
+          - "Microsoft.NET.Test.Sdk"
+          - "Microsoft.Extensions.TimeProvider.Testing"
+          - "AwesomeAssertions"
+          - "Verify.*"
+          - "GitHubActionsTestLogger"
+          - "Test262Harness"
+          - "MongoDB.Bson.signed"
+          - "Flurl.Http.Signed"
+          - "SharpZipLib"
+      # Benchmarking tooling.
+      benchmark:
+        patterns:
+          - "BenchmarkDotNet*"
+      # Alternative JS engines used only for comparison benchmarks/tests.
+      js-engine-comparisons:
+        patterns:
+          - "Jurassic"
+          - "NiL.JS"
+          - "YantraJS.Core"
+      # The Acornima parser packages, which are versioned in lockstep.
+      acornima:
+        patterns:
+          - "Acornima*"
+      # Remaining Microsoft / System runtime packages
+      # (e.g. Microsoft.Extensions.DependencyInjection, System.Text.Json).
+      microsoft:
+        patterns:
+          - "Microsoft.*"
+          - "System.*"

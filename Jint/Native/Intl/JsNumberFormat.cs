@@ -358,7 +358,7 @@ internal sealed class JsNumberFormat : ObjectInstance
             compactFormatted = compactValue.ToString("F" + compactDecimalPlaces, NumberFormatInfo);
             // Trim trailing zeros after decimal
             var decSep = NumberFormatInfo.NumberDecimalSeparator;
-            if (compactFormatted.Contains(decSep))
+            if (compactFormatted.Contains(decSep, StringComparison.Ordinal))
             {
                 compactFormatted = compactFormatted.TrimEnd('0');
                 if (compactFormatted.EndsWith(decSep, StringComparison.Ordinal))
@@ -452,7 +452,7 @@ internal sealed class JsNumberFormat : ObjectInstance
                 formatted = rounded.ToString("F" + decimalPlaces, NumberFormatInfo);
                 // Trim trailing zeros
                 var decSep = NumberFormatInfo.NumberDecimalSeparator;
-                if (formatted.Contains(decSep))
+                if (formatted.Contains(decSep, StringComparison.Ordinal))
                 {
                     formatted = formatted.TrimEnd('0');
                     if (formatted.EndsWith(decSep, StringComparison.Ordinal))
@@ -474,7 +474,7 @@ internal sealed class JsNumberFormat : ObjectInstance
 
         // Trim trailing zeros but keep at least required precision
         var sep = NumberFormatInfo.NumberDecimalSeparator;
-        if (smallFormatted.Contains(sep))
+        if (smallFormatted.Contains(sep, StringComparison.Ordinal))
         {
             smallFormatted = smallFormatted.TrimEnd('0');
             if (smallFormatted.EndsWith(sep, StringComparison.Ordinal))
