@@ -853,6 +853,19 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         var temp = _dense;
         if (temp is not null && index < (uint) temp.Length && temp[index] is not null)
         {
+            // A non-writable element descriptor can coexist with the dense backing when descriptors have
+            // been materialized (GetOwnProperties / for-in lazily populate _sparse alongside _dense) and
+            // one is then turned read-only in place. Bail to the full Set/PutValue path so writability is
+            // enforced, but only when the array is also non-extensible: an extensible array's fallback
+            // ArrayInstance.Set re-enters this same dense fast path and would write through regardless, so
+            // the lookup would be wasted work there. The cheap _sparse null check comes first so the common
+            // (non-materialized) write stays free; the dictionary probe is reached only for the rare
+            // materialized + non-extensible array.
+            if (_sparse is not null && !Extensible && _sparse.TryGetValue(index, out var descriptor) && descriptor is not null && !descriptor.Writable)
+            {
+                return false;
+            }
+
             temp[index] = value;
             return true;
         }

@@ -126,6 +126,23 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
             Throw.TypeError(_engine.Realm, "Invalid array length");
         }
 
+        if (ReferenceEquals(receiver, this) && property.IsNumber())
+        {
+            // An in-range element write to a read-only or non-extensible (frozen) wrapper must be refused:
+            // base.SetSlow would otherwise materialize a throwaway descriptor and return true, silently
+            // "succeeding" (#2541). Everything else — writable in-range writes, growth, out-of-range,
+            // negative and non-integral indices — defers to base.Set, which writes through and already
+            // rejects runtime read-only collections (e.g. ReadOnlyCollection<T>) cleanly. Wrappers don't
+            // track per-element writability, so a non-extensible wrapper blocks existing-element writes too
+            // — a deliberate, contained interop divergence from the spec.
+            var numValue = ((JsNumber) property)._value;
+            if (TypeConverter.IsIntegralNumber(numValue) && numValue >= 0 && numValue < Length
+                && (!CanWrite || !Extensible))
+            {
+                return false;
+            }
+        }
+
         return base.Set(property, value, receiver);
     }
 

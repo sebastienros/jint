@@ -882,6 +882,167 @@ public partial class InteropTests : IDisposable
     }
 
     [Fact]
+    public void NonWritableArrayElement_ThrowsOnIndexWrite_StrictMode()
+    {
+        // https://github.com/sebastienros/jint/issues/2541
+        // The CLR object[] nested in the wrapped dictionary is exposed as a native JS array. Once its
+        // element descriptors are made non-writable and the array is made non-extensible, assigning to
+        // an element must throw a TypeError in strict mode. Regression: it previously neither threw nor
+        // assigned (the dense-write fast path bypassed the writability check).
+        var engine = new Engine(x => x.Strict());
+
+        var context = new Dictionary<string, object>
+        {
+            ["property"] = new object[1],
+        };
+
+        var contextValue = JsValue.FromObjectWithType(engine, context, typeof(IReadOnlyDictionary<string, object>));
+
+        // Lock the context value using the same pattern as the issue reporter:
+        // iterate properties, set writable=false, recurse into values, and call FastSetProperty
+        LockDescriptorHelper(contextValue, []);
+
+        var contextDescriptor = new Jint.Runtime.Descriptors.PropertyDescriptor
+        {
+            Value = contextValue,
+            Writable = false,
+            Enumerable = true,
+            Configurable = false,
+        };
+
+        engine.Global.DefineOwnProperty("context", contextDescriptor);
+
+        var before = engine.Evaluate("context.property[0]");
+
+        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("context.property[0] = {};"));
+        Assert.Contains("Cannot assign", ex.Message, StringComparison.OrdinalIgnoreCase);
+
+        // the element must be left untouched (the issue's other symptom was a silent overwrite)
+        Assert.Equal(before, engine.Evaluate("context.property[0]"));
+    }
+
+    [Fact]
+    public void NonWritableArrayElement_SilentlyIgnoresIndexWrite_NonStrict()
+    {
+        // Non-strict counterpart of https://github.com/sebastienros/jint/issues/2541:
+        // the write to the non-writable element must be silently ignored, not applied.
+        var engine = new Engine();
+
+        var context = new Dictionary<string, object>
+        {
+            ["property"] = new object[1],
+        };
+
+        var contextValue = JsValue.FromObjectWithType(engine, context, typeof(IReadOnlyDictionary<string, object>));
+
+        LockDescriptorHelper(contextValue, []);
+
+        engine.Global.DefineOwnProperty("context", new Jint.Runtime.Descriptors.PropertyDescriptor
+        {
+            Value = contextValue,
+            Writable = false,
+            Enumerable = true,
+            Configurable = false,
+        });
+
+        var before = engine.Evaluate("context.property[0]");
+
+        // no throw in sloppy mode
+        engine.Evaluate("context.property[0] = {};");
+
+        // ...but the assignment must not have taken effect
+        Assert.Equal(before, engine.Evaluate("context.property[0]"));
+    }
+
+    private static void LockDescriptorHelper(JsValue jsValue, HashSet<JsValue> visited)
+    {
+        if (!visited.Add(jsValue))
+        {
+            return;
+        }
+
+        if (jsValue.IsObject())
+        {
+            var obj = jsValue.AsObject();
+
+            foreach (var property in obj.GetOwnProperties())
+            {
+                property.Value.Writable = false;
+                property.Value.Enumerable = true;
+                property.Value.Configurable = false;
+
+                LockDescriptorHelper(property.Value.Value, visited);
+
+                obj.FastSetProperty(property.Key, property.Value);
+            }
+
+            obj.PreventExtensions();
+        }
+    }
+
+    [Fact]
+    public void FrozenListWrapper_BlocksIndexWrite_StrictMode()
+    {
+        // https://github.com/sebastienros/jint/issues/2541 (interop-wrapper variant)
+        // A frozen IList<T> wrapper must reject element assignment in strict mode rather than letting the
+        // base SetSlow path silently "succeed". Wrappers don't track per-element writability, so the
+        // non-extensible (frozen) state is what blocks the write.
+        var engine = new Engine(x => x.Strict());
+        var list = new List<object> { "a", "b" };
+        engine.SetValue("list", list);
+        engine.Execute("Object.freeze(list);");
+
+        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("list[0] = 'changed';"));
+        Assert.Contains("Cannot assign", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("a", list[0]); // not mutated
+    }
+
+    [Fact]
+    public void FrozenListWrapper_SilentlyIgnoresIndexWrite_NonStrict()
+    {
+        var engine = new Engine();
+        var list = new List<object> { "a", "b" };
+        engine.SetValue("list", list);
+        engine.Execute("Object.freeze(list);");
+
+        engine.Evaluate("list[0] = 'changed';"); // no throw in sloppy mode
+        Assert.Equal("a", list[0]); // ...but silently ignored, not mutated
+    }
+
+    [Fact]
+    public void WritableListWrapper_AllowsIndexWrite()
+    {
+        // The frozen guard must not regress ordinary writable element assignment through the wrapper.
+        var engine = new Engine(x => x.Strict());
+        var list = new List<object> { "a", "b" };
+        engine.SetValue("list", list);
+
+        engine.Evaluate("list[0] = 'changed';");
+        Assert.Equal("changed", list[0]);
+    }
+
+    [Fact]
+    public void ReadOnlyCollectionWrapper_RejectsIndexWriteCleanly()
+    {
+        // A runtime read-only IList<T> (e.g. List<T>.AsReadOnly()) is wrapped as a writable
+        // GenericListWrapper, but its backing indexer throws. The element write must be rejected
+        // through the normal [[Set]] path (TypeError in strict, silent no-op in non-strict), NOT
+        // surface a raw NotSupportedException from the underlying collection.
+        var readOnly = new List<int> { 1, 2 }.AsReadOnly();
+
+        var strict = new Engine(x => x.Strict());
+        strict.SetValue("a", readOnly);
+        var ex = Assert.Throws<JavaScriptException>(() => strict.Evaluate("a[0] = 9;"));
+        Assert.Contains("Cannot assign", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(1, readOnly[0]);
+
+        var sloppy = new Engine();
+        sloppy.SetValue("a", readOnly);
+        sloppy.Evaluate("a[0] = 9;"); // silently ignored, no throw
+        Assert.Equal(1, readOnly[0]);
+    }
+
+    [Fact]
     public void CanUseIndexOnCollection()
     {
         var collection = new System.Collections.ObjectModel.Collection<string>();
