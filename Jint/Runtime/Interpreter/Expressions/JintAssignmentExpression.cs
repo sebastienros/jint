@@ -563,8 +563,18 @@ internal sealed class JintAssignmentExpression : JintExpression
         // https://262.ecma-international.org/5.1/#sec-11.13.1
         private JsValue SetValue(EvaluationContext context)
         {
-            // slower version
             var engine = context.Engine;
+
+            // Write-side inline cache for `obj.prop = rhs` (mirrors JintMemberExpression.GetValue's read cache):
+            // resolves base+rhs once and stores straight into a live writable data descriptor, otherwise completes
+            // through PutValue. Only declines (returns false) before evaluating anything, so the slow path stays sound.
+            if (_left is JintMemberExpression memberLeft
+                && memberLeft.TryAssignFast(context, _right, out var fastResult))
+            {
+                return fastResult;
+            }
+
+            // slower version
             var lref = _left.Evaluate(context) as Reference;
             if (lref is null)
             {
