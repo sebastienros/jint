@@ -435,4 +435,96 @@ internal sealed class JintMemberExpression : JintExpression
         thisObject = JsValue.Undefined;
         return JsValue.Undefined;
     }
+
+    /// <summary>
+    /// Write-side counterpart of <see cref="GetValue"/>'s inline cache for <c>obj.prop = rhs</c>. Reuses the
+    /// same version-gated own-property cache slots: when the receiver is a <see cref="InternalTypes.PlainObject"/>
+    /// whose shape is unchanged and the own property is a <em>live</em> writable, non-accessor, non-custom data
+    /// descriptor, the new value is written straight into the descriptor (no Reference rent, no property-key hash,
+    /// no dictionary lookup) — exactly the in-place store <see cref="ObjectInstance.Set(JsValue,JsValue,JsValue)"/>
+    /// performs, which by design does not bump <c>_propertiesVersion</c>.
+    /// <para>
+    /// The method returns <c>false</c> only from the eligibility gate, having evaluated nothing, so the caller's
+    /// unchanged slow path runs. Once the base and right-hand side have been evaluated (each exactly once, in spec
+    /// order) it always completes the assignment and returns <c>true</c>: either the in-place store, or — for an
+    /// absent / accessor / read-only / custom-value property, or a non-<see cref="ObjectInstance"/> base — a
+    /// fallback through <see cref="Engine.PutValue"/> rented from the already-resolved base+key (so a side-effecting
+    /// base or RHS is never evaluated twice and prototype-setter / CreateDataProperty / strict read-only semantics
+    /// are preserved).
+    /// </para>
+    /// </summary>
+    internal bool TryAssignFast(EvaluationContext context, JintExpression right, out JsValue result)
+    {
+        var engine = context.Engine;
+
+        // Same eligibility as GetValue's primary fast path, plus the computed-read path's Suspendable==null gate:
+        // a static string-named, non-optional, non-short-circuiting, non-super property write with no custom
+        // resolver, in a context where neither operand can suspend (so no generator/async bookkeeping is needed).
+        if (_propertyExpression is not null
+            || _determinedProperty is not JsString determinedProperty
+            || _memberExpression.Optional
+            || _objectExpressionCanShortCircuit
+            || engine._customResolver
+            || _objectExpression is JintSuperExpression
+            || engine.ExecutionContext.Suspendable is not null)
+        {
+            result = JsValue.Undefined;
+            return false;
+        }
+
+        // Evaluate base, then RHS — each exactly once, preserving base→key→rhs spec order. A null/undefined base
+        // is simply not a PlainObject and flows to the fallback, where PutValue→ToObject throws after the RHS.
+        var baseValue = _objectExpression.GetValue(context);
+        var rval = right.GetValue(context);
+
+        context.LastSyntaxElement = _expression;
+
+        if (baseValue is ObjectInstance baseObject
+            && (baseObject._type & InternalTypes.PlainObject) != InternalTypes.Empty)
+        {
+            PropertyDescriptor? descriptor;
+            if (ReferenceEquals(baseObject, _cachedReadObject)
+                && baseObject._propertiesVersion == _cachedReadVersion
+                && _cachedReadDescriptor is not null)
+            {
+                descriptor = _cachedReadDescriptor;
+            }
+            else
+            {
+                var ownDescriptor = baseObject.GetOwnProperty(determinedProperty);
+                if (ReferenceEquals(ownDescriptor, PropertyDescriptor.Undefined))
+                {
+                    // Absent own property: inherited-setter / CreateDataProperty semantics — handled by fallback.
+                    _cachedReadObject = null;
+                    _cachedReadDescriptor = null;
+                    descriptor = null;
+                }
+                else
+                {
+                    _cachedReadObject = baseObject;
+                    _cachedReadVersion = baseObject._propertiesVersion;
+                    _cachedReadDescriptor = ownDescriptor;
+                    descriptor = ownDescriptor;
+                }
+            }
+
+            // Re-read the flags live every store: Object.defineProperty flips Writable in place on the same
+            // descriptor without bumping the version, so the writability decision must never be cached. The mask
+            // must equal exactly Writable — i.e. writable, not an accessor (NonData), not custom-valued.
+            if (descriptor is not null
+                && (descriptor._flags & (PropertyFlag.NonData | PropertyFlag.CustomJsValue | PropertyFlag.Writable)) == PropertyFlag.Writable)
+            {
+                descriptor._value = rval;
+                result = rval;
+                return true;
+            }
+        }
+
+        // Fallback: complete via the normal pipeline from the already-resolved base + key (no re-evaluation).
+        var reference = engine._referencePool.Rent(baseValue, determinedProperty, StrictModeScope.IsStrictModeCode, thisValue: null);
+        engine.PutValue(reference, rval);
+        engine._referencePool.Return(reference);
+        result = rval;
+        return true;
+    }
 }
