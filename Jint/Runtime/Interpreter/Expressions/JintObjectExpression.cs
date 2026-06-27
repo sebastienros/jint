@@ -13,6 +13,11 @@ internal sealed class JintObjectExpression : JintExpression
     private readonly ExpressionCache _valueExpressions = new();
     private readonly ObjectProperty?[] _properties;
 
+    // Pre-hashed property keys for the fast build path, computed once at construction so every
+    // execution skips re-deriving (and re-hashing) a Key from each property-name string. Non-null
+    // only when _canBuildFast.
+    private readonly Key[]? _fastKeys;
+
     // check if we can do a shortcut when all are object properties
     // and don't require duplicate checking
     private readonly bool _canBuildFast;
@@ -108,6 +113,17 @@ internal sealed class JintObjectExpression : JintExpression
         }
 
         _valueExpressions.Initialize(valueExpressions.AsSpan());
+
+        if (_canBuildFast)
+        {
+            // All keys are static names (guaranteed by _canBuildFast); pre-hash them once.
+            var keys = new Key[_properties.Length];
+            for (var i = 0; i < keys.Length; i++)
+            {
+                keys[i] = _properties[i]!._key!;
+            }
+            _fastKeys = keys;
+        }
     }
 
     public static JintExpression Build(ObjectExpression expression)
@@ -151,7 +167,6 @@ internal sealed class JintObjectExpression : JintExpression
 
         for (var i = startIndex; i < _properties.Length; i++)
         {
-            var objectProperty = _properties[i];
             var propValue = _valueExpressions.GetValue(context, i);
 
             // Check for generator suspension after each property evaluation
@@ -167,7 +182,7 @@ internal sealed class JintObjectExpression : JintExpression
                 return JsValue.Undefined;
             }
 
-            properties[objectProperty!._key!] = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
+            properties[_fastKeys![i]] = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
         }
 
         obj.SetProperties(properties);
