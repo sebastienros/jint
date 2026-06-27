@@ -100,6 +100,15 @@ internal static class JintEnvironment
     internal static FunctionEnvironment NewFunctionEnvironment(Engine engine, Function f, JsValue newTarget)
     {
         var state = f._functionDefinition?.Initialize();
+
+        // Direct-recursive functions use a small bounded pool so each simultaneously live frame rents a
+        // distinct env (with its fixed-slot array attached) instead of allocating per call. The single
+        // _cachedEnv slot below cannot serve recursion — only the topmost frame would ever be reusable.
+        if (state is { EnvironmentMayEscape: false, IsDirectRecursive: true })
+        {
+            return NewRecursiveFunctionEnvironment(engine, f, newTarget, state);
+        }
+
         FunctionEnvironment env;
 
         // Reuse a pooled FunctionEnvironment when the function's bindings cannot escape the call
@@ -129,11 +138,41 @@ internal static class JintEnvironment
         if (state is { UseFixedSlots: true })
         {
             env._slotNames = state.SlotNames;
-            // Try to reuse cached slots from previous call to same function (thread-safe). Skip
-            // for direct-recursive functions: the single pool slot is useless for recursion and
-            // the atomic ops dominate over the saved alloc on tight recursive loops.
-            var cached = state.IsDirectRecursive ? null : Interlocked.Exchange(ref state._cachedSlots, null);
+            // Try to reuse cached slots from the previous call to the same function (thread-safe).
+            // Direct-recursive functions never reach here (handled by NewRecursiveFunctionEnvironment).
+            var cached = Interlocked.Exchange(ref state._cachedSlots, null);
             env._slots = cached ?? new Binding[state.SlotNames!.Length];
+        }
+
+        return env;
+    }
+
+    private static FunctionEnvironment NewRecursiveFunctionEnvironment(
+        Engine engine,
+        Function f,
+        JsValue newTarget,
+        Interpreter.JintFunctionDefinition.State state)
+    {
+        var pooled = state.TryRentRecursiveEnv();
+        if (pooled is not null && ReferenceEquals(pooled._engine, engine))
+        {
+            // The env still carries its cleared fixed-slot Binding[] (and dictionary capacity) from when
+            // it was pooled; Reset re-binds this/newTarget/outer and clears the dictionary in place. Same
+            // State means the slot names and slot-array length already match.
+            pooled.Reset(f, newTarget, f._environment);
+            return pooled;
+        }
+
+        // Pool empty (or the rented env belonged to a different engine sharing this State — dropped).
+        var env = new FunctionEnvironment(engine, f, newTarget)
+        {
+            _outerEnv = f._environment,
+        };
+
+        if (state.UseFixedSlots)
+        {
+            env._slotNames = state.SlotNames;
+            env._slots = new Binding[state.SlotNames!.Length];
         }
 
         return env;
