@@ -289,7 +289,7 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
 
     public override string ToString() => _value;
 
-    internal bool Contains(char c)
+    internal virtual bool Contains(char c)
     {
         if (c == 0)
         {
@@ -298,7 +298,7 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         return ToString().Contains(c);
     }
 
-    internal int IndexOf(string value, int startIndex = 0)
+    internal virtual int IndexOf(string value, int startIndex = 0)
     {
         if (Length - startIndex < value.Length)
         {
@@ -307,12 +307,12 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         return ToString().IndexOf(value, startIndex, StringComparison.Ordinal);
     }
 
-    internal bool StartsWith(string value, int start = 0)
+    internal virtual bool StartsWith(string value, int start = 0)
     {
         return value.Length + start <= Length && ToString().AsSpan(start).StartsWith(value.AsSpan(), StringComparison.Ordinal);
     }
 
-    internal bool EndsWith(string value, int end = 0)
+    internal virtual bool EndsWith(string value, int end = 0)
     {
         var start = end - value.Length;
         return start >= 0 && ToString().AsSpan(start, value.Length).EndsWith(value.AsSpan(), StringComparison.Ordinal);
@@ -527,6 +527,37 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         public override int Length => _length;
 
         private ReadOnlySpan<char> AsSpan() => _value is not null ? _value.AsSpan() : _source.AsSpan(_start, _length);
+
+        // Search directly over the slice's span. The inherited base implementations route through
+        // ToString(), which materializes (and allocates) the whole substring on every search; these
+        // overrides keep a discarded slice zero-copy. Ordinal char comparison is binary/sequence
+        // equality, so the parameterless span overloads match the base StringComparison.Ordinal paths.
+        internal override int IndexOf(string value, int startIndex = 0)
+        {
+            if (_length - startIndex < value.Length)
+            {
+                return -1;
+            }
+
+            var index = AsSpan().Slice(startIndex).IndexOf(value.AsSpan());
+            return index < 0 ? -1 : index + startIndex;
+        }
+
+        internal override bool StartsWith(string value, int start = 0)
+        {
+            return value.Length + start <= _length && AsSpan().Slice(start).StartsWith(value.AsSpan());
+        }
+
+        internal override bool EndsWith(string value, int end = 0)
+        {
+            var start = end - value.Length;
+            return start >= 0 && AsSpan().Slice(start, value.Length).EndsWith(value.AsSpan());
+        }
+
+        internal override bool Contains(char c)
+        {
+            return c != 0 && AsSpan().IndexOf(c) >= 0;
+        }
 
         internal override JsString EnsureCapacity(int capacity)
         {
