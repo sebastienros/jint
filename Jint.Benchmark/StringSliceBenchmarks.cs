@@ -11,6 +11,9 @@ namespace Jint.Benchmark;
 /// previously fell below the zero-copy retention guard and copied on every call.
 /// SliceSmall guards the small-result path; SliceThenRead guards lazy-materialization cost
 /// when the result is actually consumed.
+/// SearchOnSlice exercises indexOf/startsWith/endsWith/includes on a fresh large slice each
+/// iteration — the case where the inherited base search methods materialize the whole substring
+/// on every call. With zero-copy span search overrides this drops to ~0 allocation.
 /// </summary>
 [MemoryDiagnoser]
 [HideColumns("Error", "Gen0", "Gen1", "Gen2")]
@@ -21,6 +24,8 @@ public class StringSliceBenchmarks
     private Prepared<Script> _substringLargeDiscard;
     private Prepared<Script> _sliceSmall;
     private Prepared<Script> _sliceThenRead;
+    private Prepared<Script> _searchOnSlice;
+    private Prepared<Script> _searchOnFlat;
 
     [GlobalSetup]
     public void Setup()
@@ -71,6 +76,39 @@ public class StringSliceBenchmarks
             })();
             """, strict: true);
 
+        _searchOnSlice = Engine.PrepareScript("""
+            (function() {
+                var hits = 0;
+                for (var i = 0; i < 5000; i++) {
+                    var sub = str.slice(12000, -1);
+                    if (sub.indexOf("~absent~") !== -1) hits++;
+                    if (sub.startsWith("aB3$x")) hits++;
+                    if (sub.endsWith("_kEw")) hits++;
+                    if (sub.includes("Q9pLm")) hits++;
+                }
+                return hits;
+            })();
+            """, strict: true);
+
+        // Guard: searching a plain (non-view) JsString must not regress from making the base
+        // search methods virtual. str.slice(0) returns a flat JsString, not a SlicedString.
+        // Deliberately dispatch-bound (many cheap short searches that hit early / compare only the
+        // needle) so the measurement isolates per-call dispatch overhead rather than the highly
+        // thermal-sensitive throughput of one giant not-found scan.
+        _searchOnFlat = Engine.PrepareScript("""
+            (function() {
+                var hits = 0;
+                var flat = str.slice(0);
+                for (var i = 0; i < 100000; i++) {
+                    if (flat.indexOf("aB3$x") === 0) hits++;
+                    if (flat.startsWith("aB3$xQ9")) hits++;
+                    if (flat.endsWith("kEwZ")) hits++;
+                    if (flat.includes("aB3$x")) hits++;
+                }
+                return hits;
+            })();
+            """, strict: true);
+
         _engine = new Engine(static options => options.Strict());
         // Build the shared ~128K char base string once (dromaeo-style doubling).
         _engine.Execute("""
@@ -83,6 +121,8 @@ public class StringSliceBenchmarks
         _engine.Evaluate(_substringLargeDiscard);
         _engine.Evaluate(_sliceSmall);
         _engine.Evaluate(_sliceThenRead);
+        _engine.Evaluate(_searchOnSlice);
+        _engine.Evaluate(_searchOnFlat);
     }
 
     [Benchmark]
@@ -96,4 +136,10 @@ public class StringSliceBenchmarks
 
     [Benchmark]
     public JsValue SliceThenRead() => _engine.Evaluate(_sliceThenRead);
+
+    [Benchmark]
+    public JsValue SearchOnSlice() => _engine.Evaluate(_searchOnSlice);
+
+    [Benchmark]
+    public JsValue SearchOnFlat() => _engine.Evaluate(_searchOnFlat);
 }
