@@ -525,9 +525,51 @@ internal sealed class JintAssignmentExpression : JintExpression
         private bool _leftIsCoverParenthesized;
         private bool _initialized;
 
+        // Unboxed numeric assignment fast path (WS-5): `lhs = a op b` where lhs is a number-slot
+        // identifier and a, b are each a number-slot identifier or a numeric literal, for op in
+        // {+,-,*,/,%}. Eligibility is decided once in Initialize; everything else falls through.
+        private bool _numericFastPath;
+        private Operator _numericOperator;
+        private SlotLocationCache _lhsSlotCache;
+        private JintIdentifierExpression? _numericLeftId;   // null => use _numericLeftLiteral
+        private double _numericLeftLiteral;
+        private JintIdentifierExpression? _numericRightId;  // null => use _numericRightLiteral
+        private double _numericRightLiteral;
+
+        // Whether the assignment has the structural shape `identifier = (id|lit) op (id|lit)` for an
+        // arithmetic op. Computed eagerly (from the AST, before the lazy Initialize) so HasDiscardFastPath
+        // only routes this shape through EvaluateAndDiscard; every other assignment keeps its exact path.
+        private readonly bool _structurallyNumeric;
+
         public SimpleAssignmentExpression(AssignmentExpression expression) : base(expression)
         {
+            _structurallyNumeric = IsNumericAssignmentShape(expression);
         }
+
+        private static bool IsNumericAssignmentShape(AssignmentExpression expression)
+        {
+            if (expression.Left is not Identifier || expression.Right is not NonLogicalBinaryExpression binary)
+            {
+                return false;
+            }
+
+            // Multiplication is intentionally excluded: the boxed binary path computes 0 * negative as
+            // integers and yields +0, whereas raw-double multiplication yields the spec-correct -0, so a
+            // double-based fast path would change observable behaviour. Addition/subtraction/division/
+            // remainder produce identical results on both paths, keeping this a pure optimization.
+            switch (binary.Operator)
+            {
+                case Operator.Addition:
+                case Operator.Subtraction:
+                case Operator.Division:
+                case Operator.Remainder:
+                    return IsIdentifierOrNumericLiteral(binary.Left) && IsIdentifierOrNumericLiteral(binary.Right);
+                default:
+                    return false;
+            }
+        }
+
+        private static bool IsIdentifierOrNumericLiteral(Expression node) => node is Identifier or NumericLiteral;
 
         private void Initialize()
         {
@@ -542,6 +584,54 @@ internal sealed class JintAssignmentExpression : JintExpression
             _leftIsCoverParenthesized = _left._expression.Range.Start != assignmentExpression.Range.Start;
 
             _right = Build(assignmentExpression.Right);
+
+            TryEnableNumericFastPath(assignmentExpression);
+        }
+
+        private void TryEnableNumericFastPath(AssignmentExpression assignmentExpression)
+        {
+            if (_leftIdentifier is null || _evalOrArguments || _leftIsCoverParenthesized
+                || assignmentExpression.Right is not NonLogicalBinaryExpression binary)
+            {
+                return;
+            }
+
+            switch (binary.Operator)
+            {
+                case Operator.Addition:
+                case Operator.Subtraction:
+                case Operator.Division:
+                case Operator.Remainder:
+                    break;
+                default:
+                    return;
+            }
+
+            if (!TryClassifyNumericOperand(binary.Left, out _numericLeftId, out _numericLeftLiteral)
+                || !TryClassifyNumericOperand(binary.Right, out _numericRightId, out _numericRightLiteral))
+            {
+                return;
+            }
+
+            _numericOperator = binary.Operator;
+            _numericFastPath = true;
+        }
+
+        private static bool TryClassifyNumericOperand(Expression node, out JintIdentifierExpression? id, out double literal)
+        {
+            id = null;
+            literal = 0;
+            switch (node)
+            {
+                case Identifier identifier:
+                    id = new JintIdentifierExpression(identifier);
+                    return true;
+                case NumericLiteral numeric:
+                    literal = numeric.Value;
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         protected override object EvaluateInternal(EvaluationContext context)
@@ -558,6 +648,90 @@ internal sealed class JintAssignmentExpression : JintExpression
                 completion = AssignToIdentifier(context, _leftIdentifier, _right, _evalOrArguments, !_leftIsCoverParenthesized);
             }
             return completion ?? SetValue(context);
+        }
+
+        internal override bool HasDiscardFastPath => _structurallyNumeric;
+
+        internal override void EvaluateAndDiscard(EvaluationContext context)
+        {
+            if (!_initialized)
+            {
+                Initialize();
+                _initialized = true;
+            }
+
+            if (_numericFastPath && TryAssignNumeric(context))
+            {
+                return;
+            }
+
+            EvaluateInternal(context);
+        }
+
+        /// <summary>
+        /// Discard-mode fast path: a plain assignment whose left side is a slot-stored number and whose
+        /// right side is `a op b` over number-slot/literal operands computes on raw doubles and stores
+        /// unboxed, with no JsNumber materialization. Operand reads are pure slot reads (never getters),
+        /// so declining after a partial read has no observable effect; anything not matching the exact
+        /// shape — operator overloading, generators/async, non-number operands, non-slot bindings — falls
+        /// back to the boxed path before storing.
+        /// </summary>
+        private bool TryAssignNumeric(EvaluationContext context)
+        {
+            var engine = context.Engine;
+            if (context.OperatorOverloadingAllowed || engine.ExecutionContext.Suspendable is not null)
+            {
+                return false;
+            }
+
+            // The left side is overwritten, but SetNumberSlot requires a mutable, initialized number
+            // slot; TryGetNumberSlot confirms exactly that (and that it is slot-stored at all).
+            if (!_lhsSlotCache.TryResolve(engine, engine.ExecutionContext.LexicalEnvironment, _leftIdentifier!.Identifier, out var lhsEnv, out var lhsSlot)
+                || !lhsEnv.TryGetNumberSlot(lhsSlot, out _))
+            {
+                return false;
+            }
+
+            if (!TryReadNumericOperand(context, _numericLeftId, _numericLeftLiteral, out var left)
+                || !TryReadNumericOperand(context, _numericRightId, _numericRightLiteral, out var right))
+            {
+                return false;
+            }
+
+            double result;
+            switch (_numericOperator)
+            {
+                case Operator.Addition:
+                    result = left + right;
+                    break;
+                case Operator.Subtraction:
+                    result = left - right;
+                    break;
+                case Operator.Division:
+                    // IEEE 754 division matches the ECMAScript algorithm for all special cases
+                    result = left / right;
+                    break;
+                case Operator.Remainder:
+                    // IEEE 754 remainder (fmod) matches the ECMAScript algorithm for all special cases
+                    result = left % right;
+                    break;
+                default:
+                    return false;
+            }
+
+            lhsEnv.SetNumberSlot(lhsSlot, result);
+            return true;
+        }
+
+        private static bool TryReadNumericOperand(EvaluationContext context, JintIdentifierExpression? id, double literal, out double value)
+        {
+            if (id is null)
+            {
+                value = literal;
+                return true;
+            }
+
+            return id.TryReadNumber(context, out value);
         }
 
         // https://262.ecma-international.org/5.1/#sec-11.13.1
