@@ -9,7 +9,8 @@ internal sealed class HybridDictionary<TValue> : IEngineDictionary<Key, TValue>,
 {
     private const int CutoverPoint = 9;
     private const int InitialDictionarySize = 13;
-    private const int FixedSizeCutoverPoint = 9;
+    // A fixed-size build with at least this many entries starts as a dictionary; fewer stays a list.
+    internal const int FixedSizeCutoverPoint = 9;
 
     private readonly bool _checkExistingKeys;
     private ListDictionary<TValue> _list;
@@ -32,6 +33,12 @@ internal sealed class HybridDictionary<TValue> : IEngineDictionary<Key, TValue>,
     {
         _checkExistingKeys = true;
         _dictionary = dictionary;
+    }
+
+    public HybridDictionary(ListDictionary<TValue> list)
+    {
+        _checkExistingKeys = true;
+        _list = list;
     }
 
     public ref TValue this[Key key]
