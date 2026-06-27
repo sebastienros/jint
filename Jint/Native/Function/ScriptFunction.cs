@@ -75,12 +75,11 @@ public sealed class ScriptFunction : Function, IConstructor
                     Throw.TypeError(calleeContext.Realm, $"Class constructor {_functionDefinition.Name} cannot be invoked without 'new'");
                 }
 
-                // Capture funcEnv for end-of-call pool return when bindings can't escape.
-                // Skip for direct-recursive functions: the pool's single slot can't help recursion
-                // (only the topmost frame is reusable), and the Interlocked.Exchange ops in the
-                // finally block are pure overhead in tight recursive loops.
+                // Capture funcEnv for end-of-call pool return when bindings can't escape. Direct-recursive
+                // functions return their env to a small bounded pool (so each live frame reuses a distinct
+                // env); other non-escaping functions use the single-slot pool. Escaping envs are not pooled.
                 state = _functionDefinition.Initialize();
-                if (state is { EnvironmentMayEscape: false, IsDirectRecursive: false })
+                if (state is { EnvironmentMayEscape: false })
                 {
                     funcEnv = (FunctionEnvironment) calleeContext.LexicalEnvironment;
                 }
@@ -125,17 +124,30 @@ public sealed class ScriptFunction : Function, IConstructor
             {
                 if (funcEnv is not null)
                 {
-                    // Cache the slot array for reuse by next call to the same function (thread-safe)
-                    if (funcEnv._slots is { } slots)
+                    if (state!.IsDirectRecursive)
                     {
-                        System.Array.Clear(slots, 0, slots.Length);
-                        Interlocked.Exchange(ref state!._cachedSlots, slots);
-                        funcEnv._slots = null;
+                        // Return the env (with its fixed-slot array still attached) to the bounded
+                        // recursive pool so another simultaneously live frame can reuse env + slots.
+                        if (funcEnv._slots is { } recursiveSlots)
+                        {
+                            System.Array.Clear(recursiveSlots, 0, recursiveSlots.Length);
+                        }
+                        state.ReturnRecursiveEnv(funcEnv);
                     }
+                    else
+                    {
+                        // Cache the slot array for reuse by next call to the same function (thread-safe)
+                        if (funcEnv._slots is { } slots)
+                        {
+                            System.Array.Clear(slots, 0, slots.Length);
+                            Interlocked.Exchange(ref state._cachedSlots, slots);
+                            funcEnv._slots = null;
+                        }
 
-                    // Return the env itself to the per-State pool so the next call to a function
-                    // sharing this State (typically the same Function instance) avoids the allocation.
-                    Interlocked.Exchange(ref state!._cachedEnv, funcEnv);
+                        // Return the env itself to the per-State pool so the next call to a function
+                        // sharing this State (typically the same Function instance) avoids the allocation.
+                        Interlocked.Exchange(ref state._cachedEnv, funcEnv);
+                    }
                 }
                 _engine.LeaveExecutionContext();
             }
