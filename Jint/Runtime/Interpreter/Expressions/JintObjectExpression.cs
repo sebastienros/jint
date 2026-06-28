@@ -24,6 +24,13 @@ internal sealed class JintObjectExpression : JintExpression
     // { a: 1, a: 2 }), which must fall back to the checked build so the later value wins.
     private readonly bool _fastKeysDistinct;
 
+    // The hidden-class shape this literal builds, cached so every execution after the first reuses it
+    // (an O(1) build: validate the prototype, allocate a slot array, fill it). Re-derived when the
+    // active realm's Object.prototype differs from the one the cached shape is anchored to (a prepared
+    // script run across engines/realms); only the last-seen prototype is retained.
+    private Shape? _cachedShape;
+    private ObjectInstance? _cachedShapeProto;
+
     // check if we can do a shortcut when all are object properties
     // and don't require duplicate checking
     private readonly bool _canBuildFast;
@@ -172,16 +179,13 @@ internal sealed class JintObjectExpression : JintExpression
         var engine = context.Engine;
         var suspendable = engine.ExecutionContext.Suspendable;
 
-        // Common case: not inside a generator/async frame (so no property value can suspend the build),
-        // all keys distinct, and few enough to use the list backing. Append each property in O(1) via a
-        // local tail cursor — no suspension bookkeeping, no duplicate-key probing, and the same
-        // allocations as the checked path (no retained tail pointer). Larger or duplicate-keyed literals,
-        // and any literal evaluated inside a generator, fall through to the general path below.
-        if (suspendable is null
-            && _fastKeysDistinct
-            && _properties.Length < PropertyDictionary.FixedSizeCutoverPoint)
+        // Common case: not inside a generator/async frame (so no property value can suspend the build)
+        // and all keys distinct. Build (or reuse) a shared hidden-class shape and a flat slot array —
+        // no per-property PropertyDescriptor, no dictionary. Duplicate-keyed literals (e.g. { a:1, a:2 })
+        // and any literal evaluated inside a generator fall through to the general dictionary path below.
+        if (suspendable is null && _fastKeysDistinct)
         {
-            return BuildObjectFastListBacked(context, engine);
+            return BuildObjectFastShapeBacked(context, engine);
         }
 
         ObjectInstance obj;
@@ -227,42 +231,40 @@ internal sealed class JintObjectExpression : JintExpression
     }
 
     /// <summary>
-    /// Builds a small object literal whose keys are all distinct, outside any suspendable frame, by
-    /// linking the property nodes directly. Each append is O(1) (a local tail cursor, no re-walk), the
-    /// pre-hashed keys are reused, and the resulting list-backed dictionary allocates exactly what the
-    /// general fast path would — there is no retained tail pointer.
+    /// Builds an object literal whose keys are all distinct, outside any suspendable frame, as a
+    /// hidden-class shape plus a flat slot array. The shape (property names -> slot indices, shared
+    /// across all objects of this layout under the same prototype) is derived once and cached on the
+    /// node, so every later execution just allocates a single right-sized store array and fills it — no
+    /// PropertyDescriptor and no dictionary are allocated per object.
     /// </summary>
-    private JsObject BuildObjectFastListBacked(EvaluationContext context, Engine engine)
+    private JsObject BuildObjectFastShapeBacked(EvaluationContext context, Engine engine)
     {
         var keys = _fastKeys!;
+        var proto = engine.Realm.Intrinsics.Object.PrototypeObject;
 
-        ListDictionary<PropertyDescriptor>.DictionaryNode? head = null;
-        ListDictionary<PropertyDescriptor>.DictionaryNode? tail = null;
-        for (var i = 0; i < keys.Length; i++)
+        var shape = _cachedShape;
+        if (shape is null || !ReferenceEquals(_cachedShapeProto, proto))
         {
-            var propValue = _valueExpressions.GetValue(context, i);
-            var node = new ListDictionary<PropertyDescriptor>.DictionaryNode
+            shape = engine.GetEmptyShape(proto);
+            for (var i = 0; i < keys.Length; i++)
             {
-                Key = keys[i],
-                Value = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable),
-            };
+                shape = shape.Add(keys[i]);
+            }
 
-            if (head is null)
-            {
-                head = tail = node;
-            }
-            else
-            {
-                tail!.Next = node;
-                tail = node;
-            }
+            _cachedShape = shape;
+            _cachedShapeProto = proto;
         }
 
-        // checkExistingKeys: true matches the general fast path so any post-construction add still
-        // dedups; it costs nothing here because the chain is built directly, never via the add path.
-        var list = new ListDictionary<PropertyDescriptor>(head!, keys.Length, checkExistingKeys: true);
+        // Single combined store: shape at [0], slot values at [1..] (matches JsObject's layout).
+        var store = new object[keys.Length + 1];
+        store[0] = shape;
+        for (var i = 0; i < keys.Length; i++)
+        {
+            store[i + 1] = _valueExpressions.GetValue(context, i);
+        }
+
         var obj = new JsObject(engine);
-        obj.SetProperties(new PropertyDictionary(list));
+        obj.SetStore(store);
         return obj;
     }
 

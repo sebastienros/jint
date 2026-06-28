@@ -13,6 +13,7 @@ using Jint.Native.Symbol;
 using Jint.Native.TypedArray;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 using PropertyDescriptor = Jint.Runtime.Descriptors.PropertyDescriptor;
 using TypeConverter = Jint.Runtime.TypeConverter;
@@ -27,6 +28,13 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
 
     internal PropertyDictionary? _properties;
     internal SymbolDictionary? _symbols;
+
+    // Hidden-class shape storage (a Shape + flat JsValue[] slot array) lives on JsObject, not here, so
+    // the broad ObjectInstance population (JsDate, JsArray, TypedArray, wrappers, built-ins) keeps its
+    // size. Only JsObject (plain object literals, `new Ctor()` this, `new Object()`) can be in shape
+    // mode; the base property methods reach it via `this is JsObject`. Shape mode is mutually exclusive
+    // with _properties for string keys; _symbols is orthogonal. Anything a shape can't represent (delete,
+    // accessor/non-CEW define, freeze/seal, prototype change, bulk install) deopts back to _properties.
 
     /// <summary>
     /// Bumped whenever own-property shape changes (descriptor added/replaced/removed via SetProperty / RemoveOwnProperty).
@@ -162,6 +170,11 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         {
             properties.CheckExistingKeys = true;
         }
+        // Bulk install forces dictionary mode (string keys live in the dictionary, not a shape).
+        if (this is JsObject jo)
+        {
+            jo.ClearShape();
+        }
         _properties = properties;
         unchecked { _propertiesVersion++; }
     }
@@ -169,6 +182,43 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     internal void SetSymbols(SymbolDictionary? symbols)
     {
         _symbols = symbols;
+    }
+
+    /// <summary>
+    /// Falls back from shape mode to the legacy dictionary representation, copying each slot into a
+    /// freshly-built <see cref="PropertyDictionary"/> as an ordinary CEW data descriptor (in slot =
+    /// insertion order). After this the object is byte-for-byte the pre-shapes representation, so every
+    /// consumer runs the unchanged dictionary code. No-op when not a shape-mode <see cref="JsObject"/>.
+    /// </summary>
+    internal void ConvertToDictionaryMode()
+    {
+        if ((_type & InternalTypes.ShapeMode) == InternalTypes.Empty)
+        {
+            return;
+        }
+
+        var jo = Unsafe.As<JsObject>(this);
+        var shape = jo.ShapeOf;
+        var slotCount = shape.SlotCount;
+        // checkExistingKeys: false makes the initial fill cheap (shape keys are distinct by construction).
+        var properties = new PropertyDictionary(slotCount, checkExistingKeys: false);
+        if (slotCount > 0)
+        {
+            var keys = new Key[slotCount];
+            shape.CollectKeys(keys);
+            for (var i = 0; i < slotCount; i++)
+            {
+                properties[keys[i]] = new PropertyDescriptor(jo.GetSlot(i), PropertyFlag.ConfigurableEnumerableWritable);
+            }
+        }
+        // The object is now a live mutable dictionary; re-setting an existing key (e.g. defineProperty
+        // replacing a data property with an accessor) must replace, not append a duplicate. Mirrors
+        // SetProperties.
+        properties.CheckExistingKeys = true;
+
+        jo.ClearShape();
+        _properties = properties;
+        unchecked { _propertiesVersion++; }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -194,6 +244,11 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void SetProperty(Key property, PropertyDescriptor value)
     {
+        // Storing a raw descriptor is a dictionary-mode operation; deopt first if needed.
+        if ((_type & InternalTypes.ShapeMode) != InternalTypes.Empty)
+        {
+            ConvertToDictionaryMode();
+        }
         _properties ??= new PropertyDictionary();
         _properties[property] = value;
         unchecked { _propertiesVersion++; }
@@ -205,6 +260,10 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         var propertyKey = TypeConverter.ToPropertyKey(property);
         if (!property.IsSymbol())
         {
+            if ((_type & InternalTypes.ShapeMode) != InternalTypes.Empty)
+            {
+                ConvertToDictionaryMode();
+            }
             _properties ??= new PropertyDictionary();
             _properties[TypeConverter.ToString(propertyKey)] = value;
             unchecked { _propertiesVersion++; }
@@ -218,6 +277,10 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
 
     internal void ClearProperties()
     {
+        if (this is JsObject jo)
+        {
+            jo.ClearShape();
+        }
         _properties?.Clear();
         _symbols?.Clear();
     }
@@ -226,7 +289,22 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     {
         EnsureInitialized();
 
-        if (_properties != null)
+        if ((_type & InternalTypes.ShapeMode) != InternalTypes.Empty)
+        {
+            var jo = Unsafe.As<JsObject>(this);
+            var shape = jo.ShapeOf;
+            var slotCount = shape.SlotCount;
+            if (slotCount > 0)
+            {
+                var keys = new Key[slotCount];
+                shape.CollectKeys(keys);
+                for (var i = 0; i < slotCount; i++)
+                {
+                    yield return new KeyValuePair<JsValue, PropertyDescriptor>(new JsString(keys[i].Name), new SlotPropertyDescriptor(jo, i));
+                }
+            }
+        }
+        else if (_properties != null)
         {
             foreach (var pair in _properties)
             {
@@ -246,6 +324,11 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     public virtual List<JsValue> GetOwnPropertyKeys(Types types = Types.String | Types.Symbol)
     {
         EnsureInitialized();
+
+        if ((_type & InternalTypes.ShapeMode) != InternalTypes.Empty)
+        {
+            return GetOwnPropertyKeysFromShape(Unsafe.As<JsObject>(this).ShapeOf, types);
+        }
 
         var returningSymbols = (types & Types.Symbol) != Types.Empty && _symbols?.Count > 0;
         var returningStringKeys = (types & Types.String) != Types.Empty && _properties?.Count > 0;
@@ -303,6 +386,55 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         return GetOwnPropertyKeysSorted(propertyKeys, returningStringKeys, returningSymbols);
     }
 
+    private List<JsValue> GetOwnPropertyKeysFromShape(Shape shape, Types types)
+    {
+        var slotCount = shape.SlotCount;
+        var propertyKeys = new List<JsValue>();
+
+        if ((types & Types.String) != Types.Empty)
+        {
+            var initialOwnStringPropertyKeys = GetInitialOwnStringPropertyKeys();
+            if (!ReferenceEquals(initialOwnStringPropertyKeys, System.Linq.Enumerable.Empty<JsValue>()))
+            {
+                propertyKeys.AddRange(initialOwnStringPropertyKeys);
+            }
+
+            if (slotCount > 0)
+            {
+                var keys = new Key[slotCount];
+                shape.CollectKeys(keys);
+
+                // Spec ordering puts integer-index keys first (ascending) then string keys in insertion
+                // order. Shape slots are insertion order; if any key looks like an array index, deopt and
+                // reuse the dictionary path that already implements the numeric sort (rare for literals).
+                for (var i = 0; i < slotCount; i++)
+                {
+                    var name = keys[i].Name;
+                    if (name.Length > 0 && char.IsDigit(name[0]))
+                    {
+                        ConvertToDictionaryMode();
+                        return GetOwnPropertyKeys(types);
+                    }
+                }
+
+                for (var i = 0; i < slotCount; i++)
+                {
+                    propertyKeys.Add(new JsString(keys[i].Name));
+                }
+            }
+        }
+
+        if ((types & Types.Symbol) != Types.Empty && _symbols != null)
+        {
+            foreach (var pair in _symbols)
+            {
+                propertyKeys.Add(pair.Key);
+            }
+        }
+
+        return propertyKeys;
+    }
+
     private List<JsValue> GetOwnPropertyKeysSorted(List<JsValue> initialOwnPropertyKeys, bool returningStringKeys, bool returningSymbols)
     {
         var keys = new List<JsValue>((_properties?.Count ?? 0) + (_symbols?.Count ?? 0) + initialOwnPropertyKeys.Count);
@@ -347,7 +479,20 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         var key = TypeConverter.ToPropertyKey(property);
         if (!key.IsSymbol())
         {
-            return _properties?.TryGetValue(TypeConverter.ToString(key), out descriptor) == true;
+            var name = TypeConverter.ToString(key);
+            if ((_type & InternalTypes.ShapeMode) != InternalTypes.Empty)
+            {
+                var jo = Unsafe.As<JsObject>(this);
+                if (jo.ShapeOf.TryGetSlot(name, out var slot))
+                {
+                    descriptor = new SlotPropertyDescriptor(jo, slot);
+                    return true;
+                }
+
+                return false;
+            }
+
+            return _properties?.TryGetValue(name, out descriptor) == true;
         }
 
         return _symbols?.TryGetValue((JsSymbol) key, out descriptor) == true;
@@ -366,6 +511,11 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         var key = TypeConverter.ToPropertyKey(property);
         if (!key.IsSymbol())
         {
+            // Removing a string property can't be expressed as a shape transition; deopt first.
+            if ((_type & InternalTypes.ShapeMode) != InternalTypes.Empty)
+            {
+                ConvertToDictionaryMode();
+            }
             _properties?.Remove(TypeConverter.ToString(key));
             unchecked { _propertiesVersion++; }
             return;
@@ -379,6 +529,17 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         if ((_type & InternalTypes.PlainObject) != InternalTypes.Empty && ReferenceEquals(this, receiver) && property.IsString())
         {
             EnsureInitialized();
+            if ((_type & InternalTypes.ShapeMode) != InternalTypes.Empty)
+            {
+                var jo = Unsafe.As<JsObject>(this);
+                if (jo.ShapeOf.TryGetSlot(property.ToString(), out var slot))
+                {
+                    return jo.GetSlot(slot);
+                }
+
+                return Prototype?.Get(property, receiver) ?? Undefined;
+            }
+
             if (_properties?.TryGetValue(property.ToString(), out var ownDesc) == true)
             {
                 return UnwrapJsValue(ownDesc, receiver);
@@ -453,7 +614,19 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         var key = TypeConverter.ToPropertyKey(property);
         if (!key.IsSymbol())
         {
-            _properties?.TryGetValue(TypeConverter.ToString(key), out descriptor);
+            var name = TypeConverter.ToString(key);
+            if ((_type & InternalTypes.ShapeMode) != InternalTypes.Empty)
+            {
+                var jo = Unsafe.As<JsObject>(this);
+                if (jo.ShapeOf.TryGetSlot(name, out var slot))
+                {
+                    return new SlotPropertyDescriptor(jo, slot);
+                }
+            }
+            else
+            {
+                _properties?.TryGetValue(name, out descriptor);
+            }
         }
         else
         {
@@ -514,7 +687,16 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     {
         if ((_type & InternalTypes.PlainObject) != InternalTypes.Empty && property is JsString jsString)
         {
-            if (_properties?.TryGetValue(jsString.ToString(), out var ownDesc) == true)
+            if ((_type & InternalTypes.ShapeMode) != InternalTypes.Empty)
+            {
+                var jo = Unsafe.As<JsObject>(this);
+                if (jo.ShapeOf.TryGetSlot(jsString.ToString(), out var slot))
+                {
+                    jo.SetSlot(slot, value); // shape-mode properties are always writable (CEW)
+                    return true;
+                }
+            }
+            else if (_properties?.TryGetValue(jsString.ToString(), out var ownDesc) == true)
             {
                 if ((ownDesc._flags & PropertyFlag.Writable) != PropertyFlag.None)
                 {
@@ -537,7 +719,22 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         if ((_type & InternalTypes.PlainObject) != InternalTypes.Empty && ReferenceEquals(this, receiver) && property.IsString())
         {
             var key = (Key) property.ToString();
-            if (_properties?.TryGetValue(key, out var ownDesc) == true)
+            if ((_type & InternalTypes.ShapeMode) != InternalTypes.Empty)
+            {
+                var jo = Unsafe.As<JsObject>(this);
+                if (jo.ShapeOf.TryGetSlot(key, out var slot))
+                {
+                    jo.SetSlot(slot, value); // shape-mode properties are always writable (CEW)
+                    return true;
+                }
+
+                var shapeParent = GetPrototypeOf();
+                if (shapeParent is not null)
+                {
+                    return shapeParent.Set(property, value, receiver);
+                }
+            }
+            else if (_properties?.TryGetValue(key, out var ownDesc) == true)
             {
                 if ((ownDesc._flags & PropertyFlag.Writable) != PropertyFlag.None)
                 {
@@ -748,6 +945,15 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     /// </summary>
     public virtual bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
     {
+        // Defining a string property can change attributes / install an accessor / mutate the current
+        // descriptor in place (ValidateAndApplyPropertyDescriptor), none of which shape mode represents.
+        // Deopt before reading current so it is a real dictionary descriptor. Symbol defines are
+        // orthogonal to the string-key shape and stay in _symbols, so they don't deopt.
+        if ((_type & InternalTypes.ShapeMode) != InternalTypes.Empty && !property.IsSymbol())
+        {
+            ConvertToDictionaryMode();
+        }
+
         var current = GetOwnProperty(property);
 
         if (current == desc)
@@ -1411,6 +1617,25 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             && p is JsString jsString)
         {
             Key key = jsString.ToString();
+            if ((_type & InternalTypes.ShapeMode) != InternalTypes.Empty)
+            {
+                var jo = Unsafe.As<JsObject>(this);
+                if (jo.ShapeOf.TryGetSlot(key, out var slot))
+                {
+                    // Existing CEW data property: CreateDataProperty just updates the value.
+                    jo.SetSlot(slot, v);
+                    return true;
+                }
+
+                // Brand-new property added to an already-shaped object (e.g. an Object.assign / spread
+                // target, or assigning a new key to a literal). Object literals build their shape up front
+                // via JsObject.SetStore, so shape mode is never grown incrementally one property at a time;
+                // such adds fall back to the dictionary representation.
+                ConvertToDictionaryMode();
+                SetOwnProperty(p, new PropertyDescriptor(v, PropertyFlag.ConfigurableEnumerableWritable));
+                return true;
+            }
+
             if (_properties is null || !_properties.TryGetValue(key, out _))
             {
                 SetOwnProperty(p, new PropertyDescriptor(v, PropertyFlag.ConfigurableEnumerableWritable));
@@ -1665,7 +1890,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     internal virtual ulong GetSmallestIndex(ulong length)
     {
         // there are some evil tests that iterate a lot with unshift..
-        if (Properties == null)
+        if (Properties == null && (_type & InternalTypes.ShapeMode) == InternalTypes.Empty)
         {
             return 0;
         }
@@ -1804,10 +2029,23 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         {
             get
             {
-                var keys = new KeyValuePair<JsValue, JsValue>[(_obj._properties?.Count ?? 0) + (_obj._symbols?.Count ?? 0)];
+                var shape = (_obj._type & InternalTypes.ShapeMode) != InternalTypes.Empty ? ((JsObject) _obj).ShapeOf : null;
+                var stringCount = shape?.SlotCount ?? _obj._properties?.Count ?? 0;
+                var keys = new KeyValuePair<JsValue, JsValue>[stringCount + (_obj._symbols?.Count ?? 0)];
 
                 var i = 0;
-                if (_obj._properties is not null)
+                if (shape is not null)
+                {
+                    foreach (var pair in _obj.GetOwnProperties())
+                    {
+                        if (pair.Key.IsSymbol())
+                        {
+                            continue;
+                        }
+                        keys[i++] = new KeyValuePair<JsValue, JsValue>(pair.Key, UnwrapJsValue(pair.Value, _obj));
+                    }
+                }
+                else if (_obj._properties is not null)
                 {
                     foreach (var key in _obj._properties)
                     {

@@ -163,7 +163,7 @@ internal sealed class ObjectEnvironment : Environment
 
     internal override JsValue WithBaseObject() => _withEnvironment ? _bindingObject : Undefined;
 
-    internal override bool HasBindings() => _bindingObject._properties?.Count > 0;
+    internal override bool HasBindings() => _bindingObject._properties?.Count > 0 || (_bindingObject._type & InternalTypes.ShapeMode) != InternalTypes.Empty;
 
     internal override string[] GetAllBindingNames()
     {
