@@ -42,7 +42,28 @@ internal sealed class JintIdentifierExpression : JintExpression
             ?? new Environment.BindingName(expression.Name);
     }
 
+    // Separate slot-location cache for the unboxed numeric read (WS-5); kept apart from the
+    // GetValue caches above so it never perturbs the materializing read path.
+    private SlotLocationCache _numberSlotCache;
+
     public Environment.BindingName Identifier => _identifier;
+
+    /// <summary>
+    /// Reads this identifier as a raw double when it resolves to a slot-stored number binding,
+    /// without materializing a JsNumber. Returns false for everything else (binding not slot-stored,
+    /// not a number, uninitialized) so the caller falls back to the boxed path before any side effect.
+    /// </summary>
+    internal bool TryReadNumber(EvaluationContext context, out double value)
+    {
+        var engine = context.Engine;
+        if (_numberSlotCache.TryResolve(engine, engine.ExecutionContext.LexicalEnvironment, _identifier, out var slotEnv, out var slotIndex))
+        {
+            return slotEnv.TryGetNumberSlot(slotIndex, out value);
+        }
+
+        value = 0;
+        return false;
+    }
 
     public bool HasEvalOrArguments
     {
