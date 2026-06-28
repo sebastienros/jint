@@ -1,3 +1,4 @@
+using Jint.Collections;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -12,6 +13,16 @@ internal sealed class JintObjectExpression : JintExpression
 {
     private readonly ExpressionCache _valueExpressions = new();
     private readonly ObjectProperty?[] _properties;
+
+    // Pre-hashed property keys for the fast build path, computed once at construction so every
+    // execution skips re-deriving (and re-hashing) a Key from each property-name string. Non-null
+    // only when _canBuildFast.
+    private readonly Key[]? _fastKeys;
+
+    // True when the static keys are all distinct, so a build can append each property directly
+    // with no duplicate-key probing. False for the rare literal with a repeated key (e.g.
+    // { a: 1, a: 2 }), which must fall back to the checked build so the later value wins.
+    private readonly bool _fastKeysDistinct;
 
     // check if we can do a shortcut when all are object properties
     // and don't require duplicate checking
@@ -108,6 +119,35 @@ internal sealed class JintObjectExpression : JintExpression
         }
 
         _valueExpressions.Initialize(valueExpressions.AsSpan());
+
+        if (_canBuildFast)
+        {
+            // All keys are static names (guaranteed by _canBuildFast); pre-hash them once.
+            var keys = new Key[_properties.Length];
+            for (var i = 0; i < keys.Length; i++)
+            {
+                keys[i] = _properties[i]!._key!;
+            }
+            _fastKeys = keys;
+            _fastKeysDistinct = AreKeysDistinct(keys);
+        }
+    }
+
+    // O(n^2) but runs once at construction; n is the literal's static property count.
+    private static bool AreKeysDistinct(Key[] keys)
+    {
+        for (var i = 1; i < keys.Length; i++)
+        {
+            for (var j = 0; j < i; j++)
+            {
+                if (keys[i] == keys[j])
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     public static JintExpression Build(ObjectExpression expression)
@@ -132,6 +172,18 @@ internal sealed class JintObjectExpression : JintExpression
         var engine = context.Engine;
         var suspendable = engine.ExecutionContext.Suspendable;
 
+        // Common case: not inside a generator/async frame (so no property value can suspend the build),
+        // all keys distinct, and few enough to use the list backing. Append each property in O(1) via a
+        // local tail cursor — no suspension bookkeeping, no duplicate-key probing, and the same
+        // allocations as the checked path (no retained tail pointer). Larger or duplicate-keyed literals,
+        // and any literal evaluated inside a generator, fall through to the general path below.
+        if (suspendable is null
+            && _fastKeysDistinct
+            && _properties.Length < PropertyDictionary.FixedSizeCutoverPoint)
+        {
+            return BuildObjectFastListBacked(context, engine);
+        }
+
         ObjectInstance obj;
         PropertyDictionary properties;
         int startIndex;
@@ -151,7 +203,6 @@ internal sealed class JintObjectExpression : JintExpression
 
         for (var i = startIndex; i < _properties.Length; i++)
         {
-            var objectProperty = _properties[i];
             var propValue = _valueExpressions.GetValue(context, i);
 
             // Check for generator suspension after each property evaluation
@@ -167,11 +218,51 @@ internal sealed class JintObjectExpression : JintExpression
                 return JsValue.Undefined;
             }
 
-            properties[objectProperty!._key!] = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
+            properties[_fastKeys![i]] = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
         }
 
         obj.SetProperties(properties);
         suspendable?.Data.Clear(this);
+        return obj;
+    }
+
+    /// <summary>
+    /// Builds a small object literal whose keys are all distinct, outside any suspendable frame, by
+    /// linking the property nodes directly. Each append is O(1) (a local tail cursor, no re-walk), the
+    /// pre-hashed keys are reused, and the resulting list-backed dictionary allocates exactly what the
+    /// general fast path would — there is no retained tail pointer.
+    /// </summary>
+    private JsObject BuildObjectFastListBacked(EvaluationContext context, Engine engine)
+    {
+        var keys = _fastKeys!;
+
+        ListDictionary<PropertyDescriptor>.DictionaryNode? head = null;
+        ListDictionary<PropertyDescriptor>.DictionaryNode? tail = null;
+        for (var i = 0; i < keys.Length; i++)
+        {
+            var propValue = _valueExpressions.GetValue(context, i);
+            var node = new ListDictionary<PropertyDescriptor>.DictionaryNode
+            {
+                Key = keys[i],
+                Value = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable),
+            };
+
+            if (head is null)
+            {
+                head = tail = node;
+            }
+            else
+            {
+                tail!.Next = node;
+                tail = node;
+            }
+        }
+
+        // checkExistingKeys: true matches the general fast path so any post-construction add still
+        // dedups; it costs nothing here because the chain is built directly, never via the add path.
+        var list = new ListDictionary<PropertyDescriptor>(head!, keys.Length, checkExistingKeys: true);
+        var obj = new JsObject(engine);
+        obj.SetProperties(new PropertyDictionary(list));
         return obj;
     }
 

@@ -30,6 +30,19 @@ internal sealed class ListDictionary<TValue> : DictionaryBase<TValue>, IEnumerab
         _count = 1;
     }
 
+    /// <summary>
+    /// Adopts a pre-built node chain (<paramref name="head"/> already linked through to its tail) of
+    /// length <paramref name="count"/>. Used for one-shot O(1) builds (e.g. an object literal): the
+    /// caller appends with its own tail cursor, so no tail pointer is retained here. Any later add
+    /// re-walks from the head as usual.
+    /// </summary>
+    public ListDictionary(DictionaryNode head, int count, bool checkExistingKeys)
+    {
+        _checkExistingKeys = checkExistingKeys;
+        _head = head;
+        _count = count;
+    }
+
     public override ref TValue GetValueRefOrNullRef(Key key)
     {
         DictionaryNode node;
