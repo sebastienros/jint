@@ -33,7 +33,12 @@ internal enum InternalTypes
     Array = 16384,
     // IsHTMLDDA internal slot
     IsHTMLDDA = 32768,
+    // the object is a JsObject currently in hidden-class shape mode (string-keyed own properties live in a
+    // Shape + slot array, not _properties). Set when a shape store is installed, cleared on deopt to
+    // dictionary mode. Lets the hot property paths discriminate shape vs dictionary storage with a single
+    // flag test on the already-loaded _type instead of a `this is JsObject` type-check plus a field read.
+    ShapeMode = 65536,
 
     Primitive = Boolean | String | Number | Integer | BigInt | Symbol,
-    InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Array | Module | IsHTMLDDA
+    InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Array | Module | IsHTMLDDA | ShapeMode
 }

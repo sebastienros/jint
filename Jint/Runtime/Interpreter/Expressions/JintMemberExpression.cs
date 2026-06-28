@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Object;
@@ -20,6 +21,13 @@ internal sealed class JintMemberExpression : JintExpression
     private ObjectInstance? _cachedReadObject;
     private PropertyDescriptor? _cachedReadDescriptor;
     private uint _cachedReadVersion;
+
+    // Shape-keyed inline cache for shape-mode receivers (read / member-call / write share these because
+    // a member node serves a single role and reads the same property name). A Shape is immutable, so a
+    // matching shape reference proves the slot index is still valid — no version check, and the cache
+    // hits across *all* objects of the same layout, not just the previously-seen instance.
+    private Shape? _cachedShape;
+    private int _cachedShapeSlot;
 
     private static readonly JsValue _nullMarker = new JsString("NULL MARKER");
 
@@ -229,6 +237,28 @@ internal sealed class JintMemberExpression : JintExpression
 
             if (baseValue is ObjectInstance baseObject)
             {
+                if ((baseObject._type & InternalTypes.ShapeMode) != InternalTypes.Empty)
+                {
+                    // Shape-keyed read: a matching shape proves the slot index; read it straight out of
+                    // the slot array (no descriptor, no dictionary). Misses re-resolve the slot for the
+                    // new shape; an own-property miss (inherited / absent) falls to the full Get.
+                    var shapeObj = Unsafe.As<JsObject>(baseObject);
+                    var shape = shapeObj.ShapeOf;
+                    if (ReferenceEquals(shape, _cachedShape))
+                    {
+                        return shapeObj.GetSlot(_cachedShapeSlot);
+                    }
+
+                    if (shape.TryGetSlot(determinedProperty.ToString(), out var slot))
+                    {
+                        _cachedShape = shape;
+                        _cachedShapeSlot = slot;
+                        return shapeObj.GetSlot(slot);
+                    }
+
+                    return baseObject.Get(determinedProperty, baseObject);
+                }
+
                 if ((baseObject._type & InternalTypes.PlainObject) != InternalTypes.Empty)
                 {
                     // Version-based inline cache: as long as the same object is read and its own-property
@@ -407,6 +437,25 @@ internal sealed class JintMemberExpression : JintExpression
         {
             thisObject = baseObject;
 
+            if ((baseObject._type & InternalTypes.ShapeMode) != InternalTypes.Empty)
+            {
+                var shapeObj = Unsafe.As<JsObject>(baseObject);
+                var shape = shapeObj.ShapeOf;
+                if (ReferenceEquals(shape, _cachedShape))
+                {
+                    return shapeObj.GetSlot(_cachedShapeSlot);
+                }
+
+                if (shape.TryGetSlot(determinedProperty.ToString(), out var slot))
+                {
+                    _cachedShape = shape;
+                    _cachedShapeSlot = slot;
+                    return shapeObj.GetSlot(slot);
+                }
+
+                return baseObject.Get(determinedProperty, baseObject);
+            }
+
             if ((baseObject._type & InternalTypes.PlainObject) != InternalTypes.Empty)
             {
                 if (ReferenceEquals(baseObject, _cachedReadObject)
@@ -479,44 +528,75 @@ internal sealed class JintMemberExpression : JintExpression
 
         context.LastSyntaxElement = _expression;
 
-        if (baseValue is ObjectInstance baseObject
-            && (baseObject._type & InternalTypes.PlainObject) != InternalTypes.Empty)
+        if (baseValue is ObjectInstance baseObject)
         {
-            PropertyDescriptor? descriptor;
-            if (ReferenceEquals(baseObject, _cachedReadObject)
-                && baseObject._propertiesVersion == _cachedReadVersion
-                && _cachedReadDescriptor is not null)
+            if ((baseObject._type & InternalTypes.ShapeMode) != InternalTypes.Empty)
             {
-                descriptor = _cachedReadDescriptor;
-            }
-            else
-            {
-                var ownDescriptor = baseObject.GetOwnProperty(determinedProperty);
-                if (ReferenceEquals(ownDescriptor, PropertyDescriptor.Undefined))
+                // Shape-keyed write: shape-mode properties are always writable data, so a slot match is
+                // an in-place store with no descriptor, no hash, no version bump. An absent own property
+                // falls through to PutValue (add / inherited-setter / CreateDataProperty semantics).
+                var shapeObj = Unsafe.As<JsObject>(baseObject);
+                var shape = shapeObj.ShapeOf;
+                int slot;
+                if (ReferenceEquals(shape, _cachedShape))
                 {
-                    // Absent own property: inherited-setter / CreateDataProperty semantics — handled by fallback.
-                    _cachedReadObject = null;
-                    _cachedReadDescriptor = null;
-                    descriptor = null;
+                    slot = _cachedShapeSlot;
+                }
+                else if (shape.TryGetSlot(determinedProperty.ToString(), out slot))
+                {
+                    _cachedShape = shape;
+                    _cachedShapeSlot = slot;
                 }
                 else
                 {
-                    _cachedReadObject = baseObject;
-                    _cachedReadVersion = baseObject._propertiesVersion;
-                    _cachedReadDescriptor = ownDescriptor;
-                    descriptor = ownDescriptor;
+                    slot = -1;
+                }
+
+                if (slot >= 0)
+                {
+                    shapeObj.SetSlot(slot, rval);
+                    result = rval;
+                    return true;
                 }
             }
-
-            // Re-read the flags live every store: Object.defineProperty flips Writable in place on the same
-            // descriptor without bumping the version, so the writability decision must never be cached. The mask
-            // must equal exactly Writable — i.e. writable, not an accessor (NonData), not custom-valued.
-            if (descriptor is not null
-                && (descriptor._flags & (PropertyFlag.NonData | PropertyFlag.CustomJsValue | PropertyFlag.Writable)) == PropertyFlag.Writable)
+            else if ((baseObject._type & InternalTypes.PlainObject) != InternalTypes.Empty)
             {
-                descriptor._value = rval;
-                result = rval;
-                return true;
+                PropertyDescriptor? descriptor;
+                if (ReferenceEquals(baseObject, _cachedReadObject)
+                    && baseObject._propertiesVersion == _cachedReadVersion
+                    && _cachedReadDescriptor is not null)
+                {
+                    descriptor = _cachedReadDescriptor;
+                }
+                else
+                {
+                    var ownDescriptor = baseObject.GetOwnProperty(determinedProperty);
+                    if (ReferenceEquals(ownDescriptor, PropertyDescriptor.Undefined))
+                    {
+                        // Absent own property: inherited-setter / CreateDataProperty semantics — handled by fallback.
+                        _cachedReadObject = null;
+                        _cachedReadDescriptor = null;
+                        descriptor = null;
+                    }
+                    else
+                    {
+                        _cachedReadObject = baseObject;
+                        _cachedReadVersion = baseObject._propertiesVersion;
+                        _cachedReadDescriptor = ownDescriptor;
+                        descriptor = ownDescriptor;
+                    }
+                }
+
+                // Re-read the flags live every store: Object.defineProperty flips Writable in place on the same
+                // descriptor without bumping the version, so the writability decision must never be cached. The mask
+                // must equal exactly Writable — i.e. writable, not an accessor (NonData), not custom-valued.
+                if (descriptor is not null
+                    && (descriptor._flags & (PropertyFlag.NonData | PropertyFlag.CustomJsValue | PropertyFlag.Writable)) == PropertyFlag.Writable)
+                {
+                    descriptor._value = rval;
+                    result = rval;
+                    return true;
+                }
             }
         }
 

@@ -20,8 +20,11 @@ public abstract partial class JsValue : IEquatable<JsValue>
     public static readonly JsValue Undefined = new JsUndefined();
     public static readonly JsValue Null = new JsNull();
 
+    // Not readonly: JsObject toggles InternalTypes.ShapeMode here when it enters/leaves hidden-class
+    // shape mode, so the hot property paths can discriminate shape vs dictionary storage with a single
+    // flag test on the already-loaded _type. Every other value type sets it once and never mutates it.
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    internal readonly InternalTypes _type;
+    internal InternalTypes _type;
 
     protected JsValue(Types type)
     {
