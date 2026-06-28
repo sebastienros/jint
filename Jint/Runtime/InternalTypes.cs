@@ -38,7 +38,11 @@ internal enum InternalTypes
     // dictionary mode. Lets the hot property paths discriminate shape vs dictionary storage with a single
     // flag test on the already-loaded _type instead of a `this is JsObject` type-check plus a field read.
     ShapeMode = 65536,
+    // a shape-mode JsObject that is still being built up incrementally (a hot constructor's `this`), so a
+    // brand-new property grows the shape via a transition. Plain shaped objects (object literals) lack this
+    // flag and deopt to a dictionary when they gain a key, since they aren't a reused allocation site.
+    ShapeBuilding = 131072,
 
     Primitive = Boolean | String | Number | Integer | BigInt | Symbol,
-    InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Array | Module | IsHTMLDDA | ShapeMode
+    InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Array | Module | IsHTMLDDA | ShapeMode | ShapeBuilding
 }

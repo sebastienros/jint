@@ -30,6 +30,13 @@ internal sealed class Shape
     // At or above it, a lazily-built key->slot index is used instead.
     private const int LinearScanLimit = 16;
 
+    // Megamorphic guards for incremental shape growth (constructor this.x= via TryShapeAdd). An object
+    // that grows past MaxShapeProperties, or a shape that sprouts more than MaxFanout distinct child
+    // transitions (the object-used-as-a-hashmap pattern), deopts to the dictionary representation so the
+    // shared per-prototype transition tree cannot grow without bound. Ordinary constructors never hit these.
+    internal const int MaxShapeProperties = 64;
+    internal const int MaxFanout = 64;
+
     /// <summary>Parent shape (one fewer property), or null for the empty root shape.</summary>
     internal readonly Shape? Parent;
 
@@ -38,6 +45,9 @@ internal sealed class Shape
 
     /// <summary>Number of own string properties (= slot count). The added property lives at slot <c>SlotCount - 1</c>.</summary>
     internal readonly int SlotCount;
+
+    /// <summary>Number of distinct add-property transitions out of this shape (fan-out).</summary>
+    internal int TransitionCount => _transitions?.Count ?? 0;
 
     // Add-property transitions: key -> child shape. Lazily allocated; this is what interns layouts.
     private Dictionary<Key, Shape>? _transitions;
