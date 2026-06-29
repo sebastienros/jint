@@ -342,9 +342,9 @@ internal sealed record class ObjectDefinition(
                 typeSymbol.Name));
         }
 
-        // The shape path supports [JsFunction]s, static-immutable [JsProperty] constants, and symbols
-        // (incl. symbol-keyed functions). Accessors, intrinsic references, throwers and instance/mutable
-        // properties aren't representable — fail loudly rather than silently dropping them.
+        // The shape path supports [JsFunction]s, [JsProperty] constants & per-realm instance properties,
+        // and symbols (incl. symbol-keyed functions). Accessors, intrinsic references and throwers aren't
+        // representable yet — fail loudly rather than silently dropping them.
         if (useShape)
         {
             var hasUnsupported = intrinsicReferences.Count > 0 || throwerAccessors.Count > 0;
@@ -356,10 +356,6 @@ internal sealed record class ObjectDefinition(
                     hasUnsupported = true;
                     break;
                 }
-            }
-            foreach (var p in properties)
-            {
-                if (!p.IsStatic || !p.IsImmutable) { hasUnsupported = true; break; }
             }
             if (hasUnsupported)
             {

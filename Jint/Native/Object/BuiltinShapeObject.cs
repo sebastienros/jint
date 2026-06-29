@@ -14,6 +14,13 @@ namespace Jint.Native.Object;
 /// dictionary path does (so test262's verifyProperty needs no deopt); adding or deleting an own property
 /// deopts to the ordinary dictionary, after which every path falls back to the unchanged base behavior.
 /// </para>
+/// <para>
+/// A shaped host's own string properties are exactly those in its <see cref="BuiltinShape"/>. It must
+/// therefore declare every own property through the generator surface — it must <b>not</b> add properties
+/// via the raw <c>SetProperty</c> primitive in <c>Initialize</c> (those land in <c>_properties</c>, which
+/// the shape lookup does not consult). A built-in that needs to (e.g. Intl, which registers constructor
+/// references from the realm intrinsics) is not shape-eligible and should not derive from this type.
+/// </para>
 /// </summary>
 internal abstract class BuiltinShapeObject : ObjectInstance
 {
@@ -35,6 +42,16 @@ internal abstract class BuiltinShapeObject : ObjectInstance
     private protected void InitializeBuiltinShape()
     {
         _builtinDescriptors = (PropertyDescriptor?[]) BuiltinShape.ConstTemplate.Clone();
+    }
+
+    /// <summary>
+    /// Fills a per-realm instance-property slot (reserved via <see cref="BuiltinShape.Builder.Instance"/>)
+    /// with its value for this realm. Call from the built-in's <c>Initialize</c>, after
+    /// <see cref="InitializeBuiltinShape"/>.
+    /// </summary>
+    private protected void SetBuiltinInstanceDescriptor(int slot, JsValue value, PropertyFlag flags)
+    {
+        _builtinDescriptors![slot] = new PropertyDescriptor(value, flags);
     }
 
     private PropertyDescriptor MaterializeSlot(int slot)

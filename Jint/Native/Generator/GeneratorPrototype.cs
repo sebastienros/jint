@@ -9,7 +9,7 @@ namespace Jint.Native.Generator;
 /// https://tc39.es/ecma262/#sec-generator-objects
 /// </summary>
 [JsObject]
-internal sealed partial class GeneratorPrototype : ObjectInstance
+internal sealed partial class GeneratorPrototype : BuiltinShapeObject
 {
     private readonly Realm _realm;
 
