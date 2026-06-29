@@ -1627,10 +1627,15 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                     return true;
                 }
 
-                // Brand-new property added to an already-shaped object (e.g. an Object.assign / spread
-                // target, or assigning a new key to a literal). Object literals build their shape up front
-                // via JsObject.SetStore, so shape mode is never grown incrementally one property at a time;
-                // such adds fall back to the dictionary representation.
+                // Brand-new property: a hot constructor's `this` (ShapeBuilding) grows its shape via an
+                // interned transition shared across instances. Plain shaped objects (literals) lack the flag
+                // and fall through to deopt, since a one-off literal gaining a key is not a reused layout.
+                // The megamorphic guard inside TryShapeAdd also deopts object-as-hashmap usage.
+                if ((_type & InternalTypes.ShapeBuilding) != InternalTypes.Empty && jo.TryShapeAdd(key, v))
+                {
+                    return true;
+                }
+
                 ConvertToDictionaryMode();
                 SetOwnProperty(p, new PropertyDescriptor(v, PropertyFlag.ConfigurableEnumerableWritable));
                 return true;

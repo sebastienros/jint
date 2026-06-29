@@ -17,6 +17,18 @@ public sealed class ScriptFunction : Function, IConstructor
     internal List<PrivateElement>? _privateMethods;
     internal List<ClassFieldDefinition>? _fields;
 
+    // Allocation-site feedback for shaping `new T()` instances. A constructor's first
+    // CtorShapePromoteThreshold instances build dictionaries (so a constructor called once or twice — the
+    // overwhelming norm, e.g. across the Test262 suite — never grows the shared per-prototype transition
+    // tree); once it proves "hot" it is promoted to shape mode so repeated `new T()` with a stable layout
+    // reuse one interned hidden class. _ctorEmptyShape caches the prototype's empty root to avoid a
+    // per-construct lookup (revalidated when .prototype is reassigned).
+    private const int CtorShapePromoteThreshold = 16;
+    private bool _ctorShaped;
+    private int _ctorSampleCount;
+    private Shape? _ctorEmptyShape;
+    private ObjectInstance? _ctorEmptyShapeProto;
+
     /// <summary>
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
     /// </summary>
@@ -201,6 +213,26 @@ public sealed class ScriptFunction : Function, IConstructor
                     newTarget,
                     static intrinsics => intrinsics.Object.PrototypeObject,
                     static (Engine engine, Realm _, object? _) => new JsObject(engine));
+            }
+
+            // Once the constructor is hot, start each fresh `this` in shape-building mode so this.x= /
+            // class fields transition a shared interned hidden class instead of building a dictionary.
+            // Cold constructors (below the promote threshold) stay on the dictionary path.
+            if (thisArgument is JsObject thisObject && thisObject.Prototype is { } proto)
+            {
+                if (_ctorShaped)
+                {
+                    if (!ReferenceEquals(_ctorEmptyShapeProto, proto))
+                    {
+                        _ctorEmptyShape = _engine.GetEmptyShape(proto);
+                        _ctorEmptyShapeProto = proto;
+                    }
+                    thisObject.StartShapeBuilding(_ctorEmptyShape!);
+                }
+                else if (++_ctorSampleCount >= CtorShapePromoteThreshold)
+                {
+                    _ctorShaped = true;
+                }
             }
         }
 

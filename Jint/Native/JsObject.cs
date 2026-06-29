@@ -78,6 +78,52 @@ public sealed class JsObject : ObjectInstance
     internal void ClearShape()
     {
         _store = null;
-        _type &= ~InternalTypes.ShapeMode;
+        _type &= ~(InternalTypes.ShapeMode | InternalTypes.ShapeBuilding);
+    }
+
+    // store[0] is the shape; values start at [1], so a fresh builder has room for 3 properties before regrow.
+    private const int InitialBuildCapacity = 4;
+
+    /// <summary>
+    /// Starts incremental shape mode for a still-empty object (a constructor's <c>this</c>): installs the
+    /// prototype's empty root shape and a small growable store, so subsequent <c>this.x=</c> adds transition
+    /// the shape (interned, shared across <c>new T()</c> instances) instead of building a dictionary.
+    /// </summary>
+    internal void StartShapeBuilding(Shape emptyRoot)
+    {
+        var store = new object[InitialBuildCapacity];
+        store[0] = emptyRoot;
+        _store = store;
+        _type |= InternalTypes.ShapeMode | InternalTypes.ShapeBuilding;
+        unchecked { _propertiesVersion++; }
+    }
+
+    /// <summary>
+    /// Adds a brand-new configurable+enumerable+writable data property to a shape-mode object by
+    /// transitioning to the interned child shape and growing the store. Returns <c>false</c> — leaving the
+    /// object untouched — when a megamorphic guard trips (too many own properties, or this shape already
+    /// has too many distinct child transitions), so the caller deopts to the dictionary representation. The
+    /// key must be known-absent (callers check).
+    /// </summary>
+    internal bool TryShapeAdd(in Key key, JsValue value)
+    {
+        var store = _store!;
+        var shape = Unsafe.As<Shape>(store[0]);
+        if (shape.SlotCount >= Shape.MaxShapeProperties || shape.TransitionCount >= Shape.MaxFanout)
+        {
+            return false;
+        }
+
+        var valueIndex = shape.SlotCount + 1; // store[0] is the shape; the new value goes at SlotCount + 1
+        if (store.Length <= valueIndex)
+        {
+            System.Array.Resize(ref store, store.Length * 2);
+            _store = store;
+        }
+
+        store[valueIndex] = value;
+        store[0] = shape.Add(key);
+        unchecked { _propertiesVersion++; }
+        return true;
     }
 }
