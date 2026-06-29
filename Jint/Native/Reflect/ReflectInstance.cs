@@ -10,8 +10,8 @@ namespace Jint.Native.Reflect;
 /// <summary>
 /// https://www.ecma-international.org/ecma-262/6.0/index.html#sec-reflect-object
 /// </summary>
-[JsObject]
-internal sealed partial class ReflectInstance : ObjectInstance
+[JsObject(UseShape = true)]
+internal sealed partial class ReflectInstance : BuiltinShapeObject
 {
     private readonly Realm _realm;
 

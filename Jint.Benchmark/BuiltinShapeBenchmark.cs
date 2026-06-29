@@ -35,7 +35,7 @@ public class BuiltinShapeBenchmark
 
     // Forces MathInstance.Initialize (building the full property dictionary + all lazy descriptors) but
     // materializes only one dispatcher function — so the delta vs EngineOnly is the *fixed* per-realm
-    // storage overhead B1 removes (dict + N lazy descriptors), not the per-function value cost.
+    // storage overhead the built-in shape removes (dict + N lazy descriptors), not the per-function value cost.
     private static readonly Prepared<Script> _lightMath = Engine.PrepareScript("Math.abs(-1);");
 
     [Benchmark]
@@ -43,6 +43,19 @@ public class BuiltinShapeBenchmark
     {
         var engine = new Engine();
         engine.Evaluate(_lightMath);
+        return engine;
+    }
+
+    // Lightly touch each shape-backed built-in (Math, JSON, Reflect, Atomics) so all four initialize.
+    // The delta vs EngineOnly is the aggregate per-realm storage overhead removed across them.
+    private static readonly Prepared<Script> _initBuiltins = Engine.PrepareScript(
+        "Math.abs(-1); JSON.stringify(0); Reflect.has({},'x'); Atomics.isLockFree(4);");
+
+    [Benchmark]
+    public Engine EngineInitBuiltins()
+    {
+        var engine = new Engine();
+        engine.Evaluate(_initBuiltins);
         return engine;
     }
 }
