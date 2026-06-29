@@ -4,7 +4,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Json;
 
-[JsObject(UseShape = true)]
+[JsObject]
 internal sealed partial class JsonInstance : BuiltinShapeObject
 {
     private readonly Realm _realm;

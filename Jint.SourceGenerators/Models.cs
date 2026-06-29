@@ -98,18 +98,31 @@ internal sealed record class ObjectDefinition(
             ? string.Empty
             : typeSymbol.ContainingNamespace.ToDisplayString();
 
-        // Read [JsObject(ExtraCapacity = N, UseShape = true)].
+        // Read [JsObject(ExtraCapacity = N, UseShape = ...)]. Shape storage is the default for any host
+        // that derives from BuiltinShapeObject (deriving from it is the opt-in); UseShape = false is the
+        // explicit opt-out. Hosts that don't derive from it always use the dictionary path regardless.
         var extraCapacity = 0;
-        var useShape = false;
+        var useShapeRequested = true;
         foreach (var attr in typeSymbol.GetAttributes())
         {
             if (attr.AttributeClass?.Name != "JsObjectAttribute") continue;
             foreach (var named in attr.NamedArguments)
             {
                 if (named.Key == "ExtraCapacity" && named.Value.Value is int v) extraCapacity = v;
-                else if (named.Key == "UseShape" && named.Value.Value is bool s) useShape = s;
+                else if (named.Key == "UseShape" && named.Value.Value is bool s) useShapeRequested = s;
             }
         }
+
+        var derivesFromBuiltinShapeObject = false;
+        for (var baseType = typeSymbol.BaseType; baseType is not null; baseType = baseType.BaseType)
+        {
+            if (baseType.Name == "BuiltinShapeObject")
+            {
+                derivesFromBuiltinShapeObject = true;
+                break;
+            }
+        }
+        var useShape = useShapeRequested && derivesFromBuiltinShapeObject;
 
         var functions = new List<FunctionDefinition>();
         var properties = new List<PropertyDefinition>();
@@ -327,6 +340,31 @@ internal sealed record class ObjectDefinition(
                 DiagnosticDescriptors.MissingRealmField,
                 location,
                 typeSymbol.Name));
+        }
+
+        // The shape path supports [JsFunction]s, static-immutable [JsProperty] constants, and symbols
+        // (incl. symbol-keyed functions). Accessors, intrinsic references, throwers and instance/mutable
+        // properties aren't representable — fail loudly rather than silently dropping them.
+        if (useShape)
+        {
+            var hasUnsupported = intrinsicReferences.Count > 0 || throwerAccessors.Count > 0;
+            foreach (var fn in functions)
+            {
+                if (fn.Registration is RegistrationKind.AccessorGet or RegistrationKind.AccessorSet
+                    or RegistrationKind.SymbolAccessorGet or RegistrationKind.SymbolAccessorSet)
+                {
+                    hasUnsupported = true;
+                    break;
+                }
+            }
+            foreach (var p in properties)
+            {
+                if (!p.IsStatic || !p.IsImmutable) { hasUnsupported = true; break; }
+            }
+            if (hasUnsupported)
+            {
+                diagnostics.Add(new DiagnosticInfo(DiagnosticDescriptors.UnsupportedShapeMember, location, typeSymbol.Name));
+            }
         }
 
         functions.Sort(static (a, b) => string.CompareOrdinal(a.JsName, b.JsName));

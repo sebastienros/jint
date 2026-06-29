@@ -10,7 +10,7 @@ namespace Jint.Native.Temporal;
 /// https://tc39.es/proposal-temporal/#sec-temporal-now-object
 /// </summary>
 [JsObject]
-internal sealed partial class TemporalNow : ObjectInstance
+internal sealed partial class TemporalNow : BuiltinShapeObject
 {
     private readonly Realm _realm;
 
