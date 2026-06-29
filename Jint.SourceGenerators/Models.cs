@@ -33,6 +33,7 @@ internal sealed record class ObjectDefinition(
     string Accessibility,
     bool IsSealed,
     int ExtraCapacity,
+    bool UseShape,
     EquatableArray<FunctionDefinition> Functions,
     EquatableArray<PropertyDefinition> Properties,
     EquatableArray<SymbolDefinition> Symbols,
@@ -97,14 +98,16 @@ internal sealed record class ObjectDefinition(
             ? string.Empty
             : typeSymbol.ContainingNamespace.ToDisplayString();
 
-        // Read [JsObject(ExtraCapacity = N)] for hosts that add properties post-CreateProperties_Generated.
+        // Read [JsObject(ExtraCapacity = N, UseShape = true)].
         var extraCapacity = 0;
+        var useShape = false;
         foreach (var attr in typeSymbol.GetAttributes())
         {
             if (attr.AttributeClass?.Name != "JsObjectAttribute") continue;
             foreach (var named in attr.NamedArguments)
             {
                 if (named.Key == "ExtraCapacity" && named.Value.Value is int v) extraCapacity = v;
+                else if (named.Key == "UseShape" && named.Value.Value is bool s) useShape = s;
             }
         }
 
@@ -338,6 +341,7 @@ internal sealed record class ObjectDefinition(
             Accessibility: AccessibilityToString(typeSymbol.DeclaredAccessibility),
             IsSealed: typeSymbol.IsSealed,
             ExtraCapacity: extraCapacity,
+            UseShape: useShape,
             Functions: functions.ToEquatableArray(),
             Properties: properties.ToEquatableArray(),
             Symbols: symbols.ToEquatableArray(),

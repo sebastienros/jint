@@ -178,6 +178,16 @@ internal static class Emitter
         sb.AppendLine("    private void CreateProperties_Generated()");
         sb.AppendLine("    {");
 
+        if (obj.UseShape)
+        {
+            // Shape mode: install the shared layout + a per-realm lazily-filled descriptor array
+            // (BuiltinShapeObject) instead of building a property dictionary.
+            sb.AppendLine("        InitializeBuiltinShape();");
+            sb.AppendLine("    }");
+            EmitShapeMembers(sb, obj, dataProperties);
+            return;
+        }
+
         if (totalEntries == 0 && obj.ExtraCapacity == 0)
         {
             sb.AppendLine("        // no [JsFunction] / [JsProperty] / [JsAccessor] / [JsThrowerAccessor] / [JsIntrinsicReference] members");
@@ -301,6 +311,51 @@ internal static class Emitter
 
         sb.AppendLine("        SetProperties(properties);");
         sb.AppendLine("    }");
+    }
+
+    /// <summary>
+    /// Emits the [JsObject(UseShape = true)] members: the shared <c>BuiltinShape</c> (built once from the
+    /// same key/descriptor/dispatcher metadata as the dictionary path) and the two
+    /// <see cref="Jint.Native.Object.BuiltinShapeObject"/> hooks. The shape field initializer is emitted
+    /// after the static Key / descriptor fields in this same generated file, so it runs after them.
+    /// Supports [JsFunction]s, static-immutable [JsProperty] constants, and [JsSymbol]s.
+    /// </summary>
+    private static void EmitShapeMembers(StringBuilder sb, ObjectDefinition obj, List<FunctionDefinition> dataProperties)
+    {
+        var constants = new List<PropertyDefinition>();
+        foreach (var prop in obj.Properties)
+        {
+            if (prop.IsStatic && prop.IsImmutable) constants.Add(prop);
+        }
+
+        var dispatcher = "__" + obj.Name + "Function";
+        var singleSlot = obj.Functions.Count == 1;
+
+        sb.AppendLine();
+        sb.AppendLine("    private static readonly global::Jint.Native.Object.BuiltinShape __builtinShape = BuildBuiltinShape_Generated();");
+        sb.AppendLine();
+        sb.AppendLine("    private static global::Jint.Native.Object.BuiltinShape BuildBuiltinShape_Generated()");
+        sb.AppendLine("    {");
+        sb.Append("        var builder = new global::Jint.Native.Object.BuiltinShape.Builder(").Append(constants.Count + dataProperties.Count).AppendLine(");");
+        foreach (var prop in constants)
+        {
+            sb.Append("        builder.Constant(__Key_").Append(SanitizeIdentifier(prop.JsName)).Append(", __").Append(obj.Name).Append("_Property_").Append(prop.ClrName).AppendLine(");");
+        }
+        foreach (var fn in dataProperties)
+        {
+            sb.Append("        builder.Function(__Key_").Append(SanitizeIdentifier(fn.JsName)).Append(", (global::System.UInt16) ");
+            if (singleSlot) sb.Append('0');
+            else sb.Append(dispatcher).Append(".Slot.").Append(fn.ClrName);
+            sb.Append(", ").Append(fn.FlagsExpression).AppendLine(");");
+        }
+        sb.AppendLine("        return builder.Build();");
+        sb.AppendLine("    }");
+        sb.AppendLine();
+        sb.AppendLine("    private protected override global::Jint.Native.Object.BuiltinShape BuiltinShape => __builtinShape;");
+        sb.AppendLine();
+        sb.Append("    private protected override global::Jint.Native.Function.Function MakeBuiltinFunction(global::System.UInt16 slot) => new ").Append(dispatcher).Append("(this");
+        if (!singleSlot) sb.Append(", (").Append(dispatcher).Append(".Slot) slot");
+        sb.AppendLine(");");
     }
 
     private static void EmitDispatcher(StringBuilder sb, ObjectDefinition obj)

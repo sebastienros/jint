@@ -20,6 +20,15 @@ internal static class Attributes
             /// to avoid the list→hash transition during init.
             /// </summary>
             public int ExtraCapacity { get; set; }
+
+            /// <summary>
+            /// Store this built-in's string-keyed own properties as a shared immutable BuiltinShape plus a
+            /// per-realm lazily-filled descriptor array instead of a per-realm property dictionary. The host
+            /// must derive from <c>BuiltinShapeObject</c>. Supported for hosts whose members are
+            /// [JsFunction]s, static-immutable [JsProperty] constants, and [JsSymbol]s (namespace built-ins
+            /// such as Math/JSON/Reflect/Atomics). See BuiltinShapeObject.
+            /// </summary>
+            public bool UseShape { get; set; }
         }
 
         [global::System.AttributeUsage(global::System.AttributeTargets.Method)]

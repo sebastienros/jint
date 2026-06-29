@@ -6,8 +6,8 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Math;
 
-[JsObject]
-internal sealed partial class MathInstance : ObjectInstance
+[JsObject(UseShape = true)]
+internal sealed partial class MathInstance : BuiltinShapeObject
 {
     private readonly Realm _realm;
     private Random? _random;
@@ -31,10 +31,9 @@ internal sealed partial class MathInstance : ObjectInstance
 
     protected override void Initialize()
     {
-        // B1 pilot: build the shared built-in shape + a lazily-filled per-realm descriptor array
-        // instead of the generated per-realm property dictionary. See MathInstance.Shape.cs.
-        // (CreateProperties_Generated remains generated but unused; the shape path replaces it.)
-        InitializeShape();
+        // CreateProperties_Generated installs the built-in shape (UseShape = true). See BuiltinShapeObject.
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
     }
 
     [JsFunction]
