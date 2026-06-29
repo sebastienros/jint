@@ -183,6 +183,16 @@ internal static class Emitter
             // Shape mode: install the shared layout + a per-realm lazily-filled descriptor array
             // (BuiltinShapeObject) instead of building a property dictionary.
             sb.AppendLine("        InitializeBuiltinShape();");
+            // Fill per-realm instance-property slots (value varies per realm; slot index = position in
+            // the sorted property list, since properties precede functions in the shape layout).
+            for (var i = 0; i < obj.Properties.Count; i++)
+            {
+                var prop = obj.Properties[i];
+                if (prop.IsStatic && prop.IsImmutable) continue;
+                sb.Append("        SetBuiltinInstanceDescriptor(").Append(i).Append(", ");
+                if (prop.IsStatic) sb.Append(obj.Name).Append('.');
+                sb.Append(prop.ClrName).Append(", ").Append(prop.FlagsExpression).AppendLine(");");
+            }
             sb.AppendLine("    }");
             EmitShapeMembers(sb, obj, dataProperties);
             return;
@@ -322,12 +332,6 @@ internal static class Emitter
     /// </summary>
     private static void EmitShapeMembers(StringBuilder sb, ObjectDefinition obj, List<FunctionDefinition> dataProperties)
     {
-        var constants = new List<PropertyDefinition>();
-        foreach (var prop in obj.Properties)
-        {
-            if (prop.IsStatic && prop.IsImmutable) constants.Add(prop);
-        }
-
         var dispatcher = "__" + obj.Name + "Function";
         var singleSlot = obj.Functions.Count == 1;
 
@@ -336,10 +340,19 @@ internal static class Emitter
         sb.AppendLine();
         sb.AppendLine("    private static global::Jint.Native.Object.BuiltinShape BuildBuiltinShape_Generated()");
         sb.AppendLine("    {");
-        sb.Append("        var builder = new global::Jint.Native.Object.BuiltinShape.Builder(").Append(constants.Count + dataProperties.Count).AppendLine(");");
-        foreach (var prop in constants)
+        sb.Append("        var builder = new global::Jint.Native.Object.BuiltinShape.Builder(").Append(obj.Properties.Count + dataProperties.Count).AppendLine(");");
+        // Properties first (matching the dictionary path's order): static-immutable constants share a
+        // process-wide descriptor; everything else is a per-realm instance slot filled in Initialize.
+        foreach (var prop in obj.Properties)
         {
-            sb.Append("        builder.Constant(__Key_").Append(SanitizeIdentifier(prop.JsName)).Append(", __").Append(obj.Name).Append("_Property_").Append(prop.ClrName).AppendLine(");");
+            if (prop.IsStatic && prop.IsImmutable)
+            {
+                sb.Append("        builder.Constant(__Key_").Append(SanitizeIdentifier(prop.JsName)).Append(", __").Append(obj.Name).Append("_Property_").Append(prop.ClrName).AppendLine(");");
+            }
+            else
+            {
+                sb.Append("        builder.Instance(__Key_").Append(SanitizeIdentifier(prop.JsName)).AppendLine(");");
+            }
         }
         foreach (var fn in dataProperties)
         {

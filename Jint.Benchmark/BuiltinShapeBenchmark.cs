@@ -69,4 +69,17 @@ public class BuiltinShapeBenchmark
         engine.Evaluate(_initTemporalNow);
         return engine;
     }
+
+    // Forces the Generator + AsyncGenerator prototypes (3 functions + a constructor instance property each)
+    // to initialize — newly shape-backed here (via instance-property support), dictionary on main.
+    private static readonly Prepared<Script> _initGenerators = Engine.PrepareScript(
+        "(function*(){})().next; (async function*(){})().next;");
+
+    [Benchmark]
+    public Engine EngineInitGenerators()
+    {
+        var engine = new Engine();
+        engine.Evaluate(_initGenerators);
+        return engine;
+    }
 }

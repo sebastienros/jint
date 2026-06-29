@@ -10,7 +10,7 @@ namespace Jint.Native.AsyncGenerator;
 /// https://tc39.es/ecma262/#sec-asyncgenerator-prototype-object
 /// </summary>
 [JsObject]
-internal sealed partial class AsyncGeneratorPrototype : ObjectInstance
+internal sealed partial class AsyncGeneratorPrototype : BuiltinShapeObject
 {
     private readonly Realm _realm;
 

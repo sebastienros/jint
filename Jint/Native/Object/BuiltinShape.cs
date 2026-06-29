@@ -79,6 +79,21 @@ internal sealed class BuiltinShape
             _next++;
         }
 
+        /// <summary>
+        /// Reserves a slot for a per-realm instance property (a data property whose value varies per
+        /// realm, e.g. a prototype's <c>constructor</c> reference). The descriptor is filled at
+        /// initialization by the owner via <see cref="BuiltinShapeObject.SetBuiltinInstanceDescriptor"/>,
+        /// not lazily materialized — so its template slot stays null and it is never treated as a function.
+        /// </summary>
+        internal void Instance(in Key name)
+        {
+            _names[_next] = name;
+            _constTemplate[_next] = null;
+            _functionSlots[_next] = NotAFunction;
+            _index[name] = _next;
+            _next++;
+        }
+
         internal BuiltinShape Build() => new(_names, _constTemplate, _functionSlots, _functionFlags, _index);
     }
 }
