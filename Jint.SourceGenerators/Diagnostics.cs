@@ -107,4 +107,12 @@ internal static class DiagnosticDescriptors
         category: "Jint.SourceGenerators",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor UnsupportedShapeMember = new(
+        id: "JINT022",
+        title: "Built-in shape host has an unsupported member kind",
+        messageFormat: "Type '{0}' uses built-in shape storage (derives from BuiltinShapeObject) but declares an accessor / intrinsic reference / thrower / non-static or mutable property, which the shape path does not support; add [JsObject(UseShape = false)] or remove the member",
+        category: "Jint.SourceGenerators",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 }

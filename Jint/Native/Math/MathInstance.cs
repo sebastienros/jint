@@ -6,7 +6,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Math;
 
-[JsObject(UseShape = true)]
+[JsObject]
 internal sealed partial class MathInstance : BuiltinShapeObject
 {
     private readonly Realm _realm;
@@ -31,7 +31,7 @@ internal sealed partial class MathInstance : BuiltinShapeObject
 
     protected override void Initialize()
     {
-        // CreateProperties_Generated installs the built-in shape (UseShape = true). See BuiltinShapeObject.
+        // CreateProperties_Generated installs the built-in shape (this derives from BuiltinShapeObject).
         CreateProperties_Generated();
         CreateSymbols_Generated();
     }

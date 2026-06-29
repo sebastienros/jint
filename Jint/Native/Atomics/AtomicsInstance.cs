@@ -16,7 +16,7 @@ namespace Jint.Native.Atomics;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-atomics-object
 /// </summary>
-[JsObject(UseShape = true)]
+[JsObject]
 internal sealed partial class AtomicsInstance : BuiltinShapeObject
 {
     private readonly Realm _realm;

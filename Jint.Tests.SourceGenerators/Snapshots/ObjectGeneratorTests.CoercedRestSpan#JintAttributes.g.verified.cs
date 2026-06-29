@@ -18,13 +18,15 @@ internal sealed class JsObjectAttribute : global::System.Attribute
     public int ExtraCapacity { get; set; }
 
     /// <summary>
-    /// Store this built-in's string-keyed own properties as a shared immutable BuiltinShape plus a
-    /// per-realm lazily-filled descriptor array instead of a per-realm property dictionary. The host
-    /// must derive from <c>BuiltinShapeObject</c>. Supported for hosts whose members are
-    /// [JsFunction]s, static-immutable [JsProperty] constants, and [JsSymbol]s (namespace built-ins
-    /// such as Math/JSON/Reflect/Atomics). See BuiltinShapeObject.
+    /// Built-in shape storage (a shared immutable BuiltinShape plus a per-realm lazily-filled
+    /// descriptor array instead of a per-realm property dictionary) is used <b>by default</b> for any
+    /// host that derives from <c>BuiltinShapeObject</c> — deriving from it is the opt-in. Set this to
+    /// <c>false</c> to opt a derived host back out to the dictionary path. Hosts that do not derive
+    /// from <c>BuiltinShapeObject</c> always use the dictionary path regardless of this flag.
+    /// Supported members: [JsFunction]s, static-immutable [JsProperty] constants, and symbols. See
+    /// BuiltinShapeObject.
     /// </summary>
-    public bool UseShape { get; set; }
+    public bool UseShape { get; set; } = true;
 }
 
 [global::System.AttributeUsage(global::System.AttributeTargets.Method)]

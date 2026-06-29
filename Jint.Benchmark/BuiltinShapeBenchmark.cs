@@ -58,4 +58,15 @@ public class BuiltinShapeBenchmark
         engine.Evaluate(_initBuiltins);
         return engine;
     }
+
+    // Forces Temporal.Now (9 functions) to initialize — newly shape-backed here, dictionary on main.
+    private static readonly Prepared<Script> _initTemporalNow = Engine.PrepareScript("Temporal.Now.instant();");
+
+    [Benchmark]
+    public Engine EngineInitTemporalNow()
+    {
+        var engine = new Engine();
+        engine.Evaluate(_initTemporalNow);
+        return engine;
+    }
 }
