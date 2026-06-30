@@ -21,6 +21,8 @@ public class PropertyAllocBenchmark
     private readonly Prepared<Script> _literal3;
     private readonly Prepared<Script> _constructor1;
     private readonly Prepared<Script> _literal8;
+    private readonly Prepared<Script> _constructor3Cached;
+    private readonly Prepared<Script> _literal2Cached;
 
     public PropertyAllocBenchmark()
     {
@@ -35,6 +37,16 @@ public class PropertyAllocBenchmark
 
         _literal8 = Engine.PrepareScript(
             $"var s=0; for (var i=0;i<{Iterations};++i){{ var t={{a:i,b:i,c:i,d:i,e:i,f:i,g:i,h:i}}; s+=t.a; }} s;");
+
+        // Cached-value variants: field values stay in the small-integer cache (m = i & 1023), so JsNumber
+        // boxing of the stored values does not dilute the signal — the Allocated delta isolates the
+        // per-object construction cost (object + slot storage), which in-object properties cuts to a single
+        // allocation for objects within the in-object capacity.
+        _constructor3Cached = Engine.PrepareScript(
+            $"function T(a,b,c){{this.a=a;this.b=b;this.c=c;}} var s=0; for (var i=0;i<{Iterations};++i){{ var m=i&1023; var t=new T(m,m,m); s=(s+t.a)&1023; }} s;");
+
+        _literal2Cached = Engine.PrepareScript(
+            $"var s=0; for (var i=0;i<{Iterations};++i){{ var m=i&1023; var t={{a:m,b:m}}; s=(s+t.a)&1023; }} s;");
     }
 
     [Benchmark]
@@ -48,4 +60,10 @@ public class PropertyAllocBenchmark
 
     [Benchmark]
     public void Literal8() => new Engine().Evaluate(_literal8);
+
+    [Benchmark]
+    public void Constructor3Cached() => new Engine().Evaluate(_constructor3Cached);
+
+    [Benchmark]
+    public void Literal2Cached() => new Engine().Evaluate(_literal2Cached);
 }

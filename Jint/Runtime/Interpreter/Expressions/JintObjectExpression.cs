@@ -255,16 +255,15 @@ internal sealed class JintObjectExpression : JintExpression
             _cachedShapeProto = proto;
         }
 
-        // Single combined store: shape at [0], slot values at [1..] (matches JsObject's layout).
-        var store = new object[keys.Length + 1];
-        store[0] = shape;
+        // In-object properties: install the shape, then fill slots directly. A layout within the in-object
+        // capacity allocates no slot array — the object itself is the only allocation.
+        var obj = new JsObject(engine);
+        obj.InitShape(shape);
         for (var i = 0; i < keys.Length; i++)
         {
-            store[i + 1] = _valueExpressions.GetValue(context, i);
+            obj.SetSlot(i, _valueExpressions.GetValue(context, i));
         }
 
-        var obj = new JsObject(engine);
-        obj.SetStore(store);
         return obj;
     }
 
