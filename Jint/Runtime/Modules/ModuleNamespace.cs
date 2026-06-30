@@ -20,6 +20,9 @@ internal sealed class ModuleNamespace : ObjectInstance
 
     public ModuleNamespace(Engine engine, Module module, List<string> exports, bool deferred = false) : base(engine)
     {
+        // [[Get]] resolves module exports (and throws on symbol-like keys), not ordinary property lookup,
+        // so the prototype-method inline cache must skip this receiver. See InternalTypes.ExoticGet.
+        _type |= InternalTypes.ExoticGet;
         _module = module;
         _exports = new HashSet<string>(exports, StringComparer.Ordinal);
         _deferred = deferred;

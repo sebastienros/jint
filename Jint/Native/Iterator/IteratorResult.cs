@@ -23,6 +23,7 @@ internal sealed class IteratorResult : ObjectInstance
 
     public IteratorResult(Engine engine, JsValue value, JsBoolean done) : base(engine)
     {
+        _type |= InternalTypes.ExoticGet;
         _value = value;
         _done = done;
     }

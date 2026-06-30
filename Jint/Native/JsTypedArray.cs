@@ -27,6 +27,7 @@ public sealed class JsTypedArray : ObjectInstance
         TypedArrayElementType type,
         uint length) : base(engine)
     {
+        _type |= InternalTypes.ExoticGet;
         _intrinsics = intrinsics;
         _viewedArrayBuffer = new JsArrayBuffer(engine, []);
 

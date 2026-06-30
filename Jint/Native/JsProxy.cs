@@ -33,6 +33,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         ObjectInstance handler)
         : base(engine, target.Class)
     {
+        _type |= InternalTypes.ExoticGet;
         _target = target;
         _handler = handler;
         IsCallable = target.IsCallable;

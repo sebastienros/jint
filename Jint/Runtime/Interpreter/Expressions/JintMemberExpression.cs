@@ -29,6 +29,19 @@ internal sealed class JintMemberExpression : JintExpression
     private Shape? _cachedShape;
     private int _cachedShapeSlot;
 
+    // Prototype-method inline cache: resolves `obj.method` where `method` lives on obj's direct prototype
+    // (e.g. arr.push, date.getTime, obj.protoMethod). The own-property caches above only handle own
+    // properties, so without this every such read/call re-walks the prototype chain and probes the
+    // prototype's dictionary. Validity: same receiver (so a per-site monomorphic hit), receiver own-shape
+    // unchanged (no own property added that would shadow), direct prototype unchanged (not re-pointed),
+    // and the holder's own-property shape unchanged (method not redefined/removed). Exotic receivers and
+    // prototypes (Proxy/TypedArray/IteratorResult) are excluded via InternalTypes.ExoticGet.
+    private ObjectInstance? _cachedProtoReceiver;
+    private uint _cachedProtoReceiverVersion;
+    private ObjectInstance? _cachedProtoHolder;
+    private uint _cachedProtoHolderVersion;
+    private PropertyDescriptor? _cachedProtoDescriptor;
+
     private static readonly JsValue _nullMarker = new JsString("NULL MARKER");
 
     public JintMemberExpression(MemberExpression expression) : base(expression)
@@ -256,7 +269,8 @@ internal sealed class JintMemberExpression : JintExpression
                         return shapeObj.GetSlot(slot);
                     }
 
-                    return baseObject.Get(determinedProperty, baseObject);
+                    // Slot miss ⇒ no own string property (any non-shapeable property would have deopted).
+                    return ReadAfterOwnMiss(baseObject, determinedProperty, ownMissConfirmed: true);
                 }
 
                 if ((baseObject._type & InternalTypes.PlainObject) != InternalTypes.Empty)
@@ -280,11 +294,16 @@ internal sealed class JintMemberExpression : JintExpression
 
                         return ObjectInstance.UnwrapJsValue(ownDescriptor, baseObject);
                     }
+
+                    // GetOwnProperty already proved the own-property miss for this receiver.
+                    _cachedReadObject = null;
+                    _cachedReadDescriptor = null;
+                    return ReadAfterOwnMiss(baseObject, determinedProperty, ownMissConfirmed: true);
                 }
 
                 _cachedReadObject = null;
                 _cachedReadDescriptor = null;
-                return baseObject.Get(determinedProperty, baseObject);
+                return ReadAfterOwnMiss(baseObject, determinedProperty, ownMissConfirmed: false);
             }
 
             // JsString primitive: skip ToObject's StringInstance allocation for the hot `s.length`
@@ -453,7 +472,8 @@ internal sealed class JintMemberExpression : JintExpression
                     return shapeObj.GetSlot(slot);
                 }
 
-                return baseObject.Get(determinedProperty, baseObject);
+                // Slot miss ⇒ no own string property (any non-shapeable property would have deopted).
+                return ReadAfterOwnMiss(baseObject, determinedProperty, ownMissConfirmed: true);
             }
 
             if ((baseObject._type & InternalTypes.PlainObject) != InternalTypes.Empty)
@@ -474,15 +494,76 @@ internal sealed class JintMemberExpression : JintExpression
                     return ObjectInstance.UnwrapJsValue(ownDescriptor, baseObject);
                 }
 
+                // GetOwnProperty already proved the own-property miss for this receiver.
                 _cachedReadObject = null;
                 _cachedReadDescriptor = null;
+                return ReadAfterOwnMiss(baseObject, determinedProperty, ownMissConfirmed: true);
             }
 
-            return baseObject.Get(determinedProperty, baseObject);
+            return ReadAfterOwnMiss(baseObject, determinedProperty, ownMissConfirmed: false);
         }
 
         thisObject = JsValue.Undefined;
         return JsValue.Undefined;
+    }
+
+    /// <summary>
+    /// Resolves a member read from <paramref name="baseObject"/> after the own-property fast paths have
+    /// missed: tries the prototype-method inline cache, then falls back to the full
+    /// <see cref="ObjectInstance.Get(JsValue, JsValue)"/> (deeper prototype chains, exotic objects, absent).
+    /// <paramref name="ownMissConfirmed"/> is <c>true</c> when the caller already proved the receiver has no
+    /// own property of this name (a shape slot miss or a <c>GetOwnProperty</c> that returned undefined), so
+    /// the populate path can skip re-probing it.
+    /// </summary>
+    private JsValue ReadAfterOwnMiss(ObjectInstance baseObject, JsString property, bool ownMissConfirmed)
+    {
+        var holder = _cachedProtoHolder;
+        if (holder is not null
+            && ReferenceEquals(baseObject, _cachedProtoReceiver)
+            && baseObject._propertiesVersion == _cachedProtoReceiverVersion
+            // GetPrototypeOf(), not the _prototype field: a subclass may shadow the field and override
+            // [[GetPrototypeOf]] (e.g. interop instances), and base Get walks via the same accessor. The
+            // receiver is pinned by identity, so this is a pure field read for ordinary objects and never
+            // the proxy trap (proxies carry ExoticGet and are never cached as the receiver).
+            && ReferenceEquals(baseObject.GetPrototypeOf(), holder)
+            && holder._propertiesVersion == _cachedProtoHolderVersion)
+        {
+            return ObjectInstance.UnwrapJsValue(_cachedProtoDescriptor!, baseObject);
+        }
+
+        return ReadAfterOwnMissUncached(baseObject, property, ownMissConfirmed);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private JsValue ReadAfterOwnMissUncached(ObjectInstance baseObject, JsString property, bool ownMissConfirmed)
+    {
+        // Only ordinary receivers with an ordinary direct prototype: a Proxy / TypedArray / IteratorResult
+        // has a custom [[Get]] / [[GetOwnProperty]] this cache must not bypass.
+        if ((baseObject._type & InternalTypes.ExoticGet) == InternalTypes.Empty)
+        {
+            var proto = baseObject.GetPrototypeOf();
+            if (proto is not null
+                && (proto._type & InternalTypes.ExoticGet) == InternalTypes.Empty
+                // No own property on the receiver (which would shadow the prototype's). The caller usually
+                // already established this (shape slot miss / GetOwnProperty undefined), so re-probe only
+                // when it didn't (a non-plain receiver reached here unchecked).
+                && (ownMissConfirmed || ReferenceEquals(baseObject.GetOwnProperty(property), PropertyDescriptor.Undefined)))
+            {
+                // ...and an own property on the *direct* prototype (deeper chains fall to the slow Get).
+                var descriptor = proto.GetOwnProperty(property);
+                if (!ReferenceEquals(descriptor, PropertyDescriptor.Undefined))
+                {
+                    _cachedProtoReceiver = baseObject;
+                    _cachedProtoReceiverVersion = baseObject._propertiesVersion;
+                    _cachedProtoHolder = proto;
+                    _cachedProtoHolderVersion = proto._propertiesVersion;
+                    _cachedProtoDescriptor = descriptor;
+                    return ObjectInstance.UnwrapJsValue(descriptor, baseObject);
+                }
+            }
+        }
+
+        return baseObject.Get(property, baseObject);
     }
 
     /// <summary>
