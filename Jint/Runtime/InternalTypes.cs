@@ -42,7 +42,11 @@ internal enum InternalTypes
     // brand-new property grows the shape via a transition. Plain shaped objects (object literals) lack this
     // flag and deopt to a dictionary when they gain a key, since they aren't a reused allocation site.
     ShapeBuilding = 131072,
+    // the object overrides [[Get]] / [[GetOwnProperty]] with non-ordinary semantics (Proxy, TypedArray
+    // integer-index access, IteratorResult). The prototype-method inline cache skips such receivers and
+    // prototypes so it never bypasses their custom property resolution.
+    ExoticGet = 262144,
 
     Primitive = Boolean | String | Number | Integer | BigInt | Symbol,
-    InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Array | Module | IsHTMLDDA | ShapeMode | ShapeBuilding
+    InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Array | Module | IsHTMLDDA | ShapeMode | ShapeBuilding | ExoticGet
 }

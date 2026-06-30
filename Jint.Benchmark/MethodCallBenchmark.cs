@@ -51,10 +51,22 @@ public class MethodCallBenchmark
             s;
             """, strict: true);
 
+        _arrayPushPop = Engine.PrepareScript(
+            "var a = []; for (var i = 0; i < 1000000; i++) { a.push(i); a.pop(); } a.length;", strict: true);
+        _userProtoMethod = Engine.PrepareScript("""
+            function C() { this.v = 0; }
+            C.prototype.inc = function () { this.v = (this.v + 1) & 1023; return this.v; };
+            var c = new C(); var s = 0;
+            for (var i = 0; i < 1000000; i++) { s = (s + c.inc()) & 1023; }
+            s;
+            """, strict: true);
+
         _engine = new Engine(static options => options.Strict());
         _engine.Evaluate(_methodCallThis);
         _engine.Evaluate(_methodCallCaptured);
         _engine.Evaluate(_freeFunctionCall);
+        _engine.Evaluate(_arrayPushPop);
+        _engine.Evaluate(_userProtoMethod);
     }
 
     [Benchmark]
@@ -65,4 +77,15 @@ public class MethodCallBenchmark
 
     [Benchmark]
     public JsValue FreeFunctionCall() => _engine.Evaluate(_freeFunctionCall);
+
+    // Prototype-method calls — resolved on the receiver's prototype, the case the prototype-method inline
+    // cache targets (own-method calls above already hit the own-property cache). Prepared in Setup().
+    private Prepared<Script> _arrayPushPop;
+    private Prepared<Script> _userProtoMethod;
+
+    [Benchmark]
+    public JsValue ArrayPushPop() => _engine.Evaluate(_arrayPushPop);
+
+    [Benchmark]
+    public JsValue UserPrototypeMethod() => _engine.Evaluate(_userProtoMethod);
 }

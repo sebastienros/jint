@@ -29,6 +29,10 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         Type? type = null)
         : base(engine)
     {
+        // Member access resolves against the wrapped CLR object, not ordinary own-property-then-prototype
+        // lookup, so the prototype-method inline cache must skip this receiver and any object whose
+        // prototype is a wrapper. See InternalTypes.ExoticGet.
+        _type |= InternalTypes.ExoticGet;
         Target = obj;
         ClrType = GetClrType(obj, type);
         _typeDescriptor = TypeDescriptor.Get(ClrType);

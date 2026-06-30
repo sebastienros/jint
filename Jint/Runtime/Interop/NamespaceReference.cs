@@ -22,6 +22,9 @@ public class NamespaceReference : ObjectInstance, ICallable
 
     public NamespaceReference(Engine engine, string? path) : base(engine)
     {
+        // Member access resolves namespace/type segments, not ordinary property lookup, so the
+        // prototype-method inline cache must skip this receiver. See InternalTypes.ExoticGet.
+        _type |= InternalTypes.ExoticGet;
         _path = path;
     }
 
