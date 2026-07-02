@@ -772,12 +772,12 @@ assertEqual(booleanCount, 1);
         (
         )=>0
         """)]
-    public void ToStringShouldProduceStandardsCompliantResultByDefault(string code, string expectedResult)
+    public void ToStringShouldProduceStandardsCompliantResultWhenSourceTextRetained(string code, string expectedResult)
     {
         code = Regex.Replace(code, @"\r\n?", "\n", RegexOptions.CultureInvariant); // normalize line endings to '\n'
         expectedResult = Regex.Replace(expectedResult, @"\r\n?", "\n", RegexOptions.CultureInvariant); // normalize line endings to '\n'
 
-        var returnValue = new Engine().Evaluate(code);
+        var returnValue = new Engine(options => options.RetainFunctionSourceText()).Evaluate(code);
 
         var actualResults = Assert.IsType<JsArray>(returnValue);
         Assert.Equal(2u, actualResults.Length);
@@ -787,5 +787,42 @@ assertEqual(booleanCount, 1);
 
         var actualResult2 = Assert.IsType<JsString>(actualResults[1]).ToString();
         Assert.Same(actualResult1, actualResult2);
+    }
+
+    [Fact]
+    public void ToStringReturnsNativeCodePlaceholderByDefault()
+    {
+        // By default the source text is not retained (to save memory), so toString() returns the
+        // native-code placeholder rather than the original source. See issue #2560.
+        var engine = new Engine();
+
+        Assert.Equal("function fn() { [native code] }", engine.Evaluate("function fn() { return 0; } fn.toString();").AsString());
+        Assert.Equal("function foo() { [native code] }", engine.Evaluate("var foo = function () {}; foo.toString();").AsString());
+        Assert.Equal("function () { [native code] }", engine.Evaluate("(() => 0).toString();").AsString());
+    }
+
+    [Fact]
+    public void ToStringReturnsSourceTextWhenRetainedViaParsingOptions()
+    {
+        // Opt in to source-text retention through parsing options (covers the prepared-script path too).
+        var engine = new Engine();
+        var parsingOptions = new ScriptParsingOptions { RetainFunctionSourceText = true };
+
+        Assert.Equal(
+            "function fn() { return 0; }",
+            engine.Evaluate("function fn() { return 0; } fn.toString();", parsingOptions).AsString());
+
+        var prepared = Engine.PrepareScript(
+            "function fn() { return 42; } fn.toString();",
+            options: new ScriptPreparationOptions { ParsingOptions = parsingOptions });
+        Assert.Equal("function fn() { return 42; }", new Engine().Evaluate(prepared).AsString());
+    }
+
+    [Fact]
+    public void PreparedScriptDoesNotRetainSourceTextByDefault()
+    {
+        // A prepared script must not retain its source by default: toString() falls back to native code.
+        var prepared = Engine.PrepareScript("function fn() { return 0; } fn.toString();");
+        Assert.Equal("function fn() { [native code] }", new Engine().Evaluate(prepared).AsString());
     }
 }

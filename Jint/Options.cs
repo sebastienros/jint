@@ -79,6 +79,19 @@ public class Options
     public bool Strict { get; set; }
 
     /// <summary>
+    /// Whether the engine's default parser retains the full source text of parsed functions so that
+    /// <see cref="Native.Function.Function.ToString"><c>Function.prototype.toString()</c></see> can return
+    /// the original source. Defaults to <see langword="false"/>, in which case <c>toString()</c> returns a
+    /// <c>function name() { [native code] }</c> placeholder and the script source is not kept in memory.
+    /// </summary>
+    /// <remarks>
+    /// This only affects scripts/modules parsed by the engine itself (e.g. <see cref="Engine"/>'s <c>Execute(string)</c>).
+    /// When parsing via an explicit <see cref="ScriptParsingOptions"/>/<see cref="ModuleParsingOptions"/> or a
+    /// prepared script/module, the corresponding <see cref="IParsingOptions.RetainFunctionSourceText"/> setting applies.
+    /// </remarks>
+    public bool RetainFunctionSourceText { get; set; }
+
+    /// <summary>
     /// The culture the engine runs on, defaults to current culture.
     /// </summary>
     public CultureInfo Culture { get; set; } = _defaultCulture;
