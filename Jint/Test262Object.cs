@@ -35,7 +35,7 @@ internal static class Test262Object
 
                 var script = Engine.PrepareScript(args.At(0).AsString(), options: new ScriptPreparationOptions
                 {
-                    ParsingOptions = ScriptParsingOptions.Default with { Tolerant = false },
+                    ParsingOptions = ScriptParsingOptions.Default with { Tolerant = false, RetainFunctionSourceText = true },
                 });
 
                 return engine.Evaluate(script);

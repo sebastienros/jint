@@ -70,11 +70,13 @@ public partial class Engine
     private sealed class AstAnalyzer
     {
         private readonly IPreparationOptions<IParsingOptions> _preparationOptions;
+        private readonly bool _retainSourceText;
         private readonly Dictionary<string, Environment.BindingName> _bindingNames = new(StringComparer.Ordinal);
 
         public AstAnalyzer(IPreparationOptions<IParsingOptions> preparationOptions)
         {
             _preparationOptions = preparationOptions;
+            _retainSourceText = preparationOptions.ParsingOptions.RetainFunctionSourceText;
         }
 
         public void NodeVisitor(Node node, in OnNodeContext ctx)
@@ -113,7 +115,7 @@ public partial class Engine
                 case NodeType.ArrowFunctionExpression:
                 case NodeType.FunctionDeclaration:
                 case NodeType.FunctionExpression:
-                    node.UserData = JintFunctionDefinition.BuildState((IFunction) node, ctx.Input);
+                    node.UserData = JintFunctionDefinition.BuildState((IFunction) node, _retainSourceText ? ctx.Input : null);
                     break;
 
                 case NodeType.Program:

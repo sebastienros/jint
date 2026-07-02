@@ -138,14 +138,19 @@ public abstract partial class Test262Test
             if (file.Type == ProgramType.Module)
             {
                 var specifier = "./" + Path.GetFileName(file.FileName);
-                engine.Modules.Add(specifier, builder => builder.AddSource(file.Program));
+                engine.Modules.Add(specifier, builder => builder
+                    .WithOptions(static options => options with { RetainFunctionSourceText = true })
+                    .AddSource(file.Program));
                 engine.Modules.Import(specifier);
             }
             else
             {
                 var script = Engine.PrepareScript(file.Program, source: file.FileName, options: new ScriptPreparationOptions
                 {
-                    ParsingOptions = ScriptParsingOptions.Default with { Tolerant = false, AllowReturnOutsideFunction = false },
+                    // Retain source text so Function.prototype.toString() conformance tests
+                    // (built-ins/Function/prototype/toString/*) validate the real-source output, which is
+                    // opt-in since the engine no longer retains source by default (issue #2560).
+                    ParsingOptions = ScriptParsingOptions.Default with { Tolerant = false, AllowReturnOutsideFunction = false, RetainFunctionSourceText = true },
                 });
 
                 engine.Execute(script);

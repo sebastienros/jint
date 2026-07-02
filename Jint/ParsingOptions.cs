@@ -34,6 +34,16 @@ public interface IParsingOptions
     /// Defaults to <see langword="false"/>.
     /// </summary>
     bool Tolerant { get; init; }
+
+    /// <summary>
+    /// Gets or sets whether to retain the full source text of parsed functions so that
+    /// <see cref="Native.Function.Function.ToString"><c>Function.prototype.toString()</c></see>
+    /// can return the original source.
+    /// When <see langword="false"/> (the default), the source text is not kept and <c>toString()</c>
+    /// returns a <c>function name() { [native code] }</c> placeholder. This avoids retaining the entire
+    /// script source in memory, which can be significant for large and/or cached (prepared) scripts.
+    /// </summary>
+    bool RetainFunctionSourceText { get; init; }
 }
 
 public sealed record ScriptParsingOptions : IParsingOptions
@@ -43,10 +53,16 @@ public sealed record ScriptParsingOptions : IParsingOptions
         AllowReturnOutsideFunction = true,
         AllowTopLevelUsing = true,
         OnRegExp = Engine.DefaultConvertRegExpHandler,
-        OnNode = Engine.DefaultNodeHandler,
+        // OnNode (source-text retention) is applied conditionally in ApplyTo based on RetainFunctionSourceText.
     };
 
     public static readonly ScriptParsingOptions Default = new();
+
+    /// <summary>
+    /// A <see cref="Default"/> variant that retains function source text. Used by the engine when
+    /// <see cref="Options.RetainFunctionSourceText"/> is enabled to build its default parser.
+    /// </summary>
+    internal static readonly ScriptParsingOptions RetainingDefault = new() { RetainFunctionSourceText = true };
 
     /// <summary>
     /// Gets or sets whether to allow return statements at the top level.
@@ -63,6 +79,9 @@ public sealed record ScriptParsingOptions : IParsingOptions
     /// <inheritdoc/>
     public bool Tolerant { get; init; } = _defaultParserOptions.Tolerant;
 
+    /// <inheritdoc/>
+    public bool RetainFunctionSourceText { get; init; }
+
     /// <summary>
     /// Gets or sets the source location offset to apply when parsing.
     /// This allows mapping error locations back to the original source file
@@ -76,6 +95,7 @@ public sealed record ScriptParsingOptions : IParsingOptions
     {
         AllowReturnOutsideFunction = AllowReturnOutsideFunction,
         OnRegExp = GetOnRegExpHandler(fallbackCompileRegex, fallbackRegexTimeout),
+        OnNode = RetainFunctionSourceText ? Engine.DefaultNodeHandler : null,
         Tolerant = Tolerant,
     };
 
@@ -111,10 +131,16 @@ public sealed record class ModuleParsingOptions : IParsingOptions
     private static readonly ParserOptions _defaultParserOptions = Engine.BaseParserOptions with
     {
         OnRegExp = Engine.DefaultConvertRegExpHandler,
-        OnNode = Engine.DefaultNodeHandler,
+        // OnNode (source-text retention) is applied conditionally in ApplyTo based on RetainFunctionSourceText.
     };
 
     public static readonly ModuleParsingOptions Default = new();
+
+    /// <summary>
+    /// A <see cref="Default"/> variant that retains function source text. Used by the engine when
+    /// <see cref="Options.RetainFunctionSourceText"/> is enabled to build its default module parser.
+    /// </summary>
+    internal static readonly ModuleParsingOptions RetainingDefault = new() { RetainFunctionSourceText = true };
 
     /// <inheritdoc/>
     public bool? CompileRegex { get; init; }
@@ -125,9 +151,13 @@ public sealed record class ModuleParsingOptions : IParsingOptions
     /// <inheritdoc/>
     public bool Tolerant { get; init; } = _defaultParserOptions.Tolerant;
 
+    /// <inheritdoc/>
+    public bool RetainFunctionSourceText { get; init; }
+
     internal ParserOptions ApplyTo(ParserOptions baseOptions, bool fallbackCompileRegex, TimeSpan fallbackRegexTimeout) => baseOptions with
     {
         OnRegExp = GetOnRegExpHandler(fallbackCompileRegex, fallbackRegexTimeout),
+        OnNode = RetainFunctionSourceText ? Engine.DefaultNodeHandler : null,
         Tolerant = Tolerant,
     };
 

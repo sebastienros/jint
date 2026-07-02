@@ -182,7 +182,10 @@ public sealed partial class Engine : IDisposable
         CallStack = new JintCallStack(Options.Constraints.MaxRecursionDepth >= 0);
         _stackGuard = new StackGuard(this);
 
-        var defaultParserOptions = ScriptParsingOptions.Default.GetParserOptions(Options);
+        var scriptParsingDefaults = Options.RetainFunctionSourceText
+            ? ScriptParsingOptions.RetainingDefault
+            : ScriptParsingOptions.Default;
+        var defaultParserOptions = scriptParsingDefaults.GetParserOptions(Options);
         _defaultParser = new Parser(defaultParserOptions);
     }
 
@@ -229,7 +232,8 @@ public sealed partial class Engine : IDisposable
 
     public DebugHandler Debugger => _debugger ??= new DebugHandler(this, Options.Debugger.InitialStepMode);
 
-    internal ParserOptions DefaultModuleParserOptions => _defaultModuleParserOptions ??= ModuleParsingOptions.Default.GetParserOptions(Options);
+    internal ParserOptions DefaultModuleParserOptions => _defaultModuleParserOptions ??=
+        (Options.RetainFunctionSourceText ? ModuleParsingOptions.RetainingDefault : ModuleParsingOptions.Default).GetParserOptions(Options);
 
     internal ParserOptions GetActiveParserOptions()
     {

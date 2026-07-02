@@ -24,6 +24,17 @@ public static class OptionsExtensions
     }
 
     /// <summary>
+    /// Whether the engine's default parser retains function source text so that
+    /// <c>Function.prototype.toString()</c> returns the original source. Defaults to <see langword="false"/>
+    /// (returns a <c>function name() { [native code] }</c> placeholder and avoids keeping the source in memory).
+    /// </summary>
+    public static Options RetainFunctionSourceText(this Options options, bool retain = true)
+    {
+        options.RetainFunctionSourceText = retain;
+        return options;
+    }
+
+    /// <summary>
     /// Selects the handling for script <code>debugger</code> statements.
     /// </summary>
     /// <remarks>
