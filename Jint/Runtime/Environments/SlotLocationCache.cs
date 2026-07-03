@@ -13,9 +13,13 @@ namespace Jint.Runtime.Environments;
 /// Slot layout is deterministic per AST node, so a node shared across engines via
 /// <c>Prepared&lt;Script&gt;</c> resolves to the same index everywhere; the engine-identity
 /// gate only avoids wasted walks against another engine's environments.
-/// The chain walk refuses to skip over an <see cref="ObjectEnvironment"/> (a sloppy-mode
-/// <c>with</c> block): a with-object can gain a shadowing property at any time, so only the
-/// full resolution path can decide who owns the binding.
+/// A cached hit is only valid when no environment between the current one and the cached
+/// one owns the name: the same node can run under different chains (an eval-cache-shared
+/// body under a shadowing block, a nested eval of the same source) and a sloppy direct
+/// eval can inject a shadowing var into an enclosing function environment — so the hit
+/// walk re-probes every intermediate declarative environment (pure) and refuses to skip
+/// over an <see cref="ObjectEnvironment"/> (a with-object can gain a shadowing property
+/// at any time, and probing it would be observable through proxy traps).
 /// Nodes whose binding can never be slot-stored (global/object/dictionary environments)
 /// disable themselves permanently so failed attempts don't re-walk the chain.
 /// </remarks>
@@ -58,6 +62,18 @@ internal struct SlotLocationCache
                 if (search is ObjectEnvironment)
                 {
                     // a with-object between us and the cached slot may shadow the name dynamically
+                    break;
+                }
+
+                // An intermediate environment holding the name shadows the cached resolution.
+                // This happens when a node runs under a different chain than the one that
+                // populated the cache (an eval-cache-shared body under a block that declares
+                // the name, or a nested eval of the same source) or when a sloppy direct eval
+                // injected the name into an enclosing function environment. HasBinding on a
+                // declarative environment is pure, and the common case — the binding env
+                // itself, matched above before any probe — pays nothing.
+                if (search is DeclarativeEnvironment intermediate && intermediate.HasBinding(name.Key))
+                {
                     break;
                 }
 

@@ -49,13 +49,11 @@ internal sealed class JintAssignmentExpression : JintExpression
     protected override object EvaluateInternal(EvaluationContext context)
     {
         var engine = context.Engine;
-        var strict = StrictModeScope.IsStrictModeCode;
-        var suspendable = engine.ExecutionContext.Suspendable;
 
         // Value-producing twin of the discard-mode slot lane (completion-value positions such
         // as eval/script bodies route here even for expression statements). Same gates: the
         // logical/nullish forms short-circuit, overloading and suspension need the Reference.
-        if (suspendable is null
+        if (engine.ExecutionContext.Suspendable is null
             && _leftIdentifier is not null
             && !context.OperatorOverloadingAllowed
             && _operator is not (Operator.NullishCoalescingAssignment or Operator.LogicalAndAssignment or Operator.LogicalOrAssignment)
@@ -64,6 +62,19 @@ internal sealed class JintAssignmentExpression : JintExpression
         {
             return fastResult;
         }
+
+        return EvaluateMaterialized(context);
+    }
+
+    /// <summary>
+    /// The fully materialized Reference-based path, shared by the value-producing lane's
+    /// fallback and the discard lane's fallback (so neither re-runs the fast-path gates).
+    /// </summary>
+    private JsValue EvaluateMaterialized(EvaluationContext context)
+    {
+        var engine = context.Engine;
+        var strict = StrictModeScope.IsStrictModeCode;
+        var suspendable = engine.ExecutionContext.Suspendable;
 
         JsValue originalLeftValue;
         Reference lref;
@@ -327,7 +338,9 @@ internal sealed class JintAssignmentExpression : JintExpression
 
         if (!TryCompoundUnboxed(context))
         {
-            EvaluateInternal(context);
+            // straight to the materialized path — TryCompoundUnboxed already ran the same
+            // gates and slot resolution EvaluateInternal's fast lane would repeat
+            EvaluateMaterialized(context);
         }
 
         context.LastSyntaxElement = oldSyntaxElement;
@@ -436,7 +449,15 @@ internal sealed class JintAssignmentExpression : JintExpression
     {
         result = null!;
 
-        ref var binding = ref environment._slots![slotIndex];
+        // bounds-checked like the identifier slot-cache read path: a cached index is
+        // deterministic per AST node, but a stale/torn cache must fall back, not throw
+        var slots = environment._slots;
+        if (slots is null || (uint) slotIndex >= (uint) slots.Length)
+        {
+            return false;
+        }
+
+        ref var binding = ref slots[slotIndex];
         if (!binding.Mutable || !binding.HasReferenceValue)
         {
             return false;
