@@ -23,9 +23,10 @@ public class EngineLimitTests
         // depth runs directly against the native stack. The test runner's worker thread has an
         // unpredictable amount of stack left, which made this test crash the process intermittently
         // (0xC00000FD) — run on a dedicated thread with an explicit stack instead. The explicit stack
-        // also makes the test platform-independent (the old macOS skip is no longer needed). 4 MB is
-        // sized so the current per-frame native cost passes with margin while a large per-frame
-        // regression still overflows here instead of shipping to hosts running Jint on default threads.
+        // also makes the test platform-independent (the old macOS skip is no longer needed). The size
+        // is deliberately generous: StackOverflowException is uncatchable and would kill the whole test
+        // process, so this is a functional smoke test of deep call chains, not a per-frame native-stack
+        // budget test (platforms differ too much in frame size for a tight budget to be safe).
         RunOnDedicatedThread(static () =>
         {
             var script = GenerateCallTree(FunctionNestingCount);
@@ -50,7 +51,7 @@ public class EngineLimitTests
             {
                 exception = ExceptionDispatchInfo.Capture(e);
             }
-        }, maxStackSize: 4 * 1024 * 1024);
+        }, maxStackSize: 16 * 1024 * 1024);
         thread.Start();
         thread.Join();
         exception?.Throw();

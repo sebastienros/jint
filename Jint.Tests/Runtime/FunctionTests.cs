@@ -852,4 +852,30 @@ assertEqual(booleanCount, 1);
             """);
         Assert.Equal("0,1,2", result.AsString());
     }
+
+    [Fact]
+    public void EscapedArrowCapturingThisKeepsItsEnvironment()
+    {
+        // The slot-aware escape analysis must treat `this`/`new.target` inside a closure as environment
+        // references: the call's FunctionEnvironment carries the this-binding, so reusing it for the next
+        // call would rebind `this` under the escaped arrow (h1().name returned 'o2').
+        var engine = new Engine();
+
+        var result = engine.Evaluate("""
+            function f(a) { var g = function() { return 1; }; var h = () => this; return h; }
+            var h1 = f.call({ name: 'o1' }, 1);
+            var h2 = f.call({ name: 'o2' }, 2);
+            [h1().name, h2().name].join(',');
+            """);
+        Assert.Equal("o1,o2", result.AsString());
+
+        // new.target variant: constructing must not rebind the escaped arrow's captured new.target.
+        result = engine.Evaluate("""
+            function F(a) { var g = function() { return 1; }; var h = () => new.target; return h; }
+            var h1 = F(1);
+            new F(2);
+            '' + h1();
+            """);
+        Assert.Equal("undefined", result.AsString());
+    }
 }

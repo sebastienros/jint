@@ -1128,6 +1128,18 @@ Start:
                     continue;
                 }
 
+                // The call's FunctionEnvironment also carries the this-binding, new.target and the
+                // super base — an arrow (transitively) captures those lexically, so a closure whose
+                // only dependency is `this`/`new.target`/`super` still pins the environment:
+                //   function f(a) { var h = () => this; return h; }
+                // Reusing the env would rebind `this` under the escaped arrow. Conservative: any such
+                // node in the subtree counts as a reference (a nested non-arrow function's `this` would
+                // actually re-bind, but that over-approximation is cheap and always safe).
+                if (childNode.Type is NodeType.ThisExpression or NodeType.MetaProperty or NodeType.Super)
+                {
+                    return true;
+                }
+
                 // eval() inside the closure can access any outer variable
                 if (childNode.Type == NodeType.CallExpression
                     && ((CallExpression) childNode).Callee is Identifier { Name: "eval" })

@@ -125,7 +125,10 @@ internal static class JintEnvironment
         // is widened beyond closure-targets, that cache must be revisited.
         // f with a non-null State is always a ScriptFunction (the only caller is
         // Function.PrepareForOrdinaryCall, invoked from ScriptFunction's call/construct paths).
+        // Only plain calls (newTarget undefined) rent: the construct path never returns its env to the
+        // cache, so renting there would just drain it and starve the next call's reuse.
         if (state is { EnvironmentMayEscape: false, IsDirectRecursive: false }
+            && newTarget.IsUndefined()
             && (ScriptFunction) f is { _envReuse: { } envReuse } scriptFunction)
         {
             scriptFunction._envReuse = null;
@@ -159,7 +162,10 @@ internal static class JintEnvironment
         JsValue newTarget,
         Interpreter.JintFunctionDefinition.State state)
     {
-        var pooled = ((RecursiveEnvPool?) ((ScriptFunction) f)._envReuse)?.TryRent();
+        // Only plain calls rent — see the sibling comment in NewFunctionEnvironment (construct never returns).
+        var pooled = newTarget.IsUndefined()
+            ? ((RecursiveEnvPool?) ((ScriptFunction) f)._envReuse)?.TryRent()
+            : null;
         if (pooled is not null)
         {
             // The env still carries its cleared fixed-slot Binding[] (and dictionary capacity) from when
