@@ -337,6 +337,30 @@ internal sealed class SuspendDataDictionary
     private Dictionary<object, SuspendData>? _suspendData;
 
     /// <summary>
+    /// Saved resume positions of statement lists, keyed by the JintStatementList instance.
+    /// Statement lists are cached on shared interpreter handlers (function definitions,
+    /// blocks, switch cases), so their resume position must live on the suspendable —
+    /// two live generators from the same declaration would otherwise corrupt each other.
+    /// </summary>
+    private Dictionary<object, uint>? _statementListPositions;
+
+    public uint GetStatementListPosition(object key)
+    {
+        return _statementListPositions?.TryGetValue(key, out var index) == true ? index : 0;
+    }
+
+    public void SetStatementListPosition(object key, uint index)
+    {
+        _statementListPositions ??= [];
+        _statementListPositions[key] = index;
+    }
+
+    public void ClearStatementListPosition(object key)
+    {
+        _statementListPositions?.Remove(key);
+    }
+
+    /// <summary>
     /// Gets or creates suspend data of the specified type (for constructs without iterators).
     /// </summary>
     public T GetOrCreate<T>(object key, IteratorInstance? iteratorInstance = null) where T : SuspendData, new()
