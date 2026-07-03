@@ -638,4 +638,110 @@ public class GeneratorTests
 
         Assert.Equal(1, result.AsNumber());
     }
+
+    [Fact]
+    public void InterleavedGeneratorsFromSameDeclarationKeepIndependentPositions()
+    {
+        // Each instance must track its own resume position: a shared statement list
+        // let one generator's completion reset another's, silently restarting it.
+        const string Script = """
+            function* gen() {
+                var log = [];
+                log.push('s');
+                yield 1;
+                log.push('m');
+                yield 2;
+                return log.join('');
+            }
+            var g1 = gen(), g2 = gen();
+            var out = [];
+            var steps = [g1, g2, g1, g2, g1, g2];
+            for (var i = 0; i < steps.length; i++) {
+                var r = steps[i].next();
+                out.push(r.value === undefined ? '-' : r.value, r.done);
+            }
+            return JSON.stringify(out);
+            """;
+
+        Assert.Equal("""[1,false,1,false,2,false,2,false,"sm",true,"sm",true]""", _engine.Evaluate(Script).AsString());
+    }
+
+    [Fact]
+    public void InterleavedGeneratorsKeepIndependentPositionsInsideNestedBlocks()
+    {
+        // Yields inside nested blocks exercise the nested statement lists' saved
+        // positions, which must also be per generator instance.
+        const string Script = """
+            function* gen(flag) {
+                var log = [];
+                if (flag) {
+                    log.push('a');
+                    yield 1;
+                    log.push('b');
+                    yield 2;
+                }
+                return log.join('');
+            }
+            var g1 = gen(true), g2 = gen(true);
+            var out = [];
+            var steps = [g1, g2, g1, g2, g1, g2];
+            for (var i = 0; i < steps.length; i++) {
+                var r = steps[i].next();
+                out.push(r.value === undefined ? '-' : r.value, r.done);
+            }
+            return JSON.stringify(out);
+            """;
+
+        Assert.Equal("""[1,false,1,false,2,false,2,false,"ab",true,"ab",true]""", _engine.Evaluate(Script).AsString());
+    }
+
+    [Fact]
+    public void InterleavedForOfOverGeneratorsFromSameDeclarationTerminates()
+    {
+        // With a shared statement list a second live instance restarted from the top
+        // after the first completed, making the iteration produce duplicate values.
+        const string Script = """
+            function* gen() {
+                yield 1;
+                yield 2;
+            }
+            var g1 = gen(), g2 = gen();
+            var out = [];
+            for (const v of g1) {
+                out.push(v);
+                out.push(g2.next().value);
+            }
+            out.push(g2.next().done);
+            return JSON.stringify(out);
+            """;
+
+        Assert.Equal("[1,1,2,2,true]", _engine.Evaluate(Script).AsString());
+    }
+
+    [Fact]
+    public void InterleavedAsyncGeneratorsFromSameDeclarationKeepIndependentPositions()
+    {
+        var result = _engine.Evaluate("""
+            (async () => {
+                async function* gen() {
+                    var log = [];
+                    log.push('s');
+                    yield 1;
+                    log.push('m');
+                    yield 2;
+                    return log.join('');
+                }
+                var g1 = gen(), g2 = gen();
+                var out = [];
+                var steps = [g1, g2, g1, g2, g1, g2];
+                for (var i = 0; i < steps.length; i++) {
+                    var r = await steps[i].next();
+                    out.push(r.value === undefined ? '-' : r.value, r.done);
+                }
+                return JSON.stringify(out);
+            })()
+            """).UnwrapIfPromise(TimeSpan.FromSeconds(5));
+
+        Assert.Equal("""[1,false,1,false,2,false,2,false,"sm",true,"sm",true]""", result.AsString());
+    }
 }

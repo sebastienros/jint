@@ -292,9 +292,10 @@ internal sealed class JintFunctionDefinition
             static intrinsics => intrinsics.GeneratorFunction.PrototypeObject.PrototypeObject,
             static (Engine engine, Realm _, object? _) => new GeneratorInstance(engine));
 
-        _bodyStatementList ??= new JintStatementList(Function);
-        _bodyStatementList.Reset();
-        G.GeneratorStart(_bodyStatementList);
+        // Each generator instance needs its own JintStatementList to track its own resume
+        // position — a shared cached list lets interleaved generators created from the same
+        // declaration corrupt each other's saved position (same rule as async function bodies).
+        G.GeneratorStart(new JintStatementList(Function));
 
         return new Completion(CompletionType.Return, G, Function.Body);
     }
@@ -314,9 +315,8 @@ internal sealed class JintFunctionDefinition
             static intrinsics => intrinsics.AsyncGeneratorFunction.PrototypeObject.PrototypeObject,
             static (Engine engine, Realm _, object? _) => new AsyncGeneratorInstance(engine));
 
-        _bodyStatementList ??= new JintStatementList(Function);
-        _bodyStatementList.Reset();
-        G.AsyncGeneratorStart(_bodyStatementList);
+        // See EvaluateGeneratorBody: resume position must be per generator instance.
+        G.AsyncGeneratorStart(new JintStatementList(Function));
 
         return new Completion(CompletionType.Return, G, Function.Body);
     }
