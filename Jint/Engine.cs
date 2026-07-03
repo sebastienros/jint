@@ -1602,7 +1602,8 @@ public sealed partial class Engine : IDisposable
                     {
                         if (varEnvRec is GlobalEnvironment ger)
                         {
-                            var vnDefinable = ger.CanDeclareGlobalFunction(vn);
+                            // https://tc39.es/ecma262/#sec-evaldeclarationinstantiation step 8.a.ii.1
+                            var vnDefinable = ger.CanDeclareGlobalVar(vn);
                             if (!vnDefinable)
                             {
                                 Throw.TypeError(realm, $"Cannot define global variable '{vn}'");

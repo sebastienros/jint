@@ -129,6 +129,92 @@ public class EvalTests
     }
 
     [Fact]
+    public void CachedEvalRespectsBlockShadowing()
+    {
+        // the same cached eval body runs under different scope chains; the per-node slot
+        // caches must not resolve past a block that shadows the name
+        var engine = NewStrictEngine();
+        engine.Execute("""
+            var log = [];
+            function h() {
+                var x = 'h';
+                eval("x += '!'");
+                eval("x += '!'");
+                { let x = 'q'; log.push(eval("x += '!'")); }
+                log.push(x);
+            }
+            h();
+            """);
+
+        Assert.Equal("q!,h!!", engine.Evaluate("log.join(',')").AsString());
+    }
+
+    [Fact]
+    public void CachedEvalRespectsConstShadowing()
+    {
+        var engine = NewStrictEngine();
+
+        var ex = Assert.Throws<JavaScriptException>(() => engine.Execute("""
+            function f() {
+                var x = 'h';
+                eval("x += '!'");
+                eval("x += '!'");
+                { const x = 'q'; eval("x += '!'"); }
+            }
+            f();
+            """));
+        Assert.True(ex.Error.InstanceofOperator(engine.Intrinsics.TypeError));
+    }
+
+    [Fact]
+    public void NestedSelfEvalKeepsActivationsSeparate()
+    {
+        // each nested eval of the same source gets its own environment; the shared statement
+        // tree's caches must not read or write an outer activation's bindings
+        var engine = NewStrictEngine();
+        engine.Execute("""
+            var results = [];
+            var depth = 0;
+            var src = "var x = 'a'; x += 'b'; if (depth++ < 3) { eval(src); } results.push(x);";
+            eval(src);
+            """);
+
+        Assert.Equal("ab,ab,ab,ab", engine.Evaluate("results.join(',')").AsString());
+    }
+
+    [Fact]
+    public void SloppyEvalVarInjectionShadowsOuterBinding()
+    {
+        // sloppy direct eval injects `s` into mid's environment on the second call; both the
+        // compound write and the subsequent read must see the injected binding, not outer's
+        var engine = new Engine();
+        engine.Execute("""
+            var results = [];
+            function outer() {
+                var s = 'A';
+                { function mid(code) { eval(code); s += '!'; results.push(s); } }
+                mid('');
+                mid("var s = 'B';");
+                results.push('outerS=' + s);
+            }
+            outer();
+            """);
+
+        Assert.Equal("A!,B!,outerS=A!", engine.Evaluate("results.join(',')").AsString());
+    }
+
+    [Fact]
+    public void EvalCanRedeclareExistingNonConfigurableGlobals()
+    {
+        // https://tc39.es/ecma262/#sec-candeclareglobalvar: an existing global property is
+        // var-declarable regardless of its attributes
+        var engine = new Engine();
+        engine.Execute("eval('var undefined;'); eval('var NaN;'); eval('var Infinity;');");
+
+        Assert.Equal("undefined", engine.Evaluate("typeof undefined").AsString());
+    }
+
+    [Fact]
     public void RepeatedEvalObservesCurrentOuterState()
     {
         var engine = NewStrictEngine();

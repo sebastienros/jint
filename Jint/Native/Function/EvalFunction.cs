@@ -297,14 +297,12 @@ public sealed class EvalFunction : Function
             if (useSlots)
             {
                 // Rent the pooled environment for this source, or build a fresh slot-backed one
-                // from the cached templates. Bindings come up in their post-instantiation state.
+                // from the cached templates. Bindings come up in their post-instantiation state
+                // (a parked environment was reset to the templates when it was pooled).
                 var pooled = Interlocked.Exchange(ref cached._cachedEnv, null);
                 if (pooled is not null && ReferenceEquals(pooled._engine, _engine))
                 {
                     pooled._outerEnv = outerLexEnv;
-                    pooled.Clear();
-                    pooled.ClearDisposeCapability();
-                    ResetSlots(pooled._slots!, cached.SlotTemplates!);
                     lexEnv = pooled;
                 }
                 else
@@ -484,8 +482,14 @@ public sealed class EvalFunction : Function
 
         if (canPool > 0)
         {
-            // Don't root the caller's scope chain while parked in the cache.
+            // Don't root anything while parked in the cache: neither the caller's scope
+            // chain nor the completed call's binding values (which could keep arbitrarily
+            // large object graphs alive for the engine's lifetime). Resetting here also
+            // means a rented environment needs no per-rent cleanup.
             env._outerEnv = null;
+            env.Clear();
+            env.ClearDisposeCapability();
+            ResetSlots(env._slots!, cached.SlotTemplates!);
             Interlocked.Exchange(ref cached._cachedEnv, env);
         }
     }
@@ -511,6 +515,16 @@ public sealed class EvalFunction : Function
         {
             _containsArguments |= string.Equals(identifier.Name, "arguments", StringComparison.Ordinal);
             return identifier;
+        }
+
+        protected override object? VisitArrowFunctionExpression(ArrowFunctionExpression arrowFunctionExpression)
+        {
+            // Arrows are transparent to arguments/new.target/super detection so they must be
+            // visited, but their loops run in their own environment, not the eval body's.
+            var containsLoop = _containsLoop;
+            var result = base.VisitArrowFunctionExpression(arrowFunctionExpression);
+            _containsLoop = containsLoop;
+            return result;
         }
 
         protected override object? VisitForStatement(ForStatement forStatement)
