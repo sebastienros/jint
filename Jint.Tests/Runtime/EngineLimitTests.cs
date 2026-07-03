@@ -1,5 +1,7 @@
 #if !NETFRAMEWORK
+#nullable enable
 
+using System.Runtime.ExceptionServices;
 using System.Text;
 using Jint.Runtime;
 
@@ -23,12 +25,38 @@ public class EngineLimitTests
             return;
         }
 
-        var script = GenerateCallTree(FunctionNestingCount);
+        // A default engine has no stack guard (MaxExecutionStackCount is disabled), so this nesting
+        // depth runs directly against the native stack. The test runner's worker thread has an
+        // unpredictable amount of stack left, which made this test crash the process intermittently
+        // (0xC00000FD) — run on a dedicated thread with an explicit, generous stack instead.
+        RunOnDedicatedThread(static () =>
+        {
+            var script = GenerateCallTree(FunctionNestingCount);
 
-        var engine = new Engine();
-        engine.Execute(script);
-        Assert.Equal(123, engine.Evaluate("func1(123);").AsNumber());
-        Assert.Equal(FunctionNestingCount, engine.Evaluate("x").AsNumber());
+            var engine = new Engine();
+            engine.Execute(script);
+            Assert.Equal(123, engine.Evaluate("func1(123);").AsNumber());
+            Assert.Equal(FunctionNestingCount, engine.Evaluate("x").AsNumber());
+        });
+    }
+
+    private static void RunOnDedicatedThread(Action action)
+    {
+        ExceptionDispatchInfo? exception = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception e)
+            {
+                exception = ExceptionDispatchInfo.Capture(e);
+            }
+        }, maxStackSize: 16 * 1024 * 1024);
+        thread.Start();
+        thread.Join();
+        exception?.Throw();
     }
 
     [Fact]
@@ -65,7 +93,7 @@ public class EngineLimitTests
         }
     }
 
-    private string GenerateCallTree(int functionNestingCount)
+    private static string GenerateCallTree(int functionNestingCount)
     {
         var sb = new StringBuilder();
         sb.AppendLine("var x = 1;");
