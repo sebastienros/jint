@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Threading;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -102,7 +103,7 @@ internal static class JintEnvironment
 
         // Direct-recursive functions use a small bounded pool so each simultaneously live frame rents a
         // distinct env (with its fixed-slot array attached) instead of allocating per call. The single
-        // _cachedEnv slot below cannot serve recursion — only the topmost frame would ever be reusable.
+        // cached env below cannot serve recursion — only the topmost frame would ever be reusable.
         if (state is { EnvironmentMayEscape: false, IsDirectRecursive: true })
         {
             return NewRecursiveFunctionEnvironment(engine, f, newTarget, state);
@@ -110,25 +111,24 @@ internal static class JintEnvironment
 
         FunctionEnvironment env;
 
-        // Reuse a pooled FunctionEnvironment when the function's bindings cannot escape the call
+        // Reuse the cached FunctionEnvironment when the function's bindings cannot escape the call
         // (no closure capture, not a generator/async). Re-bind to the new function/target/outer env
-        // and reset transient state. Slot storage is handled below. The pool lives on the function
+        // and reset transient state. Slot storage is handled below. The env cache lives on the function
         // instance (per-engine by construction), not on the shared State, so a prepared script reused
         // across engines never keeps a foreign engine alive (issue #2560) — which also makes the old
-        // engine-identity check and Interlocked handshakes unnecessary.
+        // engine-identity check and Interlocked handshake unnecessary on the env side.
         //
         // Important invariant for downstream callers: any env that an inner closure could resolve
         // bindings from (i.e. a closure-target env) must not be pool-eligible — JintIdentifierExpression's
         // slot-binding cache caches resolve-env references and trusts that they remain stable for
         // the lifetime of the function instance that captured them. If the EnvironmentMayEscape gate
         // is widened beyond closure-targets, that cache must be revisited.
-        var pool = ((ScriptFunction) f)._envPool;
         if (state is { EnvironmentMayEscape: false, IsDirectRecursive: false }
-            && pool?.CachedEnv is { } cachedEnv)
+            && ((ScriptFunction) f)._envReuse is { } envReuse)
         {
-            pool.CachedEnv = null;
-            cachedEnv.Reset(f, newTarget, f._environment);
-            env = cachedEnv;
+            ((ScriptFunction) f)._envReuse = null;
+            env = (FunctionEnvironment) envReuse;
+            env.Reset(f, newTarget, f._environment);
         }
         else
         {
@@ -141,13 +141,10 @@ internal static class JintEnvironment
         if (state is { UseFixedSlots: true })
         {
             env._slotNames = state.SlotNames;
-            // Try to reuse cached slots from the previous call to this function.
+            // Try to reuse cached slots from the previous call to any instance sharing this State
+            // (cleared arrays hold no engine references, so cross-engine sharing is safe; thread-safe).
             // Direct-recursive functions never reach here (handled by NewRecursiveFunctionEnvironment).
-            var cached = pool?.CachedSlots;
-            if (cached is not null)
-            {
-                pool!.CachedSlots = null;
-            }
+            var cached = Interlocked.Exchange(ref state._cachedSlots, null);
             env._slots = cached ?? new Binding[state.SlotNames!.Length];
         }
 
@@ -160,7 +157,7 @@ internal static class JintEnvironment
         JsValue newTarget,
         Interpreter.JintFunctionDefinition.State state)
     {
-        var pooled = ((ScriptFunction) f)._envPool?.TryRentRecursiveEnv();
+        var pooled = ((RecursiveEnvPool?) ((ScriptFunction) f)._envReuse)?.TryRent();
         if (pooled is not null)
         {
             // The env still carries its cleared fixed-slot Binding[] (and dictionary capacity) from when

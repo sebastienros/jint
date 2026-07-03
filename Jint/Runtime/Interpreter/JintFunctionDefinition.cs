@@ -376,14 +376,21 @@ internal sealed class JintFunctionDefinition
         public bool CanUseEmptyFDI;
         public bool EnvironmentMayEscape;
         // True when the function body contains a direct call to itself by name. Tight recursion
-        // (e.g. fib/ack/tak) keeps several frames live at once, which a single-slot per-call pool cannot
-        // serve — only the topmost frame would ever be reusable. Such functions use the bounded recursive
-        // pool on FunctionEnvPool instead so each live frame reuses a distinct env.
+        // (e.g. fib/ack/tak) keeps several frames live at once, which a single-slot per-call reuse cache
+        // cannot serve — only the topmost frame would ever be reusable. Such functions use the bounded
+        // RecursiveEnvPool on the function instance instead so each live frame reuses a distinct env.
         //
-        // NOTE: the call-environment reuse pool lives on the ScriptFunction instance (FunctionEnvPool),
-        // not on this State. A prepared script's State is shared across engines, so pooling environments
-        // here would keep the last engine that ran each function alive (issue #2560).
+        // NOTE: call ENVIRONMENTS are cached on the ScriptFunction instance (_envReuse), not on this
+        // State. A prepared script's State is shared across engines, and an environment roots its creating
+        // engine, so pooling environments here kept the last engine that ran each function alive (issue
+        // #2560). The slot array below is different: it is cleared before being cached, holds no engine
+        // references, and so can safely be shared across instances and engines.
         public bool IsDirectRecursive;
+
+        // Cleared fixed-slot Binding[] reused by the next call to any function instance sharing this State
+        // (also across engines — e.g. freshly created instances when a prepared script is re-evaluated).
+        // Interlocked is required: parallel test fixtures share cached States (see PR #2418 fallout).
+        public Binding[]? _cachedSlots;
 
         public SourceText SourceText;
 

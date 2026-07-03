@@ -1,3 +1,4 @@
+using System.Threading;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -13,11 +14,13 @@ public sealed class ScriptFunction : Function, IConstructor
     internal bool _isClassConstructor;
     internal JsValue? _classFieldInitializerName;
 
-    // Reuse pool for this function's call environments and fixed-slot arrays; lazily created on the first
-    // pool-eligible call's return. Held per function instance (thus per engine) rather than on the shared
-    // JintFunctionDefinition.State so a prepared script reused across engines never pins an engine via a
-    // cached environment (issue #2560).
-    internal FunctionEnvPool? _envPool;
+    // Reuse cache for this function's call environments, populated on a pool-eligible call's return.
+    // Interpreted via State.IsDirectRecursive: a FunctionEnvironment (the next call reuses it directly)
+    // for ordinary functions, or a RecursiveEnvPool for direct-recursive ones. Held per function instance
+    // (thus per engine) rather than on the shared JintFunctionDefinition.State so a prepared script reused
+    // across engines never pins an engine via a cached environment (issue #2560). Cleared slot arrays hold
+    // no engine references and stay shared on State._cachedSlots.
+    internal object? _envReuse;
 
     internal List<PrivateElement>? _privateMethods;
     internal List<ClassFieldDefinition>? _fields;
@@ -141,10 +144,9 @@ public sealed class ScriptFunction : Function, IConstructor
             {
                 if (funcEnv is not null)
                 {
-                    // Return to this function instance's pool (per-engine by construction, so a prepared
-                    // script's shared State can't pin engines — see FunctionEnvPool). Single-threaded like
-                    // the engine, so no Interlocked is needed.
-                    _envPool ??= new FunctionEnvPool();
+                    // Cache on this function instance (per-engine by construction, so a prepared script's
+                    // shared State can't pin engines — see _envReuse). Single-threaded like the engine, so
+                    // no Interlocked is needed on the instance side.
                     if (state!.IsDirectRecursive)
                     {
                         // Return the env (with its fixed-slot array still attached) to the bounded
@@ -153,20 +155,26 @@ public sealed class ScriptFunction : Function, IConstructor
                         {
                             System.Array.Clear(recursiveSlots, 0, recursiveSlots.Length);
                         }
-                        _envPool.ReturnRecursiveEnv(funcEnv);
+                        var pool = _envReuse as RecursiveEnvPool;
+                        if (pool is null)
+                        {
+                            _envReuse = pool = new RecursiveEnvPool();
+                        }
+                        pool.Return(funcEnv);
                     }
                     else
                     {
-                        // Cache the slot array for reuse by the next call to this function.
+                        // Cache the slot array on the shared State: cleared, it holds no engine references,
+                        // so any instance sharing this State (also in another engine) can reuse it.
                         if (funcEnv._slots is { } slots)
                         {
                             System.Array.Clear(slots, 0, slots.Length);
-                            _envPool.CachedSlots = slots;
+                            Interlocked.Exchange(ref state._cachedSlots, slots);
                             funcEnv._slots = null;
                         }
 
-                        // Return the env itself so the next call to this function avoids the allocation.
-                        _envPool.CachedEnv = funcEnv;
+                        // Cache the env itself so the next call to this function avoids the allocation.
+                        _envReuse = funcEnv;
                     }
                 }
                 _engine.LeaveExecutionContext();
