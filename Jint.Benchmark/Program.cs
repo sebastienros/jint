@@ -12,6 +12,11 @@ if (args.Length > 0 && args[0] == "--profile-cpu")
     return CpuProfileDriver.Run(args);
 }
 
+if (args.Length > 0 && args[0] == "--profile-time")
+{
+    return TimeProbe.Run(args);
+}
+
 if (args.Length > 0 && args[0] == "--profile-alloc-types")
 {
     return AllocTypeProbe.Run(args);
