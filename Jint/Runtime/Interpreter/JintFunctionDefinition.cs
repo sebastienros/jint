@@ -146,8 +146,9 @@ internal sealed class JintFunctionDefinition
         var arguments = argumentsList;
 
         var promiseCapability = PromiseConstructor.NewPromiseCapability(context.Engine, context.Engine.Realm.Intrinsics.Promise);
-        // Each async function invocation needs its own JintStatementList to track its own position
-        var bodyStatementList = new JintStatementList(Function);
+        // The statement list is immutable and shareable across invocations: each invocation's
+        // resume position lives on its AsyncFunctionInstance (SuspendDataDictionary).
+        var bodyStatementList = _bodyStatementList ??= new JintStatementList(Function);
         AsyncFunctionStart(context, promiseCapability, bodyStatementList, context =>
         {
             context.Engine.FunctionDeclarationInstantiation(context, function, arguments);
