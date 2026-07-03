@@ -342,22 +342,51 @@ internal sealed class SuspendDataDictionary
     /// blocks, switch cases), so their resume position must live on the suspendable —
     /// two live generators from the same declaration would otherwise corrupt each other.
     /// </summary>
-    private Dictionary<object, uint>? _statementListPositions;
+    /// Most suspendables only ever track one list (the function body), so a single
+    /// inline slot fronts the dictionary; a key never moves between slot and dictionary.
+    private object? _positionKey;
+    private uint _position;
+    private Dictionary<object, uint>? _morePositions;
 
     public uint GetStatementListPosition(object key)
     {
-        return _statementListPositions?.TryGetValue(key, out var index) == true ? index : 0;
+        if (ReferenceEquals(_positionKey, key))
+        {
+            return _position;
+        }
+
+        return _morePositions?.TryGetValue(key, out var index) == true ? index : 0;
     }
 
     public void SetStatementListPosition(object key, uint index)
     {
-        _statementListPositions ??= [];
-        _statementListPositions[key] = index;
+        if (ReferenceEquals(_positionKey, key))
+        {
+            _position = index;
+            return;
+        }
+
+        if (_positionKey is null && _morePositions?.ContainsKey(key) != true)
+        {
+            _positionKey = key;
+            _position = index;
+            return;
+        }
+
+        _morePositions ??= [];
+        _morePositions[key] = index;
     }
 
     public void ClearStatementListPosition(object key)
     {
-        _statementListPositions?.Remove(key);
+        if (ReferenceEquals(_positionKey, key))
+        {
+            _positionKey = null;
+            _position = 0;
+            return;
+        }
+
+        _morePositions?.Remove(key);
     }
 
     /// <summary>
