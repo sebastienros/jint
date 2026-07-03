@@ -375,77 +375,15 @@ internal sealed class JintFunctionDefinition
         /// </summary>
         public bool CanUseEmptyFDI;
         public bool EnvironmentMayEscape;
-        // True when the function body contains a direct call to itself by name. For tight
-        // recursion (e.g. fib/ack/tak), the per-call pool fields below add atomic-op overhead
-        // without saving allocations: the single pool slot can only cache the topmost frame —
-        // every recursive call beyond that allocates a fresh env anyway. Bypass the pool here.
+        // True when the function body contains a direct call to itself by name. Tight recursion
+        // (e.g. fib/ack/tak) keeps several frames live at once, which a single-slot per-call pool cannot
+        // serve — only the topmost frame would ever be reusable. Such functions use the bounded recursive
+        // pool on FunctionEnvPool instead so each live frame reuses a distinct env.
+        //
+        // NOTE: the call-environment reuse pool lives on the ScriptFunction instance (FunctionEnvPool),
+        // not on this State. A prepared script's State is shared across engines, so pooling environments
+        // here would keep the last engine that ran each function alive (issue #2560).
         public bool IsDirectRecursive;
-        public Binding[]? _cachedSlots;
-        public Environments.FunctionEnvironment? _cachedEnv;
-
-        // Bounded best-effort reuse pool for direct-recursive activations. The single _cachedEnv slot
-        // above can only hold the topmost frame, so recursion otherwise allocates a fresh env+slots per
-        // call; this lets each of several simultaneously live frames rent a distinct env (with its
-        // cleared fixed-slot Binding[] still attached). Per-slot Interlocked keeps it safe for the
-        // parallel fixtures that share a cached State (see state_pool_thread_safety); the count is an
-        // occupancy hint so the common "pool empty during a deep descent" case skips the scan entirely.
-        // Bounded so deep recursion cannot retain an unbounded number of environments.
-        private const int RecursiveEnvPoolSize = 16;
-        private Environments.FunctionEnvironment?[]? _recursiveEnvPool;
-        private int _recursiveEnvPoolCount;
-
-        internal Environments.FunctionEnvironment? TryRentRecursiveEnv()
-        {
-            if (System.Threading.Volatile.Read(ref _recursiveEnvPoolCount) == 0)
-            {
-                return null;
-            }
-
-            var pool = _recursiveEnvPool;
-            if (pool is null)
-            {
-                return null;
-            }
-
-            for (var i = 0; i < pool.Length; i++)
-            {
-                var env = System.Threading.Interlocked.Exchange(ref pool[i], null);
-                if (env is not null)
-                {
-                    System.Threading.Interlocked.Decrement(ref _recursiveEnvPoolCount);
-                    return env;
-                }
-            }
-
-            return null;
-        }
-
-        internal void ReturnRecursiveEnv(Environments.FunctionEnvironment env)
-        {
-            // Drop cheaply when the pool is already full — otherwise a deep recursion (depth >> pool
-            // size) would scan every slot only to fail on each return during the unwind.
-            if (System.Threading.Volatile.Read(ref _recursiveEnvPoolCount) >= RecursiveEnvPoolSize)
-            {
-                return;
-            }
-
-            var pool = _recursiveEnvPool ?? EnsureRecursiveEnvPool();
-            for (var i = 0; i < pool.Length; i++)
-            {
-                if (System.Threading.Interlocked.CompareExchange(ref pool[i], env, null) is null)
-                {
-                    System.Threading.Interlocked.Increment(ref _recursiveEnvPoolCount);
-                    return;
-                }
-            }
-            // Pool full: drop this env and let it be collected.
-        }
-
-        private Environments.FunctionEnvironment?[] EnsureRecursiveEnvPool()
-        {
-            var created = new Environments.FunctionEnvironment?[RecursiveEnvPoolSize];
-            return System.Threading.Interlocked.CompareExchange(ref _recursiveEnvPool, created, null) ?? created;
-        }
 
         public SourceText SourceText;
 

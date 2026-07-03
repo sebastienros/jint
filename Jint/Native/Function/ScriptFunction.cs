@@ -1,4 +1,3 @@
-using System.Threading;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -13,6 +12,12 @@ public sealed class ScriptFunction : Function, IConstructor
 {
     internal bool _isClassConstructor;
     internal JsValue? _classFieldInitializerName;
+
+    // Reuse pool for this function's call environments and fixed-slot arrays; lazily created on the first
+    // pool-eligible call's return. Held per function instance (thus per engine) rather than on the shared
+    // JintFunctionDefinition.State so a prepared script reused across engines never pins an engine via a
+    // cached environment (issue #2560).
+    internal FunctionEnvPool? _envPool;
 
     internal List<PrivateElement>? _privateMethods;
     internal List<ClassFieldDefinition>? _fields;
@@ -136,6 +141,10 @@ public sealed class ScriptFunction : Function, IConstructor
             {
                 if (funcEnv is not null)
                 {
+                    // Return to this function instance's pool (per-engine by construction, so a prepared
+                    // script's shared State can't pin engines — see FunctionEnvPool). Single-threaded like
+                    // the engine, so no Interlocked is needed.
+                    _envPool ??= new FunctionEnvPool();
                     if (state!.IsDirectRecursive)
                     {
                         // Return the env (with its fixed-slot array still attached) to the bounded
@@ -144,21 +153,20 @@ public sealed class ScriptFunction : Function, IConstructor
                         {
                             System.Array.Clear(recursiveSlots, 0, recursiveSlots.Length);
                         }
-                        state.ReturnRecursiveEnv(funcEnv);
+                        _envPool.ReturnRecursiveEnv(funcEnv);
                     }
                     else
                     {
-                        // Cache the slot array for reuse by next call to the same function (thread-safe)
+                        // Cache the slot array for reuse by the next call to this function.
                         if (funcEnv._slots is { } slots)
                         {
                             System.Array.Clear(slots, 0, slots.Length);
-                            Interlocked.Exchange(ref state._cachedSlots, slots);
+                            _envPool.CachedSlots = slots;
                             funcEnv._slots = null;
                         }
 
-                        // Return the env itself to the per-State pool so the next call to a function
-                        // sharing this State (typically the same Function instance) avoids the allocation.
-                        Interlocked.Exchange(ref state._cachedEnv, funcEnv);
+                        // Return the env itself so the next call to this function avoids the allocation.
+                        _envPool.CachedEnv = funcEnv;
                     }
                 }
                 _engine.LeaveExecutionContext();

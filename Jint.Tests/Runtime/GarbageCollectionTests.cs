@@ -114,6 +114,44 @@ public class GarbageCollectionTests
         }
     }
 
+    [Fact]
+    public void SharedPreparedScriptDoesNotRetainEngines()
+    {
+        // Regression test for #2560 (secondary cause, #2413): a prepared script shared across many engines
+        // must not pin those engines via the function-environment reuse pool. The pool lives on the
+        // ScriptFunction instance (per engine) rather than on the shared JintFunctionDefinition.State, so
+        // once an engine is dropped its pooled environments — and the engine/realm they reference — become
+        // collectable even while the prepared script stays cached.
+
+        var prepared = Engine.PrepareScript("function f(x) { var y = x + 1; return y; } f(1); f(2);");
+
+        const int count = 20;
+        var references = new List<WeakReference>(count);
+        for (var i = 0; i < count; i++)
+        {
+            // Run inside a helper so no strong reference to the engine survives on this frame.
+            references.Add(RunOnceAndForget(prepared));
+        }
+
+        GC.Collect(2, GCCollectionMode.Forced, blocking: true);
+        GC.WaitForPendingFinalizers();
+        GC.Collect(2, GCCollectionMode.Forced, blocking: true);
+
+        var aliveCount = references.Count(static r => r.IsAlive);
+        GC.KeepAlive(prepared);
+
+        Assert.True(
+            aliveCount == 0,
+            userMessage: $"{aliveCount} of {count} engines were not collected — the shared prepared script still pins engines.");
+
+        static WeakReference RunOnceAndForget(Prepared<Script> prepared)
+        {
+            var engine = new Engine();
+            engine.Execute(prepared);
+            return new WeakReference(engine);
+        }
+    }
+
     private static long CurrentlyUsedMemory()
     {
         // Just try to ensure that everything possible gets collected.

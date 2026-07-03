@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using System.Threading;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -113,17 +112,21 @@ internal static class JintEnvironment
 
         // Reuse a pooled FunctionEnvironment when the function's bindings cannot escape the call
         // (no closure capture, not a generator/async). Re-bind to the new function/target/outer env
-        // and reset transient state. Slot storage is handled below.
+        // and reset transient state. Slot storage is handled below. The pool lives on the function
+        // instance (per-engine by construction), not on the shared State, so a prepared script reused
+        // across engines never keeps a foreign engine alive (issue #2560) — which also makes the old
+        // engine-identity check and Interlocked handshakes unnecessary.
         //
         // Important invariant for downstream callers: any env that an inner closure could resolve
         // bindings from (i.e. a closure-target env) must not be pool-eligible — JintIdentifierExpression's
         // slot-binding cache caches resolve-env references and trusts that they remain stable for
         // the lifetime of the function instance that captured them. If the EnvironmentMayEscape gate
         // is widened beyond closure-targets, that cache must be revisited.
+        var pool = ((ScriptFunction) f)._envPool;
         if (state is { EnvironmentMayEscape: false, IsDirectRecursive: false }
-            && Interlocked.Exchange(ref state._cachedEnv, null) is { } cachedEnv
-            && ReferenceEquals(cachedEnv._engine, engine))
+            && pool?.CachedEnv is { } cachedEnv)
         {
+            pool.CachedEnv = null;
             cachedEnv.Reset(f, newTarget, f._environment);
             env = cachedEnv;
         }
@@ -138,9 +141,13 @@ internal static class JintEnvironment
         if (state is { UseFixedSlots: true })
         {
             env._slotNames = state.SlotNames;
-            // Try to reuse cached slots from the previous call to the same function (thread-safe).
+            // Try to reuse cached slots from the previous call to this function.
             // Direct-recursive functions never reach here (handled by NewRecursiveFunctionEnvironment).
-            var cached = Interlocked.Exchange(ref state._cachedSlots, null);
+            var cached = pool?.CachedSlots;
+            if (cached is not null)
+            {
+                pool!.CachedSlots = null;
+            }
             env._slots = cached ?? new Binding[state.SlotNames!.Length];
         }
 
@@ -153,17 +160,17 @@ internal static class JintEnvironment
         JsValue newTarget,
         Interpreter.JintFunctionDefinition.State state)
     {
-        var pooled = state.TryRentRecursiveEnv();
-        if (pooled is not null && ReferenceEquals(pooled._engine, engine))
+        var pooled = ((ScriptFunction) f)._envPool?.TryRentRecursiveEnv();
+        if (pooled is not null)
         {
             // The env still carries its cleared fixed-slot Binding[] (and dictionary capacity) from when
             // it was pooled; Reset re-binds this/newTarget/outer and clears the dictionary in place. Same
-            // State means the slot names and slot-array length already match.
+            // function means the slot names and slot-array length already match.
             pooled.Reset(f, newTarget, f._environment);
             return pooled;
         }
 
-        // Pool empty (or the rented env belonged to a different engine sharing this State — dropped).
+        // Pool empty.
         var env = new FunctionEnvironment(engine, f, newTarget)
         {
             _outerEnv = f._environment,
