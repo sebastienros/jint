@@ -2890,6 +2890,148 @@ public class AsyncTests
         Assert.Equal("7", result.AsString());
     }
 
+    [Fact]
+    public async Task ShouldNotThrowWhenAsyncArrowWithDefaultParameterAwaitsHostTaskInsidePromiseAll()
+    {
+        // https://github.com/sebastienros/jint/issues/2564
+        var engine = new Engine(options =>
+        {
+            options.Strict();
+            options.Constraints.PromiseTimeout = TimeSpan.FromSeconds(30);
+        });
+
+        engine.SetValue("host", (Func<string, Task<string>>) (value => Task.FromResult(value)));
+
+        var result = await engine.EvaluateAsync("""
+            (async () => {
+                const f = async (meta = {}) => ({
+                    meta,
+                    value: await host('x')
+                });
+
+                return JSON.stringify(await Promise.all([
+                    f({ index: 1 })
+                ]));
+            })();
+            """);
+
+        Assert.Equal("""[{"meta":{"index":1},"value":"x"}]""", result.AsString());
+    }
+
+    [Fact]
+    public void ShouldNotThrowWhenAsyncArrowWithNullDefaultParameterAwaitsHostTask()
+    {
+        var engine = new Engine();
+        engine.SetValue("host", (Func<string, Task<string>>) (value => Task.FromResult(value)));
+
+        var result = engine.Evaluate("""
+            (async () => {
+                const f = async (meta = null) => ({ meta, value: await host('x') });
+                return JSON.stringify(await f({ index: 1 }));
+            })()
+            """).UnwrapIfPromise(TimeSpan.FromSeconds(5));
+
+        Assert.Equal("""{"meta":{"index":1},"value":"x"}""", result.AsString());
+    }
+
+    [Fact]
+    public void ShouldEvaluateDefaultParameterExpressionOnlyOnceAcrossAwaitResume()
+    {
+        var engine = new Engine();
+        engine.SetValue("host", (Func<string, Task<string>>) (value => Task.FromResult(value)));
+
+        var result = engine.Evaluate("""
+            (async () => {
+                let count = 0;
+                const f = async (a = (count++, 'd')) => (await host('x'), a);
+                const r = await f();
+                return JSON.stringify([r, count]);
+            })()
+            """).UnwrapIfPromise(TimeSpan.FromSeconds(5));
+
+        Assert.Equal("""["d",1]""", result.AsString());
+    }
+
+    [Fact]
+    public void ShouldPreserveParameterMutationAcrossAwaitResumeInConciseBody()
+    {
+        // With an all-literal argument list the arguments array is the expression cache's
+        // shared array: a resume-time re-instantiation would not crash but silently rebind
+        // the parameter back to its original argument value.
+        var engine = new Engine();
+        engine.SetValue("host", (Func<string, Task<string>>) (value => Task.FromResult(value)));
+
+        var result = engine.Evaluate("""
+            (async () => {
+                const f = async (a) => (await (a = 5, host('x')), a);
+                return await f(1);
+            })()
+            """).UnwrapIfPromise(TimeSpan.FromSeconds(5));
+
+        Assert.Equal(5, result.AsNumber());
+    }
+
+    [Fact]
+    public void ShouldResumeConciseBodyWithMultipleAwaitsAndExplicitArgument()
+    {
+        var engine = new Engine();
+        engine.SetValue("host", (Func<string, Task<string>>) (value => Task.FromResult(value)));
+
+        var result = engine.Evaluate("""
+            (async () => {
+                const f = async (a = {}) => (await host('1')) + (await host('2')) + a.s;
+                return await f({ s: '!' });
+            })()
+            """).UnwrapIfPromise(TimeSpan.FromSeconds(5));
+
+        Assert.Equal("12!", result.AsString());
+    }
+
+    [Fact]
+    public async Task ShouldEvaluateDefaultParameterDuringAsyncEventLoopDrain()
+    {
+        // A genuinely pending host Task makes the resume run inside EvaluateAsync's
+        // event-loop drain, where no ambient evaluation context is active. The default
+        // must be a non-literal expression to require one during parameter binding.
+        var engine = new Engine();
+        var tcs = new TaskCompletionSource<string>();
+        engine.SetValue("delayed", (Func<Task<string>>) (() => tcs.Task));
+
+        var evalTask = engine.EvaluateAsync("""
+            (async () => {
+                await delayed();
+                const g = (x = {}) => x;
+                return JSON.stringify(g());
+            })()
+            """);
+
+        tcs.SetResult("done");
+        var result = await evalTask;
+
+        Assert.Equal("{}", result.AsString());
+    }
+
+    [Fact]
+    public void ShouldEvaluateDefaultParameterDuringUnwrapIfPromiseDrain()
+    {
+        var engine = new Engine();
+        var tcs = new TaskCompletionSource<string>();
+        engine.SetValue("delayed", (Func<Task<string>>) (() => tcs.Task));
+
+        var promise = engine.Evaluate("""
+            (async () => {
+                await delayed();
+                const g = (x = {}) => x;
+                return JSON.stringify(g());
+            })()
+            """);
+
+        tcs.SetResult("done");
+        var result = promise.UnwrapIfPromise(TimeSpan.FromSeconds(5));
+
+        Assert.Equal("{}", result.AsString());
+    }
+
 #if !NETFRAMEWORK
     [Fact]
     public async Task EventLoopShouldSignalAllConcurrentWaiters()

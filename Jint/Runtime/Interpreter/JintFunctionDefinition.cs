@@ -67,7 +67,7 @@ internal sealed class JintFunctionDefinition
                 return EvaluateConciseBodyAsync(context, functionObject, argumentsList);
             }
 
-            argumentsInstance = context.Engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
+            argumentsInstance = context.Engine.FunctionDeclarationInstantiation(context, functionObject, argumentsList);
             context.RunBeforeExecuteStatementChecks(Function.Body);
             var jsValue = _bodyExpression.GetValue(context).Clone();
             result = new Completion(CompletionType.Return, jsValue, Function.Body);
@@ -87,7 +87,7 @@ internal sealed class JintFunctionDefinition
             }
 
             // https://tc39.es/ecma262/#sec-runtime-semantics-evaluatefunctionbody
-            argumentsInstance = context.Engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
+            argumentsInstance = context.Engine.FunctionDeclarationInstantiation(context, functionObject, argumentsList);
             _bodyStatementList ??= new JintStatementList(Function);
             result = _bodyStatementList.Execute(context);
         }
@@ -105,13 +105,21 @@ internal sealed class JintFunctionDefinition
     {
         // local copies to prevent capturing the method parameters
         var function = functionObject;
-        var jsValues = argumentsList;
+        JsCallArguments? jsValues = argumentsList;
 
         var promiseCapability = PromiseConstructor.NewPromiseCapability(context.Engine, context.Engine.Realm.Intrinsics.Promise);
         // Expression bodies don't have a statement list (used only for resumption)
         AsyncFunctionStart(context, promiseCapability, body: null, context =>
         {
-            context.Engine.FunctionDeclarationInstantiation(function, jsValues);
+            // Instantiate only on the first, synchronous slice. The body delegate re-runs on every
+            // resume after an await, but by then the (possibly pooled) arguments array has been
+            // returned to its pool and the saved execution context already carries the environments
+            // and parameter bindings from this first run.
+            if (jsValues is not null)
+            {
+                context.Engine.FunctionDeclarationInstantiation(context, function, jsValues);
+                jsValues = null;
+            }
             context.RunBeforeExecuteStatementChecks(Function.Body);
             var jsValue = _bodyExpression!.GetValue(context).Clone();
 
@@ -142,7 +150,7 @@ internal sealed class JintFunctionDefinition
         var bodyStatementList = new JintStatementList(Function);
         AsyncFunctionStart(context, promiseCapability, bodyStatementList, context =>
         {
-            context.Engine.FunctionDeclarationInstantiation(function, arguments);
+            context.Engine.FunctionDeclarationInstantiation(context, function, arguments);
             return bodyStatementList.Execute(context);
         });
         return new Completion(CompletionType.Return, promiseCapability.PromiseInstance, Function.Body);
@@ -278,7 +286,7 @@ internal sealed class JintFunctionDefinition
         JsCallArguments argumentsList)
     {
         var engine = context.Engine;
-        engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
+        engine.FunctionDeclarationInstantiation(context, functionObject, argumentsList);
         var G = engine.Realm.Intrinsics.Function.OrdinaryCreateFromConstructor(
             functionObject,
             static intrinsics => intrinsics.GeneratorFunction.PrototypeObject.PrototypeObject,
@@ -300,7 +308,7 @@ internal sealed class JintFunctionDefinition
         JsCallArguments argumentsList)
     {
         var engine = context.Engine;
-        engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
+        engine.FunctionDeclarationInstantiation(context, functionObject, argumentsList);
         var G = engine.Realm.Intrinsics.Function.OrdinaryCreateFromConstructor(
             functionObject,
             static intrinsics => intrinsics.AsyncGeneratorFunction.PrototypeObject.PrototypeObject,
