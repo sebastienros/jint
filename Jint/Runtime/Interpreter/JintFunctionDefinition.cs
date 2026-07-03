@@ -674,10 +674,10 @@ internal sealed class JintFunctionDefinition
             state.EnvironmentMayEscape = EnvironmentEscapeAstVisitor.MayEscape(function);
         }
 
-        // Detect direct named self-call (function fib(n) { ...fib(n-1)... }). For these, the
-        // env pool's single slot is useless — only the topmost frame benefits, the rest allocate
-        // anyway — and the 4 Interlocked.Exchange ops per call dominate over the saved allocs
-        // on tight recursion (controlflow-recursive: ~500k calls per iteration).
+        // Detect direct named self-call (function fib(n) { ...fib(n-1)... }). For these, the single-env
+        // reuse cache is useless — only the topmost frame would ever be reusable, every deeper frame
+        // allocates anyway — so they use the bounded RecursiveEnvPool on the function instance instead
+        // (tight recursion, e.g. controlflow-recursive: ~500k calls per iteration).
         var name = function.Id?.Name;
         if (name is not null && !state.EnvironmentMayEscape)
         {
@@ -978,6 +978,19 @@ Start:
     {
         internal static bool MayEscape(IFunction function)
         {
+            // Parameter default/pattern expressions can contain closures (and direct eval) too:
+            // `function f(a, get = function () { return a; }) { return get; }` — the escaped closure
+            // resolves `a` through the call's environment chain, so the environment must not be reused.
+            // (MayEscapeWithReferences doesn't need this: fixed slots require !HasParameterExpressions,
+            // so its parameters are always plain identifiers.)
+            foreach (var parameter in function.Params)
+            {
+                if (!parameter.ChildNodes.IsEmpty() && MayEscape(parameter))
+                {
+                    return true;
+                }
+            }
+
             var body = function.Body;
             if (IsCapturing(body))
             {

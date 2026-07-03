@@ -825,4 +825,31 @@ assertEqual(booleanCount, 1);
         var prepared = Engine.PrepareScript("function fn() { return 0; } fn.toString();");
         Assert.Equal("function fn() { [native code] }", new Engine().Evaluate(prepared).AsString());
     }
+
+    [Fact]
+    public void ClosureInParameterDefaultKeepsItsCapturedEnvironment()
+    {
+        // The environment-escape analysis must also scan parameter default expressions: a closure created
+        // there captures the call's environment chain, so the environment must not be reused by the next
+        // call. Previously only the function BODY was scanned, so the escaped closure observed the next
+        // call's rebound values (g1() returned 2).
+        var engine = new Engine();
+
+        var result = engine.Evaluate("""
+            function f(a, get = function() { return a; }) { return get; }
+            var g1 = f(1);
+            var g2 = f(2);
+            [g1(), g2()].join(',');
+            """);
+        Assert.Equal("1,2", result.AsString());
+
+        // Arrow variant + repeated calls so the reuse cache (had it been populated) would be exercised.
+        result = engine.Evaluate("""
+            const getters = [];
+            function h(x, get = () => x) { getters.push(get); }
+            for (var i = 0; i < 3; i++) { h(i); }
+            getters.map(g => g()).join(',');
+            """);
+        Assert.Equal("0,1,2", result.AsString());
+    }
 }

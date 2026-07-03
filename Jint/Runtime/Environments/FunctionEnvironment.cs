@@ -23,7 +23,8 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
 
     private JsValue? _thisValue;
     private ThisBindingStatus _thisBindingStatus;
-    // Mutable so a pooled env can be re-bound to a different Function instance that shares the same State (e.g. function literals re-evaluated in loops).
+    // Mutable so a cached env can be re-initialized for the next call via Reset (the reuse cache lives
+    // on the ScriptFunction instance, so it is always re-bound to the same function).
     internal Function _functionObject;
 
     public FunctionEnvironment(

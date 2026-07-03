@@ -20,6 +20,8 @@ internal sealed class RecursiveEnvPool
     private readonly FunctionEnvironment?[] _pool = new FunctionEnvironment?[PoolSize];
     private int _count;
 
+    // Single-threaded (see remarks), so a plain LIFO stack pointer suffices — no slot scanning
+    // like the old lock-free shared-State pool needed.
     internal FunctionEnvironment? TryRent()
     {
         if (_count == 0)
@@ -27,39 +29,17 @@ internal sealed class RecursiveEnvPool
             return null;
         }
 
-        var pool = _pool;
-        for (var i = 0; i < pool.Length; i++)
-        {
-            var env = pool[i];
-            if (env is not null)
-            {
-                pool[i] = null;
-                _count--;
-                return env;
-            }
-        }
-
-        return null;
+        var env = _pool[--_count];
+        _pool[_count] = null;
+        return env;
     }
 
     internal void Return(FunctionEnvironment env)
     {
-        // Drop cheaply when the pool is already full — otherwise a deep recursion (depth >> pool size)
-        // would scan every slot only to fail on each return during the unwind.
-        if (_count >= PoolSize)
+        // Drop when full so deep recursion (depth >> pool size) cannot retain unbounded environments.
+        if (_count < PoolSize)
         {
-            return;
-        }
-
-        var pool = _pool;
-        for (var i = 0; i < pool.Length; i++)
-        {
-            if (pool[i] is null)
-            {
-                pool[i] = env;
-                _count++;
-                return;
-            }
+            _pool[_count++] = env;
         }
     }
 }

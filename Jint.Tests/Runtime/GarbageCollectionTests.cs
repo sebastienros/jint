@@ -118,12 +118,22 @@ public class GarbageCollectionTests
     public void SharedPreparedScriptDoesNotRetainEngines()
     {
         // Regression test for #2560 (secondary cause, #2413): a prepared script shared across many engines
-        // must not pin those engines via the function-environment reuse pool. The pool lives on the
+        // must not pin those engines via the function-environment reuse cache. The cache lives on the
         // ScriptFunction instance (per engine) rather than on the shared JintFunctionDefinition.State, so
-        // once an engine is dropped its pooled environments — and the engine/realm they reference — become
-        // collectable even while the prepared script stays cached.
+        // once an engine is dropped its cached environments — and the engine/realm they reference — become
+        // collectable even while the prepared script stays cached. The script contains both an ordinary
+        // function (single-slot env cache) and a direct-recursive one (bounded RecursiveEnvPool) so both
+        // cache shapes are covered.
+        //
+        // NOTE: this covers the FUNCTION environment cache only. Block/loop environments cached on shared
+        // AST state (JintBlockStatement.BlockState._cachedEnv, JintForStatement._cachedLoopEnv) can still
+        // pin the last-caller engine for prepared scripts containing let/const blocks — tracked separately.
 
-        var prepared = Engine.PrepareScript("function f(x) { var y = x + 1; return y; } f(1); f(2);");
+        var prepared = Engine.PrepareScript("""
+            function f(x) { var y = x + 1; return y; }
+            function fib(n) { return n < 2 ? n : fib(n - 1) + fib(n - 2); }
+            f(1); f(2); fib(8);
+            """);
 
         const int count = 20;
         var references = new List<WeakReference>(count);
@@ -144,6 +154,8 @@ public class GarbageCollectionTests
             aliveCount == 0,
             userMessage: $"{aliveCount} of {count} engines were not collected — the shared prepared script still pins engines.");
 
+        // NoInlining so the engine reference cannot be stack-rooted in this frame across the GC.Collect calls.
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
         static WeakReference RunOnceAndForget(Prepared<Script> prepared)
         {
             var engine = new Engine();

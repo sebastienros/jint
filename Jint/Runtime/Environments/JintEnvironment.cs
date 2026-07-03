@@ -123,10 +123,12 @@ internal static class JintEnvironment
         // slot-binding cache caches resolve-env references and trusts that they remain stable for
         // the lifetime of the function instance that captured them. If the EnvironmentMayEscape gate
         // is widened beyond closure-targets, that cache must be revisited.
+        // f with a non-null State is always a ScriptFunction (the only caller is
+        // Function.PrepareForOrdinaryCall, invoked from ScriptFunction's call/construct paths).
         if (state is { EnvironmentMayEscape: false, IsDirectRecursive: false }
-            && ((ScriptFunction) f)._envReuse is { } envReuse)
+            && (ScriptFunction) f is { _envReuse: { } envReuse } scriptFunction)
         {
-            ((ScriptFunction) f)._envReuse = null;
+            scriptFunction._envReuse = null;
             env = (FunctionEnvironment) envReuse;
             env.Reset(f, newTarget, f._environment);
         }
