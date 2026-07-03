@@ -89,23 +89,36 @@ internal struct SlotLocationCache
         slotEnv = null!;
         slotIndex = -1;
 
-        if (!JintEnvironment.TryGetIdentifierEnvironmentWithBinding(env, name, out var record))
+        // Probe only declarative environments: their sealed HasBinding is pure (slot scan +
+        // dictionary probe). An object environment's probe is observable (proxy has-traps,
+        // Symbol.unscopables getters) and a with-object may shadow dynamically, and global
+        // bindings are never slot-stored — reaching a non-declarative environment before the
+        // binding means this node can never be safely slot-cached, without touching it.
+        var record = env;
+        while (record is not null)
         {
-            // unresolvable; the full path produces the proper error
-            return false;
-        }
-
-        if (record is DeclarativeEnvironment declarativeEnvironment)
-        {
-            var index = declarativeEnvironment.FindSlotIndex(name.Key);
-            if (index >= 0)
+            if (record is not DeclarativeEnvironment declarativeEnvironment)
             {
-                _cachedSlotEnv = declarativeEnvironment;
-                _cachedSlotIndex = index;
-                slotEnv = declarativeEnvironment;
-                slotIndex = index;
-                return true;
+                break;
             }
+
+            if (declarativeEnvironment.HasBinding(name.Key))
+            {
+                var index = declarativeEnvironment.FindSlotIndex(name.Key);
+                if (index >= 0)
+                {
+                    _cachedSlotEnv = declarativeEnvironment;
+                    _cachedSlotIndex = index;
+                    slotEnv = declarativeEnvironment;
+                    slotIndex = index;
+                    return true;
+                }
+
+                // dictionary-stored binding
+                break;
+            }
+
+            record = record._outerEnv;
         }
 
         // the binding for this node can never be slot-stored; stop attempting

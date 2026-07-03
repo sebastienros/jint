@@ -52,6 +52,19 @@ internal sealed class JintAssignmentExpression : JintExpression
         var strict = StrictModeScope.IsStrictModeCode;
         var suspendable = engine.ExecutionContext.Suspendable;
 
+        // Value-producing twin of the discard-mode slot lane (completion-value positions such
+        // as eval/script bodies route here even for expression statements). Same gates: the
+        // logical/nullish forms short-circuit, overloading and suspension need the Reference.
+        if (suspendable is null
+            && _leftIdentifier is not null
+            && !context.OperatorOverloadingAllowed
+            && _operator is not (Operator.NullishCoalescingAssignment or Operator.LogicalAndAssignment or Operator.LogicalOrAssignment)
+            && _slotCache.TryResolve(engine, engine.ExecutionContext.LexicalEnvironment, _leftIdentifier.Identifier, out var slotEnvironment, out var fastSlotIndex)
+            && TryCompoundSlotValue(context, slotEnvironment, fastSlotIndex, out var fastResult))
+        {
+            return fastResult;
+        }
+
         JsValue originalLeftValue;
         Reference lref;
         bool lhsHasSideEffects;
@@ -323,10 +336,10 @@ internal sealed class JintAssignmentExpression : JintExpression
     /// <summary>
     /// Discard-mode fast path: a numeric compound assignment to a slot-stored number binding
     /// computes on raw doubles and stores unboxed, with no materialization of the old or new
-    /// value. The right-hand side runs exactly once; non-number results complete through the
-    /// shared <see cref="ComputeCompound"/>. Everything that needs the full semantics
-    /// (operator overloading, generators/async, logical/nullish forms, TDZ, const, non-number
-    /// left values, dictionary/global/object environments) falls back before any evaluation.
+    /// value; other slot-stored values complete through <see cref="TryCompoundSlotValue"/>.
+    /// The right-hand side runs exactly once. Everything that needs the full semantics
+    /// (operator overloading, generators/async, logical/nullish forms, TDZ, const,
+    /// dictionary/global/object environments) falls back before any evaluation.
     /// </summary>
     private bool TryCompoundUnboxed(EvaluationContext context)
     {
@@ -339,10 +352,14 @@ internal sealed class JintAssignmentExpression : JintExpression
             return false;
         }
 
-        if (!_slotCache.TryResolve(engine, engine.ExecutionContext.LexicalEnvironment, _leftIdentifier.Identifier, out var declarativeEnvironment, out var slotIndex)
-            || !declarativeEnvironment.TryGetNumberSlot(slotIndex, out var left))
+        if (!_slotCache.TryResolve(engine, engine.ExecutionContext.LexicalEnvironment, _leftIdentifier.Identifier, out var declarativeEnvironment, out var slotIndex))
         {
             return false;
+        }
+
+        if (!declarativeEnvironment.TryGetNumberSlot(slotIndex, out var left))
+        {
+            return TryCompoundSlotValue(context, declarativeEnvironment, slotIndex, out _);
         }
 
         var rval = _right.GetValue(context);
@@ -403,6 +420,39 @@ internal sealed class JintAssignmentExpression : JintExpression
         var wasMutatedInPlace = false;
         var newLeftValue = ComputeCompound(context, JsNumber.Create(left), rval, ref wasMutatedInPlace);
         declarativeEnvironment.SetMutableBinding(_leftIdentifier.Identifier.Key, newLeftValue, StrictModeScope.IsStrictModeCode);
+        return true;
+    }
+
+    /// <summary>
+    /// Fast path for compound assignment to a slot-stored non-number binding (the string
+    /// `s += "x"` loop shape), shared by the discard lane and the value-producing lane:
+    /// reads the slot directly, runs the right-hand side exactly once, and writes back through
+    /// <see cref="DeclarativeEnvironment.SetMutableBinding(Key, JsValue, bool)"/> unless the
+    /// rope concat mutated the value in place (matching the materialized lane's skip). Bails
+    /// before any evaluation for const (mutable check) and TDZ/unboxed bindings so the slow
+    /// path produces the exact error ordering.
+    /// </summary>
+    private bool TryCompoundSlotValue(EvaluationContext context, DeclarativeEnvironment environment, int slotIndex, out JsValue result)
+    {
+        result = null!;
+
+        ref var binding = ref environment._slots![slotIndex];
+        if (!binding.Mutable || !binding.HasReferenceValue)
+        {
+            return false;
+        }
+
+        var originalLeftValue = binding.Value;
+        var rval = _right.GetValue(context);
+
+        var wasMutatedInPlace = false;
+        var newLeftValue = ComputeCompound(context, originalLeftValue, rval, ref wasMutatedInPlace);
+        if (!wasMutatedInPlace)
+        {
+            environment.SetMutableBinding(_leftIdentifier!.Identifier.Key, newLeftValue, StrictModeScope.IsStrictModeCode);
+        }
+
+        result = newLeftValue;
         return true;
     }
 
