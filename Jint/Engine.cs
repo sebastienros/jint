@@ -1193,6 +1193,7 @@ public sealed partial class Engine : IDisposable
     /// https://tc39.es/ecma262/#sec-functiondeclarationinstantiation
     /// </summary>
     internal JsArguments? FunctionDeclarationInstantiation(
+        EvaluationContext context,
         Function function,
         JsCallArguments argumentsList)
     {
@@ -1324,7 +1325,10 @@ public sealed partial class Engine : IDisposable
             // At this point, if hasParameterExpressions:
             // - VariableEnvironment = paramEnv (for eval vars during param init)
             // - LexicalEnvironment = paramEnv (for closures to capture)
-            env.AddFunctionParameters(_activeEvaluationContext!, func.Function, argumentsList);
+            // The caller's context is used instead of the ambient _activeEvaluationContext,
+            // which is null when a function is called from an event-loop drain (e.g. a promise
+            // reaction after awaiting a .NET Task via EvaluateAsync/UnwrapIfPromise).
+            env.AddFunctionParameters(context, func.Function, argumentsList);
         }
 
         // After parameter initialization, switch VariableEnvironment to varEnv for body vars
