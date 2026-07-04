@@ -68,32 +68,16 @@ public static class AstExtensions
     internal static JsValue TryGetComputedPropertyKey<T>(T expression, Engine engine)
         where T : Expression
     {
-        if (expression.Type is NodeType.Identifier
-            or NodeType.CallExpression
-            or NodeType.BinaryExpression
-            or NodeType.UpdateExpression
-            or NodeType.AssignmentExpression
-            or NodeType.UnaryExpression
-            or NodeType.MemberExpression
-            or NodeType.LogicalExpression
-            or NodeType.ConditionalExpression
-            or NodeType.ArrowFunctionExpression
-            or NodeType.FunctionExpression
-            or NodeType.YieldExpression
-            or NodeType.TemplateLiteral
-            or NodeType.ArrayExpression
-            or NodeType.ObjectExpression
-            or NodeType.AwaitExpression)
-        {
-            var context = engine._activeEvaluationContext ?? new EvaluationContext(engine);
-            var result = JintExpression.Build(expression).GetValue(context);
+        // Evaluate whatever expression appears in the computed-key position. This used to be an
+        // allowlist of node types with a silent JsValue.Undefined fallback, which made keys like
+        // `{ [(sideEffect(), "k")]: v }` (SequenceExpression) or `{ [new Key()]: v }` bind the
+        // property "undefined" without running the key expression at all.
+        var context = engine._activeEvaluationContext ?? new EvaluationContext(engine);
+        var result = JintExpression.Build(expression).GetValue(context);
 
-            // If the expression suspended the generator (e.g., yield in computed property name),
-            // return the value. The caller should check ExecutionContext.Suspended.
-            return result;
-        }
-
-        return JsValue.Undefined;
+        // If the expression suspended the generator (e.g., yield in computed property name),
+        // return the value. The caller should check ExecutionContext.Suspended.
+        return result;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
