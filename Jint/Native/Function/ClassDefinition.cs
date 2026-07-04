@@ -229,7 +229,10 @@ internal sealed class ClassDefinition
                     // Apply accessor decorators if present
                     if (currentDecorators.Length > 0)
                     {
-                        var propName = ap.GetKey(engine);
+                        // Reuse the key evaluated by AutoAccessorDefinitionEvaluation (computed keys
+                        // must be evaluated exactly once; FieldDefinition.Name is the private backing
+                        // name, not the declared key).
+                        var propName = result.PropertyName;
                         var isPrivateAccessor = ap.Key is PrivateIdentifier;
                         var extraInits = isStatic ? staticExtraInitializers! : instanceExtraInitializers!;
 
@@ -310,7 +313,7 @@ internal sealed class ClassDefinition
                     continue;
                 }
 
-                var element = ClassElementEvaluation(engine, target, e);
+                var element = ClassElementEvaluation(engine, target, e, out var definedKey);
 
                 // Check for generator suspension after evaluating class element
                 if (engine.ExecutionContext.Suspended)
@@ -321,7 +324,10 @@ internal sealed class ClassDefinition
                 // Apply decorators to methods, getters, setters
                 if (currentDecorators.Length > 0 && e is MethodDefinition md)
                 {
-                    var propName = md.GetKey(engine);
+                    // Reuse the key the method was defined under — a computed key expression must be
+                    // evaluated exactly once (re-evaluating would re-run side effects and could produce
+                    // a different name than the one the method was defined under).
+                    var propName = definedKey;
                     var isPrivateMethod = md.Key is PrivateIdentifier;
                     var extraInits = isStatic ? staticExtraInitializers! : instanceExtraInitializers!;
 
@@ -382,7 +388,10 @@ internal sealed class ClassDefinition
                 {
                     if (element is ClassFieldDefinition fieldDef)
                     {
-                        var propName = pd.GetKey(engine);
+                        // Reuse the key evaluated by ClassElementEvaluation — a computed key expression
+                        // must be evaluated exactly once (re-evaluating would re-run side effects and
+                        // could produce a different name than the one the field was defined under).
+                        var propName = fieldDef.Name;
                         var isPrivateField = pd.Key is PrivateIdentifier;
                         var extraInits = isStatic ? staticExtraInitializers! : instanceExtraInitializers!;
                         ApplyFieldDecorators(engine, currentDecorators, fieldDef, propName, isStatic, isPrivateField, extraInits);
@@ -521,17 +530,26 @@ internal sealed class ClassDefinition
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-static-semantics-classelementevaluation
+    /// <paramref name="definedKey"/> returns the evaluated property key for method definitions
+    /// (undefined otherwise) so decorator bookkeeping can reuse it instead of re-evaluating.
     /// </summary>
-    private static object? ClassElementEvaluation(Engine engine, ObjectInstance target, IClassElement e)
+    private static object? ClassElementEvaluation(Engine engine, ObjectInstance target, IClassElement e, out JsValue definedKey)
     {
-        return e switch
+        switch (e)
         {
-            PropertyDefinition p => ClassFieldDefinitionEvaluation(engine, target, p),
-            MethodDefinition m => MethodDefinitionEvaluation(engine, target, m, enumerable: false),
-            StaticBlock s => ClassStaticBlockDefinitionEvaluation(engine, target, s),
-            AccessorProperty ap => null, // handled directly in BuildConstructor
-            _ => null
-        };
+            case PropertyDefinition p:
+                definedKey = JsValue.Undefined;
+                return ClassFieldDefinitionEvaluation(engine, target, p);
+            case MethodDefinition m:
+                return MethodDefinitionEvaluation(engine, target, m, enumerable: false, out definedKey);
+            case StaticBlock s:
+                definedKey = JsValue.Undefined;
+                return ClassStaticBlockDefinitionEvaluation(engine, target, s);
+            default:
+                // AccessorProperty is handled directly in BuildConstructor
+                definedKey = JsValue.Undefined;
+                return null;
+        }
     }
 
     /// <summary>
@@ -541,7 +559,8 @@ internal sealed class ClassDefinition
     [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
     private readonly record struct AutoAccessorResult(
         ClassFieldDefinition FieldDefinition,
-        PrivateElement? PrivateElement);
+        PrivateElement? PrivateElement,
+        JsValue PropertyName);
 
     /// <summary>
     /// https://tc39.es/proposal-decorators/#sec-autoaccessordefinitionevaluation
@@ -560,7 +579,8 @@ internal sealed class ClassDefinition
         {
             return new AutoAccessorResult(
                 new ClassFieldDefinition { Name = JsValue.Undefined, Initializer = null },
-                null);
+                null,
+                JsValue.Undefined);
         }
 
         var isPrivate = accessorProperty.Key is PrivateIdentifier;
@@ -608,7 +628,7 @@ internal sealed class ClassDefinition
                 Set = setter
             };
 
-            return new AutoAccessorResult(fieldDef, pe);
+            return new AutoAccessorResult(fieldDef, pe, name);
         }
         else
         {
@@ -645,7 +665,7 @@ internal sealed class ClassDefinition
             }
 
             var fieldDef = new ClassFieldDefinition { Name = backingName, Initializer = initializer };
-            return new AutoAccessorResult(fieldDef, null);
+            return new AutoAccessorResult(fieldDef, null, name);
         }
     }
 
@@ -750,7 +770,21 @@ internal sealed class ClassDefinition
         ObjectInstance obj,
         T method,
         bool enumerable) where T : IProperty
+        => MethodDefinitionEvaluation(engine, obj, method, enumerable, out _);
+
+    /// <summary>
+    /// <paramref name="definedKey"/> returns the property key the method was defined under, so callers
+    /// (e.g. decorator bookkeeping) can reuse it — a computed key expression must be evaluated exactly once.
+    /// </summary>
+    internal static PrivateElement? MethodDefinitionEvaluation<T>(
+        Engine engine,
+        ObjectInstance obj,
+        T method,
+        bool enumerable,
+        out JsValue definedKey) where T : IProperty
     {
+        definedKey = JsValue.Undefined;
+
         var function = method.Value as IFunction;
         if (function is null)
         {
@@ -760,6 +794,7 @@ internal sealed class ClassDefinition
         if (method.Kind != PropertyKind.Get && method.Kind != PropertyKind.Set && !function.Generator)
         {
             var methodDef = method.DefineMethod(obj, functionPrototype: null, sourceTextNode: method);
+            definedKey = methodDef.Key;
             methodDef.Closure.SetFunctionName(methodDef.Key);
             return DefineMethodProperty(obj, methodDef.Key, methodDef.Closure, enumerable);
         }
@@ -776,6 +811,7 @@ internal sealed class ClassDefinition
         }
 
         var propKey = TypeConverter.ToPropertyKey(value);
+        definedKey = propKey;
         var env = engine.ExecutionContext.LexicalEnvironment;
         var privateEnv = engine.ExecutionContext.PrivateEnvironment;
 

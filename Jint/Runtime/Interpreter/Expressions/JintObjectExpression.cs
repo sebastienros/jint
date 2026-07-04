@@ -318,6 +318,16 @@ internal sealed class JintObjectExpression : JintExpression
             if (property.Method)
             {
                 ClassDefinition.MethodDefinitionEvaluation(engine, obj, property, enumerable: true);
+
+                // Check for generator suspension after evaluating a computed method key (mirrors the
+                // non-method path below) — without this the build loop would keep executing subsequent
+                // properties while the generator is suspended.
+                if (context.IsSuspended())
+                {
+                    SaveObjectExpressionSuspendState(suspendable, obj, i);
+                    return JsValue.Undefined;
+                }
+
                 continue;
             }
 

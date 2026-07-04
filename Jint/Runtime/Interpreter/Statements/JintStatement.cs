@@ -43,6 +43,12 @@ internal abstract class JintStatement
 
     protected internal static JintStatement Build(Statement statement)
     {
+        // INVARIANT: statement handlers may carry per-engine mutable state (JintBlockStatement._cachedEnv,
+        // JintForStatement._cachedLoopEnv — both cache environments that root their engine). They must
+        // therefore never be cached on cross-engine shared state such as AST UserData; a prepared script's
+        // AST is shared by every engine that runs it, and a shared handler would pin the last-caller engine
+        // (issue #2560). The only handler ever placed in UserData is the stateless ConstantStatement
+        // (Engine.Ast.cs); anything else must stay owned by its per-engine statement list.
         if (statement.UserData is JintStatement preparedStatement)
         {
             return preparedStatement;

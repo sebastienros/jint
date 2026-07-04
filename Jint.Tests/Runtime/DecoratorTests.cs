@@ -416,4 +416,30 @@ public class DecoratorTests
 
         Assert.True(result.AsBoolean());
     }
+
+    [Fact]
+    public void ComputedKeysOfDecoratedElementsAreEvaluatedExactlyOnce()
+    {
+        // The decorator bookkeeping used to re-call GetKey after the element was defined, re-running
+        // computed key side effects and — when the key changed between evaluations — silently applying
+        // the decorator to the wrong (nonexistent) property. (`static` members are used because the
+        // parser treats `@dec [...]` on instance members as a decorator member expression.)
+        var result = _engine.Evaluate("""
+            let i = 0;
+            let decorated = [];
+            function dec(value, context) { decorated.push(context.name); return value; }
+
+            class C {
+                @dec static [(i++, 'm' + i)]() { return 'method'; }
+                @dec static [(i++, 'f' + i)] = 'field';
+                @dec static accessor [(i++, 'a' + i)] = 'accessor';
+            }
+
+            [i, decorated.join('|'), typeof C.m1, C.f2, C.a3].join(';');
+            """);
+
+        // Three computed keys, each evaluated exactly once (i === 3), and each decorator saw the
+        // same name its element was defined under.
+        Assert.Equal("3;m1|f2|a3;function;field;accessor", result.AsString());
+    }
 }
