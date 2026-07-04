@@ -716,9 +716,97 @@ internal sealed class JintAssignmentExpression : JintExpression
             object? completion = null;
             if (_leftIdentifier != null)
             {
+                // a populated global-binding cache means the target is a global — the slot lane
+                // can never apply, and AssignToIdentifier's cached-global arm is the fast path
+                if (_leftIdentifier._cachedGlobalEnv is null
+                    && !_evalOrArguments
+                    && !_leftIsCoverParenthesized
+                    && TryAssignSlot(context, out var slotResult))
+                {
+                    return slotResult;
+                }
+
                 completion = AssignToIdentifier(context, _leftIdentifier, _right, _evalOrArguments, !_leftIsCoverParenthesized);
             }
             return completion ?? SetValue(context);
+        }
+
+        /// <summary>
+        /// Plain assignment to a slot-stored binding (`b = a`, `x = f()` on locals): resolves the
+        /// target through the slot-location cache instead of the per-assignment environment walk,
+        /// mirroring <see cref="AssignToIdentifier"/>'s right-hand side semantics exactly
+        /// (anonymous function/class naming, abrupt and generator-abort completions). Const and
+        /// TDZ targets bail before any evaluation so the slow path produces the spec error
+        /// ordering; the target binding is re-validated after the right-hand side runs since it
+        /// may have been written (or in degenerate cases deleted) during evaluation.
+        /// </summary>
+        private bool TryAssignSlot(EvaluationContext context, out JsValue result)
+        {
+            result = null!;
+
+            var engine = context.Engine;
+            if (engine.ExecutionContext.Suspendable is not null)
+            {
+                return false;
+            }
+
+            if (!_lhsSlotCache.TryResolve(engine, engine.ExecutionContext.LexicalEnvironment, _leftIdentifier!.Identifier, out var environment, out var slotIndex))
+            {
+                return false;
+            }
+
+            var slots = environment._slots;
+            if (slots is null || (uint) slotIndex >= (uint) slots.Length)
+            {
+                return false;
+            }
+
+            {
+                ref var binding = ref slots[slotIndex];
+                if (!binding.Mutable || !binding.IsInitialized())
+                {
+                    return false;
+                }
+            }
+
+            JsValue completion;
+            var right = _right;
+            if (right is JintClassExpression classExpression && right._expression.IsAnonymousFunctionDefinition())
+            {
+                completion = classExpression.EvaluateWithName(context, _leftIdentifier.Identifier.Value.ToString());
+            }
+            else
+            {
+                completion = right.GetValue(context);
+            }
+
+            if (context.IsAbrupt() || context.IsGeneratorAborted())
+            {
+                result = completion;
+                return true;
+            }
+
+            var rval = completion.Clone();
+
+            if (right._expression.IsFunctionDefinition() && right is not JintClassExpression)
+            {
+                ((Function) rval).SetFunctionName(_leftIdentifier.Identifier.Value);
+            }
+
+            ref var bindingAfterRight = ref slots[slotIndex];
+            if (bindingAfterRight.Mutable && bindingAfterRight.IsInitialized())
+            {
+                slots[slotIndex] = bindingAfterRight.ChangeValue(rval);
+            }
+            else
+            {
+                // degenerate: the right-hand side changed the binding's state; the full store
+                // produces the exact semantics
+                environment.SetMutableBinding(_leftIdentifier.Identifier, rval, StrictModeScope.IsStrictModeCode);
+            }
+
+            result = rval;
+            return true;
         }
 
         internal override bool HasDiscardFastPath => _structurallyNumeric;
