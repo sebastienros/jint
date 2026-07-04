@@ -1,4 +1,5 @@
 using Jint.Native.Object;
+using Jint.Runtime;
 
 namespace Jint.Tests.PublicInterface;
 
@@ -89,6 +90,87 @@ public class ShadowRealmTests
         Assert.Equal("hello engine", engine.Evaluate(script));
         Assert.Equal("hello realm 1", shadowRealm.Evaluate(script));
         Assert.Equal("hello realm 2", shadowRealm2.Evaluate(script));
+    }
+
+    [Fact]
+    public void CanEvaluateScriptWithSuperInsideClassAndObjectMethods()
+    {
+        // https://github.com/sebastienros/jint/issues/2569
+        // PerformShadowRealmEval only forbids super/new.target contained in the script's own body;
+        // the Contains static semantics do not descend into nested function or class bodies.
+        var engine = new Engine();
+        var shadowRealm = engine.Intrinsics.ShadowRealm.Construct();
+
+        Assert.Equal("derived:base", shadowRealm.Evaluate("""
+            class Base {
+                greet() { return 'base'; }
+            }
+            class Derived extends Base {
+                greet() { return 'derived:' + super.greet(); }
+            }
+            new Derived().greet();
+            """));
+
+        Assert.Equal(3, shadowRealm.Evaluate("""
+            class A { constructor() { this.x = 1; } }
+            class B extends A { constructor() { super(); this.y = 2; } }
+            const b = new B();
+            b.x + b.y;
+            """));
+
+        Assert.Equal(42, shadowRealm.Evaluate("""
+            class C1 { m() { return 40; } }
+            class C2 extends C1 { f = super.m() + 2; }
+            new C2().f;
+            """));
+
+        Assert.Equal(1, shadowRealm.Evaluate("""
+            class S1 { static m() { return 1; } }
+            class S2 extends S1 { static v; static { S2.v = super.m(); } }
+            S2.v;
+            """));
+
+        Assert.Equal("[object Object]", shadowRealm.Evaluate("""
+            const o = { m() { return super.toString(); } };
+            o.m();
+            """));
+
+        Assert.Equal(true, shadowRealm.Evaluate("""
+            function f() { return new.target === undefined; }
+            f();
+            """));
+    }
+
+    [Fact]
+    public void CanEvaluatePreparedScriptWithSuperInsideClassMethods()
+    {
+        var engine = new Engine();
+        var shadowRealm = engine.Intrinsics.ShadowRealm.Construct();
+
+        var script = Engine.PrepareScript("class A { hello() { return 'hi'; } } class B extends A { hello() { return super.hello() + '!'; } } new B().hello();");
+
+        Assert.Equal("hi!", shadowRealm.Evaluate(script));
+    }
+
+    [Fact]
+    public void EvaluateThrowsSyntaxErrorForTopLevelSuperAndNewTarget()
+    {
+        var engine = new Engine();
+        var shadowRealm = engine.Intrinsics.ShadowRealm.Construct();
+
+        AssertSyntaxError(shadowRealm, "super.x");
+        AssertSyntaxError(shadowRealm, "super();");
+        AssertSyntaxError(shadowRealm, "new.target");
+
+        // arrow functions are transparent for super/new.target
+        AssertSyntaxError(shadowRealm, "const f = () => super.x;");
+        AssertSyntaxError(shadowRealm, "const f = () => new.target;");
+    }
+
+    private static void AssertSyntaxError(Native.ShadowRealm.ShadowRealm shadowRealm, string code)
+    {
+        var ex = Assert.Throws<JavaScriptException>(() => shadowRealm.Evaluate(code));
+        Assert.Equal("SyntaxError", ex.Error.AsObject().Get("name").ToString());
     }
 
     private static string GetBasePath()
