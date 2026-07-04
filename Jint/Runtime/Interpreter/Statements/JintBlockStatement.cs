@@ -1,4 +1,3 @@
-using System.Threading;
 using Jint.Native;
 using Jint.Native.AsyncFunction;
 using Jint.Native.Disposable;
@@ -16,6 +15,13 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
     private readonly JintStatementList? _statementList;
     private readonly JintStatement? _singleStatement;
     private readonly BlockState _blockState;
+
+    // Reuse cache for this block's fixed-slot environment. Held on the handler instance — which is built
+    // per statement list, i.e. per engine — rather than on the shared BlockState: BlockState lives on the
+    // AST node's UserData and is shared by every engine running a prepared script, and an environment roots
+    // its creating engine, so caching it there pinned the last-caller engine (issue #2560). Single-threaded
+    // like the engine, so no Interlocked or engine-identity check is needed.
+    private DeclarativeEnvironment? _cachedEnv;
 
     public JintBlockStatement(NestedBlockStatement blockStatement) : base(blockStatement)
     {
@@ -74,11 +80,12 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
 
                 if (blockState.SlotNames is not null)
                 {
-                    // Try to reuse cached environment (only valid for same Engine)
-                    var cachedEnv = Interlocked.Exchange(ref blockState._cachedEnv, null);
+                    // Try to reuse this handler's cached environment (per engine by construction)
+                    var cachedEnv = _cachedEnv;
 
-                    if (cachedEnv is not null && ReferenceEquals(cachedEnv._engine, engine))
+                    if (cachedEnv is not null)
                     {
+                        _cachedEnv = null;
                         // Reuse environment: update outer reference and reset slots
                         cachedEnv._outerEnv = oldEnv;
                         ResetSlots(cachedEnv._slots!, blockState.SlotTemplates!);
@@ -245,7 +252,7 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
         suspendable?.Data.Clear(this);
         if (blockEnv._slots is not null)
         {
-            Interlocked.Exchange(ref _blockState._cachedEnv, blockEnv);
+            _cachedEnv = blockEnv;
         }
         if (oldEnv is not null)
         {
@@ -372,11 +379,11 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
         /// <summary>
         /// True when the block has slots and no closures capture the block's bindings,
         /// meaning the DeclarativeEnvironment object itself can be reused across iterations.
+        /// The env cache itself lives on the per-engine JintBlockStatement handler instance —
+        /// never here: BlockState is shared across engines via AST UserData, and a cached
+        /// environment would root its creating engine (issue #2560).
         /// </summary>
         public readonly bool CanReuseEnvironment;
-
-        // Cached environment for reuse (thread-safe via Interlocked.Exchange)
-        public DeclarativeEnvironment? _cachedEnv;
 
         public BlockState(DeclarationCache declarationCache, BlockStatement blockStatement)
         {

@@ -118,21 +118,20 @@ public class GarbageCollectionTests
     public void SharedPreparedScriptDoesNotRetainEngines()
     {
         // Regression test for #2560 (secondary cause, #2413): a prepared script shared across many engines
-        // must not pin those engines via the function-environment reuse cache. The cache lives on the
-        // ScriptFunction instance (per engine) rather than on the shared JintFunctionDefinition.State, so
-        // once an engine is dropped its cached environments — and the engine/realm they reference — become
-        // collectable even while the prepared script stays cached. The script contains both an ordinary
-        // function (single-slot env cache) and a direct-recursive one (bounded RecursiveEnvPool) so both
-        // cache shapes are covered.
-        //
-        // NOTE: this covers the FUNCTION environment cache only. Block/loop environments cached on shared
-        // AST state (JintBlockStatement.BlockState._cachedEnv, JintForStatement._cachedLoopEnv) can still
-        // pin the last-caller engine for prepared scripts containing let/const blocks — tracked separately.
+        // must not pin those engines via environment reuse caches. Function environments are cached on the
+        // ScriptFunction instance and block environments on the JintBlockStatement handler instance (both
+        // per engine) rather than on state shared through the AST, so once an engine is dropped its cached
+        // environments — and the engine/realm they reference — become collectable even while the prepared
+        // script stays cached. The script covers every cache shape: an ordinary function (single-slot env
+        // cache), a direct-recursive one (bounded RecursiveEnvPool), a let/const block (block env cache)
+        // and a for-let loop (loop env cache).
 
         var prepared = Engine.PrepareScript("""
             function f(x) { var y = x + 1; return y; }
             function fib(n) { return n < 2 ? n : fib(n - 1) + fib(n - 2); }
-            f(1); f(2); fib(8);
+            function b(x) { { let y = x + 1; const z = y * 2; f(y + z); } }
+            function l(x) { var sum = 0; for (let i = 0; i < 3; i++) { sum += i; } return sum; }
+            f(1); f(2); fib(8); b(1); b(2); l(1); l(2);
             """);
 
         const int count = 20;
