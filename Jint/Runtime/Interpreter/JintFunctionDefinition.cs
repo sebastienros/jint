@@ -28,6 +28,12 @@ internal sealed class JintFunctionDefinition
     public readonly string? Name;
     public readonly IFunction Function;
 
+    // True for definitions created by the Function constructor (CreateDynamicFunction). Their
+    // definition lives in the per-realm dynamic-function cache and every `new Function(...)`
+    // produces a fresh ScriptFunction instance, which changes where call environments can be
+    // safely and usefully cached — see State._dynamicCachedEnv.
+    public bool IsDynamic;
+
     // Stores the AST node needed for creating the source text.
     // (This might be different from the Function node, e.g., in the case of class methods.)
     public readonly INode SourceTextNode;
@@ -391,6 +397,15 @@ internal sealed class JintFunctionDefinition
         // (also across engines — e.g. freshly created instances when a prepared script is re-evaluated).
         // Interlocked is required: parallel test fixtures share cached States (see PR #2418 fallout).
         public Binding[]? _cachedSlots;
+
+        // Exception to the "no environments on State" rule above, for Function-constructor
+        // definitions only (JintFunctionDefinition.IsDynamic): their definition lives in the
+        // per-realm dynamic-function cache and is never shared across engines, while every
+        // `new Function(...)` call produces a fresh ScriptFunction whose per-instance cache can
+        // never warm. Parking the call environment here keeps one stable environment identity
+        // across those one-shot instances, which is what the shared statement tree's per-node
+        // slot caches key on. Interlocked for the same reason as _cachedSlots.
+        public FunctionEnvironment? _dynamicCachedEnv;
 
         public SourceText SourceText;
 
