@@ -92,6 +92,29 @@ public class RelationalComparisonTests
     }
 
     [Fact]
+    public void VariableBoundComparisons()
+    {
+        var engine = new Engine(static options => options.Strict());
+        var result = engine.Evaluate("""
+            function f() {
+                var n = 5, x = NaN, i = 3;
+                var r = [];
+                for (var k = 0; k < 2; k++) {
+                    r.push(i < n, i > n, x < n, n >= i, n <= i);
+                }
+                n = 'zz';
+                r.push(i < n);
+                n = '10';
+                r.push(i < n);
+                return r.join(',');
+            }
+            f();
+            """).AsString();
+
+        Assert.Equal("true,false,false,true,false,true,false,false,true,false,false,true", result);
+    }
+
+    [Fact]
     public void CachedEvalComparisonRespectsBlockShadowing()
     {
         // the lane resolves through the shadow-aware slot-cache walk; a block-shadowed
