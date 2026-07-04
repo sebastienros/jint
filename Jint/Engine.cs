@@ -1457,13 +1457,13 @@ public sealed partial class Engine : IDisposable
     /// </summary>
     internal void EvalDeclarationInstantiation(
         Script script,
+        HoistingScope hoistingScope,
         Environment varEnv,
         Environment lexEnv,
         PrivateEnvironment? privateEnv,
-        bool strict)
+        bool strict,
+        bool bindingsPreInitialized = false)
     {
-        var hoistingScope = HoistingScope.GetProgramLevelDeclarations(script);
-
         var lexEnvRec = (DeclarativeEnvironment) lexEnv;
         var varEnvRec = varEnv;
 
@@ -1556,11 +1556,13 @@ public sealed partial class Engine : IDisposable
         script.AllPrivateIdentifiersValid(realm, privateIdentifiers);
 
         var functionDeclarations = hoistingScope._functionDeclarations;
-        var functionsToInitialize = new LinkedList<JintFunctionDefinition>();
-        var declaredFunctionNames = new HashSet<Key>();
+        LinkedList<JintFunctionDefinition>? functionsToInitialize = null;
+        HashSet<Key>? declaredFunctionNames = null;
 
         if (functionDeclarations != null)
         {
+            functionsToInitialize = new LinkedList<JintFunctionDefinition>();
+            declaredFunctionNames = new HashSet<Key>();
             for (var i = functionDeclarations.Count - 1; i >= 0; i--)
             {
                 var d = functionDeclarations[i];
@@ -1582,91 +1584,105 @@ public sealed partial class Engine : IDisposable
             }
         }
 
-        var boundNames = new List<Key>();
-        var declaredVarNames = new List<Key>();
-        var variableDeclarations = hoistingScope._variablesDeclarations;
-        var variableDeclarationsCount = variableDeclarations?.Count;
-        for (var i = 0; i < variableDeclarationsCount; i++)
+        // When the caller pre-initialized the environment from a slot template (strict eval with
+        // a cached layout), the var and lexical bindings already exist in their post-instantiation
+        // state, so the gathering and creation passes below are skipped entirely.
+        List<Key>? declaredVarNames = null;
+        if (!bindingsPreInitialized)
         {
-            var variableDeclaration = variableDeclarations![i];
-            boundNames.Clear();
-            variableDeclaration.GetBoundNames(boundNames);
-            for (var j = 0; j < boundNames.Count; j++)
+            var boundNames = new List<Key>();
+            declaredVarNames = new List<Key>();
+            var variableDeclarations = hoistingScope._variablesDeclarations;
+            var variableDeclarationsCount = variableDeclarations?.Count;
+            for (var i = 0; i < variableDeclarationsCount; i++)
             {
-                var vn = boundNames[j];
-                if (!declaredFunctionNames.Contains(vn))
+                var variableDeclaration = variableDeclarations![i];
+                boundNames.Clear();
+                variableDeclaration.GetBoundNames(boundNames);
+                for (var j = 0; j < boundNames.Count; j++)
                 {
-                    if (varEnvRec is GlobalEnvironment ger)
+                    var vn = boundNames[j];
+                    if (declaredFunctionNames is null || !declaredFunctionNames.Contains(vn))
                     {
-                        var vnDefinable = ger.CanDeclareGlobalFunction(vn);
-                        if (!vnDefinable)
+                        if (varEnvRec is GlobalEnvironment ger)
                         {
-                            Throw.TypeError(realm, $"Cannot define global variable '{vn}'");
+                            // https://tc39.es/ecma262/#sec-evaldeclarationinstantiation step 8.a.ii.1
+                            var vnDefinable = ger.CanDeclareGlobalVar(vn);
+                            if (!vnDefinable)
+                            {
+                                Throw.TypeError(realm, $"Cannot define global variable '{vn}'");
+                            }
                         }
+
+                        declaredVarNames.Add(vn);
                     }
+                }
+            }
 
-                    declaredVarNames.Add(vn);
+            var lexicalDeclarations = hoistingScope._lexicalDeclarations;
+            var lexicalDeclarationsCount = lexicalDeclarations?.Count;
+            for (var i = 0; i < lexicalDeclarationsCount; i++)
+            {
+                boundNames.Clear();
+                var d = lexicalDeclarations![i];
+                d.GetBoundNames(boundNames);
+                for (var j = 0; j < boundNames.Count; j++)
+                {
+                    Key dn = boundNames[j];
+                    if (d.IsConstantDeclaration())
+                    {
+                        lexEnvRec.CreateImmutableBinding(dn, strict: true);
+                    }
+                    else
+                    {
+                        lexEnvRec.CreateMutableBinding(dn, canBeDeleted: false);
+                    }
                 }
             }
         }
 
-        var lexicalDeclarations = hoistingScope._lexicalDeclarations;
-        var lexicalDeclarationsCount = lexicalDeclarations?.Count;
-        for (var i = 0; i < lexicalDeclarationsCount; i++)
+        if (functionsToInitialize != null)
         {
-            boundNames.Clear();
-            var d = lexicalDeclarations![i];
-            d.GetBoundNames(boundNames);
-            for (var j = 0; j < boundNames.Count; j++)
+            foreach (var f in functionsToInitialize)
             {
-                Key dn = boundNames[j];
-                if (d.IsConstantDeclaration())
+                var fo = realm.Intrinsics.Function.InstantiateFunctionObject(f, lexEnv, privateEnv);
+                if (varEnvRec is GlobalEnvironment ger)
                 {
-                    lexEnvRec.CreateImmutableBinding(dn, strict: true);
+                    ger.CreateGlobalFunctionBinding(f.Name!, fo, canBeDeleted: true);
                 }
                 else
                 {
-                    lexEnvRec.CreateMutableBinding(dn, canBeDeleted: false);
+                    Key fn = f.Name!;
+                    var bindingExists = varEnvRec.HasBinding(fn);
+                    if (!bindingExists)
+                    {
+                        varEnvRec.CreateMutableBinding(fn, canBeDeleted: true);
+                        varEnvRec.InitializeBinding(fn, fo, DisposeHint.Normal);
+                    }
+                    else
+                    {
+                        varEnvRec.SetMutableBinding(fn, fo, strict: false);
+                    }
                 }
             }
         }
 
-        foreach (var f in functionsToInitialize)
+        if (declaredVarNames != null)
         {
-            var fo = realm.Intrinsics.Function.InstantiateFunctionObject(f, lexEnv, privateEnv);
-            if (varEnvRec is GlobalEnvironment ger)
+            foreach (var vn in declaredVarNames)
             {
-                ger.CreateGlobalFunctionBinding(f.Name!, fo, canBeDeleted: true);
-            }
-            else
-            {
-                Key fn = f.Name!;
-                var bindingExists = varEnvRec.HasBinding(fn);
-                if (!bindingExists)
+                if (varEnvRec is GlobalEnvironment ger)
                 {
-                    varEnvRec.CreateMutableBinding(fn, canBeDeleted: true);
-                    varEnvRec.InitializeBinding(fn, fo, DisposeHint.Normal);
+                    ger.CreateGlobalVarBinding(vn, canBeDeleted: true);
                 }
                 else
                 {
-                    varEnvRec.SetMutableBinding(fn, fo, strict: false);
-                }
-            }
-        }
-
-        foreach (var vn in declaredVarNames)
-        {
-            if (varEnvRec is GlobalEnvironment ger)
-            {
-                ger.CreateGlobalVarBinding(vn, canBeDeleted: true);
-            }
-            else
-            {
-                var bindingExists = varEnvRec.HasBinding(vn);
-                if (!bindingExists)
-                {
-                    varEnvRec.CreateMutableBinding(vn, canBeDeleted: true);
-                    varEnvRec.InitializeBinding(vn, JsValue.Undefined, DisposeHint.Normal);
+                    var bindingExists = varEnvRec.HasBinding(vn);
+                    if (!bindingExists)
+                    {
+                        varEnvRec.CreateMutableBinding(vn, canBeDeleted: true);
+                        varEnvRec.InitializeBinding(vn, JsValue.Undefined, DisposeHint.Normal);
+                    }
                 }
             }
         }
@@ -1681,7 +1697,7 @@ public sealed partial class Engine : IDisposable
                 {
                     var f = annexBFunctions[i];
                     Key fn = f.Id!.Name;
-                    if (!declaredFunctionNames.Contains(fn))
+                    if (declaredFunctionNames is null || !declaredFunctionNames.Contains(fn))
                     {
                         if (varEnvRec is GlobalEnvironment ger)
                         {
