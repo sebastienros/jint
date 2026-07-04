@@ -123,8 +123,8 @@ internal sealed class JintIdentifierExpression : JintExpression
         JsValue? value;
 
         // Slot-cache fast path: walk from the current env up the chain looking for the cached
-        // resolving env via ReferenceEquals. When found, read the slot value directly,
-        // skipping HasBinding + SlotIndexOf at every intermediate env.
+        // resolving env via ReferenceEquals; the common case matches at hop 0 without any
+        // probing. When found, read the slot value directly.
         // Engine-identity gate: a Prepared<Script> reused across multiple Engine instances
         // shares JintIdentifierExpression nodes, so the cached env may be from a previous
         // Engine. Skipping the walk when engines differ avoids 4 wasted hops per call —
@@ -159,6 +159,15 @@ internal sealed class JintIdentifierExpression : JintExpression
                 {
                     // a with-object between us and the cached slot may shadow the name
                     // dynamically; only the full resolution can decide who owns the binding
+                    break;
+                }
+
+                // An intermediate environment holding the name shadows the cached resolution
+                // (an eval-cache-shared body under a shadowing block, a nested eval of the
+                // same source, or a sloppy direct eval injecting the name into an enclosing
+                // function environment). HasBinding on a declarative environment is pure.
+                if (search is DeclarativeEnvironment intermediate && intermediate.HasBinding(identifier.Key))
+                {
                     break;
                 }
 

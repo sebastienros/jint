@@ -170,7 +170,7 @@ public sealed class ShadowRealm : ObjectInstance
         Completion result;
         try
         {
-            _engine.EvalDeclarationInstantiation(script, varEnv, lexEnv, privateEnv: null, strictEval);
+            _engine.EvalDeclarationInstantiation(script, script.GetHoistingScope(), varEnv, lexEnv, privateEnv: null, strictEval);
 
             using (new StrictModeScope(strictEval, force: true))
             {
