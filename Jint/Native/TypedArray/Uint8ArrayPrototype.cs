@@ -68,16 +68,11 @@ internal sealed partial class Uint8ArrayPrototype : Prototype
 
     private static void SetUint8ArrayBytes(JsTypedArray into, byte[] bytes)
     {
-        var offset = into._byteOffset;
-        var len = bytes.Length;
-        var index = 0;
-        while (index < len)
-        {
-            var b = bytes[index];
-            var byteIndexInBuffer = index + offset;
-            into._viewedArrayBuffer.SetValueInBuffer(byteIndexInBuffer, TypedArrayElementType.Uint8, b, isTypedArray: true, ArrayBufferOrder.Unordered);
-            index++;
-        }
+        // FromBase64/FromHex cap their output at the target's byte length, so the decoded bytes always
+        // fit within the typed array's view — copy them straight into the backing buffer. Uint8 needs
+        // no per-element conversion, so this is a single memcpy rather than N SetValueInBuffer calls.
+        var destination = into._viewedArrayBuffer._arrayBufferData!.AsSpan(into._byteOffset, bytes.Length);
+        bytes.AsSpan().CopyTo(destination);
     }
 
     [JsFunction]
