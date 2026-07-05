@@ -544,7 +544,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
 
     public override JsValue Get(JsValue property, JsValue receiver)
     {
-        if ((_type & InternalTypes.PlainObject) != InternalTypes.Empty && ReferenceEquals(this, receiver) && property.IsString())
+        if ((_type & (InternalTypes.PlainObject | InternalTypes.BuiltinShapeMode)) == InternalTypes.PlainObject && _initialized && ReferenceEquals(this, receiver) && property.IsString())
         {
             EnsureInitialized();
             if ((_type & InternalTypes.ShapeMode) != InternalTypes.Empty)
@@ -739,6 +739,23 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         return keys;
     }
 
+    // Install the shared layout + a per-realm descriptor array cloned from the shape's constant template,
+    // and flip on BuiltinShapeMode. Called from a shaped host's generated CreateProperties_Generated (works
+    // for both BuiltinShapeObject-derived hosts and generator-emitted IBuiltinShaped prototypes/constructors).
+    private protected void InitializeBuiltinShape()
+    {
+        var shaped = Unsafe.As<IBuiltinShaped>(this);
+        shaped.BuiltinDescriptors = (PropertyDescriptor?[]) shaped.BuiltinShape.ConstTemplate.Clone();
+        _type |= InternalTypes.BuiltinShapeMode;
+    }
+
+    // Fill a per-realm instance-property slot (reserved via BuiltinShape.Builder.Instance) with its value
+    // for this realm. Called from generated CreateProperties_Generated after InitializeBuiltinShape.
+    private protected void SetBuiltinInstanceDescriptor(int slot, JsValue value, PropertyFlag flags)
+    {
+        Unsafe.As<IBuiltinShaped>(this).BuiltinDescriptors![slot] = new PropertyDescriptor(value, flags);
+    }
+
     protected internal virtual void SetOwnProperty(JsValue property, PropertyDescriptor desc)
     {
         EnsureInitialized();
@@ -801,7 +818,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool Set(JsValue property, JsValue value)
     {
-        if ((_type & InternalTypes.PlainObject) != InternalTypes.Empty && property is JsString jsString)
+        if ((_type & (InternalTypes.PlainObject | InternalTypes.BuiltinShapeMode)) == InternalTypes.PlainObject && _initialized && property is JsString jsString)
         {
             if ((_type & InternalTypes.ShapeMode) != InternalTypes.Empty)
             {
@@ -832,7 +849,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     /// </summary>
     public override bool Set(JsValue property, JsValue value, JsValue receiver)
     {
-        if ((_type & InternalTypes.PlainObject) != InternalTypes.Empty && ReferenceEquals(this, receiver) && property.IsString())
+        if ((_type & (InternalTypes.PlainObject | InternalTypes.BuiltinShapeMode)) == InternalTypes.PlainObject && _initialized && ReferenceEquals(this, receiver) && property.IsString())
         {
             var key = (Key) property.ToString();
             if ((_type & InternalTypes.ShapeMode) != InternalTypes.Empty)
@@ -1727,7 +1744,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         // skipped here and handled by the generic path (whose GetOwnProperty runs EnsureInitialized).
         // Ordinary user objects (JsObject) are born initialized, so they take this path with no per-object
         // virtual Initialize() call.
-        if ((_type & InternalTypes.PlainObject) != InternalTypes.Empty
+        if ((_type & (InternalTypes.PlainObject | InternalTypes.BuiltinShapeMode)) == InternalTypes.PlainObject
             && _initialized
             && Extensible
             && p is JsString jsString)

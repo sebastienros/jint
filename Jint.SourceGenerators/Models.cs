@@ -34,6 +34,7 @@ internal sealed record class ObjectDefinition(
     bool IsSealed,
     int ExtraCapacity,
     bool UseShape,
+    bool DerivesFromBuiltinShapeObject,
     EquatableArray<FunctionDefinition> Functions,
     EquatableArray<PropertyDefinition> Properties,
     EquatableArray<SymbolDefinition> Symbols,
@@ -103,13 +104,14 @@ internal sealed record class ObjectDefinition(
         // explicit opt-out. Hosts that don't derive from it always use the dictionary path regardless.
         var extraCapacity = 0;
         var useShapeRequested = true;
+        var useShapeExplicitlySet = false;
         foreach (var attr in typeSymbol.GetAttributes())
         {
             if (attr.AttributeClass?.Name != "JsObjectAttribute") continue;
             foreach (var named in attr.NamedArguments)
             {
                 if (named.Key == "ExtraCapacity" && named.Value.Value is int v) extraCapacity = v;
-                else if (named.Key == "UseShape" && named.Value.Value is bool s) useShapeRequested = s;
+                else if (named.Key == "UseShape" && named.Value.Value is bool s) { useShapeRequested = s; useShapeExplicitlySet = true; }
             }
         }
 
@@ -122,7 +124,12 @@ internal sealed record class ObjectDefinition(
                 break;
             }
         }
-        var useShape = useShapeRequested && derivesFromBuiltinShapeObject;
+        // Two opt-ins: deriving from BuiltinShapeObject enables shapes by default (UseShape = false opts out);
+        // a host on any other base (a prototype / constructor) opts in with an explicit [JsObject(UseShape = true)],
+        // in which case the generator emits the IBuiltinShaped storage glue onto the host itself.
+        var useShape = derivesFromBuiltinShapeObject
+            ? useShapeRequested
+            : (useShapeExplicitlySet && useShapeRequested);
 
         var functions = new List<FunctionDefinition>();
         var properties = new List<PropertyDefinition>();
@@ -376,6 +383,7 @@ internal sealed record class ObjectDefinition(
             IsSealed: typeSymbol.IsSealed,
             ExtraCapacity: extraCapacity,
             UseShape: useShape,
+            DerivesFromBuiltinShapeObject: derivesFromBuiltinShapeObject,
             Functions: functions.ToEquatableArray(),
             Properties: properties.ToEquatableArray(),
             Symbols: symbols.ToEquatableArray(),

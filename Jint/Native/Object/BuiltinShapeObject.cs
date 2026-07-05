@@ -53,21 +53,4 @@ internal abstract class BuiltinShapeObject : ObjectInstance, IBuiltinShaped
     }
 
     Jint.Native.Function.Function IBuiltinShaped.MakeBuiltinFunction(ushort slot) => MakeBuiltinFunction(slot);
-
-    /// <summary>Call from the built-in's <c>Initialize</c> (before any symbol setup).</summary>
-    private protected void InitializeBuiltinShape()
-    {
-        _builtinDescriptors = (PropertyDescriptor?[]) BuiltinShape.ConstTemplate.Clone();
-        _type |= InternalTypes.BuiltinShapeMode;
-    }
-
-    /// <summary>
-    /// Fills a per-realm instance-property slot (reserved via <see cref="BuiltinShape.Builder.Instance"/>)
-    /// with its value for this realm. Call from the built-in's <c>Initialize</c>, after
-    /// <see cref="InitializeBuiltinShape"/>.
-    /// </summary>
-    private protected void SetBuiltinInstanceDescriptor(int slot, JsValue value, PropertyFlag flags)
-    {
-        _builtinDescriptors![slot] = new PropertyDescriptor(value, flags);
-    }
 }

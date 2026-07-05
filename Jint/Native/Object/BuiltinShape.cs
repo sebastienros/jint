@@ -82,7 +82,7 @@ internal sealed class BuiltinShape
         /// <summary>
         /// Reserves a slot for a per-realm instance property (a data property whose value varies per
         /// realm, e.g. a prototype's <c>constructor</c> reference). The descriptor is filled at
-        /// initialization by the owner via <see cref="BuiltinShapeObject.SetBuiltinInstanceDescriptor"/>,
+        /// initialization by the owner via <see cref="ObjectInstance.SetBuiltinInstanceDescriptor"/>,
         /// not lazily materialized — so its template slot stays null and it is never treated as a function.
         /// </summary>
         internal void Instance(in Key name)

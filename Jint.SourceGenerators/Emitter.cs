@@ -26,7 +26,14 @@ internal static class Emitter
 
         sb.Append(obj.Accessibility).Append(" ");
         if (obj.IsSealed) sb.Append("sealed ");
-        sb.Append("partial class ").AppendLine(obj.Name);
+        sb.Append("partial class ").Append(obj.Name);
+        // A shaped host that does not derive from BuiltinShapeObject gets its IBuiltinShaped storage emitted
+        // here (see EmitShapeMembers); declare the interface on this partial so the field/impls satisfy it.
+        if (obj.UseShape && !obj.DerivesFromBuiltinShapeObject)
+        {
+            sb.Append(" : global::Jint.Native.Object.IBuiltinShaped");
+        }
+        sb.AppendLine();
         sb.AppendLine("{");
 
         EmitStaticPropertyDescriptors(sb, obj);
@@ -364,11 +371,31 @@ internal static class Emitter
         sb.AppendLine("        return builder.Build();");
         sb.AppendLine("    }");
         sb.AppendLine();
-        sb.AppendLine("    private protected override global::Jint.Native.Object.BuiltinShape BuiltinShape => __builtinShape;");
-        sb.AppendLine();
-        sb.Append("    private protected override global::Jint.Native.Function.Function MakeBuiltinFunction(global::System.UInt16 slot) => new ").Append(dispatcher).Append("(this");
-        if (!singleSlot) sb.Append(", (").Append(dispatcher).Append(".Slot) slot");
-        sb.AppendLine(");");
+
+        if (obj.DerivesFromBuiltinShapeObject)
+        {
+            // Storage (the per-realm descriptor array + IBuiltinShaped) comes from the BuiltinShapeObject base;
+            // just supply the two abstract hooks it declares.
+            sb.AppendLine("    private protected override global::Jint.Native.Object.BuiltinShape BuiltinShape => __builtinShape;");
+            sb.AppendLine();
+            sb.Append("    private protected override global::Jint.Native.Function.Function MakeBuiltinFunction(global::System.UInt16 slot) => new ").Append(dispatcher).Append("(this");
+            if (!singleSlot) sb.Append(", (").Append(dispatcher).Append(".Slot) slot");
+            sb.AppendLine(");");
+        }
+        else
+        {
+            // Non-BuiltinShapeObject host (prototype / constructor): emit the per-realm descriptor field and the
+            // IBuiltinShaped implementation here, so the shape store composes without a shared base class.
+            sb.AppendLine("    private global::Jint.Runtime.Descriptors.PropertyDescriptor?[]? __builtinDescriptors;");
+            sb.AppendLine();
+            sb.AppendLine("    global::Jint.Native.Object.BuiltinShape global::Jint.Native.Object.IBuiltinShaped.BuiltinShape => __builtinShape;");
+            sb.AppendLine();
+            sb.AppendLine("    global::Jint.Runtime.Descriptors.PropertyDescriptor?[]? global::Jint.Native.Object.IBuiltinShaped.BuiltinDescriptors { get => __builtinDescriptors; set => __builtinDescriptors = value; }");
+            sb.AppendLine();
+            sb.Append("    global::Jint.Native.Function.Function global::Jint.Native.Object.IBuiltinShaped.MakeBuiltinFunction(global::System.UInt16 slot) => new ").Append(dispatcher).Append("(this");
+            if (!singleSlot) sb.Append(", (").Append(dispatcher).Append(".Slot) slot");
+            sb.AppendLine(");");
+        }
     }
 
     private static void EmitDispatcher(StringBuilder sb, ObjectDefinition obj)

@@ -5,7 +5,7 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.Promise;
 
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class PromisePrototype : Prototype
 {
     [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]

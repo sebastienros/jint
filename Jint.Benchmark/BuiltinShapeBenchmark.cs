@@ -82,4 +82,18 @@ public class BuiltinShapeBenchmark
         engine.Evaluate(_initGenerators);
         return engine;
     }
+
+    // Forces the five function-only Prototype-derived prototypes shaped in wave 2 (Promise, WeakMap,
+    // WeakSet, WeakRef, FinalizationRegistry) to Initialize — dictionary on main, shape here. The delta
+    // vs EngineOnly is the aggregate per-realm storage overhead removed across them.
+    private static readonly Prepared<Script> _initPrototypes = Engine.PrepareScript(
+        "Promise.prototype.then; WeakMap.prototype.has; WeakSet.prototype.has; WeakRef.prototype.deref; FinalizationRegistry.prototype.register;");
+
+    [Benchmark]
+    public Engine EngineInitPrototypes()
+    {
+        var engine = new Engine();
+        engine.Evaluate(_initPrototypes);
+        return engine;
+    }
 }
