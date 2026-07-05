@@ -102,7 +102,8 @@ public class BuiltinShapeBenchmark
         + "Intl.DateTimeFormat.prototype.resolvedOptions; Intl.NumberFormat.prototype.resolvedOptions;"
         + "Array.prototype.map; Number.prototype.toFixed; Boolean.prototype.valueOf; Error.prototype.toString;"
         + "[].values().next; new Map().keys().next; new Set().values().next; ''[Symbol.iterator]().next;"
-        + "String.prototype.slice; Date.prototype.getTime; Set.prototype.union; RegExp.prototype.test;");
+        + "String.prototype.slice; Date.prototype.getTime; Set.prototype.union; RegExp.prototype.test;"
+        + "Uint8Array.prototype.join;");
 
     [Benchmark]
     public Engine EngineInitPrototypes()
