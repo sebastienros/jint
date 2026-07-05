@@ -8,7 +8,7 @@ namespace Jint.Native.Iterator;
 /// https://tc39.es/ecma262/#sec-%wrapforvaliditeratorprototype%-object
 /// The %WrapForValidIteratorPrototype% object is the prototype of wrapped iterator objects from Iterator.from.
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class WrapForValidIteratorPrototype : Prototype
 {
     internal WrapForValidIteratorPrototype(

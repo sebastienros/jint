@@ -83,11 +83,15 @@ public class BuiltinShapeBenchmark
         return engine;
     }
 
-    // Forces the five function-only Prototype-derived prototypes shaped in wave 2 (Promise, WeakMap,
-    // WeakSet, WeakRef, FinalizationRegistry) to Initialize — dictionary on main, shape here. The delta
-    // vs EngineOnly is the aggregate per-realm storage overhead removed across them.
+    // Forces the function-only Prototype-derived prototypes shaped in this campaign to Initialize —
+    // dictionary on main, shape here. The delta vs EngineOnly is the aggregate per-realm storage overhead
+    // removed across them.
     private static readonly Prepared<Script> _initPrototypes = Engine.PrepareScript(
-        "Promise.prototype.then; WeakMap.prototype.has; WeakSet.prototype.has; WeakRef.prototype.deref; FinalizationRegistry.prototype.register;");
+        "Promise.prototype.then; WeakMap.prototype.has; WeakSet.prototype.has; WeakRef.prototype.deref; FinalizationRegistry.prototype.register;"
+        + "BigInt.prototype.toString; AggregateError.prototype.name; SuppressedError.prototype.constructor;"
+        + "Uint8Array.prototype.setFromBase64; ShadowRealm.prototype.evaluate;"
+        + "Object.getPrototypeOf(function*(){}).constructor; Object.getPrototypeOf(async function(){}).constructor;"
+        + "Object.getPrototypeOf(async function*(){}).constructor;");
 
     [Benchmark]
     public Engine EngineInitPrototypes()

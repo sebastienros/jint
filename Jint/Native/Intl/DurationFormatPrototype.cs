@@ -9,7 +9,7 @@ namespace Jint.Native.Intl;
 /// <summary>
 /// https://tc39.es/proposal-intl-duration-format/
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class DurationFormatPrototype : Prototype
 {
     [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]

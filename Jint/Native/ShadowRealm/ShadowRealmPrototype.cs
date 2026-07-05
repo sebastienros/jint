@@ -7,7 +7,7 @@ namespace Jint.Native.ShadowRealm;
 /// <summary>
 /// https://tc39.es/proposal-shadowrealm/#sec-properties-of-the-shadowrealm-prototype-object
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class ShadowRealmPrototype : Prototype
 {
     [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]

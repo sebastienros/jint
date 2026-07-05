@@ -372,15 +372,26 @@ internal static class Emitter
         sb.AppendLine("    }");
         sb.AppendLine();
 
+        // A shaped host with no [JsFunction]s (only instance/constant properties + symbols) has no dispatcher
+        // and no function slots, so MakeBuiltinFunction is never invoked — emit a throwing body rather than
+        // reference a dispatcher type that isn't generated.
+        string makeBody;
+        if (obj.Functions.Count == 0)
+        {
+            makeBody = "=> throw new global::System.InvalidOperationException(\"" + obj.Name + " has no built-in function slots\")";
+        }
+        else
+        {
+            makeBody = "=> new " + dispatcher + "(this" + (singleSlot ? "" : ", (" + dispatcher + ".Slot) slot") + ")";
+        }
+
         if (obj.DerivesFromBuiltinShapeObject)
         {
             // Storage (the per-realm descriptor array + IBuiltinShaped) comes from the BuiltinShapeObject base;
             // just supply the two abstract hooks it declares.
             sb.AppendLine("    private protected override global::Jint.Native.Object.BuiltinShape BuiltinShape => __builtinShape;");
             sb.AppendLine();
-            sb.Append("    private protected override global::Jint.Native.Function.Function MakeBuiltinFunction(global::System.UInt16 slot) => new ").Append(dispatcher).Append("(this");
-            if (!singleSlot) sb.Append(", (").Append(dispatcher).Append(".Slot) slot");
-            sb.AppendLine(");");
+            sb.Append("    private protected override global::Jint.Native.Function.Function MakeBuiltinFunction(global::System.UInt16 slot) ").Append(makeBody).AppendLine(";");
         }
         else
         {
@@ -392,9 +403,7 @@ internal static class Emitter
             sb.AppendLine();
             sb.AppendLine("    global::Jint.Runtime.Descriptors.PropertyDescriptor?[]? global::Jint.Native.Object.IBuiltinShaped.BuiltinDescriptors { get => __builtinDescriptors; set => __builtinDescriptors = value; }");
             sb.AppendLine();
-            sb.Append("    global::Jint.Native.Function.Function global::Jint.Native.Object.IBuiltinShaped.MakeBuiltinFunction(global::System.UInt16 slot) => new ").Append(dispatcher).Append("(this");
-            if (!singleSlot) sb.Append(", (").Append(dispatcher).Append(".Slot) slot");
-            sb.AppendLine(");");
+            sb.Append("    global::Jint.Native.Function.Function global::Jint.Native.Object.IBuiltinShaped.MakeBuiltinFunction(global::System.UInt16 slot) ").Append(makeBody).AppendLine(";");
         }
     }
 
