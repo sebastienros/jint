@@ -7,7 +7,7 @@ namespace Jint.Native.Error;
 /// <summary>
 /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.11.4
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class ErrorPrototype : ErrorInstance
 {
     [JsProperty(Name = "name", Flags = PropertyFlag.NonEnumerable)]

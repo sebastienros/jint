@@ -6,7 +6,7 @@ namespace Jint.Native.TypedArray;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-typedarray-prototype-objects
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class TypedArrayPrototype : Prototype
 {
     [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]

@@ -82,4 +82,53 @@ public class BuiltinShapeBenchmark
         engine.Evaluate(_initGenerators);
         return engine;
     }
+
+    // Forces the function-only Prototype-derived prototypes shaped in this campaign to Initialize —
+    // dictionary on main, shape here. The delta vs EngineOnly is the aggregate per-realm storage overhead
+    // removed across them.
+    private static readonly Prepared<Script> _initPrototypes = Engine.PrepareScript(
+        "Promise.prototype.then; WeakMap.prototype.has; WeakSet.prototype.has; WeakRef.prototype.deref; FinalizationRegistry.prototype.register;"
+        + "BigInt.prototype.toString; AggregateError.prototype.name; SuppressedError.prototype.constructor;"
+        + "Uint8Array.prototype.setFromBase64; ShadowRealm.prototype.evaluate;"
+        + "Object.getPrototypeOf(function*(){}).constructor; Object.getPrototypeOf(async function(){}).constructor;"
+        + "Object.getPrototypeOf(async function*(){}).constructor;"
+        + "Map.prototype.has; Symbol.prototype.toString; ArrayBuffer.prototype.slice;"
+        + "DataView.prototype.getInt8; Iterator.prototype.toArray;"
+        + "Temporal.Duration.prototype.toString; Temporal.PlainDate.prototype.toString;"
+        + "Temporal.PlainDateTime.prototype.toString; Temporal.ZonedDateTime.prototype.toString;"
+        + "Temporal.Instant.prototype.toString; Temporal.PlainTime.prototype.toString;"
+        + "Temporal.PlainMonthDay.prototype.toString; Temporal.PlainYearMonth.prototype.toString;"
+        + "Intl.Locale.prototype.toString; Intl.Collator.prototype.resolvedOptions;"
+        + "Intl.DateTimeFormat.prototype.resolvedOptions; Intl.NumberFormat.prototype.resolvedOptions;"
+        + "Array.prototype.map; Number.prototype.toFixed; Boolean.prototype.valueOf; Error.prototype.toString;"
+        + "[].values().next; new Map().keys().next; new Set().values().next; ''[Symbol.iterator]().next;"
+        + "String.prototype.slice; Date.prototype.getTime; Set.prototype.union; RegExp.prototype.test;");
+
+    [Benchmark]
+    public Engine EngineInitPrototypes()
+    {
+        var engine = new Engine();
+        engine.Evaluate(_initPrototypes);
+        return engine;
+    }
+
+    // Forces the shaped constructors to Initialize (touch a static member on each) — dictionary on main,
+    // shape here. Constructors are Function-derived; the delta vs EngineOnly is the per-realm constructor
+    // storage overhead removed.
+    private static readonly Prepared<Script> _initConstructors = Engine.PrepareScript(
+        "Object.keys; Array.isArray; ArrayBuffer.isView; Map.groupBy; Set.prototype; Symbol.for; Promise.resolve;"
+        + "Date.now; BigInt.asIntN; String.fromCharCode; Proxy.revocable; Iterator.from;"
+        + "Temporal.PlainDate.from; Temporal.Duration.from; Temporal.Instant.from; Temporal.PlainDateTime.from;"
+        + "Temporal.PlainTime.from; Temporal.PlainYearMonth.from; Temporal.PlainMonthDay.from; Temporal.ZonedDateTime.from;"
+        + "Intl.NumberFormat.supportedLocalesOf; Intl.Collator.supportedLocalesOf; Intl.DateTimeFormat.supportedLocalesOf;"
+        + "Intl.ListFormat.supportedLocalesOf; Intl.PluralRules.supportedLocalesOf; Intl.RelativeTimeFormat.supportedLocalesOf;"
+        + "Intl.Segmenter.supportedLocalesOf; Intl.DisplayNames.supportedLocalesOf; Intl.DurationFormat.supportedLocalesOf;");
+
+    [Benchmark]
+    public Engine EngineInitConstructors()
+    {
+        var engine = new Engine();
+        engine.Evaluate(_initConstructors);
+        return engine;
+    }
 }

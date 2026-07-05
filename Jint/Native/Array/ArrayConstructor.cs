@@ -14,7 +14,7 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.Array;
 
-[JsObject]
+[JsObject(UseShape = true)]
 public sealed partial class ArrayConstructor : Constructor
 {
     private const int ConstraintCheckInterval = Engine.ConstraintCheckInterval;

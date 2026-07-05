@@ -10,7 +10,7 @@ namespace Jint.Native.Iterator;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-asynciteratorprototype
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class AsyncIteratorPrototype : Prototype
 {
     private static readonly JsString AsyncIteratorToStringTag = new("AsyncIterator");

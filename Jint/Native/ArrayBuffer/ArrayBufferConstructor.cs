@@ -8,7 +8,7 @@ namespace Jint.Native.ArrayBuffer;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-the-arraybuffer-constructor
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 public sealed partial class ArrayBufferConstructor : Constructor
 {
     private static readonly JsString _functionName = new("ArrayBuffer");

@@ -8,7 +8,7 @@ namespace Jint.Native.SharedArrayBuffer;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-sharedarraybuffer-constructor
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class SharedArrayBufferConstructor : Constructor
 {
     private static readonly JsString _functionName = new("SharedArrayBuffer");

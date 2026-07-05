@@ -190,3 +190,25 @@ internal sealed class JsSymbolAccessorAttribute : global::System.Attribute
     public AccessorKind Kind { get; }
     public global::Jint.Runtime.Descriptors.PropertyFlag Flags { get; set; } = global::Jint.Runtime.Descriptors.PropertyFlag.Configurable;
 }
+
+// Class-level, repeats. Registers a string own property <Name> that shares the descriptor of another
+// generated [JsFunction] member <Target> (which must exist on the same host), so the two names resolve
+// to the very same function object — the spec function-identity aliases, e.g.
+//   [JsAlias("keys", "values")]       // Set.prototype.keys === values
+//   [JsAlias("trimLeft", "trimStart")]
+//   [JsAlias("toGMTString", "toUTCString")]
+// The alias appears after all other own properties in own-key order (matching the hand-written
+// AddDangerous/SetProperty tail it replaces).
+[global::System.AttributeUsage(global::System.AttributeTargets.Class, AllowMultiple = true)]
+[global::System.Diagnostics.Conditional("JINT_SOURCE_GENERATORS")]
+internal sealed class JsAliasAttribute : global::System.Attribute
+{
+    public JsAliasAttribute(string name, string target)
+    {
+        Name = name;
+        Target = target;
+    }
+
+    public string Name { get; }
+    public string Target { get; }
+}

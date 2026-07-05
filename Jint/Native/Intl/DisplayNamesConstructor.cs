@@ -11,7 +11,7 @@ namespace Jint.Native.Intl;
 /// <summary>
 /// https://tc39.es/ecma402/#sec-intl-displaynames-constructor
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class DisplayNamesConstructor : Constructor
 {
     private static readonly JsString _functionName = new("DisplayNames");

@@ -7,7 +7,7 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.TypedArray;
 
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class Uint8ArrayPrototype : Prototype
 {
     [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]

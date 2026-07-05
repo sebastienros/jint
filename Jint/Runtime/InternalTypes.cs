@@ -46,7 +46,12 @@ internal enum InternalTypes
     // integer-index access, IteratorResult). The prototype-method inline cache skips such receivers and
     // prototypes so it never bypasses their custom property resolution.
     ExoticGet = 262144,
+    // a built-in whose string-keyed own properties live in a shared BuiltinShape + a per-realm descriptor
+    // array reached via IBuiltinShaped, not _properties. Set when the shape is installed, cleared on deopt
+    // to dictionary mode. Mutually exclusive with ShapeMode; lets ObjectInstance's property virtuals
+    // discriminate built-in-shape vs dictionary storage with a single flag test on the already-loaded _type.
+    BuiltinShapeMode = 524288,
 
     Primitive = Boolean | String | Number | Integer | BigInt | Symbol,
-    InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Array | Module | IsHTMLDDA | ShapeMode | ShapeBuilding | ExoticGet
+    InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Array | Module | IsHTMLDDA | ShapeMode | ShapeBuilding | ExoticGet | BuiltinShapeMode
 }

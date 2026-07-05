@@ -7,7 +7,7 @@ namespace Jint.Native.Boolean;
 /// <summary>
 ///     http://www.ecma-international.org/ecma-262/5.1/#sec-15.6.4
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class BooleanPrototype : BooleanInstance
 {
     private readonly Realm _realm;

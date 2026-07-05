@@ -26,7 +26,14 @@ internal static class Emitter
 
         sb.Append(obj.Accessibility).Append(" ");
         if (obj.IsSealed) sb.Append("sealed ");
-        sb.Append("partial class ").AppendLine(obj.Name);
+        sb.Append("partial class ").Append(obj.Name);
+        // A shaped host that does not derive from BuiltinShapeObject gets its IBuiltinShaped storage emitted
+        // here (see EmitShapeMembers); declare the interface on this partial so the field/impls satisfy it.
+        if (obj.UseShape && !obj.DerivesFromBuiltinShapeObject)
+        {
+            sb.Append(" : global::Jint.Native.Object.IBuiltinShaped");
+        }
+        sb.AppendLine();
         sb.AppendLine("{");
 
         EmitStaticPropertyDescriptors(sb, obj);
@@ -123,6 +130,7 @@ internal static class Emitter
         foreach (var ir in obj.IntrinsicReferences) yield return ir.JsName;
         foreach (var name in accessorsByName.Keys) yield return name;
         foreach (var thr in obj.ThrowerAccessors) yield return thr.JsName;
+        foreach (var a in obj.Aliases) yield return a.Name;
     }
 
     /// <summary>
@@ -170,7 +178,7 @@ internal static class Emitter
             }
         }
 
-        var totalEntries = dataProperties.Count + obj.Properties.Count + accessorsByName.Count + obj.ThrowerAccessors.Count + obj.IntrinsicReferences.Count;
+        var totalEntries = dataProperties.Count + obj.Properties.Count + accessorsByName.Count + obj.ThrowerAccessors.Count + obj.IntrinsicReferences.Count + obj.Aliases.Count;
 
         if (totalEntries > 0) EmitStaticKeyCache(sb, obj, dataProperties, accessorsByName);
 
@@ -194,7 +202,7 @@ internal static class Emitter
                 sb.Append(prop.ClrName).Append(", ").Append(prop.FlagsExpression).AppendLine(");");
             }
             sb.AppendLine("    }");
-            EmitShapeMembers(sb, obj, dataProperties);
+            EmitShapeMembers(sb, obj, dataProperties, accessorsByName);
             return;
         }
 
@@ -319,6 +327,13 @@ internal static class Emitter
             }
         }
 
+        // Aliases: share the target member's descriptor (added last, matching own-key order).
+        foreach (var alias in obj.Aliases)
+        {
+            sb.Append("        properties.TryGetValue(__Key_").Append(SanitizeIdentifier(alias.Target)).Append(", out var __alias_").Append(SanitizeIdentifier(alias.Name)).AppendLine(");");
+            sb.Append("        properties.AddDangerous(__Key_").Append(SanitizeIdentifier(alias.Name)).Append(", __alias_").Append(SanitizeIdentifier(alias.Name)).AppendLine(");");
+        }
+
         sb.AppendLine("        SetProperties(properties);");
         sb.AppendLine("    }");
     }
@@ -330,19 +345,24 @@ internal static class Emitter
     /// after the static Key / descriptor fields in this same generated file, so it runs after them.
     /// Supports [JsFunction]s, static-immutable [JsProperty] constants, and [JsSymbol]s.
     /// </summary>
-    private static void EmitShapeMembers(StringBuilder sb, ObjectDefinition obj, List<FunctionDefinition> dataProperties)
+    private static void EmitShapeMembers(StringBuilder sb, ObjectDefinition obj, List<FunctionDefinition> dataProperties, IReadOnlyDictionary<string, (FunctionDefinition? Get, FunctionDefinition? Set, string Flags)> accessorsByName)
     {
         var dispatcher = "__" + obj.Name + "Function";
         var singleSlot = obj.Functions.Count == 1;
+
+        // Slot expression for a getter/setter half: NotAFunction when absent, else the dispatcher slot id.
+        string SlotExpr(FunctionDefinition? fn) => fn is null
+            ? "global::Jint.Native.Object.BuiltinShape.NotAFunction"
+            : singleSlot ? "(global::System.UInt16) 0" : "(global::System.UInt16) " + dispatcher + ".Slot." + fn.ClrName;
 
         sb.AppendLine();
         sb.AppendLine("    private static readonly global::Jint.Native.Object.BuiltinShape __builtinShape = BuildBuiltinShape_Generated();");
         sb.AppendLine();
         sb.AppendLine("    private static global::Jint.Native.Object.BuiltinShape BuildBuiltinShape_Generated()");
         sb.AppendLine("    {");
-        sb.Append("        var builder = new global::Jint.Native.Object.BuiltinShape.Builder(").Append(obj.Properties.Count + dataProperties.Count).AppendLine(");");
-        // Properties first (matching the dictionary path's order): static-immutable constants share a
-        // process-wide descriptor; everything else is a per-realm instance slot filled in Initialize.
+        sb.Append("        var builder = new global::Jint.Native.Object.BuiltinShape.Builder(").Append(obj.Properties.Count + dataProperties.Count + accessorsByName.Count + obj.Aliases.Count).AppendLine(");");
+        // Order matches the dictionary path: properties, then functions, then accessors (each sorted by JsName).
+        // Static-immutable constants share a process-wide descriptor; other properties are per-realm instance slots.
         foreach (var prop in obj.Properties)
         {
             if (prop.IsStatic && prop.IsImmutable)
@@ -361,14 +381,56 @@ internal static class Emitter
             else sb.Append(dispatcher).Append(".Slot.").Append(fn.ClrName);
             sb.Append(", ").Append(fn.FlagsExpression).AppendLine(");");
         }
+        var accessorNames = new List<string>(accessorsByName.Keys);
+        accessorNames.Sort(StringComparer.Ordinal);
+        foreach (var name in accessorNames)
+        {
+            var (get, set, flags) = accessorsByName[name];
+            sb.Append("        builder.Accessor(__Key_").Append(SanitizeIdentifier(name)).Append(", ")
+              .Append(SlotExpr(get)).Append(", ").Append(SlotExpr(set)).Append(", ").Append(flags).AppendLine(");");
+        }
+        // Aliases last (matching own-key order); each shares its already-added target slot's descriptor.
+        foreach (var alias in obj.Aliases)
+        {
+            sb.Append("        builder.Alias(__Key_").Append(SanitizeIdentifier(alias.Name)).Append(", __Key_").Append(SanitizeIdentifier(alias.Target)).AppendLine(");");
+        }
         sb.AppendLine("        return builder.Build();");
         sb.AppendLine("    }");
         sb.AppendLine();
-        sb.AppendLine("    private protected override global::Jint.Native.Object.BuiltinShape BuiltinShape => __builtinShape;");
-        sb.AppendLine();
-        sb.Append("    private protected override global::Jint.Native.Function.Function MakeBuiltinFunction(global::System.UInt16 slot) => new ").Append(dispatcher).Append("(this");
-        if (!singleSlot) sb.Append(", (").Append(dispatcher).Append(".Slot) slot");
-        sb.AppendLine(");");
+
+        // A shaped host with no [JsFunction]s (only instance/constant properties + symbols) has no dispatcher
+        // and no function slots, so MakeBuiltinFunction is never invoked — emit a throwing body rather than
+        // reference a dispatcher type that isn't generated.
+        string makeBody;
+        if (obj.Functions.Count == 0)
+        {
+            makeBody = "=> throw new global::System.InvalidOperationException(\"" + obj.Name + " has no built-in function slots\")";
+        }
+        else
+        {
+            makeBody = "=> new " + dispatcher + "(this" + (singleSlot ? "" : ", (" + dispatcher + ".Slot) slot") + ")";
+        }
+
+        if (obj.DerivesFromBuiltinShapeObject)
+        {
+            // Storage (the per-realm descriptor array + IBuiltinShaped) comes from the BuiltinShapeObject base;
+            // just supply the two abstract hooks it declares.
+            sb.AppendLine("    private protected override global::Jint.Native.Object.BuiltinShape BuiltinShape => __builtinShape;");
+            sb.AppendLine();
+            sb.Append("    private protected override global::Jint.Native.Function.Function MakeBuiltinFunction(global::System.UInt16 slot) ").Append(makeBody).AppendLine(";");
+        }
+        else
+        {
+            // Non-BuiltinShapeObject host (prototype / constructor): emit the per-realm descriptor field and the
+            // IBuiltinShaped implementation here, so the shape store composes without a shared base class.
+            sb.AppendLine("    private global::Jint.Runtime.Descriptors.PropertyDescriptor?[]? __builtinDescriptors;");
+            sb.AppendLine();
+            sb.AppendLine("    global::Jint.Native.Object.BuiltinShape global::Jint.Native.Object.IBuiltinShaped.BuiltinShape => __builtinShape;");
+            sb.AppendLine();
+            sb.AppendLine("    global::Jint.Runtime.Descriptors.PropertyDescriptor?[]? global::Jint.Native.Object.IBuiltinShaped.BuiltinDescriptors { get => __builtinDescriptors; set => __builtinDescriptors = value; }");
+            sb.AppendLine();
+            sb.Append("    global::Jint.Native.Function.Function global::Jint.Native.Object.IBuiltinShaped.MakeBuiltinFunction(global::System.UInt16 slot) ").Append(makeBody).AppendLine(";");
+        }
     }
 
     private static void EmitDispatcher(StringBuilder sb, ObjectDefinition obj)

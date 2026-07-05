@@ -9,7 +9,7 @@ namespace Jint.Native.Iterator;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-%iteratorprototype%-object
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal partial class IteratorPrototype : Prototype
 {
     internal IteratorPrototype(

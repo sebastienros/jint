@@ -8,7 +8,7 @@ namespace Jint.Native.Generator;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-the-generatorfunction-prototype-object
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class GeneratorFunctionPrototype : Prototype
 {
     [JsProperty(Name = "constructor", Flags = PropertyFlag.Configurable)]
