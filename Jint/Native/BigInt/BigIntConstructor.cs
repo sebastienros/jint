@@ -9,7 +9,7 @@ namespace Jint.Native.BigInt;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-the-bigint-constructor
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class BigIntConstructor : Constructor
 {
     private static readonly JsString _functionName = new("BigInt");

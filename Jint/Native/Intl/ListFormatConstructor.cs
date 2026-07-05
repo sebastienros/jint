@@ -11,7 +11,7 @@ namespace Jint.Native.Intl;
 /// <summary>
 /// https://tc39.es/ecma402/#sec-intl-listformat-constructor
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class ListFormatConstructor : Constructor
 {
     private static readonly JsString _functionName = new("ListFormat");

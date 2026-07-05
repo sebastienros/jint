@@ -113,7 +113,13 @@ public class BuiltinShapeBenchmark
     // shape here. Constructors are Function-derived; the delta vs EngineOnly is the per-realm constructor
     // storage overhead removed.
     private static readonly Prepared<Script> _initConstructors = Engine.PrepareScript(
-        "Object.keys; Array.isArray; ArrayBuffer.isView; Map.groupBy; Set.prototype; Symbol.for; Promise.resolve;");
+        "Object.keys; Array.isArray; ArrayBuffer.isView; Map.groupBy; Set.prototype; Symbol.for; Promise.resolve;"
+        + "Date.now; BigInt.asIntN; String.fromCharCode; Proxy.revocable; Iterator.from;"
+        + "Temporal.PlainDate.from; Temporal.Duration.from; Temporal.Instant.from; Temporal.PlainDateTime.from;"
+        + "Temporal.PlainTime.from; Temporal.PlainYearMonth.from; Temporal.PlainMonthDay.from; Temporal.ZonedDateTime.from;"
+        + "Intl.NumberFormat.supportedLocalesOf; Intl.Collator.supportedLocalesOf; Intl.DateTimeFormat.supportedLocalesOf;"
+        + "Intl.ListFormat.supportedLocalesOf; Intl.PluralRules.supportedLocalesOf; Intl.RelativeTimeFormat.supportedLocalesOf;"
+        + "Intl.Segmenter.supportedLocalesOf; Intl.DisplayNames.supportedLocalesOf; Intl.DurationFormat.supportedLocalesOf;");
 
     [Benchmark]
     public Engine EngineInitConstructors()

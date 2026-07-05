@@ -13,7 +13,7 @@ namespace Jint.Native.String;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-string-constructor
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class StringConstructor : Constructor
 {
     private const int ConstraintCheckInterval = Engine.ConstraintCheckInterval;

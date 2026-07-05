@@ -10,7 +10,7 @@ namespace Jint.Native.Intl;
 /// <summary>
 /// https://tc39.es/ecma402/#sec-intl-segmenter-constructor
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class SegmenterConstructor : Constructor
 {
     private static readonly JsString _functionName = new("Segmenter");

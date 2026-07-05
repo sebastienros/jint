@@ -11,7 +11,7 @@ namespace Jint.Native.Intl;
 /// <summary>
 /// https://tc39.es/ecma402/#sec-the-intl-collator-constructor
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class CollatorConstructor : Constructor
 {
     private static readonly JsString _functionName = new("Collator");
@@ -385,18 +385,14 @@ internal sealed partial class CollatorConstructor : Constructor
     {
         var options = sensitivity switch
         {
-            "base" =>
-                // Ignore case and accents
-                CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace,
-            "accent" =>
-                // Ignore case but consider accents
-                CompareOptions.IgnoreCase,
-            "case" =>
-                // Consider case but ignore accents
-                CompareOptions.IgnoreNonSpace,
-            "variant" =>
-                // Consider both case and accents
-                CompareOptions.None,
+            // Ignore case and accents
+            "base" => CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace,
+            // Ignore case but consider accents
+            "accent" => CompareOptions.IgnoreCase,
+            // Consider case but ignore accents
+            "case" => CompareOptions.IgnoreNonSpace,
+            // Consider both case and accents
+            "variant" => CompareOptions.None,
             _ => CompareOptions.None,
         };
 
