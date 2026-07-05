@@ -108,4 +108,18 @@ public class BuiltinShapeBenchmark
         engine.Evaluate(_initPrototypes);
         return engine;
     }
+
+    // Forces the shaped constructors to Initialize (touch a static member on each) — dictionary on main,
+    // shape here. Constructors are Function-derived; the delta vs EngineOnly is the per-realm constructor
+    // storage overhead removed.
+    private static readonly Prepared<Script> _initConstructors = Engine.PrepareScript(
+        "Object.keys; Array.isArray; ArrayBuffer.isView; Map.groupBy; Set.prototype; Symbol.for; Promise.resolve;");
+
+    [Benchmark]
+    public Engine EngineInitConstructors()
+    {
+        var engine = new Engine();
+        engine.Evaluate(_initConstructors);
+        return engine;
+    }
 }

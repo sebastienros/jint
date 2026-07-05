@@ -11,7 +11,7 @@ namespace Jint.Native.Symbol;
 /// 19.4
 /// http://www.ecma-international.org/ecma-262/6.0/index.html#sec-symbol-objects
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class SymbolConstructor : Constructor
 {
     private static readonly JsString _functionName = new JsString("Symbol");

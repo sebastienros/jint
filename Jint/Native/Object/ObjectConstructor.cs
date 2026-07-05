@@ -4,7 +4,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Object;
 
-[JsObject]
+[JsObject(UseShape = true)]
 public sealed partial class ObjectConstructor : Constructor
 {
     private static readonly JsString _name = new JsString("Object");

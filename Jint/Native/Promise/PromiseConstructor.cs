@@ -14,7 +14,7 @@ internal sealed record PromiseCapability(
     JsValue ResolveObj,
     JsValue RejectObj);
 
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class PromiseConstructor : Constructor
 {
     private static readonly JsString _functionName = new JsString("Promise");
