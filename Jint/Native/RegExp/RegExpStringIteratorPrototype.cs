@@ -8,7 +8,7 @@ namespace Jint.Native.RegExp;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-%regexpstringiteratorprototype%-object
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class RegExpStringIteratorPrototype : IteratorPrototype
 {
     [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString RegExpStringIteratorToStringTag = new("RegExp String Iterator");

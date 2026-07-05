@@ -11,7 +11,7 @@ namespace Jint.Native.Array;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-%arrayiteratorprototype%-object
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
 {
     [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString ArrayIteratorToStringTag = new("Array Iterator");

@@ -99,7 +99,9 @@ public class BuiltinShapeBenchmark
         + "Temporal.Instant.prototype.toString; Temporal.PlainTime.prototype.toString;"
         + "Temporal.PlainMonthDay.prototype.toString; Temporal.PlainYearMonth.prototype.toString;"
         + "Intl.Locale.prototype.toString; Intl.Collator.prototype.resolvedOptions;"
-        + "Intl.DateTimeFormat.prototype.resolvedOptions; Intl.NumberFormat.prototype.resolvedOptions;");
+        + "Intl.DateTimeFormat.prototype.resolvedOptions; Intl.NumberFormat.prototype.resolvedOptions;"
+        + "Array.prototype.map; Number.prototype.toFixed; Boolean.prototype.valueOf; Error.prototype.toString;"
+        + "[].values().next; new Map().keys().next; new Set().values().next; ''[Symbol.iterator]().next;");
 
     [Benchmark]
     public Engine EngineInitPrototypes()
