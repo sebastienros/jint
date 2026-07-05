@@ -10,10 +10,19 @@ namespace Jint.Native.Number;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-number-constructor
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class NumberConstructor : Constructor
 {
     private static readonly JsString _functionName = new JsString("Number");
+
+    // Number.parseInt / parseFloat are the same functions as global parseInt / parseFloat (Jint's
+    // ClrFunction equality compares the underlying delegate). They wrap static delegates with no realm
+    // dependency, so they're per-realm instance slots created in the constructor (like RegExp exec).
+    [JsProperty(Name = "parseInt", Flags = PropertyFlag.Configurable | PropertyFlag.Writable)]
+    private readonly ClrFunction _parseInt;
+
+    [JsProperty(Name = "parseFloat", Flags = PropertyFlag.Configurable | PropertyFlag.Writable)]
+    private readonly ClrFunction _parseFloat;
 
     private const long MinSafeInteger = -9007199254740991;
     internal const long MaxSafeInteger = 9007199254740991;
@@ -38,19 +47,13 @@ internal sealed partial class NumberConstructor : Constructor
         PrototypeObject = new NumberPrototype(engine, realm, this, objectPrototype);
         _length = new PropertyDescriptor(JsNumber.PositiveOne, PropertyFlag.Configurable);
         _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
+        _parseInt = new ClrFunction(engine, "parseInt", GlobalObject.ParseInt, 0, PropertyFlag.Configurable);
+        _parseFloat = new ClrFunction(engine, "parseFloat", GlobalObject.ParseFloat, 0, PropertyFlag.Configurable);
     }
 
     protected override void Initialize()
     {
         CreateProperties_Generated();
-
-        // Per spec, Number.parseInt and Number.parseFloat are the same function objects as the global
-        // parseInt / parseFloat. Pre-source-gen Jint's behaviour relied on ClrFunction.Equals comparing
-        // the underlying delegate; the source generator's per-method dispatcher would break that
-        // identity, so register parseInt/parseFloat hand-rolled and let them keep the same delegate.
-        const PropertyFlag PropertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-        SetProperty("parseInt", new PropertyDescriptor(new ClrFunction(Engine, "parseInt", GlobalObject.ParseInt, 0, PropertyFlag.Configurable), PropertyFlags));
-        SetProperty("parseFloat", new PropertyDescriptor(new ClrFunction(Engine, "parseFloat", GlobalObject.ParseFloat, 0, PropertyFlag.Configurable), PropertyFlags));
     }
 
     [JsFunction(Length = 1)]

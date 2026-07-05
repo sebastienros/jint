@@ -122,7 +122,8 @@ public class BuiltinShapeBenchmark
         + "Temporal.PlainTime.from; Temporal.PlainYearMonth.from; Temporal.PlainMonthDay.from; Temporal.ZonedDateTime.from;"
         + "Intl.NumberFormat.supportedLocalesOf; Intl.Collator.supportedLocalesOf; Intl.DateTimeFormat.supportedLocalesOf;"
         + "Intl.ListFormat.supportedLocalesOf; Intl.PluralRules.supportedLocalesOf; Intl.RelativeTimeFormat.supportedLocalesOf;"
-        + "Intl.Segmenter.supportedLocalesOf; Intl.DisplayNames.supportedLocalesOf; Intl.DurationFormat.supportedLocalesOf;");
+        + "Intl.Segmenter.supportedLocalesOf; Intl.DisplayNames.supportedLocalesOf; Intl.DurationFormat.supportedLocalesOf;"
+        + "Number.parseInt; Int8Array.from;");
 
     [Benchmark]
     public Engine EngineInitConstructors()
