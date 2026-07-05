@@ -7,7 +7,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Object;
 
-[JsObject]
+[JsObject(UseShape = true)]
 public sealed partial class ObjectPrototype : Prototype
 {
     [JsProperty(Name = "constructor", Flags = PropertyFlag.Configurable | PropertyFlag.Writable)]

@@ -93,7 +93,13 @@ public class BuiltinShapeBenchmark
         + "Object.getPrototypeOf(function*(){}).constructor; Object.getPrototypeOf(async function(){}).constructor;"
         + "Object.getPrototypeOf(async function*(){}).constructor;"
         + "Map.prototype.has; Symbol.prototype.toString; ArrayBuffer.prototype.slice;"
-        + "DataView.prototype.getInt8; Iterator.prototype.toArray;");
+        + "DataView.prototype.getInt8; Iterator.prototype.toArray;"
+        + "Temporal.Duration.prototype.toString; Temporal.PlainDate.prototype.toString;"
+        + "Temporal.PlainDateTime.prototype.toString; Temporal.ZonedDateTime.prototype.toString;"
+        + "Temporal.Instant.prototype.toString; Temporal.PlainTime.prototype.toString;"
+        + "Temporal.PlainMonthDay.prototype.toString; Temporal.PlainYearMonth.prototype.toString;"
+        + "Intl.Locale.prototype.toString; Intl.Collator.prototype.resolvedOptions;"
+        + "Intl.DateTimeFormat.prototype.resolvedOptions; Intl.NumberFormat.prototype.resolvedOptions;");
 
     [Benchmark]
     public Engine EngineInitPrototypes()

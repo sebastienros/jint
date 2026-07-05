@@ -6,7 +6,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Disposable;
 
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class AsyncDisposableStackPrototype : Prototype
 {
     [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
