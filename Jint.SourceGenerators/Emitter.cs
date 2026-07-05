@@ -130,6 +130,7 @@ internal static class Emitter
         foreach (var ir in obj.IntrinsicReferences) yield return ir.JsName;
         foreach (var name in accessorsByName.Keys) yield return name;
         foreach (var thr in obj.ThrowerAccessors) yield return thr.JsName;
+        foreach (var a in obj.Aliases) yield return a.Name;
     }
 
     /// <summary>
@@ -177,7 +178,7 @@ internal static class Emitter
             }
         }
 
-        var totalEntries = dataProperties.Count + obj.Properties.Count + accessorsByName.Count + obj.ThrowerAccessors.Count + obj.IntrinsicReferences.Count;
+        var totalEntries = dataProperties.Count + obj.Properties.Count + accessorsByName.Count + obj.ThrowerAccessors.Count + obj.IntrinsicReferences.Count + obj.Aliases.Count;
 
         if (totalEntries > 0) EmitStaticKeyCache(sb, obj, dataProperties, accessorsByName);
 
@@ -326,6 +327,13 @@ internal static class Emitter
             }
         }
 
+        // Aliases: share the target member's descriptor (added last, matching own-key order).
+        foreach (var alias in obj.Aliases)
+        {
+            sb.Append("        properties.TryGetValue(__Key_").Append(SanitizeIdentifier(alias.Target)).Append(", out var __alias_").Append(SanitizeIdentifier(alias.Name)).AppendLine(");");
+            sb.Append("        properties.AddDangerous(__Key_").Append(SanitizeIdentifier(alias.Name)).Append(", __alias_").Append(SanitizeIdentifier(alias.Name)).AppendLine(");");
+        }
+
         sb.AppendLine("        SetProperties(properties);");
         sb.AppendLine("    }");
     }
@@ -352,7 +360,7 @@ internal static class Emitter
         sb.AppendLine();
         sb.AppendLine("    private static global::Jint.Native.Object.BuiltinShape BuildBuiltinShape_Generated()");
         sb.AppendLine("    {");
-        sb.Append("        var builder = new global::Jint.Native.Object.BuiltinShape.Builder(").Append(obj.Properties.Count + dataProperties.Count + accessorsByName.Count).AppendLine(");");
+        sb.Append("        var builder = new global::Jint.Native.Object.BuiltinShape.Builder(").Append(obj.Properties.Count + dataProperties.Count + accessorsByName.Count + obj.Aliases.Count).AppendLine(");");
         // Order matches the dictionary path: properties, then functions, then accessors (each sorted by JsName).
         // Static-immutable constants share a process-wide descriptor; other properties are per-realm instance slots.
         foreach (var prop in obj.Properties)
@@ -380,6 +388,11 @@ internal static class Emitter
             var (get, set, flags) = accessorsByName[name];
             sb.Append("        builder.Accessor(__Key_").Append(SanitizeIdentifier(name)).Append(", ")
               .Append(SlotExpr(get)).Append(", ").Append(SlotExpr(set)).Append(", ").Append(flags).AppendLine(");");
+        }
+        // Aliases last (matching own-key order); each shares its already-added target slot's descriptor.
+        foreach (var alias in obj.Aliases)
+        {
+            sb.Append("        builder.Alias(__Key_").Append(SanitizeIdentifier(alias.Name)).Append(", __Key_").Append(SanitizeIdentifier(alias.Target)).AppendLine(");");
         }
         sb.AppendLine("        return builder.Build();");
         sb.AppendLine("    }");

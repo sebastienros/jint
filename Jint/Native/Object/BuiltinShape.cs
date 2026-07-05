@@ -15,6 +15,9 @@ internal enum BuiltinSlotKind : byte
     // Lazily-materialized accessor; FunctionSlots holds the getter dispatcher slot (or NotAFunction) and
     // SetterSlots the setter dispatcher slot (or NotAFunction).
     Accessor,
+    // Shares another slot's materialized descriptor (spec function-identity aliases, e.g.
+    // Set.prototype.keys === Set.prototype.values). FunctionSlots holds the target slot index.
+    Alias,
 }
 
 /// <summary>
@@ -136,6 +139,22 @@ internal sealed class BuiltinShape
             _kinds[_next] = BuiltinSlotKind.Instance;
             _constTemplate[_next] = null;
             _functionSlots[_next] = NotAFunction;
+            _setterSlots[_next] = NotAFunction;
+            _index[name] = _next;
+            _next++;
+        }
+
+        /// <summary>
+        /// Reserves an alias slot that shares the descriptor of an earlier slot named <paramref name="target"/>
+        /// (which must already be added), so the two names resolve to the same materialized function/accessor
+        /// — the spec function-identity aliases like <c>Set.prototype.keys === Set.prototype.values</c>.
+        /// </summary>
+        internal void Alias(in Key name, in Key target)
+        {
+            _names[_next] = name;
+            _kinds[_next] = BuiltinSlotKind.Alias;
+            _constTemplate[_next] = null;
+            _functionSlots[_next] = (ushort) _index[target]; // target slot index
             _setterSlots[_next] = NotAFunction;
             _index[name] = _next;
             _next++;

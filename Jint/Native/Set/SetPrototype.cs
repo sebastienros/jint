@@ -10,9 +10,10 @@ namespace Jint.Native.Set;
 /// <summary>
 /// https://www.ecma-international.org/ecma-262/6.0/#sec-set-objects
 /// </summary>
-// Not shape-eligible: Initialize aliases the string property `keys` to the `values` function via
-// SetProperty (spec requires Set.prototype.keys === values), which the fixed shape layout can't express.
-[JsObject]
+// Set.prototype.keys is the same function as `values` (spec identity); [JsAlias] expresses that through
+// the shape. Set.prototype[@@iterator] is aliased in Initialize (symbols are orthogonal to the shape).
+[JsAlias("keys", "values")]
+[JsObject(UseShape = true)]
 internal sealed partial class SetPrototype : Prototype
 {
     [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
@@ -35,12 +36,9 @@ internal sealed partial class SetPrototype : Prototype
         CreateProperties_Generated();
         CreateSymbols_Generated();
 
-        // Spec requires Set.prototype.keys, Set.prototype.values, and Set.prototype[@@iterator] to all be
-        // the same function object (function identity, observable via ===). Alias the descriptors here
-        // so they share the same materialized function as `values` rather than emitting separate dispatchers.
-        var valuesDesc = GetOwnProperty("values");
-        SetProperty("keys", valuesDesc);
-        SetProperty(GlobalSymbolRegistry.Iterator, valuesDesc);
+        // Set.prototype[@@iterator] is the same function as `values` (spec identity). Symbols are orthogonal
+        // to the string shape, so this stays hand-written; `keys` is handled by [JsAlias] on the class.
+        SetProperty(GlobalSymbolRegistry.Iterator, GetOwnProperty("values"));
     }
 
     [JsAccessor("size")]

@@ -40,6 +40,7 @@ internal sealed record class ObjectDefinition(
     EquatableArray<SymbolDefinition> Symbols,
     EquatableArray<ThrowerAccessorDefinition> ThrowerAccessors,
     EquatableArray<IntrinsicReferenceDefinition> IntrinsicReferences,
+    EquatableArray<AliasDefinition> Aliases,
     EquatableArray<DiagnosticInfo> DiagnosticInfos)
 {
     public string HintName => string.IsNullOrEmpty(Namespace)
@@ -136,6 +137,7 @@ internal sealed record class ObjectDefinition(
         var symbols = new List<SymbolDefinition>();
         var throwerAccessors = new List<ThrowerAccessorDefinition>();
         var intrinsicReferences = new List<IntrinsicReferenceDefinition>();
+        var aliases = new List<AliasDefinition>();
         HashSet<string>? seenFunctionClrNames = null;
         HashSet<string>? seenThrowerNames = null;
         HashSet<string>? seenIntrinsicReferenceNames = null;
@@ -191,6 +193,17 @@ internal sealed record class ObjectDefinition(
                 JsName: jsName!,
                 IntrinsicMember: intrinsicMember!,
                 FlagsExpression: FlagExpression.From(refFlagsExplicit, "Configurable")));
+        }
+
+        // Class-level [JsAlias("name", "target")] — a string property that shares another member's descriptor.
+        foreach (var attr in typeSymbol.GetAttributes())
+        {
+            if (attr.AttributeClass?.Name != "JsAliasAttribute") continue;
+            if (attr.ConstructorArguments.Length < 2) continue;
+            var aliasName = attr.ConstructorArguments[0].Value as string;
+            var aliasTarget = attr.ConstructorArguments[1].Value as string;
+            if (string.IsNullOrWhiteSpace(aliasName) || string.IsNullOrWhiteSpace(aliasTarget)) continue;
+            aliases.Add(new AliasDefinition(aliasName!, aliasTarget!));
         }
 
         foreach (var member in typeSymbol.GetMembers())
@@ -383,6 +396,7 @@ internal sealed record class ObjectDefinition(
             Symbols: symbols.ToEquatableArray(),
             ThrowerAccessors: throwerAccessors.ToEquatableArray(),
             IntrinsicReferences: intrinsicReferences.ToEquatableArray(),
+            Aliases: aliases.ToEquatableArray(),
             DiagnosticInfos: diagnostics.ToEquatableArray());
     }
 
@@ -491,6 +505,8 @@ internal enum RegistrationKind
 internal sealed record class ThrowerAccessorDefinition(string JsName, string FlagsExpression);
 
 internal sealed record class IntrinsicReferenceDefinition(string JsName, string IntrinsicMember, string FlagsExpression);
+
+internal sealed record class AliasDefinition(string Name, string Target);
 
 internal sealed record class FunctionDefinition(
     string ClrName,

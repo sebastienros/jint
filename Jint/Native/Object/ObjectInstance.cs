@@ -688,6 +688,12 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                 var setter = setterSlot == BuiltinShape.NotAFunction ? null : shaped.MakeBuiltinFunction(setterSlot);
                 descriptor = new GetSetPropertyDescriptor(getter, setter, shape.FunctionFlags[slot]);
             }
+            else if (shape.Kinds[slot] == BuiltinSlotKind.Alias)
+            {
+                // Share the target slot's descriptor so the two names resolve to the same function object
+                // (spec identity, e.g. Set.prototype.keys === Set.prototype.values).
+                descriptor = MaterializeBuiltinSlot(shaped, shape.FunctionSlots[slot]);
+            }
             else
             {
                 descriptor = new PropertyDescriptor(shaped.MakeBuiltinFunction(shape.FunctionSlots[slot]), shape.FunctionFlags[slot]);
