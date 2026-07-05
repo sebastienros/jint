@@ -15,7 +15,7 @@ using Jint.Runtime.RegExp;
 
 namespace Jint.Native.RegExp;
 
-[JsObject(ExtraCapacity = 1)]
+[JsObject(UseShape = true)]
 internal sealed partial class RegExpPrototype : Prototype
 {
     private const int ConstraintCheckInterval = Engine.ConstraintCheckInterval;
@@ -38,6 +38,13 @@ internal sealed partial class RegExpPrototype : Prototype
     [JsProperty(Name = "constructor", Flags = PropertyFlag.Configurable | PropertyFlag.Writable)]
     private readonly RegExpConstructor _constructor;
 
+    // exec is a per-realm instance slot (not a [JsFunction]): HasDefaultExec compares the current exec
+    // value's underlying delegate against _defaultExec to detect user replacement, so it must be a
+    // ClrFunction wrapping _defaultExec with a stable per-realm identity — which the shape's instance slot
+    // provides (a generated dispatcher would be a different Function subtype and break the check).
+    [JsProperty(Name = "exec", Flags = PropertyFlag.Configurable | PropertyFlag.Writable)]
+    private readonly ClrFunction _execFunction;
+
     private readonly JsCallDelegate _defaultExec;
 
     internal RegExpPrototype(
@@ -47,6 +54,7 @@ internal sealed partial class RegExpPrototype : Prototype
         ObjectPrototype objectPrototype) : base(engine, realm)
     {
         _defaultExec = Exec;
+        _execFunction = new ClrFunction(engine, "exec", _defaultExec, 1, PropertyFlag.Configurable);
         _constructor = constructor;
         _prototype = objectPrototype;
     }
@@ -55,13 +63,6 @@ internal sealed partial class RegExpPrototype : Prototype
     {
         CreateProperties_Generated();
         CreateSymbols_Generated();
-
-        // exec stays manually registered: HasDefaultRegExpExec compares by reference against the
-        // ClrFunction wrapping _defaultExec to detect "user replaced exec on the prototype". The
-        // generator's lazy descriptor would create a different Function instance each realm, breaking
-        // that identity check until first access. AddDangerous skips SetOwnProperty's validation;
-        // ExtraCapacity=1 on [JsObject] presizes the dict so this add doesn't trigger a resize.
-        _properties!.AddDangerous("exec", new PropertyDescriptor(new ClrFunction(Engine, "exec", _defaultExec, 1, PropertyFlag.Configurable), PropertyFlag.Configurable | PropertyFlag.Writable));
     }
 
     // Spec: each prototype getter, when called on RegExp.prototype itself (not a JsRegExp instance),
