@@ -91,7 +91,9 @@ public class BuiltinShapeBenchmark
         + "BigInt.prototype.toString; AggregateError.prototype.name; SuppressedError.prototype.constructor;"
         + "Uint8Array.prototype.setFromBase64; ShadowRealm.prototype.evaluate;"
         + "Object.getPrototypeOf(function*(){}).constructor; Object.getPrototypeOf(async function(){}).constructor;"
-        + "Object.getPrototypeOf(async function*(){}).constructor;");
+        + "Object.getPrototypeOf(async function*(){}).constructor;"
+        + "Map.prototype.has; Symbol.prototype.toString; ArrayBuffer.prototype.slice;"
+        + "DataView.prototype.getInt8; Iterator.prototype.toArray;");
 
     [Benchmark]
     public Engine EngineInitPrototypes()

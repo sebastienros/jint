@@ -354,17 +354,11 @@ internal sealed record class ObjectDefinition(
         // representable yet — fail loudly rather than silently dropping them.
         if (useShape)
         {
-            var hasUnsupported = intrinsicReferences.Count > 0 || throwerAccessors.Count > 0;
-            foreach (var fn in functions)
-            {
-                if (fn.Registration is RegistrationKind.AccessorGet or RegistrationKind.AccessorSet
-                    or RegistrationKind.SymbolAccessorGet or RegistrationKind.SymbolAccessorSet)
-                {
-                    hasUnsupported = true;
-                    break;
-                }
-            }
-            if (hasUnsupported)
+            // The shape path supports [JsFunction]s, static-immutable constants + per-realm instance
+            // properties, symbols, string [JsAccessor]s (a GetSetPropertyDescriptor slot), and symbol
+            // accessors (which register in the symbol dictionary, orthogonal to the string shape).
+            // Intrinsic references and thrower accessors are not representable yet — fail loudly.
+            if (intrinsicReferences.Count > 0 || throwerAccessors.Count > 0)
             {
                 diagnostics.Add(new DiagnosticInfo(DiagnosticDescriptors.UnsupportedShapeMember, location, typeSymbol.Name));
             }

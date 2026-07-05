@@ -201,7 +201,7 @@ internal static class Emitter
                 sb.Append(prop.ClrName).Append(", ").Append(prop.FlagsExpression).AppendLine(");");
             }
             sb.AppendLine("    }");
-            EmitShapeMembers(sb, obj, dataProperties);
+            EmitShapeMembers(sb, obj, dataProperties, accessorsByName);
             return;
         }
 
@@ -337,19 +337,24 @@ internal static class Emitter
     /// after the static Key / descriptor fields in this same generated file, so it runs after them.
     /// Supports [JsFunction]s, static-immutable [JsProperty] constants, and [JsSymbol]s.
     /// </summary>
-    private static void EmitShapeMembers(StringBuilder sb, ObjectDefinition obj, List<FunctionDefinition> dataProperties)
+    private static void EmitShapeMembers(StringBuilder sb, ObjectDefinition obj, List<FunctionDefinition> dataProperties, IReadOnlyDictionary<string, (FunctionDefinition? Get, FunctionDefinition? Set, string Flags)> accessorsByName)
     {
         var dispatcher = "__" + obj.Name + "Function";
         var singleSlot = obj.Functions.Count == 1;
+
+        // Slot expression for a getter/setter half: NotAFunction when absent, else the dispatcher slot id.
+        string SlotExpr(FunctionDefinition? fn) => fn is null
+            ? "global::Jint.Native.Object.BuiltinShape.NotAFunction"
+            : singleSlot ? "(global::System.UInt16) 0" : "(global::System.UInt16) " + dispatcher + ".Slot." + fn.ClrName;
 
         sb.AppendLine();
         sb.AppendLine("    private static readonly global::Jint.Native.Object.BuiltinShape __builtinShape = BuildBuiltinShape_Generated();");
         sb.AppendLine();
         sb.AppendLine("    private static global::Jint.Native.Object.BuiltinShape BuildBuiltinShape_Generated()");
         sb.AppendLine("    {");
-        sb.Append("        var builder = new global::Jint.Native.Object.BuiltinShape.Builder(").Append(obj.Properties.Count + dataProperties.Count).AppendLine(");");
-        // Properties first (matching the dictionary path's order): static-immutable constants share a
-        // process-wide descriptor; everything else is a per-realm instance slot filled in Initialize.
+        sb.Append("        var builder = new global::Jint.Native.Object.BuiltinShape.Builder(").Append(obj.Properties.Count + dataProperties.Count + accessorsByName.Count).AppendLine(");");
+        // Order matches the dictionary path: properties, then functions, then accessors (each sorted by JsName).
+        // Static-immutable constants share a process-wide descriptor; other properties are per-realm instance slots.
         foreach (var prop in obj.Properties)
         {
             if (prop.IsStatic && prop.IsImmutable)
@@ -367,6 +372,14 @@ internal static class Emitter
             if (singleSlot) sb.Append('0');
             else sb.Append(dispatcher).Append(".Slot.").Append(fn.ClrName);
             sb.Append(", ").Append(fn.FlagsExpression).AppendLine(");");
+        }
+        var accessorNames = new List<string>(accessorsByName.Keys);
+        accessorNames.Sort(StringComparer.Ordinal);
+        foreach (var name in accessorNames)
+        {
+            var (get, set, flags) = accessorsByName[name];
+            sb.Append("        builder.Accessor(__Key_").Append(SanitizeIdentifier(name)).Append(", ")
+              .Append(SlotExpr(get)).Append(", ").Append(SlotExpr(set)).Append(", ").Append(flags).AppendLine(");");
         }
         sb.AppendLine("        return builder.Build();");
         sb.AppendLine("    }");

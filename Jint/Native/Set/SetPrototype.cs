@@ -10,6 +10,8 @@ namespace Jint.Native.Set;
 /// <summary>
 /// https://www.ecma-international.org/ecma-262/6.0/#sec-set-objects
 /// </summary>
+// Not shape-eligible: Initialize aliases the string property `keys` to the `values` function via
+// SetProperty (spec requires Set.prototype.keys === values), which the fixed shape layout can't express.
 [JsObject]
 internal sealed partial class SetPrototype : Prototype
 {

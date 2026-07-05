@@ -680,7 +680,18 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         if (descriptor is null)
         {
             var shape = shaped.BuiltinShape;
-            descriptor = new PropertyDescriptor(shaped.MakeBuiltinFunction(shape.FunctionSlots[slot]), shape.FunctionFlags[slot]);
+            if (shape.Kinds[slot] == BuiltinSlotKind.Accessor)
+            {
+                var getterSlot = shape.FunctionSlots[slot];
+                var setterSlot = shape.SetterSlots[slot];
+                var getter = getterSlot == BuiltinShape.NotAFunction ? null : shaped.MakeBuiltinFunction(getterSlot);
+                var setter = setterSlot == BuiltinShape.NotAFunction ? null : shaped.MakeBuiltinFunction(setterSlot);
+                descriptor = new GetSetPropertyDescriptor(getter, setter, shape.FunctionFlags[slot]);
+            }
+            else
+            {
+                descriptor = new PropertyDescriptor(shaped.MakeBuiltinFunction(shape.FunctionSlots[slot]), shape.FunctionFlags[slot]);
+            }
             descriptors[slot] = descriptor;
         }
         return descriptor;
