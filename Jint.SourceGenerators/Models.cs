@@ -41,6 +41,7 @@ internal sealed record class ObjectDefinition(
     EquatableArray<ThrowerAccessorDefinition> ThrowerAccessors,
     EquatableArray<IntrinsicReferenceDefinition> IntrinsicReferences,
     EquatableArray<AliasDefinition> Aliases,
+    EquatableArray<string> InstanceSlots,
     EquatableArray<DiagnosticInfo> DiagnosticInfos)
 {
     public string HintName => string.IsNullOrEmpty(Namespace)
@@ -138,6 +139,7 @@ internal sealed record class ObjectDefinition(
         var throwerAccessors = new List<ThrowerAccessorDefinition>();
         var intrinsicReferences = new List<IntrinsicReferenceDefinition>();
         var aliases = new List<AliasDefinition>();
+        var instanceSlots = new List<string>();
         HashSet<string>? seenFunctionClrNames = null;
         HashSet<string>? seenThrowerNames = null;
         HashSet<string>? seenIntrinsicReferenceNames = null;
@@ -204,6 +206,16 @@ internal sealed record class ObjectDefinition(
             var aliasTarget = attr.ConstructorArguments[1].Value as string;
             if (string.IsNullOrWhiteSpace(aliasName) || string.IsNullOrWhiteSpace(aliasTarget)) continue;
             aliases.Add(new AliasDefinition(aliasName!, aliasTarget!));
+        }
+
+        // Class-level [JsInstanceSlot("name")] — a host-filled reserved slot (shape path only).
+        foreach (var attr in typeSymbol.GetAttributes())
+        {
+            if (attr.AttributeClass?.Name != "JsInstanceSlotAttribute") continue;
+            if (attr.ConstructorArguments.Length == 0) continue;
+            var slotName = attr.ConstructorArguments[0].Value as string;
+            if (string.IsNullOrWhiteSpace(slotName)) continue;
+            instanceSlots.Add(slotName!);
         }
 
         foreach (var member in typeSymbol.GetMembers())
@@ -397,6 +409,7 @@ internal sealed record class ObjectDefinition(
             ThrowerAccessors: throwerAccessors.ToEquatableArray(),
             IntrinsicReferences: intrinsicReferences.ToEquatableArray(),
             Aliases: aliases.ToEquatableArray(),
+            InstanceSlots: instanceSlots.ToEquatableArray(),
             DiagnosticInfos: diagnostics.ToEquatableArray());
     }
 

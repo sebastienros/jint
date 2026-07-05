@@ -773,6 +773,17 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         Unsafe.As<IBuiltinShaped>(this).BuiltinDescriptors![slot] = new PropertyDescriptor(value, flags);
     }
 
+    // Fills a slot reserved by [JsInstanceSlot] with a host-computed descriptor (e.g. a lazy cross-realm
+    // alias). Call from a shaped host's Initialize, after CreateProperties_Generated.
+    private protected void SetBuiltinSlotByName(string name, PropertyDescriptor descriptor)
+    {
+        var shaped = Unsafe.As<IBuiltinShaped>(this);
+        if (shaped.BuiltinShape.Index.TryGetValue(name, out var slot))
+        {
+            shaped.BuiltinDescriptors![slot] = descriptor;
+        }
+    }
+
     protected internal virtual void SetOwnProperty(JsValue property, PropertyDescriptor desc)
     {
         EnsureInitialized();

@@ -131,6 +131,7 @@ internal static class Emitter
         foreach (var name in accessorsByName.Keys) yield return name;
         foreach (var thr in obj.ThrowerAccessors) yield return thr.JsName;
         foreach (var a in obj.Aliases) yield return a.Name;
+        foreach (var s in obj.InstanceSlots) yield return s;
     }
 
     /// <summary>
@@ -360,7 +361,7 @@ internal static class Emitter
         sb.AppendLine();
         sb.AppendLine("    private static global::Jint.Native.Object.BuiltinShape BuildBuiltinShape_Generated()");
         sb.AppendLine("    {");
-        sb.Append("        var builder = new global::Jint.Native.Object.BuiltinShape.Builder(").Append(obj.Properties.Count + dataProperties.Count + accessorsByName.Count + obj.Aliases.Count).AppendLine(");");
+        sb.Append("        var builder = new global::Jint.Native.Object.BuiltinShape.Builder(").Append(obj.Properties.Count + dataProperties.Count + accessorsByName.Count + obj.Aliases.Count + obj.InstanceSlots.Count).AppendLine(");");
         // Order matches the dictionary path: properties, then functions, then accessors (each sorted by JsName).
         // Static-immutable constants share a process-wide descriptor; other properties are per-realm instance slots.
         foreach (var prop in obj.Properties)
@@ -393,6 +394,11 @@ internal static class Emitter
         foreach (var alias in obj.Aliases)
         {
             sb.Append("        builder.Alias(__Key_").Append(SanitizeIdentifier(alias.Name)).Append(", __Key_").Append(SanitizeIdentifier(alias.Target)).AppendLine(");");
+        }
+        // Host-filled instance slots last (the host supplies the descriptor in Initialize via SetBuiltinSlotByName).
+        foreach (var slot in obj.InstanceSlots)
+        {
+            sb.Append("        builder.Instance(__Key_").Append(SanitizeIdentifier(slot)).AppendLine(");");
         }
         sb.AppendLine("        return builder.Build();");
         sb.AppendLine("    }");
