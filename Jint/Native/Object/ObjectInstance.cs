@@ -245,9 +245,15 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     internal void SetProperty(Key property, PropertyDescriptor value)
     {
         // Storing a raw descriptor is a dictionary-mode operation; deopt first if needed.
+        // Without the builtin-shape deopt, the write would land in a side dictionary that the
+        // shape-mode read paths never consult — the property would silently not exist.
         if ((_type & InternalTypes.ShapeMode) != InternalTypes.Empty)
         {
             ConvertToDictionaryMode();
+        }
+        else if ((_type & InternalTypes.BuiltinShapeMode) != InternalTypes.Empty)
+        {
+            DeoptBuiltinShape();
         }
         _properties ??= new PropertyDictionary();
         _properties[property] = value;

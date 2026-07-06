@@ -99,6 +99,21 @@ public class PropertyDescriptorTests
     }
 
     [Fact]
+    public void FastSetPropertyIsVisibleOnBuiltinShapedHost()
+    {
+        // Math uses builtin-shape storage; a raw property store must deopt it to dictionary
+        // mode — without that, the write lands in a side dictionary the shape-mode read
+        // paths never consult and the property silently doesn't exist.
+        Assert.Equal(4, _engine.Evaluate("Math.floor(4.7)").AsNumber()); // initialize the shaped host
+        var math = _engine.Evaluate("Math").AsObject();
+        math.FastSetProperty("custom", new PropertyDescriptor(42, PropertyFlag.ConfigurableEnumerableWritable));
+
+        Assert.Equal(42, _engine.Evaluate("Math.custom").AsNumber());
+        Assert.True(_engine.Evaluate("Object.getOwnPropertyNames(Math).includes('custom')").AsBoolean());
+        Assert.Equal(4, _engine.Evaluate("Math.floor(4.7)").AsNumber());
+    }
+
+    [Fact]
     public void LazyPropertyDescriptor()
     {
         var pd = _engine.Evaluate("globalThis").AsObject().GetOwnProperty("decodeURI");
