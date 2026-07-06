@@ -21,7 +21,7 @@ namespace Jint.Native.Intl;
 [JsIntrinsicReference("PluralRules")]
 [JsIntrinsicReference("RelativeTimeFormat")]
 [JsIntrinsicReference("Segmenter")]
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class IntlInstance : ObjectInstance
 {
     private readonly Realm _realm;
