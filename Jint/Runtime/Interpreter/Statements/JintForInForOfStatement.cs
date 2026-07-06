@@ -322,7 +322,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
             }
 
             var obj = TypeConverter.ToObject(engine.Realm, exprValue);
-            result = new IteratorInstance.EnumerableIterator(engine, obj.GetKeys());
+            result = new IteratorInstance.ForInIterator(engine, obj);
         }
         else if (_iterationKind == IterationKind.AsyncIterate)
         {
@@ -428,11 +428,9 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     asyncResumeData.CurrentValue = null;
                     resuming = false;
                 }
-                else
+                else if (iteratorKind == IteratorKind.Async)
                 {
                     ObjectInstance nextResult;
-
-                    if (iteratorKind == IteratorKind.Async)
                     {
                         // For async iteration, we need to await the Promise from next()
                         // Note: We need direct access to async instances for state manipulation in SuspendForAsyncIteration
@@ -508,19 +506,23 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                             }
                         }
                     }
-                    else
-                    {
-                        // Sync iteration - use existing TryIteratorStep
-                        if (!iteratorRecord.TryIteratorStep(out nextResult))
-                        {
-                            close = true;
-                            // Clean up suspend data on normal completion
-                            suspendable?.Data.Clear(this);
-                            return new Completion(CompletionType.Normal, v, _statement!);
-                        }
-                    }
 
                     nextValue = nextResult.Get(CommonProperties.Value);
+                }
+                else
+                {
+                    // Sync iteration; TryStepValue skips the per-step IteratorResult for
+                    // iterators that can (for-in keys) and is the same TryIteratorStep +
+                    // Get(value) sequence for everything else.
+                    if (!iteratorRecord.TryStepValue(out var steppedValue))
+                    {
+                        close = true;
+                        // Clean up suspend data on normal completion
+                        suspendable?.Data.Clear(this);
+                        return new Completion(CompletionType.Normal, v, _statement!);
+                    }
+
+                    nextValue = steppedValue;
                 }
 
                 close = true;
