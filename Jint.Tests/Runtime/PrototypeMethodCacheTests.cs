@@ -54,6 +54,7 @@ public class PrototypeMethodCacheTests
         var exoticGet = new[]
         {
             "Jint.Native.Iterator.IteratorResult",
+            "Jint.Native.JsArguments", // virtual read mode: [[Get]] answers from args/bindings without materializing properties
             "Jint.Native.JsProxy",
             "Jint.Native.JsTypedArray",
             "Jint.Runtime.Interop.ArrayLikeWrapper",

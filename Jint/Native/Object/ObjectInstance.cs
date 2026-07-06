@@ -85,7 +85,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     /// If true, own properties may be added to the
     /// object.
     /// </summary>
-    public virtual bool Extensible { get; private set; }
+    public virtual bool Extensible { get; internal set; }
 
     internal PropertyDictionary? Properties
     {
@@ -730,9 +730,14 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         return descriptor;
     }
 
-    // Fall back to the ordinary dictionary representation, materializing every slot so the object is
-    // byte-for-byte what a generated property dictionary would have produced. Called when a shaped host
-    // gains or loses an own string property (which the fixed layout cannot express).
+    // Fall back to the ordinary dictionary representation. Already-materialized slots keep their
+    // descriptor instance (inline caches and spec identity depend on it); unmaterialized function
+    // slots become lazy wrappers instead of forcing every dispatcher function into existence —
+    // for a host like the global object, an eager deopt (triggered by any top-level `var`) would
+    // otherwise instantiate dozens of functions nobody asked for. Unmaterialized accessors (rare)
+    // materialize eagerly since a data-descriptor wrapper cannot defer them; aliases share their
+    // target's entry so both names keep one function identity. Called when a shaped host gains or
+    // loses an own string property (which the fixed layout cannot express).
     private void DeoptBuiltinShape()
     {
         var shaped = Unsafe.As<IBuiltinShaped>(this);
@@ -742,11 +747,39 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             return;
         }
 
-        var names = shaped.BuiltinShape.Names;
+        var shape = shaped.BuiltinShape;
+        var names = shape.Names;
+
+        // First fill non-alias slots (reusing the per-realm array as scratch), then let aliases
+        // pick up their target's instance — whether it was already materialized or is now lazy.
+        for (var i = 0; i < names.Length; i++)
+        {
+            if (descriptors[i] is null && shape.Kinds[i] != BuiltinSlotKind.Alias)
+            {
+                descriptors[i] = shape.Kinds[i] == BuiltinSlotKind.Accessor
+                    ? MaterializeBuiltinSlot(shaped, i)
+                    : new LazyBuiltinSlotDescriptor(shaped, shape.FunctionSlots[i], shape.FunctionFlags[i]);
+            }
+        }
+
         var properties = new PropertyDictionary(names.Length, checkExistingKeys: false);
         for (var i = 0; i < names.Length; i++)
         {
-            properties[names[i]] = MaterializeBuiltinSlot(shaped, i);
+            var descriptor = descriptors[i];
+            if (descriptor is null)
+            {
+                // alias (possibly chained) — resolve to the ultimately shared instance
+                var target = i;
+                while (shape.Kinds[target] == BuiltinSlotKind.Alias)
+                {
+                    target = shape.FunctionSlots[target];
+                }
+
+                descriptor = descriptors[target]!;
+                descriptors[i] = descriptor;
+            }
+
+            properties[names[i]] = descriptor;
         }
 
         _type &= ~InternalTypes.BuiltinShapeMode;
