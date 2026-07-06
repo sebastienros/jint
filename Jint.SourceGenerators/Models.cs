@@ -365,7 +365,7 @@ internal sealed record class ObjectDefinition(
             }
             if (usesCast) break;
         }
-        var needsRealm = usesCast || intrinsicReferences.Count > 0;
+        var needsRealm = usesCast || intrinsicReferences.Count > 0 || (useShape && throwerAccessors.Count > 0);
         if (needsRealm && !HasAccessibleRealmField(typeSymbol))
         {
             diagnostics.Add(new DiagnosticInfo(
@@ -374,20 +374,10 @@ internal sealed record class ObjectDefinition(
                 typeSymbol.Name));
         }
 
-        // The shape path supports [JsFunction]s, [JsProperty] constants & per-realm instance properties,
-        // and symbols (incl. symbol-keyed functions). Accessors, intrinsic references and throwers aren't
-        // representable yet — fail loudly rather than silently dropping them.
-        if (useShape)
-        {
-            // The shape path supports [JsFunction]s, static-immutable constants + per-realm instance
-            // properties, symbols, string [JsAccessor]s (a GetSetPropertyDescriptor slot), and symbol
-            // accessors (which register in the symbol dictionary, orthogonal to the string shape).
-            // Intrinsic references and thrower accessors are not representable yet — fail loudly.
-            if (intrinsicReferences.Count > 0 || throwerAccessors.Count > 0)
-            {
-                diagnostics.Add(new DiagnosticInfo(DiagnosticDescriptors.UnsupportedShapeMember, location, typeSymbol.Name));
-            }
-        }
+        // The shape path supports [JsFunction]s, static-immutable constants + per-realm instance
+        // properties, symbols, string [JsAccessor]s (a GetSetPropertyDescriptor slot), symbol
+        // accessors (which register in the symbol dictionary, orthogonal to the string shape),
+        // and — via Factory slots — [JsIntrinsicReference]s and [JsThrowerAccessor]s.
 
         functions.Sort(static (a, b) => string.CompareOrdinal(a.JsName, b.JsName));
         properties.Sort(static (a, b) => string.CompareOrdinal(a.JsName, b.JsName));

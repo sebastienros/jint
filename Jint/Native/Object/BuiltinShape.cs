@@ -18,6 +18,11 @@ internal enum BuiltinSlotKind : byte
     // Shares another slot's materialized descriptor (spec function-identity aliases, e.g.
     // Set.prototype.keys === Set.prototype.values). FunctionSlots holds the target slot index.
     Alias,
+    // Descriptor produced by a process-shared per-slot factory over the host instance
+    // (realm-intrinsic references like globalThis.Array, thrower accessors like
+    // Function.prototype.arguments). The factory result should itself be cheap/lazy —
+    // it is also what a deopt stores, so it must not force expensive materialization.
+    Factory,
 }
 
 /// <summary>
@@ -44,12 +49,15 @@ internal sealed class BuiltinShape
     internal readonly ushort[] SetterSlots;
     // Per slot: the attributes for a function / accessor slot (unused for constants — those carry their own flags).
     internal readonly PropertyFlag[] FunctionFlags;
+    // Per slot: descriptor factory for Factory-kind slots (null for every other kind). Process-shared,
+    // so factories must be static lambdas taking the host instance.
+    internal readonly Func<ObjectInstance, PropertyDescriptor>?[]? Factories;
     // name -> slot index.
     internal readonly StringDictionarySlim<int> Index;
 
     internal int Count => Names.Length;
 
-    private BuiltinShape(Key[] names, BuiltinSlotKind[] kinds, PropertyDescriptor?[] constTemplate, ushort[] functionSlots, ushort[] setterSlots, PropertyFlag[] functionFlags, StringDictionarySlim<int> index)
+    private BuiltinShape(Key[] names, BuiltinSlotKind[] kinds, PropertyDescriptor?[] constTemplate, ushort[] functionSlots, ushort[] setterSlots, PropertyFlag[] functionFlags, Func<ObjectInstance, PropertyDescriptor>?[]? factories, StringDictionarySlim<int> index)
     {
         Names = names;
         Kinds = kinds;
@@ -57,6 +65,7 @@ internal sealed class BuiltinShape
         FunctionSlots = functionSlots;
         SetterSlots = setterSlots;
         FunctionFlags = functionFlags;
+        Factories = factories;
         Index = index;
     }
 
@@ -73,6 +82,7 @@ internal sealed class BuiltinShape
         private readonly ushort[] _setterSlots;
         private readonly PropertyFlag[] _functionFlags;
         private readonly StringDictionarySlim<int> _index;
+        private Func<ObjectInstance, PropertyDescriptor>?[]? _factories;
         private int _next;
 
         internal Builder(int capacity)
@@ -160,6 +170,24 @@ internal sealed class BuiltinShape
             _next++;
         }
 
-        internal BuiltinShape Build() => new(_names, _kinds, _constTemplate, _functionSlots, _setterSlots, _functionFlags, _index);
+        /// <summary>
+        /// Reserves a slot whose descriptor a process-shared factory produces from the host instance —
+        /// realm-intrinsic references and thrower accessors. The factory must be a static lambda and its
+        /// result should be cheap/lazy (it is also what a deopt stores for an untouched slot).
+        /// </summary>
+        internal void Factory(in Key name, Func<ObjectInstance, PropertyDescriptor> factory)
+        {
+            _factories ??= new Func<ObjectInstance, PropertyDescriptor>?[_names.Length];
+            _names[_next] = name;
+            _kinds[_next] = BuiltinSlotKind.Factory;
+            _constTemplate[_next] = null;
+            _functionSlots[_next] = NotAFunction;
+            _setterSlots[_next] = NotAFunction;
+            _factories[_next] = factory;
+            _index[name] = _next;
+            _next++;
+        }
+
+        internal BuiltinShape Build() => new(_names, _kinds, _constTemplate, _functionSlots, _setterSlots, _functionFlags, _factories, _index);
     }
 }

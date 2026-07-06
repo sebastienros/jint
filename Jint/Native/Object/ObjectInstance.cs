@@ -721,6 +721,10 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                 // (spec identity, e.g. Set.prototype.keys === Set.prototype.values).
                 descriptor = MaterializeBuiltinSlot(shaped, shape.FunctionSlots[slot]);
             }
+            else if (shape.Kinds[slot] == BuiltinSlotKind.Factory)
+            {
+                descriptor = shape.Factories![slot]!(Unsafe.As<ObjectInstance>(shaped));
+            }
             else
             {
                 descriptor = new PropertyDescriptor(shaped.MakeBuiltinFunction(shape.FunctionSlots[slot]), shape.FunctionFlags[slot]);
@@ -756,9 +760,14 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         {
             if (descriptors[i] is null && shape.Kinds[i] != BuiltinSlotKind.Alias)
             {
-                descriptors[i] = shape.Kinds[i] == BuiltinSlotKind.Accessor
-                    ? MaterializeBuiltinSlot(shaped, i)
-                    : new LazyBuiltinSlotDescriptor(shaped, shape.FunctionSlots[i], shape.FunctionFlags[i]);
+                descriptors[i] = shape.Kinds[i] switch
+                {
+                    // a data-descriptor wrapper cannot defer accessors; they materialize eagerly (rare)
+                    BuiltinSlotKind.Accessor => MaterializeBuiltinSlot(shaped, i),
+                    // factory results are cheap/lazy by contract (intrinsic refs resolve on first read)
+                    BuiltinSlotKind.Factory => shape.Factories![i]!(this),
+                    _ => new LazyBuiltinSlotDescriptor(shaped, shape.FunctionSlots[i], shape.FunctionFlags[i]),
+                };
             }
         }
 
