@@ -140,6 +140,25 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
                     data.OuterEnvironment = oldEnv;
                 }
             }
+            else if (!blockEnv.HasDisposeResources)
+            {
+                // Nothing was registered for dispose (no using/await-using declaration ran), so the
+                // dispose state machine is a no-op — finalize inline instead of round-tripping a
+                // DisposeStepResult through CompleteDispose. Mirrors its finalize arm exactly.
+                suspendable?.Data.Clear(this);
+                if (oldEnv is not null)
+                {
+                    engine.UpdateLexicalEnvironment(oldEnv);
+
+                    if (blockEnv._slots is not null)
+                    {
+                        blockEnv._outerEnv = null;
+                        ResetSlots(blockEnv._slots, _blockState.SlotTemplates!);
+                        _cachedEnv = blockEnv;
+                    }
+                }
+                return blockValue;
+            }
             else
             {
                 return CompleteDispose(

@@ -8,7 +8,7 @@ namespace Jint.Native.AsyncGenerator;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-asyncgeneratorfunction-prototype
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class AsyncGeneratorFunctionPrototype : Prototype
 {
     [JsProperty(Name = "constructor", Flags = PropertyFlag.Configurable)]

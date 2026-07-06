@@ -166,7 +166,10 @@ public partial class Function
             {
                 Parser parser = new(parserOptions);
                 var function = (IFunction) parser.ParseScriptGuarded(callerRealm, functionExpression, strict: _engine._isStrict).Body[0];
-                definition = new JintFunctionDefinition(function);
+                definition = new JintFunctionDefinition(function)
+                {
+                    IsDynamic = true,
+                };
 
                 if (cacheable)
                 {

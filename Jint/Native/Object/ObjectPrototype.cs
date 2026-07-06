@@ -7,7 +7,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Object;
 
-[JsObject]
+[JsObject(UseShape = true)]
 public sealed partial class ObjectPrototype : Prototype
 {
     [JsProperty(Name = "constructor", Flags = PropertyFlag.Configurable | PropertyFlag.Writable)]
@@ -186,12 +186,7 @@ public sealed partial class ObjectPrototype : Prototype
     {
         var p = TypeConverter.ToPropertyKey(v);
         var o = TypeConverter.ToObject(_realm, thisObject);
-        var desc = o.GetOwnProperty(p);
-        if (desc == PropertyDescriptor.Undefined)
-        {
-            return JsBoolean.False;
-        }
-        return desc.Enumerable;
+        return o.ProbeOwnProperty(p) == OwnPropertyProbe.Enumerable;
     }
 
     [JsFunction]
@@ -284,7 +279,6 @@ public sealed partial class ObjectPrototype : Prototype
     {
         var p = TypeConverter.ToPropertyKey(v);
         var o = TypeConverter.ToObject(_realm, thisObject);
-        var desc = o.GetOwnProperty(p);
-        return desc != PropertyDescriptor.Undefined;
+        return o.ProbeOwnProperty(p) != OwnPropertyProbe.Missing;
     }
 }

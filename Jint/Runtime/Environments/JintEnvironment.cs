@@ -128,12 +128,30 @@ internal static class JintEnvironment
         // Only plain calls (newTarget undefined) rent: the construct path never returns its env to the
         // cache, so renting there would just drain it and starve the next call's reuse.
         if (state is { EnvironmentMayEscape: false, IsDirectRecursive: false }
-            && newTarget.IsUndefined()
-            && (ScriptFunction) f is { _envReuse: { } envReuse } scriptFunction)
+            && newTarget.IsUndefined())
         {
-            scriptFunction._envReuse = null;
-            env = (FunctionEnvironment) envReuse;
-            env.Reset(f, newTarget, f._environment);
+            if ((ScriptFunction) f is { _envReuse: { } envReuse } scriptFunction)
+            {
+                scriptFunction._envReuse = null;
+                env = (FunctionEnvironment) envReuse;
+                env.Reset(f, newTarget, f._environment);
+            }
+            else if (f._functionDefinition!.IsDynamic
+                && Interlocked.Exchange(ref state._dynamicCachedEnv, null) is { } dynamicEnv
+                && ReferenceEquals(dynamicEnv._engine, engine))
+            {
+                // one-shot Function-constructor instances share a definition-level environment;
+                // see State._dynamicCachedEnv for why this is exempt from the no-envs-on-State rule
+                env = dynamicEnv;
+                env.Reset(f, newTarget, f._environment);
+            }
+            else
+            {
+                env = new FunctionEnvironment(engine, f, newTarget)
+                {
+                    _outerEnv = f._environment,
+                };
+            }
         }
         else
         {

@@ -4,7 +4,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Object;
 
-[JsObject]
+[JsObject(UseShape = true)]
 public sealed partial class ObjectConstructor : Constructor
 {
     private static readonly JsString _name = new JsString("Object");
@@ -54,8 +54,7 @@ public sealed partial class ObjectConstructor : Constructor
                 }
                 processed++;
 
-                var desc = from.GetOwnProperty(nextKey);
-                if (desc != PropertyDescriptor.Undefined && desc.Enumerable)
+                if (from.ProbeOwnProperty(nextKey) == OwnPropertyProbe.Enumerable)
                 {
                     var propValue = from.Get(nextKey);
                     to.Set(nextKey, propValue, throwOnError: true);
@@ -335,8 +334,7 @@ public sealed partial class ObjectConstructor : Constructor
         for (var i = 0; i < keys.Count; i++)
         {
             var nextKey = keys[i];
-            var propDesc = props.GetOwnProperty(nextKey);
-            if (propDesc == PropertyDescriptor.Undefined || !propDesc.Enumerable)
+            if (props.ProbeOwnProperty(nextKey) != OwnPropertyProbe.Enumerable)
             {
                 continue;
             }

@@ -9,7 +9,7 @@ namespace Jint.Native.TypedArray;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-%typedarray%-intrinsic-object
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class IntrinsicTypedArrayConstructor : Constructor
 {
     internal IntrinsicTypedArrayConstructor(

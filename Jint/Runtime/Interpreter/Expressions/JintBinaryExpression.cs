@@ -28,26 +28,40 @@ internal abstract class JintBinaryExpression : JintExpression
     }
 
     /// <summary>
-    /// Per-node fast lane for the canonical loop-test shape `identifier &lt;op&gt; numericConstant`:
-    /// when the identifier resolves to a slot-stored number, the comparison runs on raw doubles
-    /// without materializing either operand — which also keeps an unboxed counter unboxed instead
-    /// of ping-ponging between its update (stores raw) and its loop test (would materialize).
+    /// Per-node fast lane for the canonical loop-test shapes `identifier &lt;op&gt; numericConstant`
+    /// and `identifier &lt;op&gt; identifier` (a variable bound): when the operands resolve to
+    /// slot-stored numbers (or a constant), the comparison runs on raw doubles without
+    /// materializing anything — which also keeps an unboxed counter unboxed instead of
+    /// ping-ponging between its update (stores raw) and its loop test (would materialize).
+    /// Slot reads are pure, so declining after a partial read has no observable effect.
     /// IEEE double comparisons reproduce the abstract relational operator for all four forms,
     /// including NaN operands (spec result undefined, coerced to false).
     /// </summary>
     private protected struct NumericConstantComparisonLane
     {
         private JintIdentifierExpression? _identifier;
+        private JintIdentifierExpression? _rightIdentifier;   // null => use _constant
         private double _constant;
         private SlotLocationCache _slotCache;
+        private SlotLocationCache _rightSlotCache;
 
         public void Initialize(JintExpression left, JintExpression right)
         {
-            if (left is JintIdentifierExpression identifier
-                && right is JintConstantExpression { Value: JsNumber number })
+            if (left is not JintIdentifierExpression identifier)
             {
-                _identifier = identifier;
-                _constant = number._value;
+                return;
+            }
+
+            switch (right)
+            {
+                case JintConstantExpression { Value: JsNumber number }:
+                    _identifier = identifier;
+                    _constant = number._value;
+                    break;
+                case JintIdentifierExpression rightIdentifier:
+                    _identifier = identifier;
+                    _rightIdentifier = rightIdentifier;
+                    break;
             }
         }
 
@@ -69,8 +83,21 @@ internal abstract class JintBinaryExpression : JintExpression
                 return false;
             }
 
-            return _slotCache.TryResolve(engine, engine.ExecutionContext.LexicalEnvironment, identifier.Identifier, out var environment, out var slotIndex)
-                   && environment.TryGetNumberSlot(slotIndex, out left);
+            var env = engine.ExecutionContext.LexicalEnvironment;
+            if (!_slotCache.TryResolve(engine, env, identifier.Identifier, out var environment, out var slotIndex)
+                || !environment.TryGetNumberSlot(slotIndex, out left))
+            {
+                return false;
+            }
+
+            var rightIdentifier = _rightIdentifier;
+            if (rightIdentifier is null)
+            {
+                return true;
+            }
+
+            return _rightSlotCache.TryResolve(engine, env, rightIdentifier.Identifier, out var rightEnvironment, out var rightSlotIndex)
+                   && rightEnvironment.TryGetNumberSlot(rightSlotIndex, out right);
         }
     }
 

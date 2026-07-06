@@ -10,7 +10,7 @@ namespace Jint.Native.Temporal;
 /// <summary>
 /// https://tc39.es/proposal-temporal/#sec-temporal.plaindate
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class PlainDateConstructor : Constructor
 {
     private static readonly JsString _functionName = new("PlainDate");

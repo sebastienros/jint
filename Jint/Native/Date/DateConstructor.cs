@@ -10,7 +10,7 @@ namespace Jint.Native.Date;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-date-constructor
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class DateConstructor : Constructor
 {
     internal static readonly DateTime Epoch = new(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);

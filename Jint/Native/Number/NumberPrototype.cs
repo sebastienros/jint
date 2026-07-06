@@ -13,7 +13,7 @@ namespace Jint.Native.Number;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-the-number-prototype-object
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class NumberPrototype : NumberInstance
 {
     private const int SmallDtoaLength = FastDtoa.KFastDtoaMaximalLength + 8;

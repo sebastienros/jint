@@ -173,8 +173,20 @@ public sealed class ScriptFunction : Function, IConstructor
                             funcEnv._slots = null;
                         }
 
-                        // Cache the env itself so the next call to this function avoids the allocation.
-                        _envReuse = funcEnv;
+                        if (_functionDefinition!.IsDynamic)
+                        {
+                            // Function-constructor instances are one-shot (a fresh ScriptFunction per
+                            // `new Function(...)`), so an instance-level cache never warms. Park the env
+                            // on the per-realm definition instead — env identity then stays stable across
+                            // instances, keeping the shared statement tree's per-node slot caches valid.
+                            funcEnv._outerEnv = null;
+                            Interlocked.Exchange(ref state._dynamicCachedEnv, funcEnv);
+                        }
+                        else
+                        {
+                            // Cache the env itself so the next call to this function avoids the allocation.
+                            _envReuse = funcEnv;
+                        }
                     }
                 }
                 _engine.LeaveExecutionContext();

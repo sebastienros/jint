@@ -8,7 +8,7 @@ namespace Jint.Native.Map;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-%mapiteratorprototype%-object
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class MapIteratorPrototype : IteratorPrototype
 {
     [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString MapIteratorToStringTag = new("Map Iterator");

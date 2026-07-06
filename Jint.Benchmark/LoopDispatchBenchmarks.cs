@@ -15,6 +15,7 @@ public class LoopDispatchBenchmarks
 {
     private Engine _engine = null!;
     private Prepared<Script> _emptyLoop;
+    private Prepared<Script> _variableBoundLoop;
     private Prepared<Script> _counterAdd;
     private Prepared<Script> _localCopy;
     private Prepared<Script> _stringAppend;
@@ -26,6 +27,12 @@ public class LoopDispatchBenchmarks
         // pure loop machinery: test + update + (empty) body dispatch
         _emptyLoop = Engine.PrepareScript("""
             function f() { for (var i = 0; i < 100000; i++) { } return i; }
+            f();
+            """);
+
+        // same machinery with a variable bound (i < n over two locals)
+        _variableBoundLoop = Engine.PrepareScript("""
+            function f() { var n = 100000; for (var i = 0; i < n; i++) { } return i; }
             f();
             """);
 
@@ -55,6 +62,7 @@ public class LoopDispatchBenchmarks
 
         _engine = new Engine();
         _engine.Evaluate(_emptyLoop);
+        _engine.Evaluate(_variableBoundLoop);
         _engine.Evaluate(_counterAdd);
         _engine.Evaluate(_localCopy);
         _engine.Evaluate(_stringAppend);
@@ -63,6 +71,9 @@ public class LoopDispatchBenchmarks
 
     [Benchmark(Baseline = true)]
     public JsValue EmptyLoop() => _engine.Evaluate(_emptyLoop);
+
+    [Benchmark]
+    public JsValue VariableBoundLoop() => _engine.Evaluate(_variableBoundLoop);
 
     [Benchmark]
     public JsValue CounterAdd() => _engine.Evaluate(_counterAdd);

@@ -34,11 +34,14 @@ internal sealed record class ObjectDefinition(
     bool IsSealed,
     int ExtraCapacity,
     bool UseShape,
+    bool DerivesFromBuiltinShapeObject,
     EquatableArray<FunctionDefinition> Functions,
     EquatableArray<PropertyDefinition> Properties,
     EquatableArray<SymbolDefinition> Symbols,
     EquatableArray<ThrowerAccessorDefinition> ThrowerAccessors,
     EquatableArray<IntrinsicReferenceDefinition> IntrinsicReferences,
+    EquatableArray<AliasDefinition> Aliases,
+    EquatableArray<string> InstanceSlots,
     EquatableArray<DiagnosticInfo> DiagnosticInfos)
 {
     public string HintName => string.IsNullOrEmpty(Namespace)
@@ -103,13 +106,14 @@ internal sealed record class ObjectDefinition(
         // explicit opt-out. Hosts that don't derive from it always use the dictionary path regardless.
         var extraCapacity = 0;
         var useShapeRequested = true;
+        var useShapeExplicitlySet = false;
         foreach (var attr in typeSymbol.GetAttributes())
         {
             if (attr.AttributeClass?.Name != "JsObjectAttribute") continue;
             foreach (var named in attr.NamedArguments)
             {
                 if (named.Key == "ExtraCapacity" && named.Value.Value is int v) extraCapacity = v;
-                else if (named.Key == "UseShape" && named.Value.Value is bool s) useShapeRequested = s;
+                else if (named.Key == "UseShape" && named.Value.Value is bool s) { useShapeRequested = s; useShapeExplicitlySet = true; }
             }
         }
 
@@ -122,13 +126,20 @@ internal sealed record class ObjectDefinition(
                 break;
             }
         }
-        var useShape = useShapeRequested && derivesFromBuiltinShapeObject;
+        // Two opt-ins: deriving from BuiltinShapeObject enables shapes by default (UseShape = false opts out);
+        // a host on any other base (a prototype / constructor) opts in with an explicit [JsObject(UseShape = true)],
+        // in which case the generator emits the IBuiltinShaped storage glue onto the host itself.
+        var useShape = derivesFromBuiltinShapeObject
+            ? useShapeRequested
+            : (useShapeExplicitlySet && useShapeRequested);
 
         var functions = new List<FunctionDefinition>();
         var properties = new List<PropertyDefinition>();
         var symbols = new List<SymbolDefinition>();
         var throwerAccessors = new List<ThrowerAccessorDefinition>();
         var intrinsicReferences = new List<IntrinsicReferenceDefinition>();
+        var aliases = new List<AliasDefinition>();
+        var instanceSlots = new List<string>();
         HashSet<string>? seenFunctionClrNames = null;
         HashSet<string>? seenThrowerNames = null;
         HashSet<string>? seenIntrinsicReferenceNames = null;
@@ -184,6 +195,27 @@ internal sealed record class ObjectDefinition(
                 JsName: jsName!,
                 IntrinsicMember: intrinsicMember!,
                 FlagsExpression: FlagExpression.From(refFlagsExplicit, "Configurable")));
+        }
+
+        // Class-level [JsAlias("name", "target")] — a string property that shares another member's descriptor.
+        foreach (var attr in typeSymbol.GetAttributes())
+        {
+            if (attr.AttributeClass?.Name != "JsAliasAttribute") continue;
+            if (attr.ConstructorArguments.Length < 2) continue;
+            var aliasName = attr.ConstructorArguments[0].Value as string;
+            var aliasTarget = attr.ConstructorArguments[1].Value as string;
+            if (string.IsNullOrWhiteSpace(aliasName) || string.IsNullOrWhiteSpace(aliasTarget)) continue;
+            aliases.Add(new AliasDefinition(aliasName!, aliasTarget!));
+        }
+
+        // Class-level [JsInstanceSlot("name")] — a host-filled reserved slot (shape path only).
+        foreach (var attr in typeSymbol.GetAttributes())
+        {
+            if (attr.AttributeClass?.Name != "JsInstanceSlotAttribute") continue;
+            if (attr.ConstructorArguments.Length == 0) continue;
+            var slotName = attr.ConstructorArguments[0].Value as string;
+            if (string.IsNullOrWhiteSpace(slotName)) continue;
+            instanceSlots.Add(slotName!);
         }
 
         foreach (var member in typeSymbol.GetMembers())
@@ -347,17 +379,11 @@ internal sealed record class ObjectDefinition(
         // representable yet — fail loudly rather than silently dropping them.
         if (useShape)
         {
-            var hasUnsupported = intrinsicReferences.Count > 0 || throwerAccessors.Count > 0;
-            foreach (var fn in functions)
-            {
-                if (fn.Registration is RegistrationKind.AccessorGet or RegistrationKind.AccessorSet
-                    or RegistrationKind.SymbolAccessorGet or RegistrationKind.SymbolAccessorSet)
-                {
-                    hasUnsupported = true;
-                    break;
-                }
-            }
-            if (hasUnsupported)
+            // The shape path supports [JsFunction]s, static-immutable constants + per-realm instance
+            // properties, symbols, string [JsAccessor]s (a GetSetPropertyDescriptor slot), and symbol
+            // accessors (which register in the symbol dictionary, orthogonal to the string shape).
+            // Intrinsic references and thrower accessors are not representable yet — fail loudly.
+            if (intrinsicReferences.Count > 0 || throwerAccessors.Count > 0)
             {
                 diagnostics.Add(new DiagnosticInfo(DiagnosticDescriptors.UnsupportedShapeMember, location, typeSymbol.Name));
             }
@@ -376,11 +402,14 @@ internal sealed record class ObjectDefinition(
             IsSealed: typeSymbol.IsSealed,
             ExtraCapacity: extraCapacity,
             UseShape: useShape,
+            DerivesFromBuiltinShapeObject: derivesFromBuiltinShapeObject,
             Functions: functions.ToEquatableArray(),
             Properties: properties.ToEquatableArray(),
             Symbols: symbols.ToEquatableArray(),
             ThrowerAccessors: throwerAccessors.ToEquatableArray(),
             IntrinsicReferences: intrinsicReferences.ToEquatableArray(),
+            Aliases: aliases.ToEquatableArray(),
+            InstanceSlots: instanceSlots.ToEquatableArray(),
             DiagnosticInfos: diagnostics.ToEquatableArray());
     }
 
@@ -489,6 +518,8 @@ internal enum RegistrationKind
 internal sealed record class ThrowerAccessorDefinition(string JsName, string FlagsExpression);
 
 internal sealed record class IntrinsicReferenceDefinition(string JsName, string IntrinsicMember, string FlagsExpression);
+
+internal sealed record class AliasDefinition(string Name, string Target);
 
 internal sealed record class FunctionDefinition(
     string ClrName,

@@ -5,7 +5,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Set;
 
-[JsObject]
+[JsObject(UseShape = true)]
 public sealed partial class SetConstructor : Constructor
 {
     private static readonly JsString _functionName = new("Set");

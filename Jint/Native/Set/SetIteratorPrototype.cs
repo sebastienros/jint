@@ -8,7 +8,7 @@ namespace Jint.Native.Set;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-%setiteratorprototype%-object
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class SetIteratorPrototype : IteratorPrototype
 {
     [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString SetIteratorToStringTag = new("Set Iterator");

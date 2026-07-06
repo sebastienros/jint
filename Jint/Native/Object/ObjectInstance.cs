@@ -85,7 +85,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     /// If true, own properties may be added to the
     /// object.
     /// </summary>
-    public virtual bool Extensible { get; private set; }
+    public virtual bool Extensible { get; internal set; }
 
     internal PropertyDictionary? Properties
     {
@@ -304,6 +304,15 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                 }
             }
         }
+        else if ((_type & InternalTypes.BuiltinShapeMode) != InternalTypes.Empty)
+        {
+            var shaped = Unsafe.As<IBuiltinShaped>(this);
+            var names = shaped.BuiltinShape.Names;
+            for (var i = 0; i < names.Length; i++)
+            {
+                yield return new KeyValuePair<JsValue, PropertyDescriptor>(JsString.Create(names[i].Name), MaterializeBuiltinSlot(shaped, i));
+            }
+        }
         else if (_properties != null)
         {
             foreach (var pair in _properties)
@@ -328,6 +337,11 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         if ((_type & InternalTypes.ShapeMode) != InternalTypes.Empty)
         {
             return GetOwnPropertyKeysFromShape(Unsafe.As<JsObject>(this).ShapeOf, types);
+        }
+
+        if ((_type & InternalTypes.BuiltinShapeMode) != InternalTypes.Empty)
+        {
+            return GetBuiltinShapeOwnPropertyKeys(types);
         }
 
         var returningSymbols = (types & Types.Symbol) != Types.Empty && _symbols?.Count > 0;
@@ -501,7 +515,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool HasOwnProperty(JsValue property)
     {
-        return !ReferenceEquals(GetOwnProperty(property), PropertyDescriptor.Undefined);
+        return ProbeOwnProperty(property) != OwnPropertyProbe.Missing;
     }
 
     public virtual void RemoveOwnProperty(JsValue property)
@@ -511,10 +525,14 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         var key = TypeConverter.ToPropertyKey(property);
         if (!key.IsSymbol())
         {
-            // Removing a string property can't be expressed as a shape transition; deopt first.
+            // Removing a string property can't be expressed as a shape / built-in-shape layout; deopt first.
             if ((_type & InternalTypes.ShapeMode) != InternalTypes.Empty)
             {
                 ConvertToDictionaryMode();
+            }
+            else if ((_type & InternalTypes.BuiltinShapeMode) != InternalTypes.Empty)
+            {
+                DeoptBuiltinShape();
             }
             _properties?.Remove(TypeConverter.ToString(key));
             unchecked { _propertiesVersion++; }
@@ -526,7 +544,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
 
     public override JsValue Get(JsValue property, JsValue receiver)
     {
-        if ((_type & InternalTypes.PlainObject) != InternalTypes.Empty && ReferenceEquals(this, receiver) && property.IsString())
+        if ((_type & (InternalTypes.PlainObject | InternalTypes.BuiltinShapeMode)) == InternalTypes.PlainObject && _initialized && ReferenceEquals(this, receiver) && property.IsString())
         {
             EnsureInitialized();
             if ((_type & InternalTypes.ShapeMode) != InternalTypes.Empty)
@@ -615,13 +633,25 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         if (!key.IsSymbol())
         {
             var name = TypeConverter.ToString(key);
-            if ((_type & InternalTypes.ShapeMode) != InternalTypes.Empty)
+            if ((_type & (InternalTypes.ShapeMode | InternalTypes.BuiltinShapeMode)) != InternalTypes.Empty)
             {
-                var jo = Unsafe.As<JsObject>(this);
-                if (jo.ShapeOf.TryGetSlot(name, out var slot))
+                if ((_type & InternalTypes.ShapeMode) != InternalTypes.Empty)
                 {
-                    return new SlotPropertyDescriptor(jo, slot);
+                    var jo = Unsafe.As<JsObject>(this);
+                    if (jo.ShapeOf.TryGetSlot(name, out var slot))
+                    {
+                        return new SlotPropertyDescriptor(jo, slot);
+                    }
                 }
+                else
+                {
+                    var shaped = Unsafe.As<IBuiltinShaped>(this);
+                    if (shaped.BuiltinShape.Index.TryGetValue(name, out var slot))
+                    {
+                        return MaterializeBuiltinSlot(shaped, slot);
+                    }
+                }
+                // string key absent from the shape ⇒ no own property (descriptor stays null → Undefined)
             }
             else
             {
@@ -636,9 +666,200 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         return descriptor ?? PropertyDescriptor.Undefined;
     }
 
+    /// <summary>
+    /// Answers whether the named own property exists and is enumerable without materializing a
+    /// <see cref="PropertyDescriptor"/>. Shape-mode objects (sealed <see cref="JsObject"/>,
+    /// whose slots are always configurable/enumerable/writable — anything else deopts to
+    /// dictionary mode) answer straight from the shape; every other object — including exotics
+    /// like proxies (traps still fire), typed arrays and interop wrappers — routes through the
+    /// virtual <see cref="GetOwnProperty"/>. Read-only callers that don't need the descriptor's
+    /// value (existence checks, enumerability filters) should prefer this over GetOwnProperty.
+    /// </summary>
+    internal virtual OwnPropertyProbe ProbeOwnProperty(JsValue property)
+    {
+        if ((_type & InternalTypes.ShapeMode) != InternalTypes.Empty && property is JsString jsString)
+        {
+            return Unsafe.As<JsObject>(this).ShapeOf.TryGetSlot(jsString.ToString(), out _)
+                ? OwnPropertyProbe.Enumerable
+                : OwnPropertyProbe.Missing;
+        }
+
+        var desc = GetOwnProperty(property);
+        if (ReferenceEquals(desc, PropertyDescriptor.Undefined))
+        {
+            return OwnPropertyProbe.Missing;
+        }
+
+        return desc.Enumerable ? OwnPropertyProbe.Enumerable : OwnPropertyProbe.NonEnumerable;
+    }
+
+    // Built-in-shape storage helpers (InternalTypes.BuiltinShapeMode). Shared by every host that implements
+    // IBuiltinShaped — BuiltinShapeObject-derived namespaces today, generator-emitted prototypes/constructors
+    // later — so the storage is composable across base classes that cannot share a single base. See BuiltinShape.
+
+    // Materialize a shaped slot's descriptor. Constants point at the shared static descriptor; functions are
+    // created on first access and stored so their identity is stable (the inline caches rely on this — a
+    // materialize must never bump _propertiesVersion).
+    private static PropertyDescriptor MaterializeBuiltinSlot(IBuiltinShaped shaped, int slot)
+    {
+        var descriptors = shaped.BuiltinDescriptors!;
+        var descriptor = descriptors[slot];
+        if (descriptor is null)
+        {
+            var shape = shaped.BuiltinShape;
+            if (shape.Kinds[slot] == BuiltinSlotKind.Accessor)
+            {
+                var getterSlot = shape.FunctionSlots[slot];
+                var setterSlot = shape.SetterSlots[slot];
+                var getter = getterSlot == BuiltinShape.NotAFunction ? null : shaped.MakeBuiltinFunction(getterSlot);
+                var setter = setterSlot == BuiltinShape.NotAFunction ? null : shaped.MakeBuiltinFunction(setterSlot);
+                descriptor = new GetSetPropertyDescriptor(getter, setter, shape.FunctionFlags[slot]);
+            }
+            else if (shape.Kinds[slot] == BuiltinSlotKind.Alias)
+            {
+                // Share the target slot's descriptor so the two names resolve to the same function object
+                // (spec identity, e.g. Set.prototype.keys === Set.prototype.values).
+                descriptor = MaterializeBuiltinSlot(shaped, shape.FunctionSlots[slot]);
+            }
+            else
+            {
+                descriptor = new PropertyDescriptor(shaped.MakeBuiltinFunction(shape.FunctionSlots[slot]), shape.FunctionFlags[slot]);
+            }
+            descriptors[slot] = descriptor;
+        }
+        return descriptor;
+    }
+
+    // Fall back to the ordinary dictionary representation. Already-materialized slots keep their
+    // descriptor instance (inline caches and spec identity depend on it); unmaterialized function
+    // slots become lazy wrappers instead of forcing every dispatcher function into existence —
+    // for a host like the global object, an eager deopt (triggered by any top-level `var`) would
+    // otherwise instantiate dozens of functions nobody asked for. Unmaterialized accessors (rare)
+    // materialize eagerly since a data-descriptor wrapper cannot defer them; aliases share their
+    // target's entry so both names keep one function identity. Called when a shaped host gains or
+    // loses an own string property (which the fixed layout cannot express).
+    private void DeoptBuiltinShape()
+    {
+        var shaped = Unsafe.As<IBuiltinShaped>(this);
+        var descriptors = shaped.BuiltinDescriptors;
+        if (descriptors is null)
+        {
+            return;
+        }
+
+        var shape = shaped.BuiltinShape;
+        var names = shape.Names;
+
+        // First fill non-alias slots (reusing the per-realm array as scratch), then let aliases
+        // pick up their target's instance — whether it was already materialized or is now lazy.
+        for (var i = 0; i < names.Length; i++)
+        {
+            if (descriptors[i] is null && shape.Kinds[i] != BuiltinSlotKind.Alias)
+            {
+                descriptors[i] = shape.Kinds[i] == BuiltinSlotKind.Accessor
+                    ? MaterializeBuiltinSlot(shaped, i)
+                    : new LazyBuiltinSlotDescriptor(shaped, shape.FunctionSlots[i], shape.FunctionFlags[i]);
+            }
+        }
+
+        var properties = new PropertyDictionary(names.Length, checkExistingKeys: false);
+        for (var i = 0; i < names.Length; i++)
+        {
+            var descriptor = descriptors[i];
+            if (descriptor is null)
+            {
+                // alias (possibly chained) — resolve to the ultimately shared instance
+                var target = i;
+                while (shape.Kinds[target] == BuiltinSlotKind.Alias)
+                {
+                    target = shape.FunctionSlots[target];
+                }
+
+                descriptor = descriptors[target]!;
+                descriptors[i] = descriptor;
+            }
+
+            properties[names[i]] = descriptor;
+        }
+
+        _type &= ~InternalTypes.BuiltinShapeMode;
+        shaped.BuiltinDescriptors = null;
+        SetProperties(properties); // sets _properties, bumps version (symbols stay in _symbols)
+    }
+
+    private List<JsValue> GetBuiltinShapeOwnPropertyKeys(Types types)
+    {
+        var shaped = Unsafe.As<IBuiltinShaped>(this);
+        var names = shaped.BuiltinShape.Names;
+        var keys = new List<JsValue>(names.Length + (_symbols?.Count ?? 0));
+        if ((types & Types.String) != Types.Empty)
+        {
+            // Function-derived hosts surface length/name/prototype ahead of their shape members (matching the
+            // dictionary path); ordinary hosts return Enumerable.Empty here.
+            var initialOwnStringPropertyKeys = GetInitialOwnStringPropertyKeys();
+            if (!ReferenceEquals(initialOwnStringPropertyKeys, System.Linq.Enumerable.Empty<JsValue>()))
+            {
+                keys.AddRange(initialOwnStringPropertyKeys);
+            }
+            foreach (var name in names)
+            {
+                keys.Add(JsString.Create(name.Name));
+            }
+        }
+        if ((types & Types.Symbol) != Types.Empty && _symbols is not null)
+        {
+            foreach (var pair in _symbols)
+            {
+                keys.Add(pair.Key);
+            }
+        }
+        return keys;
+    }
+
+    // Install the shared layout + a per-realm descriptor array cloned from the shape's constant template,
+    // and flip on BuiltinShapeMode. Called from a shaped host's generated CreateProperties_Generated (works
+    // for both BuiltinShapeObject-derived hosts and generator-emitted IBuiltinShaped prototypes/constructors).
+    private protected void InitializeBuiltinShape()
+    {
+        var shaped = Unsafe.As<IBuiltinShaped>(this);
+        shaped.BuiltinDescriptors = (PropertyDescriptor?[]) shaped.BuiltinShape.ConstTemplate.Clone();
+        _type |= InternalTypes.BuiltinShapeMode;
+    }
+
+    // Fill a per-realm instance-property slot (reserved via BuiltinShape.Builder.Instance) with its value
+    // for this realm. Called from generated CreateProperties_Generated after InitializeBuiltinShape.
+    private protected void SetBuiltinInstanceDescriptor(int slot, JsValue value, PropertyFlag flags)
+    {
+        Unsafe.As<IBuiltinShaped>(this).BuiltinDescriptors![slot] = new PropertyDescriptor(value, flags);
+    }
+
+    // Fills a slot reserved by [JsInstanceSlot] with a host-computed descriptor (e.g. a lazy cross-realm
+    // alias). Call from a shaped host's Initialize, after CreateProperties_Generated.
+    private protected void SetBuiltinSlotByName(string name, PropertyDescriptor descriptor)
+    {
+        var shaped = Unsafe.As<IBuiltinShaped>(this);
+        if (shaped.BuiltinShape.Index.TryGetValue(name, out var slot))
+        {
+            shaped.BuiltinDescriptors![slot] = descriptor;
+        }
+    }
+
     protected internal virtual void SetOwnProperty(JsValue property, PropertyDescriptor desc)
     {
         EnsureInitialized();
+        if ((_type & InternalTypes.BuiltinShapeMode) != InternalTypes.Empty && property is JsString jsString)
+        {
+            var shaped = Unsafe.As<IBuiltinShaped>(this);
+            if (shaped.BuiltinShape.Index.TryGetValue(jsString.ToString(), out var slot))
+            {
+                // Redefine an existing own property (e.g. data -> accessor) in place; no deopt needed.
+                shaped.BuiltinDescriptors![slot] = desc;
+                unchecked { _propertiesVersion++; }
+                return;
+            }
+            // Adding a brand-new own string property can't be expressed in the fixed layout.
+            DeoptBuiltinShape();
+        }
         SetProperty(property, desc);
     }
 
@@ -685,7 +906,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool Set(JsValue property, JsValue value)
     {
-        if ((_type & InternalTypes.PlainObject) != InternalTypes.Empty && property is JsString jsString)
+        if ((_type & (InternalTypes.PlainObject | InternalTypes.BuiltinShapeMode)) == InternalTypes.PlainObject && _initialized && property is JsString jsString)
         {
             if ((_type & InternalTypes.ShapeMode) != InternalTypes.Empty)
             {
@@ -716,7 +937,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     /// </summary>
     public override bool Set(JsValue property, JsValue value, JsValue receiver)
     {
-        if ((_type & InternalTypes.PlainObject) != InternalTypes.Empty && ReferenceEquals(this, receiver) && property.IsString())
+        if ((_type & (InternalTypes.PlainObject | InternalTypes.BuiltinShapeMode)) == InternalTypes.PlainObject && _initialized && ReferenceEquals(this, receiver) && property.IsString())
         {
             var key = (Key) property.ToString();
             if ((_type & InternalTypes.ShapeMode) != InternalTypes.Empty)
@@ -880,8 +1101,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     public virtual bool HasProperty(JsValue property)
     {
         var key = TypeConverter.ToPropertyKey(property);
-        var hasOwn = GetOwnProperty(key);
-        if (hasOwn != PropertyDescriptor.Undefined)
+        if (ProbeOwnProperty(key) != OwnPropertyProbe.Missing)
         {
             return true;
         }
@@ -1611,7 +1831,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         // skipped here and handled by the generic path (whose GetOwnProperty runs EnsureInitialized).
         // Ordinary user objects (JsObject) are born initialized, so they take this path with no per-object
         // virtual Initialize() call.
-        if ((_type & InternalTypes.PlainObject) != InternalTypes.Empty
+        if ((_type & (InternalTypes.PlainObject | InternalTypes.BuiltinShapeMode)) == InternalTypes.PlainObject
             && _initialized
             && Extensible
             && p is JsString jsString)
@@ -1738,8 +1958,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             var key = keys[i];
             if (excludedItems == null || !excludedItems.Contains(key))
             {
-                var desc = GetOwnProperty(key);
-                if (desc.Enumerable)
+                if (ProbeOwnProperty(key) == OwnPropertyProbe.Enumerable)
                 {
                     var propValue = Get(key);
                     target.CreateDataProperty(key, propValue);
@@ -1781,8 +2000,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                 continue;
             }
 
-            var desc = GetOwnProperty(property);
-            if (desc != PropertyDescriptor.Undefined && desc.Enumerable)
+            if (ProbeOwnProperty(property) == OwnPropertyProbe.Enumerable)
             {
                 if (kind == EnumerableOwnPropertyNamesKind.Key)
                 {
@@ -1862,11 +2080,11 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         var visited = new HashSet<JsValue>();
         foreach (var key in GetOwnPropertyKeys(Types.String))
         {
-            var desc = GetOwnProperty(key);
-            if (desc != PropertyDescriptor.Undefined)
+            var probe = ProbeOwnProperty(key);
+            if (probe != OwnPropertyProbe.Missing)
             {
                 visited.Add(key);
-                if (desc.Enumerable)
+                if (probe == OwnPropertyProbe.Enumerable)
                 {
                     yield return key;
                 }

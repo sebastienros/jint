@@ -8,7 +8,7 @@ namespace Jint.Native.String;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-%stringiteratorprototype%-object
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class StringIteratorPrototype : IteratorPrototype
 {
     [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString StringIteratorToStringTag = new("String Iterator");

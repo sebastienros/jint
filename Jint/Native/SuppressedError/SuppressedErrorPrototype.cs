@@ -4,7 +4,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.SuppressedError;
 
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class SuppressedErrorPrototype : Prototype
 {
     [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]

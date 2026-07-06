@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using Jint.Native.ArrayBuffer;
 using Jint.Native.Object;
 using Jint.Native.TypedArray;
@@ -10,7 +11,8 @@ namespace Jint.Native;
 /// </summary>
 public class JsArrayBuffer : ObjectInstance
 {
-    // so that we don't need to allocate while or reading setting values
+    // scratch space for byte-order-reversing a big-endian floating point element before decoding it,
+    // so the read path doesn't allocate (integer reads/writes go straight through BinaryPrimitives)
     private readonly byte[] _workBuffer = new byte[8];
 
     internal byte[]? _arrayBufferData;
@@ -113,104 +115,78 @@ public class JsArrayBuffer : ObjectInstance
     /// </summary>
     internal TypedArrayValue RawBytesToNumeric(TypedArrayElementType type, int byteIndex, bool isLittleEndian)
     {
-        if (type is TypedArrayElementType.Uint8 or TypedArrayElementType.Uint8C)
+        var block = _arrayBufferData!;
+
+        // Integer element types read straight from the buffer via BinaryPrimitives: no scratch buffer,
+        // no manual bit assembly, and endianness-correct regardless of the host's byte order.
+        switch (type)
         {
-            return new TypedArrayValue(Types.Number, _arrayBufferData![byteIndex], default);
+            case TypedArrayElementType.Uint8:
+            case TypedArrayElementType.Uint8C:
+                return new TypedArrayValue(Types.Number, block[byteIndex], default);
+            case TypedArrayElementType.Int8:
+                return (sbyte) block[byteIndex];
         }
 
-        var elementSize = type.GetElementSize();
-        var rawBytes = _arrayBufferData!;
-
-        // 8 byte values require a little more at the moment
-        var needsReverse = !isLittleEndian
-                           && elementSize > 1
-                           && type is TypedArrayElementType.Float16 or TypedArrayElementType.Float32 or TypedArrayElementType.Float64 or TypedArrayElementType.BigInt64 or TypedArrayElementType.BigUint64;
-
-        if (needsReverse)
+        var src = block.AsSpan(byteIndex);
+        switch (type)
         {
-            System.Array.Copy(rawBytes, byteIndex, _workBuffer, 0, elementSize);
+            case TypedArrayElementType.Int16:
+                return isLittleEndian ? BinaryPrimitives.ReadInt16LittleEndian(src) : BinaryPrimitives.ReadInt16BigEndian(src);
+            case TypedArrayElementType.Uint16:
+                return isLittleEndian ? BinaryPrimitives.ReadUInt16LittleEndian(src) : BinaryPrimitives.ReadUInt16BigEndian(src);
+            case TypedArrayElementType.Int32:
+                return isLittleEndian ? BinaryPrimitives.ReadInt32LittleEndian(src) : BinaryPrimitives.ReadInt32BigEndian(src);
+            case TypedArrayElementType.Uint32:
+                return isLittleEndian ? BinaryPrimitives.ReadUInt32LittleEndian(src) : BinaryPrimitives.ReadUInt32BigEndian(src);
+            case TypedArrayElementType.BigInt64:
+                return isLittleEndian ? BinaryPrimitives.ReadInt64LittleEndian(src) : BinaryPrimitives.ReadInt64BigEndian(src);
+            case TypedArrayElementType.BigUint64:
+                return isLittleEndian ? BinaryPrimitives.ReadUInt64LittleEndian(src) : BinaryPrimitives.ReadUInt64BigEndian(src);
+        }
+
+        // Floating point: BitConverter interprets in host-endian order, so reverse into the scratch
+        // buffer when the requested order differs. A NaN read canonicalizes to the NaN Number value.
+        var elementSize = type.GetElementSize();
+        var rawBytes = block;
+        if (!isLittleEndian && elementSize > 1)
+        {
+            System.Array.Copy(block, byteIndex, _workBuffer, 0, elementSize);
             byteIndex = 0;
             System.Array.Reverse(_workBuffer, 0, elementSize);
             rawBytes = _workBuffer;
         }
 
-        if (type == TypedArrayElementType.Float16)
+        switch (type)
         {
+            case TypedArrayElementType.Float16:
+                return ReadFloat16(rawBytes, byteIndex);
+            case TypedArrayElementType.Float32:
+                // A NaN read canonicalizes to the NaN Number value.
+                var single = BitConverter.ToSingle(rawBytes, byteIndex);
+                return float.IsNaN(single) ? double.NaN : single;
+            case TypedArrayElementType.Float64:
+                return BitConverter.ToDouble(rawBytes, byteIndex);
+            default:
+                Throw.ArgumentOutOfRangeException(nameof(type), type.ToString());
+                return default;
+        }
+    }
+
+    private static TypedArrayValue ReadFloat16(byte[] rawBytes, int byteIndex)
+    {
 #if SUPPORTS_HALF
-            // rawBytes concatenated and interpreted as a little-endian bit string encoding of an IEEE 754-2019 binary32 value.
-            var value = BitConverter.ToHalf(rawBytes, byteIndex);
-
-            // If value is an IEEE 754-2019 binary32 NaN value, return the NaN Number value.
-            if (Half.IsNaN(value))
-            {
-                return double.NaN;
-            }
-
-            return value;
+        // A NaN read canonicalizes to the NaN Number value.
+        var value = BitConverter.ToHalf(rawBytes, byteIndex);
+        if (Half.IsNaN(value))
+        {
+            return double.NaN;
+        }
+        return value;
 #else
-            Throw.NotImplementedException("Float16/Half type is not supported in this build");
-            return default;
+        Throw.NotImplementedException("Float16/Half type is not supported in this build");
+        return default;
 #endif
-
-        }
-
-        if (type == TypedArrayElementType.Float32)
-        {
-            // rawBytes concatenated and interpreted as a little-endian bit string encoding of an IEEE 754-2019 binary32 value.
-            var value = BitConverter.ToSingle(rawBytes, byteIndex);
-
-            // If value is an IEEE 754-2019 binary32 NaN value, return the NaN Number value.
-            if (float.IsNaN(value))
-            {
-                return double.NaN;
-            }
-
-            return value;
-        }
-
-        if (type == TypedArrayElementType.Float64)
-        {
-            // rawBytes concatenated and interpreted as a little-endian bit string encoding of an IEEE 754-2019 binary64 value.
-            var value = BitConverter.ToDouble(rawBytes, byteIndex);
-            return value;
-        }
-
-        if (type == TypedArrayElementType.BigUint64)
-        {
-            var value = BitConverter.ToUInt64(rawBytes, byteIndex);
-            return value;
-        }
-
-        if (type == TypedArrayElementType.BigInt64)
-        {
-            var value = BitConverter.ToInt64(rawBytes, byteIndex);
-            return value;
-        }
-
-        TypedArrayValue? arrayValue = type switch
-        {
-            TypedArrayElementType.Int8 => (sbyte) rawBytes[byteIndex],
-            TypedArrayElementType.Int16 => isLittleEndian
-                ? (short) (rawBytes[byteIndex] | (rawBytes[byteIndex + 1] << 8))
-                : (short) (rawBytes[byteIndex + 1] | (rawBytes[byteIndex] << 8)),
-            TypedArrayElementType.Uint16 => isLittleEndian
-                ? (ushort) (rawBytes[byteIndex] | (rawBytes[byteIndex + 1] << 8))
-                : (ushort) (rawBytes[byteIndex + 1] | (rawBytes[byteIndex] << 8)),
-            TypedArrayElementType.Int32 => isLittleEndian
-                ? rawBytes[byteIndex] | (rawBytes[byteIndex + 1] << 8) | (rawBytes[byteIndex + 2] << 16) | (rawBytes[byteIndex + 3] << 24)
-                : rawBytes[byteIndex + 3] | (rawBytes[byteIndex + 2] << 8) | (rawBytes[byteIndex + 1] << 16) | (rawBytes[byteIndex + 0] << 24),
-            TypedArrayElementType.Uint32 => isLittleEndian
-                ? (uint) (rawBytes[byteIndex] | (rawBytes[byteIndex + 1] << 8) | (rawBytes[byteIndex + 2] << 16) | (rawBytes[byteIndex + 3] << 24))
-                : (uint) (rawBytes[byteIndex + 3] | (rawBytes[byteIndex + 2] << 8) | (rawBytes[byteIndex + 1] << 16) | (rawBytes[byteIndex] << 24)),
-            _ => null
-        };
-
-        if (arrayValue is null)
-        {
-            Throw.ArgumentOutOfRangeException(nameof(type), type.ToString());
-        }
-
-        return arrayValue.Value;
     }
 
     /// <summary>
@@ -224,114 +200,118 @@ public class JsArrayBuffer : ObjectInstance
         ArrayBufferOrder order,
         bool? isLittleEndian = null)
     {
-        if (type is TypedArrayElementType.Uint8)
-        {
-            var doubleValue = value.DoubleValue;
-            var intValue = double.IsNaN(doubleValue) || doubleValue == 0 || double.IsInfinity(doubleValue)
-                ? 0
-                : (long) doubleValue;
+        var block = _arrayBufferData!;
+        // If isLittleEndian is not present, use the [[LittleEndian]] field of the surrounding agent's Agent Record.
+        var littleEndian = isLittleEndian ?? BitConverter.IsLittleEndian;
 
-            _arrayBufferData![byteIndex] = (byte) intValue;
-            return;
+        // Integer element types write straight into the buffer via BinaryPrimitives: no per-element
+        // byte[] allocation, no manual endian reversal. (short)/(ushort) and (int)/(uint) share the
+        // same bit pattern, so the signed overload serves the unsigned type too.
+        switch (type)
+        {
+            case TypedArrayElementType.Int8:
+                block[byteIndex] = (byte) (sbyte) DoubleToInt64(value.DoubleValue);
+                return;
+            case TypedArrayElementType.Uint8:
+                block[byteIndex] = (byte) DoubleToInt64(value.DoubleValue);
+                return;
+            case TypedArrayElementType.Uint8C:
+                block[byteIndex] = TypeConverter.ToUint8Clamp(value.DoubleValue);
+                return;
+            case TypedArrayElementType.Int16:
+            case TypedArrayElementType.Uint16:
+                {
+                    var v = (short) DoubleToInt64(value.DoubleValue);
+                    var dest = block.AsSpan(byteIndex);
+                    if (littleEndian)
+                    {
+                        BinaryPrimitives.WriteInt16LittleEndian(dest, v);
+                    }
+                    else
+                    {
+                        BinaryPrimitives.WriteInt16BigEndian(dest, v);
+                    }
+                    return;
+                }
+            case TypedArrayElementType.Int32:
+            case TypedArrayElementType.Uint32:
+                {
+                    var v = (int) DoubleToInt64(value.DoubleValue);
+                    var dest = block.AsSpan(byteIndex);
+                    if (littleEndian)
+                    {
+                        BinaryPrimitives.WriteInt32LittleEndian(dest, v);
+                    }
+                    else
+                    {
+                        BinaryPrimitives.WriteInt32BigEndian(dest, v);
+                    }
+                    return;
+                }
+            case TypedArrayElementType.BigInt64:
+                {
+                    var v = TypeConverter.ToBigInt64(value.BigInteger);
+                    var dest = block.AsSpan(byteIndex);
+                    if (littleEndian)
+                    {
+                        BinaryPrimitives.WriteInt64LittleEndian(dest, v);
+                    }
+                    else
+                    {
+                        BinaryPrimitives.WriteInt64BigEndian(dest, v);
+                    }
+                    return;
+                }
+            case TypedArrayElementType.BigUint64:
+                {
+                    var v = TypeConverter.ToBigUint64(value.BigInteger);
+                    var dest = block.AsSpan(byteIndex);
+                    if (littleEndian)
+                    {
+                        BinaryPrimitives.WriteUInt64LittleEndian(dest, v);
+                    }
+                    else
+                    {
+                        BinaryPrimitives.WriteUInt64BigEndian(dest, v);
+                    }
+                    return;
+                }
         }
 
-        var block = _arrayBufferData!;
-        // If isLittleEndian is not present, set isLittleEndian to the value of the [[LittleEndian]] field of the surrounding agent's Agent Record.
-        var rawBytes = NumericToRawBytes(type, value, isLittleEndian ?? BitConverter.IsLittleEndian);
-        System.Array.Copy(rawBytes, 0, block, byteIndex, type.GetElementSize());
+        // Floating point: encode via BitConverter (NaN encoding is implementation-defined per spec) and
+        // copy into the buffer, reversing for big-endian order.
+        var rawBytes = FloatToRawBytes(type, value);
+        if (!littleEndian && rawBytes.Length > 1)
+        {
+            System.Array.Reverse(rawBytes);
+        }
+        System.Array.Copy(rawBytes, 0, block, byteIndex, rawBytes.Length);
     }
 
-    private byte[] NumericToRawBytes(TypedArrayElementType type, TypedArrayValue value, bool isLittleEndian)
+    // ℝ(value) truncated toward zero, with NaN, ±0 and ±∞ mapping to 0 — the integer conversion the
+    // spec's SetValueInBuffer applies before encoding an integer element type.
+    private static long DoubleToInt64(double doubleValue)
+        => double.IsNaN(doubleValue) || doubleValue == 0 || double.IsInfinity(doubleValue) ? 0 : (long) doubleValue;
+
+    private static byte[] FloatToRawBytes(TypedArrayElementType type, TypedArrayValue value)
     {
-        byte[] rawBytes;
-        if (type == TypedArrayElementType.Float16)
+        switch (type)
         {
+            case TypedArrayElementType.Float16:
 #if SUPPORTS_HALF
-            rawBytes = BitConverter.GetBytes((Half) value.DoubleValue);
+                return BitConverter.GetBytes((Half) value.DoubleValue);
 #else
-            Throw.NotImplementedException("Float16/Half type is not supported in this build");
-            return default!;
+                Throw.NotImplementedException("Float16/Half type is not supported in this build");
+                return default!;
 #endif
+            case TypedArrayElementType.Float32:
+                return BitConverter.GetBytes((float) value.DoubleValue);
+            case TypedArrayElementType.Float64:
+                return BitConverter.GetBytes(value.DoubleValue);
+            default:
+                Throw.ArgumentOutOfRangeException(nameof(type), type.ToString());
+                return null!;
         }
-        else if (type == TypedArrayElementType.Float32)
-        {
-            // Let rawBytes be a List whose elements are the 4 bytes that are the result of converting value to IEEE 754-2019 binary32 format using roundTiesToEven mode. If isLittleEndian is false, the bytes are arranged in big endian order. Otherwise, the bytes are arranged in little endian order. If value is NaN, rawBytes may be set to any implementation chosen IEEE 754-2019 binary32 format Not-a-Number encoding. An implementation must always choose the same encoding for each implementation distinguishable NaN value.
-            rawBytes = BitConverter.GetBytes((float) value.DoubleValue);
-        }
-        else if (type == TypedArrayElementType.Float64)
-        {
-            // Let rawBytes be a List whose elements are the 8 bytes that are the IEEE 754-2019 binary64 format encoding of value. If isLittleEndian is false, the bytes are arranged in big endian order. Otherwise, the bytes are arranged in little endian order. If value is NaN, rawBytes may be set to any implementation chosen IEEE 754-2019 binary64 format Not-a-Number encoding. An implementation must always choose the same encoding for each implementation distinguishable NaN value.
-            rawBytes = BitConverter.GetBytes(value.DoubleValue);
-        }
-        else if (type == TypedArrayElementType.BigInt64)
-        {
-            rawBytes = BitConverter.GetBytes(TypeConverter.ToBigInt64(value.BigInteger));
-        }
-        else if (type == TypedArrayElementType.BigUint64)
-        {
-            rawBytes = BitConverter.GetBytes(TypeConverter.ToBigUint64(value.BigInteger));
-        }
-        else
-        {
-            // inlined conversion for faster speed instead of getting the method in spec
-            var doubleValue = value.DoubleValue;
-            var intValue = double.IsNaN(doubleValue) || doubleValue == 0 || double.IsInfinity(doubleValue)
-                ? 0
-                : (long) doubleValue;
-
-            rawBytes = _workBuffer;
-            switch (type)
-            {
-                case TypedArrayElementType.Int8:
-                    rawBytes[0] = (byte) (sbyte) intValue;
-                    break;
-                case TypedArrayElementType.Uint8:
-                    rawBytes[0] = (byte) intValue;
-                    break;
-                case TypedArrayElementType.Uint8C:
-                    rawBytes[0] = TypeConverter.ToUint8Clamp(value.DoubleValue);
-                    break;
-                case TypedArrayElementType.Int16:
-#if !NETSTANDARD2_1
-                    rawBytes = BitConverter.GetBytes((short) intValue);
-#else
-                    BitConverter.TryWriteBytes(rawBytes, (short) intValue);
-#endif
-                    break;
-                case TypedArrayElementType.Uint16:
-#if !NETSTANDARD2_1
-                    rawBytes = BitConverter.GetBytes((ushort) intValue);
-#else
-                    BitConverter.TryWriteBytes(rawBytes, (ushort) intValue);
-#endif
-                    break;
-                case TypedArrayElementType.Int32:
-#if !NETSTANDARD2_1
-                    rawBytes = BitConverter.GetBytes((uint) intValue);
-#else
-                    BitConverter.TryWriteBytes(rawBytes, (uint) intValue);
-#endif
-                    break;
-                case TypedArrayElementType.Uint32:
-#if !NETSTANDARD2_1
-                    rawBytes = BitConverter.GetBytes((uint) intValue);
-#else
-                    BitConverter.TryWriteBytes(rawBytes, (uint) intValue);
-#endif
-                    break;
-                default:
-                    Throw.ArgumentOutOfRangeException();
-                    return null;
-            }
-        }
-
-        var elementSize = type.GetElementSize();
-        if (!isLittleEndian && elementSize > 1)
-        {
-            System.Array.Reverse(rawBytes, 0, elementSize);
-        }
-
-        return rawBytes;
     }
 
     internal void Resize(uint newByteLength)

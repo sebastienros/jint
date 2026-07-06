@@ -9,7 +9,7 @@ namespace Jint.Native.ArrayBuffer;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-the-arraybuffer-prototype-object
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class ArrayBufferPrototype : Prototype
 {
     [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]

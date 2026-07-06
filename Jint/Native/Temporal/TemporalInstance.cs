@@ -8,9 +8,19 @@ namespace Jint.Native.Temporal;
 /// The Temporal namespace object.
 /// https://tc39.es/proposal-temporal/#sec-temporal-objects
 /// </summary>
-// ExtraCapacity = 9 covers the post-Initialize SetProperty calls below for Duration/Instant/PlainDate/
-// PlainDateTime/PlainMonthDay/PlainTime/PlainYearMonth/ZonedDateTime/Now (cross-realm references).
-[JsObject(ExtraCapacity = 9)]
+// The 9 sub-namespace references (Duration/Instant/.../ZonedDateTime/Now) are lazy realm-intrinsic
+// references, emitted by the generator like globalThis's constructor properties (see
+// GlobalObject.Properties.cs). IntrinsicMember maps each JS name to its Temporal*-prefixed intrinsic.
+[JsIntrinsicReference("Duration", IntrinsicMember = "TemporalDuration")]
+[JsIntrinsicReference("Instant", IntrinsicMember = "TemporalInstant")]
+[JsIntrinsicReference("Now", IntrinsicMember = "TemporalNow")]
+[JsIntrinsicReference("PlainDate", IntrinsicMember = "TemporalPlainDate")]
+[JsIntrinsicReference("PlainDateTime", IntrinsicMember = "TemporalPlainDateTime")]
+[JsIntrinsicReference("PlainMonthDay", IntrinsicMember = "TemporalPlainMonthDay")]
+[JsIntrinsicReference("PlainTime", IntrinsicMember = "TemporalPlainTime")]
+[JsIntrinsicReference("PlainYearMonth", IntrinsicMember = "TemporalPlainYearMonth")]
+[JsIntrinsicReference("ZonedDateTime", IntrinsicMember = "TemporalZonedDateTime")]
+[JsObject]
 internal sealed partial class TemporalInstance : ObjectInstance
 {
     private readonly Realm _realm;
@@ -30,18 +40,5 @@ internal sealed partial class TemporalInstance : ObjectInstance
     {
         CreateProperties_Generated();
         CreateSymbols_Generated();
-
-        // Constructor references aren't generator-friendly (they pull from _realm.Intrinsics);
-        // wire them after generated symbols.
-        const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
-        SetProperty("Duration", new PropertyDescriptor(_realm.Intrinsics.TemporalDuration, PropertyFlags));
-        SetProperty("Instant", new PropertyDescriptor(_realm.Intrinsics.TemporalInstant, PropertyFlags));
-        SetProperty("PlainDate", new PropertyDescriptor(_realm.Intrinsics.TemporalPlainDate, PropertyFlags));
-        SetProperty("PlainDateTime", new PropertyDescriptor(_realm.Intrinsics.TemporalPlainDateTime, PropertyFlags));
-        SetProperty("PlainMonthDay", new PropertyDescriptor(_realm.Intrinsics.TemporalPlainMonthDay, PropertyFlags));
-        SetProperty("PlainTime", new PropertyDescriptor(_realm.Intrinsics.TemporalPlainTime, PropertyFlags));
-        SetProperty("PlainYearMonth", new PropertyDescriptor(_realm.Intrinsics.TemporalPlainYearMonth, PropertyFlags));
-        SetProperty("ZonedDateTime", new PropertyDescriptor(_realm.Intrinsics.TemporalZonedDateTime, PropertyFlags));
-        SetProperty("Now", new PropertyDescriptor(_realm.Intrinsics.TemporalNow, PropertyFlags));
     }
 }

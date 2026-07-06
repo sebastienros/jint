@@ -19,7 +19,10 @@ namespace Jint.Native.TypedArray;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-the-%typedarrayprototype%-object
 /// </summary>
-[JsObject(ExtraCapacity = 1)]
+// toString is the same function as %Array.prototype.toString% (resolved lazily per realm) — reserved as a
+// host-filled instance slot since the generator can't express a cross-object alias.
+[JsInstanceSlot("toString")]
+[JsObject(UseShape = true)]
 internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
 {
     private const int ConstraintCheckInterval = Engine.ConstraintCheckInterval;
@@ -42,11 +45,10 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         CreateProperties_Generated();
         CreateSymbols_Generated();
 
-        // Per spec (ECMA-262 23.2.3.32) the initial value of %TypedArray%.prototype.toString is the
-        // SAME function object as %Array.prototype.toString%. Hand-write this entry — the generator
-        // can't express "alias to another realm intrinsic" through [JsFunction]. AddDangerous skips
-        // SetOwnProperty's validation; ExtraCapacity=1 on [JsObject] presizes the dict.
-        _properties!.AddDangerous("toString", new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => prototype._realm.Intrinsics.Array.PrototypeObject.Get("toString"), PropertyFlags));
+        // Per spec (ECMA-262 23.2.3.32) the initial value of %TypedArray%.prototype.toString is the SAME
+        // function object as %Array.prototype.toString%. Fill the reserved [JsInstanceSlot] with the lazy
+        // descriptor (resolved on first read, so touching %TypedArray%.prototype doesn't force Array init).
+        SetBuiltinSlotByName("toString", new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => prototype._realm.Intrinsics.Array.PrototypeObject.Get("toString"), PropertyFlags));
 
         // Per spec, %TypedArray%.prototype[@@iterator] is the SAME function object as
         // %TypedArray%.prototype.values. Materialize the generated `values` slot and reuse it.

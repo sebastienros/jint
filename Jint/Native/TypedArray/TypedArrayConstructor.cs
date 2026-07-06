@@ -12,7 +12,7 @@ namespace Jint.Native.TypedArray;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-typedarray-constructors
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 public abstract partial class TypedArrayConstructor : Constructor
 {
     private readonly TypedArrayElementType _arrayElementType;
