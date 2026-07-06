@@ -641,6 +641,64 @@ public class ObjectGeneratorTests
     }
 
     [Test]
+    public Task ShapeIntrinsicReference()
+    {
+        return VerifyGenerator("""
+            using Jint;
+            using Jint.Native;
+            using Jint.Native.Object;
+            using Jint.Runtime;
+
+            namespace Sample;
+
+            // Shape-path intrinsic references become Factory slots producing the same lazy
+            // per-realm descriptor the dictionary path uses.
+            [JsObject(UseShape = true)]
+            [JsIntrinsicReference("Array")]
+            [JsIntrinsicReference("JSON", IntrinsicMember = "Json")]
+            internal sealed partial class Foo : ObjectInstance
+            {
+                private readonly Realm _realm;
+                internal Foo(Engine engine, Realm realm) : base(engine) { _realm = realm; }
+
+                [JsFunction(Length = 1)]
+                private static JsValue Bar(JsValue x) => x;
+
+                protected override void Initialize() => CreateProperties_Generated();
+            }
+            """);
+    }
+
+    [Test]
+    public Task ShapeThrowerAccessor()
+    {
+        return VerifyGenerator("""
+            using Jint;
+            using Jint.Native;
+            using Jint.Native.Object;
+            using Jint.Runtime;
+
+            namespace Sample;
+
+            // Shape-path throwers become Factory slots producing realm-pinned %ThrowTypeError%
+            // accessor descriptors.
+            [JsObject(UseShape = true)]
+            [JsThrowerAccessor("arguments")]
+            [JsThrowerAccessor("caller")]
+            internal sealed partial class Foo : ObjectInstance
+            {
+                private readonly Realm _realm;
+                internal Foo(Engine engine, Realm realm) : base(engine) { _realm = realm; }
+
+                [JsFunction(Length = 1)]
+                private static JsValue Bar(JsValue x) => x;
+
+                protected override void Initialize() => CreateProperties_Generated();
+            }
+            """);
+    }
+
+    [Test]
     public Task DuplicateIntrinsicReference_ProducesDiagnostic()
     {
         return VerifyGenerator("""

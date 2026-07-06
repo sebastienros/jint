@@ -10,7 +10,7 @@ namespace Jint.Native.Function;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-the-function-prototype-object
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 [JsThrowerAccessor("arguments")]
 [JsThrowerAccessor("caller")]
 internal sealed partial class FunctionPrototype : Function
