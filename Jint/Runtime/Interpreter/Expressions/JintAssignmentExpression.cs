@@ -962,8 +962,10 @@ internal sealed class JintAssignmentExpression : JintExpression
             // identifiers to a single field test; the rest stays out-of-line.
             if (left._cachedGlobalEnv is not null)
             {
+                // Writable is re-checked through the cached reference: defineProperty flips the
+                // flag in place without bumping the versions the validator checks.
                 var cachedGlobalDescriptor = left.TryGetValidatedGlobalDescriptor(engine, env);
-                if (cachedGlobalDescriptor is not null)
+                if (cachedGlobalDescriptor is not null && cachedGlobalDescriptor.Writable)
                 {
                     return AssignToCachedGlobalBinding(context, left, right, cachedGlobalDescriptor, hasEvalOrArguments, nameAnonymousFunction, strict);
                 }
@@ -1011,8 +1013,9 @@ internal sealed class JintAssignmentExpression : JintExpression
 
                 // Populate the global-binding cache from the write side too, so write-first
                 // patterns benefit from the next access on. Must run after the set: the set
-                // may have created the property (bumping the shape version).
-                if (ReferenceEquals(environmentRecord, env) && environmentRecord is GlobalEnvironment globalEnv)
+                // may have created the property (bumping the shape version). No hop
+                // restriction — the validator re-walks with shadow probes on every use.
+                if (environmentRecord is GlobalEnvironment globalEnv)
                 {
                     left.TryRememberGlobalBinding(globalEnv);
                 }

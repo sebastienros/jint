@@ -23,10 +23,11 @@ internal sealed class JintIdentifierExpression : JintExpression
     private DeclarativeEnvironment? _cachedSlotEnv;
     private int _cachedSlotIndex = -1;
 
-    // Version-based inline cache for global bindings: when top-level code (current lexical
-    // env IS the global env) resolves to a plain writable MutableBinding data property on the
-    // real GlobalObject, remember the descriptor. Valid while the global object's own-property
-    // shape and the set of global lexical declarations are unchanged — value writes mutate the
+    // Version-based inline cache for global bindings: when resolution (from any scope depth)
+    // lands on a plain writable data property of the real GlobalObject, remember the
+    // descriptor. Valid while the global object's own-property shape and the set of global
+    // lexical declarations are unchanged AND a bounded walk from the current env reaches the
+    // global env without an intermediate that could own the name — value writes mutate the
     // descriptor in place and bump neither version. Mirrors JintMemberExpression's read cache.
     internal GlobalEnvironment? _cachedGlobalEnv;
     private Runtime.Descriptors.PropertyDescriptor? _cachedGlobalDescriptor;
@@ -232,8 +233,10 @@ internal sealed class JintIdentifierExpression : JintExpression
                     _cachedSlotIndex = slotIndex;
                 }
             }
-            else if (ReferenceEquals(identifierEnvironment, env) && identifierEnvironment is GlobalEnvironment globalEnv)
+            else if (identifierEnvironment is GlobalEnvironment globalEnv)
             {
+                // No hop restriction: the validator re-walks with shadow probes on every read,
+                // so nested-scope reads of globals (loop bodies, closures) can use the cache.
                 TryRememberGlobalBinding(globalEnv);
             }
 
@@ -252,31 +255,77 @@ internal sealed class JintIdentifierExpression : JintExpression
     }
 
     /// <summary>
-    /// Validates the global-binding cache for the current environment: the current lexical env
-    /// must be the cached GlobalEnvironment itself (top-level code) and neither the global
-    /// object's own-property shape nor the global lexical declaration set may have changed.
-    /// Returns the cached plain writable data descriptor, or null on miss.
+    /// Validates the global-binding cache for the current environment: neither the global
+    /// object's own-property shape nor the global lexical declaration set may have changed,
+    /// and a bounded walk from the current lexical env must reach the cached GlobalEnvironment
+    /// without passing an environment that could own the name (mirrors the slot-cache walk:
+    /// with-objects and declarative envs holding the binding — e.g. sloppy direct eval injected
+    /// a var — bail to full resolution; the per-read probes are what make nested-scope use
+    /// safe). Returns the cached plain writable data descriptor, or null on miss.
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
     internal Runtime.Descriptors.PropertyDescriptor? TryGetValidatedGlobalDescriptor(Engine engine, Environment env)
     {
         var cachedGlobalEnv = _cachedGlobalEnv;
-        if (cachedGlobalEnv is not null
-            && ReferenceEquals(env, cachedGlobalEnv)
-            && ReferenceEquals(cachedGlobalEnv._engine, engine)
-            && cachedGlobalEnv._global._propertiesVersion == _cachedGlobalShapeVersion
-            && cachedGlobalEnv._lexicalMutations == _cachedGlobalLexicalVersion)
+        if (cachedGlobalEnv is null)
         {
-            return _cachedGlobalDescriptor;
+            return null;
+        }
+
+        // Hop 0 (top-level code) keeps the single identity compare up front — it is by far
+        // the most common case and must not pay for the nested-scope walk below.
+        if (ReferenceEquals(env, cachedGlobalEnv))
+        {
+            return ReferenceEquals(cachedGlobalEnv._engine, engine)
+                   && cachedGlobalEnv._global._propertiesVersion == _cachedGlobalShapeVersion
+                   && cachedGlobalEnv._lexicalMutations == _cachedGlobalLexicalVersion
+                ? _cachedGlobalDescriptor
+                : null;
+        }
+
+        if (!ReferenceEquals(cachedGlobalEnv._engine, engine)
+            || cachedGlobalEnv._global._propertiesVersion != _cachedGlobalShapeVersion
+            || cachedGlobalEnv._lexicalMutations != _cachedGlobalLexicalVersion)
+        {
+            return null;
+        }
+
+        var key = _identifier.Key;
+        var search = env;
+        for (var hops = 0; hops < MaxSlotCacheChainDepth; hops++)
+        {
+            if (search is ObjectEnvironment)
+            {
+                return null;
+            }
+
+            if (search is DeclarativeEnvironment intermediate && intermediate.HasBinding(key))
+            {
+                return null;
+            }
+
+            search = search._outerEnv;
+            if (search is null)
+            {
+                return null;
+            }
+
+            if (ReferenceEquals(search, cachedGlobalEnv))
+            {
+                return _cachedGlobalDescriptor;
+            }
         }
 
         return null;
     }
 
     /// <summary>
-    /// Caches the resolved global binding when it is a plain writable MutableBinding data
-    /// property on the real GlobalObject and no lexical declaration shadows it. Both reads
-    /// and writes may then operate on the descriptor directly while the versions hold.
+    /// Caches the resolved global binding when it is a plain writable data property on the
+    /// real GlobalObject (no CustomValue indirection — materialized lazy built-ins qualify,
+    /// live accessor-like descriptors never do) and no lexical declaration shadows it. Reads
+    /// may then use the descriptor directly while the versions hold; writers must re-check
+    /// <see cref="Runtime.Descriptors.PropertyDescriptor.Writable"/> through the cached
+    /// reference because defineProperty flips flags in place without bumping the versions.
     /// </summary>
     internal void TryRememberGlobalBinding(GlobalEnvironment globalEnv)
     {
@@ -287,10 +336,10 @@ internal sealed class JintIdentifierExpression : JintExpression
             return;
         }
 
-        if (globalObject._properties!.TryGetValue(identifier.Key, out var descriptor)
+        if (globalObject._properties?.TryGetValue(identifier.Key, out var descriptor) == true
             && descriptor.IsDataDescriptor()
             && descriptor.Writable
-            && (descriptor._flags & Runtime.Descriptors.PropertyFlag.MutableBinding) != Runtime.Descriptors.PropertyFlag.None)
+            && (descriptor._flags & Runtime.Descriptors.PropertyFlag.CustomJsValue) == Runtime.Descriptors.PropertyFlag.None)
         {
             _cachedGlobalEnv = globalEnv;
             _cachedGlobalDescriptor = descriptor;

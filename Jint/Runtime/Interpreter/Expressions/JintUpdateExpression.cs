@@ -172,7 +172,9 @@ internal sealed class JintUpdateExpression : JintExpression
         if (_leftIdentifier!._cachedGlobalEnv is not null && !context.OperatorOverloadingAllowed)
         {
             var descriptor = _leftIdentifier.TryGetValidatedGlobalDescriptor(engine, engine.ExecutionContext.LexicalEnvironment);
-            if (descriptor is not null && descriptor._value is { } current)
+            // Writable is re-checked through the cached reference: defineProperty flips the
+            // flag in place without bumping the versions the validator checks.
+            if (descriptor is not null && descriptor.Writable && descriptor._value is { } current)
             {
                 if (_evalOrArguments && StrictModeScope.IsStrictModeCode)
                 {
