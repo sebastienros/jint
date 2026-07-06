@@ -101,9 +101,9 @@ public class PropertyDescriptorTests
     [Fact]
     public void FastSetPropertyIsVisibleOnBuiltinShapedHost()
     {
-        // Math uses builtin-shape storage; a raw property store must deopt it to dictionary
-        // mode — without that, the write lands in a side dictionary the shape-mode read
-        // paths never consult and the property silently doesn't exist.
+        // Math uses builtin-shape storage; a raw property store of a non-shape name joins the
+        // hybrid side dictionary, which every read/enumeration surface must consult — without
+        // that, the property silently doesn't exist.
         Assert.Equal(4, _engine.Evaluate("Math.floor(4.7)").AsNumber()); // initialize the shaped host
         var math = _engine.Evaluate("Math").AsObject();
         math.FastSetProperty("custom", new PropertyDescriptor(42, PropertyFlag.ConfigurableEnumerableWritable));
@@ -116,13 +116,33 @@ public class PropertyDescriptorTests
     [Fact]
     public void LazyPropertyDescriptor()
     {
+        // the shaped global materializes a targeted slot on demand (other slots stay untouched)
         var pd = _engine.Evaluate("globalThis").AsObject().GetOwnProperty("decodeURI");
         if (checkType)
         {
-            Assert.IsType<LazyPropertyDescriptor<GlobalObject>>(pd);
+            Assert.IsType<PropertyDescriptor>(pd);
         }
         Assert.Equal(false, pd.IsAccessorDescriptor());
         Assert.Equal(true, pd.IsDataDescriptor());
+
+        // parseInt is a host-filled instance slot carrying a LazyPropertyDescriptor
+        var lazy = _engine.Evaluate("globalThis").AsObject().GetOwnProperty("parseInt");
+        if (checkType)
+        {
+            Assert.IsType<LazyPropertyDescriptor<GlobalObject>>(lazy);
+        }
+        Assert.Equal(true, lazy.IsDataDescriptor());
+
+        // deleting a shape name deopts the global; untouched function slots must survive
+        // as lazy wrappers instead of eagerly instantiating every built-in dispatcher
+        _engine.Evaluate("delete globalThis.escape");
+        var afterDeopt = _engine.Evaluate("globalThis").AsObject().GetOwnProperty("encodeURI");
+        if (checkType)
+        {
+            Assert.IsType<LazyBuiltinSlotDescriptor>(afterDeopt);
+        }
+        Assert.Equal(true, afterDeopt.IsDataDescriptor());
+        Assert.Equal("test", _engine.Evaluate("encodeURI('test')").AsString());
     }
 
     [Fact]

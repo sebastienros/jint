@@ -343,7 +343,21 @@ internal sealed class JintIdentifierExpression : JintExpression
             return;
         }
 
-        if (globalObject._properties?.TryGetValue(identifier.Key, out var descriptor) == true
+        Runtime.Descriptors.PropertyDescriptor? descriptor = null;
+        globalObject._properties?.TryGetValue(identifier.Key, out descriptor);
+        if (descriptor is null && (globalObject._type & InternalTypes.BuiltinShapeMode) != InternalTypes.Empty)
+        {
+            // built-ins on a shaped global live in shape slots; materialization is stable
+            // (same stored instance every read) and never bumps the version, while any slot
+            // redefine/deopt does bump it — so the cached reference validates correctly
+            var shaped = globalObject.GetOwnProperty(identifier.Key);
+            if (shaped != Runtime.Descriptors.PropertyDescriptor.Undefined)
+            {
+                descriptor = shaped;
+            }
+        }
+
+        if (descriptor is not null
             && descriptor.IsDataDescriptor()
             && descriptor.Writable
             && (descriptor._flags & Runtime.Descriptors.PropertyFlag.CustomJsValue) == Runtime.Descriptors.PropertyFlag.None)
