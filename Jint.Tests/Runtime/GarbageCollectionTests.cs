@@ -123,15 +123,22 @@ public class GarbageCollectionTests
         // per engine) rather than on state shared through the AST, so once an engine is dropped its cached
         // environments — and the engine/realm they reference — become collectable even while the prepared
         // script stays cached. The script covers every cache shape: an ordinary function (single-slot env
-        // cache), a direct-recursive one (bounded RecursiveEnvPool), a let/const block (block env cache)
-        // and a for-let loop (loop env cache).
+        // cache), a direct-recursive one (bounded RecursiveEnvPool), a let/const block (block env cache),
+        // a for-let loop (loop env cache), for-of/for-in with let head (per-iteration env cache on the
+        // JintForInForOfStatement handler) and a Function-constructor function (definition-level env parked
+        // on the realm-cached dynamic State, which must die with the realm).
 
         var prepared = Engine.PrepareScript("""
             function f(x) { var y = x + 1; return y; }
             function fib(n) { return n < 2 ? n : fib(n - 1) + fib(n - 2); }
             function b(x) { { let y = x + 1; const z = y * 2; f(y + z); } }
             function l(x) { var sum = 0; for (let i = 0; i < 3; i++) { sum += i; } return sum; }
+            function fo(arr) { var sum = 0; for (let v of arr) { sum += v; } return sum; }
+            function fi(obj) { var keys = ''; for (let k in obj) { keys += k; } return keys; }
+            var dyn = new Function('a', 'return a + 1');
             f(1); f(2); fib(8); b(1); b(2); l(1); l(2);
+            fo([1, 2, 3]); fo([4, 5]); fi({ a: 1, b: 2 }); fi({ c: 3 });
+            dyn(1); dyn(2);
             """);
 
         const int count = 20;
