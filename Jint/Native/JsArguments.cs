@@ -21,13 +21,33 @@ public sealed class JsArguments : ObjectInstance
     private Key[] _names = null!;
     private JsValue[] _args = null!;
     private DeclarativeEnvironment _env = null!;
+    private Realm _realm = null!;
     private bool _canReturnToPool;
     private bool _hasRestParameter;
     private bool _materialized;
 
+    // Virtual read mode: while set, in-range index reads, length, @@iterator and (mapped) callee
+    // are answered from _args/_env/_func without materializing any property descriptors — the
+    // common `arguments[i]` / `arguments.length` / apply-forwarding patterns never build the
+    // length/callee/iterator descriptors, the parameter-map object or its ClrAccessDescriptors.
+    // Any operation that needs real properties routes through EnsureInitialized -> Initialize,
+    // which clears the flag, so every materializing path stays consistent.
+    private bool _virtualMode;
+
+    // Set when the owning call returned: the parameter map is detached, so mapped index reads
+    // switch from live bindings to the escaped snapshot (which write-syncs while mapped), and a
+    // later materialization must not rebuild the map — matching the long-standing behavior of
+    // nulling ParameterMap in FunctionWasCalled.
+    private bool _mapDetached;
+
     internal JsArguments(Engine engine)
         : base(engine, ObjectClass.Arguments)
     {
+        // Member reads must route through the virtual-mode [[Get]] instead of the
+        // GetOwnProperty-first protocol (which would materialize the property surface);
+        // arguments objects gain nothing from the member caches anyway — their identity
+        // churns per call, so a cached receiver never re-matches.
+        _type |= InternalTypes.ExoticGet;
     }
 
     internal void Prepare(
@@ -43,13 +63,39 @@ public sealed class JsArguments : ObjectInstance
         _env = env;
         _hasRestParameter = hasRestParameter;
         _canReturnToPool = true;
+        _virtualMode = true;
+        _mapDetached = false;
+
+        // Materialization can now be deferred past the owning call (even cross-realm queries),
+        // so pin the creating realm: %ThrowTypeError%, %Array.prototype.values% and the map's
+        // prototype are per-realm intrinsics.
+        _realm = _engine.Realm;
 
         ClearProperties();
     }
 
     protected override void Initialize()
     {
+        _virtualMode = false;
         _canReturnToPool = false;
+
+        // Materialization reconstructs properties that conceptually existed from the object's
+        // creation; a preventExtensions/freeze that happened while still virtual must not block
+        // them, so bypass the extensibility gate for the duration.
+        var wasExtensible = Extensible;
+        Extensible = true;
+        try
+        {
+            InitializeCore();
+        }
+        finally
+        {
+            Extensible = wasExtensible;
+        }
+    }
+
+    private void InitializeCore()
+    {
         var args = _args;
 
         DefinePropertyOrThrow(CommonProperties.Length, new PropertyDescriptor(_args.Length, PropertyFlag.NonEnumerable));
@@ -65,25 +111,31 @@ public sealed class JsArguments : ObjectInstance
                 CreateDataProperty(JsString.Create(i), val);
             }
 
-            DefinePropertyOrThrow(CommonProperties.Callee, new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(_engine, PropertyFlag.None));
+            DefinePropertyOrThrow(CommonProperties.Callee, new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(_realm, PropertyFlag.None));
         }
         else
         {
             ObjectInstance? map = null;
             if (args.Length > 0)
             {
-                var mappedNamed = _mappedNamed.Value!;
-                mappedNamed.Clear();
-
-                map = Engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
+                // index properties always materialize; the live-binding parameter map is only
+                // built while the owning call is still running (post-return the mapping is
+                // detached and the snapshot values are authoritative)
+                HashSet<Key>? mappedNamed = null;
+                if (!_mapDetached)
+                {
+                    mappedNamed = _mappedNamed.Value!;
+                    mappedNamed.Clear();
+                    map = _realm.Intrinsics.Object.Construct(Arguments.Empty);
+                }
 
                 for (uint i = 0; i < (uint) args.Length; i++)
                 {
                     SetOwnProperty(JsString.Create(i), new PropertyDescriptor(args[i], PropertyFlag.ConfigurableEnumerableWritable));
-                    if (i < _names.Length)
+                    if (map is not null && i < _names.Length)
                     {
                         var name = _names[i];
-                        if (mappedNamed.Add(name))
+                        if (mappedNamed!.Add(name))
                         {
                             map.SetOwnProperty(JsString.Create(i), new ClrAccessDescriptor(_env, Engine, name));
                         }
@@ -99,17 +151,106 @@ public sealed class JsArguments : ObjectInstance
 
         // Spec (10.4.4.6 step 19) requires arguments[@@iterator] to be %Array.prototype.values%
         // — the same function object, not a fresh wrapper.
-        var iteratorFunction = _engine.Realm.Intrinsics.Array.PrototypeObject.Get("values");
+        var iteratorFunction = _realm.Intrinsics.Array.PrototypeObject.Get("values");
         DefinePropertyOrThrow(GlobalSymbolRegistry.Iterator, new PropertyDescriptor(iteratorFunction, PropertyFlag.Writable | PropertyFlag.Configurable));
     }
 
-    internal ObjectInstance? ParameterMap { get; set; }
+    private ObjectInstance? _parameterMap;
+
+    internal ObjectInstance? ParameterMap
+    {
+        get
+        {
+            // internal consumers (and tests) expect the map to exist for a live mapped
+            // arguments object; materialize on demand when still in virtual mode
+            if (_virtualMode)
+            {
+                EnsureInitialized();
+            }
+
+            return _parameterMap;
+        }
+        set => _parameterMap = value;
+    }
 
     internal override bool IsArrayLike => true;
 
     internal override bool IsIntegerIndexedArray => true;
 
     public uint Length => (uint) _args.Length;
+
+    public override JsValue Get(JsValue property, JsValue receiver)
+    {
+        if (_virtualMode && ReferenceEquals(this, receiver))
+        {
+            if (Array.ArrayInstance.IsArrayIndex(property, out var index))
+            {
+                if (index < (uint) _args.Length)
+                {
+                    // the parameter map binds the FIRST index carrying each name (later duplicates
+                    // read the positional argument), mirroring Initialize's first-wins dedup;
+                    // once the call returned the map is detached and the snapshot is authoritative
+                    if (_func is not null && !_mapDetached && TryGetMappedName(index, out var mappedName))
+                    {
+                        return _env.GetBindingValue(mappedName, strict: false);
+                    }
+
+                    return _args[index];
+                }
+            }
+            else if (CommonProperties.Length.Equals(property))
+            {
+                return JsNumber.Create(_args.Length);
+            }
+            else if (CommonProperties.Callee.Equals(property) && _func is not null)
+            {
+                return _func;
+            }
+            else if (ReferenceEquals(property, GlobalSymbolRegistry.Iterator))
+            {
+                // spec identity: %Array.prototype.values%
+                return _realm.Intrinsics.Array.PrototypeObject.Get("values");
+            }
+        }
+
+        return base.Get(property, receiver);
+    }
+
+    private bool TryGetMappedName(uint index, out Key name)
+    {
+        var names = _names;
+        if (index >= (uint) names.Length)
+        {
+            name = default;
+            return false;
+        }
+
+        name = names[index];
+        for (var i = 0; i < index; i++)
+        {
+            if (names[i] == name)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    // Before virtual read mode, an uninitialized arguments object was unreachable (any user
+    // access materialized it first); now the enumeration surfaces must initialize explicitly
+    // since they read the property bag directly.
+    public override List<JsValue> GetOwnPropertyKeys(Types types = Types.String | Types.Symbol)
+    {
+        EnsureInitialized();
+        return base.GetOwnPropertyKeys(types);
+    }
+
+    public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
+    {
+        EnsureInitialized();
+        return base.GetOwnProperties();
+    }
 
     public override PropertyDescriptor GetOwnProperty(JsValue property)
     {
@@ -139,6 +280,25 @@ public sealed class JsArguments : ObjectInstance
     /// for arrays
     public override bool Set(JsValue property, JsValue value, JsValue receiver)
     {
+        // Mapped-index writes go straight to the parameter binding (matching the
+        // ClrAccessDescriptor setter the map would install); anything else materializes.
+        if (_virtualMode && !_mapDetached && ReferenceEquals(this, receiver)
+            && _func is not null
+            && Array.ArrayInstance.IsArrayIndex(property, out var virtualIndex)
+            && virtualIndex < (uint) _args.Length
+            && TryGetMappedName(virtualIndex, out var virtualName))
+        {
+            _env.SetMutableBinding(virtualName, value, strict: true);
+            if (_materialized)
+            {
+                // keep the escaped snapshot in sync so a later materialization captures the
+                // written value (matching today's map-synced descriptor); pre-escape _args is
+                // the pooled caller array and must never be written
+                _args[virtualIndex] = value;
+            }
+            return true;
+        }
+
         EnsureInitialized();
 
         if (!CanPut(property))
@@ -251,8 +411,9 @@ public sealed class JsArguments : ObjectInstance
 
         _materialized = true;
 
-        EnsureInitialized();
-
+        // Snapshot the (pooled, caller-owned) argument values so reads stay valid after the
+        // call returns. Virtual mode keeps serving reads off the snapshot; the property
+        // descriptors materialize lazily only if something actually needs them.
         var args = _args;
         var copiedArgs = new JsValue[args.Length];
         System.Array.Copy(args, copiedArgs, args.Length);
@@ -263,6 +424,10 @@ public sealed class JsArguments : ObjectInstance
 
     internal void FunctionWasCalled()
     {
+        // Detach the mapping: post-call reads see the captured snapshot (write-synced while
+        // mapped), not live bindings, and a later materialization must not rebuild the map.
+        _mapDetached = true;
+
         // should no longer expose arguments which is special name
         ParameterMap = null;
 

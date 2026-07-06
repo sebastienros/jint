@@ -85,7 +85,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     /// If true, own properties may be added to the
     /// object.
     /// </summary>
-    public virtual bool Extensible { get; private set; }
+    public virtual bool Extensible { get; internal set; }
 
     internal PropertyDictionary? Properties
     {
