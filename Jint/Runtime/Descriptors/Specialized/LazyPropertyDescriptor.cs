@@ -19,7 +19,19 @@ internal sealed class LazyPropertyDescriptor<T> : PropertyDescriptor
 
     protected internal override JsValue? CustomValue
     {
-        get => _value ??= _resolver(_state);
+        get
+        {
+            var value = _value;
+            if (value is null)
+            {
+                _value = value = _resolver(_state);
+                // Once materialized this is semantically a plain data descriptor; clearing the
+                // flag lets value reads/writes skip the CustomValue indirection and admits the
+                // descriptor to the global-binding and member-write inline caches.
+                _flags &= ~PropertyFlag.CustomJsValue;
+            }
+            return value;
+        }
         set => _value = value;
     }
 }
