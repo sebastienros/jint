@@ -361,8 +361,9 @@ internal static class Emitter
         sb.AppendLine();
         sb.AppendLine("    private static global::Jint.Native.Object.BuiltinShape BuildBuiltinShape_Generated()");
         sb.AppendLine("    {");
-        sb.Append("        var builder = new global::Jint.Native.Object.BuiltinShape.Builder(").Append(obj.Properties.Count + dataProperties.Count + accessorsByName.Count + obj.Aliases.Count + obj.InstanceSlots.Count).AppendLine(");");
-        // Order matches the dictionary path: properties, then functions, then accessors (each sorted by JsName).
+        sb.Append("        var builder = new global::Jint.Native.Object.BuiltinShape.Builder(").Append(obj.Properties.Count + dataProperties.Count + obj.IntrinsicReferences.Count + accessorsByName.Count + obj.ThrowerAccessors.Count + obj.Aliases.Count + obj.InstanceSlots.Count).AppendLine(");");
+        // Order matches the dictionary path: properties, functions, intrinsic references, accessors,
+        // throwers (each sorted by JsName) — so own-key enumeration order is byte-identical.
         // Static-immutable constants share a process-wide descriptor; other properties are per-realm instance slots.
         foreach (var prop in obj.Properties)
         {
@@ -382,6 +383,16 @@ internal static class Emitter
             else sb.Append(dispatcher).Append(".Slot.").Append(fn.ClrName);
             sb.Append(", ").Append(fn.FlagsExpression).AppendLine(");");
         }
+        // [JsIntrinsicReference]: a Factory slot producing the same lazy per-realm descriptor the
+        // dictionary path uses; the intrinsic resolves on first value read, so neither slot
+        // materialization nor a deopt forces the realm intrinsic into existence.
+        foreach (var ir in obj.IntrinsicReferences)
+        {
+            sb.Append("        builder.Factory(__Key_").Append(SanitizeIdentifier(ir.JsName))
+              .Append(", static host => new global::Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<")
+              .Append(obj.Name).Append(">((").Append(obj.Name).Append(") host, static h => h._realm.Intrinsics.")
+              .Append(ir.IntrinsicMember).Append(", ").Append(ir.FlagsExpression).AppendLine("));");
+        }
         var accessorNames = new List<string>(accessorsByName.Keys);
         accessorNames.Sort(StringComparer.Ordinal);
         foreach (var name in accessorNames)
@@ -389,6 +400,15 @@ internal static class Emitter
             var (get, set, flags) = accessorsByName[name];
             sb.Append("        builder.Accessor(__Key_").Append(SanitizeIdentifier(name)).Append(", ")
               .Append(SlotExpr(get)).Append(", ").Append(SlotExpr(set)).Append(", ").Append(flags).AppendLine(");");
+        }
+        // [JsThrowerAccessor]: a Factory slot producing a realm-pinned %ThrowTypeError% accessor
+        // descriptor (materialization may run under a foreign active realm, so the host's realm is
+        // captured explicitly; the getter identity is the per-realm %ThrowTypeError% singleton).
+        foreach (var thr in obj.ThrowerAccessors)
+        {
+            sb.Append("        builder.Factory(__Key_").Append(SanitizeIdentifier(thr.JsName))
+              .Append(", static host => new global::Jint.Runtime.Descriptors.GetSetPropertyDescriptor.ThrowerPropertyDescriptor(((")
+              .Append(obj.Name).Append(") host)._realm, ").Append(thr.FlagsExpression).AppendLine("));");
         }
         // Aliases last (matching own-key order); each shares its already-added target slot's descriptor.
         foreach (var alias in obj.Aliases)
