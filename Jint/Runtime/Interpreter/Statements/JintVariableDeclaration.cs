@@ -133,34 +133,12 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
                     }
                 }
 
-                var lhs = (Reference) declaration.Left.Evaluate(context);
-                var value = JsValue.Undefined;
-                if (declaration.Init != null)
+                // Slow arm kept out-of-line so this method stays compact for the var path.
+                var completion = InitializeLexicalBindingSlow(context, engine, declaration);
+                if (completion is not null)
                 {
-                    if (declaration.Init is JintClassExpression classExpr && declaration.Init._expression.IsAnonymousFunctionDefinition())
-                    {
-                        value = classExpr.EvaluateWithName(context, lhs.ReferencedName.ToString()).Clone();
-                    }
-                    else
-                    {
-                        value = declaration.Init.GetValue(context).Clone();
-                    }
-
-                    // Check for generator suspension after evaluating initializer
-                    if (context.IsSuspended())
-                    {
-                        engine._referencePool.Return(lhs);
-                        return new Completion(CompletionType.Normal, value, _statement);
-                    }
-
-                    if (declaration.Init._expression.IsFunctionDefinition() && declaration.Init is not JintClassExpression)
-                    {
-                        ((Function) value).SetFunctionName(lhs.ReferencedName);
-                    }
+                    return completion.Value;
                 }
-
-                lhs.InitializeReferencedBinding(value, _statement.Kind.GetDisposeHint());
-                engine._referencePool.Return(lhs);
             }
             else if (declaration.Init != null)
             {
@@ -231,5 +209,44 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
         }
 
         return Completion.Empty();
+    }
+
+    /// <summary>
+    /// Initializes a lexical (let/const/using) identifier binding through the Reference-based
+    /// path (targets the slot lane can't serve). Returns a completion only when the initializer
+    /// suspended (generator/async); null means the binding was initialized and the caller
+    /// continues with the next declarator.
+    /// </summary>
+    private Completion? InitializeLexicalBindingSlow(EvaluationContext context, Engine engine, ResolvedDeclaration declaration)
+    {
+        var lhs = (Reference) declaration.Left!.Evaluate(context);
+        var value = JsValue.Undefined;
+        if (declaration.Init != null)
+        {
+            if (declaration.Init is JintClassExpression classExpr && declaration.Init._expression.IsAnonymousFunctionDefinition())
+            {
+                value = classExpr.EvaluateWithName(context, lhs.ReferencedName.ToString()).Clone();
+            }
+            else
+            {
+                value = declaration.Init.GetValue(context).Clone();
+            }
+
+            // Check for generator suspension after evaluating initializer
+            if (context.IsSuspended())
+            {
+                engine._referencePool.Return(lhs);
+                return new Completion(CompletionType.Normal, value, _statement);
+            }
+
+            if (declaration.Init._expression.IsFunctionDefinition() && declaration.Init is not JintClassExpression)
+            {
+                ((Function) value).SetFunctionName(lhs.ReferencedName);
+            }
+        }
+
+        lhs.InitializeReferencedBinding(value, _statement.Kind.GetDisposeHint());
+        engine._referencePool.Return(lhs);
+        return null;
     }
 }
