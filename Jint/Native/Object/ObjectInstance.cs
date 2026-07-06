@@ -515,7 +515,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool HasOwnProperty(JsValue property)
     {
-        return !ReferenceEquals(GetOwnProperty(property), PropertyDescriptor.Undefined);
+        return ProbeOwnProperty(property) != OwnPropertyProbe.Missing;
     }
 
     public virtual void RemoveOwnProperty(JsValue property)
@@ -664,6 +664,33 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         }
 
         return descriptor ?? PropertyDescriptor.Undefined;
+    }
+
+    /// <summary>
+    /// Answers whether the named own property exists and is enumerable without materializing a
+    /// <see cref="PropertyDescriptor"/>. Shape-mode objects (sealed <see cref="JsObject"/>,
+    /// whose slots are always configurable/enumerable/writable — anything else deopts to
+    /// dictionary mode) answer straight from the shape; every other object — including exotics
+    /// like proxies (traps still fire), typed arrays and interop wrappers — routes through the
+    /// virtual <see cref="GetOwnProperty"/>. Read-only callers that don't need the descriptor's
+    /// value (existence checks, enumerability filters) should prefer this over GetOwnProperty.
+    /// </summary>
+    internal virtual OwnPropertyProbe ProbeOwnProperty(JsValue property)
+    {
+        if ((_type & InternalTypes.ShapeMode) != InternalTypes.Empty && property is JsString jsString)
+        {
+            return Unsafe.As<JsObject>(this).ShapeOf.TryGetSlot(jsString.ToString(), out _)
+                ? OwnPropertyProbe.Enumerable
+                : OwnPropertyProbe.Missing;
+        }
+
+        var desc = GetOwnProperty(property);
+        if (ReferenceEquals(desc, PropertyDescriptor.Undefined))
+        {
+            return OwnPropertyProbe.Missing;
+        }
+
+        return desc.Enumerable ? OwnPropertyProbe.Enumerable : OwnPropertyProbe.NonEnumerable;
     }
 
     // Built-in-shape storage helpers (InternalTypes.BuiltinShapeMode). Shared by every host that implements
@@ -1041,8 +1068,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     public virtual bool HasProperty(JsValue property)
     {
         var key = TypeConverter.ToPropertyKey(property);
-        var hasOwn = GetOwnProperty(key);
-        if (hasOwn != PropertyDescriptor.Undefined)
+        if (ProbeOwnProperty(key) != OwnPropertyProbe.Missing)
         {
             return true;
         }
@@ -1899,8 +1925,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             var key = keys[i];
             if (excludedItems == null || !excludedItems.Contains(key))
             {
-                var desc = GetOwnProperty(key);
-                if (desc.Enumerable)
+                if (ProbeOwnProperty(key) == OwnPropertyProbe.Enumerable)
                 {
                     var propValue = Get(key);
                     target.CreateDataProperty(key, propValue);
@@ -1942,8 +1967,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                 continue;
             }
 
-            var desc = GetOwnProperty(property);
-            if (desc != PropertyDescriptor.Undefined && desc.Enumerable)
+            if (ProbeOwnProperty(property) == OwnPropertyProbe.Enumerable)
             {
                 if (kind == EnumerableOwnPropertyNamesKind.Key)
                 {
@@ -2023,11 +2047,11 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         var visited = new HashSet<JsValue>();
         foreach (var key in GetOwnPropertyKeys(Types.String))
         {
-            var desc = GetOwnProperty(key);
-            if (desc != PropertyDescriptor.Undefined)
+            var probe = ProbeOwnProperty(key);
+            if (probe != OwnPropertyProbe.Missing)
             {
                 visited.Add(key);
-                if (desc.Enumerable)
+                if (probe == OwnPropertyProbe.Enumerable)
                 {
                     yield return key;
                 }

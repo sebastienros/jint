@@ -462,6 +462,50 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         return base.GetOwnProperty(property);
     }
 
+    /// <summary>
+    /// Element probe without the <see cref="TryGetDescriptor"/> materialization: enumerating a
+    /// dense array (for-in, Object.keys/values/entries, spread, assign) previously allocated one
+    /// CEW descriptor per touched index AND grew a permanent <c>_sparse</c> shadow dictionary
+    /// beside <c>_dense</c>. Presence and flags answer here allocation-free; a previously
+    /// materialized descriptor (if any) stays authoritative for its flags.
+    /// </summary>
+    internal override OwnPropertyProbe ProbeOwnProperty(JsValue property)
+    {
+        if (CommonProperties.Length.Equals(property))
+        {
+            // the length property is never enumerable
+            return HasLength ? OwnPropertyProbe.NonEnumerable : base.ProbeOwnProperty(property);
+        }
+
+        if (IsArrayIndex(property, out var index))
+        {
+            var temp = _dense;
+            if (temp is not null)
+            {
+                if (index < (uint) temp.Length && temp[index] is not null)
+                {
+                    if (_sparse is not null && _sparse.TryGetValue(index, out var materialized) && materialized is not null)
+                    {
+                        return materialized.Enumerable ? OwnPropertyProbe.Enumerable : OwnPropertyProbe.NonEnumerable;
+                    }
+
+                    return OwnPropertyProbe.Enumerable;
+                }
+
+                return OwnPropertyProbe.Missing;
+            }
+
+            if (_sparse is not null && _sparse.TryGetValue(index, out var descriptor) && descriptor is not null)
+            {
+                return descriptor.Enumerable ? OwnPropertyProbe.Enumerable : OwnPropertyProbe.NonEnumerable;
+            }
+
+            return OwnPropertyProbe.Missing;
+        }
+
+        return base.ProbeOwnProperty(property);
+    }
+
     internal JsValue Get(uint index)
     {
         if (!TryGetValue(index, out var value))
