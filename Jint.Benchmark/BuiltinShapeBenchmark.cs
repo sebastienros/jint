@@ -124,7 +124,9 @@ public class BuiltinShapeBenchmark
         + "Intl.NumberFormat.supportedLocalesOf; Intl.Collator.supportedLocalesOf; Intl.DateTimeFormat.supportedLocalesOf;"
         + "Intl.ListFormat.supportedLocalesOf; Intl.PluralRules.supportedLocalesOf; Intl.RelativeTimeFormat.supportedLocalesOf;"
         + "Intl.Segmenter.supportedLocalesOf; Intl.DisplayNames.supportedLocalesOf; Intl.DurationFormat.supportedLocalesOf;"
-        + "Number.parseInt; Int8Array.from;");
+        + "Number.parseInt; Int8Array.from;"
+        + "Int8Array.BYTES_PER_ELEMENT; Uint16Array.BYTES_PER_ELEMENT; Int32Array.BYTES_PER_ELEMENT;"
+        + "Float32Array.BYTES_PER_ELEMENT; Float64Array.BYTES_PER_ELEMENT; Uint8Array.fromBase64;");
 
     [Benchmark]
     public Engine EngineInitConstructors()

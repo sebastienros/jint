@@ -8,7 +8,7 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.TypedArray;
 
-[JsObject]
+[JsObject(UseShape = true)]
 public sealed partial class Uint8ArrayConstructor : TypedArrayConstructor
 {
     // Uint8 element size is fixed at 1; the base class also tracks BYTES_PER_ELEMENT but its
