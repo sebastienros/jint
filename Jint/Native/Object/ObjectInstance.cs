@@ -2090,36 +2090,6 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
 
     public override int GetHashCode() => RuntimeHelpers.GetHashCode(this);
 
-    internal IEnumerable<JsValue> GetKeys()
-    {
-        var visited = new HashSet<JsValue>();
-        foreach (var key in GetOwnPropertyKeys(Types.String))
-        {
-            var probe = ProbeOwnProperty(key);
-            if (probe != OwnPropertyProbe.Missing)
-            {
-                visited.Add(key);
-                if (probe == OwnPropertyProbe.Enumerable)
-                {
-                    yield return key;
-                }
-            }
-        }
-
-        if (Prototype is null)
-        {
-            yield break;
-        }
-
-        foreach (var protoKey in Prototype.GetKeys())
-        {
-            if (!visited.Contains(protoKey))
-            {
-                yield return protoKey;
-            }
-        }
-    }
-
     public override string ToString()
     {
         return TypeConverter.ToString(this);
