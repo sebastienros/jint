@@ -225,6 +225,19 @@ internal class DeclarativeEnvironment : Environment
         _dictionary.CreateImmutableBinding(name, strict);
     }
 
+    /// <summary>
+    /// Slot-lane variant of <see cref="InitializeBinding"/> for lexical declarations whose slot
+    /// index was already resolved against this environment's slot layout by the caller. Only
+    /// valid for let/const targets (DisposeHint.Normal); mirrors the slot arm of
+    /// <see cref="InitializeBinding"/> exactly.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void InitializeSlotBinding(int index, JsValue value)
+    {
+        ref var binding = ref _slots![index];
+        binding = binding.ChangeValue(value);
+    }
+
     internal sealed override void InitializeBinding(Key name, JsValue value, DisposeHint hint)
     {
         if (_slots is not null)
