@@ -272,8 +272,9 @@ internal sealed class JintIdentifierExpression : JintExpression
             return null;
         }
 
-        // Hop 0 (top-level code) keeps the single identity compare up front — it is by far
-        // the most common case and must not pay for the nested-scope walk below.
+        // Hop 0 (top-level code) keeps the single identity compare up front and this method
+        // compact — it is by far the most common case (var-heavy scripts validate here many
+        // times per loop iteration) and must not pay for the nested-scope walk's code size.
         if (ReferenceEquals(env, cachedGlobalEnv))
         {
             return ReferenceEquals(cachedGlobalEnv._engine, engine)
@@ -283,6 +284,12 @@ internal sealed class JintIdentifierExpression : JintExpression
                 : null;
         }
 
+        return TryGetValidatedGlobalDescriptorNested(engine, env, cachedGlobalEnv);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private Runtime.Descriptors.PropertyDescriptor? TryGetValidatedGlobalDescriptorNested(Engine engine, Environment env, GlobalEnvironment cachedGlobalEnv)
+    {
         if (!ReferenceEquals(cachedGlobalEnv._engine, engine)
             || cachedGlobalEnv._global._propertiesVersion != _cachedGlobalShapeVersion
             || cachedGlobalEnv._lexicalMutations != _cachedGlobalLexicalVersion)
