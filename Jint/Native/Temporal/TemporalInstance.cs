@@ -20,7 +20,7 @@ namespace Jint.Native.Temporal;
 [JsIntrinsicReference("PlainTime", IntrinsicMember = "TemporalPlainTime")]
 [JsIntrinsicReference("PlainYearMonth", IntrinsicMember = "TemporalPlainYearMonth")]
 [JsIntrinsicReference("ZonedDateTime", IntrinsicMember = "TemporalZonedDateTime")]
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class TemporalInstance : ObjectInstance
 {
     private readonly Realm _realm;
