@@ -687,7 +687,7 @@ public enum ExperimentalFeature
     /// <summary>
     /// Generator support
     /// </summary>
-    [Obsolete("This flag is no longer necessary as generators are fully supported.")]
+    [Obsolete("This flag is no longer necessary as generators are fully supported.", error: true)]
     Generators = 1,
 
     /// <summary>
