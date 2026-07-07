@@ -68,6 +68,9 @@ namespace Jint.Native.Global;
 [JsIntrinsicReference("WeakRef")]
 [JsIntrinsicReference("WeakSet")]
 [JsIntrinsicReference("eval", IntrinsicMember = "Eval")]
+[JsInstanceSlot("parseInt")]
+[JsInstanceSlot("parseFloat")]
+[JsInstanceSlot("globalThis")]
 public partial class GlobalObject
 {
     [JsProperty(Name = "NaN", Flags = PropertyFlag.AllForbidden)]
@@ -86,11 +89,7 @@ public partial class GlobalObject
 
         CreateProperties_Generated();
 
-        // After CreateProperties_Generated, _properties is the HybridDictionary wrapper around the
-        // generator-built StringDictionarySlim. AddDangerous skips both duplicate-key lookup and
-        // SetOwnProperty's validation path. These 3 entries are new keys (not overwriting), so the
-        // direct path is correct. [JsObject(ExtraCapacity = 3)] presizes the underlying slim dict
-        // so the adds don't trigger a resize.
+        // The three entries that can't be expressed declaratively fill reserved [JsInstanceSlot]s.
         // parseInt / parseFloat are kept hand-rolled because spec requires
         // Number.parseInt === parseInt (and Number.parseFloat === parseFloat). Pre-source-gen Jint
         // satisfied that via ClrFunction.Equals comparing the underlying delegate; both globalThis
@@ -99,8 +98,8 @@ public partial class GlobalObject
         // break the strict-equality test. NumberConstructor.cs:50 documents the reciprocal half.
         // globalThis is a self-reference (the GlobalObject instance itself), which can't be
         // expressed as a static [JsProperty] field or as an intrinsic.
-        _properties!.AddDangerous("parseInt", new LazyPropertyDescriptor<GlobalObject>(this, static global => new ClrFunction(global._engine, "parseInt", ParseInt, 2, LengthFlags), PropertyFlags));
-        _properties.AddDangerous("parseFloat", new LazyPropertyDescriptor<GlobalObject>(this, static global => new ClrFunction(global._engine, "parseFloat", ParseFloat, 1, LengthFlags), PropertyFlags));
-        _properties.AddDangerous("globalThis", new PropertyDescriptor(this, PropertyFlags));
+        SetBuiltinSlotByName("parseInt", new LazyPropertyDescriptor<GlobalObject>(this, static global => new ClrFunction(global._engine, "parseInt", ParseInt, 2, LengthFlags), PropertyFlags));
+        SetBuiltinSlotByName("parseFloat", new LazyPropertyDescriptor<GlobalObject>(this, static global => new ClrFunction(global._engine, "parseFloat", ParseFloat, 1, LengthFlags), PropertyFlags));
+        SetBuiltinSlotByName("globalThis", new PropertyDescriptor(this, PropertyFlags));
     }
 }

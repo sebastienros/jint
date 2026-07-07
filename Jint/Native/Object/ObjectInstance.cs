@@ -245,14 +245,27 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     internal void SetProperty(Key property, PropertyDescriptor value)
     {
         // Storing a raw descriptor is a dictionary-mode operation; deopt first if needed.
-        // Without the builtin-shape deopt, the write would land in a side dictionary that the
-        // shape-mode read paths never consult — the property would silently not exist.
         if ((_type & InternalTypes.ShapeMode) != InternalTypes.Empty)
         {
             ConvertToDictionaryMode();
         }
         else if ((_type & InternalTypes.BuiltinShapeMode) != InternalTypes.Empty)
         {
+            var shaped = Unsafe.As<IBuiltinShaped>(this);
+            if (shaped.BuiltinShape.Index.TryGetValue(property.Name, out var slot))
+            {
+                // raw replace of an existing shape slot happens in place
+                shaped.BuiltinDescriptors![slot] = value;
+                unchecked { _propertiesVersion++; }
+                return;
+            }
+
+            if (TryHybridAddToShapedHost(property, value))
+            {
+                return;
+            }
+
+            // integer-like key: the fixed layout can't express the required own-key order
             DeoptBuiltinShape();
         }
         _properties ??= new PropertyDictionary();
@@ -266,13 +279,8 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         var propertyKey = TypeConverter.ToPropertyKey(property);
         if (!property.IsSymbol())
         {
-            if ((_type & InternalTypes.ShapeMode) != InternalTypes.Empty)
-            {
-                ConvertToDictionaryMode();
-            }
-            _properties ??= new PropertyDictionary();
-            _properties[TypeConverter.ToString(propertyKey)] = value;
-            unchecked { _propertiesVersion++; }
+            // route through the Key overload so shape/builtin-shape modes are handled
+            SetProperty(TypeConverter.ToString(propertyKey), value);
         }
         else
         {
@@ -317,6 +325,15 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             for (var i = 0; i < names.Length; i++)
             {
                 yield return new KeyValuePair<JsValue, PropertyDescriptor>(JsString.Create(names[i].Name), MaterializeBuiltinSlot(shaped, i));
+            }
+
+            // hybrid additions (added after every shape name, preserving insertion order)
+            if (_properties != null)
+            {
+                foreach (var pair in _properties)
+                {
+                    yield return new KeyValuePair<JsValue, PropertyDescriptor>(new JsString(pair.Key), pair.Value);
+                }
             }
         }
         else if (_properties != null)
@@ -531,16 +548,21 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         var key = TypeConverter.ToPropertyKey(property);
         if (!key.IsSymbol())
         {
-            // Removing a string property can't be expressed as a shape / built-in-shape layout; deopt first.
+            var name = TypeConverter.ToString(key);
+
+            // Removing a string property can't be expressed as a shape / built-in-shape layout;
+            // deopt first — except a hybrid addition on a shaped host, which lives in the side
+            // dictionary and removes directly.
             if ((_type & InternalTypes.ShapeMode) != InternalTypes.Empty)
             {
                 ConvertToDictionaryMode();
             }
-            else if ((_type & InternalTypes.BuiltinShapeMode) != InternalTypes.Empty)
+            else if ((_type & InternalTypes.BuiltinShapeMode) != InternalTypes.Empty
+                     && Unsafe.As<IBuiltinShaped>(this).BuiltinShape.Index.TryGetValue(name, out _))
             {
                 DeoptBuiltinShape();
             }
-            _properties?.Remove(TypeConverter.ToString(key));
+            _properties?.Remove(name);
             unchecked { _propertiesVersion++; }
             return;
         }
@@ -656,8 +678,11 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                     {
                         return MaterializeBuiltinSlot(shaped, slot);
                     }
+
+                    // hybrid addition on a shaped host (side dictionary holds post-init adds)
+                    _properties?.TryGetValue(name, out descriptor);
                 }
-                // string key absent from the shape ⇒ no own property (descriptor stays null → Undefined)
+                // string key absent from the shape (and hybrid additions) ⇒ no own property
             }
             else
             {
@@ -706,7 +731,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     // Materialize a shaped slot's descriptor. Constants point at the shared static descriptor; functions are
     // created on first access and stored so their identity is stable (the inline caches rely on this — a
     // materialize must never bump _propertiesVersion).
-    private static PropertyDescriptor MaterializeBuiltinSlot(IBuiltinShaped shaped, int slot)
+    private protected static PropertyDescriptor MaterializeBuiltinSlot(IBuiltinShaped shaped, int slot)
     {
         var descriptors = shaped.BuiltinDescriptors!;
         var descriptor = descriptors[slot];
@@ -738,6 +763,19 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             descriptors[slot] = descriptor;
         }
         return descriptor;
+    }
+
+    /// <summary>
+    /// Guarantees the ordinary dictionary representation for callers that add own properties
+    /// through the raw property bag (e.g. the global var-binding protocol); no-op unless the
+    /// host is currently in builtin-shape mode.
+    /// </summary>
+    internal void EnsureDictionaryProperties()
+    {
+        if ((_type & InternalTypes.BuiltinShapeMode) != InternalTypes.Empty)
+        {
+            DeoptBuiltinShape();
+        }
     }
 
     // Fall back to the ordinary dictionary representation. Already-materialized slots keep their
@@ -777,7 +815,8 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             }
         }
 
-        var properties = new PropertyDictionary(names.Length, checkExistingKeys: false);
+        var additions = _properties; // hybrid side-dictionary entries added after the shape names
+        var properties = new PropertyDictionary(names.Length + (additions?.Count ?? 0), checkExistingKeys: false);
         for (var i = 0; i < names.Length; i++)
         {
             var descriptor = descriptors[i];
@@ -797,6 +836,15 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             properties[names[i]] = descriptor;
         }
 
+        if (additions is not null)
+        {
+            // preserve insertion order: every addition came after initialization
+            foreach (var pair in additions)
+            {
+                properties[pair.Key] = pair.Value;
+            }
+        }
+
         _type &= ~InternalTypes.BuiltinShapeMode;
         shaped.BuiltinDescriptors = null;
         SetProperties(properties); // sets _properties, bumps version (symbols stay in _symbols)
@@ -806,7 +854,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     {
         var shaped = Unsafe.As<IBuiltinShaped>(this);
         var names = shaped.BuiltinShape.Names;
-        var keys = new List<JsValue>(names.Length + (_symbols?.Count ?? 0));
+        var keys = new List<JsValue>(names.Length + (_properties?.Count ?? 0) + (_symbols?.Count ?? 0));
         if ((types & Types.String) != Types.Empty)
         {
             // Function-derived hosts surface length/name/prototype ahead of their shape members (matching the
@@ -819,6 +867,16 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             foreach (var name in names)
             {
                 keys.Add(JsString.Create(name.Name));
+            }
+
+            // hybrid additions came after initialization; integer-like keys force a full deopt
+            // before ever landing here, so shape-names-then-additions is the spec own-key order
+            if (_properties is not null)
+            {
+                foreach (var pair in _properties)
+                {
+                    keys.Add(JsString.Create(pair.Key.Name));
+                }
             }
         }
         if ((types & Types.Symbol) != Types.Empty && _symbols is not null)
@@ -872,10 +930,37 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                 unchecked { _propertiesVersion++; }
                 return;
             }
-            // Adding a brand-new own string property can't be expressed in the fixed layout.
+
+            // A brand-new own string property joins the hybrid side dictionary (the shape keeps
+            // serving its slots); only integer-like keys force the full dictionary fallback.
+            if (TryHybridAddToShapedHost(jsString.ToString(), desc))
+            {
+                return;
+            }
+
             DeoptBuiltinShape();
         }
         SetProperty(property, desc);
+    }
+
+    /// <summary>
+    /// Adds a post-initialization own property to a builtin-shaped host's side dictionary,
+    /// keeping the shape alive for its slots — the caller has verified the name is not a shape
+    /// slot. Integer-like keys must sort before string keys in own-key order, which the
+    /// shape-then-additions enumeration cannot express, so they refuse and the caller deopts.
+    /// </summary>
+    internal bool TryHybridAddToShapedHost(Key name, PropertyDescriptor value)
+    {
+        var s = name.Name;
+        if (s.Length > 0 && char.IsDigit(s[0]))
+        {
+            return false;
+        }
+
+        _properties ??= new PropertyDictionary();
+        _properties[name] = value;
+        unchecked { _propertiesVersion++; }
+        return true;
     }
 
     public bool TryGetValue(JsValue property, out JsValue value)
