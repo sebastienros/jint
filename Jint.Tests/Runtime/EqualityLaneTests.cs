@@ -120,6 +120,70 @@ public class EqualityLaneTests
     }
 
     [Fact]
+    public void FusedModuloEqualityMatchesGenericPathAcrossSigns()
+    {
+        var engine = new Engine();
+        // negative dividends produce negative (or -0) remainders; the equality consumer
+        // erases the ±0 distinction, so the fused raw-double form must agree everywhere
+        var result = engine.Evaluate("""
+            (function () {
+                var r = [];
+                for (var i = -3; i <= 3; i++) {
+                    r.push(i % 2 == 0, i % 2 === 0, i % 2 != 0, i % 2 !== 0, i % 2 == -1, i % -2 == 1);
+                }
+                return r.join(',');
+            })()
+            """).AsString();
+
+        var expected = string.Join(",",
+            "false,false,true,true,true,false",   // i = -3 → -1
+            "true,true,false,false,false,false",  // i = -2 → -0
+            "false,false,true,true,true,false",   // i = -1 → -1
+            "true,true,false,false,false,false",  // i = 0  → 0
+            "false,false,true,true,false,true",   // i = 1  → 1
+            "true,true,false,false,false,false",  // i = 2  → 0
+            "false,false,true,true,false,true");  // i = 3  → 1
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void FusedModuloHandlesSpecialNumbersAndDeclines()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            (function () {
+                var nan = NaN, five = 5, str = '4';
+                return [
+                    nan % 2 == 0, nan % 2 != 0,
+                    five % 0 == 0, five % 0 != 0,
+                    five % Infinity == 5,
+                    str % 2 == 0
+                ].join(',');
+            })()
+            """).AsString();
+
+        Assert.Equal("false,true,false,true,true,true", result);
+    }
+
+    [Fact]
+    public void FusedModuloWorksOnGlobals()
+    {
+        var engine = new Engine();
+        // the stopwatch.js if-chain shape at script top level (globals, not slots)
+        var result = engine.Evaluate("""
+            var hits = 0;
+            for (var x = 0; x < 8; x++) {
+                var z = x ^ 1;
+                if (z % 2 == 0) { hits++; }
+                else if (z % 3 == 0) { hits += 10; }
+            }
+            hits;
+            """).AsNumber();
+
+        Assert.Equal(14, result);
+    }
+
+    [Fact]
     public void GlobalLaneDeclinesWhenValueTypeChangesInPlace()
     {
         var engine = new Engine();
