@@ -88,7 +88,7 @@ internal abstract class JintBinaryExpression : JintExpression
 
             var env = engine.ExecutionContext.LexicalEnvironment;
             if (!_slotCache.TryResolve(engine, env, identifier.Identifier, out var environment, out var slotIndex)
-                || !environment.TryGetNumberSlot(slotIndex, out left))
+                || !environment.TryGetNumberSlotForRead(slotIndex, out left))
             {
                 // top-level vars are global-object properties, never slots: fall back to the
                 // validated global-descriptor cache (the stopwatch-shape loop test). The null
@@ -106,7 +106,7 @@ internal abstract class JintBinaryExpression : JintExpression
             }
 
             if (_rightSlotCache.TryResolve(engine, env, rightIdentifier.Identifier, out var rightEnvironment, out var rightSlotIndex)
-                && rightEnvironment.TryGetNumberSlot(rightSlotIndex, out right))
+                && rightEnvironment.TryGetNumberSlotForRead(rightSlotIndex, out right))
             {
                 return true;
             }
@@ -181,7 +181,7 @@ internal abstract class JintBinaryExpression : JintExpression
 
             var env = engine.ExecutionContext.LexicalEnvironment;
             if (!_slotCache.TryResolve(engine, env, identifier.Identifier, out var environment, out var slotIndex)
-                || !environment.TryGetNumberSlot(slotIndex, out var value))
+                || !environment.TryGetNumberSlotForRead(slotIndex, out var value))
             {
                 if (identifier._cachedGlobalEnv is null || !TryReadGlobalNumber(identifier, engine, env, out value))
                 {

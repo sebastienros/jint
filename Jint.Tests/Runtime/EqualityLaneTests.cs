@@ -184,6 +184,52 @@ public class EqualityLaneTests
     }
 
     [Fact]
+    public void ConstBindingsTakeTheLaneShapes()
+    {
+        var engine = new Engine();
+        // the stopwatch-modern shape: const bindings inside the loop body flow through the
+        // relational, equality and fused-modulo lanes (immutable bindings are readable)
+        var result = engine.Evaluate("""
+            (function () {
+                let hits = 0;
+                for (let x = 0; x < 8; x++) {
+                    const z = x ^ 1;
+                    if (z % 2 == 0) { hits++; }
+                    else if (z % 3 === 0) { hits += 10; }
+                    const lim = 4;
+                    if (z < lim) { hits += 100; }
+                }
+                return hits;
+            })()
+            """).AsNumber();
+
+        Assert.Equal(414, result); // 4 even-z hits + one z=3 (+10) + four z<4 (+400)
+    }
+
+    [Fact]
+    public void TdzReadStillThrowsThroughLaneShapes()
+    {
+        var engine = new Engine();
+        // an uninitialized const slot has neither an unboxed number nor a reference value,
+        // so the lane declines and the generic path raises the ReferenceError
+        var result = engine.Evaluate("""
+            (function () {
+                try {
+                    for (let i = 0; i < 2; i++) {
+                        if (z === 0) { }
+                        const z = i;
+                    }
+                    return 'no-throw';
+                } catch (e) {
+                    return e instanceof ReferenceError ? 'ReferenceError' : 'other';
+                }
+            })()
+            """).AsString();
+
+        Assert.Equal("ReferenceError", result);
+    }
+
+    [Fact]
     public void GlobalLaneDeclinesWhenValueTypeChangesInPlace()
     {
         var engine = new Engine();

@@ -91,6 +91,38 @@ internal class DeclarativeEnvironment : Environment
     }
 
     /// <summary>
+    /// Read-only sibling of <see cref="TryGetNumberSlot"/> for the comparison lanes: admits
+    /// immutable bindings too (a `const` number is the canonical loop-body operand). Uninitialized
+    /// (TDZ) bindings have neither an unboxed number nor a reference value, so they decline here
+    /// and the generic path raises the ReferenceError. Never pair with <see cref="SetNumberSlot"/>.
+    /// </summary>
+    internal bool TryGetNumberSlotForRead(int slotIndex, out double value)
+    {
+        var slots = _slots;
+        if (slots is null || (uint) slotIndex >= (uint) slots.Length)
+        {
+            value = 0;
+            return false;
+        }
+
+        ref var binding = ref slots[slotIndex];
+        if (binding.IsUnboxedNumber)
+        {
+            value = binding.UnboxedNumber;
+            return true;
+        }
+
+        if (binding.HasReferenceValue && binding.Value is JsNumber number)
+        {
+            value = number._value;
+            return true;
+        }
+
+        value = 0;
+        return false;
+    }
+
+    /// <summary>
     /// Stores a raw number into a slot previously validated by <see cref="TryGetNumberSlot"/>
     /// without materializing a JsNumber.
     /// </summary>
