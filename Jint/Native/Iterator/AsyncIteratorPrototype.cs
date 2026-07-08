@@ -335,7 +335,8 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
             JsValue result;
             try
             {
-                result = returnMethod.Call(o, Undefined);
+                // step 6.a: Call(return, O, « ») — the spec forwards no arguments to return.
+                result = returnMethod.Call(o, Arguments.Empty);
             }
             catch (JavaScriptException ex)
             {
