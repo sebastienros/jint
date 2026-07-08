@@ -35,7 +35,10 @@ internal abstract class JintBinaryExpression : JintExpression
     /// ping-ponging between its update (stores raw) and its loop test (would materialize).
     /// Slot reads are pure, so declining after a partial read has no observable effect.
     /// IEEE double comparisons reproduce the abstract relational operator for all four forms,
-    /// including NaN operands (spec result undefined, coerced to false).
+    /// including NaN operands (spec result undefined, coerced to false). For the equality
+    /// operators the operands are runtime-proven Numbers, so ==/===/!=/!== degenerate to the
+    /// numeric compare (IsLooselyEqual step 1 defers to IsStrictlyEqual for same-type operands):
+    /// IEEE == gives NaN == NaN false and +0 == -0 true, both spec-exact.
     /// </summary>
     private protected struct NumericConstantComparisonLane
     {
@@ -364,12 +367,20 @@ internal abstract class JintBinaryExpression : JintExpression
 
     private sealed class StrictlyEqualBinaryExpression : JintBinaryExpression
     {
+        private NumericConstantComparisonLane _numericLane;
+
         public StrictlyEqualBinaryExpression(NonLogicalBinaryExpression expression) : base(expression)
         {
+            _numericLane.Initialize(_left, _right);
         }
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
+            if (_numericLane.TryGetOperands(context, out var unboxedLeft, out var unboxedRight))
+            {
+                return unboxedLeft == unboxedRight ? JsBoolean.True : JsBoolean.False;
+            }
+
             if (!TryEvaluateOperands(context, out var left, out var right))
             {
                 return JsValue.Undefined;
@@ -381,6 +392,11 @@ internal abstract class JintBinaryExpression : JintExpression
 
         public override bool GetBooleanValue(EvaluationContext context)
         {
+            if (_numericLane.TryGetOperands(context, out var unboxedLeft, out var unboxedRight))
+            {
+                return unboxedLeft == unboxedRight;
+            }
+
             if (!TryEvaluateOperands(context, out var left, out var right))
             {
                 return false;
@@ -392,12 +408,20 @@ internal abstract class JintBinaryExpression : JintExpression
 
     private sealed class StrictlyNotEqualBinaryExpression : JintBinaryExpression
     {
+        private NumericConstantComparisonLane _numericLane;
+
         public StrictlyNotEqualBinaryExpression(NonLogicalBinaryExpression expression) : base(expression)
         {
+            _numericLane.Initialize(_left, _right);
         }
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
+            if (_numericLane.TryGetOperands(context, out var unboxedLeft, out var unboxedRight))
+            {
+                return unboxedLeft == unboxedRight ? JsBoolean.False : JsBoolean.True;
+            }
+
             if (!TryEvaluateOperands(context, out var left, out var right))
             {
                 return JsValue.Undefined;
@@ -408,6 +432,11 @@ internal abstract class JintBinaryExpression : JintExpression
 
         public override bool GetBooleanValue(EvaluationContext context)
         {
+            if (_numericLane.TryGetOperands(context, out var unboxedLeft, out var unboxedRight))
+            {
+                return unboxedLeft != unboxedRight;
+            }
+
             if (!TryEvaluateOperands(context, out var left, out var right))
             {
                 return false;
@@ -788,14 +817,21 @@ internal abstract class JintBinaryExpression : JintExpression
     private sealed class EqualBinaryExpression : JintBinaryExpression
     {
         private readonly bool _invert;
+        private NumericConstantComparisonLane _numericLane;
 
         public EqualBinaryExpression(NonLogicalBinaryExpression expression, bool invert = false) : base(expression)
         {
             _invert = invert;
+            _numericLane.Initialize(_left, _right);
         }
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
+            if (_numericLane.TryGetOperands(context, out var unboxedLeft, out var unboxedRight))
+            {
+                return (unboxedLeft == unboxedRight) == !_invert ? JsBoolean.True : JsBoolean.False;
+            }
+
             if (!TryEvaluateOperands(context, out var left, out var right))
             {
                 return JsValue.Undefined;
@@ -817,6 +853,12 @@ internal abstract class JintBinaryExpression : JintExpression
 
         public override bool GetBooleanValue(EvaluationContext context)
         {
+            if (_numericLane.TryGetOperands(context, out var unboxedLeft, out var unboxedRight))
+            {
+                var equal = unboxedLeft == unboxedRight;
+                return _invert ? !equal : equal;
+            }
+
             if (!TryEvaluateOperands(context, out var left, out var right))
             {
                 return false;
