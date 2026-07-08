@@ -32,6 +32,10 @@ internal sealed class JintStatementList
     // resume positions live on the suspendable (SuspendDataDictionary), not here.
     private readonly Pair[] _jintStatements;
 
+    // exposed so enclosing loop fast paths can iterate the exact handler instances of this list
+    internal int Count => _jintStatements.Length;
+    internal JintStatement GetStatement(int index) => _jintStatements[index].Statement;
+
     public JintStatementList(IFunction function) : this((FunctionBody) function.Body)
     {
     }

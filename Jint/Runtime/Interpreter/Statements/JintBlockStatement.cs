@@ -16,6 +16,10 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
     private readonly JintStatement? _singleStatement;
     private readonly BlockState _blockState;
 
+    // exposed so enclosing loop fast paths can reuse the exact handler instances of this block
+    internal JintStatement? SingleStatement => _singleStatement;
+    internal JintStatementList? StatementList => _statementList;
+
     // Reuse cache for this block's fixed-slot environment. Held on the handler instance — which is built
     // per statement list, i.e. per engine — rather than on the shared BlockState: BlockState lives on the
     // AST node's UserData and is shared by every engine running a prepared script, and an environment roots
