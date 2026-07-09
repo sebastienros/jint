@@ -1,0 +1,163 @@
+namespace Jint.Tests.Runtime;
+
+/// <summary>
+/// Pins the loop-body lexical flattening (JintForStatement): an eligible body block's let/const
+/// bindings fold into the pooled loop environment, and the semantics must be indistinguishable
+/// from the per-iteration block environment.
+/// </summary>
+public class LoopBodyFlatteningTests
+{
+    [Fact]
+    public void StopwatchModernShapeComputesCorrectly()
+    {
+        var engine = new Engine();
+        // the stopwatch-modern inner-loop shape: let header, const body bindings, if/else chain
+        var result = engine.Evaluate("""
+            (function () {
+                let hits = 0;
+                for (let x = 0; x < 8; x++) {
+                    const z = x ^ 1;
+                    const doubled = z * 2;
+                    if (z % 2 == 0) { hits += doubled; }
+                    else if (z % 3 == 0) { hits += 100; }
+                }
+                return hits;
+            })()
+            """).AsNumber();
+
+        // z values: 1,0,3,2,5,4,7,6 → even z (0,2,4,6) add 2z = 0+4+8+12 = 24; z=3 adds 100
+        Assert.Equal(124, result);
+    }
+
+    [Fact]
+    public void ConstIsFreshPerIterationAndTdzReestablished()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            (function () {
+                var seen = [];
+                for (let i = 0; i < 3; i++) {
+                    try { touch; } catch (e) { seen.push('tdz' + i); }
+                    const touch = i * 10;
+                    seen.push(touch);
+                }
+                return seen.join(',');
+            })()
+            """).AsString();
+
+        Assert.Equal("tdz0,0,tdz1,10,tdz2,20", result);
+    }
+
+    [Fact]
+    public void ContinueReestablishesTdzForSkippedDeclarations()
+    {
+        var engine = new Engine();
+        // continue jumps before `late` is initialized; the next iteration must still see TDZ,
+        // not the previous iteration's value
+        var result = engine.Evaluate("""
+            (function () {
+                var seen = [];
+                for (let i = 0; i < 4; i++) {
+                    const early = i;
+                    if (i % 2 == 0) { continue; }
+                    try { seen.push(late); } catch (e) { seen.push('tdz'); }
+                    const late = 'v' + i;
+                    seen.push(late, early);
+                }
+                return seen.join(',');
+            })()
+            """).AsString();
+
+        Assert.Equal("tdz,v1,1,tdz,v3,3", result);
+    }
+
+    [Fact]
+    public void ShadowingHeaderNameKeepsBlockScoping()
+    {
+        var engine = new Engine();
+        // body const shadows the header let: names overlap, flattening must decline and the
+        // block env must keep proper shadowing semantics
+        var result = engine.Evaluate("""
+            (function () {
+                var seen = [];
+                for (let v = 0; v < 3; v++) {
+                    seen.push(v);
+                    {
+                        const v = 'inner';
+                        seen.push(v);
+                    }
+                }
+                var direct = [];
+                for (let w = 0; w < 2; w++) {
+                    const w2 = w + 10;
+                    direct.push(w2);
+                }
+                return seen.join(',') + '|' + direct.join(',');
+            })()
+            """).AsString();
+
+        Assert.Equal("0,inner,1,inner,2,inner|10,11", result);
+    }
+
+    [Fact]
+    public void CapturingBodyKeepsPerIterationSemantics()
+    {
+        var engine = new Engine();
+        // closures capture the body const: escape analysis must exclude flattening (and env
+        // reuse), so each captured binding is distinct
+        var result = engine.Evaluate("""
+            (function () {
+                const fns = [];
+                for (let i = 0; i < 3; i++) {
+                    const snapshot = i * 2;
+                    fns.push(() => snapshot);
+                }
+                return fns.map(f => f()).join(',');
+            })()
+            """).AsString();
+
+        Assert.Equal("0,2,4", result);
+    }
+
+    [Fact]
+    public void ThrowMidBodyLeavesConsistentState()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            (function () {
+                var caught = 0, total = 0;
+                for (let i = 0; i < 5; i++) {
+                    try {
+                        const val = i;
+                        if (i === 2) { throw new Error('x'); }
+                        total += val;
+                    } catch (e) {
+                        caught++;
+                    }
+                }
+                return total + ':' + caught;
+            })()
+            """).AsString();
+
+        Assert.Equal("8:1", result); // 0+1+3+4, one catch
+    }
+
+    [Fact]
+    public void UsingDeclarationsKeepBlockDisposeSemantics()
+    {
+        var engine = new Engine();
+        // using declarations need block-exit dispose per iteration: flattening must decline
+        var result = engine.Evaluate("""
+            (function () {
+                const order = [];
+                for (let i = 0; i < 2; i++) {
+                    using res = { [Symbol.dispose]() { order.push('d' + i); } };
+                    order.push('b' + i);
+                }
+                return order.join(',');
+            })()
+            """).AsString();
+
+        Assert.Equal("b0,d0,b1,d1", result);
+    }
+}

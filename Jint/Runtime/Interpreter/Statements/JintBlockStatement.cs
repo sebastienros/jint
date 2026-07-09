@@ -19,6 +19,7 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
     // exposed so enclosing loop fast paths can reuse the exact handler instances of this block
     internal JintStatement? SingleStatement => _singleStatement;
     internal JintStatementList? StatementList => _statementList;
+    internal BlockState State => _blockState;
 
     // Reuse cache for this block's fixed-slot environment. Held on the handler instance — which is built
     // per statement list, i.e. per engine — rather than on the shared BlockState: BlockState lives on the
@@ -322,6 +323,15 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
 
         PromiseOperations.PerformPromiseThen(engine, promise, onFulfilled, onRejected, null!);
     }
+
+    /// <summary>
+    /// Executes the block's contents against the CURRENT lexical environment, without creating,
+    /// attaching or parking the block environment. For enclosing-loop flattening only: the caller
+    /// owns an environment that already carries this block's slot layout (re-TDZ'd per iteration)
+    /// and has verified there are no dispose resources to run.
+    /// </summary>
+    internal Completion ExecuteFlattenedContents(EvaluationContext context)
+        => _statementList is not null ? _statementList.Execute(context) : ExecuteSingle(context);
 
     private Completion ExecuteSingle(EvaluationContext context)
     {
