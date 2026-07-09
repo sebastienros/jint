@@ -925,14 +925,16 @@ internal sealed class JintAssignmentExpression : JintExpression
                 return rval;
             }
 
-            // Fast path for dense array element overwrite: arr[intIndex] = rval. Only overwrites an
-            // existing in-range slot (TryWriteExistingDense), so it never grows length, fills a hole,
-            // or triggers sparse conversion — those defer to the full PutValue path below.
+            // Fast path for dense array element writes: arr[intIndex] = rval. Overwrite of an
+            // existing in-range slot (TryWriteExistingDense), or — probed only on that miss — an
+            // append at exactly the current length (TryAppendDense, the array-building pattern
+            // `m[i] = v` over fresh arrays). Hole fills, out-of-order growth and every restricted
+            // state defer to the full PutValue path below.
             if (lref.Base is JsArray array
                 && array.CanUseFastAccess
                 && lref.ReferencedName is JsNumber indexNumber
                 && ArrayInstance.IsArrayIndex(indexNumber, out var arrayIndex)
-                && array.TryWriteExistingDense(arrayIndex, rval))
+                && (array.TryWriteExistingDense(arrayIndex, rval) || array.TryAppendDense(arrayIndex, rval)))
             {
                 engine._referencePool.Return(lref);
                 return rval;

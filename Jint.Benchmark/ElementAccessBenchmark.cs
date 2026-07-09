@@ -20,6 +20,7 @@ public class ElementAccessBenchmark
     private Prepared<Script> _write;
     private Prepared<Script> _readModifyWrite;
     private Prepared<Script> _chainedRead;
+    private Prepared<Script> _appendWrite;
 
     [GlobalSetup]
     public void Setup()
@@ -50,11 +51,25 @@ public class ElementAccessBenchmark
             s;
             """, strict: true);
 
+        // the MMulti/VMulti build pattern: every write is an append at the current length
+        // into a fresh array (index masking would turn appends into overwrites, so the signal
+        // includes the JsNumber boxing of the stored values like the cube itself does)
+        _appendWrite = Engine.PrepareScript("""
+            var sink = 0;
+            for (var i = 0; i < 100000; i++) {
+                var m = [];
+                m[0] = i; m[1] = i; m[2] = i; m[3] = i;
+                sink = (sink + m[3]) & 1023;
+            }
+            sink;
+            """, strict: true);
+
         _engine = new Engine(static options => options.Strict());
         _engine.Evaluate(_read);
         _engine.Evaluate(_write);
         _engine.Evaluate(_readModifyWrite);
         _engine.Evaluate(_chainedRead);
+        _engine.Evaluate(_appendWrite);
     }
 
     [Benchmark]
@@ -68,4 +83,7 @@ public class ElementAccessBenchmark
 
     [Benchmark]
     public JsValue ChainedRead() => _engine.Evaluate(_chainedRead);
+
+    [Benchmark]
+    public JsValue AppendWrite() => _engine.Evaluate(_appendWrite);
 }
