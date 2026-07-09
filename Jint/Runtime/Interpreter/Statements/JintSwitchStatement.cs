@@ -35,7 +35,8 @@ internal sealed class JintSwitchStatement : JintStatement<SwitchStatement>
 
     private Completion HandleCompletion(EvaluationContext context, Completion r)
     {
-        if (r.Type == CompletionType.Break && string.Equals(context.Target, _statement.LabelSet?.Name, StringComparison.Ordinal))
+        if (r.Type == CompletionType.Break
+            && (context.Target is null || string.Equals(context.Target, _statement.LabelSet?.Name, StringComparison.Ordinal)))
         {
             return new Completion(CompletionType.Normal, r.Value, ((JintStatement) this)._statement);
         }

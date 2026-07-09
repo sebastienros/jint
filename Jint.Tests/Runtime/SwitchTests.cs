@@ -26,4 +26,69 @@ public class JintFailureTest
 
         Assert.Equal("coffee", engine.Evaluate("myFunc()"));
     }
+
+    [Fact]
+    public void UnlabeledBreakShouldBeConsumedByLabeledSwitch()
+    {
+        // An unlabeled `break` inside a labeled switch must be absorbed by the switch, letting
+        // execution continue after it. Previously the switch only absorbed a break whose target
+        // matched its own label, so the unlabeled break escaped and the function fell off its end.
+        var engine = new Engine();
+        var result = engine.Evaluate(@"
+            (function () {
+                function f(e) {
+                    var o = 0;
+                    e: switch (e) {
+                        case 1: o = 8; break;
+                        default: o = 29;
+                    }
+                    return o;
+                }
+                return f(1);
+            })();");
+
+        Assert.Equal(8, result);
+    }
+
+    [Fact]
+    public void LabeledBreakStillEscapesLabeledSwitch()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate(@"
+            (function () {
+                function f(e) {
+                    var o = 0;
+                    e: switch (e) {
+                        case 1: o = 8; break e;
+                        default: o = 29;
+                    }
+                    o = 100;
+                    return o;
+                }
+                return f(1);
+            })();");
+
+        Assert.Equal(100, result);
+    }
+
+    [Fact]
+    public void UnlabeledBreakInNestedSwitchStaysInnermost()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate(@"
+            (function () {
+                function f(x) {
+                    var o = 0;
+                    outer: switch (x) {
+                        default:
+                            switch (x) { case 5: o = 1; break; }
+                            o = 2;
+                    }
+                    return o;
+                }
+                return f(5);
+            })();");
+
+        Assert.Equal(2, result);
+    }
 }
