@@ -14,6 +14,7 @@ namespace Jint.Native.Date;
 internal sealed partial class DateConstructor : Constructor
 {
     internal static readonly DateTime Epoch = new(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+    private static readonly long EpochTicks = Epoch.Ticks;
     private static readonly JsString _functionName = new JsString("Date");
     private readonly ITimeSystem _timeSystem;
 
@@ -106,20 +107,23 @@ internal sealed partial class DateConstructor : Constructor
         // fast path is building default, new Date()
         if (arguments.Length == 0 || newTarget.IsUndefined())
         {
-            var now = (_timeSystem.GetUtcNow().DateTime - Epoch).TotalMilliseconds;
+            // ticks-based epoch math: skips the DateTime/TimeSpan intermediates and the double
+            // division; integer division truncates toward zero exactly like TimeClip for
+            // positive values, and a ticks-derived current time is always inside the clip range
+            var nowMs = (_timeSystem.GetUtcNow().UtcTicks - EpochTicks) / TimeSpan.TicksPerMillisecond;
 
             // when newTarget is the built-in Date constructor, skip OrdinaryCreateFromConstructor
             // to avoid the GetPrototypeFromConstructor property lookup
             if (ReferenceEquals(newTarget, this))
             {
-                return new JsDate(_engine, now);
+                return JsDate.CreateForCurrentTime(_engine, nowMs);
             }
 
             return OrdinaryCreateFromConstructor(
                 newTarget,
                 static intrinsics => intrinsics.Date.PrototypeObject,
                 static (engine, _, dateValue) => new JsDate(engine, dateValue),
-                now);
+                (double) nowMs);
         }
 
         return ConstructUnlikely(arguments, newTarget);

@@ -917,6 +917,49 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         return false;
     }
 
+    /// <summary>
+    /// Fast append of the next dense element (<paramref name="index"/> == length): grows capacity
+    /// with the standard doubling policy and bumps length in place. Returns false for anything
+    /// else — non-append indices, non-writable or materialized-non-default length, non-extensible
+    /// arrays, sparse mode, dense cap — so the caller falls back to the full set path (which
+    /// enforces the corresponding spec errors). The caller must have already verified
+    /// <see cref="CanUseFastAccess"/>. An index below the backing length writes into spare
+    /// capacity: by the dense invariant slots at or beyond length are null holes.
+    /// </summary>
+    internal bool TryAppendDense(uint index, JsValue value)
+    {
+        var temp = _dense;
+        if (temp is null || !Extensible || !LengthIsWritable)
+        {
+            return false;
+        }
+
+        if (index != (uint) GetJsNumberLength()._value || index >= MaxDenseArrayLength)
+        {
+            return false;
+        }
+
+        if (index < (uint) temp.Length)
+        {
+            temp[index] = value;
+        }
+        else
+        {
+            // same growth policy as WriteArrayValueUnlikely's dense arm
+            var newSize = System.Math.Max(index, System.Math.Max((uint) temp.Length, 2)) * 2;
+            if (newSize >= MaxDenseArrayLength)
+            {
+                return false;
+            }
+
+            EnsureCapacity(newSize);
+            _dense![index] = value;
+        }
+
+        SetLengthValue(JsNumber.Create(index + 1));
+        return true;
+    }
+
     [MethodImpl(MethodImplOptions.NoInlining)]
     private bool TryGetValueUnlikely(uint index, out JsValue value)
     {
