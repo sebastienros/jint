@@ -273,7 +273,7 @@ internal sealed class JintMemberExpression : JintExpression
                     return ReadAfterOwnMiss(baseObject, determinedProperty, ownMissConfirmed: true);
                 }
 
-                if ((baseObject._type & InternalTypes.PlainObject) != InternalTypes.Empty)
+                if ((baseObject._type & (InternalTypes.PlainObject | InternalTypes.BuiltinShapeMode)) != InternalTypes.Empty)
                 {
                     // Version-based inline cache: as long as the same object is read and its own-property
                     // shape (descriptor add/replace/remove) hasn't changed since we cached, the previously
@@ -476,7 +476,7 @@ internal sealed class JintMemberExpression : JintExpression
                 return ReadAfterOwnMiss(baseObject, determinedProperty, ownMissConfirmed: true);
             }
 
-            if ((baseObject._type & InternalTypes.PlainObject) != InternalTypes.Empty)
+            if ((baseObject._type & (InternalTypes.PlainObject | InternalTypes.BuiltinShapeMode)) != InternalTypes.Empty)
             {
                 if (ReferenceEquals(baseObject, _cachedReadObject)
                     && baseObject._propertiesVersion == _cachedReadVersion
@@ -640,7 +640,7 @@ internal sealed class JintMemberExpression : JintExpression
                     return true;
                 }
             }
-            else if ((baseObject._type & InternalTypes.PlainObject) != InternalTypes.Empty)
+            else if ((baseObject._type & (InternalTypes.PlainObject | InternalTypes.BuiltinShapeMode)) != InternalTypes.Empty)
             {
                 PropertyDescriptor? descriptor;
                 if (ReferenceEquals(baseObject, _cachedReadObject)

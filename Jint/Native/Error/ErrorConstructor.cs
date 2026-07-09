@@ -4,7 +4,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Error;
 
-[JsObject]
+[JsObject(UseShape = true)]
 public sealed partial class ErrorConstructor : Constructor
 {
     private readonly Func<Intrinsics, ObjectInstance> _intrinsicDefaultProto;

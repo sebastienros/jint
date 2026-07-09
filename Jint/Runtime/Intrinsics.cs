@@ -332,11 +332,11 @@ public sealed partial class Intrinsics
         _uriError ??= new ErrorConstructor(_engine, _realm, Error, Error.PrototypeObject, _uriErrorFunctionName, static intrinsics => intrinsics.UriError.PrototypeObject);
 
     internal ThrowTypeError ThrowTypeError =>
-        _throwTypeError ??= new ThrowTypeError(_engine, _engine.Realm) { _prototype = _engine.Realm.Intrinsics.Function.PrototypeObject };
+        _throwTypeError ??= new ThrowTypeError(_engine, _realm) { _prototype = Function.PrototypeObject };
 
     internal AsyncDisposableStackConstructor AsyncDisposableStack =>
-        _asyncDisposableStack ??= new AsyncDisposableStackConstructor(_engine, _engine.Realm) { _prototype = _engine.Realm.Intrinsics.Function.PrototypeObject };
+        _asyncDisposableStack ??= new AsyncDisposableStackConstructor(_engine, _realm) { _prototype = Function.PrototypeObject };
 
     internal DisposableStackConstructor DisposableStack =>
-        _disposableStack ??= new DisposableStackConstructor(_engine, _engine.Realm) { _prototype = _engine.Realm.Intrinsics.Function.PrototypeObject };
+        _disposableStack ??= new DisposableStackConstructor(_engine, _realm) { _prototype = Function.PrototypeObject };
 }

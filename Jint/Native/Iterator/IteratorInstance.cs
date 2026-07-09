@@ -22,6 +22,24 @@ internal abstract class IteratorInstance : ObjectInstance
     public abstract bool TryIteratorStep(out ObjectInstance nextItem);
 
     /// <summary>
+    /// Steps the iterator and hands back the value directly, letting concrete iterators skip
+    /// the per-step IteratorResult object when nothing user-visible needs it (for-in keys).
+    /// The default wraps <see cref="TryIteratorStep"/> with exactly the read the for-in/of
+    /// loop used to perform, so behavior is unchanged for every other iterator.
+    /// </summary>
+    internal virtual bool TryStepValue([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out JsValue? value)
+    {
+        if (!TryIteratorStep(out var result))
+        {
+            value = null;
+            return false;
+        }
+
+        value = result.Get(CommonProperties.Value);
+        return true;
+    }
+
+    /// <summary>
     /// https://tc39.es/ecma262/#sec-iteratornext
     /// IteratorNext with an optional value argument, using the cached [[NextMethod]].
     /// </summary>
@@ -238,6 +256,157 @@ internal abstract class IteratorInstance : ObjectInstance
 
             nextItem = CreateIterResultObject(match, false);
             return true;
+        }
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-enumerate-object-properties
+    /// for-in key enumerator: walks own string keys level by level up the prototype chain,
+    /// probing presence and enumerability per key at step time (a key deleted before its turn
+    /// is skipped). Keys seen as present on shallower levels are tracked in a plain list; the
+    /// hash set that shadow-filters deeper levels materializes only when a deeper level
+    /// actually produces a present key — enumerating an object whose prototypes contribute
+    /// nothing (the common case: every Object.prototype / Array.prototype member is
+    /// non-enumerable... but present, so they still probe) allocates no per-step result
+    /// objects and no nested per-level iterator machinery.
+    /// </summary>
+    internal sealed class ForInIterator : IteratorInstance
+    {
+        private ObjectInstance? _current;
+        private List<JsValue> _keys;
+        private int _index;
+        private bool _deeperLevel;
+        private List<CompletedLevel>? _completedLevels;
+        private HashSet<JsValue>? _visited;
+
+        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
+        private readonly record struct CompletedLevel(ObjectInstance Owner, List<JsValue> Keys);
+
+        public ForInIterator(Engine engine, ObjectInstance target) : base(engine)
+        {
+            _current = target;
+            // matches the previous lazy enumerator's first step closely enough: no user code
+            // can observe between head evaluation and the first step, so the ownKeys order
+            // for proxies is preserved; GetPrototypeOf is deliberately NOT consulted here
+            // (a proxy trap must not fire before the first level is exhausted)
+            _keys = target.GetOwnPropertyKeys(Types.String);
+        }
+
+        internal override bool TryStepValue([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out JsValue? value)
+        {
+            while (_current is not null)
+            {
+                var current = _current;
+                var keys = _keys;
+                while (_index < keys.Count)
+                {
+                    var key = keys[_index++];
+                    var probe = current.ProbeOwnProperty(key);
+                    if (probe == OwnPropertyProbe.Missing)
+                    {
+                        // deleted before its turn — not visited, does not shadow
+                        continue;
+                    }
+
+                    if (_deeperLevel)
+                    {
+                        if (_visited is null)
+                        {
+                            if (probe != OwnPropertyProbe.Enumerable)
+                            {
+                                // present but non-enumerable: never yields, and its shadowing
+                                // of still-deeper levels is reconstructed from the retained
+                                // level snapshots if a set is ever needed
+                                continue;
+                            }
+
+                            _visited = BuildVisited(current, keys, _index - 1);
+                        }
+
+                        if (!_visited.Add(key))
+                        {
+                            continue; // shadowed by a shallower level
+                        }
+                    }
+
+                    if (probe == OwnPropertyProbe.Enumerable)
+                    {
+                        value = key;
+                        return true;
+                    }
+                }
+
+                var proto = current.GetPrototypeOf();
+                if (proto is null)
+                {
+                    _current = null;
+                    break;
+                }
+
+                if (_visited is null)
+                {
+                    // retain the exhausted level's snapshot (a list reference, no copy) so a
+                    // later set build can reconstruct what it shadowed
+                    (_completedLevels ??= []).Add(new CompletedLevel(current, keys));
+                }
+
+                _deeperLevel = true;
+                _current = proto;
+                _keys = proto.GetOwnPropertyKeys(Types.String);
+                _index = 0;
+            }
+
+            value = null;
+            return false;
+        }
+
+        /// <summary>
+        /// First enumerable candidate on a deeper level: build the shadow set from every
+        /// shallower level's retained snapshot plus the already-processed prefix of the
+        /// current level, re-probing each key on its owning object. Prototype members are
+        /// overwhelmingly non-enumerable, so most enumerations never get here.
+        /// </summary>
+        private HashSet<JsValue> BuildVisited(ObjectInstance current, List<JsValue> currentKeys, int processedCount)
+        {
+            var set = new HashSet<JsValue>();
+            if (_completedLevels is not null)
+            {
+                foreach (var level in _completedLevels)
+                {
+                    var levelKeys = level.Keys;
+                    for (var i = 0; i < levelKeys.Count; i++)
+                    {
+                        if (level.Owner.ProbeOwnProperty(levelKeys[i]) != OwnPropertyProbe.Missing)
+                        {
+                            set.Add(levelKeys[i]);
+                        }
+                    }
+                }
+
+                _completedLevels = null;
+            }
+
+            for (var i = 0; i < processedCount; i++)
+            {
+                if (current.ProbeOwnProperty(currentKeys[i]) != OwnPropertyProbe.Missing)
+                {
+                    set.Add(currentKeys[i]);
+                }
+            }
+
+            return set;
+        }
+
+        public override bool TryIteratorStep(out ObjectInstance nextItem)
+        {
+            if (TryStepValue(out var value))
+            {
+                nextItem = IteratorResult.CreateValueIteratorPosition(_engine, value);
+                return true;
+            }
+
+            nextItem = IteratorResult.CreateValueIteratorPosition(_engine, done: JsBoolean.True);
+            return false;
         }
     }
 

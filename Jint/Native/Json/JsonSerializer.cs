@@ -608,8 +608,7 @@ public sealed class JsonSerializer
             for (var i = 0; i < keys.Count; i++)
             {
                 var key = keys[i];
-                var desc = instance.GetOwnProperty(key);
-                if (desc == PropertyDescriptor.Undefined || !desc.Enumerable)
+                if (instance.ProbeOwnProperty(key) != OwnPropertyProbe.Enumerable)
                 {
                     keys.RemoveAt(i);
                     i--;

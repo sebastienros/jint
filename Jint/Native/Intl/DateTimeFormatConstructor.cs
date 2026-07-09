@@ -23,7 +23,7 @@ internal enum DateTimeDefaults { Date, Time, YearMonth, MonthDay, ZonedDateTime,
 /// <summary>
 /// https://tc39.es/ecma402/#sec-intl-datetimeformat-constructor
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class DateTimeFormatConstructor : Constructor
 {
     private static readonly JsString _functionName = new("DateTimeFormat");

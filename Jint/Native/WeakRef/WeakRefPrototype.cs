@@ -7,7 +7,7 @@ namespace Jint.Native.WeakRef;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-the-weak-ref-prototype-object
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class WeakRefPrototype : Prototype
 {
     [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]

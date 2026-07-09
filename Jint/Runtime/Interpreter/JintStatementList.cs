@@ -26,8 +26,11 @@ internal sealed class JintStatementList
     private readonly Statement? _statement;
     private readonly CompletionValueObservability _observability;
 
+    // This class must stay immutable after construction: instances are cached on shared
+    // interpreter handlers (function definitions, blocks, switch cases) and executed by
+    // multiple live generator / async function instances concurrently. Per-execution
+    // resume positions live on the suspendable (SuspendDataDictionary), not here.
     private readonly Pair[] _jintStatements;
-    private uint _index;
 
     public JintStatementList(IFunction function) : this((FunctionBody) function.Body)
     {
@@ -89,9 +92,14 @@ internal sealed class JintStatementList
             context.CompletionValuesObservable = _observability == CompletionValueObservability.Observable;
         }
 
+        // The resume position is stored per suspendable instance: this list is shared by
+        // every live generator / async function created from the same declaration, and the
+        // frame's suspendable is fixed for the duration of this call.
+        var suspendable = context.Engine.ExecutionContext.Suspendable;
+
         // The value of a StatementList is the value of the last value-producing item in the StatementList
         var lastValue = JsEmpty.Instance;
-        var i = _index;
+        var i = suspendable is not null ? suspendable.Data.GetStatementListPosition(this) : 0;
         var temp = _jintStatements!;
         try
         {
@@ -114,22 +122,21 @@ internal sealed class JintStatementList
                 }
 
                 // Check for suspension (generator yield or async await)
-                var suspendable = context.Engine.ExecutionContext.Suspendable;
                 if (context.IsSuspended())
                 {
                     // Save position for resume - we'll re-execute this statement on resume
                     // The yield/await tracking handles knowing which suspension point to resume from
-                    _index = i;
+                    suspendable!.Data.SetStatementListPosition(this, i);
                     // Use the suspended value, as the statement's completion value
                     // might be different (e.g., variable declarations return Empty, not the yielded value)
-                    var suspendedValue = suspendable?.SuspendedValue ?? c.Value;
+                    var suspendedValue = suspendable.SuspendedValue ?? c.Value;
                     return new Completion(CompletionType.Return, suspendedValue, pair.Statement._statement);
                 }
 
                 // Check for return request (from generator.return() call)
                 if (suspendable?.ReturnRequested == true)
                 {
-                    Reset();
+                    suspendable.Data.ClearStatementListPosition(this);
                     var returnValue = suspendable.SuspendedValue ?? c.Value;
                     return new Completion(CompletionType.Return, returnValue, pair.Statement._statement);
                 }
@@ -141,7 +148,7 @@ internal sealed class JintStatementList
                         var asyncFunction = context.Engine.ExecutionContext.AsyncFunction;
                         if (asyncFunction?._body != this)
                         {
-                            Reset();
+                            suspendable?.Data.ClearStatementListPosition(this);
                         }
                     }
 
@@ -155,20 +162,20 @@ internal sealed class JintStatementList
                 }
             }
 
-            // Reset index after normal loop completion for potential re-execution
+            // Clear the saved position after normal loop completion for potential re-execution
             // (e.g., this block is a for-of body that will execute again on next iteration)
-            // But don't reset for async function/module bodies - if pending promise reactions
+            // But don't clear for async function/module bodies - if pending promise reactions
             // call AsyncFunctionResume after completion, we shouldn't re-execute from start.
             // Async bodies should complete exactly once.
             var currentAsyncFn = context.Engine.ExecutionContext.AsyncFunction;
             if (currentAsyncFn?._body != this)
             {
-                _index = 0;
+                suspendable?.Data.ClearStatementListPosition(this);
             }
         }
         catch (Exception ex)
         {
-            Reset();
+            suspendable?.Data.ClearStatementListPosition(this);
 
             if (ex is JintException)
             {
@@ -324,12 +331,5 @@ internal sealed class JintStatementList
         }
 
         dictionary.CheckExistingKeys = true;
-    }
-
-    public bool Completed => _index == _jintStatements?.Length;
-
-    public void Reset()
-    {
-        _index = 0;
     }
 }

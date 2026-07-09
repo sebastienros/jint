@@ -8,7 +8,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Map;
 
-[JsObject]
+[JsObject(UseShape = true)]
 public sealed partial class MapConstructor : Constructor
 {
     private static readonly JsString _functionName = new("Map");

@@ -8,10 +8,20 @@ namespace Jint.Native.Intl;
 /// <summary>
 /// https://tc39.es/ecma402/#intl-object
 /// </summary>
-// ExtraCapacity = 10 covers the post-Initialize SetProperty calls below for the 10 sub-namespace
-// constructor refs (Collator/DateTimeFormat/.../Segmenter), which can't be expressed via [JsProperty]
-// because they read from _realm.Intrinsics.X (not generator-friendly).
-[JsObject(ExtraCapacity = 10)]
+// The 10 sub-namespace constructor references (Collator/DateTimeFormat/.../Segmenter) are lazy
+// realm-intrinsic references, emitted by the generator exactly like globalThis's constructor
+// properties (see GlobalObject.Properties.cs): each resolves _realm.Intrinsics.X on first read.
+[JsIntrinsicReference("Collator")]
+[JsIntrinsicReference("DateTimeFormat")]
+[JsIntrinsicReference("DisplayNames")]
+[JsIntrinsicReference("DurationFormat")]
+[JsIntrinsicReference("ListFormat")]
+[JsIntrinsicReference("Locale")]
+[JsIntrinsicReference("NumberFormat")]
+[JsIntrinsicReference("PluralRules")]
+[JsIntrinsicReference("RelativeTimeFormat")]
+[JsIntrinsicReference("Segmenter")]
+[JsObject(UseShape = true)]
 internal sealed partial class IntlInstance : ObjectInstance
 {
     private readonly Realm _realm;
@@ -36,20 +46,6 @@ internal sealed partial class IntlInstance : ObjectInstance
     {
         CreateProperties_Generated();
         CreateSymbols_Generated();
-
-        // Constructor references aren't generator-friendly (they pull from _realm.Intrinsics);
-        // register them after generated properties to avoid a separate generator feature.
-        const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
-        SetProperty("Collator", new PropertyDescriptor(_realm.Intrinsics.Collator, PropertyFlags));
-        SetProperty("DateTimeFormat", new PropertyDescriptor(_realm.Intrinsics.DateTimeFormat, PropertyFlags));
-        SetProperty("DisplayNames", new PropertyDescriptor(_realm.Intrinsics.DisplayNames, PropertyFlags));
-        SetProperty("DurationFormat", new PropertyDescriptor(_realm.Intrinsics.DurationFormat, PropertyFlags));
-        SetProperty("ListFormat", new PropertyDescriptor(_realm.Intrinsics.ListFormat, PropertyFlags));
-        SetProperty("Locale", new PropertyDescriptor(_realm.Intrinsics.Locale, PropertyFlags));
-        SetProperty("NumberFormat", new PropertyDescriptor(_realm.Intrinsics.NumberFormat, PropertyFlags));
-        SetProperty("PluralRules", new PropertyDescriptor(_realm.Intrinsics.PluralRules, PropertyFlags));
-        SetProperty("RelativeTimeFormat", new PropertyDescriptor(_realm.Intrinsics.RelativeTimeFormat, PropertyFlags));
-        SetProperty("Segmenter", new PropertyDescriptor(_realm.Intrinsics.Segmenter, PropertyFlags));
     }
 
     /// <summary>

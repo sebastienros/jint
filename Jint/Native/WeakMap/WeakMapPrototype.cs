@@ -9,7 +9,7 @@ namespace Jint.Native.WeakMap;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-weakmap-objects
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class WeakMapPrototype : Prototype
 {
     [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]

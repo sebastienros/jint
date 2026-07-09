@@ -10,7 +10,7 @@ namespace Jint.Native.WeakSet;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-weakset-objects
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class WeakSetPrototype : Prototype
 {
     [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]

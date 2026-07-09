@@ -7,7 +7,7 @@ namespace Jint.Native.Intl;
 /// <summary>
 /// https://tc39.es/ecma402/#sec-properties-of-intl-relativetimeformat-prototype-object
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class RelativeTimeFormatPrototype : Prototype
 {
     private static readonly string[] ValidUnits = ["second", "seconds", "minute", "minutes", "hour", "hours", "day", "days", "week", "weeks", "month", "months", "quarter", "quarters", "year", "years"];

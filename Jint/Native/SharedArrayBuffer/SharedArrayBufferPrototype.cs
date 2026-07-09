@@ -7,7 +7,7 @@ namespace Jint.Native.SharedArrayBuffer;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-the-sharedarraybuffer-prototype-object
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class SharedArrayBufferPrototype : Prototype
 {
     [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]

@@ -18,7 +18,7 @@ namespace Jint.Native.Array;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-the-array-prototype-object
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 public sealed partial class ArrayPrototype : ArrayInstance
 {
     private const int ConstraintCheckInterval = Engine.ConstraintCheckInterval;

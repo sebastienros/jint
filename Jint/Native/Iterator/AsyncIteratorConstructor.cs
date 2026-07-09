@@ -11,7 +11,7 @@ namespace Jint.Native.Iterator;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-asynciterator-constructor
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class AsyncIteratorConstructor : Constructor
 {
     private static readonly JsString _functionName = new("AsyncIterator");
@@ -135,7 +135,7 @@ internal sealed class WrapForValidAsyncIterator : ObjectInstance
 /// <summary>
 /// https://tc39.es/ecma262/#sec-%wrapforvalidasynciteratorprototype%-object
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class WrapForValidAsyncIteratorPrototype : Prototype
 {
     internal WrapForValidAsyncIteratorPrototype(

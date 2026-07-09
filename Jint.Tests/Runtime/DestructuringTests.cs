@@ -118,4 +118,48 @@ public class DestructuringTests
         result = result.UnwrapIfPromise();
         Assert.Equal(1, result.AsInteger());
     }
+
+    [Fact]
+    public void ComputedKeysEvaluateAnyExpressionType()
+    {
+        // TryGetComputedPropertyKey used to have a node-type allowlist with a silent Undefined
+        // fallback: computed keys like a parenthesized sequence or `new` expression bound the
+        // property "undefined" and never ran the key expression (side effects were skipped).
+        var engine = new Engine();
+
+        // SequenceExpression key in parameter-position destructuring — must evaluate (side effect!)
+        // and bind the right property.
+        var result = engine.Evaluate("""
+            var calls = 0;
+            function fb(x, { [(calls++, "k")]: v }) { return v; }
+            fb(1, { k: 6 }) + ':' + calls;
+            """);
+        Assert.Equal("6:1", result.AsString());
+
+        // NewExpression key (key comes from the constructed object's toString).
+        result = engine.Evaluate("""
+            function KeyObj() {} KeyObj.prototype.toString = function() { return 'nk'; };
+            function fc(x, { [new KeyObj()]: v }) { return v; }
+            fc(1, { nk: 7 });
+            """);
+        Assert.Equal(7, result.AsNumber());
+
+        // Same expression types in object literals and non-parameter destructuring.
+        result = engine.Evaluate("""
+            var calls2 = 0;
+            var o = { [(calls2++, 'a')]: 1, [new KeyObj()]: 2 };
+            var { [(calls2++, 'a')]: a } = o;
+            [o.a, o.nk, a, calls2].join(',');
+            """);
+        Assert.Equal("1,2,1,2", result.AsString());
+
+        // ChainExpression (optional chaining) and TaggedTemplateExpression keys.
+        result = engine.Evaluate("""
+            var holder = { key: 'c' };
+            function tag(strings) { return 't' + strings[0]; }
+            var o2 = { [holder?.key]: 3, [tag`x`]: 4 };
+            [o2.c, o2.tx].join(',');
+            """);
+        Assert.Equal("3,4", result.AsString());
+    }
 }

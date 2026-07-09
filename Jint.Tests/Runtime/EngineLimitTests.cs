@@ -1,5 +1,7 @@
 #if !NETFRAMEWORK
+#nullable enable
 
+using System.Runtime.ExceptionServices;
 using System.Text;
 using Jint.Runtime;
 
@@ -17,18 +19,42 @@ public class EngineLimitTests
     [Fact]
     public void ShouldAllowReasonableCallStackDepth()
     {
-        if (OperatingSystem.IsMacOS())
+        // A default engine has no stack guard (MaxExecutionStackCount is disabled), so this nesting
+        // depth runs directly against the native stack. The test runner's worker thread has an
+        // unpredictable amount of stack left, which made this test crash the process intermittently
+        // (0xC00000FD) — run on a dedicated thread with an explicit stack instead. The explicit stack
+        // also makes the test platform-independent (the old macOS skip is no longer needed). The size
+        // is deliberately generous: StackOverflowException is uncatchable and would kill the whole test
+        // process, so this is a functional smoke test of deep call chains, not a per-frame native-stack
+        // budget test (platforms differ too much in frame size for a tight budget to be safe).
+        RunOnDedicatedThread(static () =>
         {
-            // stack limit differ quite a lot
-            return;
-        }
+            var script = GenerateCallTree(FunctionNestingCount);
 
-        var script = GenerateCallTree(FunctionNestingCount);
+            var engine = new Engine();
+            engine.Execute(script);
+            Assert.Equal(123, engine.Evaluate("func1(123);").AsNumber());
+            Assert.Equal(FunctionNestingCount, engine.Evaluate("x").AsNumber());
+        });
+    }
 
-        var engine = new Engine();
-        engine.Execute(script);
-        Assert.Equal(123, engine.Evaluate("func1(123);").AsNumber());
-        Assert.Equal(FunctionNestingCount, engine.Evaluate("x").AsNumber());
+    private static void RunOnDedicatedThread(Action action)
+    {
+        ExceptionDispatchInfo? exception = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception e)
+            {
+                exception = ExceptionDispatchInfo.Capture(e);
+            }
+        }, maxStackSize: 16 * 1024 * 1024);
+        thread.Start();
+        thread.Join();
+        exception?.Throw();
     }
 
     [Fact]
@@ -65,7 +91,7 @@ public class EngineLimitTests
         }
     }
 
-    private string GenerateCallTree(int functionNestingCount)
+    private static string GenerateCallTree(int functionNestingCount)
     {
         var sb = new StringBuilder();
         sb.AppendLine("var x = 1;");

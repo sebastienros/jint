@@ -12,7 +12,7 @@ namespace Jint.Native.Intl;
 /// <summary>
 /// https://tc39.es/ecma402/#sec-intl-numberformat-constructor
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class NumberFormatConstructor : Constructor
 {
     private static readonly JsString _functionName = new("NumberFormat");

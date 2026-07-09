@@ -28,6 +28,12 @@ internal sealed class JintFunctionDefinition
     public readonly string? Name;
     public readonly IFunction Function;
 
+    // True for definitions created by the Function constructor (CreateDynamicFunction). Their
+    // definition lives in the per-realm dynamic-function cache and every `new Function(...)`
+    // produces a fresh ScriptFunction instance, which changes where call environments can be
+    // safely and usefully cached — see State._dynamicCachedEnv.
+    public bool IsDynamic;
+
     // Stores the AST node needed for creating the source text.
     // (This might be different from the Function node, e.g., in the case of class methods.)
     public readonly INode SourceTextNode;
@@ -146,8 +152,9 @@ internal sealed class JintFunctionDefinition
         var arguments = argumentsList;
 
         var promiseCapability = PromiseConstructor.NewPromiseCapability(context.Engine, context.Engine.Realm.Intrinsics.Promise);
-        // Each async function invocation needs its own JintStatementList to track its own position
-        var bodyStatementList = new JintStatementList(Function);
+        // The statement list is immutable and shareable across invocations: each invocation's
+        // resume position lives on its AsyncFunctionInstance (SuspendDataDictionary).
+        var bodyStatementList = _bodyStatementList ??= new JintStatementList(Function);
         AsyncFunctionStart(context, promiseCapability, bodyStatementList, context =>
         {
             context.Engine.FunctionDeclarationInstantiation(context, function, arguments);
@@ -292,10 +299,10 @@ internal sealed class JintFunctionDefinition
             static intrinsics => intrinsics.GeneratorFunction.PrototypeObject.PrototypeObject,
             static (Engine engine, Realm _, object? _) => new GeneratorInstance(engine));
 
-        // Each generator instance needs its own JintStatementList to track its own resume
-        // position — a shared cached list lets interleaved generators created from the same
-        // declaration corrupt each other's saved position (same rule as async function bodies).
-        G.GeneratorStart(new JintStatementList(Function));
+        // The statement list is immutable and shareable across generator instances:
+        // each instance's resume position lives on the instance itself (SuspendDataDictionary).
+        _bodyStatementList ??= new JintStatementList(Function);
+        G.GeneratorStart(_bodyStatementList);
 
         return new Completion(CompletionType.Return, G, Function.Body);
     }
@@ -315,8 +322,9 @@ internal sealed class JintFunctionDefinition
             static intrinsics => intrinsics.AsyncGeneratorFunction.PrototypeObject.PrototypeObject,
             static (Engine engine, Realm _, object? _) => new AsyncGeneratorInstance(engine));
 
-        // See EvaluateGeneratorBody: resume position must be per generator instance.
-        G.AsyncGeneratorStart(new JintStatementList(Function));
+        // See EvaluateGeneratorBody: the shared list is safe, positions are per instance.
+        _bodyStatementList ??= new JintStatementList(Function);
+        G.AsyncGeneratorStart(_bodyStatementList);
 
         return new Completion(CompletionType.Return, G, Function.Body);
     }
@@ -373,77 +381,31 @@ internal sealed class JintFunctionDefinition
         /// </summary>
         public bool CanUseEmptyFDI;
         public bool EnvironmentMayEscape;
-        // True when the function body contains a direct call to itself by name. For tight
-        // recursion (e.g. fib/ack/tak), the per-call pool fields below add atomic-op overhead
-        // without saving allocations: the single pool slot can only cache the topmost frame —
-        // every recursive call beyond that allocates a fresh env anyway. Bypass the pool here.
+        // True when the function body contains a direct call to itself by name. Tight recursion
+        // (e.g. fib/ack/tak) keeps several frames live at once, which a single-slot per-call reuse cache
+        // cannot serve — only the topmost frame would ever be reusable. Such functions use the bounded
+        // RecursiveEnvPool on the function instance instead so each live frame reuses a distinct env.
+        //
+        // NOTE: call ENVIRONMENTS are cached on the ScriptFunction instance (_envReuse), not on this
+        // State. A prepared script's State is shared across engines, and an environment roots its creating
+        // engine, so pooling environments here kept the last engine that ran each function alive (issue
+        // #2560). The slot array below is different: it is cleared before being cached, holds no engine
+        // references, and so can safely be shared across instances and engines.
         public bool IsDirectRecursive;
+
+        // Cleared fixed-slot Binding[] reused by the next call to any function instance sharing this State
+        // (also across engines — e.g. freshly created instances when a prepared script is re-evaluated).
+        // Interlocked is required: parallel test fixtures share cached States (see PR #2418 fallout).
         public Binding[]? _cachedSlots;
-        public Environments.FunctionEnvironment? _cachedEnv;
 
-        // Bounded best-effort reuse pool for direct-recursive activations. The single _cachedEnv slot
-        // above can only hold the topmost frame, so recursion otherwise allocates a fresh env+slots per
-        // call; this lets each of several simultaneously live frames rent a distinct env (with its
-        // cleared fixed-slot Binding[] still attached). Per-slot Interlocked keeps it safe for the
-        // parallel fixtures that share a cached State (see state_pool_thread_safety); the count is an
-        // occupancy hint so the common "pool empty during a deep descent" case skips the scan entirely.
-        // Bounded so deep recursion cannot retain an unbounded number of environments.
-        private const int RecursiveEnvPoolSize = 16;
-        private Environments.FunctionEnvironment?[]? _recursiveEnvPool;
-        private int _recursiveEnvPoolCount;
-
-        internal Environments.FunctionEnvironment? TryRentRecursiveEnv()
-        {
-            if (System.Threading.Volatile.Read(ref _recursiveEnvPoolCount) == 0)
-            {
-                return null;
-            }
-
-            var pool = _recursiveEnvPool;
-            if (pool is null)
-            {
-                return null;
-            }
-
-            for (var i = 0; i < pool.Length; i++)
-            {
-                var env = System.Threading.Interlocked.Exchange(ref pool[i], null);
-                if (env is not null)
-                {
-                    System.Threading.Interlocked.Decrement(ref _recursiveEnvPoolCount);
-                    return env;
-                }
-            }
-
-            return null;
-        }
-
-        internal void ReturnRecursiveEnv(Environments.FunctionEnvironment env)
-        {
-            // Drop cheaply when the pool is already full — otherwise a deep recursion (depth >> pool
-            // size) would scan every slot only to fail on each return during the unwind.
-            if (System.Threading.Volatile.Read(ref _recursiveEnvPoolCount) >= RecursiveEnvPoolSize)
-            {
-                return;
-            }
-
-            var pool = _recursiveEnvPool ?? EnsureRecursiveEnvPool();
-            for (var i = 0; i < pool.Length; i++)
-            {
-                if (System.Threading.Interlocked.CompareExchange(ref pool[i], env, null) is null)
-                {
-                    System.Threading.Interlocked.Increment(ref _recursiveEnvPoolCount);
-                    return;
-                }
-            }
-            // Pool full: drop this env and let it be collected.
-        }
-
-        private Environments.FunctionEnvironment?[] EnsureRecursiveEnvPool()
-        {
-            var created = new Environments.FunctionEnvironment?[RecursiveEnvPoolSize];
-            return System.Threading.Interlocked.CompareExchange(ref _recursiveEnvPool, created, null) ?? created;
-        }
+        // Exception to the "no environments on State" rule above, for Function-constructor
+        // definitions only (JintFunctionDefinition.IsDynamic): their definition lives in the
+        // per-realm dynamic-function cache and is never shared across engines, while every
+        // `new Function(...)` call produces a fresh ScriptFunction whose per-instance cache can
+        // never warm. Parking the call environment here keeps one stable environment identity
+        // across those one-shot instances, which is what the shared statement tree's per-node
+        // slot caches key on. Interlocked for the same reason as _cachedSlots.
+        public FunctionEnvironment? _dynamicCachedEnv;
 
         public SourceText SourceText;
 
@@ -727,10 +689,10 @@ internal sealed class JintFunctionDefinition
             state.EnvironmentMayEscape = EnvironmentEscapeAstVisitor.MayEscape(function);
         }
 
-        // Detect direct named self-call (function fib(n) { ...fib(n-1)... }). For these, the
-        // env pool's single slot is useless — only the topmost frame benefits, the rest allocate
-        // anyway — and the 4 Interlocked.Exchange ops per call dominate over the saved allocs
-        // on tight recursion (controlflow-recursive: ~500k calls per iteration).
+        // Detect direct named self-call (function fib(n) { ...fib(n-1)... }). For these, the single-env
+        // reuse cache is useless — only the topmost frame would ever be reusable, every deeper frame
+        // allocates anyway — so they use the bounded RecursiveEnvPool on the function instance instead
+        // (tight recursion, e.g. controlflow-recursive: ~500k calls per iteration).
         var name = function.Id?.Name;
         if (name is not null && !state.EnvironmentMayEscape)
         {
@@ -1031,6 +993,19 @@ Start:
     {
         internal static bool MayEscape(IFunction function)
         {
+            // Parameter default/pattern expressions can contain closures (and direct eval) too:
+            // `function f(a, get = function () { return a; }) { return get; }` — the escaped closure
+            // resolves `a` through the call's environment chain, so the environment must not be reused.
+            // (MayEscapeWithReferences doesn't need this: fixed slots require !HasParameterExpressions,
+            // so its parameters are always plain identifiers.)
+            foreach (var parameter in function.Params)
+            {
+                if (!parameter.ChildNodes.IsEmpty() && MayEscape(parameter))
+                {
+                    return true;
+                }
+            }
+
             var body = function.Body;
             if (IsCapturing(body))
             {
@@ -1166,6 +1141,18 @@ Start:
                         }
                     }
                     continue;
+                }
+
+                // The call's FunctionEnvironment also carries the this-binding, new.target and the
+                // super base — an arrow (transitively) captures those lexically, so a closure whose
+                // only dependency is `this`/`new.target`/`super` still pins the environment:
+                //   function f(a) { var h = () => this; return h; }
+                // Reusing the env would rebind `this` under the escaped arrow. Conservative: any such
+                // node in the subtree counts as a reference (a nested non-arrow function's `this` would
+                // actually re-bind, but that over-approximation is cheap and always safe).
+                if (childNode.Type is NodeType.ThisExpression or NodeType.MetaProperty or NodeType.Super)
+                {
+                    return true;
                 }
 
                 // eval() inside the closure can access any outer variable

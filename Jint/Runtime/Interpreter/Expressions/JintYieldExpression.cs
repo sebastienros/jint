@@ -10,8 +10,11 @@ namespace Jint.Runtime.Interpreter.Expressions;
 
 internal sealed class JintYieldExpression : JintExpression
 {
+    private readonly JintExpression? _argument;
+
     public JintYieldExpression(YieldExpression expression) : base(expression)
     {
+        _argument = expression.Argument is not null ? Build(expression.Argument) : null;
     }
 
     protected override object EvaluateInternal(EvaluationContext context)
@@ -171,9 +174,9 @@ internal sealed class JintYieldExpression : JintExpression
 
         // Normal yield: evaluate argument and yield the value
         JsValue value;
-        if (expression.Argument is not null)
+        if (_argument is not null)
         {
-            value = Build(expression.Argument).GetValue(context);
+            value = _argument.GetValue(context);
 
             // If the argument evaluation suspended the generator (nested yield), propagate
             // the suspension up without yielding again - the inner yield already suspended

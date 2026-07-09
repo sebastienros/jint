@@ -8,7 +8,7 @@ namespace Jint.Native.Map;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-%mapiteratorprototype%-object
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class MapIteratorPrototype : IteratorPrototype
 {
     [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString MapIteratorToStringTag = new("Map Iterator");
@@ -31,7 +31,7 @@ internal sealed partial class MapIteratorPrototype : IteratorPrototype
 
     internal IteratorInstance ConstructEntryIterator(JsMap map)
     {
-        var instance = new MapIterator(Engine, map)
+        var instance = new MapIterator(Engine, map, MapIteratorKind.KeyAndValue)
         {
             _prototype = this
         };
@@ -41,7 +41,7 @@ internal sealed partial class MapIteratorPrototype : IteratorPrototype
 
     internal IteratorInstance ConstructKeyIterator(JsMap map)
     {
-        var instance = new IteratorInstance.EnumerableIterator(Engine, map._map.Keys)
+        var instance = new MapIterator(Engine, map, MapIteratorKind.Key)
         {
             _prototype = this
         };
@@ -51,7 +51,7 @@ internal sealed partial class MapIteratorPrototype : IteratorPrototype
 
     internal IteratorInstance ConstructValueIterator(JsMap map)
     {
-        var instance = new IteratorInstance.EnumerableIterator(Engine, map._map.Values)
+        var instance = new MapIterator(Engine, map, MapIteratorKind.Value)
         {
             _prototype = this
         };
@@ -59,16 +59,25 @@ internal sealed partial class MapIteratorPrototype : IteratorPrototype
         return instance;
     }
 
+    private enum MapIteratorKind
+    {
+        Key,
+        Value,
+        KeyAndValue,
+    }
+
     private sealed class MapIterator : IteratorInstance
     {
         private readonly JintOrderedDictionary<JsValue, JsValue> _map;
+        private readonly MapIteratorKind _kind;
         private int _position;
         private JsValue? _lastKey;
         private bool _done;
 
-        public MapIterator(Engine engine, JsMap map) : base(engine)
+        public MapIterator(Engine engine, JsMap map, MapIteratorKind kind) : base(engine)
         {
             _map = map._map;
+            _kind = kind;
             _position = 0;
         }
 
@@ -107,10 +116,14 @@ internal sealed partial class MapIteratorPrototype : IteratorPrototype
             if (_position < _map.Count)
             {
                 var key = _map.GetKey(_position);
-                var value = _map[key];
                 _lastKey = key;
                 _position++;
-                nextItem = IteratorResult.CreateKeyValueIteratorPosition(_engine, key, value);
+                nextItem = _kind switch
+                {
+                    MapIteratorKind.Key => IteratorResult.CreateValueIteratorPosition(_engine, key),
+                    MapIteratorKind.Value => IteratorResult.CreateValueIteratorPosition(_engine, _map[key]),
+                    _ => IteratorResult.CreateKeyValueIteratorPosition(_engine, key, _map[key]),
+                };
                 return true;
             }
 

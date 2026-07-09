@@ -36,6 +36,17 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
     private readonly JintExpression? _forInVarInitializer;
     private readonly string? _forInVarName;
 
+    // Per-iteration environment reuse: for-of/for-in create a fresh binding per iteration with
+    // no copy step, so when nothing in the body (or a destructuring default) captures the
+    // environment, one fixed-slot environment reset per iteration is unobservable — and its
+    // stable identity keeps per-node slot caches in the body hot. The pooled instance lives on
+    // this handler (per statement list); the Interlocked + engine-identity discipline mirrors
+    // JintForStatement._cachedLoopEnv (a cached env must never pin a foreign engine, #2560).
+    private readonly bool _canReuseIterationEnv;
+    private readonly Key[]? _iterationSlotNames;
+    private readonly Binding[]? _iterationSlotTemplates;
+    private DeclarativeEnvironment? _cachedIterationEnv;
+
     public JintForInForOfStatement(ForInStatement statement) : base(statement)
     {
         _leftNode = statement.Left;
@@ -53,6 +64,8 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
             _forInVarInitializer = JintExpression.Build(varDecl.Declarations[0].Init!);
             _forInVarName = id.Name;
         }
+
+        InitializeIterationEnvReuse(out _canReuseIterationEnv, out _iterationSlotNames, out _iterationSlotTemplates);
     }
 
     public JintForInForOfStatement(ForOfStatement statement) : base(statement)
@@ -64,6 +77,55 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         InitializeLhs(out _lhsKind, out _disposeHint, out _tdzNames, out _destructuring, out _assignmentPattern, out _expr);
         _body = new ProbablyBlockStatement(_forBody);
         _right = JintExpression.Build(_rightExpression);
+
+        InitializeIterationEnvReuse(out _canReuseIterationEnv, out _iterationSlotNames, out _iterationSlotTemplates);
+    }
+
+    private void InitializeIterationEnvReuse(out bool canReuse, out Key[]? slotNames, out Binding[]? slotTemplates)
+    {
+        canReuse = false;
+        slotNames = null;
+        slotTemplates = null;
+
+        // Only plain let/const heads qualify (using/await-using register per-iteration dispose
+        // resources on the environment), with 1-16 bindings, and nothing in the body — or in a
+        // destructuring pattern's default-value expressions — may capture or escape the
+        // per-iteration environment (closures, direct eval).
+        if (_lhsKind != LhsKind.LexicalBinding
+            || _disposeHint != DisposeHint.Normal
+            || _tdzNames is null
+            || _tdzNames.Count is 0 or > 16)
+        {
+            return;
+        }
+
+        if (JintFunctionDefinition.EnvironmentEscapeAstVisitor.IsCapturing(_forBody)
+            || JintFunctionDefinition.EnvironmentEscapeAstVisitor.MayEscape(_forBody))
+        {
+            return;
+        }
+
+        if (_destructuring
+            && (JintFunctionDefinition.EnvironmentEscapeAstVisitor.IsCapturing(_leftNode)
+                || JintFunctionDefinition.EnvironmentEscapeAstVisitor.MayEscape(_leftNode)))
+        {
+            return;
+        }
+
+        var kind = ((VariableDeclaration) _leftNode).Kind;
+        var names = new Key[_tdzNames.Count];
+        var templates = new Binding[_tdzNames.Count];
+        for (var i = 0; i < _tdzNames.Count; i++)
+        {
+            names[i] = _tdzNames[i];
+            templates[i] = kind == VariableDeclarationKind.Const
+                ? new Binding(null!, canBeDeleted: false, mutable: false, strict: true)
+                : new Binding(null!, canBeDeleted: false, mutable: true, strict: false);
+        }
+
+        slotNames = names;
+        slotTemplates = templates;
+        canReuse = true;
     }
 
     private void InitializeLhs(
@@ -214,17 +276,19 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
     {
         var engine = context.Engine;
         var oldEnv = engine.ExecutionContext.LexicalEnvironment;
-        var tdz = JintEnvironment.NewDeclarativeEnvironment(engine, oldEnv);
+
+        // Spec only requires the TDZ environment when there are TDZ names to protect (lexical
+        // heads); var/assignment forms evaluate the right-hand side in the current environment.
         if (_tdzNames != null)
         {
-            var TDZEnvRec = tdz;
+            var tdz = JintEnvironment.NewDeclarativeEnvironment(engine, oldEnv);
             foreach (var name in _tdzNames)
             {
-                TDZEnvRec.CreateMutableBinding(name);
+                tdz.CreateMutableBinding(name);
             }
-        }
 
-        engine.UpdateLexicalEnvironment(tdz);
+            engine.UpdateLexicalEnvironment(tdz);
+        }
 
         // AnnexB B.3.6: evaluate for-in initializer before the right-hand expression
         if (_forInVarInitializer is not null)
@@ -235,7 +299,10 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         }
 
         var exprValue = _right.GetValue(context);
-        engine.UpdateLexicalEnvironment(oldEnv);
+        if (_tdzNames != null)
+        {
+            engine.UpdateLexicalEnvironment(oldEnv);
+        }
 
         // Check if execution suspended during the right-hand-side evaluation (e.g., await in array)
         if (context.IsSuspended())
@@ -255,7 +322,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
             }
 
             var obj = TypeConverter.ToObject(engine.Realm, exprValue);
-            result = new IteratorInstance.EnumerableIterator(engine, obj.GetKeys());
+            result = new IteratorInstance.ForInIterator(engine, obj);
         }
         else if (_iterationKind == IterationKind.AsyncIterate)
         {
@@ -295,6 +362,26 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         {
             oldEnv = suspendData.OuterEnv;
             engine.UpdateLexicalEnvironment(oldEnv);
+        }
+
+        // Reusable fixed-slot iteration environment: gated on a non-suspendable context so a
+        // pooled env never round-trips through suspend/resume save-and-restore. ResetSlots at
+        // each iteration start re-establishes TDZ; the stable identity keeps body slot caches hot.
+        DeclarativeEnvironment? reusableEnv = null;
+        if (_canReuseIterationEnv && suspendable is null)
+        {
+            var cachedEnv = System.Threading.Interlocked.Exchange(ref _cachedIterationEnv, null);
+            if (cachedEnv is not null && ReferenceEquals(cachedEnv._engine, engine))
+            {
+                cachedEnv._outerEnv = oldEnv;
+                reusableEnv = cachedEnv;
+            }
+            else
+            {
+                reusableEnv = JintEnvironment.NewDeclarativeEnvironment(engine, oldEnv);
+                reusableEnv._slotNames = _iterationSlotNames;
+                reusableEnv._slots = (Binding[]) _iterationSlotTemplates!.Clone();
+            }
         }
 
         // Restore accumulated value if resuming
@@ -341,11 +428,9 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     asyncResumeData.CurrentValue = null;
                     resuming = false;
                 }
-                else
+                else if (iteratorKind == IteratorKind.Async)
                 {
                     ObjectInstance nextResult;
-
-                    if (iteratorKind == IteratorKind.Async)
                     {
                         // For async iteration, we need to await the Promise from next()
                         // Note: We need direct access to async instances for state manipulation in SuspendForAsyncIteration
@@ -421,19 +506,23 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                             }
                         }
                     }
-                    else
-                    {
-                        // Sync iteration - use existing TryIteratorStep
-                        if (!iteratorRecord.TryIteratorStep(out nextResult))
-                        {
-                            close = true;
-                            // Clean up suspend data on normal completion
-                            suspendable?.Data.Clear(this);
-                            return new Completion(CompletionType.Normal, v, _statement!);
-                        }
-                    }
 
                     nextValue = nextResult.Get(CommonProperties.Value);
+                }
+                else
+                {
+                    // Sync iteration; TryStepValue skips the per-step IteratorResult for
+                    // iterators that can (for-in keys) and is the same TryIteratorStep +
+                    // Get(value) sequence for everything else.
+                    if (!iteratorRecord.TryStepValue(out var steppedValue))
+                    {
+                        close = true;
+                        // Clean up suspend data on normal completion
+                        suspendable?.Data.Clear(this);
+                        return new Completion(CompletionType.Normal, v, _statement!);
+                    }
+
+                    nextValue = steppedValue;
                 }
 
                 close = true;
@@ -453,6 +542,15 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                         {
                             lhsRef = lhs!.Evaluate(context);
                         }
+                    }
+                    else if (reusableEnv is not null)
+                    {
+                        // Fresh per-iteration binding via slot reset (spec has no copy step for
+                        // for-in/of, so reuse is unobservable without captures). The single
+                        // identifier binding initializes straight into its slot below.
+                        ResetSlots(reusableEnv._slots!, _iterationSlotTemplates!);
+                        iterationEnv = reusableEnv;
+                        engine.UpdateLexicalEnvironment(iterationEnv);
                     }
                     else
                     {
@@ -478,7 +576,12 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
 
                     if (!destructuring)
                     {
-                        if (context.IsAbrupt())
+                        if (reusableEnv is not null)
+                        {
+                            // single bound name -> slot 0; ChangeValue preserves the const/let flags
+                            iterationEnv!.InitializeSlotBinding(0, nextValue);
+                        }
+                        else if (context.IsAbrupt())
                         {
                             close = true;
                             status = context.Completion;
@@ -726,7 +829,40 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     }
                 }
             }
+
+            // Park the reusable iteration environment for the next loop entry; reset at park
+            // time so the cached env doesn't root the completed loop's values or scope chain.
+            // Reuse is gated on non-suspendable contexts, so the loop cannot exit suspended.
+            if (reusableEnv is not null)
+            {
+                reusableEnv._outerEnv = null;
+                ResetSlots(reusableEnv._slots!, _iterationSlotTemplates!);
+                System.Threading.Interlocked.Exchange(ref _cachedIterationEnv, reusableEnv);
+            }
+
             engine.UpdateLexicalEnvironment(oldEnv);
+        }
+    }
+
+    /// <summary>
+    /// Reset the slots of a reused iteration environment to the pre-computed templates (every
+    /// binding back to uninitialized/TDZ). Hand-rolled small-array fast path: for-of/for-in
+    /// heads hold 1-2 bindings.
+    /// </summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    private static void ResetSlots(Binding[] slots, Binding[] templates)
+    {
+        var len = slots.Length;
+        if (len == templates.Length && len <= 4)
+        {
+            for (var i = 0; i < len; i++)
+            {
+                slots[i] = templates[i];
+            }
+        }
+        else
+        {
+            templates.AsSpan().CopyTo(slots);
         }
     }
 

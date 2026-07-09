@@ -49,7 +49,8 @@ public sealed class GetSetPropertyDescriptor : PropertyDescriptor
 
     internal sealed class ThrowerPropertyDescriptor : PropertyDescriptor
     {
-        private readonly Engine _engine;
+        private readonly Engine? _engine;
+        private readonly Realm? _realm;
         private JsValue? _thrower;
 
         public ThrowerPropertyDescriptor(Engine engine, PropertyFlag flags)
@@ -59,8 +60,20 @@ public sealed class GetSetPropertyDescriptor : PropertyDescriptor
             _engine = engine;
         }
 
-        public override JsValue Get => _thrower ??= _engine.Realm.Intrinsics.ThrowTypeError;
-        public override JsValue Set => _thrower ??= _engine.Realm.Intrinsics.ThrowTypeError;
+        /// <summary>
+        /// Realm-pinned variant for descriptors whose creation is deferred past the point where
+        /// the active realm still matches the owning object's realm (e.g. lazily materialized
+        /// arguments objects queried cross-realm) — %ThrowTypeError% is a per-realm intrinsic.
+        /// </summary>
+        public ThrowerPropertyDescriptor(Realm realm, PropertyFlag flags)
+            : base(flags | PropertyFlag.CustomJsValue)
+        {
+            _flags |= PropertyFlag.NonData;
+            _realm = realm;
+        }
+
+        public override JsValue Get => _thrower ??= (_realm ?? _engine!.Realm).Intrinsics.ThrowTypeError;
+        public override JsValue Set => _thrower ??= (_realm ?? _engine!.Realm).Intrinsics.ThrowTypeError;
 
         protected internal override JsValue? CustomValue
         {

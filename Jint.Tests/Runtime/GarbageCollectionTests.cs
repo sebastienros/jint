@@ -114,6 +114,62 @@ public class GarbageCollectionTests
         }
     }
 
+    [Fact]
+    public void SharedPreparedScriptDoesNotRetainEngines()
+    {
+        // Regression test for #2560 (secondary cause, #2413): a prepared script shared across many engines
+        // must not pin those engines via environment reuse caches. Function environments are cached on the
+        // ScriptFunction instance and block environments on the JintBlockStatement handler instance (both
+        // per engine) rather than on state shared through the AST, so once an engine is dropped its cached
+        // environments — and the engine/realm they reference — become collectable even while the prepared
+        // script stays cached. The script covers every cache shape: an ordinary function (single-slot env
+        // cache), a direct-recursive one (bounded RecursiveEnvPool), a let/const block (block env cache),
+        // a for-let loop (loop env cache), for-of/for-in with let head (per-iteration env cache on the
+        // JintForInForOfStatement handler) and a Function-constructor function (definition-level env parked
+        // on the realm-cached dynamic State, which must die with the realm).
+
+        var prepared = Engine.PrepareScript("""
+            function f(x) { var y = x + 1; return y; }
+            function fib(n) { return n < 2 ? n : fib(n - 1) + fib(n - 2); }
+            function b(x) { { let y = x + 1; const z = y * 2; f(y + z); } }
+            function l(x) { var sum = 0; for (let i = 0; i < 3; i++) { sum += i; } return sum; }
+            function fo(arr) { var sum = 0; for (let v of arr) { sum += v; } return sum; }
+            function fi(obj) { var keys = ''; for (let k in obj) { keys += k; } return keys; }
+            var dyn = new Function('a', 'return a + 1');
+            f(1); f(2); fib(8); b(1); b(2); l(1); l(2);
+            fo([1, 2, 3]); fo([4, 5]); fi({ a: 1, b: 2 }); fi({ c: 3 });
+            dyn(1); dyn(2);
+            """);
+
+        const int count = 20;
+        var references = new List<WeakReference>(count);
+        for (var i = 0; i < count; i++)
+        {
+            // Run inside a helper so no strong reference to the engine survives on this frame.
+            references.Add(RunOnceAndForget(prepared));
+        }
+
+        GC.Collect(2, GCCollectionMode.Forced, blocking: true);
+        GC.WaitForPendingFinalizers();
+        GC.Collect(2, GCCollectionMode.Forced, blocking: true);
+
+        var aliveCount = references.Count(static r => r.IsAlive);
+        GC.KeepAlive(prepared);
+
+        Assert.True(
+            aliveCount == 0,
+            userMessage: $"{aliveCount} of {count} engines were not collected — the shared prepared script still pins engines.");
+
+        // NoInlining so the engine reference cannot be stack-rooted in this frame across the GC.Collect calls.
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static WeakReference RunOnceAndForget(Prepared<Script> prepared)
+        {
+            var engine = new Engine();
+            engine.Execute(prepared);
+            return new WeakReference(engine);
+        }
+    }
+
     private static long CurrentlyUsedMemory()
     {
         // Just try to ensure that everything possible gets collected.

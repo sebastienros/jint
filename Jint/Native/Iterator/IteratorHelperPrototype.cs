@@ -7,7 +7,7 @@ namespace Jint.Native.Iterator;
 /// https://tc39.es/ecma262/#sec-%iteratorhelperprototype%-object
 /// The %IteratorHelperPrototype% object is the prototype of iterator helper objects.
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class IteratorHelperPrototype : Prototype
 {
     private readonly IteratorPrototype _iteratorPrototype;

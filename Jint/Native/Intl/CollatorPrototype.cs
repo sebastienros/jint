@@ -8,7 +8,7 @@ namespace Jint.Native.Intl;
 /// <summary>
 /// https://tc39.es/ecma402/#sec-properties-of-the-intl-collator-prototype-object
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class CollatorPrototype : Prototype
 {
     [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]

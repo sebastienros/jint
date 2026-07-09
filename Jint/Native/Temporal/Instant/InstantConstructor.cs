@@ -11,7 +11,7 @@ namespace Jint.Native.Temporal;
 /// <summary>
 /// https://tc39.es/proposal-temporal/#sec-temporal.instant
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class InstantConstructor : Constructor
 {
     private static readonly JsString _functionName = new("Instant");

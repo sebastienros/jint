@@ -35,6 +35,11 @@ internal sealed class JintObjectExpression : JintExpression
     // and don't require duplicate checking
     private readonly bool _canBuildFast;
 
+    // True when no property value contains a lexical yield/await (function boundaries excluded),
+    // so evaluating the values can never suspend this frame and the shape-backed build is safe
+    // even inside a generator/async function. Computed only when _canBuildFast.
+    private readonly bool _valuesCannotSuspend;
+
     private sealed class ObjectProperty
     {
         internal readonly string? _key;
@@ -137,6 +142,48 @@ internal sealed class JintObjectExpression : JintExpression
             }
             _fastKeys = keys;
             _fastKeysDistinct = AreKeysDistinct(keys);
+
+            _valuesCannotSuspend = true;
+            for (var i = 0; i < valueExpressions.Length; i++)
+            {
+                if (MaySuspendVisitor.MaySuspend(valueExpressions[i]))
+                {
+                    _valuesCannotSuspend = false;
+                    break;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Detects whether evaluating a node could suspend the current generator/async frame: any
+    /// yield or await reachable without crossing into a nested function (whose suspensions belong
+    /// to its own frame). Class nodes are descended conservatively — their computed member keys
+    /// evaluate in the enclosing frame.
+    /// </summary>
+    private static class MaySuspendVisitor
+    {
+        public static bool MaySuspend(Node node)
+        {
+            if (node.Type is NodeType.YieldExpression or NodeType.AwaitExpression)
+            {
+                return true;
+            }
+
+            if (node.Type is NodeType.FunctionDeclaration or NodeType.FunctionExpression or NodeType.ArrowFunctionExpression)
+            {
+                return false;
+            }
+
+            foreach (var childNode in node.ChildNodes)
+            {
+                if (MaySuspend(childNode))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 
@@ -179,11 +226,12 @@ internal sealed class JintObjectExpression : JintExpression
         var engine = context.Engine;
         var suspendable = engine.ExecutionContext.Suspendable;
 
-        // Common case: not inside a generator/async frame (so no property value can suspend the build)
-        // and all keys distinct. Build (or reuse) a shared hidden-class shape and a flat slot array —
-        // no per-property PropertyDescriptor, no dictionary. Duplicate-keyed literals (e.g. { a:1, a:2 })
-        // and any literal evaluated inside a generator fall through to the general dictionary path below.
-        if (suspendable is null && _fastKeysDistinct)
+        // Common case: all keys distinct and either outside any generator/async frame or the property
+        // values provably cannot suspend (no lexical yield/await). Build (or reuse) a shared hidden-class
+        // shape and a flat slot array — no per-property PropertyDescriptor, no dictionary. Duplicate-keyed
+        // literals (e.g. { a:1, a:2 }) and literals whose values may suspend mid-build fall through to the
+        // general dictionary path below.
+        if (_fastKeysDistinct && (suspendable is null || _valuesCannotSuspend))
         {
             return BuildObjectFastShapeBacked(context, engine);
         }
@@ -318,6 +366,16 @@ internal sealed class JintObjectExpression : JintExpression
             if (property.Method)
             {
                 ClassDefinition.MethodDefinitionEvaluation(engine, obj, property, enumerable: true);
+
+                // Check for generator suspension after evaluating a computed method key (mirrors the
+                // non-method path below) — without this the build loop would keep executing subsequent
+                // properties while the generator is suspended.
+                if (context.IsSuspended())
+                {
+                    SaveObjectExpressionSuspendState(suspendable, obj, i);
+                    return JsValue.Undefined;
+                }
+
                 continue;
             }
 

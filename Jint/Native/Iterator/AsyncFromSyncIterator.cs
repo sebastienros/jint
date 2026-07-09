@@ -26,7 +26,7 @@ internal sealed class AsyncFromSyncIterator : ObjectInstance
 /// <summary>
 /// https://tc39.es/ecma262/#sec-%asyncfromsynciteratorprototype%-object
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class AsyncFromSyncIteratorPrototype : ObjectInstance
 {
     private readonly Realm _realm;

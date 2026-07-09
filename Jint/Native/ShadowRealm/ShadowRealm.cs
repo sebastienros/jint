@@ -170,7 +170,7 @@ public sealed class ShadowRealm : ObjectInstance
         Completion result;
         try
         {
-            _engine.EvalDeclarationInstantiation(script, varEnv, lexEnv, privateEnv: null, strictEval);
+            _engine.EvalDeclarationInstantiation(script, script.GetHoistingScope(), varEnv, lexEnv, privateEnv: null, strictEval);
 
             using (new StrictModeScope(strictEval, force: true))
             {
@@ -392,9 +392,16 @@ public sealed class ShadowRealm : ObjectInstance
     }
 
     /// <summary>
+    /// https://tc39.es/proposal-shadowrealm/#sec-performshadowrealmeval
+    ///
     /// If body Contains NewTarget is true, throw a SyntaxError exception.
     /// If body Contains SuperProperty is true, throw a SyntaxError exception.
     /// If body Contains SuperCall is true, throw a SyntaxError exception.
+    ///
+    /// Mirrors the static semantics Contains (https://tc39.es/ecma262/#sec-static-semantics-contains):
+    /// the search must not descend into nested function bodies or class element values, where
+    /// super/new.target are legal, only into arrow functions (transparent for super/new.target),
+    /// class heritage expressions, decorators and computed property names.
     /// </summary>
     private sealed class ShadowScriptValidator : AstVisitor
     {
@@ -405,10 +412,49 @@ public sealed class ShadowRealm : ObjectInstance
             _realm = realm;
         }
 
-        protected override object? VisitSuper(Super super)
+        protected override object VisitSuper(Super super)
         {
-            Throw.TypeError(_realm, "Shadow realm code cannot contain super");
-            return null;
+            Throw.SyntaxError(_realm, "'super' keyword unexpected here");
+            return super;
+        }
+
+        protected override object VisitMetaProperty(MetaProperty metaProperty)
+        {
+            // new.target; import.meta cannot occur in a script
+            if (string.Equals(metaProperty.Meta.Name, "new", StringComparison.Ordinal))
+            {
+                Throw.SyntaxError(_realm, "new.target expression is not allowed here");
+            }
+            return metaProperty;
+        }
+
+        protected override object VisitFunctionDeclaration(FunctionDeclaration node) => node;
+
+        protected override object VisitFunctionExpression(FunctionExpression node) => node;
+
+        protected override object VisitMethodDefinition(MethodDefinition node) => VisitClassProperty(node, node.Decorators);
+
+        protected override object VisitPropertyDefinition(PropertyDefinition node) => VisitClassProperty(node, node.Decorators);
+
+        protected override object VisitAccessorProperty(AccessorProperty node) => VisitClassProperty(node, node.Decorators);
+
+        protected override object VisitStaticBlock(StaticBlock node) => node;
+
+        private ClassProperty VisitClassProperty(ClassProperty node, in NodeList<Decorator> decorators)
+        {
+            // decorators and a computed property name evaluate in the scope enclosing the class;
+            // the value (method body or field initializer) has its own home object
+            foreach (var decorator in decorators)
+            {
+                Visit(decorator);
+            }
+
+            if (node.Computed)
+            {
+                Visit(node.Key);
+            }
+
+            return node;
         }
     }
 }

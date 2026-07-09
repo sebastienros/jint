@@ -11,7 +11,7 @@ namespace Jint.Native.Intl;
 /// <summary>
 /// https://tc39.es/ecma402/#sec-intl-pluralrules-constructor
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class PluralRulesConstructor : Constructor
 {
     private static readonly JsString _functionName = new("PluralRules");

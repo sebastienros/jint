@@ -195,5 +195,40 @@ internal static class Attributes
             public global::Jint.Runtime.Descriptors.PropertyFlag Flags { get; set; } = global::Jint.Runtime.Descriptors.PropertyFlag.Configurable;
         }
 
+        // Class-level, repeats. Registers a string own property <Name> that shares the descriptor of another
+        // generated [JsFunction] member <Target> (which must exist on the same host), so the two names resolve
+        // to the very same function object — the spec function-identity aliases, e.g.
+        //   [JsAlias("keys", "values")]       // Set.prototype.keys === values
+        //   [JsAlias("trimLeft", "trimStart")]
+        //   [JsAlias("toGMTString", "toUTCString")]
+        // The alias appears after all other own properties in own-key order (matching the hand-written
+        // AddDangerous/SetProperty tail it replaces).
+        [global::System.AttributeUsage(global::System.AttributeTargets.Class, AllowMultiple = true)]
+        [global::System.Diagnostics.Conditional("JINT_SOURCE_GENERATORS")]
+        internal sealed class JsAliasAttribute : global::System.Attribute
+        {
+            public JsAliasAttribute(string name, string target)
+            {
+                Name = name;
+                Target = target;
+            }
+
+            public string Name { get; }
+            public string Target { get; }
+        }
+
+        // Class-level, repeats. Reserves a per-realm own-property slot (appended after all other own
+        // properties, matching a hand-written SetProperty/AddDangerous tail) that the host fills in
+        // Initialize via SetBuiltinSlotByName(name, descriptor) — for a computed/lazy value the generator
+        // can't express, e.g. %TypedArray%.prototype.toString aliasing %Array.prototype.toString% lazily.
+        // Shape hosts only (a non-shaped host just SetProperty()s the value in Initialize as before).
+        [global::System.AttributeUsage(global::System.AttributeTargets.Class, AllowMultiple = true)]
+        [global::System.Diagnostics.Conditional("JINT_SOURCE_GENERATORS")]
+        internal sealed class JsInstanceSlotAttribute : global::System.Attribute
+        {
+            public JsInstanceSlotAttribute(string name) { Name = name; }
+            public string Name { get; }
+        }
+
         """;
 }

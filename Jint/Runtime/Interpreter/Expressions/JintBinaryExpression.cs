@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using Jint.Extensions;
 using Jint.Native;
 using Jint.Native.Object;
+using Jint.Runtime.Environments;
 using Jint.Runtime.Interop;
 
 namespace Jint.Runtime.Interpreter.Expressions;
@@ -16,14 +17,88 @@ internal abstract class JintBinaryExpression : JintExpression
     private readonly record struct OperatorKey(string? OperatorName, Type Left, Type Right);
     private static readonly ConcurrentDictionary<OperatorKey, MethodDescriptor> _knownOperators = new();
 
-    private readonly JintExpression _left;
-    private readonly JintExpression _right;
+    private protected readonly JintExpression _left;
+    private protected readonly JintExpression _right;
 
     private JintBinaryExpression(NonLogicalBinaryExpression expression) : base(expression)
     {
         // TODO check https://tc39.es/ecma262/#sec-applystringornumericbinaryoperator
         _left = Build(expression.Left);
         _right = Build(expression.Right);
+    }
+
+    /// <summary>
+    /// Per-node fast lane for the canonical loop-test shapes `identifier &lt;op&gt; numericConstant`
+    /// and `identifier &lt;op&gt; identifier` (a variable bound): when the operands resolve to
+    /// slot-stored numbers (or a constant), the comparison runs on raw doubles without
+    /// materializing anything — which also keeps an unboxed counter unboxed instead of
+    /// ping-ponging between its update (stores raw) and its loop test (would materialize).
+    /// Slot reads are pure, so declining after a partial read has no observable effect.
+    /// IEEE double comparisons reproduce the abstract relational operator for all four forms,
+    /// including NaN operands (spec result undefined, coerced to false).
+    /// </summary>
+    private protected struct NumericConstantComparisonLane
+    {
+        private JintIdentifierExpression? _identifier;
+        private JintIdentifierExpression? _rightIdentifier;   // null => use _constant
+        private double _constant;
+        private SlotLocationCache _slotCache;
+        private SlotLocationCache _rightSlotCache;
+
+        public void Initialize(JintExpression left, JintExpression right)
+        {
+            if (left is not JintIdentifierExpression identifier)
+            {
+                return;
+            }
+
+            switch (right)
+            {
+                case JintConstantExpression { Value: JsNumber number }:
+                    _identifier = identifier;
+                    _constant = number._value;
+                    break;
+                case JintIdentifierExpression rightIdentifier:
+                    _identifier = identifier;
+                    _rightIdentifier = rightIdentifier;
+                    break;
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryGetOperands(EvaluationContext context, out double left, out double right)
+        {
+            left = 0;
+            right = _constant;
+
+            var identifier = _identifier;
+            if (identifier is null || context.OperatorOverloadingAllowed)
+            {
+                return false;
+            }
+
+            var engine = context.Engine;
+            if (engine.ExecutionContext.Suspendable is not null)
+            {
+                return false;
+            }
+
+            var env = engine.ExecutionContext.LexicalEnvironment;
+            if (!_slotCache.TryResolve(engine, env, identifier.Identifier, out var environment, out var slotIndex)
+                || !environment.TryGetNumberSlot(slotIndex, out left))
+            {
+                return false;
+            }
+
+            var rightIdentifier = _rightIdentifier;
+            if (rightIdentifier is null)
+            {
+                return true;
+            }
+
+            return _rightSlotCache.TryResolve(engine, env, rightIdentifier.Identifier, out var rightEnvironment, out var rightSlotIndex)
+                   && rightEnvironment.TryGetNumberSlot(rightSlotIndex, out right);
+        }
     }
 
     /// <summary>
@@ -344,12 +419,20 @@ internal abstract class JintBinaryExpression : JintExpression
 
     private sealed class LessBinaryExpression : JintBinaryExpression
     {
+        private NumericConstantComparisonLane _numericLane;
+
         public LessBinaryExpression(NonLogicalBinaryExpression expression) : base(expression)
         {
+            _numericLane.Initialize(_left, _right);
         }
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
+            if (_numericLane.TryGetOperands(context, out var unboxedLeft, out var unboxedRight))
+            {
+                return unboxedLeft < unboxedRight ? JsBoolean.True : JsBoolean.False;
+            }
+
             if (!TryEvaluateOperands(context, out var left, out var right))
             {
                 return JsValue.Undefined;
@@ -368,6 +451,11 @@ internal abstract class JintBinaryExpression : JintExpression
 
         public override bool GetBooleanValue(EvaluationContext context)
         {
+            if (_numericLane.TryGetOperands(context, out var unboxedLeft, out var unboxedRight))
+            {
+                return unboxedLeft < unboxedRight;
+            }
+
             if (!TryEvaluateOperands(context, out var left, out var right))
             {
                 return false;
@@ -386,12 +474,20 @@ internal abstract class JintBinaryExpression : JintExpression
 
     private sealed class GreaterBinaryExpression : JintBinaryExpression
     {
+        private NumericConstantComparisonLane _numericLane;
+
         public GreaterBinaryExpression(NonLogicalBinaryExpression expression) : base(expression)
         {
+            _numericLane.Initialize(_left, _right);
         }
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
+            if (_numericLane.TryGetOperands(context, out var unboxedLeft, out var unboxedRight))
+            {
+                return unboxedLeft > unboxedRight ? JsBoolean.True : JsBoolean.False;
+            }
+
             if (!TryEvaluateOperands(context, out var left, out var right))
             {
                 return JsValue.Undefined;
@@ -410,6 +506,11 @@ internal abstract class JintBinaryExpression : JintExpression
 
         public override bool GetBooleanValue(EvaluationContext context)
         {
+            if (_numericLane.TryGetOperands(context, out var unboxedLeft, out var unboxedRight))
+            {
+                return unboxedLeft > unboxedRight;
+            }
+
             if (!TryEvaluateOperands(context, out var left, out var right))
             {
                 return false;
@@ -738,14 +839,24 @@ internal abstract class JintBinaryExpression : JintExpression
     private sealed class CompareBinaryExpression : JintBinaryExpression
     {
         private readonly bool _leftFirst;
+        private NumericConstantComparisonLane _numericLane;
 
         public CompareBinaryExpression(NonLogicalBinaryExpression expression, bool leftFirst) : base(expression)
         {
             _leftFirst = leftFirst;
+            _numericLane.Initialize(_left, _right);
         }
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
+            if (_numericLane.TryGetOperands(context, out var unboxedLeft, out var unboxedRight))
+            {
+                // leftFirst == true is `>=`, false is `<=`; NaN yields false either way,
+                // matching the undefined completion below
+                var result = _leftFirst ? unboxedLeft >= unboxedRight : unboxedLeft <= unboxedRight;
+                return result ? JsBoolean.True : JsBoolean.False;
+            }
+
             if (!TryEvaluateOperands(context, out var leftValue, out var rightValue))
             {
                 return JsValue.Undefined;
@@ -766,6 +877,11 @@ internal abstract class JintBinaryExpression : JintExpression
 
         public override bool GetBooleanValue(EvaluationContext context)
         {
+            if (_numericLane.TryGetOperands(context, out var unboxedLeft, out var unboxedRight))
+            {
+                return _leftFirst ? unboxedLeft >= unboxedRight : unboxedLeft <= unboxedRight;
+            }
+
             if (!TryEvaluateOperands(context, out var leftValue, out var rightValue))
             {
                 return false;

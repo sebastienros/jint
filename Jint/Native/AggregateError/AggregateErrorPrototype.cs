@@ -7,7 +7,7 @@ namespace Jint.Native.AggregateError;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-the-aggregate-error-prototype-objects
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class AggregateErrorPrototype : Prototype
 {
     [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]

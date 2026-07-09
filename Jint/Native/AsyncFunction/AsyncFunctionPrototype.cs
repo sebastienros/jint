@@ -7,7 +7,7 @@ namespace Jint.Native.AsyncFunction;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-async-function-prototype-properties
 /// </summary>
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class AsyncFunctionPrototype : Prototype
 {
     [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]

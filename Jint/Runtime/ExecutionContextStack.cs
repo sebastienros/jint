@@ -21,7 +21,9 @@ internal sealed class ExecutionContextStack
         var array = _stack._array;
         var size = _stack._size;
         ref var executionContext = ref array[size - 1];
-        executionContext = executionContext.UpdateLexicalEnvironment(newEnv);
+        // In-place single-field write instead of rebuilding the whole 10-field struct; the
+        // instance lives in a mutable array slot, so casting away the field's readonly is safe.
+        Unsafe.AsRef(in executionContext.LexicalEnvironment) = newEnv;
     }
 
     public void ReplaceTopVariableEnvironment(Environment newEnv)
@@ -29,7 +31,7 @@ internal sealed class ExecutionContextStack
         var array = _stack._array;
         var size = _stack._size;
         ref var executionContext = ref array[size - 1];
-        executionContext = executionContext.UpdateVariableEnvironment(newEnv);
+        Unsafe.AsRef(in executionContext.VariableEnvironment) = newEnv;
     }
 
     public void ReplaceTopPrivateEnvironment(PrivateEnvironment? newEnv)

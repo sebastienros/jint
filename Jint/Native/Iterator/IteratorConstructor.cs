@@ -6,7 +6,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Iterator;
 
-[JsObject]
+[JsObject(UseShape = true)]
 internal sealed partial class IteratorConstructor : Constructor
 {
     private static readonly JsString _functionName = new("Iterator");
