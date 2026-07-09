@@ -47,6 +47,19 @@ public sealed class JsDate : ObjectInstance
         _dateValue = dateValue.TimeClip();
     }
 
+    private JsDate(Engine engine, long dateValueMs, DateFlags flags) : base(engine, ObjectClass.Date, InternalTypes.Object | InternalTypes.PlainObject)
+    {
+        _prototype = engine.Realm.Intrinsics.Date.PrototypeObject;
+        _dateValueMs = dateValueMs;
+        _dateFlags = flags;
+    }
+
+    /// <summary>
+    /// The `new Date()` fast path: a millisecond value derived from clock ticks is always inside
+    /// the clip range, so the TimeClip validation and the double round-trip are unnecessary.
+    /// </summary>
+    internal static JsDate CreateForCurrentTime(Engine engine, long dateValueMs) => new(engine, dateValueMs, DateFlags.None);
+
     public DateTime ToDateTime()
     {
         if (_dateValue.Flags == DateFlags.DateTimeMinValue)
