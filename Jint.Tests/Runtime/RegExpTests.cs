@@ -35,6 +35,50 @@ public class RegExpTests
     }
 
     [Theory]
+    [InlineData("gy")]
+    [InlineData("guy")]
+    public void MatchStickyGlobalCollectsAllAdjacentMatches(string flags)
+    {
+        // without 'u' exercises the .NET sticky fast path, with 'u' the generic exec loop
+        var engine = new Engine();
+        var result = engine.Evaluate($"JSON.stringify(['aaa'.match(/a/{flags}), 'ababab'.match(/ab/{flags})])").AsString();
+
+        Assert.Equal("[[\"a\",\"a\",\"a\"],[\"ab\",\"ab\",\"ab\"]]", result);
+    }
+
+    [Theory]
+    [InlineData("gy")]
+    [InlineData("guy")]
+    public void MatchStickyGlobalStopsAtFirstGap(string flags)
+    {
+        // matches after the gap exist but are not adjacent, so sticky matching must not include them
+        var engine = new Engine();
+        var result = engine.Evaluate($"JSON.stringify(['aabaa'.match(/a/{flags}), 'baa'.match(/a/{flags})])").AsString();
+
+        Assert.Equal("[[\"a\",\"a\"],null]", result);
+    }
+
+    [Theory]
+    [InlineData("gy")]
+    [InlineData("guy")]
+    public void MatchStickyGlobalAdvancesOverEmptyMatches(string flags)
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate($"JSON.stringify('aab'.match(/a*/{flags}))").AsString();
+
+        Assert.Equal("[\"aa\",\"\",\"\"]", result);
+    }
+
+    [Fact]
+    public void MatchStickyGlobalResetsLastIndex()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("var r = /a/gy; r.lastIndex = 2; JSON.stringify(['aaa'.match(r), r.lastIndex])").AsString();
+
+        Assert.Equal("[[\"a\",\"a\",\"a\"],0]", result);
+    }
+
+    [Theory]
     [InlineData("")]
     [InlineData("u")]
     public void SplitCollectsSegmentsCapturesAndTail(string flags)

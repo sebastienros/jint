@@ -1,5 +1,6 @@
 using Jint.Native;
 using Jint.Native.Global;
+using Jint.Native.Symbol;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
@@ -111,6 +112,41 @@ public class PropertyDescriptorTests
         Assert.Equal(42, _engine.Evaluate("Math.custom").AsNumber());
         Assert.True(_engine.Evaluate("Object.getOwnPropertyNames(Math).includes('custom')").AsBoolean());
         Assert.Equal(4, _engine.Evaluate("Math.floor(4.7)").AsNumber());
+    }
+
+    [Fact]
+    public void FastSetPropertyBeforeLazyInitializationSurvivesOnDictionaryHost()
+    {
+        // a raw store before the host's first property access used to land in _properties and get
+        // wiped when the read-triggered Initialize() replaced the bag; RegExp is a dictionary-path host
+        var regExp = _engine.Evaluate("RegExp").AsObject();
+        regExp.FastSetProperty("custom", new PropertyDescriptor(42, PropertyFlag.ConfigurableEnumerableWritable));
+
+        Assert.Equal(42, _engine.Evaluate("RegExp.custom").AsNumber());
+        Assert.True(_engine.Evaluate("typeof RegExp.escape === 'function'").AsBoolean());
+    }
+
+    [Fact]
+    public void FastSetPropertyBeforeLazyInitializationSurvivesOnBuiltinShapedHost()
+    {
+        // the builtin-shape sibling of the dictionary-host case above
+        var math = _engine.Evaluate("Math").AsObject();
+        math.FastSetProperty("custom", new PropertyDescriptor(42, PropertyFlag.ConfigurableEnumerableWritable));
+
+        Assert.Equal(42, _engine.Evaluate("Math.custom").AsNumber());
+        Assert.True(_engine.Evaluate("Object.getOwnPropertyNames(Math).includes('custom')").AsBoolean());
+        Assert.Equal(4, _engine.Evaluate("Math.floor(4.7)").AsNumber());
+    }
+
+    [Fact]
+    public void SymbolSetPropertyBeforeLazyInitializationSurvives()
+    {
+        // symbol stores have the same pre-initialization hazard: Initialize() replaces _symbols
+        var math = _engine.Evaluate("Math").AsObject();
+        math.SetProperty(GlobalSymbolRegistry.Iterator, new PropertyDescriptor(42, PropertyFlag.ConfigurableEnumerableWritable));
+
+        Assert.Equal(42, _engine.Evaluate("Math[Symbol.iterator]").AsNumber());
+        Assert.Equal("Math", _engine.Evaluate("Math[Symbol.toStringTag]").AsString());
     }
 
     [Fact]
