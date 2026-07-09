@@ -39,4 +39,22 @@ internal sealed class JintExpressionStatement : JintStatement<ExpressionStatemen
         _expression.EvaluateAndDiscard(context);
         return new Completion(context.Completion, JsValue.Undefined, _statement);
     }
+
+    /// <summary>
+    /// Tight-loop entry: evaluates the expression for side effects only, skipping the
+    /// per-statement ceremony (PrepareFor, constraint checks, Completion construction).
+    /// Callers guarantee a non-suspendable frame, no constraint/debug checks and dead
+    /// completion values; expression evaluation still tracks the current node for errors.
+    /// </summary>
+    internal void ExecuteDiscarded(EvaluationContext context)
+    {
+        if (_expressionCanDiscard)
+        {
+            _expression.EvaluateAndDiscard(context);
+        }
+        else
+        {
+            _expression.GetValue(context);
+        }
+    }
 }
