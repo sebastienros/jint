@@ -77,4 +77,63 @@ public class EqualityLaneTests
 
         Assert.True(result);
     }
+
+    [Fact]
+    public void GlobalNumberComparisonsMatchSpecThroughLane()
+    {
+        var engine = new Engine();
+        // top-level vars are global-object properties (never slots); the lane serves them
+        // through the validated global-descriptor cache. First iteration populates the cache
+        // via the slow path, later iterations must produce identical results through the lane.
+        var result = engine.Evaluate("""
+            var gx = 1, gnan = NaN, gz = -0;
+            var r = [];
+            for (var i = 0; i < 3; i++) {
+                r.push(gx === 1, gx == 1, gnan === gnan, gnan != gnan, gz === 0, gx < 2, gx > 2);
+            }
+            r.join(',');
+            """).AsString();
+
+        var iteration = "true,true,false,true,true,true,false";
+        Assert.Equal($"{iteration},{iteration},{iteration}", result);
+    }
+
+    [Fact]
+    public void GlobalLaneDeclinesWhenGlobalRedefinedAsAccessor()
+    {
+        var engine = new Engine();
+        // redefining the global to an accessor bumps the shape version; the lane must fall
+        // back to the generic path, which invokes the getter
+        var result = engine.Evaluate("""
+            globalThis.g = 1;
+            var hits = 0, reads = 0;
+            for (var i = 0; i < 4; i++) {
+                if (g == 1) { hits++; }
+                if (i === 1) {
+                    Object.defineProperty(globalThis, 'g', { get: function() { reads++; return 1; }, configurable: true });
+                }
+            }
+            hits + ':' + reads;
+            """).AsString();
+
+        Assert.Equal("4:2", result);
+    }
+
+    [Fact]
+    public void GlobalLaneDeclinesWhenValueTypeChangesInPlace()
+    {
+        var engine = new Engine();
+        // plain global writes mutate the descriptor value in place without a version bump;
+        // the lane re-checks the value type on every read
+        var result = engine.Evaluate("""
+            var g = 1, hits = 0;
+            for (var i = 0; i < 5; i++) {
+                if (g == 1) { hits++; }
+                if (i === 2) { g = 'x'; }
+            }
+            hits;
+            """).AsNumber();
+
+        Assert.Equal(3, result); // i = 0..2 while g is 1; 'x' == 1 is false afterwards
+    }
 }
