@@ -88,7 +88,7 @@ internal abstract class JintBinaryExpression : JintExpression
 
             var env = engine.ExecutionContext.LexicalEnvironment;
             if (!_slotCache.TryResolve(engine, env, identifier.Identifier, out var environment, out var slotIndex)
-                || !environment.TryGetNumberSlot(slotIndex, out left))
+                || !environment.TryGetNumberSlotForRead(slotIndex, out left))
             {
                 // top-level vars are global-object properties, never slots: fall back to the
                 // validated global-descriptor cache (the stopwatch-shape loop test). The null
@@ -106,31 +106,91 @@ internal abstract class JintBinaryExpression : JintExpression
             }
 
             if (_rightSlotCache.TryResolve(engine, env, rightIdentifier.Identifier, out var rightEnvironment, out var rightSlotIndex)
-                && rightEnvironment.TryGetNumberSlot(rightSlotIndex, out right))
+                && rightEnvironment.TryGetNumberSlotForRead(rightSlotIndex, out right))
             {
                 return true;
             }
 
             return rightIdentifier._cachedGlobalEnv is not null && TryReadGlobalNumber(rightIdentifier, engine, env, out right);
         }
+    }
 
-        /// <summary>
-        /// Global-binding arm of the lane operand read: validated-cache probe plus a field read,
-        /// both pure — so a decline (or a left read followed by a right-side decline) has no
-        /// observable effect. The value type is re-checked on every read because in-place value
-        /// mutations bump no version. Out of line so lane misses don't grow the inlined probe.
-        /// </summary>
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private static bool TryReadGlobalNumber(JintIdentifierExpression identifier, Engine engine, Environments.Environment env, out double value)
+    /// <summary>
+    /// Global-binding arm of the lane operand reads: validated-cache probe plus a field read,
+    /// both pure — so a decline (or a left read followed by a right-side decline) has no
+    /// observable effect. The value type is re-checked on every read because in-place value
+    /// mutations bump no version. Out of line so lane misses don't grow the inlined probes.
+    /// Callers pre-check <see cref="JintIdentifierExpression._cachedGlobalEnv"/> for null.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private protected static bool TryReadGlobalNumber(JintIdentifierExpression identifier, Engine engine, Environments.Environment env, out double value)
+    {
+        if (identifier.TryGetValidatedGlobalDescriptor(engine, env) is { _value: JsNumber number })
         {
-            if (identifier.TryGetValidatedGlobalDescriptor(engine, env) is { _value: JsNumber number })
+            value = number._value;
+            return true;
+        }
+
+        value = 0;
+        return false;
+    }
+
+    /// <summary>
+    /// Fused lane for the `identifier % numericConstant == numericConstant` test — the
+    /// stopwatch.js if-chain shape. Reads the identifier through the same slot/global arms as
+    /// <see cref="NumericConstantComparisonLane"/> and computes the whole test on raw doubles.
+    /// C# double % implements Number::remainder exactly, and the ways integer and double
+    /// remainders can disagree (−0 vs +0 results) are erased by the equality consumer
+    /// (IEEE == treats ±0 as equal), so the fused result is spec-exact for any proven-Number
+    /// operand: NaN dividends/divisors (and % 0) compare false, v % ±Infinity == v.
+    /// </summary>
+    private protected struct ModuloEqualityLane
+    {
+        private JintIdentifierExpression? _identifier;
+        private double _divisor;
+        private double _expected;
+        private SlotLocationCache _slotCache;
+
+        public void Initialize(JintExpression left, JintExpression right)
+        {
+            if (left is ModuloBinaryExpression { _left: JintIdentifierExpression identifier, _right: JintConstantExpression { Value: JsNumber divisor } }
+                && right is JintConstantExpression { Value: JsNumber expected })
             {
-                value = number._value;
-                return true;
+                _identifier = identifier;
+                _divisor = divisor._value;
+                _expected = expected._value;
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryEvaluate(EvaluationContext context, out bool equal)
+        {
+            equal = false;
+
+            var identifier = _identifier;
+            if (identifier is null || context.OperatorOverloadingAllowed)
+            {
+                return false;
             }
 
-            value = 0;
-            return false;
+            var engine = context.Engine;
+            if (engine.ExecutionContext.Suspendable is not null)
+            {
+                return false;
+            }
+
+            var env = engine.ExecutionContext.LexicalEnvironment;
+            if (!_slotCache.TryResolve(engine, env, identifier.Identifier, out var environment, out var slotIndex)
+                || !environment.TryGetNumberSlotForRead(slotIndex, out var value))
+            {
+                if (identifier._cachedGlobalEnv is null || !TryReadGlobalNumber(identifier, engine, env, out value))
+                {
+                    return false;
+                }
+            }
+
+            equal = value % _divisor == _expected;
+            return true;
         }
     }
 
@@ -398,10 +458,12 @@ internal abstract class JintBinaryExpression : JintExpression
     private sealed class StrictlyEqualBinaryExpression : JintBinaryExpression
     {
         private NumericConstantComparisonLane _numericLane;
+        private ModuloEqualityLane _moduloLane;
 
         public StrictlyEqualBinaryExpression(NonLogicalBinaryExpression expression) : base(expression)
         {
             _numericLane.Initialize(_left, _right);
+            _moduloLane.Initialize(_left, _right);
         }
 
         protected override object EvaluateInternal(EvaluationContext context)
@@ -409,6 +471,11 @@ internal abstract class JintBinaryExpression : JintExpression
             if (_numericLane.TryGetOperands(context, out var unboxedLeft, out var unboxedRight))
             {
                 return unboxedLeft == unboxedRight ? JsBoolean.True : JsBoolean.False;
+            }
+
+            if (_moduloLane.TryEvaluate(context, out var moduloEqual))
+            {
+                return moduloEqual ? JsBoolean.True : JsBoolean.False;
             }
 
             if (!TryEvaluateOperands(context, out var left, out var right))
@@ -427,6 +494,11 @@ internal abstract class JintBinaryExpression : JintExpression
                 return unboxedLeft == unboxedRight;
             }
 
+            if (_moduloLane.TryEvaluate(context, out var moduloEqual))
+            {
+                return moduloEqual;
+            }
+
             if (!TryEvaluateOperands(context, out var left, out var right))
             {
                 return false;
@@ -439,10 +511,12 @@ internal abstract class JintBinaryExpression : JintExpression
     private sealed class StrictlyNotEqualBinaryExpression : JintBinaryExpression
     {
         private NumericConstantComparisonLane _numericLane;
+        private ModuloEqualityLane _moduloLane;
 
         public StrictlyNotEqualBinaryExpression(NonLogicalBinaryExpression expression) : base(expression)
         {
             _numericLane.Initialize(_left, _right);
+            _moduloLane.Initialize(_left, _right);
         }
 
         protected override object EvaluateInternal(EvaluationContext context)
@@ -450,6 +524,11 @@ internal abstract class JintBinaryExpression : JintExpression
             if (_numericLane.TryGetOperands(context, out var unboxedLeft, out var unboxedRight))
             {
                 return unboxedLeft == unboxedRight ? JsBoolean.False : JsBoolean.True;
+            }
+
+            if (_moduloLane.TryEvaluate(context, out var moduloEqual))
+            {
+                return moduloEqual ? JsBoolean.False : JsBoolean.True;
             }
 
             if (!TryEvaluateOperands(context, out var left, out var right))
@@ -465,6 +544,11 @@ internal abstract class JintBinaryExpression : JintExpression
             if (_numericLane.TryGetOperands(context, out var unboxedLeft, out var unboxedRight))
             {
                 return unboxedLeft != unboxedRight;
+            }
+
+            if (_moduloLane.TryEvaluate(context, out var moduloEqual))
+            {
+                return !moduloEqual;
             }
 
             if (!TryEvaluateOperands(context, out var left, out var right))
@@ -848,11 +932,13 @@ internal abstract class JintBinaryExpression : JintExpression
     {
         private readonly bool _invert;
         private NumericConstantComparisonLane _numericLane;
+        private ModuloEqualityLane _moduloLane;
 
         public EqualBinaryExpression(NonLogicalBinaryExpression expression, bool invert = false) : base(expression)
         {
             _invert = invert;
             _numericLane.Initialize(_left, _right);
+            _moduloLane.Initialize(_left, _right);
         }
 
         protected override object EvaluateInternal(EvaluationContext context)
@@ -860,6 +946,11 @@ internal abstract class JintBinaryExpression : JintExpression
             if (_numericLane.TryGetOperands(context, out var unboxedLeft, out var unboxedRight))
             {
                 return (unboxedLeft == unboxedRight) == !_invert ? JsBoolean.True : JsBoolean.False;
+            }
+
+            if (_moduloLane.TryEvaluate(context, out var moduloEqual))
+            {
+                return moduloEqual == !_invert ? JsBoolean.True : JsBoolean.False;
             }
 
             if (!TryEvaluateOperands(context, out var left, out var right))
@@ -887,6 +978,11 @@ internal abstract class JintBinaryExpression : JintExpression
             {
                 var equal = unboxedLeft == unboxedRight;
                 return _invert ? !equal : equal;
+            }
+
+            if (_moduloLane.TryEvaluate(context, out var moduloEqual))
+            {
+                return _invert ? !moduloEqual : moduloEqual;
             }
 
             if (!TryEvaluateOperands(context, out var left, out var right))

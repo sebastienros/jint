@@ -120,6 +120,116 @@ public class EqualityLaneTests
     }
 
     [Fact]
+    public void FusedModuloEqualityMatchesGenericPathAcrossSigns()
+    {
+        var engine = new Engine();
+        // negative dividends produce negative (or -0) remainders; the equality consumer
+        // erases the ±0 distinction, so the fused raw-double form must agree everywhere
+        var result = engine.Evaluate("""
+            (function () {
+                var r = [];
+                for (var i = -3; i <= 3; i++) {
+                    r.push(i % 2 == 0, i % 2 === 0, i % 2 != 0, i % 2 !== 0, i % 2 == -1, i % -2 == 1);
+                }
+                return r.join(',');
+            })()
+            """).AsString();
+
+        var expected = string.Join(",",
+            "false,false,true,true,true,false",   // i = -3 → -1
+            "true,true,false,false,false,false",  // i = -2 → -0
+            "false,false,true,true,true,false",   // i = -1 → -1
+            "true,true,false,false,false,false",  // i = 0  → 0
+            "false,false,true,true,false,true",   // i = 1  → 1
+            "true,true,false,false,false,false",  // i = 2  → 0
+            "false,false,true,true,false,true");  // i = 3  → 1
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void FusedModuloHandlesSpecialNumbersAndDeclines()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            (function () {
+                var nan = NaN, five = 5, str = '4';
+                return [
+                    nan % 2 == 0, nan % 2 != 0,
+                    five % 0 == 0, five % 0 != 0,
+                    five % Infinity == 5,
+                    str % 2 == 0
+                ].join(',');
+            })()
+            """).AsString();
+
+        Assert.Equal("false,true,false,true,true,true", result);
+    }
+
+    [Fact]
+    public void FusedModuloWorksOnGlobals()
+    {
+        var engine = new Engine();
+        // the stopwatch.js if-chain shape at script top level (globals, not slots)
+        var result = engine.Evaluate("""
+            var hits = 0;
+            for (var x = 0; x < 8; x++) {
+                var z = x ^ 1;
+                if (z % 2 == 0) { hits++; }
+                else if (z % 3 == 0) { hits += 10; }
+            }
+            hits;
+            """).AsNumber();
+
+        Assert.Equal(14, result);
+    }
+
+    [Fact]
+    public void ConstBindingsTakeTheLaneShapes()
+    {
+        var engine = new Engine();
+        // the stopwatch-modern shape: const bindings inside the loop body flow through the
+        // relational, equality and fused-modulo lanes (immutable bindings are readable)
+        var result = engine.Evaluate("""
+            (function () {
+                let hits = 0;
+                for (let x = 0; x < 8; x++) {
+                    const z = x ^ 1;
+                    if (z % 2 == 0) { hits++; }
+                    else if (z % 3 === 0) { hits += 10; }
+                    const lim = 4;
+                    if (z < lim) { hits += 100; }
+                }
+                return hits;
+            })()
+            """).AsNumber();
+
+        Assert.Equal(414, result); // 4 even-z hits + one z=3 (+10) + four z<4 (+400)
+    }
+
+    [Fact]
+    public void TdzReadStillThrowsThroughLaneShapes()
+    {
+        var engine = new Engine();
+        // an uninitialized const slot has neither an unboxed number nor a reference value,
+        // so the lane declines and the generic path raises the ReferenceError
+        var result = engine.Evaluate("""
+            (function () {
+                try {
+                    for (let i = 0; i < 2; i++) {
+                        if (z === 0) { }
+                        const z = i;
+                    }
+                    return 'no-throw';
+                } catch (e) {
+                    return e instanceof ReferenceError ? 'ReferenceError' : 'other';
+                }
+            })()
+            """).AsString();
+
+        Assert.Equal("ReferenceError", result);
+    }
+
+    [Fact]
     public void GlobalLaneDeclinesWhenValueTypeChangesInPlace()
     {
         var engine = new Engine();
