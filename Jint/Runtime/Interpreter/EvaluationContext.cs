@@ -29,6 +29,12 @@ internal sealed class EvaluationContext
     public bool DebugMode => Engine._isDebugMode;
 
     /// <summary>
+    /// Frozen per context (constraints or debug mode at creation); statement fast paths that
+    /// skip <see cref="RunBeforeExecuteStatementChecks"/> entirely must be gated on this.
+    /// </summary>
+    internal bool ShouldRunBeforeExecuteStatementChecks => _shouldRunBeforeExecuteStatementChecks;
+
+    /// <summary>
     /// Returns true if the generator is suspended (yielded) or a return was requested.
     /// This is the combined check that should be used after evaluating sub-expressions.
     /// </summary>

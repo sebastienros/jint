@@ -21,6 +21,15 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
     private readonly ProbablyBlockStatement _body;
     private readonly List<Key>? _boundNames;
 
+    // Tight loop: an expression-statements-only body (single statement, empty statement or a
+    // brace block of them) cannot break/continue/label/declare, so when the frame additionally
+    // cannot suspend, debug or observe completion values, the per-iteration bookkeeping is dead.
+    // The references reuse the body's own handler instances — building duplicates here would
+    // allocate a fresh subtree every time this handler is constructed.
+    private readonly bool _tightBodyEligible;
+    private readonly JintExpressionStatement? _tightSingleStatement;
+    private readonly JintStatementList? _tightBodyList;
+
     private readonly bool _shouldCreatePerIterationEnvironment;
     private readonly bool _canReuseIterationEnvironment;
 
@@ -90,6 +99,50 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
             // so the discard path matches today's semantics exactly
             _incrementCanDiscard = _increment.HasDiscardFastPath;
         }
+
+        if (_test is not null && IsTightBodyShape(statement.Body))
+        {
+            _tightBodyEligible = true;
+            if (_body.BlockStatement is { } bodyBlock)
+            {
+                // single-statement blocks live in SingleStatement, larger (and empty) ones in the list
+                _tightSingleStatement = bodyBlock.SingleStatement as JintExpressionStatement;
+                _tightBodyList = _tightSingleStatement is null ? bodyBlock.StatementList : null;
+            }
+            else
+            {
+                // an EmptyStatement body leaves both references null
+                _tightSingleStatement = _body.Statement as JintExpressionStatement;
+            }
+        }
+    }
+
+    /// <summary>
+    /// A tight-loop body is an expression statement, an empty statement, or a brace block
+    /// containing only expression statements. Any other statement type — declarations, control
+    /// flow, labels, debugger — disqualifies the body.
+    /// </summary>
+    private static bool IsTightBodyShape(Statement body)
+    {
+        if (body is ExpressionStatement or EmptyStatement)
+        {
+            return true;
+        }
+
+        if (body is not NestedBlockStatement block)
+        {
+            return false;
+        }
+
+        foreach (var statement in block.Body)
+        {
+            if (statement is not ExpressionStatement)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     protected override Completion ExecuteInternal(EvaluationContext context)
@@ -313,6 +366,22 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
     {
         var v = initialValue;
 
+        // Tight loop: with an expression-statements-only body, a non-suspendable frame, no
+        // constraint/debug checks, dead completion values and no fresh per-iteration environment,
+        // nothing per iteration remains observable but test, body expressions and update.
+        // The DebugMode probe is live (same coarseness as the debugHandler hoisting below).
+        if (_tightBodyEligible
+            && !skipTestOnce
+            && !resumeUpdateOnce
+            && !context.CompletionValuesObservable
+            && !context.ShouldRunBeforeExecuteStatementChecks
+            && !context.DebugMode
+            && (!_shouldCreatePerIterationEnvironment || _canReuseIterationEnvironment)
+            && context.Engine.ExecutionContext.Suspendable is null)
+        {
+            return TightForBody(context);
+        }
+
         if (!resumeUpdateOnce && _shouldCreatePerIterationEnvironment && !_canReuseIterationEnvironment)
         {
             CreatePerIterationEnvironment(context);
@@ -412,6 +481,60 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// The bare test → body-expressions → update cycle. Exceptions propagate to the enclosing
+    /// statement list exactly as on the generic path (ForBodyEvaluation catches nothing); the
+    /// loop's Normal completion value is dead by the caller's gate, so Undefined stands in.
+    /// Deferred errors surface as Engine._error instead of a .NET throw; the statement list
+    /// converts them per statement, and so must the tight loop.
+    /// </summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private Completion TightForBody(EvaluationContext context)
+    {
+        var test = _test!;
+        var increment = _increment;
+        var single = _tightSingleStatement;
+        var list = _tightBodyList;
+
+        while (test.GetBooleanValue(context))
+        {
+            if (single is not null)
+            {
+                single.ExecuteDiscarded(context);
+                if (context.Engine._error is not null)
+                {
+                    return JintStatementList.HandleError(context.Engine, single);
+                }
+            }
+            else if (list is not null)
+            {
+                for (var i = 0; i < list.Count; i++)
+                {
+                    var statement = (JintExpressionStatement) list.GetStatement(i);
+                    statement.ExecuteDiscarded(context);
+                    if (context.Engine._error is not null)
+                    {
+                        return JintStatementList.HandleError(context.Engine, statement);
+                    }
+                }
+            }
+
+            if (increment is not null)
+            {
+                if (_incrementCanDiscard)
+                {
+                    increment.EvaluateAndDiscard(context);
+                }
+                else
+                {
+                    increment.Evaluate(context);
+                }
+            }
+        }
+
+        return new Completion(CompletionType.Normal, JsValue.Undefined, ((JintStatement) this)._statement);
     }
 
     private void SaveAccumulatedValue(EvaluationContext context, JsValue value)

@@ -13,6 +13,9 @@ internal readonly struct ProbablyBlockStatement
     private readonly JintStatement? _statement = null;
     private readonly JintBlockStatement? _blockStatement = null;
 
+    internal JintStatement? Statement => _statement;
+    internal JintBlockStatement? BlockStatement => _blockStatement;
+
     public ProbablyBlockStatement(Statement statement)
     {
         if (statement is NestedBlockStatement blockStatement)
