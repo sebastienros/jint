@@ -244,6 +244,10 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void SetProperty(Key property, PropertyDescriptor value)
     {
+        // A raw store must apply on top of the initialized state: on a lazily-initialized host the
+        // pending Initialize() would otherwise replace the property bag and silently drop this write.
+        EnsureInitialized();
+
         // Storing a raw descriptor is a dictionary-mode operation; deopt first if needed.
         if ((_type & InternalTypes.ShapeMode) != InternalTypes.Empty)
         {
@@ -284,6 +288,8 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         }
         else
         {
+            // same pre-initialization hazard as SetProperty(Key): Initialize() replaces _symbols
+            EnsureInitialized();
             _symbols ??= new SymbolDictionary();
             _symbols[(JsSymbol) propertyKey] = value;
         }

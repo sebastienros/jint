@@ -930,21 +930,28 @@ internal sealed partial class RegExpPrototype : Prototype
                     return Null;
                 }
 
-                a.SetIndexValue(0, match.Value, updateLength: false);
-                uint li = 0;
+                uint matchCount = 0;
                 while (true)
                 {
-                    if (li > 0 && li % ConstraintCheckInterval == 0)
+                    a.SetIndexValue(matchCount, match.Value, updateLength: false);
+                    matchCount++;
+
+                    if (matchCount % ConstraintCheckInterval == 0)
                     {
                         _engine.Constraints.Check();
                     }
 
+                    // sticky continuation: the next match must start exactly where the previous one
+                    // ended; an empty match advances by one (AdvanceStringIndex, never unicode here)
+                    var expectedIndex = match.Length == 0 ? match.Index + 1 : match.Index + match.Length;
                     match = match.NextMatch();
-                    if (!match.Success || match.Index != ++li)
+                    if (!match.Success || match.Index != expectedIndex)
+                    {
                         break;
-                    a.SetIndexValue(li, match.Value, updateLength: false);
+                    }
                 }
-                a.SetLength(li);
+
+                a.SetLength(matchCount);
                 return a;
             }
             else

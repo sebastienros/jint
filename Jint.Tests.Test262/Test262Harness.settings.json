@@ -1,5 +1,5 @@
 {
-  "SuiteGitSha": "05bb032907160d66c212589d345fa0e335e2738c",
+  "SuiteGitSha": "250f204f23a9249ff204be2baec29600faae7b75",
   //"SuiteDirectory": "//mnt/c/work/test262",
   "TargetPath": "./Generated",
   "Namespace": "Jint.Tests.Test262",
@@ -13,18 +13,16 @@
   ],
   "ExcludedFiles": [
 
-    // Upstream test262 bug (reported upstream). Introduced in test262 commit 21513be91f
-    // ("[immutable-arraybuffer] Coverage for read-only TypedArray methods", #4547): this test was
-    // broadened from includeArgFactories ["passthrough"] to ALL buffer-arg factories — including
-    // makeImmutableArrayBuffer — yet still expects the element copy to succeed and does NOT declare the
-    // immutable-arraybuffer feature. Per the proposal-immutable-arraybuffer spec, %TypedArray%.prototype.slice
-    // step 13 calls TypedArraySpeciesCreate(O, «count», ~write~) and ValidateTypedArray throws a TypeError
-    // when the destination buffer is immutable (step 14 asserts it is non-immutable), with no special-casing
-    // for a shared source/destination buffer. So when the source — and thus the same-buffer species
-    // destination — is immutable, a spec-conformant slice throws instead of producing [20,20,20,60]. The
-    // sibling map/filter speciesctor-destination-backed-by-immutable-buffer.js tests correctly declare the
-    // feature and expect the throw. Excluded until the upstream test excludes the immutable factory.
-    "built-ins/TypedArray/prototype/slice/speciesctor-return-same-buffer-with-offset.js",
+    // Upstream test262 bug (to be reported upstream). Added in test262 commit 6eec1ac9ee
+    // ("[await-dictionary] add remaining keyed Promise tests", #5074). The test calls
+    // verifyProperty(result, "fulfilled", { ..., configurable: true }) WITHOUT { restore: true };
+    // verifyProperty's configurable check does `delete result.fulfilled` and, absent the restore
+    // option, never puts it back. The test then dereferences result.fulfilled / result.rejected again
+    // (e.g. verifyProperty(result.fulfilled, "status", ...)), which now reads undefined and throws
+    // "Cannot convert undefined or null to object". This reproduces identically on V8/Node against a
+    // spec-correct null-prototype result object, so it is a test defect, not an engine bug. Jint builds
+    // the result object exactly per CreateKeyedPromiseCombinatorResultObject.
+    "built-ins/Promise/allSettledKeyed/result-property-descriptors.js",
 
     // === INTL402 EXCLUSIONS ===
     // The following tests require full CLDR locale data support which is not available in the default provider.
@@ -68,6 +66,15 @@
     "intl402/NumberFormat/prototype/formatToParts/unit-ja-JP.js",
     "intl402/NumberFormat/prototype/formatToParts/unit-ko-KR.js",
     "intl402/NumberFormat/prototype/formatToParts/unit-zh-TW.js",
+    // Unit formatting format - as of test262 #5079 these derive the expected unit/number separator
+    // from the implementation's own formatToParts() output (via the getUnitSeparators helper) instead
+    // of hard-coding it. That transitively depends on the same CLDR unit-part data the formatToParts
+    // unit tests above are excluded for: ICU4N ships only core locale data, so Jint's formatToParts
+    // reports a different long-unit separator than its (correct) format() output, and the constructed
+    // expectation no longer matches. (e.g. format() yields "時速 -987 キロメートル" but the helper builds
+    // "時速-987 キロメートル".)
+    "intl402/NumberFormat/prototype/format/unit-ja-JP.js",
+    "intl402/NumberFormat/prototype/format/unit-zh-TW.js",
 
     // PluralRules - compact notation affects plural category
     //"intl402/PluralRules/prototype/select/notation.js",
