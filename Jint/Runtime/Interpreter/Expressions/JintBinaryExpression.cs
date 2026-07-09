@@ -90,7 +90,13 @@ internal abstract class JintBinaryExpression : JintExpression
             if (!_slotCache.TryResolve(engine, env, identifier.Identifier, out var environment, out var slotIndex)
                 || !environment.TryGetNumberSlot(slotIndex, out left))
             {
-                return false;
+                // top-level vars are global-object properties, never slots: fall back to the
+                // validated global-descriptor cache (the stopwatch-shape loop test). The null
+                // pre-check keeps the cost for plain slot misses to a single field test.
+                if (identifier._cachedGlobalEnv is null || !TryReadGlobalNumber(identifier, engine, env, out left))
+                {
+                    return false;
+                }
             }
 
             var rightIdentifier = _rightIdentifier;
@@ -99,8 +105,32 @@ internal abstract class JintBinaryExpression : JintExpression
                 return true;
             }
 
-            return _rightSlotCache.TryResolve(engine, env, rightIdentifier.Identifier, out var rightEnvironment, out var rightSlotIndex)
-                   && rightEnvironment.TryGetNumberSlot(rightSlotIndex, out right);
+            if (_rightSlotCache.TryResolve(engine, env, rightIdentifier.Identifier, out var rightEnvironment, out var rightSlotIndex)
+                && rightEnvironment.TryGetNumberSlot(rightSlotIndex, out right))
+            {
+                return true;
+            }
+
+            return rightIdentifier._cachedGlobalEnv is not null && TryReadGlobalNumber(rightIdentifier, engine, env, out right);
+        }
+
+        /// <summary>
+        /// Global-binding arm of the lane operand read: validated-cache probe plus a field read,
+        /// both pure — so a decline (or a left read followed by a right-side decline) has no
+        /// observable effect. The value type is re-checked on every read because in-place value
+        /// mutations bump no version. Out of line so lane misses don't grow the inlined probe.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static bool TryReadGlobalNumber(JintIdentifierExpression identifier, Engine engine, Environments.Environment env, out double value)
+        {
+            if (identifier.TryGetValidatedGlobalDescriptor(engine, env) is { _value: JsNumber number })
+            {
+                value = number._value;
+                return true;
+            }
+
+            value = 0;
+            return false;
         }
     }
 
