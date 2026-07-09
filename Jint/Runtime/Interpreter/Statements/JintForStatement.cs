@@ -30,6 +30,16 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
     private readonly JintExpressionStatement? _tightSingleStatement;
     private readonly JintStatementList? _tightBodyList;
 
+    // Body-lexical flattening: when the body block's let/const bindings are slot-eligible
+    // (no function/class declarations, no escaping closures — BlockState.SlotNames implies both),
+    // contain no using declarations and don't shadow the loop header's names, they fold into the
+    // pooled loop environment. The body then runs against that environment directly, eliding the
+    // block-env attach/swap/park ceremony per iteration; the body's slot range is re-TDZ'd before
+    // each iteration instead.
+    private readonly bool _bodyFlattened;
+    private readonly int _flattenedHeaderSlotCount;
+    private readonly JintBlockStatement? _flattenedBodyBlock;
+
     private readonly bool _shouldCreatePerIterationEnvironment;
     private readonly bool _canReuseIterationEnvironment;
 
@@ -98,6 +108,30 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
             // restricted to types whose Evaluate() result is a plain value (never a Reference)
             // so the discard path matches today's semantics exactly
             _incrementCanDiscard = _increment.HasDiscardFastPath;
+        }
+
+        if (_canPoolLoopEnv && _body.BlockStatement is { } flattenCandidate)
+        {
+            var bodyState = flattenCandidate.State;
+            if (bodyState.SlotNames is { } bodyNames
+                && _boundNames!.Count + bodyNames.Length <= 16
+                && !HasUsingDeclarations(bodyState)
+                && !NamesOverlap(_loopSlotNames!, bodyNames))
+            {
+                var headerCount = _loopSlotNames!.Length;
+                var combinedNames = new Key[headerCount + bodyNames.Length];
+                var combinedTemplates = new Binding[combinedNames.Length];
+                System.Array.Copy(_loopSlotNames, combinedNames, headerCount);
+                System.Array.Copy(_loopSlotTemplates!, combinedTemplates, headerCount);
+                System.Array.Copy(bodyNames, 0, combinedNames, headerCount, bodyNames.Length);
+                System.Array.Copy(bodyState.SlotTemplates!, 0, combinedTemplates, headerCount, bodyNames.Length);
+
+                _loopSlotNames = combinedNames;
+                _loopSlotTemplates = combinedTemplates;
+                _flattenedHeaderSlotCount = headerCount;
+                _flattenedBodyBlock = flattenCandidate;
+                _bodyFlattened = true;
+            }
         }
 
         if (_test is not null && IsTightBodyShape(statement.Body))
@@ -255,7 +289,9 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                 }
             }
 
-            completion = ForBodyEvaluation(context, suspendData?.AccumulatedValue ?? JsValue.Undefined, skipTestOnce: resumingInBody, resumeUpdateOnce: resumingInUpdate);
+            // body flattening engages only when the pooled combined-slot environment is live
+            var flattenActive = _bodyFlattened && loopEnv is not null && _canPoolLoopEnv && suspendable is null;
+            completion = ForBodyEvaluation(context, suspendData?.AccumulatedValue ?? JsValue.Undefined, skipTestOnce: resumingInBody, resumeUpdateOnce: resumingInUpdate, flattenActive);
             return completion;
         }
         finally
@@ -320,6 +356,48 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
     }
 
     /// <summary>
+    /// Re-establishes the TDZ of the flattened body's slot range before an iteration; the header
+    /// range is left untouched (a reused iteration environment keeps its header bindings).
+    /// </summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    private static void ResetBodySlotRange(Binding[] slots, Binding[] templates, int headerCount)
+    {
+        for (var i = headerCount; i < templates.Length; i++)
+        {
+            slots[i] = templates[i];
+        }
+    }
+
+    private static bool HasUsingDeclarations(JintBlockStatement.BlockState state)
+    {
+        foreach (var declaration in state.Declarations)
+        {
+            if (declaration.Declaration is VariableDeclaration { Kind: VariableDeclarationKind.Using or VariableDeclarationKind.AwaitUsing })
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool NamesOverlap(Key[] headerNames, Key[] bodyNames)
+    {
+        foreach (var bodyName in bodyNames)
+        {
+            foreach (var headerName in headerNames)
+            {
+                if (bodyName == headerName)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Checks if the given node is inside this for statement's body, test, or update (but NOT init).
     /// Used to determine if we're resuming from a yield/await inside the loop.
     /// When resuming from init, we must re-execute init to complete nested awaits.
@@ -362,7 +440,7 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
     /// <summary>
     /// https://tc39.es/ecma262/#sec-forbodyevaluation
     /// </summary>
-    private Completion ForBodyEvaluation(EvaluationContext context, JsValue initialValue, bool skipTestOnce, bool resumeUpdateOnce)
+    private Completion ForBodyEvaluation(EvaluationContext context, JsValue initialValue, bool skipTestOnce, bool resumeUpdateOnce, bool flattenActive = false)
     {
         var v = initialValue;
 
@@ -416,7 +494,20 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
             var suspendable = context.Engine.ExecutionContext.Suspendable;
             if (!resumeUpdateOnce)
             {
-                var result = _body.Execute(context);
+                Completion result;
+                if (flattenActive && !context.DebugMode)
+                {
+                    // the pooled loop environment carries the body's slots: re-establish their TDZ
+                    // and run the block contents in place. Under a debugger the normal block path
+                    // runs instead — its fresh env shadows the (uninitialized) flattened slots.
+                    var env = (DeclarativeEnvironment) context.Engine.ExecutionContext.LexicalEnvironment;
+                    ResetBodySlotRange(env._slots!, _loopSlotTemplates!, _flattenedHeaderSlotCount);
+                    result = _flattenedBodyBlock!.ExecuteFlattenedContents(context);
+                }
+                else
+                {
+                    result = _body.Execute(context);
+                }
                 if (!result.Value.IsEmpty)
                 {
                     v = result.Value;
