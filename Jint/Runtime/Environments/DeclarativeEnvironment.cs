@@ -123,6 +123,26 @@ internal class DeclarativeEnvironment : Environment
     }
 
     /// <summary>
+    /// Pure slot read returning the binding's value object for the arithmetic-lane leaves
+    /// (an unboxed number materializes with the standard write-back). Returns false for
+    /// out-of-range/stale indices and uninitialized (TDZ) bindings so the caller declines
+    /// to the generic path before any side effect.
+    /// </summary>
+    internal bool TryGetSlotValueForRead(int slotIndex, [NotNullWhen(true)] out JsValue? value)
+    {
+        var slots = _slots;
+        if (slots is null || (uint) slotIndex >= (uint) slots.Length)
+        {
+            value = null;
+            return false;
+        }
+
+        ref var binding = ref slots[slotIndex];
+        value = binding.HasReferenceValue ? binding.Value : MaterializeUnboxedOrNull(ref binding);
+        return value is not null;
+    }
+
+    /// <summary>
     /// Stores a raw number into a slot previously validated by <see cref="TryGetNumberSlot"/>
     /// without materializing a JsNumber.
     /// </summary>

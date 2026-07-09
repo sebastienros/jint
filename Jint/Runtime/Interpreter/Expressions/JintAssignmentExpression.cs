@@ -612,6 +612,10 @@ internal sealed class JintAssignmentExpression : JintExpression
         // only routes this shape through EvaluateAndDiscard; every other assignment keeps its exact path.
         private readonly bool _structurallyNumeric;
 
+        // Sum-of-products right-hand sides (the 3d-cube matrix kernels) evaluate on raw doubles
+        // and box once instead of per binary node; see JintBinaryExpression.SumOfProductsLane.
+        private JintBinaryExpression.SumOfProductsLane? _rightSumOfProducts;
+
         public SimpleAssignmentExpression(AssignmentExpression expression) : base(expression)
         {
             _structurallyNumeric = IsNumericAssignmentShape(expression);
@@ -657,6 +661,7 @@ internal sealed class JintAssignmentExpression : JintExpression
             _right = Build(assignmentExpression.Right);
 
             TryEnableNumericFastPath(assignmentExpression);
+            _rightSumOfProducts = JintBinaryExpression.SumOfProductsLane.TryBuild(_right);
         }
 
         private void TryEnableNumericFastPath(AssignmentExpression assignmentExpression)
@@ -916,7 +921,10 @@ internal sealed class JintAssignmentExpression : JintExpression
 
             lref.AssertValid(engine.Realm);
 
-            var rval = _right.GetValue(context);
+            // sum-of-products right-hand sides compute on raw doubles and box once
+            var rval = _rightSumOfProducts is not null && _rightSumOfProducts.TryEvaluate(context, out var unboxedProductSum)
+                ? JsNumber.Create(unboxedProductSum)
+                : _right.GetValue(context);
 
             // If generator suspended or return requested during right-hand side evaluation, don't assign
             if (context.IsGeneratorAborted())

@@ -136,6 +136,253 @@ internal abstract class JintBinaryExpression : JintExpression
     }
 
     /// <summary>
+    /// Whole-tree lane for sum-of-products arithmetic over pure-readable numeric leaves —
+    /// `M1[i][0]*M2[0][j] + M1[i][1]*M2[1][j] + …`, the dromaeo-3d-cube MMulti/VMulti kernel shape,
+    /// which otherwise boxes a transient JsNumber per binary node. The whole tree is computed on
+    /// raw doubles (the spec arithmetic — integer-valued leaves produce identical results) and
+    /// boxed once by the consumer.
+    ///
+    /// Armed only for trees of two or more ± terms that are ALL products — a shape integer-heavy
+    /// workloads don't produce, so their dedicated per-op integer paths never see this probe.
+    /// Leaves are numeric constants, slot/global identifiers and dense computed reads with
+    /// identifier bases: every runtime read is pure, so a decline (any leaf missing the dense
+    /// fast path or not holding a Number) falls back to generic tree evaluation with no
+    /// observable double effects.
+    /// </summary>
+    internal sealed class SumOfProductsLane
+    {
+        private struct Leaf
+        {
+            public byte Kind;                                    // 0 constant, 1 identifier, 2 a[i], 3 a[i][j]
+            public double Constant;
+            public JintIdentifierExpression? Identifier;          // identifier leaf, or member base
+            public JintIdentifierExpression? Index1Identifier;    // first index (null => Constant1)
+            public JintIdentifierExpression? Index2Identifier;    // second index (null => Constant2)
+            public uint ConstantIndex1;
+            public uint ConstantIndex2;
+            public SlotLocationCache Cache;
+            public SlotLocationCache Index1Cache;
+            public SlotLocationCache Index2Cache;
+        }
+
+        private readonly Leaf[] _leaves;      // term k = leaves[2k] * leaves[2k+1]
+        private readonly bool[] _negated;     // sign per term (a right operand of Minus flips)
+
+        private SumOfProductsLane(Leaf[] leaves, bool[] negated)
+        {
+            _leaves = leaves;
+            _negated = negated;
+        }
+
+        internal static SumOfProductsLane? TryBuild(JintExpression expression)
+        {
+            var leaves = new List<Leaf>();
+            var negated = new List<bool>();
+            if (!CollectTerms(expression, leaves, negated) || negated.Count < 2)
+            {
+                return null;
+            }
+
+            return new SumOfProductsLane(leaves.ToArray(), negated.ToArray());
+        }
+
+        private static bool CollectTerms(JintExpression expression, List<Leaf> leaves, List<bool> negated)
+        {
+            // Only left-deep chains arm (the natural parse of `p1 + p2 - p3 …`), so the linear
+            // left-to-right fold reproduces the tree's association — and therefore its floating
+            // point rounding — exactly. A parenthesized right-nested sum stays on the generic path.
+            switch (expression)
+            {
+                case PlusBinaryExpression plus:
+                    return CollectTerms(plus._left, leaves, negated)
+                           && CollectProduct(plus._right, negate: false, leaves, negated);
+                case MinusBinaryExpression minus:
+                    return CollectTerms(minus._left, leaves, negated)
+                           && CollectProduct(minus._right, negate: true, leaves, negated);
+                case TimesBinaryExpression times:
+                    return CollectProduct(times, negate: false, leaves, negated);
+                default:
+                    return false;
+            }
+        }
+
+        private static bool CollectProduct(JintExpression expression, bool negate, List<Leaf> leaves, List<bool> negated)
+        {
+            if (expression is not TimesBinaryExpression times
+                || !TryClassifyLeaf(times._left, out var left)
+                || !TryClassifyLeaf(times._right, out var right))
+            {
+                return false;
+            }
+
+            leaves.Add(left);
+            leaves.Add(right);
+            negated.Add(negate);
+            return negated.Count <= 8;
+        }
+
+        private static bool TryClassifyLeaf(JintExpression expression, out Leaf leaf)
+        {
+            leaf = default;
+            switch (expression)
+            {
+                case JintConstantExpression { Value: JsNumber number }:
+                    leaf.Kind = 0;
+                    leaf.Constant = number._value;
+                    return true;
+
+                case JintIdentifierExpression identifier:
+                    leaf.Kind = 1;
+                    leaf.Identifier = identifier;
+                    return true;
+
+                case JintMemberExpression member when member.TryGetComputedIndexShape(out var objectExpression, out var indexIdentifier, out var constantIndex):
+                    if (objectExpression is JintIdentifierExpression identifierBase)
+                    {
+                        // a[i] / a[0]
+                        leaf.Kind = 2;
+                        leaf.Identifier = identifierBase;
+                        leaf.Index1Identifier = indexIdentifier;
+                        leaf.ConstantIndex1 = constantIndex;
+                        return true;
+                    }
+
+                    if (objectExpression is JintMemberExpression innerMember
+                        && innerMember.TryGetComputedIndexShape(out var innerObject, out var innerIndexIdentifier, out var innerConstantIndex)
+                        && innerObject is JintIdentifierExpression chainBase)
+                    {
+                        // m[i][j] / m[i][0] — the matrix-kernel leaf
+                        leaf.Kind = 3;
+                        leaf.Identifier = chainBase;
+                        leaf.Index1Identifier = innerIndexIdentifier;
+                        leaf.ConstantIndex1 = innerConstantIndex;
+                        leaf.Index2Identifier = indexIdentifier;
+                        leaf.ConstantIndex2 = constantIndex;
+                        return true;
+                    }
+
+                    return false;
+
+                default:
+                    return false;
+            }
+        }
+
+        public bool TryEvaluate(EvaluationContext context, out double result)
+        {
+            result = 0;
+
+            var engine = context.Engine;
+            if (context.OperatorOverloadingAllowed || engine.ExecutionContext.Suspendable is not null)
+            {
+                return false;
+            }
+
+            var env = engine.ExecutionContext.LexicalEnvironment;
+            var leaves = _leaves;
+            var negated = _negated;
+
+            // the first term seeds the accumulator (never negated in a left-deep chain) — seeding
+            // with +0 would inject a phantom term and lose a -0 sum's sign
+            if (!TryReadLeaf(ref leaves[0], engine, env, out var seedLeft)
+                || !TryReadLeaf(ref leaves[1], engine, env, out var seedRight))
+            {
+                return false;
+            }
+
+            result = seedLeft * seedRight;
+            for (var term = 1; term < negated.Length; term++)
+            {
+                if (!TryReadLeaf(ref leaves[2 * term], engine, env, out var left)
+                    || !TryReadLeaf(ref leaves[2 * term + 1], engine, env, out var right))
+                {
+                    result = 0;
+                    return false;
+                }
+
+                var product = left * right;
+                result = negated[term] ? result - product : result + product;
+            }
+
+            return true;
+        }
+
+        private static bool TryReadLeaf(ref Leaf leaf, Engine engine, Environments.Environment env, out double value)
+        {
+            switch (leaf.Kind)
+            {
+                case 0:
+                    value = leaf.Constant;
+                    return true;
+
+                case 1:
+                    if (leaf.Cache.TryResolve(engine, env, leaf.Identifier!.Identifier, out var identifierEnv, out var slotIndex)
+                        && identifierEnv.TryGetNumberSlotForRead(slotIndex, out value))
+                    {
+                        return true;
+                    }
+
+                    value = 0;
+                    return leaf.Identifier._cachedGlobalEnv is not null && TryReadGlobalNumber(leaf.Identifier, engine, env, out value);
+
+                default:
+                    value = 0;
+                    if (!leaf.Cache.TryResolve(engine, env, leaf.Identifier!.Identifier, out var baseEnv, out var baseSlot)
+                        || !baseEnv.TryGetSlotValueForRead(baseSlot, out var baseValue)
+                        || baseValue is not JsArray array
+                        || !array.CanUseFastAccess)
+                    {
+                        return false;
+                    }
+
+                    if (!TryReadIndex(leaf.Index1Identifier, ref leaf.Index1Cache, leaf.ConstantIndex1, engine, env, out var index)
+                        || !array.TryGetValueFast(index, out var element))
+                    {
+                        return false;
+                    }
+
+                    if (leaf.Kind == 3)
+                    {
+                        if (element is not JsArray innerArray
+                            || !innerArray.CanUseFastAccess
+                            || !TryReadIndex(leaf.Index2Identifier, ref leaf.Index2Cache, leaf.ConstantIndex2, engine, env, out var innerIndex)
+                            || !innerArray.TryGetValueFast(innerIndex, out element))
+                        {
+                            return false;
+                        }
+                    }
+
+                    if (element is JsNumber number)
+                    {
+                        value = number._value;
+                        return true;
+                    }
+
+                    return false;
+            }
+        }
+
+        private static bool TryReadIndex(JintIdentifierExpression? indexIdentifier, ref SlotLocationCache cache, uint constantIndex, Engine engine, Environments.Environment env, out uint index)
+        {
+            if (indexIdentifier is null)
+            {
+                index = constantIndex;
+                return true;
+            }
+
+            index = 0;
+            if (!cache.TryResolve(engine, env, indexIdentifier.Identifier, out var indexEnv, out var indexSlot)
+                || !indexEnv.TryGetNumberSlotForRead(indexSlot, out var indexNumber))
+            {
+                return false;
+            }
+
+            index = (uint) indexNumber;
+            return index == indexNumber;
+        }
+    }
+
+    /// <summary>
     /// Fused lane for the `identifier % numericConstant == numericConstant` test — the
     /// stopwatch.js if-chain shape. Reads the identifier through the same slot/global arms as
     /// <see cref="NumericConstantComparisonLane"/> and computes the whole test on raw doubles.

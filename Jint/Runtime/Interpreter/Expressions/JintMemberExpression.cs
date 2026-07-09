@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Native.Array;
@@ -68,6 +69,43 @@ internal sealed class JintMemberExpression : JintExpression
         {
             _determinedProperty = determined;
         }
+    }
+
+    /// <summary>
+    /// Build-time probe for arithmetic-lane leaves: a computed read whose index is an identifier
+    /// or a numeric constant. The returned object expression lets the lane compose chains
+    /// (`m[i][j]` probes the outer member, then its inner member, down to an identifier base) —
+    /// shapes it can later read purely via slot-resolved dense access.
+    /// </summary>
+    internal bool TryGetComputedIndexShape(
+        [NotNullWhen(true)] out JintExpression? objectExpression,
+        out JintIdentifierExpression? indexIdentifier,
+        out uint constantIndex)
+    {
+        objectExpression = null;
+        indexIdentifier = null;
+        constantIndex = 0;
+
+        if (!_computedReadEligible)
+        {
+            return false;
+        }
+
+        if (_determinedProperty is JsNumber determinedNumber
+            && ArrayInstance.IsArrayIndex(determinedNumber, out constantIndex))
+        {
+            objectExpression = _objectExpression;
+            return true;
+        }
+
+        if (_propertyExpression is JintIdentifierExpression identifierIndex)
+        {
+            objectExpression = _objectExpression;
+            indexIdentifier = identifierIndex;
+            return true;
+        }
+
+        return false;
     }
 
     internal static JsValue InitializeDeterminedProperty(MemberExpression expression, bool cache)
