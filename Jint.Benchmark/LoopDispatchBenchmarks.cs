@@ -20,6 +20,9 @@ public class LoopDispatchBenchmarks
     private Prepared<Script> _localCopy;
     private Prepared<Script> _stringAppend;
     private Prepared<Script> _comparisonOnly;
+    private Prepared<Script> _strictEqualTest;
+    private Prepared<Script> _looseEqualTest;
+    private Prepared<Script> _moduloEqualTest;
 
     [GlobalSetup]
     public void Setup()
@@ -60,6 +63,24 @@ public class LoopDispatchBenchmarks
             f();
             """);
 
+        // + one strict-equality test (=== over a slot and a constant)
+        _strictEqualTest = Engine.PrepareScript("""
+            function f() { var n = 0; for (var i = 0; i < 100000; i++) { if (i === 50000) { } } return n; }
+            f();
+            """);
+
+        // + one loose-equality test (== over a slot and a constant)
+        _looseEqualTest = Engine.PrepareScript("""
+            function f() { var n = 0; for (var i = 0; i < 100000; i++) { if (i == 50000) { } } return n; }
+            f();
+            """);
+
+        // + the stopwatch.js if-chain shape: modulo of a slot vs a constant, loosely compared
+        _moduloEqualTest = Engine.PrepareScript("""
+            function f() { var n = 0; for (var i = 0; i < 100000; i++) { if (i % 2 == 0) { } } return n; }
+            f();
+            """);
+
         _engine = new Engine();
         _engine.Evaluate(_emptyLoop);
         _engine.Evaluate(_variableBoundLoop);
@@ -67,6 +88,9 @@ public class LoopDispatchBenchmarks
         _engine.Evaluate(_localCopy);
         _engine.Evaluate(_stringAppend);
         _engine.Evaluate(_comparisonOnly);
+        _engine.Evaluate(_strictEqualTest);
+        _engine.Evaluate(_looseEqualTest);
+        _engine.Evaluate(_moduloEqualTest);
     }
 
     [Benchmark(Baseline = true)]
@@ -86,4 +110,13 @@ public class LoopDispatchBenchmarks
 
     [Benchmark]
     public JsValue ComparisonOnly() => _engine.Evaluate(_comparisonOnly);
+
+    [Benchmark]
+    public JsValue StrictEqualTest() => _engine.Evaluate(_strictEqualTest);
+
+    [Benchmark]
+    public JsValue LooseEqualTest() => _engine.Evaluate(_looseEqualTest);
+
+    [Benchmark]
+    public JsValue ModuloEqualTest() => _engine.Evaluate(_moduloEqualTest);
 }
