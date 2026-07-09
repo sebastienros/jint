@@ -21,7 +21,7 @@ internal enum CompletionValueObservability : byte
 
 internal sealed class JintStatementList
 {
-    private readonly record struct Pair(JintStatement Statement, JsValue? Value);
+    private readonly record struct Pair(JintStatement Statement, JsValue? Value, bool NormalValueDead);
 
     private readonly Statement? _statement;
     private readonly CompletionValueObservability _observability;
@@ -67,8 +67,32 @@ internal sealed class JintStatementList
             // FastResolve pre-evaluates literal return values.
             // Debug mode check moved to Execute loop to preserve stepping behavior.
             var value = JintStatement.FastResolve(esprimaStatement);
-            jintStatements[i] = new Pair(stmt, value);
+            jintStatements[i] = new Pair(stmt, value, NormalValueDead: false);
         }
+
+        // Dead completion-value analysis, top-level (Observable) lists only: a statement's Normal
+        // completion value can never become the list value when a LATER sibling always produces one
+        // (an expression statement), because nothing at script/eval/module top level can jump over
+        // later siblings — break/continue cannot target past them and throw abandons the value
+        // entirely. NOT sound for nested (Inherit) lists: a labeled break out of a block skips the
+        // block's remaining statements, so an earlier value may still surface through UpdateEmpty.
+        if (_observability == CompletionValueObservability.Observable)
+        {
+            var laterAlwaysValued = false;
+            for (var i = jintStatements.Length - 1; i >= 0; i--)
+            {
+                if (laterAlwaysValued)
+                {
+                    jintStatements[i] = jintStatements[i] with { NormalValueDead = true };
+                }
+
+                if (statements[i] is ExpressionStatement)
+                {
+                    laterAlwaysValued = true;
+                }
+            }
+        }
+
         _jintStatements = jintStatements;
     }
 
@@ -113,7 +137,20 @@ internal sealed class JintStatementList
 
                 if (pair.Value is null || context.DebugMode)
                 {
-                    c = pair.Statement.Execute(context);
+                    if (pair.NormalValueDead && context.CompletionValuesObservable)
+                    {
+                        // a later sibling always overwrites this statement's Normal value, so it may
+                        // run with elision on (unlocking the loop/statement fast paths); the flag was
+                        // just set true for this Observable list, restore it for the next statement
+                        context.CompletionValuesObservable = false;
+                        c = pair.Statement.Execute(context);
+                        context.CompletionValuesObservable = true;
+                    }
+                    else
+                    {
+                        c = pair.Statement.Execute(context);
+                    }
+
                     if (context.Engine._error is not null)
                     {
                         c = HandleError(context.Engine, pair.Statement);

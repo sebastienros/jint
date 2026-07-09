@@ -76,6 +76,41 @@ public class TightLoopTests
     }
 
     [Fact]
+    public void DeadMarkedTopLevelLoopRunsTightWithTrailingValue()
+    {
+        var engine = new Engine();
+        // the trailing expression statement makes the for's completion value dead at script top
+        // level, unlocking the tight path there; the script value comes from the trailing read
+        var result = engine.Evaluate("var s = ''; for (var i = 0; i < 3; i++) { s += i; } s;").AsString();
+        Assert.Equal("012", result);
+
+        var evalResult = engine.Evaluate("eval(\"var t = 0; for (var i = 0; i < 5; i++) { t += i; } t;\")").AsNumber();
+        Assert.Equal(10, evalResult);
+    }
+
+    [Fact]
+    public void LabeledBreakOutOfBlockKeepsEarlierCompletionValue()
+    {
+        var engine = new Engine();
+        // the block's list is an Inherit list: the labeled break (an Empty-valued abrupt
+        // completion) jumps over the trailing 'b', so dead-value marking must NOT apply there —
+        // UpdateEmpty surfaces the loop's accumulated 'v' as the script value
+        var result = engine.Evaluate("foo: { for (var i = 0; ; i++) { 'v'; break foo; } 'b'; }").AsString();
+        Assert.Equal("v", result);
+    }
+
+    [Fact]
+    public void ConditionalTrailingStatementProducesSpecCompletion()
+    {
+        var engine = new Engine();
+        // an untaken if completes with undefined (UpdateEmpty(stmt, undefined) per spec), which
+        // overwrites the loop's value regardless of dead-marking; pins that the conservative
+        // analysis (which does not count if statements as always-valued) changes nothing here
+        var result = engine.Evaluate("for (var i = 0; i < 1; i++) { 'v'; } if (false) 'b';");
+        Assert.True(result.IsUndefined());
+    }
+
+    [Fact]
     public void ConstraintConfiguredEngineStillEnforcesInsideLoops()
     {
         var engine = new Engine(options => options.MaxStatements(50));
