@@ -37,11 +37,14 @@ public class PreparedAnomalyBenchmarks
         """;
 
     private Prepared<Script> _prepared;
+    private Engine _reusedEngine = null!;
 
     [GlobalSetup]
     public void Setup()
     {
         _prepared = Engine.PrepareScript(Source, strict: true);
+        _reusedEngine = new Engine(static options => options.Strict());
+        _reusedEngine.Execute(_prepared);
     }
 
     [Benchmark(Baseline = true)]
@@ -66,5 +69,14 @@ public class PreparedAnomalyBenchmarks
         var prepared = Engine.PrepareScript(Source, strict: true);
         var engine = new Engine(static options => options.Strict());
         engine.Execute(prepared);
+    }
+
+    // The cached-Prepared embedding pattern: one long-lived engine re-evaluating the same prepared
+    // script. Re-evaluations reuse the hoisted functions' interpreter definitions (and their warm
+    // per-node inline caches) instead of rebuilding the body handler trees each run.
+    [Benchmark]
+    public void PreparedReusedEngine()
+    {
+        _reusedEngine.Execute(_prepared);
     }
 }
