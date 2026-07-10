@@ -17,8 +17,19 @@ internal sealed class JintConditionalExpression : JintExpression
 
     protected override object EvaluateInternal(EvaluationContext context)
     {
-        JsValue testValue;
         var suspendable = context.Engine?.ExecutionContext.Suspendable;
+
+        // In a plain synchronous frame nothing can suspend or resume mid-expression, so the test
+        // can take the unboxed boolean path (comparison lanes return raw bools) instead of
+        // materializing a JsValue only to feed TypeConverter.ToBoolean.
+        if (suspendable is null && context.Engine is not null)
+        {
+            return _test.GetBooleanValue(context)
+                ? _consequent.GetValue(context)
+                : _alternate.GetValue(context);
+        }
+
+        JsValue testValue;
         if (suspendable is { IsResuming: true }
             && suspendable.Data.TryGet(this, out LeftOperandSuspendData? suspendData))
         {

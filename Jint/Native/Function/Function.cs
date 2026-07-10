@@ -86,6 +86,14 @@ public abstract partial class Function : ObjectInstance, ICallable
 
     internal override bool IsConstructor => this is IConstructor;
 
+    /// <summary>
+    /// True for built-in constructors whose zero-argument [[Construct]] with newTarget == this
+    /// runs no user-observable code and cannot raise a JavaScript error, allowing call sites to
+    /// skip the call-stack frame and constructor-resolution ceremony. Must stay false whenever a
+    /// user callback (e.g. a custom time system) could observe the call or throw through it.
+    /// </summary>
+    internal virtual bool IsZeroArgLeafConstructor => false;
+
     public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
     {
         if (_prototypeDescriptor != null)

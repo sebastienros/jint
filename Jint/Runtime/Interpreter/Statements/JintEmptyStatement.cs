@@ -12,4 +12,8 @@ internal sealed class JintEmptyStatement : JintStatement<EmptyStatement>
     {
         return new Completion(CompletionType.Normal, JsEmpty.Instance, _statement);
     }
+
+    internal override void ExecuteDiscarded(EvaluationContext context)
+    {
+    }
 }
