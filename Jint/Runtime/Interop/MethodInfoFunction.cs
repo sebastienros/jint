@@ -192,7 +192,7 @@ internal sealed class MethodInfoFunction : Function
         var message = _engine.Options.Interop.ExposeDetailedResolutionErrors
             ? InteropErrorHelper.CreateNoMatchingMethodMessage(_targetType, _name, jsArguments, _methods)
             : "No public methods with the specified arguments were found.";
-        Throw.InteropResolutionError(_engine.Realm, message, _targetType, _name);
+        Throw.InteropResolutionError(_engine.Realm, message, _targetType, _name, jsArguments, _methods);
         return null;
     }
 
