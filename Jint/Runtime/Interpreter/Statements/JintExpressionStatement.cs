@@ -46,7 +46,7 @@ internal sealed class JintExpressionStatement : JintStatement<ExpressionStatemen
     /// Callers guarantee a non-suspendable frame, no constraint/debug checks and dead
     /// completion values; expression evaluation still tracks the current node for errors.
     /// </summary>
-    internal void ExecuteDiscarded(EvaluationContext context)
+    internal override void ExecuteDiscarded(EvaluationContext context)
     {
         if (_expressionCanDiscard)
         {
