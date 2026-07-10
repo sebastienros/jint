@@ -281,7 +281,12 @@ internal sealed class JintAssignmentExpression : JintExpression
                 {
                     if (AreIntegerOperands(originalLeftValue, rval))
                     {
-                        return JsNumber.Create((long) originalLeftValue.AsInteger() * rval.AsInteger());
+                        var product = (long) originalLeftValue.AsInteger() * rval.AsInteger();
+                        // Number::multiply gives -0 for zero products of opposite signs (0 * -5),
+                        // which integer math cannot represent — route through double arithmetic
+                        return product != 0
+                            ? JsNumber.Create(product)
+                            : JsNumber.Create((double) originalLeftValue.AsInteger() * rval.AsInteger());
                     }
 
                     var leftNumeric = TypeConverter.ToNumeric(originalLeftValue);
