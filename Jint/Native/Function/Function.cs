@@ -322,11 +322,9 @@ public abstract partial class Function : ObjectInstance, ICallable
     /// https://tc39.es/ecma262/#sec-prepareforordinarycall
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal ref readonly ExecutionContext PrepareForOrdinaryCall(JsValue newTarget)
+    internal ref readonly ExecutionContext PrepareForOrdinaryCall(JsValue newTarget, JintFunctionDefinition.State state)
     {
-        var callerContext = _engine.ExecutionContext;
-
-        var localEnv = JintEnvironment.NewFunctionEnvironment(_engine, this, newTarget);
+        var localEnv = JintEnvironment.NewFunctionEnvironment(_engine, this, newTarget, state);
         var calleeRealm = _realm;
 
         var calleeContext = new ExecutionContext(
