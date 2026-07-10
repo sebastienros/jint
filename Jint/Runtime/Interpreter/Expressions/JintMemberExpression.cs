@@ -72,6 +72,27 @@ internal sealed class JintMemberExpression : JintExpression
     }
 
     /// <summary>
+    /// Build-time probe for the comparison lane's member-bound form: a non-computed, non-optional
+    /// `.length` read off a plain identifier (`i &lt; arr.length` / `i &lt; s.length`).
+    /// </summary>
+    internal bool TryGetIdentifierLengthShape([NotNullWhen(true)] out JintIdentifierExpression? baseIdentifier)
+    {
+        baseIdentifier = null;
+        if (_memberExpression.Computed
+            || _memberExpression.Optional
+            || _objectExpressionCanShortCircuit
+            || _objectExpression is not JintIdentifierExpression identifierBase
+            || _determinedProperty is not JsString name
+            || !string.Equals(name.ToString(), "length", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        baseIdentifier = identifierBase;
+        return true;
+    }
+
+    /// <summary>
     /// Build-time probe for arithmetic-lane leaves: a computed read whose index is an identifier
     /// or a numeric constant. The returned object expression lets the lane compose chains
     /// (`m[i][j]` probes the outer member, then its inner member, down to an identifier base) —

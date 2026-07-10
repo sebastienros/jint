@@ -43,7 +43,8 @@ internal abstract class JintBinaryExpression : JintExpression
     private protected struct NumericConstantComparisonLane
     {
         private JintIdentifierExpression? _identifier;
-        private JintIdentifierExpression? _rightIdentifier;   // null => use _constant
+        private JintIdentifierExpression? _rightIdentifier;   // null => use _constant; the member base when _rightIsLengthBound
+        private bool _rightIsLengthBound;                     // `identifier < base.length` bound
         private double _constant;
         private SlotLocationCache _slotCache;
         private SlotLocationCache _rightSlotCache;
@@ -64,6 +65,11 @@ internal abstract class JintBinaryExpression : JintExpression
                 case JintIdentifierExpression rightIdentifier:
                     _identifier = identifier;
                     _rightIdentifier = rightIdentifier;
+                    break;
+                case JintMemberExpression member when member.TryGetIdentifierLengthShape(out var lengthBase):
+                    _identifier = identifier;
+                    _rightIdentifier = lengthBase;
+                    _rightIsLengthBound = true;
                     break;
             }
         }
@@ -105,6 +111,11 @@ internal abstract class JintBinaryExpression : JintExpression
                 return true;
             }
 
+            if (_rightIsLengthBound)
+            {
+                return TryReadLengthBound(rightIdentifier, ref _rightSlotCache, engine, env, out right);
+            }
+
             if (_rightSlotCache.TryResolve(engine, env, rightIdentifier.Identifier, out var rightEnvironment, out var rightSlotIndex)
                 && rightEnvironment.TryGetNumberSlotForRead(rightSlotIndex, out right))
             {
@@ -112,6 +123,38 @@ internal abstract class JintBinaryExpression : JintExpression
             }
 
             return rightIdentifier._cachedGlobalEnv is not null && TryReadGlobalNumber(rightIdentifier, engine, env, out right);
+        }
+
+        /// <summary>
+        /// The `identifier &lt; base.length` bound: resolves the base purely via its slot and reads
+        /// the length without materializing a JsNumber. Array length is always an own data property
+        /// (the length machinery forbids accessors) and JsString.Length is the virtual that custom
+        /// string types override, so neither read can run user code or materialize a lazy string.
+        /// Everything else — typed arrays, proxies, arguments, plain objects — declines.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static bool TryReadLengthBound(JintIdentifierExpression baseIdentifier, ref SlotLocationCache cache, Engine engine, Environments.Environment env, out double value)
+        {
+            value = 0;
+            if (!cache.TryResolve(engine, env, baseIdentifier.Identifier, out var baseEnv, out var slot)
+                || !baseEnv.TryGetSlotValueForRead(slot, out var baseValue))
+            {
+                return false;
+            }
+
+            if (baseValue is JsArray array)
+            {
+                value = array.GetLength();
+                return true;
+            }
+
+            if (baseValue is JsString jsString)
+            {
+                value = jsString.Length;
+                return true;
+            }
+
+            return false;
         }
     }
 
