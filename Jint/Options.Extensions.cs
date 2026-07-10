@@ -232,6 +232,20 @@ public static class OptionsExtensions
         return options;
     }
 
+    /// <summary>
+    /// Sets a decorator function that is called after the JavaScript error object for a failed CLR method
+    /// or constructor resolution is created, before it is thrown into the script. The decorator can overwrite
+    /// the script-visible message or add custom properties such as an error code.
+    /// </summary>
+    /// <param name="options">The engine options.</param>
+    /// <param name="decorator">A function that receives the engine, the created error object, and the structured resolution information.</param>
+    /// <returns>The options instance for fluent configuration.</returns>
+    public static Options DecorateClrResolutionErrors(this Options options, Options.ClrResolutionErrorDecoratorDelegate decorator)
+    {
+        options.Interop.ClrResolutionErrorDecorator = decorator;
+        return options;
+    }
+
     public static Options Constraint(this Options options, Constraint constraint)
     {
         if (constraint != null)

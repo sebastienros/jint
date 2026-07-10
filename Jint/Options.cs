@@ -32,6 +32,8 @@ public class Options
 
     public delegate void ClrExceptionErrorDecoratorDelegate(Engine engine, ObjectInstance error, Exception exception);
 
+    public delegate void ClrResolutionErrorDecoratorDelegate(Engine engine, ObjectInstance error, ClrResolutionErrorInfo info);
+
     public delegate string? BuildCallStackDelegate(string shortDescription, SourceLocation location, string[]? arguments);
 
     public delegate string SerializeToJsonDelegate(object? target, string space, string? currentIndent);
@@ -381,6 +383,15 @@ public class Options
         public ClrExceptionErrorDecoratorDelegate? ClrExceptionErrorDecorator { get; set; }
 
         /// <summary>
+        /// Called after the JavaScript error object for a failed CLR method or constructor resolution has been
+        /// created, just before it is thrown into the script. The decorator may overwrite the script-visible
+        /// <c>message</c> and add custom properties (e.g. an error code). It receives the full structured
+        /// resolution information via <see cref="ClrResolutionErrorInfo"/> regardless of
+        /// <see cref="ExposeDetailedResolutionErrors"/>, which only selects the default message.
+        /// </summary>
+        public ClrResolutionErrorDecoratorDelegate? ClrResolutionErrorDecorator { get; set; }
+
+        /// <summary>
         /// Assemblies to allow scripts to call CLR types directly like <example>System.IO.File</example>.
         /// </summary>
         public List<Assembly> AllowedAssemblies { get; set; } = new();
@@ -452,7 +463,8 @@ public class Options
         /// <para>
         /// This only controls the script-visible message. The originating CLR <see cref="System.Type"/> is always
         /// attached to the exception regardless of this setting and can be read host-side via
-        /// <see cref="JintException.TryGetClrType"/> (it is not exposed to the running script).
+        /// <see cref="JintException.TryGetClrType"/> (it is not exposed to the running script). To customize
+        /// what the script sees (rewrite the message, attach an error code), use <see cref="ClrResolutionErrorDecorator"/>.
         /// </para>
         /// </summary>
         public bool ExposeDetailedResolutionErrors { get; set; }

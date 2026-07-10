@@ -4,6 +4,7 @@ using System.Runtime.ExceptionServices;
 using Jint.Native;
 using Jint.Native.Error;
 using Jint.Runtime.CallStack;
+using Jint.Runtime.Interop;
 using Jint.Runtime.Modules;
 
 namespace Jint.Runtime;
@@ -89,21 +90,38 @@ internal static class Throw
     /// recorded on the error object so the host can read them via <see cref="JintException.TryGetClrType"/>
     /// without parsing the message. They are CLR fields, not JavaScript properties, so the running script
     /// cannot observe them; this is independent of <see cref="Options.InteropOptions.ExposeDetailedResolutionErrors"/>.
+    /// A configured <see cref="Options.InteropOptions.ClrResolutionErrorDecorator"/> runs against the error
+    /// object before the exception is created, so a rewritten <c>message</c> also becomes <see cref="Exception.Message"/>.
     /// </summary>
     [DoesNotReturn]
-    public static void InteropResolutionError(Realm realm, string message, Type clrType, string? memberName)
+    public static void InteropResolutionError(
+        Realm realm,
+        string message,
+        Type clrType,
+        string? memberName,
+        JsCallArguments arguments,
+        MethodDescriptor[]? candidates)
     {
-        var location = realm.GlobalObject.Engine.GetLastSyntaxElement()?.Location ?? default;
-        var exception = new JavaScriptException(realm.Intrinsics.TypeError, message).SetJavaScriptLocation(location);
+        var engine = realm.GlobalObject.Engine;
+        var location = engine.GetLastSyntaxElement()?.Location ?? default;
+
+        var error = realm.Intrinsics.TypeError.Construct(message);
 
         // The error value survives the interpreter's throw-completion reconstruction (the .NET exception
         // instance does not), so record the CLR origin on the error object rather than on Exception.Data.
-        if (exception.Error is ErrorInstance errorInstance)
+        if (error is ErrorInstance errorInstance)
         {
             errorInstance.SetClrResolutionInfo(clrType, memberName);
         }
 
-        throw exception;
+        var decorator = engine.Options.Interop.ClrResolutionErrorDecorator;
+        if (decorator is not null)
+        {
+            // the info object (and its argument copy) is only built when a decorator is configured - cold path
+            decorator(engine, error, new ClrResolutionErrorInfo(clrType, memberName, arguments, candidates));
+        }
+
+        throw new JavaScriptException(error).SetJavaScriptLocation(location);
     }
 
     [DoesNotReturn]
