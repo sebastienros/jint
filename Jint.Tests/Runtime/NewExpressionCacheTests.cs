@@ -117,6 +117,7 @@ public class NewExpressionCacheTests
     {
         public DateTimeOffset GetUtcNow() => DateTimeOffset.FromUnixTimeMilliseconds(123456789);
         public TimeZoneInfo DefaultTimeZone => TimeZoneInfo.Utc;
+        public TimeSpan GetUtcOffset(long epochMilliseconds) => TimeSpan.Zero;
         public bool TryParse(string date, out long epochMilliseconds)
         {
             epochMilliseconds = 0;
@@ -128,6 +129,7 @@ public class NewExpressionCacheTests
     {
         public DateTimeOffset GetUtcNow() => throw new InvalidOperationException("clock is broken");
         public TimeZoneInfo DefaultTimeZone => TimeZoneInfo.Utc;
+        public TimeSpan GetUtcOffset(long epochMilliseconds) => TimeSpan.Zero;
         public bool TryParse(string date, out long epochMilliseconds)
         {
             epochMilliseconds = 0;
