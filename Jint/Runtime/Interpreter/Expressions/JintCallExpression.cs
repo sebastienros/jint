@@ -37,6 +37,11 @@ internal sealed class JintCallExpression : JintExpression
 
         var engine = context.Engine;
 
+        // The frame's suspendable is fixed for the duration of this evaluation (nested calls
+        // balance their context push/pop), so capture it once and probe the reference instead
+        // of re-reading the execution context after every sub-expression.
+        var suspendable = engine.ExecutionContext.Suspendable;
+
         object reference;
         Reference? referenceRecord;
         JsValue func;
@@ -55,7 +60,7 @@ internal sealed class JintCallExpression : JintExpression
             && !engine._customResolver)
         {
             fastFunc = member.GetCalleeForCall(context, out fastThis);
-            if (context.IsSuspended())
+            if (suspendable is not null && suspendable.IsSuspended)
             {
                 return fastFunc;
             }
@@ -77,7 +82,7 @@ internal sealed class JintCallExpression : JintExpression
             var calleeReference = _calleeExpression.Evaluate(context);
 
             // Check for generator suspension after evaluating callee
-            if (context.IsSuspended())
+            if (suspendable is not null && suspendable.IsSuspended)
             {
                 return calleeReference as JsValue ?? JsValue.Undefined;
             }
@@ -141,7 +146,7 @@ internal sealed class JintCallExpression : JintExpression
         var arguments = this._arguments.ArgumentListEvaluation(context, this, out var rented);
 
         // Check for generator suspension after argument evaluation
-        if (context.IsSuspended())
+        if (suspendable is not null && suspendable.IsSuspended)
         {
             // When suspended mid-arglist, ExpressionCache keeps the array alive
             // in suspend data and returns rented=false, so we don't release it here.

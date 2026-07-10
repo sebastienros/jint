@@ -80,15 +80,15 @@ public sealed class ScriptFunction : Function, IConstructor
     /// </summary>
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
-        var strict = _functionDefinition!.Strict || _thisMode == FunctionThisMode.Strict;
+        var state = _functionDefinition!.Initialize();
+        var strict = _functionDefinition.Strict || _thisMode == FunctionThisMode.Strict;
         using (new StrictModeScope(strict, force: true))
         {
             FunctionEnvironment? funcEnv = null;
-            JintFunctionDefinition.State? state = null;
 
             try
             {
-                ref readonly var calleeContext = ref PrepareForOrdinaryCall(Undefined);
+                ref readonly var calleeContext = ref PrepareForOrdinaryCall(Undefined, state);
 
                 if (_isClassConstructor)
                 {
@@ -98,8 +98,7 @@ public sealed class ScriptFunction : Function, IConstructor
                 // Capture funcEnv for end-of-call pool return when bindings can't escape. Direct-recursive
                 // functions return their env to a small bounded pool (so each live frame reuses a distinct
                 // env); other non-escaping functions use the single-slot pool. Escaping envs are not pooled.
-                state = _functionDefinition.Initialize();
-                if (state is { EnvironmentMayEscape: false })
+                if (!state.EnvironmentMayEscape)
                 {
                     funcEnv = (FunctionEnvironment) calleeContext.LexicalEnvironment;
                 }
@@ -109,7 +108,7 @@ public sealed class ScriptFunction : Function, IConstructor
                 // actual call
                 var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
 
-                var result = _functionDefinition.EvaluateBody(context, this, arguments);
+                var result = _functionDefinition.EvaluateBody(context, this, arguments, state);
 
                 // For async functions/generators, DisposeResources is deferred to when
                 // the body truly completes (AsyncBlockStart/AsyncFunctionResume).
@@ -147,7 +146,7 @@ public sealed class ScriptFunction : Function, IConstructor
                     // Cache on this function instance (per-engine by construction, so a prepared script's
                     // shared State can't pin engines — see _envReuse). Single-threaded like the engine, so
                     // no Interlocked is needed on the instance side.
-                    if (state!.IsDirectRecursive)
+                    if (state.IsDirectRecursive)
                     {
                         // Return the env (with its fixed-slot array still attached) to the bounded
                         // recursive pool so another simultaneously live frame can reuse env + slots.
@@ -218,6 +217,7 @@ public sealed class ScriptFunction : Function, IConstructor
     /// </summary>
     ObjectInstance IConstructor.Construct(JsCallArguments arguments, JsValue newTarget)
     {
+        var state = _functionDefinition!.Initialize();
         var callerContext = _engine.ExecutionContext;
         var kind = _constructorKind;
 
@@ -264,7 +264,7 @@ public sealed class ScriptFunction : Function, IConstructor
             }
         }
 
-        ref readonly var calleeContext = ref PrepareForOrdinaryCall(newTarget);
+        ref readonly var calleeContext = ref PrepareForOrdinaryCall(newTarget, state);
         var constructorEnv = (FunctionEnvironment) calleeContext.LexicalEnvironment;
 
         var strict = _thisMode == FunctionThisMode.Strict;
@@ -280,7 +280,7 @@ public sealed class ScriptFunction : Function, IConstructor
 
                 var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
 
-                var result = _functionDefinition!.EvaluateBody(context, this, arguments);
+                var result = _functionDefinition.EvaluateBody(context, this, arguments, state);
                 result = constructorEnv.DisposeResources(result);
 
                 // The DebugHandler needs the current execution context before the return for stepping through the return point
