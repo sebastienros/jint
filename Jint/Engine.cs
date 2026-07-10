@@ -54,6 +54,44 @@ public sealed partial class Engine : IDisposable
     internal EvaluationContext? _activeEvaluationContext;
     internal ErrorDispatchInfo? _error;
 
+    // Per-engine cache of function declarations' interpreter definitions, keyed on the AST node.
+    // The definition owns the lazily-built body handler tree — and through it every per-node inline
+    // cache — so reusing it across evaluations and calls keeps a prepared script's functions warm
+    // instead of rebuilding the subtree each time declaration instantiation runs.
+    //
+    // Lifetime notes. Engine-owned rather than shared via the AST's UserData State because handler
+    // trees accumulate engine-affine cache entries, and sharing them across engines retains dead
+    // engines (GarbageCollectionTests.SharedPreparedScriptDoesNotRetainEngines pins this). A strong
+    // Dictionary rather than a ConditionalWeakTable because a dependent handle keeps its value alive
+    // on KEY reachability alone: with the key rooted by a live Prepared<Script>, value → inline
+    // caches → engine → table becomes self-sustaining and pins the dropped engine — the exact
+    // failure the weak table was meant to avoid. The strong form instead retains definitions for
+    // scripts this engine evaluated until the engine dies, mirroring Realm._templateMap's existing
+    // behavior.
+    private readonly Dictionary<FunctionDeclaration, JintFunctionDefinition> _hoistedFunctionDefinitions = new();
+
+    // Scripts this engine has run global declaration instantiation for, so the definition cache
+    // above only engages on RE-evaluation (see GlobalDeclarationInstantiation).
+    private readonly HashSet<Script> _evaluatedScripts = new();
+
+    internal JintFunctionDefinition GetOrCreateFunctionDefinition(FunctionDeclaration declaration)
+    {
+        if (!_hoistedFunctionDefinitions.TryGetValue(declaration, out var definition))
+        {
+            // backstop for hosts streaming endless distinct sources (unique eval/script texts)
+            // through one engine: reset rather than grow without bound - steady-state reuse of a
+            // sane number of scripts never reaches this
+            if (_hoistedFunctionDefinitions.Count >= 2048)
+            {
+                _hoistedFunctionDefinitions.Clear();
+            }
+
+            _hoistedFunctionDefinitions[declaration] = definition = new JintFunctionDefinition(declaration);
+        }
+
+        return definition;
+    }
+
     private readonly EventLoop _eventLoop = new();
     internal EventLoop EventLoop => _eventLoop;
 
@@ -1089,6 +1127,12 @@ public sealed partial class Engine : IDisposable
 
         if (functionDeclarations != null)
         {
+            // The definition cache pays only when the same script runs on this engine again (the
+            // cached-Prepared<Script> embedding pattern); a first evaluation - fresh-engine-per-run
+            // hosts never see a second one - takes plain construction so one-shot scripts stay
+            // byte-identical to the uncached path.
+            var reEvaluation = !_evaluatedScripts.Add(script);
+
             for (var i = functionDeclarations.Count - 1; i >= 0; i--)
             {
                 var d = functionDeclarations[i];
@@ -1102,7 +1146,7 @@ public sealed partial class Engine : IDisposable
                     }
 
                     declaredFunctionNames.Add(fn);
-                    functionToInitialize.Add(new JintFunctionDefinition(d));
+                    functionToInitialize.Add(reEvaluation ? GetOrCreateFunctionDefinition(d) : new JintFunctionDefinition(d));
                 }
             }
         }
@@ -1427,7 +1471,7 @@ public sealed partial class Engine : IDisposable
             var realm = Realm;
             foreach (var f in configuration.FunctionsToInitialize)
             {
-                var jintFunctionDefinition = new JintFunctionDefinition(f);
+                var jintFunctionDefinition = GetOrCreateFunctionDefinition(f);
                 var fn = jintFunctionDefinition.Name!;
                 var fo = realm.Intrinsics.Function.InstantiateFunctionObject(jintFunctionDefinition, lexEnv, privateEnv);
                 varEnv.SetMutableBinding(fn, fo, strict: false);
@@ -1579,7 +1623,7 @@ public sealed partial class Engine : IDisposable
                     }
 
                     declaredFunctionNames.Add(fn);
-                    functionsToInitialize.AddFirst(new JintFunctionDefinition(d));
+                    functionsToInitialize.AddFirst(GetOrCreateFunctionDefinition(d));
                 }
             }
         }

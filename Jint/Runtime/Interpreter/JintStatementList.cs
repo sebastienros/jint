@@ -329,7 +329,7 @@ internal sealed class JintStatementList
 
             if (declaration.Declaration is FunctionDeclaration functionDeclaration)
             {
-                var definition = new JintFunctionDefinition(functionDeclaration);
+                var definition = env._engine.GetOrCreateFunctionDefinition(functionDeclaration);
                 var fn = definition.Name!;
                 var fo = env._engine.Realm.Intrinsics.Function.InstantiateFunctionObject(definition, env, privateEnv);
                 env.InitializeBinding(fn, fo, DisposeHint.Normal);
