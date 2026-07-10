@@ -254,6 +254,13 @@ public sealed partial class Engine : IDisposable
 
     internal Node? _lastSyntaxElement;
 
+    // Bumped when a binding is injected into a PRE-EXISTING environment mid-execution (sloppy
+    // direct eval var/function hoisting, AnnexB block-function var-scope copies). Nested-scope
+    // global-read memos pin environment chains by identity and re-validate against this — chain
+    // identity alone cannot see a name added to a pinned env. Creates into fresh environments
+    // never bump: a fresh environment cannot appear in a previously pinned chain.
+    internal int _envBindingInjectionEpoch;
+
     internal Realm Realm => _realmInConstruction ?? ExecutionContext.Realm;
 
     /// <summary>
@@ -1521,6 +1528,13 @@ public sealed partial class Engine : IDisposable
         var varEnvRec = varEnv;
 
         var realm = Realm;
+
+        if (!strict)
+        {
+            // Sloppy direct eval hoists vars/functions into the CALLER's pre-existing variable
+            // environment — the one mutation that invalidates pinned nested-global chain memos.
+            _envBindingInjectionEpoch++;
+        }
 
         if (!strict && hoistingScope._variablesDeclarations != null)
         {

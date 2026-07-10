@@ -364,6 +364,9 @@ internal sealed class JintStatementList
 
                         if (shouldCopy)
                         {
+                            // this may CREATE a binding in the pre-existing var env (sloppy
+                            // set-on-missing) — invalidate pinned nested-global chain memos
+                            engine._envBindingInjectionEpoch++;
                             varEnv.SetMutableBinding(fn, fo, strict: false);
                         }
                     }
