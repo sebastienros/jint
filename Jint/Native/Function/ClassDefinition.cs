@@ -613,7 +613,11 @@ internal sealed class ClassDefinition
                 var env = engine.ExecutionContext.LexicalEnvironment;
                 var privEnv = engine.ExecutionContext.PrivateEnvironment;
 
-                var definition = new JintFunctionDefinition(new ClassFieldFunction(accessorProperty.Value));
+                if (!engine.TryGetFunctionDefinition(accessorProperty.Value, out var definition))
+                {
+                    engine.CacheFunctionDefinition(accessorProperty.Value, definition = new JintFunctionDefinition(new ClassFieldFunction(accessorProperty.Value)));
+                }
+
                 initializer = intrinsics.Function.OrdinaryFunctionCreate(intrinsics.Function.PrototypeObject, definition, FunctionThisMode.Global, env, privEnv);
                 initializer.MakeMethod(target);
                 initializer._classFieldInitializerName = name;
@@ -658,7 +662,11 @@ internal sealed class ClassDefinition
                 var env = engine.ExecutionContext.LexicalEnvironment;
                 var privEnv = engine.ExecutionContext.PrivateEnvironment;
 
-                var definition = new JintFunctionDefinition(new ClassFieldFunction(accessorProperty.Value));
+                if (!engine.TryGetFunctionDefinition(accessorProperty.Value, out var definition))
+                {
+                    engine.CacheFunctionDefinition(accessorProperty.Value, definition = new JintFunctionDefinition(new ClassFieldFunction(accessorProperty.Value)));
+                }
+
                 initializer = intrinsics.Function.OrdinaryFunctionCreate(intrinsics.Function.PrototypeObject, definition, FunctionThisMode.Global, env, privEnv);
                 initializer.MakeMethod(target);
                 initializer._classFieldInitializerName = name;
@@ -689,7 +697,11 @@ internal sealed class ClassDefinition
             var env = engine.ExecutionContext.LexicalEnvironment;
             var privateEnv = engine.ExecutionContext.PrivateEnvironment;
 
-            var definition = new JintFunctionDefinition(new ClassFieldFunction(fieldDefinition.Value));
+            if (!engine.TryGetFunctionDefinition(fieldDefinition.Value, out var definition))
+            {
+                engine.CacheFunctionDefinition(fieldDefinition.Value, definition = new JintFunctionDefinition(new ClassFieldFunction(fieldDefinition.Value)));
+            }
+
             initializer = intrinsics.Function.OrdinaryFunctionCreate(intrinsics.Function.PrototypeObject, definition, FunctionThisMode.Global, env, privateEnv);
 
             initializer.MakeMethod(homeObject);
@@ -729,7 +741,10 @@ internal sealed class ClassDefinition
     {
         var intrinsics = engine.Realm.Intrinsics;
 
-        var definition = new JintFunctionDefinition(new ClassStaticBlockFunction(o));
+        if (!engine.TryGetFunctionDefinition(o, out var definition))
+        {
+            engine.CacheFunctionDefinition(o, definition = new JintFunctionDefinition(new ClassStaticBlockFunction(o)));
+        }
 
         var lex = engine.ExecutionContext.LexicalEnvironment;
         var privateEnv = engine.ExecutionContext.PrivateEnvironment;
@@ -799,7 +814,11 @@ internal sealed class ClassDefinition
             return DefineMethodProperty(obj, methodDef.Key, methodDef.Closure, enumerable);
         }
 
-        var definition = new JintFunctionDefinition(function, sourceTextNode: method);
+        if (!engine.TryGetFunctionDefinition((Node) function, out var definition))
+        {
+            engine.CacheFunctionDefinition((Node) function, definition = new JintFunctionDefinition(function, sourceTextNode: method));
+        }
+
         var intrinsics = engine.Realm.Intrinsics;
 
         var value = method.TryGetKey(engine);

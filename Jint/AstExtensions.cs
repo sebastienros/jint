@@ -329,7 +329,14 @@ public static class AstExtensions
             Throw.SyntaxError(engine.Realm);
         }
 
-        var definition = new JintFunctionDefinition(function, sourceTextNode);
+        // re-evaluating the same class (factory functions, re-run prepared scripts) reuses the
+        // method's interpreter definition and its warm body handler tree; the closure, home object
+        // and environments stay per-evaluation
+        if (!engine.TryGetFunctionDefinition((Node) function, out var definition))
+        {
+            engine.CacheFunctionDefinition((Node) function, definition = new JintFunctionDefinition(function, sourceTextNode));
+        }
+
         var closure = intrinsics.Function.OrdinaryFunctionCreate(prototype, definition, definition.ThisMode, env, privateEnv);
         closure.MakeMethod(obj);
 

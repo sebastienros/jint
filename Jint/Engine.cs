@@ -54,10 +54,11 @@ public sealed partial class Engine : IDisposable
     internal EvaluationContext? _activeEvaluationContext;
     internal ErrorDispatchInfo? _error;
 
-    // Per-engine cache of function declarations' interpreter definitions, keyed on the AST node.
-    // The definition owns the lazily-built body handler tree — and through it every per-node inline
-    // cache — so reusing it across evaluations and calls keeps a prepared script's functions warm
-    // instead of rebuilding the subtree each time declaration instantiation runs.
+    // Per-engine cache of interpreter function definitions — hoisted declarations, class methods,
+    // class field initializers and static blocks — keyed on the stable AST node. The definition
+    // owns the lazily-built body handler tree — and through it every per-node inline cache — so
+    // reusing it across evaluations and calls keeps a prepared script's functions warm instead of
+    // rebuilding the subtree each time declaration instantiation or class evaluation runs.
     //
     // Lifetime notes. Engine-owned rather than shared via the AST's UserData State because handler
     // trees accumulate engine-affine cache entries, and sharing them across engines retains dead
@@ -68,7 +69,7 @@ public sealed partial class Engine : IDisposable
     // failure the weak table was meant to avoid. The strong form instead retains definitions for
     // scripts this engine evaluated until the engine dies, mirroring Realm._templateMap's existing
     // behavior.
-    private readonly Dictionary<FunctionDeclaration, JintFunctionDefinition> _hoistedFunctionDefinitions = new();
+    private readonly Dictionary<Node, JintFunctionDefinition> _functionDefinitions = new();
 
     // Scripts this engine has run global declaration instantiation for, so the definition cache
     // above only engages on RE-evaluation (see GlobalDeclarationInstantiation).
@@ -76,20 +77,28 @@ public sealed partial class Engine : IDisposable
 
     internal JintFunctionDefinition GetOrCreateFunctionDefinition(FunctionDeclaration declaration)
     {
-        if (!_hoistedFunctionDefinitions.TryGetValue(declaration, out var definition))
+        if (!TryGetFunctionDefinition(declaration, out var definition))
         {
-            // backstop for hosts streaming endless distinct sources (unique eval/script texts)
-            // through one engine: reset rather than grow without bound - steady-state reuse of a
-            // sane number of scripts never reaches this
-            if (_hoistedFunctionDefinitions.Count >= 2048)
-            {
-                _hoistedFunctionDefinitions.Clear();
-            }
-
-            _hoistedFunctionDefinitions[declaration] = definition = new JintFunctionDefinition(declaration);
+            CacheFunctionDefinition(declaration, definition = new JintFunctionDefinition(declaration));
         }
 
         return definition;
+    }
+
+    internal bool TryGetFunctionDefinition(Node key, [NotNullWhen(true)] out JintFunctionDefinition? definition)
+        => _functionDefinitions.TryGetValue(key, out definition);
+
+    internal void CacheFunctionDefinition(Node key, JintFunctionDefinition definition)
+    {
+        // backstop for hosts streaming endless distinct sources (unique eval/script texts)
+        // through one engine: reset rather than grow without bound - steady-state reuse of a
+        // sane number of scripts never reaches this
+        if (_functionDefinitions.Count >= 2048)
+        {
+            _functionDefinitions.Clear();
+        }
+
+        _functionDefinitions[key] = definition;
     }
 
     private readonly EventLoop _eventLoop = new();

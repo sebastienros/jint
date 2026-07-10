@@ -51,4 +51,38 @@ public class ClassBenchmark
             _engine.Evaluate(script);
         }
     }
+
+    [Benchmark]
+    public void ReEvaluateClassDeclarations()
+    {
+        // the dom.js / class-factory shape: one engine re-evaluates the same prepared script that
+        // declares classes; member definitions come from the per-engine cache while class
+        // identities, prototypes, private state and static-block effects stay per-evaluation
+        var script = Engine.PrepareScript("""
+            (function () {
+                class Node {
+                    #tag = 'node';
+                    static VERSION = 1;
+                    static { this.registry = []; }
+                    constructor(name) { this.name = name; this.children = []; }
+                    appendChild(child) { this.children.push(child); return child; }
+                    get childCount() { return this.children.length; }
+                    set alias(value) { this.name = value; }
+                    describe() { return this.#tag + ':' + this.name; }
+                    static create(name) { return new Node(name); }
+                }
+                class Element extends Node {
+                    describe() { return 'element:' + super.describe(); }
+                }
+                const e = new Element('div');
+                e.appendChild(Node.create('span'));
+                e.alias = 'main';
+                return e.describe() + '/' + e.childCount + '/' + Element.VERSION;
+            })();
+            """);
+        for (var i = 0; i < 40_000; ++i)
+        {
+            _engine.Evaluate(script);
+        }
+    }
 }
