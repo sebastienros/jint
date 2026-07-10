@@ -17,6 +17,7 @@ internal sealed partial class DateConstructor : Constructor
     private static readonly long EpochTicks = Epoch.Ticks;
     private static readonly JsString _functionName = new JsString("Date");
     private readonly ITimeSystem _timeSystem;
+    private readonly bool _isZeroArgLeafConstructor;
 
     internal DateConstructor(
         Engine engine,
@@ -30,7 +31,14 @@ internal sealed partial class DateConstructor : Constructor
         _length = new PropertyDescriptor(7, PropertyFlag.Configurable);
         _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         _timeSystem = engine.Options.TimeSystem;
+
+        // Only the stock time system is proven side-effect- and throw-free; a derived or custom
+        // ITimeSystem could throw from GetUtcNow and would then miss its `new Date()` stack frame
+        // on the leaf construct path, so the exact type is required.
+        _isZeroArgLeafConstructor = _timeSystem.GetType() == typeof(DefaultTimeSystem);
     }
+
+    internal override bool IsZeroArgLeafConstructor => _isZeroArgLeafConstructor;
 
     internal DatePrototype PrototypeObject { get; }
 
