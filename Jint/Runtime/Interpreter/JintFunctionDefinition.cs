@@ -103,6 +103,18 @@ internal sealed class JintFunctionDefinition
     }
 
     /// <summary>
+    /// Body evaluation for env-less leaf calls (<see cref="State.SupportsLeafCall"/>): FDI is a
+    /// no-op by the flag's gate and the body is a plain synchronous statement list, so nothing
+    /// remains but executing it.
+    /// </summary>
+    internal Completion EvaluateLeafBody(EvaluationContext context)
+    {
+        System.Diagnostics.Debug.Assert(Function.Body is FunctionBody && !Function.Generator && !Function.Async);
+        var list = _bodyStatementList ??= new JintStatementList(Function);
+        return list.Execute(context);
+    }
+
+    /// <summary>
     /// Async concise-body (arrow expression body) evaluation. Kept out of <see cref="EvaluateBody"/>
     /// so the captured-locals closure's display class is not allocated on the hot sync call path.
     /// </summary>
@@ -392,6 +404,18 @@ internal sealed class JintFunctionDefinition
         /// rather than silently observing a wrong value.
         /// </summary>
         public bool CanSkipThisBinding;
+
+        /// <summary>
+        /// True when a plain [[Call]] can run without a callee FunctionEnvironment at all: the
+        /// ExecutionContext's lexical/variable environment is the function's captured environment
+        /// directly. Requires <see cref="CanUseEmptyFDI"/> (no bindings to create),
+        /// <see cref="CanSkipThisBinding"/> (no this/super/new.target route; implies
+        /// !EnvironmentMayEscape — no closures/classes/with/direct-eval that could resolve
+        /// through or capture the frame — and non-arrow/non-generator/non-async), and a statement
+        /// body. Callers must additionally gate on !Engine._isDebugMode (the debugger walks the
+        /// frame) and !_isClassConstructor at runtime.
+        /// </summary>
+        public bool SupportsLeafCall;
 
         public bool EnvironmentMayEscape;
         // True when the function body contains a direct call to itself by name. Tight recursion
@@ -709,6 +733,15 @@ internal sealed class JintFunctionDefinition
         if (!state.EnvironmentMayEscape && function.Type != NodeType.ArrowFunctionExpression)
         {
             state.CanSkipThisBinding = !ThisSuperNewTargetAstVisitor.HasReference(function);
+
+            // ...and when instantiation is additionally a complete no-op, the callee environment
+            // itself is dead: it would hold no bindings and an unread this-binding, existing only
+            // as a chain pointer to the environment the function captured. Such calls push that
+            // captured environment directly (identifier resolution already skips the empty env —
+            // this removes its allocation/reset/write-back and the extra hop).
+            state.SupportsLeafCall = state.CanSkipThisBinding
+                && state.CanUseEmptyFDI
+                && function.Body is FunctionBody;
         }
 
         // Detect direct named self-call (function fib(n) { ...fib(n-1)... }). For these, the single-env
