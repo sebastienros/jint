@@ -23,6 +23,8 @@ public class LoopDispatchBenchmarks
     private Prepared<Script> _strictEqualTest;
     private Prepared<Script> _looseEqualTest;
     private Prepared<Script> _moduloEqualTest;
+    private Prepared<Script> _ifChainLoop;
+    private Prepared<Script> _varDeclBody;
     private Prepared<Script> _arrayLengthBound;
     private Prepared<Script> _stringLengthBound;
 
@@ -83,6 +85,30 @@ public class LoopDispatchBenchmarks
             f();
             """);
 
+        // the full stopwatch.js body shape: var-decl + 4-way modulo else-if chain whose branches
+        // call tiny closures + two dead member-read var-decls
+        _ifChainLoop = Engine.PrepareScript("""
+            function f() {
+                var c = { n: 0, a: function () { this.n++; }, b: function () { this.n--; } };
+                for (var i = 0; i < 100000; i++) {
+                    var z = i ^ 3;
+                    if (z % 2 == 0) c.a();
+                    else if (z % 3 == 0) c.b();
+                    else if (z % 5 == 0) c.a();
+                    else if (z % 7 == 0) c.b();
+                    var v = c.n;
+                }
+                return c.n;
+            }
+            f();
+            """);
+
+        // + one var declaration with an initializer (the `var z = x ^ y` statement alone)
+        _varDeclBody = Engine.PrepareScript("""
+            function f() { var n = 0; for (var i = 0; i < 100000; i++) { var z = i ^ 3; } return n; }
+            f();
+            """);
+
         // the member-bound loop test: `i < a.length` re-reads the live length every iteration
         // (6250 × 16 = 100k inner iterations)
         _arrayLengthBound = Engine.PrepareScript("""
@@ -107,6 +133,8 @@ public class LoopDispatchBenchmarks
         _engine.Evaluate(_strictEqualTest);
         _engine.Evaluate(_looseEqualTest);
         _engine.Evaluate(_moduloEqualTest);
+        _engine.Evaluate(_ifChainLoop);
+        _engine.Evaluate(_varDeclBody);
         _engine.Evaluate(_arrayLengthBound);
         _engine.Evaluate(_stringLengthBound);
     }
@@ -137,6 +165,12 @@ public class LoopDispatchBenchmarks
 
     [Benchmark]
     public JsValue ModuloEqualTest() => _engine.Evaluate(_moduloEqualTest);
+
+    [Benchmark]
+    public JsValue IfChainLoop() => _engine.Evaluate(_ifChainLoop);
+
+    [Benchmark]
+    public JsValue VarDeclBody() => _engine.Evaluate(_varDeclBody);
 
     [Benchmark]
     public JsValue ArrayLengthBound() => _engine.Evaluate(_arrayLengthBound);

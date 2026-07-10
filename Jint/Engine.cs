@@ -1248,10 +1248,11 @@ public sealed partial class Engine : IDisposable
     internal JsArguments? FunctionDeclarationInstantiation(
         EvaluationContext context,
         Function function,
-        JsCallArguments argumentsList)
+        JsCallArguments argumentsList,
+        JintFunctionDefinition.State? state = null)
     {
-        var func = function._functionDefinition;
-        var configuration = func!.Initialize();
+        var func = function._functionDefinition!;
+        var configuration = state ?? func.Initialize();
 
         // Fastest path: nothing to instantiate at all (no parameters, vars, lexical declarations,
         // inner function declarations, arguments object or eval context).
