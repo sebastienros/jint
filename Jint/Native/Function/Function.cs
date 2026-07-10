@@ -86,6 +86,14 @@ public abstract partial class Function : ObjectInstance, ICallable
 
     internal override bool IsConstructor => this is IConstructor;
 
+    /// <summary>
+    /// True for built-in constructors whose zero-argument [[Construct]] with newTarget == this
+    /// runs no user-observable code and cannot raise a JavaScript error, allowing call sites to
+    /// skip the call-stack frame and constructor-resolution ceremony. Must stay false whenever a
+    /// user callback (e.g. a custom time system) could observe the call or throw through it.
+    /// </summary>
+    internal virtual bool IsZeroArgLeafConstructor => false;
+
     public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
     {
         if (_prototypeDescriptor != null)
@@ -322,11 +330,9 @@ public abstract partial class Function : ObjectInstance, ICallable
     /// https://tc39.es/ecma262/#sec-prepareforordinarycall
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal ref readonly ExecutionContext PrepareForOrdinaryCall(JsValue newTarget)
+    internal ref readonly ExecutionContext PrepareForOrdinaryCall(JsValue newTarget, JintFunctionDefinition.State state)
     {
-        var callerContext = _engine.ExecutionContext;
-
-        var localEnv = JintEnvironment.NewFunctionEnvironment(_engine, this, newTarget);
+        var localEnv = JintEnvironment.NewFunctionEnvironment(_engine, this, newTarget, state);
         var calleeRealm = _realm;
 
         var calleeContext = new ExecutionContext(

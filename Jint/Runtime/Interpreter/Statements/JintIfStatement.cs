@@ -77,6 +77,34 @@ internal sealed class JintIfStatement : JintStatement<IfStatement>
     }
 
     /// <summary>
+    /// Tight-loop entry. The enclosing loop's shape predicate guarantees neither branch is a
+    /// FunctionDeclaration (no AnnexB handling) and the frame cannot suspend (no resume probes);
+    /// the branch statements are themselves tight, so no Completion needs materializing.
+    /// A deferred error signalled by the test must suppress the branch — the caller converts it.
+    /// </summary>
+    internal override void ExecuteDiscarded(EvaluationContext context)
+    {
+        if (_test.GetBooleanValue(context))
+        {
+            if (context.Engine._error is not null)
+            {
+                return;
+            }
+
+            _statementConsequent.ExecuteDiscarded(context);
+        }
+        else
+        {
+            if (context.Engine._error is not null)
+            {
+                return;
+            }
+
+            _alternate?.ExecuteDiscarded(context);
+        }
+    }
+
+    /// <summary>
     /// B.3.4: When an IfStatement's consequent or alternate is a FunctionDeclaration
     /// in sloppy mode, treat it as if wrapped in a block: create a block-scoped binding
     /// for the function, instantiate the function object in that scope, and copy to var scope.

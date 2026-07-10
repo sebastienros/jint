@@ -333,6 +333,32 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
     internal Completion ExecuteFlattenedContents(EvaluationContext context)
         => _statementList is not null ? _statementList.Execute(context) : ExecuteSingle(context);
 
+    /// <summary>
+    /// Tight-loop entry; see <see cref="JintStatement.ExecuteDiscarded"/>. Valid only for blocks
+    /// without lexical declarations (enforced by the enclosing loop's shape predicate), so no block
+    /// environment is created or attached. A statement after a deferred error must not run, so the
+    /// engine error slot is polled between statements; the caller polls after the last one.
+    /// </summary>
+    internal void ExecuteDiscardedContents(EvaluationContext context)
+    {
+        if (_singleStatement is not null)
+        {
+            _singleStatement.ExecuteDiscarded(context);
+            return;
+        }
+
+        var list = _statementList!;
+        var count = list.Count;
+        for (var i = 0; i < count; i++)
+        {
+            list.GetStatement(i).ExecuteDiscarded(context);
+            if (context.Engine._error is not null)
+            {
+                return;
+            }
+        }
+    }
+
     private Completion ExecuteSingle(EvaluationContext context)
     {
         Completion blockValue;
