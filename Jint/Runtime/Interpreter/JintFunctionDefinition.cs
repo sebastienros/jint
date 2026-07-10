@@ -56,7 +56,7 @@ internal sealed class JintFunctionDefinition
     /// https://tc39.es/ecma262/#sec-ordinarycallevaluatebody
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining | (MethodImplOptions) 512)]
-    internal Completion EvaluateBody(EvaluationContext context, Function functionObject, JsCallArguments argumentsList)
+    internal Completion EvaluateBody(EvaluationContext context, Function functionObject, JsCallArguments argumentsList, State state)
     {
         Completion result;
         JsArguments? argumentsInstance = null;
@@ -73,7 +73,7 @@ internal sealed class JintFunctionDefinition
                 return EvaluateConciseBodyAsync(context, functionObject, argumentsList);
             }
 
-            argumentsInstance = context.Engine.FunctionDeclarationInstantiation(context, functionObject, argumentsList);
+            argumentsInstance = context.Engine.FunctionDeclarationInstantiation(context, functionObject, argumentsList, state);
             context.RunBeforeExecuteStatementChecks(Function.Body);
             var jsValue = _bodyExpression.GetValue(context).Clone();
             result = new Completion(CompletionType.Return, jsValue, Function.Body);
@@ -93,7 +93,7 @@ internal sealed class JintFunctionDefinition
             }
 
             // https://tc39.es/ecma262/#sec-runtime-semantics-evaluatefunctionbody
-            argumentsInstance = context.Engine.FunctionDeclarationInstantiation(context, functionObject, argumentsList);
+            argumentsInstance = context.Engine.FunctionDeclarationInstantiation(context, functionObject, argumentsList, state);
             _bodyStatementList ??= new JintStatementList(Function);
             result = _bodyStatementList.Execute(context);
         }

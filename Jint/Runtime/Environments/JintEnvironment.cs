@@ -97,9 +97,8 @@ internal static class JintEnvironment
     /// <summary>
     /// https://tc39.es/ecma262/#sec-newfunctionenvironment
     /// </summary>
-    internal static FunctionEnvironment NewFunctionEnvironment(Engine engine, Function f, JsValue newTarget)
+    internal static FunctionEnvironment NewFunctionEnvironment(Engine engine, Function f, JsValue newTarget, Interpreter.JintFunctionDefinition.State state)
     {
-        var state = f._functionDefinition?.Initialize();
 
         // Direct-recursive functions use a small bounded pool so each simultaneously live frame rents a
         // distinct env (with its fixed-slot array attached) instead of allocating per call. The single

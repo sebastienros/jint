@@ -162,8 +162,10 @@ internal sealed class JintStatementList
                     c = new Completion(CompletionType.Return, pair.Value, pair.Statement._statement);
                 }
 
-                // Check for suspension (generator yield or async await)
-                if (context.IsSuspended())
+                // Check for suspension (generator yield or async await). The frame's suspendable
+                // reference is fixed for this call (captured above); only its state changes, so
+                // probing the captured reference avoids re-reading the execution context per statement.
+                if (suspendable is not null && suspendable.IsSuspended)
                 {
                     // Save position for resume - we'll re-execute this statement on resume
                     // The yield/await tracking handles knowing which suspension point to resume from
@@ -184,7 +186,7 @@ internal sealed class JintStatementList
 
                 if (c.Type != CompletionType.Normal)
                 {
-                    if (!context.IsSuspended())
+                    if (suspendable is null || !suspendable.IsSuspended)
                     {
                         var asyncFunction = context.Engine.ExecutionContext.AsyncFunction;
                         if (asyncFunction?._body != this)
