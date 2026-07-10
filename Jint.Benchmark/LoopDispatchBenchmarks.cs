@@ -23,6 +23,8 @@ public class LoopDispatchBenchmarks
     private Prepared<Script> _strictEqualTest;
     private Prepared<Script> _looseEqualTest;
     private Prepared<Script> _moduloEqualTest;
+    private Prepared<Script> _arrayLengthBound;
+    private Prepared<Script> _stringLengthBound;
 
     [GlobalSetup]
     public void Setup()
@@ -81,6 +83,20 @@ public class LoopDispatchBenchmarks
             f();
             """);
 
+        // the member-bound loop test: `i < a.length` re-reads the live length every iteration
+        // (6250 × 16 = 100k inner iterations)
+        _arrayLengthBound = Engine.PrepareScript("""
+            function f() { var a = []; for (var k = 0; k < 16; k++) a[k] = k; var n = 0; for (var r = 0; r < 6250; r++) { for (var i = 0; i < a.length; i++) { n++; } } return n; }
+            f();
+            """);
+
+        // string variant: a 20k-char string's length exceeds the small-int cache, so the boxed
+        // read allocates a JsNumber per iteration without the lane (5 × 20k = 100k iterations)
+        _stringLengthBound = Engine.PrepareScript("""
+            function f() { var s = 'x'.repeat(20000); var n = 0; for (var r = 0; r < 5; r++) { for (var i = 0; i < s.length; i++) { n++; } } return n; }
+            f();
+            """);
+
         _engine = new Engine();
         _engine.Evaluate(_emptyLoop);
         _engine.Evaluate(_variableBoundLoop);
@@ -91,6 +107,8 @@ public class LoopDispatchBenchmarks
         _engine.Evaluate(_strictEqualTest);
         _engine.Evaluate(_looseEqualTest);
         _engine.Evaluate(_moduloEqualTest);
+        _engine.Evaluate(_arrayLengthBound);
+        _engine.Evaluate(_stringLengthBound);
     }
 
     [Benchmark(Baseline = true)]
@@ -119,4 +137,10 @@ public class LoopDispatchBenchmarks
 
     [Benchmark]
     public JsValue ModuloEqualTest() => _engine.Evaluate(_moduloEqualTest);
+
+    [Benchmark]
+    public JsValue ArrayLengthBound() => _engine.Evaluate(_arrayLengthBound);
+
+    [Benchmark]
+    public JsValue StringLengthBound() => _engine.Evaluate(_stringLengthBound);
 }
