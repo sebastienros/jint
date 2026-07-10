@@ -18,6 +18,9 @@ namespace Jint.Native.Array;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-the-array-prototype-object
 /// </summary>
+// Per spec, Array.prototype[@@iterator] is the SAME function object as Array.prototype.values
+// (ECMA-262 23.1.3.34); the captured field feeds ArrayInstance.HasOriginalIterator fast-path detection.
+[JsSymbolAlias("Iterator", "values", CaptureField = nameof(_originalIteratorFunction))]
 [JsObject(UseShape = true)]
 public sealed partial class ArrayPrototype : ArrayInstance
 {
@@ -48,18 +51,12 @@ public sealed partial class ArrayPrototype : ArrayInstance
 
     protected override void Initialize()
     {
-        const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
         CreateProperties_Generated();
+        CreateSymbols_Generated();
 
-        // Per spec, Array.prototype[@@iterator] is the SAME function object as Array.prototype.values
-        // (ECMA-262 23.1.3.34). Materialize the generated `values` descriptor and reuse it both as the
-        // Symbol.iterator value and as _originalIteratorFunction for ArrayInstance.HasOriginalIterator
-        // fast-path detection (ArrayInstance.cs:73).
-        _originalIteratorFunction = GetOwnProperty("values").Value;
-        var symbols = new SymbolDictionary(2)
-        {
-            [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(_originalIteratorFunction, PropertyFlags),
-            [GlobalSymbolRegistry.Unscopables] = new LazyPropertyDescriptor<Engine>(_engine, static engine =>
+        // @@unscopables stays hand-written: a lazily-built data object, not a function alias.
+        // Appended after the generated symbols so own-symbol order stays Iterator, Unscopables.
+        SetOwnProperty(GlobalSymbolRegistry.Unscopables, new LazyPropertyDescriptor<Engine>(_engine, static engine =>
             {
                 var unscopables = new JsObject(engine)
                 {
@@ -84,9 +81,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
                 unscopables.FastSetDataProperty("values", JsBoolean.True);
 
                 return unscopables;
-            }, PropertyFlag.Configurable)
-        };
-        SetSymbols(symbols);
+            }, PropertyFlag.Configurable));
     }
 
     [JsFunction]

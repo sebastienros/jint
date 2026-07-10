@@ -108,11 +108,8 @@ internal static class DiagnosticDescriptors
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
 
-    public static readonly DiagnosticDescriptor UnsupportedShapeMember = new(
-        id: "JINT022",
-        title: "Built-in shape host has an unsupported member kind",
-        messageFormat: "Type '{0}' uses built-in shape storage (derives from BuiltinShapeObject) but declares an accessor / intrinsic reference / thrower, which the shape path does not support yet; add [JsObject(UseShape = false)] or remove the member",
-        category: "Jint.SourceGenerators",
-        defaultSeverity: DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
+    // JINT022 (UnsupportedShapeMember) retired: it was declared for the era when the shape path
+    // couldn't express accessors / intrinsic references / throwers, was never actually reported,
+    // and all three member kinds are supported by the shape builder today (see the
+    // ShapeIntrinsicReference / ShapeThrowerAccessor snapshot tests). The id stays reserved.
 }

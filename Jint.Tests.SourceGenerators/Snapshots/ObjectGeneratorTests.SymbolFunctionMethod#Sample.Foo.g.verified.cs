@@ -13,7 +13,7 @@ internal sealed partial class Foo
         // no [JsFunction] / [JsProperty] / [JsAccessor] / [JsThrowerAccessor] / [JsIntrinsicReference] members
     }
 
-    /// <summary>Generated symbol-keyed registration. Call from <c>Initialize()</c>.</summary>
+    /// <summary>Generated symbol-keyed registration. Call from <c>Initialize()</c>, after <c>CreateProperties_Generated()</c>.</summary>
     private void CreateSymbols_Generated()
     {
         var symbols = new global::Jint.Collections.DictionarySlim<global::Jint.Native.JsSymbol, global::Jint.Runtime.Descriptors.PropertyDescriptor>(1);

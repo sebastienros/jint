@@ -778,6 +778,114 @@ public class ObjectGeneratorTests
     }
 
     [Test]
+    public Task SymbolAlias()
+    {
+        // [JsSymbolAlias] registers the SAME function object under a well-known symbol as a generated
+        // string-keyed member — Array.prototype[@@iterator] === values — with an optional capture
+        // field for host identity fast paths.
+        return VerifyGenerator("""
+            using Jint;
+            using Jint.Native;
+            using Jint.Native.Object;
+
+            namespace Sample;
+
+            [JsObject]
+            [JsSymbolAlias("Iterator", "values", CaptureField = nameof(_originalIteratorFunction))]
+            internal sealed partial class Foo : ObjectInstance
+            {
+                internal JsValue _originalIteratorFunction;
+
+                internal Foo(Engine engine) : base(engine) { }
+
+                [JsFunction(Length = 0)]
+                private static JsValue Values(JsValue thisObject) => JsValue.Undefined;
+
+                protected override void Initialize() { CreateProperties_Generated(); CreateSymbols_Generated(); }
+            }
+            """);
+    }
+
+    [Test]
+    public Task ShapeSymbolAlias()
+    {
+        // Shape host variant: symbols live beside the shape in the symbol dictionary, and the alias
+        // materializes the target's shape slot before wrapping it.
+        return VerifyGenerator("""
+            using Jint;
+            using Jint.Native;
+            using Jint.Native.Object;
+
+            namespace Sample;
+
+            [JsObject(UseShape = true)]
+            [JsSymbolAlias("Iterator", "values")]
+            internal sealed partial class Foo : ObjectInstance
+            {
+                internal Foo(Engine engine) : base(engine) { }
+
+                [JsFunction(Length = 0)]
+                private static JsValue Values(JsValue thisObject) => JsValue.Undefined;
+
+                protected override void Initialize() { CreateProperties_Generated(); CreateSymbols_Generated(); }
+            }
+            """);
+    }
+
+    [Test]
+    public Task StringAliasSharesDescriptor()
+    {
+        // [JsAlias] on both storage paths: the alias entry shares the target member's descriptor
+        // (function-identity aliases like Set.prototype.keys === values).
+        return VerifyGenerator("""
+            using Jint;
+            using Jint.Native;
+            using Jint.Native.Object;
+
+            namespace Sample;
+
+            [JsObject]
+            [JsAlias("keys", "values")]
+            internal sealed partial class Foo : ObjectInstance
+            {
+                internal Foo(Engine engine) : base(engine) { }
+
+                [JsFunction(Length = 0)]
+                private static JsValue Values(JsValue thisObject) => JsValue.Undefined;
+
+                protected override void Initialize() => CreateProperties_Generated();
+            }
+            """);
+    }
+
+    [Test]
+    public Task ShapeAliasAndInstanceSlot()
+    {
+        // Shape-path [JsAlias] (builder.Alias shares the target slot) and [JsInstanceSlot] (a
+        // reserved host-filled slot appended last, populated via SetBuiltinSlotByName in Initialize).
+        return VerifyGenerator("""
+            using Jint;
+            using Jint.Native;
+            using Jint.Native.Object;
+
+            namespace Sample;
+
+            [JsObject(UseShape = true)]
+            [JsAlias("keys", "values")]
+            [JsInstanceSlot("toString")]
+            internal sealed partial class Foo : ObjectInstance
+            {
+                internal Foo(Engine engine) : base(engine) { }
+
+                [JsFunction(Length = 0)]
+                private static JsValue Values(JsValue thisObject) => JsValue.Undefined;
+
+                protected override void Initialize() => CreateProperties_Generated();
+            }
+            """);
+    }
+
+    [Test]
     public Task CoercedRestSpanTypeMismatch_ProducesDiagnostic()
     {
         // [Rest, ToNumber] requires ReadOnlySpan<double>. Span<int> here is wrong — JINT013 fires.
