@@ -329,6 +329,28 @@ public sealed partial class Engine : IDisposable
     }
 
     /// <summary>
+    /// Pushes the execution context for an env-less leaf call (State.SupportsLeafCall): both
+    /// environment slots point at the function's captured environment — no callee
+    /// FunctionEnvironment exists for such frames.
+    /// </summary>
+    internal void EnterLeafCallExecutionContext(
+        IScriptOrModule? scriptOrModule,
+        Environment environment,
+        PrivateEnvironment? privateEnvironment,
+        Realm realm,
+        Native.Function.Function function)
+    {
+        _executionContexts.Push(new ExecutionContext(
+            scriptOrModule,
+            lexicalEnvironment: environment,
+            variableEnvironment: environment,
+            privateEnvironment,
+            realm,
+            generator: null,
+            function: function));
+    }
+
+    /// <summary>
     /// Registers a delegate with given name. Delegate becomes a JavaScript function that can be called.
     /// </summary>
     public Engine SetValue(string name, Delegate value)

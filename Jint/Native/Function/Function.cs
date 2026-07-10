@@ -28,7 +28,7 @@ public abstract partial class Function : ObjectInstance, ICallable
 
     internal Realm _realm;
     internal PrivateEnvironment? _privateEnvironment;
-    private readonly IScriptOrModule? _scriptOrModule;
+    internal readonly IScriptOrModule? _scriptOrModule;
 
     protected Function(
         Engine engine,

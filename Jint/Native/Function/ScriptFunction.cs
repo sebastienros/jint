@@ -82,6 +82,25 @@ public sealed class ScriptFunction : Function, IConstructor
     {
         var state = _functionDefinition!.Initialize();
         var strict = _functionDefinition.Strict || _thisMode == FunctionThisMode.Strict;
+
+        // Env-less leaf call: no bindings to create, no this/arguments/new.target route, no
+        // closures — the callee FunctionEnvironment would exist only as a chain pointer, so the
+        // frame runs against the captured environment directly. `arguments` are intentionally
+        // ignored (0 params, no arguments object). The StrictModeScope push is itself skippable
+        // when the ambient strictness already matches: every reader consumes only the boolean.
+        if (state.SupportsLeafCall && !_engine._isDebugMode && !_isClassConstructor)
+        {
+            if (StrictModeScope.IsStrictModeCode == strict)
+            {
+                return CallLeaf();
+            }
+
+            using (new StrictModeScope(strict, force: true))
+            {
+                return CallLeaf();
+            }
+        }
+
         using (new StrictModeScope(strict, force: true))
         {
             FunctionEnvironment? funcEnv = null;
@@ -199,6 +218,38 @@ public sealed class ScriptFunction : Function, IConstructor
             }
 
             return Undefined;
+        }
+    }
+
+    /// <summary>
+    /// The env-less [[Call]] arm for <see cref="JintFunctionDefinition.State.SupportsLeafCall"/>
+    /// functions: pushes an execution context whose environments are the captured environment
+    /// itself, runs the body statement list, and maps the completion exactly like the ordinary
+    /// arm (Return → value, fall-through → undefined, Throw → JavaScriptException).
+    /// Function-level DisposeResources is skipped deliberately: a leaf body cannot register
+    /// function-level dispose resources (no lexical declarations), and running dispose against
+    /// the CAPTURED environment would drain the enclosing function's pending `using` resources
+    /// mid-lifetime. Nested blocks own their disposal end-to-end.
+    /// </summary>
+    private JsValue CallLeaf()
+    {
+        var engine = _engine;
+        engine.EnterLeafCallExecutionContext(_scriptOrModule, _environment!, _privateEnvironment, _realm, this);
+        try
+        {
+            var context = engine._activeEvaluationContext ?? new EvaluationContext(engine);
+            var result = _functionDefinition!.EvaluateLeafBody(context);
+
+            if (result.Type == CompletionType.Throw)
+            {
+                Throw.JavaScriptException(engine, result.Value, result);
+            }
+
+            return result.Type == CompletionType.Return ? result.Value : Undefined;
+        }
+        finally
+        {
+            engine.LeaveExecutionContext();
         }
     }
 
