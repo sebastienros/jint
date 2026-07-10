@@ -33,9 +33,40 @@ internal sealed class JintIdentifierExpression : JintExpression
     private Runtime.Descriptors.PropertyDescriptor? _cachedGlobalDescriptor;
     private uint _cachedGlobalShapeVersion;
     private int _cachedGlobalLexicalVersion;
+    private NestedChainMemo? _nestedChainMemo;
 
     // Bounded walk: chain depth is typically 1-3 in real code; deeper chains fall through.
     private const int MaxSlotCacheChainDepth = 4;
+
+    /// <summary>
+    /// Memo of a successful nested-scope global walk: from the pinned start environment,
+    /// following the pinned intermediate links, the walk reached the cached GlobalEnvironment
+    /// with no intermediate owning the name. Chain-LINK identity is required, not just the
+    /// start: pooled loop environments are re-attached under different outers across entries,
+    /// so the same start instance can sit on a different chain. Post-creation binding injection
+    /// into a pinned intermediate (sloppy direct eval hoisting, AnnexB function copies) is the
+    /// one mutation identity cannot see — covered by <see cref="Engine._envBindingInjectionEpoch"/>.
+    /// Instances are immutable and published through a single reference field so cross-engine
+    /// shared handler trees observe consistent snapshots; a mismatch falls through to the walk
+    /// and re-publishes (never a permanent decline).
+    /// </summary>
+    private sealed class NestedChainMemo
+    {
+        internal readonly Environment Start;
+        internal readonly Environment? Next1;
+        internal readonly Environment? Next2;
+        internal readonly Environment? Next3;
+        internal readonly int InjectionEpoch;
+
+        internal NestedChainMemo(Environment start, Environment? next1, Environment? next2, Environment? next3, int injectionEpoch)
+        {
+            Start = start;
+            Next1 = next1;
+            Next2 = next2;
+            Next3 = next3;
+            InjectionEpoch = injectionEpoch;
+        }
+    }
 
     public JintIdentifierExpression(Identifier expression) : base(expression)
     {
@@ -297,8 +328,34 @@ internal sealed class JintIdentifierExpression : JintExpression
             return null;
         }
 
+        // Chain-shape memo: when the exact pinned chain (every link by identity) still connects
+        // the current env to the global env and no binding has been injected into a pre-existing
+        // environment since (epoch), the per-hop shadow probes of the walk below are provably
+        // still false — the name sets of pinned envs are otherwise immutable.
+        var memo = _nestedChainMemo;
+        if (memo is not null
+            && ReferenceEquals(env, memo.Start)
+            && engine._envBindingInjectionEpoch == memo.InjectionEpoch)
+        {
+            var next = env._outerEnv;
+            if (memo.Next1 is null
+                ? ReferenceEquals(next, cachedGlobalEnv)
+                : ReferenceEquals(next, memo.Next1)
+                  && (memo.Next2 is null
+                      ? ReferenceEquals(memo.Next1._outerEnv, cachedGlobalEnv)
+                      : ReferenceEquals(memo.Next1._outerEnv, memo.Next2)
+                        && (memo.Next3 is null
+                            ? ReferenceEquals(memo.Next2._outerEnv, cachedGlobalEnv)
+                            : ReferenceEquals(memo.Next2._outerEnv, memo.Next3)
+                              && ReferenceEquals(memo.Next3._outerEnv, cachedGlobalEnv))))
+            {
+                return _cachedGlobalDescriptor;
+            }
+        }
+
         var key = _identifier.Key;
         var search = env;
+        Environment? next1 = null, next2 = null, next3 = null;
         for (var hops = 0; hops < MaxSlotCacheChainDepth; hops++)
         {
             if (search is ObjectEnvironment)
@@ -319,7 +376,21 @@ internal sealed class JintIdentifierExpression : JintExpression
 
             if (ReferenceEquals(search, cachedGlobalEnv))
             {
+                _nestedChainMemo = new NestedChainMemo(env, next1, next2, next3, engine._envBindingInjectionEpoch);
                 return _cachedGlobalDescriptor;
+            }
+
+            if (hops == 0)
+            {
+                next1 = search;
+            }
+            else if (hops == 1)
+            {
+                next2 = search;
+            }
+            else
+            {
+                next3 = search;
             }
         }
 

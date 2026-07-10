@@ -16,6 +16,8 @@ public class GlobalAccessBenchmarks
     private Prepared<Script> _globalVarLoop;
     private Prepared<Script> _localVarLoop;
     private Prepared<Script> _globalUpdateLoop;
+    private Prepared<Script> _nestedGlobalReadLoop;
+    private Prepared<Script> _nestedGlobalWriteLoop;
 
     [GlobalSetup]
     public void Setup()
@@ -55,11 +57,45 @@ public class GlobalAccessBenchmarks
             gx + gy;
             """, strict: true);
 
+        // Global reads from a NESTED lexical scope (let-header loop + const body): the validator
+        // cannot take the hop-0 identity arm and re-walks the chain with shadow probes per read —
+        // the stopwatch-modern shape where the most-referenced binding (`sw`) is a global reached
+        // from two levels of loop scope.
+        _nestedGlobalReadLoop = Engine.PrepareScript("""
+            gobj = { n: 0 };
+            gsum = 0;
+            (function () {
+                var t = 0;
+                for (let r = 0; r < 20; r++) {
+                    for (let i = 0; i < 10000; i++) {
+                        const a = gobj;
+                        const b = gobj;
+                        t = (t + (a === b ? 1 : 0)) & 1023;
+                    }
+                }
+                return t;
+            })();
+            """, strict: true);
+
+        _nestedGlobalWriteLoop = Engine.PrepareScript("""
+            gval = 0;
+            (function () {
+                for (let r = 0; r < 20; r++) {
+                    for (let i = 0; i < 10000; i++) {
+                        gval = i & 1023;
+                    }
+                }
+                return gval;
+            })();
+            """, strict: true);
+
         _engine = new Engine(static options => options.Strict());
-        _engine.Execute("var gx = 0; var gy = 0; var gz = 0;");
+        _engine.Execute("var gx = 0; var gy = 0; var gz = 0; var gobj = null; var gsum = 0; var gval = 0;");
         _engine.Evaluate(_globalVarLoop);
         _engine.Evaluate(_localVarLoop);
         _engine.Evaluate(_globalUpdateLoop);
+        _engine.Evaluate(_nestedGlobalReadLoop);
+        _engine.Evaluate(_nestedGlobalWriteLoop);
     }
 
     [Benchmark]
@@ -70,4 +106,10 @@ public class GlobalAccessBenchmarks
 
     [Benchmark]
     public JsValue GlobalUpdateLoop() => _engine.Evaluate(_globalUpdateLoop);
+
+    [Benchmark]
+    public JsValue NestedGlobalReadLoop() => _engine.Evaluate(_nestedGlobalReadLoop);
+
+    [Benchmark]
+    public JsValue NestedGlobalWriteLoop() => _engine.Evaluate(_nestedGlobalWriteLoop);
 }
