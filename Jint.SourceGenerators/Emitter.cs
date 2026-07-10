@@ -51,7 +51,7 @@ internal static class Emitter
             }
         }
 
-        if (obj.Symbols.Count > 0 || hasSymbolMembers)
+        if (obj.Symbols.Count > 0 || hasSymbolMembers || obj.SymbolAliases.Count > 0)
         {
             sb.AppendLine();
             EmitSymbolInitialize(sb, obj);
@@ -796,9 +796,9 @@ internal static class Emitter
             }
         }
 
-        var totalEntries = obj.Symbols.Count + symbolFunctions.Count + symbolAccessorsByName.Count;
+        var totalEntries = obj.Symbols.Count + symbolFunctions.Count + symbolAccessorsByName.Count + obj.SymbolAliases.Count;
 
-        sb.AppendLine("    /// <summary>Generated symbol-keyed registration. Call from <c>Initialize()</c>.</summary>");
+        sb.AppendLine("    /// <summary>Generated symbol-keyed registration. Call from <c>Initialize()</c>, after <c>CreateProperties_Generated()</c>.</summary>");
         sb.AppendLine("    private void CreateSymbols_Generated()");
         sb.AppendLine("    {");
         sb.Append("        var symbols = new global::Jint.Collections.DictionarySlim<global::Jint.Native.JsSymbol, global::Jint.Runtime.Descriptors.PropertyDescriptor>(")
@@ -855,6 +855,20 @@ internal static class Emitter
                 sb.Append("null");
             }
             sb.Append(", ").Append(flagsExpr).AppendLine(");");
+        }
+
+        // Symbol aliases: register the SAME function object as the generated string-keyed target.
+        // The target's descriptor is materialized eagerly (GetOwnProperty is idempotent and the host
+        // calls this after CreateProperties_Generated), and wrapped in a fresh descriptor — matching
+        // the hand-written tails this replaces. CaptureField hands the identity to host fast paths.
+        foreach (var alias in obj.SymbolAliases)
+        {
+            sb.Append("        var __symbolAlias_").Append(alias.SymbolName).Append(" = GetOwnProperty(\"").Append(EscapeStringLit(alias.Target)).AppendLine("\").Value;");
+            if (alias.CaptureField is not null)
+            {
+                sb.Append("        ").Append(alias.CaptureField).Append(" = __symbolAlias_").Append(alias.SymbolName).AppendLine(";");
+            }
+            sb.Append("        symbols[global::Jint.Native.Symbol.GlobalSymbolRegistry.").Append(alias.SymbolName).Append("] = new global::Jint.Runtime.Descriptors.PropertyDescriptor(__symbolAlias_").Append(alias.SymbolName).Append(", ").Append(alias.FlagsExpression).AppendLine(");");
         }
 
         sb.AppendLine("        SetSymbols(symbols);");

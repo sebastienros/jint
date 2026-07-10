@@ -225,3 +225,27 @@ internal sealed class JsInstanceSlotAttribute : global::System.Attribute
     public JsInstanceSlotAttribute(string name) { Name = name; }
     public string Name { get; }
 }
+
+// Class-level, repeats. Registers a symbol-keyed own property under
+// GlobalSymbolRegistry.<SymbolName> whose value is the SAME function object as the generated
+// string-keyed [JsFunction] member <Target> — the spec symbol-identity aliases, e.g.
+//   [JsSymbolAlias("Iterator", "values")]   // Array.prototype[Symbol.iterator] === values
+// The target's descriptor is materialized eagerly inside CreateSymbols_Generated (call it
+// after CreateProperties_Generated), matching the hand-written tails this replaces.
+// CaptureField optionally names a host field assigned the materialized function, for
+// identity fast paths such as ArrayPrototype._originalIteratorFunction.
+[global::System.AttributeUsage(global::System.AttributeTargets.Class, AllowMultiple = true)]
+[global::System.Diagnostics.Conditional("JINT_SOURCE_GENERATORS")]
+internal sealed class JsSymbolAliasAttribute : global::System.Attribute
+{
+    public JsSymbolAliasAttribute(string symbolName, string target)
+    {
+        SymbolName = symbolName;
+        Target = target;
+    }
+
+    public string SymbolName { get; }
+    public string Target { get; }
+    public string? CaptureField { get; set; }
+    public global::Jint.Runtime.Descriptors.PropertyFlag Flags { get; set; } = global::Jint.Runtime.Descriptors.PropertyFlag.Configurable | global::Jint.Runtime.Descriptors.PropertyFlag.Writable;
+}

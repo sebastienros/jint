@@ -7,17 +7,23 @@ namespace Sample;
 
 internal sealed partial class Foo
 {
+    private static readonly global::Jint.Key __Key_values = "values";
+
     /// <summary>Generated property registration. Call from <c>Initialize()</c>.</summary>
     private void CreateProperties_Generated()
     {
-        // no [JsFunction] / [JsProperty] / [JsAccessor] / [JsThrowerAccessor] / [JsIntrinsicReference] members
+        var properties = new global::Jint.Collections.StringDictionarySlim<global::Jint.Runtime.Descriptors.PropertyDescriptor>(1);
+        properties.AddDangerous(__Key_values, new global::Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<Foo>(this, static host => new __FooFunction(host), global::Jint.Runtime.Descriptors.PropertyFlag.NonEnumerable));
+        SetProperties(properties);
     }
 
     /// <summary>Generated symbol-keyed registration. Call from <c>Initialize()</c>, after <c>CreateProperties_Generated()</c>.</summary>
     private void CreateSymbols_Generated()
     {
         var symbols = new global::Jint.Collections.DictionarySlim<global::Jint.Native.JsSymbol, global::Jint.Runtime.Descriptors.PropertyDescriptor>(1);
-        symbols[global::Jint.Native.Symbol.GlobalSymbolRegistry.Species] = new global::Jint.Runtime.Descriptors.Specialized.LazyGetSetPropertyDescriptor<Foo>(this, static host => new __FooFunction(host), null, global::Jint.Runtime.Descriptors.PropertyFlag.EnumerableSet | global::Jint.Runtime.Descriptors.PropertyFlag.Configurable);
+        var __symbolAlias_Iterator = GetOwnProperty("values").Value;
+        _originalIteratorFunction = __symbolAlias_Iterator;
+        symbols[global::Jint.Native.Symbol.GlobalSymbolRegistry.Iterator] = new global::Jint.Runtime.Descriptors.PropertyDescriptor(__symbolAlias_Iterator, global::Jint.Runtime.Descriptors.PropertyFlag.Writable | global::Jint.Runtime.Descriptors.PropertyFlag.Configurable);
         SetSymbols(symbols);
     }
 
@@ -27,7 +33,7 @@ internal sealed partial class Foo
         private readonly Foo _host;
 
         internal __FooFunction(Foo host)
-            : base(host.Engine, host._realm, global::Jint.Native.JsString.CachedCreate("get [Symbol.species]"))
+            : base(host.Engine, host._realm, global::Jint.Native.JsString.CachedCreate("values"))
         {
             _host = host;
             _prototype = host._realm.Intrinsics.Function.PrototypeObject;
@@ -36,7 +42,7 @@ internal sealed partial class Foo
 
         protected internal override global::Jint.Native.JsValue Call(global::Jint.Native.JsValue thisObject, global::Jint.Native.JsValue[] arguments)
         {
-            return Foo.Species(thisObject);
+            return Foo.Values(thisObject);
         }
     }
 }

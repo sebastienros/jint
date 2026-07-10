@@ -22,6 +22,9 @@ namespace Jint.Native.TypedArray;
 // toString is the same function as %Array.prototype.toString% (resolved lazily per realm) — reserved as a
 // host-filled instance slot since the generator can't express a cross-object alias.
 [JsInstanceSlot("toString")]
+// Per spec (ECMA-262 23.2.3.37), %TypedArray%.prototype[@@iterator] is the SAME function object as
+// %TypedArray%.prototype.values.
+[JsSymbolAlias("Iterator", "values")]
 [JsObject(UseShape = true)]
 internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
 {
@@ -49,12 +52,6 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         // function object as %Array.prototype.toString%. Fill the reserved [JsInstanceSlot] with the lazy
         // descriptor (resolved on first read, so touching %TypedArray%.prototype doesn't force Array init).
         SetBuiltinSlotByName("toString", new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => prototype._realm.Intrinsics.Array.PrototypeObject.Get("toString"), PropertyFlags));
-
-        // Per spec, %TypedArray%.prototype[@@iterator] is the SAME function object as
-        // %TypedArray%.prototype.values. Materialize the generated `values` slot and reuse it.
-        // (Symbol additions stay as SetOwnProperty — they go to _symbols, not _properties.)
-        var valuesValue = GetOwnProperty("values").Value;
-        SetOwnProperty(GlobalSymbolRegistry.Iterator, new PropertyDescriptor(valuesValue, PropertyFlags));
     }
 
     /// <summary>

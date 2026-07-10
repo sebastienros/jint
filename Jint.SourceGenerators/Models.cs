@@ -41,6 +41,7 @@ internal sealed record class ObjectDefinition(
     EquatableArray<ThrowerAccessorDefinition> ThrowerAccessors,
     EquatableArray<IntrinsicReferenceDefinition> IntrinsicReferences,
     EquatableArray<AliasDefinition> Aliases,
+    EquatableArray<SymbolAliasDefinition> SymbolAliases,
     EquatableArray<string> InstanceSlots,
     EquatableArray<DiagnosticInfo> DiagnosticInfos)
 {
@@ -139,6 +140,7 @@ internal sealed record class ObjectDefinition(
         var throwerAccessors = new List<ThrowerAccessorDefinition>();
         var intrinsicReferences = new List<IntrinsicReferenceDefinition>();
         var aliases = new List<AliasDefinition>();
+        var symbolAliases = new List<SymbolAliasDefinition>();
         var instanceSlots = new List<string>();
         HashSet<string>? seenFunctionClrNames = null;
         HashSet<string>? seenThrowerNames = null;
@@ -216,6 +218,27 @@ internal sealed record class ObjectDefinition(
             var slotName = attr.ConstructorArguments[0].Value as string;
             if (string.IsNullOrWhiteSpace(slotName)) continue;
             instanceSlots.Add(slotName!);
+        }
+
+        // Class-level [JsSymbolAlias("SymbolName", "target")] — a symbol-keyed property sharing a
+        // generated string-keyed member's function identity. Default Flags = Configurable | Writable
+        // (= 20), matching Array.prototype[@@iterator] / %TypedArray%.prototype[@@iterator].
+        foreach (var attr in typeSymbol.GetAttributes())
+        {
+            if (attr.AttributeClass?.Name != "JsSymbolAliasAttribute") continue;
+            if (attr.ConstructorArguments.Length < 2) continue;
+            var symbolName = attr.ConstructorArguments[0].Value as string;
+            var symbolTarget = attr.ConstructorArguments[1].Value as string;
+            if (string.IsNullOrWhiteSpace(symbolName) || string.IsNullOrWhiteSpace(symbolTarget)) continue;
+            var captureField = GetNamedArg(attr, "CaptureField") as string;
+            var symbolFlagsExplicit = HasNamedArg(attr, "Flags")
+                ? GetNamedArg(attr, "Flags") as int?
+                : (int?) 20; // Configurable | Writable
+            symbolAliases.Add(new SymbolAliasDefinition(
+                SymbolName: symbolName!,
+                Target: symbolTarget!,
+                CaptureField: string.IsNullOrWhiteSpace(captureField) ? null : captureField,
+                FlagsExpression: FlagExpression.From(symbolFlagsExplicit, "Configurable")));
         }
 
         foreach (var member in typeSymbol.GetMembers())
@@ -399,6 +422,7 @@ internal sealed record class ObjectDefinition(
             ThrowerAccessors: throwerAccessors.ToEquatableArray(),
             IntrinsicReferences: intrinsicReferences.ToEquatableArray(),
             Aliases: aliases.ToEquatableArray(),
+            SymbolAliases: symbolAliases.ToEquatableArray(),
             InstanceSlots: instanceSlots.ToEquatableArray(),
             DiagnosticInfos: diagnostics.ToEquatableArray());
     }
@@ -510,6 +534,8 @@ internal sealed record class ThrowerAccessorDefinition(string JsName, string Fla
 internal sealed record class IntrinsicReferenceDefinition(string JsName, string IntrinsicMember, string FlagsExpression);
 
 internal sealed record class AliasDefinition(string Name, string Target);
+
+internal sealed record class SymbolAliasDefinition(string SymbolName, string Target, string? CaptureField, string FlagsExpression);
 
 internal sealed record class FunctionDefinition(
     string ClrName,
