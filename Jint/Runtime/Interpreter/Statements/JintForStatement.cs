@@ -21,13 +21,17 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
     private readonly ProbablyBlockStatement _body;
     private readonly List<Key>? _boundNames;
 
-    // Tight loop: an expression-statements-only body (single statement, empty statement or a
-    // brace block of them) cannot break/continue/label/declare, so when the frame additionally
-    // cannot suspend, debug or observe completion values, the per-iteration bookkeeping is dead.
-    // The references reuse the body's own handler instances — building duplicates here would
-    // allocate a fresh subtree every time this handler is constructed.
+    // Tight loop: a body of expression statements, var/let/const declarations and if/else chains
+    // over such statements cannot break/continue/label/return, so every body completion is
+    // structurally Normal and, when the frame additionally cannot suspend, debug or observe
+    // completion values, the per-iteration bookkeeping is dead. Bodies with lexical declarations
+    // additionally require the flattened pooled environment (their slots live there); without it
+    // the generic path creates the per-iteration block environment. The references reuse the
+    // body's own handler instances — building duplicates here would allocate a fresh subtree
+    // every time this handler is constructed.
     private readonly bool _tightBodyEligible;
-    private readonly JintExpressionStatement? _tightSingleStatement;
+    private readonly bool _tightBodyHasLexicalDeclarations;
+    private readonly JintStatement? _tightSingleStatement;
     private readonly JintStatementList? _tightBodyList;
 
     // Body-lexical flattening: when the body block's let/const bindings are slot-eligible
@@ -140,43 +144,97 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
             if (_body.BlockStatement is { } bodyBlock)
             {
                 // single-statement blocks live in SingleStatement, larger (and empty) ones in the list
-                _tightSingleStatement = bodyBlock.SingleStatement as JintExpressionStatement;
+                _tightSingleStatement = bodyBlock.SingleStatement;
                 _tightBodyList = _tightSingleStatement is null ? bodyBlock.StatementList : null;
+                _tightBodyHasLexicalDeclarations = bodyBlock.State.Declarations.Count > 0;
             }
-            else
+            else if (_body.Statement is not JintEmptyStatement)
             {
-                // an EmptyStatement body leaves both references null
-                _tightSingleStatement = _body.Statement as JintExpressionStatement;
+                // an EmptyStatement body leaves both references null (nothing to run per iteration)
+                _tightSingleStatement = _body.Statement;
             }
         }
     }
 
     /// <summary>
-    /// A tight-loop body is an expression statement, an empty statement, or a brace block
-    /// containing only expression statements. Any other statement type — declarations, control
-    /// flow, labels, debugger — disqualifies the body.
+    /// A tight-loop body contains only statements whose completions are structurally Normal:
+    /// expression statements, empty statements, var/let/const declarations, and if/else chains
+    /// over such statements (including declaration-free brace blocks). Control flow that routes
+    /// completions (break/continue/return/labels/loops/switch/try), other declarations, and
+    /// AnnexB function-declaration branches all disqualify the body.
     /// </summary>
     private static bool IsTightBodyShape(Statement body)
     {
-        if (body is ExpressionStatement or EmptyStatement)
+        if (body is NestedBlockStatement block)
         {
+            foreach (var statement in block.Body)
+            {
+                if (!IsTightStatement(statement))
+                {
+                    return false;
+                }
+            }
+
             return true;
         }
 
-        if (body is not NestedBlockStatement block)
+        return IsTightStatement(body);
+    }
+
+    private static bool IsTightStatement(Statement statement)
+    {
+        switch (statement.Type)
+        {
+            case NodeType.ExpressionStatement:
+            case NodeType.EmptyStatement:
+                return true;
+
+            case NodeType.VariableDeclaration:
+                // using/await using declarations register dispose resources — not tight
+                return ((VariableDeclaration) statement).Kind
+                    is VariableDeclarationKind.Var
+                    or VariableDeclarationKind.Let
+                    or VariableDeclarationKind.Const;
+
+            case NodeType.IfStatement:
+                var ifStatement = (IfStatement) statement;
+                return IsTightBranch(ifStatement.Consequent)
+                    && (ifStatement.Alternate is null || IsTightBranch(ifStatement.Alternate));
+
+            default:
+                return false;
+        }
+    }
+
+    private static bool IsTightBranch(Statement branch)
+    {
+        // sloppy-mode `if (c) function f() {}` takes the AnnexB var-scope copy path at runtime
+        if (branch.Type == NodeType.FunctionDeclaration)
         {
             return false;
         }
 
-        foreach (var statement in block.Body)
+        if (branch is NestedBlockStatement block)
         {
-            if (statement is not ExpressionStatement)
+            foreach (var statement in block.Body)
             {
-                return false;
+                // a lexical declaration would require the nested block's own environment
+                if (statement.Type is NodeType.ClassDeclaration or NodeType.FunctionDeclaration
+                    || statement is VariableDeclaration { Kind: not VariableDeclarationKind.Var })
+                {
+                    return false;
+                }
+
+                if (!IsTightStatement(statement))
+                {
+                    return false;
+                }
             }
+
+            return true;
         }
 
-        return true;
+        return IsTightStatement(branch);
     }
 
     protected override Completion ExecuteInternal(EvaluationContext context)
@@ -455,9 +513,10 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
             && !context.ShouldRunBeforeExecuteStatementChecks
             && !context.DebugMode
             && (!_shouldCreatePerIterationEnvironment || _canReuseIterationEnvironment)
+            && (!_tightBodyHasLexicalDeclarations || flattenActive)
             && context.Engine.ExecutionContext.Suspendable is null)
         {
-            return TightForBody(context);
+            return TightForBody(context, flattenActive);
         }
 
         if (!resumeUpdateOnce && _shouldCreatePerIterationEnvironment && !_canReuseIterationEnvironment)
@@ -575,39 +634,48 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
     }
 
     /// <summary>
-    /// The bare test → body-expressions → update cycle. Exceptions propagate to the enclosing
+    /// The bare test → body-statements → update cycle. Exceptions propagate to the enclosing
     /// statement list exactly as on the generic path (ForBodyEvaluation catches nothing); the
     /// loop's Normal completion value is dead by the caller's gate, so Undefined stands in.
     /// Deferred errors surface as Engine._error instead of a .NET throw; the statement list
-    /// converts them per statement, and so must the tight loop.
+    /// converts them per statement, and so must the tight loop. Under flattening the pooled
+    /// loop environment carries the body's slots: their TDZ is re-established per iteration
+    /// before the body statements run, mirroring the generic flattened arm.
     /// </summary>
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
-    private Completion TightForBody(EvaluationContext context)
+    private Completion TightForBody(EvaluationContext context, bool flattenActive)
     {
         var test = _test!;
         var increment = _increment;
         var single = _tightSingleStatement;
         var list = _tightBodyList;
+        var engine = context.Engine;
 
         while (test.GetBooleanValue(context))
         {
+            if (flattenActive)
+            {
+                var env = (DeclarativeEnvironment) engine.ExecutionContext.LexicalEnvironment;
+                ResetBodySlotRange(env._slots!, _loopSlotTemplates!, _flattenedHeaderSlotCount);
+            }
+
             if (single is not null)
             {
                 single.ExecuteDiscarded(context);
-                if (context.Engine._error is not null)
+                if (engine._error is not null)
                 {
-                    return JintStatementList.HandleError(context.Engine, single);
+                    return JintStatementList.HandleError(engine, single);
                 }
             }
             else if (list is not null)
             {
                 for (var i = 0; i < list.Count; i++)
                 {
-                    var statement = (JintExpressionStatement) list.GetStatement(i);
+                    var statement = list.GetStatement(i);
                     statement.ExecuteDiscarded(context);
-                    if (context.Engine._error is not null)
+                    if (engine._error is not null)
                     {
-                        return JintStatementList.HandleError(context.Engine, statement);
+                        return JintStatementList.HandleError(engine, statement);
                     }
                 }
             }

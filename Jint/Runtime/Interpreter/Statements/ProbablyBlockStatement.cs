@@ -38,4 +38,22 @@ internal readonly struct ProbablyBlockStatement
 
         return _statement!.Execute(context);
     }
+
+    /// <summary>
+    /// Tight-loop entry; see <see cref="JintStatement.ExecuteDiscarded"/>. The enclosing loop's
+    /// shape predicate admits block targets only when they carry no lexical declarations, so the
+    /// block-env ceremony is skipped along with the per-statement bookkeeping.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void ExecuteDiscarded(EvaluationContext context)
+    {
+        if (_blockStatement is not null)
+        {
+            _blockStatement.ExecuteDiscardedContents(context);
+        }
+        else
+        {
+            _statement!.ExecuteDiscarded(context);
+        }
+    }
 }

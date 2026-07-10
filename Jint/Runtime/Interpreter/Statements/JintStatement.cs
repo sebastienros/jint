@@ -39,6 +39,20 @@ internal abstract class JintStatement
 
     protected abstract Completion ExecuteInternal(EvaluationContext context);
 
+    /// <summary>
+    /// Tight-loop entry: executes the statement for side effects only, skipping the per-statement
+    /// ceremony (PrepareFor, constraint checks, Completion materialization) where an override can
+    /// prove it dead. Callers guarantee a non-suspendable frame, no constraint/debug checks, dead
+    /// completion values, and a statement shape vetted by <see cref="JintForStatement"/>'s tight-body
+    /// predicate (no break/continue/return/labels, so only Normal completions can occur). Deferred
+    /// errors surface via <see cref="Engine._error"/>, which the caller polls after each statement.
+    /// The base implementation falls back to the full <see cref="Execute"/> ceremony.
+    /// </summary>
+    internal virtual void ExecuteDiscarded(EvaluationContext context)
+    {
+        Execute(context);
+    }
+
     public ref readonly SourceLocation Location => ref _statement.LocationRef;
 
     protected internal static JintStatement Build(Statement statement)
