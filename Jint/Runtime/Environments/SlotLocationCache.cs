@@ -10,6 +10,10 @@ namespace Jint.Runtime.Environments;
 /// Validity reasoning: closure-captured environments cannot be pooled (escape detection
 /// prevents it), so a cached env reference is stable for the lifetime of the function
 /// instance that captured it, and slot indices are immutable for the lifetime of the env.
+/// Handler trees are shared across function INSTANCES though (per-engine definition reuse
+/// for re-evaluated scripts, class members and nested declarations), so a node outlives any
+/// one instance's environment: an unreachable cached env means the node moved to another
+/// instance and must re-resolve against the current chain, not decline.
 /// Slot layout is deterministic per AST node, so a node shared across engines via
 /// <c>Prepared&lt;Script&gt;</c> resolves to the same index everywhere; the engine-identity
 /// gate only avoids wasted walks against another engine's environments.
@@ -80,9 +84,13 @@ internal struct SlotLocationCache
                 search = search._outerEnv;
             }
 
-            slotEnv = null!;
-            slotIndex = -1;
-            return false;
+            // The cached location is not reachable from this chain. Handler trees are shared
+            // across function instances (per-engine definition reuse for re-evaluated scripts,
+            // class members, nested declarations), so the same node runs under a fresh
+            // environment per instance — re-resolve against the current chain exactly as a
+            // fresh node would (mirroring the cross-engine Prepared<Script> fall-through
+            // below) instead of declining forever. One bounded walk per instance switch;
+            // subsequent reads hit the re-populated cache.
         }
 
         if (_disabled)
