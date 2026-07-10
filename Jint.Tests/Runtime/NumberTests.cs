@@ -221,4 +221,39 @@ public class NumberTests
         var tdzUpdate = Assert.Throws<Jint.Runtime.JavaScriptException>(() => engine.Evaluate("(function() { { y++; let y; } })()"));
         Assert.Equal("ReferenceError", tdzUpdate.Error.AsObject().Get("constructor").AsObject().Get("name").AsString());
     }
+
+    [Fact]
+    public void IntegerMultiplicationPreservesNegativeZero()
+    {
+        var engine = new Engine();
+        // Number::multiply: a zero product takes a negative sign when the operand signs differ.
+        // The integer fast paths (binary * and compound *=) cannot represent -0 and must route
+        // zero products through double arithmetic; test every operand shape the lanes serve.
+        var result = engine.Evaluate("""
+            (function () {
+                var zero = 0, negFive = -5, five = 5;
+                var r = [];
+                r.push(Object.is(zero * negFive, -0));
+                r.push(Object.is(negFive * zero, -0));
+                r.push(Object.is(zero * five, 0));
+                r.push(Object.is(zero * zero, 0));
+                r.push(Object.is(0 * -5, -0));
+                var arr = [0, -5];
+                r.push(Object.is(arr[0] * arr[1], -0));
+                var o = { a: 0, b: -5 };
+                r.push(Object.is(o.a * o.b, -0));
+                function f(x, y) { return x * y; }
+                r.push(Object.is(f(0, -5), -0));
+                var acc = 0; acc *= -5;
+                r.push(Object.is(acc, -0));
+                var acc2 = -5; acc2 *= 0;
+                r.push(Object.is(acc2, -0));
+                var acc3 = 0; acc3 *= 5;
+                r.push(Object.is(acc3, 0));
+                return r.join(',');
+            })()
+            """).AsString();
+
+        Assert.Equal("true,true,true,true,true,true,true,true,true,true,true", result);
+    }
 }

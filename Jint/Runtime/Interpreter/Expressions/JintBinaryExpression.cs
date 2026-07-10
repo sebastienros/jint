@@ -1162,7 +1162,12 @@ internal abstract class JintBinaryExpression : JintExpression
             }
             else if (AreIntegerOperands(left, right))
             {
-                result = JsNumber.Create((long) left.AsInteger() * right.AsInteger());
+                var product = (long) left.AsInteger() * right.AsInteger();
+                // Number::multiply gives -0 for zero products of opposite signs (0 * -5), which
+                // integer math cannot represent — route zero products through double arithmetic
+                result = product != 0
+                    ? JsNumber.Create(product)
+                    : JsNumber.Create((double) left.AsInteger() * right.AsInteger());
             }
             else if (left._type == InternalTypes.Number && right._type == InternalTypes.Number)
             {
