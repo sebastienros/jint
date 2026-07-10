@@ -103,7 +103,14 @@ public sealed class ScriptFunction : Function, IConstructor
                     funcEnv = (FunctionEnvironment) calleeContext.LexicalEnvironment;
                 }
 
-                OrdinaryCallBindThis(calleeContext, thisObject);
+                // Bodies that provably never resolve this/super/new.target leave the this-binding
+                // Uninitialized (any missed route throws via GetThisBinding rather than silently
+                // observing a wrong value). The debugger reads the binding through CallFrame.This,
+                // so debug mode always binds.
+                if (!state.CanSkipThisBinding || _engine._isDebugMode)
+                {
+                    OrdinaryCallBindThis(calleeContext, thisObject);
+                }
 
                 // actual call
                 var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);

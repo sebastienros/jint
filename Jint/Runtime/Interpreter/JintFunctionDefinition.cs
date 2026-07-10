@@ -380,6 +380,19 @@ internal sealed class JintFunctionDefinition
         /// and no eval context. Lets calls skip FDI entirely (common for tiny closure methods).
         /// </summary>
         public bool CanUseEmptyFDI;
+
+        /// <summary>
+        /// True when nothing in the function's own params/body can observe the call frame's
+        /// this-binding, super base or new.target: no ThisExpression/Super/MetaProperty node
+        /// anywhere in the subtree. The scan over-approximates into nested functions, which is
+        /// the safe direction — and exact in practice, because the flag is only computed when
+        /// <see cref="EnvironmentMayEscape"/> is false, which excludes nested functions entirely.
+        /// Lets [[Call]] skip OrdinaryCallBindThis: the this-binding stays Uninitialized, and
+        /// FunctionEnvironment.GetThisBinding throws loudly if a resolution route was missed,
+        /// rather than silently observing a wrong value.
+        /// </summary>
+        public bool CanSkipThisBinding;
+
         public bool EnvironmentMayEscape;
         // True when the function body contains a direct call to itself by name. Tight recursion
         // (e.g. fib/ack/tak) keeps several frames live at once, which a single-slot per-call reuse cache
@@ -689,6 +702,15 @@ internal sealed class JintFunctionDefinition
             state.EnvironmentMayEscape = EnvironmentEscapeAstVisitor.MayEscape(function);
         }
 
+        // This-binding elision: a non-arrow function that never references this/super/new.target
+        // and creates no closures (escape analysis; also excludes generators/async/direct eval)
+        // can leave its frame's this-binding uninitialized — OrdinaryCallBindThis is dead work.
+        // Arrows already skip the bind through FunctionThisMode.Lexical, so no flag is needed.
+        if (!state.EnvironmentMayEscape && function.Type != NodeType.ArrowFunctionExpression)
+        {
+            state.CanSkipThisBinding = !ThisSuperNewTargetAstVisitor.HasReference(function);
+        }
+
         // Detect direct named self-call (function fib(n) { ...fib(n-1)... }). For these, the single-env
         // reuse cache is useless — only the topmost frame would ever be reusable, every deeper frame
         // allocates anyway — so they use the bounded RecursiveEnvPool on the function instance instead
@@ -873,6 +895,46 @@ Start:
                     {
                         return true;
                     }
+                }
+            }
+
+            return false;
+        }
+    }
+
+    private static class ThisSuperNewTargetAstVisitor
+    {
+        public static bool HasReference(IFunction function)
+        {
+            foreach (var parameter in function.Params.AsSpan())
+            {
+                if (HasReference(parameter))
+                {
+                    return true;
+                }
+            }
+
+            return HasReference(function.Body);
+        }
+
+        private static bool HasReference(Node node)
+        {
+            foreach (var childNode in node.ChildNodes)
+            {
+                var childType = childNode.Type;
+
+                // MetaProperty matches both new.target and import.meta — over-approximation is
+                // the safe direction. Nested functions are deliberately scanned too (an arrow's
+                // `this` resolves through this frame; consumers gate on !EnvironmentMayEscape,
+                // which excludes nested functions, so the over-match never costs in practice).
+                if (childType is NodeType.ThisExpression or NodeType.Super or NodeType.MetaProperty)
+                {
+                    return true;
+                }
+
+                if (!childNode.ChildNodes.IsEmpty() && HasReference(childNode))
+                {
+                    return true;
                 }
             }
 

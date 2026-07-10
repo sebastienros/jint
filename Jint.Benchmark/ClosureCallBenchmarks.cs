@@ -11,16 +11,21 @@ namespace Jint.Benchmark;
 /// ManyLocalCall = a function with many locals (2 params + 18 vars = 20 bindings, the DrawLine shape from
 /// 3d-cube) that stresses per-call environment setup — exercises whichever FunctionDeclarationInstantiation
 /// path the fixed-slot cap routes that binding count to.
+/// The Sloppy rows run the method-call shapes non-strict, where OrdinaryCallBindThis additionally
+/// pays TypeConverter.ToObject on the receiver every call — a cost the strict rows never see.
 /// </summary>
 [MemoryDiagnoser]
 [HideColumns("Error", "Gen0", "Gen1", "Gen2")]
 public class ClosureCallBenchmarks
 {
     private Engine _engine = null!;
+    private Engine _sloppyEngine = null!;
     private Prepared<Script> _emptyClosureCall;
     private Prepared<Script> _capturedVarReadWrite;
     private Prepared<Script> _paramLocalCall;
     private Prepared<Script> _manyLocalCall;
+    private Prepared<Script> _sloppyEmptyClosureCall;
+    private Prepared<Script> _sloppyCapturedVarReadWrite;
 
     [GlobalSetup]
     public void Setup()
@@ -109,11 +114,49 @@ public class ClosureCallBenchmarks
             })();
             """, strict: true);
 
+        _sloppyEmptyClosureCall = Engine.PrepareScript("""
+            (function() {
+                function Box() {
+                    this.nop = function () { };
+                }
+                var b = new Box();
+                for (var i = 0; i < 100000; i++) {
+                    b.nop();
+                    b.nop();
+                    b.nop();
+                }
+                return b;
+            })();
+            """);
+
+        _sloppyCapturedVarReadWrite = Engine.PrepareScript("""
+            (function() {
+                function Box() {
+                    var on = false;
+                    var count = 0;
+                    this.enable = function () { on = true; };
+                    this.toggle = function () { on = !on; };
+                    this.bump = function () { count = count + 1; return on; };
+                }
+                var b = new Box();
+                for (var i = 0; i < 100000; i++) {
+                    b.enable();
+                    b.toggle();
+                    b.bump();
+                }
+                return b;
+            })();
+            """);
+
         _engine = new Engine(static options => options.Strict());
         _engine.Evaluate(_emptyClosureCall);
         _engine.Evaluate(_capturedVarReadWrite);
         _engine.Evaluate(_paramLocalCall);
         _engine.Evaluate(_manyLocalCall);
+
+        _sloppyEngine = new Engine();
+        _sloppyEngine.Evaluate(_sloppyEmptyClosureCall);
+        _sloppyEngine.Evaluate(_sloppyCapturedVarReadWrite);
     }
 
     [Benchmark]
@@ -127,4 +170,10 @@ public class ClosureCallBenchmarks
 
     [Benchmark]
     public JsValue ManyLocalCall() => _engine.Evaluate(_manyLocalCall);
+
+    [Benchmark]
+    public JsValue SloppyEmptyClosureCall() => _sloppyEngine.Evaluate(_sloppyEmptyClosureCall);
+
+    [Benchmark]
+    public JsValue SloppyCapturedVarReadWrite() => _sloppyEngine.Evaluate(_sloppyCapturedVarReadWrite);
 }
