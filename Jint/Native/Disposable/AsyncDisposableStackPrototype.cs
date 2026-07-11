@@ -1,11 +1,13 @@
 using Jint.Native.Object;
 using Jint.Native.Promise;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Disposable;
 
+// Spec requires AsyncDisposableStack.prototype[@@asyncDispose] to be the same function object as
+// AsyncDisposableStack.prototype.disposeAsync; [JsSymbolAlias] shares the materialized function.
+[JsSymbolAlias("AsyncDispose", "disposeAsync")]
 [JsObject(UseShape = true)]
 internal sealed partial class AsyncDisposableStackPrototype : Prototype
 {
@@ -28,11 +30,6 @@ internal sealed partial class AsyncDisposableStackPrototype : Prototype
     {
         CreateProperties_Generated();
         CreateSymbols_Generated();
-
-        // Spec requires AsyncDisposableStack.prototype[@@asyncDispose] to be the same function object
-        // as AsyncDisposableStack.prototype.disposeAsync. Alias the descriptor here so the
-        // @@asyncDispose slot shares the same materialized function as `disposeAsync`.
-        SetProperty(GlobalSymbolRegistry.AsyncDispose, GetOwnProperty("disposeAsync"));
     }
 
     [JsFunction]

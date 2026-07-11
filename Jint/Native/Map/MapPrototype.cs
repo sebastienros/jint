@@ -1,7 +1,6 @@
 #pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of prototype methods return JsValue
 
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
@@ -10,6 +9,9 @@ namespace Jint.Native.Map;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-map-objects
 /// </summary>
+// Spec requires Map.prototype[@@iterator] to be the same function object as Map.prototype.entries
+// (function identity, observable via ===); [JsSymbolAlias] shares the materialized `entries` function.
+[JsSymbolAlias("Iterator", "entries")]
 [JsObject(UseShape = true)]
 internal sealed partial class MapPrototype : Prototype
 {
@@ -32,11 +34,6 @@ internal sealed partial class MapPrototype : Prototype
     {
         CreateProperties_Generated();
         CreateSymbols_Generated();
-
-        // Spec requires Map.prototype[@@iterator] to be the same function object as Map.prototype.entries
-        // (function identity, observable via ===). Alias the descriptor here so the @@iterator slot
-        // shares the same materialized function as `entries` rather than emitting a separate dispatcher.
-        SetProperty(GlobalSymbolRegistry.Iterator, GetOwnProperty("entries"));
     }
 
     [JsAccessor("size")]
