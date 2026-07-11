@@ -159,4 +159,105 @@ public class JsonSerializerTests
         string actual = serializer.Serialize(new JsString(inputString)).ToString();
         Assert.Equal(expectedOutput, actual);
     }
+
+    [Fact]
+    public void ReplacerArrayOverParsedShapedRecordsUsesPropertyListOrder()
+    {
+        // A replacer array installs a PropertyList that dictates both the key set and their order,
+        // so shape-mode objects must take the generic path.
+        using var engine = new Engine();
+        var ok = engine.Evaluate("""
+            var a = JSON.parse('[{"a":1,"b":2,"c":3},{"a":4,"b":5,"c":6}]');
+            JSON.stringify(a, ["b", "a"]) === '[{"b":2,"a":1},{"b":5,"a":4}]';
+            """).AsBoolean();
+
+        Assert.True(ok);
+    }
+
+    [Fact]
+    public void ToJsonOnShapedObjectIsInvoked()
+    {
+        using var engine = new Engine();
+        var ok = engine.Evaluate("""
+            var a = JSON.parse('[{"x":1,"y":2},{"x":3,"y":4}]');
+            a[0].toJSON = function (k) { return 'record-' + k; };
+            JSON.stringify(a) === '["record-0",{"x":3,"y":4}]';
+            """).AsBoolean();
+
+        Assert.True(ok);
+    }
+
+    [Fact]
+    public void ToJsonMutatingShapedHolderMidSerializationFallsBackSafely()
+    {
+        // A member value's toJSON deopts the holder mid-serialization (delete converts it to
+        // dictionary mode); the remaining snapshotted keys must be read live like the generic path
+        // reads its snapshotted key list — the removed key serializes as absent.
+        using var engine = new Engine();
+        var ok = engine.Evaluate("""
+            var o = JSON.parse('{"a":1,"b":2,"c":3}');
+            o.b = { toJSON: function () { delete o.c; o.a = 100; return 'B'; } };
+            JSON.stringify(o) === '{"a":1,"b":"B"}';
+            """).AsBoolean();
+
+        Assert.True(ok);
+    }
+
+    [Fact]
+    public void ShapedAndDictionaryObjectsSerializeIdentically()
+    {
+        using var engine = new Engine();
+        var ok = engine.Evaluate("""
+            var shaped = JSON.parse('{"a":1,"b":"x","c":[1,2],"d":{"e":null},"f":1.5,"g":true}');
+            var dict = JSON.parse('{"a":1,"b":"x","c":[1,2],"d":{"e":null},"f":1.5,"g":true}');
+            delete dict.g;              // deopts to dictionary mode
+            dict.g = true;              // re-added at the same (last) position
+            JSON.stringify(shaped) === JSON.stringify(dict)
+                && JSON.stringify(shaped, null, 2) === JSON.stringify(dict, null, 2)
+                && JSON.stringify(shaped) === '{"a":1,"b":"x","c":[1,2],"d":{"e":null},"f":1.5,"g":true}';
+            """).AsBoolean();
+
+        Assert.True(ok);
+    }
+
+    [Fact]
+    public void UnserializableShapedMembersAreSkipped()
+    {
+        using var engine = new Engine();
+        var ok = engine.Evaluate("""
+            var o = JSON.parse('{"a":1,"b":2}');
+            o.fn = function () {};      // stays shaped: post-parse adds transition the shape
+            o.u = undefined;
+            JSON.stringify(o) === '{"a":1,"b":2}';
+            """).AsBoolean();
+
+        Assert.True(ok);
+    }
+
+    [Fact]
+    public void ShapedObjectWithDigitLeadingKeyFallsBackToSpecOrder()
+    {
+        // A digit-leading key added post-parse lives in the shape, but own-key order places integer
+        // indices first, which slot order cannot express — stringify must fall back and sort.
+        using var engine = new Engine();
+        var ok = engine.Evaluate("""
+            var o = JSON.parse('{"b":1,"c":2}');
+            o['3'] = 3;
+            JSON.stringify(o) === '{"3":3,"b":1,"c":2}' && Object.keys(o).join() === '3,b,c';
+            """).AsBoolean();
+
+        Assert.True(ok);
+    }
+
+    [Fact]
+    public void ReplacerFunctionAppliesToShapedObjects()
+    {
+        using var engine = new Engine();
+        var ok = engine.Evaluate("""
+            var a = JSON.parse('[{"a":1,"b":2},{"a":3,"b":4}]');
+            JSON.stringify(a, function (k, v) { return k === 'b' ? undefined : v; }) === '[{"a":1},{"a":3}]';
+            """).AsBoolean();
+
+        Assert.True(ok);
+    }
 }

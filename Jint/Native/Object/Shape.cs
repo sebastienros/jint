@@ -55,6 +55,11 @@ internal sealed class Shape
     // Lazily-built key -> slot index, only for wide shapes (SlotCount >= LinearScanLimit).
     private Dictionary<Key, int>? _index;
 
+    // Slot-ordered keys, memoized on first use (shapes are immutable, so the layout never changes)
+    // and shared by every object of this layout — e.g. the JSON serializer's shaped fast path reads
+    // property names from here without building a per-object key list.
+    private Key[]? _orderedKeys;
+
     /// <summary>Creates an empty root shape. There is one root per prototype, interned by the engine's
     /// empty-shape table, so all objects sharing a prototype build their layouts from the same tree.</summary>
     internal Shape()
@@ -148,6 +153,25 @@ internal sealed class Shape
         for (var shape = this; shape.Parent is not null; shape = shape.Parent)
         {
             dest[shape.SlotCount - 1] = shape.AddedKey;
+        }
+    }
+
+    /// <summary>
+    /// This shape's keys in slot (= insertion) order, computed once and shared by all objects of this
+    /// layout. Callers must treat the array as read-only.
+    /// </summary>
+    internal Key[] OrderedKeys
+    {
+        get
+        {
+            if (_orderedKeys is null)
+            {
+                var keys = new Key[SlotCount];
+                CollectKeys(keys);
+                _orderedKeys = keys;
+            }
+
+            return _orderedKeys;
         }
     }
 }
