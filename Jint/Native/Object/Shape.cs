@@ -55,6 +55,11 @@ internal sealed class Shape
     // Lazily-built key -> slot index, only for wide shapes (SlotCount >= LinearScanLimit).
     private Dictionary<Key, int>? _index;
 
+    // Slot-ordered keys, memoized on first use (shapes are immutable, so the layout never changes)
+    // and shared by every object of this layout — e.g. the JSON serializer's shaped fast path reads
+    // property names from here without building a per-object key list.
+    private Key[]? _orderedKeys;
+
     /// <summary>Creates an empty root shape. There is one root per prototype, interned by the engine's
     /// empty-shape table, so all objects sharing a prototype build their layouts from the same tree.</summary>
     internal Shape()
@@ -75,13 +80,26 @@ internal sealed class Shape
     /// Returns the interned child shape that adds <paramref name="key"/> to this shape. Repeated calls
     /// with the same key return the same instance, so identical layouts share their whole chain.
     /// </summary>
-    internal Shape Add(in Key key)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal Shape Add(in Key key) => Add(key, out _);
+
+    /// <summary>
+    /// Same as <see cref="Add(in Key)"/>, additionally reporting whether a new transition node was
+    /// interned (<paramref name="created"/>) or an already-memoized child was reused. Callers that
+    /// bound transition-tree growth (JSON parsing) charge their budget only for newly created nodes.
+    /// </summary>
+    internal Shape Add(in Key key, out bool created)
     {
         var transitions = _transitions ??= new Dictionary<Key, Shape>();
         if (!transitions.TryGetValue(key, out var child))
         {
             child = new Shape(this, key);
             transitions[key] = child;
+            created = true;
+        }
+        else
+        {
+            created = false;
         }
 
         return child;
@@ -135,6 +153,25 @@ internal sealed class Shape
         for (var shape = this; shape.Parent is not null; shape = shape.Parent)
         {
             dest[shape.SlotCount - 1] = shape.AddedKey;
+        }
+    }
+
+    /// <summary>
+    /// This shape's keys in slot (= insertion) order, computed once and shared by all objects of this
+    /// layout. Callers must treat the array as read-only.
+    /// </summary>
+    internal Key[] OrderedKeys
+    {
+        get
+        {
+            if (_orderedKeys is null)
+            {
+                var keys = new Key[SlotCount];
+                CollectKeys(keys);
+                _orderedKeys = keys;
+            }
+
+            return _orderedKeys;
         }
     }
 }

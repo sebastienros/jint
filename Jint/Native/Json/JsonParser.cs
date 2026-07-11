@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
+using Jint.Native.Object;
 using Jint.Pooling;
 using Jint.Runtime;
 
@@ -79,6 +80,21 @@ public sealed class JsonParser
     private string _source = null!;
     private readonly Token[] _tokenBuffer;
     private int _tokenBufferIndex;
+
+    // Hidden-class shaping of parsed objects (see Shape): members route through the shared
+    // per-prototype transition tree so an array of identically-laid-out records shares one interned
+    // Shape and each record costs a single allocation instead of a property dictionary plus
+    // per-property descriptors. _shapeBudget bounds how many NEW transition nodes one parse call may
+    // intern — reused transitions (the identical-records case) cost nothing — because the tree is
+    // pinned by its prototype for the prototype's lifetime, so an adversarial cold parse must not
+    // grow it without bound. Once exhausted, objects that have not yet started shaping build
+    // dictionaries for the rest of the call. The cached empty-root pair avoids a per-object
+    // ConditionalWeakTable lookup and is revalidated by prototype identity (mirrors
+    // ScriptFunction._ctorEmptyShape).
+    private const int ShapeTransitionBudget = 1024;
+    private int _shapeBudget;
+    private Shape? _cachedEmptyRoot;
+    private ObjectInstance? _cachedEmptyRootProto;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool IsDecimalDigit(char ch)
@@ -589,6 +605,8 @@ public sealed class JsonParser
         Expect(ref state, '{');
 
         var obj = new JsObject(_engine);
+        var shaped = false;
+        var first = true;
 
         var memberCount = 0;
         while (!Match('}'))
@@ -613,7 +631,7 @@ public sealed class JsonParser
 
             Expect(ref state, ':');
             var value = ParseJsonValue(ref state);
-            obj.FastSetDataProperty(name, value);
+            AddJsonMember(obj, name, value, ref shaped, ref first);
 
             if (!Match('}'))
             {
@@ -625,6 +643,77 @@ public sealed class JsonParser
         state.CurrentDepth--;
 
         return obj;
+    }
+
+    /// <summary>
+    /// Adds one parsed member to <paramref name="obj"/>, routing through the hidden-class machinery
+    /// (see <see cref="Shape"/>) so a run of identically-laid-out records — the dominant JSON payload —
+    /// shares one interned shape and each record is a single allocation instead of a property dictionary
+    /// plus per-property descriptors. <paramref name="shaped"/> and <paramref name="first"/> are the
+    /// caller's per-object locals (each recursive object activation carries its own). Anything a shape
+    /// cannot represent drops the object to dictionary mode, preserving the insertion order built so far.
+    /// A raw own-property store like today's dictionary path: the prototype chain is never consulted,
+    /// so an inherited setter (e.g. <c>__proto__</c>) is not invoked.
+    /// </summary>
+    private void AddJsonMember(JsObject obj, string name, JsValue value, ref bool shaped, ref bool first)
+    {
+        // Integer-like keys are pre-excluded from shapes (never build-then-deopt): own-key order puts
+        // integer indices first (https://tc39.es/ecma262/#sec-ordinaryownpropertykeys), which the
+        // slot (= insertion) order cannot express. Same conservative digit-leading classifier as the
+        // other shape guards.
+        var digitLeading = name.Length > 0 && char.IsDigit(name[0]);
+
+        if (first)
+        {
+            first = false;
+            // Start shaping lazily on the first member so `{}` stays a plain property-less JsObject.
+            if (_shapeBudget > 0 && !digitLeading && obj.Prototype is { } proto)
+            {
+                if (!ReferenceEquals(_cachedEmptyRootProto, proto))
+                {
+                    _cachedEmptyRoot = _engine.GetEmptyShape(proto);
+                    _cachedEmptyRootProto = proto;
+                }
+
+                obj.StartShapeBuilding(_cachedEmptyRoot!);
+                shaped = true;
+            }
+        }
+
+        if (shaped)
+        {
+            if (!digitLeading)
+            {
+                Key key = name;
+                if (obj.ShapeOf.TryGetSlot(key, out var slot))
+                {
+                    // Duplicate key: last value wins at the first occurrence's position, matching the
+                    // dictionary representation's replace-in-place.
+                    obj.SetSlot(slot, value);
+                    return;
+                }
+
+                if (obj.TryShapeAdd(key, value, out var created))
+                {
+                    if (created)
+                    {
+                        // Only newly interned transitions consume budget; an object mid-build may
+                        // finish shaped after the budget hits zero (overshoot bounded by
+                        // Shape.MaxShapeProperties).
+                        _shapeBudget--;
+                    }
+
+                    return;
+                }
+            }
+
+            // Integer-like key, or a megamorphic guard (own-property count / transition fan-out)
+            // refused the add: finish this object as a dictionary.
+            obj.ConvertToDictionaryMode();
+            shaped = false;
+        }
+
+        obj.FastSetDataProperty(name, value);
     }
 
     private static bool PropertyNameContainsInvalidCharacters(string propertyName)
@@ -680,6 +769,7 @@ public sealed class JsonParser
         _index = 0;
         _length = _source.Length;
         _lookahead = null!;
+        _shapeBudget = ShapeTransitionBudget;
 
         State state = new State();
 
@@ -705,6 +795,7 @@ public sealed class JsonParser
         _index = 0;
         _length = _source.Length;
         _lookahead = null!;
+        _shapeBudget = ShapeTransitionBudget;
 
         State state = new State();
 
@@ -825,6 +916,8 @@ public sealed class JsonParser
         Expect(ref state, '{');
 
         var obj = new JsObject(_engine);
+        var shaped = false;
+        var first = true;
 
         var memberCount = 0;
         while (!Match('}'))
@@ -849,7 +942,7 @@ public sealed class JsonParser
 
             Expect(ref state, ':');
             var valueResult = ParseJsonValueWithSourceInfo(ref state);
-            obj.FastSetDataProperty(name, valueResult.Value);
+            AddJsonMember(obj, name, valueResult.Value, ref shaped, ref first);
 
             if (valueResult.Node != null)
             {

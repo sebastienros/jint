@@ -165,8 +165,16 @@ public sealed class JsonSerializer
     /// </summary>
     private SerializeResult SerializeJSONProperty(JsValue key, JsValue holder, ref ValueStringBuilder json)
     {
-        var value = ReadUnwrappedValue(key, holder);
+        return SerializeJSONValue(ReadUnwrappedValue(key, holder), ref json);
+    }
 
+    /// <summary>
+    /// The value-writing half of SerializeJSONProperty: serializes an already-read-and-unwrapped
+    /// value. Split out so the shaped fast path can feed slot-read values through the identical
+    /// pipeline.
+    /// </summary>
+    private SerializeResult SerializeJSONValue(JsValue value, ref ValueStringBuilder json)
+    {
         if (ReferenceEquals(value, JsValue.Null))
         {
             json.Append("null");
@@ -256,6 +264,16 @@ public sealed class JsonSerializer
             return value;
         }
 
+        return UnwrapValueSlow(key, holder, value);
+    }
+
+    /// <summary>
+    /// The observable part of the value read: toJSON lookup/call, replacer function call and wrapper
+    /// instance unwrapping. Split from <see cref="ReadUnwrappedValue"/> so the shaped fast path can
+    /// defer materializing the key (the toJSON/replacer argument) until a value actually needs it.
+    /// </summary>
+    private JsValue UnwrapValueSlow(JsValue key, JsValue holder, JsValue value)
+    {
         var isBigInt = value is BigIntInstance || value.IsBigInt();
         if (value.IsObject() || isBigInt)
         {
@@ -500,6 +518,16 @@ public sealed class JsonSerializer
     /// </summary>
     private void SerializeJSONObject(ObjectInstance value, ref ValueStringBuilder json)
     {
+        // Shape-mode fast arm, valid only when serializing ALL string-keyed own enumerable properties
+        // (no replacer-array PropertyList overriding the key set/order). May refuse — having written
+        // nothing — when slot order cannot express own-key order; the generic path below then handles it.
+        if (_propertyList is null
+            && (value._type & InternalTypes.ShapeMode) != InternalTypes.Empty
+            && TrySerializeShapedJSONObject(Unsafe.As<JsObject>(value), ref json))
+        {
+            return;
+        }
+
         var enumeration = _propertyList is null
             ? PropertyEnumeration.FromObjectInstance(value)
             : PropertyEnumeration.FromList(_propertyList);
@@ -577,6 +605,127 @@ public sealed class JsonSerializer
 
         _stack.Exit();
         _indent = stepback;
+    }
+
+    /// <summary>
+    /// Serializes a shape-mode plain object by walking its interned shape directly: keys come from
+    /// the shape in slot (= insertion) order and are written from <see cref="Key.Name"/> without
+    /// materializing per-key JsStrings or a key list, the enumerability probe is skipped (every shape
+    /// property is an enumerable CEW data property), and values are read straight from the slots.
+    /// Only key enumeration, own-property probing and the value read are replaced — the per-value
+    /// pipeline (toJSON, replacer function, wrapper unwrapping, the value switch) is shared with the
+    /// generic path. Returns <c>false</c>, before writing anything, when a digit-leading key is
+    /// present: own-key order then places integer indices first, which slot order cannot express, so
+    /// the caller falls back to the generic (sorting) path.
+    /// </summary>
+    private bool TrySerializeShapedJSONObject(JsObject value, ref ValueStringBuilder json)
+    {
+        var shape = value.ShapeOf;
+        var keys = shape.OrderedKeys;
+
+        for (var i = 0; i < keys.Length; i++)
+        {
+            var name = keys[i].Name;
+            if (name.Length > 0 && char.IsDigit(name[0]))
+            {
+                return false;
+            }
+        }
+
+        if (keys.Length == 0)
+        {
+            json.Append("{}");
+            return true;
+        }
+
+        _stack.Enter(value);
+        var stepback = _indent;
+        if (_gap.Length > 0)
+        {
+            _indent += _gap;
+        }
+
+        const char separator = ',';
+        var hasPrevious = false;
+        for (var i = 0; i < keys.Length; i++)
+        {
+            if (i > 0 && i % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
+            int position = json.Length;
+
+            if (hasPrevious)
+            {
+                json.Append(separator);
+            }
+            else
+            {
+                json.Append('{');
+            }
+
+            if (_gap.Length > 0)
+            {
+                json.Append('\n');
+                json.Append(_indent);
+            }
+
+            QuoteJSONString(keys[i].Name, ref json);
+            json.Append(':');
+            if (_gap.Length > 0)
+            {
+                json.Append(' ');
+            }
+
+            // A previous member's toJSON or the replacer function may have mutated this object
+            // (deopting it or transitioning its shape); the keys array is an immutable snapshot, so
+            // remaining members are then read through the generic Get — exactly how the generic path
+            // reads its snapshotted key list live. Slot reads are valid only while the object still
+            // has the captured shape.
+            JsValue member;
+            if (ReferenceEquals(value.ShapeOf, shape))
+            {
+                member = value.GetSlot(i);
+                if (member._type > InternalTypes.Integer || !_replacerFunction.IsUndefined())
+                {
+                    // the key is observable (toJSON/replacer argument); materialize it only now
+                    member = UnwrapValueSlow(new JsString(keys[i].Name), value, member);
+                }
+            }
+            else
+            {
+                member = ReadUnwrappedValue(new JsString(keys[i].Name), value);
+            }
+
+            if (SerializeJSONValue(member, ref json) == SerializeResult.Undefined)
+            {
+                json.Length = position;
+            }
+            else
+            {
+                hasPrevious = true;
+            }
+        }
+
+        if (!hasPrevious)
+        {
+            _stack.Exit();
+            _indent = stepback;
+            json.Append("{}");
+            return true;
+        }
+
+        if (_gap.Length > 0)
+        {
+            json.Append('\n');
+            json.Append(stepback);
+        }
+        json.Append('}');
+
+        _stack.Exit();
+        _indent = stepback;
+        return true;
     }
 
     private enum SerializeResult

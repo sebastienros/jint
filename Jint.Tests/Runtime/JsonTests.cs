@@ -346,6 +346,260 @@ public class JsonTests
         Assert.Throws<JavaScriptException>(() => parser.Parse("[]"));
     }
 
+    [Fact]
+    public void ParsedProtoKeyBecomesOwnDataPropertyAndDoesNotPollutePrototype()
+    {
+        var engine = new Engine();
+        var ok = engine.Evaluate("""
+            var o = JSON.parse('{"__proto__":{"a":1}}');
+            o.hasOwnProperty('__proto__')
+                && Object.getPrototypeOf(o) === Object.prototype
+                && o.__proto__.a === 1
+                && !('a' in {})
+                && Object.prototype.a === undefined;
+            """).AsBoolean();
+
+        Assert.True(ok);
+    }
+
+    [Fact]
+    public void ParsedProtoKeyBecomesOwnDataPropertyWithReviver()
+    {
+        var engine = new Engine();
+        var ok = engine.Evaluate("""
+            var o = JSON.parse('{"__proto__":{"a":1}}', function (k, v) { return v; });
+            o.hasOwnProperty('__proto__')
+                && Object.getPrototypeOf(o) === Object.prototype
+                && o.__proto__.a === 1
+                && !('a' in {})
+                && Object.prototype.a === undefined;
+            """).AsBoolean();
+
+        Assert.True(ok);
+    }
+
+    [Fact]
+    public void DuplicateProtoKeysLastValueWins()
+    {
+        var engine = new Engine();
+        var ok = engine.Evaluate("""
+            var o = JSON.parse('{"__proto__":1,"__proto__":2}');
+            var d = Object.getOwnPropertyDescriptor(o, '__proto__');
+            d.value === 2 && d.writable && d.enumerable && d.configurable
+                && Object.getPrototypeOf(o) === Object.prototype;
+            """).AsBoolean();
+
+        Assert.True(ok);
+    }
+
+    [Fact]
+    public void DuplicateKeysLastValueWinsAtFirstPosition()
+    {
+        var engine = new Engine();
+        var ok = engine.Evaluate("""
+            var o = JSON.parse('{"a":1,"b":9,"a":2}');
+            o.a === 2
+                && JSON.stringify(Object.keys(o)) === '["a","b"]'
+                && JSON.stringify(o) === '{"a":2,"b":9}';
+            """).AsBoolean();
+
+        Assert.True(ok);
+    }
+
+    [Theory]
+    [InlineData("""{"1":"y","b":"z"}""", """["1","b"]""")]
+    [InlineData("""{"b":"z","1":"y"}""", """["1","b"]""")]
+    [InlineData("""{"0":1}""", """["0"]""")]
+    [InlineData("""{"b":1,"1abc":2,"a":3}""", """["b","1abc","a"]""")]
+    public void IntegerLikeKeysEnumerateInSpecOrder(string json, string expectedKeys)
+    {
+        var engine = new Engine();
+        engine.SetValue("json", json);
+        var keys = engine.Evaluate("JSON.stringify(Object.keys(JSON.parse(json)))").AsString();
+
+        Assert.Equal(expectedKeys, keys);
+    }
+
+    [Fact]
+    public void CanParseObjectWithManyProperties()
+    {
+        // 100 properties trips the 64-own-property shape guard mid-build; the object finishes as a
+        // dictionary with insertion order intact and stays fully mutable.
+        var engine = new Engine();
+        var json = "{" + string.Join(",", Enumerable.Range(0, 100).Select(i => $"\"p{i}\":{i}")) + "}";
+        engine.SetValue("json", json);
+        var ok = engine.Evaluate("""
+            var o = JSON.parse(json);
+            var keys = Object.keys(o);
+            var ok = keys.length === 100;
+            for (var i = 0; i < 100; i++) {
+                ok = ok && keys[i] === ('p' + i) && o['p' + i] === i;
+            }
+            o.extra = 'x';
+            delete o.p0;
+            ok && o.extra === 'x' && !('p0' in o) && Object.keys(o).length === 100;
+            """).AsBoolean();
+
+        Assert.True(ok);
+    }
+
+    [Fact]
+    public void ReviverCanMutateAndDeleteParsedObjectProperties()
+    {
+        var engine = new Engine();
+        var ok = engine.Evaluate("""
+            var o = JSON.parse('{"keep":1,"double":2,"drop":3}', function (k, v) {
+                if (k === 'drop') return undefined;
+                if (k === 'double') return v * 2;
+                return v;
+            });
+            o.keep === 1 && o.double === 4 && !('drop' in o)
+                && JSON.stringify(Object.keys(o)) === '["keep","double"]';
+            """).AsBoolean();
+
+        Assert.True(ok);
+    }
+
+    [Fact]
+    public void ReviverWorksOverArrayOfRecords()
+    {
+        var engine = new Engine();
+        var ok = engine.Evaluate("""
+            var a = JSON.parse('[{"id":1,"v":10},{"id":2,"v":20},{"id":3,"v":30}]', function (k, v) {
+                return typeof v === 'number' && k === 'v' ? v + 1 : v;
+            });
+            a.length === 3 && a[0].v === 11 && a[1].v === 21 && a[2].v === 31
+                && a[0].id === 1 && a[2].id === 3;
+            """).AsBoolean();
+
+        Assert.True(ok);
+    }
+
+    [Fact]
+    public void ReviverContextSourceIsProvidedForPrimitives()
+    {
+        var engine = new Engine();
+        var ok = engine.Evaluate("""
+            var sources = {};
+            JSON.parse('{"a":1,"b":"x"}', function (k, v, context) {
+                if (context && typeof context.source === 'string') sources[k] = context.source;
+                return v;
+            });
+            sources.a === '1' && sources.b === '"x"';
+            """).AsBoolean();
+
+        Assert.True(ok);
+    }
+
+    [Fact]
+    public void ParsedObjectSupportsPostParseMutation()
+    {
+        var engine = new Engine();
+        var ok = engine.Evaluate("""
+            var o = JSON.parse('{"a":1,"b":2}');
+            var ok = !('x' in o);
+            o.x = 3;
+            ok = ok && o.x === 3 && ('x' in o);
+            delete o.b;
+            ok = ok && !('b' in o) && JSON.stringify(Object.keys(o)) === '["a","x"]';
+            Object.defineProperty(o, 'acc', { get: function () { return o.a + 10; }, configurable: true });
+            ok = ok && o.acc === 11;
+            Object.freeze(o);
+            o.a = 42;
+            ok && o.a === 1 && Object.isFrozen(o);
+            """).AsBoolean();
+
+        Assert.True(ok);
+    }
+
+    [Fact]
+    public void MutatingOneParsedRecordDoesNotAffectOthers()
+    {
+        var engine = new Engine();
+        var json = "[" + string.Join(",", Enumerable.Range(0, 100).Select(i => $"{{\"id\":{i},\"name\":\"n{i}\",\"flag\":true,\"score\":1.5}}")) + "]";
+        engine.SetValue("json", json);
+        var ok = engine.Evaluate("""
+            var a = JSON.parse(json);
+            a[42].name = 'changed';
+            a[42].id = -1;
+            var ok = a[42].name === 'changed' && a[42].id === -1;
+            for (var i = 0; i < 100; i++) {
+                if (i === 42) continue;
+                ok = ok && a[i].id === i && a[i].name === ('n' + i) && a[i].flag === true && a[i].score === 1.5;
+            }
+            ok;
+            """).AsBoolean();
+
+        Assert.True(ok);
+    }
+
+    [Fact]
+    public void ParseRemainsCorrectWhenShapeTransitionBudgetIsExhausted()
+    {
+        // >1024 distinct object layouts whose per-node fan-out stays below the megamorphic guard, so
+        // the parser's per-call transition budget runs out mid-document and later objects fall back to
+        // dictionary building. Only correctness (values and key order) is asserted.
+        var engine = new Engine();
+        var json = "[" + string.Join(",", Enumerable.Range(0, 1100).Select(i => $"{{\"a\":{i},\"b{i % 50}\":{i},\"c{i / 50}\":{i}}}")) + "]";
+        engine.SetValue("json", json);
+        var ok = engine.Evaluate("""
+            var a = JSON.parse(json);
+            var ok = a.length === 1100;
+            for (var i = 0; i < 1100; i++) {
+                var o = a[i];
+                var keys = Object.keys(o);
+                ok = ok && o.a === i
+                    && o['b' + (i % 50)] === i
+                    && o['c' + Math.floor(i / 50)] === i
+                    && keys.length === 3
+                    && keys[0] === 'a'
+                    && keys[1] === 'b' + (i % 50)
+                    && keys[2] === 'c' + Math.floor(i / 50);
+            }
+            ok;
+            """).AsBoolean();
+
+        Assert.True(ok);
+    }
+
+    [Fact]
+    public void ParsedRecordsFromSameDocumentShareShape()
+    {
+        var engine = new Engine();
+        var array = engine.Evaluate("""JSON.parse('[{"a":1,"b":2},{"a":3,"b":4}]')""").AsArray();
+        var first = Assert.IsType<JsObject>(array[0]);
+        var second = Assert.IsType<JsObject>(array[1]);
+
+        Assert.NotNull(first.ShapeOf);
+        Assert.Same(first.ShapeOf, second.ShapeOf);
+    }
+
+    [Fact]
+    public void ParsedRecordsRoundTripThroughStringify()
+    {
+        var engine = new Engine();
+        var ok = engine.Evaluate("""
+            JSON.stringify(JSON.parse('[{"a":1,"b":"x"},{"a":2,"b":"y"}]')) === '[{"a":1,"b":"x"},{"a":2,"b":"y"}]';
+            """).AsBoolean();
+
+        Assert.True(ok);
+    }
+
+    [Fact]
+    public void CanParseNestedObjectsWithSharedAndDistinctLayouts()
+    {
+        var engine = new Engine();
+        var ok = engine.Evaluate("""
+            var o = JSON.parse('{"outer":{"inner":{"x":1,"y":2},"z":3},"w":{"x":4,"y":5}}');
+            o.outer.inner.x === 1 && o.outer.inner.y === 2 && o.outer.z === 3
+                && o.w.x === 4 && o.w.y === 5
+                && JSON.stringify(Object.keys(o)) === '["outer","w"]'
+                && JSON.stringify(Object.keys(o.outer)) === '["inner","z"]';
+            """).AsBoolean();
+
+        Assert.True(ok);
+    }
+
     private static string GenerateDeepNestedArray(int depth)
     {
         string arrayOpen = new string('[', depth);

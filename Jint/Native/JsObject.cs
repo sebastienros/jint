@@ -112,11 +112,20 @@ public sealed class JsObject : ObjectInstance
     /// guard trips (too many own properties, or this shape already has too many distinct child transitions),
     /// so the caller deopts to the dictionary representation. The key must be known-absent (callers check).
     /// </summary>
-    internal bool TryShapeAdd(in Key key, JsValue value)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool TryShapeAdd(in Key key, JsValue value) => TryShapeAdd(key, value, out _);
+
+    /// <summary>
+    /// Same as <see cref="TryShapeAdd(in Key, JsValue)"/>, additionally reporting whether the shape
+    /// transition was newly interned rather than reused (see <see cref="Shape.Add(in Key, out bool)"/>)
+    /// so callers can bound transition-tree growth.
+    /// </summary>
+    internal bool TryShapeAdd(in Key key, JsValue value, out bool created)
     {
         var shape = _shape!;
         if (shape.SlotCount >= Shape.MaxShapeProperties || shape.TransitionCount >= Shape.MaxFanout)
         {
+            created = false;
             return false;
         }
 
@@ -139,7 +148,7 @@ public sealed class JsObject : ObjectInstance
             _overflow[overflowIndex] = value;
         }
 
-        _shape = shape.Add(key);
+        _shape = shape.Add(key, out created);
         unchecked { _propertiesVersion++; }
         return true;
     }
