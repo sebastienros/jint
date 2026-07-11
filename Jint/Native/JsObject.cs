@@ -93,14 +93,17 @@ public sealed class JsObject : ObjectInstance
     }
 
     /// <summary>
-    /// True when nothing observable has been stored on this object yet: extensible, not in shape mode,
-    /// and with no string or symbol property. Such an object can switch representation — e.g. start
+    /// True when nothing observable has been stored on this object yet: no string or symbol property,
+    /// not in shape mode, and extensible. Such an object can switch representation — e.g. start
     /// incremental shape building via <see cref="StartShapeBuilding"/> — with no behavioral difference.
+    /// Ordered to fail fastest for the common non-virgin case: a used target virtually always has
+    /// <c>_properties</c> (or is shaped, caught by the flags test right after), so a plain field load
+    /// decides before the <see cref="ObjectInstance.Extensible"/> getter is ever invoked.
     /// </summary>
-    internal bool IsVirginPlainObject => Extensible
+    internal bool IsVirginPlainObject => _properties is null
+        && _symbols is null
         && (_type & InternalTypes.ShapeMode) == InternalTypes.Empty
-        && _properties is null
-        && _symbols is null;
+        && Extensible;
 
     /// <summary>
     /// Starts incremental shape mode for a still-empty object (a constructor's <c>this</c>, or a
