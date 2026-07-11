@@ -71,7 +71,24 @@ internal sealed partial class ErrorPrototype : ErrorInstance
         }
 
         // 4. Return an implementation-defined string that represents the stack trace of E.
-        return error._stack ?? JsString.Empty;
+        if (error._stack is not null)
+        {
+            return error._stack;
+        }
+
+        // First read of a deferred stack: render the snapshot captured at construction, cache it, and
+        // release the snapshot (dropping its retained frames). The rendered string is byte-identical to
+        // the one that would have been built eagerly at construction time.
+        var capture = error._stackCapture;
+        if (capture is null)
+        {
+            return JsString.Empty;
+        }
+
+        var rendered = JsString.Create(capture.Render());
+        error._stack = rendered;
+        error._stackCapture = null;
+        return rendered;
     }
 
     /// <summary>

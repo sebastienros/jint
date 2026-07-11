@@ -46,7 +46,7 @@ internal sealed class AggregateErrorConstructor : Constructor
             static intrinsics => intrinsics.AggregateError.PrototypeObject,
             static (Engine engine, Realm _, object? _) => new JsError(engine));
 
-        o._stack = ErrorConstructor.BuildStackTraceString(_engine, this);
+        o._stackCapture = ErrorConstructor.BuildStackTraceCapture(_engine, this);
 
         if (!message.IsUndefined())
         {
