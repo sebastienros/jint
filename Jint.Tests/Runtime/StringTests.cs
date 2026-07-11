@@ -113,6 +113,70 @@ bar += 'bar';
     }
 
     [Fact]
+    public void TaggedTemplateCachesTemplateObjectPerCallSite()
+    {
+        var engine = new Engine();
+
+        // https://tc39.es/ecma262/#sec-gettemplateobject : the same call site must pass
+        // the identical (frozen) strings array on every invocation; raw preserves escapes.
+        var result = engine.Evaluate("""
+            var seen = [];
+            function tag(strings, v) { seen.push(strings); return strings[0] + v + strings[1]; }
+            function run(v) { return tag`a ${v}\n`; }
+            var r1 = run(1);
+            var r2 = run(2);
+            JSON.stringify({
+                r1: r1,
+                r2: r2,
+                sameIdentity: seen[0] === seen[1],
+                frozen: Object.isFrozen(seen[0]) && Object.isFrozen(seen[0].raw),
+                cooked: seen[0][1] === '\n',
+                raw: seen[0].raw[1] === '\\n',
+                distinctSites: (function () { tag`x${0}`; tag`x${0}`; return seen[seen.length - 2] !== seen[seen.length - 1]; })()
+            });
+            """).AsString();
+
+        Assert.Equal(
+            """{"r1":"a 1\n","r2":"a 2\n","sameIdentity":true,"frozen":true,"cooked":true,"raw":true,"distinctSites":true}""",
+            result);
+    }
+
+    [Fact]
+    public void TaggedTemplateMemberTagPreservesThisBinding()
+    {
+        var engine = new Engine();
+
+        // https://tc39.es/ecma262/#sec-evaluatecall : a member-expression tag is called with its receiver as `this`
+        Assert.Equal("x 6 y", engine.Evaluate("""
+            var obj = { mul: 3, tag: function (strings, v) { return strings[0] + (v * this.mul) + strings[1]; } };
+            obj.tag`x ${2} y`;
+            """).AsString());
+
+        // computed member tag
+        Assert.Equal("x 12 y", engine.Evaluate("obj['tag']`x ${4} y`;").AsString());
+
+        // super property tag: GetThisValue returns the reference's [[ThisValue]] (the instance), not the home object
+        Assert.Equal("b:q1", engine.Evaluate("""
+            class A { tag(strings, v) { return this.name + ':' + strings[0] + v; } }
+            class B extends A { constructor() { super(); this.name = 'b'; } m() { return super.tag`q${1}`; } }
+            new B().m();
+            """).AsString());
+
+        // `with`-scoped tag: this is the with-statement binding object (WithBaseObject)
+        Assert.True(engine.Evaluate("""
+            var box = { tag: function (strings) { return this === box; } };
+            var wr; with (box) { wr = tag`x`; }
+            wr;
+            """).AsBoolean());
+
+        // plain identifier tag in sloppy mode: this is undefined, coerced to globalThis by the call
+        Assert.True(engine.Evaluate("""
+            function gt() { return this === globalThis; }
+            gt`x`;
+            """).AsBoolean());
+    }
+
+    [Fact]
     public void ShouldCompareWithLocale()
     {
         var engine = new Engine();
