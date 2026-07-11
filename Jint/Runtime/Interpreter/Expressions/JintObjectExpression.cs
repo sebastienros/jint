@@ -88,6 +88,14 @@ internal sealed class JintObjectExpression : JintExpression
         _shapedNormalTarget = true;
         ref readonly var properties = ref expression.Properties;
 
+        // A shape-building target only pays off for the copy idiom (`{ ...src }`): the spread's
+        // CopyDataProperties streams keys through CreateDataProperty, interning a shared layout. A
+        // non-fast literal WITHOUT a spread reaches BuildObjectNormal for other reasons (a
+        // function-valued or computed property, a duplicate key, `__proto__:`); those are one-off
+        // shapes with no reuse and drag their own untested deopt edges (e.g. a later
+        // data-to-accessor redefine), so they keep the plain dictionary target.
+        var hasSpread = false;
+
         var valueExpressions = new Expression[properties.Count];
         _properties = new ObjectProperty[properties.Count];
 
@@ -140,6 +148,7 @@ internal sealed class JintObjectExpression : JintExpression
             {
                 // Spread copies via CreateDataProperty — shape-compatible.
                 _canBuildFast = false;
+                hasSpread = true;
                 _properties[i] = null;
                 valueExpressions[i] = spreadElement.Argument;
             }
@@ -149,6 +158,11 @@ internal sealed class JintObjectExpression : JintExpression
             }
 
             _canBuildFast &= propName != null;
+        }
+
+        if (!hasSpread)
+        {
+            _shapedNormalTarget = false;
         }
 
         _valueExpressions.Initialize(valueExpressions.AsSpan());

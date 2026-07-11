@@ -13,6 +13,31 @@ namespace Jint.Tests.Runtime;
 /// </summary>
 public class ObjectSpreadShapeTests
 {
+    // Shape-building targets are scoped to the genuine copy idiom: a literal only opts in when it
+    // contains a spread. A non-fast literal WITHOUT a spread (here forced onto the general build path
+    // by a function-valued property) stays on the plain dictionary target — it is a one-off layout
+    // with no reuse, and opting it into incremental shape-building exposed untested deopt edges that
+    // corrupted real-world bundler output (babel-standalone). This white-box test pins the boundary;
+    // the behavioral guard is the Jint.Tests.CommonScripts suite.
+    [Fact]
+    public void NonSpreadGeneralLiteralIsNotShapeBuilding()
+    {
+        var engine = new Engine();
+
+        // Non-fast (function-valued property), no spread => must NOT be shape mode.
+        var general = Assert.IsType<JsObject>(engine.Evaluate("({ a: 1, b: 2, fn: function () {} })"));
+        Assert.True((general._type & InternalTypes.ShapeMode) == InternalTypes.Empty);
+        Assert.True((general._type & InternalTypes.ShapeBuilding) == InternalTypes.Empty);
+
+        // The same key set reached through a spread => shape mode (the intended optimization).
+        engine.Execute("var src = { a: 1, b: 2 };");
+        var spread = Assert.IsType<JsObject>(engine.Evaluate("({ ...src, fn: function () {} })"));
+        Assert.True((spread._type & InternalTypes.ShapeMode) != InternalTypes.Empty);
+
+        // Behavior is identical either way.
+        Assert.Equal("1,2", engine.Evaluate("(function () { var o = { a: 1, b: 2, fn: function () {} }; return o.a + ',' + o.b; })()").AsString());
+    }
+
     [Fact]
     public void SpreadCopiesLayoutOrderGettersOnceAndSkipsNonEnumerables()
     {
