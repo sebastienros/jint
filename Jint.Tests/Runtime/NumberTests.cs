@@ -256,4 +256,127 @@ public class NumberTests
 
         Assert.Equal("true,true,true,true,true,true,true,true,true,true,true", result);
     }
+
+    // The following tests guard the primitive-receiver method resolution that skips allocating a
+    // Number/Boolean/BigInt wrapper on `primitive.method()`. The wrapper was only ever a lookup
+    // vehicle (the this-value passed to the callee is the primitive, boxed at call time for sloppy
+    // functions), so removing it must not change any observable behavior.
+
+    [Fact]
+    public void PrimitiveNumberMethodsResolveWithoutWrapper()
+    {
+        var engine = new Engine();
+
+        Assert.Equal("3.14", engine.Evaluate("(3.14159).toFixed(2)").AsString());
+        Assert.Equal("3.14", engine.Evaluate("(3.14159).toPrecision(3)").AsString());
+        Assert.Equal("ff", engine.Evaluate("(255).toString(16)").AsString());
+        Assert.Equal("101", engine.Evaluate("(5).toString(2)").AsString());
+        Assert.Equal("10", engine.Evaluate("(10).toString()").AsString());
+        Assert.Equal(42d, engine.Evaluate("(42).valueOf()").AsNumber());
+        Assert.Equal("1.23e+3", engine.Evaluate("(1234).toExponential(2)").AsString());
+        Assert.Equal("-3", engine.Evaluate("(-2.5).toFixed(0)").AsString());
+
+        // computed-key and identifier-base (read-then-call) resolution paths
+        Assert.Equal("ff", engine.Evaluate("(255)['toString'](16)").AsString());
+        Assert.Equal("ff", engine.Evaluate("var n = 255; var f = n.toString; f.call(255, 16)").AsString());
+
+        // absent property resolves to undefined (not a throw)
+        Assert.Equal("undefined", engine.Evaluate("typeof (5).nope").AsString());
+    }
+
+    [Fact]
+    public void PatchedNumberPrototypeMethodSeesBoxedThisInSloppyMode()
+    {
+        var engine = new Engine();
+        engine.Execute("Number.prototype.typ = function () { return typeof this; };");
+
+        // Sloppy-mode user function boxes the primitive this-value, so it must observe an object.
+        Assert.Equal("object", engine.Evaluate("(5).typ()").AsString());
+        // and can still unwrap the underlying number
+        engine.Execute("Number.prototype.dbl = function () { return this.valueOf() * 2; };");
+        Assert.Equal(42d, engine.Evaluate("(21).dbl()").AsNumber());
+
+        // resolution stays live after the method is reassigned
+        engine.Execute("Number.prototype.typ = function () { return 'reassigned'; };");
+        Assert.Equal("reassigned", engine.Evaluate("(5).typ()").AsString());
+    }
+
+    [Fact]
+    public void PatchedNumberPrototypeMethodSeesPrimitiveThisInStrictMode()
+    {
+        var engine = new Engine();
+        engine.Execute("Number.prototype.styp = function () { 'use strict'; return typeof this; };");
+
+        // Strict-mode user function does not box the this-value, so it must observe the primitive.
+        Assert.Equal("number", engine.Evaluate("(5).styp()").AsString());
+        engine.Execute("Number.prototype.sinc = function () { 'use strict'; return this + 1; };");
+        Assert.Equal(42d, engine.Evaluate("(41).sinc()").AsNumber());
+    }
+
+    [Fact]
+    public void GetterOnNumberPrototypeReceivesCorrectReceiver()
+    {
+        var engine = new Engine();
+        engine.Execute("Object.defineProperty(Number.prototype, 'gs', { get: function () { return typeof this; }, configurable: true });");
+        engine.Execute("Object.defineProperty(Number.prototype, 'gt', { get: function () { 'use strict'; return typeof this; }, configurable: true });");
+
+        Assert.Equal("object", engine.Evaluate("(7).gs").AsString());
+        Assert.Equal("number", engine.Evaluate("(7).gt").AsString());
+    }
+
+    [Fact]
+    public void NumberMethodResolvesThroughObjectPrototype()
+    {
+        var engine = new Engine();
+        engine.Execute("Object.prototype.op = function () { return 'fromObjectProto'; };");
+
+        // property inherited from Object.prototype (past Number.prototype) still resolves
+        Assert.Equal("fromObjectProto", engine.Evaluate("(5).op()").AsString());
+        Assert.False(engine.Evaluate("(5).hasOwnProperty('x')").AsBoolean());
+    }
+
+    [Fact]
+    public void ProxyInNumberPrototypeChainReceivesPrimitiveReceiver()
+    {
+        var engine = new Engine();
+        engine.Execute("""
+            var handler = { get: function (t, p, receiver) { return p === 'trapped' ? 'viaProxy:' + (typeof receiver) : Reflect.get(t, p, receiver); } };
+            Object.setPrototypeOf(Number.prototype, new Proxy({ base: 1 }, handler));
+            """);
+
+        // spec: GetValue passes the primitive base as the receiver to [[Get]], so a Proxy get trap
+        // on the prototype chain observes the primitive - identical to the boxed path.
+        Assert.Equal("viaProxy:number", engine.Evaluate("(5).trapped").AsString());
+        Assert.Equal(1d, engine.Evaluate("(5).base").AsNumber());
+    }
+
+    [Fact]
+    public void BooleanPrimitiveMethodsResolveWithoutWrapper()
+    {
+        var engine = new Engine();
+
+        Assert.Equal("true", engine.Evaluate("(true).toString()").AsString());
+        Assert.Equal("false", engine.Evaluate("(false).toString()").AsString());
+        Assert.True(engine.Evaluate("(true).valueOf()").AsBoolean());
+
+        engine.Execute("Boolean.prototype.typ = function () { return typeof this; };");
+        Assert.Equal("object", engine.Evaluate("(true).typ()").AsString());
+        engine.Execute("Boolean.prototype.styp = function () { 'use strict'; return typeof this; };");
+        Assert.Equal("boolean", engine.Evaluate("(true).styp()").AsString());
+    }
+
+    [Fact]
+    public void BigIntPrimitiveMethodsResolveWithoutWrapper()
+    {
+        var engine = new Engine();
+
+        Assert.Equal("ff", engine.Evaluate("(255n).toString(16)").AsString());
+        Assert.Equal("10", engine.Evaluate("(10n).valueOf().toString()").AsString());
+        Assert.Equal("12345678901234567890", engine.Evaluate("(12345678901234567890n).toString()").AsString());
+
+        engine.Execute("BigInt.prototype.typ = function () { return typeof this; };");
+        Assert.Equal("object", engine.Evaluate("(5n).typ()").AsString());
+        engine.Execute("BigInt.prototype.styp = function () { 'use strict'; return typeof this; };");
+        Assert.Equal("bigint", engine.Evaluate("(5n).styp()").AsString());
+    }
 }

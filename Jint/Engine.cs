@@ -803,6 +803,16 @@ public sealed partial class Engine : IDisposable
                 return jsValue;
             }
 
+            // Number / Boolean / BigInt primitives box to a wrapper that owns no properties, so the member
+            // resolves entirely on the intrinsic prototype chain. Read straight from that prototype with the
+            // primitive as the receiver (reference.ThisValue) — identical to ToObject(base).Get(...) but with
+            // no wrapper allocated. Private references keep the boxing path so their "not declared" error and
+            // PrivateGet semantics are preserved.
+            if (o is null && !reference.IsPrivateReference)
+            {
+                o = Runtime.TypeConverter.PrimitiveLookupPrototypeOrNull(Realm, baseValue);
+            }
+
             if (o is null)
             {
                 o = Runtime.TypeConverter.ToObject(Realm, baseValue);
