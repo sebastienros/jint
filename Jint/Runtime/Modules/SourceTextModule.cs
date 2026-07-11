@@ -440,7 +440,7 @@ internal class SourceTextModule : CyclicModule
                     var cap = capability!;
                     if (!env.HasDisposeResources)
                     {
-                        cap.Reject.Call(JsValue.Undefined, e.Error);
+                        cap.Reject(e.Error);
                     }
                     else
                     {
@@ -448,7 +448,7 @@ internal class SourceTextModule : CyclicModule
                             _engine,
                             env,
                             new Completion(CompletionType.Throw, e.Error, null!),
-                            final => cap.Reject.Call(JsValue.Undefined, final.Value));
+                            final => cap.Reject(final.Value));
                     }
                     return new Completion(CompletionType.Normal, JsValue.Undefined, null!);
                 }
@@ -491,15 +491,15 @@ internal class SourceTextModule : CyclicModule
     {
         if (final.Type == CompletionType.Normal)
         {
-            capability.Resolve.Call(JsValue.Undefined, JsValue.Undefined);
+            capability.Resolve(JsValue.Undefined);
         }
         else if (final.Type == CompletionType.Throw)
         {
-            capability.Reject.Call(JsValue.Undefined, final.Value);
+            capability.Reject(final.Value);
         }
         else
         {
-            capability.Resolve.Call(JsValue.Undefined, final.Value);
+            capability.Resolve(final.Value);
         }
     }
 }

@@ -1,5 +1,6 @@
 using Jint.Native;
 using Jint.Native.Object;
+using Jint.Native.Promise;
 using Jint.Runtime;
 
 // obsolete GetCompletionValue
@@ -714,5 +715,237 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
 
         var result = await unwrapTask;
         Assert.Equal(99, result.AsInteger());
+    }
+
+    // ========================================================================
+    // Internal-continuation reaction allocation cut — spec-observability pins.
+    // These guard the engine-internal await/reaction fast paths against
+    // regressing microtask ordering, unhandled-rejection tracking, thenable
+    // adoption, species subclassing, and resolving-function observability.
+    // ========================================================================
+
+    [Fact]
+    public void AwaitAndThenInterleaveInSpecMicrotaskOrder()
+    {
+        // Classic resolved-await vs then interleaving. `await` costs one microtask tick,
+        // so the two async steps interleave with the three .then steps in a fixed pattern.
+        var engine = new Engine();
+        engine.Evaluate("var log = [];");
+
+        engine.Execute("""
+            async function a() {
+                log.push('a1');
+                await Promise.resolve();
+                log.push('a2');
+                await Promise.resolve();
+                log.push('a3');
+            }
+            Promise.resolve()
+                .then(function () { log.push('t1'); })
+                .then(function () { log.push('t2'); })
+                .then(function () { log.push('t3'); });
+            a();
+        """);
+
+        var log = engine.GetValue("log").AsArray();
+        string[] expected = ["a1", "t1", "a2", "t2", "a3", "t3"];
+        Assert.Equal(expected, log.Select(x => x.AsString()).ToArray());
+    }
+
+    [Fact]
+    public void AwaitOfPrimitiveStillCostsExactlyOneTick()
+    {
+        // The primitive-await fast path must not skip the microtask: `await 1` interleaves
+        // with a competing then-chain exactly like `await Promise.resolve(1)` would.
+        var engine = new Engine();
+        engine.Evaluate("var log = [];");
+
+        engine.Execute("""
+            async function a() {
+                log.push('a1');
+                await 1;
+                log.push('a2');
+                await 2;
+                log.push('a3');
+            }
+            Promise.resolve()
+                .then(function () { log.push('t1'); })
+                .then(function () { log.push('t2'); })
+                .then(function () { log.push('t3'); });
+            a();
+        """);
+
+        var log = engine.GetValue("log").AsArray();
+        string[] expected = ["a1", "t1", "a2", "t2", "a3", "t3"];
+        Assert.Equal(expected, log.Select(x => x.AsString()).ToArray());
+    }
+
+    [Fact]
+    public void AwaitedRejectionCaughtInsideAsyncFunctionIsTrackedThenHandled()
+    {
+        var engine = new Engine();
+        var operations = new List<PromiseRejectionOperation>();
+        engine.Advanced.PromiseRejectionTracker += (_, args) => operations.Add(args.Operation);
+
+        engine.Evaluate("var caught = '';");
+        engine.Execute("""
+            (async function () {
+                try {
+                    await Promise.reject('boom');
+                } catch (e) {
+                    caught = e;
+                }
+            })();
+        """);
+        engine.Advanced.ProcessTasks();
+
+        Assert.Equal("boom", engine.GetValue("caught").AsString());
+        // Promise.reject creates an already-rejected promise (fires Reject), and the await's
+        // internal continuation attaches a handler via PerformPromiseThen (fires Handle).
+        // The internal-continuation path must keep firing BOTH tracker operations, exactly
+        // like an explicit .catch() would — the rejection is ultimately handled.
+        Assert.Equal([PromiseRejectionOperation.Reject, PromiseRejectionOperation.Handle], operations);
+    }
+
+    [Fact]
+    public void UncaughtAwaitedRejectionRejectsTheAsyncFunctionsPromise()
+    {
+        var engine = new Engine();
+
+        var result = engine.Evaluate("""
+            (async function () {
+                await Promise.reject('propagated');
+            })();
+        """);
+
+        var ex = Assert.Throws<PromiseRejectedException>(() => result.UnwrapIfPromise());
+        Assert.Equal("propagated", ex.RejectedValue.AsString());
+    }
+
+    [Fact]
+    public void AwaitAdoptsThenableViaResolve()
+    {
+        // Awaiting a non-promise thenable must run PromiseResolve (read .then, adopt it),
+        // which the fast path preserves for object values.
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            (async function () {
+                return await { then: function (resolve) { resolve(42); } };
+            })();
+        """);
+
+        Assert.Equal(42, result.UnwrapIfPromise().AsInteger());
+    }
+
+    [Fact]
+    public void ThenGetterThrowIsCaughtAsRejectionOfAwait()
+    {
+        // The .then read during PromiseResolve can throw (a getter); that must reject,
+        // and the await must observe it as a throw.
+        var engine = new Engine();
+        engine.Evaluate("var caught = '';");
+        engine.Execute("""
+            (async function () {
+                try {
+                    await { get then() { throw 'getter-boom'; } };
+                } catch (e) {
+                    caught = e;
+                }
+            })();
+        """);
+        engine.Advanced.ProcessTasks();
+
+        Assert.Equal("getter-boom", engine.GetValue("caught").AsString());
+    }
+
+    [Fact]
+    public void ThenOnSubclassUsesSpeciesConstructorForResultCapability()
+    {
+        // Promise.prototype.then goes through SpeciesConstructor; a subclass must NOT hit the
+        // intrinsic fast path — the result capability must be an instance of the subclass.
+        var engine = new Engine();
+        engine.Evaluate("var subIsMy = false; var subVal = 0;");
+        engine.Execute("""
+            class MyPromise extends Promise {}
+            var sub = MyPromise.resolve(7).then(function (x) { return x + 1; });
+            subIsMy = sub instanceof MyPromise;
+            sub.then(function (v) { subVal = v; });
+        """);
+        engine.Advanced.ProcessTasks();
+
+        Assert.True(engine.GetValue("subIsMy").AsBoolean());
+        Assert.Equal(8, engine.GetValue("subVal").AsInteger());
+    }
+
+    [Fact]
+    public void ExecutorResolveFunctionsAreCallableIdempotentAndObservable()
+    {
+        // `new Promise(executor)` must still hand the executor real resolving functions
+        // with name "" / length 1, and resolve/reject share one [[AlreadyResolved]].
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var meta;
+            var p = new Promise(function (resolve, reject) {
+                meta = typeof resolve + '/' + resolve.length + '/' + JSON.stringify(resolve.name)
+                     + '/' + (typeof reject) + '/' + (resolve === reject);
+                resolve(11);
+                resolve(22); // idempotent - ignored
+                reject(33);  // idempotent - ignored
+            });
+            p.then(function (v) { meta = meta + '/' + v; });
+            meta;
+        """);
+        // meta captured before the .then microtask runs
+        Assert.Equal("function/1/\"\"/function/false", result.AsString());
+
+        var settled = engine.GetValue("p");
+        Assert.Equal(11, settled.UnwrapIfPromise().AsInteger());
+    }
+
+    [Fact]
+    public void WithResolversExposesCallableIdempotentResolvingFunctions()
+    {
+        // Promise.withResolvers goes through NewPromiseCapability on the intrinsic (fast path);
+        // the escaping resolve/reject must still be real, stable, idempotent functions.
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var wr = Promise.withResolvers();
+            var meta = typeof wr.resolve + '/' + wr.resolve.length + '/' + JSON.stringify(wr.resolve.name)
+                     + '/' + (wr.resolve === wr.resolve);
+            wr.resolve('first');
+            wr.resolve('second'); // idempotent
+            wr.reject('nope');    // idempotent
+            meta;
+        """);
+        Assert.Equal("function/1/\"\"/true", result.AsString());
+
+        Assert.Equal("first", engine.GetValue("wr").AsObject().Get("promise").UnwrapIfPromise().AsString());
+    }
+
+    [Fact]
+    public void PromiseAllMixesResolvedPromisesAndPlainValues()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            Promise.all([Promise.resolve(1), 2, Promise.resolve(3)]).then(function (r) { return r.join('-'); });
+        """);
+
+        Assert.Equal("1-2-3", result.UnwrapIfPromise().AsString());
+    }
+
+    [Fact]
+    public void LongAwaitLoopAccumulatesCorrectly()
+    {
+        // Exercises the resolved-promise await fast path at volume (the AwaitResolvedLoop shape).
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            (async function () {
+                var s = 0;
+                for (var i = 0; i < 1000; i++) { s += await Promise.resolve(1); }
+                return s;
+            })();
+        """);
+
+        Assert.Equal(1000, result.UnwrapIfPromise().AsInteger());
     }
 }

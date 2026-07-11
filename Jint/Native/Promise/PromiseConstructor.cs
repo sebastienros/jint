@@ -7,13 +7,6 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.Promise;
 
-internal sealed record PromiseCapability(
-    JsValue PromiseInstance,
-    ICallable Resolve,
-    ICallable Reject,
-    JsValue ResolveObj,
-    JsValue RejectObj);
-
 [JsObject(UseShape = true)]
 internal sealed partial class PromiseConstructor : Constructor
 {
@@ -137,7 +130,7 @@ internal sealed partial class PromiseConstructor : Constructor
 
         var capability = NewPromiseCapability(_engine, thisObject);
 
-        capability.Resolve.Call(Undefined, x);
+        capability.Resolve(x);
 
         return capability.PromiseInstance;
     }
@@ -162,7 +155,7 @@ internal sealed partial class PromiseConstructor : Constructor
 
         var capability = NewPromiseCapability(_engine, thisObject);
 
-        capability.Reject.Call(Undefined, r);
+        capability.Reject(r);
 
         return capability.PromiseInstance;
     }
@@ -184,11 +177,11 @@ internal sealed partial class PromiseConstructor : Constructor
         try
         {
             var status = callbackfn.Call(Undefined, arguments.AsSpan().Slice(1).ToArray());
-            promiseCapability.Resolve.Call(Undefined, status);
+            promiseCapability.Resolve(status);
         }
         catch (JavaScriptException e)
         {
-            promiseCapability.Reject.Call(Undefined, e.Error);
+            promiseCapability.Reject(e.Error);
         }
 
         return promiseCapability.PromiseInstance;
@@ -212,7 +205,7 @@ internal sealed partial class PromiseConstructor : Constructor
         }
         catch (JavaScriptException e)
         {
-            capability.Reject.Call(Undefined, e.Error);
+            capability.Reject(e.Error);
             return capability.PromiseInstance;
         }
 
@@ -228,7 +221,7 @@ internal sealed partial class PromiseConstructor : Constructor
         }
         catch (JavaScriptException e)
         {
-            capability.Reject.Call(Undefined, e.Error);
+            capability.Reject(e.Error);
         }
 
         return capability.PromiseInstance;
@@ -252,7 +245,7 @@ internal sealed partial class PromiseConstructor : Constructor
         }
         catch (JavaScriptException e)
         {
-            capability.Reject.Call(Undefined, e.Error);
+            capability.Reject(e.Error);
             return capability.PromiseInstance;
         }
 
@@ -268,7 +261,7 @@ internal sealed partial class PromiseConstructor : Constructor
         }
         catch (JavaScriptException e)
         {
-            capability.Reject.Call(Undefined, e.Error);
+            capability.Reject(e.Error);
         }
 
         return capability.PromiseInstance;
@@ -320,7 +313,7 @@ internal sealed partial class PromiseConstructor : Constructor
                         if (remainingElementsCount == 0)
                         {
                             var resultObj = CreateKeyedPromiseCombinatorResultObject(keys, values);
-                            resultCapability.Resolve.Call(Undefined, resultObj);
+                            resultCapability.Resolve(resultObj);
                         }
                     }
                     return Undefined;
@@ -339,7 +332,7 @@ internal sealed partial class PromiseConstructor : Constructor
                         if (remainingElementsCount == 0)
                         {
                             var resultObj = CreateKeyedPromiseCombinatorResultObject(keys, values);
-                            resultCapability.Resolve.Call(Undefined, resultObj);
+                            resultCapability.Resolve(resultObj);
                         }
                     }
                     return Undefined;
@@ -371,7 +364,7 @@ internal sealed partial class PromiseConstructor : Constructor
                         if (remainingElementsCount == 0)
                         {
                             var resultObj = CreateKeyedPromiseCombinatorResultObject(keys, values);
-                            resultCapability.Resolve.Call(Undefined, resultObj);
+                            resultCapability.Resolve(resultObj);
                         }
                     }
                     return Undefined;
@@ -399,7 +392,7 @@ internal sealed partial class PromiseConstructor : Constructor
         if (remainingElementsCount == 0)
         {
             var resultObj = CreateKeyedPromiseCombinatorResultObject(keys, values);
-            resultCapability.Resolve.Call(Undefined, resultObj);
+            resultCapability.Resolve(resultObj);
         }
     }
 
@@ -425,7 +418,6 @@ internal sealed partial class PromiseConstructor : Constructor
 
         //2. Let promiseCapability be ? NewPromiseCapability(C).
         capability = NewPromiseCapability(_engine, thisObject);
-        var reject = capability.Reject;
 
         //3. Let promiseResolve be GetPromiseResolve(C).
         // 4. IfAbruptRejectPromise(promiseResolve, promiseCapability).
@@ -435,7 +427,7 @@ internal sealed partial class PromiseConstructor : Constructor
         }
         catch (JavaScriptException e)
         {
-            reject.Call(Undefined, e.Error);
+            capability.Reject(e.Error);
             promiseResolve = null!;
             iterator = null!;
             return false;
@@ -458,7 +450,7 @@ internal sealed partial class PromiseConstructor : Constructor
         }
         catch (JavaScriptException e)
         {
-            reject.Call(Undefined, e.Error);
+            capability.Reject(e.Error);
             iterator = null!;
             return false;
         }
@@ -485,7 +477,7 @@ internal sealed partial class PromiseConstructor : Constructor
             if (results.TrueForAll(static x => x is not null) && doneIterating)
             {
                 var array = _realm.Intrinsics.Array.ConstructFast(results);
-                capability.Resolve.Call(Undefined, array);
+                capability.Resolve(array);
             }
         }
 
@@ -512,7 +504,7 @@ internal sealed partial class PromiseConstructor : Constructor
                 }
                 catch (JavaScriptException e)
                 {
-                    capability.Reject.Call(Undefined, e.Error);
+                    capability.Reject(e.Error);
                     return capability.PromiseInstance;
                 }
 
@@ -561,7 +553,7 @@ internal sealed partial class PromiseConstructor : Constructor
             {
                 // ignore any errors from closing the iterator
             }
-            capability.Reject.Call(Undefined, e.Error);
+            capability.Reject(e.Error);
             return capability.PromiseInstance;
         }
 
@@ -587,7 +579,7 @@ internal sealed partial class PromiseConstructor : Constructor
             if (results.TrueForAll(static x => x is not null) && doneIterating)
             {
                 var array = _realm.Intrinsics.Array.ConstructFast(results);
-                capability.Resolve.Call(Undefined, array);
+                capability.Resolve(array);
             }
         }
 
@@ -614,7 +606,7 @@ internal sealed partial class PromiseConstructor : Constructor
                 }
                 catch (JavaScriptException e)
                 {
-                    capability.Reject.Call(Undefined, e.Error);
+                    capability.Reject(e.Error);
                     return capability.PromiseInstance;
                 }
 
@@ -685,7 +677,7 @@ internal sealed partial class PromiseConstructor : Constructor
             {
                 // ignore any errors from closing the iterator
             }
-            capability.Reject.Call(Undefined, e.Error);
+            capability.Reject(e.Error);
             return capability.PromiseInstance;
         }
 
@@ -715,7 +707,7 @@ internal sealed partial class PromiseConstructor : Constructor
             {
                 var array = _realm.Intrinsics.Array.ConstructFast(errors);
 
-                capability.Reject.Call(Undefined, Construct(_realm.Intrinsics.AggregateError, [array]));
+                capability.Reject(Construct(_realm.Intrinsics.AggregateError, [array]));
             }
         }
 
@@ -796,7 +788,7 @@ internal sealed partial class PromiseConstructor : Constructor
                     // ignore any errors from closing the iterator
                 }
             }
-            capability.Reject.Call(Undefined, e.Error);
+            capability.Reject(e.Error);
             return capability.PromiseInstance;
         }
 
@@ -828,7 +820,7 @@ internal sealed partial class PromiseConstructor : Constructor
                 }
                 catch (JavaScriptException e)
                 {
-                    capability.Reject.Call(Undefined, e.Error);
+                    capability.Reject(e.Error);
                     return capability.PromiseInstance;
                 }
 
@@ -845,7 +837,7 @@ internal sealed partial class PromiseConstructor : Constructor
                     return capability.PromiseInstance;
                 }
 
-                thenFunc.Call(nextPromise, (JsValue) capability.Resolve, capability.RejectObj);
+                thenFunc.Call(nextPromise, capability.ResolveObj, capability.RejectObj);
             } while (true);
         }
         catch (JavaScriptException e)
@@ -858,7 +850,7 @@ internal sealed partial class PromiseConstructor : Constructor
             {
                 // ignore any errors from closing the iterator
             }
-            capability.Reject.Call(Undefined, e.Error);
+            capability.Reject(e.Error);
             return capability.PromiseInstance;
         }
 
@@ -912,6 +904,21 @@ internal sealed partial class PromiseConstructor : Constructor
     // 12. Return promiseCapability.
     internal static PromiseCapability NewPromiseCapability(Engine engine, JsValue c)
     {
+        // Fast path for a realm's %Promise% intrinsic: its [[Construct]] is exactly the
+        // built-in algorithm (an ordinary promise using c's own Promise.prototype, the executor
+        // invoked synchronously with fresh resolving functions), and both the executor and the
+        // resolving functions are engine-created — user code cannot observe any part of the
+        // GetCapabilitiesExecutor dance. Create the promise directly and let the capability
+        // settle it without materializing any function objects.
+        if (c is PromiseConstructor promiseConstructor)
+        {
+            var promise = new JsPromise(engine)
+            {
+                _prototype = promiseConstructor.PrototypeObject,
+            };
+            return new PromiseCapability(engine, promise);
+        }
+
         var ctor = AssertConstructor(engine, c);
 
         JsValue? resolveArg = null;
@@ -962,10 +969,11 @@ internal sealed partial class PromiseConstructor : Constructor
         }
 
         return new PromiseCapability(
-            PromiseInstance: instance,
-            Resolve: resolve,
-            Reject: reject,
-            RejectObj: rejectArg,
-            ResolveObj: resolveArg);
+            engine,
+            promiseInstance: instance,
+            resolve: resolve,
+            reject: reject,
+            resolveObj: resolveArg,
+            rejectObj: rejectArg);
     }
 }

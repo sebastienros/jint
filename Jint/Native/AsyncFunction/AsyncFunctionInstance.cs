@@ -2,6 +2,7 @@ using Jint.Native.Promise;
 using Jint.Runtime;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter;
+using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Native.AsyncFunction;
 
@@ -9,7 +10,7 @@ namespace Jint.Native.AsyncFunction;
 /// Tracks the execution state of an async function, enabling suspension at await points
 /// and resumption when the awaited promise settles.
 /// </summary>
-internal sealed class AsyncFunctionInstance : ISuspendable
+internal sealed class AsyncFunctionInstance : ISuspendable, IPromiseContinuation
 {
     internal AsyncFunctionState _state;
 
@@ -98,6 +99,17 @@ internal sealed class AsyncFunctionInstance : ISuspendable
     /// Used to properly resume execution in finally blocks.
     /// </summary>
     object? ISuspendable.CurrentFinallyStatement { get; set; }
+
+    /// <summary>
+    /// Await continuation (https://tc39.es/ecma262/#await steps 3-9): the promise reaction job
+    /// resumes this instance directly — no JS-callable handler pair is materialized per await.
+    /// </summary>
+    void IPromiseContinuation.Invoke(Engine engine, JsValue value, ReactionType type)
+    {
+        _resumeValue = value;
+        _resumeWithThrow = type == ReactionType.Reject;
+        JintAwaitExpression.AsyncFunctionResume(engine, this);
+    }
 }
 
 /// <summary>

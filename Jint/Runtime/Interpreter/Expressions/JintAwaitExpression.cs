@@ -2,9 +2,8 @@ using Jint.Native;
 using Jint.Native.AsyncFunction;
 using Jint.Native.AsyncGenerator;
 using Jint.Native.Disposable;
+using Jint.Native.Object;
 using Jint.Native.Promise;
-using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Runtime.Interpreter.Expressions;
 
@@ -86,13 +85,16 @@ internal sealed class JintAwaitExpression : JintExpression
             return value;
         }
 
-        // Wrap in promise if not already a promise
-        JsPromise promise;
+        // Wrap in a promise if not already a promise. Primitives can never be thenables, so
+        // their wrapper — which would fulfill immediately and only ever feed the single
+        // reaction job — is skipped entirely; Suspend* enqueues that job directly (promise
+        // stays null). The spec's microtask count is preserved: exactly one tick either way.
+        JsPromise? promise = null;
         if (value is JsPromise p)
         {
             promise = p;
         }
-        else
+        else if (value is ObjectInstance)
         {
             promise = new JsPromise(engine)
             {
@@ -104,13 +106,13 @@ internal sealed class JintAwaitExpression : JintExpression
         // === Async generator: suspend for await ===
         if (asyncGenerator is not null)
         {
-            return SuspendForAwaitInAsyncGenerator(context, asyncGenerator, promise);
+            return SuspendForAwaitInAsyncGenerator(context, asyncGenerator, promise, value);
         }
 
         // === Async function: suspend for await ===
         if (asyncInstance is not null)
         {
-            return SuspendForAwait(context, asyncInstance, promise);
+            return SuspendForAwait(context, asyncInstance, promise, value);
         }
 
         // Fallback for non-async contexts - use blocking behavior
@@ -126,14 +128,15 @@ internal sealed class JintAwaitExpression : JintExpression
     }
 
     /// <summary>
-    /// Suspends the async generator at an await expression, creating promise handlers
-    /// that will resume execution when the awaited promise settles.
+    /// Suspends the async generator at an await expression, wiring an engine-internal
+    /// continuation that resumes execution when the awaited promise settles.
     /// Follows the same pattern as SuspendForAsyncIteration in JintForInForOfStatement.
     /// </summary>
     private JsValue SuspendForAwaitInAsyncGenerator(
         EvaluationContext context,
         AsyncGeneratorInstance asyncGenerator,
-        JsPromise promise)
+        JsPromise? promise,
+        JsValue value)
     {
         var engine = context.Engine;
 
@@ -145,37 +148,46 @@ internal sealed class JintAwaitExpression : JintExpression
 
         // Capture the current promise capability. The request was already dequeued by
         // AsyncGeneratorResumeNext(), so we must continue THIS request's execution on resume.
-        var currentCapability = asyncGenerator._currentPromiseCapability!;
+        // Resume directly in the reaction job (like async functions), not via an extra
+        // AddToEventLoop hop, so await consumes exactly 1 microtask tick for correct interleaving.
+        var continuation = new AsyncGeneratorAwaitContinuation(asyncGenerator, asyncGenerator._currentPromiseCapability!);
 
-        // Resume directly in the reaction handler (like async functions), not via AddToEventLoop.
-        // This ensures await consumes exactly 1 microtask tick for correct interleaving.
-        var onFulfilled = new ClrFunction(engine, "", (_, args) =>
+        if (promise is null)
         {
-            var resolvedValue = args.At(0);
-            asyncGenerator._nextValue = resolvedValue;
-            asyncGenerator._resumeWithThrow = false;
-            asyncGenerator._awaitSuspended = false;
-            asyncGenerator.AsyncGeneratorContinueForAwait(currentCapability);
-            return JsValue.Undefined;
-        }, 1, PropertyFlag.Configurable);
-
-        var onRejected = new ClrFunction(engine, "", (_, args) =>
+            // Awaited a non-thenable primitive: the wrapper promise would fulfill immediately
+            // and PerformPromiseThen would enqueue exactly this one reaction job.
+            engine.AddToEventLoop(new PromiseReaction(ReactionType.Fulfill, Capability: null, Handler: null, continuation), value);
+        }
+        else
         {
-            var rejectedValue = args.At(0);
-            asyncGenerator._nextValue = rejectedValue;
-            asyncGenerator._resumeWithThrow = true;
-            asyncGenerator._awaitSuspended = false;
-            asyncGenerator.AsyncGeneratorContinueForAwait(currentCapability);
-            return JsValue.Undefined;
-        }, 1, PropertyFlag.Configurable);
-
-        PromiseOperations.PerformPromiseThen(engine, promise, onFulfilled, onRejected, null!);
+            PromiseOperations.PerformPromiseThen(engine, promise, continuation);
+        }
 
         // Return undefined - the body will unwind because IsSuspended is now true
         return JsValue.Undefined;
     }
 
-    private JsValue SuspendForAwait(EvaluationContext context, AsyncFunctionInstance asyncInstance, JsPromise promise)
+    private sealed class AsyncGeneratorAwaitContinuation : IPromiseContinuation
+    {
+        private readonly AsyncGeneratorInstance _asyncGenerator;
+        private readonly PromiseCapability _capability;
+
+        public AsyncGeneratorAwaitContinuation(AsyncGeneratorInstance asyncGenerator, PromiseCapability capability)
+        {
+            _asyncGenerator = asyncGenerator;
+            _capability = capability;
+        }
+
+        public void Invoke(Engine engine, JsValue value, ReactionType type)
+        {
+            _asyncGenerator._nextValue = value;
+            _asyncGenerator._resumeWithThrow = type == ReactionType.Reject;
+            _asyncGenerator._awaitSuspended = false;
+            _asyncGenerator.AsyncGeneratorContinueForAwait(_capability);
+        }
+    }
+
+    private JsValue SuspendForAwait(EvaluationContext context, AsyncFunctionInstance asyncInstance, JsPromise? promise, JsValue value)
     {
         var engine = context.Engine;
 
@@ -183,25 +195,18 @@ internal sealed class JintAwaitExpression : JintExpression
         asyncInstance._state = AsyncFunctionState.SuspendedAwait;
         asyncInstance._savedContext = engine.ExecutionContext;
 
-        var onFulfilled = new ClrFunction(engine, "", (_, args) =>
+        // The async instance itself is the reaction's continuation — no JS-callable handler
+        // pair, no closure, no per-await function objects.
+        if (promise is null)
         {
-            var resolvedValue = args.At(0);
-            asyncInstance._resumeValue = resolvedValue;
-            asyncInstance._resumeWithThrow = false;
-            AsyncFunctionResume(engine, asyncInstance);
-            return JsValue.Undefined;
-        }, 1, PropertyFlag.Configurable);
-
-        var onRejected = new ClrFunction(engine, "", (_, args) =>
+            // Awaited a non-thenable primitive: the wrapper promise would fulfill immediately
+            // and PerformPromiseThen would enqueue exactly this one reaction job.
+            engine.AddToEventLoop(new PromiseReaction(ReactionType.Fulfill, Capability: null, Handler: null, asyncInstance), value);
+        }
+        else
         {
-            var rejectedValue = args.At(0);
-            asyncInstance._resumeValue = rejectedValue;
-            asyncInstance._resumeWithThrow = true;
-            AsyncFunctionResume(engine, asyncInstance);
-            return JsValue.Undefined;
-        }, 1, PropertyFlag.Configurable);
-
-        PromiseOperations.PerformPromiseThen(engine, promise, onFulfilled, onRejected, null!);
+            PromiseOperations.PerformPromiseThen(engine, promise, asyncInstance);
+        }
 
         return JsValue.Undefined;
     }
@@ -247,7 +252,7 @@ internal sealed class JintAwaitExpression : JintExpression
             {
                 engine.LeaveExecutionContext();
                 asyncInstance._state = AsyncFunctionState.Completed;
-                asyncInstance._capability.Reject.Call(JsValue.Undefined, e.Error);
+                asyncInstance._capability.Reject(e.Error);
                 return;
             }
             DisposeResourcesHelper.DisposeAndThen(
@@ -281,15 +286,15 @@ internal sealed class JintAwaitExpression : JintExpression
 
         if (final.Type == CompletionType.Throw)
         {
-            asyncInstance._capability.Reject.Call(JsValue.Undefined, final.Value);
+            asyncInstance._capability.Reject(final.Value);
         }
         else if (final.Type == CompletionType.Return)
         {
-            asyncInstance._capability.Resolve.Call(JsValue.Undefined, final.Value);
+            asyncInstance._capability.Resolve(final.Value);
         }
         else
         {
-            asyncInstance._capability.Resolve.Call(JsValue.Undefined, JsValue.Undefined);
+            asyncInstance._capability.Resolve(JsValue.Undefined);
         }
     }
 }

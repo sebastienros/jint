@@ -15,9 +15,22 @@ internal enum ReactionType
 
 internal sealed record PromiseReaction(
     ReactionType Type,
-    PromiseCapability Capability,
-    JsValue Handler
+    PromiseCapability? Capability,
+    JsValue? Handler,
+    IPromiseContinuation? Continuation = null
 );
+
+/// <summary>
+/// An engine-internal reaction target invoked directly by the promise reaction job in place of
+/// a JS-callable handler. Used where the spec's handler closure can never be observed from user
+/// code (await continuations and similar engine bookkeeping), so no JS function object, delegate
+/// or name/length descriptors need to be materialized per reaction. Reactions carrying a
+/// continuation never have a result capability.
+/// </summary>
+internal interface IPromiseContinuation
+{
+    void Invoke(Engine engine, JsValue value, ReactionType type);
+}
 
 internal sealed record ResolvingFunctions(
     Function.Function Resolve,

@@ -141,7 +141,7 @@ public abstract class CyclicModule : Module
             }
 
             _abnormalCompletionLocation = result.Location;
-            capability.Reject.Call(Undefined, result.Value);
+            capability.Reject(result.Value);
         }
         else
         {
@@ -162,7 +162,7 @@ public abstract class CyclicModule : Module
                     Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state");
                 }
 
-                capability.Resolve.Call(Undefined, Array.Empty<JsValue>());
+                capability.Resolve(JsValue.Undefined);
             }
 
             if (stack.Count > 0)
@@ -522,7 +522,7 @@ public abstract class CyclicModule : Module
                 Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state");
             }
 
-            module._topLevelCapability.Resolve.Call(Undefined, Array.Empty<JsValue>());
+            module._topLevelCapability.Resolve(JsValue.Undefined);
         }
 
         var execList = new List<CyclicModule>();
@@ -558,7 +558,7 @@ public abstract class CyclicModule : Module
                             Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state");
                         }
 
-                        m._topLevelCapability.Resolve.Call(Undefined, Array.Empty<JsValue>());
+                        m._topLevelCapability.Resolve(JsValue.Undefined);
                     }
                 }
             }
@@ -597,7 +597,7 @@ public abstract class CyclicModule : Module
                 Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state");
             }
 
-            module._topLevelCapability.Reject.Call(Undefined, error);
+            module._topLevelCapability.Reject(error);
         }
 
         var asyncParentModules = module._asyncParentModules;

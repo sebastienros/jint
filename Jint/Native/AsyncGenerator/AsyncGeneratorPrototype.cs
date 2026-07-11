@@ -98,7 +98,7 @@ internal sealed partial class AsyncGeneratorPrototype : BuiltinShapeObject
     {
         var promiseCapability = PromiseConstructor.NewPromiseCapability(_engine, _realm.Intrinsics.Promise);
         var error = _realm.Intrinsics.TypeError.Construct(message);
-        promiseCapability.Reject.Call(Undefined, new[] { error });
+        promiseCapability.Reject(error);
         return promiseCapability.PromiseInstance;
     }
 }

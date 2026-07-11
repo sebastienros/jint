@@ -59,7 +59,7 @@ internal abstract class AsyncIteratorHelper : ObjectInstance
                 Exhausted = true;
                 try { Iterated.Close(CompletionType.Throw); } catch { /* ignore */ }
             }
-            promiseCapability.Reject.Call(Undefined, new[] { ex.Error });
+            promiseCapability.Reject(ex.Error);
         }
 
         return promiseCapability.PromiseInstance;
@@ -88,13 +88,13 @@ internal abstract class AsyncIteratorHelper : ObjectInstance
 
                     var onFulfilled = new ClrFunction(_engine, "", (_, _) =>
                     {
-                        promiseCapability.Resolve.Call(Undefined, new JsValue[] { CreateIteratorResult(Undefined, done: true) });
+                        promiseCapability.Resolve(CreateIteratorResult(Undefined, done: true));
                         return Undefined;
                     }, 1, PropertyFlag.Configurable);
 
                     var onRejected = new ClrFunction(_engine, "", (_, args) =>
                     {
-                        promiseCapability.Reject.Call(Undefined, new[] { args.At(0) });
+                        promiseCapability.Reject(args.At(0));
                         return Undefined;
                     }, 1, PropertyFlag.Configurable);
 
@@ -104,13 +104,13 @@ internal abstract class AsyncIteratorHelper : ObjectInstance
             }
             catch (JavaScriptException ex)
             {
-                promiseCapability.Reject.Call(Undefined, new[] { ex.Error });
+                promiseCapability.Reject(ex.Error);
                 return promiseCapability.PromiseInstance;
             }
         }
 
         var doneResult = CreateIteratorResult(Undefined, done: true);
-        promiseCapability.Resolve.Call(Undefined, new JsValue[] { doneResult });
+        promiseCapability.Resolve(doneResult);
         return promiseCapability.PromiseInstance;
     }
 
@@ -147,7 +147,7 @@ internal abstract class AsyncIteratorHelper : ObjectInstance
     {
         var promiseCapability = PromiseConstructor.NewPromiseCapability(_engine, _engine.Realm.Intrinsics.Promise);
         var result = CreateIteratorResult(value, done);
-        promiseCapability.Resolve.Call(Undefined, new JsValue[] { result });
+        promiseCapability.Resolve(result);
         return promiseCapability.PromiseInstance;
     }
 
@@ -158,7 +158,7 @@ internal abstract class AsyncIteratorHelper : ObjectInstance
     protected void ResolveYield(PromiseCapability promiseCapability, JsValue value)
     {
         State = GeneratorState.SuspendedYield;
-        promiseCapability.Resolve.Call(Undefined, new JsValue[] { CreateIteratorResult(value, done: false) });
+        promiseCapability.Resolve(CreateIteratorResult(value, done: false));
     }
 
     /// <summary>
@@ -169,7 +169,7 @@ internal abstract class AsyncIteratorHelper : ObjectInstance
     {
         State = GeneratorState.Completed;
         Exhausted = true;
-        promiseCapability.Resolve.Call(Undefined, new JsValue[] { CreateIteratorResult(Undefined, done: true) });
+        promiseCapability.Resolve(CreateIteratorResult(Undefined, done: true));
     }
 
     /// <summary>
@@ -180,7 +180,7 @@ internal abstract class AsyncIteratorHelper : ObjectInstance
         State = GeneratorState.Completed;
         Exhausted = true;
         try { Iterated.Close(CompletionType.Throw); } catch { /* ignore */ }
-        promiseCapability.Reject.Call(Undefined, new[] { error });
+        promiseCapability.Reject(error);
     }
 }
 
@@ -388,7 +388,7 @@ internal sealed class AsyncTakeIterator : AsyncIteratorHelper
             State = GeneratorState.Completed;
             Exhausted = true;
             try { Iterated.Close(CompletionType.Normal); } catch { /* ignore */ }
-            promiseCapability.Resolve.Call(Undefined, new JsValue[] { CreateIteratorResult(Undefined, done: true) });
+            promiseCapability.Resolve(CreateIteratorResult(Undefined, done: true));
             return;
         }
 
@@ -550,13 +550,13 @@ internal sealed class AsyncFlatMapIterator : AsyncIteratorHelper
 
                     var onFulfilled = new ClrFunction(_engine, "", (_, _) =>
                     {
-                        promiseCapability.Resolve.Call(Undefined, new JsValue[] { CreateIteratorResult(Undefined, done: true) });
+                        promiseCapability.Resolve(CreateIteratorResult(Undefined, done: true));
                         return Undefined;
                     }, 1, PropertyFlag.Configurable);
 
                     var onRejected = new ClrFunction(_engine, "", (_, args) =>
                     {
-                        promiseCapability.Reject.Call(Undefined, new[] { args.At(0) });
+                        promiseCapability.Reject(args.At(0));
                         return Undefined;
                     }, 1, PropertyFlag.Configurable);
 
@@ -567,11 +567,11 @@ internal sealed class AsyncFlatMapIterator : AsyncIteratorHelper
         }
         catch (JavaScriptException ex)
         {
-            promiseCapability.Reject.Call(Undefined, new[] { ex.Error });
+            promiseCapability.Reject(ex.Error);
             return promiseCapability.PromiseInstance;
         }
 
-        promiseCapability.Resolve.Call(Undefined, new JsValue[] { CreateIteratorResult(Undefined, done: true) });
+        promiseCapability.Resolve(CreateIteratorResult(Undefined, done: true));
         return promiseCapability.PromiseInstance;
     }
 
