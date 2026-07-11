@@ -1,6 +1,7 @@
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
+using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Runtime.Interpreter.Expressions;
 
@@ -38,7 +39,7 @@ internal sealed class JintTaggedTemplateExpression : JintExpression
         }
         else
         {
-            var identifier = _tagIdentifier.Evaluate(context);
+            var tagValue = _tagIdentifier.Evaluate(context);
             if (context.IsSuspended())
             {
                 // _tagIdentifier (e.g. a member expression) suspended; that expression
@@ -46,16 +47,34 @@ internal sealed class JintTaggedTemplateExpression : JintExpression
                 return JsValue.Undefined;
             }
 
-            var taggerCandidate = engine.GetValue(identifier) as ICallable;
+            var taggerCandidate = engine.GetValue(tagValue) as ICallable;
             if (taggerCandidate is null)
             {
                 Throw.TypeError(engine.Realm, "Argument must be callable");
             }
             tagger = taggerCandidate;
 
-            thisObject = identifier is Reference reference && reference.IsPropertyReference
-                ? reference.Base
-                : JsValue.Undefined;
+            // https://tc39.es/ecma262/#sec-evaluatecall steps 1-2: property references call with
+            // GetThisValue (the receiver, or [[ThisValue]] for super tags), environment references
+            // with WithBaseObject (the binding object inside `with`, undefined otherwise).
+            if (tagValue is Reference reference)
+            {
+                if (reference.IsPropertyReference)
+                {
+                    thisObject = reference.ThisValue;
+                }
+                else
+                {
+                    thisObject = reference.Base is Environment refEnv ? refEnv.WithBaseObject() : JsValue.Undefined;
+                }
+
+                // the reference is fully consumed; return it so each tagged call doesn't leak one pooled instance
+                engine._referencePool.Return(reference);
+            }
+            else
+            {
+                thisObject = JsValue.Undefined;
+            }
 
             args = engine._jsValueArrayPool.RentArray(expressions.Length + 1);
             args[0] = GetTemplateObject(context);
