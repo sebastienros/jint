@@ -47,12 +47,12 @@ internal sealed class SuppressedErrorConstructor : Constructor
             static intrinsics => intrinsics.SuppressedError.PrototypeObject,
             static (Engine engine, Realm _, object? _) => new JsError(engine));
 
-        o._stack = ErrorConstructor.BuildStackTraceString(_engine, this);
+        o._stackCapture = ErrorConstructor.BuildStackTraceCapture(_engine, this);
 
         if (!message.IsUndefined())
         {
-            var msg = TypeConverter.ToString(message);
-            o.CreateNonEnumerableDataPropertyOrThrow(CommonProperties.Message, msg);
+            var msg = TypeConverter.ToJsString(message);
+            o.SetVirtualMessage(msg);
         }
 
         o.DefinePropertyOrThrow("error", new PropertyDescriptor(error, configurable: true, enumerable: false, writable: true));
