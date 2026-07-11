@@ -70,6 +70,24 @@ public class DestructuringTests
     }
 
     [Fact]
+    public void ObjectRestFromPrimitiveCopiesOwnEnumerableProperties()
+    {
+        // RestBindingInitialization / RestDestructuringAssignmentEvaluation perform
+        // CopyDataProperties(restObj, value, excludedNames), whose step 2 ToObject's the
+        // primitive source (https://tc39.es/ecma262/#sec-copydataproperties) — so a string's
+        // index properties are copied while already-destructured keys are excluded.
+        Assert.Equal("""{"0":"a","1":"b"}""", _engine.Evaluate("var { ...r1 } = 'ab'; JSON.stringify(r1)").AsString());
+        Assert.Equal("a|{\"1\":\"b\"}", _engine.Evaluate("var { 0: first, ...r2 } = 'ab'; first + '|' + JSON.stringify(r2)").AsString());
+        Assert.Equal("{}", _engine.Evaluate("var { ...r3 } = 42; JSON.stringify(r3)").AsString());
+
+        // Destructuring assignment (non-declaration) form.
+        Assert.Equal("""{"0":"a","1":"b"}""", _engine.Evaluate("var q; (({ ...q } = 'ab')); JSON.stringify(q)").AsString());
+
+        // Function parameter rest.
+        Assert.Equal("""{"0":"a","1":"b"}""", _engine.Evaluate("(function({ ...p }) { return JSON.stringify(p); })('ab')").AsString());
+    }
+
+    [Fact]
     public void VarDestructuringInForOfShouldHoistInStrictMode()
     {
         // Nested destructuring var names must be hoisted to function scope.
