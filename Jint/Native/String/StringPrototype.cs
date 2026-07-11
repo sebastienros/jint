@@ -12,7 +12,7 @@ using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
-using Jint.Runtime.Interop;
+using FunctionInstance = Jint.Native.Function.Function;
 
 namespace Jint.Native.String;
 
@@ -33,7 +33,10 @@ internal sealed partial class StringPrototype : StringInstance
     [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly StringConstructor _constructor;
 
-    internal ClrFunction? _originalIteratorFunction;
+    // Captured by CreateSymbols_Generated (via CaptureField below, which makes @@iterator eager);
+    // HasOriginalIterator identity-compares against this snapshot for the fast-path detection used
+    // by string iteration consumers.
+    internal FunctionInstance? _originalIteratorFunction;
 
     internal StringPrototype(
         Engine engine,
@@ -50,24 +53,14 @@ internal sealed partial class StringPrototype : StringInstance
 
     protected override void Initialize()
     {
-        const PropertyFlag lengthFlags = PropertyFlag.Configurable;
-        const PropertyFlag propertyFlags = lengthFlags | PropertyFlag.Writable;
-
         CreateProperties_Generated();
-
-        // [Symbol.iterator] kept hand-written: needs to capture _originalIteratorFunction for
-        // the HasOriginalIterator fast-path detection used by string iteration consumers.
-        _originalIteratorFunction = new ClrFunction(_engine, "[Symbol.iterator]", Iterator, 0, lengthFlags);
-        var symbols = new SymbolDictionary(1)
-        {
-            [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(_originalIteratorFunction, propertyFlags)
-        };
-        SetSymbols(symbols);
+        CreateSymbols_Generated();
     }
 
     internal override bool HasOriginalIterator => ReferenceEquals(Get(GlobalSymbolRegistry.Iterator), _originalIteratorFunction);
 
-    private ObjectInstance Iterator(JsValue thisObject, JsCallArguments arguments)
+    [JsSymbolFunction("Iterator", Flags = PropertyFlag.Configurable | PropertyFlag.Writable, CaptureField = nameof(_originalIteratorFunction))]
+    private ObjectInstance Iterator(JsValue thisObject)
     {
         TypeConverter.RequireObjectCoercible(_engine, thisObject);
         var str = TypeConverter.ToString(thisObject);

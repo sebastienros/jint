@@ -546,7 +546,8 @@ internal sealed record class FunctionDefinition(
     EquatableArray<ParameterDefinition> Parameters,
     RegistrationKind Registration,
     string FlagsExpression,
-    bool RequireObjectCoercible)
+    bool RequireObjectCoercible,
+    string? CaptureField = null)
 {
     public static FunctionDefinition? FromJsFunction(IMethodSymbol method, ParseContext pc, List<DiagnosticInfo> diagnostics)
     {
@@ -558,7 +559,9 @@ internal sealed record class FunctionDefinition(
             ? ObjectDefinition.GetNamedArg(attr, "Flags") as int?
             : null;
         var flags = FlagExpression.From(flagsExplicit, "NonEnumerable");
-        return BuildCommon(method, pc, diagnostics, jsName, /* functionName */ jsName, explicitLength, RegistrationKind.DataProperty, flags);
+        var captureField = ObjectDefinition.GetNamedArg(attr, "CaptureField") as string;
+        return BuildCommon(method, pc, diagnostics, jsName, /* functionName */ jsName, explicitLength, RegistrationKind.DataProperty, flags,
+            captureField: string.IsNullOrWhiteSpace(captureField) ? null : captureField);
     }
 
     public static FunctionDefinition? FromJsAccessor(IMethodSymbol method, ParseContext pc, List<DiagnosticInfo> diagnostics)
@@ -619,9 +622,11 @@ internal sealed record class FunctionDefinition(
             ? ObjectDefinition.GetNamedArg(attr, "Flags") as int?
             : null;
         var flags = FlagExpression.From(flagsExplicit, "AllForbidden");
+        var captureField = ObjectDefinition.GetNamedArg(attr, "CaptureField") as string;
         // The JS-visible function name follows the ECMA convention "[Symbol.X]" with X = lowercase first letter.
         var functionName = "[Symbol." + ToCamelCase(symbolName!) + "]";
-        return BuildCommon(method, pc, diagnostics, symbolName!, functionName, explicitLength, RegistrationKind.SymbolFunction, flags);
+        return BuildCommon(method, pc, diagnostics, symbolName!, functionName, explicitLength, RegistrationKind.SymbolFunction, flags,
+            captureField: string.IsNullOrWhiteSpace(captureField) ? null : captureField);
     }
 
     public static FunctionDefinition? FromJsSymbolAccessor(IMethodSymbol method, ParseContext pc, List<DiagnosticInfo> diagnostics)
@@ -670,7 +675,7 @@ internal sealed record class FunctionDefinition(
         return fn;
     }
 
-    private static FunctionDefinition? BuildCommon(IMethodSymbol method, ParseContext pc, List<DiagnosticInfo> diagnostics, string jsName, string functionName, int explicitLength, RegistrationKind registration, string flagsExpression)
+    private static FunctionDefinition? BuildCommon(IMethodSymbol method, ParseContext pc, List<DiagnosticInfo> diagnostics, string jsName, string functionName, int explicitLength, RegistrationKind registration, string flagsExpression, string? captureField = null)
     {
         if (!pc.IsJsValueOrSubtype(method.ReturnType))
         {
@@ -814,7 +819,8 @@ internal sealed record class FunctionDefinition(
             Parameters: parameters.ToEquatableArray(),
             Registration: registration,
             FlagsExpression: flagsExpression,
-            RequireObjectCoercible: requireOc);
+            RequireObjectCoercible: requireOc,
+            CaptureField: captureField);
     }
 
     private static ParameterKind? DetectConversion(IParameterSymbol param, IMethodSymbol method, List<DiagnosticInfo> diagnostics, out bool failed)

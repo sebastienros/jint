@@ -202,6 +202,11 @@ internal static class Emitter
                 if (prop.IsStatic) sb.Append(obj.Name).Append('.');
                 sb.Append(prop.ClrName).Append(", ").Append(prop.FlagsExpression).AppendLine(");");
             }
+            // [JsFunction(CaptureField = ...)]: materialize the member's shape slot (GetOwnProperty
+            // caches it in the per-realm descriptor array, so the captured instance stays identity-
+            // stable) and hand the SAME instance to the named host field for ReferenceEquals fast
+            // paths — matching the hand-written `GetOwnProperty("name").Value` tails this replaces.
+            EmitCaptureFields(sb, dataProperties);
             sb.AppendLine("    }");
             EmitShapeMembers(sb, obj, dataProperties, accessorsByName);
             return;
@@ -336,7 +341,29 @@ internal static class Emitter
         }
 
         sb.AppendLine("        SetProperties(properties);");
+        // [JsFunction(CaptureField = ...)]: materialize the member's descriptor value (idempotent —
+        // LazyPropertyDescriptor caches on first read) and hand the SAME instance to the named host
+        // field for ReferenceEquals fast paths — matching the hand-written tails this replaces.
+        EmitCaptureFields(sb, dataProperties);
         sb.AppendLine("    }");
+    }
+
+    /// <summary>
+    /// Emits one <c>field = (Function) GetOwnProperty("name").Value!;</c> line per data-property
+    /// <c>[JsFunction]</c> with <c>CaptureField</c> set. Runs after the property store is installed
+    /// (dictionary or shape), so the capture forces materialization and snapshots the very same
+    /// function object the host hands out for the key — the ReferenceEquals fast-path pattern
+    /// (ArrayIteratorPrototype._originalNextFunction, WeakSetPrototype.OriginalAddFunction).
+    /// </summary>
+    private static void EmitCaptureFields(StringBuilder sb, List<FunctionDefinition> dataProperties)
+    {
+        foreach (var fn in dataProperties)
+        {
+            if (fn.CaptureField is null) continue;
+            sb.Append("        ").Append(fn.CaptureField)
+              .Append(" = (global::Jint.Native.Function.Function) GetOwnProperty(\"")
+              .Append(EscapeStringLit(fn.JsName)).AppendLine("\").Value!;");
+        }
     }
 
     /// <summary>
@@ -817,6 +844,21 @@ internal static class Emitter
         var singleSlot = obj.Functions.Count == 1;
         foreach (var fn in symbolFunctions)
         {
+            if (fn.CaptureField is not null)
+            {
+                // [JsSymbolFunction(CaptureField = ...)] is EAGER: construct the dispatcher here —
+                // instead of behind a LazyPropertyDescriptor — so the named host field captures the
+                // very same instance registered under the symbol; ReferenceEquals fast paths (e.g.
+                // StringPrototype._originalIteratorFunction) rely on that identity.
+                sb.Append("        var __captured_").Append(fn.JsName).Append(" = new __").Append(obj.Name).Append("Function(this");
+                if (!singleSlot) sb.Append(", __").Append(obj.Name).Append("Function.Slot.").Append(fn.ClrName);
+                sb.AppendLine(");");
+                sb.Append("        ").Append(fn.CaptureField).Append(" = __captured_").Append(fn.JsName).AppendLine(";");
+                sb.Append("        symbols[global::Jint.Native.Symbol.GlobalSymbolRegistry.").Append(fn.JsName).Append("] = new global::Jint.Runtime.Descriptors.PropertyDescriptor(__captured_")
+                  .Append(fn.JsName).Append(", ").Append(fn.FlagsExpression).AppendLine(");");
+                continue;
+            }
+
             sb.Append("        symbols[global::Jint.Native.Symbol.GlobalSymbolRegistry.").Append(fn.JsName).Append("] = new global::Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<")
               .Append(obj.Name).Append(">(this, static host => new __").Append(obj.Name);
             if (singleSlot) sb.Append("Function(host)");
