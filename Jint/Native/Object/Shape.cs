@@ -75,13 +75,26 @@ internal sealed class Shape
     /// Returns the interned child shape that adds <paramref name="key"/> to this shape. Repeated calls
     /// with the same key return the same instance, so identical layouts share their whole chain.
     /// </summary>
-    internal Shape Add(in Key key)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal Shape Add(in Key key) => Add(key, out _);
+
+    /// <summary>
+    /// Same as <see cref="Add(in Key)"/>, additionally reporting whether a new transition node was
+    /// interned (<paramref name="created"/>) or an already-memoized child was reused. Callers that
+    /// bound transition-tree growth (JSON parsing) charge their budget only for newly created nodes.
+    /// </summary>
+    internal Shape Add(in Key key, out bool created)
     {
         var transitions = _transitions ??= new Dictionary<Key, Shape>();
         if (!transitions.TryGetValue(key, out var child))
         {
             child = new Shape(this, key);
             transitions[key] = child;
+            created = true;
+        }
+        else
+        {
+            created = false;
         }
 
         return child;
