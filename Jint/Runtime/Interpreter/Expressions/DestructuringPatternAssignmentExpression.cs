@@ -628,8 +628,9 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                 var restElement = (RestElement) pattern.Properties[i];
                 if (restElement.Argument is Identifier leftIdentifier)
                 {
-                    var count = Math.Max(0, source.Properties?.Count ?? 0) - processedProperties!.Count;
-                    var rest = context.Engine.Realm.Intrinsics.Object.Construct(count);
+                    // Shape-building target: CopyDataProperties adds flow through CreateDataProperty,
+                    // interning the rest object's layout (or deopting on integer-like keys).
+                    var rest = context.Engine.Realm.Intrinsics.Object.ConstructShapeBuilding();
                     source.CopyDataProperties(rest, processedProperties);
                     AssignToIdentifier(context.Engine, leftIdentifier.Name, rest, environment, checkReference);
                 }
@@ -640,7 +641,7 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                 else if (restElement.Argument is MemberExpression memberExpression)
                 {
                     var left = GetReferenceFromMember(context, memberExpression);
-                    var rest = context.Engine.Realm.Intrinsics.Object.Construct(0);
+                    var rest = context.Engine.Realm.Intrinsics.Object.ConstructShapeBuilding();
                     source.CopyDataProperties(rest, processedProperties);
                     AssignToReference(context.Engine, left, rest, environment);
                 }

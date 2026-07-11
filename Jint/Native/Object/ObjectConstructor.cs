@@ -9,6 +9,12 @@ public sealed partial class ObjectConstructor : Constructor
 {
     private static readonly JsString _name = new JsString("Object");
 
+    // Cached empty root shape for the last-seen Object.prototype, revalidated by identity so prepared
+    // scripts running across engines/realms pick up the right per-prototype transition tree (mirrors
+    // ScriptFunction's hot-constructor caching). Used by the shape-building copy-idiom targets below.
+    private Shape? _emptyShapeRoot;
+    private ObjectInstance? _emptyShapeRootProto;
+
     internal ObjectConstructor(
         Engine engine,
         Realm realm)
@@ -34,6 +40,19 @@ public sealed partial class ObjectConstructor : Constructor
     private ObjectInstance Assign(JsValue thisObject, JsValue target, [Rest] ReadOnlySpan<JsValue> sources)
     {
         var to = TypeConverter.ToObject(_realm, target);
+
+        // A fresh, untouched plain target (`Object.assign({}, ...)`) starts in incremental
+        // shape-building mode so the copied properties transition a shared interned hidden class
+        // instead of filling a per-object dictionary. Only the representation changes: for a key
+        // absent from the target, Set walks the prototype chain first — inherited setters, including
+        // Object.prototype's `__proto__` accessor, still fire per spec — and the final own-property
+        // create lands in CreateDataProperty, whose shape arm handles interned adds, the
+        // integer-like-key fallback and megamorphic deopt. Non-virgin targets are untouched.
+        if (to is JsObject { IsVirginPlainObject: true } virginTarget && virginTarget.Prototype is { } targetProto)
+        {
+            StartShapeBuilding(virginTarget, targetProto);
+        }
+
         for (var i = 0; i < sources.Length; i++)
         {
             var nextSource = sources[i];
@@ -78,11 +97,13 @@ public sealed partial class ObjectConstructor : Constructor
     /// https://tc39.es/ecma262/#sec-object.fromentries
     /// </summary>
     [JsFunction]
-    private ObjectInstance FromEntries(JsValue thisObject, JsValue iterable)
+    private JsObject FromEntries(JsValue thisObject, JsValue iterable)
     {
         TypeConverter.RequireObjectCoercible(_engine, iterable);
 
-        var obj = _realm.Intrinsics.Object.Construct(0);
+        // Shape-building target: every entry lands through the adder's CreateDataPropertyOrThrow,
+        // whose shape arm interns the layout (or deopts on integer-like keys / megamorphic growth).
+        var obj = ConstructShapeBuilding();
 
         var adder = CreateDataPropertyOnObject.Instance;
         var iterator = iterable.GetIterator(_realm);
@@ -161,6 +182,36 @@ public sealed partial class ObjectConstructor : Constructor
         var obj = new JsObject(_engine);
         obj.SetProperties(propertyCount > 0 ? new PropertyDictionary(propertyCount, checkExistingKeys: true) : null);
         return obj;
+    }
+
+    /// <summary>
+    /// Creates a fresh empty plain object (prototype = the active realm's Object.prototype, via the
+    /// <see cref="JsObject"/> constructor) already in incremental shape-building mode. Intended for
+    /// plain-object copy-idiom targets — object spread, object rest, Object.fromEntries — whose every
+    /// subsequent addition flows through CreateDataProperty, so each add transitions a shared interned
+    /// hidden class instead of filling a per-object dictionary; objects built from the same source
+    /// layout end up referencing the very same <see cref="Shape"/>. Callers that populate the result
+    /// through raw descriptor stores (FastSetProperty / FastSetDataProperty, descriptor bags) must keep
+    /// using <see cref="Construct(int)"/> — those stores would immediately deopt a shaped target.
+    /// </summary>
+    internal JsObject ConstructShapeBuilding()
+    {
+        var obj = new JsObject(_engine);
+        if (obj.Prototype is { } proto)
+        {
+            StartShapeBuilding(obj, proto);
+        }
+        return obj;
+    }
+
+    private void StartShapeBuilding(JsObject obj, ObjectInstance proto)
+    {
+        if (!ReferenceEquals(_emptyShapeRootProto, proto))
+        {
+            _emptyShapeRoot = _engine.GetEmptyShape(proto);
+            _emptyShapeRootProto = proto;
+        }
+        obj.StartShapeBuilding(_emptyShapeRoot!);
     }
 
     /// <summary>

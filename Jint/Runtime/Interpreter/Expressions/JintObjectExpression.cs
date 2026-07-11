@@ -40,6 +40,15 @@ internal sealed class JintObjectExpression : JintExpression
     // even inside a generator/async function. Computed only when _canBuildFast.
     private readonly bool _valuesCannotSuspend;
 
+    // True when the general build path (BuildObjectNormal) should seed its target in incremental
+    // shape-building mode: every property is a spread or a plain init data property (whose stores flow
+    // through CreateDataProperty / SetPrototypeOf, both shape-compatible) and no static string key is
+    // digit-leading. Getters/setters/methods route through DefinePropertyOrThrow, which deopts a shaped
+    // object — don't start a shape that is guaranteed to be torn down. Computed keys stay allowed: the
+    // runtime integer-like pre-check catches index-like values and symbol keys land in _symbols
+    // without deopt. Only consulted when !_canBuildFast.
+    private readonly bool _shapedNormalTarget;
+
     private sealed class ObjectProperty
     {
         internal readonly string? _key;
@@ -76,6 +85,7 @@ internal sealed class JintObjectExpression : JintExpression
     private JintObjectExpression(ObjectExpression expression) : base(expression)
     {
         _canBuildFast = true;
+        _shapedNormalTarget = true;
         ref readonly var properties = ref expression.Properties;
 
         var valueExpressions = new Expression[properties.Count];
@@ -115,9 +125,20 @@ internal sealed class JintObjectExpression : JintExpression
                 {
                     _canBuildFast = false;
                 }
+
+                // Accessors and methods deopt a shaped target (DefinePropertyOrThrow); a digit-leading
+                // static key would deopt at the runtime integer-like pre-check. Static `__proto__:`
+                // stays allowed — it routes to SetPrototypeOf, which leaves the shape untouched.
+                if (p.Kind != PropertyKind.Init
+                    || p.Method
+                    || (propName is not null && propName.Length > 0 && char.IsDigit(propName[0])))
+                {
+                    _shapedNormalTarget = false;
+                }
             }
             else if (property is SpreadElement spreadElement)
             {
+                // Spread copies via CreateDataProperty — shape-compatible.
                 _canBuildFast = false;
                 _properties[i] = null;
                 valueExpressions[i] = spreadElement.Argument;
@@ -333,7 +354,16 @@ internal sealed class JintObjectExpression : JintExpression
         }
         else
         {
-            obj = engine.Realm.Intrinsics.Object.Construct(_properties.Length);
+            // Shape-building target: spreads and plain init keys flow through CreateDataProperty, so
+            // each add transitions a shared interned hidden class instead of filling a dictionary.
+            // Unlike BuildObjectFast's pre-installed-shape approach this incremental path is
+            // suspension-safe — a key becomes visible only once TryShapeAdd has stored its value and
+            // installed the transitioned shape, so a generator suspended between property definitions
+            // observes exactly the properties defined so far; the ShapeBuilding flag rides on the
+            // object carried in the suspend data, and resumes keep extending the same shape.
+            obj = _shapedNormalTarget
+                ? engine.Realm.Intrinsics.Object.ConstructShapeBuilding()
+                : engine.Realm.Intrinsics.Object.Construct(_properties.Length);
             startIndex = 0;
         }
 
