@@ -58,7 +58,7 @@ internal sealed class SyntheticModule : Module
         _engine.LeaveExecutionContext();
 
         var pc = PromiseConstructor.NewPromiseCapability(_engine, _realm.Intrinsics.Promise);
-        pc.Resolve.Call(Undefined, Array.Empty<JsValue>());
+        pc.Resolve(JsValue.Undefined);
         return pc.PromiseInstance;
     }
 

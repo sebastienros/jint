@@ -95,7 +95,7 @@ internal sealed class JintImportExpression : JintExpression
         }
         catch (JavaScriptException e)
         {
-            promiseCapability.Reject.Call(JsValue.Undefined, e.Error);
+            promiseCapability.Reject(e.Error);
         }
 
         return promiseCapability.PromiseInstance;

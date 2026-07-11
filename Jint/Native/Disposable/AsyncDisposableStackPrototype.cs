@@ -59,7 +59,7 @@ internal sealed partial class AsyncDisposableStackPrototype : Prototype
             if (!stack.TryMarkDisposed())
             {
                 // Already disposed — resolve with undefined.
-                capability.Resolve.Call(Undefined, Undefined);
+                capability.Resolve(Undefined);
                 return capability.PromiseInstance;
             }
 
@@ -74,17 +74,17 @@ internal sealed partial class AsyncDisposableStackPrototype : Prototype
                 {
                     if (final.Type == CompletionType.Throw)
                     {
-                        capability.Reject.Call(Undefined, final.Value);
+                        capability.Reject(final.Value);
                     }
                     else
                     {
-                        capability.Resolve.Call(Undefined, Undefined);
+                        capability.Resolve(Undefined);
                     }
                 });
         }
         catch (JavaScriptException e)
         {
-            capability.Reject.Call(Undefined, e.Error);
+            capability.Reject(e.Error);
         }
         return capability.PromiseInstance;
     }

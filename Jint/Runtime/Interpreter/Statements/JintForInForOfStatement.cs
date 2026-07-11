@@ -958,35 +958,10 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
             asyncInstance._state = AsyncFunctionState.SuspendedAwait;
             asyncInstance._savedContext = engine.ExecutionContext;
 
-            // Create resume handlers - resume directly inside the reaction job (no extra AddToEventLoop hop)
-            var onFulfilled = new ClrFunction(engine, "", (_, args) =>
-            {
-                var resolvedValue = args.At(0);
-
-                // Store the resolved iterator result for resume
-                var resumeSuspendData = asyncInstance.Data.GetOrCreate<ForAwaitSuspendData>(this);
-                resumeSuspendData.ResolvedIteratorResult = resolvedValue as ObjectInstance;
-
-                asyncInstance._resumeValue = JsValue.Undefined;
-                asyncInstance._resumeWithThrow = false;
-                JintAwaitExpression.AsyncFunctionResume(engine, asyncInstance);
-
-                return JsValue.Undefined;
-            }, 1, PropertyFlag.Configurable);
-
-            var onRejected = new ClrFunction(engine, "", (_, args) =>
-            {
-                var rejectedValue = args.At(0);
-
-                asyncInstance._resumeValue = rejectedValue;
-                asyncInstance._resumeWithThrow = true;
-                JintAwaitExpression.AsyncFunctionResume(engine, asyncInstance);
-
-                return JsValue.Undefined;
-            }, 1, PropertyFlag.Configurable);
-
-            // Per spec Await step 3: PerformPromiseThen(promise, onFulfilled, onRejected) with no resultCapability
-            PromiseOperations.PerformPromiseThen(engine, promise, onFulfilled, onRejected, null!);
+            // Per spec Await step 3: PerformPromiseThen(promise, onFulfilled, onRejected) with no
+            // resultCapability. The continuation resumes directly inside the reaction job (no
+            // extra AddToEventLoop hop) and needs no JS-callable handler pair.
+            PromiseOperations.PerformPromiseThen(engine, promise, new ForAwaitFunctionContinuation(this, asyncInstance));
 
             // Return with completion that signals suspension
             return new Completion(CompletionType.Normal, JsValue.Undefined, _statement!);
@@ -998,53 +973,20 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
             suspendData.Iterator = iterator;
             suspendData.AccumulatedValue = accumulatedValue;
 
+            // Mark that we're waiting for the iterator result
+            asyncGenerator._asyncGeneratorState = Native.AsyncGenerator.AsyncGeneratorState.SuspendedYield;
+
             // Capture the current promise capability before suspending —
             // the request was already dequeued by AsyncGeneratorResumeNext() before
             // reaching here, so the queue is now empty. On resume we must continue
             // THIS request's execution, not start a new one via AsyncGeneratorResumeNext().
-            var currentCapability = asyncGenerator._currentPromiseCapability!;
-
-            // Mark that we're waiting for the iterator result
-            asyncGenerator._asyncGeneratorState = Native.AsyncGenerator.AsyncGeneratorState.SuspendedYield;
-
-            // Create resume handlers. Use AddToEventLoop (like the async-function path) so
-            // the actual resumption happens in a distinct event-loop turn, matching spec
+            // The continuation re-enqueues via AddToEventLoop (like the async-function path)
+            // so the actual resumption happens in a distinct event-loop turn, matching spec
             // microtask ordering.
-            var onFulfilled = new ClrFunction(engine, "", (_, args) =>
-            {
-                var resolvedValue = args.At(0);
-
-                engine.AddToEventLoop(() =>
-                {
-                    // Store the resolved iterator result so the for-await-of loop can use it
-                    var resumeSuspendData = asyncGenerator.Data.GetOrCreate<ForAwaitSuspendData>(this);
-                    resumeSuspendData.ResolvedIteratorResult = resolvedValue as ObjectInstance;
-
-                    // Resume the current request's execution (queue is empty – cannot use AsyncGeneratorResumeNext)
-                    asyncGenerator.AsyncGeneratorContinueForAwait(currentCapability);
-                });
-
-                return JsValue.Undefined;
-            }, 1, PropertyFlag.Configurable);
-
-            var onRejected = new ClrFunction(engine, "", (_, args) =>
-            {
-                var rejectedValue = args.At(0);
-
-                engine.AddToEventLoop(() =>
-                {
-                    // Store the rejection so ExecuteInternal can propagate it as a throw
-                    var resumeSuspendData = asyncGenerator.Data.GetOrCreate<ForAwaitSuspendData>(this);
-                    resumeSuspendData.RejectedValue = rejectedValue;
-
-                    // Resume the current request's execution so the throw can be handled
-                    asyncGenerator.AsyncGeneratorContinueForAwait(currentCapability);
-                });
-
-                return JsValue.Undefined;
-            }, 1, PropertyFlag.Configurable);
-
-            PromiseOperations.PerformPromiseThen(engine, promise, onFulfilled, onRejected, null!);
+            PromiseOperations.PerformPromiseThen(
+                engine,
+                promise,
+                new ForAwaitGeneratorContinuation(this, asyncGenerator, asyncGenerator._currentPromiseCapability!));
 
             // Return with completion that signals suspension
             return new Completion(CompletionType.Normal, JsValue.Undefined, _statement!);
@@ -1065,6 +1007,85 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 Throw.JavaScriptException(engine, e.RejectedValue, _statement!.Location);
                 return default;
             }
+        }
+    }
+
+    /// <summary>
+    /// Await continuation for a for-await-of running inside an async function: stores the
+    /// resolved iterator result and resumes directly inside the reaction job.
+    /// </summary>
+    private sealed class ForAwaitFunctionContinuation : IPromiseContinuation
+    {
+        private readonly JintForInForOfStatement _statement;
+        private readonly AsyncFunctionInstance _asyncInstance;
+
+        public ForAwaitFunctionContinuation(JintForInForOfStatement statement, AsyncFunctionInstance asyncInstance)
+        {
+            _statement = statement;
+            _asyncInstance = asyncInstance;
+        }
+
+        public void Invoke(Engine engine, JsValue value, ReactionType type)
+        {
+            if (type == ReactionType.Fulfill)
+            {
+                // Store the resolved iterator result for resume
+                var resumeSuspendData = _asyncInstance.Data.GetOrCreate<ForAwaitSuspendData>(_statement);
+                resumeSuspendData.ResolvedIteratorResult = value as ObjectInstance;
+
+                _asyncInstance._resumeValue = JsValue.Undefined;
+                _asyncInstance._resumeWithThrow = false;
+            }
+            else
+            {
+                _asyncInstance._resumeValue = value;
+                _asyncInstance._resumeWithThrow = true;
+            }
+
+            JintAwaitExpression.AsyncFunctionResume(engine, _asyncInstance);
+        }
+    }
+
+    /// <summary>
+    /// Await continuation for a for-await-of running inside an async generator: hands the
+    /// settled value to the suspend data and resumes the current request in a distinct
+    /// event-loop turn (see the enqueueing comment at the PerformPromiseThen call site).
+    /// </summary>
+    private sealed class ForAwaitGeneratorContinuation : IPromiseContinuation
+    {
+        private readonly JintForInForOfStatement _statement;
+        private readonly Native.AsyncGenerator.AsyncGeneratorInstance _asyncGenerator;
+        private readonly PromiseCapability _capability;
+
+        public ForAwaitGeneratorContinuation(
+            JintForInForOfStatement statement,
+            Native.AsyncGenerator.AsyncGeneratorInstance asyncGenerator,
+            PromiseCapability capability)
+        {
+            _statement = statement;
+            _asyncGenerator = asyncGenerator;
+            _capability = capability;
+        }
+
+        public void Invoke(Engine engine, JsValue value, ReactionType type)
+        {
+            engine.AddToEventLoop(() =>
+            {
+                var resumeSuspendData = _asyncGenerator.Data.GetOrCreate<ForAwaitSuspendData>(_statement);
+                if (type == ReactionType.Fulfill)
+                {
+                    // Store the resolved iterator result so the for-await-of loop can use it
+                    resumeSuspendData.ResolvedIteratorResult = value as ObjectInstance;
+                }
+                else
+                {
+                    // Store the rejection so ExecuteInternal can propagate it as a throw
+                    resumeSuspendData.RejectedValue = value;
+                }
+
+                // Resume the current request's execution (queue is empty – cannot use AsyncGeneratorResumeNext)
+                _asyncGenerator.AsyncGeneratorContinueForAwait(_capability);
+            });
         }
     }
 
@@ -1245,23 +1266,8 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         asyncFn._state = AsyncFunctionState.SuspendedAwait;
         asyncFn._savedContext = engine.ExecutionContext;
 
-        var onFulfilled = new ClrFunction(engine, "", (_, args) =>
-        {
-            asyncFn._resumeValue = args.At(0);
-            asyncFn._resumeWithThrow = false;
-            JintAwaitExpression.AsyncFunctionResume(engine, asyncFn);
-            return JsValue.Undefined;
-        }, 1, PropertyFlag.Configurable);
-
-        var onRejected = new ClrFunction(engine, "", (_, args) =>
-        {
-            asyncFn._resumeValue = args.At(0);
-            asyncFn._resumeWithThrow = true;
-            JintAwaitExpression.AsyncFunctionResume(engine, asyncFn);
-            return JsValue.Undefined;
-        }, 1, PropertyFlag.Configurable);
-
-        PromiseOperations.PerformPromiseThen(engine, promise, onFulfilled, onRejected, null!);
+        // The async instance is its own await continuation (same as a plain await).
+        PromiseOperations.PerformPromiseThen(engine, promise, asyncFn);
     }
 
     private void SaveDisposeSuspendState(

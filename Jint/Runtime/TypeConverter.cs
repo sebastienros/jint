@@ -1042,6 +1042,32 @@ public static class TypeConverter
         }
     }
 
+    /// <summary>
+    /// For a Number, Boolean, or BigInt primitive, returns the intrinsic prototype object that a
+    /// wrapper produced by <see cref="ToObject"/> would delegate every property lookup to. These
+    /// wrapper types add no own properties (unlike a String wrapper, which owns <c>length</c> and the
+    /// indexed characters), so resolving a member against the intrinsic prototype with the primitive
+    /// itself as the receiver is observationally identical to boxing — same descriptor, same getter
+    /// receiver, same prototype-chain / Proxy traversal — but allocates no wrapper. Returns
+    /// <see langword="null"/> for every other value, leaving the caller to box via <see cref="ToObject"/>.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static ObjectInstance? PrimitiveLookupPrototypeOrNull(Realm realm, JsValue value)
+    {
+        switch (value._type & ~InternalTypes.InternalFlags)
+        {
+            case InternalTypes.Number:
+            case InternalTypes.Integer:
+                return realm.Intrinsics.Number.PrototypeObject;
+            case InternalTypes.Boolean:
+                return realm.Intrinsics.Boolean.PrototypeObject;
+            case InternalTypes.BigInt:
+                return realm.Intrinsics.BigInt.PrototypeObject;
+            default:
+                return null;
+        }
+    }
+
     [MethodImpl(MethodImplOptions.NoInlining)]
     internal static void CheckObjectCoercible(
         Engine engine,

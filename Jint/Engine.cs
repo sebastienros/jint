@@ -684,6 +684,15 @@ public sealed partial class Engine : IDisposable
     }
 
     /// <summary>
+    /// Enqueues a promise reaction job without allocating a closure: the (reaction, argument)
+    /// pair is the job's state. See <see cref="EventLoopJob"/>.
+    /// </summary>
+    internal void AddToEventLoop(PromiseReaction reaction, JsValue value)
+    {
+        _eventLoop.Enqueue(new EventLoopJob(reaction, value));
+    }
+
+    /// <summary>
     /// Called by the host when a promise rejection is tracked/untracked.
     /// Raises the <see cref="AdvancedOperations.PromiseRejectionTracker"/> event.
     /// </summary>
@@ -699,7 +708,7 @@ public sealed partial class Engine : IDisposable
 
     internal void RunAvailableContinuations()
     {
-        _eventLoop.RunAvailableContinuations();
+        _eventLoop.RunAvailableContinuations(this);
     }
 
     internal void RunBeforeExecuteStatementChecks(StatementOrExpression? statement)
@@ -801,6 +810,16 @@ public sealed partial class Engine : IDisposable
                 && TryHandleStringValue(property, s, ref o, out var jsValue))
             {
                 return jsValue;
+            }
+
+            // Number / Boolean / BigInt primitives box to a wrapper that owns no properties, so the member
+            // resolves entirely on the intrinsic prototype chain. Read straight from that prototype with the
+            // primitive as the receiver (reference.ThisValue) — identical to ToObject(base).Get(...) but with
+            // no wrapper allocated. Private references keep the boxing path so their "not declared" error and
+            // PrivateGet semantics are preserved.
+            if (o is null && !reference.IsPrivateReference)
+            {
+                o = Runtime.TypeConverter.PrimitiveLookupPrototypeOrNull(Realm, baseValue);
             }
 
             if (o is null)

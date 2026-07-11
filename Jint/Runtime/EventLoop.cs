@@ -1,11 +1,48 @@
 using System.Collections.Concurrent;
 using System.Threading;
+using Jint.Native;
+using Jint.Native.Promise;
 
 namespace Jint.Runtime;
 
+/// <summary>
+/// A single queued event-loop entry: either an opaque <see cref="Action"/> continuation or a
+/// promise reaction job carried as its (reaction, argument) pair so that enqueueing a reaction
+/// does not allocate a closure per job.
+/// </summary>
+internal readonly struct EventLoopJob
+{
+    private readonly object _state;
+    private readonly JsValue? _argument;
+
+    public EventLoopJob(Action continuation)
+    {
+        _state = continuation;
+        _argument = null;
+    }
+
+    public EventLoopJob(PromiseReaction reaction, JsValue argument)
+    {
+        _state = reaction;
+        _argument = argument;
+    }
+
+    public void Run(Engine engine)
+    {
+        if (_state is PromiseReaction reaction)
+        {
+            PromiseOperations.RunReactionJob(engine, reaction, _argument!);
+        }
+        else
+        {
+            ((Action) _state)();
+        }
+    }
+}
+
 internal sealed record EventLoop
 {
-    private readonly ConcurrentQueue<Action> _events = new();
+    private readonly ConcurrentQueue<EventLoopJob> _events = new();
 
     /// <summary>
     /// Tracks whether we are currently processing the event loop.
@@ -25,7 +62,7 @@ internal sealed record EventLoop
 
     /// <summary>
     /// Async wake signals registered by callers of <see cref="WaitForEventAsync"/>.
-    /// Each call appends its own TCS so that <see cref="Enqueue"/> can wake every
+    /// Each call appends its own TCS so that <see cref="Enqueue(in EventLoopJob)"/> can wake every
     /// outstanding waiter — supporting concurrent awaiters on a single engine
     /// (e.g. a caller that <c>await</c>s two engine-internal promises in parallel
     /// via <c>Task.WhenAll</c>). Replaces an earlier single-field design that
@@ -37,9 +74,11 @@ internal sealed record EventLoop
 
     public bool IsEmpty => _events.IsEmpty;
 
-    public void Enqueue(Action continuation)
+    public void Enqueue(Action continuation) => Enqueue(new EventLoopJob(continuation));
+
+    public void Enqueue(in EventLoopJob job)
     {
-        _events.Enqueue(continuation);
+        _events.Enqueue(job);
 
         // Wake every registered async waiter. Each one re-checks its own promise
         // state on resume, so spurious wakes loop harmlessly back to WaitForEventAsync.
@@ -67,7 +106,7 @@ internal sealed record EventLoop
     /// Used by the async API path (EvaluateAsync/ExecuteAsync/InvokeAsync) to avoid
     /// blocking a thread during IO-bound operations. During the wait, zero threads
     /// are consumed. Multiple concurrent waiters are supported — each registers its
-    /// own TCS and is signaled on every <see cref="Enqueue"/>.
+    /// own TCS and is signaled on every <see cref="Enqueue(in EventLoopJob)"/>.
     /// </summary>
     /// <param name="cancellationToken">Token to observe for cancellation.</param>
     /// <returns>A task that completes when events are available or cancellation is requested.</returns>
@@ -106,7 +145,7 @@ internal sealed record EventLoop
         return tcs.Task;
     }
 
-    public void RunAvailableContinuations()
+    public void RunAvailableContinuations(Engine engine)
     {
         // If there's a waiting thread (e.g., in UnwrapIfPromise), only that thread
         // should execute continuations. This prevents background threads (from Task
@@ -127,10 +166,10 @@ internal sealed record EventLoop
 
         try
         {
-            while (_events.TryDequeue(out var nextContinuation))
+            while (_events.TryDequeue(out var job))
             {
-                // note that continuation can enqueue new events
-                nextContinuation();
+                // note that a job can enqueue new events
+                job.Run(engine);
             }
         }
         finally

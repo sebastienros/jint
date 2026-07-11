@@ -27,45 +27,59 @@ internal static class PromiseOperations
     //      j. Else,
     //          i. Let status be Call(promiseCapability.[[Resolve]], undefined, « handlerResult.[[Value]] »).
     //      k. Return Completion(status).
-    private static Action NewPromiseReactionJob(PromiseReaction reaction, JsValue value)
+    //
+    // The job's state is carried by the queued (reaction, argument) pair itself instead of a
+    // captured closure — see EventLoopJob.
+    internal static void RunReactionJob(Engine engine, PromiseReaction reaction, JsValue value)
     {
-        return () =>
+        var promiseCapability = reaction.Capability;
+
+        if (reaction.Continuation is { } continuation)
         {
-            var promiseCapability = reaction.Capability;
-
-            if (reaction.Handler is ICallable handler)
+            // Engine-internal handler (e.g. an await continuation): invoked directly, no JS
+            // function object involved. These reactions never carry a capability, so mirror
+            // the JS-handler path below: a JavaScriptException that escapes has no reject
+            // target and is dropped.
+            try
             {
-                try
-                {
-                    var result = handler.Call(JsValue.Undefined, value);
-                    // If promiseCapability is undefined, just return (spec step g)
-                    promiseCapability?.Resolve.Call(JsValue.Undefined, result);
-                }
-                catch (JavaScriptException e)
-                {
-                    // If promiseCapability is undefined, this is an assertion failure per spec
-                    // but we need to handle it gracefully
-                    promiseCapability?.Reject.Call(JsValue.Undefined, e.Error);
-                }
+                continuation.Invoke(engine, value, reaction.Type);
             }
-            else
+            catch (JavaScriptException)
             {
-                // If no handler, capability must be defined per spec
-                switch (reaction.Type)
-                {
-                    case ReactionType.Fulfill:
-                        promiseCapability?.Resolve.Call(JsValue.Undefined, value);
-                        break;
-
-                    case ReactionType.Reject:
-                        promiseCapability?.Reject.Call(JsValue.Undefined, value);
-                        break;
-
-                    default:
-                        throw new ArgumentOutOfRangeException(nameof(reaction), "Unknown reaction type");
-                }
             }
-        };
+        }
+        else if (reaction.Handler is ICallable handler)
+        {
+            try
+            {
+                var result = handler.Call(JsValue.Undefined, value);
+                // If promiseCapability is undefined, just return (spec step g)
+                promiseCapability?.Resolve(result);
+            }
+            catch (JavaScriptException e)
+            {
+                // If promiseCapability is undefined, this is an assertion failure per spec
+                // but we need to handle it gracefully
+                promiseCapability?.Reject(e.Error);
+            }
+        }
+        else
+        {
+            // If no handler, capability must be defined per spec
+            switch (reaction.Type)
+            {
+                case ReactionType.Fulfill:
+                    promiseCapability?.Resolve(value);
+                    break;
+
+                case ReactionType.Reject:
+                    promiseCapability?.Reject(value);
+                    break;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(reaction), "Unknown reaction type");
+            }
+        }
     }
 
     // https://tc39.es/ecma262/#sec-newpromiseresolvethenablejob
@@ -105,11 +119,14 @@ internal static class PromiseOperations
     // a. Let job be NewPromiseReactionJob(reaction, argument).
     // b. Perform HostEnqueuePromiseJob(job.[[Job]], job.[[Realm]]).
     // 2. Return undefined.
-    internal static JsValue TriggerPromiseReactions(Engine engine, List<PromiseReaction> reactions, JsValue result)
+    internal static JsValue TriggerPromiseReactions(Engine engine, List<PromiseReaction>? reactions, JsValue result)
     {
-        foreach (var reaction in reactions)
+        if (reactions is not null)
         {
-            engine.AddToEventLoop(NewPromiseReactionJob(reaction, result));
+            foreach (var reaction in reactions)
+            {
+                engine.AddToEventLoop(reaction, result);
+            }
         }
 
         return JsValue.Undefined;
@@ -121,25 +138,23 @@ internal static class PromiseOperations
         JsPromise promise,
         JsValue onFulfilled,
         JsValue onRejected,
-        PromiseCapability resultCapability)
+        PromiseCapability? resultCapability)
     {
         var wasAlreadyHandled = promise.PromiseIsHandled;
-        var fulfilReaction = new PromiseReaction(ReactionType.Fulfill, resultCapability, onFulfilled);
-        var rejectReaction = new PromiseReaction(ReactionType.Reject, resultCapability, onRejected);
 
         switch (promise.State)
         {
             case PromiseState.Pending:
-                promise.PromiseFulfillReactions.Add(fulfilReaction);
-                promise.PromiseRejectReactions.Add(rejectReaction);
+                (promise.PromiseFulfillReactions ??= new List<PromiseReaction>()).Add(new PromiseReaction(ReactionType.Fulfill, resultCapability, onFulfilled));
+                (promise.PromiseRejectReactions ??= new List<PromiseReaction>()).Add(new PromiseReaction(ReactionType.Reject, resultCapability, onRejected));
                 break;
 
             case PromiseState.Fulfilled:
-                engine.AddToEventLoop(NewPromiseReactionJob(fulfilReaction, promise.Value));
+                engine.AddToEventLoop(new PromiseReaction(ReactionType.Fulfill, resultCapability, onFulfilled), promise.Value);
 
                 break;
             case PromiseState.Rejected:
-                engine.AddToEventLoop(NewPromiseReactionJob(rejectReaction, promise.Value));
+                engine.AddToEventLoop(new PromiseReaction(ReactionType.Reject, resultCapability, onRejected), promise.Value);
 
                 break;
             default:
@@ -168,5 +183,45 @@ internal static class PromiseOperations
         }
 
         return resultCapability.PromiseInstance;
+    }
+
+    /// <summary>
+    /// PerformPromiseThen for engine-internal continuations (the Await abstract operation's
+    /// steps 3-10): both reactions carry <paramref name="continuation"/> in place of the spec's
+    /// onFulfilled/onRejected closures — those closures are unobservable from user code, so no
+    /// JS function objects are materialized — and there is no result capability.
+    /// https://tc39.es/ecma262/#await
+    /// </summary>
+    internal static void PerformPromiseThen(Engine engine, JsPromise promise, IPromiseContinuation continuation)
+    {
+        var wasAlreadyHandled = promise.PromiseIsHandled;
+
+        switch (promise.State)
+        {
+            case PromiseState.Pending:
+                (promise.PromiseFulfillReactions ??= new List<PromiseReaction>()).Add(new PromiseReaction(ReactionType.Fulfill, Capability: null, Handler: null, continuation));
+                (promise.PromiseRejectReactions ??= new List<PromiseReaction>()).Add(new PromiseReaction(ReactionType.Reject, Capability: null, Handler: null, continuation));
+                break;
+
+            case PromiseState.Fulfilled:
+                engine.AddToEventLoop(new PromiseReaction(ReactionType.Fulfill, Capability: null, Handler: null, continuation), promise.Value);
+                break;
+
+            case PromiseState.Rejected:
+                engine.AddToEventLoop(new PromiseReaction(ReactionType.Reject, Capability: null, Handler: null, continuation), promise.Value);
+                break;
+
+            default:
+                Throw.ArgumentOutOfRangeException();
+                break;
+        }
+
+        // 12. Set promise.[[PromiseIsHandled]] to true.
+        promise.PromiseIsHandled = true;
+
+        if (promise.State == PromiseState.Rejected && !wasAlreadyHandled)
+        {
+            engine._host.HostPromiseRejectionTracker(promise, PromiseRejectionOperation.Handle);
+        }
     }
 }

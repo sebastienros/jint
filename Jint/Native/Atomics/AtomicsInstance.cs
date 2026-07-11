@@ -205,7 +205,7 @@ internal sealed partial class AtomicsInstance : BuiltinShapeObject
                 // Queue microtask to resolve the promise
                 _engine.AddToEventLoop(() =>
                 {
-                    _promiseCapability.Resolve.Call(JsValue.Undefined, [new JsString(result)]);
+                    _promiseCapability.Resolve(new JsString(result));
                 });
             }
         }
@@ -681,7 +681,7 @@ internal sealed partial class AtomicsInstance : BuiltinShapeObject
             // No buffer data - resolve immediately with "timed-out"
             _engine.AddToEventLoop(() =>
             {
-                promiseCapability.Resolve.Call(JsValue.Undefined, [new JsString("timed-out")]);
+                promiseCapability.Resolve(new JsString("timed-out"));
             });
         }
 

@@ -2065,11 +2065,11 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                         try
                         {
                             method.Call(this);
-                            promiseCapability.Resolve.Call(Undefined, Undefined);
+                            promiseCapability.Resolve(Undefined);
                         }
                         catch (JavaScriptException e)
                         {
-                            promiseCapability.Reject.Call(Undefined, e.Error);
+                            promiseCapability.Reject(e.Error);
                         }
                         return promiseCapability.PromiseInstance;
                     };

@@ -2762,6 +2762,42 @@ function output(x) {
     }
 
     [Fact]
+    public void ShouldSpreadPrimitivesInObjectLiteralsViaToObject()
+    {
+        // PropertyDefinitionEvaluation for `...AssignmentExpression` performs CopyDataProperties
+        // (https://tc39.es/ecma262/#sec-copydataproperties): step 1 skips undefined/null sources,
+        // step 2 ToObject's everything else — so spreading a string primitive copies its index properties.
+        Assert.Equal("""{"0":"a","1":"b"}""", _engine.Evaluate("JSON.stringify({...'ab'})").AsString());
+        Assert.Equal("0,1", _engine.Evaluate("Object.keys({...'ab'}).join()").AsString());
+        Assert.Equal("""{"0":"a","1":"b","x":1}""", _engine.Evaluate("JSON.stringify({...'ab', x: 1})").AsString());
+
+        // Number/boolean/symbol wrappers have no enumerable own keys.
+        Assert.Equal("{}", _engine.Evaluate("JSON.stringify({...42})").AsString());
+        Assert.Equal(0, _engine.Evaluate("Object.keys({...42}).length").AsNumber());
+        Assert.Equal("{}", _engine.Evaluate("JSON.stringify({...true})").AsString());
+        Assert.Equal(0, _engine.Evaluate("Object.getOwnPropertyNames({...Symbol()}).length + Object.getOwnPropertySymbols({...Symbol()}).length").AsNumber());
+
+        // CopyDataProperties step 1: undefined/null sources are skipped, not thrown.
+        Assert.Equal("{}", _engine.Evaluate("JSON.stringify({...null})").AsString());
+        Assert.Equal("{}", _engine.Evaluate("JSON.stringify({...undefined})").AsString());
+
+        // Object.assign skips undefined/null and ToObject's other sources the same way
+        // (https://tc39.es/ecma262/#sec-object.assign step 3.a).
+        Assert.Equal("""{"0":"a","1":"b"}""", _engine.Evaluate("JSON.stringify(Object.assign({}, 'ab'))").AsString());
+        Assert.Equal("{}", _engine.Evaluate("JSON.stringify(Object.assign({}, null, undefined, 42, true))").AsString());
+
+        // Resume path: the literal build suspends inside the spread argument and resumes with a primitive.
+        Assert.Equal("""{"0":"a","1":"b","x":2}""", _engine.Evaluate("""
+            (function() {
+                function* g() { return { ...(yield), x: 2 }; }
+                var it = g();
+                it.next();
+                return JSON.stringify(it.next('ab').value);
+            })()
+            """).AsString());
+    }
+
+    [Fact]
     public void ShouldSupportDefaultsInFunctionParameters()
     {
         RunTest(@"

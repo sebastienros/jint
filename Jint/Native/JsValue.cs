@@ -298,7 +298,10 @@ public abstract partial class JsValue : IEquatable<JsValue>
     /// </summary>
     internal JsValue GetV(Realm realm, JsValue property)
     {
-        var o = TypeConverter.ToObject(realm, this);
+        // Number / Boolean / BigInt primitives resolve members on the intrinsic prototype without a
+        // wrapper (see PrimitiveLookupPrototypeOrNull); everything else (notably String, whose wrapper
+        // owns length and the indexed characters) still boxes via ToObject.
+        var o = TypeConverter.PrimitiveLookupPrototypeOrNull(realm, this) ?? TypeConverter.ToObject(realm, this);
         return o.Get(property, this);
     }
 
