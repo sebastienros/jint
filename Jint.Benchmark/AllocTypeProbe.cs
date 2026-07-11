@@ -10,12 +10,76 @@ namespace Jint.Benchmark;
 /// GC.GetAllocatedBytesForCurrentThread (MemoryProbe) can't say *which type*. Used to chase the
 /// per-call allocation floor seen in ClosureCallBenchmarks. Not a benchmark; temporary diagnostic.
 ///
-/// Usage: --profile-alloc-types [scriptName|empty-closure|captured-var] [iterations]
+/// Usage: --profile-alloc-types [scriptName|empty-closure|captured-var|campaignTarget] [iterations]
 /// With a Scripts/ name it runs that engine-comparison script (fresh engine/iter, like the BDN bench);
 /// "empty-closure"/"captured-var" run an inline isolated loop so the per-call floor is unmixed.
+/// Campaign targets (see <see cref="CampaignTargets"/>) run the exact GATE-row sources the coverage
+/// benchmark classes execute, in the same engine mode (reuse-engine warm vs fresh-engine per iter),
+/// so census output and BDN rows attribute the identical workload.
 /// </summary>
 internal static class AllocTypeProbe
 {
+    /// <summary>Census names → the coverage-suite GATE-row workloads (same static sources the benchmarks run).</summary>
+    private static readonly Dictionary<string, Func<Action>> CampaignTargets = new(StringComparer.Ordinal)
+    {
+        ["json-parse-records"] = static () => ReuseEngine(JsonJsBenchmark.ParseRecordsSource, static e => e.SetValue("recordsJson", JsonJsBenchmark.BuildRecordsJson())),
+        ["json-parse-config"] = static () => ReuseEngine(JsonJsBenchmark.ParseConfigSource, static e => e.SetValue("configJson", JsonJsBenchmark.BuildConfigJson())),
+        ["json-stringify-records"] = static () => ReuseEngine(
+            JsonJsBenchmark.StringifyRecordsSource,
+            static e =>
+            {
+                e.SetValue("recordsJson", JsonJsBenchmark.BuildRecordsJson());
+                e.SetValue("configJson", JsonJsBenchmark.BuildConfigJson());
+            },
+            JsonJsBenchmark.SetupSource),
+        ["object-spread-small"] = static () => ReuseEngine(ObjectSpreadBenchmark.SpreadSmallSource, setupSource: ObjectSpreadBenchmark.SetupSource),
+        ["object-assign-fresh"] = static () => ReuseEngine(ObjectSpreadBenchmark.AssignFreshTargetSource, setupSource: ObjectSpreadBenchmark.SetupSource),
+        ["rest-destructuring"] = static () => ReuseEngine(ObjectSpreadBenchmark.RestDestructuringSource, setupSource: ObjectSpreadBenchmark.SetupSource),
+        ["reduce-sum"] = static () => ReuseEngine(ArrayCallbackBenchmark.ReduceSumSource, setupSource: ArrayCallbackBenchmark.SetupSource),
+        ["map-filter-reduce"] = static () => ReuseEngine(ArrayCallbackBenchmark.MapFilterReduceChainSource, setupSource: ArrayCallbackBenchmark.SetupSource),
+        ["await-loop"] = static () => ReuseEngine(AsyncAwaitBenchmark.AwaitResolvedLoopSource),
+        ["then-chain"] = static () => ReuseEngine(AsyncAwaitBenchmark.ThenChain1000Source),
+        ["promise-all"] = static () => ReuseEngine(AsyncAwaitBenchmark.PromiseAll100Source),
+        ["try-nothrow"] = static () => ReuseEngine(ErrorHandlingBenchmark.TryNoThrowSource),
+        ["throw-catch"] = static () => ReuseEngine(ErrorHandlingBenchmark.ThrowCatchLoopSource),
+        ["error-stack"] = static () => ReuseEngine(ErrorHandlingBenchmark.ErrorStackAccessSource),
+        ["map-get-hit"] = static () => ReuseEngine(MapSetLookupBenchmark.MapGetHitSource, setupSource: MapSetLookupBenchmark.SetupSource),
+        ["memoize"] = static () => ReuseEngine(MapSetLookupBenchmark.MemoizePatternSource, setupSource: MapSetLookupBenchmark.SetupSource),
+        ["ctor-window-8"] = static () => FreshEngine(ColdConstructorBenchmark.FunctionCtorX8Source),
+        ["ctor-window-class-8"] = static () => FreshEngine(ColdConstructorBenchmark.ClassCtorX8Source),
+        ["ctor-distinct-200"] = static () => FreshEngine(ColdConstructorBenchmark.BuildDistinctCtorsSource()),
+        ["optional-chain-miss"] = static () => ReuseEngine(ModernOperatorsBenchmark.OptionalChainMissSource, setupSource: ModernOperatorsBenchmark.SetupSource),
+        ["nullish-coalesce"] = static () => ReuseEngine(ModernOperatorsBenchmark.NullishCoalesceSource, setupSource: ModernOperatorsBenchmark.SetupSource),
+        ["forin-hasown"] = static () => ReuseEngine(ForInGuardBenchmark.ForInHasOwnGuardSource, setupSource: ForInGuardBenchmark.SetupSource),
+        ["typeof-switch"] = static () => ReuseEngine(ForInGuardBenchmark.TypeofSwitchMixedSource, setupSource: ForInGuardBenchmark.SetupSource),
+        ["tagged-template"] = static () => ReuseEngine(TemplateLiteralBenchmark.TaggedTemplateSource),
+        ["template-many"] = static () => ReuseEngine(TemplateLiteralBenchmark.ManyInterpolationsSource),
+        ["parseint-loop"] = static () => ReuseEngine(NumberParseBenchmark.ParseIntLoopSource, setupSource: NumberParseBenchmark.SetupSource),
+        ["tofixed-loop"] = static () => ReuseEngine(NumberParseBenchmark.ToFixedLoopSource, setupSource: NumberParseBenchmark.SetupSource),
+        ["regexp-exec-loop"] = static () => ReuseEngine(RegExpExecLoopBenchmark.ExecWhileLoopSource, setupSource: RegExpExecLoopBenchmark.SetupSource),
+    };
+
+    /// <summary>One warm engine, row re-evaluated per iteration — the reuse-engine benchmark mode (non-strict, like the coverage classes).</summary>
+    private static Action ReuseEngine(string rowSource, Action<Engine>? seed = null, string? setupSource = null)
+    {
+        var engine = new Engine();
+        seed?.Invoke(engine);
+        if (setupSource is not null)
+        {
+            engine.Execute(setupSource);
+        }
+
+        var prepared = Engine.PrepareScript(rowSource);
+        return () => engine.Execute(prepared);
+    }
+
+    /// <summary>Fresh engine per iteration — the cold-start benchmark mode.</summary>
+    private static Action FreshEngine(string source)
+    {
+        var prepared = Engine.PrepareScript(source);
+        return () => new Engine().Execute(prepared);
+    }
+
     private const string DromaeoHelpers = """
         var startTest = function () { };
         var test = function (name, fn) { fn(); };
@@ -107,6 +171,10 @@ internal static class AllocTypeProbe
             var prepared = Engine.PrepareScript(src, strict: true);
             var engine = new Engine(static o => o.Strict());
             runOnce = () => engine.Execute(prepared);
+        }
+        else if (CampaignTargets.TryGetValue(target, out var factory))
+        {
+            runOnce = factory();
         }
         else
         {
