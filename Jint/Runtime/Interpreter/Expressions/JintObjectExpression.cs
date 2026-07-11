@@ -353,9 +353,17 @@ internal sealed class JintObjectExpression : JintExpression
                     return JsValue.Undefined;
                 }
 
+                // PropertyDefinitionEvaluation for `...AssignmentExpression` performs
+                // CopyDataProperties(object, fromValue, « ») — https://tc39.es/ecma262/#sec-copydataproperties
+                // step 1 returns early for undefined/null sources and step 2 ToObject's any other
+                // primitive, so e.g. spreading a string copies its index properties.
                 if (spreadValue is ObjectInstance source)
                 {
                     source.CopyDataProperties(obj, excludedItems: null);
+                }
+                else if (!spreadValue.IsNullOrUndefined())
+                {
+                    TypeConverter.ToObject(engine.Realm, spreadValue).CopyDataProperties(obj, excludedItems: null);
                 }
 
                 continue;
