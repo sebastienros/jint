@@ -1,7 +1,6 @@
 #pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of prototype methods return JsValue
 
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
@@ -10,9 +9,10 @@ namespace Jint.Native.Set;
 /// <summary>
 /// https://www.ecma-international.org/ecma-262/6.0/#sec-set-objects
 /// </summary>
-// Set.prototype.keys is the same function as `values` (spec identity); [JsAlias] expresses that through
-// the shape. Set.prototype[@@iterator] is aliased in Initialize (symbols are orthogonal to the shape).
+// Set.prototype.keys and Set.prototype[@@iterator] are the same function as `values` (spec identity);
+// [JsAlias] expresses the string alias through the shape, [JsSymbolAlias] the symbol-keyed alias.
 [JsAlias("keys", "values")]
+[JsSymbolAlias("Iterator", "values")]
 [JsObject(UseShape = true)]
 internal sealed partial class SetPrototype : Prototype
 {
@@ -35,10 +35,6 @@ internal sealed partial class SetPrototype : Prototype
     {
         CreateProperties_Generated();
         CreateSymbols_Generated();
-
-        // Set.prototype[@@iterator] is the same function as `values` (spec identity). Symbols are orthogonal
-        // to the string shape, so this stays hand-written; `keys` is handled by [JsAlias] on the class.
-        SetProperty(GlobalSymbolRegistry.Iterator, GetOwnProperty("values"));
     }
 
     [JsAccessor("size")]
