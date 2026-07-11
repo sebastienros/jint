@@ -47,6 +47,14 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
     private readonly Binding[]? _iterationSlotTemplates;
     private DeclarativeEnvironment? _cachedIterationEnv;
 
+    // Per-statement pooled for-in key iterator (Enumerate kind only). Each loop entry otherwise allocates
+    // a fresh ForInIterator plus, on the first prototype-chain descent, a List<CompletedLevel>. Reused only
+    // in a non-suspendable frame (the loop then runs to completion, freeing the instance by the finally) and
+    // taken via Interlocked.Exchange, so a nested/recursive enumeration of the SAME statement finds the cache
+    // emptied and allocates its own — pooling never shares live enumeration state. Engine-identity checked,
+    // mirroring _cachedIterationEnv (a cached instance must never pin/serve a foreign engine, #2560).
+    private IteratorInstance.ForInIterator? _cachedForInIterator;
+
     public JintForInForOfStatement(ForInStatement statement) : base(statement)
     {
         _leftNode = statement.Left;
@@ -322,7 +330,26 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
             }
 
             var obj = TypeConverter.ToObject(engine.Realm, exprValue);
-            result = new IteratorInstance.ForInIterator(engine, obj);
+
+            // Reuse a parked iterator when not in a suspendable (generator/async) frame — the loop then
+            // runs start-to-finish, so the instance is free again by BodyEvaluation's finally. Interlocked
+            // take empties the cache, so a nested/recursive enumeration of the same statement allocates its
+            // own instance and never shares live state.
+            IteratorInstance.ForInIterator? pooled = null;
+            if (engine.ExecutionContext.Suspendable is null)
+            {
+                pooled = System.Threading.Interlocked.Exchange(ref _cachedForInIterator, null);
+            }
+
+            if (pooled is not null && pooled.BelongsTo(engine))
+            {
+                pooled.ResetForReuse(obj);
+                result = pooled;
+            }
+            else
+            {
+                result = new IteratorInstance.ForInIterator(engine, obj);
+            }
         }
         else if (_iterationKind == IterationKind.AsyncIterate)
         {
@@ -601,6 +628,13 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                             {
                                 engine.PutValue(reference, nextValue);
                             }
+
+                            // The lhs reference is rented fresh from the pool each iteration by
+                            // lhs.Evaluate(context) (identifier/member targets); neither
+                            // InitializeReferencedBinding nor PutValue returns it, so a var/assignment
+                            // for-in/of target leaked one Reference per key-step. Return it now — the
+                            // reference is not read again this iteration.
+                            engine._referencePool.Return(reference);
                         }
                     }
                     else
@@ -838,6 +872,18 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 reusableEnv._outerEnv = null;
                 ResetSlots(reusableEnv._slots!, _iterationSlotTemplates!);
                 System.Threading.Interlocked.Exchange(ref _cachedIterationEnv, reusableEnv);
+            }
+
+            // Park the for-in key iterator for the next entry. Gated on a non-suspendable frame (the loop
+            // ran to completion, so the instance is no longer referenced by suspend data or the body) and
+            // on engine identity. Cleared first so the cache never roots the finished enumeration's object.
+            if (iterationKind == IterationKind.Enumerate
+                && suspendable is null
+                && iteratorRecord is IteratorInstance.ForInIterator forInIterator
+                && forInIterator.BelongsTo(engine))
+            {
+                forInIterator.ClearForPark();
+                System.Threading.Interlocked.Exchange(ref _cachedForInIterator, forInIterator);
             }
 
             engine.UpdateLexicalEnvironment(oldEnv);

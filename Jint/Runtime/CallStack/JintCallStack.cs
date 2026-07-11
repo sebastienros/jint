@@ -116,6 +116,37 @@ internal sealed class JintCallStack
 
     internal string BuildCallStackString(Engine engine, SourceLocation location, int excludeTop = 0)
     {
+        // The live stack is walked directly; only the elements below the excluded top frames are read.
+        return BuildCallStackString(engine, location, _stack._array, _stack._size - excludeTop);
+    }
+
+    /// <summary>
+    /// Copies the current call-stack frames (excluding the top <paramref name="excludeTop"/> ones) into a
+    /// standalone array so the stack trace can be rendered later, after the live stack has unwound. Used by
+    /// <see cref="ErrorStackCapture"/> to defer the (often unread) stack-trace string of a constructed error.
+    /// </summary>
+    internal CallStackElement[] SnapshotFrames(int excludeTop)
+    {
+        var count = _stack._size - excludeTop;
+        if (count <= 0)
+        {
+            return [];
+        }
+
+        var frames = new CallStackElement[count];
+        Array.Copy(_stack._array, 0, frames, 0, count);
+        return frames;
+    }
+
+    /// <summary>
+    /// Renders the implementation-defined stack-trace string from a set of frames. Shared by the live path
+    /// (<see cref="BuildCallStackString(Engine, SourceLocation, int)"/>) and the deferred capture path
+    /// (<see cref="ErrorStackCapture"/>) so both produce byte-identical output. <paramref name="frames"/> is
+    /// walked from index <paramref name="frameCount"/>-1 down; only that prefix is read (the live array may
+    /// hold additional, excluded top frames beyond <paramref name="frameCount"/>).
+    /// </summary>
+    internal static string BuildCallStackString(Engine engine, SourceLocation location, CallStackElement[] frames, int frameCount)
+    {
         static void AppendLocation(
             ref ValueStringBuilder sb,
             string shortDescription,
@@ -156,8 +187,8 @@ internal sealed class JintCallStack
         var builder = new ValueStringBuilder();
 
         // stack is one frame behind function-wise when we start to process it from expression level
-        var index = _stack._size - 1 - excludeTop;
-        var element = index >= 0 ? _stack[index] : (CallStackElement?) null;
+        var index = frameCount - 1;
+        var element = index >= 0 ? frames[index] : (CallStackElement?) null;
         var shortDescription = element?.ToString() ?? "";
 
         AppendLocation(ref builder, shortDescription, location, element, customCallStackBuilder);
@@ -167,7 +198,7 @@ internal sealed class JintCallStack
 
         while (index >= -1)
         {
-            element = index >= 0 ? _stack[index] : null;
+            element = index >= 0 ? frames[index] : null;
             shortDescription = element?.ToString() ?? "";
 
             AppendLocation(ref builder, shortDescription, location, element, customCallStackBuilder);
@@ -234,4 +265,33 @@ internal sealed class JintCallStack
         return "?";
     }
 
+}
+
+/// <summary>
+/// A deferred snapshot of the call stack captured when an error is constructed. The stack-trace string is
+/// implementation-defined and, in the common throw/catch case, never read, so building it eagerly per error
+/// is wasted work. Instead the frames (which unwind after construction) are copied here and rendered on the
+/// first <c>error.stack</c> read, producing a string byte-identical to the eager one.
+/// </summary>
+/// <remarks>
+/// The snapshot holds the frames' <see cref="Native.Function.Function"/> / expression references from the
+/// construction site, so those (and the environments they transitively reference) stay alive until the error
+/// is collected or the stack is first rendered (whichever comes first). This matches how the frames were
+/// already reachable while the error was on the stack; for the dominant thrown-and-discarded case the error
+/// and its capture die together.
+/// </remarks>
+internal sealed class ErrorStackCapture
+{
+    private readonly Engine _engine;
+    private readonly SourceLocation _location;
+    private readonly CallStackElement[] _frames;
+
+    internal ErrorStackCapture(Engine engine, in SourceLocation location, CallStackElement[] frames)
+    {
+        _engine = engine;
+        _location = location;
+        _frames = frames;
+    }
+
+    internal string Render() => JintCallStack.BuildCallStackString(_engine, _location, _frames, _frames.Length);
 }

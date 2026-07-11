@@ -429,6 +429,43 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         return GetOwnPropertyKeysSorted(propertyKeys, returningStringKeys, returningSymbols);
     }
 
+    /// <summary>
+    /// Own string-keyed property names for for-in enumeration. Shape- and builtin-shape-mode objects hand
+    /// back a shared, memoized <see cref="JsValue"/>[] of <see cref="JsString"/> instances — no
+    /// per-enumeration List / JsString / scratch Key[] allocation; every other object (dictionaries, and
+    /// exotics like proxies whose ownKeys trap must still fire) builds the usual fresh list through the
+    /// virtual <see cref="GetOwnPropertyKeys"/>. The returned list MUST be treated as read-only: the shared
+    /// arrays back every object of that layout. for-in re-probes each candidate against the live object, so
+    /// a snapshot that is a shared immutable array is safe (deletes/adds are handled at step time).
+    /// </summary>
+    internal IReadOnlyList<JsValue> GetForInStringKeys()
+    {
+        EnsureInitialized();
+
+        if ((_type & InternalTypes.ShapeMode) != InternalTypes.Empty)
+        {
+            var shape = Unsafe.As<JsObject>(this).ShapeOf;
+            if (shape.TryGetOrderedKeyStrings(out var keyStrings))
+            {
+                return keyStrings;
+            }
+
+            // integer-index-like keys need numeric-sorted order → fall through to the dictionary path
+            // (GetOwnPropertyKeys deopts and sorts).
+        }
+        else if ((_type & InternalTypes.BuiltinShapeMode) != InternalTypes.Empty
+                 && _properties is null
+                 && ReferenceEquals(GetInitialOwnStringPropertyKeys(), System.Linq.Enumerable.Empty<JsValue>()))
+        {
+            // No function-derived length/name/prototype prefix and no hybrid dictionary additions, so the
+            // built-in's shared, ordered name list is exactly its own string keys — e.g. Object.prototype
+            // (the common deeper for-in level).
+            return Unsafe.As<IBuiltinShaped>(this).BuiltinShape.NamesAsJsStrings;
+        }
+
+        return GetOwnPropertyKeys(Types.String);
+    }
+
     private List<JsValue> GetOwnPropertyKeysFromShape(Shape shape, Types types)
     {
         var slotCount = shape.SlotCount;
@@ -444,25 +481,19 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
 
             if (slotCount > 0)
             {
-                var keys = new Key[slotCount];
-                shape.CollectKeys(keys);
-
                 // Spec ordering puts integer-index keys first (ascending) then string keys in insertion
-                // order. Shape slots are insertion order; if any key looks like an array index, deopt and
-                // reuse the dictionary path that already implements the numeric sort (rare for literals).
-                for (var i = 0; i < slotCount; i++)
+                // order. Shape slots are insertion order; if any key looks like an array index the memo
+                // declines, so we deopt and reuse the dictionary path's numeric sort (rare for literals).
+                // Otherwise reuse the shape's shared JsString instances — no per-enumeration JsString and
+                // no scratch Key[] allocation.
+                if (shape.TryGetOrderedKeyStrings(out var keyStrings))
                 {
-                    var name = keys[i].Name;
-                    if (name.Length > 0 && char.IsDigit(name[0]))
-                    {
-                        ConvertToDictionaryMode();
-                        return GetOwnPropertyKeys(types);
-                    }
+                    propertyKeys.AddRange(keyStrings);
                 }
-
-                for (var i = 0; i < slotCount; i++)
+                else
                 {
-                    propertyKeys.Add(new JsString(keys[i].Name));
+                    ConvertToDictionaryMode();
+                    return GetOwnPropertyKeys(types);
                 }
             }
         }
@@ -513,7 +544,9 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         return keys;
     }
 
-    internal virtual IEnumerable<JsValue> GetInitialOwnStringPropertyKeys() => [];
+    // Returns the shared Enumerable.Empty<JsValue>() sentinel (not a fresh []): callers detect "no
+    // function-derived length/name/prototype prefix" via ReferenceEquals against that same singleton.
+    internal virtual IEnumerable<JsValue> GetInitialOwnStringPropertyKeys() => System.Linq.Enumerable.Empty<JsValue>();
 
     protected virtual bool TryGetProperty(JsValue property, [NotNullWhen(true)] out PropertyDescriptor? descriptor)
     {
@@ -870,10 +903,8 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             {
                 keys.AddRange(initialOwnStringPropertyKeys);
             }
-            foreach (var name in names)
-            {
-                keys.Add(JsString.Create(name.Name));
-            }
+            // Reuse the built-in's shared JsString name instances instead of recreating them each call.
+            keys.AddRange(shaped.BuiltinShape.NamesAsJsStrings);
 
             // hybrid additions came after initialization; integer-like keys force a full deopt
             // before ever landing here, so shape-names-then-additions is the spec own-key order
@@ -1948,16 +1979,28 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                 var jo = Unsafe.As<JsObject>(this);
                 if (jo.ShapeOf.TryGetSlot(key, out var slot))
                 {
-                    // Existing CEW data property: CreateDataProperty just updates the value.
+                    // Existing CEW data property: CreateDataProperty just updates the value (spec: a CEW
+                    // DefineOwnProperty overwrite — last value wins, first-occurrence position kept). This
+                    // probe is what keeps TryShapeAdd's known-absent contract honest for re-added keys:
+                    // duplicate class field initializers (`class A { x=1; x=2 }`) and spread re-copies
+                    // (`{a:1, ...{a:2}}`) both land here instead of transitioning a duplicate slot.
                     jo.SetSlot(slot, v);
                     return true;
                 }
 
-                // Brand-new property: a hot constructor's `this` (ShapeBuilding) grows its shape via an
-                // interned transition shared across instances. Plain shaped objects (literals) lack the flag
-                // and fall through to deopt, since a one-off literal gaining a key is not a reused layout.
-                // The megamorphic guard inside TryShapeAdd also deopts object-as-hashmap usage.
-                if ((_type & InternalTypes.ShapeBuilding) != InternalTypes.Empty && jo.TryShapeAdd(key, v))
+                // Brand-new property: a hot constructor's `this` or a copy-idiom target — spread/rest/
+                // fromEntries/assign (ShapeBuilding) — grows its shape via an interned transition shared
+                // across instances. Plain shaped objects (literals) lack the flag and fall through to
+                // deopt, since a one-off literal gaining a key is not a reused layout. The megamorphic
+                // guard inside TryShapeAdd also deopts object-as-hashmap usage. Integer-like keys
+                // (digit-leading, e.g. `{...arr}` / string wrappers / this["0"]=) never enter a shape:
+                // spec enumeration orders them first, which the shape's insertion-ordered keys cannot
+                // express (GetOwnPropertyKeysFromShape deopts), so admitting them would guarantee a
+                // build-then-deopt and intern junk "0"→"1"→… chains under the shared per-prototype root;
+                // they take the dictionary fallback below instead.
+                if ((_type & InternalTypes.ShapeBuilding) != InternalTypes.Empty
+                    && (key.Name.Length == 0 || !char.IsDigit(key.Name[0]))
+                    && jo.TryShapeAdd(key, v))
                 {
                     return true;
                 }

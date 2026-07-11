@@ -273,14 +273,14 @@ internal abstract class IteratorInstance : ObjectInstance
     internal sealed class ForInIterator : IteratorInstance
     {
         private ObjectInstance? _current;
-        private List<JsValue> _keys;
+        private IReadOnlyList<JsValue> _keys;
         private int _index;
         private bool _deeperLevel;
         private List<CompletedLevel>? _completedLevels;
         private HashSet<JsValue>? _visited;
 
         [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
-        private readonly record struct CompletedLevel(ObjectInstance Owner, List<JsValue> Keys);
+        private readonly record struct CompletedLevel(ObjectInstance Owner, IReadOnlyList<JsValue> Keys);
 
         public ForInIterator(Engine engine, ObjectInstance target) : base(engine)
         {
@@ -288,8 +288,10 @@ internal abstract class IteratorInstance : ObjectInstance
             // matches the previous lazy enumerator's first step closely enough: no user code
             // can observe between head evaluation and the first step, so the ownKeys order
             // for proxies is preserved; GetPrototypeOf is deliberately NOT consulted here
-            // (a proxy trap must not fire before the first level is exhausted)
-            _keys = target.GetOwnPropertyKeys(Types.String);
+            // (a proxy trap must not fire before the first level is exhausted). Shape/builtin-shape
+            // objects hand back a shared, memoized key array (no per-entry List/JsString allocation);
+            // exotic objects (proxies) still route through the ownKeys-trapping GetOwnPropertyKeys.
+            _keys = target.GetForInStringKeys();
         }
 
         internal override bool TryStepValue([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out JsValue? value)
@@ -352,7 +354,7 @@ internal abstract class IteratorInstance : ObjectInstance
 
                 _deeperLevel = true;
                 _current = proto;
-                _keys = proto.GetOwnPropertyKeys(Types.String);
+                _keys = proto.GetForInStringKeys();
                 _index = 0;
             }
 
@@ -366,7 +368,7 @@ internal abstract class IteratorInstance : ObjectInstance
         /// current level, re-probing each key on its owning object. Prototype members are
         /// overwhelmingly non-enumerable, so most enumerations never get here.
         /// </summary>
-        private HashSet<JsValue> BuildVisited(ObjectInstance current, List<JsValue> currentKeys, int processedCount)
+        private HashSet<JsValue> BuildVisited(ObjectInstance current, IReadOnlyList<JsValue> currentKeys, int processedCount)
         {
             var set = new HashSet<JsValue>();
             if (_completedLevels is not null)
@@ -407,6 +409,44 @@ internal abstract class IteratorInstance : ObjectInstance
 
             nextItem = IteratorResult.CreateValueIteratorPosition(_engine, done: JsBoolean.True);
             return false;
+        }
+
+        /// <summary>
+        /// True when this iterator was created by <paramref name="engine"/>. A for-in handler is shared
+        /// across engines when a <c>Prepared&lt;Script&gt;</c> is reused, so a parked iterator must only be
+        /// reused by the engine that owns it.
+        /// </summary>
+        internal bool BelongsTo(Engine engine) => ReferenceEquals(_engine, engine);
+
+        /// <summary>
+        /// Re-arms a parked iterator to enumerate <paramref name="target"/>, reusing (clearing, not
+        /// reallocating) the retained level snapshots and shadow set so a pooled instance allocates nothing
+        /// per loop entry. Never called on an iterator that is mid-enumeration (the pool hands out at most
+        /// one live reference per statement — see JintForInForOfStatement).
+        /// </summary>
+        internal void ResetForReuse(ObjectInstance target)
+        {
+            _current = target;
+            _keys = target.GetForInStringKeys();
+            _index = 0;
+            _deeperLevel = false;
+            _completedLevels?.Clear();
+            _visited?.Clear();
+        }
+
+        /// <summary>
+        /// Drops references to the just-finished enumeration's object, keys, level snapshots and shadow set
+        /// before the iterator is parked, so a cached instance never roots them. The backing List/HashSet
+        /// storage is retained (cleared) for the next reuse.
+        /// </summary>
+        internal void ClearForPark()
+        {
+            _current = null;
+            _keys = System.Array.Empty<JsValue>();
+            _index = 0;
+            _deeperLevel = false;
+            _completedLevels?.Clear();
+            _visited?.Clear();
         }
     }
 
