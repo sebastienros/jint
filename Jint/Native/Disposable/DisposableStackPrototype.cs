@@ -1,10 +1,12 @@
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Disposable;
 
+// Spec requires DisposableStack.prototype[@@dispose] to be the same function object as
+// DisposableStack.prototype.dispose; [JsSymbolAlias] shares the materialized `dispose` function.
+[JsSymbolAlias("Dispose", "dispose")]
 [JsObject(UseShape = true)]
 internal sealed partial class DisposableStackPrototype : Prototype
 {
@@ -27,11 +29,6 @@ internal sealed partial class DisposableStackPrototype : Prototype
     {
         CreateProperties_Generated();
         CreateSymbols_Generated();
-
-        // Spec requires DisposableStack.prototype[@@dispose] to be the same function object as
-        // DisposableStack.prototype.dispose. Alias the descriptor here so the @@dispose slot shares
-        // the same materialized function as `dispose` rather than emitting a separate dispatcher.
-        SetProperty(GlobalSymbolRegistry.Dispose, GetOwnProperty("dispose"));
     }
 
     [JsFunction]
