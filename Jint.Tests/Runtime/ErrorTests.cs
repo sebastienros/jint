@@ -186,6 +186,33 @@ var b = function(v) {
     }
 
     [Fact]
+    public void EscapedErrorRendersDeferredStackAndIsStableAcrossReads()
+    {
+        // The stack string is captured lazily at construction and rendered on first read. Here the error
+        // object escapes ALL of its construction frames (returned to the top level) before .stack is ever
+        // read, so the deferred render must reproduce the construction-time frames, not the (now empty)
+        // live stack. Reading twice must return the identical, cached string.
+        var engine = new Engine();
+        engine.Execute(@"
+var makeError = function(v) {
+  return Error('boom');
+}
+var wrap = function(v) {
+  return makeError(v);
+}", "custom.js");
+
+        engine.Execute("var e = wrap(7);", "main.js");
+
+        var first = engine.Evaluate("e.stack").AsString();
+        var second = engine.Evaluate("e.stack").AsString();
+
+        Assert.Equal(first, second);
+        EqualIgnoringNewLineDifferences(@"    at makeError (custom.js:3:10)
+    at wrap (custom.js:6:10)
+    at main.js:1:9", first);
+    }
+
+    [Fact]
     public void ErrorObjectHasStackAccessorOnPrototype()
     {
         var engine = new Engine();

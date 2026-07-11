@@ -106,6 +106,15 @@ public class JavaScriptException : JintException
             else
             {
                 _callStack = engine.CallStack.BuildCallStackString(engine, location);
+
+                // An error's message is served from a virtual field until first materialized. Installing the
+                // stack via a raw store would otherwise land before the message in own-key order; materialize
+                // the message first so it keeps its construction-time position (message then stack).
+                if (errObj is JsError jsError)
+                {
+                    jsError.EnsureMessageMaterialized();
+                }
+
                 errObj.FastSetProperty(CommonProperties.Stack._value, new PropertyDescriptor(_callStack, false, false, false));
             }
         }
