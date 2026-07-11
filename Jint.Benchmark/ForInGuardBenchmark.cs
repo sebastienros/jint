@@ -29,6 +29,7 @@ public class ForInGuardBenchmark
         var mixedVals = [];
         var instObjs = [];
         var inObjs = [];
+        var order = [];
         var str20k;
         class Base { constructor() { this.tag = 1; } }
         class Deriv extends Base { constructor() { super(); this.sub = 2; } }
@@ -45,6 +46,10 @@ public class ForInGuardBenchmark
                 else { mixedVals.push({ v: i }); }
                 instObjs.push(((seed >>> 6) & 1) === 0 ? new Deriv() : { tag: 0 });
                 inObjs.push(((seed >>> 7) & 1) === 0 ? { x: 1, y: 2 } : { y: 2 });
+            }
+            for (var i = 0; i < 8192; i++) {
+                seed = (seed * 1664525 + 1013904223) | 0;
+                order.push((seed >>> 7) & 1023);
             }
             var chunk = 'abcdefghijklmnopqrst';
             var parts = [];
@@ -68,11 +73,9 @@ public class ForInGuardBenchmark
 
     internal const string TypeofSwitchMixedSource = """
         function f() {
-            var seed = 20260711;
             var s = 0;
             for (var i = 0; i < 100000; i++) {
-                seed = (seed * 1664525 + 1013904223) | 0;
-                var v = mixedVals[(seed >>> 4) & 1023];
+                var v = mixedVals[order[i & 8191]];
                 var t = typeof v;
                 if (t === 'number') { s += 1; }
                 else if (t === 'string') { s += 2; }
@@ -143,11 +146,9 @@ public class ForInGuardBenchmark
 
         _instanceofMixed = Engine.PrepareScript("""
             function f() {
-                var seed = 20260711;
                 var s = 0;
                 for (var i = 0; i < 100000; i++) {
-                    seed = (seed * 1664525 + 1013904223) | 0;
-                    if (instObjs[(seed >>> 4) & 1023] instanceof Base) { s++; }
+                    if (instObjs[order[i & 8191]] instanceof Base) { s++; }
                 }
                 return s;
             }
@@ -156,11 +157,9 @@ public class ForInGuardBenchmark
 
         _inOperatorMixed = Engine.PrepareScript("""
             function f() {
-                var seed = 20260711;
                 var s = 0;
                 for (var i = 0; i < 100000; i++) {
-                    seed = (seed * 1664525 + 1013904223) | 0;
-                    if ('x' in inObjs[(seed >>> 4) & 1023]) { s++; }
+                    if ('x' in inObjs[order[i & 8191]]) { s++; }
                 }
                 return s;
             }

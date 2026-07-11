@@ -20,9 +20,16 @@ public class ModernOperatorsBenchmark
     private Prepared<Script> _nullishAssign;
     private Prepared<Script> _logicalOrAssign;
 
+    // Mixing is precomputed at setup into `order` (8,192 small-int indices) because a per-iteration
+    // JS LCG boxes JsNumber transients (~120 B/iter) that would dominate what these rows measure.
+    // All values stay inside the small-int cache and sub-selection reads stored array elements,
+    // so the rows themselves are allocation-free apart from the construct under test.
     internal const string SetupSource = """
         var objs = [];
         var vals = [];
+        var nullishInputs = [];
+        var zeroOnes = [];
+        var order = [];
         var present = { a: { b: { c: 1 } } };
         (function () {
             var seed = 20260711;
@@ -36,17 +43,22 @@ public class ModernOperatorsBenchmark
                 if (vpick < 2) { vals.push(i & 255); }
                 else if (vpick === 2) { vals.push(null); }
                 else { vals.push(undefined); }
+                var npick = (seed >>> 12) & 3;
+                nullishInputs.push(npick === 0 ? null : (npick === 1 ? undefined : (seed & 255)));
+                zeroOnes.push((seed >>> 16) & 1);
+            }
+            for (var i = 0; i < 8192; i++) {
+                seed = (seed * 1664525 + 1013904223) | 0;
+                order.push((seed >>> 7) & 1023);
             }
         })();
         """;
 
     internal const string OptionalChainMissSource = """
         function f() {
-            var seed = 20260711;
             var s = 0;
             for (var i = 0; i < 100000; i++) {
-                seed = (seed * 1664525 + 1013904223) | 0;
-                var o = objs[(seed >>> 4) & 1023];
+                var o = objs[order[i & 8191]];
                 s += (o?.a?.b?.c || 0);
             }
             return s;
@@ -56,11 +68,9 @@ public class ModernOperatorsBenchmark
 
     internal const string NullishCoalesceSource = """
         function f() {
-            var seed = 20260711;
             var s = 0;
             for (var i = 0; i < 100000; i++) {
-                seed = (seed * 1664525 + 1013904223) | 0;
-                s += (vals[(seed >>> 6) & 1023] ?? 0);
+                s += (vals[order[i & 8191]] ?? 0);
             }
             return s;
         }
@@ -89,12 +99,9 @@ public class ModernOperatorsBenchmark
         // ??= on a local that is null/undefined/number in unpredictable rotation (~50% nullish)
         _nullishAssign = Engine.PrepareScript("""
             function f() {
-                var seed = 20260711;
                 var s = 0;
                 for (var i = 0; i < 100000; i++) {
-                    seed = (seed * 1664525 + 1013904223) | 0;
-                    var pick = seed & 3;
-                    var x = pick === 0 ? null : (pick === 1 ? undefined : (seed & 255));
+                    var x = nullishInputs[order[i & 8191]];
                     x ??= 7;
                     s += x;
                 }
@@ -106,11 +113,9 @@ public class ModernOperatorsBenchmark
         // ||= over a 50/50 truthy/falsy local
         _logicalOrAssign = Engine.PrepareScript("""
             function f() {
-                var seed = 20260711;
                 var s = 0;
                 for (var i = 0; i < 100000; i++) {
-                    seed = (seed * 1664525 + 1013904223) | 0;
-                    var x = (seed >>> 4) & 1;
+                    var x = zeroOnes[order[i & 8191]];
                     x ||= 7;
                     s += x;
                 }

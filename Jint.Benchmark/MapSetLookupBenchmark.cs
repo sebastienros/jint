@@ -21,6 +21,8 @@ public class MapSetLookupBenchmark
     private Prepared<Script> _mapSetDeleteChurn;
     private Prepared<Script> _memoizePattern;
 
+    // Mixing is precomputed at setup into `order` (see ModernOperatorsBenchmark note): a
+    // per-iteration JS LCG boxes JsNumber transients that would dominate these lookup rows.
     internal const string SetupSource = """
         var m = new Map();
         var intSet = new Set();
@@ -28,6 +30,8 @@ public class MapSetLookupBenchmark
         var hitKeys = [];
         var mixedKeys = [];
         var memoKeys = [];
+        var probeInts = [];
+        var order = [];
         (function () {
             var seed = 20260711;
             for (var i = 0; i < 10000; i++) {
@@ -42,17 +46,20 @@ public class MapSetLookupBenchmark
             for (var i = 0; i < 2048; i++) {
                 seed = (seed * 1664525 + 1013904223) | 0;
                 memoKeys.push('memo' + ((seed >>> 4) % 2048));
+                probeInts.push((seed >>> 5) % 20000);
+            }
+            for (var i = 0; i < 8192; i++) {
+                seed = (seed * 1664525 + 1013904223) | 0;
+                order.push((seed >>> 7) & 2047);
             }
         })();
         """;
 
     internal const string MapGetHitSource = """
         function f() {
-            var seed = 20260711;
             var s = 0;
             for (var i = 0; i < 100000; i++) {
-                seed = (seed * 1664525 + 1013904223) | 0;
-                s += m.get(hitKeys[(seed >>> 4) & 1023]);
+                s += m.get(hitKeys[order[i & 8191] & 1023]);
             }
             return s;
         }
@@ -61,11 +68,9 @@ public class MapSetLookupBenchmark
 
     internal const string MemoizePatternSource = """
         function f() {
-            var seed = 20260711;
             var s = 0;
             for (var i = 0; i < 100000; i++) {
-                seed = (seed * 1664525 + 1013904223) | 0;
-                var k = memoKeys[(seed >>> 4) & 2047];
+                var k = memoKeys[order[i & 8191]];
                 var v = cache.get(k);
                 if (v === undefined) { v = k.length * 2; cache.set(k, v); }
                 s += v;
@@ -86,11 +91,9 @@ public class MapSetLookupBenchmark
         // ~50% of probe keys are absent
         _mapGetMixed = Engine.PrepareScript("""
             function f() {
-                var seed = 20260711;
                 var s = 0;
                 for (var i = 0; i < 100000; i++) {
-                    seed = (seed * 1664525 + 1013904223) | 0;
-                    var v = m.get(mixedKeys[(seed >>> 4) & 1023]);
+                    var v = m.get(mixedKeys[order[i & 8191] & 1023]);
                     s += (v === undefined) ? 0 : v;
                 }
                 return s;
@@ -100,11 +103,9 @@ public class MapSetLookupBenchmark
 
         _mapHasMixed = Engine.PrepareScript("""
             function f() {
-                var seed = 20260711;
                 var s = 0;
                 for (var i = 0; i < 100000; i++) {
-                    seed = (seed * 1664525 + 1013904223) | 0;
-                    if (m.has(mixedKeys[(seed >>> 4) & 1023])) { s++; }
+                    if (m.has(mixedKeys[order[i & 8191] & 1023])) { s++; }
                 }
                 return s;
             }
@@ -114,11 +115,9 @@ public class MapSetLookupBenchmark
         // int keys: no key allocation at all
         _setHasMixed = Engine.PrepareScript("""
             function f() {
-                var seed = 20260711;
                 var s = 0;
                 for (var i = 0; i < 100000; i++) {
-                    seed = (seed * 1664525 + 1013904223) | 0;
-                    if (intSet.has((seed >>> 4) % 20000)) { s++; }
+                    if (intSet.has(probeInts[order[i & 8191]])) { s++; }
                 }
                 return s;
             }

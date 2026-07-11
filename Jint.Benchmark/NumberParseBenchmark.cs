@@ -19,10 +19,14 @@ public class NumberParseBenchmark
     private Prepared<Script> _toFixedLoop;
     private Prepared<Script> _toStringRadix;
 
+    // Mixing is precomputed at setup into `order` (see ModernOperatorsBenchmark note): a
+    // per-iteration JS LCG boxes JsNumber transients that would dominate these rows.
     internal const string SetupSource = """
         var intStrs = [];
         var fltStrs = [];
         var nums = [];
+        var radixNums = [];
+        var order = [];
         (function () {
             var seed = 20260711;
             for (var i = 0; i < 1024; i++) {
@@ -30,17 +34,20 @@ public class NumberParseBenchmark
                 intStrs.push('' + ((seed >>> 4) & 1048575));
                 fltStrs.push(((seed >>> 4) & 65535) + '.' + ((seed >>> 8) & 99));
                 nums.push(((seed >>> 4) & 65535) + ((seed >>> 8) & 99) / 100);
+                radixNums.push((seed >>> 8) & 1048575);
+            }
+            for (var i = 0; i < 8192; i++) {
+                seed = (seed * 1664525 + 1013904223) | 0;
+                order.push((seed >>> 7) & 1023);
             }
         })();
         """;
 
     internal const string ParseIntLoopSource = """
         function f() {
-            var seed = 20260711;
             var s = 0;
             for (var i = 0; i < 100000; i++) {
-                seed = (seed * 1664525 + 1013904223) | 0;
-                s += parseInt(intStrs[(seed >>> 4) & 1023], 10);
+                s += parseInt(intStrs[order[i & 8191]], 10);
             }
             return s;
         }
@@ -49,11 +56,9 @@ public class NumberParseBenchmark
 
     internal const string ToFixedLoopSource = """
         function f() {
-            var seed = 20260711;
             var s = 0;
             for (var i = 0; i < 100000; i++) {
-                seed = (seed * 1664525 + 1013904223) | 0;
-                s += nums[(seed >>> 4) & 1023].toFixed(2).length;
+                s += nums[order[i & 8191]].toFixed(2).length;
             }
             return s;
         }
@@ -70,11 +75,9 @@ public class NumberParseBenchmark
 
         _parseFloatLoop = Engine.PrepareScript("""
             function f() {
-                var seed = 20260711;
                 var s = 0;
                 for (var i = 0; i < 100000; i++) {
-                    seed = (seed * 1664525 + 1013904223) | 0;
-                    s += parseFloat(fltStrs[(seed >>> 4) & 1023]);
+                    s += parseFloat(fltStrs[order[i & 8191]]);
                 }
                 return s;
             }
@@ -83,11 +86,9 @@ public class NumberParseBenchmark
 
         _numberCoerce = Engine.PrepareScript("""
             function f() {
-                var seed = 20260711;
                 var s = 0;
                 for (var i = 0; i < 100000; i++) {
-                    seed = (seed * 1664525 + 1013904223) | 0;
-                    s += Number(intStrs[(seed >>> 4) & 1023]);
+                    s += Number(intStrs[order[i & 8191]]);
                 }
                 return s;
             }
@@ -98,11 +99,9 @@ public class NumberParseBenchmark
 
         _toStringRadix = Engine.PrepareScript("""
             function f() {
-                var seed = 20260711;
                 var s = 0;
                 for (var i = 0; i < 100000; i++) {
-                    seed = (seed * 1664525 + 1013904223) | 0;
-                    s += (seed >>> 8).toString(16).length;
+                    s += radixNums[order[i & 8191]].toString(16).length;
                 }
                 return s;
             }
