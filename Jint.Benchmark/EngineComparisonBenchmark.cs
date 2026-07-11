@@ -28,6 +28,8 @@ public class EngineComparisonBenchmark
         { "array-stress", null },
         { "evaluation", null },
         { "evaluation-modern", null },
+        { "json-parse", null },
+        { "json-parse-modern", null },
         { "linq-js", null },
         { "minimal", null },
         { "stopwatch", null },
