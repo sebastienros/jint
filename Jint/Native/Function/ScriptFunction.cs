@@ -37,12 +37,13 @@ public sealed class ScriptFunction : Function, IConstructor
 
     // Static eligibility verdict for this function instance: 0 = not yet analyzed, 1 = eligible
     // (body statically clean AND every class field name shape-compatible), 2 = ineligible. Provably
-    // clean constructors skip the sampling window and shape from instance #2 — a short-lived engine
-    // constructing 2-15 instances of each type otherwise never promotes — while instance #1 stays on
-    // the dictionary path so a one-shot constructor interns no shape state at all. Combines the
-    // AST-pure State.CtorBodyShapeEligibility with the per-function class-fields check; the combined
-    // verdict cannot live on the shared State because the shared empty-constructor AST serves classes
-    // with different fields.
+    // clean constructors skip the sampling window and shape from instance #3 — a short-lived engine
+    // constructing 3-15 instances of each type otherwise never promotes — while instances #1 and #2
+    // stay on the dictionary path: the shared per-prototype transition tree only pays off from about
+    // three instances of a layout, so constructors of unrepeated layouts intern no shape state at
+    // all. Combines the AST-pure State.CtorBodyShapeEligibility with the per-function class-fields
+    // check; the combined verdict cannot live on the shared State because the shared
+    // empty-constructor AST serves classes with different fields.
     private byte _ctorStaticEligibility;
     private int _ctorSampleCount;
     private Shape? _ctorEmptyShape;
@@ -315,7 +316,7 @@ public sealed class ScriptFunction : Function, IConstructor
             // Once the constructor is hot, start each fresh `this` in shape-building mode so this.x= /
             // class fields transition a shared interned hidden class instead of building a dictionary.
             // Cold constructors (below the promote threshold) stay on the dictionary path — unless the
-            // body is statically provably clean, in which case shaping starts already at instance #2.
+            // body is statically provably clean, in which case shaping starts already at instance #3.
             if (thisArgument is JsObject thisObject && thisObject.Prototype is { } proto)
             {
                 if (_ctorShaped || CheckCtorShapeEligibility(state))
@@ -397,16 +398,17 @@ public sealed class ScriptFunction : Function, IConstructor
 
     /// <summary>
     /// Cold-path shaping decision for a not-yet-promoted constructor: statically clean bodies (see
-    /// <see cref="JintFunctionDefinition.ComputeCtorBodyShapeEligibility"/>) promote on their FIRST
-    /// construction but shape from instance #2 — the first instance stays on the dictionary path, so a
-    /// one-shot constructor (the overwhelming norm) never interns a transition tree, empty-shape root or
-    /// prototype CWT entry for a layout that is never reused. Measured on a 200-distinct-one-shot-ctor
-    /// guard, shaping at instance #1 regressed time/alloc ~20%, while the #2 start keeps 7/8 of the
-    /// shaping win on hot allocation sites; the documented alternative (shape from instance #1) is
-    /// `return true` from the eligible branch. Everything else keeps the sampling threshold with its
-    /// pre-existing pacing (the threshold-tripping instance itself stays on the dictionary path; the
-    /// next construct starts shaped). Returns whether the CURRENT instance should start in
-    /// shape-building mode.
+    /// <see cref="JintFunctionDefinition.ComputeCtorBodyShapeEligibility"/>) promote after their SECOND
+    /// construction and shape from instance #3 — instances #1 and #2 stay on the dictionary path, so
+    /// constructors of layouts that never recur (the overwhelming norm) intern no transition tree,
+    /// empty-shape root or prototype CWT entry. Measured: shaping at instance #1 regressed a
+    /// 200-distinct-one-shot-ctor guard ~20% time/alloc; shaping at instance #2 still lost ~3% time /
+    /// ~440 B per eval on re-evaluated class declarations constructing exactly two instances — the
+    /// interned tree pays off at ≥3 instances of a layout. (Documented alternatives: shape from #1 =
+    /// `return true` from the eligible branch; from #2 = set _ctorShaped unconditionally there.)
+    /// Ineligible bodies keep the sampling threshold with its pre-existing pacing (the
+    /// threshold-tripping instance itself stays on the dictionary path; the next construct starts
+    /// shaped). Returns whether the CURRENT instance should start in shape-building mode.
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
     private bool CheckCtorShapeEligibility(JintFunctionDefinition.State state)
@@ -419,8 +421,11 @@ public sealed class ScriptFunction : Function, IConstructor
 
         if (eligibility == 1)
         {
-            // shape from the NEXT construction on
-            _ctorShaped = true;
+            // dictionaries for the first two instances; shape from the THIRD construction on
+            if (++_ctorSampleCount >= 2)
+            {
+                _ctorShaped = true;
+            }
             return false;
         }
 

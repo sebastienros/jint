@@ -770,9 +770,9 @@ internal sealed class JintFunctionDefinition
 
     /// <summary>
     /// Statically classifies a constructor body as safe to start hidden-class shape building from the
-    /// second instance on (see ScriptFunction's [[Construct]]; instance #1 stays dictionary-mode so
-    /// one-shot constructors intern no shape state) instead of after the sampling threshold.
-    /// Eligible bodies consist, at the top level, only of:
+    /// third instance on (see ScriptFunction's [[Construct]]; instances #1 and #2 stay dictionary-mode
+    /// so constructors of unrepeated layouts intern no shape state) instead of after the sampling
+    /// threshold. Eligible bodies consist, at the top level, only of:
     /// <list type="bullet">
     /// <item><c>this.identifier = value</c> assignments (plain <c>=</c>; non-computed, so index-like keys
     /// are excluded by grammar) whose RHS contains no call that can observe <c>this</c>;</item>
