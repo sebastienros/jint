@@ -179,6 +179,96 @@ internal abstract class JintBinaryExpression : JintExpression
     }
 
     /// <summary>
+    /// Unboxed operand lane for bitwise/shift operators over `identifier OP identifier` and
+    /// `identifier OP numericConstant` shapes (`x ^ y`, `z &amp; 3` — the stopwatch/masking loop
+    /// shapes). Both operands are read as raw doubles through the slot/global caches (pure reads,
+    /// so a decline re-evaluates generically with no observable double effect) and must be
+    /// int32-representable — exactly the values for which ToInt32(ToNumeric(v)) equals the plain
+    /// cast, so the integer op matches the generic path bit for bit. Fractional, NaN, infinite,
+    /// BigInt and non-number operands all decline to the generic path (which owns the valueOf
+    /// coercion, BigInt arms and error cases). The result is boxed once by the consumer.
+    /// </summary>
+    private protected struct BitwiseIdentifierLane
+    {
+        private JintIdentifierExpression? _identifier;
+        private JintIdentifierExpression? _rightIdentifier;   // null => use _constant
+        private double _constant;
+        private SlotLocationCache _slotCache;
+        private SlotLocationCache _rightSlotCache;
+
+        public void Initialize(JintExpression left, JintExpression right)
+        {
+            if (left is not JintIdentifierExpression identifier)
+            {
+                return;
+            }
+
+            switch (right)
+            {
+                case JintConstantExpression { Value: JsNumber number }:
+                    _identifier = identifier;
+                    _constant = number._value;
+                    break;
+                case JintIdentifierExpression rightIdentifier:
+                    _identifier = identifier;
+                    _rightIdentifier = rightIdentifier;
+                    break;
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryGetInt32Operands(EvaluationContext context, out int left, out int right)
+        {
+            left = 0;
+            right = 0;
+
+            var identifier = _identifier;
+            if (identifier is null || context.OperatorOverloadingAllowed)
+            {
+                return false;
+            }
+
+            var engine = context.Engine;
+            if (engine.ExecutionContext.Suspendable is not null)
+            {
+                return false;
+            }
+
+            double leftValue;
+            var env = engine.ExecutionContext.LexicalEnvironment;
+            if (!_slotCache.TryResolve(engine, env, identifier.Identifier, out var environment, out var slotIndex)
+                || !environment.TryGetNumberSlotForRead(slotIndex, out leftValue))
+            {
+                if (identifier._cachedGlobalEnv is null || !TryReadGlobalNumber(identifier, engine, env, out leftValue))
+                {
+                    return false;
+                }
+            }
+
+            double rightValue;
+            var rightIdentifier = _rightIdentifier;
+            if (rightIdentifier is null)
+            {
+                rightValue = _constant;
+            }
+            else if (!(_rightSlotCache.TryResolve(engine, env, rightIdentifier.Identifier, out var rightEnvironment, out var rightSlotIndex)
+                       && rightEnvironment.TryGetNumberSlotForRead(rightSlotIndex, out rightValue)))
+            {
+                if (rightIdentifier._cachedGlobalEnv is null || !TryReadGlobalNumber(rightIdentifier, engine, env, out rightValue))
+                {
+                    return false;
+                }
+            }
+
+            // int32-representable check: NaN/±Infinity/fractional values fail the round-trip
+            // equality and decline; -0 passes and converts to +0 exactly like ToInt32
+            left = (int) leftValue;
+            right = (int) rightValue;
+            return left == leftValue && right == rightValue;
+        }
+    }
+
+    /// <summary>
     /// Whole-tree lane for sum-of-products arithmetic over pure-readable numeric leaves —
     /// `M1[i][0]*M2[0][j] + M1[i][1]*M2[1][j] + …`, the dromaeo-3d-cube MMulti/VMulti kernel shape,
     /// which otherwise boxes a transient JsNumber per binary node. The whole tree is computed on
@@ -1596,14 +1686,24 @@ internal abstract class JintBinaryExpression : JintExpression
         }
 
         private readonly Operator _operator;
+        private BitwiseIdentifierLane _lane;
 
         public BitwiseBinaryExpression(NonLogicalBinaryExpression expression) : base(expression)
         {
             _operator = expression.Operator;
+            _lane.Initialize(_left, _right);
         }
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
+            // `x ^ y` / `z & 3` over slot/global numbers: both operands read unboxed, the
+            // integer op boxed once. Declines (non-int32 values, non-number bindings, BigInt,
+            // suspendable frames) re-evaluate generically — the lane reads are pure.
+            if (_lane.TryGetInt32Operands(context, out var leftInt, out var rightInt))
+            {
+                return EvaluateIntegerBitwise(_operator, leftInt, rightInt);
+            }
+
             if (!TryEvaluateOperands(context, out var lval, out var rval))
             {
                 return JsValue.Undefined;
@@ -1623,6 +1723,42 @@ internal abstract class JintBinaryExpression : JintExpression
     }
 
     /// <summary>
+    /// The integer arm of <see cref="EvaluateBitwiseOperation"/>: operands already converted to
+    /// int32 (via integer-typed JsNumbers or the lane's int32-representability check, both of
+    /// which agree with ToInt32 exactly).
+    /// </summary>
+    internal static JsValue EvaluateIntegerBitwise(Operator op, int leftValue, int rightValue)
+    {
+        JsValue? result = null;
+        switch (op)
+        {
+            case Operator.BitwiseAnd:
+                result = JsNumber.Create(leftValue & rightValue);
+                break;
+            case Operator.BitwiseOr:
+                result = JsNumber.Create(leftValue | rightValue);
+                break;
+            case Operator.BitwiseXor:
+                result = JsNumber.Create(leftValue ^ rightValue);
+                break;
+            case Operator.LeftShift:
+                result = JsNumber.Create(leftValue << (int) ((uint) rightValue & 0x1F));
+                break;
+            case Operator.RightShift:
+                result = JsNumber.Create(leftValue >> (int) ((uint) rightValue & 0x1F));
+                break;
+            case Operator.UnsignedRightShift:
+                result = JsNumber.Create((uint) leftValue >> (int) ((uint) rightValue & 0x1F));
+                break;
+            default:
+                Throw.ArgumentOutOfRangeException(nameof(op), "unknown shift operator");
+                break;
+        }
+
+        return result!;
+    }
+
+    /// <summary>
     /// https://tc39.es/ecma262/#sec-numberbitwiseop (+ BigInt variants and shift operators).
     /// Operands must already be numeric (ToNumeric applied). Shared by the bitwise/shift
     /// binary operators and their compound assignment forms.
@@ -1636,36 +1772,7 @@ internal abstract class JintBinaryExpression : JintExpression
 
         if (AreIntegerOperands(left, right))
         {
-            int leftValue = left.AsInteger();
-            int rightValue = right.AsInteger();
-
-            JsValue? result = null;
-            switch (op)
-            {
-                case Operator.BitwiseAnd:
-                    result = JsNumber.Create(leftValue & rightValue);
-                    break;
-                case Operator.BitwiseOr:
-                    result = JsNumber.Create(leftValue | rightValue);
-                    break;
-                case Operator.BitwiseXor:
-                    result = JsNumber.Create(leftValue ^ rightValue);
-                    break;
-                case Operator.LeftShift:
-                    result = JsNumber.Create(leftValue << (int) ((uint) rightValue & 0x1F));
-                    break;
-                case Operator.RightShift:
-                    result = JsNumber.Create(leftValue >> (int) ((uint) rightValue & 0x1F));
-                    break;
-                case Operator.UnsignedRightShift:
-                    result = JsNumber.Create((uint) leftValue >> (int) ((uint) rightValue & 0x1F));
-                    break;
-                default:
-                    Throw.ArgumentOutOfRangeException(nameof(op), "unknown shift operator");
-                    break;
-            }
-
-            return result!;
+            return EvaluateIntegerBitwise(op, left.AsInteger(), right.AsInteger());
         }
 
         switch (op)

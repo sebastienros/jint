@@ -25,6 +25,7 @@ public class LoopDispatchBenchmarks
     private Prepared<Script> _moduloEqualTest;
     private Prepared<Script> _ifChainLoop;
     private Prepared<Script> _varDeclBody;
+    private Prepared<Script> _xorAssignLoop;
     private Prepared<Script> _arrayLengthBound;
     private Prepared<Script> _stringLengthBound;
 
@@ -109,6 +110,13 @@ public class LoopDispatchBenchmarks
             f();
             """);
 
+        // + identifier ^ identifier over two slot numbers (the stopwatch `var z = x ^ y` shape;
+        // z stays inside the small-int cache so the measurement is operand handling, not boxing)
+        _xorAssignLoop = Engine.PrepareScript("""
+            function f() { var m = 3; var n = 0; for (var i = 0; i < 100000; i++) { var z = i ^ m; } return n; }
+            f();
+            """);
+
         // the member-bound loop test: `i < a.length` re-reads the live length every iteration
         // (6250 × 16 = 100k inner iterations)
         _arrayLengthBound = Engine.PrepareScript("""
@@ -135,6 +143,7 @@ public class LoopDispatchBenchmarks
         _engine.Evaluate(_moduloEqualTest);
         _engine.Evaluate(_ifChainLoop);
         _engine.Evaluate(_varDeclBody);
+        _engine.Evaluate(_xorAssignLoop);
         _engine.Evaluate(_arrayLengthBound);
         _engine.Evaluate(_stringLengthBound);
     }
@@ -171,6 +180,9 @@ public class LoopDispatchBenchmarks
 
     [Benchmark]
     public JsValue VarDeclBody() => _engine.Evaluate(_varDeclBody);
+
+    [Benchmark]
+    public JsValue XorAssignLoop() => _engine.Evaluate(_xorAssignLoop);
 
     [Benchmark]
     public JsValue ArrayLengthBound() => _engine.Evaluate(_arrayLengthBound);
