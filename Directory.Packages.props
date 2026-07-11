@@ -13,7 +13,7 @@
     <PackageVersion Include="GitHubActionsTestLogger" Version="3.0.4" />
     <PackageVersion Include="ICU4N" Version="60.1.0-alpha.440" />
     <PackageVersion Include="Jurassic" Version="3.2.9" />
-    <PackageVersion Include="Meziantou.Analyzer" Version="3.0.120" />
+    <PackageVersion Include="Meziantou.Analyzer" Version="3.0.122" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="5.6.0" PrivateAssets="all" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.6.0" PrivateAssets="all" />
     <PackageVersion Include="Verify.SourceGenerators" Version="2.5.0" />
