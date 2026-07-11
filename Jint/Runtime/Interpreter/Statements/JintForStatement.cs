@@ -39,8 +39,11 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
     // contain no using declarations and don't shadow the loop header's names, they fold into the
     // pooled loop environment. The body then runs against that environment directly, eliding the
     // block-env attach/swap/park ceremony per iteration; the body's slot range is re-TDZ'd before
-    // each iteration instead.
+    // each iteration instead — unless the block's conservative scan proved every slot initializes
+    // before any reference can evaluate, in which case the previous iteration's leftover values
+    // are unobservable and the per-iteration reset is skipped (loop entry still TDZ's all slots).
     private readonly bool _bodyFlattened;
+    private readonly bool _flattenedBodySlotsInitBeforeUse;
     private readonly int _flattenedHeaderSlotCount;
     private readonly JintBlockStatement? _flattenedBodyBlock;
 
@@ -134,6 +137,7 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                 _loopSlotTemplates = combinedTemplates;
                 _flattenedHeaderSlotCount = headerCount;
                 _flattenedBodyBlock = flattenCandidate;
+                _flattenedBodySlotsInitBeforeUse = bodyState.AllBodySlotsInitBeforeUse;
                 _bodyFlattened = true;
             }
         }
@@ -416,6 +420,10 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
     /// <summary>
     /// Re-establishes the TDZ of the flattened body's slot range before an iteration; the header
     /// range is left untouched (a reused iteration environment keeps its header bindings).
+    /// Skipped entirely when <see cref="JintBlockStatement.BlockState.AllBodySlotsInitBeforeUse"/>
+    /// holds for the body: no reference can evaluate before its slot's declaration re-initializes
+    /// it, so the previous iteration's values are dead and loop entry's full reset covers the
+    /// first iteration.
     /// </summary>
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     private static void ResetBodySlotRange(Binding[] slots, Binding[] templates, int headerCount)
@@ -559,8 +567,14 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                     // the pooled loop environment carries the body's slots: re-establish their TDZ
                     // and run the block contents in place. Under a debugger the normal block path
                     // runs instead — its fresh env shadows the (uninitialized) flattened slots.
-                    var env = (DeclarativeEnvironment) context.Engine.ExecutionContext.LexicalEnvironment;
-                    ResetBodySlotRange(env._slots!, _loopSlotTemplates!, _flattenedHeaderSlotCount);
+                    // When the block scan proved every slot initializes before any use, the
+                    // re-TDZ is unobservable (loop entry already reset the whole slot array for
+                    // the first iteration) and is skipped.
+                    if (!_flattenedBodySlotsInitBeforeUse)
+                    {
+                        var env = (DeclarativeEnvironment) context.Engine.ExecutionContext.LexicalEnvironment;
+                        ResetBodySlotRange(env._slots!, _loopSlotTemplates!, _flattenedHeaderSlotCount);
+                    }
                     result = _flattenedBodyBlock!.ExecuteFlattenedContents(context);
                 }
                 else
@@ -640,7 +654,8 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
     /// Deferred errors surface as Engine._error instead of a .NET throw; the statement list
     /// converts them per statement, and so must the tight loop. Under flattening the pooled
     /// loop environment carries the body's slots: their TDZ is re-established per iteration
-    /// before the body statements run, mirroring the generic flattened arm.
+    /// before the body statements run, mirroring the generic flattened arm — skipped when the
+    /// block scan proved every slot initializes before any use (leftovers are unobservable).
     /// </summary>
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
     private Completion TightForBody(EvaluationContext context, bool flattenActive)
@@ -650,10 +665,11 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
         var single = _tightSingleStatement;
         var list = _tightBodyList;
         var engine = context.Engine;
+        var resetBodySlotsPerIteration = flattenActive && !_flattenedBodySlotsInitBeforeUse;
 
         while (test.GetBooleanValue(context))
         {
-            if (flattenActive)
+            if (resetBodySlotsPerIteration)
             {
                 var env = (DeclarativeEnvironment) engine.ExecutionContext.LexicalEnvironment;
                 ResetBodySlotRange(env._slots!, _loopSlotTemplates!, _flattenedHeaderSlotCount);

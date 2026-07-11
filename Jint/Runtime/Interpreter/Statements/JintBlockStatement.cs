@@ -445,6 +445,14 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
         public readonly Key[]? SlotNames;
         public readonly Binding[]? SlotTemplates;
 
+        // True when a conservative in-order scan proves every slot binding's declaring statement
+        // executes before any reference to its name can evaluate. Re-establishing the slots' TDZ
+        // between repeated executions of the block against the same environment (enclosing-loop
+        // body flattening) is then unobservable — every reachable read/write hits a binding its
+        // own execution just initialized — so the per-iteration reset can be skipped. Meaningful
+        // only when SlotNames is non-null; false never affects semantics, it just keeps the reset.
+        public readonly bool AllBodySlotsInitBeforeUse;
+
         public BlockState(DeclarationCache declarationCache, BlockStatement blockStatement)
         {
             DeclarationCache = declarationCache;
@@ -484,8 +492,102 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
                     }
                     SlotNames = slotNames;
                     SlotTemplates = slotTemplates;
+                    AllBodySlotsInitBeforeUse = ComputeAllSlotsInitializedBeforeUse(blockStatement, slotNames);
                 }
             }
+        }
+
+        /// <summary>
+        /// Conservative scan over the block's top-level statements in source order, tracking which
+        /// slot names have completed their declaring declarator. Any identifier occurrence of a
+        /// not-yet-declared slot name rejects: identifiers are over-approximated as references
+        /// (property keys, labels etc. count too), which can only cost the optimization, never
+        /// correctness. A declarator's initializer is scanned before its own name is marked, so
+        /// `let x = x` counts as before-use; destructuring declarators reject outright (computed
+        /// keys and defaults evaluate while the pattern's own names are still uninitialized).
+        /// Slot eligibility has already excluded closures, direct eval and `with`, so a runtime
+        /// reference to a slot binding always appears as an Identifier node in this subtree.
+        /// </summary>
+        private static bool ComputeAllSlotsInitializedBeforeUse(BlockStatement blockStatement, Key[] slotNames)
+        {
+            var declaredMask = 0; // bit i set => slotNames[i] initialized; eligibility caps slots at 16
+            ref readonly var statements = ref blockStatement.Body;
+            foreach (var statement in statements.AsSpan())
+            {
+                if (statement is VariableDeclaration { Kind: not VariableDeclarationKind.Var } declaration)
+                {
+                    for (var i = 0; i < declaration.Declarations.Count; i++)
+                    {
+                        var declarator = declaration.Declarations[i];
+                        if (declarator.Id is not Identifier identifier)
+                        {
+                            return false;
+                        }
+
+                        if (declarator.Init is { } init && ReferencesUndeclaredSlot(init, slotNames, declaredMask))
+                        {
+                            return false;
+                        }
+
+                        // mark only after the initializer scan: the name is in TDZ while its own initializer runs
+                        var index = FindSlotName(slotNames, identifier.Name);
+                        if (index >= 0)
+                        {
+                            declaredMask |= 1 << index;
+                        }
+                    }
+                }
+                else if (ReferencesUndeclaredSlot(statement, slotNames, declaredMask))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool ReferencesUndeclaredSlot(Node node, Key[] slotNames, int declaredMask)
+        {
+            if (node.Type == NodeType.Identifier)
+            {
+                return IsUndeclaredSlotName(((Identifier) node).Name, slotNames, declaredMask);
+            }
+
+            foreach (var child in node.ChildNodes)
+            {
+                if (ReferencesUndeclaredSlot(child, slotNames, declaredMask))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsUndeclaredSlotName(string name, Key[] slotNames, int declaredMask)
+        {
+            for (var i = 0; i < slotNames.Length; i++)
+            {
+                if ((declaredMask & (1 << i)) == 0 && string.Equals(slotNames[i].Name, name, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static int FindSlotName(Key[] slotNames, string name)
+        {
+            for (var i = 0; i < slotNames.Length; i++)
+            {
+                if (string.Equals(slotNames[i].Name, name, StringComparison.Ordinal))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
         }
     }
 }
