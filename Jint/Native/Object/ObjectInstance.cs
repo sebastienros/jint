@@ -1979,16 +1979,28 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                 var jo = Unsafe.As<JsObject>(this);
                 if (jo.ShapeOf.TryGetSlot(key, out var slot))
                 {
-                    // Existing CEW data property: CreateDataProperty just updates the value.
+                    // Existing CEW data property: CreateDataProperty just updates the value (spec: a CEW
+                    // DefineOwnProperty overwrite — last value wins, first-occurrence position kept). This
+                    // probe is what keeps TryShapeAdd's known-absent contract honest for re-added keys:
+                    // duplicate class field initializers (`class A { x=1; x=2 }`) and spread re-copies
+                    // (`{a:1, ...{a:2}}`) both land here instead of transitioning a duplicate slot.
                     jo.SetSlot(slot, v);
                     return true;
                 }
 
-                // Brand-new property: a hot constructor's `this` (ShapeBuilding) grows its shape via an
-                // interned transition shared across instances. Plain shaped objects (literals) lack the flag
-                // and fall through to deopt, since a one-off literal gaining a key is not a reused layout.
-                // The megamorphic guard inside TryShapeAdd also deopts object-as-hashmap usage.
-                if ((_type & InternalTypes.ShapeBuilding) != InternalTypes.Empty && jo.TryShapeAdd(key, v))
+                // Brand-new property: a hot constructor's `this` or a copy-idiom target — spread/rest/
+                // fromEntries/assign (ShapeBuilding) — grows its shape via an interned transition shared
+                // across instances. Plain shaped objects (literals) lack the flag and fall through to
+                // deopt, since a one-off literal gaining a key is not a reused layout. The megamorphic
+                // guard inside TryShapeAdd also deopts object-as-hashmap usage. Integer-like keys
+                // (digit-leading, e.g. `{...arr}` / string wrappers / this["0"]=) never enter a shape:
+                // spec enumeration orders them first, which the shape's insertion-ordered keys cannot
+                // express (GetOwnPropertyKeysFromShape deopts), so admitting them would guarantee a
+                // build-then-deopt and intern junk "0"→"1"→… chains under the shared per-prototype root;
+                // they take the dictionary fallback below instead.
+                if ((_type & InternalTypes.ShapeBuilding) != InternalTypes.Empty
+                    && (key.Name.Length == 0 || !char.IsDigit(key.Name[0]))
+                    && jo.TryShapeAdd(key, v))
                 {
                     return true;
                 }
