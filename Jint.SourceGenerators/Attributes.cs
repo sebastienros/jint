@@ -39,6 +39,13 @@ internal static class Attributes
         {
             public string? Name { get; set; }
             public int Length { get; set; } = -1;
+
+            // CaptureField optionally names a host field (or settable property) assigned the
+            // materialized function — the SAME instance the object hands out for the key, forced
+            // into existence via GetOwnProperty at the end of CreateProperties_Generated — for
+            // ReferenceEquals fast paths such as ArrayIteratorPrototype._originalNextFunction and
+            // WeakSetPrototype.OriginalAddFunction.
+            public string? CaptureField { get; set; }
         }
 
         [global::System.AttributeUsage(global::System.AttributeTargets.Field | global::System.AttributeTargets.Property)]
@@ -167,6 +174,11 @@ internal static class Attributes
 
         // Like [JsFunction] but registers in SymbolDictionary instead of PropertyDictionary.
         // SymbolName must match a static property on Jint.Native.Symbol.GlobalSymbolRegistry.
+        // CaptureField optionally names a host field assigned the dispatcher Function for
+        // ReferenceEquals fast paths (e.g. StringPrototype._originalIteratorFunction); setting it
+        // makes the member EAGER — the Function is constructed inside CreateSymbols_Generated and
+        // that same instance is both captured and registered under the symbol, matching the
+        // hand-written eager tails it replaces.
         [global::System.AttributeUsage(global::System.AttributeTargets.Method)]
         [global::System.Diagnostics.Conditional("JINT_SOURCE_GENERATORS")]
         internal sealed class JsSymbolFunctionAttribute : global::System.Attribute
@@ -175,6 +187,7 @@ internal static class Attributes
             public string SymbolName { get; }
             public int Length { get; set; } = -1;
             public global::Jint.Runtime.Descriptors.PropertyFlag Flags { get; set; } = global::Jint.Runtime.Descriptors.PropertyFlag.AllForbidden;
+            public string? CaptureField { get; set; }
         }
 
         // Symbol-keyed accessor: pairs by SymbolName on the same class. Get and Set halves emit one

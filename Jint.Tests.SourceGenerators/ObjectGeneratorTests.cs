@@ -833,6 +833,98 @@ public class ObjectGeneratorTests
     }
 
     [Test]
+    public Task FunctionCaptureField()
+    {
+        // [JsFunction(CaptureField = ...)]: after SetProperties the generated code materializes the
+        // member's descriptor value (GetOwnProperty(...).Value — idempotent, LazyPropertyDescriptor
+        // caches on first read) and assigns the SAME instance to the named host field — the
+        // ReferenceEquals fast-path snapshot pattern (WeakSetPrototype.OriginalAddFunction).
+        return VerifyGenerator("""
+            using Jint;
+            using Jint.Native;
+            using Jint.Native.Object;
+
+            namespace Sample;
+
+            [JsObject]
+            internal sealed partial class Foo : ObjectInstance
+            {
+                internal JsValue? _originalNextFunction;
+
+                internal Foo(Engine engine) : base(engine) { }
+
+                [JsFunction(Name = "next", CaptureField = nameof(_originalNextFunction))]
+                private static JsValue NextHandler(JsValue thisObject) => JsValue.Undefined;
+
+                [JsFunction(Length = 0)]
+                private static JsValue Values(JsValue thisObject) => JsValue.Undefined;
+
+                protected override void Initialize() => CreateProperties_Generated();
+            }
+            """);
+    }
+
+    [Test]
+    public Task ShapeFunctionCaptureField()
+    {
+        // Shape-host variant: the capture materializes the member's shape slot via GetOwnProperty
+        // (cached in the per-realm descriptor array, so the captured instance is identity-stable) —
+        // mirrors ArrayIteratorPrototype._originalNextFunction.
+        return VerifyGenerator("""
+            using Jint;
+            using Jint.Native;
+            using Jint.Native.Object;
+
+            namespace Sample;
+
+            [JsObject(UseShape = true)]
+            internal sealed partial class Foo : ObjectInstance
+            {
+                internal JsValue? _originalNextFunction;
+
+                internal Foo(Engine engine) : base(engine) { }
+
+                [JsFunction(Name = "next", CaptureField = nameof(_originalNextFunction))]
+                private static JsValue NextHandler(JsValue thisObject) => JsValue.Undefined;
+
+                protected override void Initialize() => CreateProperties_Generated();
+            }
+            """);
+    }
+
+    [Test]
+    public Task SymbolFunctionCaptureField()
+    {
+        // [JsSymbolFunction(CaptureField = ...)] forces the member EAGER: the dispatcher Function is
+        // constructed inside CreateSymbols_Generated, assigned to the capture field, and that same
+        // instance registered under the symbol — mirrors StringPrototype._originalIteratorFunction.
+        return VerifyGenerator("""
+            using Jint;
+            using Jint.Native;
+            using Jint.Native.Object;
+            using Jint.Runtime.Descriptors;
+
+            namespace Sample;
+
+            [JsObject]
+            internal sealed partial class Foo : ObjectInstance
+            {
+                internal JsValue? _originalIteratorFunction;
+
+                internal Foo(Engine engine) : base(engine) { }
+
+                [JsSymbolFunction("Iterator", Flags = PropertyFlag.Configurable | PropertyFlag.Writable, CaptureField = nameof(_originalIteratorFunction))]
+                private static JsValue Iterator(JsValue thisObject) => JsValue.Undefined;
+
+                [JsFunction(Length = 0)]
+                private static JsValue Values(JsValue thisObject) => JsValue.Undefined;
+
+                protected override void Initialize() { CreateProperties_Generated(); CreateSymbols_Generated(); }
+            }
+            """);
+    }
+
+    [Test]
     public Task StringAliasSharesDescriptor()
     {
         // [JsAlias] on both storage paths: the alias entry shares the target member's descriptor

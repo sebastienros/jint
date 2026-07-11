@@ -16,8 +16,8 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
 {
     [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString ArrayIteratorToStringTag = new("Array Iterator");
 
-    // Captured once Initialize runs; HasOriginalNext below identity-compares against this snapshot
-    // to detect whether user code has overridden `next` on the prototype.
+    // Captured by CreateProperties_Generated (via CaptureField below) before any user code can
+    // replace `next`; HasOriginalNext identity-compares against this snapshot to detect overrides.
     private FunctionInstance _originalNextFunction = null!;
 
     internal ArrayIteratorPrototype(
@@ -31,13 +31,9 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
     {
         CreateProperties_Generated();
         CreateSymbols_Generated();
-
-        // Snapshot the prototype's `next` function before any user code can replace it,
-        // so HasOriginalNext can detect overrides via ReferenceEquals.
-        _originalNextFunction = (FunctionInstance) GetOwnProperty("next").Value!;
     }
 
-    [JsFunction(Name = "next")]
+    [JsFunction(Name = "next", CaptureField = nameof(_originalNextFunction))]
     private JsValue NextHandler(JsValue thisObject) => Next(thisObject, Arguments.Empty);
 
     internal IteratorInstance Construct(ObjectInstance array, ArrayIteratorType kind)

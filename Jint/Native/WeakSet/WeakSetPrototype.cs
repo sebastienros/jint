@@ -18,8 +18,8 @@ internal sealed partial class WeakSetPrototype : Prototype
 
     [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString WeakSetToStringTag = new("WeakSet");
 
-    // Captured once Initialize runs; the WeakSet constructor's array fast path
-    // identity-compares against this snapshot to detect a user-overridden `add`.
+    // Captured by CreateProperties_Generated (via CaptureField below); the WeakSet constructor's
+    // array fast path identity-compares against this snapshot to detect a user-overridden `add`.
     internal FunctionInstance OriginalAddFunction { get; private set; } = null!;
 
     internal WeakSetPrototype(
@@ -36,13 +36,9 @@ internal sealed partial class WeakSetPrototype : Prototype
     {
         CreateProperties_Generated();
         CreateSymbols_Generated();
-
-        // Snapshot the prototype's `add` function before any user code can replace it,
-        // so the constructor's array fast path can detect overrides via ReferenceEquals.
-        OriginalAddFunction = (FunctionInstance) GetOwnProperty("add").Value!;
     }
 
-    [JsFunction]
+    [JsFunction(CaptureField = nameof(OriginalAddFunction))]
     private JsValue Add(JsValue thisObject, JsValue value)
     {
         var set = AssertWeakSetInstance(thisObject);
