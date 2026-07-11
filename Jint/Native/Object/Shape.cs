@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
 namespace Jint.Native.Object;
@@ -59,6 +60,13 @@ internal sealed class Shape
     // and shared by every object of this layout — e.g. the JSON serializer's shaped fast path reads
     // property names from here without building a per-object key list.
     private Key[]? _orderedKeys;
+
+    // Slot-ordered keys as shared JsString instances, memoized alongside _orderedKeys. for-in and
+    // GetOwnPropertyKeys hand these out instead of allocating a fresh JsString per key per enumeration
+    // (the key strings are otherwise recreated on every step). Left null until first requested — and
+    // deliberately NOT built for a layout carrying an integer-index-like key, whose own-key order must
+    // be numerically sorted through the dictionary path.
+    private JsValue[]? _orderedKeyStrings;
 
     /// <summary>Creates an empty root shape. There is one root per prototype, interned by the engine's
     /// empty-shape table, so all objects sharing a prototype build their layouts from the same tree.</summary>
@@ -173,5 +181,49 @@ internal sealed class Shape
 
             return _orderedKeys;
         }
+    }
+
+    /// <summary>
+    /// This shape's own string keys as shared, immutable <see cref="JsString"/> instances in slot
+    /// (= insertion) order, memoized once per layout. Returns <c>false</c> — caching nothing — when any key
+    /// looks like an integer index (first char is a digit), because own-key order must then place integer
+    /// keys first in ascending numeric order, which only the dictionary path produces; the caller deopts.
+    /// Callers must treat the array as read-only. JsString identity is unobservable to script (<c>===</c>
+    /// is value-based), so sharing the same instances across every object of this layout is safe.
+    /// </summary>
+    internal bool TryGetOrderedKeyStrings([NotNullWhen(true)] out JsValue[]? strings)
+    {
+        strings = _orderedKeyStrings;
+        if (strings is not null)
+        {
+            return true;
+        }
+
+        var keys = OrderedKeys;
+        if (keys.Length == 0)
+        {
+            _orderedKeyStrings = strings = System.Array.Empty<JsValue>();
+            return true;
+        }
+
+        var arr = new JsValue[keys.Length];
+        for (var i = 0; i < keys.Length; i++)
+        {
+            var name = keys[i].Name;
+            if (name.Length > 0 && char.IsDigit(name[0]))
+            {
+                // integer-index-like key: order needs the numeric sort; leave the memo unbuilt.
+                strings = null;
+                return false;
+            }
+
+            // JsString.Create (not CachedCreate) — single-char names reuse the process-wide cache, longer
+            // names get one instance per shape; no global intern, so no unbounded memory pressure.
+            arr[i] = JsString.Create(name);
+        }
+
+        _orderedKeyStrings = arr;
+        strings = arr;
+        return true;
     }
 }
