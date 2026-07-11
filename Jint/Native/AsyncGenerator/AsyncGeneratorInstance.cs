@@ -370,7 +370,7 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
     internal void AsyncGeneratorResolve(JsValue value, bool done, PromiseCapability promiseCapability)
     {
         var iterResult = IteratorResult.CreateValueIteratorPosition(_engine, value, done ? JsBoolean.True : JsBoolean.False);
-        promiseCapability.Resolve.Call(Undefined, new[] { iterResult });
+        promiseCapability.Resolve(iterResult);
     }
 
     /// <summary>
@@ -379,7 +379,7 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
     /// </summary>
     internal static void AsyncGeneratorReject(JsValue exception, PromiseCapability promiseCapability)
     {
-        promiseCapability.Reject.Call(JsValue.Undefined, new[] { exception });
+        promiseCapability.Reject(exception);
     }
 
     /// <summary>
@@ -388,7 +388,7 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
     private JsPromise CreateResolvedPromise(JsValue value)
     {
         var capability = PromiseConstructor.NewPromiseCapability(_engine, _engine.Realm.Intrinsics.Promise);
-        capability.Resolve.Call(JsValue.Undefined, new[] { value });
+        capability.Resolve(value);
         return (JsPromise) capability.PromiseInstance;
     }
 

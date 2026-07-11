@@ -58,7 +58,7 @@ internal sealed partial class AsyncFromSyncIteratorPrototype : ObjectInstance
         }
         catch (JavaScriptException e)
         {
-            promiseCapability.Reject.Call(Undefined, [e.Error]);
+            promiseCapability.Reject(e.Error);
             return promiseCapability.PromiseInstance;
         }
 
@@ -83,7 +83,7 @@ internal sealed partial class AsyncFromSyncIteratorPrototype : ObjectInstance
         }
         catch (JavaScriptException e)
         {
-            promiseCapability.Reject.Call(Undefined, [e.Error]);
+            promiseCapability.Reject(e.Error);
             return promiseCapability.PromiseInstance;
         }
 
@@ -91,7 +91,7 @@ internal sealed partial class AsyncFromSyncIteratorPrototype : ObjectInstance
         {
             // If return is undefined, create a done iterator result
             var iterResult = IteratorResult.CreateValueIteratorPosition(_engine, value, done: JsBoolean.True);
-            promiseCapability.Resolve.Call(Undefined, new[] { iterResult });
+            promiseCapability.Resolve(iterResult);
             return promiseCapability.PromiseInstance;
         }
 
@@ -103,14 +103,14 @@ internal sealed partial class AsyncFromSyncIteratorPrototype : ObjectInstance
             {
                 // Per spec step 10: reject promise instead of throwing synchronously
                 var typeError = _realm.Intrinsics.TypeError.Construct("Iterator result is not an object");
-                promiseCapability.Reject.Call(Undefined, [typeError]);
+                promiseCapability.Reject(typeError);
                 return promiseCapability.PromiseInstance;
             }
             result = oi;
         }
         catch (JavaScriptException e)
         {
-            promiseCapability.Reject.Call(Undefined, [e.Error]);
+            promiseCapability.Reject(e.Error);
             return promiseCapability.PromiseInstance;
         }
 
@@ -135,7 +135,7 @@ internal sealed partial class AsyncFromSyncIteratorPrototype : ObjectInstance
         }
         catch (JavaScriptException e)
         {
-            promiseCapability.Reject.Call(Undefined, [e.Error]);
+            promiseCapability.Reject(e.Error);
             return promiseCapability.PromiseInstance;
         }
 
@@ -149,12 +149,12 @@ internal sealed partial class AsyncFromSyncIteratorPrototype : ObjectInstance
             catch (JavaScriptException closeError)
             {
                 // IfAbruptRejectPromise: if close throws, reject with that error
-                promiseCapability.Reject.Call(Undefined, [closeError.Error]);
+                promiseCapability.Reject(closeError.Error);
                 return promiseCapability.PromiseInstance;
             }
 
             var typeError = _realm.Intrinsics.TypeError.Construct("The iterator does not provide a throw method");
-            promiseCapability.Reject.Call(Undefined, [typeError]);
+            promiseCapability.Reject(typeError);
             return promiseCapability.PromiseInstance;
         }
 
@@ -166,14 +166,14 @@ internal sealed partial class AsyncFromSyncIteratorPrototype : ObjectInstance
             {
                 // Per spec step 10: reject promise instead of throwing synchronously
                 var typeError = _realm.Intrinsics.TypeError.Construct("Iterator result is not an object");
-                promiseCapability.Reject.Call(Undefined, [typeError]);
+                promiseCapability.Reject(typeError);
                 return promiseCapability.PromiseInstance;
             }
             result = oi;
         }
         catch (JavaScriptException e)
         {
-            promiseCapability.Reject.Call(Undefined, [e.Error]);
+            promiseCapability.Reject(e.Error);
             return promiseCapability.PromiseInstance;
         }
 
@@ -202,7 +202,7 @@ internal sealed partial class AsyncFromSyncIteratorPrototype : ObjectInstance
         }
         catch (JavaScriptException e)
         {
-            promiseCapability.Reject.Call(Undefined, [e.Error]);
+            promiseCapability.Reject(e.Error);
             return promiseCapability.PromiseInstance;
         }
 
@@ -228,7 +228,7 @@ internal sealed partial class AsyncFromSyncIteratorPrototype : ObjectInstance
                 }
             }
             // 7. IfAbruptRejectPromise(valueWrapper, promiseCapability).
-            promiseCapability.Reject.Call(Undefined, [e.Error]);
+            promiseCapability.Reject(e.Error);
             return promiseCapability.PromiseInstance;
         }
 

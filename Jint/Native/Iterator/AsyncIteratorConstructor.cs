@@ -194,7 +194,7 @@ internal sealed partial class WrapForValidAsyncIteratorPrototype : Prototype
         }
         catch (JavaScriptException ex)
         {
-            promiseCapability.Reject.Call(Undefined, new[] { ex.Error });
+            promiseCapability.Reject(ex.Error);
         }
 
         return promiseCapability.PromiseInstance;
@@ -223,7 +223,7 @@ internal sealed partial class WrapForValidAsyncIteratorPrototype : Prototype
             {
                 // Return a resolved promise with {value: undefined, done: true}
                 var doneResult = IteratorResult.CreateValueIteratorPosition(_engine, Undefined, JsBoolean.True);
-                promiseCapability.Resolve.Call(Undefined, new JsValue[] { doneResult });
+                promiseCapability.Resolve(doneResult);
             }
             else
             {
@@ -247,7 +247,7 @@ internal sealed partial class WrapForValidAsyncIteratorPrototype : Prototype
         }
         catch (JavaScriptException ex)
         {
-            promiseCapability.Reject.Call(Undefined, new[] { ex.Error });
+            promiseCapability.Reject(ex.Error);
         }
 
         return promiseCapability.PromiseInstance;

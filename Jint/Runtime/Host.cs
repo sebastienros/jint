@@ -160,7 +160,7 @@ public class Host
                 if (moduleRequest.Phase == ModuleImportPhase.Source)
                 {
                     var error = Engine.Realm.Intrinsics.SyntaxError.Construct("Source phase import is not supported for JavaScript modules");
-                    payload.Reject.Call(JsValue.Undefined, error);
+                    payload.Reject(error);
                     return JsValue.Undefined;
                 }
 
@@ -192,7 +192,7 @@ public class Host
                 {
                     // Non-cyclic module - shouldn't happen but handle gracefully
                     var ns = Module.GetModuleNamespace(moduleRecord);
-                    payload.Resolve.Call(JsValue.Undefined, ns);
+                    payload.Resolve(ns);
                     return JsValue.Undefined;
                 }
 
@@ -200,11 +200,11 @@ public class Host
                 {
                     // Sync completion - resolve immediately with namespace
                     var ns = Module.GetModuleNamespace(moduleRecord);
-                    payload.Resolve.Call(JsValue.Undefined, ns);
+                    payload.Resolve(ns);
                 }
                 else if (evaluatePromise.State == PromiseState.Rejected)
                 {
-                    payload.Reject.Call(JsValue.Undefined, evaluatePromise.Value);
+                    payload.Reject(evaluatePromise.Value);
                 }
                 else
                 {
@@ -212,13 +212,13 @@ public class Host
                     var onEvalFulfilled = new ClrFunction(Engine, "", (_, evalArgs) =>
                     {
                         var ns = Module.GetModuleNamespace(moduleRecord);
-                        payload.Resolve.Call(JsValue.Undefined, ns);
+                        payload.Resolve(ns);
                         return JsValue.Undefined;
                     }, 0, PropertyFlag.Configurable);
 
                     var onEvalRejected = new ClrFunction(Engine, "", (_, evalArgs) =>
                     {
-                        payload.Reject.Call(JsValue.Undefined, evalArgs.At(0));
+                        payload.Reject(evalArgs.At(0));
                         return JsValue.Undefined;
                     }, 1, PropertyFlag.Configurable);
 
@@ -228,7 +228,7 @@ public class Host
             }
             catch (JavaScriptException ex)
             {
-                payload.Reject.Call(JsValue.Undefined, ex.Error);
+                payload.Reject(ex.Error);
             }
             return JsValue.Undefined;
         }, 0, PropertyFlag.Configurable);
@@ -236,7 +236,7 @@ public class Host
         var onRejected = new ClrFunction(Engine, "", (thisObj, args) =>
         {
             var error = args.At(0);
-            payload.Reject.Call(JsValue.Undefined, error);
+            payload.Reject(error);
             return JsValue.Undefined;
         }, 1, PropertyFlag.Configurable);
 
@@ -259,7 +259,7 @@ public class Host
         if (asyncDeps.Count == 0)
         {
             // No async deps - resolve immediately with deferred namespace.
-            payload.Resolve.Call(JsValue.Undefined, Module.GetModuleNamespace(moduleRecord, ModuleImportPhase.Defer));
+            payload.Resolve(Module.GetModuleNamespace(moduleRecord, ModuleImportPhase.Defer));
             return;
         }
 
@@ -290,13 +290,13 @@ public class Host
         // Promise.all semantics: reject on first rejection, otherwise wait for all to fulfill.
         if (firstRejected is not null)
         {
-            payload.Reject.Call(JsValue.Undefined, firstRejected.Value);
+            payload.Reject(firstRejected.Value);
             return;
         }
 
         if (pending == 0)
         {
-            payload.Resolve.Call(JsValue.Undefined, Module.GetModuleNamespace(moduleRecord, ModuleImportPhase.Defer));
+            payload.Resolve(Module.GetModuleNamespace(moduleRecord, ModuleImportPhase.Defer));
             return;
         }
 
@@ -317,7 +317,7 @@ public class Host
             if (--remaining == 0)
             {
                 settled = true;
-                payload.Resolve.Call(JsValue.Undefined, Module.GetModuleNamespace(deferredModule, ModuleImportPhase.Defer));
+                payload.Resolve(Module.GetModuleNamespace(deferredModule, ModuleImportPhase.Defer));
             }
             return JsValue.Undefined;
         }, 0, PropertyFlag.Configurable);
@@ -330,7 +330,7 @@ public class Host
             }
 
             settled = true;
-            payload.Reject.Call(JsValue.Undefined, depArgs.At(0));
+            payload.Reject(depArgs.At(0));
             return JsValue.Undefined;
         }, 1, PropertyFlag.Configurable);
 

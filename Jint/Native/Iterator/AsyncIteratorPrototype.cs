@@ -207,7 +207,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
         }
         catch (JavaScriptException ex)
         {
-            promiseCapability.Reject.Call(Undefined, new[] { ex.Error });
+            promiseCapability.Reject(ex.Error);
             return null;
         }
     }
@@ -239,7 +239,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
                 var iterResult = args.At(0);
                 if (iterResult is not ObjectInstance iterResultObj)
                 {
-                    promiseCapability.Reject.Call(Undefined, new JsValue[] { _engine.Realm.Intrinsics.TypeError.Construct("Iterator result is not an object") });
+                    promiseCapability.Reject(_engine.Realm.Intrinsics.TypeError.Construct("Iterator result is not an object"));
                     return Undefined;
                 }
 
@@ -256,14 +256,14 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
             }
             catch (JavaScriptException ex)
             {
-                promiseCapability.Reject.Call(Undefined, new[] { ex.Error });
+                promiseCapability.Reject(ex.Error);
                 return Undefined;
             }
         }, 1, PropertyFlag.Configurable);
 
         var onRejected = new ClrFunction(_engine, "", (_, args) =>
         {
-            promiseCapability.Reject.Call(Undefined, new[] { args.At(0) });
+            promiseCapability.Reject(args.At(0));
             return Undefined;
         }, 1, PropertyFlag.Configurable);
 
@@ -291,7 +291,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
         var onRejected = new ClrFunction(_engine, "", (_, innerArgs) =>
         {
             try { iterated.Close(CompletionType.Throw); } catch { /* ignore */ }
-            promiseCapability.Reject.Call(Undefined, new[] { innerArgs.At(0) });
+            promiseCapability.Reject(innerArgs.At(0));
             return Undefined;
         }, 1, PropertyFlag.Configurable);
 
@@ -322,13 +322,13 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
         }
         catch (JavaScriptException ex)
         {
-            promiseCapability.Reject.Call(Undefined, ex.Error);
+            promiseCapability.Reject(ex.Error);
             return promiseCapability.PromiseInstance;
         }
 
         if (returnMethod is null)
         {
-            promiseCapability.Resolve.Call(Undefined, Undefined);
+            promiseCapability.Resolve(Undefined);
         }
         else
         {
@@ -340,7 +340,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
             }
             catch (JavaScriptException ex)
             {
-                promiseCapability.Reject.Call(Undefined, ex.Error);
+                promiseCapability.Reject(ex.Error);
                 return promiseCapability.PromiseInstance;
             }
 
@@ -351,7 +351,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
             }
             catch (JavaScriptException ex)
             {
-                promiseCapability.Reject.Call(Undefined, ex.Error);
+                promiseCapability.Reject(ex.Error);
                 return promiseCapability.PromiseInstance;
             }
 
@@ -430,11 +430,11 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
             {
                 if (!capturedHasAccumulator)
                 {
-                    cap.Reject.Call(Undefined, new JsValue[] { _engine.Realm.Intrinsics.TypeError.Construct("Reduce of empty iterator with no initial value") });
+                    cap.Reject(_engine.Realm.Intrinsics.TypeError.Construct("Reduce of empty iterator with no initial value"));
                 }
                 else
                 {
-                    cap.Resolve.Call(Undefined, new[] { capturedAccumulator });
+                    cap.Resolve(capturedAccumulator);
                 }
             },
             onValue: (value, idx, cap) =>
@@ -453,7 +453,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
                 catch (JavaScriptException ex)
                 {
                     try { iterated.Close(CompletionType.Throw); } catch { /* ignore */ }
-                    cap.Reject.Call(Undefined, new[] { ex.Error });
+                    cap.Reject(ex.Error);
                     return;
                 }
 
@@ -491,7 +491,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
             onDone: (_, cap) =>
             {
                 var array = new JsArray(_engine, items.ToArray());
-                cap.Resolve.Call(Undefined, new JsValue[] { array });
+                cap.Resolve(array);
             },
             onValue: (value, _, _) =>
             {
@@ -508,7 +508,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
         var promiseCapability = PromiseConstructor.NewPromiseCapability(_engine, _engine.Realm.Intrinsics.Promise);
 
         AsyncConsumeLoop(iterated, procedure, promiseCapability,
-            onDone: cap => cap.Resolve.Call(Undefined, Undefined),
+            onDone: cap => cap.Resolve(Undefined),
             shouldStop: null);
 
         return promiseCapability.PromiseInstance;
@@ -522,12 +522,12 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
         var promiseCapability = PromiseConstructor.NewPromiseCapability(_engine, _engine.Realm.Intrinsics.Promise);
 
         AsyncConsumeLoop(iterated, predicate, promiseCapability,
-            onDone: cap => cap.Resolve.Call(Undefined, new JsValue[] { JsBoolean.False }),
+            onDone: cap => cap.Resolve(JsBoolean.False),
             shouldStop: (resolved, value, cap) =>
             {
                 if (!TypeConverter.ToBoolean(resolved)) return false;
                 try { iterated.Close(CompletionType.Normal); } catch { /* ignore */ }
-                cap.Resolve.Call(Undefined, new JsValue[] { JsBoolean.True });
+                cap.Resolve(JsBoolean.True);
                 return true;
             });
 
@@ -542,12 +542,12 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
         var promiseCapability = PromiseConstructor.NewPromiseCapability(_engine, _engine.Realm.Intrinsics.Promise);
 
         AsyncConsumeLoop(iterated, predicate, promiseCapability,
-            onDone: cap => cap.Resolve.Call(Undefined, new JsValue[] { JsBoolean.True }),
+            onDone: cap => cap.Resolve(JsBoolean.True),
             shouldStop: (resolved, value, cap) =>
             {
                 if (TypeConverter.ToBoolean(resolved)) return false;
                 try { iterated.Close(CompletionType.Normal); } catch { /* ignore */ }
-                cap.Resolve.Call(Undefined, new JsValue[] { JsBoolean.False });
+                cap.Resolve(JsBoolean.False);
                 return true;
             });
 
@@ -562,12 +562,12 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
         var promiseCapability = PromiseConstructor.NewPromiseCapability(_engine, _engine.Realm.Intrinsics.Promise);
 
         AsyncConsumeLoop(iterated, predicate, promiseCapability,
-            onDone: cap => cap.Resolve.Call(Undefined, Undefined),
+            onDone: cap => cap.Resolve(Undefined),
             shouldStop: (resolved, value, cap) =>
             {
                 if (!TypeConverter.ToBoolean(resolved)) return false;
                 try { iterated.Close(CompletionType.Normal); } catch { /* ignore */ }
-                cap.Resolve.Call(Undefined, new[] { value });
+                cap.Resolve(value);
                 return true;
             });
 
@@ -599,7 +599,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
                 catch (JavaScriptException ex)
                 {
                     try { iterated.Close(CompletionType.Throw); } catch { /* ignore */ }
-                    cap.Reject.Call(Undefined, new[] { ex.Error });
+                    cap.Reject(ex.Error);
                     return;
                 }
 

@@ -239,7 +239,7 @@ internal sealed class JintFunctionDefinition
             if (!env.HasDisposeResources)
             {
                 asyncInstance._state = AsyncFunctionState.Completed;
-                asyncInstance._capability.Reject.Call(JsValue.Undefined, e.Error);
+                asyncInstance._capability.Reject(e.Error);
                 return;
             }
             DisposeResourcesHelper.DisposeAndThen(
@@ -249,7 +249,7 @@ internal sealed class JintFunctionDefinition
                 final =>
                 {
                     asyncInstance._state = AsyncFunctionState.Completed;
-                    asyncInstance._capability.Reject.Call(JsValue.Undefined, final.Value);
+                    asyncInstance._capability.Reject(final.Value);
                 });
             return;
         }
@@ -280,19 +280,19 @@ internal sealed class JintFunctionDefinition
 
         if (final.Type == CompletionType.Throw)
         {
-            asyncInstance._capability.Reject.Call(JsValue.Undefined, final.Value);
+            asyncInstance._capability.Reject(final.Value);
         }
         else if (final.Type == CompletionType.Normal)
         {
-            asyncInstance._capability.Resolve.Call(JsValue.Undefined, JsValue.Undefined);
+            asyncInstance._capability.Resolve(JsValue.Undefined);
         }
         else if (final.Type == CompletionType.Return)
         {
-            asyncInstance._capability.Resolve.Call(JsValue.Undefined, final.Value);
+            asyncInstance._capability.Resolve(final.Value);
         }
         else
         {
-            asyncInstance._capability.Reject.Call(JsValue.Undefined, final.Value);
+            asyncInstance._capability.Reject(final.Value);
         }
     }
 

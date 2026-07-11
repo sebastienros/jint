@@ -179,17 +179,17 @@ public sealed partial class ArrayConstructor : Constructor
         }
         catch (JavaScriptException e)
         {
-            promiseCapability.Reject.Call(Undefined, e.Error);
+            promiseCapability.Reject(e.Error);
         }
         catch (TypeErrorException e)
         {
             var error = _realm.Intrinsics.TypeError.Construct(e.Message);
-            promiseCapability.Reject.Call(Undefined, error);
+            promiseCapability.Reject(error);
         }
         catch (RangeErrorException e)
         {
             var error = _realm.Intrinsics.RangeError.Construct(e.Message);
-            promiseCapability.Reject.Call(Undefined, error);
+            promiseCapability.Reject(error);
         }
     }
 
@@ -308,7 +308,7 @@ public sealed partial class ArrayConstructor : Constructor
             var nextMethod = iterator.Get(CommonProperties.Next);
             if (nextMethod is not ICallable nextCallable)
             {
-                promiseCapability.Reject.Call(Undefined, _realm.Intrinsics.TypeError.Construct("Iterator next is not a function"));
+                promiseCapability.Reject(_realm.Intrinsics.TypeError.Construct("Iterator next is not a function"));
                 return;
             }
 
@@ -323,7 +323,7 @@ public sealed partial class ArrayConstructor : Constructor
                 var iterResult = args.At(0);
                 if (iterResult is not ObjectInstance iterResultObj)
                 {
-                    promiseCapability.Reject.Call(Undefined, _realm.Intrinsics.TypeError.Construct("Iterator result is not an object"));
+                    promiseCapability.Reject(_realm.Intrinsics.TypeError.Construct("Iterator result is not an object"));
                     return Undefined;
                 }
 
@@ -335,11 +335,11 @@ public sealed partial class ArrayConstructor : Constructor
                     try
                     {
                         target.SetLength(capturedK);
-                        promiseCapability.Resolve.Call(Undefined, target.Target);
+                        promiseCapability.Resolve(target.Target);
                     }
                     catch (JavaScriptException e)
                     {
-                        promiseCapability.Reject.Call(Undefined, e.Error);
+                        promiseCapability.Reject(e.Error);
                     }
                     return Undefined;
                 }
@@ -354,7 +354,7 @@ public sealed partial class ArrayConstructor : Constructor
 
             var onRejected = new ClrFunction(_engine, "", (_, args) =>
             {
-                promiseCapability.Reject.Call(Undefined, [args.At(0)]);
+                promiseCapability.Reject(args.At(0));
                 return Undefined;
             }, 1, PropertyFlag.Configurable);
 
@@ -362,7 +362,7 @@ public sealed partial class ArrayConstructor : Constructor
         }
         catch (JavaScriptException e)
         {
-            promiseCapability.Reject.Call(Undefined, e.Error);
+            promiseCapability.Reject(e.Error);
         }
     }
 
@@ -391,7 +391,7 @@ public sealed partial class ArrayConstructor : Constructor
             var onRejected = new ClrFunction(_engine, "", (_, args) =>
             {
                 AsyncIteratorClose(_engine, iterator);
-                promiseCapability.Reject.Call(Undefined, [args.At(0)]);
+                promiseCapability.Reject(args.At(0));
                 return Undefined;
             }, 1, PropertyFlag.Configurable);
 
@@ -427,7 +427,7 @@ public sealed partial class ArrayConstructor : Constructor
                 catch (JavaScriptException e)
                 {
                     if (iterator is not null) AsyncIteratorClose(_engine, iterator);
-                    promiseCapability.Reject.Call(Undefined, e.Error);
+                    promiseCapability.Reject(e.Error);
                     return;
                 }
 
@@ -445,7 +445,7 @@ public sealed partial class ArrayConstructor : Constructor
                     catch (JavaScriptException e2)
                     {
                         if (capturedIterator is not null) AsyncIteratorClose(_engine, capturedIterator);
-                        promiseCapability.Reject.Call(Undefined, e2.Error);
+                        promiseCapability.Reject(e2.Error);
                         return Undefined;
                     }
                     _engine.AddToEventLoop(continueLoop);
@@ -455,7 +455,7 @@ public sealed partial class ArrayConstructor : Constructor
                 var onRejected = new ClrFunction(_engine, "", (_, args) =>
                 {
                     if (capturedIterator is not null) AsyncIteratorClose(_engine, capturedIterator);
-                    promiseCapability.Reject.Call(Undefined, [args.At(0)]);
+                    promiseCapability.Reject(args.At(0));
                     return Undefined;
                 }, 1, PropertyFlag.Configurable);
 
@@ -470,7 +470,7 @@ public sealed partial class ArrayConstructor : Constructor
                 catch (JavaScriptException e)
                 {
                     if (iterator is not null) AsyncIteratorClose(_engine, iterator);
-                    promiseCapability.Reject.Call(Undefined, e.Error);
+                    promiseCapability.Reject(e.Error);
                     return;
                 }
                 _engine.AddToEventLoop(continueLoop);
@@ -479,7 +479,7 @@ public sealed partial class ArrayConstructor : Constructor
         catch (JavaScriptException e)
         {
             if (iterator is not null) AsyncIteratorClose(_engine, iterator);
-            promiseCapability.Reject.Call(Undefined, e.Error);
+            promiseCapability.Reject(e.Error);
         }
     }
 
@@ -526,17 +526,17 @@ public sealed partial class ArrayConstructor : Constructor
         }
         catch (JavaScriptException e)
         {
-            promiseCapability.Reject.Call(Undefined, e.Error);
+            promiseCapability.Reject(e.Error);
         }
         catch (TypeErrorException e)
         {
             var error = _realm.Intrinsics.TypeError.Construct(e.Message);
-            promiseCapability.Reject.Call(Undefined, error);
+            promiseCapability.Reject(error);
         }
         catch (RangeErrorException e)
         {
             var error = _realm.Intrinsics.RangeError.Construct(e.Message);
-            promiseCapability.Reject.Call(Undefined, error);
+            promiseCapability.Reject(error);
         }
     }
 
@@ -555,11 +555,11 @@ public sealed partial class ArrayConstructor : Constructor
             try
             {
                 target.SetLength(len);
-                promiseCapability.Resolve.Call(Undefined, target.Target);
+                promiseCapability.Resolve(target.Target);
             }
             catch (JavaScriptException e)
             {
-                promiseCapability.Reject.Call(Undefined, e.Error);
+                promiseCapability.Reject(e.Error);
             }
             return;
         }
@@ -583,7 +583,7 @@ public sealed partial class ArrayConstructor : Constructor
 
             var onRejected = new ClrFunction(_engine, "", (_, args) =>
             {
-                promiseCapability.Reject.Call(Undefined, [args.At(0)]);
+                promiseCapability.Reject(args.At(0));
                 return Undefined;
             }, 1, PropertyFlag.Configurable);
 
@@ -591,7 +591,7 @@ public sealed partial class ArrayConstructor : Constructor
         }
         catch (JavaScriptException e)
         {
-            promiseCapability.Reject.Call(Undefined, e.Error);
+            promiseCapability.Reject(e.Error);
         }
     }
 
@@ -627,7 +627,7 @@ public sealed partial class ArrayConstructor : Constructor
 
                 var onRejected = new ClrFunction(_engine, "", (_, args) =>
                 {
-                    promiseCapability.Reject.Call(Undefined, [args.At(0)]);
+                    promiseCapability.Reject(args.At(0));
                     return Undefined;
                 }, 1, PropertyFlag.Configurable);
 
@@ -642,7 +642,7 @@ public sealed partial class ArrayConstructor : Constructor
         }
         catch (JavaScriptException e)
         {
-            promiseCapability.Reject.Call(Undefined, e.Error);
+            promiseCapability.Reject(e.Error);
         }
     }
 

@@ -53,8 +53,10 @@ internal sealed class JsPromise : ObjectInstance
     /// </summary>
     internal bool PromiseIsHandled { get; set; }
 
-    internal List<PromiseReaction> PromiseRejectReactions = new();
-    internal List<PromiseReaction> PromiseFulfillReactions = new();
+    // Allocated lazily on the first PerformPromiseThen against a pending promise;
+    // nulled again on settle (a settled promise never accumulates reactions).
+    internal List<PromiseReaction>? PromiseRejectReactions;
+    internal List<PromiseReaction>? PromiseFulfillReactions;
 
     internal JsPromise(Engine engine) : base(engine)
     {
@@ -144,6 +146,12 @@ internal sealed class JsPromise : ObjectInstance
         return RejectPromise(reason);
     }
 
+    /// <summary>
+    /// Reject entry point for <see cref="Promise.PromiseCapability"/>'s intrinsic fast mode;
+    /// the [[AlreadyResolved]] guard lives on the capability.
+    /// </summary>
+    internal JsValue Reject(JsValue reason) => RejectPromise(reason);
+
 
     // https://tc39.es/ecma262/#sec-rejectpromise
     // 1. Assert: The value of promise.[[PromiseState]] is pending.
@@ -164,8 +172,8 @@ internal sealed class JsPromise : ObjectInstance
         Settle(PromiseState.Rejected, reason);
 
         var reactions = PromiseRejectReactions;
-        PromiseRejectReactions = new List<PromiseReaction>();
-        PromiseFulfillReactions.Clear();
+        PromiseRejectReactions = null;
+        PromiseFulfillReactions = null;
         _completedEvent?.Set();
 
         // 7. If promise.[[PromiseIsHandled]] is false, perform HostPromiseRejectionTracker(promise, "reject").
@@ -187,8 +195,8 @@ internal sealed class JsPromise : ObjectInstance
 
         Settle(PromiseState.Fulfilled, result);
         var reactions = PromiseFulfillReactions;
-        PromiseFulfillReactions = new List<PromiseReaction>();
-        PromiseRejectReactions.Clear();
+        PromiseFulfillReactions = null;
+        PromiseRejectReactions = null;
         _completedEvent?.Set();
 
         return PromiseOperations.TriggerPromiseReactions(_engine, reactions, result);
