@@ -51,8 +51,8 @@ internal sealed class SuppressedErrorConstructor : Constructor
 
         if (!message.IsUndefined())
         {
-            var msg = TypeConverter.ToString(message);
-            o.CreateNonEnumerableDataPropertyOrThrow(CommonProperties.Message, msg);
+            var msg = TypeConverter.ToJsString(message);
+            o.SetVirtualMessage(msg);
         }
 
         o.DefinePropertyOrThrow("error", new PropertyDescriptor(error, configurable: true, enumerable: false, writable: true));

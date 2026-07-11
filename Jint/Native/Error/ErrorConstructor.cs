@@ -53,7 +53,7 @@ public sealed partial class ErrorConstructor : Constructor
         if (!jsValue.IsUndefined())
         {
             var msg = TypeConverter.ToJsString(jsValue);
-            o.CreateNonEnumerableDataPropertyOrThrow(CommonProperties.Message, msg);
+            o.SetVirtualMessage(msg);
         }
 
         // Per the error-stack-accessor proposal, "stack" is no longer an own data property of the

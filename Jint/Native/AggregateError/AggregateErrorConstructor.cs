@@ -50,8 +50,8 @@ internal sealed class AggregateErrorConstructor : Constructor
 
         if (!message.IsUndefined())
         {
-            var msg = TypeConverter.ToString(message);
-            o.CreateNonEnumerableDataPropertyOrThrow(CommonProperties.Message, msg);
+            var msg = TypeConverter.ToJsString(message);
+            o.SetVirtualMessage(msg);
         }
 
         o.InstallErrorCause(options);
