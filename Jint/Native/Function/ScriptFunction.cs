@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Threading;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -33,6 +34,15 @@ public sealed class ScriptFunction : Function, IConstructor
     // per-construct lookup (revalidated when .prototype is reassigned).
     private const int CtorShapePromoteThreshold = 16;
     private bool _ctorShaped;
+
+    // Static eligibility verdict for this function instance: 0 = not yet analyzed, 1 = eligible
+    // (body statically clean AND every class field name shape-compatible), 2 = ineligible. Provably
+    // clean constructors skip the sampling window and shape from instance #1 — a short-lived engine
+    // constructing 1-15 instances of each type otherwise never promotes. Combines the AST-pure
+    // State.CtorBodyShapeEligibility with the per-function class-fields check; the combined verdict
+    // cannot live on the shared State because the shared empty-constructor AST serves classes with
+    // different fields.
+    private byte _ctorStaticEligibility;
     private int _ctorSampleCount;
     private Shape? _ctorEmptyShape;
     private ObjectInstance? _ctorEmptyShapeProto;
@@ -303,10 +313,11 @@ public sealed class ScriptFunction : Function, IConstructor
 
             // Once the constructor is hot, start each fresh `this` in shape-building mode so this.x= /
             // class fields transition a shared interned hidden class instead of building a dictionary.
-            // Cold constructors (below the promote threshold) stay on the dictionary path.
+            // Cold constructors (below the promote threshold) stay on the dictionary path — unless the
+            // body is statically provably clean, in which case shaping starts at instance #1.
             if (thisArgument is JsObject thisObject && thisObject.Prototype is { } proto)
             {
-                if (_ctorShaped)
+                if (_ctorShaped || CheckCtorShapeEligibility(state))
                 {
                     if (!ReferenceEquals(_ctorEmptyShapeProto, proto))
                     {
@@ -314,10 +325,6 @@ public sealed class ScriptFunction : Function, IConstructor
                         _ctorEmptyShapeProto = proto;
                     }
                     thisObject.StartShapeBuilding(_ctorEmptyShape!);
-                }
-                else if (++_ctorSampleCount >= CtorShapePromoteThreshold)
-                {
-                    _ctorShaped = true;
                 }
             }
         }
@@ -385,6 +392,88 @@ public sealed class ScriptFunction : Function, IConstructor
         }
 
         return (ObjectInstance) constructorEnv.GetThisBinding();
+    }
+
+    /// <summary>
+    /// Cold-path shaping decision for a not-yet-promoted constructor: statically clean bodies (see
+    /// <see cref="JintFunctionDefinition.ComputeCtorBodyShapeEligibility"/>) start shaping at instance #1,
+    /// everything else keeps the sampling threshold with its pre-existing pacing (the threshold-tripping
+    /// instance itself stays on the dictionary path; the next construct starts shaped). Returns whether
+    /// the CURRENT instance should start in shape-building mode. Contingency lever: should first-instance
+    /// shaping ever show one-shot-constructor regressions, eligible constructors can instead promote at
+    /// instance #2 by setting _ctorShaped without returning true on the first call.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool CheckCtorShapeEligibility(JintFunctionDefinition.State state)
+    {
+        var eligibility = _ctorStaticEligibility;
+        if (eligibility == 0)
+        {
+            _ctorStaticEligibility = eligibility = ComputeCtorStaticEligibility(state);
+        }
+
+        if (eligibility == 1)
+        {
+            _ctorShaped = true;
+            return true;
+        }
+
+        if (++_ctorSampleCount >= CtorShapePromoteThreshold)
+        {
+            _ctorShaped = true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Combines the shared AST-level body verdict (cached on the cross-engine State) with this function's
+    /// class-field names: every field must be a plain string key that cannot be an array index — a
+    /// digit-leading key would force the ordered-enumeration deopt on first keys read. Private names are
+    /// fine (PrivateFieldAdd bypasses property storage), while symbol names and decorator
+    /// extra-initializer runners (Name == Undefined; they invoke arbitrary callables against `this`)
+    /// reject. Field initializer bodies are deliberately not scanned: post-threshold hot constructors
+    /// already run them under shape building today, and TryShapeAdd's MaxFanout bounds any dynamism.
+    /// </summary>
+    private byte ComputeCtorStaticEligibility(JintFunctionDefinition.State state)
+    {
+        var bodyEligibility = state.CtorBodyShapeEligibility;
+        if (bodyEligibility == 0)
+        {
+            bodyEligibility = JintFunctionDefinition.ComputeCtorBodyShapeEligibility(_functionDefinition!.Function) ? (byte) 1 : (byte) 2;
+            state.CtorBodyShapeEligibility = bodyEligibility;
+        }
+
+        if (bodyEligibility != 1)
+        {
+            return 2;
+        }
+
+        var fields = _fields;
+        if (fields is not null)
+        {
+            for (var i = 0; i < fields.Count; i++)
+            {
+                var name = fields[i].Name;
+                if (name is PrivateName)
+                {
+                    continue;
+                }
+
+                if (name is not JsString jsString)
+                {
+                    return 2;
+                }
+
+                var stringName = jsString.ToString();
+                if (stringName.Length > 0 && char.IsDigit(stringName[0]))
+                {
+                    return 2;
+                }
+            }
+        }
+
+        return 1;
     }
 
     internal void MakeClassConstructor()
