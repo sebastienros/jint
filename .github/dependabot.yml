@@ -42,8 +42,8 @@ updates:
       # Alternative JS engines used only for comparison benchmarks/tests.
       js-engine-comparisons:
         patterns:
-          - "Jurassic"
           - "NiL.JS"
+          - "Okojo"
           - "YantraJS.Core"
       # The Acornima parser packages, which are versioned in lockstep.
       acornima:

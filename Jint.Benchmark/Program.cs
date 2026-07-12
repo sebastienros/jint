@@ -54,7 +54,11 @@ if (args.Length > 0 && args[0] == "--smoke-comparison")
 
     var failures = 0;
     RunSmoke("Jint", () => new Engine(static options => options.Strict()).Execute(source));
-    RunSmoke("Jurassic", () => new Jurassic.ScriptEngine { ForceStrictMode = true }.Execute(source));
+    RunSmoke("Okojo", () =>
+    {
+        using var runtime = Okojo.Runtime.JsRuntime.Create();
+        runtime.Execute("\"use strict\";" + Environment.NewLine + source);
+    });
     RunSmoke("NiL.JS", () => new NiL.JS.Core.Context(strict: true).Eval(source));
     RunSmoke("YantraJS", () =>
     {

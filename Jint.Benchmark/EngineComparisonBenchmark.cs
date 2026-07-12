@@ -2,6 +2,9 @@
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Order;
 using BenchmarkDotNet.Reports;
+using Okojo.Parsing;
+using Okojo.Runtime;
+using OkojoCompiler = Okojo.Compiler.JsCompiler;
 
 namespace Jint.Benchmark;
 
@@ -22,6 +25,16 @@ public class EngineComparisonBenchmark
     }
 
     private static readonly Dictionary<string, Prepared<Script>> _parsedScripts = new();
+
+    // Okojo has no engine-level strict switch (unlike the other engines' flags); the whole program is
+    // made strict by a leading "use strict" directive, so it runs in global strict mode like the rest.
+    private static readonly Dictionary<string, string> _okojoFiles = new();
+
+    // Okojo's realm-independent prepared artifact is the parsed program (JsProgram). Bytecode
+    // (JsScript) is compiled against a specific realm, so — mirroring the fresh-engine-per-iteration
+    // rule — Okojo_Prepared reuses the parsed program and compiles+runs it against each run's own
+    // realm. The gap to the Okojo lane is parsing cost, matching Jint_ParsedScript.
+    private static readonly Dictionary<string, JsProgram> _okojoPrograms = new();
 
     private static readonly Dictionary<string, string> _files = new()
     {
@@ -66,6 +79,10 @@ public class EngineComparisonBenchmark
             }
             _files[fileName] = script;
             _parsedScripts[fileName] = Engine.PrepareScript(script, strict: true);
+
+            var okojoSource = "\"use strict\";" + Environment.NewLine + script;
+            _okojoFiles[fileName] = okojoSource;
+            _okojoPrograms[fileName] = JavaScriptParser.ParseScript(okojoSource);
         }
     }
 
@@ -92,10 +109,18 @@ public class EngineComparisonBenchmark
     }
 
     [Benchmark]
-    public void Jurassic()
+    public void Okojo()
     {
-        var engine = new Jurassic.ScriptEngine { ForceStrictMode = true };
-        engine.Execute(_files[FileName]);
+        using var runtime = JsRuntime.Create();
+        runtime.Execute(_okojoFiles[FileName]);
+    }
+
+    [Benchmark]
+    public void Okojo_Prepared()
+    {
+        using var runtime = JsRuntime.Create();
+        var script = OkojoCompiler.Compile(runtime.MainRealm, _okojoPrograms[FileName]);
+        runtime.Execute(script);
     }
 
     [Benchmark]
