@@ -55,7 +55,43 @@ internal sealed class BuiltinShape
     // name -> slot index.
     internal readonly StringDictionarySlim<int> Index;
 
+    // Slot-ordered names as shared, immutable JsString instances, memoized on first use. for-in over a
+    // built-in (e.g. an object's Object.prototype level) hands these out instead of recreating a JsString
+    // per name per enumeration. Built-in names are never integer-index-like, so no numeric-sort concern.
+    private JsValue[]? _namesAsJsStrings;
+
     internal int Count => Names.Length;
+
+    /// <summary>
+    /// This built-in's own property names as shared <see cref="JsString"/> instances in slot order,
+    /// memoized once per built-in type. Read-only; identity is unobservable to script.
+    /// </summary>
+    internal JsValue[] NamesAsJsStrings
+    {
+        get
+        {
+            if (_namesAsJsStrings is null)
+            {
+                var names = Names;
+                if (names.Length == 0)
+                {
+                    _namesAsJsStrings = System.Array.Empty<JsValue>();
+                }
+                else
+                {
+                    var arr = new JsValue[names.Length];
+                    for (var i = 0; i < names.Length; i++)
+                    {
+                        arr[i] = JsString.Create(names[i].Name);
+                    }
+
+                    _namesAsJsStrings = arr;
+                }
+            }
+
+            return _namesAsJsStrings;
+        }
+    }
 
     private BuiltinShape(Key[] names, BuiltinSlotKind[] kinds, PropertyDescriptor?[] constTemplate, ushort[] functionSlots, ushort[] setterSlots, PropertyFlag[] functionFlags, Func<ObjectInstance, PropertyDescriptor>?[]? factories, StringDictionarySlim<int> index)
     {

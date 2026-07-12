@@ -93,10 +93,24 @@ public sealed class JsObject : ObjectInstance
     }
 
     /// <summary>
-    /// Starts incremental shape mode for a still-empty object (a constructor's <c>this</c>): installs the
-    /// prototype's empty root shape with no slot storage, so subsequent <c>this.x=</c> adds transition the
-    /// shape (interned, shared across <c>new T()</c> instances) and fill an in-object slot — a constructor
-    /// whose instance stays within InlineCapacity properties allocates no slot array.
+    /// True when nothing observable has been stored on this object yet: no string or symbol property,
+    /// not in shape mode, and extensible. Such an object can switch representation — e.g. start
+    /// incremental shape building via <see cref="StartShapeBuilding"/> — with no behavioral difference.
+    /// Ordered to fail fastest for the common non-virgin case: a used target virtually always has
+    /// <c>_properties</c> (or is shaped, caught by the flags test right after), so a plain field load
+    /// decides before the <see cref="ObjectInstance.Extensible"/> getter is ever invoked.
+    /// </summary>
+    internal bool IsVirginPlainObject => _properties is null
+        && _symbols is null
+        && (_type & InternalTypes.ShapeMode) == InternalTypes.Empty
+        && Extensible;
+
+    /// <summary>
+    /// Starts incremental shape mode for a still-empty object (a constructor's <c>this</c>, or a
+    /// copy-idiom target such as object spread/rest or Object.fromEntries): installs the prototype's
+    /// empty root shape with no slot storage, so subsequent adds (<c>this.x=</c> / CreateDataProperty)
+    /// transition the shape (interned, shared across objects built the same way) and fill an in-object
+    /// slot — an object that stays within InlineCapacity properties allocates no slot array.
     /// </summary>
     internal void StartShapeBuilding(Shape emptyRoot)
     {
