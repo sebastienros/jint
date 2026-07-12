@@ -75,6 +75,38 @@ public sealed partial class Engine : IDisposable
     // above only engages on RE-evaluation (see GlobalDeclarationInstantiation).
     private readonly HashSet<Script> _evaluatedScripts = new();
 
+    // Per-engine cache of the top-level (Program) statement handler tree, keyed on the stable AST.
+    // Engine-owned for the same lifetime reasons as _functionDefinitions: the tree accumulates
+    // engine-affine per-node inline caches, so it must not be shared across engines via the AST.
+    // Lazily allocated and only populated on RE-evaluation, so fresh-engine-per-op hosts never
+    // touch it and stay byte-identical. See GetOrBuildScriptStatementList.
+    private Dictionary<Script, JintStatementList>? _scriptStatementLists;
+
+    private JintStatementList GetOrBuildScriptStatementList(Script script, bool reEvaluation)
+    {
+        if (!reEvaluation)
+        {
+            // First evaluation on this engine (fresh-engine-per-op hosts only ever hit this):
+            // build fresh and cache nothing, byte-identical to the historical path.
+            return new JintStatementList(null, script.Body);
+        }
+
+        var cache = _scriptStatementLists ??= new Dictionary<Script, JintStatementList>();
+        if (!cache.TryGetValue(script, out var list))
+        {
+            // backstop mirroring CacheFunctionDefinition: bound growth for hosts streaming endless
+            // distinct sources through one long-lived engine.
+            if (cache.Count >= 2048)
+            {
+                cache.Clear();
+            }
+
+            cache[script] = list = new JintStatementList(null, script.Body);
+        }
+
+        return list;
+    }
+
     internal JintFunctionDefinition GetOrCreateFunctionDefinition(FunctionDeclaration declaration)
     {
         if (!TryGetFunctionDefinition(declaration, out var definition))
@@ -558,9 +590,14 @@ public sealed partial class Engine : IDisposable
         try
         {
             var script = scriptRecord.EcmaScriptCode;
-            GlobalDeclarationInstantiation(script, globalEnv);
+            var reEvaluation = GlobalDeclarationInstantiation(script, globalEnv);
 
-            var list = new JintStatementList(null, script.Body);
+            // On re-evaluation reuse this engine's cached top-level handler tree (and its warm
+            // per-node inline caches) instead of rebuilding it; a first evaluation - the fresh-
+            // engine-per-run shape - takes plain construction so those hosts stay byte-identical.
+            // Engine-owned like the function-definition cache above (dies with the engine, so it
+            // never pins a dropped engine through the shared prepared AST).
+            var list = GetOrBuildScriptStatementList(script, reEvaluation);
 
             Completion result;
             try
@@ -1169,7 +1206,7 @@ public sealed partial class Engine : IDisposable
     /// <summary>
     /// https://tc39.es/ecma262/#sec-globaldeclarationinstantiation
     /// </summary>
-    private void GlobalDeclarationInstantiation(
+    private bool GlobalDeclarationInstantiation(
         Script script,
         GlobalEnvironment env)
     {
@@ -1182,14 +1219,14 @@ public sealed partial class Engine : IDisposable
 
         var realm = Realm;
 
+        // The definition / statement-list caches pay only when the same script runs on this engine
+        // again (the cached-Prepared<Script> embedding pattern); a first evaluation - fresh-engine-
+        // per-run hosts never see a second one - takes plain construction so one-shot scripts stay
+        // byte-identical to the uncached path.
+        var reEvaluation = !_evaluatedScripts.Add(script);
+
         if (functionDeclarations != null)
         {
-            // The definition cache pays only when the same script runs on this engine again (the
-            // cached-Prepared<Script> embedding pattern); a first evaluation - fresh-engine-per-run
-            // hosts never see a second one - takes plain construction so one-shot scripts stay
-            // byte-identical to the uncached path.
-            var reEvaluation = !_evaluatedScripts.Add(script);
-
             for (var i = functionDeclarations.Count - 1; i >= 0; i--)
             {
                 var d = functionDeclarations[i];
@@ -1288,6 +1325,8 @@ public sealed partial class Engine : IDisposable
                 }
             }
         }
+
+        return reEvaluation;
     }
 
     /// <summary>
