@@ -24,6 +24,13 @@ internal sealed class JintObjectExpression : JintExpression
     // { a: 1, a: 2 }), which must fall back to the checked build so the later value wins.
     private readonly bool _fastKeysDistinct;
 
+    // True when no static key is digit-leading, so a hidden-class shape built from these keys is not
+    // guaranteed to be torn down. An integer-like own key reorders ahead of the string keys on first
+    // enumeration and forces the object to deopt to a dictionary, so such literals skip the
+    // shape-backed build and take the dictionary path directly — matching the spread / JSON.parse /
+    // constructor shape paths, which pre-exclude digit-leading keys for the same reason.
+    private readonly bool _fastKeysShapeable;
+
     // The hidden-class shape this literal builds, cached so every execution after the first reuses it
     // (an O(1) build: validate the prototype, allocate a slot array, fill it). Re-derived when the
     // active realm's Object.prototype differs from the one the cached shape is anchored to (a prepared
@@ -171,9 +178,18 @@ internal sealed class JintObjectExpression : JintExpression
         {
             // All keys are static names (guaranteed by _canBuildFast); pre-hash them once.
             var keys = new Key[_properties.Length];
+            _fastKeysShapeable = true;
             for (var i = 0; i < keys.Length; i++)
             {
-                keys[i] = _properties[i]!._key!;
+                var name = _properties[i]!._key!;
+                keys[i] = name;
+
+                // A digit-leading key (an array index or an index-like string) would deopt the shape
+                // on first enumeration; keep such literals on the dictionary build instead.
+                if (name.Length > 0 && char.IsDigit(name[0]))
+                {
+                    _fastKeysShapeable = false;
+                }
             }
             _fastKeys = keys;
             _fastKeysDistinct = AreKeysDistinct(keys);
@@ -266,7 +282,7 @@ internal sealed class JintObjectExpression : JintExpression
         // shape and a flat slot array — no per-property PropertyDescriptor, no dictionary. Duplicate-keyed
         // literals (e.g. { a:1, a:2 }) and literals whose values may suspend mid-build fall through to the
         // general dictionary path below.
-        if (_fastKeysDistinct && (suspendable is null || _valuesCannotSuspend))
+        if (_fastKeysDistinct && _fastKeysShapeable && (suspendable is null || _valuesCannotSuspend))
         {
             return BuildObjectFastShapeBacked(context, engine);
         }
