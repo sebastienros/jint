@@ -407,36 +407,80 @@ public sealed class JsArguments : ObjectInstance
 
         // Snapshot the (pooled, caller-owned) argument values so reads stay valid after the
         // call returns. Virtual mode keeps serving reads off the snapshot; the property
-        // descriptors materialize lazily only if something actually needs them.
+        // descriptors materialize lazily only if something actually needs them. Mapped indices are
+        // still served from their live binding until the map detaches (FunctionWasCalled freezes the
+        // final binding values into this snapshot), so no per-index binding read is needed here.
         var args = _args;
         var copiedArgs = new JsValue[args.Length];
         System.Array.Copy(args, copiedArgs, args.Length);
-
-        // A mapped index reads its live binding while the call runs, and a write through either the
-        // parameter name (a = x) or arguments[i] = x updates only that binding — the pooled _args is
-        // shared with the caller and must not be written before this snapshot exists. Capture each
-        // mapped index from its current binding so the snapshot, which becomes authoritative once the
-        // map detaches on return, reflects those pre-materialization writes.
-        if (_func is not null && !_mapDetached)
-        {
-            for (uint i = 0; i < (uint) copiedArgs.Length; i++)
-            {
-                if (TryGetMappedName(i, out var name))
-                {
-                    copiedArgs[i] = _env.GetBindingValue(name, strict: false);
-                }
-            }
-        }
-
         _args = copiedArgs;
 
         _canReturnToPool = false;
     }
 
+    /// <summary>
+    /// A mapped index reads its live parameter binding while the owning call runs; a write through
+    /// either the parameter name (<c>a = x</c>) or <c>arguments[i] = x</c> updates that binding. Just
+    /// before the map detaches on return, freeze each still-mapped index's current binding value into
+    /// the authoritative snapshot (the <c>_args</c> array while virtual, or the own data property once
+    /// materialized), so a write made at any point during the call survives into the escaped object.
+    /// Indices that were deleted or redefined away from a plain data property are no longer in the map
+    /// and are left untouched.
+    /// </summary>
+    private void FreezeMappedBindings()
+    {
+        if (_virtualMode)
+        {
+            // Only an escaped (materialized) object is read after return; a still-pooled one is
+            // unobserved. _args is a private copy once materialized, so it is safe to write. No index
+            // can have been deleted while virtual — a delete routes through EnsureInitialized first.
+            if (!_materialized)
+            {
+                return;
+            }
+
+            var args = _args;
+            for (uint i = 0; i < (uint) args.Length; i++)
+            {
+                if (TryGetMappedName(i, out var name))
+                {
+                    args[i] = _env.GetBindingValue(name, strict: false);
+                }
+            }
+        }
+        else if (_parameterMap is { } map)
+        {
+            // Materialized to real descriptors: the live map overlaid mapped reads during the call.
+            // Bake the final binding value into each own data property that is still mapped (present
+            // in the map) before the overlay is dropped. Update the value in place so a user-set
+            // attribute is preserved — a still-mapped index can be made non-enumerable without
+            // unmapping; only accessor / non-writable redefinitions unmap, and the map-membership
+            // check already skips those.
+            for (uint i = 0; i < (uint) _args.Length; i++)
+            {
+                var key = JsString.Create(i);
+                if (map.HasOwnProperty(key) && TryGetMappedName(i, out var name))
+                {
+                    var existing = base.GetOwnProperty(key);
+                    if (existing.IsDataDescriptor())
+                    {
+                        existing.Value = _env.GetBindingValue(name, strict: false);
+                    }
+                }
+            }
+        }
+    }
+
     internal void FunctionWasCalled()
     {
-        // Detach the mapping: post-call reads see the captured snapshot (write-synced while
-        // mapped), not live bindings, and a later materialization must not rebuild the map.
+        // Freeze the final mapped-binding values into the snapshot while the map is still live, then
+        // detach: post-call reads see the captured snapshot, not live bindings, and a later
+        // materialization must not rebuild the map.
+        if (!_mapDetached && _func is not null)
+        {
+            FreezeMappedBindings();
+        }
+
         _mapDetached = true;
 
         // should no longer expose arguments which is special name
