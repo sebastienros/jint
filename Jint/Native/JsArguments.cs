@@ -1,4 +1,3 @@
-using System.Threading;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -14,9 +13,6 @@ namespace Jint.Native;
 /// </summary>
 public sealed class JsArguments : ObjectInstance
 {
-    // cache property container for array iteration for less allocations
-    private static readonly ThreadLocal<HashSet<Key>> _mappedNamed = new(() => []);
-
     private Function.Function _func = null!;
     private Key[] _names = null!;
     private JsValue[] _args = null!;
@@ -121,24 +117,17 @@ public sealed class JsArguments : ObjectInstance
                 // index properties always materialize; the live-binding parameter map is only
                 // built while the owning call is still running (post-return the mapping is
                 // detached and the snapshot values are authoritative)
-                HashSet<Key>? mappedNamed = null;
                 if (!_mapDetached)
                 {
-                    mappedNamed = _mappedNamed.Value!;
-                    mappedNamed.Clear();
                     map = _realm.Intrinsics.Object.Construct(Arguments.Empty);
                 }
 
                 for (uint i = 0; i < (uint) args.Length; i++)
                 {
                     SetOwnProperty(JsString.Create(i), new PropertyDescriptor(args[i], PropertyFlag.ConfigurableEnumerableWritable));
-                    if (map is not null && i < _names.Length)
+                    if (map is not null && TryGetMappedName(i, out var name))
                     {
-                        var name = _names[i];
-                        if (mappedNamed!.Add(name))
-                        {
-                            map.SetOwnProperty(JsString.Create(i), new ClrAccessDescriptor(_env, Engine, name));
-                        }
+                        map.SetOwnProperty(JsString.Create(i), new ClrAccessDescriptor(_env, Engine, name));
                     }
                 }
             }
@@ -187,9 +176,9 @@ public sealed class JsArguments : ObjectInstance
             {
                 if (index < (uint) _args.Length)
                 {
-                    // the parameter map binds the FIRST index carrying each name (later duplicates
-                    // read the positional argument), mirroring Initialize's first-wins dedup;
-                    // once the call returned the map is detached and the snapshot is authoritative
+                    // the parameter map binds the LAST index carrying each name (earlier duplicates
+                    // read the positional argument), matching CreateMappedArgumentsObject; once the
+                    // call returned the map is detached and the snapshot is authoritative
                     if (_func is not null && !_mapDetached && TryGetMappedName(index, out var mappedName))
                     {
                         return _env.GetBindingValue(mappedName, strict: false);
@@ -226,7 +215,12 @@ public sealed class JsArguments : ObjectInstance
         }
 
         name = names[index];
-        for (var i = 0; i < index; i++)
+
+        // CreateMappedArgumentsObject maps the LAST parameter of a duplicated name (it walks the
+        // parameter list back to front, mapping the first name it has not yet seen). So this index
+        // owns the mapping only when no later parameter repeats the same name; earlier duplicates
+        // read the positional argument.
+        for (var i = index + 1; i < (uint) names.Length; i++)
         {
             if (names[i] == name)
             {
@@ -413,7 +407,9 @@ public sealed class JsArguments : ObjectInstance
 
         // Snapshot the (pooled, caller-owned) argument values so reads stay valid after the
         // call returns. Virtual mode keeps serving reads off the snapshot; the property
-        // descriptors materialize lazily only if something actually needs them.
+        // descriptors materialize lazily only if something actually needs them. Mapped indices are
+        // still served from their live binding until the map detaches (FunctionWasCalled freezes the
+        // final binding values into this snapshot), so no per-index binding read is needed here.
         var args = _args;
         var copiedArgs = new JsValue[args.Length];
         System.Array.Copy(args, copiedArgs, args.Length);
@@ -422,10 +418,69 @@ public sealed class JsArguments : ObjectInstance
         _canReturnToPool = false;
     }
 
+    /// <summary>
+    /// A mapped index reads its live parameter binding while the owning call runs; a write through
+    /// either the parameter name (<c>a = x</c>) or <c>arguments[i] = x</c> updates that binding. Just
+    /// before the map detaches on return, freeze each still-mapped index's current binding value into
+    /// the authoritative snapshot (the <c>_args</c> array while virtual, or the own data property once
+    /// materialized), so a write made at any point during the call survives into the escaped object.
+    /// Indices that were deleted or redefined away from a plain data property are no longer in the map
+    /// and are left untouched.
+    /// </summary>
+    private void FreezeMappedBindings()
+    {
+        if (_virtualMode)
+        {
+            // Only an escaped (materialized) object is read after return; a still-pooled one is
+            // unobserved. _args is a private copy once materialized, so it is safe to write. No index
+            // can have been deleted while virtual — a delete routes through EnsureInitialized first.
+            if (!_materialized)
+            {
+                return;
+            }
+
+            var args = _args;
+            for (uint i = 0; i < (uint) args.Length; i++)
+            {
+                if (TryGetMappedName(i, out var name))
+                {
+                    args[i] = _env.GetBindingValue(name, strict: false);
+                }
+            }
+        }
+        else if (_parameterMap is { } map)
+        {
+            // Materialized to real descriptors: the live map overlaid mapped reads during the call.
+            // Bake the final binding value into each own data property that is still mapped (present
+            // in the map) before the overlay is dropped. Update the value in place so a user-set
+            // attribute is preserved — a still-mapped index can be made non-enumerable without
+            // unmapping; only accessor / non-writable redefinitions unmap, and the map-membership
+            // check already skips those.
+            for (uint i = 0; i < (uint) _args.Length; i++)
+            {
+                var key = JsString.Create(i);
+                if (map.HasOwnProperty(key) && TryGetMappedName(i, out var name))
+                {
+                    var existing = base.GetOwnProperty(key);
+                    if (existing.IsDataDescriptor())
+                    {
+                        existing.Value = _env.GetBindingValue(name, strict: false);
+                    }
+                }
+            }
+        }
+    }
+
     internal void FunctionWasCalled()
     {
-        // Detach the mapping: post-call reads see the captured snapshot (write-synced while
-        // mapped), not live bindings, and a later materialization must not rebuild the map.
+        // Freeze the final mapped-binding values into the snapshot while the map is still live, then
+        // detach: post-call reads see the captured snapshot, not live bindings, and a later
+        // materialization must not rebuild the map.
+        if (!_mapDetached && _func is not null)
+        {
+            FreezeMappedBindings();
+        }
+
         _mapDetached = true;
 
         // should no longer expose arguments which is special name

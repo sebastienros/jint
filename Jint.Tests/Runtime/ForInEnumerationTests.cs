@@ -94,6 +94,70 @@ public class ForInEnumerationTests
     }
 
     [Fact]
+    public void VisitedShallowerKeyDeletedMidLoopStillShadowsDeeperKey()
+    {
+        // Regression: a shallower own key that was already visited and is then deleted must still
+        // shadow the same-named enumerable key on a deeper level — "each key visited at most once".
+        // A live re-probe of the shadow set would see the key as Missing and wrongly re-enumerate it.
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var proto = { a: 1 };
+            var o = Object.create(proto);
+            o.a = 2; // shadows proto.a, visited first
+            o.b = 3;
+            var out = [];
+            for (var k in o) { out.push(k); if (k === 'b') { delete o.a; } }
+            out.join(',');
+            """).AsString();
+
+        Assert.Equal("a,b", result);
+    }
+
+    [Fact]
+    public void VisitedKeyDeletedMidLoopShadowsAcrossThreeLevels()
+    {
+        // Same invariant across a three-level chain: the deleted-after-visit own key must not
+        // resurface from a grandparent that carries an enumerable key of the same name.
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var grand = { x: 1 };
+            var proto = Object.create(grand); proto.y = 1;
+            var o = Object.create(proto); o.x = 2; o.z = 3;
+            var out = [];
+            for (var k in o) { out.push(k); if (k === 'z') { delete o.x; } }
+            out.join(',');
+            """).AsString();
+
+        Assert.Equal("x,z,y", result);
+    }
+
+    [Fact]
+    public void PooledIteratorReuseKeepsShadowingInheritedEnumerableKey()
+    {
+        // Regression: the pooled ForInIterator must reset its shadow-set sentinel to null (not merely
+        // clear it) between reuses. An own key shadowing an enumerable INHERITED key must keep
+        // shadowing on the second and later runs of the same for-in statement — otherwise the
+        // inherited key double-enumerates from the second iteration onward.
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            function Base() {}
+            Base.prototype.type = 'base'; // enumerable inherited
+            var out = [];
+            for (var i = 0; i < 3; i++) {
+                var o = new Base();
+                o.type = 'x'; // own, shadows inherited 'type'
+                o.id = 1;
+                var ks = [];
+                for (var k in o) { ks.push(k); }
+                out.push(ks.join(','));
+            }
+            out.join(' | ');
+            """).AsString();
+
+        Assert.Equal("type,id | type,id | type,id", result);
+    }
+
+    [Fact]
     public void AddDuringIterationDoesNotYieldNewKey()
     {
         // Spec permits either; this pins Jint's current behaviour (level keys are snapshotted at entry).
