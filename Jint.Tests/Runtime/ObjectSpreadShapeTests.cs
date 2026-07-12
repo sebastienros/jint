@@ -513,4 +513,165 @@ public class ObjectSpreadShapeTests
 
         Assert.Equal("""{"keys":["b","c","d"],"c":3,"d":4,"dWritable":false}""", result);
     }
+
+    // ---- Source-shape adoption fast path: `{ ...src }` where src is itself a shape-mode object ----
+
+    [Fact]
+    public void SpreadOfShapeSourceAdoptsSourceInternedShape()
+    {
+        var engine = new Engine();
+        engine.Execute("var src = { a: 1, b: 2, c: 3, d: 4 };");
+
+        var src = Assert.IsType<JsObject>(engine.Evaluate("src"));
+        var clone1 = Assert.IsType<JsObject>(engine.Evaluate("({ ...src })"));
+        var clone2 = Assert.IsType<JsObject>(engine.Evaluate("({ ...src })"));
+
+        // The clone reuses the source's exact interned leaf shape (same prototype + same key
+        // sequence + same attributes), so the member inline cache stays monomorphic across the
+        // source and every clone. Distinct objects, one shape.
+        Assert.NotSame(src, clone1);
+        Assert.NotSame(clone1, clone2);
+        Assert.True((clone1._type & InternalTypes.ShapeMode) != InternalTypes.Empty);
+        Assert.Same(src.ShapeOf, clone1.ShapeOf);
+        Assert.Same(clone1.ShapeOf, clone2.ShapeOf);
+
+        // `{ ...src, x }` extends the adopted shape by one interned transition — the same shape a
+        // streamed build would land on — so those clones also share a shape with each other.
+        var ext1 = Assert.IsType<JsObject>(engine.Evaluate("({ ...src, x: 1 })"));
+        var ext2 = Assert.IsType<JsObject>(engine.Evaluate("({ ...src, x: 2 })"));
+        Assert.Same(ext1.ShapeOf, ext2.ShapeOf);
+        Assert.NotSame(src.ShapeOf, ext1.ShapeOf);
+        Assert.Equal("a,b,c,d,x", engine.Evaluate("Object.keys({ ...src, x: 1 }).join()").AsString());
+    }
+
+    [Fact]
+    public void SpreadCloneHasIndependentSlotStorageInlineAndOverflow()
+    {
+        var engine = new Engine();
+        // Writing an own slot of the clone must never reach back into the source, for both in-object
+        // (a..d) and overflow (e, f) slots. Spread copies value references, so a nested object stays
+        // shared (shallow), but the top-level slots are separate storage.
+        var result = engine.Evaluate("""
+            (function () {
+                var src = { a: 1, b: 2, c: 3, d: 4, e: 5, f: 6, nested: { v: 1 } };
+                var t = { ...src };
+                t.a = 99;   // inline slot
+                t.f = 88;   // overflow slot
+                t.nested.v = 42; // shallow: mutates the shared referent
+                return JSON.stringify({
+                    srcA: src.a, srcF: src.f, tA: t.a, tF: t.f,
+                    sharedNested: src.nested.v, sameNestedRef: src.nested === t.nested
+                });
+            })()
+            """).AsString();
+
+        Assert.Equal("""{"srcA":1,"srcF":6,"tA":99,"tF":88,"sharedNested":42,"sameNestedRef":true}""", result);
+    }
+
+    [Fact]
+    public void SpreadOfCustomPrototypeSourceDeclinesAndResultHasObjectPrototype()
+    {
+        var engine = new Engine();
+        // A source with a non-Object.prototype prototype must not have its shape adopted onto an
+        // Object.prototype target (interned shapes are rooted per prototype). The fast path declines
+        // and streams; only the source's own enumerable data property is copied and the result's
+        // prototype is Object.prototype.
+        var result = engine.Evaluate("""
+            (function () {
+                var proto = { inheritedKey: 'p' };
+                var src = Object.create(proto);
+                src.a = 1;
+                src.b = 2;
+                var o = { ...src };
+                return JSON.stringify({
+                    keys: Object.keys(o),
+                    hasInheritedOwn: Object.prototype.hasOwnProperty.call(o, 'inheritedKey'),
+                    protoIsObjectProto: Object.getPrototypeOf(o) === Object.prototype,
+                    a: o.a, b: o.b
+                });
+            })()
+            """).AsString();
+
+        Assert.Equal("""{"keys":["a","b"],"hasInheritedOwn":false,"protoIsObjectProto":true,"a":1,"b":2}""", result);
+    }
+
+    [Fact]
+    public void SpreadOfShapeSourceWithIntegerLikeKeyKeepsSpecOrderAndValues()
+    {
+        var engine = new Engine();
+        // A fast-built literal can be shape-mode while carrying a digit-leading key; own-key order then
+        // needs the numeric-first sort, produced on enumeration by the shape->dictionary deopt. Adopting
+        // such a shape is faithful because the same deopt applies to the source and the clone alike.
+        var result = engine.Evaluate("""
+            (function () {
+                var src = { a: 1, '0': 2, b: 3 };
+                var o = { ...src };
+                return JSON.stringify({ keys: Object.keys(o), zero: o['0'], a: o.a, b: o.b });
+            })()
+            """).AsString();
+
+        Assert.Equal("""{"keys":["0","a","b"],"zero":2,"a":1,"b":3}""", result);
+    }
+
+    [Fact]
+    public void SpreadOfSymbolCarryingShapeSourceDeclinesButCopiesSymbol()
+    {
+        var engine = new Engine();
+        // Symbols live outside the shape, so a source carrying an enumerable symbol declines the
+        // wholesale adopt and streams — the enumerable symbol is copied, a non-enumerable one skipped.
+        var result = engine.Evaluate("""
+            (function () {
+                var e = Symbol('e'), h = Symbol('h');
+                var src = { a: 1, b: 2 };
+                src[e] = 'enum';
+                Object.defineProperty(src, h, { value: 'hidden', enumerable: false });
+                var o = { ...src };
+                return JSON.stringify({
+                    keys: Object.keys(o),
+                    a: o.a, b: o.b,
+                    enumSym: o[e],
+                    hiddenSym: o[h] === undefined
+                });
+            })()
+            """).AsString();
+
+        Assert.Equal("""{"keys":["a","b"],"a":1,"b":2,"enumSym":"enum","hiddenSym":true}""", result);
+    }
+
+    [Fact]
+    public void SpreadNotFirstElementStreamsAndKeepsOrder()
+    {
+        var engine = new Engine();
+        // When the spread is not the first element the target already has slots, so the wholesale adopt
+        // is declined and the source keys stream in after the leading static key.
+        var result = engine.Evaluate("""
+            (function () {
+                var src = { b: 2, c: 3 };
+                var o = { a: 1, ...src, d: 4 };
+                return JSON.stringify({ keys: Object.keys(o), values: Object.values(o) });
+            })()
+            """).AsString();
+
+        Assert.Equal("""{"keys":["a","b","c","d"],"values":[1,2,3,4]}""", result);
+    }
+
+    [Fact]
+    public void SpreadTrailingKeyDoesNotLeakIntoAdoptedSource()
+    {
+        var engine = new Engine();
+        // The adopted clone must own its storage: adding a trailing key extends only the clone.
+        var result = engine.Evaluate("""
+            (function () {
+                var src = { a: 1, b: 2 };
+                var o = { ...src, c: 3 };
+                return JSON.stringify({
+                    cloneKeys: Object.keys(o),
+                    srcKeys: Object.keys(src),
+                    srcHasC: Object.prototype.hasOwnProperty.call(src, 'c')
+                });
+            })()
+            """).AsString();
+
+        Assert.Equal("""{"cloneKeys":["a","b","c"],"srcKeys":["a","b"],"srcHasC":false}""", result);
+    }
 }
