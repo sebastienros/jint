@@ -12,7 +12,6 @@
     <PackageVersion Include="Flurl.Http.Signed" Version="4.0.2" />
     <PackageVersion Include="GitHubActionsTestLogger" Version="3.0.4" />
     <PackageVersion Include="ICU4N" Version="60.1.0-alpha.440" />
-    <PackageVersion Include="Jurassic" Version="3.2.9" />
     <PackageVersion Include="Meziantou.Analyzer" Version="3.0.122" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="5.6.0" PrivateAssets="all" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.6.0" PrivateAssets="all" />
@@ -27,6 +26,7 @@
     <PackageVersion Include="NodaTime" Version="3.3.3" />
     <PackageVersion Include="NUnit" Version="4.6.1" />
     <PackageVersion Include="NUnit3TestAdapter" Version="6.2.0" />
+    <PackageVersion Include="Okojo" Version="0.1.2-preview.1" />
     <PackageVersion Include="SharpZipLib" Version="1.4.2" />
     <PackageVersion Include="SourceMaps" Version="0.3.0" />
     <PackageVersion Include="Spectre.Console.Cli" Version="0.55.0" />
