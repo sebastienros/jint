@@ -70,26 +70,34 @@ internal sealed class BuiltinShape
     {
         get
         {
-            if (_namesAsJsStrings is null)
+            // A BuiltinShape is a process-shared singleton (one static instance per built-in type), so
+            // this memo can be raced by engines on different threads. Build into a local and publish
+            // with a release/acquire pair: a concurrent reader that sees the reference is guaranteed to
+            // see the fully-populated array (matters on weak memory models). A rare double-build is
+            // benign — the contents are a deterministic function of Names.
+            var cached = System.Threading.Volatile.Read(ref _namesAsJsStrings);
+            if (cached is not null)
             {
-                var names = Names;
-                if (names.Length == 0)
-                {
-                    _namesAsJsStrings = System.Array.Empty<JsValue>();
-                }
-                else
-                {
-                    var arr = new JsValue[names.Length];
-                    for (var i = 0; i < names.Length; i++)
-                    {
-                        arr[i] = JsString.Create(names[i].Name);
-                    }
+                return cached;
+            }
 
-                    _namesAsJsStrings = arr;
+            var names = Names;
+            JsValue[] arr;
+            if (names.Length == 0)
+            {
+                arr = System.Array.Empty<JsValue>();
+            }
+            else
+            {
+                arr = new JsValue[names.Length];
+                for (var i = 0; i < names.Length; i++)
+                {
+                    arr[i] = JsString.Create(names[i].Name);
                 }
             }
 
-            return _namesAsJsStrings;
+            System.Threading.Volatile.Write(ref _namesAsJsStrings, arr);
+            return arr;
         }
     }
 
