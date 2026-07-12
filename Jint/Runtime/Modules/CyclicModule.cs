@@ -140,7 +140,15 @@ public abstract class CyclicModule : Module
                 m._evalError = result;
             }
 
-            _abnormalCompletionLocation = result.Location;
+            // A completion recorded by AsyncModuleExecutionRejected carries only the thrown value and has
+            // no associated AST node (source is default). Re-evaluating an errored top-level-await cycle
+            // root - e.g. a dynamic import of a fulfilled member of an already-errored cycle - returns that
+            // recorded [[EvaluationError]] here, so only capture a location when the completion has one.
+            if (result._source is not null)
+            {
+                _abnormalCompletionLocation = result.Location;
+            }
+
             capability.Reject(result.Value);
         }
         else
