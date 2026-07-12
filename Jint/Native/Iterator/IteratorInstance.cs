@@ -279,8 +279,15 @@ internal abstract class IteratorInstance : ObjectInstance
         private List<CompletedLevel>? _completedLevels;
         private HashSet<JsValue>? _visited;
 
+        // Keys of the level currently being walked that probed Missing at their turn (deleted or
+        // absent before they were reached). Usually null — populated only when a key vanishes
+        // mid-enumeration. A shadow set, when it is later built, must treat these as never-present:
+        // a key visited then deleted still shadows deeper levels, but a key deleted before its turn
+        // does not — a distinction a live re-probe cannot make (both read Missing afterwards).
+        private HashSet<JsValue>? _levelAbsent;
+
         [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
-        private readonly record struct CompletedLevel(ObjectInstance Owner, IReadOnlyList<JsValue> Keys);
+        private readonly record struct CompletedLevel(IReadOnlyList<JsValue> Keys, HashSet<JsValue>? Absent);
 
         public ForInIterator(Engine engine, ObjectInstance target) : base(engine)
         {
@@ -306,7 +313,13 @@ internal abstract class IteratorInstance : ObjectInstance
                     var probe = current.ProbeOwnProperty(key);
                     if (probe == OwnPropertyProbe.Missing)
                     {
-                        // deleted before its turn — not visited, does not shadow
+                        // absent before its turn — not visited, does not shadow. Record it so a
+                        // shadow set built later reconstructs this level's membership from the
+                        // retained key list minus these, rather than re-probing the mutated object.
+                        if (_visited is null)
+                        {
+                            (_levelAbsent ??= []).Add(key);
+                        }
                         continue;
                     }
 
@@ -322,7 +335,7 @@ internal abstract class IteratorInstance : ObjectInstance
                                 continue;
                             }
 
-                            _visited = BuildVisited(current, keys, _index - 1);
+                            _visited = BuildVisited(keys, _index - 1, _levelAbsent);
                         }
 
                         if (!_visited.Add(key))
@@ -347,11 +360,13 @@ internal abstract class IteratorInstance : ObjectInstance
 
                 if (_visited is null)
                 {
-                    // retain the exhausted level's snapshot (a list reference, no copy) so a
-                    // later set build can reconstruct what it shadowed
-                    (_completedLevels ??= []).Add(new CompletedLevel(current, keys));
+                    // retain the exhausted level's snapshot (a list reference, no copy) plus any
+                    // keys that vanished before their turn, so a later set build reconstructs
+                    // exactly what this level shadowed without re-probing the mutated object
+                    (_completedLevels ??= []).Add(new CompletedLevel(keys, _levelAbsent));
                 }
 
+                _levelAbsent = null;
                 _deeperLevel = true;
                 _current = proto;
                 _keys = proto.GetForInStringKeys();
@@ -365,38 +380,41 @@ internal abstract class IteratorInstance : ObjectInstance
         /// <summary>
         /// First enumerable candidate on a deeper level: build the shadow set from every
         /// shallower level's retained snapshot plus the already-processed prefix of the
-        /// current level, re-probing each key on its owning object. Prototype members are
+        /// current level, taking each key that was present when this enumeration reached it
+        /// (its snapshot minus the keys recorded absent at their turn). Prototype members are
         /// overwhelmingly non-enumerable, so most enumerations never get here.
         /// </summary>
-        private HashSet<JsValue> BuildVisited(ObjectInstance current, IReadOnlyList<JsValue> currentKeys, int processedCount)
+        private HashSet<JsValue> BuildVisited(IReadOnlyList<JsValue> currentKeys, int processedCount, HashSet<JsValue>? currentAbsent)
         {
             var set = new HashSet<JsValue>();
             if (_completedLevels is not null)
             {
                 foreach (var level in _completedLevels)
                 {
-                    var levelKeys = level.Keys;
-                    for (var i = 0; i < levelKeys.Count; i++)
-                    {
-                        if (level.Owner.ProbeOwnProperty(levelKeys[i]) != OwnPropertyProbe.Missing)
-                        {
-                            set.Add(levelKeys[i]);
-                        }
-                    }
+                    AddPresentAtTurn(set, level.Keys, level.Keys.Count, level.Absent);
                 }
 
                 _completedLevels = null;
             }
 
-            for (var i = 0; i < processedCount; i++)
-            {
-                if (current.ProbeOwnProperty(currentKeys[i]) != OwnPropertyProbe.Missing)
-                {
-                    set.Add(currentKeys[i]);
-                }
-            }
+            AddPresentAtTurn(set, currentKeys, processedCount, currentAbsent);
 
             return set;
+        }
+
+        // A key shadows deeper levels iff it was present when this level reached it: every key in
+        // the retained snapshot except those recorded absent at their turn. Reconstructing from the
+        // turn-time record (not a live re-probe) keeps a visited-then-deleted key in the shadow set.
+        private static void AddPresentAtTurn(HashSet<JsValue> set, IReadOnlyList<JsValue> keys, int count, HashSet<JsValue>? absent)
+        {
+            for (var i = 0; i < count; i++)
+            {
+                var key = keys[i];
+                if (absent is null || !absent.Contains(key))
+                {
+                    set.Add(key);
+                }
+            }
         }
 
         public override bool TryIteratorStep(out ObjectInstance nextItem)
@@ -431,7 +449,12 @@ internal abstract class IteratorInstance : ObjectInstance
             _index = 0;
             _deeperLevel = false;
             _completedLevels?.Clear();
-            _visited?.Clear();
+            // Null, not Clear: _visited being null is the "shadow set not built yet" sentinel that
+            // drives level-snapshot retention and own-key seeding; a non-null empty set would skip
+            // both and let a deeper key shadow-collide on the next enumeration. _levelAbsent is a
+            // per-level scratch set carried into CompletedLevel — it must not leak across reuses.
+            _visited = null;
+            _levelAbsent = null;
         }
 
         /// <summary>
@@ -446,7 +469,9 @@ internal abstract class IteratorInstance : ObjectInstance
             _index = 0;
             _deeperLevel = false;
             _completedLevels?.Clear();
-            _visited?.Clear();
+            // see ResetForReuse: null is the sentinel, and _levelAbsent must not survive parking
+            _visited = null;
+            _levelAbsent = null;
         }
     }
 
