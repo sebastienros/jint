@@ -1,4 +1,3 @@
-using System.Threading;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -14,9 +13,6 @@ namespace Jint.Native;
 /// </summary>
 public sealed class JsArguments : ObjectInstance
 {
-    // cache property container for array iteration for less allocations
-    private static readonly ThreadLocal<HashSet<Key>> _mappedNamed = new(() => []);
-
     private Function.Function _func = null!;
     private Key[] _names = null!;
     private JsValue[] _args = null!;
@@ -121,24 +117,17 @@ public sealed class JsArguments : ObjectInstance
                 // index properties always materialize; the live-binding parameter map is only
                 // built while the owning call is still running (post-return the mapping is
                 // detached and the snapshot values are authoritative)
-                HashSet<Key>? mappedNamed = null;
                 if (!_mapDetached)
                 {
-                    mappedNamed = _mappedNamed.Value!;
-                    mappedNamed.Clear();
                     map = _realm.Intrinsics.Object.Construct(Arguments.Empty);
                 }
 
                 for (uint i = 0; i < (uint) args.Length; i++)
                 {
                     SetOwnProperty(JsString.Create(i), new PropertyDescriptor(args[i], PropertyFlag.ConfigurableEnumerableWritable));
-                    if (map is not null && i < _names.Length)
+                    if (map is not null && TryGetMappedName(i, out var name))
                     {
-                        var name = _names[i];
-                        if (mappedNamed!.Add(name))
-                        {
-                            map.SetOwnProperty(JsString.Create(i), new ClrAccessDescriptor(_env, Engine, name));
-                        }
+                        map.SetOwnProperty(JsString.Create(i), new ClrAccessDescriptor(_env, Engine, name));
                     }
                 }
             }
@@ -187,9 +176,9 @@ public sealed class JsArguments : ObjectInstance
             {
                 if (index < (uint) _args.Length)
                 {
-                    // the parameter map binds the FIRST index carrying each name (later duplicates
-                    // read the positional argument), mirroring Initialize's first-wins dedup;
-                    // once the call returned the map is detached and the snapshot is authoritative
+                    // the parameter map binds the LAST index carrying each name (earlier duplicates
+                    // read the positional argument), matching CreateMappedArgumentsObject; once the
+                    // call returned the map is detached and the snapshot is authoritative
                     if (_func is not null && !_mapDetached && TryGetMappedName(index, out var mappedName))
                     {
                         return _env.GetBindingValue(mappedName, strict: false);
@@ -226,7 +215,12 @@ public sealed class JsArguments : ObjectInstance
         }
 
         name = names[index];
-        for (var i = 0; i < index; i++)
+
+        // CreateMappedArgumentsObject maps the LAST parameter of a duplicated name (it walks the
+        // parameter list back to front, mapping the first name it has not yet seen). So this index
+        // owns the mapping only when no later parameter repeats the same name; earlier duplicates
+        // read the positional argument.
+        for (var i = index + 1; i < (uint) names.Length; i++)
         {
             if (names[i] == name)
             {
@@ -417,6 +411,23 @@ public sealed class JsArguments : ObjectInstance
         var args = _args;
         var copiedArgs = new JsValue[args.Length];
         System.Array.Copy(args, copiedArgs, args.Length);
+
+        // A mapped index reads its live binding while the call runs, and a write through either the
+        // parameter name (a = x) or arguments[i] = x updates only that binding — the pooled _args is
+        // shared with the caller and must not be written before this snapshot exists. Capture each
+        // mapped index from its current binding so the snapshot, which becomes authoritative once the
+        // map detaches on return, reflects those pre-materialization writes.
+        if (_func is not null && !_mapDetached)
+        {
+            for (uint i = 0; i < (uint) copiedArgs.Length; i++)
+            {
+                if (TryGetMappedName(i, out var name))
+                {
+                    copiedArgs[i] = _env.GetBindingValue(name, strict: false);
+                }
+            }
+        }
+
         _args = copiedArgs;
 
         _canReturnToPool = false;

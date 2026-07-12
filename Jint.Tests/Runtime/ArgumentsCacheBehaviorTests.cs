@@ -5,6 +5,27 @@ namespace Jint.Tests.Runtime;
 public class ArgumentsCacheBehaviorTests
 {
     [Fact]
+    public void MappedArgumentWriteSurvivesFunctionReturn()
+    {
+        // Regression: a mapped arguments[i] = v write updates only the parameter binding while the
+        // call runs; the escaped snapshot taken when arguments is materialized must capture that
+        // binding value, or the write is silently lost once the call returns.
+        var engine = new Engine();
+        Assert.Equal(99, engine.Evaluate("(function(){ function f(a){ arguments[0]=99; return arguments; } return f(1)[0]; })()").AsNumber());
+        Assert.Equal("{\"0\":99}", engine.Evaluate("(function(){ function f(a){ arguments[0]=99; return arguments; } return JSON.stringify(f(1)); })()").AsString());
+    }
+
+    [Fact]
+    public void MappedParameterWriteSurvivesFunctionReturn()
+    {
+        // The mapping is bidirectional: writing the parameter must also be visible through the
+        // escaped arguments object after the call returns.
+        var engine = new Engine();
+        Assert.Equal(42, engine.Evaluate("(function(){ function f(a){ a=42; return arguments; } return f(1)[0]; })()").AsNumber());
+        Assert.Equal("1,88", engine.Evaluate("(function(){ function f(a,b){ b=88; return arguments; } var r=f(1,2); return r[0]+','+r[1]; })()").AsString());
+    }
+
+    [Fact]
     public void ArgsForGeneratorsAreNotReusedFromCache()
     {
         // Arrange
