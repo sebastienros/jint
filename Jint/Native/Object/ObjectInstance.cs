@@ -2101,6 +2101,20 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         ObjectInstance target,
         HashSet<JsValue>? excludedItems)
     {
+        // Fast path for the object-spread copy idiom `{ ...src }` (nothing excluded): when the target is a
+        // fresh shape-building object and the source (this) is a shape-mode plain object with the same
+        // prototype and no symbol properties, the target's resulting layout is exactly the source's. Adopt
+        // the interned shape and shallow-copy the slots — O(slots) — instead of streaming every key through
+        // CreateDataProperty. Object rest (`{ a, ...r }`) always passes a non-null excludedItems set, so it
+        // stays on the streaming path below where per-key exclusion is honored.
+        if (excludedItems is null
+            && target is JsObject targetJo
+            && this is JsObject sourceJo
+            && targetJo.TryAdoptShapeFrom(sourceJo))
+        {
+            return;
+        }
+
         var keys = GetOwnPropertyKeys();
         for (var i = 0; i < keys.Count; i++)
         {

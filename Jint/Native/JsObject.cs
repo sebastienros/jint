@@ -167,6 +167,66 @@ public sealed class JsObject : ObjectInstance
         return true;
     }
 
+    /// <summary>
+    /// Fast path for the object-spread copy idiom <c>{ ...src }</c>. When this target is a still-empty
+    /// shape-building object (the spread is the first element and nothing has been stored yet) and
+    /// <paramref name="source"/> is a shape-mode plain object that shares this object's prototype and
+    /// carries no symbol properties, the spread's result layout is <em>exactly</em> the source's: every
+    /// shape slot is an enumerable + writable + configurable data property — precisely the set
+    /// <see cref="ObjectInstance.CopyDataProperties"/> copies. So adopt the source's interned leaf
+    /// <see cref="Shape"/> and shallow-copy its slot values (value references, per spread semantics) in one
+    /// shot — O(slots) — instead of streaming O(keys) interned transitions through CreateDataProperty. The
+    /// <see cref="InternalTypes.ShapeBuilding"/> flag is left on so a trailing static key
+    /// (<c>{ ...src, x: 1 }</c>) still extends the adopted shape via <see cref="TryShapeAdd(in Key, JsValue)"/>.
+    /// Returns <c>false</c> — leaving this object untouched — when any precondition fails, so the caller
+    /// falls back to streaming.
+    /// </summary>
+    internal bool TryAdoptShapeFrom(JsObject source)
+    {
+        // Target (this) must be a fresh, empty shape-building object with no symbols yet. ShapeBuilding
+        // implies a non-null _shape, so the SlotCount read is safe once that flag is confirmed set.
+        if ((_type & InternalTypes.ShapeBuilding) == InternalTypes.Empty
+            || _shape!.SlotCount != 0
+            || _symbols is not null)
+        {
+            return false;
+        }
+
+        // Source must be a shape-mode plain object — which guarantees every own string property is an
+        // enumerable CEW data property (no getters, no non-enumerables), the exact set spread copies —
+        // carry no symbol properties (those live in _symbols, outside the shape; spread would copy the
+        // enumerable ones, so decline and let the caller stream them), and share this object's prototype.
+        // The interned shape is rooted per prototype (Engine.GetEmptyShape), so a shape whose root belongs
+        // to a different prototype must never be installed here.
+        if ((source._type & InternalTypes.ShapeMode) == InternalTypes.Empty
+            || source._symbols is not null
+            || !ReferenceEquals(source._prototype, _prototype))
+        {
+            return false;
+        }
+
+        var sourceShape = source._shape!;
+        _shape = sourceShape;
+
+        // In-object slots: one value-type copy brings over all InlineCapacity references at once. A layout
+        // smaller than InlineCapacity leaves the source's unused inline slots null, so the target's clear
+        // too; each object keeps its own storage, so a later write to a target slot never aliases back into
+        // the source.
+        _inline = source._inline;
+
+        var slotCount = sourceShape.SlotCount;
+        if (slotCount > InlineCapacity)
+        {
+            var overflowLength = slotCount - InlineCapacity;
+            var overflow = new JsValue[overflowLength];
+            System.Array.Copy(source._overflow!, overflow, overflowLength);
+            _overflow = overflow;
+        }
+
+        unchecked { _propertiesVersion++; }
+        return true;
+    }
+
     // The in-object slot block. On modern runtimes this is a single-field [InlineArray] so `_inline[i]`
     // lowers to a bounds-check-free field-offset access; on legacy TFMs it is an equivalent hand-rolled
     // fixed struct. InlineCapacity must equal the element count.
