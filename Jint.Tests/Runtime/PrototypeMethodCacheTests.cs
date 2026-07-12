@@ -55,6 +55,7 @@ public class PrototypeMethodCacheTests
         {
             "Jint.Native.Iterator.IteratorResult",
             "Jint.Native.JsArguments", // virtual read mode: [[Get]] answers from args/bindings without materializing properties
+            "Jint.Native.JsError", // virtual message slot: [[Get]] answers 'message' from a field until materialized
             "Jint.Native.JsProxy",
             "Jint.Native.JsTypedArray",
             "Jint.Runtime.Interop.ArrayLikeWrapper",

@@ -430,6 +430,15 @@ internal sealed class JintFunctionDefinition
         // references, and so can safely be shared across instances and engines.
         public bool IsDirectRecursive;
 
+        /// <summary>
+        /// Static constructor-body shape eligibility (see <see cref="ComputeCtorBodyShapeEligibility"/>):
+        /// 0 = not yet analyzed, 1 = eligible, 2 = ineligible. Computed lazily on first [[Construct]] —
+        /// never in BuildState, so never-constructed functions pay nothing. A pure function of the
+        /// immutable AST, so it is safe on this cross-engine shared State: racing recomputation is
+        /// idempotent and the byte write is atomic.
+        /// </summary>
+        public byte CtorBodyShapeEligibility;
+
         // Cleared fixed-slot Binding[] reused by the next call to any function instance sharing this State
         // (also across engines — e.g. freshly created instances when a prepared script is re-evaluated).
         // Interlocked is required: parallel test fixtures share cached States (see PR #2418 fallout).
@@ -757,6 +766,144 @@ internal sealed class JintFunctionDefinition
         state.SourceText = new SourceText(fullSourceText);
 
         return state;
+    }
+
+    /// <summary>
+    /// Statically classifies a constructor body as safe to start hidden-class shape building from the
+    /// third instance on (see ScriptFunction's [[Construct]]; instances #1 and #2 stay dictionary-mode
+    /// so constructors of unrepeated layouts intern no shape state) instead of after the sampling
+    /// threshold. Eligible bodies consist, at the top level, only of:
+    /// <list type="bullet">
+    /// <item><c>this.identifier = value</c> assignments (plain <c>=</c>; non-computed, so index-like keys
+    /// are excluded by grammar) whose RHS contains no call that can observe <c>this</c>;</item>
+    /// <item><c>var</c>/<c>let</c>/<c>const</c> declarations, under the same no-this-escaping-call scan
+    /// (<c>var x = f(this)</c> is the same hazard as <c>this.x = f(this)</c>);</item>
+    /// <item>directives, empty statements and argument-less <c>return</c>s (in a base constructor
+    /// <c>return;</c> just yields <c>this</c>);</item>
+    /// </list>
+    /// and parameter defaults/patterns pass the same call scan (they evaluate during construction, after
+    /// <c>this</c> is bound). An EMPTY body is eligible — this covers class default constructors, whose
+    /// fields are vetted separately per function instance (the empty-constructor AST and hence this
+    /// verdict are shared across classes). A this-escaping call could add data-dependent keys mid-build,
+    /// polluting the shared per-prototype transition tree — the real hazard. Allowed: this-free calls
+    /// (<c>Date.now()</c>), <c>this.a</c> reads, literals, and function/arrow DEFINITIONS that capture
+    /// <c>this</c> (they cannot run during construction in an otherwise-eligible body). Anything else —
+    /// control flow, computed or non-this member targets, compound assignments — is ineligible and keeps
+    /// the sampling behavior. Purely a heuristic: TryShapeAdd's megamorphic guards and the dictionary
+    /// deopt remain the correctness authority either way.
+    /// </summary>
+    internal static bool ComputeCtorBodyShapeEligibility(IFunction function)
+    {
+        if (function.Body is not FunctionBody body)
+        {
+            // expression-bodied arrow — not constructible anyway
+            return false;
+        }
+
+        foreach (var parameter in function.Params.AsSpan())
+        {
+            if (!parameter.ChildNodes.IsEmpty() && ContainsThisEscapingCall(parameter))
+            {
+                return false;
+            }
+        }
+
+        foreach (var statement in body.Body.AsSpan())
+        {
+            switch (statement.Type)
+            {
+                case NodeType.EmptyStatement:
+                    continue;
+
+                case NodeType.ExpressionStatement:
+                    if (statement is Directive)
+                    {
+                        // directive prologue ("use strict") — an inert string literal
+                        continue;
+                    }
+
+                    if (((ExpressionStatement) statement).Expression is AssignmentExpression
+                        {
+                            Operator: Operator.Assignment,
+                            Left: MemberExpression { Object.Type: NodeType.ThisExpression, Computed: false, Property.Type: NodeType.Identifier },
+                        } assignment
+                        && !ContainsThisEscapingCall(assignment.Right))
+                    {
+                        continue;
+                    }
+
+                    return false;
+
+                case NodeType.VariableDeclaration:
+                    if (ContainsThisEscapingCall(statement))
+                    {
+                        return false;
+                    }
+                    continue;
+
+                case NodeType.ReturnStatement:
+                    if (((ReturnStatement) statement).Argument is not null)
+                    {
+                        // `return expr` could replace the instance or evaluate arbitrarily
+                        return false;
+                    }
+                    continue;
+
+                default:
+                    return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// True when the subtree contains a call-like node (call / new / tagged template) that could observe
+    /// <c>this</c> — i.e. carries a ThisExpression anywhere inside its own subtree. Function and arrow
+    /// definitions OUTSIDE such call subtrees are skipped: they merely capture <c>this</c> and cannot run
+    /// during construction in an otherwise-eligible body (any invocation route would itself be a rejected
+    /// call). Inside a call subtree nothing is skipped — <c>f(() =&gt; this)</c> hands the callee a live
+    /// capture it could invoke mid-construction. Aliases (<c>var self = this</c> passed to a later call)
+    /// are not tracked; a missed escape only risks bounded transition-tree churn, never correctness.
+    /// </summary>
+    private static bool ContainsThisEscapingCall(Node node)
+    {
+        var type = node.Type;
+        if (type is NodeType.CallExpression or NodeType.NewExpression or NodeType.TaggedTemplateExpression)
+        {
+            // A this-free call cannot leak `this`, and nothing nested inside it (including further
+            // calls) can contain one either — so this check is complete for the whole subtree.
+            return ContainsThis(node);
+        }
+
+        if (type is NodeType.FunctionExpression or NodeType.ArrowFunctionExpression or NodeType.FunctionDeclaration)
+        {
+            return false;
+        }
+
+        foreach (var childNode in node.ChildNodes)
+        {
+            if (!childNode.ChildNodes.IsEmpty() && ContainsThisEscapingCall(childNode))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool ContainsThis(Node node)
+    {
+        foreach (var childNode in node.ChildNodes)
+        {
+            if (childNode.Type == NodeType.ThisExpression
+                || (!childNode.ChildNodes.IsEmpty() && ContainsThis(childNode)))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static void GetBoundNames(

@@ -246,7 +246,9 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
             {
                 if (((RestElement) property).Argument is Identifier restIdentifier)
                 {
-                    var rest = _engine.Realm.Intrinsics.Object.Construct((argumentObject.Properties?.Count ?? 0) - processedProperties!.Count);
+                    // Shape-building target: CopyDataProperties adds flow through CreateDataProperty,
+                    // interning the rest object's layout (or deopting on integer-like keys).
+                    var rest = _engine.Realm.Intrinsics.Object.ConstructShapeBuilding();
                     argumentObject.CopyDataProperties(rest, processedProperties);
                     SetItemSafely(restIdentifier.Name, rest, initiallyEmpty);
                 }

@@ -1,3 +1,4 @@
+using System.Threading;
 using Jint.Native;
 using Jint.Runtime.Environments;
 
@@ -12,12 +13,27 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
     private JintBlockStatement? _catch;
     private readonly JintBlockStatement? _finalizer;
 
+    // A plain `catch (e) { ... }` allocates a fresh DeclarativeEnvironment + dictionary node per entry just
+    // to hold the single caught binding. When the catch parameter is a lone identifier and its binding cannot
+    // escape (no closures/eval/with in the handler body), that env can use fixed-slot storage and be pooled
+    // across catch entries — the same reuse precedent as JintForStatement's pooled loop environment.
+    private readonly bool _canPoolCatchEnv;
+    private readonly Key[]? _catchSlotNames;
+    private DeclarativeEnvironment? _cachedCatchEnv;
+
     public JintTryStatement(TryStatement statement) : base(statement)
     {
         _block = new JintBlockStatement(statement.Block);
         if (statement.Finalizer != null)
         {
             _finalizer = new JintBlockStatement(statement.Finalizer);
+        }
+
+        if (statement.Handler is { Param: Identifier catchIdentifier } handler
+            && !JintFunctionDefinition.EnvironmentEscapeAstVisitor.MayEscape(handler.Body))
+        {
+            _catchSlotNames = new Key[] { catchIdentifier.Name };
+            _canPoolCatchEnv = true;
         }
     }
 
@@ -155,24 +171,54 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
 
             var thrownValue = b.Value;
             var oldEnv = engine.ExecutionContext.LexicalEnvironment;
-            var catchEnv = JintEnvironment.NewDeclarativeEnvironment(engine, oldEnv, catchEnvironment: true);
+            var suspendable = engine.ExecutionContext.Suspendable;
 
-            var boundNames = new List<Key>();
-            _statement.Handler.Param.GetBoundNames(boundNames);
-
-            for (var i = 0; i < boundNames.Count; i++)
+            DeclarativeEnvironment catchEnv;
+            var pooled = _canPoolCatchEnv && suspendable is null;
+            if (pooled)
             {
-                catchEnv.CreateMutableBinding(boundNames[i]);
+                // Pooled fixed-slot catch environment, reset and reused across entries. Gated on a
+                // non-suspendable context so it never has to round-trip through the async/generator
+                // suspend/resume save-and-restore machinery (which would keep the env live).
+                var cachedEnv = Interlocked.Exchange(ref _cachedCatchEnv, null);
+                if (cachedEnv is not null && ReferenceEquals(cachedEnv._engine, engine))
+                {
+                    // Reattach the outer reference (detached at park). Slots are overwritten below.
+                    cachedEnv._outerEnv = oldEnv;
+                    catchEnv = cachedEnv;
+                }
+                else
+                {
+                    catchEnv = JintEnvironment.NewDeclarativeEnvironment(engine, oldEnv, catchEnvironment: true);
+                    catchEnv._slotNames = _catchSlotNames;
+                    catchEnv._slots = new Binding[1];
+                }
+
+                // Single-identifier catch binding: an initialized, mutable, non-deletable binding — the
+                // exact shape CreateMutableBinding + BindingInitialization would produce for the identifier.
+                catchEnv._slots![0] = new Binding(thrownValue, canBeDeleted: false, mutable: true, strict: false);
+                engine.UpdateLexicalEnvironment(catchEnv);
             }
+            else
+            {
+                catchEnv = JintEnvironment.NewDeclarativeEnvironment(engine, oldEnv, catchEnvironment: true);
 
-            engine.UpdateLexicalEnvironment(catchEnv);
+                var boundNames = new List<Key>();
+                _statement.Handler.Param.GetBoundNames(boundNames);
 
-            var catchParam = _statement.Handler?.Param;
-            catchParam.BindingInitialization(context, thrownValue, catchEnv);
+                for (var i = 0; i < boundNames.Count; i++)
+                {
+                    catchEnv.CreateMutableBinding(boundNames[i]);
+                }
+
+                engine.UpdateLexicalEnvironment(catchEnv);
+
+                var catchParam = _statement.Handler?.Param;
+                catchParam.BindingInitialization(context, thrownValue, catchEnv);
+            }
 
             b = _catch.Execute(context);
 
-            var suspendable = engine.ExecutionContext.Suspendable;
             if (context.IsSuspended() && suspendable is not null)
             {
                 var suspendData = suspendable.Data.GetOrCreate<CatchSuspendData>(this);
@@ -185,6 +231,15 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
             }
 
             engine.UpdateLexicalEnvironment(oldEnv);
+
+            // Park the pooled env for the next entry (clean, non-suspended completion only). Reset the slot
+            // at park so the cached env doesn't root the caught value or the completed scope chain.
+            if (pooled && !context.IsSuspended())
+            {
+                catchEnv._outerEnv = null;
+                catchEnv._slots![0] = default;
+                Interlocked.Exchange(ref _cachedCatchEnv, catchEnv);
+            }
         }
 
         return b;
