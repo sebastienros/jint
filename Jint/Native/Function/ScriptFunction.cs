@@ -343,7 +343,7 @@ public sealed class ScriptFunction : Function, IConstructor
         if (kind == ConstructorKind.Base)
         {
             var currentPrototypeDescriptor = _prototypeDescriptor;
-            if (ReferenceEquals(currentPrototypeDescriptor, _pendingDescriptor))
+            if (ReferenceEquals(newTarget, this) && ReferenceEquals(currentPrototypeDescriptor, _pendingDescriptor))
             {
                 currentPrototypeDescriptor = MaterializePrototypeDescriptor();
             }
