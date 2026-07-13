@@ -25,6 +25,53 @@ public class ArrayTests
     }
 
     [Fact]
+    public void HoleReadFindsInheritedIndexOnArrayPrototype()
+    {
+        // The pristine-prototypes shortcut must disengage the moment Array.prototype (or
+        // Object.prototype) gains an index property: hole reads and `in` then walk the chain.
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var a = [1, , 3];
+            var before = [a[1], 1 in a, a[10], 10 in a];
+            Array.prototype[1] = 'ap';
+            Object.prototype[10] = 'op';
+            var after = [a[1], 1 in a, a[10], 10 in a];
+            JSON.stringify([before, after]);
+            """).AsString();
+
+        Assert.Equal("[[null,false,null,false],[\"ap\",true,\"op\",true]]", result);
+    }
+
+    [Fact]
+    public void HoleReadHonorsIndexGetterOnArrayItself()
+    {
+        // an exotic own descriptor clears the fast-access invariant on the instance
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var a = [1, 2, 3];
+            Object.defineProperty(a, '5', { get: function () { return 'got'; } });
+            [a[5], 5 in a, a[7] === undefined].join(',');
+            """).AsString();
+
+        Assert.Equal("got,true,true", result);
+    }
+
+    [Fact]
+    public void HoleReadWalksCustomPrototypeChain()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var proto = { 1: 'inherited' };
+            var a = [0];
+            a.length = 3;
+            Object.setPrototypeOf(a, proto);
+            [a[1], 1 in a, a[2] === undefined, 2 in a].join(',');
+            """).AsString();
+
+        Assert.Equal("inherited,true,true,false", result);
+    }
+
+    [Fact]
     public void FilterSubclassUsesSpecies()
     {
         var result = _engine.Evaluate("""
