@@ -25,6 +25,9 @@ public sealed partial class ObjectPrototype : Prototype
 
     protected override void Initialize() => CreateProperties_Generated();
 
+    // ordinary own-key semantics; builtin-shape/dictionary state answers exactly
+    internal override bool HasNoEnumerableOwnStringKeys() => HasNoEnumerableOwnStringKeysCore();
+
     /// <summary>
     /// https://tc39.es/ecma262/#sec-get-object.prototype.__proto__
     /// </summary>

@@ -55,6 +55,14 @@ internal sealed class BuiltinShape
     // name -> slot index.
     internal readonly StringDictionarySlim<int> Index;
 
+    // True when every Constant/Function/Accessor/Alias slot is declared non-enumerable and no
+    // Factory slot exists (an unmaterialized factory's flags are unknowable), so an enumerable own
+    // string key can only come from an Instance slot's live descriptor, a redefined slot (both land
+    // in the per-realm descriptor array) or a hybrid dictionary addition — all of which
+    // HasNoEnumerableOwnStringKeys scans at runtime. Built-in members are non-enumerable per spec,
+    // so this holds for the prototypes the for-in array fast path walks.
+    internal readonly bool FixedSlotsAllNonEnumerable;
+
     // Slot-ordered names as shared, immutable JsString instances, memoized on first use. for-in over a
     // built-in (e.g. an object's Object.prototype level) hands these out instead of recreating a JsString
     // per name per enumeration. Built-in names are never integer-index-like, so no numeric-sort concern.
@@ -111,6 +119,44 @@ internal sealed class BuiltinShape
         FunctionFlags = functionFlags;
         Factories = factories;
         Index = index;
+        FixedSlotsAllNonEnumerable = ComputeFixedSlotsAllNonEnumerable();
+    }
+
+    private bool ComputeFixedSlotsAllNonEnumerable()
+    {
+        for (var i = 0; i < Kinds.Length; i++)
+        {
+            switch (Kinds[i])
+            {
+                case BuiltinSlotKind.Constant:
+                    if (ConstTemplate[i]!.Enumerable)
+                    {
+                        return false;
+                    }
+                    break;
+                case BuiltinSlotKind.Function:
+                case BuiltinSlotKind.Accessor:
+                    if ((FunctionFlags[i] & PropertyFlag.Enumerable) != PropertyFlag.None)
+                    {
+                        return false;
+                    }
+                    break;
+                case BuiltinSlotKind.Alias:
+                    // shares the target slot's descriptor; the target is checked by its own entry
+                    break;
+                case BuiltinSlotKind.Instance:
+                    // filled during Initialize; flags come from the live descriptor, which the
+                    // runtime scan covers (callers ensure initialization first)
+                    break;
+                case BuiltinSlotKind.Factory:
+                    // an unmaterialized factory slot has no live descriptor to scan and unknown
+                    // flags — conservatively give up (no factory slots on the prototypes the
+                    // for-in fast path cares about)
+                    return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>

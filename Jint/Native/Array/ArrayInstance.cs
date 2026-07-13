@@ -533,6 +533,75 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         return false;
     }
 
+    // Any present element is treated as potentially enumerable (a _sparse shadow could in theory
+    // hold only non-enumerable descriptors, but scanning for that buys nothing — false only means
+    // the caller takes the exact snapshot path). ArrayPrototype reaches Core with an empty _dense.
+    internal override bool HasNoEnumerableOwnStringKeys()
+        => !HasAnyOwnIndex() && HasNoEnumerableOwnStringKeysCore();
+
+    /// <summary>
+    /// Gate for the for-in index-enumeration fast path: a dense-backed array with no materialized
+    /// per-index descriptors and no named own string properties has exactly its present indices
+    /// (plus non-enumerable length) as own string keys, in ascending order. <paramref name="bound"/>
+    /// is the index stepping limit — everything at or beyond it is provably a hole.
+    /// </summary>
+    internal bool TryStartForInIndexMode(out uint bound)
+    {
+        var dense = _dense;
+        if (dense is null || _sparse is not null || _properties is { Count: > 0 })
+        {
+            bound = 0;
+            return false;
+        }
+
+        bound = (uint) System.Math.Min((ulong) dense.Length, GetLongLength());
+        return true;
+    }
+
+    /// <summary>
+    /// One for-in step over the index range: advances <paramref name="index"/> past holes and hands
+    /// out the key of the next present element, or returns false when the range is exhausted.
+    /// Re-reads the representation on every call so mid-loop mutations (dense growth/shrink,
+    /// dense→sparse conversion, materialized descriptors) are picked up: the pristine
+    /// representation steps allocation-free, anything else falls back to a per-index probe that
+    /// honors current enumerability. Indices at or past <paramref name="bound"/> are never yielded
+    /// (elements appended mid-enumeration are not visited, matching the snapshot the exact path
+    /// takes).
+    /// </summary>
+    internal bool TryFastForInStep(ref uint index, uint bound, [NotNullWhen(true)] out JsValue? key)
+    {
+        var dense = _dense;
+        if (dense is not null && _sparse is null)
+        {
+            while (index < bound)
+            {
+                var i = index++;
+                if (i < (uint) dense.Length && dense[i] is not null)
+                {
+                    key = JsString.Create(i);
+                    return true;
+                }
+            }
+
+            key = null;
+            return false;
+        }
+
+        // deopted mid-loop; probe each remaining index against the live representation
+        while (index < bound)
+        {
+            var candidate = JsString.Create(index++);
+            if (ProbeOwnProperty(candidate) == OwnPropertyProbe.Enumerable)
+            {
+                key = candidate;
+                return true;
+            }
+        }
+
+        key = null;
+        return false;
+    }
+
     internal JsValue Get(uint index)
     {
         if (!TryGetValue(index, out var value))
