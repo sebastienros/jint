@@ -24,6 +24,24 @@ public class ProxyTests
     }
 
     [Fact]
+    public void GetTrapIsCalledForPropertyNamedRevoke()
+    {
+        Assert.Equal("trapped", _engine.Evaluate("new Proxy({}, { get: () => 'trapped' }).revoke").AsString());
+    }
+
+    [Fact]
+    public void AccessingPropertyOnRevokedProxyThrowsTypeError()
+    {
+        _engine.Execute(@"
+            var revocable = Proxy.revocable({ foo: 1 }, { get: () => 'trapped' });
+            var proxy = revocable.proxy;
+            revocable.revoke();
+        ");
+        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("proxy.foo"));
+        AssertJsTypeError(_engine, ex, "Cannot perform 'foo' on a proxy that has been revoked");
+    }
+
+    [Fact]
     public void ProxyToStringUseTarget()
     {
         _engine.Execute(@"

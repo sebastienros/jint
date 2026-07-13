@@ -24,7 +24,6 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     private static readonly JsString TrapOwnKeys = new JsString("ownKeys");
     private static readonly JsString TrapConstruct = new JsString("construct");
 
-    private static readonly JsString KeyFunctionRevoke = new JsString("revoke");
     private static readonly JsString KeyIsArray = new JsString("isArray");
 
     public JsProxy(
@@ -129,7 +128,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         AssertTargetNotRevoked(property);
         var target = _target;
 
-        if (KeyFunctionRevoke.Equals(property) || !TryCallHandler(TrapGet, [target, TypeConverter.ToPropertyKey(property), receiver], out var result))
+        if (!TryCallHandler(TrapGet, [target, TypeConverter.ToPropertyKey(property), receiver], out var result))
         {
             return target.Get(property, receiver);
         }
