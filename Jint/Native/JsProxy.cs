@@ -10,6 +10,13 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     internal ObjectInstance _target;
     internal ObjectInstance? _handler;
 
+    // https://tc39.es/ecma262/#sec-proxycreate
+    // A proxy has [[Construct]] iff its target is a constructor at creation time;
+    // a handler "construct" trap cannot confer constructability. Captured here so
+    // IsConstructor probes are side-effect free (no handler getter invocation) and
+    // remain correct after revocation nulls the target.
+    private readonly bool _isConstructor;
+
     private static readonly JsString TrapApply = new JsString("apply");
     private static readonly JsString TrapGet = new JsString("get");
     private static readonly JsString TrapSet = new JsString("set");
@@ -36,6 +43,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         _target = target;
         _handler = handler;
         IsCallable = target.IsCallable;
+        _isConstructor = target.IsConstructor;
     }
 
     /// <summary>
@@ -43,9 +51,11 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     JsValue ICallable.Call(JsValue thisObject, params JsCallArguments arguments)
     {
-        if (_target is not ICallable)
+        AssertNotRevoked(TrapApply);
+
+        if (!IsCallable)
         {
-            Throw.TypeError(_engine.Realm, "(intermediate value) is not a function");
+            Throw.TypeError(_engine.Realm, "Proxy target is not a function");
         }
 
         var jsValues = new[] { _target, thisObject, _engine.Realm.Intrinsics.Array.ConstructFast(arguments) };
@@ -68,12 +78,16 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     ObjectInstance IConstructor.Construct(JsCallArguments arguments, JsValue newTarget)
     {
-        if (_target is not ICallable)
+        AssertNotRevoked(TrapConstruct);
+
+        if (!_isConstructor)
         {
-            Throw.TypeError(_engine.Realm, "(intermediate value) is not a constructor");
+            Throw.TypeError(_engine.Realm, "Proxy target is not a constructor");
         }
 
-        var argArray = _engine.Realm.Intrinsics.Array.Construct(arguments, _engine.Realm.Intrinsics.Array);
+        // step 7: CreateArrayFromList(argumentsList) - must not use Array constructor semantics,
+        // a single numeric argument would create a hole-filled array of that length
+        var argArray = _engine.Realm.Intrinsics.Array.ConstructFast(arguments);
 
         if (!TryCallHandler(TrapConstruct, [_target, argArray, newTarget], out var result))
         {
@@ -102,23 +116,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
 
     public override object ToObject() => _target.ToObject();
 
-    internal override bool IsConstructor
-    {
-        get
-        {
-            if (_target is not null && _target.IsConstructor)
-            {
-                return true;
-            }
-
-            if (_handler is not null && _handler.TryGetValue(TrapConstruct, out var handlerFunction) && handlerFunction is IConstructor)
-            {
-                return true;
-            }
-
-            return false;
-        }
-    }
+    internal override bool IsConstructor => _isConstructor;
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-proxy-object-internal-methods-and-internal-slots-get-p-receiver

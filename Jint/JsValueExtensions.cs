@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Numerics;
 using System.Runtime.CompilerServices;
@@ -236,7 +237,8 @@ public static class JsValueExtensions
             ThrowWrongTypeException(value, "number");
         }
 
-        return ((JsNumber) value)._value;
+        Debug.Assert(value is JsNumber);
+        return Unsafe.As<JsNumber>(value)._value;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
