@@ -606,6 +606,15 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
     {
         if (!TryGetValue(index, out var value))
         {
+            // Reading a hole walks the prototype chain, but when nothing relevant has changed
+            // (no exotic descriptors here, prototypes pristine — the same invariant the write
+            // fast path trusts) the walk provably yields undefined: skip it and the per-hole
+            // JsString the probe would allocate.
+            if (CanUseFastAccess)
+            {
+                return Undefined;
+            }
+
             value = Prototype?.Get(JsString.Create(index)) ?? Undefined;
         }
 
@@ -614,9 +623,18 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
 
     public sealed override JsValue Get(JsValue property, JsValue receiver)
     {
-        if (IsSafeSelfTarget(receiver) && IsArrayIndex(property, out var index) && TryGetValue(index, out var value))
+        if (IsSafeSelfTarget(receiver) && IsArrayIndex(property, out var index))
         {
-            return value;
+            if (TryGetValue(index, out var value))
+            {
+                return value;
+            }
+
+            // hole/out-of-range read with pristine prototypes: see Get(uint)
+            if (CanUseFastAccess)
+            {
+                return Undefined;
+            }
         }
 
         if (CommonProperties.Length.Equals(property))
@@ -662,9 +680,19 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
 
     public sealed override bool HasProperty(JsValue property)
     {
-        if (IsArrayIndex(property, out var index) && GetValue(index, unwrapFromNonDataDescriptor: false) is not null)
+        if (IsArrayIndex(property, out var index))
         {
-            return true;
+            if (GetValue(index, unwrapFromNonDataDescriptor: false) is not null)
+            {
+                return true;
+            }
+
+            // absent index with pristine prototypes: the chain walk provably finds nothing
+            // (same invariant as Get; exotic own descriptors clear CanUseFastAccess)
+            if (CanUseFastAccess)
+            {
+                return false;
+            }
         }
 
         return base.HasProperty(property);
