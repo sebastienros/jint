@@ -320,6 +320,27 @@ public class ForInEnumerationTests
     }
 
     [Fact]
+    public void ForInOverArrayIncludesInheritedEnumerableArrayPrototypeIndex()
+    {
+        // Regression: Array.prototype is itself array-backed, so script-placed elements on it live in
+        // its dense store — the builtin-shape shared name list does not include them. The for-in key
+        // shortcut must not hand out that list once Array.prototype carries own index keys: the
+        // inherited enumerable '5' must be enumerated after the own indices, and the own '1' must
+        // shadow the inherited '1'.
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            Array.prototype[5] = 'inherited';
+            Array.prototype[1] = 'shadowed';
+            var arr = [10, 20];
+            var out = [];
+            for (var k in arr) { out.push(k); }
+            out.join(',');
+            """).AsString();
+
+        Assert.Equal("0,1,5", result);
+    }
+
+    [Fact]
     public void ForInKeysAreStrings()
     {
         var engine = new Engine();
