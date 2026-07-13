@@ -45,12 +45,30 @@
       <_SettingsFilePath>$([System.IO.Path]::Combine($(MSBuildThisFileDirectory), $(SettingsFile)))</_SettingsFilePath>
       <_GeneratedDirPath>$([System.IO.Path]::Combine($(MSBuildThisFileDirectory), $(GeneratedTestSuiteDir)))</_GeneratedDirPath>
     </PropertyGroup>
-    
+
+    <!--
+      Optional suite sharding. A CI matrix sets TEST262_SHARD_COUNT / TEST262_SHARD_INDEX (surfaced as
+      MSBuild properties) so each job only generates, compiles and runs its deterministic slice of the
+      suite. Defaults to a single shard = the full suite, so local builds are unaffected.
+    -->
+    <PropertyGroup>
+      <Test262ShardCount Condition="'$(Test262ShardCount)' == ''">$(TEST262_SHARD_COUNT)</Test262ShardCount>
+      <Test262ShardCount Condition="'$(Test262ShardCount)' == ''">1</Test262ShardCount>
+      <Test262ShardIndex Condition="'$(Test262ShardIndex)' == ''">$(TEST262_SHARD_INDEX)</Test262ShardIndex>
+      <Test262ShardIndex Condition="'$(Test262ShardIndex)' == ''">0</Test262ShardIndex>
+      <_Test262ShardArgs Condition="$(Test262ShardCount) &gt; 1">--shard-count $(Test262ShardCount) --shard-index $(Test262ShardIndex)</_Test262ShardArgs>
+    </PropertyGroup>
+
     <!-- Compute current settings file hash -->
     <GetFileHash Files="$(_SettingsFilePath)" Algorithm="SHA256">
       <Output TaskParameter="Hash" PropertyName="_CurrentSettingsHash" />
     </GetFileHash>
-    
+
+    <!-- Fold the shard identity into the hash so switching shards in place forces a regeneration -->
+    <PropertyGroup>
+      <_CurrentSettingsHash>$(_CurrentSettingsHash)-shard$(Test262ShardIndex)-of-$(Test262ShardCount)</_CurrentSettingsHash>
+    </PropertyGroup>
+
     <!-- Read stored hash if it exists -->
     <ReadLinesFromFile File="$(_SettingsHashFilePath)" Condition="Exists('$(_SettingsHashFilePath)')">
       <Output TaskParameter="Lines" PropertyName="_StoredSettingsHash" />
@@ -71,7 +89,7 @@
     
     <!-- Run generation if needed -->
     <Exec Command="dotnet tool restore" Condition="'$(_NeedsRegeneration)' == 'true'" />
-    <Exec Command="dotnet test262 generate" Condition="'$(_NeedsRegeneration)' == 'true'" />
+    <Exec Command="dotnet test262 generate $(_Test262ShardArgs)" Condition="'$(_NeedsRegeneration)' == 'true'" />
     
     <!-- Store the new hash after successful generation -->
     <WriteLinesToFile File="$(_SettingsHashFilePath)" Lines="$(_CurrentSettingsHash)" Overwrite="true" Condition="'$(_NeedsRegeneration)' == 'true'" />
