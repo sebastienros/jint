@@ -511,14 +511,17 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
         var v = initialValue;
 
         // Tight loop: with an expression-statements-only body, a non-suspendable frame, no
-        // constraint/debug checks, dead completion values and no fresh per-iteration environment,
-        // nothing per iteration remains observable but test, body expressions and update.
+        // per-statement (exact) constraint/debug checks, dead completion values and no fresh
+        // per-iteration environment, nothing per iteration remains observable but test, body
+        // expressions and update. Amortized constraints (timeout, cancellation, memory limit)
+        // do not disarm the lane: TightForBody drives the shared amortized countdown once per
+        // iteration, keeping their detection latency bounded.
         // The DebugMode probe is live (same coarseness as the debugHandler hoisting below).
         if (_tightBodyEligible
             && !skipTestOnce
             && !resumeUpdateOnce
             && !context.CompletionValuesObservable
-            && !context.ShouldRunBeforeExecuteStatementChecks
+            && !context.ShouldRunPerStatementChecks
             && !context.DebugMode
             && (!_shouldCreatePerIterationEnvironment || _canReuseIterationEnvironment)
             && (!_tightBodyHasLexicalDeclarations || flattenActive)
@@ -656,6 +659,9 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
     /// loop environment carries the body's slots: their TDZ is re-established per iteration
     /// before the body statements run, mirroring the generic flattened arm — skipped when the
     /// block scan proved every slot initializes before any use (leftovers are unobservable).
+    /// Amortized constraints stay live through the context's shared countdown, driven once per
+    /// iteration (a tripped constraint throws and propagates like any other exception); exact
+    /// constraints and debug mode never reach this lane by the caller's gate.
     /// </summary>
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
     private Completion TightForBody(EvaluationContext context, bool flattenActive)
@@ -669,6 +675,8 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
 
         while (test.GetBooleanValue(context))
         {
+            context.RunAmortizedConstraintChecks();
+
             if (resetBodySlotsPerIteration)
             {
                 var env = (DeclarativeEnvironment) engine.ExecutionContext.LexicalEnvironment;

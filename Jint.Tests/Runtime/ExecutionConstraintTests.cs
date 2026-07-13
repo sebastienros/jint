@@ -29,6 +29,63 @@ public class ExecutionConstraintTests
     }
 
     [Fact]
+    public void ShouldCountStatementsInsideFunctionLocalLoop()
+    {
+        // The function-local expression-body for loop is the shape that arms the interpreter's
+        // tight for-body lane; MaxStatements counts statements (its call frequency IS its
+        // semantics), so it must keep the loop on the per-statement path and trip precisely.
+        var engine = new Engine(cfg => cfg.MaxStatements(1_000));
+        Assert.Throws<StatementsCountOverflowException>(
+            () => engine.Evaluate("function f() { var x = 0; for (var i = 0; i < 100000; i++) { x += 1; } return x; } f();")
+        );
+    }
+
+    [Fact]
+    public void UserDefinedConstraintIsCheckedOncePerStatement()
+    {
+        // Per-statement call frequency is part of the Constraint contract for user-derived
+        // implementations; amortizing them would be a silent behavior break. Expected counts:
+        // JintStatement.Execute checks once per non-block statement; the top-level program list
+        // itself does not check (JintStatementList only checks when it represents a function
+        // body or block statement node).
+        var constraint = new CountingConstraint();
+        var engine = new Engine(cfg => cfg.Constraint(constraint));
+
+        engine.Evaluate("var x = 0; x++; x + 5");
+        Assert.Equal(3, constraint.CheckCount);
+
+        // one more top-level statement -> exactly one more check
+        constraint.ResetCount();
+        engine.Evaluate("var x = 0; x++; x++; x + 5");
+        Assert.Equal(4, constraint.CheckCount);
+    }
+
+    [Fact]
+    public void UserDefinedConstraintIsCheckedPerStatementInsideFunctionLocalLoop()
+    {
+        // A user-derived constraint must also keep the tight for-body lane disarmed: every body
+        // statement of every iteration goes through the per-statement checks.
+        var constraint = new CountingConstraint();
+        var engine = new Engine(cfg => cfg.Constraint(constraint));
+
+        engine.Evaluate("function f() { var x = 0; for (var i = 0; i < 1000; i++) { x += 1; } return x; } f();");
+        Assert.True(constraint.CheckCount >= 1000, $"expected at least one check per loop-body statement, got {constraint.CheckCount}");
+    }
+
+    private sealed class CountingConstraint : Constraint
+    {
+        public int CheckCount { get; private set; }
+
+        public void ResetCount() => CheckCount = 0;
+
+        public override void Check() => CheckCount++;
+
+        public override void Reset()
+        {
+        }
+    }
+
+    [Fact]
     public void ShouldThrowMemoryLimitExceeded()
     {
         Assert.Throws<MemoryLimitExceededException>(
@@ -42,6 +99,40 @@ public class ExecutionConstraintTests
         Assert.Throws<TimeoutException>(
             () => new Engine(cfg => cfg.TimeoutInterval(new TimeSpan(0, 0, 0, 0, 500))).Evaluate("while(true);")
         );
+    }
+
+    [Fact]
+    public void ShouldThrowTimeoutInsideFunctionLocalTightLoop()
+    {
+        // The function-local expression-body for loop is the shape that arms the interpreter's
+        // tight for-body lane; a timeout is amortized (checked every N statements/iterations),
+        // and must still fire inside the loop.
+        var engine = new Engine(cfg => cfg.TimeoutInterval(new TimeSpan(0, 0, 0, 0, 500)));
+        Assert.Throws<TimeoutException>(
+            () => engine.Evaluate("function f() { var x = 0; for (var i = 0; i < 1; i += 0) { x += 1; } return x; } f();")
+        );
+    }
+
+    [Fact]
+    public void ShouldThrowMemoryLimitExceededInsideFunctionLocalTightLoop()
+    {
+        // Memory limit is amortized too and must interrupt an allocating tight-lane loop.
+        var engine = new Engine(cfg => cfg.LimitMemory(2_000_000));
+        Assert.Throws<MemoryLimitExceededException>(
+            () => engine.Evaluate("function f() { var s = ''; for (var i = 0; i < 1; i += 0) { s += 'aaaaaaaaaaaaaaaa'; } return s; } f();")
+        );
+    }
+
+    [Fact]
+    public void TimeoutConstraintDoesNotChangeFunctionLocalLoopResults()
+    {
+        // With only amortized constraints registered the tight for-body lane stays armed;
+        // results must be identical to an unconstrained engine's.
+        const string script = "function f() { var s = 0; for (var i = 0; i < 100000; i++) { s += 2; } return s; } f();";
+        var unconstrained = new Engine().Evaluate(script).AsNumber();
+        var constrained = new Engine(cfg => cfg.TimeoutInterval(TimeSpan.FromSeconds(30))).Evaluate(script).AsNumber();
+        Assert.Equal(unconstrained, constrained);
+        Assert.Equal(200_000, constrained);
     }
 
     [Fact]

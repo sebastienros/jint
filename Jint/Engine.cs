@@ -150,6 +150,13 @@ public sealed partial class Engine : IDisposable
     // cached access
     internal readonly IObjectConverter[]? _objectConverters;
     internal readonly Constraint[] _constraints;
+
+    // _constraints partitioned once at construction (the set is fixed for the engine's lifetime):
+    // exact constraints must run before every statement, amortized ones every N statements.
+    // See Engine.Constraints.cs for the partitioning rationale.
+    internal readonly Constraint[] _exactConstraints;
+    internal readonly Constraint[] _amortizedConstraints;
+
     internal readonly bool _isDebugMode;
     internal readonly bool _isStrict;
 
@@ -248,6 +255,9 @@ public sealed partial class Engine : IDisposable
             : null;
 
         _constraints = Options.Constraints.Constraints.ToArray();
+        var partitionedConstraints = PartitionConstraints(_constraints);
+        _exactConstraints = partitionedConstraints.Exact;
+        _amortizedConstraints = partitionedConstraints.Amortized;
         _referenceResolver = Options.ReferenceResolver;
         _customResolver = !ReferenceEquals(_referenceResolver, DefaultReferenceResolver.Instance);
 
@@ -807,6 +817,12 @@ public sealed partial class Engine : IDisposable
         }
     }
 
+    /// <summary>
+    /// Checks every registered constraint plus the debugger step hook. Used by native callback
+    /// call sites (e.g. sort comparers) where the callee may not run any JS statements itself;
+    /// the interpreter's per-statement path uses the partitioned
+    /// <see cref="RunPerStatementChecks"/> / <see cref="CheckAmortizedConstraints"/> pair instead.
+    /// </summary>
     internal void RunBeforeExecuteStatementChecks(StatementOrExpression? statement)
     {
         // Avoid allocating the enumerator because we run this loop very often.
@@ -818,6 +834,36 @@ public sealed partial class Engine : IDisposable
         if (_isDebugMode && statement != null && statement.Type != NodeType.BlockStatement)
         {
             Debugger.OnStep(statement);
+        }
+    }
+
+    /// <summary>
+    /// The exactly-once-per-statement slice of the before-statement checks: constraints whose
+    /// call frequency is observable (statement counting, user-derived) and the debugger step hook.
+    /// </summary>
+    internal void RunPerStatementChecks(StatementOrExpression? statement)
+    {
+        // Avoid allocating the enumerator because we run this loop very often.
+        foreach (var constraint in _exactConstraints)
+        {
+            constraint.Check();
+        }
+
+        if (_isDebugMode && statement != null && statement.Type != NodeType.BlockStatement)
+        {
+            Debugger.OnStep(statement);
+        }
+    }
+
+    /// <summary>
+    /// Checks the constraints that only observe external state; callers are responsible for the
+    /// amortization cadence (see <see cref="EvaluationContext.RunAmortizedConstraintChecks"/>).
+    /// </summary>
+    internal void CheckAmortizedConstraints()
+    {
+        foreach (var constraint in _amortizedConstraints)
+        {
+            constraint.Check();
         }
     }
 
