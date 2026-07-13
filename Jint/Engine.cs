@@ -1533,12 +1533,16 @@ public sealed partial class Engine : IDisposable
                         JsValue.Undefined, canBeDeleted: false, mutable: true, strict: false);
                 }
             }
-            else
+            else if (varsToInitialize.Count > 0)
             {
+                // Inlined bulk form of CreateMutableBindingAndInitialize (no slots, DisposeHint.Normal):
+                // pre-size once so a declaration-heavy body doesn't cut the list over to a dictionary
+                // insert by insert on every call (mirrors the lexical-declarations path below).
+                var dictionary = env._dictionary ??= new HybridDictionary<Binding>(varsToInitialize.Count, checkExistingKeys: true);
+                dictionary.EnsureCapacity(dictionary.Count + varsToInitialize.Count);
                 for (var i = 0; i < varsToInitialize.Count; i++)
                 {
-                    var pair = varsToInitialize[i];
-                    env.CreateMutableBindingAndInitialize(pair.Name, canBeDeleted: false, JsValue.Undefined, DisposeHint.Normal);
+                    dictionary[varsToInitialize[i].Name] = new Binding(JsValue.Undefined, canBeDeleted: false, mutable: true, strict: false);
                 }
             }
 
