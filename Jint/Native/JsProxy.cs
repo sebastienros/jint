@@ -186,38 +186,50 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
 
     private List<JsValue> ValidateOwnKeysTrapResult(ObjectInstance target, JsValue result)
     {
-        var trapResult = new List<JsValue>(FunctionPrototype.CreateListFromArrayLike(_engine.Realm, result, Types.String | Types.Symbol));
+        var keys = FunctionPrototype.CreateListFromArrayLike(_engine.Realm, result, Types.String | Types.Symbol);
 
-        if (trapResult.Count != new HashSet<JsValue>(trapResult).Count)
+        // one set serves both duplicate detection and the spec's uncheckedResultKeys below
+        var uncheckedResultKeys = new HashSet<JsValue>();
+        var trapResult = new List<JsValue>(keys.Length);
+        foreach (var key in keys)
         {
-            Throw.TypeError(_engine.Realm);
+            if (!uncheckedResultKeys.Add(key))
+            {
+                Throw.TypeError(_engine.Realm);
+            }
+            trapResult.Add(key);
         }
 
         var extensibleTarget = target.Extensible;
         var targetKeys = target.GetOwnPropertyKeys();
-        var targetConfigurableKeys = new List<JsValue>();
-        var targetNonconfigurableKeys = new List<JsValue>();
+        List<JsValue>? targetConfigurableKeys = null;
+        List<JsValue>? targetNonconfigurableKeys = null;
 
+        // every target key must be probed with [[GetOwnProperty]] before any invariant throw,
+        // the probe is observable when the target is itself exotic
         foreach (var property in targetKeys)
         {
             var desc = target.GetOwnProperty(property);
             if (desc != PropertyDescriptor.Undefined && !desc.Configurable)
             {
-                targetNonconfigurableKeys.Add(property);
+                (targetNonconfigurableKeys ??= new List<JsValue>()).Add(property);
             }
-            else
+            else if (!extensibleTarget)
             {
-                targetConfigurableKeys.Add(property);
+                // the configurable partition is only consulted when the target is non-extensible
+                (targetConfigurableKeys ??= new List<JsValue>()).Add(property);
             }
         }
 
-        var uncheckedResultKeys = new HashSet<JsValue>(trapResult);
-        for (var i = 0; i < targetNonconfigurableKeys.Count; i++)
+        if (targetNonconfigurableKeys is not null)
         {
-            var key = targetNonconfigurableKeys[i];
-            if (!uncheckedResultKeys.Remove(key))
+            for (var i = 0; i < targetNonconfigurableKeys.Count; i++)
             {
-                Throw.TypeError(_engine.Realm);
+                var key = targetNonconfigurableKeys[i];
+                if (!uncheckedResultKeys.Remove(key))
+                {
+                    Throw.TypeError(_engine.Realm);
+                }
             }
         }
 
@@ -226,12 +238,15 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             return trapResult;
         }
 
-        for (var i = 0; i < targetConfigurableKeys.Count; i++)
+        if (targetConfigurableKeys is not null)
         {
-            var key = targetConfigurableKeys[i];
-            if (!uncheckedResultKeys.Remove(key))
+            for (var i = 0; i < targetConfigurableKeys.Count; i++)
             {
-                Throw.TypeError(_engine.Realm);
+                var key = targetConfigurableKeys[i];
+                if (!uncheckedResultKeys.Remove(key))
+                {
+                    Throw.TypeError(_engine.Realm);
+                }
             }
         }
 
