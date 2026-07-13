@@ -660,14 +660,25 @@ internal sealed partial class AtomicsInstance : BuiltinShapeObject
             // Handle timeout
             if (!double.IsPositiveInfinity(q))
             {
-                var timeoutMs = (int) System.Math.Min(q, int.MaxValue);
+                var timeoutMs = (int) System.Math.Min(System.Math.Ceiling(q), int.MaxValue);
                 var capturedWaiterList = waiterList;
                 var capturedAsyncWaiter = asyncWaiter;
 
-                // Use a timer to resolve with "timed-out" after the timeout
+                // Use a timer to resolve with "timed-out" after the timeout. Task.Delay can
+                // complete slightly ahead of the requested interval (timer granularity /
+                // coalescing), and the wait must not report timed-out before the timeout has
+                // actually elapsed — script can observe the lapse (test262 asserts
+                // lapse >= timeout) — so re-delay until a monotonic clock agrees.
                 _ = Task.Run(async () =>
                 {
-                    await Task.Delay(timeoutMs).ConfigureAwait(false);
+                    var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+                    var remainingMs = timeoutMs;
+                    do
+                    {
+                        await Task.Delay(remainingMs).ConfigureAwait(false);
+                        remainingMs = timeoutMs - (int) stopwatch.ElapsedMilliseconds;
+                    } while (remainingMs > 0);
+
                     if (!capturedAsyncWaiter.Resolved)
                     {
                         capturedWaiterList.RemoveAsync(capturedAsyncWaiter);

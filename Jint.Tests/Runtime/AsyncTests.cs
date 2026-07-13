@@ -8,6 +8,14 @@ namespace Jint.Tests.Runtime;
 
 public class AsyncTests
 {
+    // Wall-clock promise budgets are a CI flake trap: on a loaded runner, thread-pool starvation
+    // can delay a Task.Delay continuation by many seconds (a 100 ms delay has been observed to
+    // blow the default 10-second PromiseTimeout on a two-core Windows runner). Tests that assert
+    // BEHAVIOR of the task-interop / async-wake path — not latency — use this budget so they
+    // cannot lose that race; tests that assert a timeout FIRES keep tight budgets (starvation
+    // only helps the timeout fire).
+    private static readonly TimeSpan GenerousPromiseTimeout = TimeSpan.FromMinutes(2);
+
     [Fact]
     public void AwaitPropagationAgainstPrimitiveValue()
     {
@@ -725,12 +733,14 @@ public class AsyncTests
         Assert.Equal(AsyncTestClass.TestString, result);
     }
 
-    [Fact(Skip = "Flaky test")]
+    [Fact]
     public void ShouldRespectCustomProvidedTimeoutWhenUnwrapping()
     {
-        Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
-        engine.SetValue("asyncTestClass", new AsyncTestClass());
-        var result = engine.Evaluate("asyncTestClass.ReturnDelayedTaskAsync().then(x=>x)");
+        // A promise that never settles makes the timeout deterministic. The previous version raced
+        // a 1 ms timeout against a 100 ms delayed task — under load the task could win, no
+        // exception was thrown, and the test flaked (it was skipped for that reason).
+        Engine engine = new();
+        var result = engine.Evaluate("new Promise(function () {})");
         var timeout = TimeSpan.FromMilliseconds(1);
         var exception = Assert.Throws<PromiseRejectedException>(() => result.UnwrapIfPromise(timeout));
         Assert.Equal($"Promise was rejected with value Timeout of {timeout} reached", exception.Message);
@@ -739,14 +749,16 @@ public class AsyncTests
     [Fact]
     public void ShouldAwaitUnwrapPromiseWithCustomTimeout()
     {
-        Engine engine = new(options => { options.ExperimentalFeatures = ExperimentalFeature.TaskInterop; options.Constraints.PromiseTimeout = TimeSpan.FromMilliseconds(500); });
+        // the custom budget must be generous: this asserts the SUCCESS path, and a tight budget
+        // races the delayed task's continuation scheduling under CI load
+        Engine engine = new(options => { options.ExperimentalFeatures = ExperimentalFeature.TaskInterop; options.Constraints.PromiseTimeout = GenerousPromiseTimeout; });
         engine.SetValue("asyncTestClass", new AsyncTestClass());
-        engine.Execute(""" 
+        engine.Execute("""
         async function test() {
             return await asyncTestClass.ReturnDelayedTaskAsync();
         }
         """);
-        var result = engine.Invoke("test").UnwrapIfPromise();
+        var result = engine.Invoke("test").UnwrapIfPromise(GenerousPromiseTimeout);
         Assert.Equal(AsyncTestClass.TestString, result);
     }
 
@@ -1074,14 +1086,15 @@ public class AsyncTests
     [Fact]
     public void ShouldAwaitUnwrapValueTaskOfTPromiseWithCustomTimeout()
     {
-        Engine engine = new(options => { options.ExperimentalFeatures = ExperimentalFeature.TaskInterop; options.Constraints.PromiseTimeout = TimeSpan.FromMilliseconds(500); });
+        // see ShouldAwaitUnwrapPromiseWithCustomTimeout — success path must not race CI load
+        Engine engine = new(options => { options.ExperimentalFeatures = ExperimentalFeature.TaskInterop; options.Constraints.PromiseTimeout = GenerousPromiseTimeout; });
         engine.SetValue("asyncTestClass", new AsyncTestClass());
         engine.Execute("""
         async function test() {
             return await asyncTestClass.ReturnDelayedValueTaskAsync();
         }
         """);
-        var result = engine.Invoke("test").UnwrapIfPromise();
+        var result = engine.Invoke("test").UnwrapIfPromise(GenerousPromiseTimeout);
         Assert.Equal(AsyncTestClass.TestString, result);
     }
 
@@ -1951,7 +1964,7 @@ public class AsyncTests
     [Fact]
     public async Task EvaluateAsyncWithTaskInteropShouldWork()
     {
-        var engine = new Engine(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
+        var engine = new Engine(options => { options.ExperimentalFeatures = ExperimentalFeature.TaskInterop; options.Constraints.PromiseTimeout = GenerousPromiseTimeout; });
         engine.SetValue("asyncTestClass", new AsyncTestClass());
 
         var result = await engine.EvaluateAsync("""
@@ -1966,7 +1979,7 @@ public class AsyncTests
     [Fact]
     public async Task InvokeAsyncWithMultipleAwaitsShouldWork()
     {
-        var engine = new Engine(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
+        var engine = new Engine(options => { options.ExperimentalFeatures = ExperimentalFeature.TaskInterop; options.Constraints.PromiseTimeout = GenerousPromiseTimeout; });
         engine.SetValue("asyncTestClass", new AsyncTestClass());
         engine.Execute("""
             async function test() {
@@ -1988,7 +2001,7 @@ public class AsyncTests
     {
         // Verifies the async wake path: EvaluateAsync releases the thread during
         // a .NET Task.Delay (simulating IO like gRPC), and resumes correctly.
-        var engine = new Engine();
+        var engine = new Engine(options => options.Constraints.PromiseTimeout = GenerousPromiseTimeout);
         engine.SetValue("simulateIO", new Func<Task<int>>(async () =>
         {
             await Task.Delay(100);
@@ -2009,7 +2022,7 @@ public class AsyncTests
     public async Task EvaluateAsyncShouldHandleMultipleSequentialClrTasks()
     {
         // Multiple sequential .NET async calls, each releasing and re-acquiring the thread.
-        var engine = new Engine();
+        var engine = new Engine(options => options.Constraints.PromiseTimeout = GenerousPromiseTimeout);
         var callOrder = new List<string>();
 
         engine.SetValue("step1", new Func<Task<string>>(async () =>
@@ -2050,7 +2063,7 @@ public class AsyncTests
     {
         // Promise.all with multiple .NET Tasks running concurrently.
         // All tasks should start before any completes.
-        var engine = new Engine();
+        var engine = new Engine(options => options.Constraints.PromiseTimeout = GenerousPromiseTimeout);
         var startTimes = new ConcurrentDictionary<string, DateTime>();
 
         engine.SetValue("fetch", new Func<string, Task<string>>(async (id) =>
@@ -2105,7 +2118,7 @@ public class AsyncTests
     public async Task EvaluateAsyncShouldHandleClrTaskRejection()
     {
         // .NET Task that throws should propagate as a rejected promise.
-        var engine = new Engine();
+        var engine = new Engine(options => options.Constraints.PromiseTimeout = GenerousPromiseTimeout);
         engine.SetValue("failingIO", new Func<Task<string>>(async () =>
         {
             await Task.Delay(50);
@@ -2131,7 +2144,7 @@ public class AsyncTests
     public async Task EvaluateAsyncShouldHandleNestedJsToClrToJsAsync()
     {
         // Nested async: JS → .NET async → back into JS engine (via callback) → .NET async
-        var engine = new Engine();
+        var engine = new Engine(options => options.Constraints.PromiseTimeout = GenerousPromiseTimeout);
 
         engine.SetValue("fetchData", new Func<Task<string>>(async () =>
         {
@@ -2186,7 +2199,7 @@ public class AsyncTests
     {
         // Proves the caller thread is released: start EvaluateAsync, then verify
         // we can do other work before it completes.
-        var engine = new Engine();
+        var engine = new Engine(options => options.Constraints.PromiseTimeout = GenerousPromiseTimeout);
         var ioStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         engine.SetValue("simulateIO", new Func<Task<int>>(async () =>
@@ -2228,7 +2241,8 @@ public class AsyncTests
             var idx = i;
             tasks[i] = Task.Run(async () =>
             {
-                var engine = new Engine();
+                // 20 engines contending for the pool makes starvation likely by construction
+                var engine = new Engine(options => options.Constraints.PromiseTimeout = GenerousPromiseTimeout);
                 engine.SetValue("compute", new Func<int, Task<int>>(async (n) =>
                 {
                     await Task.Delay(50);
@@ -2252,7 +2266,7 @@ public class AsyncTests
     public async Task InvokeAsyncWithClrTaskInterop()
     {
         // InvokeAsync with .NET Task interop, verifying the complete path.
-        var engine = new Engine(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
+        var engine = new Engine(options => { options.ExperimentalFeatures = ExperimentalFeature.TaskInterop; options.Constraints.PromiseTimeout = GenerousPromiseTimeout; });
 
         engine.SetValue("asyncTestClass", new AsyncTestClass());
         engine.Execute("""
@@ -2271,7 +2285,7 @@ public class AsyncTests
     {
         // setTimeout pattern using .NET Task.Delay, exercising the async wake path
         // with event loop scheduling (not direct Task interop).
-        var engine = new Engine();
+        var engine = new Engine(options => options.Constraints.PromiseTimeout = GenerousPromiseTimeout);
         engine.SetValue("setTimeout", (Action action, int ms) =>
         {
             Task.Delay(ms).ContinueWith(_ => action());
@@ -2303,7 +2317,7 @@ public class AsyncTests
         // After the first EvaluateAsync completes, the event loop's _eventAvailable
         // TCS has been consumed. The second call must detect the stale/null TCS and
         // install a fresh one without hanging or busy-looping.
-        var engine = new Engine();
+        var engine = new Engine(options => options.Constraints.PromiseTimeout = GenerousPromiseTimeout);
         engine.SetValue("io", new Func<int, Task<int>>(async (n) =>
         {
             await Task.Delay(50);
@@ -2326,7 +2340,7 @@ public class AsyncTests
         // Sync Evaluate+UnwrapIfPromise sets _waitingThreadId during the spin-wait.
         // A subsequent EvaluateAsync must not be blocked by a leftover _waitingThreadId
         // from the sync path. This tests the handoff between the two execution models.
-        var engine = new Engine();
+        var engine = new Engine(options => options.Constraints.PromiseTimeout = GenerousPromiseTimeout);
         engine.SetValue("io", new Func<Task<string>>(async () =>
         {
             await Task.Delay(50);
@@ -2374,8 +2388,8 @@ public class AsyncTests
             await engine.EvaluateAsync("(async () => await slowIO())()");
         });
 
-        // Increase timeout for recovery
-        engine.Options.Constraints.PromiseTimeout = TimeSpan.FromSeconds(5);
+        // Increase timeout for recovery (generous — the recovery half asserts success)
+        engine.Options.Constraints.PromiseTimeout = GenerousPromiseTimeout;
 
         // Engine should still work
         var result = await engine.EvaluateAsync("(async () => await fastIO())()");
@@ -2387,7 +2401,7 @@ public class AsyncTests
     {
         // CancellationToken fires during a pending EvaluateAsync. The TCS in
         // WaitForEventAsync gets cancelled. Verify the engine is still usable.
-        var engine = new Engine();
+        var engine = new Engine(options => options.Constraints.PromiseTimeout = GenerousPromiseTimeout);
         engine.SetValue("slowIO", new Func<Task<int>>(async () =>
         {
             await Task.Delay(10_000);
@@ -2421,7 +2435,9 @@ public class AsyncTests
     {
         // A .NET Task that throws, with NO try/catch in JS, should surface
         // as PromiseRejectedException to the .NET caller via EvaluateAsync.
-        var engine = new Engine();
+        // (A tight budget could throw PromiseRejectedException for the WRONG reason —
+        // timeout instead of the propagated failure — and fail the message assert.)
+        var engine = new Engine(options => options.Constraints.PromiseTimeout = GenerousPromiseTimeout);
         engine.SetValue("failingIO", new Func<Task<string>>(async () =>
         {
             await Task.Delay(50);
@@ -2461,7 +2477,7 @@ public class AsyncTests
         // path in ConvertTaskToPromise — there's no Task<T>.Result property.
         // The promise should resolve with undefined, not throw or return a
         // wrapped VoidTaskResult.
-        var engine = new Engine();
+        var engine = new Engine(options => options.Constraints.PromiseTimeout = GenerousPromiseTimeout);
         var sideEffect = false;
 
         engine.SetValue("doWork", new Func<Task>(async () =>
@@ -2480,7 +2496,7 @@ public class AsyncTests
     {
         // Tests the EvaluateAsync(Prepared<Script>) overload which has its own
         // code path and was previously untested.
-        var engine = new Engine();
+        var engine = new Engine(options => options.Constraints.PromiseTimeout = GenerousPromiseTimeout);
         engine.SetValue("io", new Func<Task<int>>(async () =>
         {
             await Task.Delay(50);

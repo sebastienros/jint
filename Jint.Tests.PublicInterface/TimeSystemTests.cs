@@ -38,23 +38,30 @@ public class TimeSystemTests
     [Fact]
     public void CanUseTimeProvider()
     {
+        // Bracket the evaluation instead of assuming it completes within a fixed window: the
+        // engine reads the same system clock, so the script's "now" must land between wall-clock
+        // readings taken around it (small slack for coarse timer ticks / clock adjustments). The
+        // previous form captured only "before" and allowed 100 ms — evaluation on a loaded CI
+        // runner regularly exceeded that and flaked the test.
         var defaultEngine = new Engine();
-        var defaultNow = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+        var beforeDefault = DateTimeOffset.Now.ToUnixTimeMilliseconds();
         var defaultScriptNow = defaultEngine.Evaluate("new Date() * 1").AsNumber();
-        Assert.InRange(defaultScriptNow, defaultNow, defaultNow + 100);
-        
+        var afterDefault = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+        Assert.InRange(defaultScriptNow, beforeDefault - 100, afterDefault + 100);
+
         var timeProvider = new FakeTimeProvider();
         timeProvider.SetUtcNow(new DateTimeOffset(2023, 11, 6, 0, 0, 0, 0, TimeSpan.Zero));
-        
+
         var timeProviderEngine = new Engine(options =>
         {
             options.TimeSystem = new TimeProviderTimeSystem(timeProvider);
         });
 
+        // the fake provider is frozen, so the script must read exactly its instant
         var timeProviderNow = timeProvider.GetUtcNow().ToUnixTimeMilliseconds();
         var timeProviderScriptNow = timeProviderEngine.Evaluate("new Date() * 1").AsNumber();
-        Assert.InRange(timeProviderNow, timeProviderScriptNow, timeProviderScriptNow + 100);
-        
+        Assert.Equal(timeProviderNow, timeProviderScriptNow);
+
         Assert.NotInRange(timeProviderScriptNow, defaultScriptNow - 10000, defaultScriptNow + 10000);
     }
 }
