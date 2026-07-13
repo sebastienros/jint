@@ -12,12 +12,14 @@ internal sealed class JsValueArrayPool
     private readonly ObjectPool<JsValue[]> _poolArray1;
     private readonly ObjectPool<JsValue[]> _poolArray2;
     private readonly ObjectPool<JsValue[]> _poolArray3;
+    private readonly ObjectPool<JsValue[]> _poolArray4;
 
     public JsValueArrayPool()
     {
         _poolArray1 = new ObjectPool<JsValue[]>(Factory1, PoolSize);
         _poolArray2 = new ObjectPool<JsValue[]>(Factory2, PoolSize);
         _poolArray3 = new ObjectPool<JsValue[]>(Factory3, PoolSize);
+        _poolArray4 = new ObjectPool<JsValue[]>(Factory4, PoolSize);
     }
 
     private static JsValue[] Factory1()
@@ -33,6 +35,11 @@ internal sealed class JsValueArrayPool
     private static JsValue[] Factory3()
     {
         return new JsValue[3];
+    }
+
+    private static JsValue[] Factory4()
+    {
+        return new JsValue[4];
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -53,6 +60,10 @@ internal sealed class JsValueArrayPool
         if (size == 3)
         {
             return _poolArray3.Allocate();
+        }
+        if (size == 4)
+        {
+            return _poolArray4.Allocate();
         }
 
         return new JsValue[size];
@@ -82,6 +93,14 @@ internal sealed class JsValueArrayPool
             array[1] = null!;
             array[2] = null!;
             _poolArray3.Free(array);
+        }
+        else if (array.Length == 4)
+        {
+            array[0] = null!;
+            array[1] = null!;
+            array[2] = null!;
+            array[3] = null!;
+            _poolArray4.Free(array);
         }
     }
 }

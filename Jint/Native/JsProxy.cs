@@ -669,24 +669,54 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         return callable;
     }
 
+    // trap argument arrays are rented and returned after the call completes, following the
+    // interpreter call-site pattern (no finally: an exception lets the array fall to the GC,
+    // and JsArguments.Materialize protects arrays captured by the callee)
+
     private JsValue CallTrap(ICallable trap, JsValue arg0)
     {
-        return trap.Call(_handler!, [arg0]);
+        var pool = _engine._jsValueArrayPool;
+        var args = pool.RentArray(1);
+        args[0] = arg0;
+        var result = trap.Call(_handler!, args);
+        pool.ReturnArray(args);
+        return result;
     }
 
     private JsValue CallTrap(ICallable trap, JsValue arg0, JsValue arg1)
     {
-        return trap.Call(_handler!, [arg0, arg1]);
+        var pool = _engine._jsValueArrayPool;
+        var args = pool.RentArray(2);
+        args[0] = arg0;
+        args[1] = arg1;
+        var result = trap.Call(_handler!, args);
+        pool.ReturnArray(args);
+        return result;
     }
 
     private JsValue CallTrap(ICallable trap, JsValue arg0, JsValue arg1, JsValue arg2)
     {
-        return trap.Call(_handler!, [arg0, arg1, arg2]);
+        var pool = _engine._jsValueArrayPool;
+        var args = pool.RentArray(3);
+        args[0] = arg0;
+        args[1] = arg1;
+        args[2] = arg2;
+        var result = trap.Call(_handler!, args);
+        pool.ReturnArray(args);
+        return result;
     }
 
     private JsValue CallTrap(ICallable trap, JsValue arg0, JsValue arg1, JsValue arg2, JsValue arg3)
     {
-        return trap.Call(_handler!, [arg0, arg1, arg2, arg3]);
+        var pool = _engine._jsValueArrayPool;
+        var args = pool.RentArray(4);
+        args[0] = arg0;
+        args[1] = arg1;
+        args[2] = arg2;
+        args[3] = arg3;
+        var result = trap.Call(_handler!, args);
+        pool.ReturnArray(args);
+        return result;
     }
 
     private void AssertNotRevoked(JsValue key)
