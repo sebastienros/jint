@@ -927,6 +927,60 @@ public class AsyncTests
         Assert.Equal("success", result);
     }
 
+    [Fact]
+    public void ShouldResolveTopLevelAwaitOfDelayedTaskInModule()
+    {
+        // #2663: top-level await of a .NET Task<T> in a module must block Modules.Import until the
+        // Task completes on a ThreadPool thread, instead of giving up in a tight microsecond loop
+        // and throwing "did not return a fulfilled promise: Pending". Success path, so the timeout
+        // budget must be generous enough not to race a delayed task's continuation under CI load.
+        Engine engine = new(options =>
+        {
+            options.ExperimentalFeatures = ExperimentalFeature.TaskInterop;
+            options.Constraints.PromiseTimeout = GenerousPromiseTimeout;
+        });
+
+        engine.SetValue("getAnswer", new Func<Task<int>>(async () =>
+        {
+            await Task.Delay(100);
+            return 42;
+        }));
+
+        engine.Modules.Add("main", """
+            const x = await getAnswer();
+            export const answer = x;
+            """);
+
+        var ns = engine.Modules.Import("main");
+
+        Assert.Equal(42, ns.Get("answer").AsInteger());
+    }
+
+    [Fact]
+    public void ShouldPropagateRejectionOfTopLevelAwaitedTaskInModule()
+    {
+        // The rejection path of the same #2663 flow: a faulted top-level awaited Task must surface
+        // as a JavaScript error out of Modules.Import, not hang or report a spurious pending state.
+        Engine engine = new(options =>
+        {
+            options.ExperimentalFeatures = ExperimentalFeature.TaskInterop;
+            options.Constraints.PromiseTimeout = GenerousPromiseTimeout;
+        });
+
+        engine.SetValue("boom", new Func<Task<int>>(async () =>
+        {
+            await Task.Delay(50);
+            throw new InvalidOperationException("kaboom");
+        }));
+
+        engine.Modules.Add("main", """
+            const x = await boom();
+            export const answer = x;
+            """);
+
+        Assert.Throws<JavaScriptException>(() => engine.Modules.Import("main"));
+    }
+
 #if !NETFRAMEWORK
 
     [Fact]

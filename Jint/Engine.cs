@@ -748,6 +748,65 @@ public sealed partial class Engine : IDisposable
         _eventLoop.RunAvailableContinuations(this);
     }
 
+    /// <summary>
+    /// Synchronously drives the event loop until <paramref name="promise"/> leaves the pending state
+    /// or <paramref name="timeout"/> elapses. Between drains it waits on the promise's completion event
+    /// with a short poll interval so that continuations enqueued from a background thread — a .NET
+    /// <see cref="System.Threading.Tasks.Task"/> awaited at a module's top level via task interop, or a
+    /// <c>setTimeout</c> callback — get a chance to settle the promise.
+    /// </summary>
+    /// <remarks>
+    /// A tight spin loop gives up in microseconds and never observes a Task that only completes
+    /// milliseconds later on a ThreadPool thread (issue #2663). This mirrors the polling in
+    /// <see cref="JsValueExtensions.UnwrapIfPromise(Native.JsValue, TimeSpan)"/>. A non-positive
+    /// <paramref name="timeout"/> means wait indefinitely.
+    /// </remarks>
+    internal void DrainEventLoopUntilSettled(JsPromise promise, TimeSpan timeout)
+    {
+        // Claim this thread as the one draining the loop so background threads (Task completions)
+        // don't race to execute JavaScript continuations on the engine. Save/restore to support
+        // nesting (e.g. a re-entrant UnwrapIfPromise already waiting).
+        var previousWaitingThreadId = _eventLoop._waitingThreadId;
+        _eventLoop._waitingThreadId = System.Environment.CurrentManagedThreadId;
+
+        try
+        {
+            var hasTimeout = timeout > TimeSpan.Zero;
+            var deadline = hasTimeout ? DateTime.UtcNow + timeout : DateTime.MaxValue;
+            var pollInterval = TimeSpan.FromMilliseconds(10);
+            var completedEvent = promise.CompletedEvent;
+
+            while (promise.State == PromiseState.Pending)
+            {
+                RunAvailableContinuations();
+
+                if (promise.State != PromiseState.Pending)
+                {
+                    break;
+                }
+
+                if (hasTimeout)
+                {
+                    var remaining = deadline - DateTime.UtcNow;
+                    if (remaining <= TimeSpan.Zero)
+                    {
+                        break;
+                    }
+
+                    completedEvent.Wait(remaining < pollInterval ? remaining : pollInterval);
+                }
+                else
+                {
+                    completedEvent.Wait(pollInterval);
+                }
+            }
+        }
+        finally
+        {
+            _eventLoop._waitingThreadId = previousWaitingThreadId;
+        }
+    }
+
     internal void RunBeforeExecuteStatementChecks(StatementOrExpression? statement)
     {
         // Avoid allocating the enumerator because we run this loop very often.
