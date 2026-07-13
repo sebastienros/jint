@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using Jint.Native;
@@ -392,6 +393,9 @@ internal abstract class JintExpression
 
     private static JsValue CompareNumber(JsValue x, JsValue y, bool leftFirst)
     {
+        // only called from Compare which has proven both operands via IsNumber()
+        Debug.Assert(x is JsNumber && y is JsNumber);
+
         if (x.IsInteger() && y.IsInteger())
         {
             return x.AsInteger() < y.AsInteger() ? JsBoolean.True : JsBoolean.False;
@@ -400,13 +404,13 @@ internal abstract class JintExpression
         double nx, ny;
         if (leftFirst)
         {
-            nx = ((JsNumber) x)._value;
-            ny = ((JsNumber) y)._value;
+            nx = Unsafe.As<JsNumber>(x)._value;
+            ny = Unsafe.As<JsNumber>(y)._value;
         }
         else
         {
-            ny = ((JsNumber) y)._value;
-            nx = ((JsNumber) x)._value;
+            ny = Unsafe.As<JsNumber>(y)._value;
+            nx = Unsafe.As<JsNumber>(x)._value;
         }
 
         if (double.IsNaN(nx) || double.IsNaN(ny))
