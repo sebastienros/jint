@@ -10,6 +10,23 @@ namespace Jint.Tests.Test262;
 
 public abstract partial class Test262Test
 {
+    // Tests that legitimately do seconds of work (large code-point loops): they pass in a few
+    // seconds when run alone but blow the default 30-second wall-clock TimeoutInterval when the
+    // parallel suite starves the CPU. The constraint exists to catch runaway scripts, so these
+    // known-heavy files get a raised budget instead of a global increase — a genuine hang is
+    // still caught, everything else keeps the tight limit.
+    private static readonly HashSet<string> _slowTestFiles = new(StringComparer.Ordinal)
+    {
+        "annexB/built-ins/RegExp/RegExp-leading-escape-BMP.js",
+        "annexB/built-ins/RegExp/RegExp-trailing-escape-BMP.js",
+        // 4-level byte-range loops, ~1.3M decodeURI calls per script (~1.5s alone)
+        "built-ins/decodeURI/S15.1.3.1_A2.5_T1.js",
+        "built-ins/decodeURIComponent/S15.1.3.2_A2.5_T1.js",
+    };
+
+    private static TimeSpan GetTimeoutInterval(Test262File file)
+        => _slowTestFiles.Contains(file.FileName) ? TimeSpan.FromMinutes(5) : TimeSpan.FromSeconds(30);
+
     // Thread-local storage for agent manager (tests run in parallel)
     [ThreadStatic]
     private static Test262AgentManager? _currentAgentManager;
@@ -28,7 +45,7 @@ public abstract partial class Test262Test
             var relativePath = Path.GetDirectoryName(file.FileName) ?? "";
             cfg.EnableModules(new Test262ModuleLoader(State.Test262Stream.Options.FileSystem, relativePath));
             cfg.ExperimentalFeatures = ExperimentalFeature.All;
-            cfg.TimeoutInterval(TimeSpan.FromSeconds(30));
+            cfg.TimeoutInterval(GetTimeoutInterval(file));
             // Configure agent blocking based on test flags
             if (file.Flags.Contains("CanBlockIsFalse"))
             {
