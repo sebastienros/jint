@@ -810,51 +810,76 @@ internal sealed class JintFunctionDefinition
 
         foreach (var statement in body.Body.AsSpan())
         {
-            switch (statement.Type)
+            if (!IsShapeEligibleCtorStatement(statement))
             {
-                case NodeType.EmptyStatement:
-                    continue;
-
-                case NodeType.ExpressionStatement:
-                    if (statement is Directive)
-                    {
-                        // directive prologue ("use strict") — an inert string literal
-                        continue;
-                    }
-
-                    if (((ExpressionStatement) statement).Expression is AssignmentExpression
-                        {
-                            Operator: Operator.Assignment,
-                            Left: MemberExpression { Object.Type: NodeType.ThisExpression, Computed: false, Property.Type: NodeType.Identifier },
-                        } assignment
-                        && !ContainsThisEscapingCall(assignment.Right))
-                    {
-                        continue;
-                    }
-
-                    return false;
-
-                case NodeType.VariableDeclaration:
-                    if (ContainsThisEscapingCall(statement))
-                    {
-                        return false;
-                    }
-                    continue;
-
-                case NodeType.ReturnStatement:
-                    if (((ReturnStatement) statement).Argument is not null)
-                    {
-                        // `return expr` could replace the instance or evaluate arbitrarily
-                        return false;
-                    }
-                    continue;
-
-                default:
-                    return false;
+                return false;
             }
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// The statement forms an eligible constructor body may contain: static-key `this.x = rhs`
+    /// stores, local declarations and bare returns (each without a this-escaping call), and —
+    /// because eligibility only decides how early shaping starts, never correctness — if/else and
+    /// blocks over those same forms. Branchy constructors like sunspider-3d-raytrace's Triangle
+    /// (`if (...) this.axis = 0; else this.axis = 2;`) assign the same key set on every path in
+    /// practice, and a path-divergent layout merely splits the interned transition tree, which
+    /// TryShapeAdd's fanout guard already bounds.
+    /// </summary>
+    private static bool IsShapeEligibleCtorStatement(Statement statement)
+    {
+        switch (statement.Type)
+        {
+            case NodeType.EmptyStatement:
+                return true;
+
+            case NodeType.ExpressionStatement:
+                if (statement is Directive)
+                {
+                    // directive prologue ("use strict") — an inert string literal
+                    return true;
+                }
+
+                if (((ExpressionStatement) statement).Expression is AssignmentExpression
+                    {
+                        Operator: Operator.Assignment,
+                        Left: MemberExpression { Object.Type: NodeType.ThisExpression, Computed: false, Property.Type: NodeType.Identifier },
+                    } assignment
+                    && !ContainsThisEscapingCall(assignment.Right))
+                {
+                    return true;
+                }
+
+                return false;
+
+            case NodeType.VariableDeclaration:
+                return !ContainsThisEscapingCall(statement);
+
+            case NodeType.ReturnStatement:
+                // `return expr` could replace the instance or evaluate arbitrarily
+                return ((ReturnStatement) statement).Argument is null;
+
+            case NodeType.IfStatement:
+                var ifStatement = (IfStatement) statement;
+                return !ContainsThisEscapingCall(ifStatement.Test)
+                    && IsShapeEligibleCtorStatement(ifStatement.Consequent)
+                    && (ifStatement.Alternate is null || IsShapeEligibleCtorStatement(ifStatement.Alternate));
+
+            case NodeType.BlockStatement:
+                foreach (var inner in ((BlockStatement) statement).Body.AsSpan())
+                {
+                    if (!IsShapeEligibleCtorStatement(inner))
+                    {
+                        return false;
+                    }
+                }
+                return true;
+
+            default:
+                return false;
+        }
     }
 
     /// <summary>
