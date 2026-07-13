@@ -688,4 +688,13 @@ public class ClrProxyHandlerTests
         Assert.Throws<ArgumentNullException>(() => engine.Advanced.CreateRevocableProxy(null!, handler));
         Assert.Throws<ArgumentNullException>(() => engine.Advanced.CreateRevocableProxy(target, null!));
     }
+
+    [Fact]
+    public void DefaultRevocableProxyThrowsInvalidOperationException()
+    {
+        var uninitialized = default(RevocableProxy);
+
+        Assert.Throws<InvalidOperationException>(() => uninitialized.Proxy);
+        Assert.Throws<InvalidOperationException>(() => uninitialized.Revoke());
+    }
 }
