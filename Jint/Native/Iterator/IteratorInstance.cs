@@ -279,6 +279,15 @@ internal abstract class IteratorInstance : ObjectInstance
         private List<CompletedLevel>? _completedLevels;
         private HashSet<JsValue>? _visited;
 
+        // Array index mode: a dense JsArray with no named own props whose prototype chain provably
+        // contributes no enumerable keys enumerates its present indices lazily — no key list, no
+        // per-step string->index parse, and (indices < 1024) no per-key JsString. The chain was
+        // clean at head evaluation, so the enumeration ends when the index range is exhausted; the
+        // level/shadowing machinery below never engages. Everything else takes the exact path.
+        private JsArray? _fastArray;
+        private uint _fastArrayBound;
+        private uint _fastArrayIndex;
+
         // Keys of the level currently being walked that probed Missing at their turn (deleted or
         // absent before they were reached). Usually null — populated only when a key vanishes
         // mid-enumeration. A shadow set, when it is later built, must treat these as never-present:
@@ -291,6 +300,25 @@ internal abstract class IteratorInstance : ObjectInstance
 
         public ForInIterator(Engine engine, ObjectInstance target) : base(engine)
         {
+            _keys = System.Array.Empty<JsValue>();
+            InitializeEnumeration(target);
+        }
+
+        private void InitializeEnumeration(ObjectInstance target)
+        {
+            if (target is JsArray array
+                && array.TryStartForInIndexMode(out var bound)
+                && PrototypeChainHasNoEnumerableStringKeys(array))
+            {
+                _fastArray = array;
+                _fastArrayBound = bound;
+                _fastArrayIndex = 0;
+                _current = null;
+                _keys = System.Array.Empty<JsValue>();
+                return;
+            }
+
+            _fastArray = null;
             _current = target;
             // matches the previous lazy enumerator's first step closely enough: no user code
             // can observe between head evaluation and the first step, so the ownKeys order
@@ -301,8 +329,45 @@ internal abstract class IteratorInstance : ObjectInstance
             _keys = target.GetForInStringKeys();
         }
 
+        /// <summary>
+        /// True when every object on <paramref name="target"/>'s prototype chain proves it has no
+        /// enumerable own string keys. Walks the raw prototype fields: an object is only advanced
+        /// through after it passed the check, and everything that can pass is ordinary (a proxy's
+        /// GetPrototypeOf trap can therefore never fire here — the proxy itself fails the check
+        /// first).
+        /// </summary>
+        private static bool PrototypeChainHasNoEnumerableStringKeys(ObjectInstance target)
+        {
+            var proto = target._prototype;
+            while (proto is not null)
+            {
+                if (!proto.HasNoEnumerableOwnStringKeys())
+                {
+                    return false;
+                }
+
+                proto = proto._prototype;
+            }
+
+            return true;
+        }
+
         internal override bool TryStepValue([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out JsValue? value)
         {
+            var fastArray = _fastArray;
+            if (fastArray is not null)
+            {
+                if (fastArray.TryFastForInStep(ref _fastArrayIndex, _fastArrayBound, out value))
+                {
+                    return true;
+                }
+
+                // exhausted; the prototype chain was clean at head evaluation, so nothing deeper
+                // can contribute — the enumeration is complete
+                _fastArray = null;
+                return false;
+            }
+
             while (_current is not null)
             {
                 var current = _current;
@@ -444,8 +509,6 @@ internal abstract class IteratorInstance : ObjectInstance
         /// </summary>
         internal void ResetForReuse(ObjectInstance target)
         {
-            _current = target;
-            _keys = target.GetForInStringKeys();
             _index = 0;
             _deeperLevel = false;
             _completedLevels?.Clear();
@@ -455,6 +518,7 @@ internal abstract class IteratorInstance : ObjectInstance
             // per-level scratch set carried into CompletedLevel — it must not leak across reuses.
             _visited = null;
             _levelAbsent = null;
+            InitializeEnumeration(target);
         }
 
         /// <summary>
@@ -472,6 +536,9 @@ internal abstract class IteratorInstance : ObjectInstance
             // see ResetForReuse: null is the sentinel, and _levelAbsent must not survive parking
             _visited = null;
             _levelAbsent = null;
+            _fastArray = null;
+            _fastArrayBound = 0;
+            _fastArrayIndex = 0;
         }
     }
 

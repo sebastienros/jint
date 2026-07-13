@@ -468,6 +468,83 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         return GetOwnPropertyKeys(Types.String);
     }
 
+    /// <summary>
+    /// True when this object provably has no enumerable own string-keyed property, used by the
+    /// for-in array fast path to prove a prototype chain contributes nothing to the enumeration.
+    /// The default is a conservative <c>false</c> ("cannot prove it"), which routes for-in through
+    /// the exact snapshot machinery; only types with ordinary own-key semantics override this with
+    /// <see cref="HasNoEnumerableOwnStringKeysCore"/>. A wrong <c>true</c> would silently drop keys
+    /// from enumeration, so exotic key providers (proxies, string wrappers, arguments) must never
+    /// opt in.
+    /// </summary>
+    internal virtual bool HasNoEnumerableOwnStringKeys() => false;
+
+    /// <summary>
+    /// Shared implementation for <see cref="HasNoEnumerableOwnStringKeys"/> overrides: handles the
+    /// shape, builtin-shape and dictionary representations. Callers layer their own exotic keys on
+    /// top (e.g. array indices).
+    /// </summary>
+    private protected bool HasNoEnumerableOwnStringKeysCore()
+    {
+        EnsureInitialized();
+
+        if ((_type & InternalTypes.ShapeMode) != InternalTypes.Empty)
+        {
+            // every shape slot is a configurable+enumerable+writable data property
+            return Unsafe.As<JsObject>(this).ShapeOf.SlotCount == 0;
+        }
+
+        if (!ReferenceEquals(GetInitialOwnStringPropertyKeys(), System.Linq.Enumerable.Empty<JsValue>()))
+        {
+            // an exotic initial-keys provider (function length/name, string indices); give up
+            return false;
+        }
+
+        if ((_type & InternalTypes.BuiltinShapeMode) != InternalTypes.Empty)
+        {
+            var shaped = Unsafe.As<IBuiltinShaped>(this);
+            if (!shaped.BuiltinShape.FixedSlotsAllNonEnumerable)
+            {
+                return false;
+            }
+
+            // Instance slots, materialized functions/accessors and in-place redefinitions all live
+            // here; a null entry is an untouched slot whose declared flags were checked above.
+            var descriptors = shaped.BuiltinDescriptors;
+            if (descriptors is not null)
+            {
+                foreach (var descriptor in descriptors)
+                {
+                    if (descriptor is not null && descriptor.Enumerable)
+                    {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        return HasNoEnumerableEntryInPropertyDictionary();
+    }
+
+    private bool HasNoEnumerableEntryInPropertyDictionary()
+    {
+        var properties = _properties;
+        if (properties is null || properties.Count == 0)
+        {
+            return true;
+        }
+
+        foreach (var entry in properties)
+        {
+            if (entry.Value.Enumerable)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private List<JsValue> GetOwnPropertyKeysFromShape(Shape shape, Types types)
     {
         var slotCount = shape.SlotCount;

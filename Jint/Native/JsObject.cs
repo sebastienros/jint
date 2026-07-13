@@ -39,6 +39,9 @@ public sealed class JsObject : ObjectInstance
         get => _shape!;
     }
 
+    // plain objects have no exotic own keys; shape/dictionary state answers exactly
+    internal override bool HasNoEnumerableOwnStringKeys() => HasNoEnumerableOwnStringKeysCore();
+
     /// <summary>
     /// Installs <paramref name="shape"/> and prepares slot storage — allocating the overflow array only
     /// when the layout exceeds the in-object capacity — then flips on shape mode. The caller fills the

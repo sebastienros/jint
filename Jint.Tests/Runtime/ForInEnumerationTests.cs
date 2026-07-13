@@ -374,6 +374,231 @@ public class ForInEnumerationTests
     }
 
     [Fact]
+    public void ForInOverDenseArrayYieldsAscendingIndicesAsStrings()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var arr = [10, 20, 30, 40];
+            var out = [];
+            for (var k in arr) { out.push(typeof k + ':' + k); }
+            out.join(',');
+            """).AsString();
+
+        Assert.Equal("string:0,string:1,string:2,string:3", result);
+    }
+
+    [Fact]
+    public void ForInOverHoleyArraySkipsHoles()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var arr = [];
+            arr[0] = 'a'; arr[3] = 'b'; arr[7] = 'c';
+            var out = [];
+            for (var k in arr) { out.push(k); }
+            out.join(',');
+            """).AsString();
+
+        Assert.Equal("0,3,7", result);
+    }
+
+    [Fact]
+    public void ForInOverEmptyArrayWithLargeLengthYieldsNothing()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var arr = [];
+            arr.length = 100000;
+            var n = 0;
+            for (var k in arr) { n++; }
+            n;
+            """).AsNumber();
+
+        Assert.Equal(0, result);
+    }
+
+    [Fact]
+    public void ForInOverArrayWithEnumerablePropOnObjectPrototype()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            Object.prototype.zzz = 1;
+            var arr = [10, 20];
+            var out = [];
+            for (var k in arr) { out.push(k); }
+            out.join(',');
+            """).AsString();
+
+        Assert.Equal("0,1,zzz", result);
+    }
+
+    [Fact]
+    public void ForInOverArrayDeleteDuringIterationSkipsNotYetVisitedIndex()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var arr = [10, 20, 30, 40];
+            var out = [];
+            for (var k in arr) { out.push(k); if (k === '0') { delete arr[2]; } }
+            out.join(',');
+            """).AsString();
+
+        Assert.Equal("0,1,3", result);
+    }
+
+    [Fact]
+    public void ForInOverArrayPushDuringIterationDoesNotYieldNewIndex()
+    {
+        // Pins snapshot behaviour: elements appended mid-enumeration are not visited (matches the
+        // key-list snapshot the exact path takes).
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var arr = [10, 20];
+            var out = [];
+            for (var k in arr) { out.push(k); arr.push(99); }
+            out.join(',');
+            """).AsString();
+
+        Assert.Equal("0,1", result);
+    }
+
+    [Fact]
+    public void ForInOverArrayLengthTruncationDuringIterationSkipsRemovedIndices()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var arr = [10, 20, 30, 40, 50];
+            var out = [];
+            for (var k in arr) { out.push(k); if (k === '1') { arr.length = 3; } }
+            out.join(',');
+            """).AsString();
+
+        Assert.Equal("0,1,2", result);
+    }
+
+    [Fact]
+    public void ForInOverArrayNonEnumerableIndexIsSkipped()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var arr = [10, 20, 30];
+            Object.defineProperty(arr, '1', { value: 20, enumerable: false });
+            var out = [];
+            for (var k in arr) { out.push(k); }
+            out.join(',');
+            """).AsString();
+
+        Assert.Equal("0,2", result);
+    }
+
+    [Fact]
+    public void ForInOverArrayDefinePropertyMidLoopHonorsNewEnumerability()
+    {
+        // Materializing a non-enumerable descriptor mid-loop must stop the not-yet-visited index
+        // from yielding (the fast step falls back to per-index probing once descriptors exist).
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var arr = [10, 20, 30, 40];
+            var out = [];
+            for (var k in arr) {
+                out.push(k);
+                if (k === '0') { Object.defineProperty(arr, '2', { value: 30, enumerable: false }); }
+            }
+            out.join(',');
+            """).AsString();
+
+        Assert.Equal("0,1,3", result);
+    }
+
+    [Fact]
+    public void ForInOverArraySparseConversionMidLoopKeepsEnumeratingOriginalIndices()
+    {
+        // A far write mid-loop converts the backing store dense->sparse; the remaining original
+        // indices must still enumerate (the added far index is beyond the snapshot and not visited).
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var arr = [10, 20, 30, 40];
+            var out = [];
+            for (var k in arr) { out.push(k); if (k === '1') { arr[50000000] = 1; } }
+            out.join(',');
+            """).AsString();
+
+        Assert.Equal("0,1,2,3", result);
+    }
+
+    [Fact]
+    public void NestedForInOverSameArrayDoNotShareState()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var arr = [1, 2, 3];
+            var pairs = [];
+            for (var k in arr) { for (var j in arr) { pairs.push(k + j); } }
+            pairs.join(',');
+            """).AsString();
+
+        Assert.Equal("00,01,02,10,11,12,20,21,22", result);
+    }
+
+    [Fact]
+    public void InterleavedGeneratorsOverSameArrayDoNotShareState()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var arr = [7, 8, 9];
+            function* keys(a) { for (var k in a) { yield k; } }
+            var g1 = keys(arr), g2 = keys(arr);
+            var seq = [];
+            seq.push(g1.next().value);
+            seq.push(g2.next().value);
+            seq.push(g1.next().value);
+            seq.push(g2.next().value);
+            seq.push(g1.next().value);
+            seq.push(g2.next().value);
+            seq.push(g1.next().done);
+            seq.join(',');
+            """).AsString();
+
+        Assert.Equal("0,0,1,1,2,2,true", result);
+    }
+
+    [Fact]
+    public void ForInOverArraySubclassInstanceYieldsIndices()
+    {
+        // The subclass prototype is a plain object between the instance and Array.prototype; the
+        // chain is still provably clean, and inherited accessors/methods stay non-enumerable.
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            class A extends Array {}
+            var a = new A();
+            a[0] = 'x'; a[1] = 'y';
+            var out = [];
+            for (var k in a) { out.push(k); }
+            out.join(',');
+            """).AsString();
+
+        Assert.Equal("0,1", result);
+    }
+
+    [Fact]
+    public void ForInOverArrayBreakThenReuseResetsPooledIterator()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var arr = [1, 2, 3, 4];
+            var rounds = [];
+            for (var r = 0; r < 3; r++) {
+                var got = [];
+                for (var k in arr) { got.push(k); if (k === '1') break; }
+                rounds.push(got.join(''));
+            }
+            rounds.join(',');
+            """).AsString();
+
+        Assert.Equal("01,01,01", result);
+    }
+
+    [Fact]
     public void ForInOverBuiltinPrototypeYieldsNoEnumerableKeys()
     {
         // The deeper for-in level is often a built-in (Object.prototype): all its members are
