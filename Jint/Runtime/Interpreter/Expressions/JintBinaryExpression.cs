@@ -668,10 +668,10 @@ internal abstract class JintBinaryExpression : JintExpression
         switch (expression.Operator)
         {
             case Operator.StrictEquality:
-                result = new StrictlyEqualBinaryExpression(expression);
+                result = TryBuildFusedStrictEquality(expression, invert: false) ?? new StrictlyEqualBinaryExpression(expression);
                 break;
             case Operator.StrictInequality:
-                result = new StrictlyNotEqualBinaryExpression(expression);
+                result = TryBuildFusedStrictEquality(expression, invert: true) ?? new StrictlyNotEqualBinaryExpression(expression);
                 break;
             case Operator.LessThan:
                 result = new LessBinaryExpression(expression);
@@ -759,6 +759,70 @@ internal abstract class JintBinaryExpression : JintExpression
     }
 
     /// <summary>
+    /// Build-time fusion for the guard idioms `x === undefined`, `x === null` and
+    /// `typeof x === "literal"` (plus the !== forms): the constant side is known statically, so
+    /// the fused node evaluates only the interesting operand and answers with one type test or
+    /// one reference compare — no evaluation of the constant side and no generic strict-equality
+    /// dispatch. Returns null when the expression is not one of these shapes (including when both
+    /// sides are constants, which keeps the existing literal-vs-literal constant fold).
+    /// </summary>
+    private static JintBinaryExpression? TryBuildFusedStrictEquality(NonLogicalBinaryExpression expression, bool invert)
+    {
+        // typeof x === "literal" (either orientation)
+        if (expression.Left is NonUpdateUnaryExpression { Operator: Operator.TypeOf } && expression.Right is Literal { Value: string rightString })
+        {
+            return new TypeofStrictEqualityExpression(expression, typeofIsLeft: true, MapTypeofResultSingleton(rightString), invert);
+        }
+
+        if (expression.Right is NonUpdateUnaryExpression { Operator: Operator.TypeOf } && expression.Left is Literal { Value: string leftString })
+        {
+            return new TypeofStrictEqualityExpression(expression, typeofIsLeft: false, MapTypeofResultSingleton(leftString), invert);
+        }
+
+        // x === undefined / x === null (either orientation)
+        var leftSingleton = GetKnownSingletonType(expression.Left);
+        var rightSingleton = GetKnownSingletonType(expression.Right);
+        if (rightSingleton is not null && leftSingleton is null)
+        {
+            return new SingletonStrictEqualityExpression(expression, operandIsLeft: true, rightSingleton.Value, invert);
+        }
+
+        if (leftSingleton is not null && rightSingleton is null)
+        {
+            return new SingletonStrictEqualityExpression(expression, operandIsLeft: false, leftSingleton.Value, invert);
+        }
+
+        return null;
+    }
+
+    // The identifier `undefined` matches the same compile-time folding the identifier itself
+    // evaluates through (Environment.BindingName.CalculatedValue), so the fused semantics are
+    // exactly the unfused ones. `null` is a literal; ConvertToJsValue screens out the literals
+    // that don't convert statically (regex).
+    private static InternalTypes? GetKnownSingletonType(Expression expression) => expression switch
+    {
+        Identifier { Name: "undefined" } => InternalTypes.Undefined,
+        Literal literal when JintLiteralExpression.ConvertToJsValue(literal) is JsNull => InternalTypes.Null,
+        _ => null,
+    };
+
+    // typeof only ever returns these interned singletons (JintTypeOfExpression.GetTypeOfString and
+    // the unresolvable-reference shortcut), so a mapped literal compares by reference and an
+    // unmapped literal can never match — the operand still evaluates for its side effects.
+    private static JsString? MapTypeofResultSingleton(string literal) => literal switch
+    {
+        "undefined" => JsString.UndefinedString,
+        "object" => JsString.ObjectString,
+        "boolean" => JsString.BooleanString,
+        "number" => JsString.NumberString,
+        "bigint" => JsString.BigIntString,
+        "string" => JsString.StringString,
+        "symbol" => JsString.SymbolString,
+        "function" => JsString.FunctionString,
+        _ => null,
+    };
+
+    /// <summary>
     /// Detects left-recursive chains of '+' operations that include at least one string literal,
     /// and flattens them into a single StringConcatenationExpression to avoid intermediate allocations.
     /// </summary>
@@ -832,6 +896,91 @@ internal abstract class JintBinaryExpression : JintExpression
             {
                 Throw.RangeError(realm, "Maximum BigInt size exceeded");
             }
+        }
+    }
+
+    /// <summary>
+    /// Fused `x === undefined` / `x === null` (and the !== forms): only the interesting operand
+    /// evaluates, and the answer is a single internal-type test. Strict equality against these
+    /// singletons is exactly a type-identity check (IsHTMLDDA is only LOOSELY equal to them, so
+    /// no carve-out is needed on the strict path).
+    /// </summary>
+    private sealed class SingletonStrictEqualityExpression : JintBinaryExpression
+    {
+        private readonly JintExpression _operand;
+        private readonly InternalTypes _expectedType;
+        private readonly bool _invert;
+
+        public SingletonStrictEqualityExpression(NonLogicalBinaryExpression expression, bool operandIsLeft, InternalTypes expectedType, bool invert) : base(expression)
+        {
+            _operand = operandIsLeft ? _left : _right;
+            _expectedType = expectedType;
+            _invert = invert;
+        }
+
+        protected override object EvaluateInternal(EvaluationContext context)
+        {
+            var value = _operand.GetValue(context);
+            if (context.IsSuspended())
+            {
+                return JsValue.Undefined;
+            }
+
+            return (value._type == _expectedType) != _invert ? JsBoolean.True : JsBoolean.False;
+        }
+
+        public override bool GetBooleanValue(EvaluationContext context)
+        {
+            var value = _operand.GetValue(context);
+            if (context.IsSuspended())
+            {
+                return false;
+            }
+
+            return (value._type == _expectedType) != _invert;
+        }
+    }
+
+    /// <summary>
+    /// Fused `typeof x === "literal"` (and !==): the typeof side evaluates through the normal
+    /// JintTypeOfExpression — keeping the unresolvable-identifier shortcut and host-object
+    /// classification untouched — and since typeof only ever produces the interned JsString
+    /// singletons, the comparison is a reference test against the singleton the literal mapped
+    /// to at build time (null for a literal typeof can never produce).
+    /// </summary>
+    private sealed class TypeofStrictEqualityExpression : JintBinaryExpression
+    {
+        private readonly JintExpression _typeofExpression;
+        private readonly JsString? _expectedSingleton;
+        private readonly bool _invert;
+
+        public TypeofStrictEqualityExpression(NonLogicalBinaryExpression expression, bool typeofIsLeft, JsString? expectedSingleton, bool invert) : base(expression)
+        {
+            _typeofExpression = typeofIsLeft ? _left : _right;
+            _expectedSingleton = expectedSingleton;
+            _invert = invert;
+        }
+
+        protected override object EvaluateInternal(EvaluationContext context)
+        {
+            var actual = _typeofExpression.GetValue(context);
+            if (context.IsSuspended())
+            {
+                return JsValue.Undefined;
+            }
+
+            return ReferenceEquals(actual, _expectedSingleton) != _invert ? JsBoolean.True : JsBoolean.False;
+        }
+
+        public override bool GetBooleanValue(EvaluationContext context)
+        {
+            var actual = _typeofExpression.GetValue(context);
+            if (context.IsSuspended())
+            {
+                return false;
+            }
+
+            return ReferenceEquals(actual, _expectedSingleton) != _invert;
         }
     }
 
