@@ -205,6 +205,43 @@ public class ProxyTests
         Assert.True(_engine.Evaluate(Script).AsBoolean());
     }
 
+    // https://tc39.es/ecma262/#sec-proxycreate
+    // A proxy only has [[Construct]] if its target is a constructor at creation time;
+    // a handler "construct" trap cannot confer constructability.
+    [Fact]
+    public void ProxyWithNonConstructorTargetIsNotConstructor()
+    {
+        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("new (new Proxy(() => {}, { construct: () => ({}) }))()"));
+        Assert.Same(TypeErrorPrototype(_engine), ex.Error.AsObject().Prototype);
+    }
+
+    [Fact]
+    public void ProxyWithConstructorTargetUsesConstructTrap()
+    {
+        var result = _engine.Evaluate("new (new Proxy(function(){}, { construct: () => ({ x: 1 }) }))().x");
+        Assert.Equal(1, result.AsInteger());
+    }
+
+    [Fact]
+    public void ReflectConstructRequiresConstructorNewTarget()
+    {
+        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("Reflect.construct(function(){ return; }, [], new Proxy(() => {}, { construct: () => ({}) }))"));
+        Assert.Same(TypeErrorPrototype(_engine), ex.Error.AsObject().Prototype);
+    }
+
+    [Fact]
+    public void RevokedConstructorProxyKeepsTypeofFunctionButConstructThrowsRevokedError()
+    {
+        _engine.Execute("var r = Proxy.revocable(function(){}, {}); r.revoke();");
+
+        // typeof relies on the [[Call]] slot captured at creation, revocation does not remove it
+        Assert.Equal("function", _engine.Evaluate("typeof r.proxy").AsString());
+
+        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("new r.proxy()"));
+        Assert.Same(TypeErrorPrototype(_engine), ex.Error.AsObject().Prototype);
+        Assert.Contains("revoked", ex.Message);
+    }
+
     [Fact]
     public void ProxyHandlerGetDataPropertyShouldNotUseReferenceEquals()
     {
