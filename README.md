@@ -293,6 +293,34 @@ jint> list.Add(1); // automatically converted to String
 jint> list.Count; // 2
 ```
 
+### Intercepting access to .NET objects
+
+ECMAScript Proxy traps can be implemented in .NET by deriving from `ProxyHandler` and creating the proxy via `engine.Advanced.CreateProxy` (or `CreateRevocableProxy`). A trap returning `null` forwards the operation to the target, exactly like an absent trap on a JavaScript handler object, and all proxy invariants are enforced on trap results. Combine with `SetWrapObjectHandler` to transparently intercept every wrapped .NET object. Note that `proxy.method()` fires the `Get` trap (then calls the returned value) — the `Apply` trap only fires when the proxy itself is invoked, so intercepting method calls means returning a wrapping function from `Get`. `new Proxy(target, handlerObject)` from script remains the JavaScript-side equivalent.
+
+```c#
+class LoggingHandler : ProxyHandler
+{
+    public override JsValue? Get(ObjectInstance target, JsValue property, JsValue receiver)
+    {
+        Console.WriteLine($"get {property}");
+        return null; // forward to the target
+    }
+
+    public override bool? Has(ObjectInstance target, JsValue property)
+    {
+        Console.WriteLine($"has {property}");
+        return null;
+    }
+}
+
+var engine = new Engine(options =>
+{
+    // wrap every interop object in a logging proxy
+    options.SetWrapObjectHandler((e, obj, type) =>
+        e.Advanced.CreateProxy(ObjectWrapper.Create(e, obj, type), new LoggingHandler()));
+});
+```
+
 ## Internationalization
 
 You can enforce what Time Zone or Culture the engine should use when locale JavaScript methods are used if you don't want to use the computer's default values.
