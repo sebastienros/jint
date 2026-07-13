@@ -60,8 +60,7 @@ internal sealed partial class ProxyConstructor : Constructor
 
         JsValue Revoke(JsValue thisObject, JsCallArguments arguments)
         {
-            p._handler = null;
-            p._target = null!;
+            p.Revoke();
             return Undefined;
         }
 

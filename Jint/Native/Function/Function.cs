@@ -270,7 +270,7 @@ public abstract partial class Function : ObjectInstance, ICallable
 
         if (obj is JsProxy proxyInstance)
         {
-            if (proxyInstance._handler is null)
+            if (proxyInstance.IsRevoked)
             {
                 Throw.TypeErrorNoEngine();
             }

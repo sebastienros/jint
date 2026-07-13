@@ -1,5 +1,8 @@
 using Jint.Native;
+using Jint.Native.Object;
 using Jint.Native.Promise;
+using Jint.Runtime;
+using Jint.Runtime.Interop;
 
 namespace Jint;
 
@@ -62,6 +65,61 @@ public partial class Engine
         public ManualPromise RegisterPromise()
         {
             return _engine.RegisterPromise();
+        }
+
+        /// <summary>
+        /// Creates an ECMAScript Proxy exotic object whose traps are implemented in .NET by
+        /// <paramref name="handler"/>. This is the CLR-side equivalent of <c>new Proxy(target, handlerObject)</c>
+        /// in script, which remains the way to create proxies with JavaScript handler objects.
+        /// </summary>
+        /// <remarks>
+        /// A trap method returning CLR <see langword="null"/> forwards the operation to
+        /// <paramref name="target"/>, exactly like an absent trap on a JavaScript handler object.
+        /// All ECMAScript proxy invariants are enforced on trap results. Note that <c>proxy.method(x)</c>
+        /// fires the <see cref="ProxyHandler.Get"/> trap (returning the method) followed by a plain call
+        /// on the result — the <see cref="ProxyHandler.Apply"/> trap only fires when the proxy itself is
+        /// invoked, so intercepting method calls means returning a wrapping function from
+        /// <see cref="ProxyHandler.Get"/>.
+        /// </remarks>
+        /// <param name="target">The proxy target object.</param>
+        /// <param name="handler">The .NET trap implementation.</param>
+        /// <returns>The proxy object, ready to be passed into script.</returns>
+        public ObjectInstance CreateProxy(ObjectInstance target, ProxyHandler handler)
+        {
+            if (target is null)
+            {
+                Throw.ArgumentNullException(nameof(target));
+            }
+
+            if (handler is null)
+            {
+                Throw.ArgumentNullException(nameof(handler));
+            }
+
+            return new JsProxy(_engine, target, handler);
+        }
+
+        /// <summary>
+        /// Creates a revocable ECMAScript Proxy exotic object whose traps are implemented in .NET by
+        /// <paramref name="handler"/>, mirroring JavaScript's <c>Proxy.revocable()</c>. See
+        /// <see cref="CreateProxy"/> for trap forwarding and invariant semantics.
+        /// </summary>
+        /// <param name="target">The proxy target object.</param>
+        /// <param name="handler">The .NET trap implementation.</param>
+        /// <returns>The proxy paired with its revoke operation.</returns>
+        public RevocableProxy CreateRevocableProxy(ObjectInstance target, ProxyHandler handler)
+        {
+            if (target is null)
+            {
+                Throw.ArgumentNullException(nameof(target));
+            }
+
+            if (handler is null)
+            {
+                Throw.ArgumentNullException(nameof(handler));
+            }
+
+            return new RevocableProxy(new JsProxy(_engine, target, handler));
         }
 
         /// <summary>
