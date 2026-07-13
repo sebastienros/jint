@@ -167,10 +167,26 @@ public readonly struct RevocableProxy
     /// <summary>
     /// The proxy object.
     /// </summary>
-    public ObjectInstance Proxy => _proxy;
+    /// <exception cref="InvalidOperationException">The instance was not created via <see cref="Engine.AdvancedOperations.CreateRevocableProxy"/>.</exception>
+    public ObjectInstance Proxy => _proxy ?? ThrowUninitialized();
 
     /// <summary>
     /// Revokes the proxy: subsequent trap operations throw a <c>TypeError</c>. Idempotent.
     /// </summary>
-    public void Revoke() => _proxy.Revoke();
+    /// <exception cref="InvalidOperationException">The instance was not created via <see cref="Engine.AdvancedOperations.CreateRevocableProxy"/>.</exception>
+    public void Revoke()
+    {
+        if (_proxy is null)
+        {
+            ThrowUninitialized();
+        }
+
+        _proxy.Revoke();
+    }
+
+    [System.Diagnostics.CodeAnalysis.DoesNotReturn]
+    private static JsProxy ThrowUninitialized()
+    {
+        throw new InvalidOperationException($"This {nameof(RevocableProxy)} has not been initialized; create instances via Engine.Advanced.CreateRevocableProxy.");
+    }
 }
