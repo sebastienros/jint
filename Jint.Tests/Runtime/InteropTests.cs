@@ -1127,6 +1127,86 @@ public partial class InteropTests : IDisposable
     }
 
     [Fact]
+    public void ShouldForOfOnProxiedList()
+    {
+        _engine.SetValue("list", new List<string> { "a", "b" });
+
+        var result = _engine.Evaluate("var l = ''; for (var x of new Proxy(list, {})) l += x; return l;").AsString();
+        Assert.Equal("ab", result);
+
+        // nested proxies unwrap all the way down to the wrapper
+        result = _engine.Evaluate("var l = ''; for (var x of new Proxy(new Proxy(list, {}), {})) l += x; return l;").AsString();
+        Assert.Equal("ab", result);
+    }
+
+    [Fact]
+    public void ExtractedClrIteratorCalledWithForeignObjectThisThrowsTypeError()
+    {
+        _engine.SetValue("list", new List<string> { "a", "b" });
+
+        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("var f = list[Symbol.iterator]; f.call({});"));
+        Assert.Equal("Method '[Symbol.iterator]' called on incompatible receiver", ex.Message);
+
+        // the error is a proper TypeError catchable from script
+        var result = _engine.Evaluate("var f = list[Symbol.iterator]; try { f.call({}); 'no error' } catch (e) { e instanceof TypeError }");
+        Assert.True(result.AsBoolean());
+    }
+
+    [Fact]
+    public void ExtractedClrIteratorCalledWithPrimitiveThisThrowsTypeError()
+    {
+        _engine.SetValue("list", new List<string> { "a", "b" });
+
+        // primitive receiver has no engine attached, error is materialized as TypeError by the interpreter
+        var result = _engine.Evaluate("var f = list[Symbol.iterator]; try { f.call('x'); 'no error' } catch (e) { e instanceof TypeError }");
+        Assert.True(result.AsBoolean());
+    }
+
+    [Fact]
+    public void ExtractedClrLengthGetterCalledWithForeignThisThrowsTypeError()
+    {
+        _engine.SetValue("list", new List<string> { "a", "b" });
+
+        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("Object.getOwnPropertyDescriptor(list, 'length').get.call({});"));
+        Assert.Equal("Method 'length' called on incompatible receiver", ex.Message);
+
+        var result = _engine.Evaluate("var g = Object.getOwnPropertyDescriptor(list, 'length').get; try { g.call('x'); 'no error' } catch (e) { e instanceof TypeError }");
+        Assert.True(result.AsBoolean());
+    }
+
+    [Fact]
+    public void ForOfOverRevokedProxyOfClrListThrowsTypeError()
+    {
+        _engine.SetValue("list", new List<string> { "a", "b" });
+
+        // the proxy's own [[Get]] rejects the revoked proxy before the iterator helper runs,
+        // actual message: "Cannot perform 'get' on a proxy that has been revoked" (matches V8/node)
+        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("""
+            var r = Proxy.revocable(list, {});
+            r.revoke();
+            for (var x of r.proxy) {}
+        """));
+        Assert.Same(_engine.Realm.Intrinsics.TypeError.PrototypeObject, ex.Error.AsObject().Prototype);
+    }
+
+    [Fact]
+    public void ExtractedClrIteratorCalledOnRevokedProxyThrowsTypeError()
+    {
+        _engine.SetValue("list", new List<string> { "a", "b" });
+
+        // extract while alive, revoke, then re-invoke with the revoked proxy as receiver;
+        // this bypasses the proxy [[Get]] guard and exercises the iterator helper directly
+        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("""
+            var r = Proxy.revocable(list, {});
+            var f = r.proxy[Symbol.iterator];
+            r.revoke();
+            f.call(r.proxy);
+        """));
+        Assert.Equal("Cannot perform '[Symbol.iterator]' on a proxy that has been revoked", ex.Message);
+        Assert.Same(_engine.Realm.Intrinsics.TypeError.PrototypeObject, ex.Error.AsObject().Prototype);
+    }
+
+    [Fact]
     public void CanAccessAnonymousObject()
     {
         var p = new

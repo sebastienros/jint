@@ -744,10 +744,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
     private static JsValue Iterator(JsValue thisObject, JsCallArguments arguments)
     {
-        if (thisObject is JsProxy proxy)
-            return Iterator(proxy._target, arguments);
-
-        var wrapper = (ObjectWrapper) thisObject;
+        var wrapper = UnwrapReceiver(thisObject, "[Symbol.iterator]");
 
         return wrapper._typeDescriptor.IsDictionary
             ? new DictionaryIterator(wrapper._engine, wrapper)
@@ -756,11 +753,43 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
     private static JsNumber GetLength(JsValue thisObject, JsCallArguments arguments)
     {
-        if (thisObject is JsProxy proxy)
-            return GetLength(proxy._target, arguments);
-
-        var wrapper = (ObjectWrapper) thisObject;
+        var wrapper = UnwrapReceiver(thisObject, "length");
         return JsNumber.Create((int) (wrapper._typeDescriptor.LengthProperty?.GetValue(wrapper.Target) ?? 0));
+    }
+
+    /// <summary>
+    /// Resolves the <see cref="ObjectWrapper"/> receiver for the host helper functions above (the
+    /// Symbol.iterator implementation and the length getter). Script code can extract these functions
+    /// and re-target them (e.g. <c>f.call({})</c>) or invoke them through a (possibly revoked) Proxy,
+    /// so a foreign or revoked receiver must surface as a JavaScript TypeError instead of a CLR crash.
+    /// </summary>
+    private static ObjectWrapper UnwrapReceiver(JsValue thisObject, string functionName)
+    {
+        var current = thisObject;
+        while (current is JsProxy proxy)
+        {
+            if (proxy.IsRevoked)
+            {
+                Throw.TypeError(proxy.Engine.Realm, $"Cannot perform '{functionName}' on a proxy that has been revoked");
+            }
+
+            current = proxy._target;
+        }
+
+        if (current is ObjectWrapper wrapper)
+        {
+            return wrapper;
+        }
+
+        var message = $"Method '{functionName}' called on incompatible receiver";
+        if (current is ObjectInstance objectInstance)
+        {
+            Throw.TypeError(objectInstance.Engine.Realm, message);
+        }
+
+        // primitive receiver, no engine reachable - converted to a JS TypeError by the interpreter
+        Throw.TypeErrorNoEngine(message);
+        return null!;
     }
 
     internal override ulong GetSmallestIndex(ulong length)
