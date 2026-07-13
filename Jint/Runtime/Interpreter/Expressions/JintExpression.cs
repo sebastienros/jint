@@ -252,6 +252,34 @@ internal abstract class JintExpression
         return result;
     }
 
+    /// <summary>
+    /// Number::remainder over raw doubles with an int32 fast lane — the raw-double lanes
+    /// otherwise pay a native fmod call even for the dominant integral loop-counter shapes.
+    /// Anything failing the round-trip gate (NaN, ±Infinity, fractional values, operands
+    /// beyond int32 range, a zero divisor) falls back to IEEE 754 %, which matches the
+    /// ECMAScript algorithm for all special cases.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    protected static double RemainderUnboxed(double left, double right)
+    {
+        // int32-representable check: NaN/±Infinity/fractional values fail the round-trip
+        // equality and defer to fmod, as does a zero divisor (fmod gives the spec NaN);
+        // a -0 dividend round-trips to 0 and is re-signed below
+        var leftInteger = (int) left;
+        var rightInteger = (int) right;
+        if (leftInteger == left && rightInteger == right && rightInteger != 0)
+        {
+            // long math: int.MinValue % -1 raises a hardware overflow in 32-bit division
+            var modulo = (long) leftInteger % rightInteger;
+            // Number::remainder gives the result the dividend's sign, so a zero remainder
+            // from a negative (or -0) dividend is -0 — integer math cannot represent it,
+            // test the sign bit of the original double (left is proven non-NaN by the gate)
+            return modulo == 0 && BitConverter.DoubleToInt64Bits(left) < 0 ? -0.0 : modulo;
+        }
+
+        return left % right;
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected static JsValue Divide(EvaluationContext context, JsValue left, JsValue right)
     {

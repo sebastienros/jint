@@ -649,11 +649,11 @@ internal abstract class JintBinaryExpression : JintExpression
     /// <summary>
     /// Fused lane for the `identifier % numericConstant == numericConstant` test — the
     /// stopwatch.js if-chain shape. Reads the identifier through the same slot/global arms as
-    /// <see cref="NumericConstantComparisonLane"/> and computes the whole test on raw doubles.
-    /// C# double % implements Number::remainder exactly, and the ways integer and double
-    /// remainders can disagree (−0 vs +0 results) are erased by the equality consumer
-    /// (IEEE == treats ±0 as equal), so the fused result is spec-exact for any proven-Number
-    /// operand: NaN dividends/divisors (and % 0) compare false, v % ±Infinity == v.
+    /// <see cref="NumericConstantComparisonLane"/> and computes the whole test on raw doubles
+    /// via <see cref="JintExpression.RemainderUnboxed"/>, which implements Number::remainder
+    /// exactly (int32 lane for integral operands, IEEE 754 fmod otherwise), so the fused
+    /// result is spec-exact for any proven-Number operand: NaN dividends/divisors (and % 0)
+    /// compare false, v % ±Infinity == v, and ±0 results compare equal under IEEE ==.
     /// </summary>
     private protected struct ModuloEqualityLane
     {
@@ -700,7 +700,7 @@ internal abstract class JintBinaryExpression : JintExpression
                 }
             }
 
-            equal = value % _divisor == _expected;
+            equal = RemainderUnboxed(value, _divisor) == _expected;
             return true;
         }
     }

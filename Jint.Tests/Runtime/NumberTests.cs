@@ -266,6 +266,80 @@ public class NumberTests
         Assert.Equal("true,true,true,true,true,true,true,true,true,true,true,true,true,true", result);
     }
 
+    [Fact]
+    public void IntegerRemainderLanesPreserveSignAndSpecialCases()
+    {
+        var engine = new Engine();
+        // Number::remainder: the result takes the dividend's sign, so a zero remainder from a
+        // negative (or -0) dividend is -0. The unboxed raw-double lanes (compound `x %= y`,
+        // statement `lhs = a % b`, fused `x % c === c`) compute integral operands with int32
+        // math and must reproduce this exactly, deferring NaN/fractional/zero-divisor/out-of-range
+        // operands to fmod. The loop over slot-stored locals keeps the lanes engaged and their
+        // slot caches hot; every check pushes true.
+        var result = engine.Evaluate("""
+            (function () {
+                var r = [];
+                for (var i = 0; i < 3; i++) {
+                    // compound `x %= y` shape
+                    var a = -7, b = 2;
+                    a %= b;
+                    r.push(a === -1);
+                    var c = 7, d = -2;
+                    c %= d;
+                    r.push(c === 1);
+                    var negFour = -4, two = 2;
+                    negFour %= two;
+                    r.push(Object.is(negFour, -0));
+                    var four = 4;
+                    four %= two;
+                    r.push(Object.is(four, 0));
+                    var n = 5;
+                    n %= 0;
+                    r.push(Number.isNaN(n));
+                    var f = 5.5;
+                    f %= two;
+                    r.push(f === 1.5);
+                    var min = -2147483648, negOne = -1;
+                    min %= negOne;
+                    r.push(Object.is(min, -0));
+                    var negZero = -0;
+                    negZero %= two;
+                    r.push(Object.is(negZero, -0));
+
+                    // `lhs = a % b` statement shape
+                    var res = 0;
+                    var negFourB = -4, fourB = 4, sevenB = 7, negTwoB = -2, minB = -2147483648, fracB = 5.5;
+                    res = negFourB % 2;
+                    r.push(Object.is(res, -0));
+                    res = fourB % 2;
+                    r.push(Object.is(res, 0));
+                    res = sevenB % negTwoB;
+                    r.push(res === 1);
+                    res = minB % negOne;
+                    r.push(Object.is(res, -0));
+                    res = fracB % 2;
+                    r.push(res === 1.5);
+                    res = sevenB % 0;
+                    r.push(Number.isNaN(res));
+
+                    // fused `x % constant === constant` equality shape (a -0 remainder
+                    // compares equal to 0 under IEEE ===)
+                    var e1 = -4, e2 = 4, e3 = -7, e4 = 7, e5 = 5, e6 = 5.5, e7 = -2147483648;
+                    r.push(e1 % 2 === 0);
+                    r.push(e2 % 2 === 0);
+                    r.push(e3 % 2 === -1);
+                    r.push(e4 % -2 === 1);
+                    r.push(e5 % 0 !== 0);
+                    r.push(e6 % 2 === 1.5);
+                    r.push(e7 % -1 === 0);
+                }
+                return r.join(',');
+            })()
+            """).AsString();
+
+        Assert.Equal(string.Join(",", Enumerable.Repeat("true", 63)), result);
+    }
+
     // The following tests guard the primitive-receiver method resolution that skips allocating a
     // Number/Boolean/BigInt wrapper on `primitive.method()`. The wrapper was only ever a lookup
     // vehicle (the this-value passed to the callee is the primitive, boxed at call time for sloppy
