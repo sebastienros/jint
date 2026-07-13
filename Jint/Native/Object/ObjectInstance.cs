@@ -455,11 +455,13 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         }
         else if ((_type & InternalTypes.BuiltinShapeMode) != InternalTypes.Empty
                  && _properties is null
+                 && (this is not Array.ArrayInstance arrayInstance || !arrayInstance.HasAnyOwnIndex())
                  && ReferenceEquals(GetInitialOwnStringPropertyKeys(), System.Linq.Enumerable.Empty<JsValue>()))
         {
-            // No function-derived length/name/prototype prefix and no hybrid dictionary additions, so the
-            // built-in's shared, ordered name list is exactly its own string keys — e.g. Object.prototype
-            // (the common deeper for-in level).
+            // No function-derived length/name/prototype prefix, no hybrid dictionary additions, and no
+            // exotic index storage (Array.prototype is array-backed: script CAN place elements on it,
+            // which the shared name list would miss), so the built-in's shared, ordered name list is
+            // exactly its own string keys — e.g. Object.prototype (the common deeper for-in level).
             return Unsafe.As<IBuiltinShaped>(this).BuiltinShape.NamesAsJsStrings;
         }
 

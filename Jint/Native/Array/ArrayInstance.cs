@@ -506,6 +506,33 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         return base.ProbeOwnProperty(property);
     }
 
+    /// <summary>
+    /// True when any own index-keyed element exists: a present dense element or a materialized
+    /// per-index descriptor. O(1) for the pristine case that matters (Array.prototype's empty
+    /// backing store) — the dense scan only runs over slots the object actually allocated.
+    /// </summary>
+    internal bool HasAnyOwnIndex()
+    {
+        if (_sparse is { Count: > 0 })
+        {
+            return true;
+        }
+
+        var dense = _dense;
+        if (dense is not null)
+        {
+            foreach (var element in dense)
+            {
+                if (element is not null)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     internal JsValue Get(uint index)
     {
         if (!TryGetValue(index, out var value))
