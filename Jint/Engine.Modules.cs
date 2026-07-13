@@ -211,42 +211,13 @@ public partial class Engine
                 return null;
             }
 
-            // For async modules (TLA), we need to run the event loop to process pending jobs
-            // which will resolve the module's promise. With complex module graphs and dynamic
-            // imports, promise handlers may be registered asynchronously, so we need to allow
-            // multiple iterations even when the queue appears empty.
-            var emptyQueueIterations = 0;
-            const int maxEmptyQueueIterations = 10;
-
-            while (promise.State == PromiseState.Pending)
-            {
-                _engine.RunAvailableContinuations();
-
-                // Check if promise settled after processing continuations
-                if (promise.State != PromiseState.Pending)
-                {
-                    break;
-                }
-
-                // If no more jobs to process, this could mean:
-                // 1. True deadlock - promise will never resolve (error condition)
-                // 2. Complex module graph where async dependencies are chained and need more time
-                // We allow several iterations with empty queue before assuming deadlock.
-                if (_engine._eventLoop.IsEmpty)
-                {
-                    emptyQueueIterations++;
-                    if (emptyQueueIterations >= maxEmptyQueueIterations)
-                    {
-                        // Queue has been empty for multiple iterations - likely a real issue
-                        break;
-                    }
-                }
-                else
-                {
-                    // Queue has events, reset the counter
-                    emptyQueueIterations = 0;
-                }
-            }
+            // For async modules (top-level await), drive the event loop until the module's top-level
+            // capability promise settles. A .NET Task awaited at the top level (task interop) completes
+            // on a ThreadPool thread and enqueues its resolve job only after a delay, so we must poll
+            // rather than spin — a tight loop finishes in microseconds while the queue is still empty
+            // and gives up before the Task ever completes (issue #2663). Bounded by PromiseTimeout so a
+            // genuinely never-settling top-level await cannot block Import forever.
+            _engine.DrainEventLoopUntilSettled(promise, _engine.Options.Constraints.PromiseTimeout);
 
             if (promise.State == PromiseState.Rejected)
             {
