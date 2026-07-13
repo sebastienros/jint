@@ -369,7 +369,7 @@ internal sealed class JintFunctionDefinition
         public bool ArgumentsObjectNeeded;
         public bool RequiresInputArgumentsOwnership;
         public List<Key>? VarNames;
-        public LinkedList<FunctionDeclaration>? FunctionsToInitialize;
+        public FunctionToInitialize[]? FunctionsToInitialize;
         public readonly HashSet<Key> FunctionNames = new();
         public DeclarationCache? LexicalDeclarations;
         public HashSet<Key>? ParameterBindings;
@@ -462,6 +462,14 @@ internal sealed class JintFunctionDefinition
         public SourceText SourceText;
 
         internal readonly record struct VariableValuePair(Key Name, JsValue? InitialValue);
+
+        /// <summary>
+        /// A function declaration hoisted by FunctionDeclarationInstantiation, with its binding
+        /// name pre-converted to a <see cref="Key"/> so the per-call FDI loop neither re-hashes
+        /// the name nor walks a linked list.
+        /// </summary>
+        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
+        internal readonly record struct FunctionToInitialize(FunctionDeclaration Declaration, Key Name);
     }
 
     internal static State BuildState(IFunction function, string? fullSourceText = null)
@@ -476,19 +484,27 @@ internal sealed class JintFunctionDefinition
         var lexicalNames = hoistingScope._lexicalNames;
         state.VarNames = hoistingScope._varNames;
 
-        LinkedList<FunctionDeclaration>? functionsToInitialize = null;
+        State.FunctionToInitialize[]? functionsToInitialize = null;
 
         if (functionDeclarations != null)
         {
-            functionsToInitialize = new LinkedList<FunctionDeclaration>();
+            // The last declaration of a name wins, others keep source order: walk backwards
+            // de-duplicating, then reverse the survivors.
+            var survivors = new List<State.FunctionToInitialize>(functionDeclarations.Count);
             for (var i = functionDeclarations.Count - 1; i >= 0; i--)
             {
                 var d = functionDeclarations[i];
-                var fn = d.Id!.Name;
+                Key fn = d.Id!.Name;
                 if (state.FunctionNames.Add(fn))
                 {
-                    functionsToInitialize.AddFirst(d);
+                    survivors.Add(new State.FunctionToInitialize(d, fn));
                 }
+            }
+
+            if (survivors.Count > 0)
+            {
+                survivors.Reverse();
+                functionsToInitialize = survivors.ToArray();
             }
         }
 

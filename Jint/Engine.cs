@@ -1670,13 +1670,12 @@ public sealed partial class Engine : IDisposable
         if (configuration.FunctionsToInitialize != null)
         {
             var privateEnv = calleeContext.PrivateEnvironment;
-            var realm = Realm;
+            var intrinsicFunction = Realm.Intrinsics.Function;
             foreach (var f in configuration.FunctionsToInitialize)
             {
-                var jintFunctionDefinition = GetOrCreateFunctionDefinition(f);
-                var fn = jintFunctionDefinition.Name!;
-                var fo = realm.Intrinsics.Function.InstantiateFunctionObject(jintFunctionDefinition, lexEnv, privateEnv);
-                varEnv.SetMutableBinding(fn, fo, strict: false);
+                var jintFunctionDefinition = GetOrCreateFunctionDefinition(f.Declaration);
+                var fo = intrinsicFunction.InstantiateFunctionObject(jintFunctionDefinition, lexEnv, privateEnv);
+                varEnv.SetMutableBinding(f.Name, fo, strict: false);
             }
         }
 

@@ -82,7 +82,11 @@ public sealed class FunctionConstructor : Constructor
             env,
             privateEnv);
 
-        F.SetFunctionName(functionDeclaration.Name ?? "default");
+        if (functionDeclaration.Name is null)
+        {
+            // anonymous export default declaration; named declarations already carry their name
+            F.SetFunctionName("default");
+        }
 
         return F;
     }
@@ -102,8 +106,12 @@ public sealed class FunctionConstructor : Constructor
             env,
             privateEnv);
 
-        var name = functionDeclaration.Name ?? "default";
-        F.SetFunctionName(name);
+        if (functionDeclaration.Name is null)
+        {
+            // anonymous export default declaration; named declarations already carry their name
+            F.SetFunctionName("default");
+        }
+
         F.MakeConstructor();
         return F;
     }
@@ -120,7 +128,6 @@ public sealed class FunctionConstructor : Constructor
             ? FunctionThisMode.Strict
             : FunctionThisMode.Global;
 
-        var name = functionDeclaration.Function.Id?.Name ?? "default";
         var F = OrdinaryFunctionCreate(
             _realm.Intrinsics.GeneratorFunction.PrototypeObject,
             functionDeclaration,
@@ -128,7 +135,11 @@ public sealed class FunctionConstructor : Constructor
             scope,
             privateScope);
 
-        F.SetFunctionName(name);
+        if (functionDeclaration.Name is null)
+        {
+            // anonymous export default declaration; named declarations already carry their name
+            F.SetFunctionName("default");
+        }
 
         var prototype = OrdinaryObjectCreate(_engine, _realm.Intrinsics.GeneratorFunction.PrototypeObject.PrototypeObject);
         F.DefinePropertyOrThrow(CommonProperties.Prototype, new PropertyDescriptor(prototype, PropertyFlag.Writable));
@@ -148,7 +159,6 @@ public sealed class FunctionConstructor : Constructor
             ? FunctionThisMode.Strict
             : FunctionThisMode.Global;
 
-        var name = functionDeclaration.Function.Id?.Name ?? "default";
         var F = OrdinaryFunctionCreate(
             _realm.Intrinsics.AsyncGeneratorFunction.PrototypeObject,
             functionDeclaration,
@@ -156,7 +166,11 @@ public sealed class FunctionConstructor : Constructor
             scope,
             privateScope);
 
-        F.SetFunctionName(name);
+        if (functionDeclaration.Name is null)
+        {
+            // anonymous export default declaration; named declarations already carry their name
+            F.SetFunctionName("default");
+        }
 
         var prototype = OrdinaryObjectCreate(_engine, _realm.Intrinsics.AsyncGeneratorFunction.PrototypeObject.PrototypeObject);
         F.DefinePropertyOrThrow(CommonProperties.Prototype, new PropertyDescriptor(prototype, PropertyFlag.Writable));
