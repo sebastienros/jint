@@ -3,7 +3,6 @@ using System.Runtime.CompilerServices;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter;
 using Environment = Jint.Runtime.Environments.Environment;
@@ -19,6 +18,35 @@ public abstract partial class Function : ObjectInstance, ICallable
 
     protected internal PropertyDescriptor? _length;
     internal PropertyDescriptor? _nameDescriptor;
+
+    // Shared sentinel marking a script function's own name/length/prototype property as
+    // "exists, but its descriptor has not been materialized yet". Descriptors cannot be shared
+    // across function instances (DefineOwnProperty mutates them in place), so instead of
+    // allocating per instantiation — nested function declarations re-instantiate on every call
+    // of their enclosing function — the sentinel defers the allocation until the property is
+    // actually read. GetOwnProperty (which DefineOwnProperty and every other property protocol
+    // entry point consults first) swaps it for the real descriptor on first access; a null field
+    // still means "property absent/deleted". Never bumps _propertiesVersion: materialization is
+    // identity-stable and function receivers are outside the version-based inline caches anyway.
+    // The sentinel must never escape — its value accessors throw to make any leak loud.
+    private protected static readonly PropertyDescriptor _pendingDescriptor = new PendingPropertyDescriptor();
+
+    private sealed class PendingPropertyDescriptor : PropertyDescriptor
+    {
+        public PendingPropertyDescriptor() : base(PropertyFlag.CustomJsValue)
+        {
+        }
+
+        protected internal override JsValue? CustomValue
+        {
+            get
+            {
+                Throw.InvalidOperationException("a pending lazy property descriptor leaked without being materialized");
+                return null;
+            }
+            set => Throw.InvalidOperationException("a pending lazy property descriptor leaked without being materialized");
+        }
+    }
 
     internal Environment? _environment;
     internal readonly JintFunctionDefinition? _functionDefinition;
@@ -44,14 +72,16 @@ public abstract partial class Function : ObjectInstance, ICallable
         JintFunctionDefinition function,
         Environment env,
         FunctionThisMode thisMode)
-        : this(
-            engine,
-            realm,
-            !string.IsNullOrWhiteSpace(function.Name) ? new JsString(function.Name!) : null,
-            thisMode)
+        : this(engine, realm, name: null, thisMode)
     {
         _functionDefinition = function;
         _environment = env;
+        if (function.JsName is not null)
+        {
+            // The own "name" property exists from birth, but its descriptor is materialized
+            // lazily from the definition's cached JsName on first read (see _pendingDescriptor).
+            _nameDescriptor = _pendingDescriptor;
+        }
     }
 
     internal Function(
@@ -72,6 +102,24 @@ public abstract partial class Function : ObjectInstance, ICallable
 
     // for example RavenDB wants to inspect this
     public IFunction? FunctionDeclaration => _functionDefinition?.Function;
+
+    /// <summary>
+    /// True when the function already carries a non-empty own name, materialized or pending
+    /// (a pending descriptor stands for the definition's own name, which is never empty).
+    /// </summary>
+    internal bool HasNonEmptyOwnName
+    {
+        get
+        {
+            var nameDescriptor = _nameDescriptor;
+            if (nameDescriptor is null)
+            {
+                return false;
+            }
+            return ReferenceEquals(nameDescriptor, _pendingDescriptor)
+                   || !string.IsNullOrWhiteSpace(nameDescriptor._value?.ToString());
+        }
+    }
 
     internal override bool IsCallable => true;
 
@@ -96,13 +144,18 @@ public abstract partial class Function : ObjectInstance, ICallable
 
     public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
     {
-        if (_prototypeDescriptor != null)
+        var prototypeDescriptor = ReferenceEquals(_prototypeDescriptor, _pendingDescriptor)
+            ? MaterializePrototypeDescriptor()
+            : _prototypeDescriptor;
+        if (prototypeDescriptor != null)
         {
-            yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Prototype, _prototypeDescriptor);
+            yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Prototype, prototypeDescriptor);
         }
-        if (_length != null)
+
+        var length = ReferenceEquals(_length, _pendingDescriptor) ? MaterializeLengthDescriptor() : _length;
+        if (length != null)
         {
-            yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Length, _length);
+            yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Length, length);
         }
         if (_nameDescriptor != null)
         {
@@ -137,18 +190,52 @@ public abstract partial class Function : ObjectInstance, ICallable
     {
         if (CommonProperties.Prototype.Equals(property))
         {
-            return _prototypeDescriptor ?? PropertyDescriptor.Undefined;
+            var prototypeDescriptor = _prototypeDescriptor;
+            if (ReferenceEquals(prototypeDescriptor, _pendingDescriptor))
+            {
+                prototypeDescriptor = MaterializePrototypeDescriptor();
+            }
+            return prototypeDescriptor ?? PropertyDescriptor.Undefined;
         }
         if (CommonProperties.Length.Equals(property))
         {
-            return _length ?? PropertyDescriptor.Undefined;
+            var length = _length;
+            if (ReferenceEquals(length, _pendingDescriptor))
+            {
+                length = MaterializeLengthDescriptor();
+            }
+            return length ?? PropertyDescriptor.Undefined;
         }
         if (CommonProperties.Name.Equals(property))
         {
-            return _nameDescriptor ?? PropertyDescriptor.Undefined;
+            var nameDescriptor = _nameDescriptor;
+            if (ReferenceEquals(nameDescriptor, _pendingDescriptor))
+            {
+                nameDescriptor = MaterializeNameDescriptor();
+            }
+            return nameDescriptor ?? PropertyDescriptor.Undefined;
         }
 
         return base.GetOwnProperty(property);
+    }
+
+    private PropertyDescriptor MaterializeNameDescriptor()
+    {
+        return _nameDescriptor = new PropertyDescriptor(_functionDefinition!.JsName!, PropertyFlag.Configurable);
+    }
+
+    private PropertyDescriptor MaterializeLengthDescriptor()
+    {
+        return _length = new PropertyDescriptor(JsNumber.Create(_functionDefinition!.Initialize().Length), PropertyFlag.Configurable);
+    }
+
+    private protected PropertyDescriptor MaterializePrototypeDescriptor()
+    {
+        // Flags match the eager MakeConstructor path: writable, non-enumerable, non-configurable.
+        // The pending marker is only ever installed for writableProperty: true (the only caller shape).
+        return _prototypeDescriptor = new PropertyDescriptor(
+            CreateConstructorPrototype(),
+            PropertyFlag.Writable | PropertyFlag.WritableSet | PropertyFlag.EnumerableSet | PropertyFlag.ConfigurableSet);
     }
 
     protected internal override void SetOwnProperty(JsValue property, PropertyDescriptor desc)
@@ -194,7 +281,10 @@ public abstract partial class Function : ObjectInstance, ICallable
     /// </summary>
     internal void SetFunctionName(JsValue name, string? prefix = null, bool force = false)
     {
-        if (!force && _nameDescriptor != null && UnwrapJsValue(_nameDescriptor) != JsString.Empty)
+        var nameDescriptor = _nameDescriptor;
+        if (!force && nameDescriptor != null
+            // a pending descriptor stands for the definition's own (never empty) name
+            && (ReferenceEquals(nameDescriptor, _pendingDescriptor) || UnwrapJsValue(nameDescriptor) != JsString.Empty))
         {
             return;
         }
@@ -356,20 +446,21 @@ public abstract partial class Function : ObjectInstance, ICallable
     internal void MakeConstructor(bool writableProperty = true, ObjectInstance? prototype = null)
     {
         _constructorKind = ConstructorKind.Base;
-        if (prototype is null)
+        if (prototype is null && writableProperty)
         {
-            // Lazily create the .prototype object. Functions that are never used as a constructor and
-            // whose .prototype is never read (e.g. the hundreds of helper functions declared by
-            // linq-js) then skip the ObjectInstanceWithConstructor + its two descriptor allocations.
-            // The value is memoized on first access, so .prototype identity is stable. Flags match the
-            // eager descriptor below: writable=writableProperty, enumerable=false, configurable=false.
-            var flags = PropertyFlag.WritableSet | PropertyFlag.EnumerableSet | PropertyFlag.ConfigurableSet;
-            if (writableProperty)
-            {
-                flags |= PropertyFlag.Writable;
-            }
-
-            _prototypeDescriptor = new LazyPropertyDescriptor<Function>(this, static f => f.CreateConstructorPrototype(), flags);
+            // Lazily create both the .prototype descriptor and its object. Functions that are never
+            // used as a constructor and whose .prototype is never read (e.g. the hundreds of helper
+            // functions declared by linq-js, or nested declarations re-instantiated per call) then
+            // skip the descriptor + ObjectInstanceWithConstructor allocations entirely. GetOwnProperty
+            // materializes on first access (see _pendingDescriptor), so .prototype identity is stable.
+            _prototypeDescriptor = _pendingDescriptor;
+        }
+        else if (prototype is null)
+        {
+            // no caller today combines writableProperty: false with a lazily created prototype
+            _prototypeDescriptor = new PropertyDescriptor(
+                CreateConstructorPrototype(),
+                PropertyFlag.WritableSet | PropertyFlag.EnumerableSet | PropertyFlag.ConfigurableSet);
         }
         else
         {
@@ -415,7 +506,21 @@ public abstract partial class Function : ObjectInstance, ICallable
             }
         }
 
-        var nameValue = _nameDescriptor != null ? UnwrapJsValue(_nameDescriptor) : JsString.Empty;
+        var nameDescriptor = _nameDescriptor;
+        JsValue nameValue;
+        if (nameDescriptor is null)
+        {
+            nameValue = JsString.Empty;
+        }
+        else if (ReferenceEquals(nameDescriptor, _pendingDescriptor))
+        {
+            nameValue = _functionDefinition!.JsName!;
+        }
+        else
+        {
+            nameValue = UnwrapJsValue(nameDescriptor);
+        }
+
         var name = "";
         if (!nameValue.IsUndefined())
         {

@@ -3,7 +3,6 @@ using System.Threading;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter;
 using Environment = Jint.Runtime.Environments.Environment;
@@ -75,7 +74,9 @@ public sealed class ScriptFunction : Function, IConstructor
         : base(engine, engine.Realm, function, env, thisMode)
     {
         _prototype = proto ?? _engine.Realm.Intrinsics.Function.PrototypeObject;
-        _length = new LazyPropertyDescriptor<JintFunctionDefinition>(function, static function => JsNumber.Create(function.Initialize().Length), PropertyFlag.Configurable);
+        // The own "length" property exists from birth; its descriptor is materialized lazily
+        // from the definition on first read (see Function._pendingDescriptor).
+        _length = _pendingDescriptor;
 
         if (!function.Strict
             && function.Function is not ArrowFunctionExpression
@@ -295,8 +296,14 @@ public sealed class ScriptFunction : Function, IConstructor
 
         if (kind == ConstructorKind.Base)
         {
+            var currentPrototypeDescriptor = _prototypeDescriptor;
+            if (ReferenceEquals(currentPrototypeDescriptor, _pendingDescriptor))
+            {
+                currentPrototypeDescriptor = MaterializePrototypeDescriptor();
+            }
+
             if (ReferenceEquals(newTarget, this)
-                && _prototypeDescriptor is { } prototypeDescriptor
+                && currentPrototypeDescriptor is { } prototypeDescriptor
                 && !prototypeDescriptor.IsAccessorDescriptor())
             {
                 var prototype = prototypeDescriptor.Value as ObjectInstance ?? _realm.Intrinsics.Object.PrototypeObject;

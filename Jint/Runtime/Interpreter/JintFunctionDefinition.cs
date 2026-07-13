@@ -28,6 +28,11 @@ internal sealed class JintFunctionDefinition
     public readonly string? Name;
     public readonly IFunction Function;
 
+    // The function's own name as a JsValue, cached here so that every instantiation of this
+    // definition (nested function declarations re-instantiate on every call of their enclosing
+    // function) shares one immutable JsString instead of allocating a fresh one per instance.
+    public readonly JsString? JsName;
+
     // True for definitions created by the Function constructor (CreateDynamicFunction). Their
     // definition lives in the per-realm dynamic-function cache and every `new Function(...)`
     // produces a fresh ScriptFunction instance, which changes where call environments can be
@@ -42,6 +47,7 @@ internal sealed class JintFunctionDefinition
     {
         Function = function;
         Name = !string.IsNullOrEmpty(function.Id?.Name) ? function.Id!.Name : null;
+        JsName = Name is not null ? new JsString(Name) : null;
         SourceTextNode = sourceTextNode;
     }
 
