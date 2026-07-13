@@ -42,6 +42,24 @@ public class ProxyTests
     }
 
     [Fact]
+    public void ConstructTrapReceivesCreateArrayFromListArguments()
+    {
+        var result = _engine.Evaluate("""
+            var p = new Proxy(function () {}, { construct: (t, args) => ({ len: args.length, first: args[0] }) });
+            var r = new p(42);
+            r.len + ':' + r.first;
+            """).AsString();
+        Assert.Equal("1:42", result);
+    }
+
+    [Fact]
+    public void ConstructTrapAcceptsSingleFractionalArgument()
+    {
+        var result = _engine.Evaluate("new (new Proxy(function () {}, { construct: (t, args) => ({ v: args[0] }) }))(1.5).v");
+        Assert.Equal(1.5, result.AsNumber());
+    }
+
+    [Fact]
     public void ProxyToStringUseTarget()
     {
         _engine.Execute(@"

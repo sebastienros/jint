@@ -85,7 +85,9 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             Throw.TypeError(_engine.Realm, "Proxy target is not a constructor");
         }
 
-        var argArray = _engine.Realm.Intrinsics.Array.Construct(arguments, _engine.Realm.Intrinsics.Array);
+        // step 7: CreateArrayFromList(argumentsList) - must not use Array constructor semantics,
+        // a single numeric argument would create a hole-filled array of that length
+        var argArray = _engine.Realm.Intrinsics.Array.ConstructFast(arguments);
 
         if (!TryCallHandler(TrapConstruct, [_target, argArray, newTarget], out var result))
         {
