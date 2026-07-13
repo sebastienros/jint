@@ -38,7 +38,40 @@ public class ProxyTests
             revocable.revoke();
         ");
         var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("proxy.foo"));
-        AssertJsTypeError(_engine, ex, "Cannot perform 'foo' on a proxy that has been revoked");
+        AssertJsTypeError(_engine, ex, "Cannot perform 'get' on a proxy that has been revoked");
+    }
+
+    [Fact]
+    public void RevokingProxyInsideSetTrapValidatesAgainstOriginalTarget()
+    {
+        // the spec captures [[ProxyTarget]] before the trap runs; a trap revoking its own
+        // proxy must not crash the post-trap invariant validation
+        var result = _engine.Evaluate("""
+            var r = Proxy.revocable({}, { set: (t, k, v) => { r.revoke(); return true; } });
+            r.proxy.x = 1;
+            'ok';
+            """).AsString();
+        Assert.Equal("ok", result);
+    }
+
+    [Fact]
+    public void RevokingProxyInsideDeleteTrapValidatesAgainstOriginalTarget()
+    {
+        var result = _engine.Evaluate("""
+            var r = Proxy.revocable({ a: 1 }, { deleteProperty: (t, k) => { r.revoke(); return true; } });
+            delete r.proxy.a;
+            """);
+        Assert.True(result.AsBoolean());
+    }
+
+    [Fact]
+    public void RevokingProxyInsideHasTrapValidatesAgainstOriginalTarget()
+    {
+        var result = _engine.Evaluate("""
+            var r = Proxy.revocable({ a: 1 }, { has: (t, k) => { r.revoke(); return false; } });
+            'a' in r.proxy;
+            """);
+        Assert.False(result.AsBoolean());
     }
 
     [Fact]
