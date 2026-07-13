@@ -162,6 +162,25 @@ public abstract partial class Function : ObjectInstance, ICallable
             yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Name, GetOwnProperty(CommonProperties.Name));
         }
 
+        if (this is ScriptFunction scriptFunction)
+        {
+            var argumentsDescriptor = ReferenceEquals(scriptFunction._argumentsDescriptor, _pendingDescriptor)
+                ? scriptFunction.MaterializeArgumentsDescriptor()
+                : scriptFunction._argumentsDescriptor;
+            if (argumentsDescriptor is not null)
+            {
+                yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Arguments, argumentsDescriptor);
+            }
+
+            var callerDescriptor = ReferenceEquals(scriptFunction._callerDescriptor, _pendingDescriptor)
+                ? scriptFunction.MaterializeCallerDescriptor()
+                : scriptFunction._callerDescriptor;
+            if (callerDescriptor is not null)
+            {
+                yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Caller, callerDescriptor);
+            }
+        }
+
         foreach (var entry in base.GetOwnProperties())
         {
             yield return entry;
@@ -183,6 +202,19 @@ public abstract partial class Function : ObjectInstance, ICallable
         if (_prototypeDescriptor != null)
         {
             yield return CommonProperties.Prototype;
+        }
+
+        if (this is ScriptFunction scriptFunction)
+        {
+            if (scriptFunction._argumentsDescriptor is not null)
+            {
+                yield return CommonProperties.Arguments;
+            }
+
+            if (scriptFunction._callerDescriptor is not null)
+            {
+                yield return CommonProperties.Caller;
+            }
         }
     }
 
@@ -214,6 +246,22 @@ public abstract partial class Function : ObjectInstance, ICallable
                 nameDescriptor = MaterializeNameDescriptor();
             }
             return nameDescriptor ?? PropertyDescriptor.Undefined;
+        }
+
+        if (this is ScriptFunction scriptFunction)
+        {
+            if (scriptFunction._argumentsDescriptor is { } argumentsDescriptor && CommonProperties.Arguments.Equals(property))
+            {
+                return ReferenceEquals(argumentsDescriptor, _pendingDescriptor)
+                    ? scriptFunction.MaterializeArgumentsDescriptor()
+                    : argumentsDescriptor;
+            }
+            if (scriptFunction._callerDescriptor is { } callerDescriptor && CommonProperties.Caller.Equals(property))
+            {
+                return ReferenceEquals(callerDescriptor, _pendingDescriptor)
+                    ? scriptFunction.MaterializeCallerDescriptor()
+                    : callerDescriptor;
+            }
         }
 
         return base.GetOwnProperty(property);
@@ -252,6 +300,9 @@ public abstract partial class Function : ObjectInstance, ICallable
         {
             _nameDescriptor = desc;
         }
+        else if (this is ScriptFunction scriptFunction && scriptFunction.TrySetRestrictedOwnProperty(property, desc))
+        {
+        }
         else
         {
             base.SetOwnProperty(property, desc);
@@ -271,6 +322,17 @@ public abstract partial class Function : ObjectInstance, ICallable
         if (CommonProperties.Name.Equals(property))
         {
             _nameDescriptor = null;
+        }
+        if (this is ScriptFunction scriptFunction)
+        {
+            if (scriptFunction._argumentsDescriptor is not null && CommonProperties.Arguments.Equals(property))
+            {
+                scriptFunction._argumentsDescriptor = null;
+            }
+            if (scriptFunction._callerDescriptor is not null && CommonProperties.Caller.Equals(property))
+            {
+                scriptFunction._callerDescriptor = null;
+            }
         }
 
         base.RemoveOwnProperty(property);
@@ -377,9 +439,10 @@ public abstract partial class Function : ObjectInstance, ICallable
     internal void MakeMethod(ObjectInstance homeObject)
     {
         _homeObject = homeObject;
-        // Per ECMAScript spec, methods must not have own "arguments" or "caller" properties
-        RemoveOwnProperty(KnownKeys.Arguments.Name);
-        RemoveOwnProperty(KnownKeys.Caller.Name);
+        // Per ECMAScript spec, methods must not have own "arguments" or "caller" properties.
+        // Use the cached JsStrings so this allocates nothing.
+        RemoveOwnProperty(CommonProperties.Arguments);
+        RemoveOwnProperty(CommonProperties.Caller);
     }
 
     /// <summary>

@@ -14,6 +14,17 @@ public sealed class ScriptFunction : Function, IConstructor
     internal bool _isClassConstructor;
     internal JsValue? _classFieldInitializerName;
 
+    // Own restricted "arguments"/"caller" properties of non-strict, non-arrow, non-generator,
+    // non-async functions. Dedicated fields (like Function's name/length/prototype) instead of
+    // dictionary entries, so a plain sloppy function's instantiation allocates neither the
+    // property dictionary nor the two descriptors: the fields start at the pending sentinel and
+    // materialize on first read. null means absent (strict functions, methods after MakeMethod,
+    // or deleted); a deleted-then-redefined property goes to the dictionary, which preserves the
+    // previous key order after resurrection. Enumeration order (length, name, prototype,
+    // arguments, caller) matches the old ctor-time dictionary inserts.
+    internal PropertyDescriptor? _argumentsDescriptor;
+    internal PropertyDescriptor? _callerDescriptor;
+
     // Reuse cache for this function's call environments, populated on a pool-eligible call's return.
     // Interpreted via State.IsDirectRecursive: a FunctionEnvironment (the next call reuses it directly)
     // for ordinary functions, or a RecursiveEnvPool for direct-recursive ones. Held per function instance
@@ -83,9 +94,44 @@ public sealed class ScriptFunction : Function, IConstructor
             && !function.Function.Generator
             && !function.Function.Async)
         {
-            SetProperty(KnownKeys.Arguments, new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(engine, PropertyFlag.Configurable));
-            SetProperty(KnownKeys.Caller, new PropertyDescriptor(Undefined, PropertyFlag.Configurable));
+            _argumentsDescriptor = _pendingDescriptor;
+            _callerDescriptor = _pendingDescriptor;
         }
+    }
+
+    internal PropertyDescriptor MaterializeArgumentsDescriptor()
+    {
+        // Same deferred %ThrowTypeError% resolution as the old eager descriptor: the thrower is
+        // looked up from the engine's active realm on the first Get/Set access either way.
+        return _argumentsDescriptor = new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(_engine, PropertyFlag.Configurable);
+    }
+
+    internal PropertyDescriptor MaterializeCallerDescriptor()
+    {
+        return _callerDescriptor = new PropertyDescriptor(Undefined, PropertyFlag.Configurable);
+    }
+
+    /// <summary>
+    /// Stores a replacement descriptor for a currently field-backed restricted property. Returns
+    /// false when the property is not field-backed (never was, or was deleted), in which case the
+    /// caller stores it in the property dictionary — putting a resurrected property at the end of
+    /// the key order exactly like the previous dictionary-backed representation did.
+    /// </summary>
+    internal bool TrySetRestrictedOwnProperty(JsValue property, PropertyDescriptor desc)
+    {
+        if (_argumentsDescriptor is not null && CommonProperties.Arguments.Equals(property))
+        {
+            _argumentsDescriptor = desc;
+            return true;
+        }
+
+        if (_callerDescriptor is not null && CommonProperties.Caller.Equals(property))
+        {
+            _callerDescriptor = desc;
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>
