@@ -1271,7 +1271,8 @@ internal abstract class JintBinaryExpression : JintExpression
             }
 
             var value = Compare(left, right);
-            return value._type != InternalTypes.Undefined && ((JsBoolean) value)._value;
+            // Compare only ever returns JsBoolean.True/False or undefined
+            return value._type != InternalTypes.Undefined && Unsafe.As<JsBoolean>(value)._value;
         }
     }
 
@@ -1326,7 +1327,8 @@ internal abstract class JintBinaryExpression : JintExpression
             }
 
             var value = Compare(right, left, false);
-            return value._type != InternalTypes.Undefined && ((JsBoolean) value)._value;
+            // Compare only ever returns JsBoolean.True/False or undefined
+            return value._type != InternalTypes.Undefined && Unsafe.As<JsBoolean>(value)._value;
         }
     }
 
@@ -1364,7 +1366,7 @@ internal abstract class JintBinaryExpression : JintExpression
 
             if (left._type == InternalTypes.Number && right._type == InternalTypes.Number)
             {
-                return JsNumber.Create(((JsNumber) left)._value + ((JsNumber) right)._value);
+                return JsNumber.Create(Unsafe.As<JsNumber>(left)._value + Unsafe.As<JsNumber>(right)._value);
             }
 
             var lprim = TypeConverter.ToPrimitive(left);
@@ -1506,7 +1508,7 @@ internal abstract class JintBinaryExpression : JintExpression
 
             if (left._type == InternalTypes.Number && right._type == InternalTypes.Number)
             {
-                return JsNumber.Create(((JsNumber) left)._value - ((JsNumber) right)._value);
+                return JsNumber.Create(Unsafe.As<JsNumber>(left)._value - Unsafe.As<JsNumber>(right)._value);
             }
 
             left = TypeConverter.ToNumeric(left);
@@ -1567,7 +1569,7 @@ internal abstract class JintBinaryExpression : JintExpression
             }
             else if (left._type == InternalTypes.Number && right._type == InternalTypes.Number)
             {
-                result = JsNumber.Create(((JsNumber) left)._value * ((JsNumber) right)._value);
+                result = JsNumber.Create(Unsafe.As<JsNumber>(left)._value * Unsafe.As<JsNumber>(right)._value);
             }
             else
             {
@@ -1618,7 +1620,7 @@ internal abstract class JintBinaryExpression : JintExpression
 
             if (left._type == InternalTypes.Number && right._type == InternalTypes.Number)
             {
-                return JsNumber.Create(((JsNumber) left)._value / ((JsNumber) right)._value);
+                return JsNumber.Create(Unsafe.As<JsNumber>(left)._value / Unsafe.As<JsNumber>(right)._value);
             }
 
             left = TypeConverter.ToNumeric(left);
@@ -1739,7 +1741,8 @@ internal abstract class JintBinaryExpression : JintExpression
             var right = _leftFirst ? rightValue : leftValue;
 
             var value = Compare(left, right, _leftFirst);
-            return value.IsUndefined() || ((JsBoolean) value)._value ? JsBoolean.False : JsBoolean.True;
+            // Compare only ever returns JsBoolean.True/False or undefined
+            return value.IsUndefined() || Unsafe.As<JsBoolean>(value)._value ? JsBoolean.False : JsBoolean.True;
         }
 
         public override bool GetBooleanValue(EvaluationContext context)
@@ -1764,7 +1767,8 @@ internal abstract class JintBinaryExpression : JintExpression
             var right = _leftFirst ? rightValue : leftValue;
 
             var value = Compare(left, right, _leftFirst);
-            return !value.IsUndefined() && !((JsBoolean) value)._value;
+            // Compare only ever returns JsBoolean.True/False or undefined
+            return !value.IsUndefined() && !Unsafe.As<JsBoolean>(value)._value;
         }
     }
 

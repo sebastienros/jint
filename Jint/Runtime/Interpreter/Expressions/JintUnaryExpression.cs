@@ -5,6 +5,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 using Environment = Jint.Runtime.Environments.Environment;
 
@@ -297,7 +298,7 @@ internal sealed class JintUnaryExpression : JintExpression
         value = TypeConverter.ToNumeric(value);
         if (value.IsNumber())
         {
-            var n = ((JsNumber) value)._value;
+            var n = Unsafe.As<JsNumber>(value)._value;
             return double.IsNaN(n) ? JsNumber.DoubleNaN : JsNumber.Create(n * -1);
         }
 
