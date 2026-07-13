@@ -402,8 +402,9 @@ internal sealed class JintAssignmentExpression : JintExpression
                     result = left / right;
                     break;
                 case Operator.RemainderAssignment:
-                    // IEEE 754 remainder (fmod) matches the ECMAScript algorithm for all special cases
-                    result = left % right;
+                    // int32 lane avoids native fmod for integral operands; the fallback IEEE 754
+                    // remainder (fmod) matches the ECMAScript algorithm for all special cases
+                    result = RemainderUnboxed(left, right);
                     break;
                 case Operator.BitwiseAndAssignment:
                     result = TypeConverter.ToInt32(left) & TypeConverter.ToInt32(right);
@@ -887,8 +888,9 @@ internal sealed class JintAssignmentExpression : JintExpression
                     result = left / right;
                     break;
                 case Operator.Remainder:
-                    // IEEE 754 remainder (fmod) matches the ECMAScript algorithm for all special cases
-                    result = left % right;
+                    // int32 lane avoids native fmod for integral operands; the fallback IEEE 754
+                    // remainder (fmod) matches the ECMAScript algorithm for all special cases
+                    result = RemainderUnboxed(left, right);
                     break;
                 default:
                     return false;
