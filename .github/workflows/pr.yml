@@ -15,9 +15,10 @@ concurrency:
 
 jobs:
 
-  test:
+  # Everything except Test262: fast (< 1 min), so run the whole set once per OS.
+  unit:
 
-    name: ${{ matrix.os.name }}
+    name: unit - ${{ matrix.os.name }}
 
     strategy:
       fail-fast: false
@@ -38,14 +39,137 @@ jobs:
         dotnet-version: 10.0
 
     - name: Checkout source code
-      uses: actions/checkout@v6
-
-    - name: Cache Test262 generated suite
-      uses: actions/cache@v5
-      with:
-        path: Jint.Tests.Test262/Generated
-        key: test262-generated-${{ hashFiles('Jint.Tests.Test262/Test262Harness.settings.json') }}
+      uses: actions/checkout@v7
 
     - name: Test
-      run: dotnet test --configuration Release --logger "console;verbosity=quiet" --logger "GitHubActions;summary-include-passed=false;summary-include-skipped=false"
+      shell: bash
+      run: |
+        set -e
+        for proj in \
+          Jint.Tests/Jint.Tests.csproj \
+          Jint.Tests.PublicInterface/Jint.Tests.PublicInterface.csproj \
+          Jint.Tests.CommonScripts/Jint.Tests.CommonScripts.csproj \
+          Jint.Tests.SourceGenerators/Jint.Tests.SourceGenerators.csproj; do
+          echo "::group::$proj"
+          dotnet test "$proj" --configuration Release \
+            --logger "console;verbosity=quiet" \
+            --logger "GitHubActions;summary-include-passed=false;summary-include-skipped=false"
+          echo "::endgroup::"
+        done
 
+  # Generate each Test262 shard once (codegen is OS-independent) and publish it to a cross-OS
+  # cache. Keyed per shard, so the previous same-key race between OS jobs is gone. These shards
+  # feed the sharded linux/windows test jobs below.
+  generate-test262:
+
+    name: generate test262 (shard ${{ matrix.shard }})
+
+    env:
+      TEST262_SHARD_COUNT: 4
+
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+    - name: Setup NET
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: 10.0
+
+    - name: Checkout source code
+      uses: actions/checkout@v7
+
+    - name: Cache Test262 generated shard
+      id: cache
+      uses: actions/cache@v6
+      with:
+        path: Jint.Tests.Test262/Generated
+        key: test262-generated-${{ hashFiles('Jint.Tests.Test262/Test262Harness.settings.json') }}-shard${{ matrix.shard }}-of-${{ env.TEST262_SHARD_COUNT }}
+        enableCrossOsArchive: true
+
+    - name: Generate shard
+      if: steps.cache.outputs.cache-hit != 'true'
+      env:
+        TEST262_SHARD_INDEX: ${{ matrix.shard }}
+      run: dotnet build Jint.Tests.Test262/Jint.Tests.Test262.csproj --configuration Release -t:GenerateTestSuite
+
+  # x64 linux and windows are the slow runners: shard Test262 4 ways across them. Each job restores
+  # its shard from the cross-OS cache, then compiles and runs only its ~1/4 slice of the suite.
+  test262-sharded:
+
+    name: test262 - ${{ matrix.os.name }} (shard ${{ matrix.shard }})
+
+    needs: generate-test262
+
+    env:
+      TEST262_SHARD_COUNT: 4
+      TEST262_SHARD_INDEX: ${{ matrix.shard }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - { name: 'linux', image: 'ubuntu-latest' }
+          - { name: 'windows', image: 'windows-latest' }
+        shard: [0, 1, 2, 3]
+
+    runs-on: ${{ matrix.os.image }}
+
+    steps:
+
+    - name: Setup NET
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: 10.0
+
+    - name: Checkout source code
+      uses: actions/checkout@v7
+
+    - name: Restore Test262 generated shard
+      uses: actions/cache@v6
+      with:
+        path: Jint.Tests.Test262/Generated
+        key: test262-generated-${{ hashFiles('Jint.Tests.Test262/Test262Harness.settings.json') }}-shard${{ matrix.shard }}-of-${{ env.TEST262_SHARD_COUNT }}
+        enableCrossOsArchive: true
+
+    - name: Test
+      run: dotnet test Jint.Tests.Test262/Jint.Tests.Test262.csproj --configuration Release --logger "console;verbosity=quiet" --logger "GitHubActions;summary-include-passed=false;summary-include-skipped=false"
+
+  # macOS and ARM runners are scarcer (and already fast per-core), so run the full suite unsharded
+  # there — one runner each. The generated suite is cached per-OS (no cross-OS sharing needed).
+  test262-full:
+
+    name: test262 - ${{ matrix.os.name }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - { name: 'linux - ARM', image: 'ubuntu-24.04-arm' }
+          - { name: 'macos', image: 'macos-latest' }
+
+    runs-on: ${{ matrix.os.image }}
+
+    steps:
+
+    - name: Setup NET
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: 10.0
+
+    - name: Checkout source code
+      uses: actions/checkout@v7
+
+    - name: Cache Test262 generated suite
+      uses: actions/cache@v6
+      with:
+        path: Jint.Tests.Test262/Generated
+        key: test262-generated-${{ hashFiles('Jint.Tests.Test262/Test262Harness.settings.json') }}-full
+
+    - name: Test
+      run: dotnet test Jint.Tests.Test262/Jint.Tests.Test262.csproj --configuration Release --logger "console;verbosity=quiet" --logger "GitHubActions;summary-include-passed=false;summary-include-skipped=false"
