@@ -53,24 +53,29 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     {
         AssertNotRevoked(TrapApply);
 
+        // a proxy only has [[Call]] if its target does - emulate the missing internal
+        // method for callers that reach us through the ICallable interface
         if (!IsCallable)
         {
             Throw.TypeError(_engine.Realm, "Proxy target is not a function");
         }
 
-        var jsValues = new[] { _target, thisObject, _engine.Realm.Intrinsics.Array.ConstructFast(arguments) };
-        if (TryCallHandler(TrapApply, jsValues, out var result))
+        var target = _target;
+        var trap = GetTrap(TrapApply);
+        if (trap is null)
         {
-            return result;
+            var callable = target as ICallable;
+            if (callable is null)
+            {
+                Throw.TypeError(_engine.Realm, target + " is not a function");
+            }
+
+            return callable.Call(thisObject, arguments);
         }
 
-        var callable = _target as ICallable;
-        if (callable is null)
-        {
-            Throw.TypeError(_engine.Realm, _target + " is not a function");
-        }
-
-        return callable.Call(thisObject, arguments);
+        // step 7: CreateArrayFromList(argumentsList) is only observable by the trap, built lazily
+        var argArray = _engine.Realm.Intrinsics.Array.ConstructFast(arguments);
+        return CallTrap(trap, target, thisObject, argArray);
     }
 
     /// <summary>
@@ -85,19 +90,23 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             Throw.TypeError(_engine.Realm, "Proxy target is not a constructor");
         }
 
-        // step 7: CreateArrayFromList(argumentsList) - must not use Array constructor semantics,
-        // a single numeric argument would create a hole-filled array of that length
-        var argArray = _engine.Realm.Intrinsics.Array.ConstructFast(arguments);
-
-        if (!TryCallHandler(TrapConstruct, [_target, argArray, newTarget], out var result))
+        var target = _target;
+        var trap = GetTrap(TrapConstruct);
+        if (trap is null)
         {
-            var constructor = _target as IConstructor;
+            var constructor = target as IConstructor;
             if (constructor is null)
             {
                 Throw.TypeError(_engine.Realm);
             }
+
             return constructor.Construct(arguments, newTarget);
         }
+
+        // step 7: CreateArrayFromList(argumentsList) - must not use Array constructor semantics,
+        // a single numeric argument would create a hole-filled array of that length
+        var argArray = _engine.Realm.Intrinsics.Array.ConstructFast(arguments);
+        var result = CallTrap(trap, target, argArray, newTarget);
 
         var oi = result as ObjectInstance;
         if (oi is null)
@@ -123,14 +132,20 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     public override JsValue Get(JsValue property, JsValue receiver)
     {
-        AssertTargetNotRevoked(property);
+        var trap = GetTrap(TrapGet);
         var target = _target;
-
-        if (!TryCallHandler(TrapGet, [target, TypeConverter.ToPropertyKey(property), receiver], out var result))
+        if (trap is null)
         {
             return target.Get(property, receiver);
         }
 
+        var result = CallTrap(trap, target, TypeConverter.ToPropertyKey(property), receiver);
+        ValidateGetTrapResult(target, property, result);
+        return result;
+    }
+
+    private void ValidateGetTrapResult(ObjectInstance target, JsValue property, JsValue result)
+    {
         var targetDesc = target.GetOwnProperty(property);
         if (targetDesc != PropertyDescriptor.Undefined)
         {
@@ -151,8 +166,6 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
                 }
             }
         }
-
-        return result;
     }
 
     /// <summary>
@@ -160,11 +173,19 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     public override List<JsValue> GetOwnPropertyKeys(Types types = Types.Empty | Types.String | Types.Symbol)
     {
-        if (!TryCallHandler(TrapOwnKeys, [_target], out var result))
+        var trap = GetTrap(TrapOwnKeys);
+        var target = _target;
+        if (trap is null)
         {
-            return _target.GetOwnPropertyKeys(types);
+            return target.GetOwnPropertyKeys(types);
         }
 
+        var result = CallTrap(trap, target);
+        return ValidateOwnKeysTrapResult(target, result);
+    }
+
+    private List<JsValue> ValidateOwnKeysTrapResult(ObjectInstance target, JsValue result)
+    {
         var trapResult = new List<JsValue>(FunctionPrototype.CreateListFromArrayLike(_engine.Realm, result, Types.String | Types.Symbol));
 
         if (trapResult.Count != new HashSet<JsValue>(trapResult).Count)
@@ -172,14 +193,14 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             Throw.TypeError(_engine.Realm);
         }
 
-        var extensibleTarget = _target.Extensible;
-        var targetKeys = _target.GetOwnPropertyKeys();
+        var extensibleTarget = target.Extensible;
+        var targetKeys = target.GetOwnPropertyKeys();
         var targetConfigurableKeys = new List<JsValue>();
         var targetNonconfigurableKeys = new List<JsValue>();
 
         foreach (var property in targetKeys)
         {
-            var desc = _target.GetOwnProperty(property);
+            var desc = target.GetOwnProperty(property);
             if (desc != PropertyDescriptor.Undefined && !desc.Configurable)
             {
                 targetNonconfigurableKeys.Add(property);
@@ -227,17 +248,25 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     public override PropertyDescriptor GetOwnProperty(JsValue property)
     {
-        if (!TryCallHandler(TrapGetOwnPropertyDescriptor, [_target, TypeConverter.ToPropertyKey(property)], out var trapResultObj))
+        var trap = GetTrap(TrapGetOwnPropertyDescriptor);
+        var target = _target;
+        if (trap is null)
         {
-            return _target.GetOwnProperty(property);
+            return target.GetOwnProperty(property);
         }
 
+        var trapResultObj = CallTrap(trap, target, TypeConverter.ToPropertyKey(property));
+        return ValidateGetOwnPropertyTrapResult(target, property, trapResultObj);
+    }
+
+    private PropertyDescriptor ValidateGetOwnPropertyTrapResult(ObjectInstance target, JsValue property, JsValue trapResultObj)
+    {
         if (!trapResultObj.IsObject() && !trapResultObj.IsUndefined())
         {
             Throw.TypeError(_engine.Realm);
         }
 
-        var targetDesc = _target.GetOwnProperty(property);
+        var targetDesc = target.GetOwnProperty(property);
 
         if (trapResultObj.IsUndefined())
         {
@@ -246,7 +275,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
                 return targetDesc;
             }
 
-            if (!targetDesc.Configurable || !_target.Extensible)
+            if (!targetDesc.Configurable || !target.Extensible)
             {
                 Throw.TypeError(_engine.Realm);
             }
@@ -254,7 +283,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             return PropertyDescriptor.Undefined;
         }
 
-        var extensibleTarget = _target.Extensible;
+        var extensibleTarget = target.Extensible;
         var resultDesc = PropertyDescriptor.ToPropertyDescriptor(_engine.Realm, trapResultObj);
         CompletePropertyDescriptor(resultDesc);
 
@@ -318,18 +347,26 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     public override bool Set(JsValue property, JsValue value, JsValue receiver)
     {
-        if (!TryCallHandler(TrapSet, [_target, TypeConverter.ToPropertyKey(property), value, receiver], out var trapResult))
+        var trap = GetTrap(TrapSet);
+        var target = _target;
+        if (trap is null)
         {
-            return _target.Set(property, value, receiver);
+            return target.Set(property, value, receiver);
         }
 
-        var result = TypeConverter.ToBoolean(trapResult);
-        if (!result)
+        var trapResult = CallTrap(trap, target, TypeConverter.ToPropertyKey(property), value, receiver);
+        if (!TypeConverter.ToBoolean(trapResult))
         {
             return false;
         }
 
-        var targetDesc = _target.GetOwnProperty(property);
+        ValidateSetTrapResult(target, property, value);
+        return true;
+    }
+
+    private void ValidateSetTrapResult(ObjectInstance target, JsValue property, JsValue value)
+    {
+        var targetDesc = target.GetOwnProperty(property);
         if (targetDesc != PropertyDescriptor.Undefined)
         {
             if (targetDesc.IsDataDescriptor() && !targetDesc.Configurable && !targetDesc.Writable)
@@ -349,8 +386,6 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
                 }
             }
         }
-
-        return true;
     }
 
     /// <summary>
@@ -358,20 +393,28 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
     {
-        var arguments = new[] { _target, TypeConverter.ToPropertyKey(property), PropertyDescriptor.FromPropertyDescriptor(_engine, desc, strictUndefined: true) };
-        if (!TryCallHandler(TrapDefineProperty, arguments, out var result))
+        var trap = GetTrap(TrapDefineProperty);
+        var target = _target;
+        if (trap is null)
         {
-            return _target.DefineOwnProperty(property, desc);
+            return target.DefineOwnProperty(property, desc);
         }
 
-        var success = TypeConverter.ToBoolean(result);
-        if (!success)
+        var descObj = PropertyDescriptor.FromPropertyDescriptor(_engine, desc, strictUndefined: true);
+        var result = CallTrap(trap, target, TypeConverter.ToPropertyKey(property), descObj);
+        if (!TypeConverter.ToBoolean(result))
         {
             return false;
         }
 
-        var targetDesc = _target.GetOwnProperty(property);
-        var extensibleTarget = _target.Extensible;
+        ValidateDefinePropertyTrapResult(target, property, desc);
+        return true;
+    }
+
+    private void ValidateDefinePropertyTrapResult(ObjectInstance target, JsValue property, PropertyDescriptor desc)
+    {
+        var targetDesc = target.GetOwnProperty(property);
+        var extensibleTarget = target.Extensible;
         var settingConfigFalse = desc.ConfigurableSet && !desc.Configurable;
 
         if (targetDesc == PropertyDescriptor.Undefined)
@@ -400,8 +443,6 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
                 }
             }
         }
-
-        return true;
     }
 
     private static bool IsCompatiblePropertyDescriptor(bool extensible, PropertyDescriptor desc, PropertyDescriptor current)
@@ -414,31 +455,37 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     public override bool HasProperty(JsValue property)
     {
-        if (!TryCallHandler(TrapHas, [_target, TypeConverter.ToPropertyKey(property)], out var jsValue))
+        var trap = GetTrap(TrapHas);
+        var target = _target;
+        if (trap is null)
         {
-            return _target.HasProperty(property);
+            return target.HasProperty(property);
         }
 
-        var trapResult = TypeConverter.ToBoolean(jsValue);
-
+        var trapResult = TypeConverter.ToBoolean(CallTrap(trap, target, TypeConverter.ToPropertyKey(property)));
         if (!trapResult)
         {
-            var targetDesc = _target.GetOwnProperty(property);
-            if (targetDesc != PropertyDescriptor.Undefined)
-            {
-                if (!targetDesc.Configurable)
-                {
-                    Throw.TypeError(_engine.Realm);
-                }
-
-                if (!_target.Extensible)
-                {
-                    Throw.TypeError(_engine.Realm);
-                }
-            }
+            ValidateHasTrapResult(target, property);
         }
 
         return trapResult;
+    }
+
+    private void ValidateHasTrapResult(ObjectInstance target, JsValue property)
+    {
+        var targetDesc = target.GetOwnProperty(property);
+        if (targetDesc != PropertyDescriptor.Undefined)
+        {
+            if (!targetDesc.Configurable)
+            {
+                Throw.TypeError(_engine.Realm);
+            }
+
+            if (!target.Extensible)
+            {
+                Throw.TypeError(_engine.Realm);
+            }
+        }
     }
 
     /// <summary>
@@ -446,23 +493,29 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     public override bool Delete(JsValue property)
     {
-        if (!TryCallHandler(TrapDeleteProperty, [_target, TypeConverter.ToPropertyKey(property)], out var result))
+        var trap = GetTrap(TrapDeleteProperty);
+        var target = _target;
+        if (trap is null)
         {
-            return _target.Delete(property);
+            return target.Delete(property);
         }
 
-        var booleanTrapResult = TypeConverter.ToBoolean(result);
-
-        if (!booleanTrapResult)
+        if (!TypeConverter.ToBoolean(CallTrap(trap, target, TypeConverter.ToPropertyKey(property))))
         {
             return false;
         }
 
-        var targetDesc = _target.GetOwnProperty(property);
+        ValidateDeleteTrapResult(target, property);
+        return true;
+    }
+
+    private void ValidateDeleteTrapResult(ObjectInstance target, JsValue property)
+    {
+        var targetDesc = target.GetOwnProperty(property);
 
         if (targetDesc == PropertyDescriptor.Undefined)
         {
-            return true;
+            return;
         }
 
         if (!targetDesc.Configurable)
@@ -470,12 +523,10 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             Throw.TypeError(_engine.Realm, $"'deleteProperty' on proxy: trap returned truish for property '{property}' which is non-configurable in the proxy target");
         }
 
-        if (!_target.Extensible)
+        if (!target.Extensible)
         {
             Throw.TypeError(_engine.Realm);
         }
-
-        return true;
     }
 
     /// <summary>
@@ -483,14 +534,15 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     public override bool PreventExtensions()
     {
-        if (!TryCallHandler(TrapPreventExtensions, [_target], out var result))
+        var trap = GetTrap(TrapPreventExtensions);
+        var target = _target;
+        if (trap is null)
         {
-            return _target.PreventExtensions();
+            return target.PreventExtensions();
         }
 
-        var success = TypeConverter.ToBoolean(result);
-
-        if (success && _target.Extensible)
+        var success = TypeConverter.ToBoolean(CallTrap(trap, target));
+        if (success && target.Extensible)
         {
             Throw.TypeError(_engine.Realm);
         }
@@ -505,17 +557,20 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     {
         get
         {
-            if (!TryCallHandler(TrapIsExtensible, [_target], out var result))
+            var trap = GetTrap(TrapIsExtensible);
+            var target = _target;
+            if (trap is null)
             {
-                return _target.Extensible;
+                return target.Extensible;
             }
 
-            var booleanTrapResult = TypeConverter.ToBoolean(result);
-            var targetResult = _target.Extensible;
+            var booleanTrapResult = TypeConverter.ToBoolean(CallTrap(trap, target));
+            var targetResult = target.Extensible;
             if (booleanTrapResult != targetResult)
             {
                 Throw.TypeError(_engine.Realm);
             }
+
             return booleanTrapResult;
         }
     }
@@ -525,11 +580,14 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     protected internal override ObjectInstance? GetPrototypeOf()
     {
-        if (!TryCallHandler(TrapGetProtoTypeOf, [_target], out var handlerProto))
+        var trap = GetTrap(TrapGetProtoTypeOf);
+        var target = _target;
+        if (trap is null)
         {
-            return _target.Prototype;
+            return target.Prototype;
         }
 
+        var handlerProto = CallTrap(trap, target);
         if (!handlerProto.IsObject() && !handlerProto.IsNull())
         {
             Throw.TypeError(_engine.Realm, "'getPrototypeOf' on proxy: trap returned neither object nor null");
@@ -537,12 +595,12 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
 
         var proto = handlerProto.IsNull() ? null : (ObjectInstance) handlerProto;
 
-        if (_target.Extensible)
+        if (target.Extensible)
         {
             return proto;
         }
 
-        if (!ReferenceEquals(proto, _target.Prototype))
+        if (!ReferenceEquals(proto, target.Prototype))
         {
             Throw.TypeError(_engine.Realm);
         }
@@ -555,26 +613,27 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     internal override bool SetPrototypeOf(JsValue value)
     {
-        if (!TryCallHandler(TrapSetProtoTypeOf, [_target, value], out var result))
+        var trap = GetTrap(TrapSetProtoTypeOf);
+        var target = _target;
+        if (trap is null)
         {
-            return _target.SetPrototypeOf(value);
+            return target.SetPrototypeOf(value);
         }
 
-        var success = TypeConverter.ToBoolean(result);
-
+        var success = TypeConverter.ToBoolean(CallTrap(trap, target, value));
         if (!success)
         {
             return false;
         }
 
-        if (_target.Extensible)
+        if (target.Extensible)
         {
             return true;
         }
 
         // callers have validated that value is either an object or null
         var proto = value.IsNull() ? null : value as ObjectInstance;
-        if (!ReferenceEquals(proto, _target.Prototype))
+        if (!ReferenceEquals(proto, target.Prototype))
         {
             Throw.TypeError(_engine.Realm);
         }
@@ -584,38 +643,55 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
 
     internal override bool IsCallable { get; }
 
-    private bool TryCallHandler(JsValue propertyName, JsCallArguments arguments, out JsValue result)
+    /// <summary>
+    /// Shared trap fetch: revocation check followed by GetMethod(handler, trapName). Returns null
+    /// when the trap is absent (caller forwards to the target). The fetch is spec-observable and
+    /// must happen fresh on every operation - the handler may be a proxy itself or use getters,
+    /// and traps may be added or removed between operations, so the result must never be cached.
+    /// https://tc39.es/ecma262/#sec-getmethod
+    /// </summary>
+    private ICallable? GetTrap(JsString trapName)
     {
-        AssertNotRevoked(propertyName);
+        AssertNotRevoked(trapName);
 
-        result = Undefined;
-        var handlerFunction = _handler!.Get(propertyName);
-        if (!handlerFunction.IsNullOrUndefined())
+        var handlerFunction = _handler!.Get(trapName);
+        if (handlerFunction.IsNullOrUndefined())
         {
-            var callable = handlerFunction as ICallable;
-            if (callable is null)
-            {
-                Throw.TypeError(_engine.Realm, $"{_handler} returned for property '{propertyName}' of object '{_target}' is not a function");
-            }
-
-            result = callable.Call(_handler, arguments);
-            return true;
+            return null;
         }
 
-        return false;
+        var callable = handlerFunction as ICallable;
+        if (callable is null)
+        {
+            Throw.TypeError(_engine.Realm, $"{_handler} returned for property '{trapName}' of object '{_target}' is not a function");
+        }
+
+        return callable;
+    }
+
+    private JsValue CallTrap(ICallable trap, JsValue arg0)
+    {
+        return trap.Call(_handler!, [arg0]);
+    }
+
+    private JsValue CallTrap(ICallable trap, JsValue arg0, JsValue arg1)
+    {
+        return trap.Call(_handler!, [arg0, arg1]);
+    }
+
+    private JsValue CallTrap(ICallable trap, JsValue arg0, JsValue arg1, JsValue arg2)
+    {
+        return trap.Call(_handler!, [arg0, arg1, arg2]);
+    }
+
+    private JsValue CallTrap(ICallable trap, JsValue arg0, JsValue arg1, JsValue arg2, JsValue arg3)
+    {
+        return trap.Call(_handler!, [arg0, arg1, arg2, arg3]);
     }
 
     private void AssertNotRevoked(JsValue key)
     {
         if (_handler is null)
-        {
-            Throw.TypeError(_engine.Realm, $"Cannot perform '{key}' on a proxy that has been revoked");
-        }
-    }
-
-    private void AssertTargetNotRevoked(JsValue key)
-    {
-        if (_target is null)
         {
             Throw.TypeError(_engine.Realm, $"Cannot perform '{key}' on a proxy that has been revoked");
         }
