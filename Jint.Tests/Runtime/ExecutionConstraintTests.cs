@@ -114,6 +114,28 @@ public class ExecutionConstraintTests
     }
 
     [Fact]
+    public void ShouldThrowMemoryLimitExceededInsideFunctionLocalTightLoop()
+    {
+        // Memory limit is amortized too and must interrupt an allocating tight-lane loop.
+        var engine = new Engine(cfg => cfg.LimitMemory(2_000_000));
+        Assert.Throws<MemoryLimitExceededException>(
+            () => engine.Evaluate("function f() { var s = ''; for (var i = 0; i < 1; i += 0) { s += 'aaaaaaaaaaaaaaaa'; } return s; } f();")
+        );
+    }
+
+    [Fact]
+    public void TimeoutConstraintDoesNotChangeFunctionLocalLoopResults()
+    {
+        // With only amortized constraints registered the tight for-body lane stays armed;
+        // results must be identical to an unconstrained engine's.
+        const string script = "function f() { var s = 0; for (var i = 0; i < 100000; i++) { s += 2; } return s; } f();";
+        var unconstrained = new Engine().Evaluate(script).AsNumber();
+        var constrained = new Engine(cfg => cfg.TimeoutInterval(TimeSpan.FromSeconds(30))).Evaluate(script).AsNumber();
+        Assert.Equal(unconstrained, constrained);
+        Assert.Equal(200_000, constrained);
+    }
+
+    [Fact]
     public void ShouldThrowExecutionCanceled()
     {
         Assert.Throws<ExecutionCanceledException>(
