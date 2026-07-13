@@ -8,13 +8,26 @@ namespace Jint.Runtime.Interpreter;
 /// </summary>
 internal sealed class EvaluationContext
 {
-    private readonly bool _shouldRunBeforeExecuteStatementChecks;
+    /// <summary>
+    /// How many statements may execute between checks of the amortized constraints (see
+    /// Engine.Constraints.cs for the partition rationale). Small enough that timeout /
+    /// cancellation / memory-limit detection latency stays far below anything observable at
+    /// the granularity those constraints operate on, large enough that the per-statement cost
+    /// collapses to a countdown decrement and branch.
+    /// </summary>
+    internal const int AmortizedConstraintCheckInterval = 64;
+
+    private readonly bool _shouldRunPerStatementChecks;
+    private readonly bool _hasAmortizedConstraints;
+    private int _amortizedConstraintCountdown;
 
     public EvaluationContext(Engine engine)
     {
         Engine = engine;
         OperatorOverloadingAllowed = engine.Options.Interop.AllowOperatorOverloading;
-        _shouldRunBeforeExecuteStatementChecks = engine._constraints.Length > 0 || engine._isDebugMode;
+        _shouldRunPerStatementChecks = engine._exactConstraints.Length > 0 || engine._isDebugMode;
+        _hasAmortizedConstraints = engine._amortizedConstraints.Length > 0;
+        _amortizedConstraintCountdown = AmortizedConstraintCheckInterval;
     }
 
     // for fast evaluation checks only
@@ -22,7 +35,8 @@ internal sealed class EvaluationContext
     {
         Engine = null!;
         OperatorOverloadingAllowed = false;
-        _shouldRunBeforeExecuteStatementChecks = false;
+        _shouldRunPerStatementChecks = false;
+        _hasAmortizedConstraints = false;
     }
 
     public readonly Engine Engine;
@@ -32,7 +46,7 @@ internal sealed class EvaluationContext
     /// Frozen per context (constraints or debug mode at creation); statement fast paths that
     /// skip <see cref="RunBeforeExecuteStatementChecks"/> entirely must be gated on this.
     /// </summary>
-    internal bool ShouldRunBeforeExecuteStatementChecks => _shouldRunBeforeExecuteStatementChecks;
+    internal bool ShouldRunBeforeExecuteStatementChecks => _shouldRunPerStatementChecks || _hasAmortizedConstraints;
 
     /// <summary>
     /// Returns true if the generator is suspended (yielded) or a return was requested.
@@ -78,9 +92,28 @@ internal sealed class EvaluationContext
 
     public void RunBeforeExecuteStatementChecks(StatementOrExpression statement)
     {
-        if (_shouldRunBeforeExecuteStatementChecks)
+        if (_shouldRunPerStatementChecks)
         {
-            Engine.RunBeforeExecuteStatementChecks(statement);
+            Engine.RunPerStatementChecks(statement);
+        }
+
+        RunAmortizedConstraintChecks();
+    }
+
+    /// <summary>
+    /// The amortized slice of the before-statement checks: with only observation-only constraints
+    /// registered (e.g. a timeout — the common embedder configuration) this is the whole
+    /// per-statement cost, a countdown decrement and branch. The countdown is per-context state,
+    /// so detection latency stays bounded at <see cref="AmortizedConstraintCheckInterval"/>
+    /// statements regardless of which call sites drive it.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void RunAmortizedConstraintChecks()
+    {
+        if (_hasAmortizedConstraints && --_amortizedConstraintCountdown == 0)
+        {
+            _amortizedConstraintCountdown = AmortizedConstraintCheckInterval;
+            Engine.CheckAmortizedConstraints();
         }
     }
 
