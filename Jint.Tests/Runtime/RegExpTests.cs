@@ -310,6 +310,116 @@ public class RegExpTests
         Assert.True(result);
     }
 
+    // Engine routing tests for RegExpConstructor.NeedCustomEngine: .NET Regex is preferred
+    // for performance whenever it can reproduce ECMAScript semantics, the custom
+    // (QuickJS-port) engine is the fallback. A quantified group only needs the custom
+    // engine when its body contains a capturing group or lookaround assertion, or when the
+    // group itself is capturing and its body can match the empty string — .NET retains
+    // captures from earlier iterations and records empty-iteration captures, whereas
+    // ECMAScript clears captures per iteration and rejects empty iterations
+    // (https://tc39.es/ecma262/#sec-runtime-semantics-repeatmatcher-abstract-operation).
+
+    [Theory]
+    // string-tagcloud.js parseJSON patterns (hot in benchmarks)
+    [InlineData(@"""[^""\\\n\r]*""|true|false|null|-?\d+(?:\.\d*)?(:?[eE][+\-]?\d+)?", "g")]
+    [InlineData(@"(?:^|:|,)(?:\s*\[)+", "g")]
+    // string-unpack-code.js pattern
+    [InlineData(@"\b\w+\b", "g")]
+    // quantified non-capturing groups without captures/lookarounds are .NET-safe
+    [InlineData(@"(?:ab)+", "")]
+    [InlineData(@"(?:a*)+", "")]
+    [InlineData(@"(?:a|)+b", "")]
+    // quantified capturing groups whose body cannot match the empty string are .NET-safe
+    [InlineData(@"(a+)+", "")]
+    [InlineData(@"((?:a|b)c)*", "")]
+    [InlineData(@"(:?[eE][+\-]?\d+)?", "")]
+    public void UsesDotNetRegexWhenPatternIsTranslatable(string pattern, string flags)
+    {
+        var engine = new Engine();
+        var regExp = (JsRegExp) engine.Realm.Intrinsics.RegExp.Construct([pattern, flags]);
+
+        Assert.True(regExp.UsesDotNetEngine);
+    }
+
+    [Theory]
+    // capturing group inside a quantified group: .NET retains captures across iterations
+    [InlineData(@"((a)|b)+", "")]
+    [InlineData(@"(?:(a)|b)+", "")]
+    // quantified capturing group whose body can match the empty string: .NET records empty captures
+    [InlineData(@"(a*)*", "")]
+    [InlineData(@"(a|)*", "")]
+    [InlineData(@"(\b)*", "")]
+    [InlineData(@"(a{0,2})+", "")]
+    [InlineData(@"((?:a*))*", "")]
+    // quantified lookaround assertions
+    [InlineData(@"(?=(a))+", "")]
+    [InlineData(@"(?:(?=a).)+", "")]
+    // forward backreference
+    [InlineData(@"\1(a)", "")]
+    // unicode modes and case-insensitive matching of non-ASCII content
+    [InlineData("a", "u")]
+    [InlineData("a", "v")]
+    [InlineData("ä", "i")]
+    public void UsesCustomEngineWhenDotNetSemanticsDiverge(string pattern, string flags)
+    {
+        var engine = new Engine();
+        var regExp = (JsRegExp) engine.Realm.Intrinsics.RegExp.Construct([pattern, flags]);
+
+        Assert.False(regExp.UsesDotNetEngine);
+    }
+
+    [Fact]
+    public void QuantifiedGroupCapturesAreClearedOnEachIteration()
+    {
+        var engine = new Engine();
+
+        // the last iteration matches 'b', so the inner capture must be undefined
+        Assert.Equal("[\"ab\",\"b\",null]", engine.Evaluate("JSON.stringify(/((a)|b)+/.exec('ab'))").AsString());
+        Assert.Equal("[\"ab\",null]", engine.Evaluate("JSON.stringify(/(?:(a)|b)+/.exec('ab'))").AsString());
+    }
+
+    [Fact]
+    public void QuantifiedCapturingGroupRejectsEmptyIterations()
+    {
+        var engine = new Engine();
+
+        // an iteration matching the empty string fails per RepeatMatcher, so the capture
+        // never participates and must not report an empty string
+        Assert.Equal("[\"\",null]", engine.Evaluate("JSON.stringify(/(a*)*/.exec('b'))").AsString());
+        Assert.Equal("[\"a\",\"a\"]", engine.Evaluate("JSON.stringify(/(a*)*/.exec('ab'))").AsString());
+        Assert.Equal("[\"\",null]", engine.Evaluate("JSON.stringify(/(a|)*/.exec('b'))").AsString());
+        Assert.Equal("[\"\",null]", engine.Evaluate("JSON.stringify(/(\\b)*/.exec('a'))").AsString());
+    }
+
+    [Theory]
+    // without 'u' these route to .NET Regex, with 'u' to the custom engine; results must agree
+    [InlineData("")]
+    [InlineData("u")]
+    public void QuantifiedNonCapturingGroupBehavesTheSameOnBothEngines(string flags)
+    {
+        var engine = new Engine();
+
+        Assert.Equal("[\":  [[\",\",  [\"]", engine.Evaluate($"JSON.stringify('a:  [[x,  [y'.match(/(?:^|:|,)(?:\\s*\\[)+/g{flags}))").AsString());
+        Assert.Equal("[\"12.5e3\",\"7\",\"2E-3\"]", engine.Evaluate($"JSON.stringify('12.5e3 7 2E-3'.match(/-?\\d+(?:\\.\\d*)?(:?[eE][+\\-]?\\d+)?/g{flags}))").AsString());
+        Assert.Equal("[\"aa\",\"a\"]", engine.Evaluate($"JSON.stringify('aabxa'.match(/(?:a|)+/g{flags}).filter(function (s) {{ return s !== ''; }}))").AsString());
+    }
+
+    [Fact]
+    public void TagCloudJsonValidationPipelineWorks()
+    {
+        // the json2.js-style parseJSON validation from the string-tagcloud benchmark;
+        // both hot patterns route to .NET Regex and must produce spec-identical results
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var text = '[{"tag":"x","popularity":123},{"tag":"y","popularity":-1.5e+3,"ok":true,"nil":null}]';
+            /^[\],:{}\s]*$/.test(text.replace(/\\./g, '@').
+                replace(/"[^"\\\n\r]*"|true|false|null|-?\d+(?:\.\d*)?(:?[eE][+\-]?\d+)?/g, ']').
+                replace(/(?:^|:|,)(?:\s*\[)+/g, ''))
+            """).AsBoolean();
+
+        Assert.True(result);
+    }
+
     // Regression tests for https://github.com/sebastienros/jint/issues/2454
     //
     // The TestRegex pattern triggers Jint's custom (QuickJS-port) regex engine via
