@@ -537,17 +537,19 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             Throw.TypeError(_engine.Realm, "'getPrototypeOf' on proxy: trap returned neither object nor null");
         }
 
+        var proto = handlerProto.IsNull() ? null : (ObjectInstance) handlerProto;
+
         if (_target.Extensible)
         {
-            return (ObjectInstance) handlerProto;
+            return proto;
         }
 
-        if (!ReferenceEquals(handlerProto, _target.Prototype))
+        if (!ReferenceEquals(proto, _target.Prototype))
         {
             Throw.TypeError(_engine.Realm);
         }
 
-        return (ObjectInstance) handlerProto;
+        return proto;
     }
 
     /// <summary>
@@ -572,7 +574,9 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             return true;
         }
 
-        if (!ReferenceEquals(value, _target.Prototype))
+        // callers have validated that value is either an object or null
+        var proto = value.IsNull() ? null : value as ObjectInstance;
+        if (!ReferenceEquals(proto, _target.Prototype))
         {
             Throw.TypeError(_engine.Realm);
         }
