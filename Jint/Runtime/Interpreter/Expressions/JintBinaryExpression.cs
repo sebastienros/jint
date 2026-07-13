@@ -269,6 +269,137 @@ internal abstract class JintBinaryExpression : JintExpression
     }
 
     /// <summary>
+    /// Unboxed operand lane for the arithmetic operators (+ - * /) over identifier and
+    /// numeric-constant leaf shapes (`a * b`, `x - 1`, `2 * x`). Both operands are read as raw
+    /// doubles through the slot/global caches — pure reads, so a decline (non-number binding,
+    /// TDZ, slot miss) falls into the generic path which replays left-then-right evaluation with
+    /// no observable double effect. For two runtime-proven Numbers the spec operator degenerates
+    /// to the Number:: op, which IEEE double arithmetic implements exactly (including the
+    /// sign-of-zero rules), and JsNumber.Create normalizes integral results to the same
+    /// Integer-typed instances the boxed arms produce, so downstream integer fast paths stay
+    /// armed. Embedded directly as a struct in Minus/Times/Divide (almost always numeric —
+    /// same precedent as the comparison classes' embedded lane); Plus wraps it in
+    /// <see cref="BoxedNumericOperandLane"/> because string-concat Plus nodes are numerous and
+    /// should pay one reference field, not an embedded slot-cache pair, for a lane they never
+    /// arm. The embedded form matters on hit-heavy loops: a separate lane object costs an extra
+    /// dereference (cache line) per evaluation.
+    /// </summary>
+    private protected struct NumericOperandLane
+    {
+        private JintIdentifierExpression? _leftIdentifier;   // null => _leftConstant
+        private JintIdentifierExpression? _rightIdentifier;  // null => _rightConstant
+        private double _leftConstant;
+        private double _rightConstant;
+        private bool _armed;
+        private SlotLocationCache _leftSlotCache;
+        private SlotLocationCache _rightSlotCache;
+
+        public readonly bool IsArmed => _armed;
+
+        public void Initialize(JintExpression left, JintExpression right)
+        {
+            var leftIdentifier = left as JintIdentifierExpression;
+            var rightIdentifier = right as JintIdentifierExpression;
+
+            // constant-op-constant is folded before these nodes are built; requiring at least one
+            // identifier keeps the lane off shapes other machinery owns
+            if (leftIdentifier is null && rightIdentifier is null)
+            {
+                return;
+            }
+
+            double leftConstant = 0;
+            if (leftIdentifier is null)
+            {
+                if (left is not JintConstantExpression { Value: JsNumber leftNumber })
+                {
+                    return;
+                }
+                leftConstant = leftNumber._value;
+            }
+
+            double rightConstant = 0;
+            if (rightIdentifier is null)
+            {
+                if (right is not JintConstantExpression { Value: JsNumber rightNumber })
+                {
+                    return;
+                }
+                rightConstant = rightNumber._value;
+            }
+
+            _leftIdentifier = leftIdentifier;
+            _leftConstant = leftConstant;
+            _rightIdentifier = rightIdentifier;
+            _rightConstant = rightConstant;
+            _armed = true;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryGetOperands(EvaluationContext context, out double left, out double right)
+        {
+            left = _leftConstant;
+            right = _rightConstant;
+
+            if (!_armed || context.OperatorOverloadingAllowed)
+            {
+                return false;
+            }
+
+            var engine = context.Engine;
+            if (engine.ExecutionContext.Suspendable is not null)
+            {
+                // generator/async resume replays a saved left operand through the suspend
+                // protocol; live slot re-reads could observe a different value
+                return false;
+            }
+
+            var env = engine.ExecutionContext.LexicalEnvironment;
+
+            var leftIdentifier = _leftIdentifier;
+            if (leftIdentifier is not null
+                && (!_leftSlotCache.TryResolve(engine, env, leftIdentifier.Identifier, out var leftEnvironment, out var leftSlotIndex)
+                    || !leftEnvironment.TryGetNumberSlotForRead(leftSlotIndex, out left)))
+            {
+                if (leftIdentifier._cachedGlobalEnv is null || !TryReadGlobalNumber(leftIdentifier, engine, env, out left))
+                {
+                    return false;
+                }
+            }
+
+            var rightIdentifier = _rightIdentifier;
+            if (rightIdentifier is not null
+                && (!_rightSlotCache.TryResolve(engine, env, rightIdentifier.Identifier, out var rightEnvironment, out var rightSlotIndex)
+                    || !rightEnvironment.TryGetNumberSlotForRead(rightSlotIndex, out right)))
+            {
+                if (rightIdentifier._cachedGlobalEnv is null || !TryReadGlobalNumber(rightIdentifier, engine, env, out right))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Heap-allocated <see cref="NumericOperandLane"/> for PlusBinaryExpression: allocated only
+    /// when the operand shape matches at build time, so the many string-concat Plus nodes carry
+    /// a single null reference field instead of the embedded lane struct.
+    /// </summary>
+    private protected sealed class BoxedNumericOperandLane
+    {
+        public NumericOperandLane Lane;
+
+        public static BoxedNumericOperandLane? TryBuild(JintExpression left, JintExpression right)
+        {
+            var lane = new NumericOperandLane();
+            lane.Initialize(left, right);
+            return lane.IsArmed ? new BoxedNumericOperandLane { Lane = lane } : null;
+        }
+    }
+
+    /// <summary>
     /// Whole-tree lane for sum-of-products arithmetic over pure-readable numeric leaves —
     /// `M1[i][0]*M2[0][j] + M1[i][1]*M2[1][j] + …`, the dromaeo-3d-cube MMulti/VMulti kernel shape,
     /// which otherwise boxes a transient JsNumber per binary node. The whole tree is computed on
@@ -1201,12 +1332,20 @@ internal abstract class JintBinaryExpression : JintExpression
 
     private sealed class PlusBinaryExpression : JintBinaryExpression
     {
+        private readonly BoxedNumericOperandLane? _numericLane;
+
         public PlusBinaryExpression(NonLogicalBinaryExpression expression) : base(expression)
         {
+            _numericLane = BoxedNumericOperandLane.TryBuild(_left, _right);
         }
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
+            if (_numericLane is not null && _numericLane.Lane.TryGetOperands(context, out var unboxedLeft, out var unboxedRight))
+            {
+                return JsNumber.Create(unboxedLeft + unboxedRight);
+            }
+
             if (!TryEvaluateOperands(context, out var left, out var right))
             {
                 return JsValue.Undefined;
@@ -1335,12 +1474,20 @@ internal abstract class JintBinaryExpression : JintExpression
 
     private sealed class MinusBinaryExpression : JintBinaryExpression
     {
+        private NumericOperandLane _numericLane;
+
         public MinusBinaryExpression(NonLogicalBinaryExpression expression) : base(expression)
         {
+            _numericLane.Initialize(_left, _right);
         }
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
+            if (_numericLane.TryGetOperands(context, out var unboxedLeft, out var unboxedRight))
+            {
+                return JsNumber.Create(unboxedLeft - unboxedRight);
+            }
+
             if (!TryEvaluateOperands(context, out var left, out var right))
             {
                 return JsValue.Undefined;
@@ -1382,12 +1529,22 @@ internal abstract class JintBinaryExpression : JintExpression
 
     private sealed class TimesBinaryExpression : JintBinaryExpression
     {
+        private NumericOperandLane _numericLane;
+
         public TimesBinaryExpression(NonLogicalBinaryExpression expression) : base(expression)
         {
+            _numericLane.Initialize(_left, _right);
         }
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
+            if (_numericLane.TryGetOperands(context, out var unboxedLeft, out var unboxedRight))
+            {
+                // raw-double multiply is Number::multiply bit for bit, including -0 for zero
+                // products of opposite signs
+                return JsNumber.Create(unboxedLeft * unboxedRight);
+            }
+
             if (!TryEvaluateOperands(context, out var left, out var right))
             {
                 return JsValue.Undefined;
@@ -1434,12 +1591,20 @@ internal abstract class JintBinaryExpression : JintExpression
 
     private sealed class DivideBinaryExpression : JintBinaryExpression
     {
+        private NumericOperandLane _numericLane;
+
         public DivideBinaryExpression(NonLogicalBinaryExpression expression) : base(expression)
         {
+            _numericLane.Initialize(_left, _right);
         }
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
+            if (_numericLane.TryGetOperands(context, out var unboxedLeft, out var unboxedRight))
+            {
+                return JsNumber.Create(unboxedLeft / unboxedRight);
+            }
+
             if (!TryEvaluateOperands(context, out var left, out var right))
             {
                 return JsValue.Undefined;

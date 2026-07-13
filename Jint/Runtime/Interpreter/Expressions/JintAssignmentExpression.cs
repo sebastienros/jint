@@ -633,14 +633,14 @@ internal sealed class JintAssignmentExpression : JintExpression
                 return false;
             }
 
-            // Multiplication is intentionally excluded: the boxed binary path computes 0 * negative as
-            // integers and yields +0, whereas raw-double multiplication yields the spec-correct -0, so a
-            // double-based fast path would change observable behaviour. Addition/subtraction/division/
-            // remainder produce identical results on both paths, keeping this a pure optimization.
+            // All five operators produce identical results on the raw-double and boxed paths:
+            // IEEE arithmetic is the spec algorithm, the boxed integer-multiply arm routes zero
+            // products through double math to preserve -0, and an unboxed slot stores -0 exactly.
             switch (binary.Operator)
             {
                 case Operator.Addition:
                 case Operator.Subtraction:
+                case Operator.Multiplication:
                 case Operator.Division:
                 case Operator.Remainder:
                     return IsIdentifierOrNumericLiteral(binary.Left) && IsIdentifierOrNumericLiteral(binary.Right);
@@ -681,6 +681,7 @@ internal sealed class JintAssignmentExpression : JintExpression
             {
                 case Operator.Addition:
                 case Operator.Subtraction:
+                case Operator.Multiplication:
                 case Operator.Division:
                 case Operator.Remainder:
                     break;
@@ -875,6 +876,11 @@ internal sealed class JintAssignmentExpression : JintExpression
                     break;
                 case Operator.Subtraction:
                     result = left - right;
+                    break;
+                case Operator.Multiplication:
+                    // IEEE 754 multiplication is Number::multiply, including -0 for zero products
+                    // of opposite signs; the unboxed slot stores -0 exactly
+                    result = left * right;
                     break;
                 case Operator.Division:
                     // IEEE 754 division matches the ECMAScript algorithm for all special cases

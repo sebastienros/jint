@@ -250,11 +250,20 @@ public class NumberTests
                 r.push(Object.is(acc2, -0));
                 var acc3 = 0; acc3 *= 5;
                 r.push(Object.is(acc3, 0));
+                // discard-mode numeric-assignment shape (x = a * b as a statement, LHS already
+                // a number so the unboxed-slot store engages) and a first-assignment variant
+                // that exercises the value-producing binary lane instead
+                var prod = 1; prod = zero * negFive;
+                r.push(Object.is(prod, -0));
+                var prod2 = 1; prod2 = negFive * zero;
+                r.push(Object.is(prod2, -0));
+                var prod3; prod3 = zero * five;
+                r.push(Object.is(prod3, 0));
                 return r.join(',');
             })()
             """).AsString();
 
-        Assert.Equal("true,true,true,true,true,true,true,true,true,true,true", result);
+        Assert.Equal("true,true,true,true,true,true,true,true,true,true,true,true,true,true", result);
     }
 
     // The following tests guard the primitive-receiver method resolution that skips allocating a
