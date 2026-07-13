@@ -19,6 +19,7 @@ internal sealed class JintMemberExpression : JintExpression
     private readonly JsValue? _determinedProperty;
     private readonly bool _objectExpressionCanShortCircuit;
     private readonly bool _computedReadEligible;
+    private readonly bool _objectReadKeepsRawEnvironmentWalk;
     private ObjectInstance? _cachedReadObject;
     private PropertyDescriptor? _cachedReadDescriptor;
     private uint _cachedReadVersion;
@@ -50,6 +51,7 @@ internal sealed class JintMemberExpression : JintExpression
         _memberExpression = (MemberExpression) _expression;
         _objectExpression = Build(_memberExpression.Object);
         _objectExpressionCanShortCircuit = CanShortCircuit(_memberExpression.Object);
+        _objectReadKeepsRawEnvironmentWalk = _objectExpression is JintIdentifierExpression { HasEvalOrArguments: true };
 
         // Computed reads like a[i] / a[i][j] / a[0] (but not super[i] or optional a?.[i]) can take a
         // dense-array fast path in GetValue that resolves base+index without a Reference rent.
@@ -186,15 +188,27 @@ internal sealed class JintMemberExpression : JintExpression
         {
             if (_objectExpression is JintIdentifierExpression identifierExpression)
             {
-                var identifier = identifierExpression.Identifier;
-                baseReferenceName = identifier.Key.Name;
-                var env = engine.ExecutionContext.LexicalEnvironment;
-                JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
-                    env,
-                    identifier,
-                    strict,
-                    out _,
-                    out baseValue);
+                baseReferenceName = identifierExpression.Identifier.Key.Name;
+                if (_objectReadKeepsRawEnvironmentWalk)
+                {
+                    // `arguments[i]` / `eval.x`: GetValue would run MaterializeIfArguments and
+                    // permanently opt the frame's JsArguments out of pooling; the raw walk
+                    // returns the live object and mapped-index reads stay on the parameter map.
+                    var env = engine.ExecutionContext.LexicalEnvironment;
+                    JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
+                        env,
+                        identifierExpression.Identifier,
+                        strict,
+                        out _,
+                        out baseValue);
+                }
+                else
+                {
+                    // Route through the identifier node's slot/global caches instead of walking
+                    // the environment chain on every evaluation; unresolvable and TDZ bases
+                    // throw the same ReferenceError the generic fallback would produce.
+                    baseValue = identifierExpression.GetValue(context);
+                }
             }
             else if (_objectExpression is JintThisExpression thisExpression)
             {
