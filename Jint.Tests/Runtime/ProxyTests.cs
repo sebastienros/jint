@@ -93,6 +93,29 @@ public class ProxyTests
     }
 
     [Fact]
+    public void ProxyInvariantViolationsHaveDescriptiveMessages()
+    {
+        _engine.Execute("""
+            var frozen = Object.freeze({ a: 1 });
+            var pHas = new Proxy(frozen, { has: () => false });
+            var pOwnKeys = new Proxy(frozen, { ownKeys: () => ['b'] });
+            var pPrevent = new Proxy({}, { preventExtensions: () => true });
+            """);
+
+        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("'a' in pHas"));
+        AssertJsTypeError(_engine, ex, "'has' on proxy: trap returned falsish for property 'a' which exists in the proxy target as non-configurable");
+
+        ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("Object.keys(pOwnKeys)"));
+        AssertJsTypeError(_engine, ex, "'ownKeys' on proxy: trap result did not include non-configurable property 'a' of the proxy target");
+
+        ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("Object.preventExtensions(pPrevent)"));
+        AssertJsTypeError(_engine, ex, "'preventExtensions' on proxy: trap returned truish but the proxy target is extensible");
+
+        ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("new Proxy({}, { get: 1 }).x"));
+        AssertJsTypeError(_engine, ex, "'get' trap of proxy handler is not a function");
+    }
+
+    [Fact]
     public void ProxyToStringUseTarget()
     {
         _engine.Execute(@"

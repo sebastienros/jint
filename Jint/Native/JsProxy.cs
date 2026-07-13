@@ -97,7 +97,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             var constructor = target as IConstructor;
             if (constructor is null)
             {
-                Throw.TypeError(_engine.Realm);
+                Throw.TypeError(_engine.Realm, "Proxy target is not a constructor");
             }
 
             return constructor.Construct(arguments, newTarget);
@@ -111,7 +111,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         var oi = result as ObjectInstance;
         if (oi is null)
         {
-            Throw.TypeError(_engine.Realm);
+            Throw.TypeError(_engine.Realm, $"'construct' on proxy: trap returned non-object ('{result}')");
         }
 
         return oi;
@@ -195,7 +195,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         {
             if (!uncheckedResultKeys.Add(key))
             {
-                Throw.TypeError(_engine.Realm);
+                Throw.TypeError(_engine.Realm, $"'ownKeys' on proxy: trap returned duplicate entries ('{key}')");
             }
             trapResult.Add(key);
         }
@@ -228,7 +228,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
                 var key = targetNonconfigurableKeys[i];
                 if (!uncheckedResultKeys.Remove(key))
                 {
-                    Throw.TypeError(_engine.Realm);
+                    Throw.TypeError(_engine.Realm, $"'ownKeys' on proxy: trap result did not include non-configurable property '{key}' of the proxy target");
                 }
             }
         }
@@ -245,14 +245,14 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
                 var key = targetConfigurableKeys[i];
                 if (!uncheckedResultKeys.Remove(key))
                 {
-                    Throw.TypeError(_engine.Realm);
+                    Throw.TypeError(_engine.Realm, $"'ownKeys' on proxy: trap result did not include property '{key}' of the non-extensible proxy target");
                 }
             }
         }
 
         if (uncheckedResultKeys.Count > 0)
         {
-            Throw.TypeError(_engine.Realm);
+            Throw.TypeError(_engine.Realm, "'ownKeys' on proxy: trap returned extra keys but proxy target is non-extensible");
         }
 
         return trapResult;
@@ -278,7 +278,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     {
         if (!trapResultObj.IsObject() && !trapResultObj.IsUndefined())
         {
-            Throw.TypeError(_engine.Realm);
+            Throw.TypeError(_engine.Realm, $"'getOwnPropertyDescriptor' on proxy: trap returned neither object nor undefined for property '{property}'");
         }
 
         var targetDesc = target.GetOwnProperty(property);
@@ -290,9 +290,14 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
                 return targetDesc;
             }
 
-            if (!targetDesc.Configurable || !target.Extensible)
+            if (!targetDesc.Configurable)
             {
-                Throw.TypeError(_engine.Realm);
+                Throw.TypeError(_engine.Realm, $"'getOwnPropertyDescriptor' on proxy: trap returned undefined for property '{property}' which is non-configurable in the proxy target");
+            }
+
+            if (!target.Extensible)
+            {
+                Throw.TypeError(_engine.Realm, $"'getOwnPropertyDescriptor' on proxy: trap returned undefined for property '{property}' which exists in the non-extensible proxy target");
             }
 
             return PropertyDescriptor.Undefined;
@@ -305,21 +310,21 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         var valid = IsCompatiblePropertyDescriptor(extensibleTarget, resultDesc, targetDesc);
         if (!valid)
         {
-            Throw.TypeError(_engine.Realm);
+            Throw.TypeError(_engine.Realm, $"'getOwnPropertyDescriptor' on proxy: trap returned descriptor for property '{property}' that is incompatible with the existing property in the proxy target");
         }
 
         if (!resultDesc.Configurable)
         {
             if (targetDesc == PropertyDescriptor.Undefined || targetDesc.Configurable)
             {
-                Throw.TypeError(_engine.Realm);
+                Throw.TypeError(_engine.Realm, $"'getOwnPropertyDescriptor' on proxy: trap reported non-configurability for property '{property}' which is either non-existent or configurable in the proxy target");
             }
 
             if (resultDesc.WritableSet && !resultDesc.Writable)
             {
                 if (targetDesc.Writable)
                 {
-                    Throw.TypeError(_engine.Realm);
+                    Throw.TypeError(_engine.Realm, $"'getOwnPropertyDescriptor' on proxy: trap reported non-configurable and writable: false for property '{property}' which is non-configurable and writable in the proxy target");
                 }
             }
         }
@@ -434,27 +439,31 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
 
         if (targetDesc == PropertyDescriptor.Undefined)
         {
-            if (!extensibleTarget || settingConfigFalse)
+            if (!extensibleTarget)
             {
-                Throw.TypeError(_engine.Realm);
+                Throw.TypeError(_engine.Realm, $"'defineProperty' on proxy: trap returned truish for adding property '{property}' to the non-extensible proxy target");
+            }
+            if (settingConfigFalse)
+            {
+                Throw.TypeError(_engine.Realm, $"'defineProperty' on proxy: trap returned truish for defining non-configurable property '{property}' which is non-existent in the proxy target");
             }
         }
         else
         {
             if (!IsCompatiblePropertyDescriptor(extensibleTarget, desc, targetDesc))
             {
-                Throw.TypeError(_engine.Realm);
+                Throw.TypeError(_engine.Realm, $"'defineProperty' on proxy: trap returned truish for adding property '{property}' that is incompatible with the existing property in the proxy target");
             }
             if (targetDesc.Configurable && settingConfigFalse)
             {
-                Throw.TypeError(_engine.Realm);
+                Throw.TypeError(_engine.Realm, $"'defineProperty' on proxy: trap returned truish for defining non-configurable property '{property}' which is configurable in the proxy target");
             }
 
             if (targetDesc.IsDataDescriptor() && !targetDesc.Configurable && targetDesc.Writable)
             {
                 if (desc.WritableSet && !desc.Writable)
                 {
-                    Throw.TypeError(_engine.Realm);
+                    Throw.TypeError(_engine.Realm, $"'defineProperty' on proxy: trap returned truish for defining non-writable property '{property}' which is writable in the proxy target");
                 }
             }
         }
@@ -493,12 +502,12 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         {
             if (!targetDesc.Configurable)
             {
-                Throw.TypeError(_engine.Realm);
+                Throw.TypeError(_engine.Realm, $"'has' on proxy: trap returned falsish for property '{property}' which exists in the proxy target as non-configurable");
             }
 
             if (!target.Extensible)
             {
-                Throw.TypeError(_engine.Realm);
+                Throw.TypeError(_engine.Realm, $"'has' on proxy: trap returned falsish for property '{property}' but the proxy target is not extensible");
             }
         }
     }
@@ -540,7 +549,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
 
         if (!target.Extensible)
         {
-            Throw.TypeError(_engine.Realm);
+            Throw.TypeError(_engine.Realm, $"'deleteProperty' on proxy: trap returned truish for property '{property}' but the proxy target is non-extensible");
         }
     }
 
@@ -559,7 +568,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         var success = TypeConverter.ToBoolean(CallTrap(trap, target));
         if (success && target.Extensible)
         {
-            Throw.TypeError(_engine.Realm);
+            Throw.TypeError(_engine.Realm, "'preventExtensions' on proxy: trap returned truish but the proxy target is extensible");
         }
 
         return success;
@@ -583,7 +592,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             var targetResult = target.Extensible;
             if (booleanTrapResult != targetResult)
             {
-                Throw.TypeError(_engine.Realm);
+                Throw.TypeError(_engine.Realm, $"'isExtensible' on proxy: trap result does not reflect extensibility of proxy target (which is '{(targetResult ? "true" : "false")}')");
             }
 
             return booleanTrapResult;
@@ -617,7 +626,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
 
         if (!ReferenceEquals(proto, target.Prototype))
         {
-            Throw.TypeError(_engine.Realm);
+            Throw.TypeError(_engine.Realm, "'getPrototypeOf' on proxy: proxy target is non-extensible but the trap did not return its actual prototype");
         }
 
         return proto;
@@ -650,7 +659,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         var proto = value.IsNull() ? null : value as ObjectInstance;
         if (!ReferenceEquals(proto, target.Prototype))
         {
-            Throw.TypeError(_engine.Realm);
+            Throw.TypeError(_engine.Realm, "'setPrototypeOf' on proxy: trap returned truish for setting a new prototype on the non-extensible proxy target");
         }
 
         return true;
@@ -678,7 +687,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         var callable = handlerFunction as ICallable;
         if (callable is null)
         {
-            Throw.TypeError(_engine.Realm, $"{_handler} returned for property '{trapName}' of object '{_target}' is not a function");
+            Throw.TypeError(_engine.Realm, $"'{trapName}' trap of proxy handler is not a function");
         }
 
         return callable;
