@@ -106,9 +106,14 @@ public sealed class JsNumber : JsValue, IEquatable<JsNumber>
     public static JsNumber Create(double value)
     {
         // we expect zero to be on the fast path of integer mostly
-        if (TypeConverter.IsIntegralNumber(value) && value is > long.MinValue and < long.MaxValue && !NumberInstance.IsNegativeZero(value))
+        // integral detection via the (long) round-trip instead of IsIntegralNumber: `value % 1`
+        // compiles to a native fmod call, which dominates this method on arithmetic-heavy
+        // workloads. NaN and ±Infinity saturate on the cast and fail the equality; the explicit
+        // range comparisons keep the exact long.MinValue/MaxValue boundary behavior of the old
+        // check (the saturated cast alone would admit the two boundary doubles).
+        var longValue = (long) value;
+        if (longValue == value && value is > long.MinValue and < long.MaxValue && !NumberInstance.IsNegativeZero(value))
         {
-            var longValue = (long) value;
             return longValue == -1 ? IntegerNegativeOne : Create(longValue);
         }
 
