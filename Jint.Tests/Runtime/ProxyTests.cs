@@ -205,6 +205,43 @@ public class ProxyTests
         Assert.True(_engine.Evaluate(Script).AsBoolean());
     }
 
+    // https://tc39.es/ecma262/#sec-proxycreate
+    // A proxy only has [[Construct]] if its target is a constructor at creation time;
+    // a handler "construct" trap cannot confer constructability.
+    [Fact]
+    public void ProxyWithNonConstructorTargetIsNotConstructor()
+    {
+        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("new (new Proxy(() => {}, { construct: () => ({}) }))()"));
+        Assert.Same(TypeErrorPrototype(_engine), ex.Error.AsObject().Prototype);
+    }
+
+    [Fact]
+    public void ProxyWithConstructorTargetUsesConstructTrap()
+    {
+        var result = _engine.Evaluate("new (new Proxy(function(){}, { construct: () => ({ x: 1 }) }))().x");
+        Assert.Equal(1, result.AsInteger());
+    }
+
+    [Fact]
+    public void ReflectConstructRequiresConstructorNewTarget()
+    {
+        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("Reflect.construct(function(){ return; }, [], new Proxy(() => {}, { construct: () => ({}) }))"));
+        Assert.Same(TypeErrorPrototype(_engine), ex.Error.AsObject().Prototype);
+    }
+
+    [Fact]
+    public void RevokedConstructorProxyKeepsTypeofFunctionButConstructThrowsRevokedError()
+    {
+        _engine.Execute("var r = Proxy.revocable(function(){}, {}); r.revoke();");
+
+        // typeof relies on the [[Call]] slot captured at creation, revocation does not remove it
+        Assert.Equal("function", _engine.Evaluate("typeof r.proxy").AsString());
+
+        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("new r.proxy()"));
+        Assert.Same(TypeErrorPrototype(_engine), ex.Error.AsObject().Prototype);
+        Assert.Contains("revoked", ex.Message);
+    }
+
     [Fact]
     public void ProxyHandlerGetDataPropertyShouldNotUseReferenceEquals()
     {
@@ -455,6 +492,68 @@ public class ProxyTests
             let p = new Proxy({}, { set: () => false });
             p.value = 42;
         """);
+    }
+
+    // https://tc39.es/ecma262/#sec-proxy-object-internal-methods-and-internal-slots-getprototypeof
+    [Fact]
+    public void ProxyHandlerGetPrototypeOfCanReturnNull()
+    {
+        Assert.True(_engine.Evaluate("Object.getPrototypeOf(new Proxy({}, { getPrototypeOf: () => null }))").IsNull());
+        Assert.True(_engine.Evaluate("Reflect.getPrototypeOf(new Proxy({}, { getPrototypeOf: () => null }))").IsNull());
+    }
+
+    [Fact]
+    public void ProxyHandlerGetPrototypeOfCanReturnNullForNonExtensibleTargetWithNullPrototype()
+    {
+        Assert.True(_engine.Evaluate("""
+            const t = Object.create(null);
+            Object.preventExtensions(t);
+            Object.getPrototypeOf(new Proxy(t, { getPrototypeOf: () => null }));
+        """).IsNull());
+    }
+
+    // https://tc39.es/ecma262/#sec-proxy-object-internal-methods-and-internal-slots-setprototypeof-v
+    [Fact]
+    public void ProxyHandlerSetPrototypeOfCanSetNullOnNonExtensibleTargetWithNullPrototype()
+    {
+        _engine.Execute("""
+            let t = Object.create(null);
+            Object.preventExtensions(t);
+        """);
+
+        Assert.True(_engine.Evaluate("let p1 = new Proxy(t, {}); Object.setPrototypeOf(p1, null) === p1").AsBoolean());
+        Assert.True(_engine.Evaluate("let p2 = new Proxy(t, { setPrototypeOf: () => true }); Object.setPrototypeOf(p2, null) === p2").AsBoolean());
+        Assert.True(_engine.Evaluate("Reflect.setPrototypeOf(new Proxy(t, {}), null)").AsBoolean());
+        Assert.True(_engine.Evaluate("Reflect.setPrototypeOf(new Proxy(t, { setPrototypeOf: () => true }), null)").AsBoolean());
+    }
+
+    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy/Proxy/getPrototypeOf#invariants
+    // If the target object is not extensible, the prototype reported
+    // by the trap must be the same as the target object's prototype.
+    [Fact]
+    public void ProxyHandlerGetPrototypeOfInvariantsNonExtensibleTargetDifferentPrototype()
+    {
+        _engine.Execute("""
+            let t = {};
+            Object.preventExtensions(t);
+            let p = new Proxy(t, { getPrototypeOf: () => ({}) });
+        """);
+        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("Object.getPrototypeOf(p)"));
+        Assert.Same(TypeErrorPrototype(_engine), ex.Error.AsObject().Prototype);
+    }
+
+    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy/Proxy/setPrototypeOf#invariants
+    // If the target object is not extensible, the prototype cannot be changed.
+    [Fact]
+    public void ProxyHandlerSetPrototypeOfInvariantsNonExtensibleTargetDifferentPrototype()
+    {
+        _engine.Execute("""
+            let t = {};
+            Object.preventExtensions(t);
+            let p = new Proxy(t, { setPrototypeOf: () => true });
+        """);
+        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("Object.setPrototypeOf(p, null)"));
+        Assert.Same(TypeErrorPrototype(_engine), ex.Error.AsObject().Prototype);
     }
 
     [Fact]
