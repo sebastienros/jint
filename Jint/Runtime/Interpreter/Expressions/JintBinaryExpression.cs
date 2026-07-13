@@ -277,32 +277,26 @@ internal abstract class JintBinaryExpression : JintExpression
     /// to the Number:: op, which IEEE double arithmetic implements exactly (including the
     /// sign-of-zero rules), and JsNumber.Create normalizes integral results to the same
     /// Integer-typed instances the boxed arms produce, so downstream integer fast paths stay
-    /// armed. Unlike the comparison/bitwise lane structs this is a nullable class: Plus is the
-    /// most numerous binary node and often string-typed, so non-matching nodes pay one reference
-    /// field instead of an embedded pair of slot caches.
+    /// armed. Embedded directly as a struct in Minus/Times/Divide (almost always numeric —
+    /// same precedent as the comparison classes' embedded lane); Plus wraps it in
+    /// <see cref="BoxedNumericOperandLane"/> because string-concat Plus nodes are numerous and
+    /// should pay one reference field, not an embedded slot-cache pair, for a lane they never
+    /// arm. The embedded form matters on hit-heavy loops: a separate lane object costs an extra
+    /// dereference (cache line) per evaluation.
     /// </summary>
-    private protected sealed class NumericOperandLane
+    private protected struct NumericOperandLane
     {
-        private readonly JintIdentifierExpression? _leftIdentifier;   // null => _leftConstant
-        private readonly JintIdentifierExpression? _rightIdentifier;  // null => _rightConstant
-        private readonly double _leftConstant;
-        private readonly double _rightConstant;
+        private JintIdentifierExpression? _leftIdentifier;   // null => _leftConstant
+        private JintIdentifierExpression? _rightIdentifier;  // null => _rightConstant
+        private double _leftConstant;
+        private double _rightConstant;
+        private bool _armed;
         private SlotLocationCache _leftSlotCache;
         private SlotLocationCache _rightSlotCache;
 
-        private NumericOperandLane(
-            JintIdentifierExpression? leftIdentifier,
-            double leftConstant,
-            JintIdentifierExpression? rightIdentifier,
-            double rightConstant)
-        {
-            _leftIdentifier = leftIdentifier;
-            _leftConstant = leftConstant;
-            _rightIdentifier = rightIdentifier;
-            _rightConstant = rightConstant;
-        }
+        public readonly bool IsArmed => _armed;
 
-        public static NumericOperandLane? TryBuild(JintExpression left, JintExpression right)
+        public void Initialize(JintExpression left, JintExpression right)
         {
             var leftIdentifier = left as JintIdentifierExpression;
             var rightIdentifier = right as JintIdentifierExpression;
@@ -311,7 +305,7 @@ internal abstract class JintBinaryExpression : JintExpression
             // identifier keeps the lane off shapes other machinery owns
             if (leftIdentifier is null && rightIdentifier is null)
             {
-                return null;
+                return;
             }
 
             double leftConstant = 0;
@@ -319,7 +313,7 @@ internal abstract class JintBinaryExpression : JintExpression
             {
                 if (left is not JintConstantExpression { Value: JsNumber leftNumber })
                 {
-                    return null;
+                    return;
                 }
                 leftConstant = leftNumber._value;
             }
@@ -329,12 +323,16 @@ internal abstract class JintBinaryExpression : JintExpression
             {
                 if (right is not JintConstantExpression { Value: JsNumber rightNumber })
                 {
-                    return null;
+                    return;
                 }
                 rightConstant = rightNumber._value;
             }
 
-            return new NumericOperandLane(leftIdentifier, leftConstant, rightIdentifier, rightConstant);
+            _leftIdentifier = leftIdentifier;
+            _leftConstant = leftConstant;
+            _rightIdentifier = rightIdentifier;
+            _rightConstant = rightConstant;
+            _armed = true;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -343,7 +341,7 @@ internal abstract class JintBinaryExpression : JintExpression
             left = _leftConstant;
             right = _rightConstant;
 
-            if (context.OperatorOverloadingAllowed)
+            if (!_armed || context.OperatorOverloadingAllowed)
             {
                 return false;
             }
@@ -381,6 +379,23 @@ internal abstract class JintBinaryExpression : JintExpression
             }
 
             return true;
+        }
+    }
+
+    /// <summary>
+    /// Heap-allocated <see cref="NumericOperandLane"/> for PlusBinaryExpression: allocated only
+    /// when the operand shape matches at build time, so the many string-concat Plus nodes carry
+    /// a single null reference field instead of the embedded lane struct.
+    /// </summary>
+    private protected sealed class BoxedNumericOperandLane
+    {
+        public NumericOperandLane Lane;
+
+        public static BoxedNumericOperandLane? TryBuild(JintExpression left, JintExpression right)
+        {
+            var lane = new NumericOperandLane();
+            lane.Initialize(left, right);
+            return lane.IsArmed ? new BoxedNumericOperandLane { Lane = lane } : null;
         }
     }
 
@@ -1317,16 +1332,16 @@ internal abstract class JintBinaryExpression : JintExpression
 
     private sealed class PlusBinaryExpression : JintBinaryExpression
     {
-        private readonly NumericOperandLane? _numericLane;
+        private readonly BoxedNumericOperandLane? _numericLane;
 
         public PlusBinaryExpression(NonLogicalBinaryExpression expression) : base(expression)
         {
-            _numericLane = NumericOperandLane.TryBuild(_left, _right);
+            _numericLane = BoxedNumericOperandLane.TryBuild(_left, _right);
         }
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
-            if (_numericLane is not null && _numericLane.TryGetOperands(context, out var unboxedLeft, out var unboxedRight))
+            if (_numericLane is not null && _numericLane.Lane.TryGetOperands(context, out var unboxedLeft, out var unboxedRight))
             {
                 return JsNumber.Create(unboxedLeft + unboxedRight);
             }
@@ -1459,16 +1474,16 @@ internal abstract class JintBinaryExpression : JintExpression
 
     private sealed class MinusBinaryExpression : JintBinaryExpression
     {
-        private readonly NumericOperandLane? _numericLane;
+        private NumericOperandLane _numericLane;
 
         public MinusBinaryExpression(NonLogicalBinaryExpression expression) : base(expression)
         {
-            _numericLane = NumericOperandLane.TryBuild(_left, _right);
+            _numericLane.Initialize(_left, _right);
         }
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
-            if (_numericLane is not null && _numericLane.TryGetOperands(context, out var unboxedLeft, out var unboxedRight))
+            if (_numericLane.TryGetOperands(context, out var unboxedLeft, out var unboxedRight))
             {
                 return JsNumber.Create(unboxedLeft - unboxedRight);
             }
@@ -1514,16 +1529,16 @@ internal abstract class JintBinaryExpression : JintExpression
 
     private sealed class TimesBinaryExpression : JintBinaryExpression
     {
-        private readonly NumericOperandLane? _numericLane;
+        private NumericOperandLane _numericLane;
 
         public TimesBinaryExpression(NonLogicalBinaryExpression expression) : base(expression)
         {
-            _numericLane = NumericOperandLane.TryBuild(_left, _right);
+            _numericLane.Initialize(_left, _right);
         }
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
-            if (_numericLane is not null && _numericLane.TryGetOperands(context, out var unboxedLeft, out var unboxedRight))
+            if (_numericLane.TryGetOperands(context, out var unboxedLeft, out var unboxedRight))
             {
                 // raw-double multiply is Number::multiply bit for bit, including -0 for zero
                 // products of opposite signs
@@ -1576,16 +1591,16 @@ internal abstract class JintBinaryExpression : JintExpression
 
     private sealed class DivideBinaryExpression : JintBinaryExpression
     {
-        private readonly NumericOperandLane? _numericLane;
+        private NumericOperandLane _numericLane;
 
         public DivideBinaryExpression(NonLogicalBinaryExpression expression) : base(expression)
         {
-            _numericLane = NumericOperandLane.TryBuild(_left, _right);
+            _numericLane.Initialize(_left, _right);
         }
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
-            if (_numericLane is not null && _numericLane.TryGetOperands(context, out var unboxedLeft, out var unboxedRight))
+            if (_numericLane.TryGetOperands(context, out var unboxedLeft, out var unboxedRight))
             {
                 return JsNumber.Create(unboxedLeft / unboxedRight);
             }
