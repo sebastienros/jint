@@ -1,5 +1,6 @@
 #pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of prototype methods return JsValue
 
+using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -1255,26 +1256,29 @@ internal sealed partial class RegExpPrototype : Prototype
         ?? R.Engine.Options.Constraints.RegexTimeout;
 
     /// <summary>
-    /// Runs the custom regex engine with timeout enforcement. Throws <see cref="RegexMatchTimeoutException"/>
-    /// when the configured timeout elapses — mirrors how <see cref="Regex.Match(string,int)"/> uses
-    /// <see cref="Regex.MatchTimeout"/> on the .NET path.
+    /// Runs the custom regex engine under the configured timeout. The deadline is enforced by inline
+    /// elapsed-time checks inside <see cref="RegExpInterpreter"/> rather than a thread-pool
+    /// <see cref="CancellationTokenSource"/> timer, so the abort fires promptly
+    /// even when the pool is saturated — mirroring how <see cref="Regex.Match(string,int)"/> enforces
+    /// <see cref="Regex.MatchTimeout"/> on the .NET path. Throws <see cref="RegexMatchTimeoutException"/>
+    /// when the timeout elapses.
     /// </summary>
     private static RegExpMatchResult ExecuteWithTimeout(JsRegExp R, JintRegExpEngine engine, string s, int startIndex)
     {
         var timeout = GetCustomEngineTimeout(R);
-        if (timeout.TotalMilliseconds > 0 && timeout != Timeout.InfiniteTimeSpan)
+        if (timeout.TotalMilliseconds <= 0 || timeout == Timeout.InfiniteTimeSpan)
         {
-            using var cts = new CancellationTokenSource(timeout);
-            try
-            {
-                return engine.Execute(s, startIndex, cts.Token);
-            }
-            catch (OperationCanceledException)
-            {
-                throw new RegexMatchTimeoutException(s, R.Source ?? "", timeout);
-            }
+            return engine.Execute(s, startIndex);
         }
-        return engine.Execute(s, startIndex);
+
+        try
+        {
+            return engine.Execute(s, startIndex, ComputeRegexDeadline(timeout));
+        }
+        catch (OperationCanceledException)
+        {
+            throw new RegexMatchTimeoutException(s, R.Source ?? "", timeout);
+        }
     }
 
     /// <summary>
@@ -1283,19 +1287,31 @@ internal sealed partial class RegExpPrototype : Prototype
     private static bool IsMatchWithTimeout(JsRegExp R, JintRegExpEngine engine, string s, int startIndex)
     {
         var timeout = GetCustomEngineTimeout(R);
-        if (timeout.TotalMilliseconds > 0 && timeout != Timeout.InfiniteTimeSpan)
+        if (timeout.TotalMilliseconds <= 0 || timeout == Timeout.InfiniteTimeSpan)
         {
-            using var cts = new CancellationTokenSource(timeout);
-            try
-            {
-                return engine.IsMatch(s, startIndex, cts.Token);
-            }
-            catch (OperationCanceledException)
-            {
-                throw new RegexMatchTimeoutException(s, R.Source ?? "", timeout);
-            }
+            return engine.IsMatch(s, startIndex);
         }
-        return engine.IsMatch(s, startIndex);
+
+        try
+        {
+            return engine.IsMatch(s, startIndex, ComputeRegexDeadline(timeout));
+        }
+        catch (OperationCanceledException)
+        {
+            throw new RegexMatchTimeoutException(s, R.Source ?? "", timeout);
+        }
+    }
+
+    /// <summary>
+    /// Convert a positive, finite regex timeout into an absolute <see cref="Stopwatch.GetTimestamp"/>
+    /// deadline for the custom engine's inline interrupt checks. Saturates to <see cref="RegExpInterpreter.NoDeadline"/>
+    /// (never fires) instead of overflowing for extreme timeout values.
+    /// </summary>
+    private static long ComputeRegexDeadline(TimeSpan timeout)
+    {
+        var now = Stopwatch.GetTimestamp();
+        var ticks = timeout.TotalSeconds * Stopwatch.Frequency;
+        return ticks >= long.MaxValue - now ? RegExpInterpreter.NoDeadline : now + (long) ticks;
     }
 
     /// <summary>

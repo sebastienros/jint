@@ -49,10 +49,14 @@ internal sealed class JintRegExpEngine
         return _groupNames[index];
     }
 
-    /// <summary>Execute the regex against the input string starting at the given index.</summary>
-    public RegExpMatchResult Execute(string input, int startIndex, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Execute the regex against the input string starting at the given index. <paramref name="deadline"/>
+    /// is an absolute <see cref="System.Diagnostics.Stopwatch.GetTimestamp"/> value at/after which the
+    /// match is abandoned with an <see cref="OperationCanceledException"/> (<see cref="RegExpInterpreter.NoDeadline"/> = no timeout).
+    /// </summary>
+    public RegExpMatchResult Execute(string input, int startIndex, long deadline = NoDeadline)
     {
-        var captures = RegExpInterpreter.Execute(_bytecode, input, startIndex, _scanInfo, cancellationToken);
+        var captures = RegExpInterpreter.Execute(_bytecode, input, startIndex, _scanInfo, deadline);
         if (captures is null)
         {
             return RegExpMatchResult.NoMatch;
@@ -61,10 +65,10 @@ internal sealed class JintRegExpEngine
         return BuildResult(input, captures);
     }
 
-    /// <summary>Test if the regex matches the input string.</summary>
-    public bool IsMatch(string input, int startIndex = 0, CancellationToken cancellationToken = default)
+    /// <summary>Test if the regex matches the input string. See <see cref="Execute"/> for <paramref name="deadline"/>.</summary>
+    public bool IsMatch(string input, int startIndex = 0, long deadline = NoDeadline)
     {
-        return RegExpInterpreter.ExecuteIsMatch(_bytecode, input, startIndex, _scanInfo, cancellationToken);
+        return RegExpInterpreter.ExecuteIsMatch(_bytecode, input, startIndex, _scanInfo, deadline);
     }
 
     private RegExpMatchResult BuildResult(string input, int[] captures)
