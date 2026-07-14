@@ -25,11 +25,11 @@
 
 using System.Buffers;
 using System.Buffers.Binary;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading;
 using Jint.Runtime.RegExp.Unicode;
 
 namespace Jint.Runtime.RegExp;
@@ -51,8 +51,14 @@ internal static class RegExpInterpreter
     /// <summary>Unset capture position sentinel (mirrors NULL in the C code).</summary>
     private const int Unset = -1;
 
-    /// <summary>Number of opcodes between cancellation checks.</summary>
+    /// <summary>Number of opcodes between timeout checks.</summary>
     private const int InterruptCounterInit = 10000;
+
+    /// <summary>
+    /// Sentinel deadline meaning "no timeout". <see cref="Stopwatch.GetTimestamp"/> never reaches
+    /// <see cref="long.MaxValue"/>, so <see cref="CheckDeadline"/> also short-circuits on it.
+    /// </summary>
+    internal const long NoDeadline = long.MaxValue;
 
     /// <summary>Initial backtracking stack capacity (in int elements).</summary>
     private const int InitialStackCapacity = 128;
@@ -89,7 +95,7 @@ internal static class RegExpInterpreter
         string input,
         int startIndex,
         in ScanLoopInfo scanInfo = default,
-        CancellationToken cancellationToken = default)
+        long deadline = NoDeadline)
     {
         var flags = GetFlags(bytecode);
         int captureCount = bytecode[RegExpHeader.OffsetCaptureCount];
@@ -123,7 +129,7 @@ internal static class RegExpInterpreter
 
         try
         {
-            int ret = ExecBacktrack(bc, input, capture, cindex, captureCount, isUnicode, scanInfo, cancellationToken);
+            int ret = ExecBacktrack(bc, input, capture, cindex, captureCount, isUnicode, scanInfo, deadline);
 
             int[]? result = null;
             if (ret == 1)
@@ -151,7 +157,7 @@ internal static class RegExpInterpreter
         string input,
         int startIndex,
         in ScanLoopInfo scanInfo = default,
-        CancellationToken cancellationToken = default)
+        long deadline = NoDeadline)
     {
         var flags = GetFlags(bytecode);
         int captureCount = bytecode[RegExpHeader.OffsetCaptureCount];
@@ -181,7 +187,7 @@ internal static class RegExpInterpreter
 
         try
         {
-            return ExecBacktrack(bc, input, capture, cindex, captureCount, isUnicode, scanInfo, cancellationToken) == 1;
+            return ExecBacktrack(bc, input, capture, cindex, captureCount, isUnicode, scanInfo, deadline) == 1;
         }
         finally
         {
@@ -897,7 +903,7 @@ internal static class RegExpInterpreter
     /// <summary>
     /// Execute the backtracking NFA interpreter.
     /// Returns 1 on match, 0 on no match.
-    /// Throws <see cref="OperationCanceledException"/> on timeout/cancellation.
+    /// Throws <see cref="OperationCanceledException"/> when the <paramref name="deadline"/> elapses.
     /// </summary>
     private static int ExecBacktrack(
         ReadOnlySpan<byte> bc,
@@ -907,7 +913,7 @@ internal static class RegExpInterpreter
         int captureCount,
         bool isUnicode,
         in ScanLoopInfo scanInfo,
-        CancellationToken cancellationToken)
+        long deadline)
     {
         int inputEnd = input.Length;
         int allocCount = capture.Length; // captures + registers
@@ -1121,7 +1127,7 @@ internal static class RegExpInterpreter
                         if (--interruptCounter <= 0)
                         {
                             interruptCounter = InterruptCounterInit;
-                            cancellationToken.ThrowIfCancellationRequested();
+                            CheckDeadline(deadline);
                         }
                         break;
                     }
@@ -1438,7 +1444,7 @@ internal static class RegExpInterpreter
                             if (--interruptCounter <= 0)
                             {
                                 interruptCounter = InterruptCounterInit;
-                                cancellationToken.ThrowIfCancellationRequested();
+                                CheckDeadline(deadline);
                             }
                         }
                         break;
@@ -1465,7 +1471,7 @@ internal static class RegExpInterpreter
                             if (--interruptCounter <= 0)
                             {
                                 interruptCounter = InterruptCounterInit;
-                                cancellationToken.ThrowIfCancellationRequested();
+                                CheckDeadline(deadline);
                             }
                         }
                         else
@@ -1617,7 +1623,7 @@ internal static class RegExpInterpreter
                                         if (--interruptCounter <= 0)
                                         {
                                             interruptCounter = InterruptCounterInit;
-                                            cancellationToken.ThrowIfCancellationRequested();
+                                            CheckDeadline(deadline);
                                         }
                                     }
                                 }
@@ -1645,7 +1651,7 @@ internal static class RegExpInterpreter
                                         if (--interruptCounter <= 0)
                                         {
                                             interruptCounter = InterruptCounterInit;
-                                            cancellationToken.ThrowIfCancellationRequested();
+                                            CheckDeadline(deadline);
                                         }
                                     }
                                 }
@@ -1778,12 +1784,33 @@ noMatch:
             if (--interruptCounter <= 0)
             {
                 interruptCounter = InterruptCounterInit;
-                cancellationToken.ThrowIfCancellationRequested();
+                CheckDeadline(deadline);
             }
         }
 
         } finally { ReturnStack(stackPooled); }
     }
+
+    /// <summary>
+    /// Enforce the match <paramref name="deadline"/> at an interrupt checkpoint. The deadline is an
+    /// absolute <see cref="Stopwatch.GetTimestamp"/> value checked inline on the interpreter's own
+    /// thread, rather than via a <see cref="System.Threading.CancellationTokenSource"/> timer whose
+    /// callback runs on the thread pool: under a saturated pool (e.g. parallel test runs) that
+    /// callback can be delayed for many seconds, deferring the abort far past the requested timeout.
+    /// The spinning interpreter thread is always scheduled, so an inline check aborts promptly
+    /// regardless of load — mirroring how .NET's <see cref="Regex"/> enforces <see cref="Regex.MatchTimeout"/>.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void CheckDeadline(long deadline)
+    {
+        if (deadline != NoDeadline && Stopwatch.GetTimestamp() >= deadline)
+        {
+            ThrowRegexTimeout();
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void ThrowRegexTimeout() => throw new OperationCanceledException();
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void ThrowInvalidOpcode(RegExpOpcode opcode)
