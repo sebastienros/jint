@@ -113,13 +113,18 @@ internal sealed class ExpressionCache
         return arguments;
     }
 
+    /// <summary>
+    /// Evaluates argument expressions into <paramref name="targetArray"/>, which callers must have
+    /// allocated via <c>new JsValue[n]</c> or rented from the engine's <see cref="Pooling.JsValueArrayPool"/>
+    /// so that it is exactly <see cref="JsValue"/>[] (see <see cref="Arguments.WriteNoTypeCheck"/>).
+    /// </summary>
     internal int BuildArguments(EvaluationContext context, JsValue[] targetArray, int startIndex = 0)
     {
         var expressions = _expressions;
         int i = startIndex;
         for (; (uint) i < (uint) expressions.Length; i++)
         {
-            targetArray[i] = GetValue(context, expressions[i])!;
+            Arguments.WriteNoTypeCheck(targetArray, i, GetValue(context, expressions[i])!);
 
             // Check for generator suspension after each expression evaluation
             // This is needed because yield expressions return normally instead of throwing

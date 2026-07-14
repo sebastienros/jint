@@ -259,8 +259,6 @@ internal sealed partial class RegExpPrototype : Prototype
                 string Evaluator(Match match)
                 {
                     var actualGroupCount = GetActualRegexGroupCount(rei, match);
-                    var replacerArgs = new List<JsValue>(actualGroupCount + 2);
-                    replacerArgs.Add(match.Value);
 
                     ObjectInstance? groups = null;
                     // Pre-initialize groups with unique names in order
@@ -277,10 +275,16 @@ internal sealed partial class RegExpPrototype : Prototype
                         }
                     }
 
+                    // matched + captures + position + string + optional groups object; the array is freshly
+                    // allocated and exactly JsValue[], so writes can skip the covariant store type check.
+                    var replacerArgs = new JsValue[actualGroupCount + 2 + (groups is not null ? 1 : 0)];
+                    var argIndex = 0;
+                    Arguments.WriteNoTypeCheck(replacerArgs, argIndex++, match.Value);
+
                     for (var i = 1; i < actualGroupCount; i++)
                     {
                         var capture = match.Groups[i];
-                        replacerArgs.Add(capture.Success ? capture.Value : Undefined);
+                        Arguments.WriteNoTypeCheck(replacerArgs, argIndex++, capture.Success ? capture.Value : Undefined);
 
                         var groupName = GetRegexGroupName(rei, i);
                         if (!string.IsNullOrWhiteSpace(groupName) && capture.Success)
@@ -289,11 +293,11 @@ internal sealed partial class RegExpPrototype : Prototype
                         }
                     }
 
-                    replacerArgs.Add(match.Index);
-                    replacerArgs.Add(s);
+                    Arguments.WriteNoTypeCheck(replacerArgs, argIndex++, match.Index);
+                    Arguments.WriteNoTypeCheck(replacerArgs, argIndex++, s);
                     if (groups is not null)
                     {
-                        replacerArgs.Add(groups);
+                        Arguments.WriteNoTypeCheck(replacerArgs, argIndex, groups);
                     }
 
                     return CallFunctionalReplace(replaceValue, replacerArgs);
@@ -374,18 +378,22 @@ internal sealed partial class RegExpPrototype : Prototype
             string replacement;
             if (functionalReplace)
             {
-                var replacerArgs = new List<JsValue>();
-                replacerArgs.Add(matched);
+                // matched + captures + position + string + optional named captures; the array is freshly
+                // allocated and exactly JsValue[], so writes can skip the covariant store type check.
+                var hasNamedCaptures = !namedCaptures.IsUndefined();
+                var replacerArgs = new JsValue[captures.Count + 3 + (hasNamedCaptures ? 1 : 0)];
+                var argIndex = 0;
+                Arguments.WriteNoTypeCheck(replacerArgs, argIndex++, matched);
                 foreach (var capture in captures)
                 {
-                    replacerArgs.Add(capture);
+                    Arguments.WriteNoTypeCheck(replacerArgs, argIndex++, capture);
                 }
 
-                replacerArgs.Add(position);
-                replacerArgs.Add(s);
-                if (!namedCaptures.IsUndefined())
+                Arguments.WriteNoTypeCheck(replacerArgs, argIndex++, position);
+                Arguments.WriteNoTypeCheck(replacerArgs, argIndex++, s);
+                if (hasNamedCaptures)
                 {
-                    replacerArgs.Add(namedCaptures);
+                    Arguments.WriteNoTypeCheck(replacerArgs, argIndex, namedCaptures);
                 }
 
                 replacement = CallFunctionalReplace(replaceValue, replacerArgs);
@@ -422,9 +430,9 @@ internal sealed partial class RegExpPrototype : Prototype
 #pragma warning restore CA1845
     }
 
-    private static string CallFunctionalReplace(JsValue replacer, List<JsValue> replacerArgs)
+    private static string CallFunctionalReplace(JsValue replacer, JsCallArguments replacerArgs)
     {
-        var result = ((ICallable) replacer).Call(Undefined, replacerArgs.ToArray());
+        var result = ((ICallable) replacer).Call(Undefined, replacerArgs);
         return TypeConverter.ToString(result);
     }
 
