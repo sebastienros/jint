@@ -50,48 +50,62 @@ internal struct SlotLocationCache
         out DeclarativeEnvironment slotEnv,
         out int slotIndex)
     {
+        // Hop 0 first: the overwhelmingly common case is that the cached env IS the current
+        // lexical environment, so it gets a straight-line identity check before any loop
+        // machinery and needs no shadow probes — no environment sits between the reader and
+        // the binding. The engine-identity gate stays in front so a cached env from another
+        // engine (handler trees shared via Prepared<Script>) is never dereferenced for slots.
         var cached = _cachedSlotEnv;
-        if (cached is not null && ReferenceEquals(cached._engine, engine))
+        if (cached is not null && ReferenceEquals(cached._engine, engine) && ReferenceEquals(env, cached))
         {
-            var search = env;
-            for (var hops = 0; hops < MaxChainDepth && search is not null; hops++)
-            {
-                if (ReferenceEquals(search, cached))
-                {
-                    slotEnv = cached;
-                    slotIndex = _cachedSlotIndex;
-                    return true;
-                }
-
-                if (search is ObjectEnvironment)
-                {
-                    // a with-object between us and the cached slot may shadow the name dynamically
-                    break;
-                }
-
-                // An intermediate environment holding the name shadows the cached resolution.
-                // This happens when a node runs under a different chain than the one that
-                // populated the cache (an eval-cache-shared body under a block that declares
-                // the name, or a nested eval of the same source) or when a sloppy direct eval
-                // injected the name into an enclosing function environment. HasBinding on a
-                // declarative environment is pure, and the common case — the binding env
-                // itself, matched above before any probe — pays nothing.
-                if (search is DeclarativeEnvironment intermediate && intermediate.HasBinding(name.Key))
-                {
-                    break;
-                }
-
-                search = search._outerEnv;
-            }
-
-            // The cached location is not reachable from this chain. Handler trees are shared
-            // across function instances (per-engine definition reuse for re-evaluated scripts,
-            // class members, nested declarations), so the same node runs under a fresh
-            // environment per instance — re-resolve against the current chain exactly as a
-            // fresh node would (mirroring the cross-engine Prepared<Script> fall-through
-            // below) instead of declining forever. One bounded walk per instance switch;
-            // subsequent reads hit the re-populated cache.
+            slotEnv = cached;
+            slotIndex = _cachedSlotIndex;
+            return true;
         }
+
+        // Permanently declined nodes (binding can never be slot-stored) also answer inline:
+        // consuming lanes re-ask on every evaluation, so the miss must not pay a call.
+        if (cached is null && _disabled)
+        {
+            slotEnv = null!;
+            slotIndex = -1;
+            return false;
+        }
+
+        return TryResolveNonLocal(engine, env, name, out slotEnv, out slotIndex);
+    }
+
+    /// <summary>
+    /// Out-of-line tail for everything that is not a hop-0 hit or a permanent decline: the
+    /// bounded hops 1-3 reachability walk, the decline check for nodes with a stale cached
+    /// env, and first-time population. Kept out of <see cref="TryResolve"/> so the
+    /// aggressively-inlined fast path stays small in every consuming lane.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool TryResolveNonLocal(
+        Engine engine,
+        Environment env,
+        Environment.BindingName name,
+        out DeclarativeEnvironment slotEnv,
+        out int slotIndex)
+    {
+        var cached = _cachedSlotEnv;
+        if (cached is not null
+            && ReferenceEquals(cached._engine, engine)
+            && CanReachAtOuterHop(env, cached, name.Key))
+        {
+            slotEnv = cached;
+            slotIndex = _cachedSlotIndex;
+            return true;
+        }
+
+        // The cached location is not reachable from this chain. Handler trees are shared
+        // across function instances (per-engine definition reuse for re-evaluated scripts,
+        // class members, nested declarations), so the same node runs under a fresh
+        // environment per instance — re-resolve against the current chain exactly as a
+        // fresh node would (mirroring the cross-engine Prepared<Script> fall-through
+        // below) instead of declining forever. One bounded walk per instance switch;
+        // subsequent reads hit the re-populated cache.
 
         if (_disabled)
         {
@@ -101,6 +115,51 @@ internal struct SlotLocationCache
         }
 
         return ResolveAndPopulate(env, name, out slotEnv, out slotIndex);
+    }
+
+    /// <summary>
+    /// Bounded hops 1-3 reachability walk for a slot-cache probe whose caller has already
+    /// rejected hop 0 (<paramref name="env"/> itself is not <paramref name="cached"/>).
+    /// Because hop 0 failed, the current environment sits BETWEEN the reader and the cached
+    /// env and must be probed like any other intermediate before hopping outward.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    internal static bool CanReachAtOuterHop(Environment env, DeclarativeEnvironment cached, Key key)
+    {
+        var search = env;
+        for (var hops = 1; hops < MaxChainDepth; hops++)
+        {
+            if (search is ObjectEnvironment)
+            {
+                // a with-object between us and the cached slot may shadow the name dynamically
+                return false;
+            }
+
+            // An intermediate environment holding the name shadows the cached resolution.
+            // This happens when a node runs under a different chain than the one that
+            // populated the cache (an eval-cache-shared body under a block that declares
+            // the name, or a nested eval of the same source) or when a sloppy direct eval
+            // injected the name into an enclosing function environment. HasBinding on a
+            // declarative environment is pure, and the common case — a hop-0 hit on the
+            // binding env itself — never enters this walk at all.
+            if (search is DeclarativeEnvironment intermediate && intermediate.HasBinding(key))
+            {
+                return false;
+            }
+
+            search = search._outerEnv;
+            if (search is null)
+            {
+                return false;
+            }
+
+            if (ReferenceEquals(search, cached))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

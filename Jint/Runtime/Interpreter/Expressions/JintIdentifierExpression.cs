@@ -154,56 +154,39 @@ internal sealed class JintIdentifierExpression : JintExpression
         var strict = StrictModeScope.IsStrictModeCode;
         JsValue? value;
 
-        // Slot-cache fast path: walk from the current env up the chain looking for the cached
-        // resolving env via ReferenceEquals; the common case matches at hop 0 without any
-        // probing. When found, read the slot value directly.
+        // Slot-cache fast path, hop 0 first: the overwhelmingly common case is that the
+        // cached resolving env IS the current lexical environment, so it gets a straight-line
+        // identity check before any loop machinery and needs no shadow probes — no environment
+        // sits between the reader and the binding. Reads at hops 1-3 (closure reads of outer
+        // bindings) take the out-of-line bounded walk, which re-probes every intermediate
+        // declarative environment and refuses to cross an ObjectEnvironment; see
+        // SlotLocationCache for why those probes are load-bearing.
         // Engine-identity gate: a Prepared<Script> reused across multiple Engine instances
         // shares JintIdentifierExpression nodes, so the cached env may be from a previous
-        // Engine. Skipping the walk when engines differ avoids 4 wasted hops per call —
+        // Engine and must not be dereferenced for slots. Gating up front also skips the walk —
         // significant on harnesses (DromaeoBenchmark, SunSpiderBenchmark) that create a
         // new Engine per iteration.
         var cachedSlotEnv = _cachedSlotEnv;
         if (cachedSlotEnv is not null && ReferenceEquals(cachedSlotEnv._engine, engine))
         {
-            var search = env;
-            for (var hops = 0; hops < MaxSlotCacheChainDepth && search is not null; hops++)
+            if (ReferenceEquals(env, cachedSlotEnv)
+                || SlotLocationCache.CanReachAtOuterHop(env, cachedSlotEnv, identifier.Key))
             {
-                if (ReferenceEquals(search, cachedSlotEnv))
+                var slots = cachedSlotEnv._slots;
+                var idx = _cachedSlotIndex;
+                if (slots is not null && (uint) idx < (uint) slots.Length)
                 {
-                    var slots = cachedSlotEnv._slots;
-                    var idx = _cachedSlotIndex;
-                    if (slots is not null && (uint) idx < (uint) slots.Length)
+                    ref var binding = ref slots[idx];
+                    value = binding.HasReferenceValue
+                        ? binding.Value
+                        : DeclarativeEnvironment.MaterializeUnboxedOrNull(ref binding);
+                    if (value is null)
                     {
-                        ref var binding = ref slots[idx];
-                        value = binding.HasReferenceValue
-                            ? binding.Value
-                            : DeclarativeEnvironment.MaterializeUnboxedOrNull(ref binding);
-                        if (value is null)
-                        {
-                            ThrowNotInitialized(engine);
-                        }
-                        return MaterializeIfArguments(value);
+                        ThrowNotInitialized(engine);
                     }
-                    break;
+                    return MaterializeIfArguments(value);
                 }
-
-                if (search is ObjectEnvironment)
-                {
-                    // a with-object between us and the cached slot may shadow the name
-                    // dynamically; only the full resolution can decide who owns the binding
-                    break;
-                }
-
-                // An intermediate environment holding the name shadows the cached resolution
-                // (an eval-cache-shared body under a shadowing block, a nested eval of the
-                // same source, or a sloppy direct eval injecting the name into an enclosing
-                // function environment). HasBinding on a declarative environment is pure.
-                if (search is DeclarativeEnvironment intermediate && intermediate.HasBinding(identifier.Key))
-                {
-                    break;
-                }
-
-                search = search._outerEnv;
+                // stale slot metadata for a reachable env — fall through to full resolution
             }
         }
 
