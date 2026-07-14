@@ -121,6 +121,17 @@ public sealed class TypeResolver
     {
         var isInteger = long.TryParse(memberName, NumberStyles.Integer, CultureInfo.InvariantCulture, out _);
 
+        // [JsAccessible]-annotated CLR types pre-register their accessors via [ModuleInitializer]
+        // before any user code runs. Hit the registry first so the generated typed accessor takes
+        // priority over the reflection scan below for every property/method on annotated types.
+        if (!isInteger
+            && GeneratedAccessorRegistry.TryGet(type, memberName, out var generated)
+            && (!mustBeReadable || generated.Readable)
+            && (!mustBeWritable || generated.Writable))
+        {
+            return generated;
+        }
+
         // we can always check indexer if there's one, and then fall back to properties if indexer returns null
         IndexerAccessor.TryFindIndexer(engine, type, memberName, out var indexerAccessor, out var indexer);
 
