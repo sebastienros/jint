@@ -583,38 +583,28 @@ public sealed partial class RegExpConstructor : Constructor
             return true;
         }
 
-        // Check for further non-compliant cases.
+        // Check for further non-compliant cases by scanning the pattern.
+        //
+        // The main hazard is repeated groups. ECMAScript clears the captures made inside a
+        // quantified group at the start of every iteration (RepeatMatcher, step 4) whereas
+        // .NET retains captures from earlier iterations, and .NET records an empty capture
+        // when an iteration of a quantified capturing group matches the empty string whereas
+        // ECMAScript rejects empty iterations. A quantified group is therefore only safe for
+        // .NET when its body contains no capturing groups or lookaround assertions and, if
+        // the group itself is capturing, when its body cannot match the empty string.
 
-        // Negative (bitwise complement) values indicate groups that contain
-        // quantified nested capturing groups or lookahead/lookbehind assertions.
         const int nonCapturingGroup = 0;
         const int capturingGroup = 1;
         const int lookaheadAssertion = 2;
         const int lookbehindAssertion = 3;
 
-        bool inCharClass = false;
-        int groupNumber, groupType;
         List<int>? capturingGroups = null;
         Dictionary<string, int>? namedGroupNumbers = null;
-        var groupStack = new RefStack<KeyValuePair<int, int>>();
+        var groupStack = new RefStack<GroupScanState>();
 
-        int nameStart, nameEnd;
-        string? name;
-
-        int j;
         for (int i = 0; i < pattern.Length; i++)
         {
             char ch = pattern[i], next;
-
-            if (inCharClass)
-            {
-                if (ch == '\\' && i + 1 < pattern.Length)
-                {
-                    i++; // skip escaped char
-                }
-                else if (ch == ']') inCharClass = false;
-                continue;
-            }
 
             if (ch == '\\' && i + 1 < pattern.Length)
             {
@@ -622,7 +612,7 @@ public sealed partial class RegExpConstructor : Constructor
                 if (next >= '1' && next <= '9')
                 {
                     int refNum = 0;
-                    j = i + 1;
+                    int j = i + 1;
                     while (j < pattern.Length && pattern[j] >= '0' && pattern[j] <= '9')
                     {
                         refNum = refNum * 10 + (pattern[j] - '0');
@@ -637,7 +627,7 @@ public sealed partial class RegExpConstructor : Constructor
 
                     foreach (var item in groupStack)
                     {
-                        if (item.Value == lookbehindAssertion)
+                        if (item.Type == lookbehindAssertion)
                         {
                             // Backreference in lookbehind
                             return true;
@@ -645,16 +635,19 @@ public sealed partial class RegExpConstructor : Constructor
                     }
 
                     i = j - 1; // skip past parsed digits
+                    // A backreference may match the empty string, so it doesn't affect nullability.
+                    TryConsumeQuantifier(pattern, ref i, out _);
                     continue;
                 }
-                else if (next == 'k' && i + 2 < pattern.Length && pattern[i + 2] == '<')
+
+                if (next == 'k' && i + 2 < pattern.Length && pattern[i + 2] == '<')
                 {
-                    nameStart = i + 3;
-                    nameEnd = pattern.IndexOf('>', nameStart);
+                    int nameStart = i + 3;
+                    int nameEnd = pattern.IndexOf('>', nameStart);
                     if (nameEnd > nameStart)
                     {
-                        name = pattern.Substring(nameStart, nameEnd - nameStart);
-                        if (namedGroupNumbers is null || !namedGroupNumbers.TryGetValue(name, out j) || capturingGroups![j - 1] < 0)
+                        var name = pattern.Substring(nameStart, nameEnd - nameStart);
+                        if (namedGroupNumbers is null || !namedGroupNumbers.TryGetValue(name, out var number) || capturingGroups![number - 1] < 0)
                         {
                             // Forward or self named backreference
                             return true;
@@ -667,7 +660,7 @@ public sealed partial class RegExpConstructor : Constructor
 
                     foreach (var item in groupStack)
                     {
-                        if (item.Value == lookbehindAssertion)
+                        if (item.Type == lookbehindAssertion)
                         {
                             // Named backreference in lookbehind
                             return true;
@@ -675,21 +668,83 @@ public sealed partial class RegExpConstructor : Constructor
                     }
 
                     i = nameEnd;
+                    // A backreference may match the empty string, so it doesn't affect nullability.
+                    TryConsumeQuantifier(pattern, ref i, out _);
                     continue;
                 }
 
-                i++; // skip escaped char
+                if (next is 'b' or 'B')
+                {
+                    // Zero-width assertion, doesn't affect nullability.
+                    i++;
+                    TryConsumeQuantifier(pattern, ref i, out _);
+                    continue;
+                }
+
+                // A consuming escape atom; skip the whole escape sequence so that a quantifier
+                // following it is attributed to the atom (e.g. in \u0041* the quantifier repeats U+0041).
+                i++;
+                switch (next)
+                {
+                    case 'x':
+                        if (i + 2 < pattern.Length && HexDigitValue(pattern[i + 1]) >= 0 && HexDigitValue(pattern[i + 2]) >= 0)
+                        {
+                            i += 2;
+                        }
+                        break;
+                    case 'u':
+                        if (i + 4 < pattern.Length
+                            && HexDigitValue(pattern[i + 1]) >= 0 && HexDigitValue(pattern[i + 2]) >= 0
+                            && HexDigitValue(pattern[i + 3]) >= 0 && HexDigitValue(pattern[i + 4]) >= 0)
+                        {
+                            i += 4;
+                        }
+                        break;
+                    case 'c':
+                        if (i + 1 < pattern.Length && pattern[i + 1] is (>= 'a' and <= 'z') or (>= 'A' and <= 'Z'))
+                        {
+                            i++;
+                        }
+                        break;
+                    case '0':
+                        // Annex B legacy octal escape allows up to two more octal digits.
+                        for (int digits = 0; digits < 2 && i + 1 < pattern.Length && pattern[i + 1] is >= '0' and <= '7'; digits++)
+                        {
+                            i++;
+                        }
+                        break;
+                }
+
+                HandleConsumingAtom(pattern, ref i, groupStack);
                 continue;
             }
 
             if (ch == '[')
             {
-                inCharClass = true;
+                // A character class is a single consuming atom; skip to its unescaped ']'.
+                int j = i + 1;
+                while (j < pattern.Length)
+                {
+                    if (pattern[j] == '\\')
+                    {
+                        j++;
+                    }
+                    else if (pattern[j] == ']')
+                    {
+                        break;
+                    }
+                    j++;
+                }
+
+                i = j;
+                HandleConsumingAtom(pattern, ref i, groupStack);
+                continue;
             }
-            else if (ch == '(')
+
+            if (ch == '(')
             {
-                groupNumber = 0;
-                groupType = nonCapturingGroup;
+                int groupNumber = 0;
+                int groupType = nonCapturingGroup;
 
                 if (i + 1 >= pattern.Length || pattern[i + 1] != '?')
                 {
@@ -702,13 +757,14 @@ public sealed partial class RegExpConstructor : Constructor
                     next = pattern[i + 2];
                     if (next == '<')
                     {
-                        nameStart = i + 3;
+                        int nameStart = i + 3;
                         if (nameStart < pattern.Length)
                         {
+                            int nameEnd;
                             if (pattern[nameStart] is '=' or '!')
                             {
                                 groupType = lookbehindAssertion;
-                                i++;
+                                i += 3; // skip "?<=" / "?<!"
                             }
                             else if ((nameEnd = pattern.IndexOf('>', nameStart)) > nameStart)
                             {
@@ -717,7 +773,7 @@ public sealed partial class RegExpConstructor : Constructor
                                 groupNumber = capturingGroups.Count;
                                 groupType = capturingGroup;
 
-                                name = pattern.Substring(nameStart, nameEnd - nameStart);
+                                var name = pattern.Substring(nameStart, nameEnd - nameStart);
                                 namedGroupNumbers ??= new(StringComparer.Ordinal);
 
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP2_0_OR_GREATER
@@ -741,69 +797,245 @@ public sealed partial class RegExpConstructor : Constructor
                     else if (next is '=' or '!')
                     {
                         groupType = lookaheadAssertion;
-                        i++;
+                        i += 2; // skip "?=" / "?!"
                     }
-                    else if (next is 'i' or 'm' or 's')
+                    else if (next == ':')
                     {
-                        j = i + 2;
+                        i += 2; // skip "?:"
+                    }
+                    else if (next is 'i' or 'm' or 's' or '-')
+                    {
+                        // Inline modifier group (?ims-ims: ... )
+                        int j = i + 2;
                         do
                         {
-                            if (next == 'i')
+                            if (pattern[j] == 'i')
                             {
                                 // Case insensitive modifier
                                 return true;
                             }
                             j++;
                         }
-                        while (j < pattern.Length && (next = pattern[j]) is 'i' or 'm' or 's');
+                        while (j < pattern.Length && pattern[j] is 'i' or 'm' or 's' or '-');
+
+                        if (j < pattern.Length && pattern[j] == ':')
+                        {
+                            // Acornima adapts m/s modifier groups compliantly, skip the header.
+                            i = j;
+                        }
                     }
                 }
 
-                groupStack.Push(new(groupNumber, groupType));
+                groupStack.Push(new GroupScanState { Number = groupNumber, Type = groupType, CurrentBranchNullable = true });
+                continue;
             }
-            else if (groupStack._size > 0)
+
+            if (ch == ')')
             {
-                if (ch == ')')
+                if (groupStack._size == 0)
                 {
-                    var kvp = groupStack.Pop();
-                    groupNumber = kvp.Key;
-                    groupType = kvp.Value;
+                    continue;
+                }
 
-                    if (groupType < 0 || groupType == lookaheadAssertion || groupType == lookbehindAssertion)
+                var group = groupStack.Pop();
+                var groupNullable = group.AnyBranchNullable || group.CurrentBranchNullable;
+                var hasQuantifier = TryConsumeQuantifier(pattern, ref i, out var minCanBeZero);
+
+                if (hasQuantifier)
+                {
+                    if (group.Type is lookaheadAssertion or lookbehindAssertion)
                     {
-                        if (i + 1 < pattern.Length && pattern[i + 1] is '?' or '*' or '+' or '{')
-                        {
-                            // Repeated nested capturing group or quantified lookahead/lookbehind
-                            return true;
-                        }
-
-                        if (groupStack._size > 0)
-                        {
-                            ref var item = ref groupStack._array[groupStack._size - 1];
-                            if (item.Value >= 0)
-                            {
-                                item = new(item.Key, ~item.Value);
-                            }
-                        }
+                        // Quantified lookahead/lookbehind
+                        return true;
                     }
 
-                    if (groupNumber > 0)
+                    if ((group.BodyFlags & (GroupBodyFlags.ContainsCapture | GroupBodyFlags.ContainsLookaround)) != GroupBodyFlags.None)
                     {
-                        capturingGroups![groupNumber - 1] = i;
+                        // Repeated group containing capturing groups or lookaround assertions:
+                        // .NET retains captures from earlier iterations, ECMAScript resets them.
+                        return true;
+                    }
+
+                    if (group.Type == capturingGroup && groupNullable)
+                    {
+                        // Repeated capturing group whose body may match the empty string: .NET records
+                        // an empty capture for an empty iteration, ECMAScript rejects empty iterations.
+                        return true;
                     }
                 }
-                else if (ch is '?' or '*' or '+' or '{')
+
+                if (group.Number > 0)
                 {
-                    ref var item = ref groupStack._array[groupStack._size - 1];
-                    if (item.Value >= 0)
+                    capturingGroups![group.Number - 1] = i;
+                }
+
+                if (groupStack._size > 0)
+                {
+                    ref var parent = ref groupStack._array[groupStack._size - 1];
+                    parent.BodyFlags |= group.BodyFlags;
+
+                    if (group.Type is lookaheadAssertion or lookbehindAssertion)
                     {
-                        item = new(item.Key, ~item.Value);
+                        // Lookarounds are zero-width, so they don't affect the parent's nullability.
+                        parent.BodyFlags |= GroupBodyFlags.ContainsLookaround;
+                    }
+                    else
+                    {
+                        if (group.Type == capturingGroup)
+                        {
+                            parent.BodyFlags |= GroupBodyFlags.ContainsCapture;
+                        }
+
+                        if (!groupNullable && !(hasQuantifier && minCanBeZero))
+                        {
+                            parent.CurrentBranchNullable = false;
+                        }
                     }
                 }
+
+                continue;
             }
+
+            if (ch == '|')
+            {
+                if (groupStack._size > 0)
+                {
+                    ref var top = ref groupStack._array[groupStack._size - 1];
+                    top.AnyBranchNullable |= top.CurrentBranchNullable;
+                    top.CurrentBranchNullable = true;
+                }
+                continue;
+            }
+
+            if (ch is '^' or '$')
+            {
+                // Zero-width assertion, doesn't affect nullability.
+                TryConsumeQuantifier(pattern, ref i, out _);
+                continue;
+            }
+
+            // Any other character is a consuming atom (a literal, '.', a lone '{', ...).
+            HandleConsumingAtom(pattern, ref i, groupStack);
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Consumes an optional quantifier following a consuming atom and updates the nullability
+    /// tracking of the innermost open group: the current alternative can no longer match the
+    /// empty string unless the atom was made optional by a min-zero quantifier.
+    /// </summary>
+    private static void HandleConsumingAtom(string pattern, ref int i, RefStack<GroupScanState> groupStack)
+    {
+        var optional = TryConsumeQuantifier(pattern, ref i, out var minCanBeZero) && minCanBeZero;
+        if (!optional && groupStack._size > 0)
+        {
+            groupStack._array[groupStack._size - 1].CurrentBranchNullable = false;
+        }
+    }
+
+    /// <summary>
+    /// Tries to consume a quantifier (*, +, ?, {n}, {n,}, {n,m}, each with an optional lazy '?'
+    /// suffix) following position <paramref name="i"/>, advancing <paramref name="i"/> past it
+    /// on success. A brace that doesn't form a well-formed interval quantifier is left in place
+    /// (Annex B treats it as a literal).
+    /// </summary>
+    private static bool TryConsumeQuantifier(string pattern, ref int i, out bool minCanBeZero)
+    {
+        minCanBeZero = false;
+
+        var j = i + 1;
+        if ((uint) j >= (uint) pattern.Length)
+        {
+            return false;
+        }
+
+        switch (pattern[j])
+        {
+            case '*':
+            case '?':
+                minCanBeZero = true;
+                break;
+
+            case '+':
+                break;
+
+            case '{':
+                var k = j + 1;
+                var sawDigit = false;
+                var minIsZero = true;
+                while (k < pattern.Length && pattern[k] is >= '0' and <= '9')
+                {
+                    if (pattern[k] != '0')
+                    {
+                        minIsZero = false;
+                    }
+                    sawDigit = true;
+                    k++;
+                }
+
+                if (!sawDigit)
+                {
+                    return false;
+                }
+
+                if (k < pattern.Length && pattern[k] == ',')
+                {
+                    k++;
+                    while (k < pattern.Length && pattern[k] is >= '0' and <= '9')
+                    {
+                        k++;
+                    }
+                }
+
+                if (k >= pattern.Length || pattern[k] != '}')
+                {
+                    return false;
+                }
+
+                minCanBeZero = minIsZero;
+                j = k;
+                break;
+
+            default:
+                return false;
+        }
+
+        if (j + 1 < pattern.Length && pattern[j + 1] == '?')
+        {
+            // Lazy quantifier suffix
+            j++;
+        }
+
+        i = j;
+        return true;
+    }
+
+    [Flags]
+    private enum GroupBodyFlags : byte
+    {
+        None = 0,
+        /// <summary>The group's body contains a capturing group (at any depth).</summary>
+        ContainsCapture = 1,
+        /// <summary>The group's body contains a lookaround assertion (at any depth).</summary>
+        ContainsLookaround = 2,
+    }
+
+    /// <summary>Scan state for one open group in <see cref="NeedCustomEngine"/>.</summary>
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
+    private struct GroupScanState
+    {
+        /// <summary>1-based capturing group number, 0 for non-capturing groups and assertions.</summary>
+        public int Number;
+        /// <summary>One of the group type constants declared in <see cref="NeedCustomEngine"/>.</summary>
+        public int Type;
+        /// <summary>Hazards seen anywhere in the group's body so far.</summary>
+        public GroupBodyFlags BodyFlags;
+        /// <summary>Whether the current alternative may still match the empty string.</summary>
+        public bool CurrentBranchNullable;
+        /// <summary>Whether a completed alternative may match the empty string.</summary>
+        public bool AnyBranchNullable;
     }
 
     /// <summary>
