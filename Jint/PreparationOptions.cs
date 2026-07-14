@@ -1,4 +1,6 @@
-﻿namespace Jint;
+﻿using Jint.Native.RegExp;
+
+namespace Jint;
 
 public interface IPreparationOptions<out TParsingOptions>
     where TParsingOptions : IParsingOptions
@@ -28,7 +30,7 @@ public sealed record class ScriptPreparationOptions : IPreparationOptions<Script
 
     internal ParserOptions GetParserOptions() => ReferenceEquals(this, Default)
         ? _defaultParserOptions
-        : ParsingOptions.ApplyTo(_defaultParserOptions, fallbackCompileRegex: true, Engine.DefaultRegexTimeout);
+        : ParsingOptions.ApplyTo(_defaultParserOptions, RegexCompilation.Compiled, Engine.DefaultRegexTimeout);
 }
 
 public sealed record class ModulePreparationOptions : IPreparationOptions<ModuleParsingOptions>
@@ -47,5 +49,5 @@ public sealed record class ModulePreparationOptions : IPreparationOptions<Module
 
     internal ParserOptions GetParserOptions() => ReferenceEquals(this, Default)
         ? _defaultParserOptions
-        : ParsingOptions.ApplyTo(_defaultParserOptions, fallbackCompileRegex: true, Engine.DefaultRegexTimeout);
+        : ParsingOptions.ApplyTo(_defaultParserOptions, RegexCompilation.Compiled, Engine.DefaultRegexTimeout);
 }

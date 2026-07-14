@@ -25,7 +25,7 @@ public class ScriptModulePreparationTests
         // Regex is pre-compiled during preparation with Compiled flag
         var conversionOptions = init.ParseResult.AdditionalData as Engine.RegexConversionOptions;
         conversionOptions.Should().NotBeNull();
-        conversionOptions.Compiled.Should().BeTrue();
+        conversionOptions.Compilation.Should().Be(Jint.Native.RegExp.RegexCompilation.Compiled);
 
         // Prepared script executes correctly
         new Engine().Evaluate(script).AsNumber().Should().Be(1);
