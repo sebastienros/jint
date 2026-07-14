@@ -3,7 +3,6 @@ using System.Threading;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter;
 using Environment = Jint.Runtime.Environments.Environment;
@@ -14,6 +13,17 @@ public sealed class ScriptFunction : Function, IConstructor
 {
     internal bool _isClassConstructor;
     internal JsValue? _classFieldInitializerName;
+
+    // Own restricted "arguments"/"caller" properties of non-strict, non-arrow, non-generator,
+    // non-async functions. Dedicated fields (like Function's name/length/prototype) instead of
+    // dictionary entries, so a plain sloppy function's instantiation allocates neither the
+    // property dictionary nor the two descriptors: the fields start at the pending sentinel and
+    // materialize on first read. null means absent (strict functions, methods after MakeMethod,
+    // or deleted); a deleted-then-redefined property goes to the dictionary, which preserves the
+    // previous key order after resurrection. Enumeration order (length, name, prototype,
+    // arguments, caller) matches the old ctor-time dictionary inserts.
+    internal PropertyDescriptor? _argumentsDescriptor;
+    internal PropertyDescriptor? _callerDescriptor;
 
     // Reuse cache for this function's call environments, populated on a pool-eligible call's return.
     // Interpreted via State.IsDirectRecursive: a FunctionEnvironment (the next call reuses it directly)
@@ -75,16 +85,53 @@ public sealed class ScriptFunction : Function, IConstructor
         : base(engine, engine.Realm, function, env, thisMode)
     {
         _prototype = proto ?? _engine.Realm.Intrinsics.Function.PrototypeObject;
-        _length = new LazyPropertyDescriptor<JintFunctionDefinition>(function, static function => JsNumber.Create(function.Initialize().Length), PropertyFlag.Configurable);
+        // The own "length" property exists from birth; its descriptor is materialized lazily
+        // from the definition on first read (see Function._pendingDescriptor).
+        _length = _pendingDescriptor;
 
         if (!function.Strict
             && function.Function is not ArrowFunctionExpression
             && !function.Function.Generator
             && !function.Function.Async)
         {
-            SetProperty(KnownKeys.Arguments, new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(engine, PropertyFlag.Configurable));
-            SetProperty(KnownKeys.Caller, new PropertyDescriptor(Undefined, PropertyFlag.Configurable));
+            _argumentsDescriptor = _pendingDescriptor;
+            _callerDescriptor = _pendingDescriptor;
         }
+    }
+
+    internal PropertyDescriptor MaterializeArgumentsDescriptor()
+    {
+        // Same deferred %ThrowTypeError% resolution as the old eager descriptor: the thrower is
+        // looked up from the engine's active realm on the first Get/Set access either way.
+        return _argumentsDescriptor = new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(_engine, PropertyFlag.Configurable);
+    }
+
+    internal PropertyDescriptor MaterializeCallerDescriptor()
+    {
+        return _callerDescriptor = new PropertyDescriptor(Undefined, PropertyFlag.Configurable);
+    }
+
+    /// <summary>
+    /// Stores a replacement descriptor for a currently field-backed restricted property. Returns
+    /// false when the property is not field-backed (never was, or was deleted), in which case the
+    /// caller stores it in the property dictionary — putting a resurrected property at the end of
+    /// the key order exactly like the previous dictionary-backed representation did.
+    /// </summary>
+    internal bool TrySetRestrictedOwnProperty(JsValue property, PropertyDescriptor desc)
+    {
+        if (_argumentsDescriptor is not null && CommonProperties.Arguments.Equals(property))
+        {
+            _argumentsDescriptor = desc;
+            return true;
+        }
+
+        if (_callerDescriptor is not null && CommonProperties.Caller.Equals(property))
+        {
+            _callerDescriptor = desc;
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -295,8 +342,14 @@ public sealed class ScriptFunction : Function, IConstructor
 
         if (kind == ConstructorKind.Base)
         {
+            var currentPrototypeDescriptor = _prototypeDescriptor;
+            if (ReferenceEquals(newTarget, this) && ReferenceEquals(currentPrototypeDescriptor, _pendingDescriptor))
+            {
+                currentPrototypeDescriptor = MaterializePrototypeDescriptor();
+            }
+
             if (ReferenceEquals(newTarget, this)
-                && _prototypeDescriptor is { } prototypeDescriptor
+                && currentPrototypeDescriptor is { } prototypeDescriptor
                 && !prototypeDescriptor.IsAccessorDescriptor())
             {
                 var prototype = prototypeDescriptor.Value as ObjectInstance ?? _realm.Intrinsics.Object.PrototypeObject;

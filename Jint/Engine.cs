@@ -1533,12 +1533,16 @@ public sealed partial class Engine : IDisposable
                         JsValue.Undefined, canBeDeleted: false, mutable: true, strict: false);
                 }
             }
-            else
+            else if (varsToInitialize.Count > 0)
             {
+                // Inlined bulk form of CreateMutableBindingAndInitialize (no slots, DisposeHint.Normal):
+                // pre-size once so a declaration-heavy body doesn't cut the list over to a dictionary
+                // insert by insert on every call (mirrors the lexical-declarations path below).
+                var dictionary = env._dictionary ??= new HybridDictionary<Binding>(varsToInitialize.Count, checkExistingKeys: true);
+                dictionary.EnsureCapacity(dictionary.Count + varsToInitialize.Count);
                 for (var i = 0; i < varsToInitialize.Count; i++)
                 {
-                    var pair = varsToInitialize[i];
-                    env.CreateMutableBindingAndInitialize(pair.Name, canBeDeleted: false, JsValue.Undefined, DisposeHint.Normal);
+                    dictionary[varsToInitialize[i].Name] = new Binding(JsValue.Undefined, canBeDeleted: false, mutable: true, strict: false);
                 }
             }
 
@@ -1670,13 +1674,12 @@ public sealed partial class Engine : IDisposable
         if (configuration.FunctionsToInitialize != null)
         {
             var privateEnv = calleeContext.PrivateEnvironment;
-            var realm = Realm;
+            var intrinsicFunction = Realm.Intrinsics.Function;
             foreach (var f in configuration.FunctionsToInitialize)
             {
-                var jintFunctionDefinition = GetOrCreateFunctionDefinition(f);
-                var fn = jintFunctionDefinition.Name!;
-                var fo = realm.Intrinsics.Function.InstantiateFunctionObject(jintFunctionDefinition, lexEnv, privateEnv);
-                varEnv.SetMutableBinding(fn, fo, strict: false);
+                var jintFunctionDefinition = GetOrCreateFunctionDefinition(f.Declaration);
+                var fo = intrinsicFunction.InstantiateFunctionObject(jintFunctionDefinition, lexEnv, privateEnv);
+                varEnv.SetMutableBinding(f.Name, fo, strict: false);
             }
         }
 
