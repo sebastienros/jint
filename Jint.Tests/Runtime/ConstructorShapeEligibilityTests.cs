@@ -108,24 +108,48 @@ public class ConstructorShapeEligibilityTests
     }
 
     [Fact]
+    public void ConditionalThisAssignmentsAreEligible()
+    {
+        // The sunspider-3d-raytrace Triangle pattern: branches assigning the same key set.
+        // Eligibility only decides how early shaping starts, so branchy-but-static bodies
+        // shape from instance #3 like straight-line ones.
+        var engine = new Engine();
+        engine.Execute("function T(f) { if (f) this.axis = 0; else this.axis = 2; this.n = 1; } var t1 = new T(true); var t2 = new T(false); var t3 = new T(true); var t4 = new T(false);");
+        Assert.False(IsShapeMode(GetObject(engine, "t1")));
+        Assert.True(IsShapeMode(GetObject(engine, "t3")));
+        Assert.True(IsShapeMode(GetObject(engine, "t4")));
+        Assert.Same(ShapeOf(GetObject(engine, "t3")), ShapeOf(GetObject(engine, "t4")));
+        Assert.Equal(0, engine.Evaluate("t3.axis").AsNumber());
+        Assert.Equal(2, engine.Evaluate("t4.axis").AsNumber());
+        Assert.Equal("axis,n", engine.Evaluate("Object.keys(t3).join(',')").AsString());
+
+        // divergent key sets per branch: both layouts stay correct, shapes differ per path
+        engine = new Engine();
+        engine.Execute("function T(f) { if (f) { this.a = 1; } else { this.b = 2; } } var t1 = new T(true); var t2 = new T(true); var t3 = new T(true); var t4 = new T(false);");
+        Assert.True(IsShapeMode(GetObject(engine, "t3")));
+        Assert.True(IsShapeMode(GetObject(engine, "t4")));
+        Assert.Equal(1, engine.Evaluate("t3.a").AsNumber());
+        Assert.False(engine.Evaluate("'b' in t3").AsBoolean());
+        Assert.Equal(2, engine.Evaluate("t4.b").AsNumber());
+        Assert.False(engine.Evaluate("'a' in t4").AsBoolean());
+
+        // a this-escaping call in the if TEST still rejects eligibility
+        engine = new Engine();
+        engine.Execute("function ext(o) { o.dyn = 1; return true; } function T() { if (ext(this)) this.a = 1; } var t1 = new T(); var t2 = new T(); var t3 = new T();");
+        Assert.False(IsShapeMode(GetObject(engine, "t3")));
+        Assert.Equal("dyn,a", engine.Evaluate("Object.keys(t3).join(',')").AsString());
+    }
+
+    [Fact]
     public void IneligibleBodiesBehaveExactlyAsBeforeAndStayUnshaped()
     {
         // Ineligible constructors keep the sampling window: with eligible ones now shaping from
         // instance #3, asserting instance #3 is still dictionary-mode is what distinguishes them.
 
-        // conditional assignment
-        var engine = new Engine();
-        engine.Execute("function T(f) { if (f) { this.a = 1; } else { this.b = 2; } } var t = new T(true); var t2 = new T(true); var t3 = new T(true);");
-        var t = GetObject(engine, "t");
-        Assert.False(IsShapeMode(t));
-        Assert.False(IsShapeMode(GetObject(engine, "t3")));
-        Assert.Equal(1, engine.Evaluate("t.a").AsNumber());
-        Assert.False(engine.Evaluate("'b' in t").AsBoolean());
-
         // computed LHS
-        engine = new Engine();
+        var engine = new Engine();
         engine.Execute("function T(k) { this[k] = 42; } var t = new T('dyn'); var t2 = new T('dyn'); var t3 = new T('dyn');");
-        t = GetObject(engine, "t");
+        var t = GetObject(engine, "t");
         Assert.False(IsShapeMode(t));
         Assert.False(IsShapeMode(GetObject(engine, "t3")));
         Assert.Equal(42, engine.Evaluate("t.dyn").AsNumber());
