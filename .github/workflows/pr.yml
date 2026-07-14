@@ -38,13 +38,17 @@ jobs:
         dotnet-version: 10.0
 
     - name: Checkout source code
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
 
     - name: Cache Test262 generated suite
-      uses: actions/cache@v5
+      uses: actions/cache@v6
       with:
         path: Jint.Tests.Test262/Generated
         key: test262-generated-${{ hashFiles('Jint.Tests.Test262/Test262Harness.settings.json') }}
+        # The generated suite is pure codegen (identical on every OS), so share one cache across
+        # platforms. Without this, only the Build workflow (Linux) ever seeds the cache and the
+        # Windows/macOS/ARM jobs regenerate the whole suite on every run.
+        enableCrossOsArchive: true
 
     - name: Test
       run: dotnet test --configuration Release --logger "console;verbosity=quiet" --logger "GitHubActions;summary-include-passed=false;summary-include-skipped=false"
