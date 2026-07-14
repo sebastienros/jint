@@ -24,13 +24,15 @@ jobs:
         dotnet-version: 10.0
 
     - name: Checkout source code
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
 
     - name: Cache Test262 generated suite
-      uses: actions/cache@v5
+      uses: actions/cache@v6
       with:
         path: Jint.Tests.Test262/Generated
         key: test262-generated-${{ hashFiles('Jint.Tests.Test262/Test262Harness.settings.json') }}
+        # Seed a cross-OS cache so the PR workflow's Windows/macOS/ARM jobs can restore it too.
+        enableCrossOsArchive: true
 
     - name: Test
       run: dotnet test --configuration Release --logger "console;verbosity=quiet" --logger "GitHubActions;summary-include-passed=false;summary-include-skipped=false"

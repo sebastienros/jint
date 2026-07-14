@@ -13,3 +13,9 @@ Jint.Tests.Test262/** linguist-vendored
 *.verified.txt text eol=lf
 *.received.cs text eol=lf
 *.received.txt text eol=lf
+
+# The Test262 generated suite is cached across operating systems, keyed on a hash of this
+# settings file. It must therefore be byte-identical on every platform: a CRLF Windows checkout
+# would change the cache key (hashFiles) and the MSBuild regeneration gate, turning every
+# cross-OS cache restore into a full regeneration.
+Jint.Tests.Test262/Test262Harness.settings.json text eol=lf
