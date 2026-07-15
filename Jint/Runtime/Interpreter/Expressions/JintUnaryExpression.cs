@@ -139,6 +139,26 @@ internal sealed class JintUnaryExpression : JintExpression
         return EvaluateJsValue(context);
     }
 
+    public override bool GetBooleanValue(EvaluationContext context)
+    {
+        // `!x` in a boolean context (if/while/ternary/nested !) is exactly !ToBoolean(x), so the
+        // argument can take the unboxed boolean path instead of materializing a JsBoolean only to
+        // unbox it again. Gated identically to the logical expressions: operator overloading
+        // (op_LogicalNot), generator/async suspension and the engine-less fast-eval context fall
+        // back to the materializing base path. The single operand carries no left-operand state,
+        // so no suspend bookkeeping is needed on this fast path (it never runs while suspendable).
+        if (_operator == Operator.LogicalNot)
+        {
+            var suspendable = context.Engine?.ExecutionContext.Suspendable;
+            if (suspendable is null && context.Engine is not null && !context.OperatorOverloadingAllowed)
+            {
+                return !_argument.GetBooleanValue(context);
+            }
+        }
+
+        return base.GetBooleanValue(context);
+    }
+
     private JsValue EvaluateJsValue(EvaluationContext context)
     {
         var engine = context.Engine;

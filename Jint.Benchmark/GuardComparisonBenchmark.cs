@@ -18,6 +18,7 @@ public class GuardComparisonBenchmark
     private Prepared<Script> _looseNullGuard;
     private Prepared<Script> _typeofStringGuard;
     private Prepared<Script> _typeofUndefinedGuard;
+    private Prepared<Script> _logicalGuard;
 
     private const string SetupSource = """
         var mixedVals = [];
@@ -108,11 +109,30 @@ public class GuardComparisonBenchmark
             f();
             """);
 
+        // Composed guards: `&&`/`||`/`!` over comparisons in a boolean `if` context. Each
+        // comparison feeds the enclosing logical operator's unboxed GetBooleanValue, so the whole
+        // condition stays off the JsBoolean-materialization path.
+        _logicalGuard = Engine.PrepareScript("""
+            function f() {
+                var s = 0;
+                for (var i = 0; i < 100000; i++) {
+                    var v = mixedVals[order[i & 8191]];
+                    if (v !== undefined && v !== null) { s++; }
+                    if (v === undefined || v === null) { s += 2; }
+                    if (typeof v === 'string' || typeof v === 'number') { s += 3; }
+                    if (!(v === null)) { s += 4; }
+                }
+                return s;
+            }
+            f();
+            """);
+
         _engine.Evaluate(_isUndefinedGuard);
         _engine.Evaluate(_isNullGuard);
         _engine.Evaluate(_looseNullGuard);
         _engine.Evaluate(_typeofStringGuard);
         _engine.Evaluate(_typeofUndefinedGuard);
+        _engine.Evaluate(_logicalGuard);
     }
 
     [Benchmark]
@@ -129,4 +149,7 @@ public class GuardComparisonBenchmark
 
     [Benchmark]
     public JsValue TypeofUndefinedGuard() => _engine.Evaluate(_typeofUndefinedGuard);
+
+    [Benchmark]
+    public JsValue LogicalGuard() => _engine.Evaluate(_logicalGuard);
 }
