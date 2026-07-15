@@ -95,6 +95,46 @@ internal sealed class JintUpdateExpression : JintExpression
         return true;
     }
 
+    /// <summary>
+    /// Value-producing twin of <see cref="TryUpdateUnboxed"/>: increments/decrements a slot-stored
+    /// number binding without an environment-chain walk or a second SetMutableBinding lookup, and
+    /// materializes the value the surrounding expression consumes — the OLD value for postfix
+    /// (<c>i++</c>), the NEW value for prefix (<c>++i</c>). Everything the fast path cannot prove
+    /// safe (operator overloading, generators/async, eval/arguments in strict mode, TDZ, const,
+    /// non-number values, global/object/dictionary environments) declines so the full materialized
+    /// path produces the exact errors and coercions.
+    /// </summary>
+    private bool TryUpdateIdentifierNumberSlot(EvaluationContext context, out JsValue? result)
+    {
+        var engine = context.Engine;
+        if (context.OperatorOverloadingAllowed
+            || engine.ExecutionContext.Suspendable is not null)
+        {
+            result = null;
+            return false;
+        }
+
+        if (_evalOrArguments && StrictModeScope.IsStrictModeCode)
+        {
+            // full path raises the proper SyntaxError
+            result = null;
+            return false;
+        }
+
+        if (!_slotCache.TryResolve(engine, engine.ExecutionContext.LexicalEnvironment, _leftIdentifier!.Identifier, out var environment, out var slotIndex)
+            || !environment.TryGetNumberSlot(slotIndex, out var value))
+        {
+            result = null;
+            return false;
+        }
+
+        var updated = value + _change;
+        environment.SetNumberSlot(slotIndex, updated);
+        // postfix (i++) yields the old value, prefix (++i) the new value; both are numbers here
+        result = JsNumber.Create(_prefix ? updated : value);
+        return true;
+    }
+
     private JsValue UpdateNonIdentifier(EvaluationContext context)
     {
         var engine = context.Engine;
@@ -163,6 +203,15 @@ internal sealed class JintUpdateExpression : JintExpression
     private JsValue? UpdateIdentifier(EvaluationContext context)
     {
         var engine = context.Engine;
+
+        // Local/block/function number-counter fast path (arr[i++], x = data[j++], while(n--)):
+        // resolve the slot location from the per-node cache and read/write the raw double, exactly
+        // as the discard-mode TryUpdateUnboxed does, but materialize the value the surrounding
+        // expression needs. Anything the fast path cannot prove safe declines to the paths below.
+        if (TryUpdateIdentifierNumberSlot(context, out var slotResult))
+        {
+            return slotResult;
+        }
 
         // Global-binding fast path: when this identifier resolves to a cached plain writable global
         // data property, read and write its descriptor value directly — no environment chain walk and
