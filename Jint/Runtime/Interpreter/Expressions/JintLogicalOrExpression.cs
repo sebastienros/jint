@@ -59,4 +59,22 @@ internal sealed class JintLogicalOrExpression : JintExpression
         suspendable?.Data.Clear(this);
         return right;
     }
+
+    public override bool GetBooleanValue(EvaluationContext context)
+    {
+        // In a plain synchronous frame nothing can suspend or resume mid-expression, so both
+        // operands take the unboxed boolean path (comparison lanes return raw bools) instead of
+        // materializing a JsValue only to feed TypeConverter.ToBoolean. C# || preserves the
+        // JS short-circuit: the right operand is skipped when the left is truthy. Operator
+        // overloading, generator/async suspension and the engine-less fast-eval context all fall
+        // back to the materializing base path (ToBoolean(GetValue)), whose EvaluateInternal keeps
+        // the left operand's side effects from re-running across a suspend/resume.
+        var suspendable = context.Engine?.ExecutionContext.Suspendable;
+        if (suspendable is null && context.Engine is not null && !context.OperatorOverloadingAllowed)
+        {
+            return _left.GetBooleanValue(context) || _right.GetBooleanValue(context);
+        }
+
+        return base.GetBooleanValue(context);
+    }
 }
