@@ -35,6 +35,33 @@ public class RegExpTests
     }
 
     [Theory]
+    // A capturing group nested inside a quantified non-capturing group routes the pattern to
+    // the custom (QuickJS-port) regex engine. Its greedy Char+/Range+ bulk-advance optimization
+    // must not fire when the loop body has more than the single leading char/range atom,
+    // otherwise trailing iterations get dropped (e.g. "abcabc" matched as "abca").
+    [InlineData("(?:a(b)c)+", "abcabc", "[\"abcabc\",\"b\"]")]
+    [InlineData("(?:a(b)c)+", "abc", "[\"abc\",\"b\"]")]
+    [InlineData("(?:x(y)z)+", "xyzxyzxyz", "[\"xyzxyzxyz\",\"y\"]")]
+    [InlineData("(?:a(b)c)+", "zzabcabc", "[\"abcabc\",\"b\"]")]
+    [InlineData("(a(b)c)+", "abcabc", "[\"abcabc\",\"abc\",\"b\"]")]
+    [InlineData("(?:(a)(b))+", "abab", "[\"abab\",\"a\",\"b\"]")]
+    [InlineData("(?:([ab])(x))+", "axbx", "[\"axbx\",\"b\",\"x\"]")]
+    // Range as the leading atom of a multi-atom body exercises the Range+ bulk-advance guard.
+    [InlineData("(?:[a-c](x))+", "axbx", "[\"axbx\",\"x\"]")]
+    // Single char/range body: the bulk-advance optimization SHOULD still apply and stay correct.
+    [InlineData("(a)+", "aaa", "[\"aaa\",\"a\"]")]
+    [InlineData("([a-z])+", "abc", "[\"abc\",\"c\"]")]
+    public void MatchesNestedCaptureInsideQuantifiedGroup(string pattern, string input, string expected)
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate($"JSON.stringify(/{pattern}/.exec({JsonString(input)}))").AsString();
+
+        Assert.Equal(expected, result);
+    }
+
+    private static string JsonString(string s) => System.Text.Json.JsonSerializer.Serialize(s);
+
+    [Theory]
     [InlineData("gy")]
     [InlineData("guy")]
     public void MatchStickyGlobalCollectsAllAdjacentMatches(string flags)
