@@ -12,6 +12,13 @@ public sealed class CancellationConstraint : Constraint
         _cancellationToken = cancellationToken;
     }
 
+    /// <summary>
+    /// The token this constraint observes. Exposed so that blocking waits outside the
+    /// per-statement check loop (e.g. the module top-level-await event-loop drain) can
+    /// observe the same cancellation.
+    /// </summary>
+    internal CancellationToken Token => _cancellationToken;
+
     public override void Check()
     {
         if (_cancellationToken.IsCancellationRequested)

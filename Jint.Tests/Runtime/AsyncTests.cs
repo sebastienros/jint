@@ -981,6 +981,75 @@ public class AsyncTests
         Assert.Throws<JavaScriptException>(() => engine.Modules.Import("main"));
     }
 
+    [Fact]
+    public void ShouldObserveCancellationDuringTopLevelAwaitOfNeverCompletingTaskInModule()
+    {
+        // Robustness gap in the #2663 drain: when an embedder registers a cancellation-based
+        // constraint (options.CancellationToken) and cancels it while a module's top-level await is
+        // hanging on a never-completing .NET Task, the otherwise-idle event-loop drain must observe
+        // the cancellation and break out PROMPTLY - throwing ExecutionCanceledException, the same way
+        // per-statement execution surfaces cancellation - instead of blocking until PromiseTimeout.
+        using var cts = new CancellationTokenSource();
+        Engine engine = new(options =>
+        {
+            options.ExperimentalFeatures = ExperimentalFeature.TaskInterop;
+            // Deliberately huge so that a wait that lasts anywhere near it proves cancellation was NOT observed.
+            options.Constraints.PromiseTimeout = GenerousPromiseTimeout;
+            options.CancellationToken(cts.Token);
+        });
+
+        // A Task that never completes: the awaited promise stays pending forever unless cancellation breaks in.
+        var neverCompletes = new TaskCompletionSource<int>();
+        engine.SetValue("hang", new Func<Task<int>>(() => neverCompletes.Task));
+
+        engine.Modules.Add("main", """
+            const x = await hang();
+            export const answer = x;
+            """);
+
+        // Cancel shortly after Import starts blocking on the drain (fires on a ThreadPool thread).
+        cts.CancelAfter(TimeSpan.FromMilliseconds(200));
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        Assert.Throws<ExecutionCanceledException>(() => engine.Modules.Import("main"));
+        sw.Stop();
+
+        // Prompt: nowhere near the multi-minute PromiseTimeout. A generous ceiling keeps this stable under CI load.
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(10), $"Cancellation was not observed promptly: took {sw.Elapsed}.");
+
+        neverCompletes.TrySetCanceled();
+    }
+
+    [Fact]
+    public void ShouldTimeOutTopLevelAwaitOfNeverCompletingTaskInModuleWithoutCancellation()
+    {
+        // Invariant: with NO cancellation registered, a genuinely never-settling top-level await must
+        // still be BOUNDED by PromiseTimeout (not hang), surfacing as an error out of Modules.Import.
+        Engine engine = new(options =>
+        {
+            options.ExperimentalFeatures = ExperimentalFeature.TaskInterop;
+            options.Constraints.PromiseTimeout = TimeSpan.FromMilliseconds(500);
+        });
+
+        var neverCompletes = new TaskCompletionSource<int>();
+        engine.SetValue("hang", new Func<Task<int>>(() => neverCompletes.Task));
+
+        engine.Modules.Add("main", """
+            const x = await hang();
+            export const answer = x;
+            """);
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        // The drain gives up at PromiseTimeout with the promise still pending, so evaluation reports a
+        // non-fulfilled promise rather than hanging.
+        Assert.Throws<InvalidOperationException>(() => engine.Modules.Import("main"));
+        sw.Stop();
+
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(30), $"Never-settling await was not bounded: took {sw.Elapsed}.");
+
+        neverCompletes.TrySetCanceled();
+    }
+
 #if !NETFRAMEWORK
 
     [Fact]

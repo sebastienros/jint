@@ -2,6 +2,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Jint.Collections;
+using Jint.Constraints;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Generator;
@@ -769,7 +770,11 @@ public sealed partial class Engine : IDisposable
     /// A tight spin loop gives up in microseconds and never observes a Task that only completes
     /// milliseconds later on a ThreadPool thread (issue #2663). This mirrors the polling in
     /// <see cref="JsValueExtensions.UnwrapIfPromise(Native.JsValue, TimeSpan)"/>. A non-positive
-    /// <paramref name="timeout"/> means wait indefinitely.
+    /// <paramref name="timeout"/> means wait indefinitely. A registered
+    /// <see cref="Constraints.CancellationConstraint"/> is observed during the idle waits so that a
+    /// cancelled engine breaks out promptly (throwing <see cref="ExecutionCanceledException"/>, the
+    /// same way per-statement execution surfaces cancellation) instead of blocking up to the full
+    /// timeout while awaiting a never-settling Task.
     /// </remarks>
     internal void DrainEventLoopUntilSettled(JsPromise promise, TimeSpan timeout)
     {
@@ -778,6 +783,13 @@ public sealed partial class Engine : IDisposable
         // nesting (e.g. a re-entrant UnwrapIfPromise already waiting).
         var previousWaitingThreadId = _eventLoop._waitingThreadId;
         _eventLoop._waitingThreadId = System.Environment.CurrentManagedThreadId;
+
+        // Observe a registered CancellationConstraint during the otherwise-idle waits. No statements
+        // run while we block on the completion event, so the per-statement constraint checks never
+        // fire; without this, cancelling the engine while a top-level await hangs on a never-settling
+        // Task would go unnoticed until PromiseTimeout. Defaults to CancellationToken.None when no
+        // such constraint is registered, which leaves the wait behavior unchanged.
+        var cancellationToken = Constraints.Find<CancellationConstraint>()?.Token ?? default;
 
         try
         {
@@ -795,6 +807,7 @@ public sealed partial class Engine : IDisposable
                     break;
                 }
 
+                var waitInterval = pollInterval;
                 if (hasTimeout)
                 {
                     var remaining = deadline - DateTime.UtcNow;
@@ -803,11 +816,22 @@ public sealed partial class Engine : IDisposable
                         break;
                     }
 
-                    completedEvent.Wait(remaining < pollInterval ? remaining : pollInterval);
+                    if (remaining < waitInterval)
+                    {
+                        waitInterval = remaining;
+                    }
                 }
-                else
+
+                try
                 {
-                    completedEvent.Wait(pollInterval);
+                    completedEvent.Wait(waitInterval, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    // The registered CancellationConstraint's token was cancelled during the idle wait.
+                    // Surface it exactly as per-statement execution does (CancellationConstraint.Check),
+                    // rather than swallowing it and letting the drain fall through to a silent timeout.
+                    Throw.ExecutionCanceledException();
                 }
             }
         }
