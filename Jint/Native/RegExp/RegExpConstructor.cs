@@ -866,10 +866,17 @@ public sealed partial class RegExpConstructor : Constructor
                         return true;
                     }
 
-                    if (group.Type == capturingGroup && groupNullable)
+                    if (groupNullable)
                     {
-                        // Repeated capturing group whose body may match the empty string: .NET records
-                        // an empty capture for an empty iteration, ECMAScript rejects empty iterations.
+                        // Repeated group whose body may match the empty string diverges between .NET and
+                        // ECMAScript, so route it to the custom engine. Two distinct hazards:
+                        //  - a capturing body: .NET records an empty capture for an empty iteration,
+                        //    ECMAScript rejects empty iterations;
+                        //  - a non-capturing body: .NET's empty-subexpression loop protection stops the
+                        //    repetition at the first empty/zero-width alternative, whereas ECMAScript's
+                        //    RepeatMatcher prunes the empty iteration and backtracks into a later consuming
+                        //    alternative - so the *match itself* diverges, e.g. /(?:a*|b)*/ on "aaabbb"
+                        //    matches "aaabbb" per spec but only "aaa" under .NET.
                         return true;
                     }
                 }
