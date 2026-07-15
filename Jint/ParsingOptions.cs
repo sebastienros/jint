@@ -1,4 +1,5 @@
 ﻿using System.Text.RegularExpressions;
+using Jint.Native.RegExp;
 
 namespace Jint;
 
@@ -8,12 +9,16 @@ public interface IParsingOptions
     /// Gets or sets whether to create compiled <see cref="Regex"/> instances when adapting regular expressions.
     /// When <see langword="true"/>, regex patterns are pre-compiled using <see cref="RegexOptions.Compiled"/>.
     /// When <see langword="false"/>, regex patterns are interpreted.
-    /// When <see langword="null"/>, regex patterns are interpreted in the case of non-prepared scripts and modules,
-    /// otherwise they are pre-compiled.
+    /// When <see langword="null"/>, regex patterns in prepared scripts and modules are pre-compiled, while
+    /// other regex patterns start out interpreted and are upgraded to <see cref="RegexOptions.Compiled"/>
+    /// when the same pattern keeps being constructed: successful adaptations are cached process-wide, which
+    /// both detects reuse and amortizes the one-time compilation cost, so one-shot patterns never pay it.
     /// Defaults to <see langword="null"/>.
     /// </summary>
     /// <remarks>
     /// Patterns that require the custom QuickJS engine are always interpreted regardless of this setting.
+    /// Under Native AOT the .NET runtime ignores <see cref="RegexOptions.Compiled"/> and such patterns
+    /// fall back to the built-in <see cref="Regex"/> interpreter.
     /// </remarks>
     bool? CompileRegex { get; init; }
 
@@ -52,7 +57,7 @@ public sealed record ScriptParsingOptions : IParsingOptions
     {
         AllowReturnOutsideFunction = true,
         AllowTopLevelUsing = true,
-        OnRegExp = Engine.DefaultConvertRegExpHandler,
+        OnRegExp = Engine.DefaultAdaptiveRegExpHandler,
         // OnNode (source-text retention) is applied conditionally in ApplyTo based on RetainFunctionSourceText.
     };
 
@@ -91,46 +96,52 @@ public sealed record ScriptParsingOptions : IParsingOptions
     /// </summary>
     public Position SourceOffset { get; init; }
 
-    internal ParserOptions ApplyTo(ParserOptions baseOptions, bool fallbackCompileRegex, TimeSpan fallbackRegexTimeout) => baseOptions with
+    internal ParserOptions ApplyTo(ParserOptions baseOptions, RegexCompilation fallbackRegexCompilation, TimeSpan fallbackRegexTimeout) => baseOptions with
     {
         AllowReturnOutsideFunction = AllowReturnOutsideFunction,
-        OnRegExp = GetOnRegExpHandler(fallbackCompileRegex, fallbackRegexTimeout),
+        OnRegExp = GetOnRegExpHandler(fallbackRegexCompilation, fallbackRegexTimeout),
         OnNode = RetainFunctionSourceText ? Engine.DefaultNodeHandler : null,
         Tolerant = Tolerant,
     };
 
-    private OnRegExpHandler? GetOnRegExpHandler(bool fallbackCompileRegex, TimeSpan fallbackRegexTimeout)
+    private OnRegExpHandler? GetOnRegExpHandler(RegexCompilation fallbackRegexCompilation, TimeSpan fallbackRegexTimeout)
     {
         // Explicit RegexTimeout takes priority, then engine's configured timeout
         var timeout = RegexTimeout ?? fallbackRegexTimeout;
 
-        if (CompileRegex ?? fallbackCompileRegex)
+        var compilation = CompileRegex switch
         {
-            return timeout == Engine.DefaultRegexTimeout
-                ? Engine.DefaultCompileRegExpHandler
-                : Engine.CreateRegExpHandler(compiled: true, timeout);
-        }
-        else
+            true => RegexCompilation.Compiled,
+            false => RegexCompilation.Interpreted,
+            null => fallbackRegexCompilation,
+        };
+
+        if (timeout != Engine.DefaultRegexTimeout)
         {
-            return timeout == Engine.DefaultRegexTimeout
-                ? Engine.DefaultConvertRegExpHandler
-                : Engine.CreateRegExpHandler(compiled: false, timeout);
+            return Engine.CreateRegExpHandler(compilation, timeout);
         }
+
+        return compilation switch
+        {
+            RegexCompilation.Compiled => Engine.DefaultCompileRegExpHandler,
+            RegexCompilation.Interpreted => Engine.DefaultConvertRegExpHandler,
+            _ => Engine.DefaultAdaptiveRegExpHandler,
+        };
     }
 
     internal ParserOptions GetParserOptions() => ReferenceEquals(this, Default)
         ? _defaultParserOptions
-        : ApplyTo(_defaultParserOptions, fallbackCompileRegex: false, Engine.DefaultRegexTimeout);
+        : ApplyTo(_defaultParserOptions, RegexCompilation.Adaptive, Engine.DefaultRegexTimeout);
 
     internal ParserOptions GetParserOptions(Options engineOptions)
-        => ApplyTo(_defaultParserOptions, fallbackCompileRegex: false, engineOptions.Constraints.RegexTimeout);
+        => ApplyTo(_defaultParserOptions, RegexCompilation.Adaptive, engineOptions.Constraints.RegexTimeout);
 }
 
 public sealed record class ModuleParsingOptions : IParsingOptions
 {
     private static readonly ParserOptions _defaultParserOptions = Engine.BaseParserOptions with
     {
-        OnRegExp = Engine.DefaultConvertRegExpHandler,
+        OnRegExp = Engine.DefaultAdaptiveRegExpHandler,
         // OnNode (source-text retention) is applied conditionally in ApplyTo based on RetainFunctionSourceText.
     };
 
@@ -154,36 +165,42 @@ public sealed record class ModuleParsingOptions : IParsingOptions
     /// <inheritdoc/>
     public bool RetainFunctionSourceText { get; init; }
 
-    internal ParserOptions ApplyTo(ParserOptions baseOptions, bool fallbackCompileRegex, TimeSpan fallbackRegexTimeout) => baseOptions with
+    internal ParserOptions ApplyTo(ParserOptions baseOptions, RegexCompilation fallbackRegexCompilation, TimeSpan fallbackRegexTimeout) => baseOptions with
     {
-        OnRegExp = GetOnRegExpHandler(fallbackCompileRegex, fallbackRegexTimeout),
+        OnRegExp = GetOnRegExpHandler(fallbackRegexCompilation, fallbackRegexTimeout),
         OnNode = RetainFunctionSourceText ? Engine.DefaultNodeHandler : null,
         Tolerant = Tolerant,
     };
 
-    private OnRegExpHandler? GetOnRegExpHandler(bool fallbackCompileRegex, TimeSpan fallbackRegexTimeout)
+    private OnRegExpHandler? GetOnRegExpHandler(RegexCompilation fallbackRegexCompilation, TimeSpan fallbackRegexTimeout)
     {
         // Explicit RegexTimeout takes priority, then engine's configured timeout
         var timeout = RegexTimeout ?? fallbackRegexTimeout;
 
-        if (CompileRegex ?? fallbackCompileRegex)
+        var compilation = CompileRegex switch
         {
-            return timeout == Engine.DefaultRegexTimeout
-                ? Engine.DefaultCompileRegExpHandler
-                : Engine.CreateRegExpHandler(compiled: true, timeout);
-        }
-        else
+            true => RegexCompilation.Compiled,
+            false => RegexCompilation.Interpreted,
+            null => fallbackRegexCompilation,
+        };
+
+        if (timeout != Engine.DefaultRegexTimeout)
         {
-            return timeout == Engine.DefaultRegexTimeout
-                ? Engine.DefaultConvertRegExpHandler
-                : Engine.CreateRegExpHandler(compiled: false, timeout);
+            return Engine.CreateRegExpHandler(compilation, timeout);
         }
+
+        return compilation switch
+        {
+            RegexCompilation.Compiled => Engine.DefaultCompileRegExpHandler,
+            RegexCompilation.Interpreted => Engine.DefaultConvertRegExpHandler,
+            _ => Engine.DefaultAdaptiveRegExpHandler,
+        };
     }
 
     internal ParserOptions GetParserOptions() => ReferenceEquals(this, Default)
         ? _defaultParserOptions
-        : ApplyTo(_defaultParserOptions, fallbackCompileRegex: false, Engine.DefaultRegexTimeout);
+        : ApplyTo(_defaultParserOptions, RegexCompilation.Adaptive, Engine.DefaultRegexTimeout);
 
     internal ParserOptions GetParserOptions(Options engineOptions)
-        => ApplyTo(_defaultParserOptions, fallbackCompileRegex: false, engineOptions.Constraints.RegexTimeout);
+        => ApplyTo(_defaultParserOptions, RegexCompilation.Adaptive, engineOptions.Constraints.RegexTimeout);
 }

@@ -1,4 +1,5 @@
 using Jint.Native.Function;
+using Jint.Native.RegExp;
 
 namespace Jint;
 
@@ -23,26 +24,33 @@ public partial class Engine
     internal static readonly TimeSpan DefaultRegexTimeout = TimeSpan.FromSeconds(10);
 
     /// <summary>
-    /// Cached OnRegExp handler for <see cref="DefaultRegexTimeout"/> (interpreted .NET Regex).
+    /// OnRegExp handler for <see cref="DefaultRegexTimeout"/> (interpreted .NET Regex).
     /// </summary>
     internal static OnRegExpHandler DefaultConvertRegExpHandler
-        => CreateRegExpHandler(compiled: false, DefaultRegexTimeout);
+        => CreateRegExpHandler(RegexCompilation.Interpreted, DefaultRegexTimeout);
 
     /// <summary>
-    /// Cached OnRegExp handler for <see cref="DefaultRegexTimeout"/> (compiled .NET Regex).
+    /// OnRegExp handler for <see cref="DefaultRegexTimeout"/> (eagerly compiled .NET Regex).
     /// </summary>
     internal static OnRegExpHandler DefaultCompileRegExpHandler
-        => CreateRegExpHandler(compiled: true, DefaultRegexTimeout);
+        => CreateRegExpHandler(RegexCompilation.Compiled, DefaultRegexTimeout);
+
+    /// <summary>
+    /// OnRegExp handler for <see cref="DefaultRegexTimeout"/> (interpreted .NET Regex, upgraded to
+    /// compiled on reuse; see <see cref="RegexCompilation.Adaptive"/>).
+    /// </summary>
+    internal static OnRegExpHandler DefaultAdaptiveRegExpHandler
+        => CreateRegExpHandler(RegexCompilation.Adaptive, DefaultRegexTimeout);
 
     /// <summary>
     /// Creates an OnRegExp handler with a caller-specified timeout.
     /// </summary>
-    internal static OnRegExpHandler CreateRegExpHandler(bool compiled, TimeSpan timeout)
-        => new RegexConversionOptions(compiled, timeout).HandleOnRegExp;
+    internal static OnRegExpHandler CreateRegExpHandler(RegexCompilation compilation, TimeSpan timeout)
+        => new RegexConversionOptions(compilation, timeout).HandleOnRegExp;
 
-    internal sealed class RegexConversionOptions(bool compiled, TimeSpan timeout)
+    internal sealed class RegexConversionOptions(RegexCompilation compilation, TimeSpan timeout)
     {
-        public bool Compiled { get; } = compiled;
+        public RegexCompilation Compilation { get; } = compilation;
         public TimeSpan Timeout { get; } = timeout;
 
         internal RegExpParseResult HandleOnRegExp(in RegExpParsingContext ctx)

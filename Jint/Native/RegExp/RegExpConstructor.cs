@@ -473,8 +473,18 @@ public sealed partial class RegExpConstructor : Constructor
 
         if (!NeedCustomEngine(p, f))
         {
+            // Dynamic patterns are data-driven and may never repeat, so they are never compiled eagerly:
+            // Adaptive interprets a pattern on its first construction and upgrades to RegexOptions.Compiled
+            // only once the process-wide cache proves reuse, which amortizes the one-time compilation cost.
+            // An explicit CompileRegex = false on the active parsing options (honored via the conversion
+            // options instance the OnRegExp handler is bound to) opts out entirely. The timeout source is
+            // intentionally left unchanged so MatchTimeout semantics stay exactly as before.
+            var compilation = (parserOptions.OnRegExp?.Target as Engine.RegexConversionOptions)?.Compilation == RegexCompilation.Interpreted
+                ? RegexCompilation.Interpreted
+                : RegexCompilation.Adaptive;
+
 #pragma warning disable CS0618 // ParserOptions.RegexTimeout is obsolete but is the supported timeout source.
-            regExpParseResult = RegExpParseCache.GetOrAdapt(p, f, compiled: false, parserOptions.RegexTimeout);
+            regExpParseResult = RegExpParseCache.GetOrAdapt(p, f, compilation, parserOptions.RegexTimeout);
 #pragma warning restore CS0618
 
             if (regExpParseResult.Success)

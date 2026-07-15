@@ -87,7 +87,7 @@ internal sealed class JintLiteralExpression : JintExpression
                 // Process-wide cache: a fresh-parse (source-mode) literal recompiles the same Regex every
                 // run because the per-node UserData cache above only survives in a reused Prepared<Script>.
                 cachedParseResult = RegExpParseCache.GetOrAdapt(
-                    pattern, flags, conversionOptions.Compiled, conversionOptions.Timeout);
+                    pattern, flags, conversionOptions.Compilation, conversionOptions.Timeout);
 
                 if (cachedParseResult.Success)
                 {
