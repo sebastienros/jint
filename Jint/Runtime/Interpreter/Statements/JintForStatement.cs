@@ -165,9 +165,10 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
     /// expression statements, empty statements, var/let/const declarations, and if/else chains
     /// over such statements (including declaration-free brace blocks). Control flow that routes
     /// completions (break/continue/return/labels/loops/switch/try), other declarations, and
-    /// AnnexB function-declaration branches all disqualify the body.
+    /// AnnexB function-declaration branches all disqualify the body. Shared with the while and
+    /// do-while tight lanes, which apply the same predicate to their bodies.
     /// </summary>
-    private static bool IsTightBodyShape(Statement body)
+    internal static bool IsTightBodyShape(Statement body)
     {
         if (body is NestedBlockStatement block)
         {

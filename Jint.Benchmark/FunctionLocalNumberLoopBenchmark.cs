@@ -17,6 +17,8 @@ public class FunctionLocalNumberLoopBenchmark
     private Prepared<Script> _largeIntCounter;
     private Prepared<Script> _accumulatorWithCallArg;
     private Prepared<Script> _mixedArithmetic;
+    private Prepared<Script> _whileAccumulator;
+    private Prepared<Script> _doWhileCounter;
 
     [GlobalSetup]
     public void GlobalSetup()
@@ -77,11 +79,41 @@ public class FunctionLocalNumberLoopBenchmark
             f();
             """);
 
+        // the while/do-while twins of the for-loop accumulator: same tight-lane body shapes,
+        // different loop statements
+        _whileAccumulator = Engine.PrepareScript("""
+            function f() {
+                var s = 0.5;
+                var i = 0;
+                while (i < 100000) {
+                    s += 0.25;
+                    i++;
+                }
+                return s;
+            }
+            f();
+            """);
+
+        _doWhileCounter = Engine.PrepareScript("""
+            function f() {
+                var n = 0;
+                var i = 0;
+                do {
+                    n += 1;
+                    i++;
+                } while (i < 100000);
+                return n;
+            }
+            f();
+            """);
+
         _engine = new Engine();
         _engine.Evaluate(_doubleAccumulator);
         _engine.Evaluate(_largeIntCounter);
         _engine.Evaluate(_accumulatorWithCallArg);
         _engine.Evaluate(_mixedArithmetic);
+        _engine.Evaluate(_whileAccumulator);
+        _engine.Evaluate(_doWhileCounter);
     }
 
     [Benchmark]
@@ -95,4 +127,10 @@ public class FunctionLocalNumberLoopBenchmark
 
     [Benchmark]
     public JsValue MixedArithmetic() => _engine.Evaluate(_mixedArithmetic);
+
+    [Benchmark]
+    public JsValue WhileAccumulator() => _engine.Evaluate(_whileAccumulator);
+
+    [Benchmark]
+    public JsValue DoWhileCounter() => _engine.Evaluate(_doWhileCounter);
 }

@@ -12,15 +12,53 @@ internal sealed class JintDoWhileStatement : JintStatement<DoWhileStatement>
     private readonly string? _labelSetName;
     private readonly JintExpression _test;
 
+    // Tight-lane state, mirroring JintWhileStatement (see there for the eligibility rationale).
+    private readonly bool _tightBodyEligible;
+    private readonly JintStatement? _tightSingleStatement;
+    private readonly JintStatementList? _tightBodyList;
+
     public JintDoWhileStatement(DoWhileStatement statement) : base(statement)
     {
         _body = new ProbablyBlockStatement(statement.Body);
         _test = JintExpression.Build(statement.Test);
         _labelSetName = statement.LabelSet?.Name;
+
+        if (JintForStatement.IsTightBodyShape(statement.Body))
+        {
+            if (_body.BlockStatement is { } bodyBlock)
+            {
+                if (bodyBlock.State.Declarations.Count == 0)
+                {
+                    _tightBodyEligible = true;
+                    // single-statement blocks live in SingleStatement, larger (and empty) ones in the list
+                    _tightSingleStatement = bodyBlock.SingleStatement;
+                    _tightBodyList = _tightSingleStatement is null ? bodyBlock.StatementList : null;
+                }
+            }
+            else
+            {
+                _tightBodyEligible = true;
+                if (_body.Statement is not JintEmptyStatement)
+                {
+                    // an EmptyStatement body leaves both references null (nothing to run per iteration)
+                    _tightSingleStatement = _body.Statement;
+                }
+            }
+        }
     }
 
     protected override Completion ExecuteInternal(EvaluationContext context)
     {
+        // Same gate as the while/for tight lanes; see JintWhileStatement.ExecuteInternal.
+        if (_tightBodyEligible
+            && !context.CompletionValuesObservable
+            && !context.ShouldRunPerStatementChecks
+            && !context.DebugMode
+            && context.Engine.ExecutionContext.Suspendable is null)
+        {
+            return TightDoWhileBody(context);
+        }
+
         JsValue v = JsValue.Undefined;
         bool iterating;
         var suspensionNode = GetSuspensionNode(context.Engine.ExecutionContext.Suspendable);
@@ -84,5 +122,47 @@ internal sealed class JintDoWhileStatement : JintStatement<DoWhileStatement>
         } while (iterating);
 
         return new Completion(CompletionType.Normal, v, ((JintStatement) this)._statement);
+    }
+
+    /// <summary>
+    /// The bare per-iteration loop for structurally-Normal bodies — the do-while twin of
+    /// <see cref="JintWhileStatement"/>'s tight lane (body first, then test); see there for the
+    /// deferred-error and amortized-constraint reasoning.
+    /// </summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private Completion TightDoWhileBody(EvaluationContext context)
+    {
+        var test = _test;
+        var single = _tightSingleStatement;
+        var list = _tightBodyList;
+        var engine = context.Engine;
+
+        do
+        {
+            context.RunAmortizedConstraintChecks();
+
+            if (single is not null)
+            {
+                single.ExecuteDiscarded(context);
+                if (engine._error is not null)
+                {
+                    return JintStatementList.HandleError(engine, single);
+                }
+            }
+            else if (list is not null)
+            {
+                for (var i = 0; i < list.Count; i++)
+                {
+                    var statement = list.GetStatement(i);
+                    statement.ExecuteDiscarded(context);
+                    if (engine._error is not null)
+                    {
+                        return JintStatementList.HandleError(engine, statement);
+                    }
+                }
+            }
+        } while (test.GetBooleanValue(context));
+
+        return new Completion(CompletionType.Normal, JsValue.Undefined, _statement);
     }
 }
