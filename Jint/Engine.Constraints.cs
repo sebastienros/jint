@@ -10,14 +10,24 @@ public partial class Engine
     private readonly record struct ConstraintPartition(Constraint[] Exact, Constraint[] Amortized);
 
     /// <summary>
-    /// Splits the registered constraints by required check frequency. The built-in time,
-    /// cancellation and memory-limit constraints only observe external state (a timer, a token,
-    /// an allocation counter), so checking them every N statements is semantically equivalent to
+    /// Splits the registered constraints by required check frequency. The built-in time and
+    /// cancellation constraints only observe external state that a check reads without consuming
+    /// (a timer, a token), so checking them every N statements is semantically equivalent to
     /// checking per statement — only the detection latency is bounded instead of immediate (the
     /// same reasoning bulk built-ins apply via <see cref="ConstraintCheckInterval"/>). Everything
-    /// else stays exact: <see cref="MaxStatementsConstraint"/> counts statements, so its call
-    /// frequency IS its semantics, and user-derived constraints may depend on being called once
-    /// per statement — silently amortizing them would be a breaking behavior change.
+    /// else stays exact:
+    /// <list type="bullet">
+    /// <item><see cref="MaxStatementsConstraint"/> counts statements, so its call frequency IS its
+    /// semantics.</item>
+    /// <item><see cref="MemoryLimitConstraint"/> reads an allocation counter, but unlike a clock
+    /// that only advances, allocation between checks is irreversible and unbounded per statement
+    /// (a single iteration can allocate arbitrarily much, e.g. exponential string growth), so
+    /// amortizing it would let the process overshoot the configured cap — potentially to a real
+    /// OutOfMemoryException — before the next check. Keeping it exact preserves the memory bound
+    /// as a hard-ish guarantee for sandboxing untrusted code (matching pre-tight-lane behavior).</item>
+    /// <item>User-derived constraints may depend on being called once per statement — silently
+    /// amortizing them would be a breaking behavior change.</item>
+    /// </list>
     /// </summary>
     private static ConstraintPartition PartitionConstraints(Constraint[] constraints)
     {
@@ -30,8 +40,8 @@ public partial class Engine
         var amortized = new List<Constraint>(constraints.Length);
         foreach (var constraint in constraints)
         {
-            // All three types are sealed, so the checks cannot match a user-derived subclass.
-            if (constraint is TimeConstraint or CancellationConstraint or MemoryLimitConstraint)
+            // Both types are sealed, so the check cannot match a user-derived subclass.
+            if (constraint is TimeConstraint or CancellationConstraint)
             {
                 amortized.Add(constraint);
             }
