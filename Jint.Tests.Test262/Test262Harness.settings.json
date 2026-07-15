@@ -1,5 +1,5 @@
 {
-  "SuiteGitSha": "d1d583db95a521218f3eb8341a887fd63eda8ff1",
+  "SuiteGitSha": "f2d1435644797268dca1f7988cad5a4e89ccd8d2",
   //"SuiteDirectory": "//mnt/c/work/test262",
   "TargetPath": "./Generated",
   "Namespace": "Jint.Tests.Test262",
@@ -12,17 +12,6 @@
   "ExcludedDirectories": [
   ],
   "ExcludedFiles": [
-
-    // Upstream test262 bug (to be reported upstream). Added in test262 commit 6eec1ac9ee
-    // ("[await-dictionary] add remaining keyed Promise tests", #5074). The test calls
-    // verifyProperty(result, "fulfilled", { ..., configurable: true }) WITHOUT { restore: true };
-    // verifyProperty's configurable check does `delete result.fulfilled` and, absent the restore
-    // option, never puts it back. The test then dereferences result.fulfilled / result.rejected again
-    // (e.g. verifyProperty(result.fulfilled, "status", ...)), which now reads undefined and throws
-    // "Cannot convert undefined or null to object". This reproduces identically on V8/Node against a
-    // spec-correct null-prototype result object, so it is a test defect, not an engine bug. Jint builds
-    // the result object exactly per CreateKeyedPromiseCombinatorResultObject.
-    "built-ins/Promise/allSettledKeyed/result-property-descriptors.js",
 
     // === INTL402 EXCLUSIONS ===
     // The following tests require full CLDR locale data support which is not available in the default provider.
