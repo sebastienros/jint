@@ -139,7 +139,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                         {
                             engine._referencePool.Return(lref);
                             suspendable?.Data.Clear(this);
-                            return originalLeftValue;
+                            return MaterializeIfArguments(originalLeftValue);
                         }
 
                         var rval = NamedEvaluation(context, _right);
@@ -159,7 +159,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                         {
                             engine._referencePool.Return(lref);
                             suspendable?.Data.Clear(this);
-                            return originalLeftValue;
+                            return MaterializeIfArguments(originalLeftValue);
                         }
 
                         var rval = NamedEvaluation(context, _right);
@@ -179,7 +179,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                         {
                             engine._referencePool.Return(lref);
                             suspendable?.Data.Clear(this);
-                            return originalLeftValue;
+                            return MaterializeIfArguments(originalLeftValue);
                         }
 
                         var rval = NamedEvaluation(context, _right);
@@ -217,6 +217,24 @@ internal sealed class JintAssignmentExpression : JintExpression
         engine._referencePool.Return(lref);
         suspendable?.Data.Clear(this);
         return newLeftValue!;
+    }
+
+    /// <summary>
+    /// A logical/nullish compound assignment (<c>??=</c>/<c>||=</c>/<c>&amp;&amp;=</c>) can short-circuit and
+    /// yield the current left-hand binding value as the expression result without ever reading it through
+    /// the identifier read path. When that value is the pooled <see cref="JsArguments"/> object it must opt
+    /// out of the pool before it escapes — otherwise a later call reuses its backing array and corrupts the
+    /// escaped object. Mirrors <c>JintIdentifierExpression.GetValue</c>'s materialize-on-read; the guard keeps
+    /// the common non-arguments assignment untouched.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static JsValue MaterializeIfArguments(JsValue value)
+    {
+        if (value is JsArguments argumentsInstance)
+        {
+            argumentsInstance.Materialize();
+        }
+        return value;
     }
 
     /// <summary>
