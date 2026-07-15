@@ -60,6 +60,62 @@ public class ArgumentsCacheBehaviorTests
             "(function(){ function f(a){ var s=arguments; delete arguments[0]; a=9; return arguments.hasOwnProperty('0')+':'+arguments[0]; } return f(1); })()").AsString());
     }
 
+    [Theory]
+    [InlineData("??=")]
+    [InlineData("||=")]
+    public void LogicalCompoundAssignmentToArgumentsDoesNotEscapePooledObject(string op)
+    {
+        // Regression: `arguments ??= x` / `arguments ||= x` short-circuits on the (always truthy,
+        // never nullish) arguments object and yields it as the expression result WITHOUT reading it
+        // through the identifier path that normally materializes it. When that raw result escapes the
+        // call, a later call reuses the pooled backing array and corrupts the escaped object.
+        var engine = new Engine();
+
+        // escapes as the direct return value (no identifier re-read to trigger materialization)
+        var directReturn = $@"
+            (function() {{
+                function f() {{ return (arguments {op} 0); }}
+                var e = f(11, 22);
+                function o() {{ return arguments.length; }}
+                o(1, 2, 3, 4, 5, 6);        // reuses the pooled array
+                return e[0] + ',' + e[1] + ',' + e.length;
+            }})()";
+        Assert.Equal("11,22,2", engine.Evaluate(directReturn).AsString());
+
+        // escapes via a property store (never re-read as an identifier)
+        var propertyStore = $@"
+            (function() {{
+                var holder = {{}};
+                function f() {{ holder.y = (arguments {op} 0); }}
+                f(11, 22);
+                function o() {{ return arguments.length; }}
+                o(1, 2, 3, 4, 5, 6);
+                var y = holder.y;
+                return y[0] + ',' + y[1] + ',' + y.length;
+            }})()";
+        Assert.Equal("11,22,2", engine.Evaluate(propertyStore).AsString());
+    }
+
+    [Fact]
+    public void LogicalAndCompoundAssignmentToArgumentsReassignsAndReturnsRhs()
+    {
+        // `arguments &&= x` never short-circuits (arguments is always truthy): it reassigns the
+        // binding to x and yields x. The pooled arguments object never escapes as the result.
+        var engine = new Engine();
+        Assert.Equal(99, engine.Evaluate(
+            "(function(){ function f(){ var y = (arguments &&= 99); return y; } return f(11, 22); })()").AsNumber());
+    }
+
+    [Fact]
+    public void CompoundAssignmentToNonArgumentsBindingIsUnaffected()
+    {
+        // The materialize guard must only fire for JsArguments; ordinary compound assignment
+        // (including the logical/nullish forms) keeps its exact behavior.
+        var engine = new Engine();
+        Assert.Equal("7,4,5,8", engine.Evaluate(
+            "(function(){ var x; x ??= 7; var a = 3; a += 1; var b = 0; b ||= 5; var c = 1; c &&= 8; return x+','+a+','+b+','+c; })()").AsString());
+    }
+
     [Fact]
     public void ArgsForGeneratorsAreNotReusedFromCache()
     {
