@@ -51,7 +51,13 @@ internal enum InternalTypes
     // to dictionary mode. Mutually exclusive with ShapeMode; lets ObjectInstance's property virtuals
     // discriminate built-in-shape vs dictionary storage with a single flag test on the already-loaded _type.
     BuiltinShapeMode = 524288,
+    // the object is a Function (base of every JS function object: script/CLR/bound functions and built-in
+    // constructors). Set once in the Function base ctor — a single writer, and never on a non-Function
+    // ICallable such as a callable Proxy (which derives from ObjectInstance directly). Lets the per-call
+    // dispatch discriminate a Function from other callables with a flag test on the already-loaded _type
+    // instead of an `is Function` class-hierarchy check (CastHelpers.IsInstanceOfClass).
+    Function = 1048576,
 
     Primitive = Boolean | String | Number | Integer | BigInt | Symbol,
-    InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Array | Module | IsHTMLDDA | ShapeMode | ShapeBuilding | ExoticGet | BuiltinShapeMode
+    InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Array | Module | IsHTMLDDA | ShapeMode | ShapeBuilding | ExoticGet | BuiltinShapeMode | Function
 }

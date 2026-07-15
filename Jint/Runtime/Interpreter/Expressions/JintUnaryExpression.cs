@@ -267,7 +267,7 @@ internal sealed class JintUnaryExpression : JintExpression
                     Throw.SyntaxError(engine.Realm);
                 }
 
-                var bindings = (Environment) r.Base;
+                var bindings = Environment.FromReferenceBase(r.Base);
                 engine._referencePool.Return(r);
 
                 return bindings.DeleteBinding(r.ReferencedName.ToString()) ? JsBoolean.True : JsBoolean.False;

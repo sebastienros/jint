@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Native.Disposable;
 
@@ -18,6 +19,22 @@ internal abstract class Environment : JsValue
     protected Environment(Engine engine) : base(InternalTypes.ObjectEnvironmentRecord)
     {
         _engine = engine;
+    }
+
+    /// <summary>
+    /// The base of a non-property (environment) reference is always an environment record. The
+    /// <see cref="InternalTypes.ObjectEnvironmentRecord"/> flag — single-sourced in this ctor — is its
+    /// discriminator, so <see cref="Unsafe.As{T}"/> skips the covariant class-cast check on the hot
+    /// reference-resolution path; a violated invariant still surfaces as today's InvalidCastException
+    /// through the checked fallback.
+    /// </summary>
+    [System.Diagnostics.Contracts.Pure]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Environment FromReferenceBase(JsValue baseValue)
+    {
+        return (baseValue._type & InternalTypes.ObjectEnvironmentRecord) != InternalTypes.Empty
+            ? Unsafe.As<Environment>(baseValue)
+            : (Environment) baseValue;
     }
 
     /// <summary>

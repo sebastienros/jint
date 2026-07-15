@@ -549,17 +549,43 @@ public static class JsValueExtensions
         return null;
     }
 
+    /// <summary>
+    /// True when the value is a <see cref="Function"/> (any JS function object). A single flag test on
+    /// the already-loaded type instead of an <c>is Function</c> class-hierarchy check; see
+    /// <see cref="InternalTypes.Function"/>.
+    /// </summary>
+    [Pure]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool IsFunctionInstance(this JsValue value)
+    {
+        return (value._type & InternalTypes.Function) != InternalTypes.Empty;
+    }
+
+    /// <summary>
+    /// Returns the value as a <see cref="Function"/> when it is one, otherwise <c>null</c> — the
+    /// flag-based equivalent of <c>value as Function</c>, avoiding the covariant class-cast check on the
+    /// per-call dispatch path. The flag proves the type, so <see cref="Unsafe.As{T}"/> is safe.
+    /// </summary>
+    [Pure]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Function? AsFunctionInstanceOrNull(this JsValue value)
+    {
+        return (value._type & InternalTypes.Function) != InternalTypes.Empty
+            ? Unsafe.As<Function>(value)
+            : null;
+    }
+
     [Pure]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static Function AsFunctionInstance(this JsValue value)
     {
-        if (value is not Function instance)
+        if (!value.IsFunctionInstance())
         {
             ThrowWrongTypeException(value, "FunctionInstance");
             return null!;
         }
 
-        return instance;
+        return Unsafe.As<Function>(value);
     }
 
     [Pure]

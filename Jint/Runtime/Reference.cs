@@ -108,7 +108,7 @@ public sealed class Reference
 
     internal void InitializeReferencedBinding(JsValue value, DisposeHint hint)
     {
-        ((Environment) _base).InitializeBinding(TypeConverter.ToString(_referencedName), value, hint);
+        Environment.FromReferenceBase(_base).InitializeBinding(TypeConverter.ToString(_referencedName), value, hint);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

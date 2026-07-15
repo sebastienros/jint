@@ -977,7 +977,7 @@ public sealed partial class Engine : IDisposable
             return o.Get(property, reference.ThisValue);
         }
 
-        var record = (Environment) baseValue;
+        var record = Environment.FromReferenceBase(baseValue);
         var bindingValue = record.GetBindingValue(reference.ReferencedName.ToString(), reference.Strict);
 
         if (returnReferenceToPool)
@@ -1075,7 +1075,7 @@ public sealed partial class Engine : IDisposable
         }
         else
         {
-            ((Environment) reference.Base).SetMutableBinding(Runtime.TypeConverter.ToString(property), value, reference.Strict);
+            Environment.FromReferenceBase(reference.Base).SetMutableBinding(Runtime.TypeConverter.ToString(property), value, reference.Strict);
         }
     }
 
@@ -2102,7 +2102,7 @@ public sealed partial class Engine : IDisposable
         JsValue newTarget,
         JintExpression? expression)
     {
-        if (constructor is Function functionInstance)
+        if (constructor.AsFunctionInstanceOrNull() is { } functionInstance)
         {
             return Construct(functionInstance, arguments, newTarget, expression);
         }

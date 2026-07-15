@@ -91,6 +91,9 @@ public abstract partial class Function : ObjectInstance, ICallable
         FunctionThisMode thisMode = FunctionThisMode.Global)
         : base(engine, ObjectClass.Function)
     {
+        // The single writer of InternalTypes.Function: every function object (script/CLR/bound and
+        // built-in constructors) chains through this ctor, and no non-Function value reaches it.
+        _type |= InternalTypes.Function;
         if (name is not null)
         {
             _nameDescriptor = new PropertyDescriptor(name, PropertyFlag.Configurable);

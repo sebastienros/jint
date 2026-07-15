@@ -128,7 +128,7 @@ internal sealed class JintCallExpression : JintExpression
                     }
                     else
                     {
-                        var refEnv = (Environment) baseValue;
+                        var refEnv = Environment.FromReferenceBase(baseValue);
                         thisObject = refEnv.WithBaseObject();
                     }
                 }
@@ -177,7 +177,7 @@ internal sealed class JintCallExpression : JintExpression
         // ensure logic is in sync between Call, Construct and JintCallExpression!
 
         JsValue result;
-        if (callable is Function functionInstance)
+        if (func.AsFunctionInstanceOrNull() is { } functionInstance)
         {
             var callStack = engine.CallStack;
             var recursionDepth = callStack.Push(functionInstance, _calleeExpression, engine.ExecutionContext);
