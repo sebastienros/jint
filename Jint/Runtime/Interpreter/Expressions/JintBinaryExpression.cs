@@ -827,10 +827,12 @@ internal abstract class JintBinaryExpression : JintExpression
                 result = new DivideBinaryExpression(expression);
                 break;
             case Operator.Equality:
-                result = new EqualBinaryExpression(expression);
+                result = TryBuildFusedLooseEquality(expression, invert: false);
+                result ??= new EqualBinaryExpression(expression);
                 break;
             case Operator.Inequality:
-                result = new EqualBinaryExpression(expression, invert: true);
+                result = TryBuildFusedLooseEquality(expression, invert: true);
+                result ??= new EqualBinaryExpression(expression, invert: true);
                 break;
             case Operator.GreaterThanOrEqual:
                 result = new CompareBinaryExpression(expression, leftFirst: true);
@@ -921,6 +923,34 @@ internal abstract class JintBinaryExpression : JintExpression
         if (leftSingleton is not null && rightSingleton is null)
         {
             return new SingletonStrictEqualityExpression(expression, operandIsLeft: false, leftSingleton.Value, invert);
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Build-time fusion for the guard idioms `x == null` and `x == undefined` (plus the != forms):
+    /// the constant side is known statically, so the fused node evaluates only the interesting
+    /// operand and answers with one internal-type test — no evaluation of the constant side and no
+    /// generic loose-equality dispatch. Loose equality against null/undefined is true exactly when
+    /// the value is null, undefined, or has the [[IsHTMLDDA]] internal slot (Annex B), so the single
+    /// mask covers all three. Returns null when the expression is not one of these shapes, including
+    /// when BOTH sides are singletons (e.g. `null == undefined`) — that is left to the generic path,
+    /// mirroring <see cref="TryBuildFusedStrictEquality"/>, so cross-singleton semantics are preserved.
+    /// </summary>
+    private static SingletonLooseEqualityExpression? TryBuildFusedLooseEquality(NonLogicalBinaryExpression expression, bool invert)
+    {
+        var leftSingleton = GetKnownSingletonType(expression.Left);
+        var rightSingleton = GetKnownSingletonType(expression.Right);
+
+        if (rightSingleton is not null && leftSingleton is null)
+        {
+            return new SingletonLooseEqualityExpression(expression, operandIsLeft: true, invert);
+        }
+
+        if (leftSingleton is not null && rightSingleton is null)
+        {
+            return new SingletonLooseEqualityExpression(expression, operandIsLeft: false, invert);
         }
 
         return null;
@@ -1069,6 +1099,54 @@ internal abstract class JintBinaryExpression : JintExpression
             }
 
             return (value._type == _expectedType) != _invert;
+        }
+    }
+
+    /// <summary>
+    /// Fused `x == null` / `x == undefined` (and the != forms): only the interesting operand
+    /// evaluates, and the answer is a single internal-type test. Loose equality against null or
+    /// undefined is true exactly when the value is null, undefined, or carries the [[IsHTMLDDA]]
+    /// internal slot — Annex B makes `document.all == null` true — which is precisely the union of
+    /// those three type bits (see JsNull.IsLooselyEqual / JsUndefined.IsLooselyEqual).
+    /// The constant side is a `null` literal or the folded `undefined` identifier, both of which
+    /// have <c>ToObject()</c> == null, so operator overloading can never apply here; the fusion is
+    /// declined at build time when BOTH sides are singletons, preserving `null == undefined`.
+    /// </summary>
+    private sealed class SingletonLooseEqualityExpression : JintBinaryExpression
+    {
+        private const InternalTypes NullOrUndefinedOrHtmlDda = InternalTypes.Null | InternalTypes.Undefined | InternalTypes.IsHTMLDDA;
+
+        private readonly JintExpression _operand;
+        private readonly bool _invert;
+
+        public SingletonLooseEqualityExpression(NonLogicalBinaryExpression expression, bool operandIsLeft, bool invert) : base(expression)
+        {
+            _operand = operandIsLeft ? _left : _right;
+            _invert = invert;
+        }
+
+        protected override object EvaluateInternal(EvaluationContext context)
+        {
+            var value = _operand.GetValue(context);
+            if (context.IsSuspended())
+            {
+                return JsValue.Undefined;
+            }
+
+            var nullish = (value._type & NullOrUndefinedOrHtmlDda) != InternalTypes.Empty;
+            return nullish != _invert ? JsBoolean.True : JsBoolean.False;
+        }
+
+        public override bool GetBooleanValue(EvaluationContext context)
+        {
+            var value = _operand.GetValue(context);
+            if (context.IsSuspended())
+            {
+                return false;
+            }
+
+            var nullish = (value._type & NullOrUndefinedOrHtmlDda) != InternalTypes.Empty;
+            return nullish != _invert;
         }
     }
 
