@@ -312,11 +312,16 @@ public class RegExpTests
 
     // Engine routing tests for RegExpConstructor.NeedCustomEngine: .NET Regex is preferred
     // for performance whenever it can reproduce ECMAScript semantics, the custom
-    // (QuickJS-port) engine is the fallback. A quantified group only needs the custom
-    // engine when its body contains a capturing group or lookaround assertion, or when the
-    // group itself is capturing and its body can match the empty string — .NET retains
-    // captures from earlier iterations and records empty-iteration captures, whereas
-    // ECMAScript clears captures per iteration and rejects empty iterations
+    // (QuickJS-port) engine is the fallback. A quantified group needs the custom engine when
+    // its body contains a capturing group or lookaround assertion, or when its body can match
+    // the empty string. The empty-body case diverges two ways: for a capturing body .NET
+    // retains captures from earlier iterations and records empty-iteration captures, whereas
+    // ECMAScript clears captures per iteration and rejects empty iterations; for a
+    // non-capturing body .NET's empty-subexpression loop protection stops the repetition at
+    // the first empty/zero-width alternative, whereas ECMAScript's RepeatMatcher prunes the
+    // empty iteration and backtracks into a later consuming alternative (so the match itself
+    // diverges). Nullable non-capturing bodies are routed conservatively — some, like a single
+    // greedy-nullable alternative, would in fact agree with .NET
     // (https://tc39.es/ecma262/#sec-runtime-semantics-repeatmatcher-abstract-operation).
 
     [Theory]
@@ -325,10 +330,9 @@ public class RegExpTests
     [InlineData(@"(?:^|:|,)(?:\s*\[)+", "g")]
     // string-unpack-code.js pattern
     [InlineData(@"\b\w+\b", "g")]
-    // quantified non-capturing groups without captures/lookarounds are .NET-safe
+    // quantified non-capturing groups without captures/lookarounds whose body cannot match
+    // the empty string are .NET-safe
     [InlineData(@"(?:ab)+", "")]
-    [InlineData(@"(?:a*)+", "")]
-    [InlineData(@"(?:a|)+b", "")]
     // quantified capturing groups whose body cannot match the empty string are .NET-safe
     [InlineData(@"(a+)+", "")]
     [InlineData(@"((?:a|b)c)*", "")]
@@ -351,6 +355,17 @@ public class RegExpTests
     [InlineData(@"(\b)*", "")]
     [InlineData(@"(a{0,2})+", "")]
     [InlineData(@"((?:a*))*", "")]
+    // quantified non-capturing group whose body can match the empty string: .NET's empty-loop
+    // protection stops at the first empty/zero-width alternative, ECMAScript backtracks into a
+    // later consuming alternative (the match itself diverges)
+    [InlineData(@"(?:|a)*", "")]
+    [InlineData(@"(?:a*|b)*", "")]
+    [InlineData(@"(?:a||b)*", "")]
+    [InlineData(@"(?:^|a)+", "")]
+    [InlineData(@"(?:a??)*", "")]
+    // conservatively routed to custom as well (nullable non-capturing body, though .NET agrees here)
+    [InlineData(@"(?:a*)+", "")]
+    [InlineData(@"(?:a|)+b", "")]
     // quantified lookaround assertions
     [InlineData(@"(?=(a))+", "")]
     [InlineData(@"(?:(?=a).)+", "")]
@@ -389,6 +404,24 @@ public class RegExpTests
         Assert.Equal("[\"a\",\"a\"]", engine.Evaluate("JSON.stringify(/(a*)*/.exec('ab'))").AsString());
         Assert.Equal("[\"\",null]", engine.Evaluate("JSON.stringify(/(a|)*/.exec('b'))").AsString());
         Assert.Equal("[\"\",null]", engine.Evaluate("JSON.stringify(/(\\b)*/.exec('a'))").AsString());
+    }
+
+    [Fact]
+    public void QuantifiedNonCapturingGroupWithNullableBodyMatchesPerSpec()
+    {
+        // Regression: a non-capturing quantified group whose body can reach the empty string
+        // before a consuming alternative must not be delegated to .NET Regex, whose empty-loop
+        // protection truncates the match. ECMAScript's RepeatMatcher prunes the empty iteration
+        // and backtracks into the later consuming alternative, matching fully.
+        var engine = new Engine();
+
+        Assert.Equal("aaabbb", engine.Evaluate("/(?:a*|b)*/.exec('aaabbb')[0]").AsString());
+        Assert.Equal("aaa", engine.Evaluate("/(?:|a)*/.exec('aaa')[0]").AsString());
+        Assert.Equal("aabb", engine.Evaluate("/(?:a||b)*/.exec('aabb')[0]").AsString());
+        Assert.Equal("a", engine.Evaluate("/(?:^|a)+/m.exec('abc')[0]").AsString());
+        Assert.Equal("aaa", engine.Evaluate("/(?:a??)*/.exec('aaa')[0]").AsString());
+        Assert.Equal("aaa", engine.Evaluate("/(?:\\b|a)*/.exec('aaa')[0]").AsString());
+        Assert.Equal("XX", engine.Evaluate("'aaa'.replace(/(?:|a)*/g, 'X')").AsString());
     }
 
     [Theory]
