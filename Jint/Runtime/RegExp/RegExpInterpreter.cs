@@ -1140,17 +1140,30 @@ internal static class RegExpInterpreter
                         int pc1 = pc; // continuation
                         int gotoTarget = pc + val;
 
+                        // This SplitGotoFirst is 5 bytes (opcode + i32), so its opcode byte sits
+                        // at pc1 - 5. The greedy loop body spans [gotoTarget, splitOpcodePos):
+                        // everything between the backward target and this split.
+                        int splitOpcodePos = pc1 - 5;
+
                         // Detect greedy Char+/Range+ loop: backward SplitGotoFirst to Char or Range.
                         // The + quantifier compiles as: atom + SplitGotoFirst(backward to atom).
                         // Bulk-advance cindex past all matching chars instead of looping per-char.
-                        // Only safe when continuation is SaveEnd(0) — meaning the + is the
-                        // outermost quantifier and no further pattern needs to backtrack into it.
+                        // Only safe when:
+                        //   1. the continuation is SaveEnd(0) — the + is the outermost quantifier
+                        //      and no further pattern needs to backtrack into it, and
+                        //   2. the loop body is EXACTLY the single Char/Range atom, i.e. this split
+                        //      immediately follows it. Otherwise the body has additional atoms (e.g.
+                        //      the nested capture in /(?:a(b)c)+/) and skipping over repeated leading
+                        //      characters would silently drop the rest of each iteration.
                         if (val < 0
                             && bc[pc1] == (byte) RegExpOpcode.SaveEnd && bc[pc1 + 1] == 0
                             && cindex < inputEnd)
                         {
-                            // Char+ bulk advance: skip all identical chars
-                            if (bc[gotoTarget] == (byte) RegExpOpcode.Char)
+                            // Char+ bulk advance: skip all identical chars.
+                            // Char is 3 bytes (opcode + u16), so a single-Char body ends exactly
+                            // at splitOpcodePos.
+                            if (bc[gotoTarget] == (byte) RegExpOpcode.Char
+                                && gotoTarget + 3 == splitOpcodePos)
                             {
                                 char targetChar = (char) ReadU16(bc, gotoTarget + 1);
                                 int scanEnd = cindex;
@@ -1166,8 +1179,11 @@ internal static class RegExpInterpreter
                                 break;
                             }
 
-                            // Range+ bulk advance: skip all chars in a single-pair range
-                            if (bc[gotoTarget] == (byte) RegExpOpcode.Range)
+                            // Range+ bulk advance: skip all chars in a single-pair range.
+                            // A single-pair Range is 7 bytes (opcode + u16 count + u16 low + u16 high),
+                            // so a single-Range body ends exactly at splitOpcodePos.
+                            if (bc[gotoTarget] == (byte) RegExpOpcode.Range
+                                && gotoTarget + 7 == splitOpcodePos)
                             {
                                 int n = ReadU16(bc, gotoTarget + 1);
                                 if (n == 1)
