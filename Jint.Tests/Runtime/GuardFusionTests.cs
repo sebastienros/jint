@@ -114,4 +114,139 @@ public class GuardFusionTests
 
         Assert.Equal("unso", result);
     }
+
+    [Fact]
+    public void LooseNullAndUndefinedGuardsMatchGenericSemantics()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var u; var n = null; var o = {}; var s = 'x'; var zero = 0; var empty = ''; var f = false; var nan = NaN;
+            [
+                // undefined / null are loosely equal to each other and to themselves (both orientations)
+                u == undefined, undefined == u, n == null, null == n,
+                u == null, null == u, n == undefined, undefined == n,
+                null == undefined, undefined == null,
+                // != negations
+                u != undefined, n != null, null != undefined, o != null,
+                // the classic false cases against null
+                zero == null, empty == null, f == null, nan == null, o == null, s == null,
+                // and against undefined
+                zero == undefined, empty == undefined, f == undefined, o == undefined,
+                // reversed operand order still declines for the non-nullish side
+                null == zero, undefined == empty, null == o
+            ].join(',');
+            """).AsString();
+
+        Assert.Equal(
+            "true,true,true,true," +
+            "true,true,true,true," +
+            "true,true," +
+            "false,false,false,true," +
+            "false,false,false,false,false,false," +
+            "false,false,false,false," +
+            "false,false,false",
+            result);
+    }
+
+    [Fact]
+    public void LooseGuardParityWithGenericPathAcrossOperandTypes()
+    {
+        // Cross-checks the fused `x == null`/`x == undefined` against a runtime-computed generic
+        // loose comparison (the ` == y` where y is a variable holding null/undefined is NOT fused,
+        // because the variable is not the `undefined` identifier / `null` literal).
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var nullVar = null, undefVar = undefined;
+            var samples = [undefined, null, 0, '', false, NaN, {}, [], 'x', 42];
+            var ok = true;
+            for (var i = 0; i < samples.length; i++) {
+                var v = samples[i];
+                if ((v == null) !== (v == nullVar)) ok = false;
+                if ((v == undefined) !== (v == undefVar)) ok = false;
+                if ((v != null) !== (v != nullVar)) ok = false;
+                if ((v != undefined) !== (v != undefVar)) ok = false;
+            }
+            ok;
+            """).AsBoolean();
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void LooseGuardEvaluatesOnlyInterestingOperandOnce()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var calls = 0;
+            function probe() { calls++; return undefined; }
+            var a = probe() == null;   // true, calls once
+            var b = null == probe();   // true, calls again
+            var c = probe() != null;   // false, calls again
+            [a, b, c, calls].join(',');
+            """).AsString();
+
+        Assert.Equal("true,true,false,3", result);
+    }
+
+    [Fact]
+    public void FusedLooseGuardsWorkAcrossAwaitSuspension()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            async function f() {
+                var a = (await Promise.resolve(undefined)) == null;
+                var b = (await Promise.resolve(null)) == undefined;
+                var c = (await Promise.resolve('s')) != null;
+                return [a, b, c].join(',');
+            }
+            f();
+            """).UnwrapIfPromise().AsString();
+
+        Assert.Equal("true,true,true", result);
+    }
+
+    [Fact]
+    public void LooseGuardsDriveIfStatementBooleanFastPath()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var log = [];
+            var vals = [undefined, null, 'x', 5, {}];
+            for (var i = 0; i < vals.length; i++) {
+                var v = vals[i];
+                if (v == null) { log.push('n'); }              // matches both undefined and null
+                else if (typeof v === 'string') { log.push('s'); }
+                else { log.push('o'); }
+            }
+            log.join('');
+            """).AsString();
+
+        Assert.Equal("nnsoo", result);
+    }
+
+    [Fact]
+    public void LooseNullEqualityHonorsHtmlDdaAnnexB()
+    {
+        var engine = new Engine();
+        // an object with the [[IsHTMLDDA]] internal slot (the document.all shape)
+        var htmlDDA = new Jint.Native.IsHTMLDDA(engine);
+        engine.SetValue("htmlDDA", (Jint.Native.JsValue) htmlDDA);
+
+        // Annex B: loose equality with null/undefined is true (both orientations, both operators)
+        Assert.True(engine.Evaluate("htmlDDA == null").AsBoolean());
+        Assert.True(engine.Evaluate("null == htmlDDA").AsBoolean());
+        Assert.True(engine.Evaluate("htmlDDA == undefined").AsBoolean());
+        Assert.True(engine.Evaluate("undefined == htmlDDA").AsBoolean());
+        Assert.False(engine.Evaluate("htmlDDA != null").AsBoolean());
+        Assert.False(engine.Evaluate("htmlDDA != undefined").AsBoolean());
+
+        // strict equality must remain false — the strict fusion path is untouched
+        Assert.False(engine.Evaluate("htmlDDA === null").AsBoolean());
+        Assert.False(engine.Evaluate("htmlDDA === undefined").AsBoolean());
+        Assert.True(engine.Evaluate("htmlDDA !== null").AsBoolean());
+
+        // a plain object is never loosely equal to null/undefined
+        Assert.False(engine.Evaluate("({}) == null").AsBoolean());
+        Assert.False(engine.Evaluate("({}) == undefined").AsBoolean());
+    }
 }
