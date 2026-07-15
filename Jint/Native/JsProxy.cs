@@ -40,6 +40,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     private static readonly JsString TrapConstruct = new JsString("construct");
 
     private static readonly JsString KeyIsArray = new JsString("isArray");
+    private static readonly JsString KeyToObject = new JsString("ToObject");
 
     public JsProxy(
         Engine engine,
@@ -89,9 +90,10 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
 
         var target = _target;
 
-        if (_clrHandler is not null)
+        var clrHandler = _clrHandler;
+        if (clrHandler is not null)
         {
-            var clrResult = InvokeClrApply(target, thisObject, CopyArgumentsForClrTrap(arguments));
+            var clrResult = InvokeClrApply(clrHandler, target, thisObject, CopyArgumentsForClrTrap(arguments));
             if (clrResult is not null)
             {
                 // the spec has no apply-result invariant, no validation needed
@@ -100,12 +102,13 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         }
         else
         {
-            var trap = GetTrap(TrapApply);
+            var handler = _handler!;
+            var trap = GetTrap(handler, TrapApply);
             if (trap is not null)
             {
                 // step 7: CreateArrayFromList(argumentsList) is only observable by the trap, built lazily
                 var argArray = _engine.Realm.Intrinsics.Array.ConstructFast(arguments);
-                return CallTrap(trap, target, thisObject, argArray);
+                return CallTrap(handler, trap, target, thisObject, argArray);
             }
         }
 
@@ -132,10 +135,11 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
 
         var target = _target;
 
-        if (_clrHandler is not null)
+        var clrHandler = _clrHandler;
+        if (clrHandler is not null)
         {
             // the typed ObjectInstance? return enforces the object invariant at compile time
-            var clrResult = InvokeClrConstruct(target, CopyArgumentsForClrTrap(arguments), newTarget);
+            var clrResult = InvokeClrConstruct(clrHandler, target, CopyArgumentsForClrTrap(arguments), newTarget);
             if (clrResult is not null)
             {
                 return clrResult;
@@ -143,13 +147,14 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         }
         else
         {
-            var trap = GetTrap(TrapConstruct);
+            var handler = _handler!;
+            var trap = GetTrap(handler, TrapConstruct);
             if (trap is not null)
             {
                 // step 7: CreateArrayFromList(argumentsList) - must not use Array constructor semantics,
                 // a single numeric argument would create a hole-filled array of that length
                 var argArray = _engine.Realm.Intrinsics.Array.ConstructFast(arguments);
-                var result = CallTrap(trap, target, argArray, newTarget);
+                var result = CallTrap(handler, trap, target, argArray, newTarget);
 
                 var oi = result as ObjectInstance;
                 if (oi is null)
@@ -176,7 +181,11 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         return _target.IsArray();
     }
 
-    public override object ToObject() => _target.ToObject();
+    public override object ToObject()
+    {
+        AssertNotRevoked(KeyToObject);
+        return _target.ToObject();
+    }
 
     internal override bool IsConstructor => _isConstructor;
 
@@ -189,9 +198,10 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         var target = _target;
 
         JsValue result;
-        if (_clrHandler is not null)
+        var clrHandler = _clrHandler;
+        if (clrHandler is not null)
         {
-            var clrResult = InvokeClrGet(target, TypeConverter.ToPropertyKey(property), receiver);
+            var clrResult = InvokeClrGet(clrHandler, target, TypeConverter.ToPropertyKey(property), receiver);
             if (clrResult is null)
             {
                 return target.Get(property, receiver);
@@ -201,13 +211,14 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         }
         else
         {
-            var trap = GetTrap(TrapGet);
+            var handler = _handler!;
+            var trap = GetTrap(handler, TrapGet);
             if (trap is null)
             {
                 return target.Get(property, receiver);
             }
 
-            result = CallTrap(trap, target, TypeConverter.ToPropertyKey(property), receiver);
+            result = CallTrap(handler, trap, target, TypeConverter.ToPropertyKey(property), receiver);
         }
 
         ValidateGetTrapResult(target, property, result);
@@ -247,9 +258,10 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         var target = _target;
 
         JsValue result;
-        if (_clrHandler is not null)
+        var clrHandler = _clrHandler;
+        if (clrHandler is not null)
         {
-            var clrResult = InvokeClrOwnKeys(target);
+            var clrResult = InvokeClrOwnKeys(clrHandler, target);
             if (clrResult is null)
             {
                 return target.GetOwnPropertyKeys(types);
@@ -259,13 +271,14 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         }
         else
         {
-            var trap = GetTrap(TrapOwnKeys);
+            var handler = _handler!;
+            var trap = GetTrap(handler, TrapOwnKeys);
             if (trap is null)
             {
                 return target.GetOwnPropertyKeys(types);
             }
 
-            result = CallTrap(trap, target);
+            result = CallTrap(handler, trap, target);
         }
 
         return ValidateOwnKeysTrapResult(target, result);
@@ -373,9 +386,10 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         var target = _target;
 
         JsValue trapResultObj;
-        if (_clrHandler is not null)
+        var clrHandler = _clrHandler;
+        if (clrHandler is not null)
         {
-            var clrResult = InvokeClrGetOwnPropertyDescriptor(target, TypeConverter.ToPropertyKey(property));
+            var clrResult = InvokeClrGetOwnPropertyDescriptor(clrHandler, target, TypeConverter.ToPropertyKey(property));
             if (clrResult is null)
             {
                 return target.GetOwnProperty(property);
@@ -386,13 +400,14 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         }
         else
         {
-            var trap = GetTrap(TrapGetOwnPropertyDescriptor);
+            var handler = _handler!;
+            var trap = GetTrap(handler, TrapGetOwnPropertyDescriptor);
             if (trap is null)
             {
                 return target.GetOwnProperty(property);
             }
 
-            trapResultObj = CallTrap(trap, target, TypeConverter.ToPropertyKey(property));
+            trapResultObj = CallTrap(handler, trap, target, TypeConverter.ToPropertyKey(property));
         }
 
         return ValidateGetOwnPropertyTrapResult(target, property, trapResultObj);
@@ -494,9 +509,10 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         AssertNotRevoked(TrapSet);
         var target = _target;
 
-        if (_clrHandler is not null)
+        var clrHandler = _clrHandler;
+        if (clrHandler is not null)
         {
-            var clrResult = InvokeClrSet(target, TypeConverter.ToPropertyKey(property), value, receiver);
+            var clrResult = InvokeClrSet(clrHandler, target, TypeConverter.ToPropertyKey(property), value, receiver);
             if (clrResult is null)
             {
                 return target.Set(property, value, receiver);
@@ -509,13 +525,14 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         }
         else
         {
-            var trap = GetTrap(TrapSet);
+            var handler = _handler!;
+            var trap = GetTrap(handler, TrapSet);
             if (trap is null)
             {
                 return target.Set(property, value, receiver);
             }
 
-            var trapResult = CallTrap(trap, target, TypeConverter.ToPropertyKey(property), value, receiver);
+            var trapResult = CallTrap(handler, trap, target, TypeConverter.ToPropertyKey(property), value, receiver);
             if (!TypeConverter.ToBoolean(trapResult))
             {
                 return false;
@@ -558,9 +575,10 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         AssertNotRevoked(TrapDefineProperty);
         var target = _target;
 
-        if (_clrHandler is not null)
+        var clrHandler = _clrHandler;
+        if (clrHandler is not null)
         {
-            var clrResult = InvokeClrDefineProperty(target, TypeConverter.ToPropertyKey(property), desc);
+            var clrResult = InvokeClrDefineProperty(clrHandler, target, TypeConverter.ToPropertyKey(property), desc);
             if (clrResult is null)
             {
                 return target.DefineOwnProperty(property, desc);
@@ -573,14 +591,15 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         }
         else
         {
-            var trap = GetTrap(TrapDefineProperty);
+            var handler = _handler!;
+            var trap = GetTrap(handler, TrapDefineProperty);
             if (trap is null)
             {
                 return target.DefineOwnProperty(property, desc);
             }
 
             var descObj = PropertyDescriptor.FromPropertyDescriptor(_engine, desc, strictUndefined: true);
-            var result = CallTrap(trap, target, TypeConverter.ToPropertyKey(property), descObj);
+            var result = CallTrap(handler, trap, target, TypeConverter.ToPropertyKey(property), descObj);
             if (!TypeConverter.ToBoolean(result))
             {
                 return false;
@@ -643,9 +662,10 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         var target = _target;
 
         bool trapResult;
-        if (_clrHandler is not null)
+        var clrHandler = _clrHandler;
+        if (clrHandler is not null)
         {
-            var clrResult = InvokeClrHas(target, TypeConverter.ToPropertyKey(property));
+            var clrResult = InvokeClrHas(clrHandler, target, TypeConverter.ToPropertyKey(property));
             if (clrResult is null)
             {
                 return target.HasProperty(property);
@@ -655,13 +675,14 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         }
         else
         {
-            var trap = GetTrap(TrapHas);
+            var handler = _handler!;
+            var trap = GetTrap(handler, TrapHas);
             if (trap is null)
             {
                 return target.HasProperty(property);
             }
 
-            trapResult = TypeConverter.ToBoolean(CallTrap(trap, target, TypeConverter.ToPropertyKey(property)));
+            trapResult = TypeConverter.ToBoolean(CallTrap(handler, trap, target, TypeConverter.ToPropertyKey(property)));
         }
 
         if (!trapResult)
@@ -697,9 +718,10 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         AssertNotRevoked(TrapDeleteProperty);
         var target = _target;
 
-        if (_clrHandler is not null)
+        var clrHandler = _clrHandler;
+        if (clrHandler is not null)
         {
-            var clrResult = InvokeClrDeleteProperty(target, TypeConverter.ToPropertyKey(property));
+            var clrResult = InvokeClrDeleteProperty(clrHandler, target, TypeConverter.ToPropertyKey(property));
             if (clrResult is null)
             {
                 return target.Delete(property);
@@ -712,13 +734,14 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         }
         else
         {
-            var trap = GetTrap(TrapDeleteProperty);
+            var handler = _handler!;
+            var trap = GetTrap(handler, TrapDeleteProperty);
             if (trap is null)
             {
                 return target.Delete(property);
             }
 
-            if (!TypeConverter.ToBoolean(CallTrap(trap, target, TypeConverter.ToPropertyKey(property))))
+            if (!TypeConverter.ToBoolean(CallTrap(handler, trap, target, TypeConverter.ToPropertyKey(property))))
             {
                 return false;
             }
@@ -757,9 +780,10 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         var target = _target;
 
         bool success;
-        if (_clrHandler is not null)
+        var clrHandler = _clrHandler;
+        if (clrHandler is not null)
         {
-            var clrResult = InvokeClrPreventExtensions(target);
+            var clrResult = InvokeClrPreventExtensions(clrHandler, target);
             if (clrResult is null)
             {
                 return target.PreventExtensions();
@@ -769,13 +793,14 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         }
         else
         {
-            var trap = GetTrap(TrapPreventExtensions);
+            var handler = _handler!;
+            var trap = GetTrap(handler, TrapPreventExtensions);
             if (trap is null)
             {
                 return target.PreventExtensions();
             }
 
-            success = TypeConverter.ToBoolean(CallTrap(trap, target));
+            success = TypeConverter.ToBoolean(CallTrap(handler, trap, target));
         }
 
         if (success && target.Extensible)
@@ -797,9 +822,10 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             var target = _target;
 
             bool booleanTrapResult;
-            if (_clrHandler is not null)
+            var clrHandler = _clrHandler;
+            if (clrHandler is not null)
             {
-                var clrResult = InvokeClrIsExtensible(target);
+                var clrResult = InvokeClrIsExtensible(clrHandler, target);
                 if (clrResult is null)
                 {
                     return target.Extensible;
@@ -809,13 +835,14 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             }
             else
             {
-                var trap = GetTrap(TrapIsExtensible);
+                var handler = _handler!;
+                var trap = GetTrap(handler, TrapIsExtensible);
                 if (trap is null)
                 {
                     return target.Extensible;
                 }
 
-                booleanTrapResult = TypeConverter.ToBoolean(CallTrap(trap, target));
+                booleanTrapResult = TypeConverter.ToBoolean(CallTrap(handler, trap, target));
             }
 
             var targetResult = target.Extensible;
@@ -837,9 +864,10 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         var target = _target;
 
         JsValue handlerProto;
-        if (_clrHandler is not null)
+        var clrHandler = _clrHandler;
+        if (clrHandler is not null)
         {
-            var clrResult = InvokeClrGetPrototypeOf(target);
+            var clrResult = InvokeClrGetPrototypeOf(clrHandler, target);
             if (clrResult is null)
             {
                 return target.Prototype;
@@ -849,13 +877,14 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         }
         else
         {
-            var trap = GetTrap(TrapGetProtoTypeOf);
+            var handler = _handler!;
+            var trap = GetTrap(handler, TrapGetProtoTypeOf);
             if (trap is null)
             {
                 return target.Prototype;
             }
 
-            handlerProto = CallTrap(trap, target);
+            handlerProto = CallTrap(handler, trap, target);
         }
 
         if (!handlerProto.IsObject() && !handlerProto.IsNull())
@@ -887,9 +916,10 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         var target = _target;
 
         bool success;
-        if (_clrHandler is not null)
+        var clrHandler = _clrHandler;
+        if (clrHandler is not null)
         {
-            var clrResult = InvokeClrSetPrototypeOf(target, value);
+            var clrResult = InvokeClrSetPrototypeOf(clrHandler, target, value);
             if (clrResult is null)
             {
                 return target.SetPrototypeOf(value);
@@ -899,13 +929,14 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         }
         else
         {
-            var trap = GetTrap(TrapSetProtoTypeOf);
+            var handler = _handler!;
+            var trap = GetTrap(handler, TrapSetProtoTypeOf);
             if (trap is null)
             {
                 return target.SetPrototypeOf(value);
             }
 
-            success = TypeConverter.ToBoolean(CallTrap(trap, target, value));
+            success = TypeConverter.ToBoolean(CallTrap(handler, trap, target, value));
         }
 
         if (!success)
@@ -936,11 +967,14 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// call this when the proxy uses a JavaScript handler object. The fetch is spec-observable and
     /// must happen fresh on every operation - the handler may be a proxy itself or use getters,
     /// and traps may be added or removed between operations, so the result must never be cached.
+    /// The handler is passed in (captured by the caller before this lookup) so that a revoke
+    /// triggered by the lookup itself - e.g. an accessor "get" trap that calls revoke() - cannot
+    /// null the field mid-dispatch: the spec captures handler and target before GetMethod.
     /// https://tc39.es/ecma262/#sec-getmethod
     /// </summary>
-    private ICallable? GetTrap(JsString trapName)
+    private ICallable? GetTrap(ObjectInstance handler, JsString trapName)
     {
-        var handlerFunction = _handler!.Get(trapName);
+        var handlerFunction = handler.Get(trapName);
         if (handlerFunction.IsNullOrUndefined())
         {
             return null;
@@ -959,40 +993,40 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     // interpreter call-site pattern (no finally: an exception lets the array fall to the GC,
     // and JsArguments.Materialize protects arrays captured by the callee)
 
-    private JsValue CallTrap(ICallable trap, JsValue arg0)
+    private JsValue CallTrap(ObjectInstance handler, ICallable trap, JsValue arg0)
     {
         var pool = _engine._jsValueArrayPool;
         var args = pool.RentArray(1);
         args[0] = arg0;
-        var result = trap.Call(_handler!, args);
+        var result = trap.Call(handler, args);
         pool.ReturnArray(args);
         return result;
     }
 
-    private JsValue CallTrap(ICallable trap, JsValue arg0, JsValue arg1)
+    private JsValue CallTrap(ObjectInstance handler, ICallable trap, JsValue arg0, JsValue arg1)
     {
         var pool = _engine._jsValueArrayPool;
         var args = pool.RentArray(2);
         args[0] = arg0;
         args[1] = arg1;
-        var result = trap.Call(_handler!, args);
+        var result = trap.Call(handler, args);
         pool.ReturnArray(args);
         return result;
     }
 
-    private JsValue CallTrap(ICallable trap, JsValue arg0, JsValue arg1, JsValue arg2)
+    private JsValue CallTrap(ObjectInstance handler, ICallable trap, JsValue arg0, JsValue arg1, JsValue arg2)
     {
         var pool = _engine._jsValueArrayPool;
         var args = pool.RentArray(3);
         args[0] = arg0;
         args[1] = arg1;
         args[2] = arg2;
-        var result = trap.Call(_handler!, args);
+        var result = trap.Call(handler, args);
         pool.ReturnArray(args);
         return result;
     }
 
-    private JsValue CallTrap(ICallable trap, JsValue arg0, JsValue arg1, JsValue arg2, JsValue arg3)
+    private JsValue CallTrap(ObjectInstance handler, ICallable trap, JsValue arg0, JsValue arg1, JsValue arg2, JsValue arg3)
     {
         var pool = _engine._jsValueArrayPool;
         var args = pool.RentArray(4);
@@ -1000,7 +1034,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         args[1] = arg1;
         args[2] = arg2;
         args[3] = arg3;
-        var result = trap.Call(_handler!, args);
+        var result = trap.Call(handler, args);
         pool.ReturnArray(args);
         return result;
     }
@@ -1053,11 +1087,11 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     // untouched; otherwise Options.Interop.ExceptionHandler decides whether the exception becomes
     // a catchable JavaScript error. The try/catch is free on the non-throwing path.
 
-    private JsValue? InvokeClrGet(ObjectInstance target, JsValue property, JsValue receiver)
+    private JsValue? InvokeClrGet(ProxyHandler clrHandler, ObjectInstance target, JsValue property, JsValue receiver)
     {
         try
         {
-            return _clrHandler!.Get(target, property, receiver);
+            return clrHandler.Get(target, property, receiver);
         }
         catch (Exception e) when (e is not JavaScriptException && !_bubbleExceptions)
         {
@@ -1066,11 +1100,11 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         }
     }
 
-    private bool? InvokeClrSet(ObjectInstance target, JsValue property, JsValue value, JsValue receiver)
+    private bool? InvokeClrSet(ProxyHandler clrHandler, ObjectInstance target, JsValue property, JsValue value, JsValue receiver)
     {
         try
         {
-            return _clrHandler!.Set(target, property, value, receiver);
+            return clrHandler.Set(target, property, value, receiver);
         }
         catch (Exception e) when (e is not JavaScriptException && !_bubbleExceptions)
         {
@@ -1079,11 +1113,11 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         }
     }
 
-    private bool? InvokeClrHas(ObjectInstance target, JsValue property)
+    private bool? InvokeClrHas(ProxyHandler clrHandler, ObjectInstance target, JsValue property)
     {
         try
         {
-            return _clrHandler!.Has(target, property);
+            return clrHandler.Has(target, property);
         }
         catch (Exception e) when (e is not JavaScriptException && !_bubbleExceptions)
         {
@@ -1092,11 +1126,11 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         }
     }
 
-    private bool? InvokeClrDeleteProperty(ObjectInstance target, JsValue property)
+    private bool? InvokeClrDeleteProperty(ProxyHandler clrHandler, ObjectInstance target, JsValue property)
     {
         try
         {
-            return _clrHandler!.DeleteProperty(target, property);
+            return clrHandler.DeleteProperty(target, property);
         }
         catch (Exception e) when (e is not JavaScriptException && !_bubbleExceptions)
         {
@@ -1105,11 +1139,11 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         }
     }
 
-    private PropertyDescriptor? InvokeClrGetOwnPropertyDescriptor(ObjectInstance target, JsValue property)
+    private PropertyDescriptor? InvokeClrGetOwnPropertyDescriptor(ProxyHandler clrHandler, ObjectInstance target, JsValue property)
     {
         try
         {
-            return _clrHandler!.GetOwnPropertyDescriptor(target, property);
+            return clrHandler.GetOwnPropertyDescriptor(target, property);
         }
         catch (Exception e) when (e is not JavaScriptException && !_bubbleExceptions)
         {
@@ -1118,11 +1152,11 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         }
     }
 
-    private bool? InvokeClrDefineProperty(ObjectInstance target, JsValue property, PropertyDescriptor descriptor)
+    private bool? InvokeClrDefineProperty(ProxyHandler clrHandler, ObjectInstance target, JsValue property, PropertyDescriptor descriptor)
     {
         try
         {
-            return _clrHandler!.DefineProperty(target, property, descriptor);
+            return clrHandler.DefineProperty(target, property, descriptor);
         }
         catch (Exception e) when (e is not JavaScriptException && !_bubbleExceptions)
         {
@@ -1131,11 +1165,11 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         }
     }
 
-    private IReadOnlyList<JsValue>? InvokeClrOwnKeys(ObjectInstance target)
+    private IReadOnlyList<JsValue>? InvokeClrOwnKeys(ProxyHandler clrHandler, ObjectInstance target)
     {
         try
         {
-            return _clrHandler!.OwnKeys(target);
+            return clrHandler.OwnKeys(target);
         }
         catch (Exception e) when (e is not JavaScriptException && !_bubbleExceptions)
         {
@@ -1144,11 +1178,11 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         }
     }
 
-    private JsValue? InvokeClrApply(ObjectInstance target, JsValue thisObject, JsCallArguments arguments)
+    private JsValue? InvokeClrApply(ProxyHandler clrHandler, ObjectInstance target, JsValue thisObject, JsCallArguments arguments)
     {
         try
         {
-            return _clrHandler!.Apply(target, thisObject, arguments);
+            return clrHandler.Apply(target, thisObject, arguments);
         }
         catch (Exception e) when (e is not JavaScriptException && !_bubbleExceptions)
         {
@@ -1157,11 +1191,11 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         }
     }
 
-    private ObjectInstance? InvokeClrConstruct(ObjectInstance target, JsCallArguments arguments, JsValue newTarget)
+    private ObjectInstance? InvokeClrConstruct(ProxyHandler clrHandler, ObjectInstance target, JsCallArguments arguments, JsValue newTarget)
     {
         try
         {
-            return _clrHandler!.Construct(target, arguments, newTarget);
+            return clrHandler.Construct(target, arguments, newTarget);
         }
         catch (Exception e) when (e is not JavaScriptException && !_bubbleExceptions)
         {
@@ -1170,11 +1204,11 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         }
     }
 
-    private JsValue? InvokeClrGetPrototypeOf(ObjectInstance target)
+    private JsValue? InvokeClrGetPrototypeOf(ProxyHandler clrHandler, ObjectInstance target)
     {
         try
         {
-            return _clrHandler!.GetPrototypeOf(target);
+            return clrHandler.GetPrototypeOf(target);
         }
         catch (Exception e) when (e is not JavaScriptException && !_bubbleExceptions)
         {
@@ -1183,11 +1217,11 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         }
     }
 
-    private bool? InvokeClrSetPrototypeOf(ObjectInstance target, JsValue prototype)
+    private bool? InvokeClrSetPrototypeOf(ProxyHandler clrHandler, ObjectInstance target, JsValue prototype)
     {
         try
         {
-            return _clrHandler!.SetPrototypeOf(target, prototype);
+            return clrHandler.SetPrototypeOf(target, prototype);
         }
         catch (Exception e) when (e is not JavaScriptException && !_bubbleExceptions)
         {
@@ -1196,11 +1230,11 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         }
     }
 
-    private bool? InvokeClrIsExtensible(ObjectInstance target)
+    private bool? InvokeClrIsExtensible(ProxyHandler clrHandler, ObjectInstance target)
     {
         try
         {
-            return _clrHandler!.IsExtensible(target);
+            return clrHandler.IsExtensible(target);
         }
         catch (Exception e) when (e is not JavaScriptException && !_bubbleExceptions)
         {
@@ -1209,11 +1243,11 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         }
     }
 
-    private bool? InvokeClrPreventExtensions(ObjectInstance target)
+    private bool? InvokeClrPreventExtensions(ProxyHandler clrHandler, ObjectInstance target)
     {
         try
         {
-            return _clrHandler!.PreventExtensions(target);
+            return clrHandler.PreventExtensions(target);
         }
         catch (Exception e) when (e is not JavaScriptException && !_bubbleExceptions)
         {
