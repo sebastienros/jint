@@ -123,7 +123,8 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
             if (bodyState.SlotNames is { } bodyNames
                 && _boundNames!.Count + bodyNames.Length <= 16
                 && !HasUsingDeclarations(bodyState)
-                && !NamesOverlap(_loopSlotNames!, bodyNames))
+                && !NamesOverlap(_loopSlotNames!, bodyNames)
+                && !HeaderReferencesAnyBodyName(statement, bodyNames))
             {
                 var headerCount = _loopSlotNames!.Length;
                 var combinedNames = new Key[headerCount + bodyNames.Length];
@@ -458,6 +459,50 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                 {
                     return true;
                 }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Whether the loop header (init, test, or update) contains an identifier matching a body-block
+    /// lexical name. Flattening folds the body's let/const slots into the loop environment, so such a
+    /// name resolves there — but the header scope excludes the body block's declarations, so the
+    /// reference targets an <b>outer</b> binding the body shadows. Folding it in resolves the header
+    /// reference against the still-uninitialized body slot, a spurious TDZ ("x has not been
+    /// initialized"). Over-approximates in the safe direction (a matching property name or a
+    /// nested-scope declaration only forgoes the optimization), mirroring
+    /// <c>EnvironmentEscapeAstVisitor.ClosureReferencesAny</c>.
+    /// </summary>
+    private static bool HeaderReferencesAnyBodyName(ForStatement statement, Key[] bodyNames)
+    {
+        return (statement.Init is not null && ReferencesAnyName(statement.Init, bodyNames))
+            || (statement.Test is not null && ReferencesAnyName(statement.Test, bodyNames))
+            || (statement.Update is not null && ReferencesAnyName(statement.Update, bodyNames));
+    }
+
+    private static bool ReferencesAnyName(Node node, Key[] names)
+    {
+        if (node.Type == NodeType.Identifier)
+        {
+            var name = ((Identifier) node).Name;
+            foreach (var candidate in names)
+            {
+                if (string.Equals(candidate.Name, name, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        foreach (var childNode in node.ChildNodes)
+        {
+            if (ReferencesAnyName(childNode, names))
+            {
+                return true;
             }
         }
 

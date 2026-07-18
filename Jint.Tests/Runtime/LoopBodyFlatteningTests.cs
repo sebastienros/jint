@@ -143,6 +143,89 @@ public class LoopBodyFlatteningTests
     }
 
     [Fact]
+    public void HeaderInitReferencingOuterNameShadowedByBodyReadsOuter()
+    {
+        var engine = new Engine();
+        // the header init reads `r`; the body block declares its own `r`. The names do not overlap
+        // the header's declared name (`l`), so the old NamesOverlap gate let flattening fold the
+        // body's `r` slot into the loop env — where the init's `r` then resolved to the
+        // still-uninitialized slot and threw a spurious TDZ. The init's `r` is an OUTER reference.
+        var result = engine.Evaluate("""
+            (function () {
+                let r = 5, o = 8, seen = [];
+                for (let l = r; l < o; l++) {
+                    let r = l * 10;
+                    seen.push(r);
+                }
+                return seen.join(',');
+            })()
+            """).AsString();
+
+        Assert.Equal("50,60,70", result);
+    }
+
+    [Fact]
+    public void HeaderTestReferencingOuterNameShadowedByBodyReadsOuter()
+    {
+        var engine = new Engine();
+        // same shape, but the outer name is read from the loop test rather than the init
+        var result = engine.Evaluate("""
+            (function () {
+                let r = 3, seen = [];
+                for (let l = 0; l < r; l++) {
+                    let r = l * 10;
+                    seen.push(r);
+                }
+                return seen.join(',');
+            })()
+            """).AsString();
+
+        Assert.Equal("0,10,20", result);
+    }
+
+    [Fact]
+    public void HeaderUpdateReferencingOuterNameShadowedByBodyReadsOuter()
+    {
+        var engine = new Engine();
+        // the update reads outer `step`; the body shadows `step`
+        var result = engine.Evaluate("""
+            (function () {
+                let step = 2, seen = [];
+                for (let l = 0; l < 6; l += step) {
+                    let step = l * 10;
+                    seen.push(step);
+                }
+                return seen.join(',');
+            })()
+            """).AsString();
+
+        Assert.Equal("0,20,40", result);
+    }
+
+    [Fact]
+    public void TurbopackChunkShapeResolvesModuleFactory()
+    {
+        var engine = new Engine();
+        // reduced from a Turbopack runtime chunk: a header `for (let l = r; ...)` over a body that
+        // block-scopes `r` and `o` while the header reads the outer `r`/`o` — the exact shape that
+        // aborted the Next.js bootstrap with "r has not been initialized"
+        var result = engine.Evaluate("""
+            (function () {
+                let e = [0, 0, 'fa', 'fb'];
+                let t = new Map();
+                let r = 2, o = 4, n;
+                for (let l = r; l < o; l++) {
+                    let r = e[l], o = t.get(r);
+                    if (o) { n = o; break; }
+                }
+                return 'ok:' + (n === undefined);
+            })()
+            """).AsString();
+
+        Assert.Equal("ok:true", result);
+    }
+
+    [Fact]
     public void UsingDeclarationsKeepBlockDisposeSemantics()
     {
         var engine = new Engine();
