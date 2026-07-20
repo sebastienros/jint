@@ -16,6 +16,12 @@ internal sealed class ExecutionContextStack
         _stack = new RefStack<ExecutionContext>(capacity);
     }
 
+    public int Count
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => _stack._size;
+    }
+
     public void ReplaceTopLexicalEnvironment(Environment newEnv)
     {
         var array = _stack._array;

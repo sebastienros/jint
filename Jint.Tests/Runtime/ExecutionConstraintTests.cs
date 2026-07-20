@@ -1,4 +1,5 @@
 using Jint.Constraints;
+using Jint.Native;
 using Jint.Native.Function;
 using Jint.Runtime;
 
@@ -817,11 +818,12 @@ myarr[0](0);
     public void HostSideAccessToWrappedObjectDoesNotObserveExpiredTimeoutAfterExecution()
     {
         // the time constraint's CTS is re-armed at the end of every run and keeps counting while
-        // the engine is idle; an expired timer must not make later C#-side reads throw
+        // the engine is idle; an expired timer must not make later C#-side reads throw.
+        // the executed script deliberately does no interop so the run itself cannot race the timer
         var engine = new Engine(cfg => cfg.TimeoutInterval(TimeSpan.FromMilliseconds(50)));
         var probe = new HostBoundaryProbe();
         engine.SetValue("probe", probe);
-        engine.Execute("probe.value;");
+        engine.Execute("42;");
 
         Thread.Sleep(200);
 
@@ -830,20 +832,144 @@ myarr[0](0);
     }
 
     [Fact]
-    public void DebugModeEngineDoesNotRunHostBoundaryChecks()
+    public void TimeoutIsObservedAtHostCallReturn()
     {
-        // in debug mode the boundary checks are disabled so that watch/conditional-breakpoint
-        // evaluation cannot deterministically trip an expired constraint on interop access;
-        // few enough statements run here that the amortized countdown cannot fire either, so
-        // the loop must complete all its host calls despite the mid-loop cancellation
+        // TimeConstraint coverage for the boundary mechanism. The host call waits until the
+        // time budget has observably expired (polling the public constraint check), so the
+        // return-side boundary check must fire — immune to CTS timer scheduling delays on CI.
+        var engine = new Engine(cfg => cfg.TimeoutInterval(TimeSpan.FromMilliseconds(50)));
+
+        var calls = 0;
+        engine.SetValue("work", new Action(() =>
+        {
+            calls++;
+            while (true)
+            {
+                try
+                {
+                    engine.Constraints.Check();
+                }
+                catch (TimeoutException)
+                {
+                    return;
+                }
+
+                Thread.Sleep(10);
+            }
+        }));
+
+        Assert.Throws<TimeoutException>(() => engine.Execute("work(); work();"));
+        Assert.Equal(1, calls);
+    }
+
+    [Fact]
+    public void CancellationIsObservedInHostDrivenAsyncContinuationHostCalls()
+    {
+        // resolving a promise from the host drains the async continuation outside any
+        // Execute/Evaluate window: async resumes push execution contexts but do not install
+        // the ambient evaluation context, so the boundary-check gate must key on the
+        // execution-context stack depth, not the ambient field
+        using var cts = new CancellationTokenSource();
+        var engine = new Engine(cfg => cfg.CancellationToken(cts.Token));
+
+        var calls = 0;
+        engine.SetValue("work", new Action(() => { if (++calls == 3) { cts.Cancel(); } }));
+
+        var gate = engine.Advanced.RegisterPromise();
+        engine.SetValue("gate", gate.Promise);
+        engine.Evaluate("(async () => { await gate; for (var i = 0; i < 40; i++) { work(); } })()");
+        Assert.Equal(0, calls);
+
+        Assert.Throws<ExecutionCanceledException>(() => gate.Resolve(JsValue.Undefined));
+        Assert.Equal(3, calls);
+    }
+
+    [Fact]
+    public void CancellationIsObservedBetweenSlowNonStringKeyedDictionaryReads()
+    {
+        AssertCancelledDuringThirdHostCall((cts, engine) =>
+        {
+            var dictionary = new SlowIntDictionary();
+            dictionary.Prime(5, 42);
+            dictionary.OnAccess = () => { if (dictionary.Accesses == 3) { cts.Cancel(); } };
+            engine.SetValue("cfg", dictionary);
+            return () => dictionary.Accesses;
+        }, "for (var i = 0; i < 40; i++) { var v = cfg[5]; }");
+    }
+
+    [Fact]
+    public void CancellationIsObservedBetweenSlowNonStringKeyedDictionaryWrites()
+    {
+        AssertCancelledDuringThirdHostCall((cts, engine) =>
+        {
+            var dictionary = new SlowIntDictionary();
+            dictionary.OnAccess = () => { if (dictionary.Accesses == 3) { cts.Cancel(); } };
+            engine.SetValue("cfg", dictionary);
+            return () => dictionary.Accesses;
+        }, "for (var i = 0; i < 40; i++) { cfg[5] = i; }");
+    }
+
+    [Fact]
+    public void CancellationIsObservedBetweenSlowMemberAccessorCallbacks()
+    {
+        using var cts = new CancellationTokenSource();
+        var accesses = 0;
+        var engine = new Engine(cfg =>
+        {
+            cfg.CancellationToken(cts.Token);
+            cfg.Interop.MemberAccessor = (_, _, _) =>
+            {
+                if (++accesses == 3)
+                {
+                    cts.Cancel();
+                }
+
+                return JsValue.Undefined;
+            };
+        });
+
+        // a dictionary target keeps member resolution uncached, so the accessor runs per read
+        engine.SetValue("cfg", new Dictionary<string, object>());
+
+        Assert.Throws<ExecutionCanceledException>(() => engine.Execute("for (var i = 0; i < 40; i++) { var v = cfg.missingKey; }"));
+        Assert.Equal(3, accesses);
+    }
+
+    [Fact]
+    public void DebugModeExecutionStillObservesCancellationAtHostBoundaries()
+    {
+        // debug mode must not weaken constraint enforcement during normal full-speed execution;
+        // only debugger expression evaluation is exempt
         using var cts = new CancellationTokenSource();
         var engine = new Engine(cfg => cfg.CancellationToken(cts.Token).DebugMode());
 
         var calls = 0;
         engine.SetValue("work", new Action(() => { if (++calls == 3) { cts.Cancel(); } }));
 
-        engine.Execute("for (var i = 0; i < 5; i++) { work(); }");
-        Assert.Equal(5, calls);
+        Assert.Throws<ExecutionCanceledException>(() => engine.Execute("for (var i = 0; i < 40; i++) { work(); }"));
+        Assert.Equal(3, calls);
+    }
+
+    [Fact]
+    public void DebuggerExpressionEvaluationIsExemptFromHostBoundaryChecks()
+    {
+        // a watch-style evaluation with a pending cancellation must still be able to read
+        // interop members; the boundary check fires once control returns to the script
+        using var cts = new CancellationTokenSource();
+        var engine = new Engine(cfg => cfg.CancellationToken(cts.Token).DebugMode());
+        var probe = new HostBoundaryProbe();
+        engine.SetValue("probe", probe);
+
+        JsValue evaluated = null;
+        engine.SetValue("work", new Action(() =>
+        {
+            cts.Cancel();
+            evaluated = engine.Debugger.Evaluate("probe.value");
+        }));
+
+        Assert.Throws<ExecutionCanceledException>(() => engine.Execute("work(); work();"));
+        Assert.Equal(42, evaluated.AsNumber());
+        Assert.Equal(1, probe.Accesses);
     }
 
     private sealed class HostBoundaryProbe
@@ -930,6 +1056,55 @@ myarr[0](0);
         public void CopyTo(KeyValuePair<string, object>[] array, int arrayIndex) => ((IDictionary<string, object>) _inner).CopyTo(array, arrayIndex);
         public bool Remove(KeyValuePair<string, object> item) => _inner.Remove(item.Key);
         public IEnumerator<KeyValuePair<string, object>> GetEnumerator() => _inner.GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _inner.GetEnumerator();
+    }
+
+    private sealed class SlowIntDictionary : IDictionary<int, object>
+    {
+        private readonly Dictionary<int, object> _inner = new();
+
+        public int Accesses;
+        public Action OnAccess = static () => { };
+
+        public void Prime(int key, object value) => _inner[key] = value;
+
+        public object this[int key]
+        {
+            get
+            {
+                Accesses++;
+                OnAccess();
+                return _inner[key];
+            }
+            set
+            {
+                Accesses++;
+                OnAccess();
+                _inner[key] = value;
+            }
+        }
+
+        public bool TryGetValue(int key, out object value)
+        {
+            Accesses++;
+            OnAccess();
+            return _inner.TryGetValue(key, out value);
+        }
+
+        public ICollection<int> Keys => _inner.Keys;
+        public ICollection<object> Values => _inner.Values;
+        public int Count => _inner.Count;
+        public bool IsReadOnly => false;
+
+        public void Add(int key, object value) => _inner.Add(key, value);
+        public bool ContainsKey(int key) => _inner.ContainsKey(key);
+        public bool Remove(int key) => _inner.Remove(key);
+        public void Add(KeyValuePair<int, object> item) => _inner.Add(item.Key, item.Value);
+        public void Clear() => _inner.Clear();
+        public bool Contains(KeyValuePair<int, object> item) => _inner.ContainsKey(item.Key);
+        public void CopyTo(KeyValuePair<int, object>[] array, int arrayIndex) => ((IDictionary<int, object>) _inner).CopyTo(array, arrayIndex);
+        public bool Remove(KeyValuePair<int, object> item) => _inner.Remove(item.Key);
+        public IEnumerator<KeyValuePair<int, object>> GetEnumerator() => _inner.GetEnumerator();
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _inner.GetEnumerator();
     }
 

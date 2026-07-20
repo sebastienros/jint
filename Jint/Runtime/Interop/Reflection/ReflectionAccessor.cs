@@ -57,11 +57,13 @@ internal abstract class ReflectionAccessor
             }
             catch (TargetInvocationException tie)
             {
+                engine.CheckAmortizedConstraintsAtHostBoundary();
                 Throw.MeaningfulException(engine, tie);
             }
         }
 
-        engine.CheckAmortizedConstraintsAtHostBoundary();
+        // the success-path boundary check runs in ReflectionDescriptor.DoGet after result
+        // conversion, so an awaitable value gets its continuation attached before a throw
         return value;
     }
 
@@ -109,6 +111,7 @@ internal abstract class ReflectionAccessor
         }
         catch (TargetInvocationException exception)
         {
+            engine.CheckAmortizedConstraintsAtHostBoundary();
             Throw.MeaningfulException(engine, exception);
         }
 

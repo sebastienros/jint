@@ -53,6 +53,10 @@ public sealed partial class Engine : IDisposable
     // returned from ScriptEvaluation as a per-frame local. _error and _lastSyntaxElement are safe
     // because they are produced and consumed synchronously with no re-entrant drain in between.
     internal EvaluationContext? _activeEvaluationContext;
+
+    // set by DebugHandler.Evaluate around watch/breakpoint-condition expression evaluation so the
+    // host-boundary constraint checks can exempt it (see CheckAmortizedConstraintsAtHostBoundary)
+    internal bool _debuggerEvaluating;
     internal ErrorDispatchInfo? _error;
 
     // Per-engine cache of interpreter function definitions — hoisted declarations, class methods,
@@ -902,27 +906,38 @@ public sealed partial class Engine : IDisposable
     /// <list type="bullet">
     /// <item>Only after the host call returns, never on entry — an entry check would block host
     /// cleanup calls (e.g. a release-the-lock delegate inside a JS finally block) once
-    /// cancellation is pending, skipping cleanup that ran before this mechanism existed.</item>
-    /// <item>Only while script evaluation is active — constraint state is only meaningful inside
-    /// an Execute/Invoke window: <see cref="Constraints.TimeConstraint"/>'s timer is re-armed at
-    /// the end of every run and keeps counting, and a cancellation token may be cancelled during
-    /// normal teardown, so host-initiated access to wrapped objects from C# after execution must
-    /// not observe either.</item>
-    /// <item>Not in debug mode — a debugger paused longer than the timeout would otherwise
-    /// deterministically fail every interop read in watch/conditional-breakpoint evaluation;
-    /// debug-mode engines keep the pre-existing amortized-countdown-only behavior.</item>
+    /// cancellation is pending, skipping cleanup that ran before this mechanism existed. Host
+    /// calls that throw re-check inside their TargetInvocationException conversion handlers, so
+    /// a loop of throwing host calls stays bounded too. The residual cost of no entry check: a
+    /// cancelled script can start at most one more host call per boundary.</item>
+    /// <item>Only while evaluation is in progress — signalled by the execution-context stack
+    /// being deeper than the engine's base frame, which covers every execution shape (script
+    /// evaluation, function calls, generator/async resumes, module evaluation, event-loop drains
+    /// driven by host APIs such as UnwrapIfPromise) because each pushes a context. Outside that
+    /// window constraint state is meaningless: <see cref="Constraints.TimeConstraint"/>'s timer
+    /// is re-armed at the end of every run and keeps counting while the engine is idle, and a
+    /// cancellation token may be cancelled during normal teardown, so host-initiated access to
+    /// wrapped objects from C# must not observe either. Not keyed on
+    /// <see cref="_activeEvaluationContext"/>: async resume paths create evaluation contexts
+    /// without installing the ambient field, so it can be null mid-drain.</item>
+    /// <item>Not during debugger expression evaluation (<see cref="Runtime.Debugger.DebugHandler.Evaluate(string, ScriptParsingOptions)"/>)
+    /// — a debugger paused longer than the timeout would otherwise deterministically fail every
+    /// interop read in watch/conditional-breakpoint expressions. Normal debug-mode execution
+    /// keeps full enforcement.</item>
+    /// <item>Result conversion runs before the check wherever a host call can return an
+    /// awaitable, so an in-flight Task always gets its promise continuation attached and is
+    /// never left unobserved.</item>
     /// <item>Not wired into built-in <see cref="ClrFunction"/> dispatch (would reintroduce the
     /// per-call cost on hot built-ins that the amortization removed; long-running built-ins bound
     /// their own latency via <see cref="ConstraintCheckInterval"/> self-checks), nor into
-    /// operator-overload resolution (whose catch-all would launder constraint exceptions into
-    /// TargetInvocationException), nor into user-supplied converter/factory callbacks —
-    /// embedder-authored code hosting long operations can observe the CancellationToken itself.</item>
+    /// user-supplied converter/factory callbacks — embedder-authored code hosting long operations
+    /// can observe the CancellationToken itself.</item>
     /// </list>
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void CheckAmortizedConstraintsAtHostBoundary()
     {
-        if (_activeEvaluationContext is not null && !_isDebugMode)
+        if (_executionContexts.Count > 1 && !_debuggerEvaluating)
         {
             CheckAmortizedConstraints();
         }

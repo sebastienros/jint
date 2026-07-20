@@ -106,6 +106,8 @@ public class DebugHandler
 
         var list = new JintStatementList(null, preparedScript.Program.Body);
         Completion result;
+        var previousDebuggerEvaluating = _engine._debuggerEvaluating;
+        _engine._debuggerEvaluating = true;
         try
         {
             result = list.Execute(context);
@@ -117,6 +119,8 @@ public class DebugHandler
         }
         finally
         {
+            _engine._debuggerEvaluating = previousDebuggerEvaluating;
+
             // Restore call stack
             while (_engine.CallStack.Count > callStackSize)
             {

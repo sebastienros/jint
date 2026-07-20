@@ -30,7 +30,9 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
     {
         if (property.IsInteger())
         {
-            return FromObject(_engine, GetAt(property.AsInteger()));
+            var result = FromObject(_engine, GetAt(property.AsInteger()));
+            _engine.CheckAmortizedConstraintsAtHostBoundary();
+            return result;
         }
 
         return base.Get(property, receiver);

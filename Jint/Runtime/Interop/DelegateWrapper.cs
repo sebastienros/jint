@@ -144,6 +144,9 @@ internal sealed class DelegateWrapper : Function
         }
         catch (TargetInvocationException exception)
         {
+            // a throwing host call never reaches the post-invoke check above; re-check here so a
+            // loop of throwing host calls cannot stretch the detection window either
+            Engine.CheckAmortizedConstraintsAtHostBoundary();
             Throw.MeaningfulException(Engine, exception);
             throw;
         }

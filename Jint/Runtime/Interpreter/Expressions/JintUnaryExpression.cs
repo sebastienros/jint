@@ -358,6 +358,7 @@ internal sealed class JintUnaryExpression : JintExpression
             if (method != null)
             {
                 result = method.Call(context.Engine, null, arguments);
+                context.Engine.CheckAmortizedConstraintsAtHostBoundary();
                 return true;
             }
         }
