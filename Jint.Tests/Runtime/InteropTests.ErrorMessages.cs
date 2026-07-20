@@ -25,6 +25,20 @@ public partial class InteropTests
     }
 
     [Fact]
+    public void FailedMethodResolutionDoesNotDuplicateImplicitlyImplementedInterfaceMethods()
+    {
+        var engine = DetailedErrorsEngine();
+        engine.SetValue("holder", new GreeterHolder(new Greeter()));
+
+        // Greeter.Greet is collected both from the class and from IGreeter, it must be reported once
+        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("holder.Greeter.Greet()"));
+
+        Assert.Equal(
+            "No public methods with the specified arguments were found. Target: Jint.Tests.Runtime.Greeter.Greet; provided arguments: (); candidate signatures: Greet(String name)",
+            ex.Message);
+    }
+
+    [Fact]
     public void FailedMethodResolutionDescribesArgumentKinds()
     {
         var engine = DetailedErrorsEngine();
@@ -285,4 +299,27 @@ public class CtorFails
     public CtorFails(string name)
     {
     }
+}
+
+public interface IGreeter
+{
+    string Greet(string name);
+}
+
+public class Greeter : IGreeter
+{
+    public string Greet(string name) => $"Hello, {name}";
+}
+
+public class GreeterHolder
+{
+    private readonly IGreeter _greeter;
+
+    public GreeterHolder(IGreeter greeter)
+    {
+        _greeter = greeter;
+    }
+
+    // object-typed on purpose: the wrapper resolves members against the runtime type
+    public object Greeter => _greeter;
 }
