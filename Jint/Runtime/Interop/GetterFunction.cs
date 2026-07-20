@@ -19,6 +19,9 @@ internal sealed class GetterFunction : Function
 
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
-        return _getter(thisObject);
+        _engine.CheckAmortizedConstraintsAtHostBoundary();
+        var result = _getter(thisObject);
+        _engine.CheckAmortizedConstraintsAtHostBoundary();
+        return result;
     }
 }
