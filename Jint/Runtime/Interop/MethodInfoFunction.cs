@@ -155,8 +155,6 @@ internal sealed class MethodInfoFunction : Function
 
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments jsArguments)
     {
-        _engine.CheckAmortizedConstraintsAtHostBoundary();
-
         var converter = Engine.TypeConverter;
         var thisObj = thisObject.ToObject() ?? _target;
         var state = new MethodResolverState(_engine, thisObject, jsArguments);

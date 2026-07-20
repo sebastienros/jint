@@ -28,12 +28,8 @@ public partial class Engine
     /// <item>User-derived constraints may depend on being called once per statement — silently
     /// amortizing them would be a breaking behavior change.</item>
     /// </list>
-    /// The statement-count cadence is a wall-clock proxy only while statements stay cheap, so
-    /// interop call sites that hand control to user CLR code (delegates, reflected members,
-    /// constructors) re-check via <see cref="CheckAmortizedConstraintsAtHostBoundary"/> — a loop
-    /// of slow host calls must not stretch the detection window (a call can take arbitrarily
-    /// long, and only <see cref="Runtime.Interpreter.EvaluationContext.AmortizedConstraintCheckInterval"/>
-    /// statements' worth of them would otherwise elapse unchecked).
+    /// Interop call sites additionally re-check on return from user CLR code — see
+    /// <see cref="CheckAmortizedConstraintsAtHostBoundary"/> for that mechanism's rationale.
     /// </summary>
     private static ConstraintPartition PartitionConstraints(Constraint[] constraints)
     {
