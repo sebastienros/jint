@@ -189,7 +189,8 @@ public sealed class TypeResolver
 
                     foreach (var name in typeResolverMemberNameCreator(imethod))
                     {
-                        if (typeResolverMemberNameComparer.Equals(name, memberName))
+                        if (typeResolverMemberNameComparer.Equals(name, memberName)
+                            && !ContainsMethodWithSameSignature(explicitMethods, imethod))
                         {
                             explicitMethods ??= new List<MethodInfo>();
                             explicitMethods.Add(imethod);
@@ -274,6 +275,106 @@ public sealed class TypeResolver
         }
 
         return ConstantValueAccessor.NullAccessor;
+    }
+
+    private static bool ContainsMethodWithSameSignature(List<MethodInfo>? methods, MethodInfo method)
+    {
+        if (methods is null)
+        {
+            return false;
+        }
+
+        foreach (var existing in methods)
+        {
+            if (HasSameSignature(existing, method))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasSameSignature(MethodInfo a, MethodInfo b)
+    {
+        if (!string.Equals(a.Name, b.Name, StringComparison.Ordinal)
+            || a.IsGenericMethodDefinition != b.IsGenericMethodDefinition)
+        {
+            return false;
+        }
+
+        if (a.IsGenericMethodDefinition && a.GetGenericArguments().Length != b.GetGenericArguments().Length)
+        {
+            return false;
+        }
+
+        var parametersA = a.GetParameters();
+        var parametersB = b.GetParameters();
+        if (parametersA.Length != parametersB.Length)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < parametersA.Length; i++)
+        {
+            if (!TypesMatch(parametersA[i].ParameterType, parametersB[i].ParameterType))
+            {
+                return false;
+            }
+        }
+
+        return TypesMatch(a.ReturnType, b.ReturnType);
+    }
+
+    /// <summary>
+    /// Structural type equality that treats positionally identical generic method parameters as equal,
+    /// the same method seen through both a class and an interface has distinct generic parameter instances.
+    /// </summary>
+    private static bool TypesMatch(Type a, Type b)
+    {
+        if (a == b)
+        {
+            return true;
+        }
+
+        if (a.IsGenericParameter || b.IsGenericParameter)
+        {
+            return a.IsGenericParameter
+                && b.IsGenericParameter
+                && a.DeclaringMethod is not null
+                && b.DeclaringMethod is not null
+                && a.GenericParameterPosition == b.GenericParameterPosition;
+        }
+
+        if (a.HasElementType || b.HasElementType)
+        {
+            return a.HasElementType
+                && b.HasElementType
+                && a.IsArray == b.IsArray
+                && a.IsByRef == b.IsByRef
+                && a.IsPointer == b.IsPointer
+                && (!a.IsArray || a.GetArrayRank() == b.GetArrayRank())
+                && TypesMatch(a.GetElementType()!, b.GetElementType()!);
+        }
+
+        if (a.IsConstructedGenericType
+            && b.IsConstructedGenericType
+            && a.GetGenericTypeDefinition() == b.GetGenericTypeDefinition())
+        {
+            var argumentsA = a.GenericTypeArguments;
+            var argumentsB = b.GenericTypeArguments;
+            for (var i = 0; i < argumentsA.Length; i++)
+            {
+                if (!TypesMatch(argumentsA[i], argumentsB[i]))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        return false;
     }
 
     private static int CalculateIndexerScore(ParameterInfo parameter, bool isInteger)
@@ -389,7 +490,7 @@ public sealed class TypeResolver
 
         // if no properties were found then look for a method
         List<MethodInfo>? methods = null;
-        void AddMethod(MethodInfo m)
+        void AddMethod(MethodInfo m, bool skipIfSignatureAlreadyPresent = false)
         {
             if (!Filter(engine, type, m))
             {
@@ -400,8 +501,16 @@ public sealed class TypeResolver
             {
                 if (memberNameComparer.Equals(name, memberName))
                 {
+                    // an implicitly implemented interface method is also reported through the class,
+                    // only add a secondary slot when it brings a new signature
+                    if (skipIfSignatureAlreadyPresent && ContainsMethodWithSameSignature(methods, m))
+                    {
+                        return;
+                    }
+
                     methods ??= new List<MethodInfo>();
                     methods.Add(m);
+                    return;
                 }
             }
         }
@@ -415,7 +524,7 @@ public sealed class TypeResolver
         {
             foreach (var m in iface.GetMethods())
             {
-                AddMethod(m);
+                AddMethod(m, skipIfSignatureAlreadyPresent: true);
             }
         }
 
@@ -433,7 +542,7 @@ public sealed class TypeResolver
         {
             foreach (var m in typeof(object).GetMethods(bindingFlags ?? engine.Options.Interop.ObjectWrapperReportedMethodBindingFlags))
             {
-                AddMethod(m);
+                AddMethod(m, skipIfSignatureAlreadyPresent: true);
             }
         }
 
