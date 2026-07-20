@@ -335,6 +335,9 @@ public class Options
         /// <summary>
         /// Whether identity map is persisted for object wrappers in order to maintain object identity. This can cause
         /// memory usage to grow when targeting large set and freeing of memory can be delayed due to ConditionalWeakTable semantics.
+        /// Also covers CLR arrays: repeated conversions of the same array instance return the same JsArray snapshot
+        /// (script-side mutations persist across reads; CLR-side mutations after the first conversion are not re-copied)
+        /// instead of copying every element on every read.
         /// Defaults to false.
         /// </summary>
         public bool TrackObjectWrapperIdentity { get; set; }
@@ -343,7 +346,8 @@ public class Options
         /// Whether a small bounded cache of most recently wrapped CLR objects is kept so that the same
         /// object crossing into script repeatedly reuses its wrapper (by reference identity). A lighter
         /// alternative to <see cref="TrackObjectWrapperIdentity"/> that cannot grow memory unbounded;
-        /// identity is only preserved for objects still present in the cache.
+        /// identity is only preserved for objects still present in the cache. Covers CLR arrays the same
+        /// way <see cref="TrackObjectWrapperIdentity"/> does.
         /// Defaults to false.
         /// </summary>
         public bool CacheRecentObjectWrappers { get; set; }

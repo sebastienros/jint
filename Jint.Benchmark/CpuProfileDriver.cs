@@ -39,6 +39,9 @@ internal static class CpuProfileDriver
             src = DromaeoHelpers + Environment.NewLine + Environment.NewLine + src;
         }
 
+        // Interop scripts expect the same host binding as EngineComparisonInteropBenchmark.
+        var isInterop = scriptName.StartsWith("interop-", StringComparison.Ordinal);
+
         var prepared = Engine.PrepareScript(src, strict: true);
         var usePrepared = string.Equals(variant, "prepared", StringComparison.Ordinal);
 
@@ -61,6 +64,10 @@ internal static class CpuProfileDriver
         void RunOnce()
         {
             var engine = new Engine(static options => options.Strict());
+            if (isInterop)
+            {
+                engine.SetValue("host", new EngineComparisonInteropBenchmark.InteropHost());
+            }
             if (usePrepared)
             {
                 engine.Execute(prepared);
