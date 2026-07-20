@@ -205,6 +205,10 @@ public sealed class TypeReference : Constructor, IObjectWrapper
                 Throw.InteropResolutionError(realm, message, referenceType, memberName: null, arguments, constructors);
             }
 
+            // all three creation branches above (user factory, Activator, reflected constructor)
+            // ran user CLR code
+            engine.CheckAmortizedConstraintsAtHostBoundary();
+
             result.SetPrototypeOf(state.TypeReference);
 
             return result;

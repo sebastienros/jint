@@ -297,7 +297,9 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                 return false;
             }
 
-            return _typeDescriptor.TrySetDictionaryValue(Target, clrKey!, clrValue);
+            var written = _typeDescriptor.TrySetDictionaryValue(Target, clrKey!, clrValue);
+            _engine.CheckAmortizedConstraintsAtHostBoundary();
+            return written;
         }
 
         return SetSlow(property, value);
@@ -434,17 +436,21 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             }
             else
             {
-                if (_typeDescriptor.IsStringKeyedGenericDictionary
-                    && _typeDescriptor.TryGetDictionaryValue(Target, property.ToString(), out var value))
+                if (_typeDescriptor.IsStringKeyedGenericDictionary)
                 {
-                    // Check stored properties first - frozen/sealed objects have descriptors in _properties
-                    // that must be respected to return the same (frozen) instance
-                    if (TryGetProperty(property, out var stored))
+                    var found = _typeDescriptor.TryGetDictionaryValue(Target, property.ToString(), out var value);
+                    _engine.CheckAmortizedConstraintsAtHostBoundary();
+                    if (found)
                     {
-                        return UnwrapJsValue(stored, receiver);
-                    }
+                        // Check stored properties first - frozen/sealed objects have descriptors in _properties
+                        // that must be respected to return the same (frozen) instance
+                        if (TryGetProperty(property, out var stored))
+                        {
+                            return UnwrapJsValue(stored, receiver);
+                        }
 
-                    return FromObject(_engine, value);
+                        return FromObject(_engine, value);
+                    }
                 }
             }
         }
@@ -456,9 +462,9 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         {
             // Prototype chain is intentionally skipped on miss: non-string non-symbol keys can't
             // resolve to Object.prototype members (which are all string/symbol-keyed).
-            return _typeDescriptor.TryGetDictionaryValue(Target, clrKey!, out var raw)
-                ? FromObject(_engine, raw)
-                : Undefined;
+            var found = _typeDescriptor.TryGetDictionaryValue(Target, clrKey!, out var raw);
+            _engine.CheckAmortizedConstraintsAtHostBoundary();
+            return found ? FromObject(_engine, raw) : Undefined;
         }
 
         // slow path requires us to create a property descriptor that might get cached or not
@@ -622,15 +628,19 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         if (!property.IsString() && _typeDescriptor.IsNonStringKeyedGenericDictionary)
         {
             // non-string-keyed CLR generic dictionary — resolve via underlying CLR key, not string
-            if (TryConvertJsValueToDictionaryKey(property, _typeDescriptor.GenericDictionaryKeyType!, out var clrKey)
-                && _typeDescriptor.TryGetDictionaryValue(Target, clrKey!, out var raw))
+            if (TryConvertJsValueToDictionaryKey(property, _typeDescriptor.GenericDictionaryKeyType!, out var clrKey))
             {
-                var flags = PropertyFlag.Enumerable;
-                if (_engine.Options.Interop.AllowWrite)
+                var found = _typeDescriptor.TryGetDictionaryValue(Target, clrKey!, out var raw);
+                _engine.CheckAmortizedConstraintsAtHostBoundary();
+                if (found)
                 {
-                    flags |= PropertyFlag.Configurable;
+                    var flags = PropertyFlag.Enumerable;
+                    if (_engine.Options.Interop.AllowWrite)
+                    {
+                        flags |= PropertyFlag.Configurable;
+                    }
+                    return new PropertyDescriptor(FromObject(_engine, raw), flags);
                 }
-                return new PropertyDescriptor(FromObject(_engine, raw), flags);
             }
             return PropertyDescriptor.Undefined;
         }
@@ -643,7 +653,9 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         var isDictionary = _typeDescriptor.IsStringKeyedGenericDictionary;
         if (isDictionary)
         {
-            if (_typeDescriptor.TryGetDictionaryValue(Target, member, out var value))
+            var found = _typeDescriptor.TryGetDictionaryValue(Target, member, out var value);
+            _engine.CheckAmortizedConstraintsAtHostBoundary();
+            if (found)
             {
                 var flags = PropertyFlag.Enumerable;
                 if (_engine.Options.Interop.AllowWrite)
@@ -667,6 +679,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         }
 
         var result = Engine.Options.Interop.MemberAccessor(Engine, Target, member);
+        Engine.CheckAmortizedConstraintsAtHostBoundary();
         if (result is not null)
         {
             return new PropertyDescriptor(result, PropertyFlag.OnlyEnumerable);
@@ -831,7 +844,9 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
         public override bool TryIteratorStep(out ObjectInstance nextItem)
         {
-            if (_enumerator.MoveNext())
+            var hasNext = _enumerator.MoveNext();
+            _engine.CheckAmortizedConstraintsAtHostBoundary();
+            if (hasNext)
             {
                 var key = _enumerator.Current;
                 var value = _target.Get(key);
@@ -862,7 +877,9 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
         public override bool TryIteratorStep(out ObjectInstance nextItem)
         {
-            if (_enumerator.MoveNext())
+            var hasNext = _enumerator.MoveNext();
+            _engine.CheckAmortizedConstraintsAtHostBoundary();
+            if (hasNext)
             {
                 var value = _enumerator.Current;
                 nextItem = IteratorResult.CreateValueIteratorPosition(_engine, FromObject(_engine, value));

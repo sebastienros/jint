@@ -658,134 +658,95 @@ myarr[0](0);
         Assert.Throws<ScriptPreparationException>(() => new Engine().Execute(sb.ToString()));
     }
 
+    // https://github.com/sebastienros/jint/discussions/2707
+    // With only amortized constraints registered (here: a cancellation token), the
+    // statement-count amortization must not defer cancellation across host calls that can each
+    // take arbitrarily long; the host-call boundary re-check bounds detection latency to a
+    // single call. Cancelling from inside the 3rd host call makes the assertion deterministic:
+    // the check at that call's return must abort the loop before a 4th call starts (without the
+    // boundary check the loop would continue until the 64-statement countdown fires, i.e.
+    // dozens of calls later).
+    private static void AssertCancelledDuringThirdHostCall(Func<CancellationTokenSource, Engine, Func<int>> setup, string script)
+    {
+        using var cts = new CancellationTokenSource();
+        var engine = new Engine(cfg => cfg.CancellationToken(cts.Token));
+        var hostCallCount = setup(cts, engine);
+
+        Assert.Throws<ExecutionCanceledException>(() => engine.Execute(script));
+        Assert.Equal(3, hostCallCount());
+    }
+
     [Fact]
     public void CancellationIsObservedBetweenSlowHostDelegateCalls()
     {
-        // https://github.com/sebastienros/jint/discussions/2707
-        // With only amortized constraints registered (here: a cancellation token), the
-        // statement-count amortization must not defer cancellation across host calls that can
-        // each take arbitrarily long; the host-call boundary re-check bounds detection latency
-        // to a single call. Cancelling from inside the 3rd call makes the assertion
-        // deterministic: the check at that call's return must abort the loop before a 4th call
-        // starts (without the boundary check the loop would continue until the 64-statement
-        // countdown fires, i.e. dozens of calls later).
-        using var cts = new CancellationTokenSource();
-        var engine = new Engine(cfg => cfg.CancellationToken(cts.Token));
-
-        var calls = 0;
-        engine.SetValue("work", new Action(() =>
+        AssertCancelledDuringThirdHostCall((cts, engine) =>
         {
-            if (++calls == 3)
-            {
-                cts.Cancel();
-            }
-        }));
-
-        Assert.Throws<ExecutionCanceledException>(() => engine.Execute("for (var i = 0; i < 40; i++) { work(); }"));
-        Assert.Equal(3, calls);
+            var calls = 0;
+            engine.SetValue("work", new Action(() => { if (++calls == 3) { cts.Cancel(); } }));
+            return () => calls;
+        }, "for (var i = 0; i < 40; i++) { work(); }");
     }
 
     [Fact]
     public void CancellationIsObservedBetweenSlowHostDelegateCallsInFunctionLocalTightLoop()
     {
-        // Same as above, with the function-local expression-body loop shape that arms the
-        // interpreter's tight for-body lane.
-        using var cts = new CancellationTokenSource();
-        var engine = new Engine(cfg => cfg.CancellationToken(cts.Token));
-
-        var calls = 0;
-        engine.SetValue("work", new Action(() =>
+        // the function-local expression-body loop shape arms the interpreter's tight for-body lane
+        AssertCancelledDuringThirdHostCall((cts, engine) =>
         {
-            if (++calls == 3)
-            {
-                cts.Cancel();
-            }
-        }));
-
-        Assert.Throws<ExecutionCanceledException>(
-            () => engine.Execute("function f() { for (var i = 0; i < 40; i++) { work(); } } f();"));
-        Assert.Equal(3, calls);
+            var calls = 0;
+            engine.SetValue("work", new Action(() => { if (++calls == 3) { cts.Cancel(); } }));
+            return () => calls;
+        }, "function f() { for (var i = 0; i < 40; i++) { work(); } } f();");
     }
 
     [Fact]
     public void CancellationIsObservedBetweenSlowClrMethodCalls()
     {
-        using var cts = new CancellationTokenSource();
-        var engine = new Engine(cfg => cfg.CancellationToken(cts.Token));
-
-        var probe = new HostBoundaryProbe();
-        probe.OnAccess = () =>
+        AssertCancelledDuringThirdHostCall((cts, engine) =>
         {
-            if (probe.Accesses == 3)
-            {
-                cts.Cancel();
-            }
-        };
-        engine.SetValue("probe", probe);
-
-        Assert.Throws<ExecutionCanceledException>(() => engine.Execute("for (var i = 0; i < 40; i++) { probe.method(); }"));
-        Assert.Equal(3, probe.Accesses);
+            var probe = new HostBoundaryProbe();
+            probe.OnAccess = () => { if (probe.Accesses == 3) { cts.Cancel(); } };
+            engine.SetValue("probe", probe);
+            return () => probe.Accesses;
+        }, "for (var i = 0; i < 40; i++) { probe.method(); }");
     }
 
     [Fact]
     public void CancellationIsObservedBetweenSlowClrPropertyReads()
     {
-        using var cts = new CancellationTokenSource();
-        var engine = new Engine(cfg => cfg.CancellationToken(cts.Token));
-
-        var probe = new HostBoundaryProbe();
-        probe.OnAccess = () =>
+        AssertCancelledDuringThirdHostCall((cts, engine) =>
         {
-            if (probe.Accesses == 3)
-            {
-                cts.Cancel();
-            }
-        };
-        engine.SetValue("probe", probe);
-
-        Assert.Throws<ExecutionCanceledException>(() => engine.Execute("for (var i = 0; i < 40; i++) { var x = probe.value; }"));
-        Assert.Equal(3, probe.Accesses);
+            var probe = new HostBoundaryProbe();
+            probe.OnAccess = () => { if (probe.Accesses == 3) { cts.Cancel(); } };
+            engine.SetValue("probe", probe);
+            return () => probe.Accesses;
+        }, "for (var i = 0; i < 40; i++) { var x = probe.value; }");
     }
 
     [Fact]
     public void CancellationIsObservedBetweenSlowClrPropertyWrites()
     {
-        using var cts = new CancellationTokenSource();
-        var engine = new Engine(cfg => cfg.CancellationToken(cts.Token));
-
-        var probe = new HostBoundaryProbe();
-        probe.OnAccess = () =>
+        AssertCancelledDuringThirdHostCall((cts, engine) =>
         {
-            if (probe.Accesses == 3)
-            {
-                cts.Cancel();
-            }
-        };
-        engine.SetValue("probe", probe);
-
-        Assert.Throws<ExecutionCanceledException>(() => engine.Execute("for (var i = 0; i < 40; i++) { probe.value = i; }"));
-        Assert.Equal(3, probe.Accesses);
+            var probe = new HostBoundaryProbe();
+            probe.OnAccess = () => { if (probe.Accesses == 3) { cts.Cancel(); } };
+            engine.SetValue("probe", probe);
+            return () => probe.Accesses;
+        }, "for (var i = 0; i < 40; i++) { probe.value = i; }");
     }
 
     [Fact]
     public void CancellationIsObservedBetweenSlowClrConstructorCalls()
     {
-        using var cts = new CancellationTokenSource();
-        var engine = new Engine(cfg => cfg.CancellationToken(cts.Token));
-
-        CtorProbe.Constructions = 0;
-        CtorProbe.OnConstruct = () =>
-        {
-            if (CtorProbe.Constructions == 3)
-            {
-                cts.Cancel();
-            }
-        };
         try
         {
-            engine.SetValue("Probe", Jint.Runtime.Interop.TypeReference.CreateTypeReference<CtorProbe>(engine));
-            Assert.Throws<ExecutionCanceledException>(() => engine.Execute("for (var i = 0; i < 40; i++) { new Probe(); }"));
-            Assert.Equal(3, CtorProbe.Constructions);
+            AssertCancelledDuringThirdHostCall((cts, engine) =>
+            {
+                CtorProbe.Constructions = 0;
+                CtorProbe.OnConstruct = () => { if (CtorProbe.Constructions == 3) { cts.Cancel(); } };
+                engine.SetValue("Probe", Jint.Runtime.Interop.TypeReference.CreateTypeReference<CtorProbe>(engine));
+                return () => CtorProbe.Constructions;
+            }, "for (var i = 0; i < 40; i++) { new Probe(); }");
         }
         finally
         {
@@ -794,24 +755,95 @@ myarr[0](0);
     }
 
     [Fact]
-    public void TimeoutIsObservedBetweenSlowHostDelegateCalls()
+    public void CancellationIsObservedBetweenSlowDictionaryReads()
     {
-        // The discussion's original shape: a timeout much shorter than the loop's host-call
-        // time. Without the host-boundary re-check the countdown would only fire after ~64
-        // statements (dozens of slow calls); with it the in-flight call's return observes the
-        // expired budget. Only one-sided bounds are asserted to stay robust against CI timer
-        // scheduling jitter.
-        var engine = new Engine(cfg => cfg.TimeoutInterval(TimeSpan.FromMilliseconds(100)));
+        // wrapped IDictionary<string, T> reads bypass ReflectionAccessor and route through
+        // TypeDescriptor.TryGetDictionaryValue; that lane must observe the boundary too
+        AssertCancelledDuringThirdHostCall((cts, engine) =>
+        {
+            var dictionary = new SlowDictionary { { "someKey", 42 } };
+            dictionary.OnAccess = () => { if (dictionary.Accesses == 3) { cts.Cancel(); } };
+            engine.SetValue("cfg", dictionary);
+            return () => dictionary.Accesses;
+        }, "for (var i = 0; i < 40; i++) { var v = cfg.someKey; }");
+    }
+
+    [Fact]
+    public void CancellationIsObservedBetweenSlowEnumerableIterations()
+    {
+        // for-of over a wrapped IEnumerable drives the user's IEnumerator.MoveNext directly
+        AssertCancelledDuringThirdHostCall((cts, engine) =>
+        {
+            var enumerable = new SlowEnumerable();
+            enumerable.OnMoveNext = () => { if (enumerable.MoveNextCalls == 3) { cts.Cancel(); } };
+            engine.SetValue("items", enumerable);
+            return () => enumerable.MoveNextCalls;
+        }, "for (const x of items) { }");
+    }
+
+    [Fact]
+    public void CancellationDuringLoneHostCallIsObservedAtItsReturn()
+    {
+        // isolates the post-invoke check: no further host call or 64-statement countdown
+        // follows, so only the check at the first call's own return can observe the cancellation
+        using var cts = new CancellationTokenSource();
+        var engine = new Engine(cfg => cfg.CancellationToken(cts.Token));
 
         var calls = 0;
-        engine.SetValue("sleep", new Action(() =>
-        {
-            calls++;
-            Thread.Sleep(200);
-        }));
+        engine.SetValue("work", new Action(() => { calls++; cts.Cancel(); }));
 
-        Assert.Throws<TimeoutException>(() => engine.Execute("for (var i = 0; i < 40; i++) { sleep(); }"));
-        Assert.True(calls <= 10, $"expected the timeout to interrupt the loop within a few host calls, but {calls} calls ran");
+        Assert.Throws<ExecutionCanceledException>(() => engine.Execute("work(); work();"));
+        Assert.Equal(1, calls);
+    }
+
+    [Fact]
+    public void HostSideAccessToWrappedObjectDoesNotObserveCancellationAfterExecution()
+    {
+        // constraint state is only meaningful inside an Execute/Invoke window; cancelling the
+        // token during normal teardown must not make later C#-side reads of wrapped objects throw
+        using var cts = new CancellationTokenSource();
+        var engine = new Engine(cfg => cfg.CancellationToken(cts.Token));
+        var probe = new HostBoundaryProbe();
+        engine.SetValue("probe", probe);
+        engine.Execute("probe.value;");
+
+        cts.Cancel();
+
+        var wrapper = engine.GetValue("probe").AsObject();
+        Assert.Equal(42, wrapper.Get("value").AsNumber());
+    }
+
+    [Fact]
+    public void HostSideAccessToWrappedObjectDoesNotObserveExpiredTimeoutAfterExecution()
+    {
+        // the time constraint's CTS is re-armed at the end of every run and keeps counting while
+        // the engine is idle; an expired timer must not make later C#-side reads throw
+        var engine = new Engine(cfg => cfg.TimeoutInterval(TimeSpan.FromMilliseconds(50)));
+        var probe = new HostBoundaryProbe();
+        engine.SetValue("probe", probe);
+        engine.Execute("probe.value;");
+
+        Thread.Sleep(200);
+
+        var wrapper = engine.GetValue("probe").AsObject();
+        Assert.Equal(42, wrapper.Get("value").AsNumber());
+    }
+
+    [Fact]
+    public void DebugModeEngineDoesNotRunHostBoundaryChecks()
+    {
+        // in debug mode the boundary checks are disabled so that watch/conditional-breakpoint
+        // evaluation cannot deterministically trip an expired constraint on interop access;
+        // few enough statements run here that the amortized countdown cannot fire either, so
+        // the loop must complete all its host calls despite the mid-loop cancellation
+        using var cts = new CancellationTokenSource();
+        var engine = new Engine(cfg => cfg.CancellationToken(cts.Token).DebugMode());
+
+        var calls = 0;
+        engine.SetValue("work", new Action(() => { if (++calls == 3) { cts.Cancel(); } }));
+
+        engine.Execute("for (var i = 0; i < 5; i++) { work(); }");
+        Assert.Equal(5, calls);
     }
 
     private sealed class HostBoundaryProbe
@@ -851,6 +883,85 @@ myarr[0](0);
         {
             Constructions++;
             OnConstruct();
+        }
+    }
+
+    private sealed class SlowDictionary : IDictionary<string, object>
+    {
+        private readonly Dictionary<string, object> _inner = new();
+
+        public int Accesses;
+        public Action OnAccess = static () => { };
+
+        public object this[string key]
+        {
+            get
+            {
+                Accesses++;
+                OnAccess();
+                return _inner[key];
+            }
+            set
+            {
+                Accesses++;
+                OnAccess();
+                _inner[key] = value;
+            }
+        }
+
+        public bool TryGetValue(string key, out object value)
+        {
+            Accesses++;
+            OnAccess();
+            return _inner.TryGetValue(key, out value);
+        }
+
+        public ICollection<string> Keys => _inner.Keys;
+        public ICollection<object> Values => _inner.Values;
+        public int Count => _inner.Count;
+        public bool IsReadOnly => false;
+
+        public void Add(string key, object value) => _inner.Add(key, value);
+        public bool ContainsKey(string key) => _inner.ContainsKey(key);
+        public bool Remove(string key) => _inner.Remove(key);
+        public void Add(KeyValuePair<string, object> item) => _inner.Add(item.Key, item.Value);
+        public void Clear() => _inner.Clear();
+        public bool Contains(KeyValuePair<string, object> item) => _inner.ContainsKey(item.Key);
+        public void CopyTo(KeyValuePair<string, object>[] array, int arrayIndex) => ((IDictionary<string, object>) _inner).CopyTo(array, arrayIndex);
+        public bool Remove(KeyValuePair<string, object> item) => _inner.Remove(item.Key);
+        public IEnumerator<KeyValuePair<string, object>> GetEnumerator() => _inner.GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _inner.GetEnumerator();
+    }
+
+    private sealed class SlowEnumerable : System.Collections.IEnumerable
+    {
+        public int MoveNextCalls;
+        public Action OnMoveNext = static () => { };
+
+        public System.Collections.IEnumerator GetEnumerator() => new Enumerator(this);
+
+        private sealed class Enumerator : System.Collections.IEnumerator
+        {
+            private readonly SlowEnumerable _owner;
+            private int _index;
+
+            public Enumerator(SlowEnumerable owner)
+            {
+                _owner = owner;
+            }
+
+            public object Current => _index;
+
+            public bool MoveNext()
+            {
+                _owner.MoveNextCalls++;
+                _owner.OnMoveNext();
+                return _index++ < 40;
+            }
+
+            public void Reset()
+            {
+            }
         }
     }
 

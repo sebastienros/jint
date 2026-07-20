@@ -46,8 +46,6 @@ internal abstract class ReflectionAccessor
             return constantValue;
         }
 
-        engine.CheckAmortizedConstraintsAtHostBoundary();
-
         // first check indexer so we don't confuse inherited properties etc
         var value = TryReadFromIndexer(target, memberName);
 
@@ -90,8 +88,6 @@ internal abstract class ReflectionAccessor
 
     public void SetValue(Engine engine, object target, string memberName, JsValue value)
     {
-        engine.CheckAmortizedConstraintsAtHostBoundary();
-
         object? converted;
         if (_memberType == typeof(JsValue))
         {

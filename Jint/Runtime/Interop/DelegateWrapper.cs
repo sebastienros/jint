@@ -41,8 +41,6 @@ internal sealed class DelegateWrapper : Function
 
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
-        Engine.CheckAmortizedConstraintsAtHostBoundary();
-
         var parameterInfos = _d.Method.GetParameters();
 
 #if NETFRAMEWORK
@@ -136,12 +134,13 @@ internal sealed class DelegateWrapper : Function
         try
         {
             var result = _d.DynamicInvoke(parameters);
+            // an awaitable result must reach promise conversion before a constraint can throw,
+            // so that the in-flight Task gets a continuation attached and is never left unobserved
+            var returnValue = IsAwaitable(result)
+                ? ConvertAwaitableToPromise(Engine, result!)
+                : FromObject(Engine, result);
             Engine.CheckAmortizedConstraintsAtHostBoundary();
-            if (!IsAwaitable(result))
-            {
-                return FromObject(Engine, result);
-            }
-            return ConvertAwaitableToPromise(Engine, result!);
+            return returnValue;
         }
         catch (TargetInvocationException exception)
         {

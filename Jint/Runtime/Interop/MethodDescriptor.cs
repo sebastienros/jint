@@ -280,8 +280,6 @@ internal sealed class MethodDescriptor
 
     public JsValue Call(Engine engine, object? instance, JsCallArguments arguments)
     {
-        engine.CheckAmortizedConstraintsAtHostBoundary();
-
         object?[] parameters = arguments.Length == 0 ? [] : new object?[arguments.Length];
         var methodParameters = Parameters;
         var valueCoercionType = engine.Options.Interop.ValueCoercion;
@@ -320,7 +318,6 @@ internal sealed class MethodDescriptor
             }
 
             var retVal = Invoke(instance, parameters);
-            engine.CheckAmortizedConstraintsAtHostBoundary();
             return JsValue.FromObject(engine, retVal);
         }
         catch (TargetInvocationException exception)

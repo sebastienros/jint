@@ -892,19 +892,41 @@ public sealed partial class Engine : IDisposable
     }
 
     /// <summary>
-    /// Re-checks the amortized constraints at an interpreter/host-code boundary. The per-statement
-    /// amortization bounds timeout/cancellation detection latency in statement count, which tracks
-    /// wall-clock time only while statements stay cheap; a single call into user CLR code can take
-    /// arbitrarily long, so interop call sites check on entry (no new host work starts once the
-    /// budget has expired) and again after the host code returns (time that passed inside the call
-    /// is observed immediately), keeping detection latency bounded by one host call instead of
-    /// <see cref="EvaluationContext.AmortizedConstraintCheckInterval"/> of them. Intentionally not
-    /// wired into built-in <see cref="ClrFunction"/> dispatch: that would reintroduce the per-call
-    /// check cost on hot built-ins, and long-running built-ins already bound their own latency via
-    /// <see cref="ConstraintCheckInterval"/> self-checks.
+    /// Re-checks the amortized constraints when control returns from user CLR code to the
+    /// interpreter. The per-statement amortization bounds timeout/cancellation detection latency
+    /// in statement count, which tracks wall-clock time only while statements stay cheap; a single
+    /// host call can take arbitrarily long, so interop call sites re-check after the host code
+    /// returns, keeping detection latency bounded by one host call instead of
+    /// <see cref="EvaluationContext.AmortizedConstraintCheckInterval"/> statements' worth of them.
+    /// The boundaries of the mechanism are deliberate:
+    /// <list type="bullet">
+    /// <item>Only after the host call returns, never on entry — an entry check would block host
+    /// cleanup calls (e.g. a release-the-lock delegate inside a JS finally block) once
+    /// cancellation is pending, skipping cleanup that ran before this mechanism existed.</item>
+    /// <item>Only while script evaluation is active — constraint state is only meaningful inside
+    /// an Execute/Invoke window: <see cref="Constraints.TimeConstraint"/>'s timer is re-armed at
+    /// the end of every run and keeps counting, and a cancellation token may be cancelled during
+    /// normal teardown, so host-initiated access to wrapped objects from C# after execution must
+    /// not observe either.</item>
+    /// <item>Not in debug mode — a debugger paused longer than the timeout would otherwise
+    /// deterministically fail every interop read in watch/conditional-breakpoint evaluation;
+    /// debug-mode engines keep the pre-existing amortized-countdown-only behavior.</item>
+    /// <item>Not wired into built-in <see cref="ClrFunction"/> dispatch (would reintroduce the
+    /// per-call cost on hot built-ins that the amortization removed; long-running built-ins bound
+    /// their own latency via <see cref="ConstraintCheckInterval"/> self-checks), nor into
+    /// operator-overload resolution (whose catch-all would launder constraint exceptions into
+    /// TargetInvocationException), nor into user-supplied converter/factory callbacks —
+    /// embedder-authored code hosting long operations can observe the CancellationToken itself.</item>
+    /// </list>
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void CheckAmortizedConstraintsAtHostBoundary() => CheckAmortizedConstraints();
+    internal void CheckAmortizedConstraintsAtHostBoundary()
+    {
+        if (_activeEvaluationContext is not null && !_isDebugMode)
+        {
+            CheckAmortizedConstraints();
+        }
+    }
 
     internal JsValue GetValue(object value)
     {

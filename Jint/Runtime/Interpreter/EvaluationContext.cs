@@ -13,11 +13,8 @@ internal sealed class EvaluationContext
     /// Engine.Constraints.cs for the partition rationale). Small enough that timeout /
     /// cancellation / memory-limit detection latency stays far below anything observable at
     /// the granularity those constraints operate on, large enough that the per-statement cost
-    /// collapses to a countdown decrement and branch. The statement-count bound tracks
-    /// wall-clock time only while statements stay cheap; statements that transfer control to
-    /// user CLR code re-check at the transition instead (see
-    /// <see cref="Engine.CheckAmortizedConstraintsAtHostBoundary"/>), since a single host call
-    /// can consume unbounded wall-clock time.
+    /// collapses to a countdown decrement and branch. Statements that call user CLR code
+    /// re-check on return instead — see <see cref="Engine.CheckAmortizedConstraintsAtHostBoundary"/>.
     /// </summary>
     internal const int AmortizedConstraintCheckInterval = 64;
 
