@@ -122,6 +122,50 @@ public class ModuleTests
     }
 
     [Fact]
+    public void CanDynamicallyImportFromScriptCode()
+    {
+        // https://github.com/sebastienros/jint/discussions/1472
+        // Static import/export declarations only exist in modules, but the dynamic import()
+        // expression is valid inside classic scripts run via Evaluate/Execute. It should
+        // resolve modules registered via Modules.Add without requiring EnableModules or
+        // a source location for the script.
+        _engine.Modules.Add("imported-module", "export function add(a, b) { return a + b; }");
+
+        _engine.Evaluate("import('imported-module').then(ns => { globalThis.result = ns.add(1, 2); });");
+
+        Assert.Equal(3, _engine.Evaluate("globalThis.result").AsInteger());
+    }
+
+    [Fact]
+    public void CanAwaitDynamicImportFromScriptCode()
+    {
+        _engine.Modules.Add("imported-module", "export const value = 'exported value';");
+
+        _engine.Evaluate(@"
+            (async () => {
+                const ns = await import('imported-module');
+                globalThis.result = ns.value;
+            })();
+        ");
+        _engine.Advanced.ProcessTasks();
+
+        Assert.Equal("exported value", _engine.Evaluate("globalThis.result").AsString());
+    }
+
+    [Fact]
+    public void CanExposeModuleNamespaceToScriptCode()
+    {
+        // Importing from .NET and exposing the namespace object as a global lets
+        // script code run via Evaluate use module exports without being a module.
+        _engine.Modules.Add("imported-module", "export function add(a, b) { return a + b; }");
+
+        var ns = _engine.Modules.Import("imported-module");
+        _engine.SetValue("lib", ns);
+
+        Assert.Equal(3, _engine.Evaluate("lib.add(1, 2)").AsInteger());
+    }
+
+    [Fact]
     public void NestedEvaluateFromModuleExecutionDoesNotClobberCompletionValue()
     {
         // Regression test for https://github.com/sebastienros/jint/issues/2492
