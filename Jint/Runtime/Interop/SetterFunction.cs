@@ -19,7 +19,9 @@ internal sealed class SetterFunction : Function
 
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
+        _engine.CheckAmortizedConstraintsAtHostBoundary();
         _setter(thisObject, arguments[0]);
+        _engine.CheckAmortizedConstraintsAtHostBoundary();
 
         return Null;
     }

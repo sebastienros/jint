@@ -891,6 +891,21 @@ public sealed partial class Engine : IDisposable
         }
     }
 
+    /// <summary>
+    /// Re-checks the amortized constraints at an interpreter/host-code boundary. The per-statement
+    /// amortization bounds timeout/cancellation detection latency in statement count, which tracks
+    /// wall-clock time only while statements stay cheap; a single call into user CLR code can take
+    /// arbitrarily long, so interop call sites check on entry (no new host work starts once the
+    /// budget has expired) and again after the host code returns (time that passed inside the call
+    /// is observed immediately), keeping detection latency bounded by one host call instead of
+    /// <see cref="EvaluationContext.AmortizedConstraintCheckInterval"/> of them. Intentionally not
+    /// wired into built-in <see cref="ClrFunction"/> dispatch: that would reintroduce the per-call
+    /// check cost on hot built-ins, and long-running built-ins already bound their own latency via
+    /// <see cref="ConstraintCheckInterval"/> self-checks.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void CheckAmortizedConstraintsAtHostBoundary() => CheckAmortizedConstraints();
+
     internal JsValue GetValue(object value)
     {
         return GetValue(value, false);

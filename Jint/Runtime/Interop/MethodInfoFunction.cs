@@ -155,6 +155,8 @@ internal sealed class MethodInfoFunction : Function
 
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments jsArguments)
     {
+        _engine.CheckAmortizedConstraintsAtHostBoundary();
+
         var converter = Engine.TypeConverter;
         var thisObj = thisObject.ToObject() ?? _target;
         var state = new MethodResolverState(_engine, thisObject, jsArguments);
@@ -320,11 +322,14 @@ internal sealed class MethodInfoFunction : Function
             {
                 // the resolved generic method differs per call, cannot use the cached invoker
                 var result = resolvedMethod.Invoke(thisObj, parameters);
+                _engine.CheckAmortizedConstraintsAtHostBoundary();
                 callResult = FromObjectWithType(Engine, result, type: (resolvedMethod as MethodInfo)?.ReturnType);
                 return true;
             }
 
-            callResult = FromObjectWithType(Engine, method.Invoke(thisObj, parameters), type: (method.Method as MethodInfo)?.ReturnType);
+            var invokeResult = method.Invoke(thisObj, parameters);
+            _engine.CheckAmortizedConstraintsAtHostBoundary();
+            callResult = FromObjectWithType(Engine, invokeResult, type: (method.Method as MethodInfo)?.ReturnType);
             return true;
         }
         catch (TargetInvocationException exception)

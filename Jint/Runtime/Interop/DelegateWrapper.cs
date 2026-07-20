@@ -41,6 +41,8 @@ internal sealed class DelegateWrapper : Function
 
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
+        Engine.CheckAmortizedConstraintsAtHostBoundary();
+
         var parameterInfos = _d.Method.GetParameters();
 
 #if NETFRAMEWORK
@@ -134,6 +136,7 @@ internal sealed class DelegateWrapper : Function
         try
         {
             var result = _d.DynamicInvoke(parameters);
+            Engine.CheckAmortizedConstraintsAtHostBoundary();
             if (!IsAwaitable(result))
             {
                 return FromObject(Engine, result);

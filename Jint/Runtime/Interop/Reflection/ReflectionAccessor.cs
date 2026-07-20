@@ -46,6 +46,8 @@ internal abstract class ReflectionAccessor
             return constantValue;
         }
 
+        engine.CheckAmortizedConstraintsAtHostBoundary();
+
         // first check indexer so we don't confuse inherited properties etc
         var value = TryReadFromIndexer(target, memberName);
 
@@ -61,6 +63,7 @@ internal abstract class ReflectionAccessor
             }
         }
 
+        engine.CheckAmortizedConstraintsAtHostBoundary();
         return value;
     }
 
@@ -87,6 +90,8 @@ internal abstract class ReflectionAccessor
 
     public void SetValue(Engine engine, object target, string memberName, JsValue value)
     {
+        engine.CheckAmortizedConstraintsAtHostBoundary();
+
         object? converted;
         if (_memberType == typeof(JsValue))
         {
@@ -110,6 +115,8 @@ internal abstract class ReflectionAccessor
         {
             Throw.MeaningfulException(engine, exception);
         }
+
+        engine.CheckAmortizedConstraintsAtHostBoundary();
     }
 
     protected virtual object? ConvertValueToSet(Engine engine, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicFields)] object value)
