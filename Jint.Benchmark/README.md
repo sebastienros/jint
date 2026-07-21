@@ -130,7 +130,7 @@ with same-base A/B gates: string-receiver method calls are cached per call site
 intermediate views (−99.3% on that pattern), interop argument binding lost its per-call
 reflection checks and boxing, ObjectWrapper members gained a per-callsite inline cache
 (`interop-property-access` −25%), and CLR arrays gained identity caching plus an opt-in
-`ClrArrayConversion.LiveView` mode (array traversal 2.5× faster, −75% allocation, without flags).
+`ArrayConversionMode.LiveView` mode (array traversal 2.5× faster, −75% allocation, without flags).
 
 A second campaign round (PRs [#2725](https://github.com/sebastienros/jint/pull/2725),
 [#2726](https://github.com/sebastienros/jint/pull/2726)) added bulk JSON string scanning plus an
@@ -185,7 +185,7 @@ What the numbers show:
   re-reads `host.numbers` inside the loop and the default `Copy` conversion re-copies the array
   per read. Two remedies ship today: hoist the collection into a local
   (`var numbers = host.numbers;` — drops Jint to ~1 ms, fastest in the field), or opt into
-  `Options.Interop.ClrArrayConversion = LiveView` for live, fixed-size array views (2.5× faster
+  `Options.Interop.ArrayConversion = LiveView` for live, fixed-size array views (2.5× faster
   and −75% allocation on this pattern with no other changes).
 
 | Method                | FileName                     | Mean        | StdDev    | Rank | Allocated   |

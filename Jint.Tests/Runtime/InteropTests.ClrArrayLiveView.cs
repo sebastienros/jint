@@ -14,18 +14,38 @@ public partial class InteropTests
     {
         return new Engine(options =>
         {
-            options.Interop.ClrArrayConversion = ClrArrayConversion.LiveView;
+            options.Interop.ArrayConversion = ArrayConversionMode.LiveView;
             additionalConfiguration?.Invoke(options);
         });
     }
 
     [Fact]
-    public void ClrArrayConversionDefaultsToCopy()
+    public void ArrayConversionDefaultsToLiveView()
     {
-        Assert.Equal(ClrArrayConversion.Copy, new Options().Interop.ClrArrayConversion);
+        Assert.Equal(ArrayConversionMode.LiveView, new Options().Interop.ArrayConversion);
 
-        // Copy mode: each crossing produces an independent JsArray snapshot
+        // LiveView mode (the default since 4.14): a CLR array crosses as a live wrapper view, not a
+        // native JS array snapshot, so it is not an Array and repeated crossings share wrapper identity
         var engine = new Engine();
+        engine.SetValue("h", new ArrayHolder());
+        Assert.False(engine.Evaluate("Array.isArray(h.Numbers)").AsBoolean());
+        Assert.True(engine.Evaluate("h.Numbers === h.Numbers").AsBoolean());
+    }
+
+    private static Engine CreateCopyEngine(Action<Options> additionalConfiguration = null)
+    {
+        return new Engine(options =>
+        {
+            options.Interop.ArrayConversion = ArrayConversionMode.Copy;
+            additionalConfiguration?.Invoke(options);
+        });
+    }
+
+    [Fact]
+    public void CopyModeArrayIsJsArraySnapshot()
+    {
+        // opting back into Copy restores the pre-4.14 behavior: each crossing produces an independent JsArray snapshot
+        var engine = CreateCopyEngine();
         engine.SetValue("h", new ArrayHolder());
         Assert.True(engine.Evaluate("Array.isArray(h.Numbers)").AsBoolean());
         Assert.False(engine.Evaluate("h.Numbers === h.Numbers").AsBoolean());
@@ -34,7 +54,7 @@ public partial class InteropTests
     [Fact]
     public void CopyModeScriptWritesDoNotAffectClrArray()
     {
-        var engine = new Engine();
+        var engine = CreateCopyEngine();
         var numbers = new[] { 1, 2, 3 };
         engine.SetValue("arr", numbers);
 

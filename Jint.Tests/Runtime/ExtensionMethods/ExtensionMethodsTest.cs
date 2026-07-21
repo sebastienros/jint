@@ -64,6 +64,10 @@ public class ExtensionMethodsTest
         var engine = new Engine(opts =>
         {
             opts.AddExtensionMethods(typeof(CustomStringExtensions));
+            // this exercises extension-method dispatch producing a CLR array (string[]) that the test
+            // reads back as a JS array; pin Copy so the result is a native JsArray (the LiveView default
+            // would expose it as a live wrapper that AsArray() does not accept)
+            opts.Interop.ArrayConversion = ArrayConversionMode.Copy;
         });
 
         //uses split function from StringPrototype
@@ -83,6 +87,9 @@ public class ExtensionMethodsTest
         var engine = new Engine(opts =>
         {
             opts.AddExtensionMethods(typeof(OverrideStringPrototypeExtensions));
+            // see PrototypeFunctionsShouldNotBeOverridden: the overriding split returns a CLR string[]
+            // that is read back as a JS array, so pin Copy for a native JsArray result
+            opts.Interop.ArrayConversion = ArrayConversionMode.Copy;
         });
 
         //uses the overridden split function from OverrideStringPrototypeExtensions
@@ -109,11 +116,12 @@ public class ExtensionMethodsTest
         Assert.Equal(JsValue.Undefined, propertyValue);
     }
 
-    private Engine GetLinqEngine()
+    private Engine GetLinqEngine(Action<Options> additionalConfiguration = null)
     {
         return new Engine(opts =>
         {
             opts.AddExtensionMethods(typeof(Enumerable));
+            additionalConfiguration?.Invoke(opts);
         });
     }
 
@@ -145,7 +153,12 @@ public class ExtensionMethodsTest
     [Fact]
     public void LinqExtensionMethodWithMultipleGenericParameters()
     {
-        var engine = GetLinqEngine();
+        // Pin Copy: '.ToArray()' returns a CLR string[], and under the LiveView default the resulting
+        // wrapper's target (string[] : IEnumerable<string>) makes the '.join()' call resolve to the CLR
+        // 'Enumerable.Join' extension method attached to the type rather than falling back to native
+        // 'Array.prototype.join'. Copy produces a native JsArray whose 'join' is the prototype method.
+        // (Under LiveView the equivalent works with Options.Interop.PreferJsPrototypeMethods = true.)
+        var engine = GetLinqEngine(opts => opts.Interop.ArrayConversion = ArrayConversionMode.Copy);
         var stringList = new List<string>() { "working", "linq" };
         engine.SetValue("stringList", stringList);
 
@@ -313,6 +326,9 @@ public class ExtensionMethodsTest
             options.AllowClr().AddExtensionMethods(typeof(Enumerable));
             // prevent ExpandoObject wrapping
             options.Interop.CreateClrObject = null;
+            // '.ToArray()' results are read back as JS arrays via AsArray(); pin Copy so they are native
+            // JsArrays rather than the LiveView default's live wrapper views
+            options.Interop.ArrayConversion = ArrayConversionMode.Copy;
         });
         engine.Execute("var a = [ 2, 4 ];");
 

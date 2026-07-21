@@ -8,9 +8,10 @@ public partial class InteropTests
     }
 
     [Fact]
-    public void ClrArrayConversionCreatesFreshCopyByDefault()
+    public void ArrayConversionCreatesFreshCopyInCopyMode()
     {
-        var engine = new Engine();
+        // Copy is no longer the default (LiveView since 4.14), so select it explicitly to lock its snapshot contract
+        var engine = new Engine(options => options.Interop.ArrayConversion = ArrayConversionMode.Copy);
         engine.SetValue("host", new ArrayConversionHost());
 
         Assert.False(engine.Evaluate("host.Numbers === host.Numbers").AsBoolean());
@@ -20,10 +21,14 @@ public partial class InteropTests
     }
 
     [Fact]
-    public void ClrArrayConversionReusesSnapshotWithTrackObjectWrapperIdentity()
+    public void ArrayConversionReusesSnapshotWithTrackObjectWrapperIdentity()
     {
         var host = new ArrayConversionHost();
-        var engine = new Engine(options => options.Interop.TrackObjectWrapperIdentity = true);
+        var engine = new Engine(options =>
+        {
+            options.Interop.ArrayConversion = ArrayConversionMode.Copy;
+            options.Interop.TrackObjectWrapperIdentity = true;
+        });
         engine.SetValue("host", host);
 
         Assert.True(engine.Evaluate("host.Numbers === host.Numbers").AsBoolean());
@@ -37,9 +42,13 @@ public partial class InteropTests
     }
 
     [Fact]
-    public void ClrArrayConversionReusesSnapshotWithRecentObjectWrapperCache()
+    public void ArrayConversionReusesSnapshotWithRecentObjectWrapperCache()
     {
-        var engine = new Engine(options => options.Interop.CacheRecentObjectWrappers = true);
+        var engine = new Engine(options =>
+        {
+            options.Interop.ArrayConversion = ArrayConversionMode.Copy;
+            options.Interop.CacheRecentObjectWrappers = true;
+        });
         engine.SetValue("host", new ArrayConversionHost());
 
         Assert.True(engine.Evaluate("host.Numbers === host.Numbers").AsBoolean());

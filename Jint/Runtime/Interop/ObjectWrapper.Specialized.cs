@@ -305,7 +305,7 @@ internal class GenericListWrapper<[DynamicallyAccessedMembers(DynamicallyAccesse
 }
 
 /// <summary>
-/// Live view over a single-rank CLR array (<c>T[]</c>) used by <see cref="ClrArrayConversion.LiveView"/>.
+/// Live view over a single-rank CLR array (<c>T[]</c>) used by <see cref="ArrayConversionMode.LiveView"/>.
 /// Element reads and writes go straight to the underlying array; because CLR arrays are fixed-size,
 /// every length-changing operation surfaces as a JavaScript <c>TypeError</c> instead of leaking a CLR
 /// <see cref="NotSupportedException"/> (which is what routing <c>T[]</c> through
