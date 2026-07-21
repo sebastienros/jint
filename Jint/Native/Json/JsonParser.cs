@@ -101,15 +101,16 @@ public sealed class JsonParser
     // an array of 500 identically-shaped records re-scans the same "id"/"name"/... key hundreds of times.
     // Interning object keys within a single parse lets those records share one key string (and its
     // JsString) instead of re-allocating both per record. Only property KEYS are interned, never string
-    // values, and the table is bounded — keys must be at most MaxInternedKeyLength chars and at most
-    // MaxInternedKeys distinct keys are cached — so a hostile payload with millions of distinct/long keys
-    // cannot grow it without bound. The table is per-parser-instance and reset per parse (no cross-parse
-    // or global state). _expectKey is set immediately before the Lex that scans a key token (right after
-    // '{' or ',' inside an object) and consumed by the very next scan, so only keys route through interning.
+    // values. The table is direct-mapped (slot = hash & mask, replace on collision): both hit and miss
+    // cost a single compare, so key-diverse payloads (whose keys mostly miss) pay no probe tax, hot keys
+    // of homogeneous payloads statistically keep their slots, and a hostile payload with millions of
+    // distinct/long keys cannot grow the fixed-size table. The table is per-parser-instance and reset per
+    // parse (no cross-parse or global state). _expectKey is set immediately before the Lex that scans a
+    // key token (right after '{' or ',' inside an object) and consumed by the very next scan, so only
+    // keys route through interning.
     private const int MaxInternedKeyLength = 64;
-    private const int MaxInternedKeys = 64;
+    private const int InternedKeySlots = 256; // power of two, indexed by hash & (InternedKeySlots - 1)
     private InternedKeyEntry[]? _internedKeys;
-    private int _internedKeyCount;
     private bool _expectKey;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -462,37 +463,29 @@ public sealed class JsonParser
     /// <summary>
     /// Interns a just-scanned property-key span for the lifetime of the current parse: identical keys across
     /// records return the same <see cref="string"/> and <see cref="JsString"/> instances, and on a cache hit
-    /// no new string is materialized at all. Bounded by <see cref="MaxInternedKeyLength"/> and
-    /// <see cref="MaxInternedKeys"/> so adversarial payloads cannot grow the table without bound; keys outside
-    /// the bounds are materialized fresh (current behavior) without being cached.
+    /// no new string is materialized at all. The table is direct-mapped with replace-on-collision, so hits
+    /// and misses both cost one compare; keys longer than <see cref="MaxInternedKeyLength"/> are materialized
+    /// fresh (current behavior) without touching the table.
     /// </summary>
     private InternedKey InternPropertyKey(ReadOnlySpan<char> span)
     {
-        var hash = Hash.GetFNVHashCode(span);
-
-        var entries = _internedKeys;
-        if (entries is not null)
+        if (span.Length > MaxInternedKeyLength)
         {
-            var count = _internedKeyCount;
-            for (var i = 0; i < count; i++)
-            {
-                ref var entry = ref entries[i];
-                if (entry.Hash == hash && span.SequenceEqual(entry.Name.AsSpan()))
-                {
-                    return new InternedKey(entry.Name, entry.Value);
-                }
-            }
+            var longName = span.ToString();
+            return new InternedKey(longName, new JsString(longName));
+        }
+
+        var hash = Hash.GetFNVHashCode(span);
+        var entries = _internedKeys ??= new InternedKeyEntry[InternedKeySlots];
+        ref var entry = ref entries[hash & (InternedKeySlots - 1)];
+        if (entry.Hash == hash && entry.Name is not null && span.SequenceEqual(entry.Name.AsSpan()))
+        {
+            return new InternedKey(entry.Name, entry.Value);
         }
 
         var name = span.ToString();
         var value = new JsString(name);
-
-        if (span.Length <= MaxInternedKeyLength && _internedKeyCount < MaxInternedKeys)
-        {
-            entries ??= _internedKeys = new InternedKeyEntry[MaxInternedKeys];
-            entries[_internedKeyCount++] = new InternedKeyEntry(hash, name, value);
-        }
-
+        entry = new InternedKeyEntry(hash, name, value);
         return new InternedKey(name, value);
     }
 
@@ -839,7 +832,10 @@ public sealed class JsonParser
         _length = _source.Length;
         _lookahead = null!;
         _shapeBudget = ShapeTransitionBudget;
-        _internedKeyCount = 0;
+        if (_internedKeys is not null)
+        {
+            System.Array.Clear(_internedKeys, 0, _internedKeys.Length);
+        }
         _expectKey = false;
 
         State state = new State();
@@ -867,7 +863,10 @@ public sealed class JsonParser
         _length = _source.Length;
         _lookahead = null!;
         _shapeBudget = ShapeTransitionBudget;
-        _internedKeyCount = 0;
+        if (_internedKeys is not null)
+        {
+            System.Array.Clear(_internedKeys, 0, _internedKeys.Length);
+        }
         _expectKey = false;
 
         State state = new State();
