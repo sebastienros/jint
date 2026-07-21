@@ -44,6 +44,17 @@ internal sealed class JintMemberExpression : JintExpression
     private uint _cachedProtoHolderVersion;
     private PropertyDescriptor? _cachedProtoDescriptor;
 
+    // String-receiver method cache for member calls (str.slice(...)): a primitive string receiver has no
+    // own properties beyond `length` and index-coercible names, and those are excluded at build time
+    // (_stringReceiverCallEligible), so resolution is prototype-only — the method descriptor is read
+    // straight off the realm's %String.prototype% and cached under the same holder-identity +
+    // _propertiesVersion guard as the prototype-method cache above. The receiver itself is never boxed
+    // or materialized (no ToString/Length touch on lazy CustomString implementations).
+    private ObjectInstance? _cachedStringProtoHolder;
+    private uint _cachedStringProtoHolderVersion;
+    private PropertyDescriptor? _cachedStringProtoDescriptor;
+    private readonly bool _stringReceiverCallEligible;
+
     private static readonly JsValue _nullMarker = new JsString("NULL MARKER");
 
     public JintMemberExpression(MemberExpression expression) : base(expression)
@@ -71,6 +82,30 @@ internal sealed class JintMemberExpression : JintExpression
         {
             _determinedProperty = determined;
         }
+
+        _stringReceiverCallEligible = IsFastCallEligible && !CanBeOwnStringInstanceProperty((JsString) _determinedProperty!);
+    }
+
+    /// <summary>
+    /// Whether a literal property name can resolve to an OWN property of a boxed string: <c>length</c>,
+    /// or any name whose <c>ToNumber</c> coercion is a non-negative int32 — <see cref="Native.String.StringInstance"/>.GetOwnProperty
+    /// coerces the name, so "0", "01", "0x1", "1e1", " 1", "-0" and even "" can all address a character.
+    /// Such names shadow the prototype on string receivers and must never engage the prototype-only
+    /// string-method call cache.
+    /// </summary>
+    private static bool CanBeOwnStringInstanceProperty(JsString name)
+    {
+        if (CommonProperties.Length.Equals(name))
+        {
+            return true;
+        }
+
+        // Mirrors StringInstance.IsInt32 + the index >= 0 probe; the < length half is receiver-specific,
+        // so any non-negative int32 coercion is (conservatively) treated as a possible own index.
+        // NaN/Infinity/fractional/negative coercions can never address a character; -0 compares >= 0
+        // and is correctly denied.
+        var number = TypeConverter.ToNumber(name);
+        return number >= 0 && number <= int.MaxValue && (int) number == number;
     }
 
     /// <summary>
@@ -504,9 +539,12 @@ internal sealed class JintMemberExpression : JintExpression
     /// <summary>
     /// member call when the receiver is an object, reusing the same version-gated own-property inline
     /// cache as <see cref="GetValue"/> and avoiding a <see cref="Reference"/> rent. <paramref name="thisObject"/>
-    /// is the receiver object, matching the property-reference this-binding the slow path produces. For a
-    /// primitive receiver this returns <see cref="JsValue.Undefined"/> so the caller falls through to the
-    /// Reference path (which never forces lazy-string materialization).
+    /// is the receiver value, matching the property-reference this-binding the slow path produces
+    /// (<see cref="Reference.ThisValue"/> is the base). A primitive string receiver resolves the method
+    /// prototype-only via the string-method cache when the name was proven at build time to never be an
+    /// own property of a boxed string; other primitive receivers (and denied/missed string lookups)
+    /// return <see cref="JsValue.Undefined"/> so the caller falls through to the Reference path (which
+    /// never forces lazy-string materialization).
     /// </summary>
     internal JsValue GetCalleeForCall(EvaluationContext context, out JsValue thisObject)
     {
@@ -521,10 +559,11 @@ internal sealed class JintMemberExpression : JintExpression
 
         context.LastSyntaxElement = _expression;
 
-        // Only object receivers take the fast path. Primitive receivers (string/number/...) — including
-        // custom JsString subclasses with lazy materialization — return undefined here so the caller
-        // falls through to the Reference path, which resolves them without forcing materialization. The
-        // identifier/`this` receiver is side-effect-free, so re-evaluating it on that path is unobservable.
+        // Object receivers take the own-property/prototype cache path below; primitive string receivers
+        // take the prototype-only string-method cache further down. Other primitive receivers
+        // (number/boolean/...) return undefined here so the caller falls through to the Reference path.
+        // The identifier/`this` receiver is side-effect-free, so re-evaluating it on that path is
+        // unobservable.
         if (baseValue is ObjectInstance baseObject)
         {
             thisObject = baseObject;
@@ -574,6 +613,39 @@ internal sealed class JintMemberExpression : JintExpression
             }
 
             return ReadAfterOwnMiss(baseObject, determinedProperty, ownMissConfirmed: false);
+        }
+
+        if (_stringReceiverCallEligible && baseValue is JsString jsString)
+        {
+            // Primitive-string member call (str.slice(...)): the name can never be an own property of a
+            // boxed string (build-time proof), so resolve straight off the realm's %String.prototype% —
+            // the same object and receiver-binding Engine.GetValue's string lane uses — guarded by
+            // holder identity + _propertiesVersion, exactly like the prototype-method cache above.
+            // The receiver is passed through untouched (no boxing, no materialization); `this` is the
+            // primitive itself, matching Reference.ThisValue on the slow path. In-place method
+            // replacement (String.prototype.slice = fn) mutates the cached descriptor's value and is
+            // picked up by UnwrapJsValue; define/delete bump the version and re-resolve. A miss on the
+            // direct prototype (absent, or found deeper like Object.prototype.hasOwnProperty) and
+            // accessor-backed slots fall back to the Reference path so getter side effects run exactly
+            // once even when the result is non-callable.
+            thisObject = jsString;
+
+            var stringPrototype = context.Engine.Realm.Intrinsics.String.PrototypeObject;
+            if (ReferenceEquals(stringPrototype, _cachedStringProtoHolder)
+                && stringPrototype._propertiesVersion == _cachedStringProtoHolderVersion)
+            {
+                return ObjectInstance.UnwrapJsValue(_cachedStringProtoDescriptor!, jsString);
+            }
+
+            var descriptor = stringPrototype.GetOwnProperty(determinedProperty);
+            if (!ReferenceEquals(descriptor, PropertyDescriptor.Undefined)
+                && (descriptor._flags & PropertyFlag.NonData) == PropertyFlag.None)
+            {
+                _cachedStringProtoHolder = stringPrototype;
+                _cachedStringProtoHolderVersion = stringPrototype._propertiesVersion;
+                _cachedStringProtoDescriptor = descriptor;
+                return ObjectInstance.UnwrapJsValue(descriptor, jsString);
+            }
         }
 
         thisObject = JsValue.Undefined;
