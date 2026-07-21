@@ -29,6 +29,12 @@ internal sealed class MethodDescriptor
                 ParameterDefaultValuesCount++;
             }
         }
+
+        ParameterFlags = Parameters.Length == 0 ? [] : new InteropParameterFlags[Parameters.Length];
+        for (var i = 0; i < Parameters.Length; i++)
+        {
+            ParameterFlags[i] = ComputeParameterFlags(Parameters[i].ParameterType);
+        }
     }
 
     public MethodBase Method { get; }
@@ -36,6 +42,32 @@ internal sealed class MethodDescriptor
     public bool HasParams { get; }
     public int ParameterDefaultValuesCount { get; }
     public bool IsExtensionMethod { get; }
+
+    /// <summary>
+    /// Facts about each parameter type that argument binding consults on every call — computed
+    /// once so the per-call loop avoids reflection checks (and the boxing ToObject detour that
+    /// only generic-shaped parameters need). Valid for <see cref="Parameters"/> only; a resolved
+    /// generic method's parameters must be re-classified with <see cref="ComputeParameterFlags"/>.
+    /// </summary>
+    public InteropParameterFlags[] ParameterFlags { get; }
+
+    public static InteropParameterFlags ComputeParameterFlags(Type parameterType)
+    {
+        var flags = InteropParameterFlags.None;
+        if (typeof(JsValue).IsAssignableFrom(parameterType))
+        {
+            flags |= InteropParameterFlags.JsValueAssignable;
+        }
+        if (parameterType.IsGenericParameter || parameterType.IsGenericType)
+        {
+            flags |= InteropParameterFlags.GenericLike;
+        }
+        if (parameterType == typeof(JsValue[]))
+        {
+            flags |= InteropParameterFlags.JsValueArray;
+        }
+        return flags;
+    }
 
 #if NET8_0_OR_GREATER
     // lazily initialized fast invokers, benign race - last writer wins
@@ -282,6 +314,7 @@ internal sealed class MethodDescriptor
     {
         object?[] parameters = arguments.Length == 0 ? [] : new object?[arguments.Length];
         var methodParameters = Parameters;
+        var parameterFlags = ParameterFlags;
         var valueCoercionType = engine.Options.Interop.ValueCoercion;
 
         try
@@ -293,7 +326,7 @@ internal sealed class MethodDescriptor
                 var value = arguments[i];
                 object? converted;
 
-                if (typeof(JsValue).IsAssignableFrom(parameterType))
+                if ((parameterFlags[i] & InteropParameterFlags.JsValueAssignable) != InteropParameterFlags.None)
                 {
                     converted = value;
                 }
@@ -326,4 +359,22 @@ internal sealed class MethodDescriptor
             return null;
         }
     }
+}
+
+/// <summary>
+/// Per-parameter-type facts consulted by interop argument binding on every call.
+/// </summary>
+[Flags]
+internal enum InteropParameterFlags : byte
+{
+    None = 0,
+
+    /// <summary>The parameter accepts a JsValue directly, no conversion needed.</summary>
+    JsValueAssignable = 1,
+
+    /// <summary>Generic parameter or generic type — the only shapes the generic-binding probe can match.</summary>
+    GenericLike = 2,
+
+    /// <summary>The parameter is exactly JsValue[] (the params JsValue[] host signature).</summary>
+    JsValueArray = 4,
 }

@@ -248,10 +248,17 @@ internal sealed class MethodInfoFunction : Function
         var resolvedMethod = ResolveMethod(method.Method, methodParameters, arguments);
         // We only need to call GetParameters it if this ends up being a generic method (i.e. they will be different in that scenario)
         var isGenericDefinition = false;
+        var parameterFlags = method.ParameterFlags;
         if (resolvedMethod.IsGenericMethod)
         {
+            // the resolved parameters differ from the descriptor's, re-classify them
             methodParameters = resolvedMethod.GetParameters();
             isGenericDefinition = method.Method is MethodInfo { IsGenericMethodDefinition: true };
+            parameterFlags = new InteropParameterFlags[methodParameters.Length];
+            for (var i = 0; i < methodParameters.Length; i++)
+            {
+                parameterFlags[i] = MethodDescriptor.ComputeParameterFlags(methodParameters[i].ParameterType);
+            }
         }
 
         // NOTE: pooling this buffer via ArrayPool was measured slower than allocation (tiny
@@ -263,10 +270,11 @@ internal sealed class MethodInfoFunction : Function
         {
             var methodParameter = methodParameters[i];
             var parameterType = methodParameter.ParameterType;
+            var flags = parameterFlags[i];
             var argument = arguments.Length > i ? arguments[i] : null;
             object? argumentObject = null;
 
-            if (typeof(JsValue).IsAssignableFrom(parameterType))
+            if ((flags & InteropParameterFlags.JsValueAssignable) != InteropParameterFlags.None)
             {
                 parameters[i] = argument;
             }
@@ -275,13 +283,13 @@ internal sealed class MethodInfoFunction : Function
                 // optional
                 parameters[i] = System.Type.Missing;
             }
-            else if (IsGenericParameter(argumentObject = argument.ToObject(), parameterType)) // don't think we need the condition preface of (argument == null) because of earlier condition
+            else if ((flags & InteropParameterFlags.GenericLike) != InteropParameterFlags.None && IsGenericParameter(argumentObject = argument.ToObject(), parameterType))
             {
-                // ^ this is the best way I could think of to only eval argument.ToObject() when needed.
-                // But it's very cursed, I'm sorry.
+                // only generic-shaped parameter types can match the probe, so the boxing
+                // ToObject() detour is skipped entirely for plain parameter types
                 parameters[i] = argumentObject;
             }
-            else if (parameterType == typeof(JsValue[]) && argument.IsArray())
+            else if ((flags & InteropParameterFlags.JsValueArray) != InteropParameterFlags.None && argument.IsArray())
             {
                 // Handle specific case of F(params JsValue[])
                 var arrayInstance = argument.AsArray();
@@ -301,7 +309,7 @@ internal sealed class MethodInfoFunction : Function
             else
             {
                 if (!ReflectionExtensions.TryConvertViaTypeCoercion(parameterType, _engine.Options.Interop.ValueCoercion, argument, out parameters[i])
-                    && !converter.TryConvert(argumentObject, parameterType, CultureInfo.InvariantCulture, out parameters[i]))
+                    && !converter.TryConvert(argumentObject ?? argument.ToObject(), parameterType, CultureInfo.InvariantCulture, out parameters[i]))
                 {
                     // arguments don't match this method
                     return false;
