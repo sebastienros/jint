@@ -241,6 +241,113 @@ first + '|' + second + '|' + (abs ? 'ok' : 'absfail');
         Assert.Equal("ok|ok|ok", _engine.Evaluate(script).AsString());
     }
 
+    [Fact]
+    public void StringReceiverMethodCallsInLoopReturnCorrectValues()
+    {
+        // Repeated str.method() calls on a primitive string receiver go through the per-node
+        // prototype-method cache; the results must stay correct across iterations, and methods
+        // found deeper on the chain (Object.prototype) must still resolve via the slow path.
+        const string script = @"
+var s = 'abcdef';
+var last = '';
+var sum = 0;
+for (var i = 0; i < 10000; i++) {
+    last = s.slice(1);
+    sum += s.charCodeAt(i % 6);
+}
+var upper = s.toUpperCase();
+var deep = s.hasOwnProperty('length');
+last + '|' + sum + '|' + upper + '|' + deep;
+";
+        // 10000 = 1666 full cycles of 6 (sum 597 each) + 4 leftovers (97+98+99+100)
+        var engine = new Engine();
+        Assert.Equal("bcdef|" + (1666 * 597 + 394) + "|ABCDEF|true", engine.Evaluate(script).AsString());
+    }
+
+    [Fact]
+    public void ReplacingStringPrototypeMethodMidLoopIsHonored()
+    {
+        // The call cache is guarded by holder identity + properties version and caches the live
+        // descriptor: an in-place assignment (String.prototype.slice = fn), a defineProperty swap
+        // and a delete must all take effect immediately on the next call.
+        const string script = @"
+var s = 'abcdef';
+var nativeSlice = String.prototype.slice;
+var seen = [];
+for (var i = 0; i < 10; i++) {
+    seen.push(s.slice(1, 2));
+    if (i === 4) { String.prototype.slice = function () { return 'X'; }; }
+}
+var assignPhase = seen.join('');
+String.prototype.slice = nativeSlice;
+
+seen = [];
+for (var i = 0; i < 10; i++) {
+    seen.push(s.slice(2, 3));
+    if (i === 4) { Object.defineProperty(String.prototype, 'slice', { value: function () { return 'Y'; }, writable: true, configurable: true }); }
+}
+var definePhase = seen.join('');
+
+var deletePhase = 'no-error';
+for (var i = 0; i < 10; i++) {
+    if (i === 4) { delete String.prototype.slice; }
+    try { s.slice(0, 1); } catch (e) { deletePhase = (e instanceof TypeError) ? 'TypeError' : 'other'; break; }
+}
+String.prototype.slice = nativeSlice;
+
+// An accessor-backed method must resolve through its getter exactly once per call,
+// with the primitive receiver as `this`.
+var getterCalls = 0;
+Object.defineProperty(String.prototype, 'accfn', {
+    get: function () { getterCalls++; return function () { return 'g:' + this; }; },
+    configurable: true
+});
+var accResult = '';
+for (var i = 0; i < 5; i++) { accResult = s.accfn(); }
+delete String.prototype.accfn;
+
+assignPhase + '|' + definePhase + '|' + deletePhase + '|' + accResult + '|' + getterCalls;
+";
+        var engine = new Engine();
+        Assert.Equal("bbbbbXXXXX|cccccYYYYY|TypeError|g:abcdef|5", engine.Evaluate(script).AsString());
+    }
+
+    [Fact]
+    public void StringLengthAccessIsUnaffectedByCallFastPath()
+    {
+        // `length` is an own property of the boxed string and is excluded from the prototype-only
+        // call cache at build time: reads keep working and `s.length()` keeps throwing TypeError.
+        const string script = @"
+var s = 'abc';
+var len = 0;
+for (var i = 0; i < 100; i++) { len = s.length; }
+var error = 'none';
+try { s.length(); } catch (e) { error = (e instanceof TypeError) ? 'TypeError' : 'other'; }
+len + '|' + error;
+";
+        var engine = new Engine();
+        Assert.Equal("3|TypeError", engine.Evaluate(script).AsString());
+    }
+
+    [Fact]
+    public void PlantedStringPrototypeIndexOrLengthFunctionIsNotCalledOnStringReceiver()
+    {
+        // Index-coercible names ('0', '0x1', ...) resolve to OWN character properties on a string
+        // receiver and shadow anything planted on String.prototype; the prototype-only call cache
+        // must not engage for them, so the planted function is never invoked.
+        const string script = @"
+String.prototype['0'] = function () { return 'planted'; };
+var s = 'abc';
+var ownChar = s['0'];
+var error = 'none';
+try { s['0'](); } catch (e) { error = (e instanceof TypeError) ? 'TypeError' : 'other'; }
+delete String.prototype['0'];
+ownChar + '|' + error;
+";
+        var engine = new Engine();
+        Assert.Equal("a|TypeError", engine.Evaluate(script).AsString());
+    }
+
     public static TheoryData<string, string> GetLithuaniaTestsData()
     {
         return new StringTetsLithuaniaData().TestData();
