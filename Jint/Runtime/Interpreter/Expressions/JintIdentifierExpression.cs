@@ -23,6 +23,12 @@ internal sealed class JintIdentifierExpression : JintExpression
     private DeclarativeEnvironment? _cachedSlotEnv;
     private int _cachedSlotIndex = -1;
 
+    // Chain memo for the hops 1-3 slot reads (closure reads of outer bindings): pins the exact
+    // chain links a successful reachability walk probed, so steady-state loop reads validate
+    // with reference compares + the injection epoch instead of re-probing every intermediate.
+    // See SlotChainMemo for the soundness argument; the walk stays authoritative for misses.
+    private SlotChainMemo? _slotChainMemo;
+
     // Version-based inline cache for global bindings: when resolution (from any scope depth)
     // lands on a plain writable data property of the real GlobalObject, remember the
     // descriptor. Valid while the global object's own-property shape and the set of global
@@ -158,9 +164,11 @@ internal sealed class JintIdentifierExpression : JintExpression
         // cached resolving env IS the current lexical environment, so it gets a straight-line
         // identity check before any loop machinery and needs no shadow probes — no environment
         // sits between the reader and the binding. Reads at hops 1-3 (closure reads of outer
-        // bindings) take the out-of-line bounded walk, which re-probes every intermediate
-        // declarative environment and refuses to cross an ObjectEnvironment; see
-        // SlotLocationCache for why those probes are load-bearing.
+        // bindings) take the out-of-line bounded reachability check: a pinned chain memo
+        // answers with reference compares, everything else re-walks with per-intermediate
+        // shadow probes and refuses to cross an ObjectEnvironment; see SlotLocationCache and
+        // SlotChainMemo for why those probes (and the memo's identity + epoch guard) are
+        // load-bearing.
         // Engine-identity gate: a Prepared<Script> reused across multiple Engine instances
         // shares JintIdentifierExpression nodes, so the cached env may be from a previous
         // Engine and must not be dereferenced for slots. Gating up front also skips the walk —
@@ -170,7 +178,7 @@ internal sealed class JintIdentifierExpression : JintExpression
         if (cachedSlotEnv is not null && ReferenceEquals(cachedSlotEnv._engine, engine))
         {
             if (ReferenceEquals(env, cachedSlotEnv)
-                || SlotLocationCache.CanReachAtOuterHop(env, cachedSlotEnv, identifier.Key))
+                || SlotLocationCache.CanReachAtOuterHop(engine, env, cachedSlotEnv, identifier.Key, ref _slotChainMemo))
             {
                 var slots = cachedSlotEnv._slots;
                 var idx = _cachedSlotIndex;
