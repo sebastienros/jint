@@ -14,6 +14,8 @@ namespace Jint.Benchmark;
 /// SearchOnSlice exercises indexOf/startsWith/endsWith/includes on a fresh large slice each
 /// iteration — the case where the inherited base search methods materialize the whole substring
 /// on every call. With zero-copy span search overrides this drops to ~0 allocation.
+/// SliceOfSlice slices a large view of a view: without receiver unwrapping the second slice
+/// materializes the intermediate view; with it, it rebases straight onto the backing string.
 /// </summary>
 [MemoryDiagnoser]
 [HideColumns("Error", "Gen0", "Gen1", "Gen2")]
@@ -26,6 +28,7 @@ public class StringSliceBenchmarks
     private Prepared<Script> _sliceThenRead;
     private Prepared<Script> _searchOnSlice;
     private Prepared<Script> _searchOnFlat;
+    private Prepared<Script> _sliceOfSlice;
 
     [GlobalSetup]
     public void Setup()
@@ -109,6 +112,20 @@ public class StringSliceBenchmarks
             })();
             """, strict: true);
 
+        // Slice-of-slice: the first slice returns a large zero-copy view; the second slices that view.
+        // Without receiver unwrapping the second slice materializes the intermediate view first; with
+        // it, the second slice rebases straight onto the original backing string.
+        _sliceOfSlice = Engine.PrepareScript("""
+            (function() {
+                var ret = null;
+                for (var i = 0; i < 5000; i++) {
+                    var outer = str.slice(0, 100000);
+                    ret = outer.slice(1000, 60000);
+                }
+                return ret.length;
+            })();
+            """, strict: true);
+
         _engine = new Engine(static options => options.Strict());
         // Build the shared ~128K char base string once (dromaeo-style doubling).
         _engine.Execute("""
@@ -123,6 +140,7 @@ public class StringSliceBenchmarks
         _engine.Evaluate(_sliceThenRead);
         _engine.Evaluate(_searchOnSlice);
         _engine.Evaluate(_searchOnFlat);
+        _engine.Evaluate(_sliceOfSlice);
     }
 
     [Benchmark]
@@ -142,4 +160,7 @@ public class StringSliceBenchmarks
 
     [Benchmark]
     public JsValue SearchOnFlat() => _engine.Evaluate(_searchOnFlat);
+
+    [Benchmark]
+    public JsValue SliceOfSlice() => _engine.Evaluate(_sliceOfSlice);
 }

@@ -229,7 +229,33 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
             return new SlicedString(source, start, length);
         }
 
-        return new JsString(source.Substring(start, length));
+        // Copy fallback goes through Create so short results (e.g. single-char or empty split
+        // segments) still hit the cached single-char / empty instances. slice/substring/substr
+        // never reach here with length < 2 (they short-circuit first), so Create is equivalent to
+        // new JsString for those callers.
+        return Create(source.Substring(start, length));
+    }
+
+    /// <summary>
+    /// Creates a string for a substring of <paramref name="source"/>. When <paramref name="source"/>
+    /// is a not-yet-materialized <see cref="SlicedString"/>, the slice is rebased directly onto the
+    /// original backing string so a slice-of-slice never materializes the intermediate view, and the
+    /// retention policy is evaluated against that original backing string so chained views cannot
+    /// compound the pinning of a large source. A materialized view or any other receiver is treated
+    /// as flat.
+    /// </summary>
+    internal static JsString CreateSliced(JsString source, int start, int length)
+    {
+        // A view still carrying its lazy (unmaterialized) value is rebased onto its own backing
+        // string: offset past the view's own start and let the policy weigh retention against the
+        // original source. Once a view has materialized its flat value, reusing that string is
+        // cheaper than pinning the (possibly much larger) original backing string, so fall through.
+        if (source is SlicedString { _value: null } sliced)
+        {
+            return CreateSliced(sliced._source, sliced._start + start, length);
+        }
+
+        return CreateSliced(source.ToString(), start, length);
     }
 
     internal static JsString Create(int value)
@@ -505,8 +531,10 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
     /// </summary>
     internal sealed class SlicedString : JsString
     {
-        private readonly string _source;
-        private readonly int _start;
+        // internal (not private) so the enclosing JsString.CreateSliced can rebase a slice-of-slice
+        // directly onto this view's backing string without materializing the intermediate.
+        internal readonly string _source;
+        internal readonly int _start;
         private readonly int _length;
 
         internal SlicedString(string source, int start, int length)

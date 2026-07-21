@@ -348,6 +348,159 @@ ownChar + '|' + error;
         Assert.Equal("a|TypeError", engine.Evaluate(script).AsString());
     }
 
+    [Fact]
+    public void SliceOfSliceMatchesMaterializedExpectation()
+    {
+        // Build a ~128K backing string; slice/substring/substr produce a zero-copy view over it, and a
+        // second slice of that (still un-materialized) view must rebase onto the original backing string
+        // rather than materializing the intermediate. Each chained result is compared against an
+        // identical *flat* string produced via a JSON round-trip (a separate, fully materialized path).
+        const string script = @"
+var seed = 'aB3$xQ9pLm0_kEwZ';
+var s = seed;
+while (s.length < 131072) s += s;         // 131072 chars
+
+// slice-of-slice (view then slice), substring-of-slice, substr-of-slice
+var v1 = s.slice(0, 100000);              // large -> view
+var a = v1.slice(1000, 60000);            // rebased slice-of-slice
+var b = v1.substring(2000, 50000);        // rebased substring-of-slice
+var c = v1.substr(3000, 40000);           // rebased substr-of-slice
+
+// materialized expectations from the original backing string
+var ea = JSON.parse(JSON.stringify(s.slice(1000, 60000)));
+var eb = JSON.parse(JSON.stringify(s.substring(2000, 50000)));
+var ec = JSON.parse(JSON.stringify(s.substr(3000, 40000)));
+
+var ok =
+    a.length === ea.length && a === ea &&
+    b.length === eb.length && b === eb &&
+    c.length === ec.length && c === ec &&
+    // boundary spot checks so a shared bug can't pass silently
+    a.charAt(0) === s.charAt(1000) &&
+    a.charAt(a.length - 1) === s.charAt(59999) &&
+    b.charAt(0) === s.charAt(2000);
+
+// slice of an ALREADY-materialized view must also stay correct (treated as flat)
+var v2 = s.slice(0, 100000);
+var forced = v2 + '';                      // materialize v2's backing substring
+var d = v2.slice(500, 70000);
+var ed = JSON.parse(JSON.stringify(s.slice(500, 70000)));
+
+ok && d.length === ed.length && d === ed ? 'ok' : 'fail';
+";
+        Assert.Equal("ok", _engine.Evaluate(script).AsString());
+    }
+
+    [Fact]
+    public void SliceOfSliceStaysZeroCopyForLargeResult()
+    {
+        // A moderate slice of a large view whose unused remainder stays within the retention budget is
+        // kept as a zero-copy view (SlicedString), rebased onto the original backing string.
+        _engine.Execute(@"
+var seed = 'aB3$xQ9pLm0_kEwZ';
+var s = seed;
+while (s.length < 131072) s += s;
+var v1 = s.slice(0, 100000);");
+
+        Assert.Contains("Sliced", _engine.Evaluate("v1").GetType().Name);
+        Assert.Contains("Sliced", _engine.Evaluate("v1.slice(1000, 60000)").GetType().Name);
+    }
+
+    [Fact]
+    public void ChainedSliceOfViewCopiesAgainstOriginalSource()
+    {
+        // Evaluating the retention policy against the ORIGINAL backing string (not the intermediate
+        // view) prevents a chained view from pinning a much larger source: a 200K slice of a 256K view
+        // over a 512K backing string copies, because the ~312K unused remainder of the backing string
+        // exceeds the retention budget. Value stays correct regardless.
+        _engine.Execute(@"
+var seed = 'aB3$xQ9pLm0_kEwZ';
+var s = seed;
+while (s.length < 524288) s += s;         // 512K
+var v1 = s.slice(0, 262144);              // half -> view
+var small = v1.slice(0, 200000);          // rebased; copies against the 512K source");
+
+        // v1 is a view, but the chained slice is copied (flat JsString), not a compounded view.
+        Assert.Contains("Sliced", _engine.Evaluate("v1").GetType().Name);
+        Assert.DoesNotContain("Sliced", _engine.Evaluate("small").GetType().Name);
+
+        // and the value is still exactly s[0..200000]
+        Assert.Equal("ok", _engine.Evaluate(
+            "small.length === 200000 && small === JSON.parse(JSON.stringify(s.slice(0, 200000))) ? 'ok' : 'fail'").AsString());
+    }
+
+    [Fact]
+    public void SplitEmptySeparatorAscii()
+    {
+        Assert.Equal(@"[""h"",""e"",""l"",""l"",""o""]", _engine.Evaluate(@"JSON.stringify('hello'.split(''))").AsString());
+        Assert.Equal(5, _engine.Evaluate("'hello'.split('').length").AsNumber());
+        // limit truncates
+        Assert.Equal(@"[""h"",""e"",""l""]", _engine.Evaluate(@"JSON.stringify('hello'.split('', 3))").AsString());
+        // empty string splits to an empty array
+        Assert.Equal(0, _engine.Evaluate("''.split('').length").AsNumber());
+        // cached single-char instances still compare equal by value
+        Assert.True(_engine.Evaluate("'aba'.split('')[0] === 'a' && 'aba'.split('')[2] === 'a'").AsBoolean());
+    }
+
+    [Fact]
+    public void SplitEmptySeparatorNonAscii()
+    {
+        // BMP chars above the ASCII cache (é = U+00E9, Greek U+03B1..) must round-trip correctly.
+        Assert.Equal(@"[""c"",""a"",""f"",""é""]", _engine.Evaluate(@"JSON.stringify('café'.split(''))").AsString());
+        Assert.Equal(@"[""α"",""β"",""γ""]", _engine.Evaluate(@"JSON.stringify('αβγ'.split(''))").AsString());
+        Assert.Equal(3, _engine.Evaluate("'αβγ'.split('').length").AsNumber());
+
+        // split('') splits by UTF-16 code unit: an astral char (surrogate pair) becomes two elements.
+        Assert.Equal(2, _engine.Evaluate("'😀'.split('').length").AsNumber());
+        Assert.True(_engine.Evaluate(
+            "var p = '😀'.split(''); p[0] === '\uD83D' && p[1] === '\uDE00'").AsBoolean());
+    }
+
+    [Fact]
+    public void SplitTailAndSegmentsAreCorrect()
+    {
+        // Small segments and tail
+        Assert.Equal(@"[""a"",""b"",""cdefghij""]", _engine.Evaluate(@"JSON.stringify('a,b,cdefghij'.split(','))").AsString());
+        // consecutive separators produce empty segments
+        Assert.Equal(@"[""a"","""",""b""]", _engine.Evaluate(@"JSON.stringify('a,,b'.split(','))").AsString());
+        // multi-char separator
+        Assert.Equal(@"[""a"",""b"",""c""]", _engine.Evaluate(@"JSON.stringify('a<>b<>c'.split('<>'))").AsString());
+        // trailing separator yields a trailing empty segment
+        Assert.Equal(@"[""a"",""b"",""""]", _engine.Evaluate(@"JSON.stringify('a,b,'.split(','))").AsString());
+
+        // Large tail segment: the final piece of a large string, routed through the retention policy,
+        // must still equal the exact backing substring.
+        const string script = @"
+var seed = 'aB3$xQ9pLm0_kEwZ';
+var s = seed;
+while (s.length < 131072) s += s;
+var parts = ('HEADER|' + s).split('|');   // ['HEADER', s]
+var tail = parts[1];
+parts.length === 2 &&
+    parts[0] === 'HEADER' &&
+    tail.length === s.length &&
+    tail === JSON.parse(JSON.stringify(s)) ? 'ok' : 'fail';
+";
+        Assert.Equal("ok", _engine.Evaluate(script).AsString());
+    }
+
+    [Fact]
+    public void SplitPolicyCopiesSmallSegmentsAndViewsLargeOnes()
+    {
+        _engine.Execute(@"
+var seed = 'aB3$xQ9pLm0_kEwZ';
+var s = seed;
+while (s.length < 131072) s += s;
+var small = 'a,b,c'.split(',');
+var big = (s + '|tail').split('|');       // [s, 'tail']: first segment is ~the whole source -> view");
+
+        // small segments are copied (not views)
+        Assert.DoesNotContain("Sliced", _engine.Evaluate("small[0]").GetType().Name);
+        // a large-enough segment of a large string is kept as a zero-copy view
+        Assert.Contains("Sliced", _engine.Evaluate("big[0]").GetType().Name);
+        Assert.True(_engine.Evaluate("big.length === 2 && big[0] === s && big[1] === 'tail'").AsBoolean());
+    }
+
     public static TheoryData<string, string> GetLithuaniaTestsData()
     {
         return new StringTetsLithuaniaData().TestData();
