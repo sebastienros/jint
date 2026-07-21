@@ -1,3 +1,4 @@
+using System.Globalization;
 using Jint.Native;
 using Jint.Native.Json;
 using Jint.Native.Object;
@@ -104,6 +105,8 @@ public class JsonTests
     [InlineData("truE", "Unexpected token ILLEGAL in JSON at position 0")]
     [InlineData("nul", "Unexpected token ILLEGAL in JSON at position 0")]
     [InlineData("\"ab\t\"", "Invalid character in JSON at position 3")] // invalid char in string literal
+    [InlineData("\"\u0001abc\"", "Invalid character in JSON at position 1")] // control char right after the opening quote
+    [InlineData("\"abc\u0005def\"", "Invalid character in JSON at position 4")] // control char in the middle of a bulk run
     [InlineData("\"ab", "Unexpected end of JSON input at position 3")] // unterminated string literal
     [InlineData("alpha", "Unexpected token 'a' in JSON at position 0")]
     [InlineData("[1,\na]", "Unexpected token 'a' in JSON at position 4")] // multiline
@@ -598,6 +601,210 @@ public class JsonTests
             """).AsBoolean();
 
         Assert.True(ok);
+    }
+
+    [Fact]
+    public void CanBulkScanStringLiteralsWithEscapesAtEdges()
+    {
+        var parser = new JsonParser(new Engine());
+
+        // escape at the very start, in the middle and at the end of the bulk run
+        Assert.Equal("\nabc", parser.Parse("\"\\nabc\"").AsString());
+        Assert.Equal("abc\ndef", parser.Parse("\"abc\\ndef\"").AsString());
+        Assert.Equal("abc\n", parser.Parse("\"abc\\n\"").AsString());
+
+        // every simple escape back-to-back: JSON "\"\\\/\n\r\t\b\f"
+        Assert.Equal("\"\\/\n\r\t\b\f", parser.Parse("\"\\\"\\\\\\/\\n\\r\\t\\b\\f\"").AsString());
+
+        // \uXXXX escapes (BMP)
+        Assert.Equal("Aé中", parser.Parse("\"\\u0041\\u00e9\\u4e2d\"").AsString());
+
+        // a run with no escapes at all takes the pure bulk path
+        Assert.Equal("plain text with spaces", parser.Parse("\"plain text with spaces\"").AsString());
+    }
+
+    [Fact]
+    public void CanBulkScanStringsCrossingInternalBufferBoundary()
+    {
+        // ValueStringBuilder starts with a 64-char stack buffer; these inputs force it to grow
+        // while the bulk Append copies whole spans.
+        var parser = new JsonParser(new Engine());
+
+        // a single content run far longer than the 64-char buffer
+        var long1 = new string('a', 200);
+        Assert.Equal(long1, parser.Parse("\"" + long1 + "\"").AsString());
+
+        // escape just before the boundary, then a long run after it
+        var before = new string('a', 60);
+        var after = new string('b', 60);
+        Assert.Equal(before + "\n" + after, parser.Parse("\"" + before + "\\n" + after + "\"").AsString());
+
+        // escape just after the boundary
+        var before3 = new string('c', 70);
+        var after3 = new string('d', 5);
+        Assert.Equal(before3 + "\t" + after3, parser.Parse("\"" + before3 + "\\t" + after3 + "\"").AsString());
+
+        // many escapes interspersed straddling the boundary
+        var json = new System.Text.StringBuilder("\"");
+        var expected = new System.Text.StringBuilder();
+        for (var i = 0; i < 100; i++)
+        {
+            json.Append('x').Append("\\n");
+            expected.Append('x').Append('\n');
+        }
+        json.Append('"');
+        Assert.Equal(expected.ToString(), parser.Parse(json.ToString()).AsString());
+    }
+
+    [Fact]
+    public void BulkScanPreservesUnicodeLineSeparatorTermination()
+    {
+        // U+2028 / U+2029 terminate the string scan with the quote still open, which the original
+        // char-by-char scanner reported as UnexpectedEOS just past the separator. Lock that in.
+        var parser = new JsonParser(new Engine());
+
+        var ex = Assert.ThrowsAny<JavaScriptException>(() => parser.Parse("\"ab\u2028cd\""));
+        Assert.Equal("Unexpected end of JSON input at position 4", ex.Message);
+
+        var ex2 = Assert.ThrowsAny<JavaScriptException>(() => parser.Parse("\"ab\u2029cd\""));
+        Assert.Equal("Unexpected end of JSON input at position 4", ex2.Message);
+    }
+
+    private const NumberStyles JsonNumberStyles =
+        NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent;
+
+    [Fact]
+    public void NumberFastPathIsBitIdenticalToDoubleParse()
+    {
+        var parser = new JsonParser(new Engine());
+        var random = new Random(20260721);
+
+        for (var iteration = 0; iteration < 200_000; iteration++)
+        {
+            var json = GenerateRandomJsonNumber(random);
+            var expected = BitConverter.DoubleToInt64Bits(double.Parse(json, JsonNumberStyles, CultureInfo.InvariantCulture));
+            var actual = BitConverter.DoubleToInt64Bits(parser.Parse(json).AsNumber());
+            Assert.True(expected == actual, $"Bit mismatch for '{json}': expected 0x{expected:X16}, actual 0x{actual:X16}");
+        }
+    }
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("-0")]
+    [InlineData("0.0")]
+    [InlineData("-0.0")]
+    [InlineData("0.1")]
+    [InlineData("0.2")]
+    [InlineData("0.3")]
+    [InlineData("1.005")]
+    [InlineData("-1.5")]
+    [InlineData("19.99")]
+    [InlineData("37.774929")]
+    [InlineData("3.141592653589")]     // 13 significant digits, fast path
+    [InlineData("1.23456789012345")]   // 15 total digits, fast path
+    [InlineData("123456789012.345")]   // 15 total digits, fast path
+    [InlineData("0.00000000000001")]   // tiny fraction, small numerator
+    [InlineData("0.123456789012345")]  // 16 total digit chars -> falls back to double.Parse
+    [InlineData("1234567890123456.5")] // 16 integer digits -> falls back
+    [InlineData("99999999999999.9")]   // 16 total digits -> falls back
+    [InlineData("9007199254740992")]   // 2^53 exactly (integer path)
+    [InlineData("1.7976931348623157e308")] // exponent -> falls back
+    [InlineData("5e-324")]             // exponent -> falls back
+    public void NumberFastPathEdgeCasesMatchDoubleParse(string json)
+    {
+        var parser = new JsonParser(new Engine());
+        var expected = BitConverter.DoubleToInt64Bits(double.Parse(json, JsonNumberStyles, CultureInfo.InvariantCulture));
+        var actual = BitConverter.DoubleToInt64Bits(parser.Parse(json).AsNumber());
+        Assert.Equal(expected, actual);
+    }
+
+    [Theory]
+    [InlineData("-0")]
+    [InlineData("-0.0")]
+    [InlineData("-0.00")]
+    public void NumberFastPathMatchesDoubleParseForNegativeZero(string json)
+    {
+        // Negative zero is deliberately deferred to double.Parse so the platform-specific sign of zero
+        // (+0.0 on .NET Framework, -0.0 on .NET Core) is preserved exactly rather than normalized.
+        var expected = BitConverter.DoubleToInt64Bits(double.Parse(json, JsonNumberStyles, CultureInfo.InvariantCulture));
+        var parser = new JsonParser(new Engine());
+        Assert.Equal(expected, BitConverter.DoubleToInt64Bits(parser.Parse(json).AsNumber()));
+    }
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("0.0")]
+    [InlineData("0.5")]
+    public void NumberFastPathProducesPositiveZeroWhereExpected(string json)
+    {
+        var positiveZeroBits = BitConverter.DoubleToInt64Bits(0.0);
+        var parser = new JsonParser(new Engine());
+        var bits = BitConverter.DoubleToInt64Bits(parser.Parse(json).AsNumber());
+        if (json == "0.5")
+        {
+            Assert.NotEqual(positiveZeroBits, bits);
+        }
+        else
+        {
+            Assert.Equal(positiveZeroBits, bits);
+        }
+    }
+
+    private static string GenerateRandomJsonNumber(Random random)
+    {
+        var sb = new System.Text.StringBuilder();
+        if (random.Next(2) == 0)
+        {
+            sb.Append('-');
+        }
+
+        // integer part: either a lone '0' or a non-zero-leading run (valid JSON grammar)
+        if (random.Next(10) == 0)
+        {
+            sb.Append('0');
+        }
+        else
+        {
+            var intLength = 1 + random.Next(18); // 1..18 digits, straddling the 15-digit fast-path bound
+            sb.Append((char) ('1' + random.Next(9)));
+            for (var k = 1; k < intLength; k++)
+            {
+                sb.Append((char) ('0' + random.Next(10)));
+            }
+        }
+
+        // optional fraction
+        if (random.Next(2) == 0)
+        {
+            sb.Append('.');
+            var fractionLength = 1 + random.Next(18);
+            for (var k = 0; k < fractionLength; k++)
+            {
+                sb.Append((char) ('0' + random.Next(10)));
+            }
+        }
+
+        // optional exponent (always exercises the fallback path)
+        if (random.Next(5) == 0)
+        {
+            sb.Append(random.Next(2) == 0 ? 'e' : 'E');
+            var sign = random.Next(3);
+            if (sign == 1)
+            {
+                sb.Append('+');
+            }
+            else if (sign == 2)
+            {
+                sb.Append('-');
+            }
+            sb.Append((char) ('0' + random.Next(10)));
+            if (random.Next(2) == 0)
+            {
+                sb.Append((char) ('0' + random.Next(10)));
+            }
+        }
+
+        return sb.ToString();
     }
 
     private static string GenerateDeepNestedArray(int depth)
