@@ -66,7 +66,10 @@ internal sealed class ReflectionDescriptor : PropertyDescriptor
     {
         var value = _reflectionAccessor.GetValue(_engine, _target, _propertyName);
         var type = _reflectionAccessor.MemberType ?? value?.GetType();
-        return JsValue.FromObjectWithType(_engine, value, type);
+        // conversion before the check so an awaitable result gets its continuation attached
+        var result = JsValue.FromObjectWithType(_engine, value, type);
+        _engine.CheckAmortizedConstraintsAtHostBoundary();
+        return result;
     }
 
     private void DoSet(JsValue? thisObj, JsValue? v)

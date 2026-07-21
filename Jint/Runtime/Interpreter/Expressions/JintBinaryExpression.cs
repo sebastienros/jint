@@ -778,7 +778,6 @@ internal abstract class JintBinaryExpression : JintExpression
                 try
                 {
                     result = method.Call(context.Engine, null, arguments);
-                    return true;
                 }
                 catch (Exception e)
                 {
@@ -786,6 +785,11 @@ internal abstract class JintBinaryExpression : JintExpression
                     result = null;
                     return false;
                 }
+
+                // outside the catch-all above so a constraint exception is not laundered into
+                // a TargetInvocationException
+                context.Engine.CheckAmortizedConstraintsAtHostBoundary();
+                return true;
             }
         }
 

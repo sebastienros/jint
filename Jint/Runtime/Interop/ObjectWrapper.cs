@@ -343,6 +343,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             if (property is JsString jsString && _typeDescriptor.IsStringKeyedGenericDictionary)
             {
                 _typeDescriptor.TryRemoveDictionaryValue(Target, jsString.ToString());
+                _engine.CheckAmortizedConstraintsAtHostBoundary();
             }
             else if (!property.IsString()
                 && !property.IsSymbol()
@@ -350,6 +351,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                 && TryConvertJsValueToDictionaryKey(property, _typeDescriptor.GenericDictionaryKeyType!, out var clrKey))
             {
                 _typeDescriptor.TryRemoveDictionaryValue(Target, clrKey!);
+                _engine.CheckAmortizedConstraintsAtHostBoundary();
             }
         }
 
@@ -366,7 +368,9 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         {
             // Prototype chain is intentionally skipped: non-string non-symbol keys can't resolve
             // to Object.prototype members (which are all string/symbol-keyed). Same rationale as Get.
-            return _typeDescriptor.ContainsDictionaryKey(Target, clrKey!);
+            var contains = _typeDescriptor.ContainsDictionaryKey(Target, clrKey!);
+            _engine.CheckAmortizedConstraintsAtHostBoundary();
+            return contains;
         }
 
         return base.HasProperty(property);
@@ -431,7 +435,9 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             {
                 if (Target is ICollection c && CommonProperties.Length.Equals(property))
                 {
-                    return JsNumber.Create(c.Count);
+                    var count = c.Count;
+                    _engine.CheckAmortizedConstraintsAtHostBoundary();
+                    return JsNumber.Create(count);
                 }
             }
             else
@@ -439,9 +445,11 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                 if (_typeDescriptor.IsStringKeyedGenericDictionary)
                 {
                     var found = _typeDescriptor.TryGetDictionaryValue(Target, property.ToString(), out var value);
-                    _engine.CheckAmortizedConstraintsAtHostBoundary();
                     if (found)
                     {
+                        // the miss path needs no check here: it falls through to GetOwnProperty,
+                        // whose dictionary lane re-probes and checks
+                        _engine.CheckAmortizedConstraintsAtHostBoundary();
                         // Check stored properties first - frozen/sealed objects have descriptors in _properties
                         // that must be respected to return the same (frozen) instance
                         if (TryGetProperty(property, out var stored))
@@ -511,8 +519,10 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             var customKeys = _engine.Options.Interop.ObjectWrapperReportedPropertyKeys(_engine, Target);
             if (customKeys is not null)
             {
+                // each step pulls from the user-supplied sequence
                 foreach (var key in customKeys)
                 {
+                    _engine.CheckAmortizedConstraintsAtHostBoundary();
                     yield return key;
                 }
                 yield break; // non-null replaces the default key set
@@ -522,16 +532,20 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         if (includeStrings && _typeDescriptor.IsStringKeyedGenericDictionary) // expando object for instance
         {
             var keys = (ICollection<string>) _typeDescriptor.KeysAccessor!.GetValue(Target)!;
+            _engine.CheckAmortizedConstraintsAtHostBoundary();
+            // each step pulls from the user dictionary's key enumerator
             foreach (var key in keys)
             {
+                _engine.CheckAmortizedConstraintsAtHostBoundary();
                 yield return JsString.Create(key);
             }
         }
         else if (includeStrings && Target is IDictionary dictionary)
         {
-            // we take values exposed as dictionary keys only
+            // we take values exposed as dictionary keys only; each step pulls from the user enumerator
             foreach (var key in dictionary.Keys)
             {
+                _engine.CheckAmortizedConstraintsAtHostBoundary();
                 object? stringKey = key as string;
                 if (stringKey is not null
                     || _engine.TypeConverter.TryConvert(key, typeof(string), CultureInfo.InvariantCulture, out stringKey))
@@ -845,7 +859,18 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         public override bool TryIteratorStep(out ObjectInstance nextItem)
         {
             var hasNext = _enumerator.MoveNext();
-            _engine.CheckAmortizedConstraintsAtHostBoundary();
+            try
+            {
+                _engine.CheckAmortizedConstraintsAtHostBoundary();
+            }
+            catch
+            {
+                // for-of only starts closing the iterator record after the first successful
+                // step, so dispose the user's enumerator here or it would leak
+                _enumerator.Dispose();
+                throw;
+            }
+
             if (hasNext)
             {
                 var key = _enumerator.Current;
@@ -878,7 +903,18 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         public override bool TryIteratorStep(out ObjectInstance nextItem)
         {
             var hasNext = _enumerator.MoveNext();
-            _engine.CheckAmortizedConstraintsAtHostBoundary();
+            try
+            {
+                _engine.CheckAmortizedConstraintsAtHostBoundary();
+            }
+            catch
+            {
+                // for-of only starts closing the iterator record after the first successful
+                // step, so dispose the user's enumerator here or it would leak
+                Close(CompletionType.Throw);
+                throw;
+            }
+
             if (hasNext)
             {
                 var value = _enumerator.Current;

@@ -320,18 +320,20 @@ internal sealed class MethodInfoFunction : Function
             {
                 // the resolved generic method differs per call, cannot use the cached invoker
                 var result = resolvedMethod.Invoke(thisObj, parameters);
-                _engine.CheckAmortizedConstraintsAtHostBoundary();
+                // conversion before the check so an awaitable result gets its continuation attached
                 callResult = FromObjectWithType(Engine, result, type: (resolvedMethod as MethodInfo)?.ReturnType);
+                _engine.CheckAmortizedConstraintsAtHostBoundary();
                 return true;
             }
 
             var invokeResult = method.Invoke(thisObj, parameters);
-            _engine.CheckAmortizedConstraintsAtHostBoundary();
             callResult = FromObjectWithType(Engine, invokeResult, type: (method.Method as MethodInfo)?.ReturnType);
+            _engine.CheckAmortizedConstraintsAtHostBoundary();
             return true;
         }
         catch (TargetInvocationException exception)
         {
+            _engine.CheckAmortizedConstraintsAtHostBoundary();
             Throw.MeaningfulException(_engine, exception);
             return false;
         }
