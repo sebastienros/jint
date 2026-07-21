@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
+using Jint.Extensions;
 using Jint.Native.Object;
 using Jint.Pooling;
 using Jint.Runtime;
@@ -95,6 +96,22 @@ public sealed class JsonParser
     private int _shapeBudget;
     private Shape? _cachedEmptyRoot;
     private ObjectInstance? _cachedEmptyRootProto;
+
+    // Property keys repeat across every record of a homogeneous array (the dominant JSON.parse payload):
+    // an array of 500 identically-shaped records re-scans the same "id"/"name"/... key hundreds of times.
+    // Interning object keys within a single parse lets those records share one key string (and its
+    // JsString) instead of re-allocating both per record. Only property KEYS are interned, never string
+    // values. The table is direct-mapped (slot = hash & mask, replace on collision): both hit and miss
+    // cost a single compare, so key-diverse payloads (whose keys mostly miss) pay no probe tax, hot keys
+    // of homogeneous payloads statistically keep their slots, and a hostile payload with millions of
+    // distinct/long keys cannot grow the fixed-size table. The table is per-parser-instance and reset per
+    // parse (no cross-parse or global state). _expectKey is set immediately before the Lex that scans a
+    // key token (right after '{' or ',' inside an object) and consumed by the very next scan, so only
+    // keys route through interning.
+    private const int MaxInternedKeyLength = 64;
+    private const int InternedKeySlots = 256; // power of two, indexed by hash & (InternedKeySlots - 1)
+    private InternedKeyEntry[]? _internedKeys;
+    private bool _expectKey;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool IsDecimalDigit(char ch)
@@ -349,7 +366,7 @@ public sealed class JsonParser
         return null!;
     }
 
-    private Token ScanStringLiteral(ref State state)
+    private Token ScanStringLiteral(ref State state, bool isPropertyKey)
     {
         char quote = _source[_index];
         int start = _index;
@@ -431,12 +448,53 @@ public sealed class JsonParser
             ThrowError(_index, Messages.UnexpectedEOS);
         }
 
+        if (isPropertyKey)
+        {
+            // Intern object keys straight off the scanned span so repeated keys reuse one string/JsString
+            // and skip the span->string allocation entirely on a cache hit (the common homogeneous-record case).
+            var interned = InternPropertyKey(sb.AsSpan());
+            return CreateToken(Tokens.String, interned.Name, '\"', interned.Value, new TextRange(start, _index));
+        }
+
         var value = sb.ToString();
         return CreateToken(Tokens.String, value, '\"', new JsString(value), new TextRange(start, _index));
     }
 
+    /// <summary>
+    /// Interns a just-scanned property-key span for the lifetime of the current parse: identical keys across
+    /// records return the same <see cref="string"/> and <see cref="JsString"/> instances, and on a cache hit
+    /// no new string is materialized at all. The table is direct-mapped with replace-on-collision, so hits
+    /// and misses both cost one compare; keys longer than <see cref="MaxInternedKeyLength"/> are materialized
+    /// fresh (current behavior) without touching the table.
+    /// </summary>
+    private InternedKey InternPropertyKey(ReadOnlySpan<char> span)
+    {
+        if (span.Length > MaxInternedKeyLength)
+        {
+            var longName = span.ToString();
+            return new InternedKey(longName, new JsString(longName));
+        }
+
+        var hash = Hash.GetFNVHashCode(span);
+        var entries = _internedKeys ??= new InternedKeyEntry[InternedKeySlots];
+        ref var entry = ref entries[hash & (InternedKeySlots - 1)];
+        if (entry.Hash == hash && entry.Name is not null && span.SequenceEqual(entry.Name.AsSpan()))
+        {
+            return new InternedKey(entry.Name, entry.Value);
+        }
+
+        var name = span.ToString();
+        var value = new JsString(name);
+        entry = new InternedKeyEntry(hash, name, value);
+        return new InternedKey(name, value);
+    }
+
     private Token Advance(ref State state)
     {
+        // Consumed by exactly this scan: set immediately before the Lex that reads a key token.
+        var isPropertyKey = _expectKey;
+        _expectKey = false;
+
         char ch = ReadToNextSignificantCharacter();
 
         if (ch == char.MinValue)
@@ -448,7 +506,7 @@ public sealed class JsonParser
         // Single quote (#39) are not allowed in JSON.
         if (ch == '"')
         {
-            return ScanStringLiteral(ref state);
+            return ScanStringLiteral(ref state, isPropertyKey);
         }
 
         if (ch == '-') // Negative Number
@@ -602,6 +660,8 @@ public sealed class JsonParser
             ThrowDepthLimitReached(_lookahead);
         }
 
+        // The token right after '{' is the first key (or '}'): route it through key interning.
+        _expectKey = true;
         Expect(ref state, '{');
 
         var obj = new JsObject(_engine);
@@ -635,6 +695,8 @@ public sealed class JsonParser
 
             if (!Match('}'))
             {
+                // The token right after ',' is the next key.
+                _expectKey = true;
                 Expect(ref state, ',');
             }
         }
@@ -770,6 +832,11 @@ public sealed class JsonParser
         _length = _source.Length;
         _lookahead = null!;
         _shapeBudget = ShapeTransitionBudget;
+        if (_internedKeys is not null)
+        {
+            System.Array.Clear(_internedKeys, 0, _internedKeys.Length);
+        }
+        _expectKey = false;
 
         State state = new State();
 
@@ -796,6 +863,11 @@ public sealed class JsonParser
         _length = _source.Length;
         _lookahead = null!;
         _shapeBudget = ShapeTransitionBudget;
+        if (_internedKeys is not null)
+        {
+            System.Array.Clear(_internedKeys, 0, _internedKeys.Length);
+        }
+        _expectKey = false;
 
         State state = new State();
 
@@ -913,6 +985,8 @@ public sealed class JsonParser
         var startPos = _lookahead.Range.Start;
         var entries = new Dictionary<string, JsonParseNode>(StringComparer.Ordinal);
 
+        // The token right after '{' is the first key (or '}'): route it through key interning.
+        _expectKey = true;
         Expect(ref state, '{');
 
         var obj = new JsObject(_engine);
@@ -951,6 +1025,8 @@ public sealed class JsonParser
 
             if (!Match('}'))
             {
+                // The token right after ',' is the next key.
+                _expectKey = true;
                 Expect(ref state, ',');
             }
         }
@@ -1010,6 +1086,14 @@ public sealed class JsonParser
         public int Start { get; }
         public int End { get; }
     }
+
+    /// <summary>An interned property key: the deduplicated name and its (also deduplicated) <see cref="JsString"/>.</summary>
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct InternedKey(string Name, JsString Value);
+
+    /// <summary>One entry in the per-parse key-intern table; <see cref="Hash"/> is the FNV hash of <see cref="Name"/>.</summary>
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct InternedKeyEntry(int Hash, string Name, JsString Value);
 
     static class Messages
     {
