@@ -5,6 +5,7 @@ using Jint.Native.Array;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
+using Jint.Runtime.Interop;
 
 namespace Jint.Runtime.Interpreter.Expressions;
 
@@ -54,6 +55,22 @@ internal sealed class JintMemberExpression : JintExpression
     private uint _cachedStringProtoHolderVersion;
     private PropertyDescriptor? _cachedStringProtoDescriptor;
     private readonly bool _stringReceiverCallEligible;
+
+    // ObjectWrapper member cache: interop receivers carry InternalTypes.ExoticGet (members resolve against
+    // the wrapped CLR object), so none of the caches above apply and every host.value read/write walks
+    // ObjectWrapper.Get/Set → GetOwnProperty → dictionary probe → reflection accessor. But once
+    // ObjectWrapper.GetOwnProperty has resolved a member it stores the descriptor in the wrapper's own
+    // _properties and every subsequent Get/Set consults that stored instance first — so receiver identity +
+    // _propertiesVersion prove the stored descriptor is still exactly what the wrapper would hand back, and
+    // reads/writes can go straight through it. The cached descriptor stays live: a CLR property's
+    // ReflectionDescriptor re-invokes the CLR getter/setter on every use, so host-side value changes remain
+    // visible and JS-side writes reach the CLR setter. Any define/redefine/delete on the wrapper bumps the
+    // version and re-resolves. Population is gated by ObjectWrapper.TryGetInlineCacheableDescriptor (exact
+    // ObjectWrapper type only, no dictionary targets, no ICollection `length`, no custom member accessor);
+    // _cachedWrapperDescriptor is non-null whenever _cachedWrapper is.
+    private ObjectWrapper? _cachedWrapper;
+    private uint _cachedWrapperVersion;
+    private PropertyDescriptor? _cachedWrapperDescriptor;
 
     private static readonly JsValue _nullMarker = new JsString("NULL MARKER");
 
@@ -411,7 +428,7 @@ internal sealed class JintMemberExpression : JintExpression
 
                 _cachedReadObject = null;
                 _cachedReadDescriptor = null;
-                return ReadAfterOwnMiss(baseObject, determinedProperty, ownMissConfirmed: false);
+                return ReadFromNonPlainReceiver(baseObject, determinedProperty);
             }
 
             // JsString primitive: skip ToObject's StringInstance allocation for the hot `s.length`
@@ -612,7 +629,7 @@ internal sealed class JintMemberExpression : JintExpression
                 return ReadAfterOwnMiss(baseObject, determinedProperty, ownMissConfirmed: true);
             }
 
-            return ReadAfterOwnMiss(baseObject, determinedProperty, ownMissConfirmed: false);
+            return ReadFromNonPlainReceiver(baseObject, determinedProperty);
         }
 
         if (_stringReceiverCallEligible && baseValue is JsString jsString)
@@ -650,6 +667,38 @@ internal sealed class JintMemberExpression : JintExpression
 
         thisObject = JsValue.Undefined;
         return JsValue.Undefined;
+    }
+
+    /// <summary>
+    /// Read completion for receivers outside the shape / plain-object lanes. An <see cref="ObjectWrapper"/>
+    /// receiver first consults the wrapper member cache: on a hit (same wrapper instance, unchanged
+    /// <c>_propertiesVersion</c>) the stored descriptor is still exactly what <c>ObjectWrapper.Get</c>'s
+    /// own-property probe would return, so it unwraps directly — for a CLR property that re-invokes the CLR
+    /// getter through the live <c>ReflectionDescriptor</c>, identical to the full path. Everything else —
+    /// and any wrapper bail — funnels into <see cref="ReadAfterOwnMiss"/>, whose full <c>Get</c> resolves
+    /// and stores the wrapper member so the next populate attempt succeeds.
+    /// </summary>
+    private JsValue ReadFromNonPlainReceiver(ObjectInstance baseObject, JsString property)
+    {
+        if (ReferenceEquals(baseObject, _cachedWrapper)
+            && baseObject._propertiesVersion == _cachedWrapperVersion)
+        {
+            return ObjectInstance.UnwrapJsValue(_cachedWrapperDescriptor!, baseObject);
+        }
+
+        if (baseObject is ObjectWrapper wrapper)
+        {
+            var descriptor = wrapper.TryGetInlineCacheableDescriptor(property);
+            if (descriptor is not null)
+            {
+                _cachedWrapper = wrapper;
+                _cachedWrapperVersion = wrapper._propertiesVersion;
+                _cachedWrapperDescriptor = descriptor;
+                return ObjectInstance.UnwrapJsValue(descriptor, wrapper);
+            }
+        }
+
+        return ReadAfterOwnMiss(baseObject, property, ownMissConfirmed: false);
     }
 
     /// <summary>
@@ -822,6 +871,58 @@ internal sealed class JintMemberExpression : JintExpression
                     descriptor._value = rval;
                     result = rval;
                     return true;
+                }
+            }
+            else
+            {
+                // ObjectWrapper member lane: a stored member means ObjectWrapper.Set would route through
+                // SetSlow (ContainsKey ⇒ CanPut + `ownDesc.Value = value`), and the receiver-identity +
+                // _propertiesVersion guard proves the cached descriptor is that stored instance. Mirror
+                // SetSlow exactly: CanPut's own-descriptor branch with live flag/accessor reads
+                // (defineProperty can mutate the same instance without a version bump), then store through
+                // the descriptor — a ReflectionDescriptor forwards to the CLR setter, keeping conversion
+                // and exception semantics. Non-writable members (e.g. read-only CLR properties, whose
+                // ReflectionDescriptor exposes no setter when not writable or interop writes are disabled)
+                // fall through to the PutValue fallback so strict/sloppy failure behavior stays identical.
+                // Population only consumes descriptors a read has already stored; it never resolves members
+                // itself, so unstored writes keep ObjectWrapper.Set's accessor fast path untouched.
+                PropertyDescriptor? descriptor;
+                if (ReferenceEquals(baseObject, _cachedWrapper)
+                    && baseObject._propertiesVersion == _cachedWrapperVersion)
+                {
+                    descriptor = _cachedWrapperDescriptor;
+                }
+                else if (baseObject is ObjectWrapper wrapper
+                    && (descriptor = wrapper.TryGetInlineCacheableDescriptor(determinedProperty)) is not null)
+                {
+                    _cachedWrapper = wrapper;
+                    _cachedWrapperVersion = wrapper._propertiesVersion;
+                    _cachedWrapperDescriptor = descriptor;
+                }
+                else
+                {
+                    descriptor = null;
+                }
+
+                if (descriptor is not null)
+                {
+                    bool canPut;
+                    if (descriptor.IsAccessorDescriptor())
+                    {
+                        var set = descriptor.Set;
+                        canPut = set is not null && !set.IsUndefined();
+                    }
+                    else
+                    {
+                        canPut = descriptor.Writable;
+                    }
+
+                    if (canPut)
+                    {
+                        descriptor.Value = rval;
+                        result = rval;
+                        return true;
+                    }
                 }
             }
         }

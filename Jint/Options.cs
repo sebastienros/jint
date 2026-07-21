@@ -367,9 +367,15 @@ public class Options
         public BuildCallStackDelegate? BuildCallStackHandler { get; set; }
 
         /// <summary>
+        /// Named default so the interop member inline cache (see JintMemberExpression's wrapper lane) can
+        /// detect by reference when a custom accessor has been configured and stay out of the way.
+        /// </summary>
+        internal static readonly MemberAccessorDelegate _defaultMemberAccessor = static (engine, target, member) => null;
+
+        /// <summary>
         ///
         /// </summary>
-        public MemberAccessorDelegate MemberAccessor { get; set; } = static (engine, target, member) => null;
+        public MemberAccessorDelegate MemberAccessor { get; set; } = _defaultMemberAccessor;
 
         /// <summary>
         /// Exceptions that thrown from CLR code are converted to JavaScript errors and

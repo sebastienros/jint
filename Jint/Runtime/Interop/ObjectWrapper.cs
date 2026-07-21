@@ -734,6 +734,50 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         return descriptor;
     }
 
+    /// <summary>
+    /// Per-AST-node inline-cache support (see the wrapper member lane in
+    /// <see cref="Runtime.Interpreter.Expressions.JintMemberExpression"/>): returns the already-stored own
+    /// descriptor a member read/write would consult, when — and only when — caching it per call site is
+    /// sound. The result is exactly what <see cref="Get"/> / <see cref="Set"/> resolve through
+    /// <c>TryGetProperty</c> once <see cref="GetOwnProperty(JsValue)"/> has stored the member (a live
+    /// <see cref="Descriptors.Specialized.ReflectionDescriptor"/> for CLR properties/fields, so every use
+    /// still flows through the CLR accessors), making a receiver-identity + <c>_propertiesVersion</c>
+    /// guard sufficient: any define/redefine/delete on the wrapper bumps the version and invalidates.
+    /// </summary>
+    /// <remarks>
+    /// Bails with <c>null</c> when:
+    /// <list type="bullet">
+    /// <item>the receiver is a subclass (e.g. <see cref="ArrayLikeWrapper"/> overrides Get/Set with its own semantics),</item>
+    /// <item>the target is a dictionary (member values are dynamic; descriptors are created fresh per access),</item>
+    /// <item>a custom <see cref="Options.InteropOptions.MemberAccessor"/> is configured (stay conservative),</item>
+    /// <item>the name is <c>length</c> on an <see cref="ICollection"/> target (<see cref="Get"/> serves the live count ahead of any stored descriptor),</item>
+    /// <item>the member has not been resolved-and-stored yet — the caller's slow path performs the store (bumping the version) so a later populate succeeds.</item>
+    /// </list>
+    /// </remarks>
+    internal PropertyDescriptor? TryGetInlineCacheableDescriptor(JsString property)
+    {
+        if (GetType() != typeof(ObjectWrapper)
+            || _typeDescriptor.IsDictionary
+            || _properties is null
+            || !ReferenceEquals(_engine.Options.Interop.MemberAccessor, Options.InteropOptions._defaultMemberAccessor))
+        {
+            return null;
+        }
+
+        if (Target is ICollection && CommonProperties.Length.Equals(property))
+        {
+            return null;
+        }
+
+        if (!_properties.TryGetValue(property.ToString(), out var descriptor)
+            || ReferenceEquals(descriptor, PropertyDescriptor.Undefined))
+        {
+            return null;
+        }
+
+        return descriptor;
+    }
+
     // need to be public for advanced cases like RavenDB yielding properties from CLR objects
     public static PropertyDescriptor GetPropertyDescriptor(Engine engine, object target, MemberInfo member)
     {
