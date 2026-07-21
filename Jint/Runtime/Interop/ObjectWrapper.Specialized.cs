@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using Jint.Extensions;
 using Jint.Native;
 
@@ -30,7 +31,7 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
     {
         if (property.IsInteger())
         {
-            var result = FromObject(_engine, GetAt(property.AsInteger()));
+            var result = GetJsValueAt(property.AsInteger());
             _engine.CheckAmortizedConstraintsAtHostBoundary();
             return result;
         }
@@ -96,6 +97,78 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
     }
 
     public abstract object? GetAt(int index);
+
+    /// <summary>
+    /// Element read producing the JsValue directly; typed subclasses override to convert common
+    /// primitive item types without boxing the element through <see cref="GetAt"/>.
+    /// </summary>
+    internal virtual JsValue GetJsValueAt(int index) => FromObject(_engine, GetAt(index));
+
+    /// <summary>
+    /// Boxing-free conversion for the item types <see cref="DefaultObjectConverter"/> maps to primitive
+    /// JsValues. The typeof checks are JIT-time constants in value-type instantiations, so each closed
+    /// generic compiles down to the single matching branch. Returns null for item types that need the
+    /// general converter (which the caller routes through <see cref="GetAt"/>/FromObject as before).
+    /// </summary>
+    private protected static JsValue? TryConvertCommonItem<TItem>(ref TItem item)
+    {
+        if (typeof(TItem) == typeof(int))
+        {
+            return JsNumber.Create(Unsafe.As<TItem, int>(ref item));
+        }
+        if (typeof(TItem) == typeof(double))
+        {
+            return JsNumber.Create(Unsafe.As<TItem, double>(ref item));
+        }
+        if (typeof(TItem) == typeof(long))
+        {
+            return JsNumber.Create(Unsafe.As<TItem, long>(ref item));
+        }
+        if (typeof(TItem) == typeof(uint))
+        {
+            return JsNumber.Create(Unsafe.As<TItem, uint>(ref item));
+        }
+        if (typeof(TItem) == typeof(ulong))
+        {
+            return JsNumber.Create(Unsafe.As<TItem, ulong>(ref item));
+        }
+        if (typeof(TItem) == typeof(short))
+        {
+            return JsNumber.Create(Unsafe.As<TItem, short>(ref item));
+        }
+        if (typeof(TItem) == typeof(ushort))
+        {
+            return JsNumber.Create(Unsafe.As<TItem, ushort>(ref item));
+        }
+        if (typeof(TItem) == typeof(byte))
+        {
+            return JsNumber.Create(Unsafe.As<TItem, byte>(ref item));
+        }
+        if (typeof(TItem) == typeof(sbyte))
+        {
+            return JsNumber.Create(Unsafe.As<TItem, sbyte>(ref item));
+        }
+        if (typeof(TItem) == typeof(float))
+        {
+            // float converts through double exactly like DefaultObjectConverter's mapper does
+            return JsNumber.Create((double) Unsafe.As<TItem, float>(ref item));
+        }
+        if (typeof(TItem) == typeof(bool))
+        {
+            return Unsafe.As<TItem, bool>(ref item) ? JsBoolean.True : JsBoolean.False;
+        }
+        if (typeof(TItem) == typeof(char))
+        {
+            return JsString.Create(Unsafe.As<TItem, char>(ref item));
+        }
+        if (typeof(TItem) == typeof(string))
+        {
+            var value = Unsafe.As<TItem, string>(ref item);
+            return value is null ? Null : JsString.Create(value);
+        }
+
+        return null;
+    }
 
     public sealed override bool Set(JsValue property, JsValue value, JsValue receiver)
     {
@@ -291,6 +364,18 @@ internal class GenericListWrapper<[DynamicallyAccessedMembers(DynamicallyAccesse
         return null;
     }
 
+    internal override JsValue GetJsValueAt(int index)
+    {
+        if (index >= 0 && index < _list.Count)
+        {
+            var item = _list[index];
+            return TryConvertCommonItem(ref item) ?? FromObject(_engine, item);
+        }
+
+        // preserve the out-of-range result of the boxing path (null → JS null)
+        return base.GetJsValueAt(index);
+    }
+
     protected override void DoSetAt(int index, object? value) => _list[index] = (T) value!;
 
     public override void AddDefault() => _list.Add(default!);
@@ -334,6 +419,19 @@ internal sealed class ArrayWrapper<[DynamicallyAccessedMembers(DynamicallyAccess
         }
 
         return null;
+    }
+
+    internal override JsValue GetJsValueAt(int index)
+    {
+        var array = _array;
+        if ((uint) index < (uint) array.Length)
+        {
+            var item = array[index];
+            return TryConvertCommonItem(ref item) ?? FromObject(_engine, item);
+        }
+
+        // preserve the out-of-range result of the boxing path (null → JS null)
+        return base.GetJsValueAt(index);
     }
 
     protected override void DoSetAt(int index, object? value)
@@ -384,6 +482,18 @@ internal sealed class ReadOnlyListWrapper<[DynamicallyAccessedMembers(Dynamicall
         }
 
         return null;
+    }
+
+    internal override JsValue GetJsValueAt(int index)
+    {
+        if (index >= 0 && index < _list.Count)
+        {
+            var item = _list[index];
+            return TryConvertCommonItem(ref item) ?? FromObject(_engine, item);
+        }
+
+        // preserve the out-of-range result of the boxing path (null → JS null)
+        return base.GetJsValueAt(index);
     }
 
     protected override bool CanWrite => false;
