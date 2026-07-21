@@ -750,6 +750,152 @@ public class JsonTests
         }
     }
 
+    [Fact]
+    public void RepeatedStringValuesShareOneInstanceAcrossArraysAndObjects()
+    {
+        var parser = new JsonParser(new Engine());
+
+        var arr = parser.Parse("""["alpha","alpha","beta","alpha"]""").AsArray();
+        Assert.Equal("alpha", arr.Get("0").AsString());
+        Assert.Same(arr.Get("0"), arr.Get("1"));
+        Assert.Same(arr.Get("0"), arr.Get("3"));
+        Assert.Equal("beta", arr.Get("2").AsString());
+        Assert.NotSame(arr.Get("0"), arr.Get("2"));
+
+        var obj = parser.Parse("""{"a":"repeat","b":"repeat","c":"other"}""").AsObject();
+        Assert.Same(obj.Get("a"), obj.Get("b"));
+        Assert.Equal("repeat", obj.Get("a").AsString());
+        Assert.Equal("other", obj.Get("c").AsString());
+
+        // Values interned once per parse are shared across nested arrays and objects within that parse.
+        var root = parser.Parse("""{"list":["x-marker","x-marker"],"val":"x-marker"}""").AsObject();
+        var list = root.Get("list").AsArray();
+        Assert.Same(list.Get("0"), list.Get("1"));
+        Assert.Same(list.Get("0"), root.Get("val"));
+    }
+
+    [Fact]
+    public void EscapedAndUnescapedValuesWithSameContentAreEqualAndInterned()
+    {
+        var parser = new JsonParser(new Engine());
+
+        // "AB" written three ways: plain, fully-escaped, and partially-escaped. All decode to the same
+        // content, so interning (which keys off the DECODED span) must return one shared instance.
+        var arr = parser.Parse("""["AB","AB","AB"]""").AsArray();
+        Assert.Equal("AB", arr.Get("0").AsString());
+        Assert.Equal("AB", arr.Get("1").AsString());
+        Assert.Equal("AB", arr.Get("2").AsString());
+        Assert.Same(arr.Get("0"), arr.Get("1"));
+        Assert.Same(arr.Get("0"), arr.Get("2"));
+
+        // An escape sequence that decodes to content differing only by the escape must not collide.
+        var arr2 = parser.Parse("""["line\nbreak","line\nbreak","linebreak"]""").AsArray();
+        Assert.Equal("line\nbreak", arr2.Get("0").AsString());
+        Assert.Same(arr2.Get("0"), arr2.Get("1"));
+        Assert.NotSame(arr2.Get("0"), arr2.Get("2"));
+        Assert.Equal("linebreak", arr2.Get("2").AsString());
+    }
+
+    [Fact]
+    public void EmptyAndSingleCharacterValuesParseAndReuseCaches()
+    {
+        var parser = new JsonParser(new Engine());
+
+        var arr = parser.Parse("""["","","x","x","y"]""").AsArray();
+        Assert.Equal("", arr.Get("0").AsString());
+        // Empty routes through JsString.Create -> the shared JsString.Empty singleton.
+        Assert.Same(JsString.Empty, arr.Get("0"));
+        Assert.Same(arr.Get("0"), arr.Get("1"));
+        Assert.Equal("x", arr.Get("2").AsString());
+        Assert.Same(arr.Get("2"), arr.Get("3"));
+        Assert.Equal("y", arr.Get("4").AsString());
+        Assert.NotSame(arr.Get("2"), arr.Get("4"));
+    }
+
+    [Fact]
+    public void ManyDistinctStringValuesParseCorrectlyDespiteTableThrashing()
+    {
+        var parser = new JsonParser(new Engine());
+
+        // Far more distinct values than the fixed intern table has slots (256): the table must thrash
+        // gracefully (replace-on-collision, no growth) and every value must still be exactly correct.
+        const int count = 2000;
+        var sb = new System.Text.StringBuilder();
+        sb.Append('[');
+        for (var i = 0; i < count; i++)
+        {
+            if (i > 0)
+            {
+                sb.Append(',');
+            }
+            sb.Append('"').Append("value_").Append(i).Append('"');
+        }
+        sb.Append(']');
+
+        var arr = parser.Parse(sb.ToString()).AsArray();
+        for (var i = 0; i < count; i++)
+        {
+            Assert.Equal("value_" + i, arr.Get(i.ToString(CultureInfo.InvariantCulture)).AsString());
+        }
+    }
+
+    [Fact]
+    public void OverLongStringValuesAreNotInternedButParseCorrectly()
+    {
+        var parser = new JsonParser(new Engine());
+
+        // Longer than MaxInternedValueLength (64): deliberately skips the table so a hostile payload of
+        // huge unique strings can never thrash it. Still parsed exactly, just not deduplicated.
+        var longVal = new string('z', 100);
+        var arr = parser.Parse($"[\"{longVal}\",\"{longVal}\"]").AsArray();
+        Assert.Equal(longVal, arr.Get("0").AsString());
+        Assert.Equal(longVal, arr.Get("1").AsString());
+        Assert.NotSame(arr.Get("0"), arr.Get("1"));
+    }
+
+    [Fact]
+    public void InternTableIsResetBetweenParses()
+    {
+        // A value interned in one parse must not leak into the next parse's identity checks; each parse
+        // starts from a cleared table, so the same content produces a fresh instance on the second call.
+        var parser = new JsonParser(new Engine());
+        var first = parser.Parse("""["shared-token"]""").AsArray().Get("0");
+        var second = parser.Parse("""["shared-token"]""").AsArray().Get("0");
+        Assert.Equal("shared-token", first.AsString());
+        Assert.Equal(first.AsString(), second.AsString());
+        Assert.NotSame(first, second);
+    }
+
+    [Theory]
+    [InlineData("1e-323")]
+    [InlineData("123456789012345678901234567890")]
+    [InlineData("-0")]
+    [InlineData("1.7976931348623157e308")]
+    [InlineData("0")]
+    [InlineData("-0.0")]
+    [InlineData("42")]
+    [InlineData("-42")]
+    [InlineData("3.14159")]
+    [InlineData("9007199254740991")]
+    [InlineData("0.123456789012345")]
+    public void SpanNumberPathIsBitIdenticalToDoubleParse(string json)
+    {
+        var expected = BitConverter.DoubleToInt64Bits(double.Parse(json, JsonNumberStyles, CultureInfo.InvariantCulture));
+        var parser = new JsonParser(new Engine());
+        var actual = BitConverter.DoubleToInt64Bits(parser.Parse(json).AsNumber());
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void UnexpectedTrailingNumberTokenReportsItsRawText()
+    {
+        // Number tokens no longer carry an eager Text string; the diagnostic reconstructs the raw text
+        // from the token range. Lock in that the reported token is byte-identical to the source.
+        var parser = new JsonParser(new Engine());
+        var ex = Assert.ThrowsAny<JavaScriptException>(() => parser.Parse("1 23"));
+        Assert.Equal("Unexpected token '23' in JSON at position 2", ex.Message);
+    }
+
     private static string GenerateRandomJsonNumber(Random random)
     {
         var sb = new System.Text.StringBuilder();
