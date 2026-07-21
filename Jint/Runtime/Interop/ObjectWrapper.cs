@@ -148,6 +148,16 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 #pragma warning disable IL2070
 #pragma warning disable IL3050
 
+            // single-rank zero-based CLR arrays (T[]) get a fixed-size live wrapper; T[] implements
+            // IList<T> and would otherwise flow into GenericListWrapper<T> below, whose growth paths
+            // call IList<T>.Add and would leak NotSupportedException from the underlying array.
+            // The MakeArrayType equality intentionally excludes multi-rank (T[,]) and non-zero-based
+            // (T[*]) arrays, which keep their previous handling.
+            if (t.IsArray && t.GetElementType() is { } elementType && t == elementType.MakeArrayType())
+            {
+                return typeof(ArrayWrapper<>).MakeGenericType(elementType);
+            }
+
             // check for generic interfaces
             foreach (var i in t.GetInterfaces())
             {
