@@ -236,8 +236,24 @@ internal static class DefaultObjectConverter
         return result is not null;
     }
 
-    private static JsArray ConvertArray(Engine e, object v)
+    private static JsValue ConvertArray(Engine e, object v)
     {
+        // The identity caches (flag-gated, both default off) also cover arrays: repeated
+        // conversions of the same CLR array instance return the same JsArray snapshot instead of
+        // re-copying every element on every property read. With the flags off each conversion
+        // still produces a fresh, independent copy. The checks must stay inside this method —
+        // _typeMappers is a static cross-engine memoization, so per-engine option state can never
+        // be baked into the memoized mapper.
+        if (e._objectWrapperCache?.TryGetValue(v, out var cached) == true)
+        {
+            return cached;
+        }
+
+        if (e._recentObjectWrapperCache?.TryGet(v) is { } recentlyConverted)
+        {
+            return recentlyConverted;
+        }
+
         var array = (Array) v;
         var arrayLength = (uint) array.Length;
 
@@ -247,7 +263,20 @@ internal static class DefaultObjectConverter
             values[i] = JsValue.FromObject(e, array.GetValue(i));
         }
 
-        return new JsArray(e, values);
+        var result = new JsArray(e, values);
+
+        if (e.Options.Interop.TrackObjectWrapperIdentity)
+        {
+            e._objectWrapperCache ??= new ConditionalWeakTable<object, ObjectInstance>();
+            e._objectWrapperCache.Add(v, result);
+        }
+        else if (e.Options.Interop.CacheRecentObjectWrappers)
+        {
+            e._recentObjectWrapperCache ??= new RecentObjectWrapperCache();
+            e._recentObjectWrapperCache.Add(v, result);
+        }
+
+        return result;
     }
 }
 
