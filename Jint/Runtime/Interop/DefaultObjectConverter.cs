@@ -254,7 +254,7 @@ internal static class DefaultObjectConverter
             return recentlyConverted;
         }
 
-        if (e.Options.Interop.ClrArrayConversion == ClrArrayConversion.LiveView
+        if (e.Options.Interop.ArrayConversion == ArrayConversionMode.LiveView
             && TryConvertArrayLiveView(e, v, out var liveView))
         {
             return liveView;

@@ -889,7 +889,13 @@ public partial class InteropTests : IDisposable
         // element descriptors are made non-writable and the array is made non-extensible, assigning to
         // an element must throw a TypeError in strict mode. Regression: it previously neither threw nor
         // assigned (the dense-write fast path bypassed the writability check).
-        var engine = new Engine(x => x.Strict());
+        // This scenario is about a copied JS array's per-element descriptors, so it pins Copy mode
+        // (the LiveView default exposes a live wrapper whose element writability is handled differently).
+        var engine = new Engine(x =>
+        {
+            x.Strict();
+            x.Interop.ArrayConversion = ArrayConversionMode.Copy;
+        });
 
         var context = new Dictionary<string, object>
         {
@@ -926,7 +932,8 @@ public partial class InteropTests : IDisposable
     {
         // Non-strict counterpart of https://github.com/sebastienros/jint/issues/2541:
         // the write to the non-writable element must be silently ignored, not applied.
-        var engine = new Engine();
+        // Pinned to Copy mode for the same reason as the strict-mode counterpart above.
+        var engine = new Engine(x => x.Interop.ArrayConversion = ArrayConversionMode.Copy);
 
         var context = new Dictionary<string, object>
         {

@@ -33,28 +33,41 @@ public class InteropWrapperChurnBenchmark
     private Engine _engineDefault = null!;
     private Engine _engineIdentity = null!;
     private Engine _engineRecentCache = null!;
-    private Engine _engineLiveView = null!;
+    private Engine _engineCopy = null!;
 
     [GlobalSetup]
     public void GlobalSetup()
     {
         var holder = new Holder(new Payload { Value = 42 });
 
+        // the out-of-the-box engine: ArrayConversion defaults to LiveView since 4.14
         _engineDefault = new Engine();
         _engineDefault.SetValue("h", holder);
         _engineDefault.Execute("h.Payload.Value");
 
-        _engineIdentity = new Engine(cfg => cfg.Interop.TrackObjectWrapperIdentity = true);
+        // the identity flags are most interesting on top of Copy, where they let the otherwise
+        // per-read deep-copied JsArray snapshot be reused across crossings (pin Copy so the array
+        // traversal rows below measure exactly that; the object-churn rows are array-mode agnostic)
+        _engineIdentity = new Engine(cfg =>
+        {
+            cfg.Interop.ArrayConversion = ArrayConversionMode.Copy;
+            cfg.Interop.TrackObjectWrapperIdentity = true;
+        });
         _engineIdentity.SetValue("h", holder);
         _engineIdentity.Execute("h.Payload.Value");
 
-        _engineRecentCache = new Engine(cfg => cfg.Interop.CacheRecentObjectWrappers = true);
+        _engineRecentCache = new Engine(cfg =>
+        {
+            cfg.Interop.ArrayConversion = ArrayConversionMode.Copy;
+            cfg.Interop.CacheRecentObjectWrappers = true;
+        });
         _engineRecentCache.SetValue("h", holder);
         _engineRecentCache.Execute("h.Payload.Value");
 
-        _engineLiveView = new Engine(cfg => cfg.Interop.ClrArrayConversion = ClrArrayConversion.LiveView);
-        _engineLiveView.SetValue("h", holder);
-        _engineLiveView.Execute("h.Payload.Value");
+        // the pre-4.14 default: every array crossing deep-copies into a fresh JsArray snapshot
+        _engineCopy = new Engine(cfg => cfg.Interop.ArrayConversion = ArrayConversionMode.Copy);
+        _engineCopy.SetValue("h", holder);
+        _engineCopy.Execute("h.Payload.Value");
     }
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
@@ -75,34 +88,33 @@ public class InteropWrapperChurnBenchmark
         for (var i = 0; i < OperationsPerInvoke; i++) _engineRecentCache.Execute("h.Payload.Value");
     }
 
-    // A CLR array member read repeatedly inside the loop: with the flags off every h.Numbers read
-    // deep-copies the array into a fresh JsArray; with either identity flag the snapshot is reused.
+    // A CLR array member read repeatedly inside the loop. Under the default (LiveView) each h.Numbers
+    // read wraps the array in a live fixed-size view without a per-read deep copy; the Copy-mode rows
+    // below deep-copy into a fresh JsArray unless an identity flag reuses the snapshot.
     private static readonly Prepared<Script> _arrayTraversal = Engine.PrepareScript(
         "var s = 0; for (var i = 0; i < 100; i++) { s += h.Numbers[i]; }");
 
     [Benchmark]
-    public void ArrayMemberTraversal_DefaultFlag()
+    public void ArrayMemberTraversal_DefaultLiveView()
     {
         _engineDefault.Execute(_arrayTraversal);
     }
 
     [Benchmark]
-    public void ArrayMemberTraversal_IdentityFlag()
+    public void ArrayMemberTraversal_CopyMode()
+    {
+        _engineCopy.Execute(_arrayTraversal);
+    }
+
+    [Benchmark]
+    public void ArrayMemberTraversal_CopyIdentityFlag()
     {
         _engineIdentity.Execute(_arrayTraversal);
     }
 
     [Benchmark]
-    public void ArrayMemberTraversal_RecentCache()
+    public void ArrayMemberTraversal_CopyRecentCache()
     {
         _engineRecentCache.Execute(_arrayTraversal);
-    }
-
-    // LiveView: each h.Numbers read wraps the array in a live fixed-size view (no per-read deep copy);
-    // without an identity flag the wrapper itself is still allocated per crossing.
-    [Benchmark]
-    public void ArrayMemberTraversal_LiveView()
-    {
-        _engineLiveView.Execute(_arrayTraversal);
     }
 }

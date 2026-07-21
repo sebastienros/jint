@@ -353,13 +353,14 @@ public class Options
         public bool CacheRecentObjectWrappers { get; set; }
 
         /// <summary>
-        /// How CLR arrays (<c>T[]</c>) are exposed to script code, defaults to <see cref="Jint.ClrArrayConversion.Copy"/>
-        /// which copies the array contents into a new JavaScript array on each conversion.
-        /// <see cref="Jint.ClrArrayConversion.LiveView"/> instead exposes single-rank arrays as live,
-        /// fixed-size wrapper views over the underlying array; see the enum members for the exact
-        /// semantic differences (write-through, identity, <c>Array.isArray</c>, resizing).
+        /// How CLR arrays (<c>T[]</c>) are exposed to script code, defaults to <see cref="Jint.ArrayConversionMode.LiveView"/>
+        /// (changed from <see cref="Jint.ArrayConversionMode.Copy"/> in 4.14), which exposes single-rank arrays as live,
+        /// fixed-size wrapper views over the underlying array — the same way wrapped <see cref="System.Collections.Generic.List{T}"/>
+        /// already behaves. <see cref="Jint.ArrayConversionMode.Copy"/> instead copies the array contents into a new
+        /// JavaScript array on each conversion; select it to preserve the pre-4.14 behavior. See the enum members for
+        /// the exact semantic differences (write-through, identity, <c>Array.isArray</c>, resizing).
         /// </summary>
-        public ClrArrayConversion ClrArrayConversion { get; set; } = ClrArrayConversion.Copy;
+        public ArrayConversionMode ArrayConversion { get; set; } = ArrayConversionMode.LiveView;
 
         /// <summary>
         /// If no known type could be guessed, objects are by default wrapped as an
@@ -733,9 +734,9 @@ public enum ExperimentalFeature
 }
 
 /// <summary>
-/// Strategy for exposing CLR arrays (<c>T[]</c>) to script code, see <see cref="Options.InteropOptions.ClrArrayConversion"/>.
+/// Strategy for exposing CLR arrays (<c>T[]</c>) to script code, see <see cref="Options.InteropOptions.ArrayConversion"/>.
 /// </summary>
-public enum ClrArrayConversion
+public enum ArrayConversionMode
 {
     /// <summary>
     /// Each conversion copies the array contents into a new JavaScript array (<c>Array.isArray</c> returns <c>true</c>).
