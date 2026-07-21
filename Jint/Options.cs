@@ -353,6 +353,15 @@ public class Options
         public bool CacheRecentObjectWrappers { get; set; }
 
         /// <summary>
+        /// How CLR arrays (<c>T[]</c>) are exposed to script code, defaults to <see cref="Jint.ClrArrayConversion.Copy"/>
+        /// which copies the array contents into a new JavaScript array on each conversion.
+        /// <see cref="Jint.ClrArrayConversion.LiveView"/> instead exposes single-rank arrays as live,
+        /// fixed-size wrapper views over the underlying array; see the enum members for the exact
+        /// semantic differences (write-through, identity, <c>Array.isArray</c>, resizing).
+        /// </summary>
+        public ClrArrayConversion ClrArrayConversion { get; set; } = ClrArrayConversion.Copy;
+
+        /// <summary>
         /// If no known type could be guessed, objects are by default wrapped as an
         /// ObjectInstance using class ObjectWrapper. This function can be used to
         /// change the behavior.
@@ -715,4 +724,32 @@ public enum ExperimentalFeature
     /// All coercion rules enabled.
     /// </summary>
     All = TaskInterop,
+}
+
+/// <summary>
+/// Strategy for exposing CLR arrays (<c>T[]</c>) to script code, see <see cref="Options.InteropOptions.ClrArrayConversion"/>.
+/// </summary>
+public enum ClrArrayConversion
+{
+    /// <summary>
+    /// Each conversion copies the array contents into a new JavaScript array (<c>Array.isArray</c> returns <c>true</c>).
+    /// Script-side mutations affect only the copy and CLR-side mutations after the conversion are not visible
+    /// through it. Each crossing produces a new independent snapshot unless
+    /// <see cref="Options.InteropOptions.TrackObjectWrapperIdentity"/> or
+    /// <see cref="Options.InteropOptions.CacheRecentObjectWrappers"/> reuses the earlier one.
+    /// </summary>
+    Copy,
+
+    /// <summary>
+    /// Single-rank arrays are exposed as live wrapper views over the underlying CLR array, the same way wrapped
+    /// <see cref="System.Collections.Generic.List{T}"/> instances already behave: element reads and writes go
+    /// straight to the array in both directions, and wrapper identity across repeated crossings follows the same
+    /// caches as other wrapped objects (<see cref="Options.InteropOptions.TrackObjectWrapperIdentity"/> /
+    /// <see cref="Options.InteropOptions.CacheRecentObjectWrappers"/>). The view is array-like — iteration,
+    /// <c>Array.prototype</c> methods and JSON serialization as an array all work — but it is not a JavaScript
+    /// array: <c>Array.isArray</c> returns <c>false</c>, and because CLR arrays are fixed-size any attempt to
+    /// resize the view (growing writes, <c>push</c>/<c>pop</c>, <c>length</c> writes) throws a <c>TypeError</c>.
+    /// Multi-dimensional arrays are not supported by the view and behave as under <see cref="Copy"/>.
+    /// </summary>
+    LiveView,
 }

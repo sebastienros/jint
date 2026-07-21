@@ -33,6 +33,7 @@ public class InteropWrapperChurnBenchmark
     private Engine _engineDefault = null!;
     private Engine _engineIdentity = null!;
     private Engine _engineRecentCache = null!;
+    private Engine _engineLiveView = null!;
 
     [GlobalSetup]
     public void GlobalSetup()
@@ -50,6 +51,10 @@ public class InteropWrapperChurnBenchmark
         _engineRecentCache = new Engine(cfg => cfg.Interop.CacheRecentObjectWrappers = true);
         _engineRecentCache.SetValue("h", holder);
         _engineRecentCache.Execute("h.Payload.Value");
+
+        _engineLiveView = new Engine(cfg => cfg.Interop.ClrArrayConversion = ClrArrayConversion.LiveView);
+        _engineLiveView.SetValue("h", holder);
+        _engineLiveView.Execute("h.Payload.Value");
     }
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
@@ -91,5 +96,13 @@ public class InteropWrapperChurnBenchmark
     public void ArrayMemberTraversal_RecentCache()
     {
         _engineRecentCache.Execute(_arrayTraversal);
+    }
+
+    // LiveView: each h.Numbers read wraps the array in a live fixed-size view (no per-read deep copy);
+    // without an identity flag the wrapper itself is still allocated per crossing.
+    [Benchmark]
+    public void ArrayMemberTraversal_LiveView()
+    {
+        _engineLiveView.Execute(_arrayTraversal);
     }
 }
