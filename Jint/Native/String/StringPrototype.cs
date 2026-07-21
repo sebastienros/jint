@@ -906,7 +906,7 @@ internal sealed partial class StringPrototype : StringInstance
     [RequireObjectCoercible]
     private static JsValue Substring(JsValue thisObject, JsCallArguments arguments)
     {
-        var s = TypeConverter.ToString(thisObject);
+        var s = TypeConverter.ToJsString(thisObject);
         var start = TypeConverter.ToNumber(arguments.At(0));
         var end = TypeConverter.ToNumber(arguments.At(1));
 
@@ -951,7 +951,7 @@ internal sealed partial class StringPrototype : StringInstance
     [RequireObjectCoercible]
     private static JsValue Substr(JsValue thisObject, JsCallArguments arguments)
     {
-        var s = TypeConverter.ToString(thisObject);
+        var s = TypeConverter.ToJsString(thisObject);
         var start = TypeConverter.ToInteger(arguments.At(0));
         var length = arguments.At(1).IsUndefined()
             ? double.PositiveInfinity
@@ -1104,53 +1104,56 @@ internal sealed partial class StringPrototype : StringInstance
 
     internal static JsValue SplitWithStringSeparator(Engine engine, Realm realm, JsValue separator, string s, uint lim)
     {
-        var segments = StringExecutionContext.Current.SplitSegmentList;
-        segments.Clear();
         var sep = TypeConverter.ToString(separator);
 
-        if (sep == string.Empty)
+        if (sep.Length == 0)
         {
-            if (s.Length > segments.Capacity)
-            {
-                segments.Capacity = s.Length;
-            }
-
-            for (var i = 0; i < s.Length; i++)
+            // split("") yields the individual UTF-16 code units. Build the result array directly at
+            // exact capacity from the cached single-char JsStrings (JsString.Create(char)), skipping
+            // the intermediate segment list and its per-char string allocations for cached chars.
+            var count = (uint) System.Math.Min((long) s.Length, lim);
+            var emptyResult = realm.Intrinsics.Array.ArrayCreate(count);
+            for (var i = 0; i < count; i++)
             {
                 if (i > 0 && i % ConstraintCheckInterval == 0)
                 {
                     engine.Constraints.Check();
                 }
 
-                segments.Add(TypeConverter.ToString(s[i]));
+                emptyResult.SetIndexValue((uint) i, JsString.Create(s[i]), updateLength: false);
             }
+
+            emptyResult.SetLength(count);
+            return emptyResult;
         }
-        else
+
+        var segments = StringExecutionContext.Current.SplitSegmentList;
+        segments.Clear();
+
+        // Direct scan instead of string.Split: avoids the throwaway result array
+        // string.Split allocates on every call, and stops scanning once lim
+        // segments have been collected. Each segment goes through CreateSliced so the
+        // retention policy decides copy vs zero-copy view against the source length.
+        var start = 0;
+        while ((uint) segments.Count < lim)
         {
-            // Direct scan instead of string.Split: avoids the throwaway result array
-            // string.Split allocates on every call, and stops scanning once lim
-            // segments have been collected.
-            var start = 0;
-            while ((uint) segments.Count < lim)
+            if (segments.Count > 0 && segments.Count % ConstraintCheckInterval == 0)
             {
-                if (segments.Count > 0 && segments.Count % ConstraintCheckInterval == 0)
-                {
-                    engine.Constraints.Check();
-                }
-
-                var index = sep.Length == 1
-                    ? s.IndexOf(sep[0], start)
-                    : s.IndexOf(sep, start, StringComparison.Ordinal);
-
-                if (index < 0)
-                {
-                    segments.Add(start == 0 ? s : s.Substring(start));
-                    break;
-                }
-
-                segments.Add(s.Substring(start, index - start));
-                start = index + sep.Length;
+                engine.Constraints.Check();
             }
+
+            var index = sep.Length == 1
+                ? s.IndexOf(sep[0], start)
+                : s.IndexOf(sep, start, StringComparison.Ordinal);
+
+            if (index < 0)
+            {
+                segments.Add(JsString.CreateSliced(s, start, s.Length - start));
+                break;
+            }
+
+            segments.Add(JsString.CreateSliced(s, start, index - start));
+            start = index + sep.Length;
         }
 
         var length = (uint) System.Math.Min(segments.Count, lim);
@@ -1245,7 +1248,9 @@ internal sealed partial class StringPrototype : StringInstance
             return s;
         }
 
-        return JsString.CreateSliced(s.ToString(), from, span);
+        // Pass the JsString receiver (not s.ToString()) so a slice of an unmaterialized view rebases
+        // onto the original backing string instead of materializing the intermediate slice.
+        return JsString.CreateSliced(s, from, span);
     }
 
     [JsFunction(Length = 1)]

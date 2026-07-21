@@ -9,13 +9,13 @@ internal sealed class StringExecutionContext
 {
     private static readonly ThreadLocal<StringExecutionContext> _executionContext = new ThreadLocal<StringExecutionContext>(() => new StringExecutionContext());
 
-    private List<string>? _splitSegmentList;
+    private List<JsString>? _splitSegmentList;
 
     private StringExecutionContext()
     {
     }
 
-    public List<string> SplitSegmentList => _splitSegmentList ??= new List<string>();
+    public List<JsString> SplitSegmentList => _splitSegmentList ??= new List<JsString>();
 
     public static StringExecutionContext Current => _executionContext.Value!;
 }
