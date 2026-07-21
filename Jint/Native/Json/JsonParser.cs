@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Runtime.CompilerServices;
@@ -150,12 +151,6 @@ public sealed class JsonParser
                (ch == '\t') ||
                (ch == '\n') ||
                (ch == '\r');
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsLineTerminator(char ch)
-    {
-        return (ch == 10) || (ch == 13) || (ch == 0x2028) || (ch == 0x2029);
     }
 
     private char ScanHexEscape()
@@ -316,6 +311,17 @@ public sealed class JsonParser
         {
             value = JsNumber.Create(longResult);
         }
+#if NET8_0_OR_GREATER
+        else if (TryParseDecimalFast(number.AsSpan(), out var fastValue))
+        {
+            // Bit-identical to the double.Parse fallback below for every shape it accepts (proven by
+            // JsonTests.NumberFastPath*); the constructor keeps the Types.Number tagging the
+            // double.Parse path produces. Gated to net8+ because only there is double.Parse guaranteed
+            // to be IEEE correctly-rounded — on the legacy runtimes it can differ by an ULP, so we keep
+            // deferring to it to stay byte-for-byte identical to the pre-existing behavior.
+            value = new JsNumber(fastValue);
+        }
+#endif
         else
         {
             value = new JsNumber(double.Parse(number, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent, CultureInfo.InvariantCulture));
@@ -323,6 +329,105 @@ public sealed class JsonParser
 
         return CreateToken(Tokens.Number, number, '\0', value, new TextRange(start, _index));
     }
+
+#if NET8_0_OR_GREATER
+    // Exact power-of-ten scaling factors for the fraction fast path. 10^0..10^15 are all exactly
+    // representable doubles (each significand fits in 53 bits), so dividing an exact long numerator
+    // (&lt; 10^15 &lt; 2^53) by one of these yields the correctly-rounded quotient — bit-identical to
+    // double.Parse on the same text (see JsonTests.NumberFastPath*). The fraction path only ever indexes
+    // 0..14 (at least one integer digit is required), the extra slots are headroom.
+    private static readonly double[] PowersOf10 =
+    {
+        1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7,
+        1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15,
+    };
+
+    /// <summary>
+    /// Fast path for the dominant JSON number shape: an optional leading '-', integer digits, an
+    /// optional '.fraction' and NO exponent, with at most 15 total digits. Every digit is accumulated
+    /// into a single exact <see cref="long"/> numerator which is divided once by an exact power of ten,
+    /// avoiding the general floating-point parse. Returns <see langword="false"/> — deferring to
+    /// <c>double.Parse</c> — for anything outside that shape (an exponent, a 16th significant digit, or
+    /// any unexpected trailing character). The result is bit-identical to <c>double.Parse</c> for every
+    /// accepted input because both operands of the division are exactly representable.
+    /// </summary>
+    private static bool TryParseDecimalFast(ReadOnlySpan<char> text, out double result)
+    {
+        result = 0;
+        var len = text.Length;
+        var i = 0;
+
+        var negative = false;
+        if (len > 0 && text[0] == '-')
+        {
+            negative = true;
+            i = 1;
+        }
+
+        long mantissa = 0;
+        var totalDigits = 0;
+        var intDigits = 0;
+        while (i < len)
+        {
+            var c = text[i];
+            if (!IsDecimalDigit(c))
+            {
+                break;
+            }
+            if (totalDigits == 15)
+            {
+                return false; // more significant digits than the exact long numerator can hold
+            }
+            mantissa = mantissa * 10 + (c - '0');
+            totalDigits++;
+            intDigits++;
+            i++;
+        }
+
+        if (intDigits == 0)
+        {
+            return false; // no integer digit (e.g. a lone '.') — let the general path handle it
+        }
+
+        var fractionDigits = 0;
+        if (i < len && text[i] == '.')
+        {
+            i++;
+            while (i < len)
+            {
+                var c = text[i];
+                if (!IsDecimalDigit(c))
+                {
+                    break;
+                }
+                if (totalDigits == 15)
+                {
+                    return false;
+                }
+                mantissa = mantissa * 10 + (c - '0');
+                totalDigits++;
+                fractionDigits++;
+                i++;
+            }
+        }
+
+        if (i != len)
+        {
+            return false; // exponent or other trailing character — not covered by the fast path
+        }
+
+        if (negative && mantissa == 0)
+        {
+            // Negative zero ("-0", "-0.0", ...): defer to double.Parse so the sign of zero always comes
+            // from the platform parser rather than being synthesized here.
+            return false;
+        }
+
+        var value = fractionDigits == 0 ? (double) mantissa : (double) mantissa / PowersOf10[fractionDigits];
+        result = negative ? -value : value;
+        return true;
+    }
+#endif
 
     private Token ScanBooleanLiteral()
     {
@@ -366,22 +471,93 @@ public sealed class JsonParser
         return null!;
     }
 
+#if NET8_0_OR_GREATER
+    // Characters that terminate a bulk string-content run: the closing quote, the escape backslash,
+    // every control character (< 0x20, which JSON forbids unescaped) and the two Unicode line
+    // separators the original char-by-char scanner treated as terminators. IndexOfAny over this set
+    // finds the first such character exactly where the per-char loop would have stopped.
+    private static readonly SearchValues<char> JsonStringStopChars = CreateStringStopChars();
+
+    private static SearchValues<char> CreateStringStopChars()
+    {
+        Span<char> stops = stackalloc char[36];
+        for (var i = 0; i < 32; i++)
+        {
+            stops[i] = (char) i;
+        }
+        stops[32] = '"';
+        stops[33] = '\\';
+        stops[34] = '\u2028';
+        stops[35] = '\u2029';
+        return SearchValues.Create(stops);
+    }
+#else
+    // Portable fallback: the vectorized IndexOfAny locates the next quote/backslash, then we make sure
+    // no control character (< 0x20) or line separator (U+2028/U+2029) appears earlier, so the returned
+    // index matches the NET8 SearchValues path (and the original per-char scanner).
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int IndexOfStringStop(ReadOnlySpan<char> span)
+    {
+        var qb = span.IndexOfAny('"', '\\');
+        var limit = qb < 0 ? span.Length : qb;
+        for (var i = 0; i < limit; i++)
+        {
+            var c = span[i];
+            if (c < ' ' || c == '\u2028' || c == '\u2029')
+            {
+                return i;
+            }
+        }
+        return qb;
+    }
+#endif
+
     private Token ScanStringLiteral(ref State state, bool isPropertyKey)
     {
         char quote = _source[_index];
         int start = _index;
         ++_index;
 
+        var source = _source;
+        var length = _length;
+
         using var sb = new ValueStringBuilder(stackalloc char[64]);
         var scanned = 0;
-        while (_index < _length)
+        while (_index < length)
         {
-            if (++scanned % ConstraintCheckInterval == 0)
+            // Bulk fast path: copy the run of ordinary characters up to the next quote, backslash,
+            // control character (< 0x20) or Unicode line separator in one shot. The search lands on
+            // exactly the character the original per-char loop would have stopped at, so escapes and
+            // every error position are preserved byte-for-byte.
+            var remaining = source.AsSpan(_index, length - _index);
+#if NET8_0_OR_GREATER
+            var stop = remaining.IndexOfAny(JsonStringStopChars);
+#else
+            var stop = IndexOfStringStop(remaining);
+#endif
+            if (stop < 0)
             {
+                // No closing quote (and no special character) remains: unterminated literal, reported
+                // below at position == length just like the original scanner.
+                _index = length;
+                break;
+            }
+
+            scanned += stop + 1;
+            if (scanned >= ConstraintCheckInterval)
+            {
+                scanned = 0;
                 _engine.Constraints.Check();
             }
 
-            char ch = _source[_index++];
+            if (stop > 0)
+            {
+                sb.Append(remaining.Slice(0, stop));
+            }
+
+            var pos = _index + stop;
+            char ch = source[pos];
+            _index = pos + 1;
 
             if (ch == quote)
             {
@@ -391,12 +567,12 @@ public sealed class JsonParser
 
             if (ch <= 31)
             {
-                ThrowError(_index - 1, Messages.InvalidCharacter);
+                ThrowError(pos, Messages.InvalidCharacter);
             }
 
             if (ch == '\\')
             {
-                ch = _source.CharCodeAt(_index++);
+                ch = source.CharCodeAt(_index++);
 
                 switch (ch)
                 {
@@ -432,13 +608,11 @@ public sealed class JsonParser
                         break;
                 }
             }
-            else if (IsLineTerminator(ch))
-            {
-                break;
-            }
             else
             {
-                sb.Append(ch);
+                // Unicode line separator (U+2028 / U+2029): the original char-by-char scanner breaks
+                // here with the quote still open, which surfaces as UnexpectedEOS at _index below.
+                break;
             }
         }
 
