@@ -109,9 +109,10 @@ internal sealed class MethodInfoFunction : Function
         }
     }
 
-    private static MethodBase ResolveMethod(MethodBase method, ParameterInfo[] methodParameters, JsCallArguments arguments)
+    private static MethodBase ResolveMethod(MethodDescriptor descriptor, ParameterInfo[] methodParameters, JsCallArguments arguments)
     {
-        if (!method.IsGenericMethod)
+        var method = descriptor.Method;
+        if (!descriptor.IsGenericMethod)
         {
             return method;
         }
@@ -167,10 +168,42 @@ internal sealed class MethodInfoFunction : Function
             var arguments = ArgumentProvider(method, state);
             if (arguments.Length <= parameterInfos.Length
                 && arguments.Length >= parameterInfos.Length - method.ParameterDefaultValuesCount
-                && CanBindNullArguments(parameterInfos, arguments)
-                && TryCall(method, arguments, thisObj, converter, out var fastResult))
+                && CanBindNullArguments(parameterInfos, arguments))
             {
-                return fastResult;
+#if NET8_0_OR_GREATER
+                // exact-type fast lane: a compiled delegate binds and invokes without the object?[]
+                // parameter array, argument boxes, boxed return, and return-mapper lookup. Skipped
+                // when custom object converters are registered because those must see return values.
+                if (_engine._objectConverters is null && method.GetCompiledInvoker() is { } compiledInvoker)
+                {
+                    JsValue compiledResult = null!;
+                    bool handled;
+                    try
+                    {
+                        handled = compiledInvoker(thisObj, arguments, out compiledResult);
+                    }
+                    catch (Exception exception)
+                    {
+                        // the target method threw; surface it exactly like the reflection path, which
+                        // normalizes non-TargetInvocationException throws to TargetInvocationException
+                        _engine.CheckAmortizedConstraintsAtHostBoundary();
+                        var normalized = exception as TargetInvocationException ?? new TargetInvocationException(exception);
+                        Throw.MeaningfulException(_engine, normalized);
+                        throw; // unreachable, MeaningfulException does not return
+                    }
+
+                    if (handled)
+                    {
+                        _engine.CheckAmortizedConstraintsAtHostBoundary();
+                        return compiledResult;
+                    }
+                    // declined (non-exact argument) - fall through to the full binding path
+                }
+#endif
+                if (TryCall(method, arguments, thisObj, converter, out var fastResult))
+                {
+                    return fastResult;
+                }
             }
         }
         else
@@ -245,11 +278,13 @@ internal sealed class MethodInfoFunction : Function
         callResult = null;
 
         var methodParameters = method.Parameters;
-        var resolvedMethod = ResolveMethod(method.Method, methodParameters, arguments);
+        var resolvedMethod = ResolveMethod(method, methodParameters, arguments);
         // We only need to call GetParameters it if this ends up being a generic method (i.e. they will be different in that scenario)
         var isGenericDefinition = false;
         var parameterFlags = method.ParameterFlags;
-        if (resolvedMethod.IsGenericMethod)
+        // when the descriptor is not generic, resolvedMethod is the (non-generic) descriptor method,
+        // so the cached flag lets us skip the resolvedMethod.IsGenericMethod reflection call
+        if (method.IsGenericMethod)
         {
             // the resolved parameters differ from the descriptor's, re-classify them
             methodParameters = resolvedMethod.GetParameters();

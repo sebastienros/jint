@@ -15,6 +15,9 @@ internal sealed class MethodDescriptor
         Method = method;
         Parameters = method.GetParameters();
         IsExtensionMethod = method.IsDefined(typeof(ExtensionAttribute), true);
+        // MethodBase.IsGenericMethod ends up in RuntimeMethodHandle::HasMethodInstantiation, a
+        // non-trivial reflection call; cache it so the per-call binding path never pays for it.
+        IsGenericMethod = method.IsGenericMethod;
 
         foreach (var parameter in Parameters)
         {
@@ -42,6 +45,12 @@ internal sealed class MethodDescriptor
     public bool HasParams { get; }
     public int ParameterDefaultValuesCount { get; }
     public bool IsExtensionMethod { get; }
+
+    /// <summary>
+    /// Cached <see cref="MethodBase.IsGenericMethod"/> — the reflection property is a per-call
+    /// hotspot in argument binding, so it is computed once in the constructor.
+    /// </summary>
+    public bool IsGenericMethod { get; }
 
     /// <summary>
     /// Facts about each parameter type that argument binding consults on every call — computed
@@ -73,6 +82,45 @@ internal sealed class MethodDescriptor
     // lazily initialized fast invokers, benign race - last writer wins
     private MethodInvoker? _methodInvoker;
     private ConstructorInvoker? _constructorInvoker;
+
+    // lazily built strongly-typed invoker for the exact-type numeric/string/bool fast lane,
+    // benign race - last writer wins. Once _compiledInvokerUnavailable is set the method is
+    // permanently ineligible (or the runtime cannot JIT the lambda) and we never retry.
+    private CompiledMethodInvoker.Invoker? _compiledInvoker;
+    private bool _compiledInvokerUnavailable;
+
+    /// <summary>
+    /// Returns a compiled delegate that binds and invokes this method without the per-call
+    /// <c>object?[]</c> parameter array, argument boxing, boxed return, and return-mapper lookup —
+    /// or <see langword="null"/> when the method is ineligible or the runtime cannot compile the
+    /// delegate to native code. Only usable for single-candidate call sites.
+    /// </summary>
+    internal CompiledMethodInvoker.Invoker? GetCompiledInvoker()
+    {
+        if (_compiledInvoker is { } invoker)
+        {
+            return invoker;
+        }
+
+        if (_compiledInvokerUnavailable)
+        {
+            return null;
+        }
+
+        // Build the delegate ONLY when the runtime will JIT it to native code. Under AOT and under
+        // an interpreted-only Expression.Compile (e.g. Mono interpreter) IsDynamicCodeCompiled is
+        // false, and an interpreted lambda is slower than the cached MethodInvoker reflection path,
+        // so we decline and keep that path.
+        if (!System.Runtime.CompilerServices.RuntimeFeature.IsDynamicCodeCompiled
+            || !CompiledMethodInvoker.TryBuild(this, out var built))
+        {
+            _compiledInvokerUnavailable = true;
+            return null;
+        }
+
+        _compiledInvoker = built;
+        return built;
+    }
 #endif
 
     /// <summary>
@@ -170,12 +218,12 @@ internal sealed class MethodDescriptor
         static int CreateComparison(MethodDescriptor d1, MethodDescriptor d2)
         {
             // if its a generic method, put it on the end
-            if (d1.Method.IsGenericMethod && !d2.Method.IsGenericMethod)
+            if (d1.IsGenericMethod && !d2.IsGenericMethod)
             {
                 return 1;
             }
 
-            if (d2.Method.IsGenericMethod && !d1.Method.IsGenericMethod)
+            if (d2.IsGenericMethod && !d1.IsGenericMethod)
             {
                 return -1;
             }
