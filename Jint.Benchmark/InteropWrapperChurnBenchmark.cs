@@ -100,6 +100,17 @@ public class InteropWrapperChurnBenchmark
         _engineDefault.Execute(_arrayTraversal);
     }
 
+    // The README-recommended pattern: hoist the collection into a local so the wrapper is created
+    // once and the loop measures pure element-read cost (index dispatch + item conversion).
+    private static readonly Prepared<Script> _arrayHoistedTraversal = Engine.PrepareScript(
+        "var arr = h.Numbers; var s = 0; for (var pass = 0; pass < 100; pass++) { for (var i = 0; i < 100; i++) { s += arr[i]; } }");
+
+    [Benchmark]
+    public void ArrayHoistedTraversal_DefaultLiveView()
+    {
+        _engineDefault.Execute(_arrayHoistedTraversal);
+    }
+
     [Benchmark]
     public void ArrayMemberTraversal_CopyMode()
     {
