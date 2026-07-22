@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using Jint.Extensions;
 using Jint.Native;
+using Jint.Native.Array;
 
 namespace Jint.Runtime.Interop;
 
@@ -37,13 +38,22 @@ internal sealed class ReadOnlyListWrapperFactory<[DynamicallyAccessedMembers(Dyn
 
 internal abstract class ArrayLikeWrapper : ObjectWrapper
 {
+    /// <summary>
+    /// Whether indexed element access can execute user CLR code (a custom IList/IReadOnlyList
+    /// implementation). Plain memory-backed targets (T[], List&lt;T&gt;) skip the host-boundary
+    /// constraint probe on the per-element hot path.
+    /// </summary>
+    private readonly bool _elementAccessMayRunHostCode;
+
     protected ArrayLikeWrapper(
         Engine engine,
         object obj,
         Type itemType,
-        Type? type = null) : base(engine, obj, type)
+        Type? type,
+        bool elementAccessMayRunHostCode) : base(engine, obj, type)
     {
         ItemType = itemType;
+        _elementAccessMayRunHostCode = elementAccessMayRunHostCode;
         if (engine.Options.Interop.AttachArrayPrototype)
         {
             Prototype = engine.Intrinsics.Array.PrototypeObject;
@@ -59,9 +69,19 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
     {
         if (property.IsInteger())
         {
-            var result = GetJsValueAt(property.AsInteger());
-            _engine.CheckAmortizedConstraintsAtHostBoundary();
-            return result;
+            var index = property.AsInteger();
+            if ((uint) index < (uint) Length)
+            {
+                var result = GetJsValueAt(index);
+                if (_elementAccessMayRunHostCode)
+                {
+                    _engine.CheckAmortizedConstraintsAtHostBoundary();
+                }
+                return result;
+            }
+
+            // out-of-range and negative indices read like JS array holes
+            return Undefined;
         }
 
         return base.Get(property, receiver);
@@ -69,16 +89,38 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
 
     public sealed override bool HasProperty(JsValue property)
     {
+        // dictionary-shaped targets (e.g. Newtonsoft's JObject: both IDictionary<string,_> and IList<_>)
+        // answer membership by key, not by index range
+        if (_typeDescriptor.IsDictionary)
+        {
+            return base.HasProperty(property);
+        }
+
         if (property.IsNumber())
         {
             var value = ((JsNumber) property)._value;
             if (TypeConverter.IsIntegralNumber(value))
             {
-                var index = (int) value;
-                if (Target is ICollection collection && index < collection.Count)
-                {
-                    return true;
-                }
+                // numeric membership of an array-like view is exactly the index range [0, Length);
+                // falling through would consult the reflected indexer, which reports presence for
+                // any parseable index (so e.g. "-1 in view" would be true). Compare as double so a
+                // negative or out-of-int-range index can never alias into range.
+                return value >= 0 && value < Length;
+            }
+        }
+        else if (property is JsString jsString)
+        {
+            var str = jsString.ToString();
+            var index = ArrayInstance.ParseArrayIndex(str);
+            if (index != uint.MaxValue)
+            {
+                return index < (uint) Length;
+            }
+            // an integer-shaped but non-canonical key ("-1", "08") is not a member of the view
+            // either, and must not fall through to the reflected indexer's presence-only answer
+            if (long.TryParse(str, NumberStyles.Integer, CultureInfo.InvariantCulture, out _))
+            {
+                return false;
             }
         }
 
@@ -338,7 +380,7 @@ internal sealed class ListWrapper : ArrayLikeWrapper
     private readonly IList? _list;
 
     internal ListWrapper(Engine engine, IList target, Type type)
-        : base(engine, target, typeof(object), type)
+        : base(engine, target, typeof(object), type, elementAccessMayRunHostCode: target is not (Array or ArrayList))
     {
         _list = target;
     }
@@ -375,7 +417,7 @@ internal class GenericListWrapper<[DynamicallyAccessedMembers(DynamicallyAccesse
     private readonly IList<T> _list;
 
     public GenericListWrapper(Engine engine, IList<T> target, Type? type)
-        : base(engine, target, typeof(T), type)
+        : base(engine, target, typeof(T), type, elementAccessMayRunHostCode: target is not (T[] or List<T>))
     {
         _list = target;
     }
@@ -400,8 +442,8 @@ internal class GenericListWrapper<[DynamicallyAccessedMembers(DynamicallyAccesse
             return TryConvertCommonItem(ref item) ?? FromObject(_engine, item);
         }
 
-        // preserve the out-of-range result of the boxing path (null → JS null)
-        return base.GetJsValueAt(index);
+        // defensive: callers bounds-check; out-of-range reads like a JS array hole
+        return Undefined;
     }
 
     protected override void DoSetAt(int index, object? value) => _list[index] = (T) value!;
@@ -429,7 +471,7 @@ internal sealed class ArrayWrapper<[DynamicallyAccessedMembers(DynamicallyAccess
     private readonly T[] _array;
 
     public ArrayWrapper(Engine engine, T[] target, Type? type)
-        : base(engine, target, typeof(T), type)
+        : base(engine, target, typeof(T), type, elementAccessMayRunHostCode: false)
     {
         _array = target;
     }
@@ -458,8 +500,8 @@ internal sealed class ArrayWrapper<[DynamicallyAccessedMembers(DynamicallyAccess
             return TryConvertCommonItem(ref item) ?? FromObject(_engine, item);
         }
 
-        // preserve the out-of-range result of the boxing path (null → JS null)
-        return base.GetJsValueAt(index);
+        // defensive: callers bounds-check; out-of-range reads like a JS array hole
+        return Undefined;
     }
 
     protected override void DoSetAt(int index, object? value)
@@ -495,7 +537,8 @@ internal sealed class ReadOnlyListWrapper<[DynamicallyAccessedMembers(Dynamicall
 {
     private readonly IReadOnlyList<T> _list;
 
-    public ReadOnlyListWrapper(Engine engine, IReadOnlyList<T> target, Type type) : base(engine, target, typeof(T), type)
+    public ReadOnlyListWrapper(Engine engine, IReadOnlyList<T> target, Type type)
+        : base(engine, target, typeof(T), type, elementAccessMayRunHostCode: target is not (T[] or List<T>))
     {
         _list = target;
     }
@@ -520,8 +563,8 @@ internal sealed class ReadOnlyListWrapper<[DynamicallyAccessedMembers(Dynamicall
             return TryConvertCommonItem(ref item) ?? FromObject(_engine, item);
         }
 
-        // preserve the out-of-range result of the boxing path (null → JS null)
-        return base.GetJsValueAt(index);
+        // defensive: callers bounds-check; out-of-range reads like a JS array hole
+        return Undefined;
     }
 
     protected override bool CanWrite => false;

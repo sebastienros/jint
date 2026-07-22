@@ -2269,6 +2269,11 @@ public sealed partial class Engine : IDisposable
 
     public void Dispose()
     {
+        // the recent-wrapper ring (on by default since 4.14) strongly roots its targets and wrappers,
+        // so a disposed-but-still-referenced engine must release them
+        _recentObjectWrapperCache?.Clear();
+        _recentObjectWrapperCache = null;
+
         if (_objectWrapperCache is null)
         {
             return;

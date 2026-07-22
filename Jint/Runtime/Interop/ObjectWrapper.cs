@@ -586,6 +586,19 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                 }
             }
         }
+        else if (includeStrings && this is ArrayLikeWrapper arrayLike)
+        {
+            // array-like views enumerate like JS arrays: index keys, not reflected CLR member names —
+            // Object.keys / for-in / spread over a wrapped array or list must yield "0".."n-1"
+            // (members like Length or Count stay accessible, they just don't enumerate). Dictionary-shaped
+            // targets (e.g. Newtonsoft's JObject, which is both IDictionary<string,_> and IList<_>)
+            // are handled by the dictionary branches above.
+            var length = arrayLike.Length;
+            for (var i = 0; i < length; i++)
+            {
+                yield return JsString.Create(i);
+            }
+        }
         else if (includeStrings)
         {
             var interopOptions = _engine.Options.Interop;

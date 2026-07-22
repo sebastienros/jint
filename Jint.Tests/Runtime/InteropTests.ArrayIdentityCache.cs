@@ -1,3 +1,5 @@
+using Jint.Runtime.Interop;
+
 namespace Jint.Tests.Runtime;
 
 public partial class InteropTests
@@ -57,5 +59,40 @@ public partial class InteropTests
         engine.SetValue("host", new ArrayConversionHost());
 
         Assert.True(engine.Evaluate("host.Numbers === host.Numbers").AsBoolean());
+    }
+
+    [Fact]
+    public void IdentityMapHandlesExposedTypeChangeForArrays()
+    {
+        // the identity map may hold a wrapper for a different exposed view of the same array;
+        // a type-guard miss must replace the entry (last view wins), not throw on Add
+        var engine = new Engine(options =>
+        {
+            options.Interop.TrackObjectWrapperIdentity = true;
+            options.Interop.WrapObjectHandler = static (e, target, type) =>
+                ObjectWrapper.Create(e, target, target is int[] ? typeof(System.Collections.IList) : type);
+        });
+
+        var array = new[] { 1, 2, 3 };
+        engine.SetValue("a", array);
+        Assert.Equal(1, engine.Evaluate("a[0]").AsNumber());
+
+        engine.Options.Interop.WrapObjectHandler = static (e, target, type) => ObjectWrapper.Create(e, target, type);
+        engine.SetValue("b", array);
+        Assert.Equal(1, engine.Evaluate("b[0]").AsNumber());
+    }
+
+    [Fact]
+    public void DisposeReleasesRecentWrapperCache()
+    {
+        // the recent-wrapper ring is on by default and strongly roots its targets;
+        // Dispose must release them even when the opt-in identity map was never created
+        var engine = new Engine();
+        engine.SetValue("host", new ArrayConversionHost());
+        engine.Evaluate("host.Numbers[0]");
+        Assert.NotNull(engine._recentObjectWrapperCache);
+
+        engine.Dispose();
+        Assert.Null(engine._recentObjectWrapperCache);
     }
 }

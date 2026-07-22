@@ -335,9 +335,10 @@ public class Options
         /// <summary>
         /// Whether identity map is persisted for object wrappers in order to maintain object identity. This can cause
         /// memory usage to grow when targeting large set and freeing of memory can be delayed due to ConditionalWeakTable semantics.
-        /// Also covers CLR arrays: repeated conversions of the same array instance return the same JsArray snapshot
-        /// (script-side mutations persist across reads; CLR-side mutations after the first conversion are not re-copied)
-        /// instead of copying every element on every read.
+        /// Also covers CLR arrays: repeated conversions of the same array instance return the same result — the live
+        /// wrapper view under <see cref="ArrayConversionMode.LiveView"/> (the default), or the same JsArray snapshot
+        /// under <see cref="ArrayConversionMode.Copy"/> (script-side mutations persist across reads; CLR-side mutations
+        /// after the first conversion are not re-copied) — instead of re-converting on every read.
         /// Defaults to false.
         /// </summary>
         public bool TrackObjectWrapperIdentity { get; set; }
@@ -757,11 +758,19 @@ public enum ArrayConversionMode
     /// <see cref="System.Collections.Generic.List{T}"/> instances already behave: element reads and writes go
     /// straight to the array in both directions, and wrapper identity across repeated crossings follows the same
     /// caches as other wrapped objects (<see cref="Options.InteropOptions.TrackObjectWrapperIdentity"/> /
-    /// <see cref="Options.InteropOptions.CacheRecentObjectWrappers"/>). The view is array-like — iteration,
-    /// <c>Array.prototype</c> methods and JSON serialization as an array all work — but it is not a JavaScript
-    /// array: <c>Array.isArray</c> returns <c>false</c>, and because CLR arrays are fixed-size any attempt to
-    /// resize the view (growing writes, <c>push</c>/<c>pop</c>, <c>length</c> writes) throws a <c>TypeError</c>.
+    /// <see cref="Options.InteropOptions.CacheRecentObjectWrappers"/>). An array crossing under a non-array
+    /// declared type keeps honoring that contract (for example a member typed <c>IReadOnlyList&lt;T&gt;</c>
+    /// produces a read-only view).
+    /// <para>
+    /// The view is array-like — iteration, <c>Array.prototype</c> methods, index-key enumeration
+    /// (<c>Object.keys</c> / <c>for-in</c>), out-of-range reads yielding <c>undefined</c> and JSON
+    /// serialization as an array all work — but it is not a JavaScript array: <c>Array.isArray</c> returns
+    /// <c>false</c> (while <c>instanceof Array</c> is <c>true</c> through the attached prototype), and because
+    /// CLR arrays are fixed-size the view behaves like an integer-indexed exotic object: resizing attempts
+    /// (growing writes, <c>push</c>/<c>pop</c>, <c>length</c> writes) throw a <c>TypeError</c>, and like for
+    /// typed arrays, <c>shift</c>/<c>splice</c> may move elements before their length change throws.
     /// Multi-dimensional arrays are not supported by the view and behave as under <see cref="Copy"/>.
+    /// </para>
     /// </summary>
     LiveView,
 }

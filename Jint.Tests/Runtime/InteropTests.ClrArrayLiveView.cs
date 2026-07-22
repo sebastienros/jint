@@ -65,9 +65,95 @@ public partial class InteropTests
         Assert.Equal(8, engine.Evaluate("intList[1]").AsNumber());
         Assert.True(engine.Evaluate("stringList[1] === null").AsBoolean());
 
-        // out-of-range keeps the general converter's result
-        Assert.True(engine.Evaluate("ints[99] === null").AsBoolean());
-        Assert.True(engine.Evaluate("intList[99] === null").AsBoolean());
+        // out-of-range and negative indices read like JS array holes
+        Assert.True(engine.Evaluate("ints[99] === undefined").AsBoolean());
+        Assert.True(engine.Evaluate("ints[-1] === undefined").AsBoolean());
+        Assert.True(engine.Evaluate("intList[99] === undefined").AsBoolean());
+    }
+
+    [Fact]
+    public void LiveViewHonorsNonArrayDeclaredType()
+    {
+        var engine = new Engine();
+        var host = new ReadOnlyDeclaredArrayHolder();
+        engine.SetValue("h", host);
+
+        // reads are live views over the underlying array
+        Assert.Equal(2, engine.Evaluate("h.Data[1]").AsNumber());
+        host.Mutate(1, 42);
+        Assert.Equal(42, engine.Evaluate("h.Data[1]").AsNumber());
+
+        // an array exposed under a read-only declared type must not produce a writable view
+        engine.Evaluate("h.Data[0] = 99;");
+        Assert.Equal(1, host.Raw[0]);
+        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("'use strict'; h.Data[0] = 99;"));
+        Assert.Contains("read only", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(1, host.Raw[0]);
+    }
+
+    private class ReadOnlyDeclaredArrayHolder
+    {
+        private readonly int[] _data = [1, 2, 3];
+        public IReadOnlyList<int> Data => _data;
+        public int[] Raw => _data;
+        public void Mutate(int index, int value) => _data[index] = value;
+    }
+
+    [Fact]
+    public void ArrayUnderNonArrayDeclaredTypeDoesNotPoisonTypeMapper()
+    {
+        // the static type-mapper memoization must not register the array lane under a non-array
+        // declared type: a later non-array value of the same declared type would hit an
+        // InvalidCastException — and poison every engine in the process
+        var engine = new Engine();
+        engine.SetValue("a", new EnumerableHolder { Data = [1] });
+        Assert.Equal(1, engine.Evaluate("a.Data[0]").AsNumber());
+
+        engine.SetValue("b", new EnumerableHolder { Data = new List<int> { 2 } });
+        Assert.Equal(2, engine.Evaluate("b.Data[0]").AsNumber());
+    }
+
+    private class EnumerableHolder
+    {
+        public IEnumerable<int> Data { get; set; }
+    }
+
+    [Fact]
+    public void InOperatorMatchesJsArraySemantics()
+    {
+        var engine = new Engine();
+        engine.SetValue("a", new[] { 1, 2, 3 });
+        engine.SetValue("l", new List<int> { 1, 2, 3 });
+
+        Assert.True(engine.Evaluate("0 in a").AsBoolean());
+        Assert.True(engine.Evaluate("2 in a").AsBoolean());
+        Assert.False(engine.Evaluate("3 in a").AsBoolean());
+        Assert.False(engine.Evaluate("-1 in a").AsBoolean());
+        Assert.False(engine.Evaluate("'-1' in a").AsBoolean());
+        Assert.False(engine.Evaluate("4000000000 in a").AsBoolean());
+        Assert.True(engine.Evaluate("'1' in a").AsBoolean());
+        Assert.False(engine.Evaluate("'08' in a").AsBoolean());
+
+        Assert.True(engine.Evaluate("0 in l").AsBoolean());
+        Assert.False(engine.Evaluate("3 in l").AsBoolean());
+        Assert.False(engine.Evaluate("-1 in l").AsBoolean());
+    }
+
+    [Fact]
+    public void KeyEnumerationYieldsIndexKeys()
+    {
+        var engine = new Engine();
+        engine.SetValue("a", new[] { 1, 2, 3 });
+        engine.SetValue("l", new List<string> { "x", "y" });
+
+        Assert.Equal("0,1,2", engine.Evaluate("Object.keys(a).join()").AsString());
+        Assert.Equal("0,1", engine.Evaluate("Object.keys(l).join()").AsString());
+        Assert.Equal("0,1,2", engine.Evaluate("var s=[];for(var k in a)s.push(k);s.join()").AsString());
+        Assert.Equal("1,2,3", engine.Evaluate("Object.values(a).join()").AsString());
+        Assert.Equal("""{"0":1,"1":2,"2":3}""", engine.Evaluate("JSON.stringify({...a})").AsString());
+
+        // members stay accessible even though they no longer enumerate
+        Assert.Equal(3, engine.Evaluate("a.length").AsNumber());
     }
 
     private static Engine CreateCopyEngine(Action<Options> additionalConfiguration = null)
