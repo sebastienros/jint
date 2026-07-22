@@ -200,4 +200,59 @@ public class InteropCompiledInvokerTests
             return false;
         }
     }
+
+    [Fact]
+    public void CustomTypeConverterStillIntercepts()
+    {
+        // a user-installed ITypeConverter participates in some exact-type argument conversions on
+        // the slow path (e.g. bool); the fast lane must decline so it keeps being consulted
+        var engine = new Engine(options => options.SetTypeConverter(e => new BoolVetoingTypeConverter(e)));
+        engine.SetValue("host", new Host());
+
+        var ex = Assert.Throws<Jint.Runtime.JavaScriptException>(() => engine.Evaluate("host.And(true, true)"));
+        Assert.Contains("No public methods", ex.Message);
+
+        // conversions the veto does not touch keep working
+        Assert.Equal(5, engine.Evaluate("host.AddInt(2, 3)").AsNumber());
+    }
+
+    private sealed class BoolVetoingTypeConverter : Jint.Runtime.Interop.DefaultTypeConverter
+    {
+        public BoolVetoingTypeConverter(Engine engine) : base(engine)
+        {
+        }
+
+        public override bool TryConvert(object? value, Type type, IFormatProvider formatProvider, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out object? converted)
+        {
+            if (type == typeof(bool))
+            {
+                converted = null;
+                return false;
+            }
+
+            return base.TryConvert(value, type, formatProvider, out converted);
+        }
+    }
+
+    [Fact]
+    public void WrongTypedThisSurfacesReflectionPathException()
+    {
+        // an extracted method invoked with a foreign receiver must decline the fast lane so the
+        // host observes the same TargetException the reflection path always produced (not the
+        // compiled cast's InvalidCastException) — ExceptionHandler predicates key on the type
+        var engine = new Engine(options => options.Interop.ExceptionHandler = _ => false);
+        engine.SetValue("host", new Host());
+        engine.SetValue("other", new OtherHost());
+
+        var ex = Assert.ThrowsAny<Exception>(() => engine.Evaluate("var f = host.TimesTwo; f.call(other, 21)"));
+        Assert.IsAssignableFrom<System.Reflection.TargetException>(ex);
+
+        // a correctly-typed extracted call still uses the fast lane and works
+        Assert.Equal(42, engine.Evaluate("var g = host.TimesTwo; g.call(host, 21)").AsNumber());
+    }
+
+    public sealed class OtherHost
+    {
+        public int Unrelated => 1;
+    }
 }
