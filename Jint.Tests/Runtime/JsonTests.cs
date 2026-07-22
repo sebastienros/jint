@@ -657,17 +657,60 @@ public class JsonTests
     }
 
     [Fact]
-    public void BulkScanPreservesUnicodeLineSeparatorTermination()
+    public void UnicodeLineSeparatorsAreValidInsideStrings()
     {
-        // U+2028 / U+2029 terminate the string scan with the quote still open, which the original
-        // char-by-char scanner reported as UnexpectedEOS just past the separator. Lock that in.
+        // the JSON grammar permits any code point except '"', '\' and control characters (< 0x20)
+        // raw inside a string, including the Unicode line separators U+2028 / U+2029 (which V8
+        // accepts too); they historically terminated the scan with an UnexpectedEOS error
         var parser = new JsonParser(new Engine());
 
-        var ex = Assert.ThrowsAny<JavaScriptException>(() => parser.Parse("\"ab\u2028cd\""));
-        Assert.Equal("Unexpected end of JSON input at position 4", ex.Message);
+        Assert.Equal("ab\u2028cd", parser.Parse("\"ab\u2028cd\"").AsString());
+        Assert.Equal("ab\u2029cd", parser.Parse("\"ab\u2029cd\"").AsString());
+    }
 
-        var ex2 = Assert.ThrowsAny<JavaScriptException>(() => parser.Parse("\"ab\u2029cd\""));
-        Assert.Equal("Unexpected end of JSON input at position 4", ex2.Message);
+    [Fact]
+    public void EscapedControlCharactersAreValidInPropertyKeys()
+    {
+        // any string is a valid member key; escaped control characters were rejected in keys
+        // while being accepted in values
+        var parser = new JsonParser(new Engine());
+
+        Assert.Equal(1, parser.Parse("{\"\\u0001\":1}").AsObject().Get("\u0001").AsNumber());
+        Assert.Equal(2, parser.Parse("{\"a\\u0000b\":2}").AsObject().Get("a\u0000b").AsNumber());
+
+        // raw (unescaped) control characters keep being rejected, in keys and values alike
+        Assert.ThrowsAny<JavaScriptException>(() => parser.Parse("{\"\u0001\":1}"));
+    }
+
+    [Theory]
+    [InlineData("-09")]
+    [InlineData("-00")]
+    [InlineData("-01.5")]
+    [InlineData("1.")]
+    [InlineData("1.e3")]
+    [InlineData("-2.")]
+    public void InvalidNumberFormsAreRejected(string json)
+    {
+        // int = zero / (digit1-9 *DIGIT) - also after a sign; frac = decimal-point 1*DIGIT
+        var parser = new JsonParser(new Engine());
+        Assert.ThrowsAny<JavaScriptException>(() => parser.Parse(json));
+    }
+
+    [Theory]
+    [InlineData("-0", -0.0)]
+    [InlineData("0", 0.0)]
+    [InlineData("-0.5", -0.5)]
+    [InlineData("10.25", 10.25)]
+    [InlineData("-0e2", -0.0)]
+    public void ValidNumberFormsKeepParsing(string json, double expected)
+    {
+        var parser = new JsonParser(new Engine());
+        var value = parser.Parse(json).AsNumber();
+        Assert.Equal(expected, value);
+#if !NETFRAMEWORK
+        // .NET Framework's double.Parse loses the sign of negative zero (fixed in .NET Core 3.0)
+        Assert.Equal(double.IsNegativeInfinity(1 / expected), double.IsNegativeInfinity(1 / value));
+#endif
     }
 
     private const NumberStyles JsonNumberStyles =

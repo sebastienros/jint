@@ -261,7 +261,9 @@ public sealed class JsonParser
 
             // Hex number starts with '0x'.
             // Octal number starts with '0'.
-            if (sb.Length == 1 && firstCharacter == '0')
+            // This runs right after the first digit was appended (a possible sign does not matter),
+            // so the leading-zero rule also rejects '-09' per the JSON grammar (int = zero / digit1-9 *DIGIT).
+            if (firstCharacter == '0')
             {
                 canBeInteger = false;
                 // decimal number starts with '0' such as '09' is illegal.
@@ -283,6 +285,12 @@ public sealed class JsonParser
             canBeInteger = false;
             sb.Append(ch);
             _index++;
+
+            // the JSON grammar requires at least one digit after the decimal point ('1.' is illegal)
+            if (!IsDecimalDigit(_source.CharCodeAt(_index)))
+            {
+                ThrowError(_index, Messages.UnexpectedToken, _source.CharCodeAt(_index));
+            }
 
             while (IsDecimalDigit((ch = _source.CharCodeAt(_index))))
             {
@@ -501,29 +509,28 @@ public sealed class JsonParser
     }
 
 #if NET8_0_OR_GREATER
-    // Characters that terminate a bulk string-content run: the closing quote, the escape backslash,
-    // every control character (< 0x20, which JSON forbids unescaped) and the two Unicode line
-    // separators the original char-by-char scanner treated as terminators. IndexOfAny over this set
-    // finds the first such character exactly where the per-char loop would have stopped.
+    // Characters that terminate a bulk string-content run: the closing quote, the escape backslash and
+    // every control character (< 0x20, which JSON forbids unescaped). Any other code point \u2014 including
+    // the Unicode line separators U+2028/U+2029, which the JSON grammar permits raw inside strings \u2014
+    // is ordinary content. IndexOfAny over this set finds the first such character exactly where a
+    // per-char loop would have stopped.
     private static readonly SearchValues<char> JsonStringStopChars = CreateStringStopChars();
 
     private static SearchValues<char> CreateStringStopChars()
     {
-        Span<char> stops = stackalloc char[36];
+        Span<char> stops = stackalloc char[34];
         for (var i = 0; i < 32; i++)
         {
             stops[i] = (char) i;
         }
         stops[32] = '"';
         stops[33] = '\\';
-        stops[34] = '\u2028';
-        stops[35] = '\u2029';
         return SearchValues.Create(stops);
     }
 #else
     // Portable fallback: the vectorized IndexOfAny locates the next quote/backslash, then we make sure
-    // no control character (< 0x20) or line separator (U+2028/U+2029) appears earlier, so the returned
-    // index matches the NET8 SearchValues path (and the original per-char scanner).
+    // no control character (< 0x20) appears earlier, so the returned index matches the NET8
+    // SearchValues path.
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int IndexOfStringStop(ReadOnlySpan<char> span)
     {
@@ -531,8 +538,7 @@ public sealed class JsonParser
         var limit = qb < 0 ? span.Length : qb;
         for (var i = 0; i < limit; i++)
         {
-            var c = span[i];
-            if (c < ' ' || c == '\u2028' || c == '\u2029')
+            if (span[i] < ' ')
             {
                 return i;
             }
@@ -554,10 +560,10 @@ public sealed class JsonParser
         var scanned = 0;
         while (_index < length)
         {
-            // Bulk fast path: copy the run of ordinary characters up to the next quote, backslash,
-            // control character (< 0x20) or Unicode line separator in one shot. The search lands on
-            // exactly the character the original per-char loop would have stopped at, so escapes and
-            // every error position are preserved byte-for-byte.
+            // Bulk fast path: copy the run of ordinary characters up to the next quote, backslash or
+            // control character (< 0x20) in one shot. The search lands on exactly the character a
+            // per-char loop would have stopped at, so escapes and every error position are preserved
+            // byte-for-byte.
             var remaining = source.AsSpan(_index, length - _index);
 #if NET8_0_OR_GREATER
             var stop = remaining.IndexOfAny(JsonStringStopChars);
@@ -636,12 +642,6 @@ public sealed class JsonParser
                         ThrowError(_index - 1, Messages.UnexpectedToken, ch);
                         break;
                 }
-            }
-            else
-            {
-                // Unicode line separator (U+2028 / U+2029): the original char-by-char scanner breaks
-                // here with the quote still open, which surfaces as UnexpectedEOS at _index below.
-                break;
             }
         }
 
@@ -928,10 +928,6 @@ public sealed class JsonParser
 
             var nameToken = Lex(ref state);
             var name = nameToken.Text!; // String tokens (keys) always carry non-null Text
-            if (PropertyNameContainsInvalidCharacters(name))
-            {
-                ThrowError(nameToken, Messages.InvalidCharacter);
-            }
 
             Expect(ref state, ':');
             var value = ParseJsonValue(ref state);
@@ -1020,19 +1016,6 @@ public sealed class JsonParser
         }
 
         obj.FastSetDataProperty(name, value);
-    }
-
-    private static bool PropertyNameContainsInvalidCharacters(string propertyName)
-    {
-        const char max = (char) 31;
-        foreach (var c in propertyName)
-        {
-            if (c != '\t' && c != '\n' && c != '\r' && c != '\b' && c != '\f' && c <= max)
-            {
-                return true;
-            }
-        }
-        return false;
     }
 
     /// <summary>
@@ -1261,10 +1244,6 @@ public sealed class JsonParser
 
             var nameToken = Lex(ref state);
             var name = nameToken.Text!; // String tokens (keys) always carry non-null Text
-            if (PropertyNameContainsInvalidCharacters(name))
-            {
-                ThrowError(nameToken, Messages.InvalidCharacter);
-            }
 
             Expect(ref state, ':');
             var valueResult = ParseJsonValueWithSourceInfo(ref state);
