@@ -114,6 +114,17 @@ public sealed class JsonParser
     private InternedKeyEntry[]? _internedKeys;
     private bool _expectKey;
 
+    // String VALUES also repeat heavily across a homogeneous payload (status/type/category fields, enum-like
+    // tokens, ...). The same direct-mapped, replace-on-collision discipline used for keys lets repeated values
+    // share one string and one JsString instead of allocating both per occurrence; a cache hit allocates
+    // nothing. Interning JsString identity is safe because === on strings is value-based, so a shared instance
+    // is unobservable to script. Kept as a SEPARATE table from the keys so a value can never evict a hot key
+    // (and vice versa). Long/unique payloads (length > MaxInternedValueLength) skip the table and are created
+    // fresh via JsString.Create so they can never thrash the fixed-size table. Reset per parse like the keys.
+    private const int MaxInternedValueLength = 64;
+    private const int InternedValueSlots = 256; // power of two, indexed by hash & (InternedValueSlots - 1)
+    private InternedValueEntry[]? _internedValues;
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool IsDecimalDigit(char ch)
     {
@@ -186,7 +197,7 @@ public sealed class JsonParser
         return result;
     }
 
-    private Token CreateToken(Tokens type, string text, char firstCharacter, JsValue value, in TextRange range)
+    private Token CreateToken(Tokens type, string? text, char firstCharacter, JsValue value, in TextRange range)
     {
         Token result = _tokenBuffer[_tokenBufferIndex++];
         if (_tokenBufferIndex >= _tokenBuffer.Length)
@@ -304,15 +315,18 @@ public sealed class JsonParser
             }
         }
 
-        var number = sb.ToString();
-
         JsNumber value;
+#if NET8_0_OR_GREATER
+        // Parse straight off the scanned span so the common case never materializes the intermediate
+        // number string. The raw text is only needed for the (rare) "unexpected trailing token"
+        // diagnostic, which the token carries no eager copy of: TokenText reconstructs it from the token
+        // range on demand. Both long.TryParse and double.Parse have span overloads on net8+.
+        var number = sb.AsSpan();
         if (canBeInteger && long.TryParse(number, NumberStyles.Integer, CultureInfo.InvariantCulture, out var longResult) && longResult != -0)
         {
             value = JsNumber.Create(longResult);
         }
-#if NET8_0_OR_GREATER
-        else if (TryParseDecimalFast(number.AsSpan(), out var fastValue))
+        else if (TryParseDecimalFast(number, out var fastValue))
         {
             // Bit-identical to the double.Parse fallback below for every shape it accepts (proven by
             // JsonTests.NumberFastPath*); the constructor keeps the Types.Number tagging the
@@ -321,13 +335,28 @@ public sealed class JsonParser
             // deferring to it to stay byte-for-byte identical to the pre-existing behavior.
             value = new JsNumber(fastValue);
         }
-#endif
+        else
+        {
+            value = new JsNumber(double.Parse(number, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent, CultureInfo.InvariantCulture));
+        }
+
+        // Number tokens carry no eager Text (null); the trailing-token diagnostic rebuilds it from Range.
+        return CreateToken(Tokens.Number, text: null, '\0', value, new TextRange(start, _index));
+#else
+        // Legacy runtimes have no span-based number parsing and no correctly-rounded double.Parse fast
+        // path, so keep the original string-materializing behavior byte-for-byte.
+        var number = sb.ToString();
+        if (canBeInteger && long.TryParse(number, NumberStyles.Integer, CultureInfo.InvariantCulture, out var longResult) && longResult != -0)
+        {
+            value = JsNumber.Create(longResult);
+        }
         else
         {
             value = new JsNumber(double.Parse(number, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent, CultureInfo.InvariantCulture));
         }
 
         return CreateToken(Tokens.Number, number, '\0', value, new TextRange(start, _index));
+#endif
     }
 
 #if NET8_0_OR_GREATER
@@ -630,8 +659,10 @@ public sealed class JsonParser
             return CreateToken(Tokens.String, interned.Name, '\"', interned.Value, new TextRange(start, _index));
         }
 
-        var value = sb.ToString();
-        return CreateToken(Tokens.String, value, '\"', new JsString(value), new TextRange(start, _index));
+        // Intern the just-decoded string value so repeated values reuse one string/JsString; on a hit no
+        // new string is materialized at all (the common homogeneous-payload case).
+        var internedValue = InternStringValue(sb.AsSpan());
+        return CreateToken(Tokens.String, internedValue.Text, '\"', internedValue.Value, new TextRange(start, _index));
     }
 
     /// <summary>
@@ -661,6 +692,37 @@ public sealed class JsonParser
         var value = new JsString(name);
         entry = new InternedKeyEntry(hash, name, value);
         return new InternedKey(name, value);
+    }
+
+    /// <summary>
+    /// Interns a just-decoded string VALUE span for the lifetime of the current parse: identical values
+    /// (regardless of how they were escaped in the source) return the same <see cref="string"/> and
+    /// <see cref="JsString"/> instances, and on a cache hit nothing is allocated. The table is direct-mapped
+    /// with replace-on-collision so hits and misses both cost one compare; values longer than
+    /// <see cref="MaxInternedValueLength"/> skip the table and are created fresh via <see cref="JsString.Create(string)"/>
+    /// (so empty/single-char values still hit its caches). The lookup uses the DECODED span, so
+    /// <c>"abc"</c> and <c>"abc"</c> intern to the same instances.
+    /// </summary>
+    private InternedValue InternStringValue(ReadOnlySpan<char> span)
+    {
+        if (span.Length > MaxInternedValueLength)
+        {
+            var longText = span.ToString();
+            return new InternedValue(longText, JsString.Create(longText));
+        }
+
+        var hash = Hash.GetFNVHashCode(span);
+        var entries = _internedValues ??= new InternedValueEntry[InternedValueSlots];
+        ref var entry = ref entries[hash & (InternedValueSlots - 1)];
+        if (entry.Hash == hash && entry.Text is not null && span.SequenceEqual(entry.Text.AsSpan()))
+        {
+            return new InternedValue(entry.Text, entry.Value);
+        }
+
+        var text = span.ToString();
+        var value = JsString.Create(text);
+        entry = new InternedValueEntry(hash, text, value);
+        return new InternedValue(text, value);
     }
 
     private Token Advance(ref State state)
@@ -745,6 +807,14 @@ public sealed class JsonParser
         Throw.SyntaxError(_engine.Realm, $"{msg} at position {position}");
     }
 
+    /// <summary>
+    /// The token's display text for diagnostics. Number tokens carry no eager <see cref="Token.Text"/>
+    /// (to avoid the per-number string allocation), so their raw source text is reconstructed from the
+    /// token range here — byte-identical to the scanned text since numbers contain no escapes.
+    /// </summary>
+    private string TokenText(Token token)
+        => token.Text ?? _source.Substring(token.Range.Start, token.Range.End - token.Range.Start);
+
     // Throw an exception because of the token.
 
     private void ThrowUnexpected(Token token)
@@ -765,7 +835,7 @@ public sealed class JsonParser
         }
 
         // BooleanLiteral, NullLiteral, or Punctuator.
-        ThrowError(token, Messages.UnexpectedToken, token.Text);
+        ThrowError(token, Messages.UnexpectedToken, TokenText(token));
     }
 
     // Expect the next token to match the specified punctuator.
@@ -857,7 +927,7 @@ public sealed class JsonParser
             }
 
             var nameToken = Lex(ref state);
-            var name = nameToken.Text;
+            var name = nameToken.Text!; // String tokens (keys) always carry non-null Text
             if (PropertyNameContainsInvalidCharacters(name))
             {
                 ThrowError(nameToken, Messages.InvalidCharacter);
@@ -1010,6 +1080,10 @@ public sealed class JsonParser
         {
             System.Array.Clear(_internedKeys, 0, _internedKeys.Length);
         }
+        if (_internedValues is not null)
+        {
+            System.Array.Clear(_internedValues, 0, _internedValues.Length);
+        }
         _expectKey = false;
 
         State state = new State();
@@ -1021,7 +1095,7 @@ public sealed class JsonParser
 
         if (_lookahead.Type != Tokens.EOF)
         {
-            ThrowError(_lookahead, Messages.UnexpectedToken, _lookahead.Text);
+            ThrowError(_lookahead, Messages.UnexpectedToken, TokenText(_lookahead));
         }
         return jsv;
     }
@@ -1041,6 +1115,10 @@ public sealed class JsonParser
         {
             System.Array.Clear(_internedKeys, 0, _internedKeys.Length);
         }
+        if (_internedValues is not null)
+        {
+            System.Array.Clear(_internedValues, 0, _internedValues.Length);
+        }
         _expectKey = false;
 
         State state = new State();
@@ -1052,7 +1130,7 @@ public sealed class JsonParser
 
         if (_lookahead.Type != Tokens.EOF)
         {
-            ThrowError(_lookahead, Messages.UnexpectedToken, _lookahead.Text);
+            ThrowError(_lookahead, Messages.UnexpectedToken, TokenText(_lookahead));
         }
         return result;
     }
@@ -1182,7 +1260,7 @@ public sealed class JsonParser
             }
 
             var nameToken = Lex(ref state);
-            var name = nameToken.Text;
+            var name = nameToken.Text!; // String tokens (keys) always carry non-null Text
             if (PropertyNameContainsInvalidCharacters(name))
             {
                 ThrowError(nameToken, Messages.InvalidCharacter);
@@ -1244,7 +1322,10 @@ public sealed class JsonParser
         public Tokens Type;
         public char FirstCharacter;
         public JsValue Value = JsValue.Undefined;
-        public string Text = null!;
+
+        // Null only for Number tokens (see ScanNumericLiteral): their raw text is reconstructed from
+        // Range on demand by TokenText. Every other token type carries a non-null Text.
+        public string? Text;
         public TextRange Range;
     }
 
@@ -1268,6 +1349,14 @@ public sealed class JsonParser
     /// <summary>One entry in the per-parse key-intern table; <see cref="Hash"/> is the FNV hash of <see cref="Name"/>.</summary>
     [StructLayout(LayoutKind.Auto)]
     private readonly record struct InternedKeyEntry(int Hash, string Name, JsString Value);
+
+    /// <summary>An interned string value: the deduplicated text and its (also deduplicated) <see cref="JsString"/>.</summary>
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct InternedValue(string Text, JsString Value);
+
+    /// <summary>One entry in the per-parse value-intern table; <see cref="Hash"/> is the FNV hash of <see cref="Text"/>.</summary>
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct InternedValueEntry(int Hash, string Text, JsString Value);
 
     static class Messages
     {
