@@ -1,4 +1,5 @@
 using Jint.Native;
+using System.Collections.Concurrent;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -79,13 +80,49 @@ internal sealed class MethodDescriptor
     }
 
 #if NET8_0_OR_GREATER
-    // lazily initialized fast invokers, benign race - last writer wins
+    // Process-wide L2 caches for the invoker machinery, keyed by the reflected member.
+    //
+    // MethodDescriptor instances are per-Engine: TypeResolver.GetAccessor caches the
+    // ReflectionAccessor that owns them in Engine._reflectionAccessors. With a purely per-instance
+    // cache every new Engine therefore re-emitted an invoke stub and re-compiled the whole
+    // expression tree for every host method it called, which dominates the common
+    // fresh-Engine-per-operation embedding pattern.
+    //
+    // Keying on the MethodBase is sound because every input the builders consume is derived purely
+    // from that MethodBase - CompiledMethodInvoker.TryBuild reads Method, Parameters
+    // (== method.GetParameters()), HasParams / ParameterDefaultValuesCount (parameter attributes),
+    // IsGenericMethod and IsExtensionMethod, all computed from the MethodBase in the constructor -
+    // and the delegate it produces closes over nothing Engine-specific: only the open invocation
+    // delegate created from the same MethodBase, the JsValue.Undefined / JsValue.Null process-wide
+    // singletons, the public JsValue implicit operators and JsValueExtensions accessors. The
+    // Engine-affine policy decisions (custom object converters, a custom ITypeConverter, receiver
+    // type checks) live at the call site in MethodInfoFunction.Call and gate *use* of the invoker,
+    // never its construction, so one Engine's policy can never leak into another through this cache.
+    //
+    // Trade-off: a static cache keyed by MethodBase pins that MethodBase - and therefore its
+    // declaring assembly - for the lifetime of the process. That matches the precedent already set
+    // by this codebase's other process-wide reflection caches (TypeDescriptor._cache,
+    // TypeReference._memberAccessors, JintBinaryExpression._knownOperators,
+    // DefaultTypeConverter._knownCastOperators).
+    //
+    // A concurrent duplicate build for the same key is benign (both produce equivalent invokers and
+    // one is discarded), matching the existing lazy-init contract; the dictionaries themselves are
+    // thread-safe.
+    private static readonly ConcurrentDictionary<MethodInfo, MethodInvoker> _sharedMethodInvokers = new();
+    private static readonly ConcurrentDictionary<ConstructorInfo, ConstructorInvoker> _sharedConstructorInvokers = new();
+
+    // A null value is the "known ineligible" sentinel so an ineligible method is never re-probed.
+    private static readonly ConcurrentDictionary<MethodBase, CompiledMethodInvoker.Invoker?> _sharedCompiledInvokers = new();
+
+    // Per-instance L1 caches over the shared dictionaries, so the steady-state per-call path stays a
+    // plain field read with no dictionary probe - only a descriptor's first miss consults L2.
+    // Benign race - last writer wins.
     private MethodInvoker? _methodInvoker;
     private ConstructorInvoker? _constructorInvoker;
 
-    // lazily built strongly-typed invoker for the exact-type numeric/string/bool fast lane,
-    // benign race - last writer wins. Once _compiledInvokerUnavailable is set the method is
-    // permanently ineligible (or the runtime cannot JIT the lambda) and we never retry.
+    // lazily built strongly-typed invoker for the exact-type numeric/string/bool fast lane.
+    // Once _compiledInvokerUnavailable is set the method is permanently ineligible (or the runtime
+    // cannot JIT the lambda) and we never retry.
     private CompiledMethodInvoker.Invoker? _compiledInvoker;
     private bool _compiledInvokerUnavailable;
 
@@ -107,12 +144,25 @@ internal sealed class MethodDescriptor
             return null;
         }
 
-        // Build the delegate ONLY when the runtime will JIT it to native code. Under AOT and under
-        // an interpreted-only Expression.Compile (e.g. Mono interpreter) IsDynamicCodeCompiled is
-        // false, and an interpreted lambda is slower than the cached MethodInvoker reflection path,
-        // so we decline and keep that path.
-        if (!System.Runtime.CompilerServices.RuntimeFeature.IsDynamicCodeCompiled
-            || !CompiledMethodInvoker.TryBuild(this, out var built))
+        var built = _sharedCompiledInvokers.GetOrAdd(
+            Method,
+            static (_, descriptor) =>
+            {
+                // Build the delegate ONLY when the runtime will JIT it to native code. Under AOT and
+                // under an interpreted-only Expression.Compile (e.g. Mono interpreter)
+                // IsDynamicCodeCompiled is false, and an interpreted lambda is slower than the
+                // cached MethodInvoker reflection path, so we decline and keep that path.
+                if (!RuntimeFeature.IsDynamicCodeCompiled
+                    || !CompiledMethodInvoker.TryBuild(descriptor, out var compiled))
+                {
+                    return null;
+                }
+
+                return compiled;
+            },
+            this);
+
+        if (built is null)
         {
             _compiledInvokerUnavailable = true;
             return null;
@@ -170,13 +220,16 @@ internal sealed class MethodDescriptor
         {
             if (Method is MethodInfo methodInfo)
             {
-                var invoker = _methodInvoker ??= MethodInvoker.Create(methodInfo);
+                // MethodInvoker is thread-safe and designed for reuse (the BCL itself keeps one per
+                // MethodInfo), so the emitted invoke stub is shared process-wide instead of being
+                // re-emitted for every Engine that happens to call this method.
+                var invoker = _methodInvoker ??= _sharedMethodInvokers.GetOrAdd(methodInfo, static m => MethodInvoker.Create(m));
                 return invoker.Invoke(instance, parameters);
             }
 
             if (Method is ConstructorInfo constructorInfo)
             {
-                var invoker = _constructorInvoker ??= ConstructorInvoker.Create(constructorInfo);
+                var invoker = _constructorInvoker ??= _sharedConstructorInvokers.GetOrAdd(constructorInfo, static c => ConstructorInvoker.Create(c));
                 return invoker.Invoke(parameters);
             }
         }
