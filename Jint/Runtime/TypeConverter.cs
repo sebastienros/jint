@@ -1012,7 +1012,13 @@ public static class TypeConverter
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool IsIntegralNumber(double value)
     {
-        return !double.IsNaN(value) && !double.IsInfinity(value) && value % 1 == 0;
+        // Math.Floor(value) == value instead of value % 1 == 0: the remainder operator on doubles
+        // compiles to a native fmod call, Math.Floor is a JIT intrinsic (a single vroundsd). The NaN
+        // and infinity guards above still short-circuit, and for every finite value the two tests are
+        // equivalent - value % 1 is value - trunc(value), which is +-0 exactly when value has no
+        // fractional part, which is exactly when Math.Floor(value) == value (-0.0 and magnitudes
+        // >= 2^52, which are necessarily integral, are accepted by both).
+        return !double.IsNaN(value) && !double.IsInfinity(value) && Math.Floor(value) == value;
     }
 
     private static ObjectInstance ToObjectNonObject(Realm realm, JsValue value)

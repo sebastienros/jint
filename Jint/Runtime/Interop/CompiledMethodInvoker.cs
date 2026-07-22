@@ -45,6 +45,7 @@ internal static class CompiledMethodInvoker
     private static readonly MethodInfo _objectToString = typeof(object).GetMethod(nameof(ToString), Type.EmptyTypes)!;
     private static readonly MethodInfo _doubleIsNaN = typeof(double).GetMethod(nameof(double.IsNaN), [typeof(double)])!;
     private static readonly MethodInfo _doubleIsInfinity = typeof(double).GetMethod(nameof(double.IsInfinity), [typeof(double)])!;
+    private static readonly MethodInfo _mathFloor = typeof(Math).GetMethod(nameof(Math.Floor), [typeof(double)])!;
 
     // (double) long.MaxValue rounds up to 2^63 which overflows long, the bound must be exclusive -
     // this mirrors InteropHelper.TryConvertNumberFast exactly.
@@ -281,7 +282,20 @@ internal static class CompiledMethodInvoker
         // the target range, otherwise decline so the fallback reproduces today's behavior.
         var isNaN = Expression.Call(_doubleIsNaN, value);
         var isInfinity = Expression.Call(_doubleIsInfinity, value);
-        var notIntegral = Expression.NotEqual(Expression.Modulo(value, Expression.Constant(1d)), Expression.Constant(0d));
+
+        // Integrality is tested with Math.Floor(v) != v rather than v % 1 != 0: Expression.Modulo on
+        // doubles lowers to a native fmod call inside the generated lambda, while Math.Floor is a JIT
+        // intrinsic that becomes a single vroundsd instruction. The two tests agree on every value
+        // that reaches this point:
+        //   - finite v: v % 1 is the truncated remainder, i.e. v - trunc(v), which is +-0 exactly when
+        //     v has no fractional part; Math.Floor(v) == v likewise holds exactly for such v (for
+        //     negative fractional v, floor rounds away from v, so both tests report "not integral").
+        //     Note -0.0 is integral under both (-0.0 % 1 is -0.0 which == 0.0, and Math.Floor(-0.0) is
+        //     -0.0 which == -0.0), and |v| >= 2^52 values, which are necessarily integral, satisfy both.
+        //   - NaN and +-Infinity never reach this test: isNaN/isInfinity precede it in the OrElse chain
+        //     below and short-circuit the whole decision.
+        // So the composite decline decision is bit-for-bit identical; the OrElse ordering is preserved.
+        var notIntegral = Expression.NotEqual(Expression.Call(_mathFloor, value), value);
 
         Expression belowRange;
         Expression aboveRange;
