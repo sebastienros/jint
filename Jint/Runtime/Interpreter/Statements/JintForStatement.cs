@@ -786,6 +786,15 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
         {
             foreach (var decl in vd.Declarations)
             {
+                // a destructuring pattern's default values can embed closures too:
+                // for (let i = 0, {f = () => i} = {}; ...)
+                if (decl.Id is not Identifier
+                    && (JintFunctionDefinition.EnvironmentEscapeAstVisitor.IsCapturing(decl.Id)
+                        || JintFunctionDefinition.EnvironmentEscapeAstVisitor.MayEscape(decl.Id)))
+                {
+                    return true;
+                }
+
                 if (decl.Init is not null)
                 {
                     if (JintFunctionDefinition.EnvironmentEscapeAstVisitor.IsCapturing(decl.Init)

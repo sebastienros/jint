@@ -243,4 +243,59 @@ public class LoopBodyFlatteningTests
 
         Assert.Equal("b0,d0,b1,d1", result);
     }
+
+    [Fact]
+    public void ClosureInDestructuringDefaultDeclinesEnvironmentReuse()
+    {
+        var engine = new Engine();
+        // a closure embedded in a destructuring pattern's DEFAULT value captures the loop's
+        // initial per-iteration environment; reusing/pooling the environment in place makes it
+        // observe the final i (or a reset binding) instead of the captured iteration's value
+        var result = engine.Evaluate("""
+            (function () {
+                const fns = [];
+                for (let i = 0, { f = () => i } = {}; i < 3; i++) { fns.push(f); }
+                return fns[0]() + ',' + fns[2]();
+            })()
+            """).AsString();
+
+        Assert.Equal("0,0", result);
+    }
+
+    [Fact]
+    public void ClosureInArrayPatternDefaultDeclinesEnvironmentReuse()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            (function () {
+                const fns = [];
+                for (let i = 0, [f = () => i] = []; i < 3; i++) { fns.push(f); }
+                return fns[0]() + ',' + fns[2]();
+            })()
+            """).AsString();
+
+        Assert.Equal("0,0", result);
+    }
+
+    [Fact]
+    public void ReenteringLoopWithEscapedPatternClosureKeepsBindingAlive()
+    {
+        var engine = new Engine();
+        // re-entering the loop must not reset the binding the escaped closure captured
+        // (a pooled environment would make the earlier closure throw or observe garbage)
+        var result = engine.Evaluate("""
+            (function () {
+                function run() {
+                    const fns = [];
+                    for (let i = 0, { f = () => i } = {}; i < 2; i++) { fns.push(f); }
+                    return fns;
+                }
+                const first = run();
+                const second = run();
+                return first[0]() + ',' + second[0]();
+            })()
+            """).AsString();
+
+        Assert.Equal("0,0", result);
+    }
 }
