@@ -1,4 +1,4 @@
-using System.Dynamic;
+﻿using System.Dynamic;
 using System.Text;
 using AwesomeAssertions;
 using Jint.Runtime.Interop;
@@ -18,7 +18,7 @@ public partial class InteropTests
         engine.SetValue(nameof(expando), expando);
 
         var result = engine.Evaluate($"JSON.stringify({nameof(expando)})").AsString();
-        Assert.Equal("{\"foo\":5,\"bar\":\"A string\"}", result);
+        result.Should().Be("{\"foo\":5,\"bar\":\"A string\"}");
     }
 
     [Fact]
@@ -31,7 +31,7 @@ public partial class InteropTests
         expando.Values = 1;
         engine.SetValue("expando", expando);
 
-        Assert.Equal("{\"Values\":1}", engine.Evaluate($"JSON.stringify(expando)").AsString());
+        engine.Evaluate($"JSON.stringify(expando)").AsString().Should().Be("{\"Values\":1}");
     }
 
 
@@ -47,7 +47,7 @@ public partial class InteropTests
         engine.SetValue("testSubject", queryResults.ToArray());
         var fromEngine2 = engine.Evaluate("return JSON.stringify(testSubject);");
         var result2 = fromEngine2.ToString();
-        Assert.Equal("[{\"Text\":\"Text1\",\"Value\":1},{\"Text\":\"Text2\",\"Value\":2}]", result2);
+        result2.Should().Be("[{\"Text\":\"Text1\",\"Value\":1},{\"Text\":\"Text2\",\"Value\":2}]");
     }
 
     [Fact]
@@ -60,7 +60,7 @@ public partial class InteropTests
         engine.SetValue("testSubject", objects);
         var fromEngine = engine.Evaluate("return JSON.stringify(testSubject);");
         var result = fromEngine.ToString();
-        Assert.Equal("[{\"Text\":\"Text1\",\"Value\":1},{\"Text\":\"Text2\",\"Value\":2}]", result);
+        result.Should().Be("[{\"Text\":\"Text1\",\"Value\":1},{\"Text\":\"Text2\",\"Value\":2}]");
     }
 
     [Fact]
@@ -72,7 +72,7 @@ public partial class InteropTests
         engine.SetValue("testSubject", source.AsEnumerable());
         var fromEngine = engine.Evaluate("return JSON.stringify(testSubject);");
         var result = fromEngine.ToString();
-        Assert.Equal("[{\"Text\":\"Text1\",\"Value\":1},{\"Text\":\"Text2\",\"Value\":2}]", result);
+        result.Should().Be("[{\"Text\":\"Text1\",\"Value\":1},{\"Text\":\"Text2\",\"Value\":2}]");
     }
 
     [Fact]
@@ -102,7 +102,7 @@ public partial class InteropTests
         engine.SetValue("TimeSpan", TypeReference.CreateTypeReference<TimeSpan>(engine));
         var value = engine.Evaluate("JSON.stringify(TimeSpan.FromSeconds(3));");
 
-        Assert.Equal(expected, value);
+        value.Should().Be(expected);
     }
 
     [Fact]

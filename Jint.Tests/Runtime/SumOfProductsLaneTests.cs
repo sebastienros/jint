@@ -1,4 +1,4 @@
-namespace Jint.Tests.Runtime;
+﻿namespace Jint.Tests.Runtime;
 
 /// <summary>
 /// Pins the sum-of-products arithmetic lane (JintBinaryExpression.SumOfProductsLane): assignments
@@ -28,7 +28,7 @@ public class SumOfProductsLaneTests
 
         // row0: [1.5*0.5+2*2+3*4+4*6, 1.5*1+2*3+3*5+4*7] = [40.75, 50.5]
         // row1: [5*0.5+6*2+7*4+8*6, 5*1+6*3+7*5+8*7] = [90.5, 114]
-        Assert.Equal("40.75,50.5;90.5,114", result);
+        result.Should().Be("40.75,50.5;90.5,114");
     }
 
     [Fact]
@@ -47,7 +47,7 @@ public class SumOfProductsLaneTests
             })()
             """).AsString();
 
-        Assert.Equal("0.5,2.75,-3", result); // 1.5-1=0.5; 0.75+2=2.75; 4-9+2=-3
+        result.Should().Be("0.5,2.75,-3"); // 1.5-1=0.5; 0.75+2=2.75; 4-9+2=-3
     }
 
     [Fact]
@@ -66,7 +66,7 @@ public class SumOfProductsLaneTests
             })()
             """).AsString();
 
-        Assert.Equal("NaN,Infinity,NaN,0", result);
+        result.Should().Be("NaN,Infinity,NaN,0");
     }
 
     [Fact]
@@ -83,7 +83,7 @@ public class SumOfProductsLaneTests
             })()
             """).AsString();
 
-        Assert.Equal("164,13011000:true:true", result);
+        result.Should().Be("164,13011000:true:true");
     }
 
     [Fact]
@@ -102,7 +102,7 @@ public class SumOfProductsLaneTests
             })()
             """).AsString();
 
-        Assert.Equal("NaN,10", result);
+        result.Should().Be("NaN,10");
     }
 
     [Fact]
@@ -122,7 +122,7 @@ public class SumOfProductsLaneTests
             })()
             """).AsString();
 
-        Assert.Equal("23:2", result);
+        result.Should().Be("23:2");
     }
 
     [Fact]
@@ -139,7 +139,7 @@ public class SumOfProductsLaneTests
             })()
             """).AsString();
 
-        Assert.Equal("NaN,NaN", result);
+        result.Should().Be("NaN,NaN");
     }
 
     [Fact]
@@ -157,6 +157,6 @@ public class SumOfProductsLaneTests
             })()
             """).AsString();
 
-        Assert.Equal("true:true", result);
+        result.Should().Be("true:true");
     }
 }

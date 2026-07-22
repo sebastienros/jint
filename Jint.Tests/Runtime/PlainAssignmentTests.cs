@@ -1,4 +1,4 @@
-using Jint.Runtime;
+﻿using Jint.Runtime;
 
 namespace Jint.Tests.Runtime;
 
@@ -24,7 +24,7 @@ public class PlainAssignmentTests
             f();
             """).AsString();
 
-        Assert.Equal("g|C|realName|arrow", result);
+        result.Should().Be("g|C|realName|arrow");
     }
 
     [Fact]
@@ -40,7 +40,7 @@ public class PlainAssignmentTests
             f();
             """).AsString();
 
-        Assert.Equal("11", result);
+        result.Should().Be("11");
     }
 
     [Fact]
@@ -56,7 +56,7 @@ public class PlainAssignmentTests
             f();
             """).AsString();
 
-        Assert.Equal("initial", result);
+        result.Should().Be("initial");
     }
 
     [Fact]
@@ -65,7 +65,7 @@ public class PlainAssignmentTests
         var engine = new Engine(static options => options.Strict());
         var result = engine.Evaluate("function f() { var b = 0; b = (b = 5, 9); return b; } f();").AsNumber();
 
-        Assert.Equal(9, result);
+        result.Should().Be(9);
     }
 
     [Fact]
@@ -73,16 +73,16 @@ public class PlainAssignmentTests
     {
         var engine = new Engine(static options => options.Strict());
 
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Execute("""
+        var ex = Invoking(() => engine.Execute("""
             function f() {
                 const c = 1;
                 var order = [];
                 try { c = (order.push('rhs'), 2); } finally { globalThis.order = order.join(','); }
             }
             f();
-            """));
-        Assert.True(ex.Error.InstanceofOperator(engine.Intrinsics.TypeError));
-        Assert.Equal("rhs", engine.Evaluate("globalThis.order").AsString());
+            """)).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Error.InstanceofOperator(engine.Intrinsics.TypeError).Should().BeTrue();
+        engine.Evaluate("globalThis.order").AsString().Should().Be("rhs");
     }
 
     [Fact]
@@ -90,7 +90,7 @@ public class PlainAssignmentTests
     {
         var engine = new Engine(static options => options.Strict());
 
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Execute("function f() { { x = 1; let x; } } f();"));
-        Assert.True(ex.Error.InstanceofOperator(engine.Intrinsics.ReferenceError));
+        var ex = Invoking(() => engine.Execute("function f() { { x = 1; let x; } } f();")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Error.InstanceofOperator(engine.Intrinsics.ReferenceError).Should().BeTrue();
     }
 }

@@ -1,4 +1,4 @@
-using Jint.Constraints;
+﻿using Jint.Constraints;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Runtime;
@@ -34,7 +34,7 @@ public class RavenApiUsageTests
             functionExp,
             strict: false);
 
-        Assert.NotNull(functionObject);
+        functionObject.Should().NotBeNull();
     }
 
     [Fact]
@@ -43,13 +43,13 @@ public class RavenApiUsageTests
         var engine = new Engine(options => options.MaxStatements(123));
 
         var constraint = engine.Constraints.Find<MaxStatementsConstraint>();
-        Assert.NotNull(constraint);
+        constraint.Should().NotBeNull();
 
         var oldMaxStatements = constraint.MaxStatements;
         constraint.MaxStatements = 321;
 
-        Assert.Equal(123, oldMaxStatements);
-        Assert.Equal(321, constraint.MaxStatements);
+        oldMaxStatements.Should().Be(123);
+        constraint.MaxStatements.Should().Be(321);
     }
 
     [Fact]
@@ -58,7 +58,7 @@ public class RavenApiUsageTests
         var engine = new Engine();
         var obj = new DirectoryInfo("the-path");
         var propertyDescriptor = ObjectWrapper.GetPropertyDescriptor(engine, obj, obj.GetType().GetProperty(nameof(DirectoryInfo.Name)));
-        Assert.Equal("the-path", propertyDescriptor.Value);
+        propertyDescriptor.Value.Should().Be("the-path");
     }
 
     [Fact]
@@ -78,24 +78,24 @@ public class RavenApiUsageTests
         TestArrayAccess(engine, array1, "array1");
 
         engine.SetValue("obj", obj);
-        Assert.Equal("test", engine.Evaluate("obj.name"));
+        engine.Evaluate("obj.name").Should().Be("test");
 
         engine.SetValue("emptyArray", new JsArray(engine));
-        Assert.Equal(0, engine.Evaluate("emptyArray.length"));
-        Assert.Equal(1, engine.Evaluate("emptyArray.push(1); return emptyArray.length"));
+        engine.Evaluate("emptyArray.length").Should().Be(0);
+        engine.Evaluate("emptyArray.push(1); return emptyArray.length").Should().Be(1);
 
         engine.SetValue("emptyArray", new JsArray(engine, []));
-        Assert.Equal(0, engine.Evaluate("emptyArray.length"));
-        Assert.Equal(1, engine.Evaluate("emptyArray.push(1); return emptyArray.length"));
+        engine.Evaluate("emptyArray.length").Should().Be(0);
+        engine.Evaluate("emptyArray.push(1); return emptyArray.length").Should().Be(1);
 
         engine.SetValue("date", new JsDate(engine, new DateTime(2022, 10, 20)));
-        Assert.Equal(2022, engine.Evaluate("date.getFullYear()"));
+        engine.Evaluate("date.getFullYear()").Should().Be(2022);
     }
 
     private static void TestArrayAccess(Engine engine, JsArray array, string name)
     {
-        Assert.Equal(1, engine.Evaluate($"{name}.findIndex(x => x === 2)"));
-        Assert.Equal(2, array.GetOwnProperty("1").Value);
+        engine.Evaluate($"{name}.findIndex(x => x === 2)").Should().Be(1);
+        array.GetOwnProperty("1").Value.Should().Be(2);
 
         array.Push(4);
         array.Push([5, 6]);
@@ -103,31 +103,31 @@ public class RavenApiUsageTests
         var i = 0;
         foreach (var entry in array.GetEntries())
         {
-            Assert.Equal(i.ToString(), entry.Key);
-            Assert.Equal(i + 1, entry.Value);
+            entry.Key.Should().Be(i.ToString());
+            entry.Value.Should().Be(i + 1);
             i++;
         }
 
-        Assert.Equal(6, i);
+        i.Should().Be(6);
 
         array[0] = "";
         array[1] = false;
         array[2] = null;
 
-        Assert.Equal("", array[0]);
-        Assert.Equal(false, array[1]);
-        Assert.Equal(JsValue.Undefined, array[2]);
-        Assert.Equal(4, array[3]);
-        Assert.Equal(5, array[4]);
-        Assert.Equal(6, array[5]);
+        array[0].Should().Be("");
+        array[1].Should().BeFalse();
+        array[2].Should().BeUndefined();
+        array[3].Should().Be(4);
+        array[4].Should().Be(5);
+        array[5].Should().Be(6);
 
         for (i = 0; i < 100; ++i)
         {
             array.Push(JsValue.Undefined);
         }
 
-        Assert.Equal(106L, array.Length);
-        Assert.True(array.All(x => x is JsNumber or JsUndefined or JsNumber or JsString or JsBoolean));
+        array.Length.Should().Be(106);
+        array.All(x => x is JsNumber or JsUndefined or JsNumber or JsString or JsBoolean).Should().BeTrue();
     }
 
     // Checks different ways how string can be checked for equality without the need to materialize lazy value
@@ -151,32 +151,32 @@ public class RavenApiUsageTests
         var array = new JsArray(engine, Enumerable.Range(1, 100).Select(x => new CustomString(x.ToString())).ToArray<JsValue>());
         engine.SetValue("array", array);
 
-        Assert.True(engine.Evaluate("str ? true : false").AsBoolean());
-        Assert.False(engine.Evaluate("empty ? true : false").AsBoolean());
+        engine.Evaluate("str ? true : false").AsBoolean().Should().BeTrue();
+        engine.Evaluate("empty ? true : false").AsBoolean().Should().BeFalse();
 
-        Assert.True(engine.Evaluate("array.includes('2')").AsBoolean());
-        Assert.True(engine.Evaluate("array.filter(x => x === '2').length > 0").AsBoolean());
+        engine.Evaluate("array.includes('2')").AsBoolean().Should().BeTrue();
+        engine.Evaluate("array.filter(x => x === '2').length > 0").AsBoolean().Should().BeTrue();
 
         engine.SetValue("objArray", new JsArray(engine, [obj, obj]));
-        Assert.True(engine.Evaluate("objArray.filter(x => x.name === 'the name').length === 2").AsBoolean());
+        engine.Evaluate("objArray.filter(x => x.name === 'the name').length === 2").AsBoolean().Should().BeTrue();
 
-        Assert.Equal(9, engine.Evaluate("str.length"));
+        engine.Evaluate("str.length").Should().Be(9);
 
-        Assert.True(engine.Evaluate("str == 'the-value'").AsBoolean());
-        Assert.True(engine.Evaluate("str === 'the-value'").AsBoolean());
+        engine.Evaluate("str == 'the-value'").AsBoolean().Should().BeTrue();
+        engine.Evaluate("str === 'the-value'").AsBoolean().Should().BeTrue();
 
-        Assert.True(engine.Evaluate("str.indexOf('value-too-long') === -1").AsBoolean());
-        Assert.True(engine.Evaluate("str.lastIndexOf('value-too-long') === -1").AsBoolean());
-        Assert.False(engine.Evaluate("str.startsWith('value-too-long')").AsBoolean());
-        Assert.False(engine.Evaluate("str.endsWith('value-too-long')").AsBoolean());
-        Assert.False(engine.Evaluate("str.includes('value-too-long')").AsBoolean());
+        engine.Evaluate("str.indexOf('value-too-long') === -1").AsBoolean().Should().BeTrue();
+        engine.Evaluate("str.lastIndexOf('value-too-long') === -1").AsBoolean().Should().BeTrue();
+        engine.Evaluate("str.startsWith('value-too-long')").AsBoolean().Should().BeFalse();
+        engine.Evaluate("str.endsWith('value-too-long')").AsBoolean().Should().BeFalse();
+        engine.Evaluate("str.includes('value-too-long')").AsBoolean().Should().BeFalse();
 
-        Assert.True(engine.Evaluate("empty.trim() === ''").AsBoolean());
-        Assert.True(engine.Evaluate("empty.trimStart() === ''").AsBoolean());
-        Assert.True(engine.Evaluate("empty.trimEnd() === ''").AsBoolean());
+        engine.Evaluate("empty.trim() === ''").AsBoolean().Should().BeTrue();
+        engine.Evaluate("empty.trimStart() === ''").AsBoolean().Should().BeTrue();
+        engine.Evaluate("empty.trimEnd() === ''").AsBoolean().Should().BeTrue();
 
-        Assert.True(engine.Evaluate("str[1] === 'h'").AsBoolean());
-        Assert.True(engine.Evaluate("str[x] === undefined").AsBoolean());
+        engine.Evaluate("str[1] === 'h'").AsBoolean().Should().BeTrue();
+        engine.Evaluate("str[x] === undefined").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -184,7 +184,7 @@ public class RavenApiUsageTests
     {
         var engine = new Engine();
         engine.SetValue("value", new CustomNull());
-        Assert.Equal("foo", engine.Evaluate("value ? value + 'bar' : 'foo'"));
+        engine.Evaluate("value ? value + 'bar' : 'foo'").Should().Be("foo");
     }
 
     [Fact]
@@ -192,7 +192,7 @@ public class RavenApiUsageTests
     {
         var engine = new Engine();
         engine.SetValue("value", new CustomUndefined());
-        Assert.Equal("foo", engine.Evaluate("value ? value + 'bar' : 'foo'"));
+        engine.Evaluate("value ? value + 'bar' : 'foo'").Should().Be("foo");
     }
 
     [Fact]
@@ -231,7 +231,7 @@ public class RavenApiUsageTests
         var custom = rows.AsArray()[0].AsObject()["Custom"];
         // With the spec-compliant IsPropertyReference, the custom resolver's TryGetCallable
         // returns a function that produces undefined, so the result is undefined
-        Assert.Equal(JsValue.Undefined, custom);
+        custom.Should().BeUndefined();
     }
 }
 

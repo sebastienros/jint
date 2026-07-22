@@ -1,4 +1,4 @@
-using Jint.Native;
+﻿using Jint.Native;
 using Jint.Pooling;
 
 namespace Jint.Tests.Runtime;
@@ -16,13 +16,13 @@ public class JsValueListBuilderTests
                 builder.Add(JsNumber.Create(i));
             }
 
-            Assert.Equal(1000, builder.Length);
+            builder.Length.Should().Be(1000);
 
             var array = builder.ToArray();
-            Assert.Equal(1000, array.Length);
+            array.Length.Should().Be(1000);
             for (var i = 0; i < array.Length; i++)
             {
-                Assert.Equal(i, ((JsNumber) array[i]).AsNumber());
+                ((JsNumber) array[i]).AsNumber().Should().Be(i);
             }
         }
         finally
@@ -44,9 +44,9 @@ public class JsValueListBuilderTests
             }
 
             var array = builder.ToArray();
-            Assert.Equal(Count, array.Length);
-            Assert.Equal(0, ((JsNumber) array[0]).AsNumber());
-            Assert.Equal((Count - 1) % 7, ((JsNumber) array[Count - 1]).AsNumber());
+            array.Length.Should().Be(Count);
+            ((JsNumber) array[0]).AsNumber().Should().Be(0);
+            ((JsNumber) array[Count - 1]).AsNumber().Should().Be((Count - 1) % 7);
         }
         finally
         {
@@ -64,14 +64,14 @@ public class JsValueListBuilderTests
             builder.AddHole();
             builder.Add(JsNumber.Create(3));
 
-            Assert.Equal(3, builder.Length);
-            Assert.NotNull(builder[0]);
-            Assert.Null(builder[1]);
-            Assert.NotNull(builder[2]);
+            builder.Length.Should().Be(3);
+            builder[0].Should().NotBeNull();
+            builder[1].Should().BeNull();
+            builder[2].Should().NotBeNull();
 
             var array = builder.ToArray();
-            Assert.Equal(3, array.Length);
-            Assert.Null(array[1]);
+            array.Length.Should().Be(3);
+            array[1].Should().BeNull();
         }
         finally
         {
@@ -94,12 +94,12 @@ public class JsValueListBuilderTests
             builder.Add(JsNumber.Create(-1));
             builder.AddRange(source);
 
-            Assert.Equal(101, builder.Length);
+            builder.Length.Should().Be(101);
 
             var array = builder.ToArray();
-            Assert.Equal(-1, ((JsNumber) array[0]).AsNumber());
-            Assert.Equal(2, ((JsNumber) array[3]).AsNumber());
-            Assert.Null(array[2]);
+            ((JsNumber) array[0]).AsNumber().Should().Be(-1);
+            ((JsNumber) array[3]).AsNumber().Should().Be(2);
+            array[2].Should().BeNull();
         }
         finally
         {
@@ -114,8 +114,8 @@ public class JsValueListBuilderTests
         try
         {
             var array = builder.ToArray();
-            Assert.Empty(array);
-            Assert.Same(System.Array.Empty<JsValue>(), array);
+            array.Should().BeEmpty();
+            array.Should().BeSameAs(System.Array.Empty<JsValue>());
         }
         finally
         {

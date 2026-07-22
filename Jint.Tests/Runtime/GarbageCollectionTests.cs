@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using Acornima.Ast;
 
 namespace Jint.Tests.Runtime;
@@ -43,9 +43,7 @@ public class GarbageCollectionTests
         // Assert
         var usedMemoryBytesAfterJsScript = CurrentlyUsedMemory();
         var epsilon = 10 * 1024 * 1024; // allowing up to 10 MB of other allocations should be enough to prevent false positives
-        Assert.True(
-            usedMemoryBytesAfterJsScript - usedMemoryBytesBaseline < epsilon,
-            userMessage: $"""
+        (usedMemoryBytesAfterJsScript - usedMemoryBytesBaseline).Should().BeLessThan(epsilon, $"""
                           The garbage collector did not free the allocated but unreachable 200 MB from the script.;
                           Before Call : {BytesToString(usedMemoryBytesBaseline)}
                           After Call  : {BytesToString(usedMemoryBytesAfterJsScript)}
@@ -74,9 +72,7 @@ public class GarbageCollectionTests
         // Theoretical savings ≈ count * commentChars * 2 (UTF-16). Assert at least half to absorb noise.
         var minimumSavings = (long) count * commentChars; // bytes; conservative lower bound (< chars * 2)
         var actualSavings = retained - notRetained;
-        Assert.True(
-            actualSavings > minimumSavings,
-            userMessage: $"""
+        actualSavings.Should().BeGreaterThan(minimumSavings, $"""
                           Disabling RetainFunctionSourceText did not free the expected source text.
                           Retained     : {BytesToString(retained)}
                           Not retained : {BytesToString(notRetained)}
@@ -156,9 +152,7 @@ public class GarbageCollectionTests
         var aliveCount = references.Count(static r => r.IsAlive);
         GC.KeepAlive(prepared);
 
-        Assert.True(
-            aliveCount == 0,
-            userMessage: $"{aliveCount} of {count} engines were not collected — the shared prepared script still pins engines.");
+        aliveCount.Should().Be(0, $"{aliveCount} of {count} engines were not collected — the shared prepared script still pins engines.");
 
         // NoInlining so the engine reference cannot be stack-rooted in this frame across the GC.Collect calls.
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]

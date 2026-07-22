@@ -1,4 +1,4 @@
-using Jint.Runtime;
+﻿using Jint.Runtime;
 using SourceMaps;
 
 namespace Jint.Tests.PublicInterface;
@@ -9,7 +9,7 @@ public class CallStackTests
     public void CanInjectTraceFunction()
     {
         var engine = new Engine();
-        Assert.Empty(engine.Advanced.StackTrace);
+        engine.Advanced.StackTrace.Should().BeEmpty();
 
         using var stringWriter = new StringWriter();
         engine.SetValue("console", new Console(engine, stringWriter));
@@ -25,7 +25,7 @@ Trace
 """;
 
         var actual = stringWriter.ToString();
-        Assert.Equal(Expected, actual);
+        actual.Should().Be(Expected);
     }
 
     private class Console
@@ -99,12 +99,12 @@ var b = function (v) {
 };
 b(7);
 //# sourceMappingURL=custom.js.map";
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Execute(Script, "custom.js"));
+        var ex = Invoking(() => engine.Execute(Script, "custom.js")).Should().ThrowExactly<JavaScriptException>().Which;
 
         var stack = ex.JavaScriptStackTrace!;
-        Assert.Equal(@"    at a (custom.ts:4:7)
+        stack.Replace("\r\n", "\n").Should().Be(@"    at a (custom.ts:4:7)
     at b (custom.ts:8:9)
-    at custom.ts:11:1".Replace("\r\n", "\n"), stack.Replace("\r\n", "\n"));
+    at custom.ts:11:1".Replace("\r\n", "\n"));
     }
 
 }

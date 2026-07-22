@@ -1,4 +1,4 @@
-namespace Jint.Tests.Runtime;
+﻿namespace Jint.Tests.Runtime;
 
 /// <summary>
 /// Pins the dense-append fast path (ArrayInstance.TryAppendDense): computed-index writes at exactly
@@ -23,7 +23,7 @@ public class ArrayAppendLaneTests
             })()
             """).AsString();
 
-        Assert.Equal("0,2,4,6,8,10,12,14,16,18|10|4|undefined|ab", result);
+        result.Should().Be("0,2,4,6,8,10,12,14,16,18|10|4|undefined|ab");
     }
 
     [Fact]
@@ -46,7 +46,7 @@ public class ArrayAppendLaneTests
             })()
             """).AsString();
 
-        Assert.Equal("true,true,true|1|1|0", result);
+        result.Should().Be("true,true,true|1|1|0");
     }
 
     [Fact]
@@ -63,7 +63,7 @@ public class ArrayAppendLaneTests
             })()
             """).AsString();
 
-        Assert.Equal("3|a|c|hole", result);
+        result.Should().Be("3|a|c|hole");
     }
 
     [Fact]
@@ -80,6 +80,6 @@ public class ArrayAppendLaneTests
             })()
             """).AsString();
 
-        Assert.Equal("true|100", result);
+        result.Should().Be("true|100");
     }
 }

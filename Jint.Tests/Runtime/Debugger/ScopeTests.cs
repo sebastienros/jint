@@ -7,23 +7,23 @@ public class ScopeTests
 {
     private static JsValue AssertOnlyScopeContains(DebugScopes scopes, string name, DebugScopeType scopeType)
     {
-        var containingScope = Assert.Single(scopes, s => s.ScopeType == scopeType && s.BindingNames.Contains(name));
-        Assert.DoesNotContain(scopes, s => s != containingScope && s.BindingNames.Contains(name));
+        var containingScope = scopes.Should().ContainSingle(s => s.ScopeType == scopeType && s.BindingNames.Contains(name)).Which;
+        scopes.Should().NotContain(s => s != containingScope && s.BindingNames.Contains(name));
 
         return containingScope.GetBindingValue(name);
     }
 
     private static void AssertScope(DebugScope actual, DebugScopeType expectedType, params string[] expectedBindingNames)
     {
-        Assert.Equal(expectedType, actual.ScopeType);
+        actual.ScopeType.Should().Be(expectedType);
         // Global scope will have a number of intrinsic bindings that are outside the scope [no pun] of these tests
         if (actual.ScopeType != DebugScopeType.Global)
         {
-            Assert.Equal(expectedBindingNames.Length, actual.BindingNames.Count);
+            actual.BindingNames.Should().HaveCount(expectedBindingNames.Length);
         }
         foreach (string expectedName in expectedBindingNames)
         {
-            Assert.Contains(expectedName, actual.BindingNames);
+            actual.BindingNames.Should().Contain(expectedName);
         }
     }
 
@@ -39,8 +39,8 @@ public class ScopeTests
         TestHelpers.TestAtBreak(script, info =>
         {
             // Uninitialized global block scoped ("script scoped") bindings return null (and, just as importantly, don't throw):
-            Assert.Null(info.CurrentScopeChain[0].GetBindingValue("globalConstant"));
-            Assert.Null(info.CurrentScopeChain[0].GetBindingValue("globalLet"));
+            info.CurrentScopeChain[0].GetBindingValue("globalConstant").Should().BeNull();
+            info.CurrentScopeChain[0].GetBindingValue("globalLet").Should().BeNull();
         });
     }
 
@@ -60,8 +60,8 @@ public class ScopeTests
         TestHelpers.TestAtBreak(script, info =>
         {
             // Uninitialized block scoped bindings return null (and, just as importantly, don't throw):
-            Assert.Null(info.CurrentScopeChain[0].GetBindingValue("globalConstant"));
-            Assert.Null(info.CurrentScopeChain[0].GetBindingValue("globalLet"));
+            info.CurrentScopeChain[0].GetBindingValue("globalConstant").Should().BeNull();
+            info.CurrentScopeChain[0].GetBindingValue("globalLet").Should().BeNull();
         });
     }
 
@@ -76,7 +76,7 @@ public class ScopeTests
         TestHelpers.TestAtBreak(script, info =>
         {
             var value = AssertOnlyScopeContains(info.CurrentScopeChain, "globalConstant", DebugScopeType.Script);
-            Assert.Equal("test", value.AsString());
+            value.AsString().Should().Be("test");
         });
     }
 
@@ -90,7 +90,7 @@ public class ScopeTests
         TestHelpers.TestAtBreak(script, info =>
         {
             var value = AssertOnlyScopeContains(info.CurrentScopeChain, "globalLet", DebugScopeType.Script);
-            Assert.Equal("test", value.AsString());
+            value.AsString().Should().Be("test");
         });
     }
 
@@ -104,7 +104,7 @@ public class ScopeTests
         TestHelpers.TestAtBreak(script, info =>
         {
             var value = AssertOnlyScopeContains(info.CurrentScopeChain, "globalVar", DebugScopeType.Global);
-            Assert.Equal("test", value.AsString());
+            value.AsString().Should().Be("test");
         });
     }
 
@@ -121,9 +121,9 @@ public class ScopeTests
 
         TestHelpers.TestAtBreak(script, info =>
         {
-            Assert.Equal(3, info.CurrentScopeChain.Count);
-            Assert.Equal(DebugScopeType.Block, info.CurrentScopeChain[0].ScopeType);
-            Assert.True(info.CurrentScopeChain[0].IsTopLevel);
+            info.CurrentScopeChain.Should().HaveCount(3);
+            info.CurrentScopeChain[0].ScopeType.Should().Be(DebugScopeType.Block);
+            info.CurrentScopeChain[0].IsTopLevel.Should().BeTrue();
         });
     }
 
@@ -143,9 +143,9 @@ public class ScopeTests
         TestHelpers.TestAtBreak(script, info =>
         {
             // We only have 3 scopes, because the function top level block scope is empty.
-            Assert.Equal(3, info.CurrentScopeChain.Count);
-            Assert.Equal(DebugScopeType.Block, info.CurrentScopeChain[0].ScopeType);
-            Assert.False(info.CurrentScopeChain[0].IsTopLevel);
+            info.CurrentScopeChain.Should().HaveCount(3);
+            info.CurrentScopeChain[0].ScopeType.Should().Be(DebugScopeType.Block);
+            info.CurrentScopeChain[0].IsTopLevel.Should().BeFalse();
         });
     }
 
@@ -165,7 +165,7 @@ public class ScopeTests
         TestHelpers.TestAtBreak(script, info =>
         {
             var value = AssertOnlyScopeContains(info.CurrentScopeChain, "localConst", DebugScopeType.Block);
-            Assert.Equal("test", value.AsString());
+            value.AsString().Should().Be("test");
         });
     }
     [Fact]
@@ -184,7 +184,7 @@ public class ScopeTests
         TestHelpers.TestAtBreak(script, info =>
         {
             var value = AssertOnlyScopeContains(info.CurrentScopeChain, "localLet", DebugScopeType.Block);
-            Assert.Equal("test", value.AsString());
+            value.AsString().Should().Be("test");
         });
     }
 
@@ -271,7 +271,7 @@ public class ScopeTests
 
         TestHelpers.TestAtBreak(script, info =>
         {
-            Assert.Collection(info.CurrentScopeChain,
+            info.CurrentScopeChain.Should().SatisfyRespectively(
                 scope => AssertScope(scope, DebugScopeType.Local, "arguments", "a", "b"),
                 scope => AssertScope(scope, DebugScopeType.Script, "x", "y", "z"),
                 scope => AssertScope(scope, DebugScopeType.Global, "add"));
@@ -297,7 +297,7 @@ public class ScopeTests
 
         TestHelpers.TestAtBreak(script, info =>
         {
-            Assert.Collection(info.CurrentScopeChain,
+            info.CurrentScopeChain.Should().SatisfyRespectively(
                 scope => AssertScope(scope, DebugScopeType.Local, "arguments", "a"),
                 // a, arguments shadowed by local - but still exist in this scope
                 scope => AssertScope(scope, DebugScopeType.Closure, "a", "arguments", "b", "power"),
@@ -325,7 +325,7 @@ public class ScopeTests
 
         TestHelpers.TestAtBreak(script, info =>
         {
-            Assert.Collection(info.CurrentScopeChain,
+            info.CurrentScopeChain.Should().SatisfyRespectively(
                 scope => AssertScope(scope, DebugScopeType.Block, "y"),
                 scope => AssertScope(scope, DebugScopeType.Local, "arguments", "a", "b"),
                 scope => AssertScope(scope, DebugScopeType.Script, "x", "y", "z"), // y is shadowed, but still in the scope
@@ -358,7 +358,7 @@ public class ScopeTests
             },
             info =>
             {
-                Assert.Collection(info.CurrentScopeChain,
+                info.CurrentScopeChain.Should().SatisfyRespectively(
                     scope => AssertScope(scope, DebugScopeType.Local, "arguments", "a", "b"),
                     scope => AssertScope(scope, DebugScopeType.Module, "add"),
                     scope => AssertScope(scope, DebugScopeType.Global));
@@ -388,7 +388,7 @@ public class ScopeTests
 
         TestHelpers.TestAtBreak(script, info =>
         {
-            Assert.Collection(info.CurrentScopeChain,
+            info.CurrentScopeChain.Should().SatisfyRespectively(
                 scope => AssertScope(scope, DebugScopeType.Block, "x"),
                 scope => AssertScope(scope, DebugScopeType.Block, "y"),
                 scope => AssertScope(scope, DebugScopeType.Local, "arguments", "a", "b"),
@@ -417,7 +417,7 @@ public class ScopeTests
 
         TestHelpers.TestAtBreak(script, info =>
         {
-            Assert.Collection(info.CurrentScopeChain,
+            info.CurrentScopeChain.Should().SatisfyRespectively(
                 scope => AssertScope(scope, DebugScopeType.Catch, "error"),
                 scope => AssertScope(scope, DebugScopeType.Block, "a"),
                 scope => AssertScope(scope, DebugScopeType.Local, "arguments"),
@@ -438,7 +438,7 @@ public class ScopeTests
 
         TestHelpers.TestAtBreak(script, info =>
         {
-            Assert.Collection(info.CurrentScopeChain,
+            info.CurrentScopeChain.Should().SatisfyRespectively(
                 scope => AssertScope(scope, DebugScopeType.Block, "x"),
                 scope => AssertScope(scope, DebugScopeType.With, "a", "b"),
                 scope => AssertScope(scope, DebugScopeType.Script, "obj"),
@@ -463,7 +463,7 @@ public class ScopeTests
 
         TestHelpers.TestAtBreak(script, info =>
         {
-            Assert.Collection(info.CurrentScopeChain,
+            info.CurrentScopeChain.Should().SatisfyRespectively(
                 scope => AssertScope(scope, DebugScopeType.Block, "z"),
                 scope => AssertScope(scope, DebugScopeType.Block, "y"),
                 scope => AssertScope(scope, DebugScopeType.Script, "x"),
@@ -487,7 +487,7 @@ public class ScopeTests
 
         TestHelpers.TestAtBreak(script, info =>
         {
-            Assert.Collection(info.CurrentScopeChain,
+            info.CurrentScopeChain.Should().SatisfyRespectively(
                 scope => AssertScope(scope, DebugScopeType.Block, "z"),
                 scope => AssertScope(scope, DebugScopeType.Script, "x"),
                 scope => AssertScope(scope, DebugScopeType.Global));
@@ -513,20 +513,20 @@ public class ScopeTests
 
         TestHelpers.TestAtBreak(script, info =>
         {
-            Assert.Collection(info.CallStack,
-                frame => Assert.Collection(frame.ScopeChain,
+            info.CallStack.Should().SatisfyRespectively(
+                frame => frame.ScopeChain.Should().SatisfyRespectively(
                     // in foo()
                     scope => AssertScope(scope, DebugScopeType.Local, "arguments", "a", "c"),
                     scope => AssertScope(scope, DebugScopeType.Script, "x"),
                     scope => AssertScope(scope, DebugScopeType.Global, "foo", "bar")
                 ),
-                frame => Assert.Collection(frame.ScopeChain,
+                frame => frame.ScopeChain.Should().SatisfyRespectively(
                     // in bar()
                     scope => AssertScope(scope, DebugScopeType.Local, "arguments", "b"),
                     scope => AssertScope(scope, DebugScopeType.Script, "x"),
                     scope => AssertScope(scope, DebugScopeType.Global, "foo", "bar")
                 ),
-                frame => Assert.Collection(frame.ScopeChain,
+                frame => frame.ScopeChain.Should().SatisfyRespectively(
                     // in global
                     scope => AssertScope(scope, DebugScopeType.Script, "x"),
                     scope => AssertScope(scope, DebugScopeType.Global, "foo", "bar")
@@ -548,7 +548,7 @@ public class ScopeTests
             {
                 // No need for imports - main module is module scoped too, duh.
                 var value = AssertOnlyScopeContains(info.CurrentScopeChain, "x", DebugScopeType.Module);
-                Assert.Equal(1, value.AsInteger());
+                value.AsInteger().Should().Be(1);
             });
     }
 }

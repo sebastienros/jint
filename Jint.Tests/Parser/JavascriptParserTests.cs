@@ -10,8 +10,8 @@ public class JavascriptParserTests
         var program = new Parser().ParseScript("this");
         var body = program.Body;
 
-        Assert.Single(body);
-        Assert.Equal(NodeType.ThisExpression, body.First().As<ExpressionStatement>().Expression.Type);
+        body.Should().ContainSingle();
+        body.First().As<ExpressionStatement>().Expression.Type.Should().Be(NodeType.ThisExpression);
     }
 
     [Fact]
@@ -20,10 +20,10 @@ public class JavascriptParserTests
         var program = new Parser().ParseScript("null");
         var body = program.Body;
 
-        Assert.Single(body);
-        Assert.Equal(NodeType.Literal, body.First().As<ExpressionStatement>().Expression.Type);
-        Assert.Equal(null, body.First().As<ExpressionStatement>().Expression.As<Literal>().Value);
-        Assert.Equal("null", body.First().As<ExpressionStatement>().Expression.As<Literal>().Raw);
+        body.Should().ContainSingle();
+        body.First().As<ExpressionStatement>().Expression.Type.Should().Be(NodeType.Literal);
+        body.First().As<ExpressionStatement>().Expression.As<Literal>().Value.Should().BeNull();
+        body.First().As<ExpressionStatement>().Expression.As<Literal>().Raw.Should().Be("null");
     }
 
     [Fact]
@@ -35,10 +35,10 @@ public class JavascriptParserTests
         var program = new Parser().ParseScript(code);
         var body = program.Body;
 
-        Assert.Single(body);
-        Assert.Equal(NodeType.Literal, body.First().As<ExpressionStatement>().Expression.Type);
-        Assert.Equal(42d, body.First().As<ExpressionStatement>().Expression.As<Literal>().Value);
-        Assert.Equal("42", body.First().As<ExpressionStatement>().Expression.As<Literal>().Raw);
+        body.Should().ContainSingle();
+        body.First().As<ExpressionStatement>().Expression.Type.Should().Be(NodeType.Literal);
+        body.First().As<ExpressionStatement>().Expression.As<Literal>().Value.Should().Be(42d);
+        body.First().As<ExpressionStatement>().Expression.As<Literal>().Raw.Should().Be("42");
     }
 
     [Fact]
@@ -49,13 +49,13 @@ public class JavascriptParserTests
         var program = new Parser().ParseScript("(1 + 2 ) * 3");
         var body = program.Body;
 
-        Assert.Single(body);
-        Assert.NotNull(binary = body.First().As<ExpressionStatement>().Expression.As<BinaryExpression>());
-        Assert.Equal(3d, binary.Right.As<Literal>().Value);
-        Assert.Equal(Operator.Multiplication, binary.Operator);
-        Assert.Equal(1d, binary.Left.As<BinaryExpression>().Left.As<Literal>().Value);
-        Assert.Equal(2d, binary.Left.As<BinaryExpression>().Right.As<Literal>().Value);
-        Assert.Equal(Operator.Addition, binary.Left.As<BinaryExpression>().Operator);
+        body.Should().ContainSingle();
+        (binary = body.First().As<ExpressionStatement>().Expression.As<BinaryExpression>()).Should().NotBeNull();
+        binary.Right.As<Literal>().Value.Should().Be(3d);
+        binary.Operator.Should().Be(Operator.Multiplication);
+        binary.Left.As<BinaryExpression>().Left.As<Literal>().Value.Should().Be(1d);
+        binary.Left.As<BinaryExpression>().Right.As<Literal>().Value.Should().Be(2d);
+        binary.Left.As<BinaryExpression>().Operator.Should().Be(Operator.Addition);
     }
 
     [Theory]
@@ -85,9 +85,9 @@ public class JavascriptParserTests
         var program = new Parser().ParseScript(code);
         var body = program.Body;
 
-        Assert.Single(body);
-        Assert.NotNull(literal = body.First().As<ExpressionStatement>().Expression.As<Literal>());
-        Assert.Equal(Convert.ToDouble(expected), Convert.ToDouble(literal.Value));
+        body.Should().ContainSingle();
+        (literal = body.First().As<ExpressionStatement>().Expression.As<Literal>()).Should().NotBeNull();
+        Convert.ToDouble(literal.Value).Should().Be(Convert.ToDouble(expected));
     }
 
     [Theory]
@@ -104,9 +104,9 @@ public class JavascriptParserTests
         var program = new Parser().ParseScript(code);
         var body = program.Body;
 
-        Assert.Single(body);
-        Assert.NotNull(literal = body.First().As<ExpressionStatement>().Expression.As<Literal>());
-        Assert.Equal(expected, literal.Value);
+        body.Should().ContainSingle();
+        (literal = body.First().As<ExpressionStatement>().Expression.As<Literal>()).Should().NotBeNull();
+        literal.Value.Should().Be(expected);
     }
 
     [Theory]
@@ -156,17 +156,17 @@ public class JavascriptParserTests
 ";
         var program = new Parser().ParseScript(Code);
         var expr = program.Body.First().As<ExpressionStatement>().Expression;
-        Assert.Equal(1, expr.Location.Start.Line);
-        Assert.Equal(0, expr.Location.Start.Column);
-        Assert.Equal(3, expr.Location.End.Line);
-        Assert.Equal(1, expr.Location.End.Column);
+        expr.Location.Start.Line.Should().Be(1);
+        expr.Location.Start.Column.Should().Be(0);
+        expr.Location.End.Line.Should().Be(3);
+        expr.Location.End.Column.Should().Be(1);
     }
 
     [Fact]
     public void ShouldThrowErrorForInvalidLeftHandOperation()
     {
-        var ex = Assert.Throws<JavaScriptException>(() => new Engine().Execute("~ (WE0=1)--- l('1');"));
-        Assert.Equal("Invalid left-hand side expression in postfix operation (<anonymous>:1:4)", ex.Message);
+        var ex = Invoking(() => new Engine().Execute("~ (WE0=1)--- l('1');")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Message.Should().Be("Invalid left-hand side expression in postfix operation (<anonymous>:1:4)");
     }
 
 
@@ -177,6 +177,6 @@ public class JavascriptParserTests
     [InlineData("-.-")]
     public void ShouldThrowParseErrorExceptionForInvalidCode(string code)
     {
-        Assert.Throws<Acornima.SyntaxErrorException>(() => new Parser().ParseScript(code));
+        Invoking(() => new Parser().ParseScript(code)).Should().ThrowExactly<Acornima.SyntaxErrorException>();
     }
 }

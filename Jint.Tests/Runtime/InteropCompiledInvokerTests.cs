@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using Jint.Native;
 
 namespace Jint.Tests.Runtime;
@@ -59,56 +59,56 @@ public class InteropCompiledInvokerTests
     public void FastLane_IntArgsAndReturn()
     {
         var engine = CreateEngine();
-        Assert.Equal(5, engine.Evaluate("host.AddInt(2, 3)").AsNumber());
+        engine.Evaluate("host.AddInt(2, 3)").AsNumber().Should().Be(5);
         // negative and zero still exact-type integers
-        Assert.Equal(-1, engine.Evaluate("host.AddInt(-4, 3)").AsNumber());
+        engine.Evaluate("host.AddInt(-4, 3)").AsNumber().Should().Be(-1);
     }
 
     [Fact]
     public void FastLane_LongArgsAndReturn()
     {
         var engine = CreateEngine();
-        Assert.Equal(7, engine.Evaluate("host.AddLong(3, 4)").AsNumber());
+        engine.Evaluate("host.AddLong(3, 4)").AsNumber().Should().Be(7);
     }
 
     [Fact]
     public void FastLane_DoubleArgsAndReturn()
     {
         var engine = CreateEngine();
-        Assert.Equal(3.75, engine.Evaluate("host.AddDouble(1.5, 2.25)").AsNumber());
+        engine.Evaluate("host.AddDouble(1.5, 2.25)").AsNumber().Should().Be(3.75);
         // integral JS numbers bind to a double parameter as well
-        Assert.Equal(5.0, engine.Evaluate("host.AddDouble(2, 3)").AsNumber());
+        engine.Evaluate("host.AddDouble(2, 3)").AsNumber().Should().Be(5.0);
     }
 
     [Fact]
     public void FastLane_BoolArgsAndReturn()
     {
         var engine = CreateEngine();
-        Assert.True(engine.Evaluate("host.And(true, true)").AsBoolean());
-        Assert.False(engine.Evaluate("host.And(true, false)").AsBoolean());
+        engine.Evaluate("host.And(true, true)").AsBoolean().Should().BeTrue();
+        engine.Evaluate("host.And(true, false)").AsBoolean().Should().BeFalse();
     }
 
     [Fact]
     public void FastLane_StringArgsAndReturn()
     {
         var engine = CreateEngine();
-        Assert.Equal("ab", engine.Evaluate("host.Concat('a', 'b')").AsString());
+        engine.Evaluate("host.Concat('a', 'b')").AsString().Should().Be("ab");
     }
 
     [Fact]
     public void FastLane_JsValuePassthrough()
     {
         var engine = CreateEngine();
-        Assert.Equal(42, engine.Evaluate("host.Echo(42)").AsNumber());
-        Assert.Equal("x", engine.Evaluate("host.Echo('x')").AsString());
-        Assert.True(engine.Evaluate("host.Echo(true)").AsBoolean());
+        engine.Evaluate("host.Echo(42)").AsNumber().Should().Be(42);
+        engine.Evaluate("host.Echo('x')").AsString().Should().Be("x");
+        engine.Evaluate("host.Echo(true)").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
     public void FastLane_StaticMethod()
     {
         var engine = CreateEngine();
-        Assert.Equal(9, engine.Evaluate("host.StaticAdd(4, 5)").AsNumber());
+        engine.Evaluate("host.StaticAdd(4, 5)").AsNumber().Should().Be(9);
     }
 
     [Fact]
@@ -120,16 +120,16 @@ public class InteropCompiledInvokerTests
 
         var result = engine.Evaluate("host.DoVoid()");
         // CLR void is exposed to JS as null (not undefined) - preserved by the fast lane
-        Assert.True(result.IsNull());
-        Assert.True(host.VoidCalled);
+        result.IsNull().Should().BeTrue();
+        host.VoidCalled.Should().BeTrue();
     }
 
     [Fact]
     public void HostExceptionSurfacesAsSameClrException()
     {
         var engine = CreateEngine();
-        var ex = Assert.Throws<InvalidOperationException>(() => engine.Evaluate("host.Throws()"));
-        Assert.Equal("boom from host", ex.Message);
+        var ex = Invoking(() => engine.Evaluate("host.Throws()")).Should().ThrowExactly<InvalidOperationException>().Which;
+        ex.Message.Should().Be("boom from host");
     }
 
     [Fact]
@@ -139,7 +139,7 @@ public class InteropCompiledInvokerTests
         // fractional numbers are not exact-type integers: the fast lane declines and the fallback
         // converter rounds (banker's rounding, 2.5 -> 2), so 2 * 2 == 4. This locks in the behavior
         // that predates the fast lane.
-        Assert.Equal(4, engine.Evaluate("host.TimesTwo(2.5)").AsNumber());
+        engine.Evaluate("host.TimesTwo(2.5)").AsNumber().Should().Be(4);
     }
 
     [Fact]
@@ -148,30 +148,30 @@ public class InteropCompiledInvokerTests
         var engine = CreateEngine();
         // a non-number argument to an int parameter is not an exact-type hit; the fallback coerces
         // the string "5" to 5, so 5 * 2 == 10.
-        Assert.Equal(10, engine.Evaluate("host.TimesTwo('5')").AsNumber());
+        engine.Evaluate("host.TimesTwo('5')").AsNumber().Should().Be(10);
     }
 
     [Fact]
     public void Fallback_OverloadedMethod()
     {
         var engine = CreateEngine();
-        Assert.Equal(6, engine.Evaluate("host.Over(5)").AsNumber());
-        Assert.Equal("hi!", engine.Evaluate("host.Over('hi')").AsString());
+        engine.Evaluate("host.Over(5)").AsNumber().Should().Be(6);
+        engine.Evaluate("host.Over('hi')").AsString().Should().Be("hi!");
     }
 
     [Fact]
     public void Fallback_ParamsMethod()
     {
         var engine = CreateEngine();
-        Assert.Equal(6, engine.Evaluate("host.SumParams(1, 2, 3)").AsNumber());
+        engine.Evaluate("host.SumParams(1, 2, 3)").AsNumber().Should().Be(6);
     }
 
     [Fact]
     public void Fallback_OptionalArgMethod()
     {
         var engine = CreateEngine();
-        Assert.Equal(15, engine.Evaluate("host.WithOptional(5)").AsNumber());
-        Assert.Equal(9, engine.Evaluate("host.WithOptional(5, 4)").AsNumber());
+        engine.Evaluate("host.WithOptional(5)").AsNumber().Should().Be(15);
+        engine.Evaluate("host.WithOptional(5, 4)").AsNumber().Should().Be(9);
     }
 
     [Fact]
@@ -183,7 +183,7 @@ public class InteropCompiledInvokerTests
         engine.SetValue("host", new Host());
 
         // AddInt returns 5, the converter turns any int into int+1 => 6
-        Assert.Equal(6, engine.Evaluate("host.AddInt(2, 3)").AsNumber());
+        engine.Evaluate("host.AddInt(2, 3)").AsNumber().Should().Be(6);
     }
 
     private sealed class PlusOneIntConverter : Jint.Runtime.Interop.IObjectConverter
@@ -209,11 +209,11 @@ public class InteropCompiledInvokerTests
         var engine = new Engine(options => options.SetTypeConverter(e => new BoolVetoingTypeConverter(e)));
         engine.SetValue("host", new Host());
 
-        var ex = Assert.Throws<Jint.Runtime.JavaScriptException>(() => engine.Evaluate("host.And(true, true)"));
-        Assert.Contains("No public methods", ex.Message);
+        var ex = Invoking(() => engine.Evaluate("host.And(true, true)")).Should().ThrowExactly<Jint.Runtime.JavaScriptException>().Which;
+        ex.Message.Should().Contain("No public methods");
 
         // conversions the veto does not touch keep working
-        Assert.Equal(5, engine.Evaluate("host.AddInt(2, 3)").AsNumber());
+        engine.Evaluate("host.AddInt(2, 3)").AsNumber().Should().Be(5);
     }
 
     private sealed class BoolVetoingTypeConverter : Jint.Runtime.Interop.DefaultTypeConverter
@@ -244,11 +244,11 @@ public class InteropCompiledInvokerTests
         engine.SetValue("host", new Host());
         engine.SetValue("other", new OtherHost());
 
-        var ex = Assert.ThrowsAny<Exception>(() => engine.Evaluate("var f = host.TimesTwo; f.call(other, 21)"));
-        Assert.IsAssignableFrom<System.Reflection.TargetException>(ex);
+        var ex = Invoking(() => engine.Evaluate("var f = host.TimesTwo; f.call(other, 21)")).Should().Throw<Exception>().Which;
+        ex.Should().BeAssignableTo<System.Reflection.TargetException>();
 
         // a correctly-typed extracted call still uses the fast lane and works
-        Assert.Equal(42, engine.Evaluate("var g = host.TimesTwo; g.call(host, 21)").AsNumber());
+        engine.Evaluate("var g = host.TimesTwo; g.call(host, 21)").AsNumber().Should().Be(42);
     }
 
     public sealed class OtherHost

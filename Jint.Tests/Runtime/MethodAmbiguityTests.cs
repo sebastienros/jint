@@ -13,10 +13,11 @@ public class MethodAmbiguityTests : IDisposable
         _engine = new Engine(cfg => cfg
                     .AllowOperatorOverloading())
                 .SetValue("log", new Action<object>(Console.WriteLine))
-                .SetValue("throws", new Func<Action, Exception>(Assert.Throws<Exception>))
-                .SetValue("assert", new Action<bool>(Assert.True))
-                .SetValue("assertFalse", new Action<bool>(Assert.False))
-                .SetValue("equal", new Action<object, object>(Assert.Equal))
+                .SetValue("throws", new Func<Action, Exception>(static action => action.Should().Throw<Exception>().Which))
+                .SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()))
+                .SetValue("assertFalse", new Action<bool>(static value => value.Should().BeFalse()))
+                .SetValue("equal", new Action<object, object>(static (expected, actual) =>
+                    actual.Should().BeEquivalentTo(expected, static options => options.WithStrictOrdering())))
                 .SetValue("TestClass", typeof(TestClass))
                 .SetValue("ChildTestClass", typeof(ChildTestClass))
             ;
@@ -91,13 +92,13 @@ public class MethodAmbiguityTests : IDisposable
         engine.SetValue("Class1", TypeReference.CreateTypeReference<Class1>(engine));
         engine.SetValue("Class2", TypeReference.CreateTypeReference<Class2>(engine));
 
-        Assert.Equal("Class1.Double[]", engine.Evaluate("Class1.Print([ 1, 2 ]);"));
-        Assert.Equal("Class1.ExpandoObject", engine.Evaluate("Class1.Print({ x: 1, y: 2 });"));
-        Assert.Equal("Class1.Int32", engine.Evaluate("Class1.Print(5);"));
-        Assert.Equal("Class2.Double[]", engine.Evaluate("Class2.Print([ 1, 2 ]); "));
-        Assert.Equal("Class2.ExpandoObject", engine.Evaluate("Class2.Print({ x: 1, y: 2 });"));
-        Assert.Equal("Class2.Int32", engine.Evaluate("Class2.Print(5);"));
-        Assert.Equal("Class2.Object", engine.Evaluate("Class2.Print(() => '');"));
+        engine.Evaluate("Class1.Print([ 1, 2 ]);").Should().Be("Class1.Double[]");
+        engine.Evaluate("Class1.Print({ x: 1, y: 2 });").Should().Be("Class1.ExpandoObject");
+        engine.Evaluate("Class1.Print(5);").Should().Be("Class1.Int32");
+        engine.Evaluate("Class2.Print([ 1, 2 ]); ").Should().Be("Class2.Double[]");
+        engine.Evaluate("Class2.Print({ x: 1, y: 2 });").Should().Be("Class2.ExpandoObject");
+        engine.Evaluate("Class2.Print(5);").Should().Be("Class2.Int32");
+        engine.Evaluate("Class2.Print(() => '');").Should().Be("Class2.Object");
     }
 
     [Fact]
@@ -128,11 +129,11 @@ public class MethodAmbiguityTests : IDisposable
 
         // When passing a TypeReference, should select the TypeReference overload
         var typeRefResult = engine.Evaluate("Player.GetArmorPenetration(DamageClass);");
-        Assert.Equal("TypeReference", typeRefResult.AsString());
+        typeRefResult.AsString().Should().Be("TypeReference");
 
         // When passing a domain object instance, should select the domain class overload
         var instanceResult = engine.Evaluate("Player.GetArmorPenetration(damageClassInstance);");
-        Assert.Equal("DamageClass", instanceResult.AsString());
+        instanceResult.AsString().Should().Be("DamageClass");
     }
 
     [Fact]
@@ -152,11 +153,11 @@ public class MethodAmbiguityTests : IDisposable
 
         // When calling extension method with TypeReference, should select TypeReference overload
         var typeRefResult = engine.Evaluate("player.GetPenetration(DamageClass);");
-        Assert.Equal("TypeReference:10", typeRefResult.AsString());
+        typeRefResult.AsString().Should().Be("TypeReference:10");
 
         // When calling extension method with instance, should select DamageClass overload
         var instanceResult = engine.Evaluate("player.GetPenetration(damageClassInstance);");
-        Assert.Equal("DamageClass:20", instanceResult.AsString());
+        instanceResult.AsString().Should().Be("DamageClass:20");
     }
 
     private struct Class1

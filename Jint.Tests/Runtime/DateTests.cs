@@ -1,4 +1,4 @@
-using Jint.Native;
+﻿using Jint.Native;
 
 namespace Jint.Tests.Runtime;
 
@@ -10,67 +10,68 @@ public class DateTests
     {
         _engine = new Engine()
             .SetValue("log", new Action<object>(Console.WriteLine))
-            .SetValue("assert", new Action<bool>(Assert.True))
-            .SetValue("equal", new Action<object, object>(Assert.Equal));
+            .SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()))
+            .SetValue("equal", new Action<object, object>(static (expected, actual) =>
+                    actual.Should().BeEquivalentTo(expected, static options => options.WithStrictOrdering())));
     }
 
     [Fact]
     public void NaNToString()
     {
         var value = _engine.Evaluate("new Date(NaN).toString();").AsString();
-        Assert.Equal("Invalid Date", value);
+        value.Should().Be("Invalid Date");
     }
 
     [Fact]
     public void NaNToDateString()
     {
         var value = _engine.Evaluate("new Date(NaN).toDateString();").AsString();
-        Assert.Equal("Invalid Date", value);
+        value.Should().Be("Invalid Date");
     }
 
     [Fact]
     public void NaNToTimeString()
     {
         var value = _engine.Evaluate("new Date(NaN).toTimeString();").AsString();
-        Assert.Equal("Invalid Date", value);
+        value.Should().Be("Invalid Date");
     }
 
     [Fact]
     public void NaNToLocaleString()
     {
         var value = _engine.Evaluate("new Date(NaN).toLocaleString();").AsString();
-        Assert.Equal("Invalid Date", value);
+        value.Should().Be("Invalid Date");
     }
 
     [Fact]
     public void NaNToLocaleDateString()
     {
         var value = _engine.Evaluate("new Date(NaN).toLocaleDateString();").AsString();
-        Assert.Equal("Invalid Date", value);
+        value.Should().Be("Invalid Date");
     }
 
     [Fact]
     public void NaNToLocaleTimeString()
     {
         var value = _engine.Evaluate("new Date(NaN).toLocaleTimeString();").AsString();
-        Assert.Equal("Invalid Date", value);
+        value.Should().Be("Invalid Date");
     }
 
     [Fact]
     public void ToJsonFromNaNObject()
     {
         var result = _engine.Evaluate("JSON.stringify({ date: new Date(NaN) });");
-        Assert.Equal("{\"date\":null}", result.ToString());
+        result.ToString().Should().Be("{\"date\":null}");
     }
 
     [Fact]
     public void ValuePrecisionIsIntegral()
     {
         var number = _engine.Evaluate("new Date() / 1").AsNumber();
-        Assert.Equal((long) number, number);
+        number.Should().Be((long) number);
 
         var dateInstance = _engine.Realm.Intrinsics.Date.Construct(123);
-        Assert.Equal((long) dateInstance.DateValue, dateInstance.DateValue);
+        dateInstance.DateValue.Should().Be((long) dateInstance.DateValue);
     }
 
     [Fact]
@@ -88,8 +89,8 @@ public class DateTests
 
         var engine = new Engine(options => options.LocalTimeZone(timeZoneInfo));
 
-        Assert.Equal("Tue Feb 01 2022 00:00:00 GMT+0800 (China Standard Time)", engine.Evaluate("new Date(2022,1,1).toString()"));
-        Assert.Equal("Tue Feb 01 2022 00:00:00 GMT+0800 (China Standard Time)", engine.Evaluate("new Date(2022,1,1)").ToString());
+        engine.Evaluate("new Date(2022,1,1).toString()").Should().Be("Tue Feb 01 2022 00:00:00 GMT+0800 (China Standard Time)");
+        engine.Evaluate("new Date(2022,1,1)").ToString().Should().Be("Tue Feb 01 2022 00:00:00 GMT+0800 (China Standard Time)");
     }
 
     [Fact]
@@ -108,10 +109,10 @@ public class DateTests
         var engine = new Engine(options => options.LocalTimeZone(timeZoneInfo));
 
         // July 4, 2022 is in summer (EDT = UTC-4, daylight saving time)
-        Assert.Contains("(Eastern Daylight Time)", engine.Evaluate("new Date(2022, 6, 4).toString()").AsString());
+        engine.Evaluate("new Date(2022, 6, 4).toString()").AsString().Should().Contain("(Eastern Daylight Time)");
 
         // January 4, 2022 is in winter (EST = UTC-5, standard time)
-        Assert.Contains("(Eastern Standard Time)", engine.Evaluate("new Date(2022, 0, 4).toString()").AsString());
+        engine.Evaluate("new Date(2022, 0, 4).toString()").AsString().Should().Contain("(Eastern Standard Time)");
     }
 
     [Fact]
@@ -138,7 +139,7 @@ public class DateTests
 
         // Should return "EDT" abbreviation, not "Eastern Daylight Time"
         var result = engine.Evaluate(script).AsString();
-        Assert.Contains("EDT", result);
+        result.Should().Contain("EDT");
 
         const string scriptWinter = """
             (function() {
@@ -149,7 +150,7 @@ public class DateTests
 
         // Should return "EST" abbreviation, not "Eastern Standard Time"
         var resultWinter = engine.Evaluate(scriptWinter).AsString();
-        Assert.Contains("EST", resultWinter);
+        resultWinter.Should().Contain("EST");
     }
 
     [Theory]
@@ -163,7 +164,7 @@ public class DateTests
     [InlineData("December 31 1969 17:00:50 PDT", 50000)]
     public void CanParseLocaleString(string input, long expected)
     {
-        Assert.Equal(expected, _engine.Evaluate($"new Date('{input}') * 1").AsNumber());
+        _engine.Evaluate($"new Date('{input}') * 1").AsNumber().Should().Be(expected);
     }
 
     [Theory]
@@ -184,7 +185,7 @@ public class DateTests
             timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById("FLE Standard Time");
         }
         var engine = new Engine(options => options.LocalTimeZone(timeZoneInfo));
-        Assert.Equal(expectedDate, _engine.Evaluate($"new Date('{input}').getDate()").AsNumber());
+        _engine.Evaluate($"new Date('{input}').getDate()").AsNumber().Should().Be(expectedDate);
     }
 
     [Fact]
@@ -194,13 +195,13 @@ public class DateTests
         _engine.Execute(momentJs);
 
         var parsedDate = _engine.Evaluate("moment().format('YYYY')").ToString();
-        Assert.Equal(DateTime.Now.Year.ToString(), parsedDate);
+        parsedDate.Should().Be(DateTime.Now.Year.ToString());
     }
 
     [Fact]
     public void CanParseEmptyDate()
     {
-        Assert.True(double.IsNaN(_engine.Evaluate("Date.parse('')").AsNumber()));
+        double.IsNaN(_engine.Evaluate("Date.parse('')").AsNumber()).Should().BeTrue();
     }
 
     [Fact]
@@ -208,11 +209,11 @@ public class DateTests
     {
         var date = DateTime.MinValue;
         var jsDate = new JsDate(_engine, date);
-        Assert.Equal(DateFlags.DateTimeMinValue, jsDate._dateValue.Flags);
+        jsDate._dateValue.Flags.Should().Be(DateFlags.DateTimeMinValue);
 
         date = date.AddMilliseconds(1);
         jsDate = new JsDate(_engine, date);
-        Assert.Equal(DateFlags.None, jsDate._dateValue.Flags);
+        jsDate._dateValue.Flags.Should().Be(DateFlags.None);
     }
     
     [Fact]
@@ -220,11 +221,11 @@ public class DateTests
     {
         var date = DateTime.MaxValue;
         var jsDate = new JsDate(_engine, date);
-        Assert.Equal(DateFlags.DateTimeMaxValue, jsDate._dateValue.Flags);
+        jsDate._dateValue.Flags.Should().Be(DateFlags.DateTimeMaxValue);
 
         date = date.AddMilliseconds(-1);
         jsDate = new JsDate(_engine, date);
-        Assert.Equal(DateFlags.None, jsDate._dateValue.Flags);
+        jsDate._dateValue.Flags.Should().Be(DateFlags.None);
     }
 
     [Fact]
@@ -245,13 +246,13 @@ public class DateTests
         // NZDT (GMT+13) ends at 3:00 AM on the first Sunday of April 2025.
         // At midnight April 6, we are still in NZDT (GMT+13).
         var result1 = engine.Evaluate("new Date(2025, 3, 6, 0, 0, 0).toString()").AsString();
-        Assert.Contains("GMT+1300", result1);
-        Assert.Contains("Apr 06 2025 00:00:00", result1);
+        result1.Should().Contain("GMT+1300");
+        result1.Should().Contain("Apr 06 2025 00:00:00");
 
         // NZDT (GMT+13) begins at 2:00 AM on the last Sunday of September 2025.
         // At midnight Sep 28, we are still in NZST (GMT+12).
         var result2 = engine.Evaluate("new Date(2025, 8, 28, 0, 0, 0).toString()").AsString();
-        Assert.Contains("GMT+1200", result2);
-        Assert.Contains("Sep 28 2025 00:00:00", result2);
+        result2.Should().Contain("GMT+1200");
+        result2.Should().Contain("Sep 28 2025 00:00:00");
     }
 }

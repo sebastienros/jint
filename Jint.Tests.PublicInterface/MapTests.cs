@@ -1,4 +1,4 @@
-using AwesomeAssertions;
+﻿using AwesomeAssertions;
 using Jint.Native;
 
 namespace Jint.Tests.Runtime;
@@ -21,23 +21,23 @@ public class MapTests
 
         map.Get(42).Should().Be((JsString) "the meaning of life");
         map.Get("foo").Should().Be((JsString) "bar");
-        map.Get(24).Should().Be(JsValue.Undefined);
+        map.Get(24).Should().BeUndefined();
 
         engine.SetValue("m", map);
-        engine.Evaluate("m.size").Should().Be((JsNumber) 2);
-        engine.Evaluate("m.has(42)").Should().Be(JsBoolean.True);
-        engine.Evaluate("m.has('foo')").Should().Be(JsBoolean.True);
-        engine.Evaluate("m.has(24)").Should().Be(JsBoolean.False);
+        engine.Evaluate("m.size").Should().Be(2);
+        engine.Evaluate("m.has(42)").Should().BeTrue();
+        engine.Evaluate("m.has('foo')").Should().BeTrue();
+        engine.Evaluate("m.has(24)").Should().BeFalse();
 
-        map.Should().Contain((JsNumber) 42, (JsString) "the meaning of life");
+        map.AsEnumerable().Should().Contain((JsNumber) 42, (JsString) "the meaning of life");
         map.Remove(42).Should().BeTrue();
         map.Has(42).Should().BeFalse();
-        engine.Evaluate("m.has(42)").Should().Be(JsBoolean.False);
-        engine.Evaluate("m.size").Should().Be((JsNumber) 1);
+        engine.Evaluate("m.has(42)").Should().BeFalse();
+        engine.Evaluate("m.size").Should().Be(1);
 
         map.Clear();
-        map.Should().BeEmpty();
+        map.AsEnumerable().Should().BeEmpty();
         map.Size.Should().Be(0);
-        engine.Evaluate("m.size").Should().Be((JsNumber) 0);
+        engine.Evaluate("m.size").Should().Be(0);
     }
 }

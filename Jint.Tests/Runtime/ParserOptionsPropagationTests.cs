@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using Jint.Native;
 using Jint.Runtime;
@@ -148,12 +148,12 @@ public class ParserOptionsPropagationTests
 
         if (expectedReturnValue is not null)
         {
-            Assert.Equal(expectedReturnValue, evalAction());
+            evalAction().Should().Be(expectedReturnValue);
         }
         else
         {
-            var ex = Assert.ThrowsAny<Exception>(evalAction);
-            Assert.True(ex is JavaScriptException or ParseErrorException);
+            var ex = Invoking(evalAction).Should().Throw<Exception>().Which;
+            (ex is JavaScriptException or ParseErrorException).Should().BeTrue();
         }
     }
 
@@ -176,12 +176,12 @@ public class ParserOptionsPropagationTests
 
         if (expectedReturnValue is not null)
         {
-            Assert.Equal(expectedReturnValue, evalAction());
+            evalAction().Should().Be(expectedReturnValue);
         }
         else
         {
-            var ex = Assert.Throws<JavaScriptException>(evalAction);
-            Assert.True(ex.Error.InstanceofOperator(engine.Realm.Intrinsics.SyntaxError));
+            var ex = Invoking(evalAction).Should().ThrowExactly<JavaScriptException>().Which;
+            ex.Error.InstanceofOperator(engine.Realm.Intrinsics.SyntaxError).Should().BeTrue();
         }
     }
 
@@ -191,24 +191,24 @@ public class ParserOptionsPropagationTests
         var engine = new Engine();
 
         var parsingOptions = ScriptParsingOptions.Default with { AllowReturnOutsideFunction = true, Tolerant = true };
-        Assert.Equal("2", engine.Evaluate("return '' + eval('(1, 2,)')", parsingOptions));
+        engine.Evaluate("return '' + eval('(1, 2,)')", parsingOptions).Should().Be("2");
 
         var shadowRealm1 = engine.Intrinsics.ShadowRealm.Construct();
         var shadowRealm2 = engine.Intrinsics.ShadowRealm.Construct();
 
-        var ex = Assert.Throws<JavaScriptException>(() => shadowRealm1.Evaluate("'' + eval('(1, 2,)')", parsingOptions with { Tolerant = false }));
-        Assert.True(ex.Error.InstanceofOperator(engine.Intrinsics.TypeError));
+        var ex = Invoking(() => shadowRealm1.Evaluate("'' + eval('(1, 2,)')", parsingOptions with { Tolerant = false })).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Error.InstanceofOperator(engine.Intrinsics.TypeError).Should().BeTrue();
 
-        Assert.Equal("2", engine.Evaluate("'' + eval('(1, 2,)')", parsingOptions));
+        engine.Evaluate("'' + eval('(1, 2,)')", parsingOptions).Should().Be("2");
 
-        ex = Assert.Throws<JavaScriptException>(() => shadowRealm2.Evaluate("'' + eval('(1, 2,)')", parsingOptions with { Tolerant = false }));
-        Assert.True(ex.Error.InstanceofOperator(engine.Intrinsics.TypeError));
+        ex = Invoking(() => shadowRealm2.Evaluate("'' + eval('(1, 2,)')", parsingOptions with { Tolerant = false })).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Error.InstanceofOperator(engine.Intrinsics.TypeError).Should().BeTrue();
 
-        Assert.Equal("2", shadowRealm1.Evaluate("'' + eval('(1, 2,)')", parsingOptions));
+        shadowRealm1.Evaluate("'' + eval('(1, 2,)')", parsingOptions).Should().Be("2");
 
-        ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("'' + eval('(1, 2,)')", parsingOptions with { Tolerant = false }));
-        Assert.True(ex.Error.InstanceofOperator(engine.Intrinsics.SyntaxError));
+        ex = Invoking(() => engine.Evaluate("'' + eval('(1, 2,)')", parsingOptions with { Tolerant = false })).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Error.InstanceofOperator(engine.Intrinsics.SyntaxError).Should().BeTrue();
 
-        Assert.Equal("2", shadowRealm2.Evaluate("'' + new Function('return (1, 2,)')()", parsingOptions));
+        shadowRealm2.Evaluate("'' + new Function('return (1, 2,)')()", parsingOptions).Should().Be("2");
     }
 }

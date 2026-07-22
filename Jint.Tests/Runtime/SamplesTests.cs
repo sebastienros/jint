@@ -8,7 +8,7 @@ public class SamplesTests : IDisposable
     {
         _engine = new Engine()
                 .SetValue("log", new Action<object>(Console.WriteLine))
-                .SetValue("assert", new Action<bool>(Assert.True))
+                .SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()))
             ;
     }
 
@@ -29,6 +29,6 @@ public class SamplesTests : IDisposable
             .Evaluate("x * x")
             .ToObject();
 
-        Assert.Equal(9d, square);
+        square.Should().Be(9d);
     }
 }

@@ -1,4 +1,4 @@
-namespace Jint.Tests.Runtime;
+﻿namespace Jint.Tests.Runtime;
 
 /// <summary>
 /// Pins the ObjectWrapper member inline cache (the wrapper lane in JintMemberExpression): cached
@@ -55,11 +55,11 @@ public class InteropWrapperMemberCacheTests
             sum;
             """).AsNumber();
 
-        Assert.Equal(45, sum);
+        sum.Should().Be(45);
         // every JS-side read must have invoked the CLR getter (the cache holds the descriptor, never the value)
-        Assert.Equal(10, host.Reads);
+        host.Reads.Should().Be(10);
         // every JS-side write must have reached the CLR setter
-        Assert.Equal(Enumerable.Range(0, 10), host.WrittenValues);
+        host.WrittenValues.Should().Equal(Enumerable.Range(0, 10));
     }
 
     [Fact]
@@ -79,8 +79,8 @@ public class InteropWrapperMemberCacheTests
             r.join(',');
             """).AsString();
 
-        Assert.Equal("0,100,200,300,400", result);
-        Assert.Equal(5, host.Reads);
+        result.Should().Be("0,100,200,300,400");
+        host.Reads.Should().Be(5);
     }
 
     [Fact]
@@ -100,7 +100,7 @@ public class InteropWrapperMemberCacheTests
             r.join(',');
             """).AsString();
 
-        Assert.Equal("first,first,first,redefined,redefined,redefined", result);
+        result.Should().Be("first,first,first,redefined,redefined,redefined");
     }
 
     [Fact]
@@ -119,7 +119,7 @@ public class InteropWrapperMemberCacheTests
             r.join(',');
             """).AsString();
 
-        Assert.Equal("5,5,5,6,6,6", result);
+        result.Should().Be("5,5,5,6,6,6");
     }
 
     [Fact]
@@ -146,9 +146,9 @@ public class InteropWrapperMemberCacheTests
             r.join(',');
             """).AsString();
 
-        Assert.Equal("1,2,11,12,21,22", result);
-        Assert.Equal(31, first.value);
-        Assert.Equal(32, second.value);
+        result.Should().Be("1,2,11,12,21,22");
+        first.value.Should().Be(31);
+        second.value.Should().Be(32);
     }
 
     [Fact]
@@ -168,7 +168,7 @@ public class InteropWrapperMemberCacheTests
             r.join(',');
             """).AsString();
 
-        Assert.Equal("7,p,7,p,7,p", result);
+        result.Should().Be("7,p,7,p,7,p");
     }
 
     [Fact]
@@ -193,8 +193,8 @@ public class InteropWrapperMemberCacheTests
             r.join(',');
             """).AsString();
 
-        Assert.Equal("0,1,2,3,4,clr,gone", result);
-        Assert.False(dictionary.ContainsKey("key"));
+        result.Should().Be("0,1,2,3,4,clr,gone");
+        dictionary.ContainsKey("key").Should().BeFalse();
     }
 
     [Fact]
@@ -212,7 +212,7 @@ public class InteropWrapperMemberCacheTests
             r.join(',');
             """).AsString();
 
-        Assert.Equal("42,42,42,42,42,42", result);
+        result.Should().Be("42,42,42,42,42,42");
     }
 
     [Fact]
@@ -238,7 +238,7 @@ public class InteropWrapperMemberCacheTests
             r.join(',');
             """).AsString();
 
-        Assert.Equal("42,42,true,true,true,42", result);
+        result.Should().Be("42,42,true,true,true,42");
     }
 
     [Fact]
@@ -263,7 +263,7 @@ public class InteropWrapperMemberCacheTests
             r.join(',');
             """).AsString();
 
-        Assert.Equal(string.Join(",", Enumerable.Repeat("true", 10)), result);
+        result.Should().Be(string.Join(",", Enumerable.Repeat("true", 10)));
     }
 
     [Fact]
@@ -293,7 +293,7 @@ public class InteropWrapperMemberCacheTests
             """).AsString();
 
         // the custom accessor must be consulted on every read
-        Assert.Equal("1,2,3", result);
-        Assert.Equal(3, calls);
+        result.Should().Be("1,2,3");
+        calls.Should().Be(3);
     }
 }

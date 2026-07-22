@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System.Diagnostics.CodeAnalysis;
 using System.Dynamic;
@@ -43,7 +43,7 @@ public class DefaultTypeConverterTests
 
         engine.Execute("process({ x: 10, y: 20 });");
 
-        Assert.Equal(new Point(10, 20), received);
+        received.Should().Be(new Point(10, 20));
     }
 
     [Fact]
@@ -59,8 +59,8 @@ public class DefaultTypeConverterTests
         engine.Execute("processArray([{ x: 1, y: 2 }, { x: 3, y: 4 }]);");
         engine.Execute("processList([{ x: 5, y: 6 }]);");
 
-        Assert.Equal(new[] { new Point(1, 2), new Point(3, 4) }, receivedArray);
-        Assert.Equal(new[] { new Point(5, 6) }, receivedList!);
+        receivedArray.Should().Equal(new[] { new Point(1, 2), new Point(3, 4) });
+        (receivedList!).Should().Equal(new[] { new Point(5, 6) });
     }
 
     [Fact]
@@ -72,11 +72,11 @@ public class DefaultTypeConverterTests
         dict["x"] = 1;
         dict["y"] = 2;
 
-        var point = Assert.IsType<Point>(converter.Convert(dict, typeof(Point), CultureInfo.InvariantCulture));
-        Assert.Equal(new Point(1, 2), point);
+        var point = converter.Convert(dict, typeof(Point), CultureInfo.InvariantCulture).Should().BeOfType<Point>().Which;
+        point.Should().Be(new Point(1, 2));
 
         // built-in conversions still work
-        Assert.Equal(42, converter.Convert("42", typeof(int), CultureInfo.InvariantCulture));
+        converter.Convert("42", typeof(int), CultureInfo.InvariantCulture).Should().Be(42);
     }
 
     [Fact]
@@ -88,9 +88,9 @@ public class DefaultTypeConverterTests
 
         engine.SetValue("a", new Person());
 
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Execute("a.age = 'not a number'"));
-        Assert.Contains("input string", ex.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains(" was not in a correct format", ex.Message, StringComparison.OrdinalIgnoreCase);
+        var ex = Invoking(() => engine.Execute("a.age = 'not a number'")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Message.Should().ContainEquivalentOf("input string");
+        ex.Message.Should().ContainEquivalentOf(" was not in a correct format");
     }
 
     [Fact]
@@ -100,6 +100,6 @@ public class DefaultTypeConverterTests
 
         engine.SetValue("callInt", new Action<int>(_ => { }));
 
-        Assert.Throws<FormatException>(() => engine.Execute("callInt('not a number')"));
+        Invoking(() => engine.Execute("callInt('not a number')")).Should().ThrowExactly<FormatException>();
     }
 }

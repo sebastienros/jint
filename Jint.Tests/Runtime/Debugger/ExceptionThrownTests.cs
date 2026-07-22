@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using Jint.Native;
 using Jint.Native.Object;
@@ -19,10 +19,10 @@ public class ExceptionThrownTests
             received = args;
         };
 
-        Assert.Throws<Jint.Runtime.JavaScriptException>(() => engine.Execute("throw new Error('test error');"));
+        Invoking(() => engine.Execute("throw new Error('test error');")).Should().ThrowExactly<Jint.Runtime.JavaScriptException>();
 
-        Assert.NotNull(received);
-        Assert.True(received.ThrownValue is ObjectInstance);
+        received.Should().NotBeNull();
+        received.ThrownValue.Should().BeAssignableTo<ObjectInstance>();
     }
 
     [Fact]
@@ -44,7 +44,7 @@ public class ExceptionThrownTests
             }
         ");
 
-        Assert.Single(thrownValues);
+        thrownValues.Should().ContainSingle();
     }
 
     [Fact]
@@ -65,7 +65,7 @@ public class ExceptionThrownTests
             }
         ");
 
-        Assert.NotNull(received);
+        received.Should().NotBeNull();
     }
 
     [Fact]
@@ -86,7 +86,7 @@ public class ExceptionThrownTests
             }
         ");
 
-        Assert.NotNull(received);
+        received.Should().NotBeNull();
     }
 
     [Fact]
@@ -107,7 +107,7 @@ public class ExceptionThrownTests
             }
         ");
 
-        Assert.Equal(0, count);
+        count.Should().Be(0);
     }
 
     [Fact]
@@ -132,7 +132,7 @@ public class ExceptionThrownTests
             }
         ");
 
-        Assert.Equal(2, count);
+        count.Should().Be(2);
     }
 
     [Fact]
@@ -153,8 +153,8 @@ public class ExceptionThrownTests
             }
         ");
 
-        Assert.NotNull(received);
-        Assert.Equal(42, received.ThrownValue.AsNumber());
+        received.Should().NotBeNull();
+        received.ThrownValue.AsNumber().Should().Be(42);
     }
 
     [Fact]
@@ -177,8 +177,8 @@ public class ExceptionThrownTests
             }
         ");
 
-        Assert.NotNull(callStack);
-        Assert.True(callStack.Count >= 1, $"Expected call stack frames, got {callStack.Count}");
+        callStack.Should().NotBeNull();
+        callStack.Count.Should().BeGreaterThanOrEqualTo(1, $"Expected call stack frames, got {callStack.Count}");
     }
 
     [Fact]
@@ -199,8 +199,8 @@ public class ExceptionThrownTests
             }
         ");
 
-        Assert.NotNull(location);
-        Assert.True(location.Value.Start.Line > 0);
+        location.Should().NotBeNull();
+        location.Value.Start.Line.Should().BeGreaterThan(0);
     }
 
     [Fact]
@@ -220,6 +220,6 @@ public class ExceptionThrownTests
             try { throw 3; } catch (e) {}
         ");
 
-        Assert.Equal(3, count);
+        count.Should().Be(3);
     }
 }

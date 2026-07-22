@@ -1,4 +1,4 @@
-using System.Dynamic;
+﻿using System.Dynamic;
 using Jint.Native;
 using Jint.Native.Symbol;
 
@@ -13,7 +13,7 @@ public partial class InteropTests
         dynamic expando = new ExpandoObject();
         expando.Name = "test";
         engine.SetValue("expando", expando);
-        Assert.Equal("test", engine.Evaluate("expando.Name").ToString());
+        engine.Evaluate("expando.Name").ToString().Should().Be("test");
     }
 
     [Fact]
@@ -58,7 +58,7 @@ public partial class InteropTests
         values["title"] = "abc";
 
         _engine.SetValue("parent", parent);
-        Assert.Equal("abc", _engine.Evaluate("parent.child.item.title"));
+        _engine.Evaluate("parent.child.item.title").Should().Be("abc");
     }
 
     [Fact]
@@ -72,7 +72,7 @@ public partial class InteropTests
 
         var result = _engine.Evaluate("var l = ''; for (var x of dynamic) l += x; return l;").AsString();
 
-        Assert.Equal("a,1b,2", result);
+        result.Should().Be("a,1b,2");
     }
 
     [Fact]
@@ -83,13 +83,13 @@ public partial class InteropTests
 
         dynamic value = result.ToObject();
 
-        Assert.Equal(1, value.a);
-        Assert.Equal("foo", value.b);
+        ((double) value.a).Should().Be(1);
+        ((string) value.b).Should().Be("foo");
 
         var dic = (IDictionary<string, object>) result.ToObject();
 
-        Assert.Equal(1d, dic["a"]);
-        Assert.Equal("foo", dic["b"]);
+        dic["a"].Should().Be(1d);
+        dic["b"].Should().Be("foo");
     }
 
     [Fact]
@@ -100,18 +100,18 @@ public partial class InteropTests
 
         engine.SetValue("test", test);
 
-        Assert.Equal("a", engine.Evaluate("test.a").AsString());
-        Assert.Equal("b", engine.Evaluate("test.b").AsString());
+        engine.Evaluate("test.a").AsString().Should().Be("a");
+        engine.Evaluate("test.b").AsString().Should().Be("b");
 
         engine.Evaluate("test.a = 5; test.b = 10; test.Name = 'Jint'");
 
-        Assert.Equal(5, engine.Evaluate("test.a").AsNumber());
-        Assert.Equal(10, engine.Evaluate("test.b").AsNumber());
+        engine.Evaluate("test.a").AsNumber().Should().Be(5);
+        engine.Evaluate("test.b").AsNumber().Should().Be(10);
 
-        Assert.Equal("Jint", engine.Evaluate("test.Name").AsString());
-        Assert.True(engine.Evaluate("test.ContainsKey('a')").AsBoolean());
-        Assert.True(engine.Evaluate("test.ContainsKey('b')").AsBoolean());
-        Assert.False(engine.Evaluate("test.ContainsKey('c')").AsBoolean());
+        engine.Evaluate("test.Name").AsString().Should().Be("Jint");
+        engine.Evaluate("test.ContainsKey('a')").AsBoolean().Should().BeTrue();
+        engine.Evaluate("test.ContainsKey('b')").AsBoolean().Should().BeTrue();
+        engine.Evaluate("test.ContainsKey('c')").AsBoolean().Should().BeFalse();
     }
 
     [Fact]
@@ -125,8 +125,8 @@ public partial class InteropTests
             }
         };
         var e = new Engine().SetValue("dynamicObj", t);
-        Assert.Equal(4, ((dynamic) t).MemberKey.Field);
-        Assert.Equal(4, e.Evaluate("dynamicObj.MemberKey.Field"));
+        ((int) ((dynamic) t).MemberKey.Field).Should().Be(4);
+        e.Evaluate("dynamicObj.MemberKey.Field").Should().Be(4);
     }
 
     private class MemberType

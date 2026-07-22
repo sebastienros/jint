@@ -1,4 +1,4 @@
-using Jint.Native;
+﻿using Jint.Native;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
 
@@ -12,8 +12,9 @@ public class ArrayTests
     {
         _engine = new Engine()
             .SetValue("log", new Action<object>(Console.WriteLine))
-            .SetValue("assert", new Action<bool>(Assert.True))
-            .SetValue("equal", new Action<object, object>(Assert.Equal));
+            .SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()))
+            .SetValue("equal", new Action<object, object>(static (expected, actual) =>
+                    actual.Should().BeEquivalentTo(expected, static options => options.WithStrictOrdering())));
     }
 
     [Fact]
@@ -21,7 +22,7 @@ public class ArrayTests
     {
         var result = _engine.Evaluate("JSON.stringify([1,,3].filter(function(x) { return true; }))").AsString();
 
-        Assert.Equal("[1,3]", result);
+        result.Should().Be("[1,3]");
     }
 
     [Fact]
@@ -39,7 +40,7 @@ public class ArrayTests
             JSON.stringify([before, after]);
             """).AsString();
 
-        Assert.Equal("[[null,false,null,false],[\"ap\",true,\"op\",true]]", result);
+        result.Should().Be("[[null,false,null,false],[\"ap\",true,\"op\",true]]");
     }
 
     [Fact]
@@ -53,7 +54,7 @@ public class ArrayTests
             [a[5], 5 in a, a[7] === undefined].join(',');
             """).AsString();
 
-        Assert.Equal("got,true,true", result);
+        result.Should().Be("got,true,true");
     }
 
     [Fact]
@@ -68,7 +69,7 @@ public class ArrayTests
             [a[1], 1 in a, a[2] === undefined, 2 in a].join(',');
             """).AsString();
 
-        Assert.Equal("inherited,true,true,false", result);
+        result.Should().Be("inherited,true,true,false");
     }
 
     [Fact]
@@ -81,7 +82,7 @@ public class ArrayTests
             filtered instanceof A && filtered.length === 2 && filtered[0] === 2 && filtered[1] === 4;
             """).AsBoolean();
 
-        Assert.True(result);
+        result.Should().BeTrue();
     }
 
     [Fact]
@@ -96,16 +97,16 @@ public class ArrayTests
             captured === 0 && filtered.length === 2 && filtered[0] === 3 && filtered[1] === 4;
             """).AsBoolean();
 
-        Assert.True(result);
+        result.Should().BeTrue();
     }
 
     [Fact]
     public void FilterThrowingCallbackLeavesEngineUsable()
     {
-        Assert.Throws<JavaScriptException>(() => _engine.Evaluate("[1, 2, 3].filter(function(x) { if (x === 2) { throw new Error('boom'); } return true; })"));
+        Invoking(() => _engine.Evaluate("[1, 2, 3].filter(function(x) { if (x === 2) { throw new Error('boom'); } return true; })")).Should().ThrowExactly<JavaScriptException>();
 
         var result = _engine.Evaluate("JSON.stringify([1, 2, 3, 4].filter(function(x) { return x % 2 === 0; }))").AsString();
-        Assert.Equal("[2,4]", result);
+        result.Should().Be("[2,4]");
     }
 
     [Fact]
@@ -117,13 +118,13 @@ public class ArrayTests
             var a = [1, 2, 3];
             JSON.stringify(a.filter(function(x) { a.push(x * 10); return true; }));
             """).AsString();
-        Assert.Equal("[1,2,3]", grow);
+        grow.Should().Be("[1,2,3]");
 
         var shrink = _engine.Evaluate("""
             var b = [1, 2, 3, 4, 5];
             JSON.stringify(b.filter(function(x) { b.length = 2; return true; }));
             """).AsString();
-        Assert.Equal("[1,2]", shrink);
+        shrink.Should().Be("[1,2]");
     }
 
     [Fact]
@@ -131,7 +132,7 @@ public class ArrayTests
     {
         var result = _engine.Evaluate("JSON.stringify([1, [2, , 3], , [4]].flat())").AsString();
 
-        Assert.Equal("[1,2,3,4]", result);
+        result.Should().Be("[1,2,3,4]");
     }
 
     [Fact]
@@ -139,7 +140,7 @@ public class ArrayTests
     {
         var result = _engine.Evaluate("JSON.stringify([1, [2, [3, [4, [5]]]]].flat(Infinity))").AsString();
 
-        Assert.Equal("[1,2,3,4,5]", result);
+        result.Should().Be("[1,2,3,4,5]");
     }
 
     [Fact]
@@ -152,16 +153,16 @@ public class ArrayTests
             flattened instanceof A && flattened.length === 2;
             """).AsBoolean();
 
-        Assert.True(result);
+        result.Should().BeTrue();
     }
 
     [Fact]
     public void FlatMapThrowingMapperLeavesEngineUsable()
     {
-        Assert.Throws<JavaScriptException>(() => _engine.Evaluate("[1, 2, 3].flatMap(function(x) { if (x === 2) { throw new Error('boom'); } return [x]; })"));
+        Invoking(() => _engine.Evaluate("[1, 2, 3].flatMap(function(x) { if (x === 2) { throw new Error('boom'); } return [x]; })")).Should().ThrowExactly<JavaScriptException>();
 
         var result = _engine.Evaluate("JSON.stringify([1, 2].flatMap(function(x) { return [x, x * 10]; }))").AsString();
-        Assert.Equal("[1,10,2,20]", result);
+        result.Should().Be("[1,10,2,20]");
     }
 
     [Fact]
@@ -176,7 +177,7 @@ public class ArrayTests
             JSON.stringify([r.length, 1 in r, r[0], r[2]]);
             """).AsString();
 
-        Assert.Equal("[3,true,\"a\",\"c\"]", result);
+        result.Should().Be("[3,true,\"a\",\"c\"]");
     }
 
     [Fact]
@@ -189,7 +190,7 @@ public class ArrayTests
             JSON.stringify([r.length, 2 in r, 5 in r, r[0], r[1], r[3], r[4], r[6], r[7]]);
             """).AsString();
 
-        Assert.Equal("[8,false,true,\"x\",1,3,\"a\",\"c\",\"tail\"]", result);
+        result.Should().Be("[8,false,true,\"x\",1,3,\"a\",\"c\",\"tail\"]");
     }
 
     [Fact]
@@ -202,7 +203,7 @@ public class ArrayTests
             JSON.stringify([r.length, 2 in r, r[0], r[1], r[3]]);
             """).AsString();
 
-        Assert.Equal("[4,false,\"x\",1,3]", result);
+        result.Should().Be("[4,false,\"x\",1,3]");
     }
 
     [Fact]
@@ -215,7 +216,7 @@ public class ArrayTests
             JSON.stringify([r.length, r[5000000], r[5000001], 0 in r]);
             """).AsString();
 
-        Assert.Equal("[5000002,1,2,false]", result);
+        result.Should().Be("[5000002,1,2,false]");
     }
 
     [Fact]
@@ -228,7 +229,7 @@ public class ArrayTests
             JSON.stringify([r.length, r[0], r[5000001], 1 in r]);
             """).AsString();
 
-        Assert.Equal("[5000002,\"x\",1,false]", result);
+        result.Should().Be("[5000002,\"x\",1,false]");
     }
 
     [Fact]
@@ -241,7 +242,7 @@ public class ArrayTests
             JSON.stringify([fromSet, fromGen]);
             """).AsString();
 
-        Assert.Equal("[[1,2,3],[\"a\",\"b\"]]", result);
+        result.Should().Be("[[1,2,3],[\"a\",\"b\"]]");
     }
 
     [Fact]
@@ -249,7 +250,7 @@ public class ArrayTests
     {
         var result = _engine.Evaluate("JSON.stringify(Array.from(new Set(['a', 'b']), function (v, i) { return v + i; }))").AsString();
 
-        Assert.Equal("[\"a0\",\"b1\"]", result);
+        result.Should().Be("[\"a0\",\"b1\"]");
     }
 
     [Fact]
@@ -269,7 +270,7 @@ public class ArrayTests
             closed;
             """).AsBoolean();
 
-        Assert.True(result);
+        result.Should().BeTrue();
     }
 
     [Fact]
@@ -281,7 +282,7 @@ public class ArrayTests
             a instanceof A && a.length === 2 && a[0] === 1 && a[1] === 2;
             """).AsBoolean();
 
-        Assert.True(result);
+        result.Should().BeTrue();
     }
 
     [Fact]
@@ -289,7 +290,7 @@ public class ArrayTests
     {
         var result = _engine.Evaluate("Array.prototype.toString.call([1,2,3]);").AsString();
 
-        Assert.Equal("1,2,3", result);
+        result.Should().Be("1,2,3");
     }
 
     [Fact]
@@ -297,7 +298,7 @@ public class ArrayTests
     {
         var result = _engine.Evaluate("Array.prototype.toString.call(1);").AsString();
 
-        Assert.Equal("[object Number]", result);
+        result.Should().Be("[object Number]");
     }
 
     [Fact]
@@ -305,7 +306,7 @@ public class ArrayTests
     {
         var result = _engine.Evaluate("Array.prototype.toString.call({});").AsString();
 
-        Assert.Equal("[object Object]", result);
+        result.Should().Be("[object Object]");
     }
 
     [Fact]
@@ -313,7 +314,7 @@ public class ArrayTests
     {
         var result = _engine.Evaluate("Array.prototype.join.call((c = [1, 2, 3, 4], b = [1, 2, 3, 4], b[1] = c, c[1] = b, c))").AsString();
 
-        Assert.Equal("1,1,,3,4,3,4", result);
+        result.Should().Be("1,1,,3,4,3,4");
     }
 
     [Fact]
@@ -321,7 +322,7 @@ public class ArrayTests
     {
         var result = _engine.Evaluate("Array.prototype.toLocaleString.call((c = [1, 2, 3, 4], b = [1, 2, 3, 4], b[1] = c, c[1] = b, c))").AsString();
 
-        Assert.Equal("1,1,,3,4,3,4", result);
+        result.Should().Be("1,1,,3,4,3,4");
     }
 
     [Fact]
@@ -329,7 +330,7 @@ public class ArrayTests
     {
         var result = _engine.Evaluate("var x=[];x[\"\"]=8;x[\"\"];").AsNumber();
 
-        Assert.Equal(8, result);
+        result.Should().Be(8);
     }
 
     [Fact]
@@ -350,7 +351,7 @@ public class ArrayTests
         var engine = new Engine();
         var array = new JsArray(engine);
         var length = (int) array.Length;
-        Assert.Equal(0, length);
+        length.Should().Be(0);
     }
 
     [Fact]
@@ -405,31 +406,31 @@ public class ArrayTests
 
         _engine.Execute(script);
         _engine.Evaluate("const a = new MyArr(1,2);");
-        Assert.True(_engine.Evaluate("a instanceof MyArr").AsBoolean());
+        _engine.Evaluate("a instanceof MyArr").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
     public void IteratorShouldBeConvertibleToArray()
     {
-        Assert.Equal("hello;again", _engine.Evaluate("Array.from(['hello', 'again'].values()).join(';')"));
-        Assert.Equal("hello;another", _engine.Evaluate("Array.from(new Map([['hello', 'world'], ['another', 'value']]).keys()).join(';')"));
+        _engine.Evaluate("Array.from(['hello', 'again'].values()).join(';')").Should().Be("hello;again");
+        _engine.Evaluate("Array.from(new Map([['hello', 'world'], ['another', 'value']]).keys()).join(';')").Should().Be("hello;another");
     }
 
     [Fact]
     public void ArrayFromShouldNotFlattenInputArray()
     {
-        Assert.Equal("a;b", _engine.Evaluate("[...['a', 'b']].join(';')"));
-        Assert.Equal("0,a;1,b", _engine.Evaluate("[...['a', 'b'].entries()].join(';')"));
-        Assert.Equal("0,c;1,d", _engine.Evaluate("Array.from(['c', 'd'].entries()).join(';')"));
-        Assert.Equal("0,e;1,f", _engine.Evaluate("Array.from([[0, 'e'],[1, 'f']]).join(';')"));
+        _engine.Evaluate("[...['a', 'b']].join(';')").Should().Be("a;b");
+        _engine.Evaluate("[...['a', 'b'].entries()].join(';')").Should().Be("0,a;1,b");
+        _engine.Evaluate("Array.from(['c', 'd'].entries()).join(';')").Should().Be("0,c;1,d");
+        _engine.Evaluate("Array.from([[0, 'e'],[1, 'f']]).join(';')").Should().Be("0,e;1,f");
     }
 
     [Fact]
     public void ArrayEntriesShouldReturnKeyValuePairs()
     {
-        Assert.Equal("0,hello,1,world", _engine.Evaluate("Array.from(['hello', 'world'].entries()).join()"));
-        Assert.Equal("0,hello;1,world", _engine.Evaluate("Array.from(['hello', 'world'].entries()).join(';')"));
-        Assert.Equal("0,;1,1;2,5", _engine.Evaluate("Array.from([,1,5,].entries()).join(';')"));
+        _engine.Evaluate("Array.from(['hello', 'world'].entries()).join()").Should().Be("0,hello,1,world");
+        _engine.Evaluate("Array.from(['hello', 'world'].entries()).join(';')").Should().Be("0,hello;1,world");
+        _engine.Evaluate("Array.from([,1,5,].entries()).join(';')").Should().Be("0,;1,1;2,5");
     }
 
     [Fact]
@@ -447,7 +448,8 @@ public class ArrayTests
         {
             o.DebugMode(true);
         });
-        engine.SetValue("equal", new Action<object, object>(Assert.Equal));
+        engine.SetValue("equal", new Action<object, object>(static (expected, actual) =>
+                    actual.Should().BeEquivalentTo(expected, static options => options.WithStrictOrdering())));
 
         const string code = @"
                 var items = [5,2,4,1];
@@ -462,9 +464,9 @@ public class ArrayTests
     public void ArrayConstructorFromHoles()
     {
         _engine.Evaluate("var a = Array(...[,,]);");
-        Assert.True(_engine.Evaluate("\"0\" in a").AsBoolean());
-        Assert.True(_engine.Evaluate("\"1\" in a").AsBoolean());
-        Assert.Equal("undefinedundefined", _engine.Evaluate("'' + a[0] + a[1]"));
+        _engine.Evaluate("\"0\" in a").AsBoolean().Should().BeTrue();
+        _engine.Evaluate("\"1\" in a").AsBoolean().Should().BeTrue();
+        _engine.Evaluate("'' + a[0] + a[1]").Should().Be("undefinedundefined");
     }
 
     [Fact]
@@ -472,7 +474,7 @@ public class ArrayTests
     {
         _engine.Evaluate("class C extends Array {}");
         _engine.Evaluate("var c = new C();");
-        Assert.True(_engine.Evaluate("c.map(Boolean) instanceof C").AsBoolean());
+        _engine.Evaluate("c.map(Boolean) instanceof C").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -488,10 +490,10 @@ public class ArrayTests
 
         var engine = new Engine();
         engine.Execute(Script);
-        Assert.True(engine.Evaluate("proto2.hasOwnProperty(Symbol.iterator)").AsBoolean());
-        Assert.True(engine.Evaluate("!proto1.hasOwnProperty(Symbol.iterator)").AsBoolean());
-        Assert.True(engine.Evaluate("!iterator.hasOwnProperty(Symbol.iterator)").AsBoolean());
-        Assert.True(engine.Evaluate("iterator[Symbol.iterator]() === iterator").AsBoolean());
+        engine.Evaluate("proto2.hasOwnProperty(Symbol.iterator)").AsBoolean().Should().BeTrue();
+        engine.Evaluate("!proto1.hasOwnProperty(Symbol.iterator)").AsBoolean().Should().BeTrue();
+        engine.Evaluate("!iterator.hasOwnProperty(Symbol.iterator)").AsBoolean().Should().BeTrue();
+        engine.Evaluate("iterator[Symbol.iterator]() === iterator").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -506,8 +508,8 @@ public class ArrayTests
         var engine = new Engine();
         engine.Execute(Script);
 
-        Assert.True(engine.Evaluate("get[0] === Symbol.iterator").AsBoolean());
-        Assert.Equal("length,0,1", engine.Evaluate("get.slice(1) + ''").AsString());
+        engine.Evaluate("get[0] === Symbol.iterator").AsBoolean().Should().BeTrue();
+        engine.Evaluate("get.slice(1) + ''").AsString().Should().Be("length,0,1");
     }
 
     [Fact]
@@ -515,10 +517,10 @@ public class ArrayTests
     {
         var engine = new Engine();
         var array = engine.Evaluate("Array.from('fff', (s) => Number.parseInt(s, 16))").AsArray();
-        Assert.Equal((uint) 3, array.Length);
-        Assert.Equal((uint) 15, array[0]);
-        Assert.Equal((uint) 15, array[1]);
-        Assert.Equal((uint) 15, array[2]);
+        array.Length.Should().Be((uint) 3);
+        array[0].Should().Be((uint) 15);
+        array[1].Should().Be((uint) 15);
+        array[2].Should().Be((uint) 15);
     }
 
     [Fact]
@@ -547,7 +549,7 @@ public class ArrayTests
             return true;";
 
         var engine = new Engine();
-        Assert.True(engine.Evaluate(Script).AsBoolean());
+        engine.Evaluate(Script).AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -564,12 +566,12 @@ public class ArrayTests
         var engine = new Engine();
         engine.Execute(Script);
 
-        Assert.Equal("constructor", engine.Evaluate("get[0]"));
-        Assert.True(engine.Evaluate("get[1] === Symbol.isConcatSpreadable").AsBoolean());
-        Assert.Equal("length", engine.Evaluate("get[2]"));
-        Assert.Equal("0", engine.Evaluate("get[3]"));
-        Assert.True(engine.Evaluate("get[4] === get[1] && get[5] === get[2] && get[6] === get[3]").AsBoolean());
-        Assert.Equal(7, engine.Evaluate("get.length"));
+        engine.Evaluate("get[0]").Should().Be("constructor");
+        engine.Evaluate("get[1] === Symbol.isConcatSpreadable").AsBoolean().Should().BeTrue();
+        engine.Evaluate("get[2]").Should().Be("length");
+        engine.Evaluate("get[3]").Should().Be("0");
+        engine.Evaluate("get[4] === get[1] && get[5] === get[2] && get[6] === get[3]").AsBoolean().Should().BeTrue();
+        engine.Evaluate("get.length").Should().Be(7);
     }
 
     [Fact]
@@ -590,11 +592,11 @@ public class ArrayTests
         var a = engine.Evaluate(Code).AsArray();
 
         a.Length.Should().Be(5);
-        a[0].Should().Be(JsValue.Undefined);
-        a[1].Should().Be(JsValue.Undefined);
-        a[2].Should().Be(JsValue.Undefined);
-        a[3].Should().BeOfType<JsArray>().Which.Should().ContainInOrder("#d8b365", "#f5f5f5", "#5ab4ac");
-        a[4].Should().BeOfType<JsArray>().Which.Should().ContainInOrder("#a6611a", "#dfc27d", "#80cdc1", "#018571");
+        a[0].Should().BeUndefined();
+        a[1].Should().BeUndefined();
+        a[2].Should().BeUndefined();
+        a[3].Should().BeOfType<JsArray>().Which.AsEnumerable().Should().ContainInOrder("#d8b365", "#f5f5f5", "#5ab4ac");
+        a[4].Should().BeOfType<JsArray>().Which.AsEnumerable().Should().ContainInOrder("#a6611a", "#dfc27d", "#80cdc1", "#018571");
     }
 
     [Fact]
@@ -608,7 +610,7 @@ Array.prototype.shift.call(p);
 return get + '' === ""length,0,1,2,3"";";
 
         var engine = new Engine();
-        Assert.True(engine.Evaluate(Script).AsBoolean());
+        engine.Evaluate(Script).AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -616,11 +618,11 @@ return get + '' === ""length,0,1,2,3"";";
     {
         var engine = new Engine();
         var propertyDescriptors = new JsArray(engine, [1]).GetOwnProperties().ToArray();
-        Assert.Equal(2, propertyDescriptors.Length);
-        Assert.Equal("0", propertyDescriptors[0].Key);
-        Assert.Equal(1, propertyDescriptors[0].Value.Value);
-        Assert.Equal("length", propertyDescriptors[1].Key);
-        Assert.Equal(1, propertyDescriptors[1].Value.Value);
+        propertyDescriptors.Length.Should().Be(2);
+        propertyDescriptors[0].Key.Should().Be("0");
+        propertyDescriptors[0].Value.Value.Should().Be(1);
+        propertyDescriptors[1].Key.Should().Be("length");
+        propertyDescriptors[1].Value.Value.Should().Be(1);
     }
 
     [Fact]
@@ -651,9 +653,9 @@ return get + '' === ""length,0,1,2,3"";";
         engine.SetValue("list", list);
         var result = engine.Evaluate("list.pop()").AsNumber();
 
-        Assert.Equal(3, result);
-        Assert.Equal(2, list.Count);
-        Assert.Equal(1, list[0]);
-        Assert.Equal(2, list[1]);
+        result.Should().Be(3);
+        list.Should().HaveCount(2);
+        list[0].Should().Be(1);
+        list[1].Should().Be(2);
     }
 }

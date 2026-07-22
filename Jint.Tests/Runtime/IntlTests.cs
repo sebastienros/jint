@@ -1,4 +1,4 @@
-namespace Jint.Tests.Runtime;
+﻿namespace Jint.Tests.Runtime;
 
 public class IntlTests
 {
@@ -13,48 +13,48 @@ public class IntlTests
     public void IntlObjectExists()
     {
         var result = _engine.Evaluate("typeof Intl");
-        Assert.Equal("object", result.AsString());
+        result.AsString().Should().Be("object");
     }
 
     [Fact]
     public void IntlHasGetCanonicalLocales()
     {
         var result = _engine.Evaluate("typeof Intl.getCanonicalLocales");
-        Assert.Equal("function", result.AsString());
+        result.AsString().Should().Be("function");
     }
 
     [Fact]
     public void IntlHasSupportedValuesOf()
     {
         var result = _engine.Evaluate("typeof Intl.supportedValuesOf");
-        Assert.Equal("function", result.AsString());
+        result.AsString().Should().Be("function");
     }
 
     [Fact]
     public void GetCanonicalLocalesWithUndefined()
     {
         var result = _engine.Evaluate("Intl.getCanonicalLocales(undefined)");
-        Assert.True(result.IsArray());
-        Assert.Equal((uint) 0, result.AsArray().Length);
+        result.IsArray().Should().BeTrue();
+        result.AsArray().Length.Should().Be((uint) 0);
     }
 
     [Fact]
     public void GetCanonicalLocalesWithString()
     {
         var result = _engine.Evaluate("Intl.getCanonicalLocales('en-US')");
-        Assert.True(result.IsArray());
+        result.IsArray().Should().BeTrue();
         var array = result.AsArray();
-        Assert.Equal((uint) 1, array.Length);
-        Assert.Equal("en-US", array[0].AsString());
+        array.Length.Should().Be((uint) 1);
+        array[0].AsString().Should().Be("en-US");
     }
 
     [Fact]
     public void GetCanonicalLocalesWithArray()
     {
         var result = _engine.Evaluate("Intl.getCanonicalLocales(['en-US', 'de-DE'])");
-        Assert.True(result.IsArray());
+        result.IsArray().Should().BeTrue();
         var array = result.AsArray();
-        Assert.Equal((uint) 2, array.Length);
+        array.Length.Should().Be((uint) 2);
     }
 
     [Fact]
@@ -62,60 +62,60 @@ public class IntlTests
     {
         // Should canonicalize 'en-us' to 'en-US'
         var result = _engine.Evaluate("Intl.getCanonicalLocales('en-us')");
-        Assert.True(result.IsArray());
+        result.IsArray().Should().BeTrue();
         var array = result.AsArray();
-        Assert.Equal((uint) 1, array.Length);
+        array.Length.Should().Be((uint) 1);
         // Result should be canonicalized
-        Assert.NotNull(array[0].AsString());
+        array[0].AsString().Should().NotBeNull();
     }
 
     [Fact]
     public void SupportedValuesOfCalendar()
     {
         var result = _engine.Evaluate("Intl.supportedValuesOf('calendar')");
-        Assert.True(result.IsArray());
+        result.IsArray().Should().BeTrue();
         var array = result.AsArray();
-        Assert.True(array.Length > 0);
+        array.Length.Should().BeGreaterThan(0);
     }
 
     [Fact]
     public void SupportedValuesOfCurrency()
     {
         var result = _engine.Evaluate("Intl.supportedValuesOf('currency')");
-        Assert.True(result.IsArray());
+        result.IsArray().Should().BeTrue();
         var array = result.AsArray();
-        Assert.True(array.Length > 0);
+        array.Length.Should().BeGreaterThan(0);
     }
 
     [Fact]
     public void SupportedValuesOfUnit()
     {
         var result = _engine.Evaluate("Intl.supportedValuesOf('unit')");
-        Assert.True(result.IsArray());
+        result.IsArray().Should().BeTrue();
         var array = result.AsArray();
-        Assert.True(array.Length > 0);
+        array.Length.Should().BeGreaterThan(0);
         // Should contain common units
         var units = new List<string>();
         for (uint i = 0; i < array.Length; i++)
         {
             units.Add(array[i].AsString());
         }
-        Assert.Contains("meter", units);
-        Assert.Contains("second", units);
+        units.Should().Contain("meter");
+        units.Should().Contain("second");
     }
 
     [Fact]
     public void SupportedValuesOfInvalidKeyThrows()
     {
-        Assert.Throws<Jint.Runtime.JavaScriptException>(() =>
-            _engine.Evaluate("Intl.supportedValuesOf('invalid')"));
+        Invoking(() =>
+            _engine.Evaluate("Intl.supportedValuesOf('invalid')")).Should().ThrowExactly<Jint.Runtime.JavaScriptException>();
     }
 
     [Fact]
     public void IntlToStringTag()
     {
         var result = _engine.Evaluate("Object.prototype.toString.call(Intl)");
-        Assert.Equal("[object Intl]", result.AsString());
+        result.AsString().Should().Be("[object Intl]");
     }
 
     // Intl.Locale tests
@@ -123,106 +123,106 @@ public class IntlTests
     public void LocaleConstructorExists()
     {
         var result = _engine.Evaluate("typeof Intl.Locale");
-        Assert.Equal("function", result.AsString());
+        result.AsString().Should().Be("function");
     }
 
     [Fact]
     public void LocaleCanBeConstructed()
     {
         var result = _engine.Evaluate("new Intl.Locale('en-US')");
-        Assert.NotNull(result);
-        Assert.True(result.IsObject());
+        result.Should().NotBeNull();
+        result.IsObject().Should().BeTrue();
     }
 
     [Fact]
     public void LocaleRequiresNew()
     {
-        Assert.Throws<Jint.Runtime.JavaScriptException>(() =>
-            _engine.Evaluate("Intl.Locale('en-US')"));
+        Invoking(() =>
+            _engine.Evaluate("Intl.Locale('en-US')")).Should().ThrowExactly<Jint.Runtime.JavaScriptException>();
     }
 
     [Fact]
     public void LocaleToStringReturnsTag()
     {
         var result = _engine.Evaluate("new Intl.Locale('en-US').toString()");
-        Assert.Equal("en-US", result.AsString());
+        result.AsString().Should().Be("en-US");
     }
 
     [Fact]
     public void LocaleLanguageProperty()
     {
         var result = _engine.Evaluate("new Intl.Locale('en-US').language");
-        Assert.Equal("en", result.AsString());
+        result.AsString().Should().Be("en");
     }
 
     [Fact]
     public void LocaleRegionProperty()
     {
         var result = _engine.Evaluate("new Intl.Locale('en-US').region");
-        Assert.Equal("US", result.AsString());
+        result.AsString().Should().Be("US");
     }
 
     [Fact]
     public void LocaleScriptProperty()
     {
         var result = _engine.Evaluate("new Intl.Locale('zh-Hans-CN').script");
-        Assert.Equal("Hans", result.AsString());
+        result.AsString().Should().Be("Hans");
     }
 
     [Fact]
     public void LocaleBaseNameProperty()
     {
         var result = _engine.Evaluate("new Intl.Locale('en-US').baseName");
-        Assert.Equal("en-US", result.AsString());
+        result.AsString().Should().Be("en-US");
     }
 
     [Fact]
     public void LocaleWithCalendarOption()
     {
         var result = _engine.Evaluate("new Intl.Locale('en-US', { calendar: 'gregory' }).calendar");
-        Assert.Equal("gregory", result.AsString());
+        result.AsString().Should().Be("gregory");
     }
 
     [Fact]
     public void LocaleWithHourCycleOption()
     {
         var result = _engine.Evaluate("new Intl.Locale('en-US', { hourCycle: 'h12' }).hourCycle");
-        Assert.Equal("h12", result.AsString());
+        result.AsString().Should().Be("h12");
     }
 
     [Fact]
     public void LocaleWithNumericOption()
     {
         var result = _engine.Evaluate("new Intl.Locale('en-US', { numeric: true }).numeric");
-        Assert.True(result.AsBoolean());
+        result.AsBoolean().Should().BeTrue();
     }
 
     [Fact]
     public void LocaleToStringTagIsCorrect()
     {
         var result = _engine.Evaluate("Object.prototype.toString.call(new Intl.Locale('en-US'))");
-        Assert.Equal("[object Intl.Locale]", result.AsString());
+        result.AsString().Should().Be("[object Intl.Locale]");
     }
 
     [Fact]
     public void LocaleMinimize()
     {
         var result = _engine.Evaluate("new Intl.Locale('en-US').minimize().toString()");
-        Assert.Equal("en", result.AsString());
+        result.AsString().Should().Be("en");
     }
 
     [Fact]
     public void LocaleWithUnicodeExtension()
     {
         var result = _engine.Evaluate("new Intl.Locale('en-US-u-ca-gregory').calendar");
-        Assert.Equal("gregory", result.AsString());
+        result.AsString().Should().Be("gregory");
     }
 
     [Fact]
     public void LocaleInvalidTagThrows()
     {
-        Assert.Throws<Jint.Runtime.JavaScriptException>(() =>
-            _engine.Evaluate("new Intl.Locale('invalid tag with spaces')"));
+        Invoking(() =>
+            _engine.Evaluate("new Intl.Locale('invalid tag with spaces')")).Should().ThrowExactly<Jint.Runtime.JavaScriptException>();
     }
 
     // Intl.Collator tests
@@ -230,29 +230,29 @@ public class IntlTests
     public void CollatorConstructorExists()
     {
         var result = _engine.Evaluate("typeof Intl.Collator");
-        Assert.Equal("function", result.AsString());
+        result.AsString().Should().Be("function");
     }
 
     [Fact]
     public void CollatorCanBeConstructed()
     {
         var result = _engine.Evaluate("new Intl.Collator('en-US')");
-        Assert.NotNull(result);
-        Assert.True(result.IsObject());
+        result.Should().NotBeNull();
+        result.IsObject().Should().BeTrue();
     }
 
     [Fact]
     public void CollatorToStringTagIsCorrect()
     {
         var result = _engine.Evaluate("Object.prototype.toString.call(new Intl.Collator('en-US'))");
-        Assert.Equal("[object Intl.Collator]", result.AsString());
+        result.AsString().Should().Be("[object Intl.Collator]");
     }
 
     [Fact]
     public void CollatorCompareReturnsFunction()
     {
         var result = _engine.Evaluate("typeof new Intl.Collator('en-US').compare");
-        Assert.Equal("function", result.AsString());
+        result.AsString().Should().Be("function");
     }
 
     [Fact]
@@ -263,7 +263,7 @@ public class IntlTests
             var compare = collator.compare;
             compare('a', 'b')
         ");
-        Assert.True(result.AsNumber() < 0);
+        result.AsNumber().Should().BeLessThan(0);
     }
 
     [Fact]
@@ -274,7 +274,7 @@ public class IntlTests
             collator.compare('a', 'A')
         ");
         // With 'case' sensitivity, 'a' and 'A' should be different
-        Assert.True(result.AsNumber() != 0);
+        result.AsNumber().Should().NotBe(0);
     }
 
     [Fact]
@@ -285,7 +285,7 @@ public class IntlTests
             collator.compare('a', 'A')
         ");
         // With 'base' sensitivity, 'a' and 'A' should be equal
-        Assert.Equal(0, result.AsNumber());
+        result.AsNumber().Should().Be(0);
     }
 
     [Fact]
@@ -295,14 +295,14 @@ public class IntlTests
             var options = new Intl.Collator('en-US', { usage: 'search' }).resolvedOptions();
             options.usage
         ");
-        Assert.Equal("search", result.AsString());
+        result.AsString().Should().Be("search");
     }
 
     [Fact]
     public void CollatorSupportedLocalesOf()
     {
         var result = _engine.Evaluate("Intl.Collator.supportedLocalesOf(['en-US', 'de-DE'])");
-        Assert.True(result.IsArray());
+        result.IsArray().Should().BeTrue();
     }
 
     [Fact]
@@ -313,7 +313,7 @@ public class IntlTests
             items.sort(new Intl.Collator('en-US').compare);
             items.join(',')
         ");
-        Assert.Equal("a,b,c,z", result.AsString());
+        result.AsString().Should().Be("a,b,c,z");
     }
 
     // Intl.NumberFormat tests
@@ -321,37 +321,37 @@ public class IntlTests
     public void NumberFormatConstructorExists()
     {
         var result = _engine.Evaluate("typeof Intl.NumberFormat");
-        Assert.Equal("function", result.AsString());
+        result.AsString().Should().Be("function");
     }
 
     [Fact]
     public void NumberFormatCanBeConstructed()
     {
         var result = _engine.Evaluate("new Intl.NumberFormat('en-US')");
-        Assert.NotNull(result);
-        Assert.True(result.IsObject());
+        result.Should().NotBeNull();
+        result.IsObject().Should().BeTrue();
     }
 
     [Fact]
     public void NumberFormatToStringTagIsCorrect()
     {
         var result = _engine.Evaluate("Object.prototype.toString.call(new Intl.NumberFormat('en-US'))");
-        Assert.Equal("[object Intl.NumberFormat]", result.AsString());
+        result.AsString().Should().Be("[object Intl.NumberFormat]");
     }
 
     [Fact]
     public void NumberFormatReturnsFunction()
     {
         var result = _engine.Evaluate("typeof new Intl.NumberFormat('en-US').format");
-        Assert.Equal("function", result.AsString());
+        result.AsString().Should().Be("function");
     }
 
     [Fact]
     public void NumberFormatFormatsDecimal()
     {
         var result = _engine.Evaluate("new Intl.NumberFormat('en-US').format(1234.567)");
-        Assert.Contains("1", result.AsString());
-        Assert.Contains("234", result.AsString());
+        result.AsString().Should().Contain("1");
+        result.AsString().Should().Contain("234");
     }
 
     [Fact]
@@ -359,7 +359,7 @@ public class IntlTests
     {
         var result = _engine.Evaluate("new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(1234.56)");
         // Should contain the dollar sign and the number
-        Assert.Contains("1", result.AsString());
+        result.AsString().Should().Contain("1");
     }
 
     [Fact]
@@ -367,7 +367,7 @@ public class IntlTests
     {
         var result = _engine.Evaluate("new Intl.NumberFormat('en-US', { style: 'percent' }).format(0.5)");
         // Should contain "50" for 50%
-        Assert.Contains("50", result.AsString());
+        result.AsString().Should().Contain("50");
     }
 
     [Fact]
@@ -377,7 +377,7 @@ public class IntlTests
             var options = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'EUR' }).resolvedOptions();
             options.currency
         ");
-        Assert.Equal("EUR", result.AsString());
+        result.AsString().Should().Be("EUR");
     }
 
     [Fact]
@@ -387,36 +387,36 @@ public class IntlTests
             var options = new Intl.NumberFormat('en-US', { style: 'percent' }).resolvedOptions();
             options.style
         ");
-        Assert.Equal("percent", result.AsString());
+        result.AsString().Should().Be("percent");
     }
 
     [Fact]
     public void NumberFormatSupportedLocalesOf()
     {
         var result = _engine.Evaluate("Intl.NumberFormat.supportedLocalesOf(['en-US', 'de-DE'])");
-        Assert.True(result.IsArray());
+        result.IsArray().Should().BeTrue();
     }
 
     [Fact]
     public void NumberFormatWithUnit()
     {
         var result = _engine.Evaluate("new Intl.NumberFormat('en-US', { style: 'unit', unit: 'kilometer' }).format(100)");
-        Assert.Contains("100", result.AsString());
-        Assert.Contains("km", result.AsString());
+        result.AsString().Should().Contain("100");
+        result.AsString().Should().Contain("km");
     }
 
     [Fact]
     public void NumberFormatCurrencyRequiresCurrency()
     {
-        Assert.Throws<Jint.Runtime.JavaScriptException>(() =>
-            _engine.Evaluate("new Intl.NumberFormat('en-US', { style: 'currency' })"));
+        Invoking(() =>
+            _engine.Evaluate("new Intl.NumberFormat('en-US', { style: 'currency' })")).Should().ThrowExactly<Jint.Runtime.JavaScriptException>();
     }
 
     [Fact]
     public void NumberFormatUnitRequiresUnit()
     {
-        Assert.Throws<Jint.Runtime.JavaScriptException>(() =>
-            _engine.Evaluate("new Intl.NumberFormat('en-US', { style: 'unit' })"));
+        Invoking(() =>
+            _engine.Evaluate("new Intl.NumberFormat('en-US', { style: 'unit' })")).Should().ThrowExactly<Jint.Runtime.JavaScriptException>();
     }
 
     // Intl.DateTimeFormat tests
@@ -424,29 +424,29 @@ public class IntlTests
     public void DateTimeFormatConstructorExists()
     {
         var result = _engine.Evaluate("typeof Intl.DateTimeFormat");
-        Assert.Equal("function", result.AsString());
+        result.AsString().Should().Be("function");
     }
 
     [Fact]
     public void DateTimeFormatCanBeConstructed()
     {
         var result = _engine.Evaluate("new Intl.DateTimeFormat('en-US')");
-        Assert.NotNull(result);
-        Assert.True(result.IsObject());
+        result.Should().NotBeNull();
+        result.IsObject().Should().BeTrue();
     }
 
     [Fact]
     public void DateTimeFormatToStringTagIsCorrect()
     {
         var result = _engine.Evaluate("Object.prototype.toString.call(new Intl.DateTimeFormat('en-US'))");
-        Assert.Equal("[object Intl.DateTimeFormat]", result.AsString());
+        result.AsString().Should().Be("[object Intl.DateTimeFormat]");
     }
 
     [Fact]
     public void DateTimeFormatFormatReturnsFunction()
     {
         var result = _engine.Evaluate("typeof new Intl.DateTimeFormat('en-US').format");
-        Assert.Equal("function", result.AsString());
+        result.AsString().Should().Be("function");
     }
 
     [Fact]
@@ -454,26 +454,26 @@ public class IntlTests
     {
         var result = _engine.Evaluate("new Intl.DateTimeFormat('en-US').format(new Date(2024, 0, 15, 12, 0, 0))");
         // Should contain the date components - use noon to avoid timezone issues
-        Assert.Contains("1", result.AsString()); // Month or day
-        Assert.Contains("2024", result.AsString()); // Year
+        result.AsString().Should().Contain("1"); // Month or day
+        result.AsString().Should().Contain("2024"); // Year
         // Day could be 14, 15, or 16 depending on timezone, just check it's a valid date
-        Assert.True(result.AsString().Length > 0);
+        result.AsString().Length.Should().BeGreaterThan(0);
     }
 
     [Fact]
     public void DateTimeFormatWithDateStyle()
     {
         var result = _engine.Evaluate("new Intl.DateTimeFormat('en-US', { dateStyle: 'short' }).format(new Date(2024, 0, 15))");
-        Assert.NotNull(result.AsString());
-        Assert.True(result.AsString().Length > 0);
+        result.AsString().Should().NotBeNull();
+        result.AsString().Length.Should().BeGreaterThan(0);
     }
 
     [Fact]
     public void DateTimeFormatWithTimeStyle()
     {
         var result = _engine.Evaluate("new Intl.DateTimeFormat('en-US', { timeStyle: 'short' }).format(new Date(2024, 0, 15, 14, 30, 0))");
-        Assert.NotNull(result.AsString());
-        Assert.True(result.AsString().Length > 0);
+        result.AsString().Should().NotBeNull();
+        result.AsString().Length.Should().BeGreaterThan(0);
     }
 
     [Fact]
@@ -483,7 +483,7 @@ public class IntlTests
             var options = new Intl.DateTimeFormat('en-US', { dateStyle: 'full' }).resolvedOptions();
             options.dateStyle
         ");
-        Assert.Equal("full", result.AsString());
+        result.AsString().Should().Be("full");
     }
 
     [Fact]
@@ -494,7 +494,7 @@ public class IntlTests
             options.locale
         ");
         // Should return a locale string
-        Assert.NotNull(result.AsString());
+        result.AsString().Should().NotBeNull();
     }
 
     [Fact]
@@ -505,14 +505,14 @@ public class IntlTests
             options.calendar
         ");
         // Default calendar should be 'gregory'
-        Assert.Equal("gregory", result.AsString());
+        result.AsString().Should().Be("gregory");
     }
 
     [Fact]
     public void DateTimeFormatSupportedLocalesOf()
     {
         var result = _engine.Evaluate("Intl.DateTimeFormat.supportedLocalesOf(['en-US', 'de-DE'])");
-        Assert.True(result.IsArray());
+        result.IsArray().Should().BeTrue();
     }
 
     [Fact]
@@ -525,7 +525,7 @@ public class IntlTests
                 day: 'numeric'
             }).format(new Date(2024, 0, 15))
         ");
-        Assert.Contains("2024", result.AsString());
+        result.AsString().Should().Contain("2024");
     }
 
     [Fact]
@@ -538,7 +538,7 @@ public class IntlTests
             }).format(new Date(2024, 0, 15, 14, 30, 0))
         ");
         // Should contain time components
-        Assert.True(result.AsString().Contains("30") || result.AsString().Contains(":"));
+        (result.AsString().Contains("30") || result.AsString().Contains(":")).Should().BeTrue();
     }
 
     [Fact]
@@ -548,7 +548,7 @@ public class IntlTests
             var parts = new Intl.DateTimeFormat('en-US').formatToParts(new Date(2024, 0, 15));
             Array.isArray(parts)
         ");
-        Assert.True(result.AsBoolean());
+        result.AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -558,7 +558,7 @@ public class IntlTests
             var parts = new Intl.DateTimeFormat('en-US').formatToParts(new Date(2024, 0, 15));
             parts.length > 0 && parts[0].type !== undefined && parts[0].value !== undefined
         ");
-        Assert.True(result.AsBoolean());
+        result.AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -573,7 +573,7 @@ public class IntlTests
             }).format(new Date(2024, 0, 15))
         ");
         // Should contain a weekday name (Monday, January 15, 2024)
-        Assert.True(result.AsString().Length > 10);
+        result.AsString().Length.Should().BeGreaterThan(10);
     }
 
     [Fact]
@@ -586,7 +586,7 @@ public class IntlTests
             }).resolvedOptions();
             options.hourCycle
         ");
-        Assert.Equal("h23", result.AsString());
+        result.AsString().Should().Be("h23");
     }
 
     [Fact]
@@ -598,14 +598,14 @@ public class IntlTests
             }).resolvedOptions();
             options.timeZone
         ");
-        Assert.Equal("UTC", result.AsString());
+        result.AsString().Should().Be("UTC");
     }
 
     [Fact]
     public void DateTimeFormatInvalidTimeZoneThrows()
     {
-        Assert.Throws<Jint.Runtime.JavaScriptException>(() =>
-            _engine.Evaluate("new Intl.DateTimeFormat('en-US', { timeZone: 'Invalid/TimeZone' })"));
+        Invoking(() =>
+            _engine.Evaluate("new Intl.DateTimeFormat('en-US', { timeZone: 'Invalid/TimeZone' })")).Should().ThrowExactly<Jint.Runtime.JavaScriptException>();
     }
 
     [Fact]
@@ -613,16 +613,16 @@ public class IntlTests
     {
         var result = _engine.Evaluate("new Intl.DateTimeFormat('en-US').format()");
         // Should return a non-empty string (current date formatted)
-        Assert.NotNull(result.AsString());
-        Assert.True(result.AsString().Length > 0);
+        result.AsString().Should().NotBeNull();
+        result.AsString().Length.Should().BeGreaterThan(0);
     }
 
     [Fact]
     public void DateTimeFormatFormatsTimestamp()
     {
         var result = _engine.Evaluate("new Intl.DateTimeFormat('en-US').format(1705363200000)"); // Jan 15, 2024 UTC
-        Assert.NotNull(result.AsString());
-        Assert.True(result.AsString().Length > 0);
+        result.AsString().Should().NotBeNull();
+        result.AsString().Length.Should().BeGreaterThan(0);
     }
 
     [Fact]
@@ -636,21 +636,21 @@ public class IntlTests
             }).format(new Date(2024, 0, 5))
         ");
         // With 2-digit, should have leading zeros
-        Assert.Contains("01", result.AsString()); // Month
+        result.AsString().Should().Contain("01"); // Month
     }
 
     [Fact]
     public void DateTimeFormatInvalidDateStyleThrows()
     {
-        Assert.Throws<Jint.Runtime.JavaScriptException>(() =>
-            _engine.Evaluate("new Intl.DateTimeFormat('en-US', { dateStyle: 'invalid' })"));
+        Invoking(() =>
+            _engine.Evaluate("new Intl.DateTimeFormat('en-US', { dateStyle: 'invalid' })")).Should().ThrowExactly<Jint.Runtime.JavaScriptException>();
     }
 
     [Fact]
     public void DateTimeFormatInvalidWeekdayThrows()
     {
-        Assert.Throws<Jint.Runtime.JavaScriptException>(() =>
-            _engine.Evaluate("new Intl.DateTimeFormat('en-US', { weekday: 'invalid' })"));
+        Invoking(() =>
+            _engine.Evaluate("new Intl.DateTimeFormat('en-US', { weekday: 'invalid' })")).Should().ThrowExactly<Jint.Runtime.JavaScriptException>();
     }
 
     // Boundary tests for the precision-aware string-input paths in NumberFormatPrototype.
@@ -662,14 +662,14 @@ public class IntlTests
     public void NumberFormat_LargeIntegerString_PreservesAllDigits()
     {
         var result = _engine.Evaluate("new Intl.NumberFormat('en-US').format('987654321987654321')");
-        Assert.Equal("987,654,321,987,654,321", result.AsString());
+        result.AsString().Should().Be("987,654,321,987,654,321");
     }
 
     [Fact]
     public void NumberFormat_NegativeLargeIntegerString_PreservesAllDigits()
     {
         var result = _engine.Evaluate("new Intl.NumberFormat('en-US').format('-987654321987654321')");
-        Assert.Equal("-987,654,321,987,654,321", result.AsString());
+        result.AsString().Should().Be("-987,654,321,987,654,321");
     }
 
     [Fact]
@@ -679,14 +679,14 @@ public class IntlTests
         // the existing double pipeline. The chosen value is exactly representable as a
         // double (≤ 2^53) so this also asserts no regression in the small-integer path.
         var result = _engine.Evaluate("new Intl.NumberFormat('en-US').format('1000000000000000')");
-        Assert.Equal("1,000,000,000,000,000", result.AsString());
+        result.AsString().Should().Be("1,000,000,000,000,000");
     }
 
     [Fact]
     public void NumberFormat_HighPrecisionDecimal_PreservesAllFractionDigits()
     {
         var result = _engine.Evaluate("new Intl.NumberFormat('en-US', {maximumFractionDigits: 20}).format('1.0000000000000001')");
-        Assert.Equal("1.0000000000000001", result.AsString());
+        result.AsString().Should().Be("1.0000000000000001");
     }
 
     [Fact]
@@ -695,7 +695,7 @@ public class IntlTests
         // 15 total digits — under the 16-digit precision boundary; format result still matches
         // because the double can represent 1.23 exactly enough for a 2-fraction-digit display.
         var result = _engine.Evaluate("new Intl.NumberFormat('en-US').format('1.23')");
-        Assert.Equal("1.23", result.AsString());
+        result.AsString().Should().Be("1.23");
     }
 
     [Fact]
@@ -706,7 +706,7 @@ public class IntlTests
         var result = _engine.Evaluate(
             "new Intl.NumberFormat('en-US', {minimumFractionDigits: 3, maximumFractionDigits: 3})" +
             ".format('-0.00000000000000000000000000000123')");
-        Assert.Equal("-0.000", result.AsString());
+        result.AsString().Should().Be("-0.000");
     }
 
     [Fact]
@@ -715,7 +715,7 @@ public class IntlTests
         var result = _engine.Evaluate(
             "new Intl.NumberFormat('en-US', {useGrouping: false, maximumSignificantDigits: 5})" +
             ".format('12344501000000000000000000000000000')");
-        Assert.Equal("12345000000000000000000000000000000", result.AsString());
+        result.AsString().Should().Be("12345000000000000000000000000000000");
     }
 
     [Fact]
@@ -723,14 +723,14 @@ public class IntlTests
     {
         var result = _engine.Evaluate(
             "new Intl.NumberFormat('en-US').formatRange('987654321987654321', '987654321987654322')");
-        Assert.Equal("987,654,321,987,654,321–987,654,321,987,654,322", result.AsString());
+        result.AsString().Should().Be("987,654,321,987,654,321–987,654,321,987,654,322");
     }
 
     [Fact]
     public void NumberFormat_FormatRange_NaN_Throws()
     {
-        Assert.Throws<Jint.Runtime.JavaScriptException>(() =>
-            _engine.Evaluate("new Intl.NumberFormat('en-US').formatRange(NaN, 5)"));
+        Invoking(() =>
+            _engine.Evaluate("new Intl.NumberFormat('en-US').formatRange(NaN, 5)")).Should().ThrowExactly<Jint.Runtime.JavaScriptException>();
     }
 
     [Fact]
@@ -739,6 +739,6 @@ public class IntlTests
         var result = _engine.Evaluate(
             "new Intl.NumberFormat('en-US', {style: 'currency', currency: 'USD', signDisplay: 'always'})" +
             ".formatRange(2.9, 3.1)");
-        Assert.Equal("+$2.90–3.10", result.AsString());
+        result.AsString().Should().Be("+$2.90–3.10");
     }
 }

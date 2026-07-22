@@ -1,4 +1,4 @@
-namespace Jint.Tests.Runtime;
+﻿namespace Jint.Tests.Runtime;
 
 public class IteratorHelpersTests
 {
@@ -15,7 +15,7 @@ public class IteratorHelpersTests
             ]);
             """).AsString();
 
-        Assert.Equal("[[1,2,3],[1,2,3],[\"a\",\"b\"]]", result);
+        result.Should().Be("[[1,2,3],[1,2,3],[\"a\",\"b\"]]");
     }
 
     [Fact]
@@ -24,7 +24,7 @@ public class IteratorHelpersTests
         var engine = new Engine();
         var result = engine.Evaluate("JSON.stringify([1, 2, 3, 4, 5].values().drop(1).take(3).map(x => x * 10).toArray())").AsString();
 
-        Assert.Equal("[20,30,40]", result);
+        result.Should().Be("[20,30,40]");
     }
 
     [Fact]
@@ -33,6 +33,6 @@ public class IteratorHelpersTests
         var engine = new Engine();
         var result = engine.Evaluate("Array.isArray([].values().toArray()) && [].values().toArray().length === 0").AsBoolean();
 
-        Assert.True(result);
+        result.Should().BeTrue();
     }
 }

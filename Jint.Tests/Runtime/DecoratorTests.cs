@@ -1,4 +1,4 @@
-namespace Jint.Tests.Runtime;
+﻿namespace Jint.Tests.Runtime;
 
 public class DecoratorTests
 {
@@ -27,7 +27,7 @@ public class DecoratorTests
             new C().foo();
             """);
 
-        Assert.Equal(42, result.AsInteger());
+        result.AsInteger().Should().Be(42);
     }
 
     [Fact]
@@ -45,7 +45,7 @@ public class DecoratorTests
             new C().added;
             """);
 
-        Assert.True(result.AsBoolean());
+        result.AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -66,7 +66,7 @@ public class DecoratorTests
             new C().x;
             """);
 
-        Assert.Equal(50, result.AsInteger());
+        result.AsInteger().Should().Be(50);
     }
 
     [Fact]
@@ -102,7 +102,7 @@ public class DecoratorTests
             JSON.stringify(logs);
             """);
 
-        Assert.Equal("[\"init x\",\"get x\",\"set x\"]", result.AsString());
+        result.AsString().Should().Be("[\"init x\",\"get x\",\"set x\"]");
     }
 
     [Fact]
@@ -123,7 +123,7 @@ public class DecoratorTests
             new C().fromInit;
             """);
 
-        Assert.True(result.AsBoolean());
+        result.AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -157,8 +157,8 @@ public class DecoratorTests
         // Evaluation order: top-to-bottom (first, second)
         // Application order: bottom-to-top (second applied first, then first)
         // Result: first(second(base)) = first("base_second") = "base_second_first"
-        Assert.Contains("\"result\":\"base_second_first\"", json);
-        Assert.Contains("\"order\":[\"eval_first\",\"eval_second\",\"apply_second\",\"apply_first\"]", json);
+        json.Should().Contain("\"result\":\"base_second_first\"");
+        json.Should().Contain("\"order\":[\"eval_first\",\"eval_second\",\"apply_second\",\"apply_first\"]");
     }
 
     [Fact]
@@ -185,11 +185,11 @@ public class DecoratorTests
             """);
 
         var json = result.AsString();
-        Assert.Contains("\"kind\":\"method\"", json);
-        Assert.Contains("\"name\":\"myMethod\"", json);
-        Assert.Contains("\"isStatic\":false", json);
-        Assert.Contains("\"isPrivate\":false", json);
-        Assert.Contains("\"hasAddInitializer\":true", json);
+        json.Should().Contain("\"kind\":\"method\"");
+        json.Should().Contain("\"name\":\"myMethod\"");
+        json.Should().Contain("\"isStatic\":false");
+        json.Should().Contain("\"isPrivate\":false");
+        json.Should().Contain("\"hasAddInitializer\":true");
     }
 
     [Fact]
@@ -209,7 +209,7 @@ public class DecoratorTests
             ctx.static;
             """);
 
-        Assert.True(result.AsBoolean());
+        result.AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -231,8 +231,8 @@ public class DecoratorTests
             JSON.stringify({ foo: c.foo(), extra: c.extra });
             """);
 
-        Assert.Contains("\"foo\":1", result.AsString());
-        Assert.Contains("\"extra\":99", result.AsString());
+        result.AsString().Should().Contain("\"foo\":1");
+        result.AsString().Should().Contain("\"extra\":99");
     }
 
     [Fact]
@@ -254,7 +254,7 @@ public class DecoratorTests
             new C().value;
             """);
 
-        Assert.Equal(42, result.AsInteger());
+        result.AsInteger().Should().Be(42);
     }
 
     [Fact]
@@ -279,7 +279,7 @@ public class DecoratorTests
             c.value;
             """);
 
-        Assert.Equal(10, result.AsInteger());
+        result.AsInteger().Should().Be(10);
     }
 
     [Fact]
@@ -298,7 +298,7 @@ public class DecoratorTests
             new C().foo();
             """);
 
-        Assert.Equal(42, result.AsInteger());
+        result.AsInteger().Should().Be(42);
     }
 
     [Fact]
@@ -312,11 +312,11 @@ public class DecoratorTests
             var c = new C();
             """);
 
-        Assert.Equal(1, _engine.Evaluate("c.x").AsInteger());
-        Assert.True(_engine.Evaluate("c.y").IsUndefined());
+        _engine.Evaluate("c.x").AsInteger().Should().Be(1);
+        _engine.Evaluate("c.y").IsUndefined().Should().BeTrue();
 
         _engine.Execute("c.x = 42;");
-        Assert.Equal(42, _engine.Evaluate("c.x").AsInteger());
+        _engine.Evaluate("c.x").AsInteger().Should().Be(42);
     }
 
     [Fact]
@@ -331,8 +331,8 @@ public class DecoratorTests
             JSON.stringify({ before: before, after: C.x });
             """);
 
-        Assert.Contains("\"before\":2", result.AsString());
-        Assert.Contains("\"after\":99", result.AsString());
+        result.AsString().Should().Contain("\"before\":2");
+        result.AsString().Should().Contain("\"after\":99");
     }
 
     [Fact]
@@ -350,8 +350,8 @@ public class DecoratorTests
             JSON.stringify({ before: before, after: c.getX() });
             """);
 
-        Assert.Contains("\"before\":5", result.AsString());
-        Assert.Contains("\"after\":42", result.AsString());
+        result.AsString().Should().Contain("\"before\":5");
+        result.AsString().Should().Contain("\"after\":42");
     }
 
     [Fact]
@@ -368,7 +368,7 @@ public class DecoratorTests
             threw;
             """);
 
-        Assert.True(result.AsBoolean());
+        result.AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -393,7 +393,7 @@ public class DecoratorTests
             new C().x;
             """);
 
-        Assert.Equal(7, result.AsInteger());
+        result.AsInteger().Should().Be(7);
     }
 
     [Fact]
@@ -414,7 +414,7 @@ public class DecoratorTests
             C.initialized;
             """);
 
-        Assert.True(result.AsBoolean());
+        result.AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -440,6 +440,6 @@ public class DecoratorTests
 
         // Three computed keys, each evaluated exactly once (i === 3), and each decorator saw the
         // same name its element was defined under.
-        Assert.Equal("3;m1|f2|a3;function;field;accessor", result.AsString());
+        result.AsString().Should().Be("3;m1|f2|a3;function;field;accessor");
     }
 }

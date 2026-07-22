@@ -12,7 +12,7 @@ public class RegExpTests
         var engine = new Engine();
         var result = engine.Evaluate("'abc'.match(/\\d/gu) === null").AsBoolean();
 
-        Assert.True(result);
+        result.Should().BeTrue();
     }
 
     [Fact]
@@ -21,7 +21,7 @@ public class RegExpTests
         var engine = new Engine();
         var result = engine.Evaluate("JSON.stringify('a1b22c333'.match(/\\d+/gu))").AsString();
 
-        Assert.Equal("[\"1\",\"22\",\"333\"]", result);
+        result.Should().Be("[\"1\",\"22\",\"333\"]");
     }
 
     [Fact]
@@ -31,7 +31,7 @@ public class RegExpTests
         // 2 astral code points (4 UTF-16 units): empty matches at positions 0, 2, 4
         var result = engine.Evaluate("'\\u{1F600}\\u{1F600}'.match(/(?:)/gu).length").AsNumber();
 
-        Assert.Equal(3, result);
+        result.Should().Be(3);
     }
 
     [Theory]
@@ -56,7 +56,7 @@ public class RegExpTests
         var engine = new Engine();
         var result = engine.Evaluate($"JSON.stringify(/{pattern}/.exec({JsonString(input)}))").AsString();
 
-        Assert.Equal(expected, result);
+        result.Should().Be(expected);
     }
 
     private static string JsonString(string s) => System.Text.Json.JsonSerializer.Serialize(s);
@@ -70,7 +70,7 @@ public class RegExpTests
         var engine = new Engine();
         var result = engine.Evaluate($"JSON.stringify(['aaa'.match(/a/{flags}), 'ababab'.match(/ab/{flags})])").AsString();
 
-        Assert.Equal("[[\"a\",\"a\",\"a\"],[\"ab\",\"ab\",\"ab\"]]", result);
+        result.Should().Be("[[\"a\",\"a\",\"a\"],[\"ab\",\"ab\",\"ab\"]]");
     }
 
     [Theory]
@@ -82,7 +82,7 @@ public class RegExpTests
         var engine = new Engine();
         var result = engine.Evaluate($"JSON.stringify(['aabaa'.match(/a/{flags}), 'baa'.match(/a/{flags})])").AsString();
 
-        Assert.Equal("[[\"a\",\"a\"],null]", result);
+        result.Should().Be("[[\"a\",\"a\"],null]");
     }
 
     [Theory]
@@ -93,7 +93,7 @@ public class RegExpTests
         var engine = new Engine();
         var result = engine.Evaluate($"JSON.stringify('aab'.match(/a*/{flags}))").AsString();
 
-        Assert.Equal("[\"aa\",\"\",\"\"]", result);
+        result.Should().Be("[\"aa\",\"\",\"\"]");
     }
 
     [Fact]
@@ -102,7 +102,7 @@ public class RegExpTests
         var engine = new Engine();
         var result = engine.Evaluate("var r = /a/gy; r.lastIndex = 2; JSON.stringify(['aaa'.match(r), r.lastIndex])").AsString();
 
-        Assert.Equal("[[\"a\",\"a\",\"a\"],0]", result);
+        result.Should().Be("[[\"a\",\"a\",\"a\"],0]");
     }
 
     [Theory]
@@ -114,7 +114,7 @@ public class RegExpTests
         var engine = new Engine();
         var result = engine.Evaluate($"JSON.stringify('a1b22c'.split(/(\\d+)/{flags}))").AsString();
 
-        Assert.Equal("[\"a\",\"1\",\"b\",\"22\",\"c\"]", result);
+        result.Should().Be("[\"a\",\"1\",\"b\",\"22\",\"c\"]");
     }
 
     [Theory]
@@ -125,7 +125,7 @@ public class RegExpTests
         var engine = new Engine();
         var result = engine.Evaluate($"JSON.stringify(['a,b,c'.split(/,/{flags}, 2), 'a1b2c'.split(/(\\d)/{flags}, 2)])").AsString();
 
-        Assert.Equal("[[\"a\",\"b\"],[\"a\",\"1\"]]", result);
+        result.Should().Be("[[\"a\",\"b\"],[\"a\",\"1\"]]");
     }
 
     [Theory]
@@ -136,7 +136,7 @@ public class RegExpTests
         var engine = new Engine();
         var result = engine.Evaluate($"JSON.stringify([',a,'.split(/,/{flags}), ''.split(/x/{flags}), ''.split(/(?:)/{flags})])").AsString();
 
-        Assert.Equal("[[\"\",\"a\",\"\"],[\"\"],[]]", result);
+        result.Should().Be("[[\"\",\"a\",\"\"],[\"\"],[]]");
     }
 
     private const string TestRegex = "^(https?:\\/\\/)?([\\da-z\\.-]+)\\.([a-z\\.]{2,6})([\\/\\w\\.-]*)*\\/?$";
@@ -147,10 +147,10 @@ public class RegExpTests
     {
         var engine = new Engine(e => e.RegexTimeoutInterval(TimeSpan.FromSeconds(1)));
 
-        Assert.Throws<RegexMatchTimeoutException>(() =>
+        Invoking(() =>
         {
             engine.Execute($"'{TestedValue}'.match(/{TestRegex}/)");
-        });
+        }).Should().ThrowExactly<RegexMatchTimeoutException>();
     }
 
     [Fact]
@@ -158,10 +158,10 @@ public class RegExpTests
     {
         var engine = new Engine(e => e.RegexTimeoutInterval(TimeSpan.FromSeconds(1)));
 
-        Assert.Throws<RegexMatchTimeoutException>(() =>
+        Invoking(() =>
         {
             engine.Execute($"'{TestedValue}'.match(new RegExp(/{TestRegex}/))");
-        });
+        }).Should().ThrowExactly<RegexMatchTimeoutException>();
     }
 
     [Fact]
@@ -169,9 +169,9 @@ public class RegExpTests
     {
         var engine = new Engine();
         var result = (JsArray) engine.Evaluate("'x'.match(/|/g);");
-        Assert.Equal((uint) 2, result.Length);
-        Assert.Equal("", result[0]);
-        Assert.Equal("", result[1]);
+        result.Length.Should().Be((uint) 2);
+        result[0].Should().Be("");
+        result[1].Should().Be("");
     }
 
     [Fact]
@@ -180,7 +180,7 @@ public class RegExpTests
         var engine = new Engine();
         var result = engine.Evaluate("/./['toString'].call({})").AsString();
 
-        Assert.Equal("/undefined/undefined", result);
+        result.Should().Be("/undefined/undefined");
     }
 
     [Fact]
@@ -189,7 +189,7 @@ public class RegExpTests
         var engine = new Engine();
         var result = engine.Evaluate("/./['toString'].call({ source: 'a', flags: 'b' })").AsString();
 
-        Assert.Equal("/a/b", result);
+        result.Should().Be("/a/b");
     }
 
     [Fact]
@@ -198,7 +198,7 @@ public class RegExpTests
         var engine = new Engine();
         var result = engine.Evaluate("[...'one two three'.matchAll(/t/g)].length").AsInteger();
 
-        Assert.Equal(2, result);
+        result.Should().Be(2);
     }
 
     [Fact]
@@ -207,7 +207,7 @@ public class RegExpTests
         var engine = new Engine();
         var result = engine.Evaluate("/./['toString'].call(/test/g)").AsString();
 
-        Assert.Equal("/test/g", result);
+        result.Should().Be("/test/g");
     }
 
     [Fact]
@@ -216,9 +216,9 @@ public class RegExpTests
         var engine = new Engine();
         var result = engine.Evaluate("/^x\\/\\\\r\\n\\u2028\\u2029\\0\0|[x/\\\\r\\n\\u2028\\u2029\\0\0]$/");
 
-        var jsRegExp = Assert.IsType<JsRegExp>(result);
-        Assert.Equal("^x\\/\\\\r\\n\\u2028\\u2029\\0\0|[x/\\\\r\\n\\u2028\\u2029\\0\0]$", jsRegExp.Source);
-        Assert.Equal("/^x\\/\\\\r\\n\\u2028\\u2029\\0\0|[x/\\\\r\\n\\u2028\\u2029\\0\0]$/", jsRegExp.ToString());
+        var jsRegExp = result.Should().BeOfType<JsRegExp>().Which;
+        jsRegExp.Source.Should().Be("^x\\/\\\\r\\n\\u2028\\u2029\\0\0|[x/\\\\r\\n\\u2028\\u2029\\0\0]$");
+        jsRegExp.ToString().Should().Be("/^x\\/\\\\r\\n\\u2028\\u2029\\0\0|[x/\\\\r\\n\\u2028\\u2029\\0\0]$/");
     }
 
     [Fact]
@@ -227,28 +227,28 @@ public class RegExpTests
         var engine = new Engine();
         var result = engine.Evaluate(@"new RegExp('^x/\\\r\n\u2028\u2029\\0\0|[x/\\\r\n\u2028\u2029\\0\0]$')");
 
-        var jsRegExp = Assert.IsType<JsRegExp>(result);
-        Assert.Equal("^x\\/\\r\\n\\u2028\\u2029\\0\0|[x/\\r\\n\\u2028\\u2029\\0\0]$", jsRegExp.Source);
-        Assert.Equal("/^x\\/\\r\\n\\u2028\\u2029\\0\0|[x/\\r\\n\\u2028\\u2029\\0\0]$/", jsRegExp.ToString());
+        var jsRegExp = result.Should().BeOfType<JsRegExp>().Which;
+        jsRegExp.Source.Should().Be("^x\\/\\r\\n\\u2028\\u2029\\0\0|[x/\\r\\n\\u2028\\u2029\\0\0]$");
+        jsRegExp.ToString().Should().Be("/^x\\/\\r\\n\\u2028\\u2029\\0\0|[x/\\r\\n\\u2028\\u2029\\0\0]$/");
     }
 
     [Fact]
     public void ShouldNotThrowErrorOnIncompatibleRegex()
     {
         var engine = new Engine();
-        Assert.NotNull(engine.Evaluate(@"/[^]*?(:[rp][el]a[\w-]+)[^]*/"));
-        Assert.NotNull(engine.Evaluate("/[^]a/"));
-        Assert.NotNull(engine.Evaluate("new RegExp('[^]a')"));
+        engine.Evaluate(@"/[^]*?(:[rp][el]a[\w-]+)[^]*/").Should().NotBeNull();
+        engine.Evaluate("/[^]a/").Should().NotBeNull();
+        engine.Evaluate("new RegExp('[^]a')").Should().NotBeNull();
 
-        Assert.NotNull(engine.Evaluate("/[]/"));
-        Assert.NotNull(engine.Evaluate("new RegExp('[]')"));
+        engine.Evaluate("/[]/").Should().NotBeNull();
+        engine.Evaluate("new RegExp('[]')").Should().NotBeNull();
     }
 
     [Fact]
     public void ShouldNotThrowErrorOnRegExNumericNegation()
     {
         var engine = new Engine();
-        Assert.True(ReferenceEquals(JsNumber.DoubleNaN, engine.Evaluate("-/[]/")));
+        ReferenceEquals(JsNumber.DoubleNaN, engine.Evaluate("-/[]/")).Should().BeTrue();
     }
 
     [Fact]
@@ -256,7 +256,7 @@ public class RegExpTests
     {
         var engine = new Engine();
         var source = engine.Evaluate(@"/\/\//.source");
-        Assert.Equal("\\/\\/", source);
+        source.Should().Be("\\/\\/");
     }
 
     [Theory]
@@ -269,9 +269,9 @@ public class RegExpTests
     {
         var engine = new Engine();
         var matches = engine.Evaluate($"[...'{input}'.matchAll({pattern})]").AsArray();
-        Assert.Equal((ulong) expectedCaptures.Length, matches.Length);
-        Assert.Equal(expectedCaptures, matches.Select((m, i) => m.Get(0).AsString()));
-        Assert.Equal(expectedIndices, matches.Select(m => m.Get("index").AsInteger()));
+        matches.Length.Should().Be((uint) expectedCaptures.Length);
+        matches.Select((m, i) => m.Get(0).AsString()).Should().Equal(expectedCaptures);
+        matches.Select(m => m.Get("index").AsInteger()).Should().Equal(expectedIndices);
     }
 
     [Fact]
@@ -281,11 +281,11 @@ public class RegExpTests
 
         var match = engine.Evaluate("'abc'.match(/(?<$group>b)/)").AsArray();
         var groups = match.Get("groups").AsObject();
-        Assert.Equal(["$group"], groups.GetOwnPropertyKeys().Select(k => k.AsString()));
-        Assert.Equal("b", groups["$group"]);
+        groups.GetOwnPropertyKeys().Select(k => k.AsString()).Should().Equal(["$group"]);
+        groups["$group"].Should().Be("b");
 
         var result = engine.Evaluate("'abc'.replace(/(?<$group>b)/g, '-$<$group>-')").AsString();
-        Assert.Equal("a-b-c", result);
+        result.Should().Be("a-b-c");
     }
 
     [Fact]
@@ -310,7 +310,7 @@ public class RegExpTests
     {
         var engine = new Engine();
         var result = engine.Evaluate(@"new RegExp('/-', 'v').test('/-')");
-        Assert.True(result.AsBoolean());
+        result.AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -318,7 +318,7 @@ public class RegExpTests
     {
         var engine = new Engine();
         var result = engine.Evaluate(@"new RegExp('&&!!##%%,,::;;<<==>>@@``~~', 'v').test('&&!!##%%,,::;;<<==>>@@``~~')");
-        Assert.True(result.AsBoolean());
+        result.AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -326,7 +326,7 @@ public class RegExpTests
     {
         var engine = new Engine();
         var result = engine.Evaluate(@"new RegExp('[\\!\\#\\%\\&\\,\\-\\:\\;\\<\\=\\>\\@\\`\\~]{14}', 'v').test('!#%&,-:;<=>@`~')");
-        Assert.True(result.AsBoolean());
+        result.AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -334,7 +334,7 @@ public class RegExpTests
     {
         var engine = new Engine();
         var result = engine.Evaluate("/[^]?(:[rp][el]a[\\w-]+)[^]/.test(':reagent-')").AsBoolean();
-        Assert.True(result);
+        result.Should().BeTrue();
     }
 
     // Engine routing tests for RegExpConstructor.NeedCustomEngine: .NET Regex is preferred
@@ -369,7 +369,7 @@ public class RegExpTests
         var engine = new Engine();
         var regExp = (JsRegExp) engine.Realm.Intrinsics.RegExp.Construct([pattern, flags]);
 
-        Assert.True(regExp.UsesDotNetEngine);
+        regExp.UsesDotNetEngine.Should().BeTrue();
     }
 
     [Theory]
@@ -407,7 +407,7 @@ public class RegExpTests
         var engine = new Engine();
         var regExp = (JsRegExp) engine.Realm.Intrinsics.RegExp.Construct([pattern, flags]);
 
-        Assert.False(regExp.UsesDotNetEngine);
+        regExp.UsesDotNetEngine.Should().BeFalse();
     }
 
     [Fact]
@@ -416,8 +416,8 @@ public class RegExpTests
         var engine = new Engine();
 
         // the last iteration matches 'b', so the inner capture must be undefined
-        Assert.Equal("[\"ab\",\"b\",null]", engine.Evaluate("JSON.stringify(/((a)|b)+/.exec('ab'))").AsString());
-        Assert.Equal("[\"ab\",null]", engine.Evaluate("JSON.stringify(/(?:(a)|b)+/.exec('ab'))").AsString());
+        engine.Evaluate("JSON.stringify(/((a)|b)+/.exec('ab'))").AsString().Should().Be("[\"ab\",\"b\",null]");
+        engine.Evaluate("JSON.stringify(/(?:(a)|b)+/.exec('ab'))").AsString().Should().Be("[\"ab\",null]");
     }
 
     [Fact]
@@ -427,10 +427,10 @@ public class RegExpTests
 
         // an iteration matching the empty string fails per RepeatMatcher, so the capture
         // never participates and must not report an empty string
-        Assert.Equal("[\"\",null]", engine.Evaluate("JSON.stringify(/(a*)*/.exec('b'))").AsString());
-        Assert.Equal("[\"a\",\"a\"]", engine.Evaluate("JSON.stringify(/(a*)*/.exec('ab'))").AsString());
-        Assert.Equal("[\"\",null]", engine.Evaluate("JSON.stringify(/(a|)*/.exec('b'))").AsString());
-        Assert.Equal("[\"\",null]", engine.Evaluate("JSON.stringify(/(\\b)*/.exec('a'))").AsString());
+        engine.Evaluate("JSON.stringify(/(a*)*/.exec('b'))").AsString().Should().Be("[\"\",null]");
+        engine.Evaluate("JSON.stringify(/(a*)*/.exec('ab'))").AsString().Should().Be("[\"a\",\"a\"]");
+        engine.Evaluate("JSON.stringify(/(a|)*/.exec('b'))").AsString().Should().Be("[\"\",null]");
+        engine.Evaluate("JSON.stringify(/(\\b)*/.exec('a'))").AsString().Should().Be("[\"\",null]");
     }
 
     [Fact]
@@ -442,13 +442,13 @@ public class RegExpTests
         // and backtracks into the later consuming alternative, matching fully.
         var engine = new Engine();
 
-        Assert.Equal("aaabbb", engine.Evaluate("/(?:a*|b)*/.exec('aaabbb')[0]").AsString());
-        Assert.Equal("aaa", engine.Evaluate("/(?:|a)*/.exec('aaa')[0]").AsString());
-        Assert.Equal("aabb", engine.Evaluate("/(?:a||b)*/.exec('aabb')[0]").AsString());
-        Assert.Equal("a", engine.Evaluate("/(?:^|a)+/m.exec('abc')[0]").AsString());
-        Assert.Equal("aaa", engine.Evaluate("/(?:a??)*/.exec('aaa')[0]").AsString());
-        Assert.Equal("aaa", engine.Evaluate("/(?:\\b|a)*/.exec('aaa')[0]").AsString());
-        Assert.Equal("XX", engine.Evaluate("'aaa'.replace(/(?:|a)*/g, 'X')").AsString());
+        engine.Evaluate("/(?:a*|b)*/.exec('aaabbb')[0]").AsString().Should().Be("aaabbb");
+        engine.Evaluate("/(?:|a)*/.exec('aaa')[0]").AsString().Should().Be("aaa");
+        engine.Evaluate("/(?:a||b)*/.exec('aabb')[0]").AsString().Should().Be("aabb");
+        engine.Evaluate("/(?:^|a)+/m.exec('abc')[0]").AsString().Should().Be("a");
+        engine.Evaluate("/(?:a??)*/.exec('aaa')[0]").AsString().Should().Be("aaa");
+        engine.Evaluate("/(?:\\b|a)*/.exec('aaa')[0]").AsString().Should().Be("aaa");
+        engine.Evaluate("'aaa'.replace(/(?:|a)*/g, 'X')").AsString().Should().Be("XX");
     }
 
     [Theory]
@@ -459,9 +459,9 @@ public class RegExpTests
     {
         var engine = new Engine();
 
-        Assert.Equal("[\":  [[\",\",  [\"]", engine.Evaluate($"JSON.stringify('a:  [[x,  [y'.match(/(?:^|:|,)(?:\\s*\\[)+/g{flags}))").AsString());
-        Assert.Equal("[\"12.5e3\",\"7\",\"2E-3\"]", engine.Evaluate($"JSON.stringify('12.5e3 7 2E-3'.match(/-?\\d+(?:\\.\\d*)?(:?[eE][+\\-]?\\d+)?/g{flags}))").AsString());
-        Assert.Equal("[\"aa\",\"a\"]", engine.Evaluate($"JSON.stringify('aabxa'.match(/(?:a|)+/g{flags}).filter(function (s) {{ return s !== ''; }}))").AsString());
+        engine.Evaluate($"JSON.stringify('a:  [[x,  [y'.match(/(?:^|:|,)(?:\\s*\\[)+/g{flags}))").AsString().Should().Be("[\":  [[\",\",  [\"]");
+        engine.Evaluate($"JSON.stringify('12.5e3 7 2E-3'.match(/-?\\d+(?:\\.\\d*)?(:?[eE][+\\-]?\\d+)?/g{flags}))").AsString().Should().Be("[\"12.5e3\",\"7\",\"2E-3\"]");
+        engine.Evaluate($"JSON.stringify('aabxa'.match(/(?:a|)+/g{flags}).filter(function (s) {{ return s !== ''; }}))").AsString().Should().Be("[\"aa\",\"a\"]");
     }
 
     [Fact]
@@ -477,7 +477,7 @@ public class RegExpTests
                 replace(/(?:^|:|,)(?:\s*\[)+/g, ''))
             """).AsBoolean();
 
-        Assert.True(result);
+        result.Should().BeTrue();
     }
 
     // Regression tests for https://github.com/sebastienros/jint/issues/2454
@@ -527,11 +527,10 @@ public class RegExpTests
         engine.Modules.Add("__main__", x => x.AddModule(preparedModule));
 
         var sw = Stopwatch.StartNew();
-        Assert.Throws<RegexMatchTimeoutException>(() => engine.Modules.Import("__main__"));
+        Invoking(() => engine.Modules.Import("__main__")).Should().ThrowExactly<RegexMatchTimeoutException>();
         sw.Stop();
 
-        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(MaxAcceptableTimeoutSeconds),
-            $"Expected RegexMatchTimeoutException within {MaxAcceptableTimeoutSeconds}s, took {sw.Elapsed.TotalSeconds:F1}s");
+        sw.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(MaxAcceptableTimeoutSeconds), $"Expected RegexMatchTimeoutException within {MaxAcceptableTimeoutSeconds}s, took {sw.Elapsed.TotalSeconds:F1}s");
     }
 
     private const int EngineRegexTimeoutSeconds = 30;
@@ -557,10 +556,9 @@ public class RegExpTests
         var engine = new Engine(o => o.RegexTimeoutInterval(TimeSpan.FromSeconds(EngineRegexTimeoutSeconds)));
 
         var sw = Stopwatch.StartNew();
-        Assert.Throws<RegexMatchTimeoutException>(() => engine.Execute(preparedScript));
+        Invoking(() => engine.Execute(preparedScript)).Should().ThrowExactly<RegexMatchTimeoutException>();
         sw.Stop();
 
-        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(MaxAcceptableTimeoutSeconds),
-            $"Expected RegexMatchTimeoutException within {MaxAcceptableTimeoutSeconds}s, took {sw.Elapsed.TotalSeconds:F1}s");
+        sw.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(MaxAcceptableTimeoutSeconds), $"Expected RegexMatchTimeoutException within {MaxAcceptableTimeoutSeconds}s, took {sw.Elapsed.TotalSeconds:F1}s");
     }
 }

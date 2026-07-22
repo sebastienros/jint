@@ -34,6 +34,7 @@
 
   <ItemGroup>
     <Using Include="AwesomeAssertions" />
+    <Using Include="AwesomeAssertions.FluentActions" Static="true" />
     <Using Include="Xunit" />
   </ItemGroup>
 

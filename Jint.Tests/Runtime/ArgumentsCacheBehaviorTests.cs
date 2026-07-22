@@ -11,8 +11,8 @@ public class ArgumentsCacheBehaviorTests
         // call runs; the escaped snapshot taken when arguments is materialized must capture that
         // binding value, or the write is silently lost once the call returns.
         var engine = new Engine();
-        Assert.Equal(99, engine.Evaluate("(function(){ function f(a){ arguments[0]=99; return arguments; } return f(1)[0]; })()").AsNumber());
-        Assert.Equal("{\"0\":99}", engine.Evaluate("(function(){ function f(a){ arguments[0]=99; return arguments; } return JSON.stringify(f(1)); })()").AsString());
+        engine.Evaluate("(function(){ function f(a){ arguments[0]=99; return arguments; } return f(1)[0]; })()").AsNumber().Should().Be(99);
+        engine.Evaluate("(function(){ function f(a){ arguments[0]=99; return arguments; } return JSON.stringify(f(1)); })()").AsString().Should().Be("{\"0\":99}");
     }
 
     [Fact]
@@ -21,8 +21,8 @@ public class ArgumentsCacheBehaviorTests
         // The mapping is bidirectional: writing the parameter must also be visible through the
         // escaped arguments object after the call returns.
         var engine = new Engine();
-        Assert.Equal(42, engine.Evaluate("(function(){ function f(a){ a=42; return arguments; } return f(1)[0]; })()").AsNumber());
-        Assert.Equal("1,88", engine.Evaluate("(function(){ function f(a,b){ b=88; return arguments; } var r=f(1,2); return r[0]+','+r[1]; })()").AsString());
+        engine.Evaluate("(function(){ function f(a){ a=42; return arguments; } return f(1)[0]; })()").AsNumber().Should().Be(42);
+        engine.Evaluate("(function(){ function f(a,b){ b=88; return arguments; } var r=f(1,2); return r[0]+','+r[1]; })()").AsString().Should().Be("1,88");
     }
 
     [Fact]
@@ -32,9 +32,9 @@ public class ArgumentsCacheBehaviorTests
         // whether it was materialized virtually (a prior arguments read) or to real descriptors
         // (Object.keys) — must still show through the escaped object once the call returns.
         var engine = new Engine();
-        Assert.Equal(9, engine.Evaluate("(function(){ function f(a){ var s=arguments[0]; a=9; return arguments; } return f(1)[0]; })()").AsNumber());
-        Assert.Equal(9, engine.Evaluate("(function(){ function f(a){ Object.keys(arguments); a=9; return arguments; } return f(1)[0]; })()").AsNumber());
-        Assert.Equal(9, engine.Evaluate("(function(){ function f(a){ arguments[0]=9; Object.keys(arguments); return arguments; } return f(1)[0]; })()").AsNumber());
+        engine.Evaluate("(function(){ function f(a){ var s=arguments[0]; a=9; return arguments; } return f(1)[0]; })()").AsNumber().Should().Be(9);
+        engine.Evaluate("(function(){ function f(a){ Object.keys(arguments); a=9; return arguments; } return f(1)[0]; })()").AsNumber().Should().Be(9);
+        engine.Evaluate("(function(){ function f(a){ arguments[0]=9; Object.keys(arguments); return arguments; } return f(1)[0]; })()").AsNumber().Should().Be(9);
     }
 
     [Fact]
@@ -44,10 +44,10 @@ public class ArgumentsCacheBehaviorTests
         // Freezing its final binding value at return must update only the value, not reset the
         // attribute the script set.
         var engine = new Engine();
-        Assert.Equal("9|false|", engine.Evaluate(
-            "(function(){ function f(a){ Object.defineProperty(arguments,'0',{enumerable:false}); a=9; return arguments; } var r=f(1); return r[0]+'|'+Object.getOwnPropertyDescriptor(r,'0').enumerable+'|'+Object.keys(r).join(','); })()").AsString());
-        Assert.Equal("{}", engine.Evaluate(
-            "(function(){ function f(a){ Object.defineProperty(arguments,'0',{enumerable:false}); a=9; return arguments; } return JSON.stringify(f(1)); })()").AsString());
+        engine.Evaluate(
+            "(function(){ function f(a){ Object.defineProperty(arguments,'0',{enumerable:false}); a=9; return arguments; } var r=f(1); return r[0]+'|'+Object.getOwnPropertyDescriptor(r,'0').enumerable+'|'+Object.keys(r).join(','); })()").AsString().Should().Be("9|false|");
+        engine.Evaluate(
+            "(function(){ function f(a){ Object.defineProperty(arguments,'0',{enumerable:false}); a=9; return arguments; } return JSON.stringify(f(1)); })()").AsString().Should().Be("{}");
     }
 
     [Fact]
@@ -56,8 +56,8 @@ public class ArgumentsCacheBehaviorTests
         // A deleted mapped index must not be resurrected by the detach-time freeze: it is no longer
         // mapped, so a later parameter write does not bring it back.
         var engine = new Engine();
-        Assert.Equal("false:undefined", engine.Evaluate(
-            "(function(){ function f(a){ var s=arguments; delete arguments[0]; a=9; return arguments.hasOwnProperty('0')+':'+arguments[0]; } return f(1); })()").AsString());
+        engine.Evaluate(
+            "(function(){ function f(a){ var s=arguments; delete arguments[0]; a=9; return arguments.hasOwnProperty('0')+':'+arguments[0]; } return f(1); })()").AsString().Should().Be("false:undefined");
     }
 
     [Theory]
@@ -80,7 +80,7 @@ public class ArgumentsCacheBehaviorTests
                 o(1, 2, 3, 4, 5, 6);        // reuses the pooled array
                 return e[0] + ',' + e[1] + ',' + e.length;
             }})()";
-        Assert.Equal("11,22,2", engine.Evaluate(directReturn).AsString());
+        engine.Evaluate(directReturn).AsString().Should().Be("11,22,2");
 
         // escapes via a property store (never re-read as an identifier)
         var propertyStore = $@"
@@ -93,7 +93,7 @@ public class ArgumentsCacheBehaviorTests
                 var y = holder.y;
                 return y[0] + ',' + y[1] + ',' + y.length;
             }})()";
-        Assert.Equal("11,22,2", engine.Evaluate(propertyStore).AsString());
+        engine.Evaluate(propertyStore).AsString().Should().Be("11,22,2");
     }
 
     [Fact]
@@ -102,8 +102,8 @@ public class ArgumentsCacheBehaviorTests
         // `arguments &&= x` never short-circuits (arguments is always truthy): it reassigns the
         // binding to x and yields x. The pooled arguments object never escapes as the result.
         var engine = new Engine();
-        Assert.Equal(99, engine.Evaluate(
-            "(function(){ function f(){ var y = (arguments &&= 99); return y; } return f(11, 22); })()").AsNumber());
+        engine.Evaluate(
+            "(function(){ function f(){ var y = (arguments &&= 99); return y; } return f(11, 22); })()").AsNumber().Should().Be(99);
     }
 
     [Fact]
@@ -112,8 +112,8 @@ public class ArgumentsCacheBehaviorTests
         // The materialize guard must only fire for JsArguments; ordinary compound assignment
         // (including the logical/nullish forms) keeps its exact behavior.
         var engine = new Engine();
-        Assert.Equal("7,4,5,8", engine.Evaluate(
-            "(function(){ var x; x ??= 7; var a = 3; a += 1; var b = 0; b ||= 5; var c = 1; c &&= 8; return x+','+a+','+b+','+c; })()").AsString());
+        engine.Evaluate(
+            "(function(){ var x; x ??= 7; var a = 3; a += 1; var b = 0; b ||= 5; var c = 1; c &&= 8; return x+','+a+','+b+','+c; })()").AsString().Should().Be("7,4,5,8");
     }
 
     [Fact]
@@ -144,12 +144,12 @@ public class ArgumentsCacheBehaviorTests
             """);
 
         // Assert
-        Assert.Equal([
+        logValues.Should().Equal([
             JsNumber.Create(42),
             JsValue.Undefined,
             JsNumber.Create(10),
             JsValue.Undefined,
-        ], logValues);
+        ]);
     }
 
     [Fact]
@@ -180,12 +180,12 @@ public class ArgumentsCacheBehaviorTests
             """);
 
         // Assert
-        Assert.Equal([
+        logValues.Should().Equal([
             JsNumber.Create(42),
             JsValue.Undefined,
             JsNumber.Create(10),
             JsValue.Undefined,
-        ], logValues);
+        ]);
     }
 
     [Fact]
@@ -219,12 +219,12 @@ public class ArgumentsCacheBehaviorTests
             """);
 
         // Assert
-        Assert.Equal([
+        logValues.Should().Equal([
             JsNumber.Create(42),
             JsValue.Undefined,
             JsNumber.Create(10),
             JsValue.Undefined,
-        ], logValues);
+        ]);
     }
 
     [Fact]
@@ -254,11 +254,11 @@ public class ArgumentsCacheBehaviorTests
         engine.RunAvailableContinuations();
 
         // Assert
-        Assert.Equal([
+        logValues.Should().Equal([
             JsNumber.Create(42),
             JsValue.Undefined,
             JsNumber.Create(10),
             JsValue.Undefined,
-        ], logValues);
+        ]);
     }
 }

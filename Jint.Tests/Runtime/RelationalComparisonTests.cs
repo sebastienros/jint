@@ -1,4 +1,4 @@
-namespace Jint.Tests.Runtime;
+﻿namespace Jint.Tests.Runtime;
 
 /// <summary>
 /// Relational comparisons against slot-stored numbers take an unboxed fast lane in both boolean
@@ -26,7 +26,7 @@ public class RelationalComparisonTests
             f();
             """).AsString();
 
-        Assert.Equal("|falsefalsefalsefalse", result);
+        result.Should().Be("|falsefalsefalsefalse");
     }
 
     [Fact]
@@ -47,7 +47,7 @@ public class RelationalComparisonTests
             f();
             """).AsString();
 
-        Assert.Equal("13", result);
+        result.Should().Be("13");
     }
 
     [Fact]
@@ -66,7 +66,7 @@ public class RelationalComparisonTests
             f();
             """).AsString();
 
-        Assert.Equal("false,true,true,false,false,true,true,false", result);
+        result.Should().Be("false,true,true,false,false,true,true,false");
     }
 
     [Fact]
@@ -88,7 +88,7 @@ public class RelationalComparisonTests
             f();
             """).AsString();
 
-        Assert.Equal("abcabc", result);
+        result.Should().Be("abcabc");
     }
 
     [Fact]
@@ -111,7 +111,7 @@ public class RelationalComparisonTests
             f();
             """).AsString();
 
-        Assert.Equal("true,false,false,true,false,true,false,false,true,false,false,true", result);
+        result.Should().Be("true,false,false,true,false,true,false,false,true,false,false,true");
     }
 
     [Fact]
@@ -131,6 +131,6 @@ public class RelationalComparisonTests
             h();
             """);
 
-        Assert.Equal("outer:1,outer:1,inner:100", engine.Evaluate("log.join(',')").AsString());
+        engine.Evaluate("log.join(',')").AsString().Should().Be("outer:1,outer:1,inner:100");
     }
 }

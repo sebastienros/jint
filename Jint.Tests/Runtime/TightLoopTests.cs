@@ -1,4 +1,4 @@
-namespace Jint.Tests.Runtime;
+﻿namespace Jint.Tests.Runtime;
 
 /// <summary>
 /// Pins the semantics of the for-statement tight loop (JintForStatement.TightForBody): it engages
@@ -23,7 +23,7 @@ public class TightLoopTests
             })()
             """).AsString();
 
-        Assert.Equal("01234:4950:3:3", result);
+        result.Should().Be("01234:4950:3:3");
     }
 
     [Fact]
@@ -34,7 +34,7 @@ public class TightLoopTests
         // last body statement's value, so the tight loop must not engage and eat it
         var result = engine.Evaluate("var s = ''; for (var i = 0; i < 3; i++) { s += i; }").AsString();
 
-        Assert.Equal("012", result);
+        result.Should().Be("012");
     }
 
     [Fact]
@@ -53,7 +53,7 @@ public class TightLoopTests
             })()
             """).AsString();
 
-        Assert.Equal("true:0", result);
+        result.Should().Be("true:0");
     }
 
     [Fact]
@@ -72,7 +72,7 @@ public class TightLoopTests
             })()
             """).AsString();
 
-        Assert.Equal("60:012", result);
+        result.Should().Be("60:012");
     }
 
     [Fact]
@@ -82,10 +82,10 @@ public class TightLoopTests
         // the trailing expression statement makes the for's completion value dead at script top
         // level, unlocking the tight path there; the script value comes from the trailing read
         var result = engine.Evaluate("var s = ''; for (var i = 0; i < 3; i++) { s += i; } s;").AsString();
-        Assert.Equal("012", result);
+        result.Should().Be("012");
 
         var evalResult = engine.Evaluate("eval(\"var t = 0; for (var i = 0; i < 5; i++) { t += i; } t;\")").AsNumber();
-        Assert.Equal(10, evalResult);
+        evalResult.Should().Be(10);
     }
 
     [Fact]
@@ -96,7 +96,7 @@ public class TightLoopTests
         // completion) jumps over the trailing 'b', so dead-value marking must NOT apply there —
         // UpdateEmpty surfaces the loop's accumulated 'v' as the script value
         var result = engine.Evaluate("foo: { for (var i = 0; ; i++) { 'v'; break foo; } 'b'; }").AsString();
-        Assert.Equal("v", result);
+        result.Should().Be("v");
     }
 
     [Fact]
@@ -107,7 +107,7 @@ public class TightLoopTests
         // overwrites the loop's value regardless of dead-marking; pins that the conservative
         // analysis (which does not count if statements as always-valued) changes nothing here
         var result = engine.Evaluate("for (var i = 0; i < 1; i++) { 'v'; } if (false) 'b';");
-        Assert.True(result.IsUndefined());
+        result.IsUndefined().Should().BeTrue();
     }
 
     [Fact]
@@ -116,8 +116,8 @@ public class TightLoopTests
         var engine = new Engine(options => options.MaxStatements(50));
         // constraint-configured contexts must keep per-statement accounting (tight loop is
         // gated off), so a runaway loop still trips MaxStatements
-        Assert.Throws<Jint.Runtime.StatementsCountOverflowException>(() =>
-            engine.Evaluate("(function () { var x = 0; for (var i = 0; i < 100000; i++) { x += 1; } })()"));
+        Invoking(() =>
+            engine.Evaluate("(function () { var x = 0; for (var i = 0; i < 100000; i++) { x += 1; } })()")).Should().ThrowExactly<Jint.Runtime.StatementsCountOverflowException>();
     }
 
     [Fact]
@@ -162,7 +162,7 @@ public class TightLoopTests
             })()
             """).AsString();
 
-        Assert.StartsWith("true:", result);
+        result.Should().StartWith("true:");
     }
 
     [Fact]
@@ -191,7 +191,7 @@ public class TightLoopTests
             else if (z % 3 == 0) expected--;
         }
 
-        Assert.Equal(expected, result);
+        result.Should().Be(expected);
     }
 
     [Fact]
@@ -215,7 +215,7 @@ public class TightLoopTests
             """).AsString();
 
         // i=0 → z=1 → else branch throws before any increment
-        Assert.Equal("true:0:0", result);
+        result.Should().Be("true:0:0");
     }
 
     [Fact]
@@ -237,7 +237,7 @@ public class TightLoopTests
             })()
             """).AsString();
 
-        Assert.Equal("1:0", result);
+        result.Should().Be("1:0");
     }
 
     [Fact]
@@ -264,7 +264,7 @@ public class TightLoopTests
             })()
             """).AsString();
 
-        Assert.Equal("013:4:r3", result);
+        result.Should().Be("013:4:r3");
     }
 
     [Fact]
@@ -285,7 +285,7 @@ public class TightLoopTests
                 return total;
             })()
             """).AsNumber();
-        Assert.Equal(6, untaken);
+        untaken.Should().Be(6);
 
         var secondIteration = engine.Evaluate("""
             (function () {
@@ -300,15 +300,15 @@ public class TightLoopTests
                 return 'no-throw';
             })()
             """).AsString();
-        Assert.Equal("true:tdz", secondIteration);
+        secondIteration.Should().Be("true:tdz");
     }
 
     [Fact]
     public void ConstraintConfiguredEngineStillEnforcesInsideIfChainLoops()
     {
         var engine = new Engine(options => options.MaxStatements(50));
-        Assert.Throws<Jint.Runtime.StatementsCountOverflowException>(() =>
-            engine.Evaluate("(function () { var x = 0; for (var i = 0; i < 100000; i++) { if (i % 2 == 0) x += 1; else x -= 1; } })()"));
+        Invoking(() =>
+            engine.Evaluate("(function () { var x = 0; for (var i = 0; i < 100000; i++) { if (i % 2 == 0) x += 1; else x -= 1; } })()")).Should().ThrowExactly<Jint.Runtime.StatementsCountOverflowException>();
     }
 
     [Fact]
@@ -328,6 +328,6 @@ public class TightLoopTests
             })()
             """).AsString();
 
-        Assert.Equal("u0,d0,u1,d1", result);
+        result.Should().Be("u0,d0,u1,d1");
     }
 }

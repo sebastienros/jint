@@ -1,4 +1,4 @@
-namespace Jint.Tests.Runtime;
+﻿namespace Jint.Tests.Runtime;
 
 public class DestructuringTests
 {
@@ -7,7 +7,8 @@ public class DestructuringTests
     public DestructuringTests()
     {
         _engine = new Engine()
-            .SetValue("equal", new Action<object, object>(Assert.Equal));
+            .SetValue("equal", new Action<object, object>(static (expected, actual) =>
+                    actual.Should().BeEquivalentTo(expected, static options => options.WithStrictOrdering())));
     }
 
     [Fact]
@@ -20,7 +21,7 @@ public class DestructuringTests
               return c === void undefined;
             }('ab');";
 
-        Assert.True(_engine.Evaluate(Script).AsBoolean());
+        _engine.Evaluate(Script).AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -33,7 +34,7 @@ public class DestructuringTests
               return true;
             }(2,'');";
 
-        Assert.True(_engine.Evaluate(Script).AsBoolean());
+        _engine.Evaluate(Script).AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -76,15 +77,15 @@ public class DestructuringTests
         // CopyDataProperties(restObj, value, excludedNames), whose step 2 ToObject's the
         // primitive source (https://tc39.es/ecma262/#sec-copydataproperties) — so a string's
         // index properties are copied while already-destructured keys are excluded.
-        Assert.Equal("""{"0":"a","1":"b"}""", _engine.Evaluate("var { ...r1 } = 'ab'; JSON.stringify(r1)").AsString());
-        Assert.Equal("a|{\"1\":\"b\"}", _engine.Evaluate("var { 0: first, ...r2 } = 'ab'; first + '|' + JSON.stringify(r2)").AsString());
-        Assert.Equal("{}", _engine.Evaluate("var { ...r3 } = 42; JSON.stringify(r3)").AsString());
+        _engine.Evaluate("var { ...r1 } = 'ab'; JSON.stringify(r1)").AsString().Should().Be("""{"0":"a","1":"b"}""");
+        _engine.Evaluate("var { 0: first, ...r2 } = 'ab'; first + '|' + JSON.stringify(r2)").AsString().Should().Be("a|{\"1\":\"b\"}");
+        _engine.Evaluate("var { ...r3 } = 42; JSON.stringify(r3)").AsString().Should().Be("{}");
 
         // Destructuring assignment (non-declaration) form.
-        Assert.Equal("""{"0":"a","1":"b"}""", _engine.Evaluate("var q; (({ ...q } = 'ab')); JSON.stringify(q)").AsString());
+        _engine.Evaluate("var q; (({ ...q } = 'ab')); JSON.stringify(q)").AsString().Should().Be("""{"0":"a","1":"b"}""");
 
         // Function parameter rest.
-        Assert.Equal("""{"0":"a","1":"b"}""", _engine.Evaluate("(function({ ...p }) { return JSON.stringify(p); })('ab')").AsString());
+        _engine.Evaluate("(function({ ...p }) { return JSON.stringify(p); })('ab')").AsString().Should().Be("""{"0":"a","1":"b"}""");
     }
 
     [Fact]
@@ -104,7 +105,7 @@ public class DestructuringTests
             })()
             """);
 
-        Assert.Equal("4,5,6", result.AsString());
+        result.AsString().Should().Be("4,5,6");
     }
 
     [Fact]
@@ -118,7 +119,7 @@ public class DestructuringTests
             })()
             """);
 
-        Assert.Equal("1,2", result.AsString());
+        result.AsString().Should().Be("1,2");
     }
 
     [Fact]
@@ -134,7 +135,7 @@ public class DestructuringTests
             """);
 
         result = result.UnwrapIfPromise();
-        Assert.Equal(1, result.AsInteger());
+        result.AsInteger().Should().Be(1);
     }
 
     [Fact]
@@ -152,7 +153,7 @@ public class DestructuringTests
             function fb(x, { [(calls++, "k")]: v }) { return v; }
             fb(1, { k: 6 }) + ':' + calls;
             """);
-        Assert.Equal("6:1", result.AsString());
+        result.AsString().Should().Be("6:1");
 
         // NewExpression key (key comes from the constructed object's toString).
         result = engine.Evaluate("""
@@ -160,7 +161,7 @@ public class DestructuringTests
             function fc(x, { [new KeyObj()]: v }) { return v; }
             fc(1, { nk: 7 });
             """);
-        Assert.Equal(7, result.AsNumber());
+        result.AsNumber().Should().Be(7);
 
         // Same expression types in object literals and non-parameter destructuring.
         result = engine.Evaluate("""
@@ -169,7 +170,7 @@ public class DestructuringTests
             var { [(calls2++, 'a')]: a } = o;
             [o.a, o.nk, a, calls2].join(',');
             """);
-        Assert.Equal("1,2,1,2", result.AsString());
+        result.AsString().Should().Be("1,2,1,2");
 
         // ChainExpression (optional chaining) and TaggedTemplateExpression keys.
         result = engine.Evaluate("""
@@ -178,6 +179,6 @@ public class DestructuringTests
             var o2 = { [holder?.key]: 3, [tag`x`]: 4 };
             [o2.c, o2.tx].join(',');
             """);
-        Assert.Equal("3,4", result.AsString());
+        result.AsString().Should().Be("3,4");
     }
 }

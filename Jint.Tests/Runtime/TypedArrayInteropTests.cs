@@ -1,4 +1,4 @@
-namespace Jint.Tests.Runtime;
+﻿namespace Jint.Tests.Runtime;
 
 public class TypedArrayInteropTests
 {
@@ -11,8 +11,8 @@ public class TypedArrayInteropTests
         ValidateCreatedTypeArray(engine, "Int8Array");
 
         var fromEngine = engine.GetValue("testSubject");
-        Assert.True(fromEngine.IsInt8Array());
-        Assert.Equal(source, fromEngine.AsInt8Array());
+        fromEngine.IsInt8Array().Should().BeTrue();
+        fromEngine.AsInt8Array().Should().Equal(source);
     }
 
     [Fact]
@@ -24,8 +24,8 @@ public class TypedArrayInteropTests
         ValidateCreatedTypeArray(engine, "Uint8Array");
 
         var fromEngine = engine.GetValue("testSubject");
-        Assert.True(fromEngine.IsUint8Array());
-        Assert.Equal(source, fromEngine.AsUint8Array());
+        fromEngine.IsUint8Array().Should().BeTrue();
+        fromEngine.AsUint8Array().Should().Equal(source);
     }
 
     [Fact]
@@ -37,8 +37,8 @@ public class TypedArrayInteropTests
         ValidateCreatedTypeArray(engine, "Uint8ClampedArray");
 
         var fromEngine = engine.GetValue("testSubject");
-        Assert.True(fromEngine.IsUint8ClampedArray());
-        Assert.Equal(source, fromEngine.AsUint8ClampedArray());
+        fromEngine.IsUint8ClampedArray().Should().BeTrue();
+        fromEngine.AsUint8ClampedArray().Should().Equal(source);
     }
 
     [Fact]
@@ -50,8 +50,8 @@ public class TypedArrayInteropTests
         ValidateCreatedTypeArray(engine, "Int16Array");
 
         var fromEngine = engine.GetValue("testSubject");
-        Assert.True(fromEngine.IsInt16Array());
-        Assert.Equal(source, fromEngine.AsInt16Array());
+        fromEngine.IsInt16Array().Should().BeTrue();
+        fromEngine.AsInt16Array().Should().Equal(source);
     }
 
     [Fact]
@@ -63,8 +63,8 @@ public class TypedArrayInteropTests
         ValidateCreatedTypeArray(engine, "Uint16Array");
 
         var fromEngine = engine.GetValue("testSubject");
-        Assert.True(fromEngine.IsUint16Array());
-        Assert.Equal(source, fromEngine.AsUint16Array());
+        fromEngine.IsUint16Array().Should().BeTrue();
+        fromEngine.AsUint16Array().Should().Equal(source);
     }
 
     [Fact]
@@ -76,8 +76,8 @@ public class TypedArrayInteropTests
         ValidateCreatedTypeArray(engine, "Int32Array");
 
         var fromEngine = engine.GetValue("testSubject");
-        Assert.True(fromEngine.IsInt32Array());
-        Assert.Equal(source, fromEngine.AsInt32Array());
+        fromEngine.IsInt32Array().Should().BeTrue();
+        fromEngine.AsInt32Array().Should().Equal(source);
     }
 
     [Fact]
@@ -90,8 +90,8 @@ public class TypedArrayInteropTests
         ValidateCreatedTypeArray(engine, "Uint32Array");
 
         var fromEngine = engine.GetValue("testSubject");
-        Assert.True(fromEngine.IsUint32Array());
-        Assert.Equal(source, fromEngine.AsUint32Array());
+        fromEngine.IsUint32Array().Should().BeTrue();
+        fromEngine.AsUint32Array().Should().Equal(source);
     }
 
     [Fact]
@@ -103,8 +103,8 @@ public class TypedArrayInteropTests
         ValidateCreatedBigIntegerTypeArray(engine, "BigInt64Array");
 
         var fromEngine = engine.GetValue("testSubject");
-        Assert.True(fromEngine.IsBigInt64Array());
-        Assert.Equal(source, fromEngine.AsBigInt64Array());
+        fromEngine.IsBigInt64Array().Should().BeTrue();
+        fromEngine.AsBigInt64Array().Should().Equal(source);
     }
 
     [Fact]
@@ -116,8 +116,8 @@ public class TypedArrayInteropTests
         ValidateCreatedBigIntegerTypeArray(engine, "BigUint64Array");
 
         var fromEngine = engine.GetValue("testSubject");
-        Assert.True(fromEngine.IsBigUint64Array());
-        Assert.Equal(source, fromEngine.AsBigUint64Array());
+        fromEngine.IsBigUint64Array().Should().BeTrue();
+        fromEngine.AsBigUint64Array().Should().Equal(source);
     }
 
 #if NET6_0_OR_GREATER
@@ -131,11 +131,11 @@ public class TypedArrayInteropTests
             ValidateCreatedTypeArray(engine, "Float16Array");
             
             var fromEngine = engine.GetValue("testSubject");
-            Assert.True(fromEngine.IsFloat16Array());
-            Assert.Equal(source, fromEngine.AsFloat16Array());
+            fromEngine.IsFloat16Array().Should().BeTrue();
+            fromEngine.AsFloat16Array().Should().Equal(source);
 
             engine.SetValue("testFunc", new Func<Native.JsTypedArray, Native.JsTypedArray>(v => v));
-            Assert.Equal(source, engine.Evaluate("testFunc(testSubject)").AsFloat16Array());
+            engine.Evaluate("testFunc(testSubject)").AsFloat16Array().Should().Equal(source);
         }
 #endif
 
@@ -149,8 +149,8 @@ public class TypedArrayInteropTests
         ValidateCreatedTypeArray(engine, "Float32Array");
 
         var fromEngine = engine.GetValue("testSubject");
-        Assert.True(fromEngine.IsFloat32Array());
-        Assert.Equal(source, fromEngine.AsFloat32Array());
+        fromEngine.IsFloat32Array().Should().BeTrue();
+        fromEngine.AsFloat32Array().Should().Equal(source);
     }
 
     [Fact]
@@ -163,23 +163,23 @@ public class TypedArrayInteropTests
         ValidateCreatedTypeArray(engine, "Float64Array");
             
         var fromEngine = engine.GetValue("testSubject");
-        Assert.True(fromEngine.IsFloat64Array());
-        Assert.Equal(source, fromEngine.AsFloat64Array());
+        fromEngine.IsFloat64Array().Should().BeTrue();
+        fromEngine.AsFloat64Array().Should().Equal(source);
     }
         
     private static void ValidateCreatedTypeArray(Engine engine, string arrayName)
     {
-        Assert.Equal(arrayName, engine.Evaluate("testSubject.constructor.name").AsString());
-        Assert.Equal(2, engine.Evaluate("testSubject.length").AsNumber());
-        Assert.Equal(42, engine.Evaluate("testSubject[0]").AsNumber());
-        Assert.Equal(12, engine.Evaluate("testSubject[1]").AsNumber());
+        engine.Evaluate("testSubject.constructor.name").AsString().Should().Be(arrayName);
+        engine.Evaluate("testSubject.length").AsNumber().Should().Be(2);
+        engine.Evaluate("testSubject[0]").AsNumber().Should().Be(42);
+        engine.Evaluate("testSubject[1]").AsNumber().Should().Be(12);
     }
 
     private static void ValidateCreatedBigIntegerTypeArray(Engine engine, string arrayName)
     {
-        Assert.Equal(arrayName, engine.Evaluate("testSubject.constructor.name").AsString());
-        Assert.Equal(2, engine.Evaluate("testSubject.length").AsNumber());
-        Assert.Equal(42, engine.Evaluate("testSubject[0]").AsBigInt());
-        Assert.Equal(12, engine.Evaluate("testSubject[1]").AsBigInt());
+        engine.Evaluate("testSubject.constructor.name").AsString().Should().Be(arrayName);
+        engine.Evaluate("testSubject.length").AsNumber().Should().Be(2);
+        engine.Evaluate("testSubject[0]").AsBigInt().Should().Be(42);
+        engine.Evaluate("testSubject[1]").AsBigInt().Should().Be(12);
     }
 }

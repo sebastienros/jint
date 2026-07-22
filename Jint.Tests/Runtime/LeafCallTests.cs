@@ -1,4 +1,4 @@
-namespace Jint.Tests.Runtime;
+﻿namespace Jint.Tests.Runtime;
 
 /// <summary>
 /// Pins the semantics of env-less leaf calls (State.SupportsLeafCall): frames that run against
@@ -31,7 +31,7 @@ public class LeafCallTests
             })()
             """).AsString();
 
-        Assert.Equal("100:50", result);
+        result.Should().Be("100:50");
     }
 
     [Fact]
@@ -51,7 +51,7 @@ public class LeafCallTests
             })()
             """).AsString();
 
-        Assert.Contains("leafBoom", result);
+        result.Should().Contain("leafBoom");
     }
 
     [Fact]
@@ -71,7 +71,7 @@ public class LeafCallTests
             })()
             """).AsString();
 
-        Assert.Contains("leafSnap", result);
+        result.Should().Contain("leafSnap");
     }
 
     [Fact]
@@ -87,7 +87,7 @@ public class LeafCallTests
             })()
             """).AsString();
 
-        Assert.Equal("true:object:true", result);
+        result.Should().Be("true:object:true");
     }
 
     [Fact]
@@ -108,7 +108,7 @@ public class LeafCallTests
             })()
             """).AsNumber();
 
-        Assert.Equal(7, result);
+        result.Should().Be(7);
     }
 
     [Fact]
@@ -132,7 +132,7 @@ public class LeafCallTests
             })()
             """).AsString();
 
-        Assert.Equal("leaf,leaf,ctor-end,dispose", result);
+        result.Should().Be("leaf,leaf,ctor-end,dispose");
     }
 
     [Fact]
@@ -158,7 +158,7 @@ public class LeafCallTests
             })()
             """).AsString();
 
-        Assert.Equal("u,d,after,u,d,after", result);
+        result.Should().Be("u,d,after,u,d,after");
     }
 
     [Fact]
@@ -179,7 +179,7 @@ public class LeafCallTests
             })()
             """).AsString();
 
-        Assert.Equal("ReferenceError", result);
+        result.Should().Be("ReferenceError");
     }
 
     [Fact]
@@ -198,7 +198,7 @@ public class LeafCallTests
             })()
             """).AsNumber();
 
-        Assert.Equal(42, result);
+        result.Should().Be(42);
     }
 
     [Fact]
@@ -220,7 +220,7 @@ public class LeafCallTests
             })()
             """).AsString();
 
-        Assert.Equal("50:50", result);
+        result.Should().Be("50:50");
     }
 
     [Fact]
@@ -245,11 +245,11 @@ public class LeafCallTests
             return fn._functionDefinition!.Initialize().SupportsLeafCall;
         }
 
-        Assert.True(SupportsLeafCall(engine, "h.leaf"));
-        Assert.False(SupportsLeafCall(engine, "h.usesThis"));
-        Assert.False(SupportsLeafCall(engine, "h.usesArguments"));
-        Assert.False(SupportsLeafCall(engine, "h.makesClosure"));
-        Assert.False(SupportsLeafCall(engine, "h.hasParam"));
+        SupportsLeafCall(engine, "h.leaf").Should().BeTrue();
+        SupportsLeafCall(engine, "h.usesThis").Should().BeFalse();
+        SupportsLeafCall(engine, "h.usesArguments").Should().BeFalse();
+        SupportsLeafCall(engine, "h.makesClosure").Should().BeFalse();
+        SupportsLeafCall(engine, "h.hasParam").Should().BeFalse();
     }
 
     [Fact]
@@ -267,6 +267,6 @@ public class LeafCallTests
             })()
             """).AsString();
 
-        Assert.Equal("undefined", result);
+        result.Should().Be("undefined");
     }
 }

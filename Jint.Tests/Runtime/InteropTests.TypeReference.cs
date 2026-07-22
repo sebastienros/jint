@@ -1,4 +1,4 @@
-using Jint.Native;
+﻿using Jint.Native;
 using Jint.Runtime.Interop;
 using Jint.Tests.Runtime.Domain;
 using Microsoft.Extensions.DependencyInjection;
@@ -40,16 +40,16 @@ public partial class InteropTests
 
         _engine.Evaluate("obj.setString('Hello World!');");
 
-        Assert.Equal("Hello World!", _engine.Evaluate("obj.string"));
-        Assert.Equal(1, _engine.Evaluate("obj.a"));
-        Assert.Equal(2, _engine.Evaluate("obj.b"));
+        _engine.Evaluate("obj.string").Should().Be("Hello World!");
+        _engine.Evaluate("obj.a").Should().Be(1);
+        _engine.Evaluate("obj.b").Should().Be(2);
 
-        Assert.Equal("A", _engine.Evaluate("obj.aProp"));
-        Assert.Equal("B", _engine.Evaluate("obj.bProp"));
+        _engine.Evaluate("obj.aProp").Should().Be("A");
+        _engine.Evaluate("obj.bProp").Should().Be("B");
 
         // TODO we should have a special prototype based on wrapped type so we could differentiate between own and type properties
-        // Assert.Equal("[\"a\"]", _engine.Evaluate("JSON.stringify(Object.getOwnPropertyNames(new ExtendedType()))"));
-        // Assert.Equal("[\"a\",\"b\"]", _engine.Evaluate("JSON.stringify(Object.getOwnPropertyNames(new MyExtendedType()))"));
+        // _engine.Evaluate("JSON.stringify(Object.getOwnPropertyNames(new ExtendedType()))").Should().Be("[\"a\"]");
+        // _engine.Evaluate("JSON.stringify(Object.getOwnPropertyNames(new MyExtendedType()))").Should().Be("[\"a\",\"b\"]");
     }
 
     [Fact]
@@ -82,12 +82,12 @@ public partial class InteropTests
             ");
 
         var extendsFromJs = _engine.Construct("ExtendsFromJs");
-        Assert.Equal(1, _engine.Evaluate("new ExtendsFromJs().getA();"));
-        Assert.NotEqual(JsValue.Undefined, extendsFromJs.Get("getA"));
+        _engine.Evaluate("new ExtendsFromJs().getA();").Should().Be(1);
+        extendsFromJs.Get("getA").Should().NotBe(JsValue.Undefined);
 
         var extendsFromClr = _engine.Construct("ExtendsFromClr");
-        Assert.Equal(1, _engine.Evaluate("new ExtendsFromClr().getA();"));
-        Assert.NotEqual(JsValue.Undefined, extendsFromClr.Get("getA"));
+        _engine.Evaluate("new ExtendsFromClr().getA();").Should().Be(1);
+        extendsFromClr.Get("getA").Should().NotBe(JsValue.Undefined);
     }
 
 
@@ -108,7 +108,7 @@ public partial class InteropTests
         var engine = new Engine(options => options.AllowClr(GetType().Assembly));
         engine.SetValue("a", new OverLoading());
         engine.SetValue("E", TypeReference.CreateTypeReference(engine, typeof(IntegerEnum)));
-        Assert.Equal("integer-enum", engine.Evaluate("a.testFunc(E.a);").AsString());
+        engine.Evaluate("a.testFunc(E.a);").AsString().Should().Be("integer-enum");
     }
 
     [Fact]
@@ -116,7 +116,7 @@ public partial class InteropTests
     {
         var engine = new Engine(options => options.AllowClr(GetType().Assembly));
         engine.SetValue("E", TypeReference.CreateTypeReference(engine, typeof(UintEnum)));
-        Assert.Equal(1, engine.Evaluate("E.b;").AsNumber());
+        engine.Evaluate("E.b;").AsNumber().Should().Be(1);
     }
 
 
@@ -124,8 +124,8 @@ public partial class InteropTests
     public void ExceptionFromConstructorShouldPropagate()
     {
         _engine.SetValue("Class", TypeReference.CreateTypeReference(_engine, typeof(MemberExceptionTest)));
-        var ex = Assert.Throws<InvalidOperationException>(() => _engine.Evaluate("new Class(true);"));
-        Assert.Equal("thrown as requested", ex.Message);
+        var ex = Invoking(() => _engine.Evaluate("new Class(true);")).Should().ThrowExactly<InvalidOperationException>().Which;
+        ex.Message.Should().Be("thrown as requested");
     }
 
 
@@ -138,7 +138,7 @@ public partial class InteropTests
         engine.SetValue("Math2", mathTypeReference);
         var result = engine.Evaluate("Math2.Max(5.37, 5.56)").AsNumber();
 
-        Assert.Equal(5.56d, result);
+        result.Should().Be(5.56d);
     }
 
     [Fact]
@@ -158,7 +158,7 @@ public partial class InteropTests
         engine.Execute("z['bar'] = 20;");
         engine.Execute("log(z['bar']);");
 
-        Assert.Equal("called#5#20", string.Join("#", calls));
+        string.Join("#", calls).Should().Be("called#5#20");
     }
 
     [Fact]
@@ -178,7 +178,7 @@ public partial class InteropTests
             };
         });
         engine.SetValue("Injectable", TypeReference.CreateTypeReference<Injectable>(engine));
-        Assert.Equal("Hello world", engine.Evaluate("new Injectable(123, 'abc').getInjectedValue();"));
+        engine.Evaluate("new Injectable(123, 'abc').getInjectedValue();").Should().Be("Hello world");
     }
 
     [Fact]
@@ -189,11 +189,11 @@ public partial class InteropTests
         _engine.SetValue("MyClass", reference);
         _engine.Execute("var c = new MyClass();");
 
-        Assert.Equal("[object Dependency]", _engine.Evaluate("Object.prototype.toString.call(c);"));
+        _engine.Evaluate("Object.prototype.toString.call(c);").Should().Be("[object Dependency]");
 
         // engine uses registered type reference
         _engine.SetValue("c2", new Dependency());
-        Assert.Equal("[object Dependency]", _engine.Evaluate("Object.prototype.toString.call(c2);"));
+        _engine.Evaluate("Object.prototype.toString.call(c2);").Should().Be("[object Dependency]");
     }
 
     private class Injectable

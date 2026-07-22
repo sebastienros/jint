@@ -1,4 +1,4 @@
-using Jint.Native;
+﻿using Jint.Native;
 using Jint.Native.Function;
 
 namespace Jint.Tests.PublicInterface;
@@ -10,7 +10,7 @@ public class PublicInterfaceTests
     {
         var engine = new Engine();
         var value = engine.Intrinsics.Eval.Call("1 + 1");
-        Assert.Equal(2, value);
+        value.Should().Be(2);
     }
 
     [Fact]
@@ -46,8 +46,8 @@ var coolingObject = {
     {
         // debuggers might want to access the information
         var obj = new Engine().Execute("function f() { return arguments; }").Evaluate("f('a', 'b', 'c');");
-        var arguments = Assert.IsType<JsArguments>(obj);
-        Assert.Equal((uint) 3, arguments.Length);
+        var arguments = obj.Should().BeOfType<JsArguments>().Which;
+        arguments.Length.Should().Be((uint) 3);
     }
 
     [Fact]
@@ -55,21 +55,21 @@ var coolingObject = {
     {
         var engine = new Engine();
         var func = engine.Evaluate("(function() {})");
-        Assert.True(func.IsCallable());
+        func.IsCallable().Should().BeTrue();
 
         var arrow = engine.Evaluate("(() => {})");
-        Assert.True(arrow.IsCallable());
+        arrow.IsCallable().Should().BeTrue();
     }
 
     [Fact]
     public void IsCallableReturnsFalseForNonFunctions()
     {
         var engine = new Engine();
-        Assert.False(JsValue.Undefined.IsCallable());
-        Assert.False(JsValue.Null.IsCallable());
-        Assert.False(JsNumber.Create(42).IsCallable());
-        Assert.False(new JsString("hello").IsCallable());
-        Assert.False(engine.Evaluate("({})").IsCallable());
+        JsValue.Undefined.IsCallable().Should().BeFalse();
+        JsValue.Null.IsCallable().Should().BeFalse();
+        JsNumber.Create(42).IsCallable().Should().BeFalse();
+        new JsString("hello").IsCallable().Should().BeFalse();
+        engine.Evaluate("({})").IsCallable().Should().BeFalse();
     }
 
     [Fact]
@@ -77,22 +77,22 @@ var coolingObject = {
     {
         var engine = new Engine();
         var ctor = engine.Evaluate("(class Foo {})");
-        Assert.True(ctor.IsConstructor());
+        ctor.IsConstructor().Should().BeTrue();
 
         var func = engine.Evaluate("(function Bar() {})");
-        Assert.True(func.IsConstructor());
+        func.IsConstructor().Should().BeTrue();
     }
 
     [Fact]
     public void IsConstructorReturnsFalseForNonConstructors()
     {
         var engine = new Engine();
-        Assert.False(JsValue.Undefined.IsConstructor());
-        Assert.False(JsValue.Null.IsConstructor());
-        Assert.False(JsNumber.Create(42).IsConstructor());
+        JsValue.Undefined.IsConstructor().Should().BeFalse();
+        JsValue.Null.IsConstructor().Should().BeFalse();
+        JsNumber.Create(42).IsConstructor().Should().BeFalse();
 
         var arrow = engine.Evaluate("(() => {})");
-        Assert.False(arrow.IsConstructor());
+        arrow.IsConstructor().Should().BeFalse();
     }
 
     private sealed class SetTimeoutEmulator : IDisposable

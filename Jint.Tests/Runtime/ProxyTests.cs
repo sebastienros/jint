@@ -10,7 +10,8 @@ public class ProxyTests
     public ProxyTests()
     {
         _engine = new Engine()
-            .SetValue("equal", new Action<object, object>(Assert.Equal));
+            .SetValue("equal", new Action<object, object>(static (expected, actual) =>
+                    actual.Should().BeEquivalentTo(expected, static options => options.WithStrictOrdering())));
     }
 
     [Fact]
@@ -26,7 +27,7 @@ public class ProxyTests
     [Fact]
     public void GetTrapIsCalledForPropertyNamedRevoke()
     {
-        Assert.Equal("trapped", _engine.Evaluate("new Proxy({}, { get: () => 'trapped' }).revoke").AsString());
+        _engine.Evaluate("new Proxy({}, { get: () => 'trapped' }).revoke").AsString().Should().Be("trapped");
     }
 
     [Fact]
@@ -37,7 +38,7 @@ public class ProxyTests
             var proxy = revocable.proxy;
             revocable.revoke();
         ");
-        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("proxy.foo"));
+        var ex = Invoking(() => _engine.Evaluate("proxy.foo")).Should().ThrowExactly<JavaScriptException>().Which;
         AssertJsTypeError(_engine, ex, "Cannot perform 'get' on a proxy that has been revoked");
     }
 
@@ -51,7 +52,7 @@ public class ProxyTests
             r.proxy.x = 1;
             'ok';
             """).AsString();
-        Assert.Equal("ok", result);
+        result.Should().Be("ok");
     }
 
     [Fact]
@@ -61,7 +62,7 @@ public class ProxyTests
             var r = Proxy.revocable({ a: 1 }, { deleteProperty: (t, k) => { r.revoke(); return true; } });
             delete r.proxy.a;
             """);
-        Assert.True(result.AsBoolean());
+        result.AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -71,7 +72,7 @@ public class ProxyTests
             var r = Proxy.revocable({ a: 1 }, { has: (t, k) => { r.revoke(); return false; } });
             'a' in r.proxy;
             """);
-        Assert.False(result.AsBoolean());
+        result.AsBoolean().Should().BeFalse();
     }
 
     [Fact]
@@ -82,14 +83,14 @@ public class ProxyTests
             var r = new p(42);
             r.len + ':' + r.first;
             """).AsString();
-        Assert.Equal("1:42", result);
+        result.Should().Be("1:42");
     }
 
     [Fact]
     public void ConstructTrapAcceptsSingleFractionalArgument()
     {
         var result = _engine.Evaluate("new (new Proxy(function () {}, { construct: (t, args) => ({ v: args[0] }) }))(1.5).v");
-        Assert.Equal(1.5, result.AsNumber());
+        result.AsNumber().Should().Be(1.5);
     }
 
     [Fact]
@@ -102,16 +103,16 @@ public class ProxyTests
             var pPrevent = new Proxy({}, { preventExtensions: () => true });
             """);
 
-        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("'a' in pHas"));
+        var ex = Invoking(() => _engine.Evaluate("'a' in pHas")).Should().ThrowExactly<JavaScriptException>().Which;
         AssertJsTypeError(_engine, ex, "'has' on proxy: trap returned falsish for property 'a' which exists in the proxy target as non-configurable");
 
-        ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("Object.keys(pOwnKeys)"));
+        ex = Invoking(() => _engine.Evaluate("Object.keys(pOwnKeys)")).Should().ThrowExactly<JavaScriptException>().Which;
         AssertJsTypeError(_engine, ex, "'ownKeys' on proxy: trap result did not include non-configurable property 'a' of the proxy target");
 
-        ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("Object.preventExtensions(pPrevent)"));
+        ex = Invoking(() => _engine.Evaluate("Object.preventExtensions(pPrevent)")).Should().ThrowExactly<JavaScriptException>().Which;
         AssertJsTypeError(_engine, ex, "'preventExtensions' on proxy: trap returned truish but the proxy target is extensible");
 
-        ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("new Proxy({}, { get: 1 }).x"));
+        ex = Invoking(() => _engine.Evaluate("new Proxy({}, { get: 1 }).x")).Should().ThrowExactly<JavaScriptException>().Which;
         AssertJsTypeError(_engine, ex, "'get' trap of proxy handler is not a function");
     }
 
@@ -121,8 +122,8 @@ public class ProxyTests
         _engine.Execute(@"
             const targetWithToString = {toString: () => 'target'}
         ");
-        Assert.Equal("target", _engine.Evaluate("new Proxy(targetWithToString, {}).toString()").AsString());
-        Assert.Equal("target", _engine.Evaluate("`${new Proxy(targetWithToString, {})}`").AsString());
+        _engine.Evaluate("new Proxy(targetWithToString, {}).toString()").AsString().Should().Be("target");
+        _engine.Evaluate("`${new Proxy(targetWithToString, {})}`").AsString().Should().Be("target");
     }
 
     [Fact]
@@ -133,10 +134,10 @@ public class ProxyTests
             const targetWithToString = {toString: () => 'target'}
         ");
 
-        Assert.Equal("handler", _engine.Evaluate("new Proxy({}, handler).toString()").AsString());
-        Assert.Equal("handler", _engine.Evaluate("new Proxy(targetWithToString, handler).toString()").AsString());
-        Assert.Equal("handler", _engine.Evaluate("`${new Proxy({}, handler)}`").AsString());
-        Assert.Equal("handler", _engine.Evaluate("`${new Proxy(targetWithToString, handler)}`").AsString());
+        _engine.Evaluate("new Proxy({}, handler).toString()").AsString().Should().Be("handler");
+        _engine.Evaluate("new Proxy(targetWithToString, handler).toString()").AsString().Should().Be("handler");
+        _engine.Evaluate("`${new Proxy({}, handler)}`").AsString().Should().Be("handler");
+        _engine.Evaluate("`${new Proxy(targetWithToString, handler)}`").AsString().Should().Be("handler");
     }
 
     [Fact]
@@ -157,7 +158,7 @@ public class ProxyTests
             }
             return 'did not fail as expected'";
 
-        Assert.Equal("enumerable,configurable,value,writable,get,set", _engine.Evaluate(Script));
+        _engine.Evaluate(Script).Should().Be("enumerable,configurable,value,writable,get,set");
     }
 
     [Fact]
@@ -170,7 +171,7 @@ public class ProxyTests
             Object.defineProperties({}, p);
             return get + '';";
 
-        Assert.Equal("foo,bar", _engine.Evaluate(Script));
+        _engine.Evaluate(Script).Should().Be("foo,bar");
     }
 
     [Fact]
@@ -222,7 +223,7 @@ public class ProxyTests
             catch(e) {}
             return passed;";
 
-        Assert.True(_engine.Evaluate(Script).AsBoolean());
+        _engine.Evaluate(Script).AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -244,7 +245,7 @@ public class ProxyTests
             } catch(e) {}
             return passed;";
 
-        Assert.True(_engine.Evaluate(Script).AsBoolean());
+        _engine.Evaluate(Script).AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -276,7 +277,7 @@ public class ProxyTests
             } catch(e) {}
             return passed;";
 
-        Assert.True(_engine.Evaluate(Script).AsBoolean());
+        _engine.Evaluate(Script).AsBoolean().Should().BeTrue();
     }
 
     // https://tc39.es/ecma262/#sec-proxycreate
@@ -285,22 +286,22 @@ public class ProxyTests
     [Fact]
     public void ProxyWithNonConstructorTargetIsNotConstructor()
     {
-        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("new (new Proxy(() => {}, { construct: () => ({}) }))()"));
-        Assert.Same(TypeErrorPrototype(_engine), ex.Error.AsObject().Prototype);
+        var ex = Invoking(() => _engine.Evaluate("new (new Proxy(() => {}, { construct: () => ({}) }))()")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Error.AsObject().Prototype.Should().BeSameAs(TypeErrorPrototype(_engine));
     }
 
     [Fact]
     public void ProxyWithConstructorTargetUsesConstructTrap()
     {
         var result = _engine.Evaluate("new (new Proxy(function(){}, { construct: () => ({ x: 1 }) }))().x");
-        Assert.Equal(1, result.AsInteger());
+        result.AsInteger().Should().Be(1);
     }
 
     [Fact]
     public void ReflectConstructRequiresConstructorNewTarget()
     {
-        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("Reflect.construct(function(){ return; }, [], new Proxy(() => {}, { construct: () => ({}) }))"));
-        Assert.Same(TypeErrorPrototype(_engine), ex.Error.AsObject().Prototype);
+        var ex = Invoking(() => _engine.Evaluate("Reflect.construct(function(){ return; }, [], new Proxy(() => {}, { construct: () => ({}) }))")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Error.AsObject().Prototype.Should().BeSameAs(TypeErrorPrototype(_engine));
     }
 
     [Fact]
@@ -309,11 +310,11 @@ public class ProxyTests
         _engine.Execute("var r = Proxy.revocable(function(){}, {}); r.revoke();");
 
         // typeof relies on the [[Call]] slot captured at creation, revocation does not remove it
-        Assert.Equal("function", _engine.Evaluate("typeof r.proxy").AsString());
+        _engine.Evaluate("typeof r.proxy").AsString().Should().Be("function");
 
-        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("new r.proxy()"));
-        Assert.Same(TypeErrorPrototype(_engine), ex.Error.AsObject().Prototype);
-        Assert.Contains("revoked", ex.Message);
+        var ex = Invoking(() => _engine.Evaluate("new r.proxy()")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Error.AsObject().Prototype.Should().BeSameAs(TypeErrorPrototype(_engine));
+        ex.Message.Should().Contain("revoked");
     }
 
     [Fact]
@@ -393,7 +394,7 @@ public class ProxyTests
             const p = new Proxy(testClass, handler);
             return p.StringValue;
         """);
-        Assert.Equal(TestClass.Instance.StringValue, result.AsString());
+        result.AsString().Should().Be(TestClass.Instance.StringValue);
     }
 
     [Fact]
@@ -409,7 +410,7 @@ public class ProxyTests
             const p = new Proxy(testClass, handler);
             return p.IntValue;
         """);
-        Assert.Equal(TestClass.Instance.IntValue, result.AsInteger());
+        result.AsInteger().Should().Be(TestClass.Instance.IntValue);
     }
 
     [Fact]
@@ -432,8 +433,8 @@ public class ProxyTests
 
     private static void AssertJsTypeError(Engine engine, JavaScriptException ex, string msg)
     {
-        Assert.Same(TypeErrorPrototype(engine), ex.Error.AsObject().Prototype);
-        Assert.Equal(msg, ex.Message);
+        ex.Error.AsObject().Prototype.Should().BeSameAs(TypeErrorPrototype(engine));
+        ex.Message.Should().Be(msg);
     }
 
     // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy/Proxy/get#invariants
@@ -457,7 +458,7 @@ public class ProxyTests
             };
             let p = new Proxy(o, handler);
         """);
-        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("p.value"));
+        var ex = Invoking(() => _engine.Evaluate("p.value")).Should().ThrowExactly<JavaScriptException>().Which;
         AssertJsTypeError(_engine, ex, "'get' on proxy: property 'value' is a read-only and non-configurable data property on the proxy target but the proxy did not return its actual value (expected '42' but got '32')");
     }
 
@@ -481,7 +482,7 @@ public class ProxyTests
             };
             let p = new Proxy(o, handler);
         """);
-        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("p.value"));
+        var ex = Invoking(() => _engine.Evaluate("p.value")).Should().ThrowExactly<JavaScriptException>().Which;
         AssertJsTypeError(_engine, ex, "'get' on proxy: property 'value' is a non-configurable accessor property on the proxy target and does not have a getter function, but the trap did not return 'undefined' (got '32')");
     }
 
@@ -508,7 +509,7 @@ public class ProxyTests
     public void ProxyHandlerSetInvariantsDataPropertyImmutableChangeValue()
     {
         _engine.Execute(ScriptProxyHandlerSetInvariantsDataPropertyImmutable);
-        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("p.value = 32"));
+        var ex = Invoking(() => _engine.Evaluate("p.value = 32")).Should().ThrowExactly<JavaScriptException>().Which;
         AssertJsTypeError(_engine, ex, "'set' on proxy: trap returned truish for property 'value' which exists in the proxy target as a non-configurable and non-writable data property with a different value");
     }
 
@@ -539,7 +540,7 @@ public class ProxyTests
             };
             let p = new Proxy(o, handler);
         """);
-        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("p.value = 42"));
+        var ex = Invoking(() => _engine.Evaluate("p.value = 42")).Should().ThrowExactly<JavaScriptException>().Which;
         AssertJsTypeError(_engine, ex, "'set' on proxy: trap returned truish for property 'value' which exists in the proxy target as a non-configurable and non-writable accessor property without a setter");
     }
 
@@ -549,11 +550,11 @@ public class ProxyTests
     [Fact]
     public void ProxyHandlerSetInvariantsReturnsFalseInStrictMode()
     {
-        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("""
+        var ex = Invoking(() => _engine.Evaluate("""
             'use strict';
             let p = new Proxy({}, { set: () => false });
             p.value = 42;
-        """));
+        """)).Should().ThrowExactly<JavaScriptException>().Which;
         // V8: "'set' on proxy: trap returned falsish for property 'value'",
         AssertJsTypeError(_engine, ex, "Cannot assign to read only property 'value' of [object Object]");
     }
@@ -572,18 +573,18 @@ public class ProxyTests
     [Fact]
     public void ProxyHandlerGetPrototypeOfCanReturnNull()
     {
-        Assert.True(_engine.Evaluate("Object.getPrototypeOf(new Proxy({}, { getPrototypeOf: () => null }))").IsNull());
-        Assert.True(_engine.Evaluate("Reflect.getPrototypeOf(new Proxy({}, { getPrototypeOf: () => null }))").IsNull());
+        _engine.Evaluate("Object.getPrototypeOf(new Proxy({}, { getPrototypeOf: () => null }))").IsNull().Should().BeTrue();
+        _engine.Evaluate("Reflect.getPrototypeOf(new Proxy({}, { getPrototypeOf: () => null }))").IsNull().Should().BeTrue();
     }
 
     [Fact]
     public void ProxyHandlerGetPrototypeOfCanReturnNullForNonExtensibleTargetWithNullPrototype()
     {
-        Assert.True(_engine.Evaluate("""
+        _engine.Evaluate("""
             const t = Object.create(null);
             Object.preventExtensions(t);
             Object.getPrototypeOf(new Proxy(t, { getPrototypeOf: () => null }));
-        """).IsNull());
+        """).IsNull().Should().BeTrue();
     }
 
     // https://tc39.es/ecma262/#sec-proxy-object-internal-methods-and-internal-slots-setprototypeof-v
@@ -595,10 +596,10 @@ public class ProxyTests
             Object.preventExtensions(t);
         """);
 
-        Assert.True(_engine.Evaluate("let p1 = new Proxy(t, {}); Object.setPrototypeOf(p1, null) === p1").AsBoolean());
-        Assert.True(_engine.Evaluate("let p2 = new Proxy(t, { setPrototypeOf: () => true }); Object.setPrototypeOf(p2, null) === p2").AsBoolean());
-        Assert.True(_engine.Evaluate("Reflect.setPrototypeOf(new Proxy(t, {}), null)").AsBoolean());
-        Assert.True(_engine.Evaluate("Reflect.setPrototypeOf(new Proxy(t, { setPrototypeOf: () => true }), null)").AsBoolean());
+        _engine.Evaluate("let p1 = new Proxy(t, {}); Object.setPrototypeOf(p1, null) === p1").AsBoolean().Should().BeTrue();
+        _engine.Evaluate("let p2 = new Proxy(t, { setPrototypeOf: () => true }); Object.setPrototypeOf(p2, null) === p2").AsBoolean().Should().BeTrue();
+        _engine.Evaluate("Reflect.setPrototypeOf(new Proxy(t, {}), null)").AsBoolean().Should().BeTrue();
+        _engine.Evaluate("Reflect.setPrototypeOf(new Proxy(t, { setPrototypeOf: () => true }), null)").AsBoolean().Should().BeTrue();
     }
 
     // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy/Proxy/getPrototypeOf#invariants
@@ -612,8 +613,8 @@ public class ProxyTests
             Object.preventExtensions(t);
             let p = new Proxy(t, { getPrototypeOf: () => ({}) });
         """);
-        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("Object.getPrototypeOf(p)"));
-        Assert.Same(TypeErrorPrototype(_engine), ex.Error.AsObject().Prototype);
+        var ex = Invoking(() => _engine.Evaluate("Object.getPrototypeOf(p)")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Error.AsObject().Prototype.Should().BeSameAs(TypeErrorPrototype(_engine));
     }
 
     // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy/Proxy/setPrototypeOf#invariants
@@ -626,8 +627,8 @@ public class ProxyTests
             Object.preventExtensions(t);
             let p = new Proxy(t, { setPrototypeOf: () => true });
         """);
-        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("Object.setPrototypeOf(p, null)"));
-        Assert.Same(TypeErrorPrototype(_engine), ex.Error.AsObject().Prototype);
+        var ex = Invoking(() => _engine.Evaluate("Object.setPrototypeOf(p, null)")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Error.AsObject().Prototype.Should().BeSameAs(TypeErrorPrototype(_engine));
     }
 
     [Fact]
@@ -643,9 +644,9 @@ public class ProxyTests
             const p = new Proxy(testClass, handler);
         """);
 
-        Assert.Equal(1, TestClass.Instance.PropertySideEffect); // first call to PropertySideEffect
-        Assert.Equal(2, _engine.Evaluate("p.PropertySideEffect").AsInteger()); // no call to PropertySideEffect
-        Assert.Equal(2, TestClass.Instance.PropertySideEffect); // second call to PropertySideEffect
+        TestClass.Instance.PropertySideEffect.Should().Be(1); // first call to PropertySideEffect
+        _engine.Evaluate("p.PropertySideEffect").AsInteger().Should().Be(2); // no call to PropertySideEffect
+        TestClass.Instance.PropertySideEffect.Should().Be(2); // second call to PropertySideEffect
     }
 
     [Fact]
@@ -711,7 +712,7 @@ public class ProxyTests
                 return arr;
             """);
 
-        Assert.Equal([1, 2, 3, 3], res.AsArray());
+        res.AsArray().AsEnumerable().Should().Equal(1, 2, 3, 3);
     }
 
     [Fact]
@@ -737,7 +738,7 @@ public class ProxyTests
                              // (expected 'function Jint.Tests.Runtime.ProxyTests+TestClass.Add() { [native code] }' but got 'function () { [native code] }')
              """);
 
-        Assert.Equal(42, res.AsInteger());
+        res.AsInteger().Should().Be(42);
     }
 
     [Fact]
@@ -763,7 +764,7 @@ public class ProxyTests
                              // (expected 'function Jint.Tests.Runtime.ProxyTests+TestClass.Add() { [native code] }' but got 'function () { [native code] }')
              """);
 
-        Assert.Equal(42, res.AsInteger());
+        res.AsInteger().Should().Be(42);
     }
 
     [Fact]
@@ -796,6 +797,6 @@ public class ProxyTests
                  name + " " + res
              """);
 
-        Assert.Equal("My Name is Test 42", res.AsString());
+        res.AsString().Should().Be("My Name is Test 42");
     }
 }

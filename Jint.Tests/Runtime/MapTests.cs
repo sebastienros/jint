@@ -1,4 +1,4 @@
-using Jint.Runtime;
+﻿using Jint.Runtime;
 
 namespace Jint.Tests.Runtime;
 
@@ -7,8 +7,8 @@ public class MapTests
     [Fact]
     public void ShouldThrowWhenCalledWithoutNew()
     {
-        var e = Assert.Throws<JavaScriptException>(() => new Engine().Execute("const m = new Map(); Map.call(m,[]);"));
-        Assert.Equal("Constructor Map requires 'new'", e.Message);
+        var e = Invoking(() => new Engine().Execute("const m = new Map(); Map.call(m,[]);")).Should().ThrowExactly<JavaScriptException>().Which;
+        e.Message.Should().Be("Constructor Map requires 'new'");
     }
 
     [Fact]
@@ -23,7 +23,7 @@ public class MapTests
             });
             return k === Infinity && map.get(+0) === ""foo"";";
 
-        Assert.True(new Engine().Evaluate(Script).AsBoolean());
+        new Engine().Evaluate(Script).AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -35,7 +35,7 @@ public class MapTests
             for (var key of map.keys()) { map.delete(key); count++; }
             return count + '/' + map.size;";
 
-        Assert.Equal("3/0", new Engine().Evaluate(Script).AsString());
+        new Engine().Evaluate(Script).AsString().Should().Be("3/0");
     }
 
     [Fact]
@@ -48,7 +48,7 @@ public class MapTests
             for (var value of map.values()) { map.delete(keys[count]); count++; }
             return count + '/' + map.size;";
 
-        Assert.Equal("3/0", new Engine().Evaluate(Script).AsString());
+        new Engine().Evaluate(Script).AsString().Should().Be("3/0");
     }
 
     [Fact]
@@ -60,7 +60,7 @@ public class MapTests
             for (var key of map.keys()) { seen.push(key); if (key === 'a') map.set('b', 2); }
             return seen.join(',');";
 
-        Assert.Equal("a,b", new Engine().Evaluate(Script).AsString());
+        new Engine().Evaluate(Script).AsString().Should().Be("a,b");
     }
 
     [Fact]
@@ -72,7 +72,7 @@ public class MapTests
             for (var value of map.values()) { seen.push(value); if (value === 1) map.delete('b'); }
             return seen.join(',');";
 
-        Assert.Equal("1,3", new Engine().Evaluate(Script).AsString());
+        new Engine().Evaluate(Script).AsString().Should().Be("1,3");
     }
 
     [Fact]
@@ -80,8 +80,8 @@ public class MapTests
     {
         var engine = new Engine();
         engine.Execute("var map = new Map([['a', 1], ['b', 2], ['c', 3]]);");
-        Assert.Equal("a,b,c", engine.Evaluate("[...map.keys()].join(',')").AsString());
-        Assert.Equal("1,2,3", engine.Evaluate("[...map.values()].join(',')").AsString());
+        engine.Evaluate("[...map.keys()].join(',')").AsString().Should().Be("a,b,c");
+        engine.Evaluate("[...map.values()].join(',')").AsString().Should().Be("1,2,3");
     }
 
     [Fact]
@@ -97,9 +97,9 @@ public class MapTests
 
         var engine = new Engine();
         engine.Execute(Script);
-        Assert.True(engine.Evaluate("proto2.hasOwnProperty(Symbol.iterator)").AsBoolean());
-        Assert.True(engine.Evaluate("!proto1.hasOwnProperty(Symbol.iterator)").AsBoolean());
-        Assert.True(engine.Evaluate("!iterator.hasOwnProperty(Symbol.iterator)").AsBoolean());
-        Assert.True(engine.Evaluate("iterator[Symbol.iterator]() === iterator").AsBoolean());
+        engine.Evaluate("proto2.hasOwnProperty(Symbol.iterator)").AsBoolean().Should().BeTrue();
+        engine.Evaluate("!proto1.hasOwnProperty(Symbol.iterator)").AsBoolean().Should().BeTrue();
+        engine.Evaluate("!iterator.hasOwnProperty(Symbol.iterator)").AsBoolean().Should().BeTrue();
+        engine.Evaluate("iterator[Symbol.iterator]() === iterator").AsBoolean().Should().BeTrue();
     }
 }

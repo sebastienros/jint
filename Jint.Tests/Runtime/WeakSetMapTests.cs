@@ -1,4 +1,4 @@
-using Jint.Native;
+﻿using Jint.Native;
 using Jint.Runtime;
 
 namespace Jint.Tests.Runtime;
@@ -9,16 +9,16 @@ public class WeakSetMapTests
     public void WeakMapShouldThrowWhenCalledWithoutNew()
     {
         var engine = new Engine();
-        var e = Assert.Throws<JavaScriptException>(() => engine.Execute("{ const m = new WeakMap(); WeakMap.call(m,[]); }"));
-        Assert.Equal("Constructor WeakMap requires 'new'", e.Message);
+        var e = Invoking(() => engine.Execute("{ const m = new WeakMap(); WeakMap.call(m,[]); }")).Should().ThrowExactly<JavaScriptException>().Which;
+        e.Message.Should().Be("Constructor WeakMap requires 'new'");
     }
 
     [Fact]
     public void WeakSetShouldThrowWhenCalledWithoutNew()
     {
         var engine = new Engine();
-        var e = Assert.Throws<JavaScriptException>(() => engine.Execute("{ const s = new WeakSet(); WeakSet.call(s,[]); }"));
-        Assert.Equal("Constructor WeakSet requires 'new'", e.Message);
+        var e = Invoking(() => engine.Execute("{ const s = new WeakSet(); WeakSet.call(s,[]); }")).Should().ThrowExactly<JavaScriptException>().Which;
+        e.Message.Should().Be("Constructor WeakSet requires 'new'");
     }
 
     public static TheoryData<JsValue> PrimitiveKeys = new()
@@ -39,10 +39,10 @@ public class WeakSetMapTests
         var engine = new Engine();
         var weakSet = new JsWeakSet(engine);
 
-        var e = Assert.Throws<JavaScriptException>(() => weakSet.WeakSetAdd(key));
-        Assert.StartsWith("WeakSet value must be an object or symbol, got ", e.Message);
+        var e = Invoking(() => weakSet.WeakSetAdd(key)).Should().ThrowExactly<JavaScriptException>().Which;
+        e.Message.Should().StartWith("WeakSet value must be an object or symbol, got ");
 
-        Assert.False(weakSet.WeakSetHas(key));
+        weakSet.WeakSetHas(key).Should().BeFalse();
     }
 
     [Theory]
@@ -52,10 +52,10 @@ public class WeakSetMapTests
         var engine = new Engine();
         var weakMap = new JsWeakMap(engine);
 
-        var e = Assert.Throws<JavaScriptException>(() => weakMap.WeakMapSet(key, new JsObject(engine)));
-        Assert.StartsWith("WeakMap key must be an object, got ", e.Message);
+        var e = Invoking(() => weakMap.WeakMapSet(key, new JsObject(engine))).Should().ThrowExactly<JavaScriptException>().Which;
+        e.Message.Should().StartWith("WeakMap key must be an object, got ");
 
-        Assert.False(weakMap.WeakMapHas(key));
+        weakMap.WeakMapHas(key).Should().BeFalse();
     }
 
     [Fact]
@@ -65,18 +65,18 @@ public class WeakSetMapTests
 
         engine.SetValue("context", new { Item = new Item { Value = "Test" } });
 
-        Assert.Equal(true, engine.Evaluate(@"
+        engine.Evaluate(@"
 		    var set1 = new WeakSet();
 		    set1.add(context.Item);
 		    return set1.has(context.Item);
-	    "));
+	    ").Should().BeTrue();
 
-        Assert.Equal(true, engine.Evaluate(@"
+        engine.Evaluate(@"
 		    var item = context.Item;
 		    var set2 = new WeakSet();
 		    set2.add(item);
 		    return set2.has(item);
-    	"));
+    	").Should().BeTrue();
     }
 
     [Fact]
@@ -86,13 +86,13 @@ public class WeakSetMapTests
 
         engine.SetValue("context", new { Item = new Item { Value = "Test" } });
 
-        Assert.Equal(true, engine.Evaluate("return context.Item === context.Item;"));
+        engine.Evaluate("return context.Item === context.Item;").Should().BeTrue();
 
-        Assert.Equal(true, engine.Evaluate(@"
+        engine.Evaluate(@"
 		    var set1 = new WeakSet();
 		    set1.add(context.Item);
 		    return set1.has(context.Item);
-	    "));
+	    ").Should().BeTrue();
     }
 
     [Fact]
@@ -109,14 +109,14 @@ public class WeakSetMapTests
         engine.SetValue("items", items);
 
         // touching more distinct objects than the cache holds must stay correct (oldest evicted)
-        Assert.Equal(true, engine.Evaluate(@"
+        engine.Evaluate(@"
 		    for (var i = 0; i < 16; i++) {
 		      if (items[i].Value !== '' + i) {
 		        return false;
 		      }
 		    }
 		    return items[15] === items[15];
-	    "));
+	    ").Should().BeTrue();
     }
 
     [Fact]
@@ -151,10 +151,10 @@ public class WeakSetMapTests
 
         // If I use Set, everything works as expected
         const string Expected = "{\"Value\":\"Parent\",\"Child\":{\"Value\":\"Child\"}}";
-        Assert.Equal(Expected, engine.Evaluate("stringifyWithoutCircularReferences(context.Parent, Set)"));
+        engine.Evaluate("stringifyWithoutCircularReferences(context.Parent, Set)").Should().Be(Expected);
 
         // With WeakSet I get an error
-        Assert.Equal(Expected, engine.Evaluate("stringifyWithoutCircularReferences(context.Parent, WeakSet)"));
+        engine.Evaluate("stringifyWithoutCircularReferences(context.Parent, WeakSet)").Should().Be(Expected);
     }
 
     private class Item

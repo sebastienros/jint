@@ -1,4 +1,4 @@
-using Jint.Native;
+﻿using Jint.Native;
 using Jint.Runtime;
 using Newtonsoft.Json.Linq;
 
@@ -14,7 +14,7 @@ public partial class InteropTests
             new JProperty("name", "test-name")
         };
         _engine.SetValue("o", o);
-        Assert.True(_engine.Evaluate("return o.name == 'test-name'").AsBoolean());
+        _engine.Evaluate("return o.name == 'test-name'").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -22,8 +22,8 @@ public partial class InteropTests
     {
         var o = new JArray("item1", "item2");
         _engine.SetValue("o", o);
-        Assert.True(_engine.Evaluate("return o[0] == 'item1'").AsBoolean());
-        Assert.True(_engine.Evaluate("return o[1] == 'item2'").AsBoolean());
+        _engine.Evaluate("return o[0] == 'item1'").AsBoolean().Should().BeTrue();
+        _engine.Evaluate("return o[1] == 'item2'").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -37,10 +37,10 @@ public partial class InteropTests
         var typeResult = _engine.Evaluate("o.Type");
 
         // JToken requires conversion
-        Assert.Equal("Cat", TypeConverter.ToString(typeResult));
+        TypeConverter.ToString(typeResult).Should().Be("Cat");
 
         // weak equality does conversions from native types
-        Assert.True(_engine.Evaluate("o.Type == 'Cat'").AsBoolean());
+        _engine.Evaluate("o.Type == 'Cat'").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -60,8 +60,8 @@ public partial class InteropTests
         var obj = JObject.Parse(json);
         engine.SetValue("o", obj);
         var value = engine.Evaluate("o.Properties.expirationDate.Value");
-        var dateInstance = Assert.IsAssignableFrom<JsDate>(value);
-        Assert.Equal(DateTime.Parse("2021-10-09T00:00:00Z").ToUniversalTime(), dateInstance.ToDateTime());
+        var dateInstance = value.Should().BeAssignableTo<JsDate>().Which;
+        dateInstance.ToDateTime().Should().Be(DateTime.Parse("2021-10-09T00:00:00Z").ToUniversalTime());
     }
 
     // https://github.com/OrchardCMS/OrchardCore/issues/10648
@@ -80,9 +80,9 @@ public partial class InteropTests
         var result = fromEngine.ToString();
 
         // currently we do not materialize LINQ enumerables
-        // Assert.Equal("[{\"Text\":\"Text1\",\"Value\":1},{\"Text\":\"Text2\",\"Value\":2}]", result);
+        // result.Should().Be("[{\"Text\":\"Text1\",\"Value\":1},{\"Text\":\"Text2\",\"Value\":2}]");
 
-        Assert.Equal("{\"Current\":null}", result);
+        result.Should().Be("{\"Current\":null}");
     }
 
     [Fact]
@@ -100,7 +100,7 @@ public partial class InteropTests
         var fromEngine = engine.Evaluate("return JSON.stringify(testSubject);");
         var result = fromEngine.ToString();
 
-        Assert.Equal("[{\"Text\":\"Text1\",\"Value\":1},{\"Text\":\"Text2\",\"Value\":2,\"Null\":null,\"Date\":\"2015-06-25T00:00:00.000Z\"}]", result);
+        result.Should().Be("[{\"Text\":\"Text1\",\"Value\":1},{\"Text\":\"Text2\",\"Value\":2,\"Null\":null,\"Date\":\"2015-06-25T00:00:00.000Z\"}]");
     }
 
     [Fact]
@@ -112,8 +112,8 @@ public partial class InteropTests
         });
         _engine.SetValue("test", test);
         var fromInterop = _engine.Evaluate("test.DecimalValue");
-        var number = Assert.IsType<JsNumber>(fromInterop);
-        Assert.Equal(123.456d, number.AsNumber());
+        var number = fromInterop.Should().BeOfType<JsNumber>().Which;
+        number.AsNumber().Should().Be(123.456d);
     }
 
     [Fact]
@@ -127,7 +127,7 @@ public partial class InteropTests
             .Evaluate("input.value = \"CHANGED\"; input.value")
             .AsString();
 
-        Assert.Equal("CHANGED", result);
+        result.Should().Be("CHANGED");
     }
 
     [Fact]
@@ -150,9 +150,9 @@ public partial class InteropTests
 
         var names = engine.Evaluate("o.entries.map(e => e.name)").AsArray();
 
-        Assert.Equal((uint) 3, names.Length);
-        Assert.Equal("One", names[0]);
-        Assert.Equal("Two", names[1]);
-        Assert.Equal("Three", names[2]);
+        names.Length.Should().Be((uint) 3);
+        names[0].Should().Be("One");
+        names[1].Should().Be("Two");
+        names[2].Should().Be("Three");
     }
 }

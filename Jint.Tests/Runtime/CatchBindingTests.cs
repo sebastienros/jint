@@ -1,4 +1,4 @@
-namespace Jint.Tests.Runtime;
+﻿namespace Jint.Tests.Runtime;
 
 /// <summary>
 /// Pins the behavior of the pooled fixed-slot catch environment used for a non-escaping single-identifier
@@ -12,9 +12,9 @@ public class CatchBindingTests
     public void CaughtValueAndMutationWork()
     {
         var engine = new Engine();
-        Assert.Equal("m1", engine.Evaluate("try { throw new Error('m1'); } catch (e) { e.message; }").AsString());
-        Assert.Equal(15, engine.Evaluate("try { throw 10; } catch (e) { e = e + 5; e; }").AsNumber());
-        Assert.True(engine.Evaluate("try { throw undefined; } catch (e) { e === undefined; }").AsBoolean());
+        engine.Evaluate("try { throw new Error('m1'); } catch (e) { e.message; }").AsString().Should().Be("m1");
+        engine.Evaluate("try { throw 10; } catch (e) { e = e + 5; e; }").AsNumber().Should().Be(15);
+        engine.Evaluate("try { throw undefined; } catch (e) { e === undefined; }").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -22,7 +22,7 @@ public class CatchBindingTests
     {
         var engine = new Engine();
         var result = engine.Evaluate("try { try { throw 'inner'; } catch (e) { throw e; } } catch (e2) { e2; }").AsString();
-        Assert.Equal("inner", result);
+        result.Should().Be("inner");
     }
 
     [Fact]
@@ -33,7 +33,7 @@ public class CatchBindingTests
 var e = 'outer';
 var caught = (function () { try { throw 'shadow'; } catch (e) { return e; } })();
 caught + '|' + e;").AsString();
-        Assert.Equal("shadow|outer", result);
+        result.Should().Be("shadow|outer");
     }
 
     [Fact]
@@ -44,7 +44,7 @@ caught + '|' + e;").AsString();
 var seq = [];
 for (var i = 0; i < 3; i++) { try { throw i * 2; } catch (e) { seq.push(e); } }
 seq.join(',');").AsString();
-        Assert.Equal("0,2,4", result);
+        result.Should().Be("0,2,4");
     }
 
     [Fact]
@@ -61,7 +61,7 @@ function rec(n) {
   }
 }
 rec(3);").AsNumber();
-        Assert.Equal(6, result); // 3 + 2 + 1 + 0
+        result.Should().Be(6); // 3 + 2 + 1 + 0
     }
 
     [Fact]
@@ -75,7 +75,7 @@ for (var i = 0; i < 3; i++) {
   try { throw 'v' + i; } catch (e) { closures.push(function () { return e; }); }
 }
 closures[0]() + ',' + closures[1]() + ',' + closures[2]();").AsString();
-        Assert.Equal("v0,v1,v2", result);
+        result.Should().Be("v0,v1,v2");
     }
 
     [Fact]
@@ -87,7 +87,7 @@ var saved;
 try { throw 'keepme'; } catch (err) { saved = function () { return err; }; }
 for (var j = 0; j < 5; j++) { try { throw j; } catch (e) { } }
 saved();").AsString();
-        Assert.Equal("keepme", result);
+        result.Should().Be("keepme");
     }
 
     [Fact]
@@ -95,6 +95,6 @@ saved();").AsString();
     {
         var engine = new Engine();
         var result = engine.Evaluate("try { throw 'x'; } catch (e) { let y = e + '!'; y; }").AsString();
-        Assert.Equal("x!", result);
+        result.Should().Be("x!");
     }
 }

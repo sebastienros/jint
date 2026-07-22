@@ -1,4 +1,4 @@
-using Jint.Native;
+﻿using Jint.Native;
 using Jint.Runtime.Interop;
 
 namespace Jint.Tests.Runtime;
@@ -16,16 +16,16 @@ public class ArrayBufferTests
         engine.Evaluate("var a = new Uint8Array(buffer)");
 
         var typedArray = (JsTypedArray) engine.GetValue("a");
-        Assert.Equal((uint) 1, typedArray.Length);
-        Assert.Equal(17, typedArray[0]);
-        Assert.Equal(JsValue.Undefined, typedArray[1]);
+        typedArray.Length.Should().Be((uint) 1);
+        typedArray[0].Should().Be(17);
+        typedArray[1].Should().BeUndefined();
 
-        Assert.Equal(1, engine.Evaluate("a.length"));
-        Assert.Equal(17, engine.Evaluate("a[0]"));
-        Assert.Equal(JsValue.Undefined, engine.Evaluate("a[1]"));
+        engine.Evaluate("a.length").Should().Be(1);
+        engine.Evaluate("a[0]").Should().Be(17);
+        engine.Evaluate("a[1]").Should().BeUndefined();
 
         bytes[0] = 42;
-        Assert.Equal(42, engine.Evaluate("a[0]"));
+        engine.Evaluate("a[0]").Should().Be(42);
     }
 
     [Fact]
@@ -41,13 +41,13 @@ public class ArrayBufferTests
         engine.SetValue("a", jsTypedArray);
 
         var typedArray = (JsTypedArray) engine.GetValue("a");
-        Assert.Equal((uint) 1, typedArray.Length);
-        Assert.Equal(17, typedArray[0]);
-        Assert.Equal(JsValue.Undefined, typedArray[1]);
+        typedArray.Length.Should().Be((uint) 1);
+        typedArray[0].Should().Be(17);
+        typedArray[1].Should().BeUndefined();
 
-        Assert.Equal(1, engine.Evaluate("a.length"));
-        Assert.Equal(17, engine.Evaluate("a[0]"));
-        Assert.Equal(JsValue.Undefined, engine.Evaluate("a[1]"));
+        engine.Evaluate("a.length").Should().Be(1);
+        engine.Evaluate("a[0]").Should().Be(17);
+        engine.Evaluate("a[1]").Should().BeUndefined();
     }
 
     /// <summary>

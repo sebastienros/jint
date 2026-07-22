@@ -1,4 +1,4 @@
-namespace Jint.Tests.Runtime;
+﻿namespace Jint.Tests.Runtime;
 
 /// <summary>
 /// Pins the build-time fused guard comparisons (`x === undefined`, `x === null`,
@@ -21,7 +21,7 @@ public class GuardFusionTests
             ].join(',');
             """).AsString();
 
-        Assert.Equal("true,true,false,true,true,false,false,false,false,false,false", result);
+        result.Should().Be("true,true,false,true,true,false,false,false,false,false,false");
     }
 
     [Fact]
@@ -44,15 +44,15 @@ public class GuardFusionTests
             ].join(',');
             """).AsString();
 
-        Assert.Equal("true,true,true,true,true,true,true,true,true,true,true", result);
+        result.Should().Be("true,true,true,true,true,true,true,true,true,true,true");
     }
 
     [Fact]
     public void TypeofUndeclaredIdentifierDoesNotThrow()
     {
         var engine = new Engine();
-        Assert.True(engine.Evaluate("typeof notDeclaredAnywhere === 'undefined'").AsBoolean());
-        Assert.False(engine.Evaluate("typeof notDeclaredAnywhere !== 'undefined'").AsBoolean());
+        engine.Evaluate("typeof notDeclaredAnywhere === 'undefined'").AsBoolean().Should().BeTrue();
+        engine.Evaluate("typeof notDeclaredAnywhere !== 'undefined'").AsBoolean().Should().BeFalse();
     }
 
     [Fact]
@@ -66,7 +66,7 @@ public class GuardFusionTests
             [matched, calls].join(',');
             """).AsString();
 
-        Assert.Equal("false,1", result);
+        result.Should().Be("false,1");
     }
 
     [Fact]
@@ -74,8 +74,8 @@ public class GuardFusionTests
     {
         var engine = new Engine();
         engine.SetValue("clrCallback", new Func<int>(() => 42));
-        Assert.True(engine.Evaluate("typeof clrCallback === 'function'").AsBoolean());
-        Assert.False(engine.Evaluate("typeof clrCallback === 'object'").AsBoolean());
+        engine.Evaluate("typeof clrCallback === 'function'").AsBoolean().Should().BeTrue();
+        engine.Evaluate("typeof clrCallback === 'object'").AsBoolean().Should().BeFalse();
     }
 
     [Fact]
@@ -92,7 +92,7 @@ public class GuardFusionTests
             f();
             """).UnwrapIfPromise().AsString();
 
-        Assert.Equal("true,true,true", result);
+        result.Should().Be("true,true,true");
     }
 
     [Fact]
@@ -112,7 +112,7 @@ public class GuardFusionTests
             log.join('');
             """).AsString();
 
-        Assert.Equal("unso", result);
+        result.Should().Be("unso");
     }
 
     [Fact]
@@ -137,15 +137,13 @@ public class GuardFusionTests
             ].join(',');
             """).AsString();
 
-        Assert.Equal(
-            "true,true,true,true," +
+        result.Should().Be("true,true,true,true," +
             "true,true,true,true," +
             "true,true," +
             "false,false,false,true," +
             "false,false,false,false,false,false," +
             "false,false,false,false," +
-            "false,false,false",
-            result);
+            "false,false,false");
     }
 
     [Fact]
@@ -169,7 +167,7 @@ public class GuardFusionTests
             ok;
             """).AsBoolean();
 
-        Assert.True(result);
+        result.Should().BeTrue();
     }
 
     [Fact]
@@ -185,7 +183,7 @@ public class GuardFusionTests
             [a, b, c, calls].join(',');
             """).AsString();
 
-        Assert.Equal("true,true,false,3", result);
+        result.Should().Be("true,true,false,3");
     }
 
     [Fact]
@@ -202,7 +200,7 @@ public class GuardFusionTests
             f();
             """).UnwrapIfPromise().AsString();
 
-        Assert.Equal("true,true,true", result);
+        result.Should().Be("true,true,true");
     }
 
     [Fact]
@@ -221,7 +219,7 @@ public class GuardFusionTests
             log.join('');
             """).AsString();
 
-        Assert.Equal("nnsoo", result);
+        result.Should().Be("nnsoo");
     }
 
     [Fact]
@@ -233,20 +231,20 @@ public class GuardFusionTests
         engine.SetValue("htmlDDA", (Jint.Native.JsValue) htmlDDA);
 
         // Annex B: loose equality with null/undefined is true (both orientations, both operators)
-        Assert.True(engine.Evaluate("htmlDDA == null").AsBoolean());
-        Assert.True(engine.Evaluate("null == htmlDDA").AsBoolean());
-        Assert.True(engine.Evaluate("htmlDDA == undefined").AsBoolean());
-        Assert.True(engine.Evaluate("undefined == htmlDDA").AsBoolean());
-        Assert.False(engine.Evaluate("htmlDDA != null").AsBoolean());
-        Assert.False(engine.Evaluate("htmlDDA != undefined").AsBoolean());
+        engine.Evaluate("htmlDDA == null").AsBoolean().Should().BeTrue();
+        engine.Evaluate("null == htmlDDA").AsBoolean().Should().BeTrue();
+        engine.Evaluate("htmlDDA == undefined").AsBoolean().Should().BeTrue();
+        engine.Evaluate("undefined == htmlDDA").AsBoolean().Should().BeTrue();
+        engine.Evaluate("htmlDDA != null").AsBoolean().Should().BeFalse();
+        engine.Evaluate("htmlDDA != undefined").AsBoolean().Should().BeFalse();
 
         // strict equality must remain false — the strict fusion path is untouched
-        Assert.False(engine.Evaluate("htmlDDA === null").AsBoolean());
-        Assert.False(engine.Evaluate("htmlDDA === undefined").AsBoolean());
-        Assert.True(engine.Evaluate("htmlDDA !== null").AsBoolean());
+        engine.Evaluate("htmlDDA === null").AsBoolean().Should().BeFalse();
+        engine.Evaluate("htmlDDA === undefined").AsBoolean().Should().BeFalse();
+        engine.Evaluate("htmlDDA !== null").AsBoolean().Should().BeTrue();
 
         // a plain object is never loosely equal to null/undefined
-        Assert.False(engine.Evaluate("({}) == null").AsBoolean());
-        Assert.False(engine.Evaluate("({}) == undefined").AsBoolean());
+        engine.Evaluate("({}) == null").AsBoolean().Should().BeFalse();
+        engine.Evaluate("({}) == undefined").AsBoolean().Should().BeFalse();
     }
 }

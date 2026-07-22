@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using Jint.Native;
 using Jint.Runtime;
 
@@ -27,8 +27,8 @@ public class BigIntTests
         engine.Evaluate(statement);
 
         engine.Evaluate("log(a)");
-        Assert.True(outputValues[0].IsBigInt(), "The type of the value is expected to stay BigInt");
-        Assert.Equal(expected, outputValues[0].ToString());
+        outputValues[0].IsBigInt().Should().BeTrue("The type of the value is expected to stay BigInt");
+        outputValues[0].ToString().Should().Be(expected);
     }
 
     [Theory]
@@ -46,7 +46,7 @@ public class BigIntTests
         var result = engine.Evaluate("Object.is(left, right);");
 
         // Assert
-        Assert.True(result.AsBoolean());
+        result.AsBoolean().Should().BeTrue();
     }
 
     [Theory]
@@ -66,7 +66,7 @@ public class BigIntTests
         var result = engine.Evaluate("Object.is(left, right);");
 
         // Assert
-        Assert.False(result.AsBoolean());
+        result.AsBoolean().Should().BeFalse();
     }
 
     [Theory]
@@ -81,8 +81,8 @@ public class BigIntTests
             options.LimitMemory(16_000_000);
         });
 
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate(expression));
-        Assert.Contains("Maximum BigInt size exceeded", ex.Message);
+        var ex = Invoking(() => engine.Evaluate(expression)).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Message.Should().Contain("Maximum BigInt size exceeded");
     }
 
     [Theory]
@@ -100,8 +100,8 @@ public class BigIntTests
         var parts = expression.Split(new[] { " ** " }, StringSplitOptions.None);
         var script = $"var x = {parts[0]}; x **= {parts[1]}; x";
 
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate(script));
-        Assert.Contains("Maximum BigInt size exceeded", ex.Message);
+        var ex = Invoking(() => engine.Evaluate(script)).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Message.Should().Contain("Maximum BigInt size exceeded");
     }
 
     [Theory]
@@ -114,15 +114,15 @@ public class BigIntTests
     {
         var engine = new Engine();
         var result = engine.Evaluate(expression);
-        Assert.Equal(expected, result.ToString());
+        result.ToString().Should().Be(expected);
     }
 
     [Fact]
     public void NegativeExponentShouldThrowRangeError()
     {
         var engine = new Engine();
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("2n ** -1n"));
-        Assert.Contains("Exponent must be positive", ex.Message);
+        var ex = Invoking(() => engine.Evaluate("2n ** -1n")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Message.Should().Contain("Exponent must be positive");
     }
 
     [Theory]
@@ -132,9 +132,9 @@ public class BigIntTests
     {
         var engine = new Engine();
 
-        var exception = Assert.Throws<JavaScriptException>(() => engine.Evaluate(expression));
+        var exception = Invoking(() => engine.Evaluate(expression)).Should().ThrowExactly<JavaScriptException>().Which;
 
-        Assert.True(exception.Error.InstanceofOperator(engine.Intrinsics.RangeError));
+        exception.Error.InstanceofOperator(engine.Intrinsics.RangeError).Should().BeTrue();
     }
 
     [Theory]
@@ -144,14 +144,14 @@ public class BigIntTests
     {
         var engine = new Engine();
 
-        var exception = Assert.Throws<JavaScriptException>(() => engine.Evaluate($$"""
+        var exception = Invoking(() => engine.Evaluate($$"""
             {{operation}}(2147483648, {
                 [Symbol.toPrimitive]() {
                     throw new Error('boom');
                 }
             });
-            """));
+            """)).Should().ThrowExactly<JavaScriptException>().Which;
 
-        Assert.Equal("boom", exception.Error.AsObject().Get("message").AsString());
+        exception.Error.AsObject().Get("message").AsString().Should().Be("boom");
     }
 }

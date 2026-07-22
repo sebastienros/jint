@@ -1,4 +1,4 @@
-using Jint.Native;
+﻿using Jint.Native;
 using Jint.Tests.Runtime.Domain;
 
 namespace Jint.Tests.Runtime.ExtensionMethods;
@@ -19,7 +19,7 @@ public class ExtensionMethodsTest
         engine.SetValue("person", person);
         var age = engine.Evaluate("person.MultiplyAge(2)").AsInteger();
 
-        Assert.Equal(70, age);
+        age.Should().Be(70);
     }
 
     [Fact]
@@ -31,7 +31,7 @@ public class ExtensionMethodsTest
         var engine = new Engine(options);
         var result = engine.Evaluate("\"Hello World!\".Backwards()").AsString();
 
-        Assert.Equal("!dlroW olleH", result);
+        result.Should().Be("!dlroW olleH");
     }
 
     [Fact]
@@ -43,7 +43,7 @@ public class ExtensionMethodsTest
         var engine = new Engine(options);
         var result = engine.Evaluate("let numb = 27; numb.Add(13)").AsInteger();
 
-        Assert.Equal(40, result);
+        result.Should().Be(40);
     }
 
     [Fact]
@@ -55,7 +55,7 @@ public class ExtensionMethodsTest
         var engine = new Engine(options);
         var result = engine.Evaluate("\"{'name':'Mickey'}\".DeserializeObject()").ToObject() as dynamic;
 
-        Assert.Equal("Mickey", result.name);
+        ((string) result.name).Should().Be("Mickey");
     }
 
     [Fact]
@@ -72,13 +72,13 @@ public class ExtensionMethodsTest
 
         //uses split function from StringPrototype
         var arr = engine.Evaluate("'yes,no'.split(',')").AsArray();
-        Assert.Equal("yes", arr[0]);
-        Assert.Equal("no", arr[1]);
+        arr[0].Should().Be("yes");
+        arr[1].Should().Be("no");
 
         //uses split function from CustomStringExtensions
         var arr2 = engine.Evaluate("'yes,no'.split(2)").AsArray();
-        Assert.Equal("ye", arr2[0]);
-        Assert.Equal("s,no", arr2[1]);
+        arr2[0].Should().Be("ye");
+        arr2[1].Should().Be("s,no");
     }
 
     [Fact]
@@ -94,8 +94,8 @@ public class ExtensionMethodsTest
 
         //uses the overridden split function from OverrideStringPrototypeExtensions
         var arr = engine.Evaluate("'yes,no'.split(',')").AsArray();
-        Assert.Equal("YES", arr[0]);
-        Assert.Equal("NO", arr[1]);
+        arr[0].Should().Be("YES");
+        arr[1].Should().Be("NO");
     }
 
     [Fact]
@@ -110,10 +110,10 @@ public class ExtensionMethodsTest
         engine.SetValue("person", person);
 
         var isBogusInPerson = engine.Evaluate("'bogus' in person").AsBoolean();
-        Assert.False(isBogusInPerson);
+        isBogusInPerson.Should().BeFalse();
 
         var propertyValue = engine.Evaluate("person.bogus");
-        Assert.Equal(JsValue.Undefined, propertyValue);
+        propertyValue.Should().BeUndefined();
     }
 
     private Engine GetLinqEngine(Action<Options> additionalConfiguration = null)
@@ -133,7 +133,7 @@ public class ExtensionMethodsTest
 
         engine.SetValue("intList", intList);
         var intSumRes = engine.Evaluate("intList.Sum()").AsNumber();
-        Assert.Equal(6, intSumRes);
+        intSumRes.Should().Be(6);
     }
 
     // TODO this fails due to double -> long assignment on FW
@@ -146,7 +146,7 @@ public class ExtensionMethodsTest
             engine.SetValue("stringList", stringList);
 
             var stringSumRes = engine.Evaluate("stringList.Sum(x => x.length)").AsNumber();
-            Assert.Equal(11, stringSumRes);
+            stringSumRes.Should().Be(11);
         }
 #endif
 
@@ -163,7 +163,7 @@ public class ExtensionMethodsTest
         engine.SetValue("stringList", stringList);
 
         var stringRes = engine.Evaluate("stringList.Select((x) => x + 'a').ToArray().join()").AsString();
-        Assert.Equal("workinga,linqa", stringRes);
+        stringRes.Should().Be("workinga,linqa");
 
         // The method ambiguity resolver is not so smart to choose the Select method with the correct number of parameters
         // Thus, the following script will not work as expected.
@@ -193,7 +193,7 @@ public class ExtensionMethodsTest
                 log('after');
             ");
 
-        Assert.Equal("foobar", observable.Last);
+        observable.Last.Should().Be("foobar");
     }
 
     [Fact]
@@ -217,7 +217,7 @@ public class ExtensionMethodsTest
 
         //System.Console.WriteLine("GenericExtensionMethodOnGenericType: result: " + result + " result.ToString(): " + result.ToString());
 
-        Assert.Equal("some text", result);
+        result.Should().Be("some text");
     }
 
     [Fact]
@@ -246,8 +246,8 @@ public class ExtensionMethodsTest
             ");
 
         var nameObservableResult = result.ToObject() as NameObservable;
-        Assert.NotNull(nameObservableResult);
-        Assert.Equal("testing yo", nameObservableResult.Last);
+        nameObservableResult.Should().NotBeNull();
+        nameObservableResult.Last.Should().Be("testing yo");
     }
 
     [Fact]
@@ -280,8 +280,8 @@ public class ExtensionMethodsTest
         var baseObservableResult = result.ToObject() as BaseObservable<string>;
 
         System.Console.WriteLine("GenericExtensionMethodOnOpenGenericType: baseObservableResult: " + baseObservableResult);
-        Assert.NotNull(baseObservableResult);
-        Assert.Equal("testing yo", baseObservableResult.Last);
+        baseObservableResult.Should().NotBeNull();
+        baseObservableResult.Last.Should().Be("testing yo");
     }
 
     [Fact]
@@ -314,8 +314,8 @@ public class ExtensionMethodsTest
         var baseObservableResult = result.ToObject() as BaseObservable<bool>;
 
         System.Console.WriteLine("GenericExtensionMethodOnOpenGenericType: baseObservableResult: " + baseObservableResult);
-        Assert.NotNull(baseObservableResult);
-        Assert.Equal(false, baseObservableResult.Last);
+        baseObservableResult.Should().NotBeNull();
+        baseObservableResult.Last.Should().BeFalse();
     }
 
     [Fact]
@@ -333,10 +333,10 @@ public class ExtensionMethodsTest
         engine.Execute("var a = [ 2, 4 ];");
 
         var selected = engine.Evaluate("JSON.stringify(a.Select(m => ({a:m,b:m})).ToArray());").AsString();
-        Assert.Equal("""[{"a":2,"b":2},{"a":4,"b":4}]""", selected);
+        selected.Should().Be("""[{"a":2,"b":2},{"a":4,"b":4}]""");
 
         var grouped1 = engine.Evaluate("a.GroupBy(m => ({a:m,b:m})).ToArray()").AsArray();
         var grouped = engine.Evaluate("JSON.stringify(a.GroupBy(m => ({a:m,b:m})).Select(x => x.Key).ToArray());").AsString();
-        Assert.Equal("""[{"a":2,"b":2},{"a":4,"b":4}]""", grouped);
+        grouped.Should().Be("""[{"a":2,"b":2},{"a":4,"b":4}]""");
     }
 }

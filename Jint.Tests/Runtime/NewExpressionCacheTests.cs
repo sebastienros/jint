@@ -1,4 +1,4 @@
-using Jint.Runtime;
+﻿using Jint.Runtime;
 
 namespace Jint.Tests.Runtime;
 
@@ -26,7 +26,7 @@ public class NewExpressionCacheTests
             })()
             """).AsNumber();
 
-        Assert.Equal(1000, result);
+        result.Should().Be(1000);
     }
 
     [Fact]
@@ -48,7 +48,7 @@ public class NewExpressionCacheTests
             })()
             """).AsString();
 
-        Assert.Equal("true:42", result);
+        result.Should().Be("true:42");
     }
 
     [Fact]
@@ -64,7 +64,7 @@ public class NewExpressionCacheTests
             })()
             """).AsString();
 
-        Assert.Equal("true:true", result);
+        result.Should().Be("true:true");
     }
 
     [Fact]
@@ -81,8 +81,8 @@ public class NewExpressionCacheTests
         var engine2 = new Engine();
         for (var i = 0; i < 5; i++)
         {
-            Assert.True(engine1.Evaluate(prepared).AsBoolean());
-            Assert.True(engine2.Evaluate(prepared).AsBoolean());
+            engine1.Evaluate(prepared).AsBoolean().Should().BeTrue();
+            engine2.Evaluate(prepared).AsBoolean().Should().BeTrue();
         }
     }
 
@@ -102,15 +102,15 @@ public class NewExpressionCacheTests
             })()
             """).AsNumber();
 
-        Assert.Equal(100, result);
+        result.Should().Be(100);
     }
 
     [Fact]
     public void ThrowingCustomTimeSystemSurfacesExceptionPerConstruct()
     {
         var engine = new Engine(options => options.TimeSystem = new ThrowingTimeSystem());
-        var ex = Assert.Throws<InvalidOperationException>(() => engine.Evaluate("new Date()"));
-        Assert.Equal("clock is broken", ex.Message);
+        var ex = Invoking(() => engine.Evaluate("new Date()")).Should().ThrowExactly<InvalidOperationException>().Which;
+        ex.Message.Should().Be("clock is broken");
     }
 
     private sealed class FixedTimeSystem : ITimeSystem

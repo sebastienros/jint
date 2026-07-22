@@ -1,4 +1,4 @@
-namespace Jint.Tests.Runtime;
+﻿namespace Jint.Tests.Runtime;
 
 /// <summary>
 /// Pins SlotLocationCache behavior for handler trees shared across function instances
@@ -25,7 +25,7 @@ public class SlotLocationCacheTests
         // evaluation; each must resolve slots against its own chain
         for (var e = 0; e < 5; e++)
         {
-            Assert.Equal(499500, engine.Evaluate(prepared).AsNumber());
+            engine.Evaluate(prepared).AsNumber().Should().Be(499500);
         }
     }
 
@@ -52,7 +52,7 @@ public class SlotLocationCacheTests
             })()
             """).AsNumber();
 
-        Assert.Equal(4 * (100 + 100_000), result);
+        result.Should().Be(4 * (100 + 100_000));
     }
 
     [Fact]
@@ -79,7 +79,7 @@ public class SlotLocationCacheTests
             })()
             """).AsString();
 
-        Assert.Equal("AAAAAAAA|BBBBBBBB;AAAAAAAA|BBBBBBBB;AAAAAAAA|BBBBBBBB;", result);
+        result.Should().Be("AAAAAAAA|BBBBBBBB;AAAAAAAA|BBBBBBBB;AAAAAAAA|BBBBBBBB;");
     }
 
     [Fact]
@@ -108,7 +108,7 @@ public class SlotLocationCacheTests
         // i=0..2 read the outer binding (the eval at i===2 runs AFTER the read); the
         // injected var initializes to 'inner' and shadows from the i=3 read onward, and
         // the outer binding must remain untouched
-        Assert.Equal("outer,outer,outer,inner,inner,inner,|outer", result);
+        result.Should().Be("outer,outer,outer,inner,inner,inner,|outer");
     }
 
     [Fact]
@@ -133,7 +133,7 @@ public class SlotLocationCacheTests
             })()
             """).AsString();
 
-        Assert.Equal("outer,outer,undefined,undefined,", result);
+        result.Should().Be("outer,outer,undefined,undefined,");
     }
 
     [Fact]
@@ -166,7 +166,7 @@ public class SlotLocationCacheTests
             })()
             """).AsString();
 
-        Assert.Equal("free,free,|free,free,shadowed,shadowed,|free,free,", result);
+        result.Should().Be("free,free,|free,free,shadowed,shadowed,|free,free,");
     }
 
     [Fact]
@@ -205,7 +205,7 @@ public class SlotLocationCacheTests
             })()
             """).AsString();
 
-        Assert.Equal("root10root10root10|root10root10root10", result);
+        result.Should().Be("root10root10root10|root10root10root10");
     }
 
     [Fact]
@@ -233,7 +233,7 @@ public class SlotLocationCacheTests
             })()
             """).AsNumber();
 
-        Assert.Equal(50 * 11 + 50 * 1001 + 50 * 11, result);
+        result.Should().Be(50 * 11 + 50 * 1001 + 50 * 11);
     }
 
 #if NET
@@ -263,9 +263,7 @@ public class SlotLocationCacheTests
         engine.Evaluate(prepared);
         var perEvaluation = GC.GetAllocatedBytesForCurrentThread() - before;
 
-        Assert.True(
-            perEvaluation < 150_000,
-            $"expected slot lanes to stay live across re-evaluations; allocated {perEvaluation} bytes in one evaluation");
+        perEvaluation.Should().BeLessThan(150_000, $"expected slot lanes to stay live across re-evaluations; allocated {perEvaluation} bytes in one evaluation");
     }
 #endif
 }

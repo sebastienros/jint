@@ -21,7 +21,7 @@ public class CallStackTests
                 }
                 "
         );
-        Assert.Equal(0, engine.CallStack.Count);
+        engine.CallStack.Count.Should().Be(0);
     }
 
     [Fact]
@@ -47,6 +47,6 @@ public class CallStackTests
                 {
                 }
             ");
-        Assert.Equal(0, engine.CallStack.Count);
+        engine.CallStack.Count.Should().Be(0);
     }
 }

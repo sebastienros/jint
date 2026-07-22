@@ -1,4 +1,4 @@
-namespace Jint.Tests.Runtime;
+﻿namespace Jint.Tests.Runtime;
 
 public class JintFailureTest
 {
@@ -24,7 +24,7 @@ public class JintFailureTest
         }
         ");
 
-        Assert.Equal("coffee", engine.Evaluate("myFunc()"));
+        engine.Evaluate("myFunc()").Should().Be("coffee");
     }
 
     [Fact]
@@ -47,7 +47,7 @@ public class JintFailureTest
                 return f(1);
             })();");
 
-        Assert.Equal(8, result);
+        result.Should().Be(8);
     }
 
     [Fact]
@@ -68,7 +68,7 @@ public class JintFailureTest
                 return f(1);
             })();");
 
-        Assert.Equal(100, result);
+        result.Should().Be(100);
     }
 
     [Fact]
@@ -89,6 +89,6 @@ public class JintFailureTest
                 return f(5);
             })();");
 
-        Assert.Equal(2, result);
+        result.Should().Be(2);
     }
 }

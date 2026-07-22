@@ -1,4 +1,4 @@
-namespace Jint.Tests.Runtime;
+﻿namespace Jint.Tests.Runtime;
 
 /// <summary>
 /// Pins the semantics of the per-engine function-definition cache applied to class evaluation:
@@ -37,7 +37,7 @@ public class ClassReEvaluationTests
             })()
             """).AsString();
 
-        Assert.Equal("true,true,true,a:a,b:b,a!,b!,a,b,A,B,true,false", result);
+        result.Should().Be("true,true,true,a:a,b:b,a!,b!,a,b,A,B,true,false");
     }
 
     [Fact]
@@ -56,7 +56,7 @@ public class ClassReEvaluationTests
             })()
             """).AsString();
 
-        Assert.Equal("sub-one|sub-two", result);
+        result.Should().Be("sub-one|sub-two");
     }
 
     [Fact]
@@ -73,8 +73,8 @@ public class ClassReEvaluationTests
             })();
             """);
 
-        Assert.Equal(42, engine.Evaluate(prepared).AsNumber());
-        Assert.Equal(42, engine.Evaluate(prepared).AsNumber());
-        Assert.Equal(42, engine.Evaluate(prepared).AsNumber());
+        engine.Evaluate(prepared).AsNumber().Should().Be(42);
+        engine.Evaluate(prepared).AsNumber().Should().Be(42);
+        engine.Evaluate(prepared).AsNumber().Should().Be(42);
     }
 }

@@ -106,8 +106,9 @@ public class InterfaceTests
                     typeof(Console).Assembly,
                     typeof(File).Assembly))
                 .SetValue("log", new Action<object>(Console.WriteLine))
-                .SetValue("assert", new Action<bool>(Assert.True))
-                .SetValue("equal", new Action<object, object>(Assert.Equal))
+                .SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()))
+                .SetValue("equal", new Action<object, object>(static (expected, actual) =>
+                    actual.Should().BeEquivalentTo(expected, static options => options.WithStrictOrdering())))
                 .SetValue("holder", holder)
             ;
     }
@@ -115,37 +116,29 @@ public class InterfaceTests
     [Fact]
     public void CallSuperPropertyFromInterface()
     {
-        Assert.Equal(holder.I1.NameI0, _engine.Evaluate("holder.I1.NameI0"));
+        _engine.Evaluate("holder.I1.NameI0").Should().Be(holder.I1.NameI0);
     }
 
     [Fact]
     public void CallOverloadSuperMethod()
     {
-        Assert.Equal(
-            holder.I1.OverloadSuperMethod(1),
-            _engine.Evaluate("holder.I1.OverloadSuperMethod(1)"));
-        Assert.Equal(
-            holder.I1.OverloadSuperMethod(),
-            _engine.Evaluate("holder.I1.OverloadSuperMethod()"));
+        _engine.Evaluate("holder.I1.OverloadSuperMethod(1)").Should().Be(holder.I1.OverloadSuperMethod(1));
+        _engine.Evaluate("holder.I1.OverloadSuperMethod()").Should().Be(holder.I1.OverloadSuperMethod());
     }
 
     [Fact]
     public void CallSubPropertySuperMethod_SubProperty()
     {
-        Assert.Equal(
-            holder.I1.SubPropertySuperMethod,
-            _engine.Evaluate("holder.I1.SubPropertySuperMethod"));
+        _engine.Evaluate("holder.I1.SubPropertySuperMethod").Should().Be(holder.I1.SubPropertySuperMethod);
     }
 
     [Fact]
     public void CallSubPropertySuperMethod_SuperMethod()
     {
-        var ex = Assert.Throws<JavaScriptException>(() =>
+        var ex = Invoking(() =>
         {
-            Assert.Equal(
-                holder.I1.SubPropertySuperMethod(),
-                _engine.Evaluate("holder.I1.SubPropertySuperMethod()"));
-        });
-        Assert.Equal("Property 'SubPropertySuperMethod' of object is not a function", ex.Message);
+            _engine.Evaluate("holder.I1.SubPropertySuperMethod()").Should().Be(holder.I1.SubPropertySuperMethod());
+        }).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Message.Should().Be("Property 'SubPropertySuperMethod' of object is not a function");
     }
 }

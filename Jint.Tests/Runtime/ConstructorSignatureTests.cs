@@ -13,24 +13,24 @@ public class ConstructorSignatureTests
         engine.SetValue("A", TypeReference.CreateTypeReference(engine, typeof(A)));
 
         // ParamArray tests
-        Assert.Equal("3", engine.Evaluate("new A(1, 2).Result").AsString());
-        Assert.Equal("3", engine.Evaluate("new A(1, 2, null).Result").AsString());
-        Assert.Equal("3", engine.Evaluate("new A(1, 2, undefined).Result").AsString());
-        Assert.Equal("5", engine.Evaluate("new A(1, 2, null, undefined).Result").AsString());
-        Assert.Equal("9", engine.Evaluate("new A(1, 2, ...'packed').Result").AsString());
-        Assert.Equal("3", engine.Evaluate("new A(1, 2, []).Result").AsString());
-        Assert.Equal("7", engine.Evaluate("new A(1, 2, [...'abcd']).Result").AsString());
+        engine.Evaluate("new A(1, 2).Result").AsString().Should().Be("3");
+        engine.Evaluate("new A(1, 2, null).Result").AsString().Should().Be("3");
+        engine.Evaluate("new A(1, 2, undefined).Result").AsString().Should().Be("3");
+        engine.Evaluate("new A(1, 2, null, undefined).Result").AsString().Should().Be("5");
+        engine.Evaluate("new A(1, 2, ...'packed').Result").AsString().Should().Be("9");
+        engine.Evaluate("new A(1, 2, []).Result").AsString().Should().Be("3");
+        engine.Evaluate("new A(1, 2, [...'abcd']).Result").AsString().Should().Be("7");
 
         // Optional parameter tests
-        Assert.Equal("3", engine.Evaluate("new A(1, 2).Result").AsString());
-        Assert.Equal("6", engine.Evaluate("new A(1).Result").AsString());
-        Assert.Equal("7", engine.Evaluate("new A(2, undefined).Result").AsString());
-        Assert.Equal("8", engine.Evaluate("new A(3, undefined).Result").AsString());
-        Assert.Equal("ab", engine.Evaluate("new A('a').Result").AsString());
-        Assert.Equal("ab", engine.Evaluate("new A('a', undefined).Result").AsString());
-        Assert.Equal("ac", engine.Evaluate("new A('a', 'c').Result").AsString());
-        Assert.Equal("adc", engine.Evaluate("new A('a', 'd', undefined).Result").AsString());
-        Assert.Equal("ade", engine.Evaluate("new A('a', 'd', 'e').Result").AsString());
+        engine.Evaluate("new A(1, 2).Result").AsString().Should().Be("3");
+        engine.Evaluate("new A(1).Result").AsString().Should().Be("6");
+        engine.Evaluate("new A(2, undefined).Result").AsString().Should().Be("7");
+        engine.Evaluate("new A(3, undefined).Result").AsString().Should().Be("8");
+        engine.Evaluate("new A('a').Result").AsString().Should().Be("ab");
+        engine.Evaluate("new A('a', undefined).Result").AsString().Should().Be("ab");
+        engine.Evaluate("new A('a', 'c').Result").AsString().Should().Be("ac");
+        engine.Evaluate("new A('a', 'd', undefined).Result").AsString().Should().Be("adc");
+        engine.Evaluate("new A('a', 'd', 'e').Result").AsString().Should().Be("ade");
     }
 
     [Fact]
@@ -39,7 +39,7 @@ public class ConstructorSignatureTests
         var engine = new Engine();
         engine.SetValue("B", typeof(B));
 
-        Assert.Equal("A-30", engine.Evaluate("new B('A', 30).Result"));
+        engine.Evaluate("new B('A', 30).Result").Should().Be("A-30");
     }
 
 
@@ -48,10 +48,10 @@ public class ConstructorSignatureTests
     {
         var engine = new Engine();
         engine.SetValue("Length", TypeReference.CreateTypeReference<Length>(engine));
-        Assert.Equal(12.3, engine.Evaluate("new Length(12.3).Value").AsNumber(), precision: 2);
-        Assert.Equal(12.3, engine.Evaluate("new Length(12.3, 0).Value").AsNumber(), precision: 2);
-        Assert.Equal(0, engine.Evaluate("new Length(12.3, 0).UnitValue").AsInteger());
-        Assert.Equal(LengthUnit.Pixel, (LengthUnit) engine.Evaluate("new Length(12.3, 42).UnitValue").AsInteger());
+        engine.Evaluate("new Length(12.3).Value").AsNumber().Should().BeApproximately(12.3, 0.005);
+        engine.Evaluate("new Length(12.3, 0).Value").AsNumber().Should().BeApproximately(12.3, 0.005);
+        engine.Evaluate("new Length(12.3, 0).UnitValue").AsInteger().Should().Be(0);
+        ((LengthUnit) engine.Evaluate("new Length(12.3, 42).UnitValue").AsInteger()).Should().Be(LengthUnit.Pixel);
     }
 
     [Fact]

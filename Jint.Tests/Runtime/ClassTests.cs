@@ -1,4 +1,4 @@
-using Jint.Runtime;
+﻿using Jint.Runtime;
 
 namespace Jint.Tests.Runtime;
 
@@ -17,7 +17,7 @@ public class ClassTests
             return C === c1;";
 
         var engine = new Engine();
-        Assert.True(engine.Evaluate(Script).AsBoolean());
+        engine.Evaluate(Script).AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -44,35 +44,35 @@ public class ClassTests
         engine.Execute(Script);
 
         engine.Evaluate("var board = new Board()");
-        Assert.Equal(10, engine.Evaluate("board.width"));
-        Assert.Equal(20, engine.Evaluate("board.doubleWidth "));
+        engine.Evaluate("board.width").Should().Be(10);
+        engine.Evaluate("board.doubleWidth ").Should().Be(20);
     }
 
     [Fact]
     public void PrivateMemberAccessOutsideOfClass()
     {
-        var ex = Assert.Throws<JavaScriptException>(() => new Engine().Evaluate
+        var ex = Invoking(() => new Engine().Evaluate
         (
             """
             class A { }
             new A().#nonexistent = 1;
             """
-        ));
+        )).Should().ThrowExactly<JavaScriptException>().Which;
 
-        Assert.Equal("Private field '#nonexistent' must be declared in an enclosing class (<anonymous>:2:9)", ex.Message);
+        ex.Message.Should().Be("Private field '#nonexistent' must be declared in an enclosing class (<anonymous>:2:9)");
     }
 
     [Fact]
     public void PrivateMemberAccessAgainstUnknownMemberInConstructor()
     {
-        var ex = Assert.Throws<JavaScriptException>(() => new Engine().Evaluate
+        var ex = Invoking(() => new Engine().Evaluate
         (
             """
             class A { constructor() { #nonexistent = 2; } }
             new A();
             """
-        ));
+        )).Should().ThrowExactly<JavaScriptException>().Which;
 
-        Assert.Equal("Unexpected identifier '#nonexistent' (<anonymous>:1:27)", ex.Message);
+        ex.Message.Should().Be("Unexpected identifier '#nonexistent' (<anonymous>:1:27)");
     }
 }

@@ -17,10 +17,10 @@ var b = a.user.name;
 ";
 
         var engine = new Engine();
-        var e = Assert.Throws<JavaScriptException>(() => engine.Execute(script));
-        Assert.Equal("Cannot read properties of undefined (reading 'name')", e.Message);
-        Assert.Equal(4, e.Location.Start.Line);
-        Assert.Equal(15, e.Location.Start.Column);
+        var e = Invoking(() => engine.Execute(script)).Should().ThrowExactly<JavaScriptException>().Which;
+        e.Message.Should().Be("Cannot read properties of undefined (reading 'name')");
+        e.Location.Start.Line.Should().Be(4);
+        e.Location.Start.Column.Should().Be(15);
     }
 
     [Fact]
@@ -33,10 +33,10 @@ var c = a(b().Length);
         var engine = new Engine();
         engine.SetValue("a", new Action<string>((_) => { }));
         engine.SetValue("b", new Func<string>(() => null));
-        var e = Assert.Throws<JavaScriptException>(() => engine.Execute(script));
-        Assert.Equal("Cannot read properties of null (reading 'Length')", e.Message);
-        Assert.Equal(2, e.Location.Start.Line);
-        Assert.Equal(14, e.Location.Start.Column);
+        var e = Invoking(() => engine.Execute(script)).Should().ThrowExactly<JavaScriptException>().Which;
+        e.Message.Should().Be("Cannot read properties of null (reading 'Length')");
+        e.Location.Start.Line.Should().Be(2);
+        e.Location.Start.Column.Should().Be(14);
     }
 
     [Fact]
@@ -47,10 +47,10 @@ var c = a(b().Length);
 ";
 
         var engine = new Engine();
-        var e = Assert.Throws<JavaScriptException>(() => engine.Execute(script));
-        Assert.Equal("test is not defined", e.Message);
-        Assert.Equal(2, e.Location.Start.Line);
-        Assert.Equal(1, e.Location.Start.Column);
+        var e = Invoking(() => engine.Execute(script)).Should().ThrowExactly<JavaScriptException>().Which;
+        e.Message.Should().Be("test is not defined");
+        e.Location.Start.Line.Should().Be(2);
+        e.Location.Start.Column.Should().Be(1);
     }
 
     [Fact]
@@ -68,11 +68,11 @@ var b = function(v) {
 }
             ", "custom.js");
 
-        var e = Assert.Throws<JavaScriptException>(() => engine.Execute("var x = b(7);", "main.js"));
-        Assert.Equal("Cannot read properties of undefined (reading 'yyy')", e.Message);
-        Assert.Equal(3, e.Location.Start.Line);
-        Assert.Equal(15, e.Location.Start.Column);
-        Assert.Equal("custom.js", e.Location.SourceFile);
+        var e = Invoking(() => engine.Execute("var x = b(7);", "main.js")).Should().ThrowExactly<JavaScriptException>().Which;
+        e.Message.Should().Be("Cannot read properties of undefined (reading 'yyy')");
+        e.Location.Start.Line.Should().Be(3);
+        e.Location.Start.Column.Should().Be(15);
+        e.Location.SourceFile.Should().Be("custom.js");
 
         var stack = e.JavaScriptStackTrace;
         EqualIgnoringNewLineDifferences(@"    at a (custom.js:3:16)
@@ -95,11 +95,11 @@ var b = function(v) {
 }
             ", "custom.js");
 
-        var e = Assert.Throws<JavaScriptException>(() => engine.Execute("var x = b(7);", "main.js"));
-        Assert.Equal("Error thrown from script", e.Message);
-        Assert.Equal(3, e.Location.Start.Line);
-        Assert.Equal(8, e.Location.Start.Column);
-        Assert.Equal("custom.js", e.Location.SourceFile);
+        var e = Invoking(() => engine.Execute("var x = b(7);", "main.js")).Should().ThrowExactly<JavaScriptException>().Which;
+        e.Message.Should().Be("Error thrown from script");
+        e.Location.Start.Line.Should().Be(3);
+        e.Location.Start.Column.Should().Be(8);
+        e.Location.SourceFile.Should().Be("custom.js");
 
         var stack = e.JavaScriptStackTrace;
         EqualIgnoringNewLineDifferences(@"    at a (custom.js:3:9)
@@ -206,7 +206,7 @@ var wrap = function(v) {
         var first = engine.Evaluate("e.stack").AsString();
         var second = engine.Evaluate("e.stack").AsString();
 
-        Assert.Equal(first, second);
+        second.Should().Be(first);
         EqualIgnoringNewLineDifferences(@"    at makeError (custom.js:3:10)
     at wrap (custom.js:6:10)
     at main.js:1:9", first);
@@ -219,16 +219,16 @@ var wrap = function(v) {
 
         // Per the error-stack-accessor proposal, "stack" is an accessor property on Error.prototype,
         // not an own data property of the instance.
-        Assert.False(engine.Evaluate(@"Error().hasOwnProperty('stack')").AsBoolean());
+        engine.Evaluate(@"Error().hasOwnProperty('stack')").AsBoolean().Should().BeFalse();
 
-        Assert.True(engine.Evaluate(@"Error.prototype.hasOwnProperty('stack')").AsBoolean());
+        engine.Evaluate(@"Error.prototype.hasOwnProperty('stack')").AsBoolean().Should().BeTrue();
 
         var descriptorType = engine.Evaluate(
             @"typeof Object.getOwnPropertyDescriptor(Error.prototype, 'stack').get").AsString();
-        Assert.Equal("function", descriptorType);
+        descriptorType.Should().Be("function");
 
         // The inherited accessor still produces a string for an error instance.
-        Assert.Equal("string", engine.Evaluate(@"typeof Error().stack").AsString());
+        engine.Evaluate(@"typeof Error().stack").AsString().Should().Be("string");
     }
 
     private class Folder
@@ -260,7 +260,7 @@ var wrap = function(v) {
 
         engine.SetValue("folder", folder);
 
-        var javaScriptException = Assert.Throws<JavaScriptException>(() =>
+        var javaScriptException = Invoking(() =>
             engine.Execute(@"
                 var Test = {
                     recursive: function(folderInstance) {
@@ -273,9 +273,9 @@ var wrap = function(v) {
                 }
 
                 Test.recursive(folder);"
-            ));
+            )).Should().ThrowExactly<JavaScriptException>().Which;
 
-        Assert.Equal("Cannot read properties of null (reading 'Name')", javaScriptException.Message);
+        javaScriptException.Message.Should().Be("Cannot read properties of null (reading 'Name')");
         EqualIgnoringNewLineDifferences(@"    at recursive (<anonymous>:6:44)
     at recursive (<anonymous>:8:32)
     at recursive (<anonymous>:8:32)
@@ -286,7 +286,7 @@ var wrap = function(v) {
         {
             "SubFolder2", "SubFolder1", "Root"
         };
-        Assert.Equal(expected, recordedFolderTraversalOrder);
+        recordedFolderTraversalOrder.Should().Equal(expected);
     }
 
     [Fact]
@@ -303,7 +303,7 @@ var b = function(v) {
 
 var x = b(7);";
 
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Execute(script));
+        var ex = Invoking(() => engine.Execute(script)).Should().ThrowExactly<JavaScriptException>().Which;
 
         const string expected = @"Error: Cannot read properties of undefined (reading 'yyy')
     at a (<anonymous>:2:18)
@@ -311,8 +311,8 @@ var x = b(7);";
     at <anonymous>:9:9";
 
         EqualIgnoringNewLineDifferences(expected, ex.GetJavaScriptErrorString());
-        Assert.Equal(2, ex.Location.Start.Line);
-        Assert.Equal(17, ex.Location.Start.Column);
+        ex.Location.Start.Line.Should().Be(2);
+        ex.Location.Start.Column.Should().Be(17);
     }
 
     [Fact]
@@ -338,7 +338,7 @@ var x = b(7);";
             CompileRegex = false,
             Tolerant = true
         };
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Execute(script, "get-item.js", parsingOptions));
+        var ex = Invoking(() => engine.Execute(script, "get-item.js", parsingOptions)).Should().ThrowExactly<JavaScriptException>().Which;
 
         const string expected = @"Error: Cannot read properties of null (reading '5')
     at getItem (get-item.js:2:22)
@@ -347,8 +347,8 @@ var x = b(7);";
 
         EqualIgnoringNewLineDifferences(expected, ex.GetJavaScriptErrorString());
 
-        Assert.Equal(2, ex.Location.Start.Line);
-        Assert.Equal(21, ex.Location.Start.Column);
+        ex.Location.Start.Line.Should().Be(2);
+        ex.Location.Start.Column.Should().Be(21);
     }
 
     // Verify #1202
@@ -397,7 +397,7 @@ try {
         engine.SetValue("HelloWorld", new HelloWorld());
         const string script = @"HelloWorld.ThrowException();";
 
-        var ex = Assert.Throws<DivideByZeroException>(() => engine.Execute(script));
+        var ex = Invoking(() => engine.Execute(script)).Should().ThrowExactly<DivideByZeroException>().Which;
 
         const string expected = "HelloWorld";
 
@@ -413,13 +413,13 @@ try {
 // line 2
 HelloWorld.ThrowException();";
 
-        var ex = Assert.Throws<DivideByZeroException>(() => engine.Execute(script));
+        var ex = Invoking(() => engine.Execute(script)).Should().ThrowExactly<DivideByZeroException>().Which;
 
-        Assert.True(JintException.TryGetJavaScriptLocation(ex, out var location));
-        Assert.Equal(3, location.Start.Line);
+        JintException.TryGetJavaScriptLocation(ex, out var location).Should().BeTrue();
+        location.Start.Line.Should().Be(3);
 
-        Assert.True(JintException.TryGetJavaScriptCallStack(ex, out var callStack));
-        Assert.Contains("3:", callStack);
+        JintException.TryGetJavaScriptCallStack(ex, out var callStack).Should().BeTrue();
+        callStack.Should().Contain("3:");
 
         // Original CLR identity preserved.
         ContainsIgnoringNewLineDifferences("HelloWorld", ex.ToString());
@@ -438,11 +438,11 @@ function inner() {
 function outer() { inner(); }
 outer();";
 
-        var ex = Assert.Throws<NotSupportedException>(() => engine.Execute(script));
+        var ex = Invoking(() => engine.Execute(script)).Should().ThrowExactly<NotSupportedException>().Which;
 
-        Assert.True(JintException.TryGetJavaScriptLocation(ex, out var location));
+        JintException.TryGetJavaScriptLocation(ex, out var location).Should().BeTrue();
         // Innermost JS site is the `new Thrower()...` call on line 3.
-        Assert.Equal(3, location.Start.Line);
+        location.Start.Line.Should().Be(3);
     }
 
     [Fact]
@@ -451,11 +451,11 @@ outer();";
         var engine = new Engine();
         engine.SetValue("Ctor", typeof(ThrowingCtor));
 
-        var ex = Assert.Throws<InvalidOperationException>(() => engine.Execute(@"
-new Ctor();"));
+        var ex = Invoking(() => engine.Execute(@"
+new Ctor();")).Should().ThrowExactly<InvalidOperationException>().Which;
 
-        Assert.True(JintException.TryGetJavaScriptLocation(ex, out var location));
-        Assert.Equal(2, location.Start.Line);
+        JintException.TryGetJavaScriptLocation(ex, out var location).Should().BeTrue();
+        location.Start.Line.Should().Be(2);
     }
 
     [Fact]
@@ -464,22 +464,22 @@ new Ctor();"));
         var engine = new Engine();
         engine.SetValue("instance", new ThrowingGetter());
 
-        var ex = Assert.Throws<InvalidOperationException>(() => engine.Execute(@"
-var x = instance.Boom;"));
+        var ex = Invoking(() => engine.Execute(@"
+var x = instance.Boom;")).Should().ThrowExactly<InvalidOperationException>().Which;
 
-        Assert.True(JintException.TryGetJavaScriptLocation(ex, out var location));
-        Assert.Equal(2, location.Start.Line);
+        JintException.TryGetJavaScriptLocation(ex, out var location).Should().BeTrue();
+        location.Start.Line.Should().Be(2);
     }
 
     [Fact]
     public void TryGetJavaScriptLocationReturnsFalseForUnannotatedException()
     {
         var unrelated = new InvalidOperationException();
-        Assert.False(JintException.TryGetJavaScriptLocation(unrelated, out _));
-        Assert.False(JintException.TryGetJavaScriptCallStack(unrelated, out _));
+        JintException.TryGetJavaScriptLocation(unrelated, out _).Should().BeFalse();
+        JintException.TryGetJavaScriptCallStack(unrelated, out _).Should().BeFalse();
 
-        Assert.False(JintException.TryGetJavaScriptLocation(null, out _));
-        Assert.False(JintException.TryGetJavaScriptCallStack(null, out _));
+        JintException.TryGetJavaScriptLocation(null, out _).Should().BeFalse();
+        JintException.TryGetJavaScriptCallStack(null, out _).Should().BeFalse();
     }
 
     private sealed class ThrowingCtor
@@ -506,8 +506,8 @@ var x = instance.Boom;"));
     {
         var engine = new Engine();
         engine.Execute($"const o = new {type}();");
-        Assert.True(engine.Evaluate($"o.constructor === {type}").AsBoolean());
-        Assert.Equal(type, engine.Evaluate("o.constructor.name").AsString());
+        engine.Evaluate($"o.constructor === {type}").AsBoolean().Should().BeTrue();
+        engine.Evaluate("o.constructor.name").AsString().Should().Be(type);
     }
 
     [Fact]
@@ -522,7 +522,7 @@ var x = instance.Boom;"));
             };
         }
 
-        var e = Assert.Throws<JavaScriptException>(() =>
+        var e = Invoking(() =>
         {
             var engine = new Engine();
 
@@ -544,9 +544,9 @@ executeFile(""first-file.js"");",
                 "main-file.js",
                 CreateParsingOptions()
             );
-        });
+        }).Should().ThrowExactly<JavaScriptException>().Which;
 
-        Assert.Equal("nuм is not defined", e.Message);
+        e.Message.Should().Be("nuм is not defined");
 
         const string Expected = @"    at delegate (second-file.js:2:1)
     at delegate (first-file.js:2:1)
@@ -557,7 +557,7 @@ executeFile(""first-file.js"");",
     [Fact]
     public void ShouldReportCorrectColumn()
     {
-        var e = Assert.Throws<JavaScriptException>(() =>
+        var e = Invoking(() =>
         {
             var engine = new Engine();
             engine.Execute(@"var $variable1 = 611;
@@ -565,11 +565,11 @@ var _variable2 = 711;
 var variable3 = 678;
 
 $variable1 + -variable2 - variable3;");
-        });
+        }).Should().ThrowExactly<JavaScriptException>().Which;
 
-        Assert.Equal(5, e.Location.Start.Line);
-        Assert.Equal(14, e.Location.Start.Column);
-        Assert.Equal("    at <anonymous>:5:15", e.JavaScriptStackTrace);
+        e.Location.Start.Line.Should().Be(5);
+        e.Location.Start.Column.Should().Be(14);
+        e.JavaScriptStackTrace.Should().Be("    at <anonymous>:5:15");
     }
 
     [Fact]
@@ -582,10 +582,10 @@ $variable1 + -variable2 - variable3;");
         engine.SetValue("SetFuncValue", SetFuncValue);
         engine.Execute("SetFuncValue(() => { foo.bar });");
 
-        var ex = Assert.Throws<TargetInvocationException>(() => func?.DynamicInvoke(JsValue.Undefined, Array.Empty<JsValue>()));
+        var ex = Invoking(() => func?.DynamicInvoke(JsValue.Undefined, Array.Empty<JsValue>())).Should().ThrowExactly<TargetInvocationException>().Which;
 
-        var exception = Assert.IsType<JavaScriptException>(ex.InnerException);
-        Assert.Equal("foo is not defined", exception.Message);
+        var exception = ex.InnerException.Should().BeOfType<JavaScriptException>().Which;
+        exception.Message.Should().Be("foo is not defined");
     }
 
     [Fact]
@@ -600,9 +600,9 @@ function throw_error(){
 throw_error();
             ");
 
-        var ex= Assert.Throws<JavaScriptException>(() => engine.Modules.Import("my_module"));
-        Assert.Equal(ex.Location.Start.Line, 3);
-        Assert.Equal(ex.Location.Start.Column, 10);
+        var ex= Invoking(() => engine.Modules.Import("my_module")).Should().ThrowExactly<JavaScriptException>().Which;
+        3.Should().Be(ex.Location.Start.Line);
+        10.Should().Be(ex.Location.Start.Column);
     }
 
     [Fact]
@@ -613,14 +613,14 @@ throw_error();
             SourceOffset = Position.From(234, 36)
         };
 
-        var e = Assert.Throws<JavaScriptException>(() =>
+        var e = Invoking(() =>
         {
             var engine = new Engine();
             engine.Execute("undeclaredVariable.property", "mapping-spec.json", parsingOptions);
-        });
+        }).Should().ThrowExactly<JavaScriptException>().Which;
 
-        Assert.Equal(234, e.Location.Start.Line);
-        Assert.Equal("mapping-spec.json", e.Location.SourceFile);
+        e.Location.Start.Line.Should().Be(234);
+        e.Location.SourceFile.Should().Be("mapping-spec.json");
     }
 
     [Fact]
@@ -631,15 +631,15 @@ throw_error();
             SourceOffset = Position.From(10, 5)
         };
 
-        var e = Assert.Throws<JavaScriptException>(() =>
+        var e = Invoking(() =>
         {
             var engine = new Engine();
             engine.Execute("throw new Error('test error');", "test.json", parsingOptions);
-        });
+        }).Should().ThrowExactly<JavaScriptException>().Which;
 
-        Assert.Equal(10, e.Location.Start.Line);
-        Assert.Equal(11, e.Location.Start.Column); // 5 (column offset) + 6 (position of 'new Error' after 'throw ')
-        Assert.Equal("test.json", e.Location.SourceFile);
+        e.Location.Start.Line.Should().Be(10);
+        e.Location.Start.Column.Should().Be(11); // 5 (column offset) + 6 (position of 'new Error' after 'throw ')
+        e.Location.SourceFile.Should().Be("test.json");
         ContainsIgnoringNewLineDifferences("test.json:10:", e.JavaScriptStackTrace!);
     }
 
@@ -651,14 +651,14 @@ throw_error();
             SourceOffset = Position.From(100, 0)
         };
 
-        var e = Assert.Throws<JavaScriptException>(() =>
+        var e = Invoking(() =>
         {
             var engine = new Engine();
             engine.Evaluate("undeclaredVariable.property", "test.json", parsingOptions);
-        });
+        }).Should().ThrowExactly<JavaScriptException>().Which;
 
-        Assert.Equal(100, e.Location.Start.Line);
-        Assert.Equal("test.json", e.Location.SourceFile);
+        e.Location.Start.Line.Should().Be(100);
+        e.Location.SourceFile.Should().Be("test.json");
     }
 
     [Fact]
@@ -675,27 +675,27 @@ throw_error();
                 }
             });
 
-        var e = Assert.Throws<JavaScriptException>(() =>
+        var e = Invoking(() =>
         {
             var engine = new Engine();
             engine.Execute(preparedScript);
-        });
+        }).Should().ThrowExactly<JavaScriptException>().Which;
 
-        Assert.Equal(50, e.Location.Start.Line);
-        Assert.Equal("mapping-spec.json", e.Location.SourceFile);
+        e.Location.Start.Line.Should().Be(50);
+        e.Location.SourceFile.Should().Be("mapping-spec.json");
     }
 
     private static void EqualIgnoringNewLineDifferences(string expected, string actual)
     {
         expected = expected.Replace("\r\n", "\n");
         actual = actual.Replace("\r\n", "\n");
-        Assert.Equal(expected, actual);
+        actual.Should().Be(expected);
     }
 
     private static void ContainsIgnoringNewLineDifferences(string expectedSubstring, string actualString)
     {
         expectedSubstring = expectedSubstring.Replace("\r\n", "\n");
         actualString = actualString.Replace("\r\n", "\n");
-        Assert.Contains(expectedSubstring, actualString);
+        actualString.Should().Contain(expectedSubstring);
     }
 }

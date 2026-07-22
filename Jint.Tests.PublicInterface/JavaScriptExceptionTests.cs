@@ -20,61 +20,43 @@ public class JavaScriptExceptionTests
             throw new JavaScriptException(new JsString("message 2"));
         });
 
-        Assert.Throws<JavaScriptException>(() =>
+        Invoking(() =>
         {
             engine.Evaluate(@"throw1()");
-        });
+        }).Should().ThrowExactly<JavaScriptException>();
 
         var result1 = engine.Evaluate(@"try { throw1() } catch (e) { return e; }");
-        var error1 = Assert.IsType<JsError>(result1);
-        Assert.Equal("message 1", error1.Get("message").ToString());
+        var error1 = result1.Should().BeOfType<JsError>().Which;
+        error1.Get("message").ToString().Should().Be("message 1");
 
         var result2 = engine.Evaluate(@"try { throw2() } catch (e) { return e; }");
-        var jsString = Assert.IsType<JsString>(result2);
-        Assert.Equal("message 2", jsString.ToString());
+        var jsString = result2.Should().BeOfType<JsString>().Which;
+        jsString.ToString().Should().Be("message 2");
     }
 
     [Fact]
     public void GetBaseExceptionReturnsJavaScriptException()
     {
         // https://github.com/sebastienros/jint/issues/2210
-        try
-        {
-            new Engine().Evaluate("x * x");
-            Assert.Fail("Expected JavaScriptException to be thrown");
-        }
-        catch (Exception ex)
-        {
-            // GetBaseException() should return the JavaScriptException itself,
-            // not the private inner exception
-            var baseException = ex.GetBaseException();
-            Assert.IsType<JavaScriptException>(baseException);
-            Assert.Same(ex, baseException);
-        }
+        var ex = Invoking(() => new Engine().Evaluate("x * x")).Should().Throw<Exception>().Which;
+
+        // GetBaseException() should return the JavaScriptException itself,
+        // not the private inner exception
+        var baseException = ex.GetBaseException();
+        baseException.Should().BeOfType<JavaScriptException>();
+        baseException.Should().BeSameAs(ex);
     }
 
     [Fact]
     public void GetBaseExceptionAllowsPatternMatching()
     {
         // https://github.com/sebastienros/jint/issues/2210
-        try
-        {
-            new Engine().Evaluate("throw new Error('test error')");
-            Assert.Fail("Expected JavaScriptException to be thrown");
-        }
-        catch (Exception ex)
-        {
-            // Pattern matching with GetBaseException() should work
-            if (ex.GetBaseException() is JavaScriptException jsError)
-            {
-                Assert.NotNull(jsError.Error);
-                Assert.Equal("test error", jsError.Error.AsObject().Get("message").ToString());
-            }
-            else
-            {
-                Assert.Fail("GetBaseException() should return JavaScriptException");
-            }
-        }
+        var ex = Invoking(() => new Engine().Evaluate("throw new Error('test error')")).Should().Throw<Exception>().Which;
+
+        // Pattern matching with GetBaseException() should work
+        var jsError = ex.GetBaseException().Should().BeOfType<JavaScriptException>().Which;
+        jsError.Error.Should().NotBeNull();
+        jsError.Error.AsObject().Get("message").ToString().Should().Be("test error");
     }
 
     [Fact]
@@ -88,20 +70,9 @@ public class JavaScriptExceptionTests
             throw new JavaScriptException(engine.Intrinsics.Error, "from .NET");
         });
 
-        try
-        {
-            engine.Evaluate("throwFromDotNet()");
-            Assert.Fail("Expected JavaScriptException to be thrown");
-        }
-        catch (Exception ex)
-        {
-            var baseException = ex.GetBaseException();
-            Assert.IsType<JavaScriptException>(baseException);
+        var ex = Invoking(() => engine.Evaluate("throwFromDotNet()")).Should().Throw<Exception>().Which;
 
-            if (baseException is JavaScriptException jsError)
-            {
-                Assert.Equal("from .NET", jsError.Error.AsObject().Get("message").ToString());
-            }
-        }
+        var jsError = ex.GetBaseException().Should().BeOfType<JavaScriptException>().Which;
+        jsError.Error.AsObject().Get("message").ToString().Should().Be("from .NET");
     }
 }

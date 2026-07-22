@@ -35,8 +35,8 @@ public class ModuleLoaderTests
 
         static void ExpectLoggedValue(ModuleScript executedScript, string expectedValue)
         {
-            Assert.Single(executedScript.Logs);
-            Assert.Equal(expectedValue, executedScript.Logs[0]);
+            executedScript.Logs.Should().ContainSingle();
+            executedScript.Logs[0].Should().Be(expectedValue);
         }
 
         ModuleScript RunModule(string code)
@@ -66,7 +66,7 @@ public class ModuleLoaderTests
             runner.Execute();
         }
 
-        Assert.Equal(1, sharedModules.ModulesParsed);
+        sharedModules.ModulesParsed.Should().Be(1);
     }
 
     [Fact]
@@ -81,8 +81,8 @@ public class ModuleLoaderTests
         var runner = new ModuleScript("import data from 'config.json' with { type: 'json' }; log(data.value);", sharedModules);
         runner.Execute();
 
-        Assert.Single(runner.Logs);
-        Assert.Equal("json", runner.Logs[0]);
+        runner.Logs.Should().ContainSingle();
+        runner.Logs[0].Should().Be("json");
     }
 
     /// <summary>
@@ -210,7 +210,7 @@ public class ModuleLoaderTests
 
         public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
         {
-            Assert.NotNull(resolved.Uri);
+            resolved.Uri.Should().NotBeNull();
             #if NETCOREAPP1_0_OR_GREATER
             var parsedModule = _parsedModules.GetOrAdd(resolved.Uri, _moduleParser, resolved);
             #else

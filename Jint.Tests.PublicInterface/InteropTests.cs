@@ -12,8 +12,9 @@ public partial class InteropTests : IDisposable
                     typeof(Console).GetTypeInfo().Assembly,
                     typeof(File).GetTypeInfo().Assembly))
                 .SetValue("log", new Action<object>(Console.WriteLine))
-                .SetValue("assert", new Action<bool>(Assert.True))
-                .SetValue("equal", new Action<object, object>(Assert.Equal))
+                .SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()))
+                .SetValue("equal", new Action<object, object>(static (expected, actual) =>
+                    actual.Should().BeEquivalentTo(expected, static options => options.WithStrictOrdering())))
             ;
     }
 

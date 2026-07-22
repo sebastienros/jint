@@ -1,4 +1,4 @@
-namespace Jint.Tests.Runtime;
+﻿namespace Jint.Tests.Runtime;
 
 /// <summary>
 /// Pins for-in enumeration semantics against the allocation-reduction work in the for-in lane:
@@ -21,7 +21,7 @@ public class ForInEnumerationTests
             out.join(',');
             """).AsString();
 
-        Assert.Equal("a,b,c,d,e,f", result);
+        result.Should().Be("a,b,c,d,e,f");
     }
 
     [Fact]
@@ -39,7 +39,7 @@ public class ForInEnumerationTests
             s;
             """).AsNumber();
 
-        Assert.Equal(600, result);
+        result.Should().Be(600);
     }
 
     [Fact]
@@ -58,7 +58,7 @@ public class ForInEnumerationTests
             out.join(',');
             """).AsString();
 
-        Assert.Equal("a=2,y=20,x=10", result);
+        result.Should().Be("a=2,y=20,x=10");
     }
 
     [Fact]
@@ -76,7 +76,7 @@ public class ForInEnumerationTests
             out.join(',');
             """).AsString();
 
-        Assert.Equal("", result);
+        result.Should().Be("");
     }
 
     [Fact]
@@ -90,7 +90,7 @@ public class ForInEnumerationTests
             out.join(',');
             """).AsString();
 
-        Assert.Equal("a,b", result);
+        result.Should().Be("a,b");
     }
 
     [Fact]
@@ -110,7 +110,7 @@ public class ForInEnumerationTests
             out.join(',');
             """).AsString();
 
-        Assert.Equal("a,b", result);
+        result.Should().Be("a,b");
     }
 
     [Fact]
@@ -128,7 +128,7 @@ public class ForInEnumerationTests
             out.join(',');
             """).AsString();
 
-        Assert.Equal("x,z,y", result);
+        result.Should().Be("x,z,y");
     }
 
     [Fact]
@@ -154,7 +154,7 @@ public class ForInEnumerationTests
             out.join(' | ');
             """).AsString();
 
-        Assert.Equal("type,id | type,id | type,id", result);
+        result.Should().Be("type,id | type,id | type,id");
     }
 
     [Fact]
@@ -169,7 +169,7 @@ public class ForInEnumerationTests
             out.join(',');
             """).AsString();
 
-        Assert.Equal("a", result);
+        result.Should().Be("a");
     }
 
     [Fact]
@@ -185,7 +185,7 @@ public class ForInEnumerationTests
             out.join(',');
             """).AsString();
 
-        Assert.Equal("a,b", result);
+        result.Should().Be("a,b");
     }
 
     [Fact]
@@ -203,7 +203,7 @@ public class ForInEnumerationTests
             JSON.stringify([out, calls]);
             """).AsString();
 
-        Assert.Equal("[[\"a\",\"b\"],[\"ownKeys\",\"gopd:a\",\"gopd:b\"]]", result);
+        result.Should().Be("[[\"a\",\"b\"],[\"ownKeys\",\"gopd:a\",\"gopd:b\"]]");
     }
 
     [Fact]
@@ -220,7 +220,7 @@ public class ForInEnumerationTests
             """).AsString();
 
         // 6 * 6 = 36 pairs; pairs[0]=aa, pairs[7]=bb, pairs[35]=ff
-        Assert.Equal("36,aa,bb,ff", result);
+        result.Should().Be("36,aa,bb,ff");
     }
 
     [Fact]
@@ -238,7 +238,7 @@ public class ForInEnumerationTests
             """).AsString();
 
         // p -> [p,q]; q -> [p,q]  =>  p,p,q,q,p,q
-        Assert.Equal("p,p,q,q,p,q", result);
+        result.Should().Be("p,p,q,q,p,q");
     }
 
     [Fact]
@@ -263,7 +263,7 @@ public class ForInEnumerationTests
             """).AsString();
 
         // g1/g2 independently yield a,b,c; g1's 4th next() is done => the JS boolean true joins as "true".
-        Assert.Equal("a,a,b,b,c,c,true", result);
+        result.Should().Be("a,a,b,b,c,c,true");
     }
 
     [Fact]
@@ -282,7 +282,7 @@ public class ForInEnumerationTests
             rounds.join(',');
             """).AsString();
 
-        Assert.Equal("ab,ab,ab", result);
+        result.Should().Be("ab,ab,ab");
     }
 
     [Fact]
@@ -301,7 +301,7 @@ public class ForInEnumerationTests
             out.join(',');
             """).AsString();
 
-        Assert.Equal("1,2,10,key0,key1,key2,key3,key4", result);
+        result.Should().Be("1,2,10,key0,key1,key2,key3,key4");
     }
 
     [Fact]
@@ -316,7 +316,7 @@ public class ForInEnumerationTests
             out.join(',');
             """).AsString();
 
-        Assert.Equal("0,1,2,foo", result);
+        result.Should().Be("0,1,2,foo");
     }
 
     [Fact]
@@ -337,7 +337,7 @@ public class ForInEnumerationTests
             out.join(',');
             """).AsString();
 
-        Assert.Equal("0,1,5", result);
+        result.Should().Be("0,1,5");
     }
 
     [Fact]
@@ -351,7 +351,7 @@ public class ForInEnumerationTests
             allStrings;
             """).AsBoolean();
 
-        Assert.True(result);
+        result.Should().BeTrue();
     }
 
     [Fact]
@@ -370,7 +370,7 @@ public class ForInEnumerationTests
             ok;
             """).AsBoolean();
 
-        Assert.True(result);
+        result.Should().BeTrue();
     }
 
     [Fact]
@@ -384,7 +384,7 @@ public class ForInEnumerationTests
             out.join(',');
             """).AsString();
 
-        Assert.Equal("string:0,string:1,string:2,string:3", result);
+        result.Should().Be("string:0,string:1,string:2,string:3");
     }
 
     [Fact]
@@ -399,7 +399,7 @@ public class ForInEnumerationTests
             out.join(',');
             """).AsString();
 
-        Assert.Equal("0,3,7", result);
+        result.Should().Be("0,3,7");
     }
 
     [Fact]
@@ -414,7 +414,7 @@ public class ForInEnumerationTests
             n;
             """).AsNumber();
 
-        Assert.Equal(0, result);
+        result.Should().Be(0);
     }
 
     [Fact]
@@ -429,7 +429,7 @@ public class ForInEnumerationTests
             out.join(',');
             """).AsString();
 
-        Assert.Equal("0,1,zzz", result);
+        result.Should().Be("0,1,zzz");
     }
 
     [Fact]
@@ -443,7 +443,7 @@ public class ForInEnumerationTests
             out.join(',');
             """).AsString();
 
-        Assert.Equal("0,1,3", result);
+        result.Should().Be("0,1,3");
     }
 
     [Fact]
@@ -459,7 +459,7 @@ public class ForInEnumerationTests
             out.join(',');
             """).AsString();
 
-        Assert.Equal("0,1", result);
+        result.Should().Be("0,1");
     }
 
     [Fact]
@@ -473,7 +473,7 @@ public class ForInEnumerationTests
             out.join(',');
             """).AsString();
 
-        Assert.Equal("0,1,2", result);
+        result.Should().Be("0,1,2");
     }
 
     [Fact]
@@ -488,7 +488,7 @@ public class ForInEnumerationTests
             out.join(',');
             """).AsString();
 
-        Assert.Equal("0,2", result);
+        result.Should().Be("0,2");
     }
 
     [Fact]
@@ -507,7 +507,7 @@ public class ForInEnumerationTests
             out.join(',');
             """).AsString();
 
-        Assert.Equal("0,1,3", result);
+        result.Should().Be("0,1,3");
     }
 
     [Fact]
@@ -523,7 +523,7 @@ public class ForInEnumerationTests
             out.join(',');
             """).AsString();
 
-        Assert.Equal("0,1,2,3", result);
+        result.Should().Be("0,1,2,3");
     }
 
     [Fact]
@@ -537,7 +537,7 @@ public class ForInEnumerationTests
             pairs.join(',');
             """).AsString();
 
-        Assert.Equal("00,01,02,10,11,12,20,21,22", result);
+        result.Should().Be("00,01,02,10,11,12,20,21,22");
     }
 
     [Fact]
@@ -559,7 +559,7 @@ public class ForInEnumerationTests
             seq.join(',');
             """).AsString();
 
-        Assert.Equal("0,0,1,1,2,2,true", result);
+        result.Should().Be("0,0,1,1,2,2,true");
     }
 
     [Fact]
@@ -577,7 +577,7 @@ public class ForInEnumerationTests
             out.join(',');
             """).AsString();
 
-        Assert.Equal("0,1", result);
+        result.Should().Be("0,1");
     }
 
     [Fact]
@@ -595,7 +595,7 @@ public class ForInEnumerationTests
             rounds.join(',');
             """).AsString();
 
-        Assert.Equal("01,01,01", result);
+        result.Should().Be("01,01,01");
     }
 
     [Fact]
@@ -610,6 +610,6 @@ public class ForInEnumerationTests
             out.length;
             """).AsNumber();
 
-        Assert.Equal(0, result);
+        result.Should().Be(0);
     }
 }

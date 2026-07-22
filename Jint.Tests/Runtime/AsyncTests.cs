@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using Jint.Native;
 using Jint.Native.Promise;
 using Jint.Runtime;
@@ -22,7 +22,7 @@ public class AsyncTests
         var engine = new Engine();
         var result = engine.Evaluate("(async ()=>await '1')()");
         result = result.UnwrapIfPromise();
-        Assert.Equal("1", result);
+        result.Should().Be("1");
     }
 
     [Fact]
@@ -43,7 +43,7 @@ public class AsyncTests
             })()
             """).UnwrapIfPromise(TimeSpan.FromSeconds(1));
 
-        Assert.Equal(1, result.AsNumber());
+        result.AsNumber().Should().Be(1);
     }
 
     [Fact]
@@ -63,7 +63,7 @@ public class AsyncTests
             }
             """);
 
-        Assert.Equal("""{"leaked":false,"name":"ReferenceError"}""", result);
+        result.Should().Be("""{"leaked":false,"name":"ReferenceError"}""");
     }
 
     [Fact]
@@ -78,7 +78,7 @@ public class AsyncTests
             }
             """);
 
-        Assert.Equal("""{"value":42}""", result);
+        result.Should().Be("""{"value":42}""");
     }
 
     [Fact]
@@ -99,7 +99,7 @@ public class AsyncTests
             })()
             """).UnwrapIfPromise(TimeSpan.FromSeconds(1));
 
-        Assert.Equal(2, result.AsInteger());
+        result.AsInteger().Should().Be(2);
     }
 
     [Fact]
@@ -120,8 +120,8 @@ public class AsyncTests
             })()
             """);
 
-        var exception = Assert.Throws<PromiseRejectedException>(() => result.UnwrapIfPromise(TimeSpan.FromSeconds(1)));
-        Assert.Equal(4, exception.RejectedValue.AsInteger());
+        var exception = Invoking(() => result.UnwrapIfPromise(TimeSpan.FromSeconds(1))).Should().ThrowExactly<PromiseRejectedException>().Which;
+        exception.RejectedValue.AsInteger().Should().Be(4);
     }
 
     [Fact]
@@ -136,7 +136,7 @@ public class AsyncTests
             return { tests, fellThrough: true };
             """);
 
-        Assert.Equal("""{"tests":1}""", result);
+        result.Should().Be("""{"tests":1}""");
     }
 
     [Fact]
@@ -151,7 +151,7 @@ public class AsyncTests
             return { sideEffects };
             """);
 
-        Assert.Equal("""{"sideEffects":0}""", result);
+        result.Should().Be("""{"sideEffects":0}""");
     }
 
     [Fact]
@@ -168,7 +168,7 @@ public class AsyncTests
             return { tests, bodies, fellThrough: true };
             """);
 
-        Assert.Equal("""{"tests":1,"bodies":1}""", result);
+        result.Should().Be("""{"tests":1,"bodies":1}""");
     }
 
     [Fact]
@@ -187,7 +187,7 @@ public class AsyncTests
             return { inits, tests, updates, bodies, fellThrough: true };
             """);
 
-        Assert.Equal("""{"inits":1,"tests":1,"updates":0,"bodies":1}""", result);
+        result.Should().Be("""{"inits":1,"tests":1,"updates":0,"bodies":1}""");
     }
 
     [Fact]
@@ -201,7 +201,7 @@ public class AsyncTests
             return { bodies };
             """);
 
-        Assert.Equal("""{"bodies":1}""", result);
+        result.Should().Be("""{"bodies":1}""");
     }
 
     [Fact]
@@ -218,7 +218,7 @@ public class AsyncTests
             }
             """);
 
-        Assert.Equal("""{"discriminants":1}""", result);
+        result.Should().Be("""{"discriminants":1}""");
     }
 
     [Fact]
@@ -233,7 +233,7 @@ public class AsyncTests
             }
             """);
 
-        Assert.Equal("""{"matched":false}""", result);
+        result.Should().Be("""{"matched":false}""");
     }
 
     [Fact]
@@ -250,7 +250,7 @@ public class AsyncTests
             }
             """);
 
-        Assert.Equal("""{"x":1}""", result);
+        result.Should().Be("""{"x":1}""");
     }
 
     [Fact]
@@ -270,7 +270,7 @@ public class AsyncTests
             return { values };
             """);
 
-        Assert.Equal("""{"values":[0,1]}""", result);
+        result.Should().Be("""{"values":[0,1]}""");
     }
 
     [Fact]
@@ -285,7 +285,7 @@ public class AsyncTests
             return { tests, bodies };
             """);
 
-        Assert.Equal("""{"tests":1,"bodies":1}""", result);
+        result.Should().Be("""{"tests":1,"bodies":1}""");
     }
 
     [Fact]
@@ -297,7 +297,7 @@ public class AsyncTests
             return { d, sum };
             """);
 
-        Assert.Equal("""{"d":1,"sum":11}""", result);
+        result.Should().Be("""{"d":1,"sum":11}""");
     }
 
     [Fact]
@@ -309,7 +309,7 @@ public class AsyncTests
             return { d, ok };
             """);
 
-        Assert.Equal("""{"d":1,"ok":true}""", result);
+        result.Should().Be("""{"d":1,"ok":true}""");
     }
 
     [Fact]
@@ -321,7 +321,7 @@ public class AsyncTests
             return { d, ok };
             """);
 
-        Assert.Equal("""{"d":1,"ok":true}""", result);
+        result.Should().Be("""{"d":1,"ok":true}""");
     }
 
     [Fact]
@@ -333,7 +333,7 @@ public class AsyncTests
             return { d, value };
             """);
 
-        Assert.Equal("""{"d":1,"value":"yes"}""", result);
+        result.Should().Be("""{"d":1,"value":"yes"}""");
     }
 
     [Fact]
@@ -345,7 +345,7 @@ public class AsyncTests
             return { d, value };
             """);
 
-        Assert.Equal("""{"d":1,"value":"no"}""", result);
+        result.Should().Be("""{"d":1,"value":"no"}""");
     }
 
     [Fact]
@@ -362,7 +362,7 @@ public class AsyncTests
             return { a, b, awaits };
             """);
 
-        Assert.Equal("""{"a":false,"b":1,"awaits":1}""", result);
+        result.Should().Be("""{"a":false,"b":1,"awaits":1}""");
     }
 
     [Fact]
@@ -375,7 +375,7 @@ public class AsyncTests
             return { obj, i };
             """);
 
-        Assert.Equal("""{"obj":{"0":5},"i":0}""", result);
+        result.Should().Be("""{"obj":{"0":5},"i":0}""");
     }
 
     [Fact]
@@ -389,7 +389,7 @@ public class AsyncTests
             return { obj, touches };
             """);
 
-        Assert.Equal("""{"obj":{"x":7},"touches":1}""", result);
+        result.Should().Be("""{"obj":{"x":7},"touches":1}""");
     }
 
     [Fact]
@@ -402,7 +402,7 @@ public class AsyncTests
             return { obj, i };
             """);
 
-        Assert.Equal("""{"obj":{"0":"filled"},"i":0}""", result);
+        result.Should().Be("""{"obj":{"0":"filled"},"i":0}""");
     }
 
     [Fact]
@@ -416,7 +416,7 @@ public class AsyncTests
             return { x };
             """);
 
-        Assert.Equal("""{"x":21}""", result);
+        result.Should().Be("""{"x":21}""");
     }
 
     [Fact]
@@ -429,7 +429,7 @@ public class AsyncTests
             return { r, i };
             """);
 
-        Assert.Equal("""{"r":{"a":1,"b":2,"c":3},"i":3}""", result);
+        result.Should().Be("""{"r":{"a":1,"b":2,"c":3},"i":3}""");
     }
 
     [Fact]
@@ -442,7 +442,7 @@ public class AsyncTests
             return { r, i };
             """);
 
-        Assert.Equal("""{"r":{"a":1,"b":2,"c":3,"d":4},"i":4}""", result);
+        result.Should().Be("""{"r":{"a":1,"b":2,"c":3,"d":4},"i":4}""");
     }
 
     [Fact]
@@ -457,7 +457,7 @@ public class AsyncTests
             return { obj: { a: obj.a, b: obj.b, c: obj.c }, i };
             """);
 
-        Assert.Equal("""{"obj":{"a":1,"b":2,"c":3},"i":3}""", result);
+        result.Should().Be("""{"obj":{"a":1,"b":2,"c":3},"i":3}""");
     }
 
     [Fact]
@@ -473,7 +473,7 @@ public class AsyncTests
             return { first, second, i };
             """);
 
-        Assert.Equal("""{"first":11,"second":22,"i":2}""", result);
+        result.Should().Be("""{"first":11,"second":22,"i":2}""");
     }
 
     [Fact]
@@ -485,7 +485,7 @@ public class AsyncTests
             return { a, i };
             """);
 
-        Assert.Equal("""{"a":[1,2,3],"i":3}""", result);
+        result.Should().Be("""{"a":[1,2,3],"i":3}""");
     }
 
     [Fact]
@@ -497,7 +497,7 @@ public class AsyncTests
             return { a, i };
             """);
 
-        Assert.Equal("""{"a":[1,2,3,4],"i":4}""", result);
+        result.Should().Be("""{"a":[1,2,3,4],"i":4}""");
     }
 
     [Fact]
@@ -510,7 +510,7 @@ public class AsyncTests
             return { first, second, i };
             """);
 
-        Assert.Equal("""{"first":[1,10],"second":[2,20],"i":2}""", result);
+        result.Should().Be("""{"first":[1,10],"second":[2,20],"i":2}""");
     }
 
     [Fact]
@@ -525,7 +525,7 @@ public class AsyncTests
             return { r };
             """);
 
-        Assert.Equal("""{"r":["a","b","c","d"]}""", result);
+        result.Should().Be("""{"r":["a","b","c","d"]}""");
     }
 
     [Fact]
@@ -539,7 +539,7 @@ public class AsyncTests
             return { total };
             """);
 
-        Assert.Equal("""{"total":16}""", result);
+        result.Should().Be("""{"total":16}""");
     }
 
     [Fact]
@@ -556,7 +556,7 @@ public class AsyncTests
             return { a };
             """);
 
-        Assert.Equal("""{"a":["start","x","y","end"]}""", result);
+        result.Should().Be("""{"a":["start","x","y","end"]}""");
     }
 
     [Fact]
@@ -571,7 +571,7 @@ public class AsyncTests
             return { r, j };
             """);
 
-        Assert.Equal("""{"r":[1,"mid",1],"j":1}""", result);
+        result.Should().Be("""{"r":[1,"mid",1],"j":1}""");
     }
 
     [Fact]
@@ -584,7 +584,7 @@ public class AsyncTests
             return { d, v };
             """);
 
-        Assert.Equal("""{"d":1,"v":"filled"}""", result);
+        result.Should().Be("""{"d":1,"v":"filled"}""");
     }
 
     [Fact]
@@ -598,7 +598,7 @@ public class AsyncTests
             return { v, calls };
             """);
 
-        Assert.Equal("""{"v":1,"calls":1}""", result);
+        result.Should().Be("""{"v":1,"calls":1}""");
     }
 
     [Fact]
@@ -612,7 +612,7 @@ public class AsyncTests
             return { v, calls };
             """);
 
-        Assert.Equal("""{"v":42,"calls":1}""", result);
+        result.Should().Be("""{"v":42,"calls":1}""");
     }
 
     [Fact]
@@ -624,7 +624,7 @@ public class AsyncTests
             return { o, i };
             """);
 
-        Assert.Equal("""{"o":{"a":1,"b":2,"c":3},"i":3}""", result);
+        result.Should().Be("""{"o":{"a":1,"b":2,"c":3},"i":3}""");
     }
 
     [Fact]
@@ -641,7 +641,7 @@ public class AsyncTests
             return { o, i };
             """);
 
-        Assert.Equal("""{"o":{"a":1,"b":2,"c":3,"d":4},"i":4}""", result);
+        result.Should().Be("""{"o":{"a":1,"b":2,"c":3,"d":4},"i":4}""");
     }
 
     [Fact]
@@ -654,7 +654,7 @@ public class AsyncTests
             return { o, i };
             """);
 
-        Assert.Equal("""{"o":{"k1":1,"value":"done"},"i":1}""", result);
+        result.Should().Be("""{"o":{"k1":1,"value":"done"},"i":1}""");
     }
 
     [Fact]
@@ -666,7 +666,7 @@ public class AsyncTests
             return { s, i };
             """);
 
-        Assert.Equal("""{"s":"1-x-2","i":2}""", result);
+        result.Should().Be("""{"s":"1-x-2","i":2}""");
     }
 
     [Fact]
@@ -680,7 +680,7 @@ public class AsyncTests
             return { s, j };
             """);
 
-        Assert.Equal("""{"s":"mid-1","j":1}""", result);
+        result.Should().Be("""{"s":"mid-1","j":1}""");
     }
 
     [Fact]
@@ -693,7 +693,7 @@ public class AsyncTests
             return { s, i };
             """);
 
-        Assert.Equal("""{"s":"1|x|2","i":2}""", result);
+        result.Should().Be("""{"s":"1|x|2","i":2}""");
     }
 
     [Fact]
@@ -703,12 +703,12 @@ public class AsyncTests
         engine.SetValue("callable", Callable);
         var result = engine.Evaluate("callable().then(x=>x*2)");
         result = result.UnwrapIfPromise();
-        Assert.Equal(2, result);
+        result.Should().Be(2);
 
         static async Task<int> Callable()
         {
             await Task.Delay(10);
-            Assert.True(true);
+            true.Should().BeTrue();
             return 1;
         }
     }
@@ -730,7 +730,7 @@ public class AsyncTests
         engine.SetValue("asyncTestClass", new AsyncTestClass());
         var result = engine.Evaluate("asyncTestClass.ReturnDelayedTaskAsync().then(x=>x)");
         result = result.UnwrapIfPromise();
-        Assert.Equal(AsyncTestClass.TestString, result);
+        result.Should().Be(AsyncTestClass.TestString);
     }
 
     [Fact]
@@ -742,8 +742,8 @@ public class AsyncTests
         Engine engine = new();
         var result = engine.Evaluate("new Promise(function () {})");
         var timeout = TimeSpan.FromMilliseconds(1);
-        var exception = Assert.Throws<PromiseRejectedException>(() => result.UnwrapIfPromise(timeout));
-        Assert.Equal($"Promise was rejected with value Timeout of {timeout} reached", exception.Message);
+        var exception = Invoking(() => result.UnwrapIfPromise(timeout)).Should().ThrowExactly<PromiseRejectedException>().Which;
+        exception.Message.Should().Be($"Promise was rejected with value Timeout of {timeout} reached");
     }
 
     [Fact]
@@ -759,7 +759,7 @@ public class AsyncTests
         }
         """);
         var result = engine.Invoke("test").UnwrapIfPromise(GenerousPromiseTimeout);
-        Assert.Equal(AsyncTestClass.TestString, result);
+        result.Should().Be(AsyncTestClass.TestString);
     }
 
     [Fact]
@@ -769,7 +769,7 @@ public class AsyncTests
         engine.SetValue("asyncTestClass", new AsyncTestClass());
         var result = engine.Evaluate("asyncTestClass.ReturnCompletedTask().then(x=>x)");
         result = result.UnwrapIfPromise();
-        Assert.Equal(AsyncTestClass.TestString, result);
+        result.Should().Be(AsyncTestClass.TestString);
     }
 
     [Fact]
@@ -785,7 +785,7 @@ public class AsyncTests
 
         engine.Evaluate("callable(token).then(_ => cancelled = false).catch(_ => cancelled = true)").UnwrapIfPromise();
 
-        Assert.Equal(true, engine.Evaluate("cancelled").AsBoolean());
+        engine.Evaluate("cancelled").AsBoolean().Should().BeTrue();
         static async Task Callable(CancellationToken token)
         {
             await Task.FromCanceled(token);
@@ -802,11 +802,11 @@ public class AsyncTests
         engine.SetValue("cancelled", JsValue.Undefined);
         engine.SetValue("token", cancel.Token);
         engine.SetValue("asyncTestClass", new AsyncTestClass());
-        engine.SetValue("assert", new Action<bool>(Assert.True));
+        engine.SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()));
 
         engine.Evaluate("asyncTestClass.ReturnCancelledTask(token).then(_ => cancelled = false).catch(_ => cancelled = true)").UnwrapIfPromise();
 
-        Assert.Equal(true, engine.Evaluate("cancelled").AsBoolean());
+        engine.Evaluate("cancelled").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -816,10 +816,10 @@ public class AsyncTests
 
         engine.SetValue("cancelled", JsValue.Undefined);
         engine.SetValue("callable", Callable);
-        engine.SetValue("assert", new Action<bool>(Assert.True));
+        engine.SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()));
 
         engine.Evaluate("callable().then(_ => cancelled = false).catch(_ => cancelled = true)").UnwrapIfPromise();
-        Assert.Equal(true, engine.Evaluate("cancelled").AsBoolean());
+        engine.Evaluate("cancelled").AsBoolean().Should().BeTrue();
 
         static async Task Callable()
         {
@@ -837,7 +837,7 @@ public class AsyncTests
         engine.SetValue("asyncTestClass", new AsyncTestClass());
 
         engine.Evaluate("asyncTestClass.ThrowAfterDelayAsync().then(_ => cancelled = false).catch(_ => cancelled = true)").UnwrapIfPromise();
-        Assert.Equal(true, engine.Evaluate("cancelled").AsBoolean());
+        engine.Evaluate("cancelled").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -860,7 +860,7 @@ public class AsyncTests
 
         engine.Evaluate("async function hello() {await myAsyncMethod();mySyncMethod2();await asyncTestClass.AddToStringDelayedAsync(\"3\")} hello();").UnwrapIfPromise();
 
-        Assert.Equal("123", asyncTestClass.StringToAppend);
+        asyncTestClass.StringToAppend.Should().Be("123");
     }
 
     [Fact]
@@ -877,7 +877,7 @@ public class AsyncTests
         var result = engine.Evaluate("async function hello() {return await asyncTestMethod(async () =>{ await asyncWork(); })} hello();");
         result = result.UnwrapIfPromise(TimeSpan.FromSeconds(30));
 
-        Assert.Equal("Hello World", result);
+        result.Should().Be("Hello World");
     }
 
     [Fact]
@@ -894,7 +894,7 @@ public class AsyncTests
         var result = engine.Evaluate("async function hello() {return await asyncTestMethod(async () =>{ return await asyncWork(); })} hello();");
         result = result.UnwrapIfPromise(TimeSpan.FromSeconds(30));
 
-        Assert.Equal("Hello World", result);
+        result.Should().Be("Hello World");
     }
 
     [Fact]
@@ -924,7 +924,7 @@ public class AsyncTests
         var main = module.Get("main");
         var result = engine.Invoke(main).UnwrapIfPromise();
 
-        Assert.Equal("success", result);
+        result.Should().Be("success");
     }
 
     [Fact]
@@ -953,7 +953,7 @@ public class AsyncTests
 
         var ns = engine.Modules.Import("main");
 
-        Assert.Equal(42, ns.Get("answer").AsInteger());
+        ns.Get("answer").AsInteger().Should().Be(42);
     }
 
     [Fact]
@@ -978,7 +978,7 @@ public class AsyncTests
             export const answer = x;
             """);
 
-        Assert.Throws<JavaScriptException>(() => engine.Modules.Import("main"));
+        Invoking(() => engine.Modules.Import("main")).Should().ThrowExactly<JavaScriptException>();
     }
 
     [Fact]
@@ -1011,11 +1011,11 @@ public class AsyncTests
         cts.CancelAfter(TimeSpan.FromMilliseconds(200));
 
         var sw = System.Diagnostics.Stopwatch.StartNew();
-        Assert.Throws<ExecutionCanceledException>(() => engine.Modules.Import("main"));
+        Invoking(() => engine.Modules.Import("main")).Should().ThrowExactly<ExecutionCanceledException>();
         sw.Stop();
 
         // Prompt: nowhere near the multi-minute PromiseTimeout. A generous ceiling keeps this stable under CI load.
-        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(10), $"Cancellation was not observed promptly: took {sw.Elapsed}.");
+        sw.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(10), $"Cancellation was not observed promptly: took {sw.Elapsed}.");
 
         neverCompletes.TrySetCanceled();
     }
@@ -1042,10 +1042,10 @@ public class AsyncTests
         var sw = System.Diagnostics.Stopwatch.StartNew();
         // The drain gives up at PromiseTimeout with the promise still pending, so evaluation reports a
         // non-fulfilled promise rather than hanging.
-        Assert.Throws<InvalidOperationException>(() => engine.Modules.Import("main"));
+        Invoking(() => engine.Modules.Import("main")).Should().ThrowExactly<InvalidOperationException>();
         sw.Stop();
 
-        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(30), $"Never-settling await was not bounded: took {sw.Elapsed}.");
+        sw.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(30), $"Never-settling await was not bounded: took {sw.Elapsed}.");
 
         neverCompletes.TrySetCanceled();
     }
@@ -1062,10 +1062,10 @@ public class AsyncTests
         });
         engine.SetValue("asyncTestMethod", new Func<Func<ValueTask>, Task<string>>(async callback => { await Task.Delay(100); await callback(); return "Hello World"; }));
         engine.SetValue("asyncWork", new Func<Task>(() => Task.Delay(100)));
-        engine.SetValue("assert", new Action<bool>(Assert.True));
+        engine.SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()));
         var result = engine.Evaluate("async function hello() {return await asyncTestMethod(async () =>{ await asyncWork(); })} hello();");
         result = result.UnwrapIfPromise(TimeSpan.FromSeconds(30));
-        Assert.Equal("Hello World", result);
+        result.Should().Be("Hello World");
     }
 
     [Fact]
@@ -1078,10 +1078,10 @@ public class AsyncTests
         });
         engine.SetValue("asyncTestMethod", new Func<Func<ValueTask<string>>, Task<string>>(async callback => { await Task.Delay(100); return await callback(); }));
         engine.SetValue("asyncWork", new Func<ValueTask<string>>(async () => { await Task.Delay(100); return "Hello World"; }));
-        engine.SetValue("assert", new Action<bool>(Assert.True));
+        engine.SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()));
         var result = engine.Evaluate("async function hello() {return await asyncTestMethod(async () =>{ return await asyncWork(); })} hello();");
         result = result.UnwrapIfPromise(TimeSpan.FromSeconds(30));
-        Assert.Equal("Hello World", result);
+        result.Should().Be("Hello World");
     }
 
     [Fact]
@@ -1091,12 +1091,12 @@ public class AsyncTests
         engine.SetValue("callable", Callable);
         var result = engine.Evaluate("callable().then(x=>x*2)");
         result = result.UnwrapIfPromise();
-        Assert.Equal(2, result);
+        result.Should().Be(2);
 
         static async ValueTask<int> Callable()
         {
             await Task.Delay(10);
-            Assert.True(true);
+            true.Should().BeTrue();
             return 1;
         }
     }
@@ -1113,7 +1113,7 @@ public class AsyncTests
         engine.SetValue("callable", Callable);
 
         engine.Evaluate("callable(token).then(_ => cancelled = false).catch(_ => cancelled = true)").UnwrapIfPromise();
-        Assert.Equal(true, engine.Evaluate("cancelled").AsBoolean());
+        engine.Evaluate("cancelled").AsBoolean().Should().BeTrue();
         static async ValueTask Callable(CancellationToken token)
         {
             await ValueTask.FromCanceled(token);
@@ -1129,7 +1129,7 @@ public class AsyncTests
         engine.SetValue("callable", Callable);
 
         engine.Evaluate("callable().then(_ => cancelled = false).catch(_ => cancelled = true)").UnwrapIfPromise();
-        Assert.Equal(true, engine.Evaluate("cancelled").AsBoolean());
+        engine.Evaluate("cancelled").AsBoolean().Should().BeTrue();
 
         static async ValueTask Callable()
         {
@@ -1155,7 +1155,7 @@ public class AsyncTests
         }));
         var result = engine.Evaluate("async function hello() {await myAsyncMethod();myAsyncMethod2();} hello();");
         result.UnwrapIfPromise();
-        Assert.Equal("12", log);
+        log.Should().Be("12");
     }
 
     [Fact]
@@ -1165,7 +1165,7 @@ public class AsyncTests
         engine.SetValue("asyncTestClass", new AsyncTestClass());
         var result = engine.Evaluate("asyncTestClass.ReturnDelayedValueTaskAsync().then(x=>x)");
         result = result.UnwrapIfPromise();
-        Assert.Equal(AsyncTestClass.TestString, result);
+        result.Should().Be(AsyncTestClass.TestString);
     }
 
     [Fact]
@@ -1175,7 +1175,7 @@ public class AsyncTests
         engine.SetValue("asyncTestClass", new AsyncTestClass());
         var result = engine.Evaluate("asyncTestClass.ReturnCompletedValueTask().then(x=>x)");
         result = result.UnwrapIfPromise();
-        Assert.Equal(AsyncTestClass.TestString, result);
+        result.Should().Be(AsyncTestClass.TestString);
     }
 
     [Fact]
@@ -1191,7 +1191,7 @@ public class AsyncTests
 
         engine.Evaluate("asyncTestClass.ReturnCancelledValueTask(token).then(_ => cancelled = false).catch(_ => cancelled = true)").UnwrapIfPromise();
 
-        Assert.Equal(true, engine.Evaluate("cancelled").AsBoolean());
+        engine.Evaluate("cancelled").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -1203,7 +1203,7 @@ public class AsyncTests
         engine.SetValue("asyncTestClass", new AsyncTestClass());
 
         engine.Evaluate("asyncTestClass.ThrowAfterDelayValueTaskAsync().then(_ => cancelled = false).catch(_ => cancelled = true)").UnwrapIfPromise();
-        Assert.Equal(true, engine.Evaluate("cancelled").AsBoolean());
+        engine.Evaluate("cancelled").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -1218,7 +1218,7 @@ public class AsyncTests
         }
         """);
         var result = engine.Invoke("test").UnwrapIfPromise(GenerousPromiseTimeout);
-        Assert.Equal(AsyncTestClass.TestString, result);
+        result.Should().Be(AsyncTestClass.TestString);
     }
 
     [Fact]
@@ -1237,7 +1237,7 @@ public class AsyncTests
         }
         """);
         var result = engine.Invoke("test").UnwrapIfPromise();
-        Assert.Equal(AsyncTestClass.TestString, result);
+        result.Should().Be(AsyncTestClass.TestString);
     }
 #endif
 
@@ -1270,7 +1270,7 @@ public class AsyncTests
             "Second end",
         ];
 
-        Assert.Equal(expected, log.Select(x => x.AsString()).ToArray());
+        log.Select(x => x.AsString()).ToArray().Should().Equal(expected);
     }
 
     [Fact]
@@ -1296,9 +1296,9 @@ public class AsyncTests
         var result = engine.Execute(Script);
         var val = result.GetValue("main");
         val.Call().UnwrapIfPromise();
-        Assert.Equal(2, log.Count);
-        Assert.Equal("Promise!", log[0]);
-        Assert.Equal("Resolved!", log[1]);
+        log.Should().HaveCount(2);
+        log[0].Should().Be("Promise!");
+        log[1].Should().Be("Resolved!");
     }
 
     [Fact]
@@ -1320,7 +1320,7 @@ public class AsyncTests
         """;
         var result = engine.Execute(Script);
         var val = result.GetValue("main").Call();
-        Assert.Equal(1, val.UnwrapIfPromise().AsInteger());
+        val.UnwrapIfPromise().AsInteger().Should().Be(1);
     }
 
 #if !NETFRAMEWORK // we are having trouble with timeouts on .NET Framework CI runs
@@ -1372,7 +1372,7 @@ public class AsyncTests
 
                         // Wait for the async function to complete (non-blocking async model)
                         val = val.UnwrapIfPromise(TimeSpan.FromSeconds(30));
-                        Assert.Equal(1, val.AsInteger());
+                        val.AsInteger().Should().Be(1);
 
                         tasks[taskIdx].SetResult(null);
                     }
@@ -1421,8 +1421,8 @@ public class AsyncTests
 
         // The function should return immediately, so x should start with "f() called -"
         // and NOT include "promise resolved -" yet
-        Assert.Equal("f() called - ", x);
-        Assert.False(callbackExecuted, "Promise callback should not have executed yet");
+        x.Should().Be("f() called - ");
+        callbackExecuted.Should().BeFalse("Promise callback should not have executed yet");
     }
 
     [Fact]
@@ -1469,24 +1469,24 @@ public class AsyncTests
 
         // All 3 async operations should have registered callbacks concurrently
         var callbacks = engine.Evaluate("callbacks").AsArray();
-        Assert.Equal(3, (int) callbacks.Length);
+        ((int) callbacks.Length).Should().Be(3);
 
         var log = engine.Evaluate("log").AsArray();
         var logStrings = log.Select(x => x.AsString()).ToArray();
 
         // Verify all wrapped/simple tasks started and registered before any completed
-        Assert.Contains("WrappedAsync A start", logStrings);
-        Assert.Contains("WrappedAsync B start", logStrings);
-        Assert.Contains("WrappedAsync C start", logStrings);
-        Assert.Contains("SimpleAsync A start", logStrings);
-        Assert.Contains("SimpleAsync B start", logStrings);
-        Assert.Contains("SimpleAsync C start", logStrings);
-        Assert.Contains("AsyncOp A registered", logStrings);
-        Assert.Contains("AsyncOp B registered", logStrings);
-        Assert.Contains("AsyncOp C registered", logStrings);
+        logStrings.Should().Contain("WrappedAsync A start");
+        logStrings.Should().Contain("WrappedAsync B start");
+        logStrings.Should().Contain("WrappedAsync C start");
+        logStrings.Should().Contain("SimpleAsync A start");
+        logStrings.Should().Contain("SimpleAsync B start");
+        logStrings.Should().Contain("SimpleAsync C start");
+        logStrings.Should().Contain("AsyncOp A registered");
+        logStrings.Should().Contain("AsyncOp B registered");
+        logStrings.Should().Contain("AsyncOp C registered");
 
         // None should have completed yet (no "got result" messages)
-        Assert.DoesNotContain(logStrings, s => s.Contains("got result"));
+        logStrings.Should().NotContain(s => s.Contains("got result"));
     }
 
     // ========================================================================
@@ -1505,7 +1505,7 @@ public class AsyncTests
             ]).then(results => JSON.stringify(results.map(r => r.status)))
             """);
         result = result.UnwrapIfPromise();
-        Assert.Equal("[\"fulfilled\",\"rejected\",\"fulfilled\"]", result.AsString());
+        result.AsString().Should().Be("[\"fulfilled\",\"rejected\",\"fulfilled\"]");
     }
 
     [Fact]
@@ -1521,9 +1521,9 @@ public class AsyncTests
             """);
         result = result.UnwrapIfPromise();
         var parsed = result.AsString();
-        Assert.Contains("\"value\":42", parsed);
-        Assert.Contains("\"reason\":\"oops\"", parsed);
-        Assert.Contains("\"value\":\"hello\"", parsed);
+        parsed.Should().Contain("\"value\":42");
+        parsed.Should().Contain("\"reason\":\"oops\"");
+        parsed.Should().Contain("\"value\":\"hello\"");
     }
 
     [Fact]
@@ -1532,7 +1532,7 @@ public class AsyncTests
         var engine = new Engine();
         var result = engine.Evaluate("Promise.allSettled([]).then(r => r.length)");
         result = result.UnwrapIfPromise();
-        Assert.Equal(0, result.AsInteger());
+        result.AsInteger().Should().Be(0);
     }
 
     // ========================================================================
@@ -1551,7 +1551,7 @@ public class AsyncTests
             ])
             """);
         result = result.UnwrapIfPromise();
-        Assert.Equal(42, result.AsInteger());
+        result.AsInteger().Should().Be(42);
     }
 
     [Fact]
@@ -1566,7 +1566,7 @@ public class AsyncTests
             ]).catch(e => e instanceof AggregateError ? 'aggregate' : 'other')
             """);
         result = result.UnwrapIfPromise();
-        Assert.Equal("aggregate", result.AsString());
+        result.AsString().Should().Be("aggregate");
     }
 
     [Fact]
@@ -1580,7 +1580,7 @@ public class AsyncTests
             ]).catch(e => JSON.stringify(e.errors))
             """);
         result = result.UnwrapIfPromise();
-        Assert.Equal("[\"e1\",\"e2\"]", result.AsString());
+        result.AsString().Should().Be("[\"e1\",\"e2\"]");
     }
 
     // ========================================================================
@@ -1616,7 +1616,7 @@ public class AsyncTests
             main()
             """);
         result = result.UnwrapIfPromise();
-        Assert.Equal("[1,2,3,true]", result.AsString());
+        result.AsString().Should().Be("[1,2,3,true]");
     }
 
     [Fact]
@@ -1639,7 +1639,7 @@ public class AsyncTests
             main()
             """);
         result = result.UnwrapIfPromise();
-        Assert.Equal(30, result.AsInteger());
+        result.AsInteger().Should().Be(30);
     }
 
     [Fact]
@@ -1663,7 +1663,7 @@ public class AsyncTests
             main()
             """);
         result = result.UnwrapIfPromise();
-        Assert.Equal("{\"aValue\":1,\"bValue\":42,\"bDone\":true}", result.AsString());
+        result.AsString().Should().Be("{\"aValue\":1,\"bValue\":42,\"bDone\":true}");
     }
 
     // ========================================================================
@@ -1692,7 +1692,7 @@ public class AsyncTests
             main()
             """);
         result = result.UnwrapIfPromise();
-        Assert.Equal("abc", result.AsString());
+        result.AsString().Should().Be("abc");
     }
 
     [Fact]
@@ -1716,7 +1716,7 @@ public class AsyncTests
             main()
             """);
         result = result.UnwrapIfPromise();
-        Assert.Equal(6, result.AsInteger());
+        result.AsInteger().Should().Be(6);
     }
 
     [Fact]
@@ -1740,7 +1740,7 @@ public class AsyncTests
             gen().next().then(() => log('resolved'));
             """);
 
-        Assert.Equal(new[] { "item:1", "item:2", "done", "resolved" }, log);
+        log.Should().Equal(new[] { "item:1", "item:2", "done", "resolved" });
     }
 
     [Fact]
@@ -1759,7 +1759,7 @@ public class AsyncTests
             gen().next().then(() => log('OK'));
             """);
 
-        Assert.Equal(new[] { "iteration", "OK" }, log);
+        log.Should().Equal(new[] { "iteration", "OK" });
     }
 
     [Fact]
@@ -1788,7 +1788,7 @@ public class AsyncTests
             consumer().next().then(() => log('outer-resolved'));
             """);
 
-        Assert.Equal(new[] { "got:a", "got:b", "got:c", "consumer-done", "outer-resolved" }, log);
+        log.Should().Equal(new[] { "got:a", "got:b", "got:c", "consumer-done", "outer-resolved" });
     }
 
     [Fact]
@@ -1821,7 +1821,7 @@ public class AsyncTests
             );
             """);
 
-        Assert.Equal(new[] { "rejected:iterator-error" }, log);
+        log.Should().Equal(new[] { "rejected:iterator-error" });
     }
 
     [Fact]
@@ -1855,7 +1855,7 @@ public class AsyncTests
             gen().next().then(() => log('resolved'));
             """);
 
-        Assert.Equal(new[] { "caught:iterator-error", "after-catch", "resolved" }, log);
+        log.Should().Equal(new[] { "caught:iterator-error", "after-catch", "resolved" });
     }
 
     // ========================================================================
@@ -1876,7 +1876,7 @@ public class AsyncTests
             Promise.resolve(thenable).then(v => v * 2)
             """);
         result = result.UnwrapIfPromise();
-        Assert.Equal(84, result.AsInteger());
+        result.AsInteger().Should().Be(84);
     }
 
     [Fact]
@@ -1893,7 +1893,7 @@ public class AsyncTests
             Promise.resolve(thenable).catch(e => 'caught: ' + e)
             """);
         result = result.UnwrapIfPromise();
-        Assert.Equal("caught: thenable error", result.AsString());
+        result.AsString().Should().Be("caught: thenable error");
     }
 
     [Fact]
@@ -1914,7 +1914,7 @@ public class AsyncTests
             main()
             """);
         result = result.UnwrapIfPromise();
-        Assert.Equal(100, result.AsInteger());
+        result.AsInteger().Should().Be(100);
     }
 
     // ========================================================================
@@ -1935,9 +1935,9 @@ public class AsyncTests
         engine.Evaluate("Promise.reject('unhandled')");
         engine.Advanced.ProcessTasks();
 
-        Assert.Single(rejections);
-        Assert.Equal(PromiseRejectionOperation.Reject, rejections[0].Op);
-        Assert.Equal("unhandled", rejections[0].Value.AsString());
+        rejections.Should().ContainSingle();
+        rejections[0].Op.Should().Be(PromiseRejectionOperation.Reject);
+        rejections[0].Value.AsString().Should().Be("unhandled");
     }
 
     [Fact]
@@ -1959,9 +1959,9 @@ public class AsyncTests
         engine.Evaluate("p.catch(() => {})");
         engine.Advanced.ProcessTasks();
 
-        Assert.Equal(2, operations.Count);
-        Assert.Equal(PromiseRejectionOperation.Reject, operations[0]);
-        Assert.Equal(PromiseRejectionOperation.Handle, operations[1]);
+        operations.Should().HaveCount(2);
+        operations[0].Should().Be(PromiseRejectionOperation.Reject);
+        operations[1].Should().Be(PromiseRejectionOperation.Handle);
     }
 
     [Fact]
@@ -1993,7 +1993,7 @@ public class AsyncTests
         // Verify the Handle operation follows the Reject.
         if (rejections.Contains(PromiseRejectionOperation.Reject))
         {
-            Assert.Contains(PromiseRejectionOperation.Handle, rejections);
+            rejections.Should().Contain(PromiseRejectionOperation.Handle);
         }
     }
 
@@ -2012,7 +2012,7 @@ public class AsyncTests
             }
             main()
             """);
-        Assert.Equal(42, result.AsInteger());
+        result.AsInteger().Should().Be(42);
     }
 
     [Fact]
@@ -2020,14 +2020,14 @@ public class AsyncTests
     {
         var engine = new Engine();
         var result = await engine.EvaluateAsync("1 + 2");
-        Assert.Equal(3, result.AsInteger());
+        result.AsInteger().Should().Be(3);
     }
 
     [Fact]
     public async Task EvaluateAsyncShouldRejectOnException()
     {
         var engine = new Engine();
-        await Assert.ThrowsAsync<PromiseRejectedException>(async () =>
+        await Awaiting(async () =>
         {
             await engine.EvaluateAsync("""
                 async function main() {
@@ -2035,7 +2035,7 @@ public class AsyncTests
                 }
                 main()
                 """);
-        });
+        }).Should().ThrowExactlyAsync<PromiseRejectedException>();
     }
 
     [Fact]
@@ -2047,7 +2047,7 @@ public class AsyncTests
                 return 'done';
             }
             """);
-        Assert.Same(engine, returnedEngine);
+        returnedEngine.Should().BeSameAs(engine);
     }
 
     [Fact]
@@ -2060,7 +2060,7 @@ public class AsyncTests
             }
             """);
         var result = await engine.InvokeAsync("add", 3, 4);
-        Assert.Equal(7, result.AsInteger());
+        result.AsInteger().Should().Be(7);
     }
 
     [Fact]
@@ -2072,7 +2072,7 @@ public class AsyncTests
         using var cts = new CancellationTokenSource();
         cts.Cancel(); // Cancel immediately
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        await Awaiting(async () =>
         {
             await engine.EvaluateAsync("""
                 async function main() {
@@ -2081,7 +2081,7 @@ public class AsyncTests
                 }
                 main()
                 """, cancellationToken: cts.Token);
-        });
+        }).Should().ThrowAsync<OperationCanceledException>();
     }
 
     [Fact]
@@ -2096,7 +2096,7 @@ public class AsyncTests
             }
             main()
             """);
-        Assert.Equal(AsyncTestClass.TestString, result.AsString());
+        result.AsString().Should().Be(AsyncTestClass.TestString);
     }
 
     [Fact]
@@ -2112,7 +2112,7 @@ public class AsyncTests
             }
             """);
         var result = await engine.InvokeAsync("test");
-        Assert.Equal("Hello World + Hello World", result.AsString());
+        result.AsString().Should().Be("Hello World + Hello World");
     }
 
     // ========================================================================
@@ -2138,7 +2138,7 @@ public class AsyncTests
             main()
             """);
 
-        Assert.Equal(42, result.AsInteger());
+        result.AsInteger().Should().Be(42);
     }
 
     [Fact]
@@ -2177,8 +2177,8 @@ public class AsyncTests
             main()
             """);
 
-        Assert.Equal("ABC", result.AsString());
-        Assert.Equal(["step1", "step2", "step3"], callOrder);
+        result.AsString().Should().Be("ABC");
+        callOrder.Should().Equal(["step1", "step2", "step3"]);
     }
 
     [Fact]
@@ -2208,8 +2208,8 @@ public class AsyncTests
             main()
             """);
 
-        Assert.Equal("result-a,result-b,result-c", result.AsString());
-        Assert.Equal(3, startTimes.Count);
+        result.AsString().Should().Be("result-a,result-b,result-c");
+        startTimes.Should().HaveCount(3);
     }
 
     [Fact]
@@ -2226,7 +2226,7 @@ public class AsyncTests
             return 999;
         }));
 
-        await Assert.ThrowsAsync<PromiseRejectedException>(async () =>
+        await Awaiting(async () =>
         {
             await engine.EvaluateAsync("""
                 async function main() {
@@ -2234,7 +2234,7 @@ public class AsyncTests
                 }
                 main()
                 """);
-        });
+        }).Should().ThrowExactlyAsync<PromiseRejectedException>();
     }
 
     [Fact]
@@ -2260,7 +2260,7 @@ public class AsyncTests
             main()
             """);
 
-        Assert.Equal("caught", result.AsString());
+        result.AsString().Should().Be("caught");
     }
 
     [Fact]
@@ -2290,7 +2290,7 @@ public class AsyncTests
             main()
             """);
 
-        Assert.Equal("DATA", result.AsString());
+        result.AsString().Should().Be("DATA");
     }
 
     [Fact]
@@ -2306,7 +2306,7 @@ public class AsyncTests
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        await Awaiting(async () =>
         {
             await engine.EvaluateAsync("""
                 async function main() {
@@ -2314,7 +2314,7 @@ public class AsyncTests
                 }
                 main()
                 """, cancellationToken: cts.Token);
-        });
+        }).Should().ThrowAsync<OperationCanceledException>();
     }
 
     [Fact]
@@ -2344,11 +2344,11 @@ public class AsyncTests
         await ioStarted.Task;
 
         // The evalTask should not be completed yet — IO is in flight
-        Assert.False(evalTask.IsCompleted, "EvaluateAsync should not block; task should still be pending during IO");
+        evalTask.IsCompleted.Should().BeFalse("EvaluateAsync should not block; task should still be pending during IO");
 
         // Now await the result
         var result = await evalTask;
-        Assert.Equal(42, result.AsInteger());
+        result.AsInteger().Should().Be(42);
     }
 
     [Fact]
@@ -2381,7 +2381,7 @@ public class AsyncTests
 
         for (int i = 0; i < EngineCount; i++)
         {
-            Assert.Equal(i * 2, results[i].AsInteger());
+            results[i].AsInteger().Should().Be(i * 2);
         }
     }
 
@@ -2400,7 +2400,7 @@ public class AsyncTests
             """);
 
         var result = await engine.InvokeAsync("fetchAndTransform");
-        Assert.Equal("Hello World!", result.AsString());
+        result.AsString().Should().Be("Hello World!");
     }
 
     [Fact]
@@ -2424,7 +2424,7 @@ public class AsyncTests
             main()
             """);
 
-        Assert.Equal("done", result.AsString());
+        result.AsString().Should().Be("done");
     }
 #endif
 
@@ -2448,13 +2448,13 @@ public class AsyncTests
         }));
 
         var r1 = await engine.EvaluateAsync("(async () => await io(1))()");
-        Assert.Equal(10, r1.AsInteger());
+        r1.AsInteger().Should().Be(10);
 
         var r2 = await engine.EvaluateAsync("(async () => await io(2))()");
-        Assert.Equal(20, r2.AsInteger());
+        r2.AsInteger().Should().Be(20);
 
         var r3 = await engine.EvaluateAsync("(async () => await io(3))()");
-        Assert.Equal(30, r3.AsInteger());
+        r3.AsInteger().Should().Be(30);
     }
 
     [Fact]
@@ -2472,15 +2472,15 @@ public class AsyncTests
 
         // Sync path first
         var syncResult = engine.Evaluate("(async () => await io())()").UnwrapIfPromise();
-        Assert.Equal("hello", syncResult.AsString());
+        syncResult.AsString().Should().Be("hello");
 
         // Async path on same engine
         var asyncResult = await engine.EvaluateAsync("(async () => await io())()");
-        Assert.Equal("hello", asyncResult.AsString());
+        asyncResult.AsString().Should().Be("hello");
 
         // Back to sync to verify no contamination
         var syncResult2 = engine.Evaluate("(async () => await io())()").UnwrapIfPromise();
-        Assert.Equal("hello", syncResult2.AsString());
+        syncResult2.AsString().Should().Be("hello");
     }
 
     [Fact]
@@ -2506,17 +2506,17 @@ public class AsyncTests
         }));
 
         // First call should time out
-        await Assert.ThrowsAsync<PromiseRejectedException>(async () =>
+        await Awaiting(async () =>
         {
             await engine.EvaluateAsync("(async () => await slowIO())()");
-        });
+        }).Should().ThrowExactlyAsync<PromiseRejectedException>();
 
         // Increase timeout for recovery (generous — the recovery half asserts success)
         engine.Options.Constraints.PromiseTimeout = GenerousPromiseTimeout;
 
         // Engine should still work
         var result = await engine.EvaluateAsync("(async () => await fastIO())()");
-        Assert.Equal(42, result.AsInteger());
+        result.AsInteger().Should().Be(42);
     }
 
     [Fact]
@@ -2538,15 +2538,15 @@ public class AsyncTests
 
         using (var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(50)))
         {
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            await Awaiting(async () =>
             {
                 await engine.EvaluateAsync("(async () => await slowIO())()", cancellationToken: cts.Token);
-            });
+            }).Should().ThrowAsync<OperationCanceledException>();
         }
 
         // Engine must still be usable after cancellation
         var result = await engine.EvaluateAsync("(async () => await fastIO())()");
-        Assert.Equal(7, result.AsInteger());
+        result.AsInteger().Should().Be(7);
     }
 
     // ========================================================================
@@ -2567,12 +2567,12 @@ public class AsyncTests
             throw new InvalidOperationException("backend error");
         }));
 
-        var ex = await Assert.ThrowsAsync<PromiseRejectedException>(async () =>
+        var ex = (await Awaiting(async () =>
         {
             await engine.EvaluateAsync("(async () => await failingIO())()");
-        });
+        }).Should().ThrowExactlyAsync<PromiseRejectedException>()).Which;
 
-        Assert.Contains("backend error", ex.Message);
+        ex.Message.Should().Contain("backend error");
     }
 
     [Fact]
@@ -2583,10 +2583,10 @@ public class AsyncTests
         // NOT PromiseRejectedException.
         var engine = new Engine();
 
-        await Assert.ThrowsAsync<JavaScriptException>(async () =>
+        await Awaiting(async () =>
         {
             await engine.EvaluateAsync("throw new Error('sync boom')");
-        });
+        }).Should().ThrowExactlyAsync<JavaScriptException>();
     }
 
     // ========================================================================
@@ -2610,8 +2610,8 @@ public class AsyncTests
         }));
 
         var result = await engine.EvaluateAsync("(async () => { await doWork(); return 'done'; })()");
-        Assert.Equal("done", result.AsString());
-        Assert.True(sideEffect, "Side effect from void Task should have executed");
+        result.AsString().Should().Be("done");
+        sideEffect.Should().BeTrue("Side effect from void Task should have executed");
     }
 
     [Fact]
@@ -2628,7 +2628,7 @@ public class AsyncTests
 
         var script = Engine.PrepareScript("(async () => await io())()");
         var result = await engine.EvaluateAsync(script);
-        Assert.Equal(42, result.AsInteger());
+        result.AsInteger().Should().Be(42);
     }
 
     [Fact]
@@ -2639,7 +2639,7 @@ public class AsyncTests
         // and never enter AwaitPromiseSettlementAsync.
         var engine = new Engine();
         var result = await engine.EvaluateAsync("Promise.resolve(42)");
-        Assert.Equal(42, result.AsInteger());
+        result.AsInteger().Should().Be(42);
     }
 #endif
 
@@ -2658,7 +2658,7 @@ public class AsyncTests
                 .then(v => v + '')
             """);
         result = result.UnwrapIfPromise();
-        Assert.Equal("6", result.AsString());
+        result.AsString().Should().Be("6");
     }
 
     [Fact]
@@ -2671,7 +2671,7 @@ public class AsyncTests
                 .then(v => v + '!')
             """);
         result = result.UnwrapIfPromise();
-        Assert.Equal("recovered from: err!", result.AsString());
+        result.AsString().Should().Be("recovered from: err!");
     }
 
     // ========================================================================
@@ -2694,7 +2694,7 @@ public class AsyncTests
             main()
             """);
         result = result.UnwrapIfPromise();
-        Assert.Equal("caught: boom", result.AsString());
+        result.AsString().Should().Be("caught: boom");
     }
 
     [Fact]
@@ -2716,7 +2716,7 @@ public class AsyncTests
             main()
             """);
         result = result.UnwrapIfPromise();
-        Assert.Equal("try,after await,finally", result.AsString());
+        result.AsString().Should().Be("try,after await,finally");
     }
 
     // ========================================================================
@@ -2741,7 +2741,7 @@ public class AsyncTests
             outer()
             """);
         result = result.UnwrapIfPromise();
-        Assert.Equal(20, result.AsInteger());
+        result.AsInteger().Should().Be(20);
     }
 
     [Fact]
@@ -2755,7 +2755,7 @@ public class AsyncTests
             main()
             """);
         result = result.UnwrapIfPromise();
-        Assert.Equal(42, result.AsInteger());
+        result.AsInteger().Should().Be(42);
     }
 
     // ========================================================================
@@ -2774,7 +2774,7 @@ public class AsyncTests
             ]).then(values => JSON.stringify(values))
             """);
         result = result.UnwrapIfPromise();
-        Assert.Equal("[1,2,3]", result.AsString());
+        result.AsString().Should().Be("[1,2,3]");
     }
 
     [Fact]
@@ -2789,7 +2789,7 @@ public class AsyncTests
             ]).catch(e => 'caught: ' + e)
             """);
         result = result.UnwrapIfPromise();
-        Assert.Equal("caught: fail", result.AsString());
+        result.AsString().Should().Be("caught: fail");
     }
 
     // ========================================================================
@@ -2808,7 +2808,7 @@ public class AsyncTests
             ])
             """);
         result = result.UnwrapIfPromise();
-        Assert.Equal("fast", result.AsString());
+        result.AsString().Should().Be("fast");
     }
 
     // ========================================================================
@@ -2830,7 +2830,7 @@ public class AsyncTests
             main()
             """);
         result = result.UnwrapIfPromise();
-        Assert.Equal("abc", result.AsString());
+        result.AsString().Should().Be("abc");
     }
 
     // ========================================================================
@@ -2849,7 +2849,7 @@ public class AsyncTests
             })()
             """);
         result = result.UnwrapIfPromise();
-        Assert.Equal(30, result.AsInteger());
+        result.AsInteger().Should().Be(30);
     }
 
     // ========================================================================
@@ -2873,7 +2873,7 @@ public class AsyncTests
             """);
         result = result.UnwrapIfPromise();
         // Sum of 0..99 = 4950
-        Assert.Equal(4950, result.AsInteger());
+        result.AsInteger().Should().Be(4950);
     }
 
     // ========================================================================
@@ -2905,7 +2905,7 @@ public class AsyncTests
             })()
             """);
         result = result.UnwrapIfPromise();
-        Assert.Equal("response for a\nresponse for b\nresponse for c\nresponse for d\nresponse for e\nresponse for f\n", result.AsString());
+        result.AsString().Should().Be("response for a\nresponse for b\nresponse for c\nresponse for d\nresponse for e\nresponse for f\n");
     }
 
     [Fact]
@@ -2925,7 +2925,7 @@ public class AsyncTests
             })()
             """);
         result = result.UnwrapIfPromise();
-        Assert.Equal("10,20,30", result.AsString());
+        result.AsString().Should().Be("10,20,30");
     }
 
     [Fact]
@@ -2945,7 +2945,7 @@ public class AsyncTests
             """);
 
         result = result.UnwrapIfPromise();
-        Assert.Equal("a:10,b:20", result.AsString());
+        result.AsString().Should().Be("a:10,b:20");
     }
 
     [Fact]
@@ -2965,7 +2965,7 @@ public class AsyncTests
             """);
 
         result = result.UnwrapIfPromise();
-        Assert.Equal("1", result.AsString());
+        result.AsString().Should().Be("1");
     }
 
     [Fact]
@@ -2985,7 +2985,7 @@ public class AsyncTests
             """);
 
         result = result.UnwrapIfPromise();
-        Assert.Equal("1,2,3", result.AsString());
+        result.AsString().Should().Be("1,2,3");
     }
 
     [Fact]
@@ -3005,7 +3005,7 @@ public class AsyncTests
             """);
 
         result = result.UnwrapIfPromise();
-        Assert.Equal("42", result.AsString());
+        result.AsString().Should().Be("42");
     }
 
     [Fact]
@@ -3026,7 +3026,7 @@ public class AsyncTests
             """);
 
         result = result.UnwrapIfPromise();
-        Assert.Equal("7", result.AsString());
+        result.AsString().Should().Be("7");
     }
 
     [Fact]
@@ -3054,7 +3054,7 @@ public class AsyncTests
             })();
             """);
 
-        Assert.Equal("""[{"meta":{"index":1},"value":"x"}]""", result.AsString());
+        result.AsString().Should().Be("""[{"meta":{"index":1},"value":"x"}]""");
     }
 
     [Fact]
@@ -3070,7 +3070,7 @@ public class AsyncTests
             })()
             """).UnwrapIfPromise(TimeSpan.FromSeconds(5));
 
-        Assert.Equal("""{"meta":{"index":1},"value":"x"}""", result.AsString());
+        result.AsString().Should().Be("""{"meta":{"index":1},"value":"x"}""");
     }
 
     [Fact]
@@ -3088,7 +3088,7 @@ public class AsyncTests
             })()
             """).UnwrapIfPromise(TimeSpan.FromSeconds(5));
 
-        Assert.Equal("""["d",1]""", result.AsString());
+        result.AsString().Should().Be("""["d",1]""");
     }
 
     [Fact]
@@ -3107,7 +3107,7 @@ public class AsyncTests
             })()
             """).UnwrapIfPromise(TimeSpan.FromSeconds(5));
 
-        Assert.Equal(5, result.AsNumber());
+        result.AsNumber().Should().Be(5);
     }
 
     [Fact]
@@ -3123,7 +3123,7 @@ public class AsyncTests
             })()
             """).UnwrapIfPromise(TimeSpan.FromSeconds(5));
 
-        Assert.Equal("12!", result.AsString());
+        result.AsString().Should().Be("12!");
     }
 
     [Fact]
@@ -3147,7 +3147,7 @@ public class AsyncTests
         tcs.SetResult("done");
         var result = await evalTask;
 
-        Assert.Equal("{}", result.AsString());
+        result.AsString().Should().Be("{}");
     }
 
     [Fact]
@@ -3168,7 +3168,7 @@ public class AsyncTests
         tcs.SetResult("done");
         var result = promise.UnwrapIfPromise(TimeSpan.FromSeconds(5));
 
-        Assert.Equal("{}", result.AsString());
+        result.AsString().Should().Be("{}");
     }
 
 #if !NETFRAMEWORK
@@ -3185,16 +3185,16 @@ public class AsyncTests
         var waiter1 = loop.WaitForEventAsync(CancellationToken.None);
         var waiter2 = loop.WaitForEventAsync(CancellationToken.None);
 
-        Assert.False(waiter1.IsCompleted, "waiter1 should be pending until Enqueue");
-        Assert.False(waiter2.IsCompleted, "waiter2 should be pending until Enqueue");
+        waiter1.IsCompleted.Should().BeFalse("waiter1 should be pending until Enqueue");
+        waiter2.IsCompleted.Should().BeFalse("waiter2 should be pending until Enqueue");
 
         loop.Enqueue(static () => { });
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         await Task.WhenAll(waiter1, waiter2).WaitAsync(cts.Token);
 
-        Assert.True(waiter1.IsCompletedSuccessfully);
-        Assert.True(waiter2.IsCompletedSuccessfully);
+        waiter1.IsCompletedSuccessfully.Should().BeTrue();
+        waiter2.IsCompletedSuccessfully.Should().BeTrue();
     }
 #endif
 

@@ -1,4 +1,4 @@
-using Jint.Native.Object;
+﻿using Jint.Native.Object;
 using Jint.Runtime;
 
 namespace Jint.Tests.PublicInterface;
@@ -12,21 +12,21 @@ public class ShadowRealmTests
         var shadowRealm = engine.Intrinsics.ShadowRealm.Construct();
 
         // lexically scoped (let/const) are visible during single call
-        Assert.Equal(123, shadowRealm.Evaluate("const s = 123; const f = () => s; f();"));
-        Assert.Equal(true, shadowRealm.Evaluate("typeof f === 'undefined'"));
+        shadowRealm.Evaluate("const s = 123; const f = () => s; f();").Should().Be(123);
+        shadowRealm.Evaluate("typeof f === 'undefined'").Should().BeTrue();
 
         // vars hold longer
-        Assert.Equal(456, shadowRealm.Evaluate("function foo() { return 456; }; foo();"));
-        Assert.Equal(456, shadowRealm.Evaluate("foo();"));
+        shadowRealm.Evaluate("function foo() { return 456; }; foo();").Should().Be(456);
+        shadowRealm.Evaluate("foo();").Should().Be(456);
 
         // not visible in global engine though
-        Assert.Equal(true, engine.Evaluate("typeof foo === 'undefined'"));
+        engine.Evaluate("typeof foo === 'undefined'").Should().BeTrue();
 
         // modules
         var importValue = shadowRealm.ImportValue("./modules/format-name.js", "formatName");
         var formatName = (ObjectInstance) importValue.UnwrapIfPromise();
         var result = engine.Invoke(formatName, "John", "Doe").AsString();
-        Assert.Equal("John Doe", result);
+        result.Should().Be("John Doe");
     }
 
     [Fact]
@@ -36,7 +36,7 @@ public class ShadowRealmTests
         engine.SetValue("message", "world");
         engine.Evaluate("function hello() {return message}");
 
-        Assert.Equal("world", engine.Evaluate("hello();"));
+        engine.Evaluate("hello();").Should().Be("world");
 
         var shadowRealm = engine.Intrinsics.ShadowRealm.Construct();
         shadowRealm.SetValue("message", "realm 1");
@@ -47,8 +47,8 @@ public class ShadowRealmTests
         shadowRealm2.Evaluate("function hello() {return message}");
 
         // Act & Assert
-        Assert.Equal("realm 1", shadowRealm.Evaluate("hello();"));
-        Assert.Equal("realm 2", shadowRealm2.Evaluate("hello();"));
+        shadowRealm.Evaluate("hello();").Should().Be("realm 1");
+        shadowRealm2.Evaluate("hello();").Should().Be("realm 2");
     }
 
     [Fact]
@@ -67,9 +67,9 @@ public class ShadowRealmTests
         shadowRealm2.Evaluate("(function hello() {message += \"realm 2\"})();");
 
         // Act & Assert
-        Assert.Equal("hello engine", engine.Evaluate("message"));
-        Assert.Equal("hello realm 1", shadowRealm.Evaluate("message"));
-        Assert.Equal("hello realm 2", shadowRealm2.Evaluate("message"));
+        engine.Evaluate("message").Should().Be("hello engine");
+        shadowRealm.Evaluate("message").Should().Be("hello realm 1");
+        shadowRealm2.Evaluate("message").Should().Be("hello realm 2");
     }
 
     [Fact]
@@ -87,9 +87,9 @@ public class ShadowRealmTests
         var script = Engine.PrepareScript("(function hello() {return \"hello \" + message})();");
 
         // Act & Assert
-        Assert.Equal("hello engine", engine.Evaluate(script));
-        Assert.Equal("hello realm 1", shadowRealm.Evaluate(script));
-        Assert.Equal("hello realm 2", shadowRealm2.Evaluate(script));
+        engine.Evaluate(script).Should().Be("hello engine");
+        shadowRealm.Evaluate(script).Should().Be("hello realm 1");
+        shadowRealm2.Evaluate(script).Should().Be("hello realm 2");
     }
 
     [Fact]
@@ -101,7 +101,7 @@ public class ShadowRealmTests
         var engine = new Engine();
         var shadowRealm = engine.Intrinsics.ShadowRealm.Construct();
 
-        Assert.Equal("derived:base", shadowRealm.Evaluate("""
+        shadowRealm.Evaluate("""
             class Base {
                 greet() { return 'base'; }
             }
@@ -109,36 +109,36 @@ public class ShadowRealmTests
                 greet() { return 'derived:' + super.greet(); }
             }
             new Derived().greet();
-            """));
+            """).Should().Be("derived:base");
 
-        Assert.Equal(3, shadowRealm.Evaluate("""
+        shadowRealm.Evaluate("""
             class A { constructor() { this.x = 1; } }
             class B extends A { constructor() { super(); this.y = 2; } }
             const b = new B();
             b.x + b.y;
-            """));
+            """).Should().Be(3);
 
-        Assert.Equal(42, shadowRealm.Evaluate("""
+        shadowRealm.Evaluate("""
             class C1 { m() { return 40; } }
             class C2 extends C1 { f = super.m() + 2; }
             new C2().f;
-            """));
+            """).Should().Be(42);
 
-        Assert.Equal(1, shadowRealm.Evaluate("""
+        shadowRealm.Evaluate("""
             class S1 { static m() { return 1; } }
             class S2 extends S1 { static v; static { S2.v = super.m(); } }
             S2.v;
-            """));
+            """).Should().Be(1);
 
-        Assert.Equal("[object Object]", shadowRealm.Evaluate("""
+        shadowRealm.Evaluate("""
             const o = { m() { return super.toString(); } };
             o.m();
-            """));
+            """).Should().Be("[object Object]");
 
-        Assert.Equal(true, shadowRealm.Evaluate("""
+        shadowRealm.Evaluate("""
             function f() { return new.target === undefined; }
             f();
-            """));
+            """).Should().BeTrue();
     }
 
     [Fact]
@@ -149,7 +149,7 @@ public class ShadowRealmTests
 
         var script = Engine.PrepareScript("class A { hello() { return 'hi'; } } class B extends A { hello() { return super.hello() + '!'; } } new B().hello();");
 
-        Assert.Equal("hi!", shadowRealm.Evaluate(script));
+        shadowRealm.Evaluate(script).Should().Be("hi!");
     }
 
     [Fact]
@@ -169,8 +169,8 @@ public class ShadowRealmTests
 
     private static void AssertSyntaxError(Native.ShadowRealm.ShadowRealm shadowRealm, string code)
     {
-        var ex = Assert.Throws<JavaScriptException>(() => shadowRealm.Evaluate(code));
-        Assert.Equal("SyntaxError", ex.Error.AsObject().Get("name").ToString());
+        var ex = Invoking(() => shadowRealm.Evaluate(code)).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Error.AsObject().Get("name").ToString().Should().Be("SyntaxError");
     }
 
     private static string GetBasePath()
