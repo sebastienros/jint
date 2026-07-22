@@ -132,6 +132,21 @@ public class InteropExplicitTypeTests
         Assert.Equal(holder.IndexerI1[0].Name, _engine.Evaluate("holder.IndexerI1[0].Name"));
     }
 
+    [Fact]
+    public void RecentWrapperCacheKeepsExposedTypeViewsSeparate()
+    {
+        // the default recent-wrapper cache (see #2729) reuses wrappers by object identity; the same
+        // instance exposed under different CLR types must still resolve each view's own members
+        Assert.Equal("CI1", _engine.Evaluate("holder.ci1.Name").AsString());
+        Assert.Equal("CI1 as I1", _engine.Evaluate("holder.i1.Name").AsString());
+        Assert.Equal("Super", _engine.Evaluate("holder.super.Name").AsString());
+
+        // and in reverse order against the now-populated cache slots
+        Assert.Equal("Super", _engine.Evaluate("holder.super.Name").AsString());
+        Assert.Equal("CI1 as I1", _engine.Evaluate("holder.i1.Name").AsString());
+        Assert.Equal("CI1", _engine.Evaluate("holder.ci1.Name").AsString());
+    }
+
 
     [Fact]
     public void SuperClassFromField()
