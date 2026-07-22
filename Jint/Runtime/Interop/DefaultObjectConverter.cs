@@ -144,12 +144,15 @@ internal static class DefaultObjectConverter
             }
             else
             {
-                // check global cache, have we already wrapped the value?
-                if (engine._objectWrapperCache?.TryGetValue(value, out var cached) == true)
+                // check global cache, have we already wrapped the value? A cached wrapper is only
+                // valid for the same exposed CLR type — the same object may also cross as an
+                // explicit interface/superclass view, which resolves a different member set.
+                if (engine._objectWrapperCache?.TryGetValue(value, out var cached) == true
+                    && (cached is not ObjectWrapper cachedWrapper || cachedWrapper.ClrType == valueType))
                 {
                     result = cached;
                 }
-                else if (engine._recentObjectWrapperCache?.TryGet(value) is { } recentlyWrapped)
+                else if (engine._recentObjectWrapperCache?.TryGet(value, valueType) is { } recentlyWrapped)
                 {
                     result = recentlyWrapped;
                 }
@@ -170,6 +173,9 @@ internal static class DefaultObjectConverter
                         if (engine.Options.Interop.TrackObjectWrapperIdentity)
                         {
                             engine._objectWrapperCache ??= new ConditionalWeakTable<object, ObjectInstance>();
+                            // the table may hold a wrapper for a different exposed view of the same
+                            // object (the type-guarded lookup above missed it) — last view wins
+                            engine._objectWrapperCache.Remove(value);
                             engine._objectWrapperCache.Add(value, wrapped);
                         }
                         else if (engine.Options.Interop.CacheRecentObjectWrappers)
@@ -238,18 +244,21 @@ internal static class DefaultObjectConverter
 
     private static JsValue ConvertArray(Engine e, object v)
     {
-        // The identity caches (flag-gated, both default off) also cover arrays: repeated
-        // conversions of the same CLR array instance return the same result (JsArray snapshot under
-        // Copy, wrapper view under LiveView) instead of re-converting on every property read. With
-        // the flags off each conversion still produces a fresh copy/wrapper. All option checks must
-        // stay inside this method — _typeMappers is a static cross-engine memoization, so per-engine
-        // option state can never be baked into the memoized mapper.
-        if (e._objectWrapperCache?.TryGetValue(v, out var cached) == true)
+        // The identity caches (CacheRecentObjectWrappers default on since 4.14, the identity map
+        // opt-in) also cover arrays: repeated conversions of the same CLR array instance return the
+        // same result (JsArray snapshot under Copy, wrapper view under LiveView) instead of
+        // re-converting on every property read. With caching disabled each conversion still produces
+        // a fresh copy/wrapper. All option checks must stay inside this method — _typeMappers is a
+        // static cross-engine memoization, so per-engine option state can never be baked into the
+        // memoized mapper.
+        var arrayType = v.GetType();
+        if (e._objectWrapperCache?.TryGetValue(v, out var cached) == true
+            && (cached is not ObjectWrapper cachedWrapper || cachedWrapper.ClrType == arrayType))
         {
             return cached;
         }
 
-        if (e._recentObjectWrapperCache?.TryGet(v) is { } recentlyConverted)
+        if (e._recentObjectWrapperCache?.TryGet(v, arrayType) is { } recentlyConverted)
         {
             return recentlyConverted;
         }
@@ -339,14 +348,22 @@ internal sealed class RecentObjectWrapperCache
     private readonly ObjectInstance[] _wrappers = new ObjectInstance[Capacity];
     private int _next;
 
-    public ObjectInstance? TryGet(object target)
+    public ObjectInstance? TryGet(object target, Type clrType)
     {
         var targets = _targets;
         for (var i = 0; i < targets.Length; i++)
         {
             if (ReferenceEquals(targets[i], target))
             {
-                return _wrappers[i];
+                // the same object can cross under different exposed CLR types (explicit interface /
+                // superclass views resolve different members), so a wrapper is only reusable for the
+                // same exposed type. A mismatched slot is skipped rather than a terminal miss —
+                // wrappers for both views can coexist in the ring.
+                var wrapper = _wrappers[i];
+                if (wrapper is not ObjectWrapper objectWrapper || objectWrapper.ClrType == clrType)
+                {
+                    return wrapper;
+                }
             }
         }
 

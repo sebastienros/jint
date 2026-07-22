@@ -4,9 +4,10 @@ namespace Jint.Benchmark;
 
 /// <summary>
 /// Measures ObjectWrapper churn: a CLR member returning the SAME object reference repeatedly.
-/// With the default TrackObjectWrapperIdentity=false every crossing allocates a fresh
-/// ObjectWrapper; with the opt-in identity flag the ConditionalWeakTable returns the cached one.
-/// The two benchmarks bracket the design space for cheaper wrapper reuse.
+/// Since 4.14 the default engine keeps a small bounded cache of recently wrapped objects
+/// (CacheRecentObjectWrappers), so repeated crossings reuse the wrapper; the NoCache rows opt out
+/// to measure the fresh-wrapper-per-crossing path, and the identity-flag rows measure the
+/// ConditionalWeakTable variant. Together they bracket the design space for wrapper reuse.
 /// </summary>
 [MemoryDiagnoser]
 public class InteropWrapperChurnBenchmark
@@ -31,6 +32,7 @@ public class InteropWrapperChurnBenchmark
     }
 
     private Engine _engineDefault = null!;
+    private Engine _engineNoCache = null!;
     private Engine _engineIdentity = null!;
     private Engine _engineRecentCache = null!;
     private Engine _engineCopy = null!;
@@ -40,18 +42,26 @@ public class InteropWrapperChurnBenchmark
     {
         var holder = new Holder(new Payload { Value = 42 });
 
-        // the out-of-the-box engine: ArrayConversion defaults to LiveView since 4.14
+        // the out-of-the-box engine: since 4.14 ArrayConversion defaults to LiveView and
+        // CacheRecentObjectWrappers defaults to true (repeated crossings reuse the wrapper)
         _engineDefault = new Engine();
         _engineDefault.SetValue("h", holder);
         _engineDefault.Execute("h.Payload.Value");
 
+        // opt out of the recent-wrapper cache: every crossing builds a fresh wrapper
+        _engineNoCache = new Engine(cfg => cfg.Interop.CacheRecentObjectWrappers = false);
+        _engineNoCache.SetValue("h", holder);
+        _engineNoCache.Execute("h.Payload.Value");
+
         // the identity flags are most interesting on top of Copy, where they let the otherwise
         // per-read deep-copied JsArray snapshot be reused across crossings (pin Copy so the array
-        // traversal rows below measure exactly that; the object-churn rows are array-mode agnostic)
+        // traversal rows below measure exactly that; the object-churn rows are array-mode agnostic).
+        // The recent cache is disabled in the CWT lane so each row measures a single mechanism.
         _engineIdentity = new Engine(cfg =>
         {
             cfg.Interop.ArrayConversion = ArrayConversionMode.Copy;
             cfg.Interop.TrackObjectWrapperIdentity = true;
+            cfg.Interop.CacheRecentObjectWrappers = false;
         });
         _engineIdentity.SetValue("h", holder);
         _engineIdentity.Execute("h.Payload.Value");
@@ -65,7 +75,12 @@ public class InteropWrapperChurnBenchmark
         _engineRecentCache.Execute("h.Payload.Value");
 
         // the pre-4.14 default: every array crossing deep-copies into a fresh JsArray snapshot
-        _engineCopy = new Engine(cfg => cfg.Interop.ArrayConversion = ArrayConversionMode.Copy);
+        // (the cache opt-out keeps this row measuring the copy itself)
+        _engineCopy = new Engine(cfg =>
+        {
+            cfg.Interop.ArrayConversion = ArrayConversionMode.Copy;
+            cfg.Interop.CacheRecentObjectWrappers = false;
+        });
         _engineCopy.SetValue("h", holder);
         _engineCopy.Execute("h.Payload.Value");
     }
@@ -74,6 +89,12 @@ public class InteropWrapperChurnBenchmark
     public void SameObjectReturnedInLoop_DefaultFlag()
     {
         for (var i = 0; i < OperationsPerInvoke; i++) _engineDefault.Execute("h.Payload.Value");
+    }
+
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
+    public void SameObjectReturnedInLoop_NoCache()
+    {
+        for (var i = 0; i < OperationsPerInvoke; i++) _engineNoCache.Execute("h.Payload.Value");
     }
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
@@ -98,6 +119,12 @@ public class InteropWrapperChurnBenchmark
     public void ArrayMemberTraversal_DefaultLiveView()
     {
         _engineDefault.Execute(_arrayTraversal);
+    }
+
+    [Benchmark]
+    public void ArrayMemberTraversal_LiveViewNoCache()
+    {
+        _engineNoCache.Execute(_arrayTraversal);
     }
 
     // The README-recommended pattern: hoist the collection into a local so the wrapper is created

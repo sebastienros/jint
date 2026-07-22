@@ -82,11 +82,18 @@ public partial class InteropTests
     [Fact]
     public void CopyModeArrayIsJsArraySnapshot()
     {
-        // opting back into Copy restores the pre-4.14 behavior: each crossing produces an independent JsArray snapshot
-        var engine = CreateCopyEngine();
+        // full pre-4.14 behavior needs Copy plus opting out of the recent-wrapper cache: each
+        // crossing then produces an independent JsArray snapshot
+        var engine = CreateCopyEngine(options => options.Interop.CacheRecentObjectWrappers = false);
         engine.SetValue("h", new ArrayHolder());
         Assert.True(engine.Evaluate("Array.isArray(h.Numbers)").AsBoolean());
         Assert.False(engine.Evaluate("h.Numbers === h.Numbers").AsBoolean());
+
+        // with the default (cached) Copy engine the same snapshot is reused while cached
+        var cachedEngine = CreateCopyEngine();
+        cachedEngine.SetValue("h", new ArrayHolder());
+        Assert.True(cachedEngine.Evaluate("Array.isArray(h.Numbers)").AsBoolean());
+        Assert.True(cachedEngine.Evaluate("h.Numbers === h.Numbers").AsBoolean());
     }
 
     [Fact]

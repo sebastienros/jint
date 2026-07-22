@@ -348,9 +348,14 @@ public class Options
         /// alternative to <see cref="TrackObjectWrapperIdentity"/> that cannot grow memory unbounded;
         /// identity is only preserved for objects still present in the cache. Covers CLR arrays the same
         /// way <see cref="TrackObjectWrapperIdentity"/> does.
-        /// Defaults to false.
+        /// Defaults to true since 4.14: repeated crossings of a recently seen object return the same
+        /// wrapper instance, so script-attached state (freeze/defineProperty/expandos) stays stable and
+        /// the per-crossing wrapper allocation disappears. Note that under <see cref="ArrayConversionMode.Copy"/>
+        /// this also means repeated reads of the same CLR array reuse the first JsArray snapshot while it
+        /// stays cached (CLR-side mutations are not re-copied); set this to false for a fresh snapshot per
+        /// crossing (the pre-4.14 behavior).
         /// </summary>
-        public bool CacheRecentObjectWrappers { get; set; }
+        public bool CacheRecentObjectWrappers { get; set; } = true;
 
         /// <summary>
         /// How CLR arrays (<c>T[]</c>) are exposed to script code, defaults to <see cref="Jint.ArrayConversionMode.LiveView"/>

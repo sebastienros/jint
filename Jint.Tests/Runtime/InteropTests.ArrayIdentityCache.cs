@@ -10,8 +10,13 @@ public partial class InteropTests
     [Fact]
     public void ArrayConversionCreatesFreshCopyInCopyMode()
     {
-        // Copy is no longer the default (LiveView since 4.14), so select it explicitly to lock its snapshot contract
-        var engine = new Engine(options => options.Interop.ArrayConversion = ArrayConversionMode.Copy);
+        // Copy is no longer the default (LiveView since 4.14) and the recent-wrapper cache would
+        // reuse the first snapshot; opt out of both to lock the fresh-snapshot-per-crossing contract
+        var engine = new Engine(options =>
+        {
+            options.Interop.ArrayConversion = ArrayConversionMode.Copy;
+            options.Interop.CacheRecentObjectWrappers = false;
+        });
         engine.SetValue("host", new ArrayConversionHost());
 
         Assert.False(engine.Evaluate("host.Numbers === host.Numbers").AsBoolean());
