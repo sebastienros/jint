@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using Jint.Native;
 using Jint.Native.Json;
 using Jint.Native.Object;
@@ -20,7 +20,7 @@ public class JsonTests
         var json = "[" + string.Join(",", Enumerable.Range(0, size)) + "]";
         var ok = engine.Evaluate($"var a = JSON.parse('{json}'); a.length === {size} && ({size} === 0 || a[{size - 1}] === {size - 1})").AsBoolean();
 
-        Assert.True(ok);
+        ok.Should().BeTrue();
     }
 
     [Theory]
@@ -35,7 +35,7 @@ public class JsonTests
         var json = "[" + string.Join(",", Enumerable.Range(0, size)) + "]";
         var ok = engine.Evaluate($"var a = JSON.parse('{json}', function (k, v) {{ return v; }}); a.length === {size} && ({size} === 0 || a[{size - 1}] === {size - 1})").AsBoolean();
 
-        Assert.True(ok);
+        ok.Should().BeTrue();
     }
 
     [Fact]
@@ -47,7 +47,7 @@ public class JsonTests
             JSON.stringify(a) === '[[1,2,3],[4,5,[6,7,[8]]],9]';
             """).AsBoolean();
 
-        Assert.True(ok);
+        ok.Should().BeTrue();
     }
 
     [Theory]
@@ -62,7 +62,7 @@ public class JsonTests
     {
         var engine = new Engine();
         var obj = engine.Evaluate(script).AsObject();
-        Assert.True(obj.HasOwnProperty(expectedPropertyName));
+        obj.HasOwnProperty(expectedPropertyName).Should().BeTrue();
     }
 
     [Theory]
@@ -88,7 +88,7 @@ public class JsonTests
 
         var parsedCharacter = parser.Parse(json).AsObject().Get("a").AsString();
 
-        Assert.Equal(expectedCharacter, parsedCharacter);
+        parsedCharacter.Should().Be(expectedCharacter);
     }
 
     [Theory]
@@ -121,16 +121,16 @@ public class JsonTests
     {
         var engine = new Engine();
         var parser = new JsonParser(engine);
-        var ex = Assert.ThrowsAny<JavaScriptException>(() =>
+        var ex = Invoking(() =>
         {
             parser.Parse(json);
-        });
+        }).Should().Throw<JavaScriptException>().Which;
 
-        Assert.Equal(expectedMessage, ex.Message);
+        ex.Message.Should().Be(expectedMessage);
 
         var error = ex.Error as Native.Error.ErrorInstance;
-        Assert.NotNull(error);
-        Assert.Equal("SyntaxError", error.Get("name"));
+        error.Should().NotBeNull();
+        error.Get("name").Should().Be("SyntaxError");
     }
 
     [Theory]
@@ -144,7 +144,7 @@ public class JsonTests
 
         var result = engine.Evaluate("JSON.stringify(x, null, 2);").AsString();
 
-        Assert.Equal(expectedJson, result);
+        result.Should().Be(expectedJson);
     }
 
     [Theory]
@@ -159,11 +159,11 @@ public class JsonTests
         var parser = new JsonParser(engine);
 
         JsValue result = parser.Parse(json);
-        JsArray array = Assert.IsType<JsArray>(result);
-        Assert.Equal((uint)numberOfElements, array.Length);
+        JsArray array = result.Should().BeOfType<JsArray>().Which;
+        array.Length.Should().Be((uint)numberOfElements);
         for (int i = 0; i < numberOfElements; i++)
         {
-            Assert.Equal(i, (int)array[i].AsNumber());
+            ((int)array[i].AsNumber()).Should().Be(i);
         }
     }
 
@@ -180,7 +180,7 @@ public class JsonTests
         var parser = new JsonParser(engine);
 
         string value = parser.Parse(json).AsString();
-        Assert.Equal(generatedString, value, StringComparer.Ordinal);
+        value.Should().Be(generatedString);
     }
 
     [Fact]
@@ -189,9 +189,9 @@ public class JsonTests
         var engine = new Engine();
         var parser = new JsonParser(engine);
 
-        Assert.Same(JsBoolean.True, parser.Parse("true"));
-        Assert.Same(JsBoolean.False, parser.Parse("false"));
-        Assert.Same(JsValue.Null, parser.Parse("null"));
+        parser.Parse("true").Should().BeSameAs(JsBoolean.True);
+        parser.Parse("false").Should().BeSameAs(JsBoolean.False);
+        parser.Parse("null").Should().BeSameAs(JsValue.Null);
     }
 
     [Fact]
@@ -200,10 +200,10 @@ public class JsonTests
         var engine = new Engine();
         var parser = new JsonParser(engine);
 
-        Assert.Equal(-1, (int)parser.Parse("-1").AsNumber());
-        Assert.Equal(0, (int)parser.Parse("-0").AsNumber());
-        Assert.Equal(0, (int)parser.Parse("0").AsNumber());
-        Assert.Equal(1, (int)parser.Parse("1").AsNumber());
+        ((int)parser.Parse("-1").AsNumber()).Should().Be(-1);
+        ((int)parser.Parse("-0").AsNumber()).Should().Be(0);
+        ((int)parser.Parse("0").AsNumber()).Should().Be(0);
+        ((int)parser.Parse("1").AsNumber()).Should().Be(1);
     }
 
     [Fact]
@@ -214,7 +214,7 @@ public class JsonTests
         var engine = new Engine();
         var parser = new JsonParser(engine);
 
-        Assert.Equal(maxSafeInteger, (long)parser.Parse("9007199254740991").AsNumber());
+        ((long)parser.Parse("9007199254740991").AsNumber()).Should().Be(maxSafeInteger);
     }
 
     [Fact]
@@ -223,9 +223,9 @@ public class JsonTests
         var engine = new Engine();
         var parser = new JsonParser(engine);
 
-        Assert.Equal(0.1d, parser.Parse("0.1").AsNumber());
-        Assert.Equal(1.1d, parser.Parse("1.1").AsNumber());
-        Assert.Equal(-1.1d, parser.Parse("-1.1").AsNumber());
+        parser.Parse("0.1").AsNumber().Should().Be(0.1d);
+        parser.Parse("1.1").AsNumber().Should().Be(1.1d);
+        parser.Parse("-1.1").AsNumber().Should().Be(-1.1d);
     }
 
     [Fact]
@@ -234,8 +234,8 @@ public class JsonTests
         var engine = new Engine();
         var parser = new JsonParser(engine);
 
-        Assert.Equal(100d, parser.Parse("1E2").AsNumber());
-        Assert.Equal(0.01d, parser.Parse("1E-2").AsNumber());
+        parser.Parse("1E2").AsNumber().Should().Be(100d);
+        parser.Parse("1E-2").AsNumber().Should().Be(0.01d);
     }
 
     [Fact]
@@ -246,8 +246,8 @@ public class JsonTests
         var engine = new Engine();
         var parser = new JsonParser(engine);
 
-        JavaScriptException ex = Assert.Throws<JavaScriptException>(() => parser.Parse(json));
-        Assert.Equal("Max. depth level of JSON reached at position 64", ex.Message);
+        JavaScriptException ex = Invoking(() => parser.Parse(json)).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Message.Should().Be("Max. depth level of JSON reached at position 64");
     }
 
     [Fact]
@@ -258,8 +258,8 @@ public class JsonTests
         var engine = new Engine();
         var parser = new JsonParser(engine);
 
-        JavaScriptException ex = Assert.Throws<JavaScriptException>(() => parser.Parse(json));
-        Assert.Equal("Max. depth level of JSON reached at position 320", ex.Message);
+        JavaScriptException ex = Invoking(() => parser.Parse(json)).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Message.Should().Be("Max. depth level of JSON reached at position 320");
     }
 
     [Fact]
@@ -273,8 +273,8 @@ public class JsonTests
         var parser = new JsonParser(engine);
 
         ObjectInstance parsed = parser.Parse(json).AsObject();
-        Assert.True(parsed["a"].IsObject());
-        Assert.True(parsed["b"].IsObject());
+        parsed["a"].IsObject().Should().BeTrue();
+        parsed["b"].IsObject().Should().BeTrue();
     }
 
     [Fact]
@@ -288,8 +288,8 @@ public class JsonTests
         var parser = new JsonParser(engine);
 
         ObjectInstance parsed = parser.Parse(json).AsObject();
-        Assert.True(parsed["a"].IsArray());
-        Assert.True(parsed["b"].IsArray());
+        parsed["a"].IsArray().Should().BeTrue();
+        parsed["b"].IsArray().Should().BeTrue();
     }
 
     [Fact]
@@ -303,8 +303,8 @@ public class JsonTests
         var engine = new Engine();
         var parser = new JsonParser(engine);
 
-        JavaScriptException ex = Assert.Throws<JavaScriptException>(() => parser.Parse(json));
-        Assert.Equal("Max. depth level of JSON reached at position 224", ex.Message);
+        JavaScriptException ex = Invoking(() => parser.Parse(json)).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Message.Should().Be("Max. depth level of JSON reached at position 224");
     }
 
     [Fact]
@@ -313,8 +313,8 @@ public class JsonTests
         var engine = new Engine();
         var parser = new JsonParser(engine, maxDepth: 0);
 
-        JavaScriptException ex = Assert.Throws<JavaScriptException>(() => parser.Parse("{}"));
-        Assert.Equal("Max. depth level of JSON reached at position 0", ex.Message);
+        JavaScriptException ex = Invoking(() => parser.Parse("{}")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Message.Should().Be("Max. depth level of JSON reached at position 0");
     }
 
     [Fact]
@@ -323,8 +323,8 @@ public class JsonTests
         var engine = new Engine();
         var parser = new JsonParser(engine, maxDepth: 0);
 
-        JavaScriptException ex = Assert.Throws<JavaScriptException>(() => parser.Parse("[]"));
-        Assert.Equal("Max. depth level of JSON reached at position 0", ex.Message);
+        JavaScriptException ex = Invoking(() => parser.Parse("[]")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Message.Should().Be("Max. depth level of JSON reached at position 0");
     }
 
     [Fact]
@@ -334,10 +334,10 @@ public class JsonTests
         var parser = new JsonParser(engine, maxDepth: 1);
 
         ObjectInstance parsed = parser.Parse("{\"a\": 2, \"b\": true, \"c\": null, \"d\": \"test\"}").AsObject();
-        Assert.True(parsed["a"].IsNumber());
-        Assert.True(parsed["b"].IsBoolean());
-        Assert.True(parsed["c"].IsNull());
-        Assert.True(parsed["d"].IsString());
+        parsed["a"].IsNumber().Should().BeTrue();
+        parsed["b"].IsBoolean().Should().BeTrue();
+        parsed["c"].IsNull().Should().BeTrue();
+        parsed["d"].IsString().Should().BeTrue();
     }
 
     [Fact]
@@ -346,7 +346,7 @@ public class JsonTests
         var engine = new Engine(options => options.MaxJsonParseDepth(0));
         var parser = new JsonParser(engine);
 
-        Assert.Throws<JavaScriptException>(() => parser.Parse("[]"));
+        Invoking(() => parser.Parse("[]")).Should().ThrowExactly<JavaScriptException>();
     }
 
     [Fact]
@@ -362,7 +362,7 @@ public class JsonTests
                 && Object.prototype.a === undefined;
             """).AsBoolean();
 
-        Assert.True(ok);
+        ok.Should().BeTrue();
     }
 
     [Fact]
@@ -378,7 +378,7 @@ public class JsonTests
                 && Object.prototype.a === undefined;
             """).AsBoolean();
 
-        Assert.True(ok);
+        ok.Should().BeTrue();
     }
 
     [Fact]
@@ -392,7 +392,7 @@ public class JsonTests
                 && Object.getPrototypeOf(o) === Object.prototype;
             """).AsBoolean();
 
-        Assert.True(ok);
+        ok.Should().BeTrue();
     }
 
     [Fact]
@@ -406,7 +406,7 @@ public class JsonTests
                 && JSON.stringify(o) === '{"a":2,"b":9}';
             """).AsBoolean();
 
-        Assert.True(ok);
+        ok.Should().BeTrue();
     }
 
     [Theory]
@@ -420,7 +420,7 @@ public class JsonTests
         engine.SetValue("json", json);
         var keys = engine.Evaluate("JSON.stringify(Object.keys(JSON.parse(json)))").AsString();
 
-        Assert.Equal(expectedKeys, keys);
+        keys.Should().Be(expectedKeys);
     }
 
     [Fact]
@@ -443,7 +443,7 @@ public class JsonTests
             ok && o.extra === 'x' && !('p0' in o) && Object.keys(o).length === 100;
             """).AsBoolean();
 
-        Assert.True(ok);
+        ok.Should().BeTrue();
     }
 
     [Fact]
@@ -460,7 +460,7 @@ public class JsonTests
                 && JSON.stringify(Object.keys(o)) === '["keep","double"]';
             """).AsBoolean();
 
-        Assert.True(ok);
+        ok.Should().BeTrue();
     }
 
     [Fact]
@@ -475,7 +475,7 @@ public class JsonTests
                 && a[0].id === 1 && a[2].id === 3;
             """).AsBoolean();
 
-        Assert.True(ok);
+        ok.Should().BeTrue();
     }
 
     [Fact]
@@ -491,7 +491,7 @@ public class JsonTests
             sources.a === '1' && sources.b === '"x"';
             """).AsBoolean();
 
-        Assert.True(ok);
+        ok.Should().BeTrue();
     }
 
     [Fact]
@@ -512,7 +512,7 @@ public class JsonTests
             ok && o.a === 1 && Object.isFrozen(o);
             """).AsBoolean();
 
-        Assert.True(ok);
+        ok.Should().BeTrue();
     }
 
     [Fact]
@@ -533,7 +533,7 @@ public class JsonTests
             ok;
             """).AsBoolean();
 
-        Assert.True(ok);
+        ok.Should().BeTrue();
     }
 
     [Fact]
@@ -562,7 +562,7 @@ public class JsonTests
             ok;
             """).AsBoolean();
 
-        Assert.True(ok);
+        ok.Should().BeTrue();
     }
 
     [Fact]
@@ -570,11 +570,11 @@ public class JsonTests
     {
         var engine = new Engine();
         var array = engine.Evaluate("""JSON.parse('[{"a":1,"b":2},{"a":3,"b":4}]')""").AsArray();
-        var first = Assert.IsType<JsObject>(array[0]);
-        var second = Assert.IsType<JsObject>(array[1]);
+        var first = array[0].Should().BeOfType<JsObject>().Which;
+        var second = array[1].Should().BeOfType<JsObject>().Which;
 
-        Assert.NotNull(first.ShapeOf);
-        Assert.Same(first.ShapeOf, second.ShapeOf);
+        first.ShapeOf.Should().NotBeNull();
+        second.ShapeOf.Should().BeSameAs(first.ShapeOf);
     }
 
     [Fact]
@@ -585,7 +585,7 @@ public class JsonTests
             JSON.stringify(JSON.parse('[{"a":1,"b":"x"},{"a":2,"b":"y"}]')) === '[{"a":1,"b":"x"},{"a":2,"b":"y"}]';
             """).AsBoolean();
 
-        Assert.True(ok);
+        ok.Should().BeTrue();
     }
 
     [Fact]
@@ -600,7 +600,7 @@ public class JsonTests
                 && JSON.stringify(Object.keys(o.outer)) === '["inner","z"]';
             """).AsBoolean();
 
-        Assert.True(ok);
+        ok.Should().BeTrue();
     }
 
     [Fact]
@@ -609,18 +609,18 @@ public class JsonTests
         var parser = new JsonParser(new Engine());
 
         // escape at the very start, in the middle and at the end of the bulk run
-        Assert.Equal("\nabc", parser.Parse("\"\\nabc\"").AsString());
-        Assert.Equal("abc\ndef", parser.Parse("\"abc\\ndef\"").AsString());
-        Assert.Equal("abc\n", parser.Parse("\"abc\\n\"").AsString());
+        parser.Parse("\"\\nabc\"").AsString().Should().Be("\nabc");
+        parser.Parse("\"abc\\ndef\"").AsString().Should().Be("abc\ndef");
+        parser.Parse("\"abc\\n\"").AsString().Should().Be("abc\n");
 
         // every simple escape back-to-back: JSON "\"\\\/\n\r\t\b\f"
-        Assert.Equal("\"\\/\n\r\t\b\f", parser.Parse("\"\\\"\\\\\\/\\n\\r\\t\\b\\f\"").AsString());
+        parser.Parse("\"\\\"\\\\\\/\\n\\r\\t\\b\\f\"").AsString().Should().Be("\"\\/\n\r\t\b\f");
 
         // \uXXXX escapes (BMP)
-        Assert.Equal("Aé中", parser.Parse("\"\\u0041\\u00e9\\u4e2d\"").AsString());
+        parser.Parse("\"\\u0041\\u00e9\\u4e2d\"").AsString().Should().Be("Aé中");
 
         // a run with no escapes at all takes the pure bulk path
-        Assert.Equal("plain text with spaces", parser.Parse("\"plain text with spaces\"").AsString());
+        parser.Parse("\"plain text with spaces\"").AsString().Should().Be("plain text with spaces");
     }
 
     [Fact]
@@ -632,17 +632,17 @@ public class JsonTests
 
         // a single content run far longer than the 64-char buffer
         var long1 = new string('a', 200);
-        Assert.Equal(long1, parser.Parse("\"" + long1 + "\"").AsString());
+        parser.Parse("\"" + long1 + "\"").AsString().Should().Be(long1);
 
         // escape just before the boundary, then a long run after it
         var before = new string('a', 60);
         var after = new string('b', 60);
-        Assert.Equal(before + "\n" + after, parser.Parse("\"" + before + "\\n" + after + "\"").AsString());
+        parser.Parse("\"" + before + "\\n" + after + "\"").AsString().Should().Be(before + "\n" + after);
 
         // escape just after the boundary
         var before3 = new string('c', 70);
         var after3 = new string('d', 5);
-        Assert.Equal(before3 + "\t" + after3, parser.Parse("\"" + before3 + "\\t" + after3 + "\"").AsString());
+        parser.Parse("\"" + before3 + "\\t" + after3 + "\"").AsString().Should().Be(before3 + "\t" + after3);
 
         // many escapes interspersed straddling the boundary
         var json = new System.Text.StringBuilder("\"");
@@ -653,7 +653,7 @@ public class JsonTests
             expected.Append('x').Append('\n');
         }
         json.Append('"');
-        Assert.Equal(expected.ToString(), parser.Parse(json.ToString()).AsString());
+        parser.Parse(json.ToString()).AsString().Should().Be(expected.ToString());
     }
 
     [Fact]
@@ -664,8 +664,8 @@ public class JsonTests
         // accepts too); they historically terminated the scan with an UnexpectedEOS error
         var parser = new JsonParser(new Engine());
 
-        Assert.Equal("ab\u2028cd", parser.Parse("\"ab\u2028cd\"").AsString());
-        Assert.Equal("ab\u2029cd", parser.Parse("\"ab\u2029cd\"").AsString());
+        parser.Parse("\"ab\u2028cd\"").AsString().Should().Be("ab\u2028cd");
+        parser.Parse("\"ab\u2029cd\"").AsString().Should().Be("ab\u2029cd");
     }
 
     [Fact]
@@ -675,11 +675,11 @@ public class JsonTests
         // while being accepted in values
         var parser = new JsonParser(new Engine());
 
-        Assert.Equal(1, parser.Parse("{\"\\u0001\":1}").AsObject().Get("\u0001").AsNumber());
-        Assert.Equal(2, parser.Parse("{\"a\\u0000b\":2}").AsObject().Get("a\u0000b").AsNumber());
+        parser.Parse("{\"\\u0001\":1}").AsObject().Get("\u0001").AsNumber().Should().Be(1);
+        parser.Parse("{\"a\\u0000b\":2}").AsObject().Get("a\u0000b").AsNumber().Should().Be(2);
 
         // raw (unescaped) control characters keep being rejected, in keys and values alike
-        Assert.ThrowsAny<JavaScriptException>(() => parser.Parse("{\"\u0001\":1}"));
+        Invoking(() => parser.Parse("{\"\u0001\":1}")).Should().Throw<JavaScriptException>();
     }
 
     [Theory]
@@ -693,7 +693,7 @@ public class JsonTests
     {
         // int = zero / (digit1-9 *DIGIT) - also after a sign; frac = decimal-point 1*DIGIT
         var parser = new JsonParser(new Engine());
-        Assert.ThrowsAny<JavaScriptException>(() => parser.Parse(json));
+        Invoking(() => parser.Parse(json)).Should().Throw<JavaScriptException>();
     }
 
     [Theory]
@@ -706,10 +706,10 @@ public class JsonTests
     {
         var parser = new JsonParser(new Engine());
         var value = parser.Parse(json).AsNumber();
-        Assert.Equal(expected, value);
+        value.Should().Be(expected);
 #if !NETFRAMEWORK
         // .NET Framework's double.Parse loses the sign of negative zero (fixed in .NET Core 3.0)
-        Assert.Equal(double.IsNegativeInfinity(1 / expected), double.IsNegativeInfinity(1 / value));
+        double.IsNegativeInfinity(1 / value).Should().Be(double.IsNegativeInfinity(1 / expected));
 #endif
     }
 
@@ -727,7 +727,7 @@ public class JsonTests
             var json = GenerateRandomJsonNumber(random);
             var expected = BitConverter.DoubleToInt64Bits(double.Parse(json, JsonNumberStyles, CultureInfo.InvariantCulture));
             var actual = BitConverter.DoubleToInt64Bits(parser.Parse(json).AsNumber());
-            Assert.True(expected == actual, $"Bit mismatch for '{json}': expected 0x{expected:X16}, actual 0x{actual:X16}");
+            expected.Should().Be(actual, $"Bit mismatch for '{json}': expected 0x{expected:X16}, actual 0x{actual:X16}");
         }
     }
 
@@ -758,7 +758,7 @@ public class JsonTests
         var parser = new JsonParser(new Engine());
         var expected = BitConverter.DoubleToInt64Bits(double.Parse(json, JsonNumberStyles, CultureInfo.InvariantCulture));
         var actual = BitConverter.DoubleToInt64Bits(parser.Parse(json).AsNumber());
-        Assert.Equal(expected, actual);
+        actual.Should().Be(expected);
     }
 
     [Theory]
@@ -771,7 +771,7 @@ public class JsonTests
         // (+0.0 on .NET Framework, -0.0 on .NET Core) is preserved exactly rather than normalized.
         var expected = BitConverter.DoubleToInt64Bits(double.Parse(json, JsonNumberStyles, CultureInfo.InvariantCulture));
         var parser = new JsonParser(new Engine());
-        Assert.Equal(expected, BitConverter.DoubleToInt64Bits(parser.Parse(json).AsNumber()));
+        BitConverter.DoubleToInt64Bits(parser.Parse(json).AsNumber()).Should().Be(expected);
     }
 
     [Theory]
@@ -785,11 +785,11 @@ public class JsonTests
         var bits = BitConverter.DoubleToInt64Bits(parser.Parse(json).AsNumber());
         if (json == "0.5")
         {
-            Assert.NotEqual(positiveZeroBits, bits);
+            bits.Should().NotBe(positiveZeroBits);
         }
         else
         {
-            Assert.Equal(positiveZeroBits, bits);
+            bits.Should().Be(positiveZeroBits);
         }
     }
 
@@ -799,22 +799,22 @@ public class JsonTests
         var parser = new JsonParser(new Engine());
 
         var arr = parser.Parse("""["alpha","alpha","beta","alpha"]""").AsArray();
-        Assert.Equal("alpha", arr.Get("0").AsString());
-        Assert.Same(arr.Get("0"), arr.Get("1"));
-        Assert.Same(arr.Get("0"), arr.Get("3"));
-        Assert.Equal("beta", arr.Get("2").AsString());
-        Assert.NotSame(arr.Get("0"), arr.Get("2"));
+        arr.Get("0").AsString().Should().Be("alpha");
+        arr.Get("1").Should().BeSameAs(arr.Get("0"));
+        arr.Get("3").Should().BeSameAs(arr.Get("0"));
+        arr.Get("2").AsString().Should().Be("beta");
+        arr.Get("2").Should().NotBeSameAs(arr.Get("0"));
 
         var obj = parser.Parse("""{"a":"repeat","b":"repeat","c":"other"}""").AsObject();
-        Assert.Same(obj.Get("a"), obj.Get("b"));
-        Assert.Equal("repeat", obj.Get("a").AsString());
-        Assert.Equal("other", obj.Get("c").AsString());
+        obj.Get("b").Should().BeSameAs(obj.Get("a"));
+        obj.Get("a").AsString().Should().Be("repeat");
+        obj.Get("c").AsString().Should().Be("other");
 
         // Values interned once per parse are shared across nested arrays and objects within that parse.
         var root = parser.Parse("""{"list":["x-marker","x-marker"],"val":"x-marker"}""").AsObject();
         var list = root.Get("list").AsArray();
-        Assert.Same(list.Get("0"), list.Get("1"));
-        Assert.Same(list.Get("0"), root.Get("val"));
+        list.Get("1").Should().BeSameAs(list.Get("0"));
+        root.Get("val").Should().BeSameAs(list.Get("0"));
     }
 
     [Fact]
@@ -825,18 +825,18 @@ public class JsonTests
         // "AB" written three ways: plain, fully-escaped, and partially-escaped. All decode to the same
         // content, so interning (which keys off the DECODED span) must return one shared instance.
         var arr = parser.Parse("""["AB","AB","AB"]""").AsArray();
-        Assert.Equal("AB", arr.Get("0").AsString());
-        Assert.Equal("AB", arr.Get("1").AsString());
-        Assert.Equal("AB", arr.Get("2").AsString());
-        Assert.Same(arr.Get("0"), arr.Get("1"));
-        Assert.Same(arr.Get("0"), arr.Get("2"));
+        arr.Get("0").AsString().Should().Be("AB");
+        arr.Get("1").AsString().Should().Be("AB");
+        arr.Get("2").AsString().Should().Be("AB");
+        arr.Get("1").Should().BeSameAs(arr.Get("0"));
+        arr.Get("2").Should().BeSameAs(arr.Get("0"));
 
         // An escape sequence that decodes to content differing only by the escape must not collide.
         var arr2 = parser.Parse("""["line\nbreak","line\nbreak","linebreak"]""").AsArray();
-        Assert.Equal("line\nbreak", arr2.Get("0").AsString());
-        Assert.Same(arr2.Get("0"), arr2.Get("1"));
-        Assert.NotSame(arr2.Get("0"), arr2.Get("2"));
-        Assert.Equal("linebreak", arr2.Get("2").AsString());
+        arr2.Get("0").AsString().Should().Be("line\nbreak");
+        arr2.Get("1").Should().BeSameAs(arr2.Get("0"));
+        arr2.Get("2").Should().NotBeSameAs(arr2.Get("0"));
+        arr2.Get("2").AsString().Should().Be("linebreak");
     }
 
     [Fact]
@@ -845,14 +845,14 @@ public class JsonTests
         var parser = new JsonParser(new Engine());
 
         var arr = parser.Parse("""["","","x","x","y"]""").AsArray();
-        Assert.Equal("", arr.Get("0").AsString());
+        arr.Get("0").AsString().Should().Be("");
         // Empty routes through JsString.Create -> the shared JsString.Empty singleton.
-        Assert.Same(JsString.Empty, arr.Get("0"));
-        Assert.Same(arr.Get("0"), arr.Get("1"));
-        Assert.Equal("x", arr.Get("2").AsString());
-        Assert.Same(arr.Get("2"), arr.Get("3"));
-        Assert.Equal("y", arr.Get("4").AsString());
-        Assert.NotSame(arr.Get("2"), arr.Get("4"));
+        arr.Get("0").Should().BeSameAs(JsString.Empty);
+        arr.Get("1").Should().BeSameAs(arr.Get("0"));
+        arr.Get("2").AsString().Should().Be("x");
+        arr.Get("3").Should().BeSameAs(arr.Get("2"));
+        arr.Get("4").AsString().Should().Be("y");
+        arr.Get("4").Should().NotBeSameAs(arr.Get("2"));
     }
 
     [Fact]
@@ -878,7 +878,7 @@ public class JsonTests
         var arr = parser.Parse(sb.ToString()).AsArray();
         for (var i = 0; i < count; i++)
         {
-            Assert.Equal("value_" + i, arr.Get(i.ToString(CultureInfo.InvariantCulture)).AsString());
+            arr.Get(i.ToString(CultureInfo.InvariantCulture)).AsString().Should().Be("value_" + i);
         }
     }
 
@@ -891,9 +891,9 @@ public class JsonTests
         // huge unique strings can never thrash it. Still parsed exactly, just not deduplicated.
         var longVal = new string('z', 100);
         var arr = parser.Parse($"[\"{longVal}\",\"{longVal}\"]").AsArray();
-        Assert.Equal(longVal, arr.Get("0").AsString());
-        Assert.Equal(longVal, arr.Get("1").AsString());
-        Assert.NotSame(arr.Get("0"), arr.Get("1"));
+        arr.Get("0").AsString().Should().Be(longVal);
+        arr.Get("1").AsString().Should().Be(longVal);
+        arr.Get("1").Should().NotBeSameAs(arr.Get("0"));
     }
 
     [Fact]
@@ -904,9 +904,9 @@ public class JsonTests
         var parser = new JsonParser(new Engine());
         var first = parser.Parse("""["shared-token"]""").AsArray().Get("0");
         var second = parser.Parse("""["shared-token"]""").AsArray().Get("0");
-        Assert.Equal("shared-token", first.AsString());
-        Assert.Equal(first.AsString(), second.AsString());
-        Assert.NotSame(first, second);
+        first.AsString().Should().Be("shared-token");
+        second.AsString().Should().Be(first.AsString());
+        second.Should().NotBeSameAs(first);
     }
 
     [Theory]
@@ -926,7 +926,7 @@ public class JsonTests
         var expected = BitConverter.DoubleToInt64Bits(double.Parse(json, JsonNumberStyles, CultureInfo.InvariantCulture));
         var parser = new JsonParser(new Engine());
         var actual = BitConverter.DoubleToInt64Bits(parser.Parse(json).AsNumber());
-        Assert.Equal(expected, actual);
+        actual.Should().Be(expected);
     }
 
     [Fact]
@@ -935,8 +935,8 @@ public class JsonTests
         // Number tokens no longer carry an eager Text string; the diagnostic reconstructs the raw text
         // from the token range. Lock in that the reported token is byte-identical to the source.
         var parser = new JsonParser(new Engine());
-        var ex = Assert.ThrowsAny<JavaScriptException>(() => parser.Parse("1 23"));
-        Assert.Equal("Unexpected token '23' in JSON at position 2", ex.Message);
+        var ex = Invoking(() => parser.Parse("1 23")).Should().Throw<JavaScriptException>().Which;
+        ex.Message.Should().Be("Unexpected token '23' in JSON at position 2");
     }
 
     private static string GenerateRandomJsonNumber(Random random)

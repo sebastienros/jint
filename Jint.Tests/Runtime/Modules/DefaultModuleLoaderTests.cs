@@ -15,10 +15,10 @@ public class DefaultModuleLoaderTests
 
         var resolved = resolver.Resolve("file:///project/folder/script.js", new ModuleRequest(specifier, []));
 
-        Assert.Equal(specifier, resolved.ModuleRequest.Specifier);
-        Assert.Equal(expectedUri, resolved.Key);
-        Assert.Equal(expectedUri, resolved.Uri?.AbsoluteUri);
-        Assert.Equal(SpecifierType.RelativeOrAbsolute, resolved.Type);
+        resolved.ModuleRequest.Specifier.Should().Be(specifier);
+        resolved.Key.Should().Be(expectedUri);
+        (resolved.Uri?.AbsoluteUri).Should().Be(expectedUri);
+        resolved.Type.Should().Be(SpecifierType.RelativeOrAbsolute);
     }
 
     [Theory]
@@ -30,9 +30,9 @@ public class DefaultModuleLoaderTests
     {
         var resolver = new DefaultModuleLoader("file:///project");
 
-        var exc = Assert.Throws<ModuleResolutionException>(() => resolver.Resolve("file:///project/folder/script.js", new ModuleRequest(specifier, [])));
-        Assert.StartsWith(exc.ResolverAlgorithmError, "Unauthorized Module Path");
-        Assert.StartsWith(exc.Specifier, specifier);
+        var exc = Invoking(() => resolver.Resolve("file:///project/folder/script.js", new ModuleRequest(specifier, []))).Should().ThrowExactly<ModuleResolutionException>().Which;
+        "Unauthorized Module Path".Should().StartWith(exc.ResolverAlgorithmError);
+        specifier.Should().StartWith(exc.Specifier);
     }
 
     [Fact]
@@ -42,9 +42,9 @@ public class DefaultModuleLoaderTests
 
         var resolved = resolver.Resolve(null, new ModuleRequest("my-module", []));
 
-        Assert.Equal("my-module", resolved.ModuleRequest.Specifier);
-        Assert.Equal("my-module", resolved.Key);
-        Assert.Equal(null, resolved.Uri?.AbsoluteUri);
-        Assert.Equal(SpecifierType.Bare, resolved.Type);
+        resolved.ModuleRequest.Specifier.Should().Be("my-module");
+        resolved.Key.Should().Be("my-module");
+        (resolved.Uri?.AbsoluteUri).Should().BeNull();
+        resolved.Type.Should().Be(SpecifierType.Bare);
     }
 }

@@ -14,16 +14,16 @@ public class InstanceOfTests
         engine.SetValue("B", TypeReference.CreateTypeReference(engine, typeof(B)));
         engine.SetValue("C", TypeReference.CreateTypeReference(engine, typeof(C)));
 
-        Assert.True(engine.Evaluate("A == A").AsBoolean());
-        Assert.True(engine.Evaluate("A === A").AsBoolean());
-        Assert.True(engine.Evaluate("A == AToo").AsBoolean());
-        Assert.True(engine.Evaluate("A === AToo").AsBoolean());
+        engine.Evaluate("A == A").AsBoolean().Should().BeTrue();
+        engine.Evaluate("A === A").AsBoolean().Should().BeTrue();
+        engine.Evaluate("A == AToo").AsBoolean().Should().BeTrue();
+        engine.Evaluate("A === AToo").AsBoolean().Should().BeTrue();
 
-        Assert.True(engine.Evaluate("A.prototype instanceof A").AsBoolean());
-        Assert.True(engine.Evaluate("B.prototype instanceof A").AsBoolean());
-        Assert.False(engine.Evaluate("A.prototype instanceof B").AsBoolean());
-        Assert.True(engine.Evaluate("C.prototype instanceof A").AsBoolean());
-        Assert.True(engine.Evaluate("C.prototype instanceof B").AsBoolean());
+        engine.Evaluate("A.prototype instanceof A").AsBoolean().Should().BeTrue();
+        engine.Evaluate("B.prototype instanceof A").AsBoolean().Should().BeTrue();
+        engine.Evaluate("A.prototype instanceof B").AsBoolean().Should().BeFalse();
+        engine.Evaluate("C.prototype instanceof A").AsBoolean().Should().BeTrue();
+        engine.Evaluate("C.prototype instanceof B").AsBoolean().Should().BeTrue();
 
         var a = new A();
         var b = new B();
@@ -33,29 +33,29 @@ public class InstanceOfTests
         engine.SetValue("b", b);
         engine.SetValue("c", c);
 
-        Assert.True(engine.Evaluate("a instanceof A").AsBoolean());
-        Assert.False(engine.Evaluate("a instanceof B").AsBoolean());
-        Assert.False(engine.Evaluate("a instanceof C").AsBoolean());
+        engine.Evaluate("a instanceof A").AsBoolean().Should().BeTrue();
+        engine.Evaluate("a instanceof B").AsBoolean().Should().BeFalse();
+        engine.Evaluate("a instanceof C").AsBoolean().Should().BeFalse();
 
-        Assert.True(engine.Evaluate("b instanceof A").AsBoolean());
-        Assert.True(engine.Evaluate("b instanceof B").AsBoolean());
-        Assert.False(engine.Evaluate("b instanceof C").AsBoolean());
+        engine.Evaluate("b instanceof A").AsBoolean().Should().BeTrue();
+        engine.Evaluate("b instanceof B").AsBoolean().Should().BeTrue();
+        engine.Evaluate("b instanceof C").AsBoolean().Should().BeFalse();
 
-        Assert.True(engine.Evaluate("c instanceof A").AsBoolean());
-        Assert.True(engine.Evaluate("c instanceof B").AsBoolean());
-        Assert.True(engine.Evaluate("c instanceof C").AsBoolean());
+        engine.Evaluate("c instanceof A").AsBoolean().Should().BeTrue();
+        engine.Evaluate("c instanceof B").AsBoolean().Should().BeTrue();
+        engine.Evaluate("c instanceof C").AsBoolean().Should().BeTrue();
 
-        Assert.True(engine.Evaluate("new A() instanceof A").AsBoolean());
-        Assert.False(engine.Evaluate("new A() instanceof B").AsBoolean());
-        Assert.False(engine.Evaluate("new A() instanceof C").AsBoolean());
+        engine.Evaluate("new A() instanceof A").AsBoolean().Should().BeTrue();
+        engine.Evaluate("new A() instanceof B").AsBoolean().Should().BeFalse();
+        engine.Evaluate("new A() instanceof C").AsBoolean().Should().BeFalse();
 
-        Assert.True(engine.Evaluate("new B() instanceof A").AsBoolean());
-        Assert.True(engine.Evaluate("new B() instanceof B").AsBoolean());
-        Assert.False(engine.Evaluate("new B() instanceof C").AsBoolean());
+        engine.Evaluate("new B() instanceof A").AsBoolean().Should().BeTrue();
+        engine.Evaluate("new B() instanceof B").AsBoolean().Should().BeTrue();
+        engine.Evaluate("new B() instanceof C").AsBoolean().Should().BeFalse();
 
-        Assert.True(engine.Evaluate("new C() instanceof A").AsBoolean());
-        Assert.True(engine.Evaluate("new C() instanceof B").AsBoolean());
-        Assert.True(engine.Evaluate("new C() instanceof C").AsBoolean());
+        engine.Evaluate("new C() instanceof A").AsBoolean().Should().BeTrue();
+        engine.Evaluate("new C() instanceof B").AsBoolean().Should().BeTrue();
+        engine.Evaluate("new C() instanceof C").AsBoolean().Should().BeTrue();
     }
 
     public class A { }

@@ -1,4 +1,4 @@
-using Jint.Native;
+﻿using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
 
@@ -20,7 +20,7 @@ public class ConstructorShapeEligibilityTests
 
     private static Shape ShapeOf(JsObject o)
     {
-        Assert.True(IsShapeMode(o), "expected a shape-mode object");
+        IsShapeMode(o).Should().BeTrue("expected a shape-mode object");
         return o.ShapeOf;
     }
 
@@ -37,17 +37,17 @@ public class ConstructorShapeEligibilityTests
 
         // instances #1 and #2 stay dictionaries (the interned tree only pays off from ~3 instances,
         // so unrepeated layouts intern no shape state at all); instances #3+ share one hidden class
-        Assert.False(IsShapeMode(t1));
-        Assert.False(IsShapeMode(t2));
-        Assert.True(IsShapeMode(t3));
-        Assert.True(IsShapeMode(t4));
-        Assert.Same(ShapeOf(t3), ShapeOf(t4));
+        IsShapeMode(t1).Should().BeFalse();
+        IsShapeMode(t2).Should().BeFalse();
+        IsShapeMode(t3).Should().BeTrue();
+        IsShapeMode(t4).Should().BeTrue();
+        ShapeOf(t4).Should().BeSameAs(ShapeOf(t3));
 
-        Assert.Equal(1, engine.Evaluate("t1.a").AsNumber());
-        Assert.Equal(2, engine.Evaluate("t3.b").AsNumber());
-        Assert.Equal("a,b", engine.Evaluate("Object.keys(t1).join(',')").AsString());
-        Assert.Equal("a,b", engine.Evaluate("Object.keys(t3).join(',')").AsString());
-        Assert.True(engine.Evaluate("'a' in t3 && 'b' in t3 && !('c' in t3)").AsBoolean());
+        engine.Evaluate("t1.a").AsNumber().Should().Be(1);
+        engine.Evaluate("t3.b").AsNumber().Should().Be(2);
+        engine.Evaluate("Object.keys(t1).join(',')").AsString().Should().Be("a,b");
+        engine.Evaluate("Object.keys(t3).join(',')").AsString().Should().Be("a,b");
+        engine.Evaluate("'a' in t3 && 'b' in t3 && !('c' in t3)").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -57,9 +57,9 @@ public class ConstructorShapeEligibilityTests
         engine.Execute("function T() { this.a = 1; this.b = this.a + 1; } var t1 = new T(); var t2 = new T(); var t3 = new T();");
 
         var t3 = GetObject(engine, "t3");
-        Assert.True(IsShapeMode(t3));
-        Assert.Equal(2, engine.Evaluate("t1.b").AsNumber());
-        Assert.Equal(2, engine.Evaluate("t3.b").AsNumber());
+        IsShapeMode(t3).Should().BeTrue();
+        engine.Evaluate("t1.b").AsNumber().Should().Be(2);
+        engine.Evaluate("t3.b").AsNumber().Should().Be(2);
     }
 
     [Fact]
@@ -69,9 +69,9 @@ public class ConstructorShapeEligibilityTests
         engine.Execute("function T() { this.abs = Math.abs(-5); this.t = Date.now(); return; } var t1 = new T(); var t2 = new T(); var t3 = new T();");
 
         var t3 = GetObject(engine, "t3");
-        Assert.True(IsShapeMode(t3));
-        Assert.Equal(5, engine.Evaluate("t3.abs").AsNumber());
-        Assert.Equal("abs,t", engine.Evaluate("Object.keys(t3).join(',')").AsString());
+        IsShapeMode(t3).Should().BeTrue();
+        engine.Evaluate("t3.abs").AsNumber().Should().Be(5);
+        engine.Evaluate("Object.keys(t3).join(',')").AsString().Should().Be("abs,t");
     }
 
     [Fact]
@@ -81,9 +81,9 @@ public class ConstructorShapeEligibilityTests
         engine.Execute("function T() { 'use strict'; this.a = 1; } var t1 = new T(); var t2 = new T(); var t3 = new T();");
 
         var t3 = GetObject(engine, "t3");
-        Assert.True(IsShapeMode(t3));
-        Assert.Equal(1, engine.Evaluate("t1.a").AsNumber());
-        Assert.Equal(1, engine.Evaluate("t3.a").AsNumber());
+        IsShapeMode(t3).Should().BeTrue();
+        engine.Evaluate("t1.a").AsNumber().Should().Be(1);
+        engine.Evaluate("t3.a").AsNumber().Should().Be(1);
     }
 
     [Fact]
@@ -102,9 +102,9 @@ public class ConstructorShapeEligibilityTests
             """);
 
         var t3 = GetObject(engine, "t3");
-        Assert.True(IsShapeMode(t3));
-        Assert.Equal("self", engine.Evaluate("t1.get()").AsString());
-        Assert.Equal("self", engine.Evaluate("t3.get()").AsString());
+        IsShapeMode(t3).Should().BeTrue();
+        engine.Evaluate("t1.get()").AsString().Should().Be("self");
+        engine.Evaluate("t3.get()").AsString().Should().Be("self");
     }
 
     [Fact]
@@ -115,29 +115,29 @@ public class ConstructorShapeEligibilityTests
         // shape from instance #3 like straight-line ones.
         var engine = new Engine();
         engine.Execute("function T(f) { if (f) this.axis = 0; else this.axis = 2; this.n = 1; } var t1 = new T(true); var t2 = new T(false); var t3 = new T(true); var t4 = new T(false);");
-        Assert.False(IsShapeMode(GetObject(engine, "t1")));
-        Assert.True(IsShapeMode(GetObject(engine, "t3")));
-        Assert.True(IsShapeMode(GetObject(engine, "t4")));
-        Assert.Same(ShapeOf(GetObject(engine, "t3")), ShapeOf(GetObject(engine, "t4")));
-        Assert.Equal(0, engine.Evaluate("t3.axis").AsNumber());
-        Assert.Equal(2, engine.Evaluate("t4.axis").AsNumber());
-        Assert.Equal("axis,n", engine.Evaluate("Object.keys(t3).join(',')").AsString());
+        IsShapeMode(GetObject(engine, "t1")).Should().BeFalse();
+        IsShapeMode(GetObject(engine, "t3")).Should().BeTrue();
+        IsShapeMode(GetObject(engine, "t4")).Should().BeTrue();
+        ShapeOf(GetObject(engine, "t4")).Should().BeSameAs(ShapeOf(GetObject(engine, "t3")));
+        engine.Evaluate("t3.axis").AsNumber().Should().Be(0);
+        engine.Evaluate("t4.axis").AsNumber().Should().Be(2);
+        engine.Evaluate("Object.keys(t3).join(',')").AsString().Should().Be("axis,n");
 
         // divergent key sets per branch: both layouts stay correct, shapes differ per path
         engine = new Engine();
         engine.Execute("function T(f) { if (f) { this.a = 1; } else { this.b = 2; } } var t1 = new T(true); var t2 = new T(true); var t3 = new T(true); var t4 = new T(false);");
-        Assert.True(IsShapeMode(GetObject(engine, "t3")));
-        Assert.True(IsShapeMode(GetObject(engine, "t4")));
-        Assert.Equal(1, engine.Evaluate("t3.a").AsNumber());
-        Assert.False(engine.Evaluate("'b' in t3").AsBoolean());
-        Assert.Equal(2, engine.Evaluate("t4.b").AsNumber());
-        Assert.False(engine.Evaluate("'a' in t4").AsBoolean());
+        IsShapeMode(GetObject(engine, "t3")).Should().BeTrue();
+        IsShapeMode(GetObject(engine, "t4")).Should().BeTrue();
+        engine.Evaluate("t3.a").AsNumber().Should().Be(1);
+        engine.Evaluate("'b' in t3").AsBoolean().Should().BeFalse();
+        engine.Evaluate("t4.b").AsNumber().Should().Be(2);
+        engine.Evaluate("'a' in t4").AsBoolean().Should().BeFalse();
 
         // a this-escaping call in the if TEST still rejects eligibility
         engine = new Engine();
         engine.Execute("function ext(o) { o.dyn = 1; return true; } function T() { if (ext(this)) this.a = 1; } var t1 = new T(); var t2 = new T(); var t3 = new T();");
-        Assert.False(IsShapeMode(GetObject(engine, "t3")));
-        Assert.Equal("dyn,a", engine.Evaluate("Object.keys(t3).join(',')").AsString());
+        IsShapeMode(GetObject(engine, "t3")).Should().BeFalse();
+        engine.Evaluate("Object.keys(t3).join(',')").AsString().Should().Be("dyn,a");
     }
 
     [Fact]
@@ -150,43 +150,43 @@ public class ConstructorShapeEligibilityTests
         var engine = new Engine();
         engine.Execute("function T(k) { this[k] = 42; } var t = new T('dyn'); var t2 = new T('dyn'); var t3 = new T('dyn');");
         var t = GetObject(engine, "t");
-        Assert.False(IsShapeMode(t));
-        Assert.False(IsShapeMode(GetObject(engine, "t3")));
-        Assert.Equal(42, engine.Evaluate("t.dyn").AsNumber());
+        IsShapeMode(t).Should().BeFalse();
+        IsShapeMode(GetObject(engine, "t3")).Should().BeFalse();
+        engine.Evaluate("t.dyn").AsNumber().Should().Be(42);
 
         // this-call in body
         engine = new Engine();
         engine.Execute("function T() { this.init(); } T.prototype.init = function () { this.a = 1; }; var t = new T(); var t2 = new T(); var t3 = new T();");
         t = GetObject(engine, "t");
-        Assert.False(IsShapeMode(t));
-        Assert.False(IsShapeMode(GetObject(engine, "t3")));
-        Assert.Equal(1, engine.Evaluate("t.a").AsNumber());
+        IsShapeMode(t).Should().BeFalse();
+        IsShapeMode(GetObject(engine, "t3")).Should().BeFalse();
+        engine.Evaluate("t.a").AsNumber().Should().Be(1);
 
         // this escaping through a call in an assignment RHS; the escapee's write lands FIRST
         engine = new Engine();
         engine.Execute("function ext(o) { o.dyn = 1; return 2; } function T() { this.a = ext(this); } var t = new T(); var t2 = new T(); var t3 = new T();");
         t = GetObject(engine, "t");
-        Assert.False(IsShapeMode(t));
-        Assert.False(IsShapeMode(GetObject(engine, "t3")));
-        Assert.Equal(2, engine.Evaluate("t.a").AsNumber());
-        Assert.Equal("dyn,a", engine.Evaluate("Object.keys(t).join(',')").AsString());
+        IsShapeMode(t).Should().BeFalse();
+        IsShapeMode(GetObject(engine, "t3")).Should().BeFalse();
+        engine.Evaluate("t.a").AsNumber().Should().Be(2);
+        engine.Evaluate("Object.keys(t).join(',')").AsString().Should().Be("dyn,a");
 
         // this escaping through a call in a var initializer
         engine = new Engine();
         engine.Execute("function grab(o) { o.dyn = 1; return 3; } function T() { var x = grab(this); this.a = x; } var t = new T(); var t2 = new T(); var t3 = new T();");
         t = GetObject(engine, "t");
-        Assert.False(IsShapeMode(t));
-        Assert.False(IsShapeMode(GetObject(engine, "t3")));
-        Assert.Equal(3, engine.Evaluate("t.a").AsNumber());
+        IsShapeMode(t).Should().BeFalse();
+        IsShapeMode(GetObject(engine, "t3")).Should().BeFalse();
+        engine.Evaluate("t.a").AsNumber().Should().Be(3);
 
         // this escaping through a parameter default (runs during construction)
         engine = new Engine();
         engine.Execute("function capture(o) { o.k = 1; return 9; } function T(a = capture(this)) { this.x = a; } var t = new T(); var t2 = new T(); var t3 = new T();");
         t = GetObject(engine, "t");
-        Assert.False(IsShapeMode(t));
-        Assert.False(IsShapeMode(GetObject(engine, "t3")));
-        Assert.Equal(9, engine.Evaluate("t.x").AsNumber());
-        Assert.Equal(1, engine.Evaluate("t.k").AsNumber());
+        IsShapeMode(t).Should().BeFalse();
+        IsShapeMode(GetObject(engine, "t3")).Should().BeFalse();
+        engine.Evaluate("t.x").AsNumber().Should().Be(9);
+        engine.Evaluate("t.k").AsNumber().Should().Be(1);
     }
 
     [Fact]
@@ -200,10 +200,10 @@ public class ConstructorShapeEligibilityTests
             """);
 
         // instances 1..16 build dictionaries (the threshold-tripping 16th included); the 17th starts shaped
-        Assert.False(IsShapeMode(GetObject(engine, "arr[0]")));
-        Assert.False(IsShapeMode(GetObject(engine, "arr[15]")));
-        Assert.True(IsShapeMode(GetObject(engine, "arr[16]")));
-        Assert.True(engine.Evaluate("arr.every(function (x) { return x.a === 1; })").AsBoolean());
+        IsShapeMode(GetObject(engine, "arr[0]")).Should().BeFalse();
+        IsShapeMode(GetObject(engine, "arr[15]")).Should().BeFalse();
+        IsShapeMode(GetObject(engine, "arr[16]")).Should().BeTrue();
+        engine.Evaluate("arr.every(function (x) { return x.a === 1; })").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -216,12 +216,12 @@ public class ConstructorShapeEligibilityTests
         var a2 = GetObject(engine, "a2");
         var a3 = GetObject(engine, "a3");
         var a4 = GetObject(engine, "a4");
-        Assert.False(IsShapeMode(a1));
-        Assert.False(IsShapeMode(a2));
-        Assert.True(IsShapeMode(a3));
-        Assert.Same(ShapeOf(a3), ShapeOf(a4));
-        Assert.Equal(1, engine.Evaluate("a1.x").AsNumber());
-        Assert.Equal(1, engine.Evaluate("a3.x").AsNumber());
+        IsShapeMode(a1).Should().BeFalse();
+        IsShapeMode(a2).Should().BeFalse();
+        IsShapeMode(a3).Should().BeTrue();
+        ShapeOf(a4).Should().BeSameAs(ShapeOf(a3));
+        engine.Evaluate("a1.x").AsNumber().Should().Be(1);
+        engine.Evaluate("a3.x").AsNumber().Should().Be(1);
     }
 
     [Fact]
@@ -231,9 +231,9 @@ public class ConstructorShapeEligibilityTests
         engine.Execute("class D { y = 1; constructor() { this.z = 2; } } var d1 = new D(); var d2 = new D(); var d3 = new D();");
 
         var d3 = GetObject(engine, "d3");
-        Assert.True(IsShapeMode(d3));
-        Assert.Equal("y,z", engine.Evaluate("Object.keys(d1).join(',')").AsString());
-        Assert.Equal("y,z", engine.Evaluate("Object.keys(d3).join(',')").AsString());
+        IsShapeMode(d3).Should().BeTrue();
+        engine.Evaluate("Object.keys(d1).join(',')").AsString().Should().Be("y,z");
+        engine.Evaluate("Object.keys(d3).join(',')").AsString().Should().Be("y,z");
     }
 
     [Fact]
@@ -243,12 +243,12 @@ public class ConstructorShapeEligibilityTests
         engine.Execute("class B { b = 2; ['0'] = 1 } var b1 = new B(); var b2 = new B(); var b3 = new B();");
 
         var b1 = GetObject(engine, "b1");
-        Assert.False(IsShapeMode(b1));
-        Assert.False(IsShapeMode(GetObject(engine, "b3"))); // fields check rejects — sampling path, not #3 shaping
+        IsShapeMode(b1).Should().BeFalse();
+        IsShapeMode(GetObject(engine, "b3")).Should().BeFalse(); // fields check rejects — sampling path, not #3 shaping
         // integer-index keys enumerate first regardless of insertion order
-        Assert.Equal("0,b", engine.Evaluate("Object.keys(b1).join(',')").AsString());
-        Assert.Equal(1, engine.Evaluate("b1[0]").AsNumber());
-        Assert.Equal(2, engine.Evaluate("b1.b").AsNumber());
+        engine.Evaluate("Object.keys(b1).join(',')").AsString().Should().Be("0,b");
+        engine.Evaluate("b1[0]").AsNumber().Should().Be(1);
+        engine.Evaluate("b1.b").AsNumber().Should().Be(2);
     }
 
     [Fact]
@@ -258,11 +258,11 @@ public class ConstructorShapeEligibilityTests
         engine.Execute("class C { #p = 5; x = 1; getP() { return this.#p; } } var c1 = new C(); var c2 = new C(); var c3 = new C();");
 
         var c3 = GetObject(engine, "c3");
-        Assert.True(IsShapeMode(c3));
-        Assert.Equal(1, engine.Evaluate("c3.x").AsNumber());
-        Assert.Equal(5, engine.Evaluate("c1.getP()").AsNumber());
-        Assert.Equal(5, engine.Evaluate("c3.getP()").AsNumber());
-        Assert.Equal("x", engine.Evaluate("Object.keys(c3).join(',')").AsString());
+        IsShapeMode(c3).Should().BeTrue();
+        engine.Evaluate("c3.x").AsNumber().Should().Be(1);
+        engine.Evaluate("c1.getP()").AsNumber().Should().Be(5);
+        engine.Evaluate("c3.getP()").AsNumber().Should().Be(5);
+        engine.Evaluate("Object.keys(c3).join(',')").AsString().Should().Be("x");
     }
 
     [Fact]
@@ -282,14 +282,14 @@ public class ConstructorShapeEligibilityTests
         var b1 = GetObject(engine, "b1");
         var b2 = GetObject(engine, "b2");
         var b3 = GetObject(engine, "b3");
-        Assert.False(IsShapeMode(b1));
-        Assert.False(IsShapeMode(b2));
-        Assert.True(IsShapeMode(b3));
-        Assert.Equal(1, engine.Evaluate("b3.x").AsNumber());
-        Assert.Equal(2, engine.Evaluate("b3.y").AsNumber());
-        Assert.Equal("x,y", engine.Evaluate("Object.keys(b1).join(',')").AsString());
-        Assert.Equal("x,y", engine.Evaluate("Object.keys(b3).join(',')").AsString());
-        Assert.True(engine.Evaluate("b3 instanceof B && b3 instanceof A").AsBoolean());
+        IsShapeMode(b1).Should().BeFalse();
+        IsShapeMode(b2).Should().BeFalse();
+        IsShapeMode(b3).Should().BeTrue();
+        engine.Evaluate("b3.x").AsNumber().Should().Be(1);
+        engine.Evaluate("b3.y").AsNumber().Should().Be(2);
+        engine.Evaluate("Object.keys(b1).join(',')").AsString().Should().Be("x,y");
+        engine.Evaluate("Object.keys(b3).join(',')").AsString().Should().Be("x,y");
+        engine.Evaluate("b3 instanceof B && b3 instanceof A").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -307,14 +307,14 @@ public class ConstructorShapeEligibilityTests
 
         var r = GetObject(engine, "r");
         var a3 = GetObject(engine, "a3");
-        Assert.False(IsShapeMode(GetObject(engine, "a1")));
-        Assert.False(IsShapeMode(GetObject(engine, "a2")));
-        Assert.True(IsShapeMode(r));
-        Assert.True(IsShapeMode(a3));
-        Assert.True(engine.Evaluate("Object.getPrototypeOf(r) === C.prototype").AsBoolean());
-        Assert.Equal(1, engine.Evaluate("r.x").AsNumber());
+        IsShapeMode(GetObject(engine, "a1")).Should().BeFalse();
+        IsShapeMode(GetObject(engine, "a2")).Should().BeFalse();
+        IsShapeMode(r).Should().BeTrue();
+        IsShapeMode(a3).Should().BeTrue();
+        engine.Evaluate("Object.getPrototypeOf(r) === C.prototype").AsBoolean().Should().BeTrue();
+        engine.Evaluate("r.x").AsNumber().Should().Be(1);
         // different prototypes root different transition trees
-        Assert.NotSame(ShapeOf(r), ShapeOf(a3));
+        ShapeOf(a3).Should().NotBeSameAs(ShapeOf(r));
     }
 
     [Fact]
@@ -326,11 +326,11 @@ public class ConstructorShapeEligibilityTests
 
         // eligible, so instance #3 starts shaped — and deopts to dictionary at the 64-property guard
         var t = GetObject(engine, "t");
-        Assert.False(IsShapeMode(t));
+        IsShapeMode(t).Should().BeFalse();
 
         var expectedKeys = string.Join(",", Enumerable.Range(0, 70).Select(i => $"p{i}"));
-        Assert.Equal(expectedKeys, engine.Evaluate("Object.keys(t).join(',')").AsString());
-        Assert.True(engine.Evaluate("(function () { for (var i = 0; i < 70; i++) { if (t['p' + i] !== i) return false; } return true; })()").AsBoolean());
+        engine.Evaluate("Object.keys(t).join(',')").AsString().Should().Be(expectedKeys);
+        engine.Evaluate("(function () { for (var i = 0; i < 70; i++) { if (t['p' + i] !== i) return false; } return true; })()").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -351,14 +351,14 @@ public class ConstructorShapeEligibilityTests
         var t2 = GetObject(engine, "t2");
         var t3 = GetObject(engine, "t3");
 
-        Assert.True(IsShapeMode(t1));
-        Assert.True(IsShapeMode(t2));
-        Assert.NotSame(ShapeOf(t1), ShapeOf(t2)); // different prototype, different root
-        Assert.Same(ShapeOf(t2), ShapeOf(t3));
+        IsShapeMode(t1).Should().BeTrue();
+        IsShapeMode(t2).Should().BeTrue();
+        ShapeOf(t2).Should().NotBeSameAs(ShapeOf(t1)); // different prototype, different root
+        ShapeOf(t3).Should().BeSameAs(ShapeOf(t2));
 
-        Assert.Equal(1, engine.Evaluate("t2.a").AsNumber());
-        Assert.Equal("p2", engine.Evaluate("t2.tag").AsString());
-        Assert.False(engine.Evaluate("'tag' in t1").AsBoolean());
+        engine.Evaluate("t2.a").AsNumber().Should().Be(1);
+        engine.Evaluate("t2.tag").AsString().Should().Be("p2");
+        engine.Evaluate("'tag' in t1").AsBoolean().Should().BeFalse();
     }
 
     [Fact]
@@ -366,22 +366,22 @@ public class ConstructorShapeEligibilityTests
     {
         var engine = new Engine();
         engine.Execute("function T() { this.a = 1; this.b = 2; } var t0a = new T(); var t0b = new T(); var t = new T();");
-        Assert.True(IsShapeMode(GetObject(engine, "t")));
+        IsShapeMode(GetObject(engine, "t")).Should().BeTrue();
 
         engine.Execute("delete t.a;");
         var t = GetObject(engine, "t");
-        Assert.False(IsShapeMode(t));
-        Assert.False(engine.Evaluate("'a' in t").AsBoolean());
-        Assert.Equal(2, engine.Evaluate("t.b").AsNumber());
-        Assert.Equal("b", engine.Evaluate("Object.keys(t).join(',')").AsString());
+        IsShapeMode(t).Should().BeFalse();
+        engine.Evaluate("'a' in t").AsBoolean().Should().BeFalse();
+        engine.Evaluate("t.b").AsNumber().Should().Be(2);
+        engine.Evaluate("Object.keys(t).join(',')").AsString().Should().Be("b");
 
         engine.Execute("var u = new T(); Object.defineProperty(u, 'b', { enumerable: false });");
         var u = GetObject(engine, "u");
-        Assert.False(IsShapeMode(u));
-        Assert.Equal(2, engine.Evaluate("u.b").AsNumber());
-        Assert.Equal("a", engine.Evaluate("Object.keys(u).join(',')").AsString());
+        IsShapeMode(u).Should().BeFalse();
+        engine.Evaluate("u.b").AsNumber().Should().Be(2);
+        engine.Evaluate("Object.keys(u).join(',')").AsString().Should().Be("a");
 
         engine.Execute("var v = new T(); Object.defineProperty(v, 'a', { get: function () { return 99; } });");
-        Assert.Equal(99, engine.Evaluate("v.a").AsNumber());
+        engine.Evaluate("v.a").AsNumber().Should().Be(99);
     }
 }

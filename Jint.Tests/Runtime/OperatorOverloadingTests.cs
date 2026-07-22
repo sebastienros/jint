@@ -12,9 +12,10 @@ public class OperatorOverloadingTests
         _engine = new Engine(cfg => cfg
                 .AllowOperatorOverloading())
             .SetValue("log", new Action<object>(Console.WriteLine))
-            .SetValue("assert", new Action<bool>(Assert.True))
-            .SetValue("assertFalse", new Action<bool>(Assert.False))
-            .SetValue("equal", new Action<object, object>(Assert.Equal))
+            .SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()))
+            .SetValue("assertFalse", new Action<bool>(static value => value.Should().BeFalse()))
+            .SetValue("equal", new Action<object, object>(static (expected, actual) =>
+                    actual.Should().BeEquivalentTo(expected, static options => options.WithStrictOrdering())))
             .SetValue("Vector2", typeof(Vector2))
             .SetValue("Vector3", typeof(Vector3))
             .SetValue("Vector2Child", typeof(Vector2Child));
@@ -365,8 +366,8 @@ public class OperatorOverloadingTests
         engine.SetValue("log", new Action<object>(Console.WriteLine));
 
         engine.Evaluate("let v1 = new Vector2D(1, 2);");
-        Assert.Equal("(1, 2)", engine.Evaluate("new String(v1)").As<StringInstance>().StringData.ToString());
-        Assert.Equal("### (1, 2) ###", engine.Evaluate("'### ' + v1 + ' ###'"));
+        engine.Evaluate("new String(v1)").As<StringInstance>().StringData.ToString().Should().Be("(1, 2)");
+        engine.Evaluate("'### ' + v1 + ' ###'").Should().Be("### (1, 2) ###");
     }
 
     [Fact]
@@ -386,10 +387,10 @@ public class OperatorOverloadingTests
         // The RHS expression (Promise.resolve(new Vector2(++counter, 10))) must run
         // exactly once even though _right.GetValue is structurally called twice
         // (once in EvaluateOperatorOverloading, once in the operator switch).
-        Assert.Equal(1, sideEffectCount);
+        sideEffectCount.Should().Be(1);
 
         var arr = result.As<Native.JsArray>();
-        Assert.Equal(2.0, arr.Get(0).AsNumber());   // v.X = 1 + 1 = 2
-        Assert.Equal(12.0, arr.Get(1).AsNumber());  // v.Y = 2 + 10 = 12
+        arr.Get(0).AsNumber().Should().Be(2.0);   // v.X = 1 + 1 = 2
+        arr.Get(1).AsNumber().Should().Be(12.0);  // v.Y = 2 + 10 = 12
     }
 }

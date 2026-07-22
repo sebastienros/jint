@@ -1,4 +1,4 @@
-namespace Jint.Tests.Runtime;
+﻿namespace Jint.Tests.Runtime;
 
 /// <summary>
 /// Pins the semantics of the bitwise identifier-operand lane (BitwiseIdentifierLane): unboxed
@@ -45,7 +45,7 @@ public class BitwiseLaneTests
             })()
             """).AsString();
 
-        Assert.Equal(expected, result);
+        result.Should().Be(expected);
     }
 
     [Fact]
@@ -68,7 +68,7 @@ public class BitwiseLaneTests
 
         // ToInt32(3.7)=3, ToInt32(-3.7)=-3 (so -3^5 = 0xFFFFFFF8 = -8), ToInt32(NaN/±Inf)=0,
         // ToInt32(2^32+2)=2, ToUint32(2^32+2)=2
-        Assert.Equal("6,-8,5,5,5,2,6,2", result);
+        result.Should().Be("6,-8,5,5,5,2,6,2");
     }
 
     [Fact]
@@ -84,7 +84,7 @@ public class BitwiseLaneTests
             """).AsString();
 
         // ToInt32(-0) = +0: xor gives 7, and (-0 | 0) is +0 so 1/(+0) = Infinity
-        Assert.Equal("7:Infinity", result);
+        result.Should().Be("7:Infinity");
     }
 
     [Fact]
@@ -100,11 +100,11 @@ public class BitwiseLaneTests
             """).AsString();
 
         // reference values verified independently with System.Numerics.BigInteger
-        Assert.Equal("12345678900808999523:706611344", result);
+        result.Should().Be("12345678900808999523:706611344");
 
-        var mixEx = Assert.Throws<Jint.Runtime.JavaScriptException>(() =>
-            engine.Evaluate("(function () { var a = 1n; var b = 2; return a ^ b; })()"));
-        Assert.Contains("BigInt", mixEx.Message);
+        var mixEx = Invoking(() =>
+            engine.Evaluate("(function () { var a = 1n; var b = 2; return a ^ b; })()")).Should().ThrowExactly<Jint.Runtime.JavaScriptException>().Which;
+        mixEx.Message.Should().Contain("BigInt");
     }
 
     [Fact]
@@ -126,7 +126,7 @@ public class BitwiseLaneTests
 
         // the lane declines (binding holds an object, not a number); generic path calls valueOf
         // once per evaluation — five iterations, five calls
-        Assert.Equal("5:5", result);
+        result.Should().Be("5:5");
     }
 
     [Fact]
@@ -141,7 +141,7 @@ public class BitwiseLaneTests
             })()
             """).AsString();
 
-        Assert.Equal("6:24", result);
+        result.Should().Be("6:24");
     }
 
     [Fact]
@@ -159,7 +159,7 @@ public class BitwiseLaneTests
                 return acc;
             })()
             """).AsNumber();
-        Assert.Equal(18, viaLexical);
+        viaLexical.Should().Be(18);
 
         var viaGlobals = engine.Evaluate("""
             gx = 12; gm = 10; gacc = 0;
@@ -168,6 +168,6 @@ public class BitwiseLaneTests
             }
             gacc;
             """).AsNumber();
-        Assert.Equal(18, viaGlobals);
+        viaGlobals.Should().Be(18);
     }
 }

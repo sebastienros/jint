@@ -11,11 +11,11 @@ public class BreakPointTests
         var loc2 = new BreakLocation(42, 23);
         var loc3 = new BreakLocation(17, 7);
 
-        Assert.Equal(loc1, loc2);
-        Assert.True(loc1 == loc2);
-        Assert.True(loc2 != loc3);
-        Assert.False(loc1 != loc2);
-        Assert.False(loc2 == loc3);
+        loc2.Should().Be(loc1);
+        loc1.Should().Be(loc2);
+        loc2.Should().NotBe(loc3);
+        loc1.Should().Be(loc2);
+        loc2.Should().NotBe(loc3);
     }
 
     [Fact]
@@ -25,11 +25,11 @@ public class BreakPointTests
         var loc2 = new BreakLocation("script1", 42, 23);
         var loc3 = new BreakLocation("script2", 42, 23);
 
-        Assert.Equal(loc1, loc2);
-        Assert.True(loc1 == loc2);
-        Assert.True(loc2 != loc3);
-        Assert.False(loc1 != loc2);
-        Assert.False(loc2 == loc3);
+        loc2.Should().Be(loc1);
+        loc1.Should().Be(loc2);
+        loc2.Should().NotBe(loc3);
+        loc1.Should().Be(loc2);
+        loc2.Should().NotBe(loc3);
     }
 
     [Fact]
@@ -41,13 +41,13 @@ public class BreakPointTests
         var any = new BreakLocation(null, 42, 23);
 
         var comparer = new OptionalSourceBreakLocationEqualityComparer();
-        Assert.True(comparer.Equals(script1, any));
-        Assert.True(comparer.Equals(script2, any));
-        Assert.False(comparer.Equals(script1, script2));
-        Assert.False(comparer.Equals(script2, script2b));
-        Assert.Equal(comparer.GetHashCode(script1), comparer.GetHashCode(any));
-        Assert.Equal(comparer.GetHashCode(script1), comparer.GetHashCode(script2));
-        Assert.NotEqual(comparer.GetHashCode(script2), comparer.GetHashCode(script2b));
+        comparer.Equals(script1, any).Should().BeTrue();
+        comparer.Equals(script2, any).Should().BeTrue();
+        comparer.Equals(script1, script2).Should().BeFalse();
+        comparer.Equals(script2, script2b).Should().BeFalse();
+        comparer.GetHashCode(any).Should().Be(comparer.GetHashCode(script1));
+        comparer.GetHashCode(script2).Should().Be(comparer.GetHashCode(script1));
+        comparer.GetHashCode(script2b).Should().NotBe(comparer.GetHashCode(script2));
     }
 
     [Fact]
@@ -56,21 +56,21 @@ public class BreakPointTests
         var engine = new Engine(options => options.DebugMode());
 
         engine.Debugger.BreakPoints.Set(new BreakPoint(4, 5, "i === 1"));
-        Assert.Collection(engine.Debugger.BreakPoints,
+        engine.Debugger.BreakPoints.Should().SatisfyRespectively(
             breakPoint =>
             {
-                Assert.Equal(4, breakPoint.Location.Line);
-                Assert.Equal(5, breakPoint.Location.Column);
-                Assert.Equal("i === 1", breakPoint.Condition);
+                breakPoint.Location.Line.Should().Be(4);
+                breakPoint.Location.Column.Should().Be(5);
+                breakPoint.Condition.Should().Be("i === 1");
             });
 
         engine.Debugger.BreakPoints.Set(new BreakPoint(4, 5));
-        Assert.Collection(engine.Debugger.BreakPoints,
+        engine.Debugger.BreakPoints.Should().SatisfyRespectively(
             breakPoint =>
             {
-                Assert.Equal(4, breakPoint.Location.Line);
-                Assert.Equal(5, breakPoint.Location.Column);
-                Assert.Equal(null, breakPoint.Condition);
+                breakPoint.Location.Line.Should().Be(4);
+                breakPoint.Location.Column.Should().Be(5);
+                breakPoint.Condition.Should().BeNull();
             });
     }
 
@@ -82,17 +82,17 @@ public class BreakPointTests
         engine.Debugger.BreakPoints.Set(new BreakPoint(4, 5, "i === 1"));
         engine.Debugger.BreakPoints.Set(new BreakPoint(5, 6, "j === 2"));
         engine.Debugger.BreakPoints.Set(new BreakPoint(10, 7, "x > 5"));
-        Assert.Equal(3, engine.Debugger.BreakPoints.Count);
+        engine.Debugger.BreakPoints.Should().HaveCount(3);
 
         engine.Debugger.BreakPoints.RemoveAt(new BreakLocation(null, 4, 5));
         engine.Debugger.BreakPoints.RemoveAt(new BreakLocation(null, 10, 7));
 
-        Assert.Collection(engine.Debugger.BreakPoints,
+        engine.Debugger.BreakPoints.Should().SatisfyRespectively(
             breakPoint =>
             {
-                Assert.Equal(5, breakPoint.Location.Line);
-                Assert.Equal(6, breakPoint.Location.Column);
-                Assert.Equal("j === 2", breakPoint.Condition);
+                breakPoint.Location.Line.Should().Be(5);
+                breakPoint.Location.Column.Should().Be(6);
+                breakPoint.Condition.Should().Be("j === 2");
             });
     }
 
@@ -104,8 +104,8 @@ public class BreakPointTests
         engine.Debugger.BreakPoints.Set(new BreakPoint(4, 5, "i === 1"));
         engine.Debugger.BreakPoints.Set(new BreakPoint(5, 6, "j === 2"));
         engine.Debugger.BreakPoints.Set(new BreakPoint(10, 7, "x > 5"));
-        Assert.True(engine.Debugger.BreakPoints.Contains(new BreakLocation(null, 5, 6)));
-        Assert.False(engine.Debugger.BreakPoints.Contains(new BreakLocation(null, 8, 9)));
+        engine.Debugger.BreakPoints.Contains(new BreakLocation(null, 5, 6)).Should().BeTrue();
+        engine.Debugger.BreakPoints.Contains(new BreakLocation(null, 8, 9)).Should().BeFalse();
     }
 
     [Fact]
@@ -122,15 +122,15 @@ x++; y *= 2;
         bool didBreak = false;
         engine.Debugger.Break += (sender, info) =>
         {
-            Assert.Equal(4, info.Location.Start.Line);
-            Assert.Equal(5, info.Location.Start.Column);
+            info.Location.Start.Line.Should().Be(4);
+            info.Location.Start.Column.Should().Be(5);
             didBreak = true;
             return StepMode.None;
         };
 
         engine.Debugger.BreakPoints.Set(new BreakPoint(4, 5));
         engine.Execute(script);
-        Assert.True(didBreak);
+        didBreak.Should().BeTrue();
     }
 
     [Fact]
@@ -147,8 +147,8 @@ x++; y *= 2;
         bool didBreak = false;
         engine.Debugger.Break += (sender, info) =>
         {
-            Assert.Equal(4, info.Location.Start.Line);
-            Assert.Equal(5, info.Location.Start.Column);
+            info.Location.Start.Line.Should().Be(4);
+            info.Location.Start.Column.Should().Be(5);
             didBreak = true;
             return StepMode.None;
         };
@@ -156,7 +156,7 @@ x++; y *= 2;
         engine.Debugger.BreakPoints.Set(new BreakPoint(4, 5));
         var prepared = Engine.PrepareScript(script);
         engine.Execute(prepared);
-        Assert.True(didBreak);
+        didBreak.Should().BeTrue();
     }
 
     [Fact]
@@ -183,21 +183,21 @@ test(z);";
         bool didBreak = false;
         engine.Debugger.Break += (sender, info) =>
         {
-            Assert.Equal("script2", info.Location.SourceFile);
-            Assert.Equal(3, info.Location.Start.Line);
-            Assert.Equal(0, info.Location.Start.Column);
+            info.Location.SourceFile.Should().Be("script2");
+            info.Location.Start.Line.Should().Be(3);
+            info.Location.Start.Column.Should().Be(0);
             didBreak = true;
             return StepMode.None;
         };
 
         engine.Execute(Engine.PrepareScript(script1, "script1"));
-        Assert.False(didBreak);
+        didBreak.Should().BeFalse();
 
         engine.Execute(Engine.PrepareScript(script2, "script2"));
-        Assert.False(didBreak);
+        didBreak.Should().BeFalse();
 
         engine.Execute(Engine.PrepareScript(script3, "script3"));
-        Assert.True(didBreak);
+        didBreak.Should().BeTrue();
     }
 
     [Fact]
@@ -211,7 +211,7 @@ x++;";
         bool didBreak = false;
         engine.Debugger.Break += (sender, info) =>
         {
-            Assert.Equal("<anonymous>", info.Location.SourceFile);
+            info.Location.SourceFile.Should().Be("<anonymous>");
             didBreak = true;
             return StepMode.None;
         };
@@ -219,7 +219,7 @@ x++;";
         engine.Debugger.BreakPoints.Set(new BreakPoint("<anonymous>", 2, 0));
         var prepared = Engine.PrepareScript(script);
         engine.Execute(prepared);
-        Assert.True(didBreak);
+        didBreak.Should().BeTrue();
     }
 
     [Fact]
@@ -246,9 +246,9 @@ test(z);";
         bool didBreak = false;
         engine.Debugger.Break += (sender, info) =>
         {
-            Assert.Equal("script2", info.Location.SourceFile);
-            Assert.Equal(3, info.Location.Start.Line);
-            Assert.Equal(0, info.Location.Start.Column);
+            info.Location.SourceFile.Should().Be("script2");
+            info.Location.Start.Line.Should().Be(3);
+            info.Location.Start.Column.Should().Be(0);
             didBreak = true;
             return StepMode.None;
         };
@@ -256,15 +256,15 @@ test(z);";
         // We need to specify the source to the parser.
         // And we need locations too (Jint specifies that in its default options)
         engine.Execute(script1, "script1");
-        Assert.False(didBreak);
+        didBreak.Should().BeFalse();
 
         engine.Execute(script2, "script2");
-        Assert.False(didBreak);
+        didBreak.Should().BeFalse();
 
         // Note that it's actually script3 that executes the function in script2
         // and triggers the breakpoint
         engine.Execute(script3, "script3");
-        Assert.True(didBreak);
+        didBreak.Should().BeTrue();
     }
 
     [Fact]
@@ -281,14 +281,14 @@ debugger;
         bool didBreak = false;
         engine.Debugger.Break += (sender, info) =>
         {
-            Assert.Equal(PauseType.DebuggerStatement, info.PauseType);
+            info.PauseType.Should().Be(PauseType.DebuggerStatement);
             didBreak = true;
             return StepMode.None;
         };
 
         engine.Execute(script);
 
-        Assert.True(didBreak);
+        didBreak.Should().BeTrue();
     }
 
     [Fact]
@@ -318,8 +318,8 @@ debugger;
         };
 
         engine.Execute(script);
-        Assert.Equal(3, stepCount);
-        Assert.False(didBreak);
+        stepCount.Should().Be(3);
+        didBreak.Should().BeFalse();
     }
 
     [Fact]
@@ -340,13 +340,13 @@ debugger;
 
         engine.Debugger.Break += (sender, info) =>
         {
-            Assert.Equal(PauseType.Break, info.PauseType);
+            info.PauseType.Should().Be(PauseType.Break);
             breakCount++;
             return StepMode.None;
         };
 
         engine.Execute(script);
-        Assert.Equal(1, breakCount);
+        breakCount.Should().Be(1);
     }
 
     [Fact]
@@ -372,7 +372,7 @@ debugger;
             didBreak = true;
             // first breakpoint shouldn't cause us to get here, because we're stepping,
             // but when we reach the second, we're running:
-            Assert.True(TestHelpers.ReachedLiteral(info, "second breakpoint"));
+            TestHelpers.ReachedLiteral(info, "second breakpoint").Should().BeTrue();
             return StepMode.None;
         };
 
@@ -389,8 +389,8 @@ debugger;
 
         engine.Execute(script);
 
-        Assert.True(didStep);
-        Assert.True(didBreak);
+        didStep.Should().BeTrue();
+        didBreak.Should().BeTrue();
     }
 
     [Fact(Skip = "Non-source breakpoint is triggered before Statement, while debugger statement is now triggered by ExecuteInternal")]
@@ -415,7 +415,7 @@ debugger;
 
         engine.Execute(script);
 
-        Assert.Equal(1, breakTriggered);
+        breakTriggered.Should().Be(1);
     }
 
     [Fact]
@@ -444,7 +444,7 @@ test();";
                 case 1:
                     return StepMode.Out;
                 case 2:
-                    Assert.True(info.ReachedLiteral("target"));
+                    info.ReachedLiteral("target").Should().BeTrue();
                     break;
             }
             return StepMode.None;
@@ -452,7 +452,7 @@ test();";
 
         engine.Execute(script);
 
-        Assert.Equal(2, step);
+        step.Should().Be(2);
     }
 
     [Fact]
@@ -485,13 +485,13 @@ foo();
         {
             if (info.ReachedLiteral("before breakpoint"))
             {
-                Assert.Equal(1, engine.CallStack.Count);
+                engine.CallStack.Count.Should().Be(1);
                 stepsReached++;
                 return StepMode.None;
             }
             else if (info.ReachedLiteral("after breakpoint"))
             {
-                Assert.Equal(1, engine.CallStack.Count);
+                engine.CallStack.Count.Should().Be(1);
                 stepsReached++;
                 return StepMode.None;
             }
@@ -506,8 +506,8 @@ foo();
 
         engine.Execute(script);
 
-        Assert.Equal(1, breakpointsReached);
-        Assert.Equal(2, stepsReached);
+        breakpointsReached.Should().Be(1);
+        stepsReached.Should().Be(2);
     }
 
     private class SimpleHitConditionBreakPoint : BreakPoint
@@ -541,14 +541,14 @@ for (let i = 0; i < 10; i++)
         int numberOfBreaks = 0;
         engine.Debugger.Break += (sender, info) =>
         {
-            Assert.True(info.ReachedLiteral("breakpoint"));
-            var extendedBreakPoint = Assert.IsType<SimpleHitConditionBreakPoint>(info.BreakPoint);
+            info.ReachedLiteral("breakpoint").Should().BeTrue();
+            var extendedBreakPoint = info.BreakPoint.Should().BeOfType<SimpleHitConditionBreakPoint>().Which;
             extendedBreakPoint.HitCount++;
             if (extendedBreakPoint.HitCount == extendedBreakPoint.HitCondition)
             {
                 // Here is where we would normally pause the execution.
                 // the breakpoint is hit for the fifth time, when i is 4 (off by one)
-                Assert.Equal(4, info.CurrentScopeChain[0].GetBindingValue("i").AsInteger());
+                info.CurrentScopeChain[0].GetBindingValue("i").AsInteger().Should().Be(4);
                 numberOfBreaks++;
             }
             return StepMode.None;
@@ -556,6 +556,6 @@ for (let i = 0; i < 10; i++)
 
         engine.Execute(script);
 
-        Assert.Equal(1, numberOfBreaks);
+        numberOfBreaks.Should().Be(1);
     }
 }

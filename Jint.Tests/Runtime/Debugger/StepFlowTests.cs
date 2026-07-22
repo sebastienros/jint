@@ -35,14 +35,14 @@ public class StepFlowTests
 
         var nodes = CollectStepNodes(script);
 
-        Assert.Collection(nodes,
-            node => Assert.IsType<VariableDeclaration>(node), // let x = 0;
-            node => Assert.IsType<WhileStatement>(node),      // while ...
-            node => Assert.IsType<NonLogicalBinaryExpression>(node),    // x < 2
-            node => Assert.IsType<NonSpecialExpressionStatement>(node), // x++;
-            node => Assert.IsType<NonLogicalBinaryExpression>(node),    // x < 2
-            node => Assert.IsType<NonSpecialExpressionStatement>(node), // x++;
-            node => Assert.IsType<NonLogicalBinaryExpression>(node)     // x < 2 (false)
+        nodes.Should().SatisfyRespectively(
+            node => node.Should().BeOfType<VariableDeclaration>(), // let x = 0;
+            node => node.Should().BeOfType<WhileStatement>(),      // while ...
+            node => node.Should().BeOfType<NonLogicalBinaryExpression>(),    // x < 2
+            node => node.Should().BeOfType<NonSpecialExpressionStatement>(), // x++;
+            node => node.Should().BeOfType<NonLogicalBinaryExpression>(),    // x < 2
+            node => node.Should().BeOfType<NonSpecialExpressionStatement>(), // x++;
+            node => node.Should().BeOfType<NonLogicalBinaryExpression>()     // x < 2 (false)
         );
     }
 
@@ -60,13 +60,13 @@ public class StepFlowTests
 
         var nodes = CollectStepNodes(script);
 
-        Assert.Collection(nodes,
-            node => Assert.IsType<VariableDeclaration>(node), // let x = 0;
-            node => Assert.IsType<DoWhileStatement>(node),    // do ...
-            node => Assert.IsType<NonSpecialExpressionStatement>(node), // x++;
-            node => Assert.IsType<NonLogicalBinaryExpression>(node),    // x < 2
-            node => Assert.IsType<NonSpecialExpressionStatement>(node), // x++;
-            node => Assert.IsType<NonLogicalBinaryExpression>(node)     // x < 2 (false)
+        nodes.Should().SatisfyRespectively(
+            node => node.Should().BeOfType<VariableDeclaration>(), // let x = 0;
+            node => node.Should().BeOfType<DoWhileStatement>(),    // do ...
+            node => node.Should().BeOfType<NonSpecialExpressionStatement>(), // x++;
+            node => node.Should().BeOfType<NonLogicalBinaryExpression>(),    // x < 2
+            node => node.Should().BeOfType<NonSpecialExpressionStatement>(), // x++;
+            node => node.Should().BeOfType<NonLogicalBinaryExpression>()     // x < 2 (false)
         );
     }
 
@@ -82,16 +82,16 @@ public class StepFlowTests
 
         var nodes = CollectStepNodes(script);
 
-        Assert.Collection(nodes,
-            node => Assert.IsType<ForStatement>(node),        // for ...
-            node => Assert.IsType<VariableDeclaration>(node), // let x = 0
-            node => Assert.IsType<NonLogicalBinaryExpression>(node),    // x < 2
-            node => Assert.True(node.IsLiteral("dummy")),     // 'dummy';
-            node => Assert.IsType<UpdateExpression>(node),    // x++;
-            node => Assert.IsType<NonLogicalBinaryExpression>(node),    // x < 2
-            node => Assert.True(node.IsLiteral("dummy")),     // 'dummy';
-            node => Assert.IsType<UpdateExpression>(node),    // x++;
-            node => Assert.IsType<NonLogicalBinaryExpression>(node)     // x < 2 (false)
+        nodes.Should().SatisfyRespectively(
+            node => node.Should().BeOfType<ForStatement>(),        // for ...
+            node => node.Should().BeOfType<VariableDeclaration>(), // let x = 0
+            node => node.Should().BeOfType<NonLogicalBinaryExpression>(),    // x < 2
+            node => node.IsLiteral("dummy").Should().BeTrue(),     // 'dummy';
+            node => node.Should().BeOfType<UpdateExpression>(),    // x++;
+            node => node.Should().BeOfType<NonLogicalBinaryExpression>(),    // x < 2
+            node => node.IsLiteral("dummy").Should().BeTrue(),     // 'dummy';
+            node => node.Should().BeOfType<UpdateExpression>(),    // x++;
+            node => node.Should().BeOfType<NonLogicalBinaryExpression>()     // x < 2 (false)
         );
     }
 
@@ -108,13 +108,13 @@ public class StepFlowTests
 
         var nodes = CollectStepNodes(script);
 
-        Assert.Collection(nodes,
-            node => Assert.IsType<VariableDeclaration>(node), // let arr = [1, 2];
-            node => Assert.IsType<ForOfStatement>(node),      // for ...
-            node => Assert.IsType<VariableDeclaration>(node), // item
-            node => Assert.True(node.IsLiteral("dummy")),     // 'dummy';
-            node => Assert.IsType<VariableDeclaration>(node), // item
-            node => Assert.True(node.IsLiteral("dummy"))      // 'dummy';
+        nodes.Should().SatisfyRespectively(
+            node => node.Should().BeOfType<VariableDeclaration>(), // let arr = [1, 2];
+            node => node.Should().BeOfType<ForOfStatement>(),      // for ...
+            node => node.Should().BeOfType<VariableDeclaration>(), // item
+            node => node.IsLiteral("dummy").Should().BeTrue(),     // 'dummy';
+            node => node.Should().BeOfType<VariableDeclaration>(), // item
+            node => node.IsLiteral("dummy").Should().BeTrue()      // 'dummy';
         );
     }
 
@@ -131,13 +131,13 @@ public class StepFlowTests
 
         var nodes = CollectStepNodes(script);
 
-        Assert.Collection(nodes,
-            node => Assert.IsType<VariableDeclaration>(node), // let obj = { x: 1, y: 2 };
-            node => Assert.IsType<ForInStatement>(node),      // for ...
-            node => Assert.IsType<VariableDeclaration>(node), // key
-            node => Assert.IsType<NonSpecialExpressionStatement>(node), // 'dummy';
-            node => Assert.IsType<VariableDeclaration>(node), // key
-            node => Assert.IsType<NonSpecialExpressionStatement>(node)  // 'dummy';
+        nodes.Should().SatisfyRespectively(
+            node => node.Should().BeOfType<VariableDeclaration>(), // let obj = { x: 1, y: 2 };
+            node => node.Should().BeOfType<ForInStatement>(),      // for ...
+            node => node.Should().BeOfType<VariableDeclaration>(), // key
+            node => node.Should().BeOfType<NonSpecialExpressionStatement>(), // 'dummy';
+            node => node.Should().BeOfType<VariableDeclaration>(), // key
+            node => node.Should().BeOfType<NonSpecialExpressionStatement>()  // 'dummy';
         );
     }
 
@@ -158,12 +158,12 @@ public class StepFlowTests
 
         var nodes = CollectStepNodes(script);
 
-        Assert.Collection(nodes,
-            node => Assert.IsType<ClassDeclaration>(node),          // class Test
-            node => Assert.IsType<NonSpecialExpressionStatement>(node),       // new Test();
-            node => Assert.True(node.IsLiteral("in constructor")),  // 'in constructor()'
-            node => Assert.Null(node),                              // return point
-            node => Assert.True(node.IsLiteral("after construction"))
+        nodes.Should().SatisfyRespectively(
+            node => node.Should().BeOfType<ClassDeclaration>(),          // class Test
+            node => node.Should().BeOfType<NonSpecialExpressionStatement>(),       // new Test();
+            node => node.IsLiteral("in constructor").Should().BeTrue(),  // 'in constructor()'
+            node => node.Should().BeNull(),                              // return point
+            node => node.IsLiteral("after construction").Should().BeTrue()
         );
     }
 
@@ -180,11 +180,11 @@ public class StepFlowTests
 
         var nodes = CollectStepNodes(script);
 
-        Assert.Collection(nodes,
-            node => Assert.IsType<FunctionDeclaration>(node), // function(test) ...;
-            node => Assert.IsType<NonSpecialExpressionStatement>(node), // test();
-            node => Assert.True(node.IsLiteral("dummy")),     // 'dummy';
-            node => Assert.Null(node)                         // return point
+        nodes.Should().SatisfyRespectively(
+            node => node.Should().BeOfType<FunctionDeclaration>(), // function(test) ...;
+            node => node.Should().BeOfType<NonSpecialExpressionStatement>(), // test();
+            node => node.IsLiteral("dummy").Should().BeTrue(),     // 'dummy';
+            node => node.Should().BeNull()                         // return point
         );
     }
 
@@ -200,10 +200,10 @@ public class StepFlowTests
             ";
 
         var nodes = CollectStepNodes(script);
-        Assert.Collection(nodes,
-            node => Assert.IsType<ClassDeclaration>(node),    // class Test
-            node => Assert.IsType<NonSpecialExpressionStatement>(node), // new Test();
-            node => Assert.True(node.IsLiteral("dummy"))      // 'dummy';
+        nodes.Should().SatisfyRespectively(
+            node => node.Should().BeOfType<ClassDeclaration>(),    // class Test
+            node => node.Should().BeOfType<NonSpecialExpressionStatement>(), // new Test();
+            node => node.IsLiteral("dummy").Should().BeTrue()      // 'dummy';
         );
     }
 
@@ -218,15 +218,15 @@ let res = c();
 ";
 
         var steps = StepIntoScript(script);
-        Assert.Collection(steps,
-            step => Assert.Equal("function c( ) { »return b(3) + a(); }", step),
-            step => Assert.Equal("function b(l) { »return l + a(); }", step),
-            step => Assert.Equal("function a( ) { »return 2; }", step),
-            step => Assert.Equal("function a( ) { return 2; }»", step),
-            step => Assert.Equal("function b(l) { return l + a(); }»", step),
-            step => Assert.Equal("function a( ) { »return 2; }", step),
-            step => Assert.Equal("function a( ) { return 2; }»", step),
-            step => Assert.Equal("function c( ) { return b(3) + a(); }»", step));
+        steps.Should().SatisfyRespectively(
+            step => step.Should().Be("function c( ) { »return b(3) + a(); }"),
+            step => step.Should().Be("function b(l) { »return l + a(); }"),
+            step => step.Should().Be("function a( ) { »return 2; }"),
+            step => step.Should().Be("function a( ) { return 2; }»"),
+            step => step.Should().Be("function b(l) { return l + a(); }»"),
+            step => step.Should().Be("function a( ) { »return 2; }"),
+            step => step.Should().Be("function a( ) { return 2; }»"),
+            step => step.Should().Be("function c( ) { return b(3) + a(); }»"));
     }
 
     [Fact]
@@ -240,15 +240,15 @@ let res = c();
 ";
 
         var steps = StepIntoScript(script);
-        Assert.Collection(steps,
-            step => Assert.Equal("const c = ( ) => »b(3) + a();", step),
-            step => Assert.Equal("const b = (l) => »l + a();", step),
-            step => Assert.Equal("const a = ( ) => »2;", step),
-            step => Assert.Equal("const a = ( ) => 2»;", step),
-            step => Assert.Equal("const b = (l) => l + a()»;", step),
-            step => Assert.Equal("const a = ( ) => »2;", step),
-            step => Assert.Equal("const a = ( ) => 2»;", step),
-            step => Assert.Equal("const c = ( ) => b(3) + a()»;", step));
+        steps.Should().SatisfyRespectively(
+            step => step.Should().Be("const c = ( ) => »b(3) + a();"),
+            step => step.Should().Be("const b = (l) => »l + a();"),
+            step => step.Should().Be("const a = ( ) => »2;"),
+            step => step.Should().Be("const a = ( ) => 2»;"),
+            step => step.Should().Be("const b = (l) => l + a()»;"),
+            step => step.Should().Be("const a = ( ) => »2;"),
+            step => step.Should().Be("const a = ( ) => 2»;"),
+            step => step.Should().Be("const c = ( ) => b(3) + a()»;"));
     }
 
     private List<string> StepIntoScript(string script)

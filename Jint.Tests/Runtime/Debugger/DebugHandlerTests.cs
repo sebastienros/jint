@@ -27,7 +27,7 @@ public class DebugHandlerTests
         {
             // We should never reach "fail", because the only way it's executed is from
             // within this Step handler
-            Assert.False(info.ReachedLiteral("fail"));
+            info.ReachedLiteral("fail").Should().BeFalse();
 
             if (info.ReachedLiteral("target"))
             {
@@ -42,6 +42,6 @@ public class DebugHandlerTests
 
         engine.Execute(script);
 
-        Assert.True(didPropertyAccess);
+        didPropertyAccess.Should().BeTrue();
     }
 }

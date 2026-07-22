@@ -1,4 +1,4 @@
-namespace Jint.Tests.Runtime;
+﻿namespace Jint.Tests.Runtime;
 
 /// <summary>
 /// Pins the semantics of the member-bound arm of the comparison lane (`i &lt; arr.length` /
@@ -24,7 +24,7 @@ public class LengthBoundLaneTests
             })()
             """).AsString();
 
-        Assert.Equal("5:5", result);
+        result.Should().Be("5:5");
     }
 
     [Fact]
@@ -42,7 +42,7 @@ public class LengthBoundLaneTests
             })()
             """).AsNumber();
 
-        Assert.Equal(4, result);
+        result.Should().Be(4);
     }
 
     [Fact]
@@ -57,7 +57,7 @@ public class LengthBoundLaneTests
             })()
             """).AsNumber();
 
-        Assert.Equal(5, result);
+        result.Should().Be(5);
     }
 
     [Fact]
@@ -78,7 +78,7 @@ public class LengthBoundLaneTests
             })()
             """).AsNumber();
 
-        Assert.Equal(15, result);
+        result.Should().Be(15);
     }
 
     [Fact]
@@ -97,7 +97,7 @@ public class LengthBoundLaneTests
             })()
             """).AsNumber();
 
-        Assert.Equal(3, result);
+        result.Should().Be(3);
     }
 
     [Fact]
@@ -115,7 +115,7 @@ public class LengthBoundLaneTests
             })()
             """).AsString();
 
-        Assert.Equal("3:4", result);
+        result.Should().Be("3:4");
     }
 
     [Fact]
@@ -137,7 +137,7 @@ public class LengthBoundLaneTests
             })()
             """).AsString();
 
-        Assert.Equal("3:4", result);
+        result.Should().Be("3:4");
     }
 
     [Fact]
@@ -156,7 +156,7 @@ public class LengthBoundLaneTests
             })()
             """).AsString();
 
-        Assert.Equal("TypeError", result);
+        result.Should().Be("TypeError");
     }
 
     [Fact]
@@ -176,7 +176,7 @@ public class LengthBoundLaneTests
             })()
             """).AsString();
 
-        Assert.Equal("4:3", result);
+        result.Should().Be("4:3");
     }
 
     [Fact]
@@ -192,7 +192,7 @@ public class LengthBoundLaneTests
             n;
             """).AsNumber();
 
-        Assert.Equal(3, result);
+        result.Should().Be(3);
     }
 
     [Fact]
@@ -211,7 +211,7 @@ public class LengthBoundLaneTests
             })()
             """).AsNumber();
 
-        Assert.Equal(31, result);
+        result.Should().Be(31);
     }
 
     [Fact]
@@ -228,6 +228,6 @@ public class LengthBoundLaneTests
             })()
             """).AsNumber();
 
-        Assert.Equal(2, result);
+        result.Should().Be(2);
     }
 }

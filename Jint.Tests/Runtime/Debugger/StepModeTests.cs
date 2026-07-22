@@ -46,7 +46,7 @@ public class StepModeTests
         engine.Execute(script);
             
         // Make sure we actually reached the target
-        Assert.True(targetReached);
+        targetReached.Should().BeTrue();
 
         return steps;
     }
@@ -62,7 +62,7 @@ public class StepModeTests
                     'target'; // second step
                 }";
 
-        Assert.Equal(2, StepsFromSourceToTarget(script, StepMode.Into));
+        StepsFromSourceToTarget(script, StepMode.Into).Should().Be(2);
     }
 
     [Fact]
@@ -77,7 +77,7 @@ public class StepModeTests
                     'dummy';
                 }";
 
-        Assert.Equal(2, StepsFromSourceToTarget(script, StepMode.Over));
+        StepsFromSourceToTarget(script, StepMode.Over).Should().Be(2);
     }
 
     [Fact]
@@ -93,7 +93,7 @@ public class StepModeTests
                     'dummy';
                 }";
 
-        Assert.Equal(1, StepsFromSourceToTarget(script, StepMode.Out));
+        StepsFromSourceToTarget(script, StepMode.Out).Should().Be(1);
     }
 
     [Fact]
@@ -109,7 +109,7 @@ public class StepModeTests
                 'source';
                 obj.test(); // first step";
 
-        Assert.Equal(2, StepsFromSourceToTarget(script, StepMode.Into));
+        StepsFromSourceToTarget(script, StepMode.Into).Should().Be(2);
     }
 
     [Fact]
@@ -126,7 +126,7 @@ public class StepModeTests
                 obj.test();
                 'target';";
 
-        Assert.Equal(2, StepsFromSourceToTarget(script, StepMode.Over));
+        StepsFromSourceToTarget(script, StepMode.Over).Should().Be(2);
     }
 
     [Fact]
@@ -143,7 +143,7 @@ public class StepModeTests
                 obj.test();
                 'target';";
 
-        Assert.Equal(1, StepsFromSourceToTarget(script, StepMode.Out));
+        StepsFromSourceToTarget(script, StepMode.Out).Should().Be(1);
     }
 
     [Fact]
@@ -158,7 +158,7 @@ public class StepModeTests
                 'source';
                 const x = test(); // first step";
 
-        Assert.Equal(2, StepsFromSourceToTarget(script, StepMode.Into));
+        StepsFromSourceToTarget(script, StepMode.Into).Should().Be(2);
     }
 
     [Fact]
@@ -174,7 +174,7 @@ public class StepModeTests
                 const x = test();
                 'target';";
 
-        Assert.Equal(2, StepsFromSourceToTarget(script, StepMode.Over));
+        StepsFromSourceToTarget(script, StepMode.Over).Should().Be(2);
     }
 
     [Fact]
@@ -190,7 +190,7 @@ public class StepModeTests
                 const x = test();
                 'target';";
 
-        Assert.Equal(1, StepsFromSourceToTarget(script, StepMode.Out));
+        StepsFromSourceToTarget(script, StepMode.Out).Should().Be(1);
     }
 
     [Fact]
@@ -207,7 +207,7 @@ public class StepModeTests
                 'source';
                 const x = obj.test; // first step";
 
-        Assert.Equal(2, StepsFromSourceToTarget(script, StepMode.Into));
+        StepsFromSourceToTarget(script, StepMode.Into).Should().Be(2);
     }
 
     [Fact]
@@ -224,7 +224,7 @@ public class StepModeTests
                 const x = obj.test;
                 'target';";
 
-        Assert.Equal(2, StepsFromSourceToTarget(script, StepMode.Over));
+        StepsFromSourceToTarget(script, StepMode.Over).Should().Be(2);
     }
 
     [Fact]
@@ -242,7 +242,7 @@ public class StepModeTests
                 const x = obj.test;
                 'target';";
 
-        Assert.Equal(1, StepsFromSourceToTarget(script, StepMode.Out));
+        StepsFromSourceToTarget(script, StepMode.Out).Should().Be(1);
     }
 
     [Fact]
@@ -259,7 +259,7 @@ public class StepModeTests
                 'source';
                 obj.test = 37; // first step";
 
-        Assert.Equal(2, StepsFromSourceToTarget(script, StepMode.Into));
+        StepsFromSourceToTarget(script, StepMode.Into).Should().Be(2);
     }
 
     [Fact]
@@ -276,7 +276,7 @@ public class StepModeTests
                 obj.test = 37;
                 'target';";
 
-        Assert.Equal(2, StepsFromSourceToTarget(script, StepMode.Over));
+        StepsFromSourceToTarget(script, StepMode.Over).Should().Be(2);
     }
 
     [Fact]
@@ -294,7 +294,7 @@ public class StepModeTests
                 obj.test = 37;
                 'target';";
 
-        Assert.Equal(1, StepsFromSourceToTarget(script, StepMode.Out));
+        StepsFromSourceToTarget(script, StepMode.Out).Should().Be(1);
     }
 
     [Fact]
@@ -307,7 +307,7 @@ public class StepModeTests
                 }
                 test();
                 'target';";
-        Assert.Equal(2, StepsFromSourceToTarget(script, StepMode.Over));
+        StepsFromSourceToTarget(script, StepMode.Over).Should().Be(2);
     }
 
     [Fact]
@@ -321,7 +321,7 @@ public class StepModeTests
                 }
                 test();
                 'target';";
-        Assert.Equal(3, StepsFromSourceToTarget(script, StepMode.Over));
+        StepsFromSourceToTarget(script, StepMode.Over).Should().Be(3);
     }
 
     [Fact]
@@ -358,7 +358,7 @@ public class StepModeTests
                     }
                     break;
                 case 1:
-                    Assert.True(info.ReachedLiteral("target"));
+                    info.ReachedLiteral("target").Should().BeTrue();
                     step++;
                     break;
             }
@@ -396,7 +396,7 @@ public class StepModeTests
         {
             if (stepping)
             {
-                Assert.True(info.ReachedLiteral("target"));
+                info.ReachedLiteral("target").Should().BeTrue();
             }
             return StepMode.None;
         };
@@ -430,7 +430,7 @@ public class StepModeTests
 
         engine.Execute(script);
 
-        Assert.Equal(1, stepCount);
+        stepCount.Should().Be(1);
     }
 
     [Fact]
@@ -455,7 +455,7 @@ public class StepModeTests
 
         engine.Debugger.Step += (sender, info) =>
         {
-            Assert.True(TestHelpers.IsLiteral(info.CurrentNode, "step"));
+            TestHelpers.IsLiteral(info.CurrentNode, "step").Should().BeTrue();
             stepCount++;
             // Start running after first step
             return stepCount == 1 ? StepMode.None : StepMode.Into;
@@ -463,7 +463,7 @@ public class StepModeTests
 
         engine.Debugger.Skip += (sender, info) =>
         {
-            Assert.True(TestHelpers.IsLiteral(info.CurrentNode, "skip"));
+            TestHelpers.IsLiteral(info.CurrentNode, "skip").Should().BeTrue();
             skipCount++;
             return StepMode.None;
         };
@@ -476,7 +476,7 @@ public class StepModeTests
 
         engine.Execute(script);
 
-        Assert.Equal(2, skipCount);
-        Assert.Equal(3, stepCount);
+        skipCount.Should().Be(2);
+        stepCount.Should().Be(3);
     }
 }

@@ -1,4 +1,4 @@
-using Jint.Runtime;
+﻿using Jint.Runtime;
 
 namespace Jint.Tests.Runtime;
 
@@ -23,7 +23,7 @@ public class EvalTests
             engine.Execute("eval(src);");
         }
 
-        Assert.False(engine.Evaluate("leaked").AsBoolean());
+        engine.Evaluate("leaked").AsBoolean().Should().BeFalse();
     }
 
     [Fact]
@@ -37,7 +37,7 @@ public class EvalTests
             engine.Execute("eval(src);");
         }
 
-        Assert.Equal("1,2,3,4", engine.Evaluate("getters.map(function (g) { return g(); }).join(',')").AsString());
+        engine.Evaluate("getters.map(function (g) { return g(); }).join(',')").AsString().Should().Be("1,2,3,4");
     }
 
     [Fact]
@@ -52,11 +52,11 @@ public class EvalTests
             """);
 
         engine.Execute("run();");
-        Assert.Equal("2,1,0", engine.Evaluate("results.join(',')").AsString());
+        engine.Evaluate("results.join(',')").AsString().Should().Be("2,1,0");
 
         // second round reuses the promoted cache entry (and possibly a pooled environment)
         engine.Execute("n = 0; results = []; run();");
-        Assert.Equal("2,1,0", engine.Evaluate("results.join(',')").AsString());
+        engine.Evaluate("results.join(',')").AsString().Should().Be("2,1,0");
     }
 
     [Fact]
@@ -64,13 +64,13 @@ public class EvalTests
     {
         var engine = NewStrictEngine();
 
-        Assert.Equal(7, engine.Evaluate("eval('function h() { return 7; } h();')").AsNumber());
+        engine.Evaluate("eval('function h() { return 7; } h();')").AsNumber().Should().Be(7);
 
         // var and function declaration sharing a name occupy one binding, function wins at instantiation
-        Assert.Equal(1, engine.Evaluate("eval('var f; function f() { return 1; } f();')").AsNumber());
+        engine.Evaluate("eval('var f; function f() { return 1; } f();')").AsNumber().Should().Be(1);
 
         // hoisting: callable before the declaration's position, sees later var assignment at call time
-        Assert.Equal(5, engine.Evaluate("eval('var r = early(); function early() { return v; } var v = 5; r === undefined ? early() : -1;')").AsNumber());
+        engine.Evaluate("eval('var r = early(); function early() { return v; } var v = 5; r === undefined ? early() : -1;')").AsNumber().Should().Be(5);
     }
 
     [Fact]
@@ -78,8 +78,8 @@ public class EvalTests
     {
         var engine = NewStrictEngine();
 
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Execute("eval('const c = 1; c = 2;');"));
-        Assert.True(ex.Error.InstanceofOperator(engine.Intrinsics.TypeError));
+        var ex = Invoking(() => engine.Execute("eval('const c = 1; c = 2;');")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Error.InstanceofOperator(engine.Intrinsics.TypeError).Should().BeTrue();
     }
 
     [Fact]
@@ -87,8 +87,8 @@ public class EvalTests
     {
         var engine = NewStrictEngine();
 
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Execute("eval('t; let t = 1;');"));
-        Assert.True(ex.Error.InstanceofOperator(engine.Intrinsics.ReferenceError));
+        var ex = Invoking(() => engine.Execute("eval('t; let t = 1;');")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Error.InstanceofOperator(engine.Intrinsics.ReferenceError).Should().BeTrue();
     }
 
     [Fact]
@@ -106,7 +106,7 @@ public class EvalTests
             engine.Execute("eval(src);");
         }
 
-        Assert.Equal(190, engine.Evaluate("total").AsNumber());
+        engine.Evaluate("total").AsNumber().Should().Be(190);
     }
 
     [Fact]
@@ -115,7 +115,7 @@ public class EvalTests
         var engine = new Engine();
         engine.Execute("eval('var sloppyLeak = 5;');");
 
-        Assert.Equal(5, engine.Evaluate("sloppyLeak").AsNumber());
+        engine.Evaluate("sloppyLeak").AsNumber().Should().Be(5);
     }
 
     [Fact]
@@ -124,8 +124,8 @@ public class EvalTests
         var engine = new Engine();
         engine.Execute("var ivResult; (0, eval)(\"'use strict'; var iv = 3; ivResult = iv;\");");
 
-        Assert.Equal(3, engine.Evaluate("ivResult").AsNumber());
-        Assert.Equal("undefined", engine.Evaluate("typeof iv").AsString());
+        engine.Evaluate("ivResult").AsNumber().Should().Be(3);
+        engine.Evaluate("typeof iv").AsString().Should().Be("undefined");
     }
 
     [Fact]
@@ -146,7 +146,7 @@ public class EvalTests
             h();
             """);
 
-        Assert.Equal("q!,h!!", engine.Evaluate("log.join(',')").AsString());
+        engine.Evaluate("log.join(',')").AsString().Should().Be("q!,h!!");
     }
 
     [Fact]
@@ -154,7 +154,7 @@ public class EvalTests
     {
         var engine = NewStrictEngine();
 
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Execute("""
+        var ex = Invoking(() => engine.Execute("""
             function f() {
                 var x = 'h';
                 eval("x += '!'");
@@ -162,8 +162,8 @@ public class EvalTests
                 { const x = 'q'; eval("x += '!'"); }
             }
             f();
-            """));
-        Assert.True(ex.Error.InstanceofOperator(engine.Intrinsics.TypeError));
+            """)).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Error.InstanceofOperator(engine.Intrinsics.TypeError).Should().BeTrue();
     }
 
     [Fact]
@@ -179,7 +179,7 @@ public class EvalTests
             eval(src);
             """);
 
-        Assert.Equal("ab,ab,ab,ab", engine.Evaluate("results.join(',')").AsString());
+        engine.Evaluate("results.join(',')").AsString().Should().Be("ab,ab,ab,ab");
     }
 
     [Fact]
@@ -200,7 +200,7 @@ public class EvalTests
             outer();
             """);
 
-        Assert.Equal("A!,B!,outerS=A!", engine.Evaluate("results.join(',')").AsString());
+        engine.Evaluate("results.join(',')").AsString().Should().Be("A!,B!,outerS=A!");
     }
 
     [Fact]
@@ -211,7 +211,7 @@ public class EvalTests
         var engine = new Engine();
         engine.Execute("eval('var undefined;'); eval('var NaN;'); eval('var Infinity;');");
 
-        Assert.Equal("undefined", engine.Evaluate("typeof undefined").AsString());
+        engine.Evaluate("typeof undefined").AsString().Should().Be("undefined");
     }
 
     [Fact]
@@ -225,6 +225,6 @@ public class EvalTests
             engine.Execute($"outer = {i}; eval(src);");
         }
 
-        Assert.Equal("1,2,3,4", engine.Evaluate("seen.join(',')").AsString());
+        engine.Evaluate("seen.join(',')").AsString().Should().Be("1,2,3,4");
     }
 }

@@ -22,10 +22,10 @@ public class CallStackTests
 
         TestHelpers.TestAtBreak(script, info =>
         {
-            Assert.Collection(info.CallStack,
-                frame => Assert.Equal("foo", frame.FunctionName),
-                frame => Assert.Equal("bar", frame.FunctionName),
-                frame => Assert.Equal("(anonymous)", frame.FunctionName)
+            info.CallStack.Should().SatisfyRespectively(
+                frame => frame.FunctionName.Should().Be("foo"),
+                frame => frame.FunctionName.Should().Be("bar"),
+                frame => frame.FunctionName.Should().Be("(anonymous)")
             );
         });
     }
@@ -51,13 +51,13 @@ bar()";
             // The line numbers here may mislead - the positions are, as would be expected,
             // at the position before the currently executing line, not the line after.
             // Remember that Esprima (and hence Jint) line numbers are 1-based, not 0-based.
-            Assert.Collection(info.CallStack,
+            info.CallStack.Should().SatisfyRespectively(
                 // "debugger;"
-                frame => Assert.Equal(Position.From(4, 0), frame.Location.Start),
+                frame => frame.Location.Start.Should().Be(Position.From(4, 0)),
                 // "foo();"
-                frame => Assert.Equal(Position.From(9, 0), frame.Location.Start),
+                frame => frame.Location.Start.Should().Be(Position.From(9, 0)),
                 // "bar();"
-                frame => Assert.Equal(Position.From(12, 0), frame.Location.Start)
+                frame => frame.Location.Start.Should().Be(Position.From(12, 0))
             );
         });
     }
@@ -81,13 +81,13 @@ bar()";
         TestHelpers.TestAtBreak(script, info =>
         {
             // Remember that Esprima (and hence Jint) line numbers are 1-based, not 0-based.
-            Assert.Collection(info.CallStack,
+            info.CallStack.Should().SatisfyRespectively(
                 // function foo()
-                frame => Assert.Equal(Position.From(2, 0), frame.FunctionLocation?.Start),
+                frame => (frame.FunctionLocation?.Start).Should().Be(Position.From(2, 0)),
                 // function bar()
-                frame => Assert.Equal(Position.From(7, 0), frame.FunctionLocation?.Start),
+                frame => (frame.FunctionLocation?.Start).Should().Be(Position.From(7, 0)),
                 // global - no function location
-                frame => Assert.Equal(null, frame.FunctionLocation?.Start)
+                frame => (frame.FunctionLocation?.Start).Should().BeNull()
             );
         });
     }
@@ -112,8 +112,8 @@ bar()";
         {
             if (atReturn)
             {
-                Assert.NotNull(info.CurrentCallFrame.ReturnValue);
-                Assert.Equal("result", info.CurrentCallFrame.ReturnValue.AsString());
+                info.CurrentCallFrame.ReturnValue.Should().NotBeNull();
+                info.CurrentCallFrame.ReturnValue.AsString().Should().Be("result");
                 didCheckReturn = true;
                 atReturn = false;
             }
@@ -128,7 +128,7 @@ bar()";
 
         engine.Execute(script);
 
-        Assert.True(didCheckReturn);
+        didCheckReturn.Should().BeTrue();
     }
 
     [Fact]
@@ -151,9 +151,9 @@ car.test();
 
         TestHelpers.TestAtBreak(script, (engine, info) =>
         {
-            Assert.Collection(info.CallStack,
-                frame => Assert.Equal(engine.Realm.GlobalObject.Get("car"), frame.This),
-                frame => Assert.Equal(engine.Realm.GlobalObject, frame.This)
+            info.CallStack.Should().SatisfyRespectively(
+                frame => frame.This.Should().Be(engine.Realm.GlobalObject.Get("car")),
+                frame => frame.This.Should().Be(engine.Realm.GlobalObject)
             );
         });
     }
@@ -167,7 +167,7 @@ car.test();
 
         TestHelpers.TestAtBreak(script, info =>
         {
-            Assert.Equal("regularFunction", info.CurrentCallFrame.FunctionName);
+            info.CurrentCallFrame.FunctionName.Should().Be("regularFunction");
         });
     }
 
@@ -180,7 +180,7 @@ car.test();
 
         TestHelpers.TestAtBreak(script, info =>
         {
-            Assert.Equal("functionExpression", info.CurrentCallFrame.FunctionName);
+            info.CurrentCallFrame.FunctionName.Should().Be("functionExpression");
         });
     }
 
@@ -193,7 +193,7 @@ car.test();
 
         TestHelpers.TestAtBreak(script, info =>
         {
-            Assert.Equal("namedFunction", info.CurrentCallFrame.FunctionName);
+            info.CurrentCallFrame.FunctionName.Should().Be("namedFunction");
         });
     }
 
@@ -206,7 +206,7 @@ car.test();
 
         TestHelpers.TestAtBreak(script, info =>
         {
-            Assert.Equal("arrowFunction", info.CurrentCallFrame.FunctionName);
+            info.CurrentCallFrame.FunctionName.Should().Be("arrowFunction");
         });
     }
 
@@ -220,7 +220,7 @@ car.test();
         TestHelpers.TestAtBreak(script, info =>
         {
             // Ideally, this should be "(anonymous)", but FunctionConstructor sets the "anonymous" name.
-            Assert.Equal("anonymous", info.CurrentCallFrame.FunctionName);
+            info.CurrentCallFrame.FunctionName.Should().Be("anonymous");
         });
     }
 
@@ -233,7 +233,7 @@ car.test();
 
         TestHelpers.TestAtBreak(script, info =>
         {
-            Assert.Equal("memberFunction", info.CurrentCallFrame.FunctionName);
+            info.CurrentCallFrame.FunctionName.Should().Be("memberFunction");
         });
     }
 
@@ -248,7 +248,7 @@ car.test();
 
         TestHelpers.TestAtBreak(script, info =>
         {
-            Assert.Equal("(anonymous)", info.CurrentCallFrame.FunctionName);
+            info.CurrentCallFrame.FunctionName.Should().Be("(anonymous)");
         });
     }
 
@@ -267,7 +267,7 @@ car.test();
 
         TestHelpers.TestAtBreak(script, info =>
         {
-            Assert.Equal("get accessor", info.CurrentCallFrame.FunctionName);
+            info.CurrentCallFrame.FunctionName.Should().Be("get accessor");
         });
     }
 
@@ -286,7 +286,7 @@ car.test();
 
         TestHelpers.TestAtBreak(script, info =>
         {
-            Assert.Equal("set accessor", info.CurrentCallFrame.FunctionName);
+            info.CurrentCallFrame.FunctionName.Should().Be("set accessor");
         });
     }
 }

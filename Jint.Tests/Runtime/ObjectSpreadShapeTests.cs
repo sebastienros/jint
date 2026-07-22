@@ -1,4 +1,4 @@
-using Jint.Native;
+﻿using Jint.Native;
 using Jint.Runtime;
 
 namespace Jint.Tests.Runtime;
@@ -25,17 +25,17 @@ public class ObjectSpreadShapeTests
         var engine = new Engine();
 
         // Non-fast (function-valued property), no spread => must NOT be shape mode.
-        var general = Assert.IsType<JsObject>(engine.Evaluate("({ a: 1, b: 2, fn: function () {} })"));
-        Assert.True((general._type & InternalTypes.ShapeMode) == InternalTypes.Empty);
-        Assert.True((general._type & InternalTypes.ShapeBuilding) == InternalTypes.Empty);
+        var general = engine.Evaluate("({ a: 1, b: 2, fn: function () {} })").Should().BeOfType<JsObject>().Which;
+        (general._type & InternalTypes.ShapeMode).Should().Be(InternalTypes.Empty);
+        (general._type & InternalTypes.ShapeBuilding).Should().Be(InternalTypes.Empty);
 
         // The same key set reached through a spread => shape mode (the intended optimization).
         engine.Execute("var src = { a: 1, b: 2 };");
-        var spread = Assert.IsType<JsObject>(engine.Evaluate("({ ...src, fn: function () {} })"));
-        Assert.True((spread._type & InternalTypes.ShapeMode) != InternalTypes.Empty);
+        var spread = engine.Evaluate("({ ...src, fn: function () {} })").Should().BeOfType<JsObject>().Which;
+        (spread._type & InternalTypes.ShapeMode).Should().NotBe(InternalTypes.Empty);
 
         // Behavior is identical either way.
-        Assert.Equal("1,2", engine.Evaluate("(function () { var o = { a: 1, b: 2, fn: function () {} }; return o.a + ',' + o.b; })()").AsString());
+        engine.Evaluate("(function () { var o = { a: 1, b: 2, fn: function () {} }; return o.a + ',' + o.b; })()").AsString().Should().Be("1,2");
     }
 
     [Fact]
@@ -62,7 +62,7 @@ public class ObjectSpreadShapeTests
             })()
             """).AsString();
 
-        Assert.Equal("""{"keys":["a","b","c"],"values":[1,2,3],"calls":1,"hasHidden":false,"symCopied":"symval","bIsData":true}""", result);
+        result.Should().Be("""{"keys":["a","b","c"],"values":[1,2,3],"calls":1,"hasHidden":false,"symCopied":"symval","bIsData":true}""");
     }
 
     [Fact]
@@ -78,7 +78,7 @@ public class ObjectSpreadShapeTests
             })()
             """).AsString();
 
-        Assert.Equal("a,b,c,d,e,f|1,2,3,4,5,6", result);
+        result.Should().Be("a,b,c,d,e,f|1,2,3,4,5,6");
     }
 
     [Fact]
@@ -87,12 +87,12 @@ public class ObjectSpreadShapeTests
         var engine = new Engine();
         // Integer-like keys never enter a shape (the CreateDataProperty pre-check routes them to the
         // dictionary), so spec enumeration order — integer indices ascending, then string keys — holds.
-        Assert.Equal("0,1,2", engine.Evaluate("Object.keys({ ...[10, 20, 30] }).join()").AsString());
-        Assert.Equal("10,20,30", engine.Evaluate("Object.values({ ...[10, 20, 30] }).join()").AsString());
-        Assert.Equal("0,1,x", engine.Evaluate("Object.keys({ ...[1, 2], x: 3 }).join()").AsString());
+        engine.Evaluate("Object.keys({ ...[10, 20, 30] }).join()").AsString().Should().Be("0,1,2");
+        engine.Evaluate("Object.values({ ...[10, 20, 30] }).join()").AsString().Should().Be("10,20,30");
+        engine.Evaluate("Object.keys({ ...[1, 2], x: 3 }).join()").AsString().Should().Be("0,1,x");
         // String wrapper object: index-like own keys take the same dictionary fallback.
-        Assert.Equal("a,b", engine.Evaluate("Object.values({ ...Object('ab') }).join()").AsString());
-        Assert.Equal("0,1", engine.Evaluate("Object.keys({ ...Object('ab') }).join()").AsString());
+        engine.Evaluate("Object.values({ ...Object('ab') }).join()").AsString().Should().Be("a,b");
+        engine.Evaluate("Object.keys({ ...Object('ab') }).join()").AsString().Should().Be("0,1");
     }
 
     [Fact]
@@ -116,7 +116,7 @@ public class ObjectSpreadShapeTests
             })()
             """).AsString();
 
-        Assert.Equal("""{"before":["x","b","c"],"after":["b","c","x"],"dupKeys":["a"],"dupValue":2}""", result);
+        result.Should().Be("""{"before":["x","b","c"],"after":["b","c","x"],"dupKeys":["a"],"dupValue":2}""");
     }
 
     [Fact]
@@ -138,7 +138,7 @@ public class ObjectSpreadShapeTests
             })()
             """).AsString();
 
-        Assert.Equal("""{"keys":["a","b","g"],"g":3,"hasGetter":true,"enumerable":true,"configurable":true}""", result);
+        result.Should().Be("""{"keys":["a","b","g"],"g":3,"hasGetter":true,"enumerable":true,"configurable":true}""");
     }
 
     [Fact]
@@ -158,7 +158,7 @@ public class ObjectSpreadShapeTests
             })()
             """).AsString();
 
-        Assert.Equal("""{"keys":["a"],"protoOk":true,"ownProto":false,"inherited":"yes"}""", result);
+        result.Should().Be("""{"keys":["a"],"protoOk":true,"ownProto":false,"inherited":"yes"}""");
     }
 
     [Fact]
@@ -181,7 +181,7 @@ public class ObjectSpreadShapeTests
             })()
             """).AsString();
 
-        Assert.Equal("""{"ownProto":true,"protoUnchanged":true,"value":true}""", result);
+        result.Should().Be("""{"ownProto":true,"protoUnchanged":true,"value":true}""");
     }
 
     [Fact]
@@ -203,7 +203,7 @@ public class ObjectSpreadShapeTests
             })()
             """).AsString();
 
-        Assert.Equal("""{"keys":["b","c"],"b":2,"c":3,"hasA":false,"emptyKeys":[],"emptyIsObject":true}""", result);
+        result.Should().Be("""{"keys":["b","c"],"b":2,"c":3,"hasA":false,"emptyKeys":[],"emptyIsObject":true}""");
     }
 
     [Fact]
@@ -227,7 +227,7 @@ public class ObjectSpreadShapeTests
             })()
             """).AsString();
 
-        Assert.Equal("""{"inner":["z","w"],"outer":["q"],"z":2,"q":4,"member":["b","c"],"memberB":2}""", result);
+        result.Should().Be("""{"inner":["z","w"],"outer":["q"],"z":2,"q":4,"member":["b","c"],"memberB":2}""");
     }
 
     [Fact]
@@ -241,7 +241,7 @@ public class ObjectSpreadShapeTests
             })()
             """).AsString();
 
-        Assert.Equal("""{"keys":["b","c"],"b":2,"c":3}""", result);
+        result.Should().Be("""{"keys":["b","c"],"b":2,"c":3}""");
     }
 
     [Fact]
@@ -255,16 +255,16 @@ public class ObjectSpreadShapeTests
             })()
             """).AsString();
 
-        Assert.Equal("""{"first":"x","keys":["1","2"],"one":"y","two":"z"}""", result);
+        result.Should().Be("""{"first":"x","keys":["1","2"],"one":"y","two":"z"}""");
     }
 
     [Fact]
     public void FromEntriesKeepsOrderAndDuplicateKeysLastValueWinsFirstPosition()
     {
         var engine = new Engine();
-        Assert.Equal("x,y,z", engine.Evaluate("""Object.keys(Object.fromEntries([['x', 1], ['y', 2], ['z', 3]])).join()""").AsString());
+        engine.Evaluate("""Object.keys(Object.fromEntries([['x', 1], ['y', 2], ['z', 3]])).join()""").AsString().Should().Be("x,y,z");
         // Duplicate key re-add on the building shape: value overwritten in place.
-        Assert.Equal("""{"a":3,"b":2}""", engine.Evaluate("""JSON.stringify(Object.fromEntries([['a', 1], ['b', 2], ['a', 3]]))""").AsString());
+        engine.Evaluate("""JSON.stringify(Object.fromEntries([['a', 1], ['b', 2], ['a', 3]]))""").AsString().Should().Be("""{"a":3,"b":2}""");
     }
 
     [Fact]
@@ -286,7 +286,7 @@ public class ObjectSpreadShapeTests
             })()
             """).AsString();
 
-        Assert.Equal("""{"symVal":1,"a":2,"keys2":["0","5","a"],"five":"five","zero":"zero"}""", result);
+        result.Should().Be("""{"symVal":1,"a":2,"keys2":["0","5","a"],"five":"five","zero":"zero"}""");
     }
 
     [Fact]
@@ -310,7 +310,7 @@ public class ObjectSpreadShapeTests
             })()
             """).AsBoolean();
 
-        Assert.True(result);
+        result.Should().BeTrue();
     }
 
     [Fact]
@@ -324,7 +324,7 @@ public class ObjectSpreadShapeTests
             })()
             """).AsString();
 
-        Assert.Equal("""{"keys":["a","b","c"],"a":1,"b":3,"c":4}""", result);
+        result.Should().Be("""{"keys":["a","b","c"],"a":1,"b":3,"c":4}""");
     }
 
     [Fact]
@@ -351,7 +351,7 @@ public class ObjectSpreadShapeTests
             })()
             """).AsString();
 
-        Assert.Equal("""{"srcOwn":true,"protoOk":true,"ownProto":false,"marker":"proto","keys":[]}""", result);
+        result.Should().Be("""{"srcOwn":true,"protoOk":true,"ownProto":false,"marker":"proto","keys":[]}""");
     }
 
     [Fact]
@@ -366,7 +366,7 @@ public class ObjectSpreadShapeTests
                 return JSON.stringify({ same: r === t, keys: Object.keys(t), a: t.a });
             })()
             """).AsString();
-        Assert.Equal("""{"same":true,"keys":["x","a"],"a":1}""", result);
+        result.Should().Be("""{"same":true,"keys":["x","a"],"a":1}""");
 
         var frozen = engine.Evaluate("""
             (function () {
@@ -374,7 +374,7 @@ public class ObjectSpreadShapeTests
                 catch (e) { return e instanceof TypeError ? 'TypeError' : 'other'; }
             })()
             """).AsString();
-        Assert.Equal("TypeError", frozen);
+        frozen.Should().Be("TypeError");
 
         var frozenEmpty = engine.Evaluate("""
             (function () {
@@ -382,7 +382,7 @@ public class ObjectSpreadShapeTests
                 catch (e) { return e instanceof TypeError ? 'TypeError' : 'other'; }
             })()
             """).AsString();
-        Assert.Equal("TypeError", frozenEmpty);
+        frozenEmpty.Should().Be("TypeError");
     }
 
     [Fact]
@@ -398,7 +398,7 @@ public class ObjectSpreadShapeTests
             })()
             """).AsString();
 
-        Assert.Equal("""{"keys":["a","c"],"a":1,"d":4,"hasB":false}""", result);
+        result.Should().Be("""{"keys":["a","c"],"a":1,"d":4,"hasB":false}""");
     }
 
     [Fact]
@@ -429,7 +429,7 @@ public class ObjectSpreadShapeTests
             })()
             """).AsString();
 
-        Assert.Equal("""{"first":"suspended","keys":["a","b","c"],"a":1,"b":2,"c":3,"late":false}""", result);
+        result.Should().Be("""{"first":"suspended","keys":["a","b","c"],"a":1,"b":2,"c":3,"late":false}""");
     }
 
     [Fact]
@@ -450,7 +450,7 @@ public class ObjectSpreadShapeTests
             })()
             """).AsString();
 
-        Assert.Equal("""{"keys":["x","y","z"],"x":1,"y":2,"z":9}""", result);
+        result.Should().Be("""{"keys":["x","y","z"],"x":1,"y":2,"z":9}""");
     }
 
     [Fact]
@@ -459,21 +459,21 @@ public class ObjectSpreadShapeTests
         var engine = new Engine();
         engine.Execute("var src = { a: 1, b: 2, c: 3 };");
 
-        var spread1 = Assert.IsType<JsObject>(engine.Evaluate("({ ...src })"));
-        var spread2 = Assert.IsType<JsObject>(engine.Evaluate("({ ...src })"));
-        var rest = Assert.IsType<JsObject>(engine.Evaluate("(function () { var { x, ...r } = { x: 0, a: 1, b: 2, c: 3 }; return r; })()"));
-        var fromEntries = Assert.IsType<JsObject>(engine.Evaluate("Object.fromEntries([['a', 1], ['b', 2], ['c', 3]])"));
-        var assigned = Assert.IsType<JsObject>(engine.Evaluate("Object.assign({}, src)"));
+        var spread1 = engine.Evaluate("({ ...src })").Should().BeOfType<JsObject>().Which;
+        var spread2 = engine.Evaluate("({ ...src })").Should().BeOfType<JsObject>().Which;
+        var rest = engine.Evaluate("(function () { var { x, ...r } = { x: 0, a: 1, b: 2, c: 3 }; return r; })()").Should().BeOfType<JsObject>().Which;
+        var fromEntries = engine.Evaluate("Object.fromEntries([['a', 1], ['b', 2], ['c', 3]])").Should().BeOfType<JsObject>().Which;
+        var assigned = engine.Evaluate("Object.assign({}, src)").Should().BeOfType<JsObject>().Which;
 
-        Assert.NotSame(spread1, spread2);
-        Assert.True((spread1._type & InternalTypes.ShapeMode) != InternalTypes.Empty);
+        spread2.Should().NotBeSameAs(spread1);
+        (spread1._type & InternalTypes.ShapeMode).Should().NotBe(InternalTypes.Empty);
 
         // Same prototype + same key sequence => the very same interned Shape instance, across all
         // four copy idioms.
-        Assert.Same(spread1.ShapeOf, spread2.ShapeOf);
-        Assert.Same(spread1.ShapeOf, rest.ShapeOf);
-        Assert.Same(spread1.ShapeOf, fromEntries.ShapeOf);
-        Assert.Same(spread1.ShapeOf, assigned.ShapeOf);
+        spread2.ShapeOf.Should().BeSameAs(spread1.ShapeOf);
+        rest.ShapeOf.Should().BeSameAs(spread1.ShapeOf);
+        fromEntries.ShapeOf.Should().BeSameAs(spread1.ShapeOf);
+        assigned.ShapeOf.Should().BeSameAs(spread1.ShapeOf);
     }
 
     [Fact]
@@ -491,7 +491,7 @@ public class ObjectSpreadShapeTests
             })()
             """).AsString();
 
-        Assert.Equal("""{"keys":["x"],"x":2}""", result);
+        result.Should().Be("""{"keys":["x"],"x":2}""");
     }
 
     [Fact]
@@ -511,7 +511,7 @@ public class ObjectSpreadShapeTests
             })()
             """).AsString();
 
-        Assert.Equal("""{"keys":["b","c","d"],"c":3,"d":4,"dWritable":false}""", result);
+        result.Should().Be("""{"keys":["b","c","d"],"c":3,"d":4,"dWritable":false}""");
     }
 
     // ---- Source-shape adoption fast path: `{ ...src }` where src is itself a shape-mode object ----
@@ -522,26 +522,26 @@ public class ObjectSpreadShapeTests
         var engine = new Engine();
         engine.Execute("var src = { a: 1, b: 2, c: 3, d: 4 };");
 
-        var src = Assert.IsType<JsObject>(engine.Evaluate("src"));
-        var clone1 = Assert.IsType<JsObject>(engine.Evaluate("({ ...src })"));
-        var clone2 = Assert.IsType<JsObject>(engine.Evaluate("({ ...src })"));
+        var src = engine.Evaluate("src").Should().BeOfType<JsObject>().Which;
+        var clone1 = engine.Evaluate("({ ...src })").Should().BeOfType<JsObject>().Which;
+        var clone2 = engine.Evaluate("({ ...src })").Should().BeOfType<JsObject>().Which;
 
         // The clone reuses the source's exact interned leaf shape (same prototype + same key
         // sequence + same attributes), so the member inline cache stays monomorphic across the
         // source and every clone. Distinct objects, one shape.
-        Assert.NotSame(src, clone1);
-        Assert.NotSame(clone1, clone2);
-        Assert.True((clone1._type & InternalTypes.ShapeMode) != InternalTypes.Empty);
-        Assert.Same(src.ShapeOf, clone1.ShapeOf);
-        Assert.Same(clone1.ShapeOf, clone2.ShapeOf);
+        clone1.Should().NotBeSameAs(src);
+        clone2.Should().NotBeSameAs(clone1);
+        (clone1._type & InternalTypes.ShapeMode).Should().NotBe(InternalTypes.Empty);
+        clone1.ShapeOf.Should().BeSameAs(src.ShapeOf);
+        clone2.ShapeOf.Should().BeSameAs(clone1.ShapeOf);
 
         // `{ ...src, x }` extends the adopted shape by one interned transition — the same shape a
         // streamed build would land on — so those clones also share a shape with each other.
-        var ext1 = Assert.IsType<JsObject>(engine.Evaluate("({ ...src, x: 1 })"));
-        var ext2 = Assert.IsType<JsObject>(engine.Evaluate("({ ...src, x: 2 })"));
-        Assert.Same(ext1.ShapeOf, ext2.ShapeOf);
-        Assert.NotSame(src.ShapeOf, ext1.ShapeOf);
-        Assert.Equal("a,b,c,d,x", engine.Evaluate("Object.keys({ ...src, x: 1 }).join()").AsString());
+        var ext1 = engine.Evaluate("({ ...src, x: 1 })").Should().BeOfType<JsObject>().Which;
+        var ext2 = engine.Evaluate("({ ...src, x: 2 })").Should().BeOfType<JsObject>().Which;
+        ext2.ShapeOf.Should().BeSameAs(ext1.ShapeOf);
+        ext1.ShapeOf.Should().NotBeSameAs(src.ShapeOf);
+        engine.Evaluate("Object.keys({ ...src, x: 1 }).join()").AsString().Should().Be("a,b,c,d,x");
     }
 
     [Fact]
@@ -565,7 +565,7 @@ public class ObjectSpreadShapeTests
             })()
             """).AsString();
 
-        Assert.Equal("""{"srcA":1,"srcF":6,"tA":99,"tF":88,"sharedNested":42,"sameNestedRef":true}""", result);
+        result.Should().Be("""{"srcA":1,"srcF":6,"tA":99,"tF":88,"sharedNested":42,"sameNestedRef":true}""");
     }
 
     [Fact]
@@ -592,7 +592,7 @@ public class ObjectSpreadShapeTests
             })()
             """).AsString();
 
-        Assert.Equal("""{"keys":["a","b"],"hasInheritedOwn":false,"protoIsObjectProto":true,"a":1,"b":2}""", result);
+        result.Should().Be("""{"keys":["a","b"],"hasInheritedOwn":false,"protoIsObjectProto":true,"a":1,"b":2}""");
     }
 
     [Fact]
@@ -610,7 +610,7 @@ public class ObjectSpreadShapeTests
             })()
             """).AsString();
 
-        Assert.Equal("""{"keys":["0","a","b"],"zero":2,"a":1,"b":3}""", result);
+        result.Should().Be("""{"keys":["0","a","b"],"zero":2,"a":1,"b":3}""");
     }
 
     [Fact]
@@ -635,7 +635,7 @@ public class ObjectSpreadShapeTests
             })()
             """).AsString();
 
-        Assert.Equal("""{"keys":["a","b"],"a":1,"b":2,"enumSym":"enum","hiddenSym":true}""", result);
+        result.Should().Be("""{"keys":["a","b"],"a":1,"b":2,"enumSym":"enum","hiddenSym":true}""");
     }
 
     [Fact]
@@ -652,7 +652,7 @@ public class ObjectSpreadShapeTests
             })()
             """).AsString();
 
-        Assert.Equal("""{"keys":["a","b","c","d"],"values":[1,2,3,4]}""", result);
+        result.Should().Be("""{"keys":["a","b","c","d"],"values":[1,2,3,4]}""");
     }
 
     [Fact]
@@ -672,6 +672,6 @@ public class ObjectSpreadShapeTests
             })()
             """).AsString();
 
-        Assert.Equal("""{"cloneKeys":["a","b","c"],"srcKeys":["a","b"],"srcHasC":false}""", result);
+        result.Should().Be("""{"cloneKeys":["a","b","c"],"srcKeys":["a","b"],"srcHasC":false}""");
     }
 }

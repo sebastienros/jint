@@ -1,4 +1,4 @@
-using Jint.Native;
+﻿using Jint.Native;
 using Jint.Runtime;
 using Jint.Runtime.Modules;
 
@@ -21,7 +21,7 @@ public class ModuleTests
         _engine.Modules.Add("my-module", "export const value = 'exported value';");
         var ns = _engine.Modules.Import("my-module");
 
-        Assert.Equal("exported value", ns.Get("value").AsString());
+        ns.Get("value").AsString().Should().Be("exported value");
     }
 
     [Fact]
@@ -30,8 +30,8 @@ public class ModuleTests
         _engine.Modules.Add("my-module", "const value1 = 1; const value2 = 2; export { value1 as renamed1, value2 as renamed2 }");
         var ns =  _engine.Modules.Import("my-module");
 
-        Assert.Equal(1, ns.Get("renamed1").AsInteger());
-        Assert.Equal(2, ns.Get("renamed2").AsInteger());
+        ns.Get("renamed1").AsInteger().Should().Be(1);
+        ns.Get("renamed2").AsInteger().Should().Be(2);
     }
 
     [Fact]
@@ -40,7 +40,7 @@ public class ModuleTests
         _engine.Modules.Add("my-module", "export default 'exported value';");
         var ns =  _engine.Modules.Import("my-module");
 
-        Assert.Equal("exported value", ns.Get("default").AsString());
+        ns.Get("default").AsString().Should().Be("exported value");
     }
 
     [Fact]
@@ -51,12 +51,12 @@ public class ModuleTests
         var ns = _engine.Modules.Import("module1");
 
         var func = ns.Get("default");
-        Assert.Equal(1, func.Call());
+        func.Call().Should().Be(1);
 
         ns = _engine.Modules.Import("module2");
 
         func = ns.Get("default");
-        Assert.Equal(1, func.Call());
+        func.Call().Should().Be(1);
     }
 
     [Fact]
@@ -66,7 +66,7 @@ public class ModuleTests
         _engine.Modules.Add("module2", "export * from 'module1';");
         var ns =  _engine.Modules.Import("module2");
 
-        Assert.Equal("exported value", ns.Get("value").AsString());
+        ns.Get("value").AsString().Should().Be("exported value");
     }
 
     [Fact]
@@ -76,7 +76,7 @@ public class ModuleTests
         _engine.Modules.Add("my-module", "import { value } from 'imported-module'; export const exported = value;");
         var ns =  _engine.Modules.Import("my-module");
 
-        Assert.Equal("exported value", ns.Get("exported").AsString());
+        ns.Get("exported").AsString().Should().Be("exported value");
     }
 
     [Fact]
@@ -86,7 +86,7 @@ public class ModuleTests
         _engine.Modules.Add("my-module", "import { value as renamed } from 'imported-module'; export const exported = renamed;");
         var ns =  _engine.Modules.Import("my-module");
 
-        Assert.Equal("exported value", ns.Get("exported").AsString());
+        ns.Get("exported").AsString().Should().Be("exported value");
     }
 
     [Fact]
@@ -96,7 +96,7 @@ public class ModuleTests
         _engine.Modules.Add("my-module", "import imported from 'imported-module'; export const exported = imported;");
         var ns =  _engine.Modules.Import("my-module");
 
-        Assert.Equal("exported value", ns.Get("exported").AsString());
+        ns.Get("exported").AsString().Should().Be("exported value");
     }
 
     [Fact]
@@ -106,7 +106,7 @@ public class ModuleTests
         _engine.Modules.Add("my-module", "import * as imported from 'imported-module'; export const exported = imported.value;");
         var ns =  _engine.Modules.Import("my-module");
 
-        Assert.Equal("exported value", ns.Get("exported").AsString());
+        ns.Get("exported").AsString().Should().Be("exported value");
     }
 
     [Fact]
@@ -118,7 +118,7 @@ public class ModuleTests
 
          _engine.Modules.Import("my-module");
 
-        Assert.True(received);
+        received.Should().BeTrue();
     }
 
     [Fact]
@@ -133,7 +133,7 @@ public class ModuleTests
 
         _engine.Evaluate("import('imported-module').then(ns => { globalThis.result = ns.add(1, 2); });");
 
-        Assert.Equal(3, _engine.Evaluate("globalThis.result").AsInteger());
+        _engine.Evaluate("globalThis.result").AsInteger().Should().Be(3);
     }
 
     [Fact]
@@ -149,7 +149,7 @@ public class ModuleTests
         ");
         _engine.Advanced.ProcessTasks();
 
-        Assert.Equal("exported value", _engine.Evaluate("globalThis.result").AsString());
+        _engine.Evaluate("globalThis.result").AsString().Should().Be("exported value");
     }
 
     [Fact]
@@ -162,7 +162,7 @@ public class ModuleTests
         var ns = _engine.Modules.Import("imported-module");
         _engine.SetValue("lib", ns);
 
-        Assert.Equal(3, _engine.Evaluate("lib.add(1, 2)").AsInteger());
+        _engine.Evaluate("lib.add(1, 2)").AsInteger().Should().Be(3);
     }
 
     [Fact]
@@ -216,7 +216,7 @@ public class ModuleTests
             result;
         ").AsObject();
 
-        Assert.Equal("", result.Get("someText").AsString());
+        result.Get("someText").AsString().Should().Be("");
     }
 
     [Fact]
@@ -225,9 +225,9 @@ public class ModuleTests
         _engine.Modules.Add("imported", "export const invalid;");
         _engine.Modules.Add("my-module", "import { invalid } from 'imported';");
 
-        var exc = Assert.Throws<JavaScriptException>(() =>  _engine.Modules.Import("my-module"));
-        Assert.Equal("Error while loading module: error in module 'imported': Missing initializer in const declaration (imported:1:21)", exc.Message);
-        Assert.Equal("imported", exc.Location.SourceFile);
+        var exc = Invoking(() =>  _engine.Modules.Import("my-module")).Should().ThrowExactly<JavaScriptException>().Which;
+        exc.Message.Should().Be("Error while loading module: error in module 'imported': Missing initializer in const declaration (imported:1:21)");
+        exc.Location.SourceFile.Should().Be("imported");
     }
 
     [Fact]
@@ -236,9 +236,9 @@ public class ModuleTests
         _engine.Modules.Add("imported", "export invalid;");
         _engine.Modules.Add("my-module", "import { value } from 'imported';");
 
-        var exc = Assert.Throws<JavaScriptException>(() =>  _engine.Modules.Import("my-module"));
-        Assert.Equal("Error while loading module: error in module 'imported': Unexpected identifier 'invalid' (imported:1:8)", exc.Message);
-        Assert.Equal("imported", exc.Location.SourceFile);
+        var exc = Invoking(() =>  _engine.Modules.Import("my-module")).Should().ThrowExactly<JavaScriptException>().Which;
+        exc.Message.Should().Be("Error while loading module: error in module 'imported': Unexpected identifier 'invalid' (imported:1:8)");
+        exc.Location.SourceFile.Should().Be("imported");
     }
 
     [Fact]
@@ -246,9 +246,9 @@ public class ModuleTests
     {
         _engine.Modules.Add("my-module", "throw new Error('imported successfully');");
 
-        var exc = Assert.Throws<JavaScriptException>(() =>  _engine.Modules.Import("my-module"));
-        Assert.Equal("imported successfully", exc.Message);
-        Assert.Equal("my-module", exc.Location.SourceFile);
+        var exc = Invoking(() =>  _engine.Modules.Import("my-module")).Should().ThrowExactly<JavaScriptException>().Which;
+        exc.Message.Should().Be("imported successfully");
+        exc.Location.SourceFile.Should().Be("my-module");
     }
 
     [Fact]
@@ -257,8 +257,8 @@ public class ModuleTests
         _engine.Modules.Add("imported-module", "throw new Error('imported successfully');");
         _engine.Modules.Add("my-module", "import 'imported-module';");
 
-        var exc = Assert.Throws<JavaScriptException>(() =>  _engine.Modules.Import("my-module"));
-        Assert.Equal("imported successfully", exc.Message);
+        var exc = Invoking(() =>  _engine.Modules.Import("my-module")).Should().ThrowExactly<JavaScriptException>().Which;
+        exc.Message.Should().Be("imported successfully");
     }
 
     [Fact]
@@ -267,7 +267,7 @@ public class ModuleTests
         _engine.Modules.Add("my-module", builder => builder.ExportValue("value", JsString.Create("hello world")));
         var ns =  _engine.Modules.Import("my-module");
 
-        Assert.Equal("hello world", ns.Get("value").AsString());
+        ns.Get("value").AsString().Should().Be("hello world");
     }
 
     [Fact]
@@ -280,7 +280,7 @@ public class ModuleTests
         _engine.Modules.Add("my-module", "import { value } from 'imported-module'; export const exported = value.value;");
         var ns =  _engine.Modules.Import("my-module");
 
-        Assert.Equal("instance value", ns.Get("exported").AsString());
+        ns.Get("exported").AsString().Should().Be("instance value");
     }
 
     [Fact]
@@ -291,7 +291,7 @@ public class ModuleTests
         var instance = _engine.Construct(ctor, JsString.Create("world"));
         var result = instance.GetMethod("hello").Call(instance, JsString.Create("!"));
 
-        Assert.Equal("hello world!", result);
+        result.Should().Be("hello world!");
     }
 
     [Fact]
@@ -301,7 +301,7 @@ public class ModuleTests
         _engine.Modules.Add("my-module", "import { ImportedClass } from 'imported-module'; export const exported = new ImportedClass().value;");
         var ns =  _engine.Modules.Import("my-module");
 
-        Assert.Equal("hello world", ns.Get("exported").AsString());
+        ns.Get("exported").AsString().Should().Be("hello world");
     }
 
     [Fact]
@@ -327,18 +327,18 @@ import * as fns from 'imported-module';
 export const result = [fns.act_noargs(), fns.act_args('ok'), fns.fn_noargs(), fns.fn_args('ok')];");
         var ns =  _engine.Modules.Import("my-module");
 
-        Assert.Equal([
+        received.ToArray().Should().Equal([
             "act_noargs",
             "act_args:ok",
             "fn_noargs",
             "fn_args:ok"
-        ], received.ToArray());
-        Assert.Equal([
+        ]);
+        ns.Get("result").AsArray().Select(x => x.ToString()).ToArray().Should().Equal([
             "undefined",
             "undefined",
             "ret",
             "ret"
-        ], ns.Get("result").AsArray().Select(x => x.ToString()).ToArray());
+        ]);
     }
 
     private class ImportedClass
@@ -355,7 +355,7 @@ export const result = [fns.act_noargs(), fns.act_args('ok'), fns.fn_noargs(), fn
         _engine.Modules.Add("app", "import { value1, value2 } from '@mine'; export const result = `${value1} ${value2}`");
         var ns =  _engine.Modules.Import("app");
 
-        Assert.Equal("1 2", ns.Get("result").AsString());
+        ns.Get("result").AsString().Should().Be("1 2");
     }
 
     [Fact]
@@ -365,7 +365,7 @@ export const result = [fns.act_noargs(), fns.act_args('ok'), fns.fn_noargs(), fn
         _engine.Modules.Add("my-module", "export * as ns from 'imported-module';");
         var ns =  _engine.Modules.Import("my-module");
 
-        Assert.Equal(5, ns.Get("ns").Get("value1").AsNumber());
+        ns.Get("ns").Get("value1").AsNumber().Should().Be(5);
     }
 
     [Fact]
@@ -379,8 +379,8 @@ export const result = [fns.act_noargs(), fns.act_args('ok'), fns.fn_noargs(), fn
         );
         var ns =  _engine.Modules.Import("my-module");
 
-        Assert.Equal(2, ns.Get("output").AsInteger());
-        Assert.Equal(-1, ns.Get("num").AsInteger());
+        ns.Get("output").AsInteger().Should().Be(2);
+        ns.Get("num").AsInteger().Should().Be(-1);
     }
 
     [Fact]
@@ -392,7 +392,7 @@ export const result = [fns.act_noargs(), fns.act_args('ok'), fns.fn_noargs(), fn
          _engine.Modules.Import("my-module");
          _engine.Modules.Import("my-module");
 
-        Assert.Equal(1, called);
+        called.Should().Be(1);
     }
 
     [Fact]
@@ -407,7 +407,7 @@ export const count = globals.counter;
 ");
         var ns =  _engine.Modules.Import("my-module");
 
-        Assert.Equal(1, ns.Get("count").AsInteger());
+        ns.Get("count").AsInteger().Should().Be(1);
     }
 
     [Fact]
@@ -421,8 +421,8 @@ export const count = globals.counter;
         var nsA =  _engine.Modules.Import("A");
         var nsB =  _engine.Modules.Import("B");
 
-        Assert.Equal("a", nsA.Get("a").AsString());
-        Assert.Equal("b", nsB.Get("b").AsString());
+        nsA.Get("a").AsString().Should().Be("a");
+        nsB.Get("b").AsString().Should().Be("b");
     }
 
     [Fact]
@@ -432,7 +432,7 @@ export const count = globals.counter;
 
         engine.Modules.Add("sleep", builder => builder.ExportFunction("sleep", () => Thread.Sleep(100)));
         engine.Modules.Add("my-module", "import { sleep } from 'sleep'; for(var i = 0; i < 100; i++) { sleep(); } export const result = 'ok';");
-        Assert.Throws<TimeoutException>(() => engine.Modules.Import("my-module"));
+        Invoking(() => engine.Modules.Import("my-module")).Should().ThrowExactly<TimeoutException>();
     }
 
     [Fact]
@@ -442,7 +442,7 @@ export const count = globals.counter;
         engine.Modules.Add("my-module", "import { User } from './modules/user.js'; export const user = new User('John', 'Doe');");
         var ns = engine.Modules.Import("my-module");
 
-        Assert.Equal("John Doe", ns["user"].Get("name").AsString());
+        ns["user"].Get("name").AsString().Should().Be("John Doe");
     }
 
     [Fact]
@@ -452,7 +452,7 @@ export const count = globals.counter;
         var ns = engine.Modules.Import("./modules/format-name.js");
         var result = engine.Invoke(ns.Get("formatName"), "John", "Doe").AsString();
 
-        Assert.Equal("John Doe", result);
+        result.Should().Be("John Doe");
     }
 
     [Fact]
@@ -462,7 +462,7 @@ export const count = globals.counter;
         var ns = engine.Modules.Import("./dir with spaces/format name.js");
         var result = engine.Invoke(ns.Get("formatName"), "John", "Doe").AsString();
 
-        Assert.Equal("John Doe", result);
+        result.Should().Be("John Doe");
     }
 
     [Fact]
@@ -476,7 +476,7 @@ export const count = globals.counter;
             engine.Modules.Add("__main__", x => x.AddModule(module));
             var ns = engine.Modules.Import("__main__");
             var result = engine.Invoke(ns.Get("formatName"), "John" + i, "Doe").AsString();
-            Assert.Equal($"John{i} Doe", result);
+            result.Should().Be($"John{i} Doe");
         }
     }
 
@@ -500,9 +500,8 @@ export const count = globals.counter;
         engine.Execute(code, source: "file:///folder/main.js");
         engine.Advanced.ProcessTasks();
 
-        Assert.Collection(
-            logStatements,
-            s => Assert.Equal("myModuleConst", s));
+        logStatements.Should().SatisfyRespectively(
+            s => s.Should().Be("myModuleConst"));
     }
 
     [Fact]
@@ -526,9 +525,8 @@ export const count = globals.counter;
         engine.Execute(script);
         engine.Advanced.ProcessTasks();
 
-        Assert.Collection(
-            logStatements,
-            s => Assert.Equal("myModuleConst", s));
+        logStatements.Should().SatisfyRespectively(
+            s => s.Should().Be("myModuleConst"));
     }
 
     [Fact]
@@ -551,9 +549,8 @@ export const count = globals.counter;
         engine.Evaluate(code, source: "file:///folder/main.js");
         engine.Advanced.ProcessTasks();
 
-        Assert.Collection(
-            logStatements,
-            s => Assert.Equal("myModuleConst", s));
+        logStatements.Should().SatisfyRespectively(
+            s => s.Should().Be("myModuleConst"));
     }
 
     [Fact]
@@ -577,9 +574,8 @@ export const count = globals.counter;
         engine.Evaluate(script);
         engine.Advanced.ProcessTasks();
 
-        Assert.Collection(
-            logStatements,
-            s => Assert.Equal("myModuleConst", s));
+        logStatements.Should().SatisfyRespectively(
+            s => s.Should().Be("myModuleConst"));
     }
 
     private sealed class EnforceRelativeModuleLoader : IModuleLoader
@@ -593,17 +589,17 @@ export const count = globals.counter;
 
         public ResolvedSpecifier Resolve(string referencingModuleLocation, ModuleRequest moduleRequest)
         {
-            Assert.False(string.IsNullOrEmpty(referencingModuleLocation), "Referencing module location is null or empty");
+            string.IsNullOrEmpty(referencingModuleLocation).Should().BeFalse("Referencing module location is null or empty");
             var target = new Uri(new Uri(referencingModuleLocation, UriKind.Absolute), moduleRequest.Specifier);
-            Assert.True(_modules.ContainsKey(target.ToString()), $"Resolve was called with unexpected module request, {moduleRequest.Specifier} relative to {referencingModuleLocation}");
+            _modules.ContainsKey(target.ToString()).Should().BeTrue($"Resolve was called with unexpected module request, {moduleRequest.Specifier} relative to {referencingModuleLocation}");
             return new ResolvedSpecifier(moduleRequest, target.ToString(), target, SpecifierType.Bare);
         }
 
         public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
         {
-            Assert.NotNull(resolved.Uri);
+            resolved.Uri.Should().NotBeNull();
             var source = resolved.Uri.ToString();
-            Assert.True(_modules.TryGetValue(source, out var script), $"Resolved module does not exist: {source}");
+            _modules.TryGetValue(source, out var script).Should().BeTrue($"Resolved module does not exist: {source}");
             return ModuleFactory.BuildSourceTextModule(engine, Engine.PrepareModule(script, source));
         }
     }
@@ -664,10 +660,9 @@ export const count = globals.counter;
 
         engine.Modules.Import("library2/entry_point_module.js");
 
-        Assert.Collection(
-            logStatements,
-            s => Assert.Equal("builder_module", s),
-            s => Assert.Equal("entry_point_module", s));
+        logStatements.Should().SatisfyRespectively(
+            s => s.Should().Be("builder_module"),
+            s => s.Should().Be("entry_point_module"));
     }
 
     [Fact]
@@ -678,7 +673,7 @@ export const count = globals.counter;
             var result = moduleRequest.Specifier;
             if (moduleRequest.Specifier == "../library1/builder_module.js")
             {
-                Assert.Equal("library2/entry_point_module.js", referencingModuleLocation);
+                referencingModuleLocation.Should().Be("library2/entry_point_module.js");
                 result = "library1/builder_module.js";
             }
             return result;
@@ -693,10 +688,9 @@ export const count = globals.counter;
 
         engine.Modules.Import("library2/entry_point_module.js");
 
-        Assert.Collection(
-            logStatements,
-            s => Assert.Equal("builder_module", s),
-            s => Assert.Equal("entry_point_module", s));
+        logStatements.Should().SatisfyRespectively(
+            s => s.Should().Be("builder_module"),
+            s => s.Should().Be("entry_point_module"));
     }
 
     /// <summary>
@@ -739,9 +733,9 @@ export const count = globals.counter;
 
         engine.Modules.Import($"code/lib/module.js");
 
-        Assert.Collection(logs,
-            s => Assert.Equal("code/execute.js", s),
-            s => Assert.Equal("code/lib/module.js", s));
+        logs.Should().SatisfyRespectively(
+            s => s.Should().Be("code/execute.js"),
+            s => s.Should().Be("code/lib/module.js"));
     }
     public class ModuleLoaderForEngineShouldTransmitSourceModuleForModuleLoaderTest : ModuleLoader
     {
@@ -752,7 +746,7 @@ export const count = globals.counter;
             // to resolve this statement requires information about source module
             if (moduleSpec == "../execute.js")
             {
-                Assert.True(!string.IsNullOrEmpty(referencingModuleLocation), "module loader cannot resolve referensing module - has no referencing module location");
+                (!string.IsNullOrEmpty(referencingModuleLocation)).Should().BeTrue("module loader cannot resolve referensing module - has no referencing module location");
                 moduleSpec = $"code/execute.js";
             }
 
@@ -809,7 +803,7 @@ export const count = globals.counter;
 
         var mainModule = engine.Modules.Import(MainModuleSpecifier);
 
-        Assert.Equal("hello", mainModule.Get("msg").AsString());
+        mainModule.Get("msg").AsString().Should().Be("hello");
     }
 
     [Theory]
@@ -848,7 +842,7 @@ export const count = globals.counter;
 
         var mainModule = engine.Modules.Import(MainModuleSpecifier);
 
-        Assert.Equal("hello", (await completionTcs.Task).AsString());
+        (await completionTcs.Task).AsString().Should().Be("hello");
     }
 
     [Theory]
@@ -881,7 +875,7 @@ export const count = globals.counter;
 
         var mainModule = engine.Modules.Import(MainModuleSpecifier);
 
-        Assert.Equal(TextModuleContent, mainModule.Get("msg").AsString());
+        mainModule.Get("msg").AsString().Should().Be(TextModuleContent);
     }
 
     [Theory]
@@ -917,7 +911,7 @@ export const count = globals.counter;
 
         var mainModule = engine.Modules.Import(MainModuleSpecifier);
 
-        Assert.Equal(TextModuleContent, (await completionTcs.Task).AsString());
+        (await completionTcs.Task).AsString().Should().Be(TextModuleContent);
     }
 
     private sealed class TestModuleLoader : IModuleLoader
@@ -958,10 +952,10 @@ export const count = globals.counter;
         };
         var engine = new Engine(o => o.EnableModules(new TestModuleLoader(loaderModules)));
 
-        var ex = Assert.ThrowsAny<Exception>(() => engine.Modules.Import("main"));
+        var ex = Invoking(() => engine.Modules.Import("main")).Should().Throw<Exception>().Which;
         // Should fail with a module loading error for './does-not-exist',
         // not with a SyntaxError/linking error from 'has-linking-error'
-        Assert.DoesNotContain("Ambiguous", ex.Message);
+        ex.Message.Should().NotContain("Ambiguous");
     }
 
     [Fact]
@@ -979,10 +973,10 @@ export const count = globals.counter;
 
         // C# ToString() should not trigger JS evaluation side effects
         var str = ns.ToString();
-        Assert.Equal("[object Module]", str);
+        str.Should().Be("[object Module]");
 
         var callsAfter = _engine.Evaluate("globalThis.toStringCalls").AsInteger();
-        Assert.Equal(initialCalls, callsAfter);
+        callsAfter.Should().Be(initialCalls);
     }
 
     [Fact]
@@ -1000,11 +994,11 @@ export const count = globals.counter;
 
         _engine.Modules.Import("main");
 
-        Assert.Equal(0, _engine.Evaluate("globalThis.phase1").AsInteger());
-        Assert.Equal(42, _engine.Evaluate("globalThis.accessed").AsInteger());
-        Assert.Equal(1, _engine.Evaluate("globalThis.phase2").AsInteger());
-        Assert.Equal(1, _engine.Evaluate("globalThis.log.length").AsInteger());
-        Assert.Equal("dep", _engine.Evaluate("globalThis.log[0]").AsString());
+        _engine.Evaluate("globalThis.phase1").AsInteger().Should().Be(0);
+        _engine.Evaluate("globalThis.accessed").AsInteger().Should().Be(42);
+        _engine.Evaluate("globalThis.phase2").AsInteger().Should().Be(1);
+        _engine.Evaluate("globalThis.log.length").AsInteger().Should().Be(1);
+        _engine.Evaluate("globalThis.log[0]").AsString().Should().Be("dep");
     }
 
     [Fact]
@@ -1018,7 +1012,7 @@ export const count = globals.counter;
 
         _engine.Modules.Import("main");
 
-        Assert.Equal("Deferred Module", _engine.Evaluate("globalThis.tag").AsString());
+        _engine.Evaluate("globalThis.tag").AsString().Should().Be("Deferred Module");
     }
 
     [Fact]
@@ -1038,9 +1032,9 @@ export const count = globals.counter;
 
         _engine.Modules.Import("main");
 
-        Assert.False(_engine.Evaluate("globalThis.afterDefer").AsBoolean());
-        Assert.True(_engine.Evaluate("globalThis.thenValue").IsUndefined());
-        Assert.False(_engine.Evaluate("globalThis.afterThenAccess").AsBoolean());
+        _engine.Evaluate("globalThis.afterDefer").AsBoolean().Should().BeFalse();
+        _engine.Evaluate("globalThis.thenValue").IsUndefined().Should().BeTrue();
+        _engine.Evaluate("globalThis.afterThenAccess").AsBoolean().Should().BeFalse();
     }
 
     [Fact]
@@ -1066,10 +1060,10 @@ export const count = globals.counter;
 
         _engine.Modules.Import("main");
 
-        Assert.Equal("Deferred Module", _engine.Evaluate("globalThis.tag").AsString());
-        Assert.False(_engine.Evaluate("globalThis.beforeAccess").AsBoolean());
-        Assert.Equal("leaf", _engine.Evaluate("globalThis.x").AsString());
-        Assert.True(_engine.Evaluate("globalThis.afterAccess").AsBoolean());
+        _engine.Evaluate("globalThis.tag").AsString().Should().Be("Deferred Module");
+        _engine.Evaluate("globalThis.beforeAccess").AsBoolean().Should().BeFalse();
+        _engine.Evaluate("globalThis.x").AsString().Should().Be("leaf");
+        _engine.Evaluate("globalThis.afterAccess").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -1087,9 +1081,9 @@ export const count = globals.counter;
 
         _engine.Modules.Import("main");
 
-        Assert.True(_engine.Evaluate("globalThis.rejected").AsBoolean());
+        _engine.Evaluate("globalThis.rejected").AsBoolean().Should().BeTrue();
         // SourceTextModules don't have a source representation; rejection type is host-defined.
-        Assert.False(_engine.Evaluate("globalThis.errorName").IsNull());
+        _engine.Evaluate("globalThis.errorName").IsNull().Should().BeFalse();
     }
 
     [Fact]
@@ -1098,8 +1092,8 @@ export const count = globals.counter;
         _engine.Modules.Add("dep", "export const x = 1;");
         _engine.Modules.Add("main", "import source x from 'dep';");
 
-        var ex = Assert.Throws<JavaScriptException>(() => _engine.Modules.Import("main"));
+        var ex = Invoking(() => _engine.Modules.Import("main")).Should().ThrowExactly<JavaScriptException>().Which;
         // Must not be SyntaxError per test262 expectations for SourceTextModule source phase.
-        Assert.NotEqual("SyntaxError", ex.Error.Get("name").AsString());
+        ex.Error.Get("name").AsString().Should().NotBe("SyntaxError");
     }
 }

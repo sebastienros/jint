@@ -26,22 +26,22 @@ public class UuidTests : IDisposable
     [Fact]
     public void Empty()
     {
-        Assert.Equal(Guid.Empty, RunTest($"Uuid.parse('{Guid.Empty}')"));
-        Assert.Equal(Guid.Empty, RunTest($"Uuid.Empty"));
+        RunTest($"Uuid.parse('{Guid.Empty}')").Should().Be(Guid.Empty);
+        RunTest($"Uuid.Empty").Should().Be(Guid.Empty);
     }
 
     [Fact]
     public void Random()
     {
         var actual = RunTest($"new Uuid()");
-        Assert.NotEqual(Guid.Empty, actual);
-        Assert.IsType<Guid>(actual);
+        actual.Should().NotBe(Guid.Empty);
+        actual.Should().BeOfType<Guid>();
     }
 
     [Fact]
     public void Copy()
     {
         _engine.Evaluate("const g = new Uuid();");
-        Assert.Equal(_engine.Evaluate("copy(g).toString()").AsString(), _engine.Evaluate("g.toString()").AsString());
+        _engine.Evaluate("g.toString()").AsString().Should().Be(_engine.Evaluate("copy(g).toString()").AsString());
     }
 }

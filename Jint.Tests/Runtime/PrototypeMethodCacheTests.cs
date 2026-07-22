@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Object;
@@ -72,7 +72,7 @@ public class PrototypeMethodCacheTests
 
         var expected = exoticGet.Concat(safeWithoutFlag).OrderBy(n => n, StringComparer.Ordinal).ToArray();
 
-        Assert.Equal(expected, overriders);
+        overriders.Should().Equal(expected);
     }
 
     [Fact]
@@ -85,7 +85,7 @@ public class PrototypeMethodCacheTests
             for (var i = 0; i < 50; i++) { last = c.inc(); }
             last;
             """;
-        Assert.Equal(50, new Engine().Evaluate(script).AsNumber());
+        new Engine().Evaluate(script).AsNumber().Should().Be(50);
     }
 
     [Fact]
@@ -103,7 +103,7 @@ public class PrototypeMethodCacheTests
             }
             out.join(',');
             """;
-        Assert.Equal("proto,proto,proto,own,own", new Engine().Evaluate(script).AsString());
+        new Engine().Evaluate(script).AsString().Should().Be("proto,proto,proto,own,own");
     }
 
     [Fact]
@@ -119,7 +119,7 @@ public class PrototypeMethodCacheTests
             }
             out.join(',');
             """;
-        Assert.Equal("v1,v1,v2,v2", new Engine().Evaluate(script).AsString());
+        new Engine().Evaluate(script).AsString().Should().Be("v1,v1,v2,v2");
     }
 
     [Fact]
@@ -135,7 +135,7 @@ public class PrototypeMethodCacheTests
             }
             out.join(',');
             """;
-        Assert.Equal("v1,v1,gone,gone", new Engine().Evaluate(script).AsString());
+        new Engine().Evaluate(script).AsString().Should().Be("v1,v1,gone,gone");
     }
 
     [Fact]
@@ -151,7 +151,7 @@ public class PrototypeMethodCacheTests
             }
             out.join(',');
             """;
-        Assert.Equal("A,A,B,B", new Engine().Evaluate(script).AsString());
+        new Engine().Evaluate(script).AsString().Should().Be("A,A,B,B");
     }
 
     [Fact]
@@ -166,6 +166,6 @@ public class PrototypeMethodCacheTests
             for (var i = 0; i < 4; i++) { out.push(o.next); }
             out.join(',');
             """;
-        Assert.Equal("1,2,3,4", new Engine().Evaluate(script).AsString());
+        new Engine().Evaluate(script).AsString().Should().Be("1,2,3,4");
     }
 }

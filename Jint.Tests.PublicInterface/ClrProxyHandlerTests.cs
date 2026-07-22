@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using Jint.Native;
 using Jint.Native.Function;
@@ -76,9 +76,9 @@ public class ClrProxyHandlerTests
 
         engine.SetValue("p", engine.Advanced.CreateProxy(target, handler));
 
-        Assert.Equal(42, engine.Evaluate("p.x").AsNumber());
+        engine.Evaluate("p.x").AsNumber().Should().Be(42);
         // non-trapped key forwards to the target
-        Assert.Equal(2, engine.Evaluate("p.y").AsNumber());
+        engine.Evaluate("p.y").AsNumber().Should().Be(2);
     }
 
     [Fact]
@@ -99,9 +99,9 @@ public class ClrProxyHandlerTests
         engine.SetValue("p", engine.Advanced.CreateProxy(target, handler));
         engine.Evaluate("p.x = 42;");
 
-        Assert.Equal(new[] { "x=42" }, writes);
+        writes.Should().Equal(new[] { "x=42" });
         // the trap claimed the write, the target was not touched
-        Assert.True(target.Get("x").IsUndefined());
+        target.Get("x").IsUndefined().Should().BeTrue();
     }
 
     [Fact]
@@ -115,7 +115,7 @@ public class ClrProxyHandlerTests
 
         engine.SetValue("p", engine.Advanced.CreateProxy(CreateTarget(engine), handler));
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("'use strict'; p.x = 1;"));
+        Invoking(() => engine.Evaluate("'use strict'; p.x = 1;")).Should().ThrowExactly<JavaScriptException>();
     }
 
     [Fact]
@@ -130,10 +130,10 @@ public class ClrProxyHandlerTests
 
         engine.SetValue("p", engine.Advanced.CreateProxy(target, handler));
 
-        Assert.True(engine.Evaluate("'phantom' in p").AsBoolean());
+        engine.Evaluate("'phantom' in p").AsBoolean().Should().BeTrue();
         // forwarded to the target
-        Assert.True(engine.Evaluate("'real' in p").AsBoolean());
-        Assert.False(engine.Evaluate("'missing' in p").AsBoolean());
+        engine.Evaluate("'real' in p").AsBoolean().Should().BeTrue();
+        engine.Evaluate("'missing' in p").AsBoolean().Should().BeFalse();
     }
 
     [Fact]
@@ -153,10 +153,10 @@ public class ClrProxyHandlerTests
 
         engine.SetValue("p", engine.Advanced.CreateProxy(target, handler));
 
-        Assert.True(engine.Evaluate("delete p.x").AsBoolean());
-        Assert.Equal(new[] { "x" }, deleted);
+        engine.Evaluate("delete p.x").AsBoolean().Should().BeTrue();
+        deleted.Should().Equal(new[] { "x" });
         // the trap claimed the delete without touching the target
-        Assert.Equal(1, target.Get("x").AsNumber());
+        target.Get("x").AsNumber().Should().Be(1);
     }
 
     [Fact]
@@ -176,9 +176,9 @@ public class ClrProxyHandlerTests
 
         engine.SetValue("p", engine.Advanced.CreateProxy(target, handler));
 
-        Assert.Equal(7, engine.Evaluate("Object.getOwnPropertyDescriptor(p, 'phantom').value").AsNumber());
-        Assert.True(engine.Evaluate("Object.getOwnPropertyDescriptor(p, 'hidden') === undefined").AsBoolean());
-        Assert.Equal(2, engine.Evaluate("Object.getOwnPropertyDescriptor(p, 'visible').value").AsNumber());
+        engine.Evaluate("Object.getOwnPropertyDescriptor(p, 'phantom').value").AsNumber().Should().Be(7);
+        engine.Evaluate("Object.getOwnPropertyDescriptor(p, 'hidden') === undefined").AsBoolean().Should().BeTrue();
+        engine.Evaluate("Object.getOwnPropertyDescriptor(p, 'visible').value").AsNumber().Should().Be(2);
     }
 
     [Fact]
@@ -199,8 +199,8 @@ public class ClrProxyHandlerTests
         engine.SetValue("p", engine.Advanced.CreateProxy(target, handler));
         engine.Evaluate("Object.defineProperty(p, 'y', { value: 42, configurable: true });");
 
-        Assert.Equal(new[] { "y=42" }, defined);
-        Assert.True(target.Get("y").IsUndefined());
+        defined.Should().Equal(new[] { "y=42" });
+        target.Get("y").IsUndefined().Should().BeTrue();
     }
 
     [Fact]
@@ -215,7 +215,7 @@ public class ClrProxyHandlerTests
 
         engine.SetValue("p", engine.Advanced.CreateProxy(target, handler));
 
-        Assert.Equal("a,b", engine.Evaluate("Object.getOwnPropertyNames(p).join()").AsString());
+        engine.Evaluate("Object.getOwnPropertyNames(p).join()").AsString().Should().Be("a,b");
     }
 
     [Fact]
@@ -236,11 +236,11 @@ public class ClrProxyHandlerTests
 
         engine.SetValue("p", engine.Advanced.CreateProxy(target, handler));
 
-        Assert.Equal(100, engine.Evaluate("p(2, 3)").AsNumber());
-        Assert.NotNull(capturedArguments);
-        Assert.Equal(2, capturedArguments.Length);
-        Assert.Equal(2, capturedArguments[0].AsNumber());
-        Assert.Equal(3, capturedArguments[1].AsNumber());
+        engine.Evaluate("p(2, 3)").AsNumber().Should().Be(100);
+        capturedArguments.Should().NotBeNull();
+        capturedArguments.Length.Should().Be(2);
+        capturedArguments[0].AsNumber().Should().Be(2);
+        capturedArguments[1].AsNumber().Should().Be(3);
     }
 
     [Fact]
@@ -252,7 +252,7 @@ public class ClrProxyHandlerTests
 
         engine.SetValue("p", engine.Advanced.CreateProxy(target, handler));
 
-        Assert.Equal(5, engine.Evaluate("p(2, 3)").AsNumber());
+        engine.Evaluate("p(2, 3)").AsNumber().Should().Be(5);
     }
 
     [Fact]
@@ -272,11 +272,11 @@ public class ClrProxyHandlerTests
 
         engine.SetValue("p", engine.Advanced.CreateProxy(target, handler));
 
-        Assert.Equal(6, engine.Evaluate("new p(2, 3).marker").AsNumber());
+        engine.Evaluate("new p(2, 3).marker").AsNumber().Should().Be(6);
         // trap not consulted for the forwarding check
         var forwardingHandler = new DelegatingProxyHandler();
         engine.SetValue("pf", engine.Advanced.CreateProxy(target, forwardingHandler));
-        Assert.Equal(5, engine.Evaluate("new pf(2, 3).sum").AsNumber());
+        engine.Evaluate("new pf(2, 3).sum").AsNumber().Should().Be(5);
     }
 
     [Fact]
@@ -290,7 +290,7 @@ public class ClrProxyHandlerTests
 
         engine.SetValue("p", engine.Advanced.CreateProxy(CreateTarget(engine), handler));
 
-        Assert.True(engine.Evaluate("Object.getPrototypeOf(p) === null").AsBoolean());
+        engine.Evaluate("Object.getPrototypeOf(p) === null").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -311,9 +311,9 @@ public class ClrProxyHandlerTests
         engine.SetValue("p", engine.Advanced.CreateProxy(target, handler));
         engine.Evaluate("Object.setPrototypeOf(p, { a: 1 });");
 
-        Assert.Equal(1, invocations);
+        invocations.Should().Be(1);
         // the trap claimed success without changing the target's prototype
-        Assert.True(engine.Evaluate("Object.getPrototypeOf(p) === Object.prototype").AsBoolean());
+        engine.Evaluate("Object.getPrototypeOf(p) === Object.prototype").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -332,8 +332,8 @@ public class ClrProxyHandlerTests
 
         engine.SetValue("p", engine.Advanced.CreateProxy(CreateTarget(engine), handler));
 
-        Assert.True(engine.Evaluate("Object.isExtensible(p)").AsBoolean());
-        Assert.Equal(1, invocations);
+        engine.Evaluate("Object.isExtensible(p)").AsBoolean().Should().BeTrue();
+        invocations.Should().Be(1);
     }
 
     [Fact]
@@ -354,7 +354,7 @@ public class ClrProxyHandlerTests
         engine.SetValue("p", engine.Advanced.CreateProxy(target, handler));
         engine.Evaluate("Object.preventExtensions(p);");
 
-        Assert.False(engine.Evaluate("Object.isExtensible(p)").AsBoolean());
+        engine.Evaluate("Object.isExtensible(p)").AsBoolean().Should().BeFalse();
     }
 
     [Fact]
@@ -379,15 +379,15 @@ public class ClrProxyHandlerTests
 
         engine.SetValue("p", engine.Advanced.CreateProxy(ObjectWrapper.Create(engine, person), handler));
 
-        Assert.Equal(42, engine.Evaluate("p.custom").AsNumber());
-        Assert.Equal("Jane", engine.Evaluate("p.Name").AsString());
+        engine.Evaluate("p.custom").AsNumber().Should().Be(42);
+        engine.Evaluate("p.Name").AsString().Should().Be("Jane");
 
         engine.Evaluate("p.blocked = 'nope';");
-        Assert.Equal(new[] { "nope" }, blockedWrites);
+        blockedWrites.Should().Equal(new[] { "nope" });
 
         // untrapped write forwards to the CLR object
         engine.Evaluate("p.Name = 'John';");
-        Assert.Equal("John", person.Name);
+        person.Name.Should().Be("John");
     }
 
     [Fact]
@@ -402,7 +402,7 @@ public class ClrProxyHandlerTests
 
         engine.SetValue("p", engine.Advanced.CreateProxy(target, handler));
 
-        Assert.Equal(6, engine.Evaluate("p(2, 3)").AsNumber());
+        engine.Evaluate("p(2, 3)").AsNumber().Should().Be(6);
     }
 
     [Fact]
@@ -418,7 +418,7 @@ public class ClrProxyHandlerTests
         engine.SetValue("p", engine.Advanced.CreateProxy(target, handler));
         engine.Evaluate("p.x = 1;");
 
-        Assert.Equal(1, target.Get("x").AsNumber());
+        target.Get("x").AsNumber().Should().Be(1);
     }
 
     [Fact]
@@ -433,7 +433,7 @@ public class ClrProxyHandlerTests
 
         engine.SetValue("p", engine.Advanced.CreateProxy(target, handler));
 
-        Assert.True(engine.Evaluate("p.x === undefined").AsBoolean());
+        engine.Evaluate("p.x === undefined").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -448,8 +448,8 @@ public class ClrProxyHandlerTests
 
         engine.SetValue("p", engine.Advanced.CreateProxy(target, handler));
 
-        Assert.Equal(1, engine.Evaluate("p.normal").AsNumber());
-        Assert.Equal(99, engine.Evaluate("p.special").AsNumber());
+        engine.Evaluate("p.normal").AsNumber().Should().Be(1);
+        engine.Evaluate("p.special").AsNumber().Should().Be(99);
     }
 
     [Fact]
@@ -465,8 +465,8 @@ public class ClrProxyHandlerTests
 
         engine.SetValue("p", engine.Advanced.CreateProxy(target, handler));
 
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("p.x"));
-        Assert.Contains("'get' on proxy", ex.Message);
+        var ex = Invoking(() => engine.Evaluate("p.x")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Message.Should().Contain("'get' on proxy");
     }
 
     [Fact]
@@ -482,8 +482,8 @@ public class ClrProxyHandlerTests
 
         engine.SetValue("p", engine.Advanced.CreateProxy(target, handler));
 
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("p.x = 2;"));
-        Assert.Contains("'set' on proxy", ex.Message);
+        var ex = Invoking(() => engine.Evaluate("p.x = 2;")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Message.Should().Contain("'set' on proxy");
     }
 
     [Fact]
@@ -499,8 +499,8 @@ public class ClrProxyHandlerTests
 
         engine.SetValue("p", engine.Advanced.CreateProxy(target, handler));
 
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("Object.keys(p)"));
-        Assert.Contains("'ownKeys' on proxy", ex.Message);
+        var ex = Invoking(() => engine.Evaluate("Object.keys(p)")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Message.Should().Contain("'ownKeys' on proxy");
     }
 
     private sealed class MethodLoggingHandler : ProxyHandler
@@ -546,15 +546,15 @@ public class ClrProxyHandlerTests
         engine.SetValue("p", engine.Advanced.CreateProxy(ObjectWrapper.Create(engine, calculator), handler));
 
         // thisObject passthrough: the bound CLR method sees the original Calculator instance
-        Assert.Equal(15, engine.Evaluate("p.Add(2, 3)").AsNumber());
-        Assert.Equal(new[] { "Add" }, handler.Calls);
+        engine.Evaluate("p.Add(2, 3)").AsNumber().Should().Be(15);
+        handler.Calls.Should().Equal(new[] { "Add" });
 
         // memoization preserves function identity
-        Assert.True(engine.Evaluate("p.Add === p.Add").AsBoolean());
-        Assert.Equal(new[] { "Add" }, handler.Calls);
+        engine.Evaluate("p.Add === p.Add").AsBoolean().Should().BeTrue();
+        handler.Calls.Should().Equal(new[] { "Add" });
 
         // plain (non-function) members still forward
-        Assert.Equal(10, engine.Evaluate("p.Offset").AsNumber());
+        engine.Evaluate("p.Offset").AsNumber().Should().Be(10);
     }
 
     [Fact]
@@ -565,18 +565,18 @@ public class ClrProxyHandlerTests
         var revocable = engine.Advanced.CreateRevocableProxy(target, new DelegatingProxyHandler());
 
         engine.SetValue("p", revocable.Proxy);
-        Assert.Equal(1, engine.Evaluate("p.x").AsNumber());
+        engine.Evaluate("p.x").AsNumber().Should().Be(1);
 
         revocable.Revoke();
 
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("p.x"));
-        Assert.Contains("revoked", ex.Message);
+        var ex = Invoking(() => engine.Evaluate("p.x")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Message.Should().Contain("revoked");
 
         // idempotent
         revocable.Revoke();
 
-        ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("'x' in p"));
-        Assert.Contains("revoked", ex.Message);
+        ex = Invoking(() => engine.Evaluate("'x' in p")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Message.Should().Contain("revoked");
     }
 
     [Fact]
@@ -589,7 +589,7 @@ public class ClrProxyHandlerTests
         engine.SetValue("p", revocable.Proxy);
         revocable.Revoke();
 
-        Assert.Equal("function", engine.Evaluate("typeof p").AsString());
+        engine.Evaluate("typeof p").AsString().Should().Be("function");
     }
 
     [Fact]
@@ -613,13 +613,13 @@ public class ClrProxyHandlerTests
         engine.SetValue("accept", new Action<Calculator>(c => received = c));
 
         // script sees trapped members
-        Assert.Equal(1, engine.Evaluate("calc.intercepted").AsNumber());
+        engine.Evaluate("calc.intercepted").AsNumber().Should().Be(1);
         // untrapped members forward to the wrapped CLR object
-        Assert.Equal(5, engine.Evaluate("calc.Add(2, 3)").AsNumber());
+        engine.Evaluate("calc.Add(2, 3)").AsNumber().Should().Be(5);
 
         // passing the proxied wrapper back into a CLR method parameter unwraps to the original object
         engine.Evaluate("accept(calc);");
-        Assert.Same(calculator, received);
+        received.Should().BeSameAs(calculator);
     }
 
     [Fact]
@@ -639,11 +639,11 @@ public class ClrProxyHandlerTests
         engine.SetValue("p", proxy);
 
         engine.Evaluate("var r = { marker: true }; Reflect.get(p, 'x', r);");
-        Assert.Same(engine.Evaluate("r"), capturedReceiver);
+        capturedReceiver.Should().BeSameAs(engine.Evaluate("r"));
 
         // default receiver is the proxy itself
         engine.Evaluate("p.x");
-        Assert.Same(proxy, capturedReceiver);
+        capturedReceiver.Should().BeSameAs(proxy);
     }
 
     [Fact]
@@ -657,8 +657,8 @@ public class ClrProxyHandlerTests
 
         engine.SetValue("p", engine.Advanced.CreateProxy(CreateTarget(engine), handler));
 
-        var ex = Assert.Throws<InvalidOperationException>(() => engine.Evaluate("p.x"));
-        Assert.Equal("boom", ex.Message);
+        var ex = Invoking(() => engine.Evaluate("p.x")).Should().ThrowExactly<InvalidOperationException>().Which;
+        ex.Message.Should().Be("boom");
     }
 
     [Fact]
@@ -673,7 +673,7 @@ public class ClrProxyHandlerTests
         engine.SetValue("p", engine.Advanced.CreateProxy(CreateTarget(engine), handler));
 
         var result = engine.Evaluate("(function () { try { p.x; return 'no-throw'; } catch (e) { return 'caught: ' + e.message; } })()").AsString();
-        Assert.Equal("caught: boom", result);
+        result.Should().Be("caught: boom");
     }
 
     [Fact]
@@ -683,10 +683,10 @@ public class ClrProxyHandlerTests
         var target = CreateTarget(engine);
         var handler = new DelegatingProxyHandler();
 
-        Assert.Throws<ArgumentNullException>(() => engine.Advanced.CreateProxy(null!, handler));
-        Assert.Throws<ArgumentNullException>(() => engine.Advanced.CreateProxy(target, null!));
-        Assert.Throws<ArgumentNullException>(() => engine.Advanced.CreateRevocableProxy(null!, handler));
-        Assert.Throws<ArgumentNullException>(() => engine.Advanced.CreateRevocableProxy(target, null!));
+        Invoking(() => engine.Advanced.CreateProxy(null!, handler)).Should().ThrowExactly<ArgumentNullException>();
+        Invoking(() => engine.Advanced.CreateProxy(target, null!)).Should().ThrowExactly<ArgumentNullException>();
+        Invoking(() => engine.Advanced.CreateRevocableProxy(null!, handler)).Should().ThrowExactly<ArgumentNullException>();
+        Invoking(() => engine.Advanced.CreateRevocableProxy(target, null!)).Should().ThrowExactly<ArgumentNullException>();
     }
 
     [Fact]
@@ -694,7 +694,7 @@ public class ClrProxyHandlerTests
     {
         var uninitialized = default(RevocableProxy);
 
-        Assert.Throws<InvalidOperationException>(() => uninitialized.Proxy);
-        Assert.Throws<InvalidOperationException>(() => uninitialized.Revoke());
+        Invoking(() => uninitialized.Proxy).Should().ThrowExactly<InvalidOperationException>();
+        Invoking(() => uninitialized.Revoke()).Should().ThrowExactly<InvalidOperationException>();
     }
 }

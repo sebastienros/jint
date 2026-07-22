@@ -1,4 +1,4 @@
-using Jint.Runtime;
+﻿using Jint.Runtime;
 
 namespace Jint.Tests.Runtime;
 
@@ -151,7 +151,7 @@ public class InteropDisposeTests
         var disposable = new FaultingAsyncDisposable();
         engine.SetValue("makeDisposable", new Func<FaultingAsyncDisposable>(() => disposable));
 
-        var error = await Assert.ThrowsAsync<PromiseRejectedException>(async () =>
+        var error = (await Awaiting(async () =>
         {
             await engine.EvaluateAsync("""
                 (async () => {
@@ -159,7 +159,7 @@ public class InteropDisposeTests
                     throw new Error("body error");
                 })()
                 """);
-        });
+        }).Should().ThrowExactlyAsync<PromiseRejectedException>()).Which;
 
         // The rejected value should be a SuppressedError. .error is the (later) dispose
         // failure — a .NET AggregateException wrapper since the Task was faulted, so its
@@ -202,7 +202,7 @@ public class InteropDisposeTests
         var disposable = new AsyncDisposable();
         engine.SetValue("makeDisposable", new Func<AsyncDisposable>(() => disposable));
 
-        var error = await Assert.ThrowsAsync<PromiseRejectedException>(async () =>
+        var error = (await Awaiting(async () =>
         {
             await engine.EvaluateAsync("""
                 (async () => {
@@ -210,7 +210,7 @@ public class InteropDisposeTests
                     throw new Error("body error");
                 })()
                 """);
-        });
+        }).Should().ThrowExactlyAsync<PromiseRejectedException>()).Which;
 
         error.RejectedValue.AsObject().Get("message").AsString().Should().Be("body error");
         disposable.Disposed.Should().BeTrue();
@@ -342,7 +342,7 @@ public class InteropDisposeTests
         engine.SetValue("makeOk", new Func<string, DelayedTrackedDisposable>(name => new DelayedTrackedDisposable(name, order)));
         engine.SetValue("makeBad", new Func<FaultingAsyncDisposable>(() => new FaultingAsyncDisposable()));
 
-        await Assert.ThrowsAsync<PromiseRejectedException>(async () =>
+        await Awaiting(async () =>
         {
             await engine.EvaluateAsync("""
                 (async () => {
@@ -351,7 +351,7 @@ public class InteropDisposeTests
                     }
                 })()
                 """);
-        });
+        }).Should().ThrowExactlyAsync<PromiseRejectedException>();
 
         // 'A' disposed first (LIFO of one), then 'makeBad' threw — 'C' should not be
         // reached because the loop's iteration aborts on dispose rejection.

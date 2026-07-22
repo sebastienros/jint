@@ -1,4 +1,4 @@
-using Jint.Runtime;
+﻿using Jint.Runtime;
 
 namespace Jint.Tests.Runtime;
 
@@ -8,8 +8,9 @@ public class StringTests
     {
         _engine = new Engine()
             .SetValue("log", new Action<object>(Console.WriteLine))
-            .SetValue("assert", new Action<bool>(Assert.True))
-            .SetValue("equal", new Action<object, object>(Assert.Equal));
+            .SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()))
+            .SetValue("equal", new Action<object, object>(static (expected, actual) =>
+                    actual.Should().BeEquivalentTo(expected, static options => options.WithStrictOrdering())));
     }
 
     private readonly Engine _engine;
@@ -19,15 +20,15 @@ public class StringTests
     {
         var engine = new Engine();
         // Numbers before a string literal must be added numerically first
-        Assert.Equal("5m", engine.Evaluate("2.0 + 3.0 + 'm'").AsString());
-        Assert.Equal("5m", engine.Evaluate("2 + 3 + 'm'").AsString());
-        Assert.Equal("5mx", engine.Evaluate("2.0 + 3.0 + 'm' + 'x'").AsString());
-        Assert.Equal("64", engine.Evaluate("1 + 2 + 3 + '4'").AsString());
+        engine.Evaluate("2.0 + 3.0 + 'm'").AsString().Should().Be("5m");
+        engine.Evaluate("2 + 3 + 'm'").AsString().Should().Be("5m");
+        engine.Evaluate("2.0 + 3.0 + 'm' + 'x'").AsString().Should().Be("5mx");
+        engine.Evaluate("1 + 2 + 3 + '4'").AsString().Should().Be("64");
 
         // String literal first: all ops are string concatenation
-        Assert.Equal("m23", engine.Evaluate("'m' + 2 + 3").AsString());
+        engine.Evaluate("'m' + 2 + 3").AsString().Should().Be("m23");
         // String literal at index 1: correct too
-        Assert.Equal("2m3", engine.Evaluate("2 + 'm' + 3").AsString());
+        engine.Evaluate("2 + 'm' + 3").AsString().Should().Be("2m3");
     }
 
     [Fact]
@@ -42,8 +43,8 @@ bar += 'bar';
         var value = _engine.Execute(script);
         var foo = _engine.Evaluate("foo").AsString();
         var bar = _engine.Evaluate("bar").AsString();
-        Assert.Equal("foofoo", foo);
-        Assert.Equal("foofoobar", bar);
+        foo.Should().Be("foofoo");
+        bar.Should().Be("foofoobar");
     }
 
     [Fact]
@@ -68,18 +69,18 @@ bar += 'bar';
 
         var engine = new Engine();
         engine.Execute(Script);
-        Assert.True(engine.Evaluate("proto2.hasOwnProperty(Symbol.iterator)").AsBoolean());
-        Assert.True(engine.Evaluate("!proto1.hasOwnProperty(Symbol.iterator)").AsBoolean());
-        Assert.True(engine.Evaluate("!iterator.hasOwnProperty(Symbol.iterator)").AsBoolean());
-        Assert.True(engine.Evaluate("iterator[Symbol.iterator]() === iterator").AsBoolean());
+        engine.Evaluate("proto2.hasOwnProperty(Symbol.iterator)").AsBoolean().Should().BeTrue();
+        engine.Evaluate("!proto1.hasOwnProperty(Symbol.iterator)").AsBoolean().Should().BeTrue();
+        engine.Evaluate("!iterator.hasOwnProperty(Symbol.iterator)").AsBoolean().Should().BeTrue();
+        engine.Evaluate("iterator[Symbol.iterator]() === iterator").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
     public void IndexOf()
     {
         var engine = new Engine();
-        Assert.Equal(0, engine.Evaluate("''.indexOf('', 0)"));
-        Assert.Equal(0, engine.Evaluate("''.indexOf('', 1)"));
+        engine.Evaluate("''.indexOf('', 0)").Should().Be(0);
+        engine.Evaluate("''.indexOf('', 1)").Should().Be(0);
     }
 
     [Fact]
@@ -88,10 +89,9 @@ bar += 'bar';
         var engine = new Engine();
         var repeatCount = ClrLimits.MaxArrayLength / 2 + 1UL;
 
-        var exception = Assert.Throws<JavaScriptException>(
-            () => engine.Evaluate($"'xx'.repeat({repeatCount});"));
+        var exception = Invoking(() => engine.Evaluate($"'xx'.repeat({repeatCount});")).Should().ThrowExactly<JavaScriptException>().Which;
 
-        Assert.True(exception.Error.InstanceofOperator(engine.Intrinsics.RangeError));
+        exception.Error.InstanceofOperator(engine.Intrinsics.RangeError).Should().BeTrue();
     }
 
     [Fact]
@@ -99,8 +99,8 @@ bar += 'bar';
     {
         var engine = new Engine();
         engine.Execute("var a = [1,2,'three',true];");
-        Assert.Equal("test 1,2,three,true", engine.Evaluate("'test ' + a"));
-        Assert.Equal("test 1,2,three,true", engine.Evaluate("`test ${a}`"));
+        engine.Evaluate("'test ' + a").Should().Be("test 1,2,three,true");
+        engine.Evaluate("`test ${a}`").Should().Be("test 1,2,three,true");
     }
 
     [Fact]
@@ -108,8 +108,8 @@ bar += 'bar';
     {
         var engine=new Engine();
         var result = engine.Evaluate("({ [`key`]: 'value' })").AsObject();
-        Assert.True(result.HasOwnProperty("key"));
-        Assert.Equal("value", result["key"]);
+        result.HasOwnProperty("key").Should().BeTrue();
+        result["key"].Should().Be("value");
     }
 
     [Fact]
@@ -136,9 +136,7 @@ bar += 'bar';
             });
             """).AsString();
 
-        Assert.Equal(
-            """{"r1":"a 1\n","r2":"a 2\n","sameIdentity":true,"frozen":true,"cooked":true,"raw":true,"distinctSites":true}""",
-            result);
+        result.Should().Be("""{"r1":"a 1\n","r2":"a 2\n","sameIdentity":true,"frozen":true,"cooked":true,"raw":true,"distinctSites":true}""");
     }
 
     [Fact]
@@ -147,41 +145,41 @@ bar += 'bar';
         var engine = new Engine();
 
         // https://tc39.es/ecma262/#sec-evaluatecall : a member-expression tag is called with its receiver as `this`
-        Assert.Equal("x 6 y", engine.Evaluate("""
+        engine.Evaluate("""
             var obj = { mul: 3, tag: function (strings, v) { return strings[0] + (v * this.mul) + strings[1]; } };
             obj.tag`x ${2} y`;
-            """).AsString());
+            """).AsString().Should().Be("x 6 y");
 
         // computed member tag
-        Assert.Equal("x 12 y", engine.Evaluate("obj['tag']`x ${4} y`;").AsString());
+        engine.Evaluate("obj['tag']`x ${4} y`;").AsString().Should().Be("x 12 y");
 
         // super property tag: GetThisValue returns the reference's [[ThisValue]] (the instance), not the home object
-        Assert.Equal("b:q1", engine.Evaluate("""
+        engine.Evaluate("""
             class A { tag(strings, v) { return this.name + ':' + strings[0] + v; } }
             class B extends A { constructor() { super(); this.name = 'b'; } m() { return super.tag`q${1}`; } }
             new B().m();
-            """).AsString());
+            """).AsString().Should().Be("b:q1");
 
         // `with`-scoped tag: this is the with-statement binding object (WithBaseObject)
-        Assert.True(engine.Evaluate("""
+        engine.Evaluate("""
             var box = { tag: function (strings) { return this === box; } };
             var wr; with (box) { wr = tag`x`; }
             wr;
-            """).AsBoolean());
+            """).AsBoolean().Should().BeTrue();
 
         // plain identifier tag in sloppy mode: this is undefined, coerced to globalThis by the call
-        Assert.True(engine.Evaluate("""
+        engine.Evaluate("""
             function gt() { return this === globalThis; }
             gt`x`;
-            """).AsBoolean());
+            """).AsBoolean().Should().BeTrue();
     }
 
     [Fact]
     public void ShouldCompareWithLocale()
     {
         var engine = new Engine();
-        Assert.Equal(1, engine.Evaluate("'王五'.localeCompare('张三')").AsInteger());
-        Assert.Equal(-1, engine.Evaluate("'王五'.localeCompare('张三', 'zh-CN')").AsInteger());
+        engine.Evaluate("'王五'.localeCompare('张三')").AsInteger().Should().Be(1);
+        engine.Evaluate("'王五'.localeCompare('张三', 'zh-CN')").AsInteger().Should().Be(-1);
     }
 
     [Fact]
@@ -238,7 +236,7 @@ var abs = sub.charAt(0) === 'x'
 
 first + '|' + second + '|' + (abs ? 'ok' : 'absfail');
 ";
-        Assert.Equal("ok|ok|ok", _engine.Evaluate(script).AsString());
+        _engine.Evaluate(script).AsString().Should().Be("ok|ok|ok");
     }
 
     [Fact]
@@ -261,7 +259,7 @@ last + '|' + sum + '|' + upper + '|' + deep;
 ";
         // 10000 = 1666 full cycles of 6 (sum 597 each) + 4 leftovers (97+98+99+100)
         var engine = new Engine();
-        Assert.Equal("bcdef|" + (1666 * 597 + 394) + "|ABCDEF|true", engine.Evaluate(script).AsString());
+        engine.Evaluate(script).AsString().Should().Be("bcdef|" + (1666 * 597 + 394) + "|ABCDEF|true");
     }
 
     [Fact]
@@ -309,7 +307,7 @@ delete String.prototype.accfn;
 assignPhase + '|' + definePhase + '|' + deletePhase + '|' + accResult + '|' + getterCalls;
 ";
         var engine = new Engine();
-        Assert.Equal("bbbbbXXXXX|cccccYYYYY|TypeError|g:abcdef|5", engine.Evaluate(script).AsString());
+        engine.Evaluate(script).AsString().Should().Be("bbbbbXXXXX|cccccYYYYY|TypeError|g:abcdef|5");
     }
 
     [Fact]
@@ -326,7 +324,7 @@ try { s.length(); } catch (e) { error = (e instanceof TypeError) ? 'TypeError' :
 len + '|' + error;
 ";
         var engine = new Engine();
-        Assert.Equal("3|TypeError", engine.Evaluate(script).AsString());
+        engine.Evaluate(script).AsString().Should().Be("3|TypeError");
     }
 
     [Fact]
@@ -345,7 +343,7 @@ delete String.prototype['0'];
 ownChar + '|' + error;
 ";
         var engine = new Engine();
-        Assert.Equal("a|TypeError", engine.Evaluate(script).AsString());
+        engine.Evaluate(script).AsString().Should().Be("a|TypeError");
     }
 
     [Fact]
@@ -388,7 +386,7 @@ var ed = JSON.parse(JSON.stringify(s.slice(500, 70000)));
 
 ok && d.length === ed.length && d === ed ? 'ok' : 'fail';
 ";
-        Assert.Equal("ok", _engine.Evaluate(script).AsString());
+        _engine.Evaluate(script).AsString().Should().Be("ok");
     }
 
     [Fact]
@@ -402,8 +400,8 @@ var s = seed;
 while (s.length < 131072) s += s;
 var v1 = s.slice(0, 100000);");
 
-        Assert.Contains("Sliced", _engine.Evaluate("v1").GetType().Name);
-        Assert.Contains("Sliced", _engine.Evaluate("v1.slice(1000, 60000)").GetType().Name);
+        _engine.Evaluate("v1").GetType().Name.Should().Contain("Sliced");
+        _engine.Evaluate("v1.slice(1000, 60000)").GetType().Name.Should().Contain("Sliced");
     }
 
     [Fact]
@@ -421,52 +419,52 @@ var v1 = s.slice(0, 262144);              // half -> view
 var small = v1.slice(0, 200000);          // rebased; copies against the 512K source");
 
         // v1 is a view, but the chained slice is copied (flat JsString), not a compounded view.
-        Assert.Contains("Sliced", _engine.Evaluate("v1").GetType().Name);
-        Assert.DoesNotContain("Sliced", _engine.Evaluate("small").GetType().Name);
+        _engine.Evaluate("v1").GetType().Name.Should().Contain("Sliced");
+        _engine.Evaluate("small").GetType().Name.Should().NotContain("Sliced");
 
         // and the value is still exactly s[0..200000]
-        Assert.Equal("ok", _engine.Evaluate(
-            "small.length === 200000 && small === JSON.parse(JSON.stringify(s.slice(0, 200000))) ? 'ok' : 'fail'").AsString());
+        _engine.Evaluate(
+            "small.length === 200000 && small === JSON.parse(JSON.stringify(s.slice(0, 200000))) ? 'ok' : 'fail'").AsString().Should().Be("ok");
     }
 
     [Fact]
     public void SplitEmptySeparatorAscii()
     {
-        Assert.Equal(@"[""h"",""e"",""l"",""l"",""o""]", _engine.Evaluate(@"JSON.stringify('hello'.split(''))").AsString());
-        Assert.Equal(5, _engine.Evaluate("'hello'.split('').length").AsNumber());
+        _engine.Evaluate(@"JSON.stringify('hello'.split(''))").AsString().Should().Be(@"[""h"",""e"",""l"",""l"",""o""]");
+        _engine.Evaluate("'hello'.split('').length").AsNumber().Should().Be(5);
         // limit truncates
-        Assert.Equal(@"[""h"",""e"",""l""]", _engine.Evaluate(@"JSON.stringify('hello'.split('', 3))").AsString());
+        _engine.Evaluate(@"JSON.stringify('hello'.split('', 3))").AsString().Should().Be(@"[""h"",""e"",""l""]");
         // empty string splits to an empty array
-        Assert.Equal(0, _engine.Evaluate("''.split('').length").AsNumber());
+        _engine.Evaluate("''.split('').length").AsNumber().Should().Be(0);
         // cached single-char instances still compare equal by value
-        Assert.True(_engine.Evaluate("'aba'.split('')[0] === 'a' && 'aba'.split('')[2] === 'a'").AsBoolean());
+        _engine.Evaluate("'aba'.split('')[0] === 'a' && 'aba'.split('')[2] === 'a'").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
     public void SplitEmptySeparatorNonAscii()
     {
         // BMP chars above the ASCII cache (é = U+00E9, Greek U+03B1..) must round-trip correctly.
-        Assert.Equal(@"[""c"",""a"",""f"",""é""]", _engine.Evaluate(@"JSON.stringify('café'.split(''))").AsString());
-        Assert.Equal(@"[""α"",""β"",""γ""]", _engine.Evaluate(@"JSON.stringify('αβγ'.split(''))").AsString());
-        Assert.Equal(3, _engine.Evaluate("'αβγ'.split('').length").AsNumber());
+        _engine.Evaluate(@"JSON.stringify('café'.split(''))").AsString().Should().Be(@"[""c"",""a"",""f"",""é""]");
+        _engine.Evaluate(@"JSON.stringify('αβγ'.split(''))").AsString().Should().Be(@"[""α"",""β"",""γ""]");
+        _engine.Evaluate("'αβγ'.split('').length").AsNumber().Should().Be(3);
 
         // split('') splits by UTF-16 code unit: an astral char (surrogate pair) becomes two elements.
-        Assert.Equal(2, _engine.Evaluate("'😀'.split('').length").AsNumber());
-        Assert.True(_engine.Evaluate(
-            "var p = '😀'.split(''); p[0] === '\uD83D' && p[1] === '\uDE00'").AsBoolean());
+        _engine.Evaluate("'😀'.split('').length").AsNumber().Should().Be(2);
+        _engine.Evaluate(
+            "var p = '😀'.split(''); p[0] === '\uD83D' && p[1] === '\uDE00'").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
     public void SplitTailAndSegmentsAreCorrect()
     {
         // Small segments and tail
-        Assert.Equal(@"[""a"",""b"",""cdefghij""]", _engine.Evaluate(@"JSON.stringify('a,b,cdefghij'.split(','))").AsString());
+        _engine.Evaluate(@"JSON.stringify('a,b,cdefghij'.split(','))").AsString().Should().Be(@"[""a"",""b"",""cdefghij""]");
         // consecutive separators produce empty segments
-        Assert.Equal(@"[""a"","""",""b""]", _engine.Evaluate(@"JSON.stringify('a,,b'.split(','))").AsString());
+        _engine.Evaluate(@"JSON.stringify('a,,b'.split(','))").AsString().Should().Be(@"[""a"","""",""b""]");
         // multi-char separator
-        Assert.Equal(@"[""a"",""b"",""c""]", _engine.Evaluate(@"JSON.stringify('a<>b<>c'.split('<>'))").AsString());
+        _engine.Evaluate(@"JSON.stringify('a<>b<>c'.split('<>'))").AsString().Should().Be(@"[""a"",""b"",""c""]");
         // trailing separator yields a trailing empty segment
-        Assert.Equal(@"[""a"",""b"",""""]", _engine.Evaluate(@"JSON.stringify('a,b,'.split(','))").AsString());
+        _engine.Evaluate(@"JSON.stringify('a,b,'.split(','))").AsString().Should().Be(@"[""a"",""b"",""""]");
 
         // Large tail segment: the final piece of a large string, routed through the retention policy,
         // must still equal the exact backing substring.
@@ -481,7 +479,7 @@ parts.length === 2 &&
     tail.length === s.length &&
     tail === JSON.parse(JSON.stringify(s)) ? 'ok' : 'fail';
 ";
-        Assert.Equal("ok", _engine.Evaluate(script).AsString());
+        _engine.Evaluate(script).AsString().Should().Be("ok");
     }
 
     [Fact]
@@ -495,10 +493,10 @@ var small = 'a,b,c'.split(',');
 var big = (s + '|tail').split('|');       // [s, 'tail']: first segment is ~the whole source -> view");
 
         // small segments are copied (not views)
-        Assert.DoesNotContain("Sliced", _engine.Evaluate("small[0]").GetType().Name);
+        _engine.Evaluate("small[0]").GetType().Name.Should().NotContain("Sliced");
         // a large-enough segment of a large string is kept as a zero-copy view
-        Assert.Contains("Sliced", _engine.Evaluate("big[0]").GetType().Name);
-        Assert.True(_engine.Evaluate("big.length === 2 && big[0] === s && big[1] === 'tail'").AsBoolean());
+        _engine.Evaluate("big[0]").GetType().Name.Should().Contain("Sliced");
+        _engine.Evaluate("big.length === 2 && big[0] === s && big[1] === 'tail'").AsBoolean().Should().BeTrue();
     }
 
     public static TheoryData<string, string> GetLithuaniaTestsData()
@@ -516,6 +514,6 @@ var big = (s + '|tail').split('|');       // [s, 'tail']: first segment is ~the 
     public void LithuanianToLocaleUpperCase(string parseStr, string result)
     {
         var value = _engine.Evaluate($"('{parseStr}').toLocaleUpperCase('lt')").AsString();
-        Assert.Equal(result, value);
+        value.Should().Be(result);
     }
 }

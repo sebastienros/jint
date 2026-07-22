@@ -15,16 +15,16 @@ public class ConstraintUsageTests
         var engine = new Engine(new Options().CancellationToken(cts.Token));
 
         // expect constraint to abort execution due to timeout
-        Assert.Throws<ExecutionCanceledException>(WaitAndCompute);
+        Invoking(WaitAndCompute).Should().ThrowExactly<ExecutionCanceledException>();
 
         // ensure constraint can be obtained publicly
         var cancellationConstraint = engine.FindConstraint<CancellationConstraint>();
-        Assert.NotNull(cancellationConstraint);
+        cancellationConstraint.Should().NotBeNull();
 
         // reset constraint, expect computation to finish this time
         using var cts2 = new CancellationTokenSource(TimeSpan.FromMilliseconds(500));
         cancellationConstraint.Reset(cts2.Token);
-        Assert.Equal("done", WaitAndCompute());
+        WaitAndCompute().Should().Be("done");
 
         string WaitAndCompute()
         {
@@ -64,6 +64,6 @@ public class ConstraintUsageTests
             return "didn't throw!";
         }));
 
-        Assert.Throws<TimeoutException>(() => engine.Execute("slowFunction()"));
+        Invoking(() => engine.Execute("slowFunction()")).Should().ThrowExactly<TimeoutException>();
     }
 }

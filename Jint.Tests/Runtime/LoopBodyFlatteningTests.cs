@@ -1,4 +1,4 @@
-namespace Jint.Tests.Runtime;
+﻿namespace Jint.Tests.Runtime;
 
 /// <summary>
 /// Pins the loop-body lexical flattening (JintForStatement): an eligible body block's let/const
@@ -26,7 +26,7 @@ public class LoopBodyFlatteningTests
             """).AsNumber();
 
         // z values: 1,0,3,2,5,4,7,6 → even z (0,2,4,6) add 2z = 0+4+8+12 = 24; z=3 adds 100
-        Assert.Equal(124, result);
+        result.Should().Be(124);
     }
 
     [Fact]
@@ -45,7 +45,7 @@ public class LoopBodyFlatteningTests
             })()
             """).AsString();
 
-        Assert.Equal("tdz0,0,tdz1,10,tdz2,20", result);
+        result.Should().Be("tdz0,0,tdz1,10,tdz2,20");
     }
 
     [Fact]
@@ -68,7 +68,7 @@ public class LoopBodyFlatteningTests
             })()
             """).AsString();
 
-        Assert.Equal("tdz,v1,1,tdz,v3,3", result);
+        result.Should().Be("tdz,v1,1,tdz,v3,3");
     }
 
     [Fact]
@@ -96,7 +96,7 @@ public class LoopBodyFlatteningTests
             })()
             """).AsString();
 
-        Assert.Equal("0,inner,1,inner,2,inner|10,11", result);
+        result.Should().Be("0,inner,1,inner,2,inner|10,11");
     }
 
     [Fact]
@@ -116,7 +116,7 @@ public class LoopBodyFlatteningTests
             })()
             """).AsString();
 
-        Assert.Equal("0,2,4", result);
+        result.Should().Be("0,2,4");
     }
 
     [Fact]
@@ -139,7 +139,7 @@ public class LoopBodyFlatteningTests
             })()
             """).AsString();
 
-        Assert.Equal("8:1", result); // 0+1+3+4, one catch
+        result.Should().Be("8:1"); // 0+1+3+4, one catch
     }
 
     [Fact]
@@ -161,7 +161,7 @@ public class LoopBodyFlatteningTests
             })()
             """).AsString();
 
-        Assert.Equal("50,60,70", result);
+        result.Should().Be("50,60,70");
     }
 
     [Fact]
@@ -180,7 +180,7 @@ public class LoopBodyFlatteningTests
             })()
             """).AsString();
 
-        Assert.Equal("0,10,20", result);
+        result.Should().Be("0,10,20");
     }
 
     [Fact]
@@ -199,7 +199,7 @@ public class LoopBodyFlatteningTests
             })()
             """).AsString();
 
-        Assert.Equal("0,20,40", result);
+        result.Should().Be("0,20,40");
     }
 
     [Fact]
@@ -222,7 +222,7 @@ public class LoopBodyFlatteningTests
             })()
             """).AsString();
 
-        Assert.Equal("ok:true", result);
+        result.Should().Be("ok:true");
     }
 
     [Fact]
@@ -241,7 +241,7 @@ public class LoopBodyFlatteningTests
             })()
             """).AsString();
 
-        Assert.Equal("b0,d0,b1,d1", result);
+        result.Should().Be("b0,d0,b1,d1");
     }
 
     [Fact]
@@ -259,7 +259,7 @@ public class LoopBodyFlatteningTests
             })()
             """).AsString();
 
-        Assert.Equal("0,0", result);
+        result.Should().Be("0,0");
     }
 
     [Fact]
@@ -274,7 +274,7 @@ public class LoopBodyFlatteningTests
             })()
             """).AsString();
 
-        Assert.Equal("0,0", result);
+        result.Should().Be("0,0");
     }
 
     [Fact]
@@ -296,6 +296,6 @@ public class LoopBodyFlatteningTests
             })()
             """).AsString();
 
-        Assert.Equal("0,0", result);
+        result.Should().Be("0,0");
     }
 }

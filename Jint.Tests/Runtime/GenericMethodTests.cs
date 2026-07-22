@@ -1,4 +1,4 @@
-namespace Jint.Tests.Runtime;
+﻿namespace Jint.Tests.Runtime;
 
 public class GenericMethodTests
 {
@@ -16,8 +16,8 @@ public class GenericMethodTests
                 testGeneric.Add('blah');
             ");
 
-        Assert.Equal(true, TestGenericClass.BarInvoked);
-        Assert.Equal(true, TestGenericClass.FooInvoked);
+        TestGenericClass.BarInvoked.Should().BeTrue();
+        TestGenericClass.FooInvoked.Should().BeTrue();
     }
 
     [Fact]
@@ -33,7 +33,7 @@ public class GenericMethodTests
                 testGenericObj.Add('blah');
             ");
 
-        Assert.Equal(1, testGenericObj.Count);
+        testGenericObj.Count.Should().Be(1);
     }
 
     [Fact]
@@ -47,7 +47,7 @@ public class GenericMethodTests
                 testGenericObj.Fancy('test', 42, 'foo');
             ");
 
-        Assert.Equal(true, testGenericObj.FancyInvoked);
+        testGenericObj.FancyInvoked.Should().BeTrue();
     }
 
     [Fact]
@@ -57,15 +57,15 @@ public class GenericMethodTests
         var testGenericObj = new TestGenericClass();
         engine.SetValue("testGenericObj", testGenericObj);
 
-        var argException = Assert.Throws<Jint.Runtime.JavaScriptException>(() =>
+        var argException = Invoking(() =>
         {
             engine.Execute(@"
                     testGenericObj.Fancy('test', 'foo', 42);
                 ");
-        });
+        }).Should().ThrowExactly<Jint.Runtime.JavaScriptException>().Which;
 
         // detailed resolution errors are off by default, so the terse message is used
-        Assert.Equal("No public methods with the specified arguments were found.", argException.Message);
+        argException.Message.Should().Be("No public methods with the specified arguments were found.");
     }
 
     // TPC: TODO: tldr; typescript transpiled to javascript does not include the types in the constructors - JINT should allow you to use generics without specifying type
@@ -114,7 +114,7 @@ public class GenericMethodTests
             const result = playerChoiceManager.Store.Select(testSelectorWithoutProps);
         ");
 
-        Assert.Equal(true, ReduxStore<PlayerChoiceState>.SelectInvoked);
+        ReduxStore<PlayerChoiceState>.SelectInvoked.Should().BeTrue();
     }
 
 

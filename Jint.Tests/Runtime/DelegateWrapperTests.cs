@@ -19,7 +19,7 @@ public class DelegateWrapperTests
                 }, 'test', 'other', 1337);
             ");
 
-        Assert.True(engine.Evaluate("argsConcat == 'string string number'").AsBoolean());
+        engine.Evaluate("argsConcat == 'string string number'").AsBoolean().Should().BeTrue();
     }
 
     private static void RegisterCallback(CallbackAction callback, params object[] arguments)

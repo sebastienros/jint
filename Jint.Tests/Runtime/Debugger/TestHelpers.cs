@@ -42,7 +42,7 @@ public static class TestHelpers
 
         initialization(engine);
 
-        Assert.True(didBreak, "Test script did not break (e.g. didn't reach debugger statement)");
+        didBreak.Should().BeTrue("Test script did not break (e.g. didn't reach debugger statement)");
     }
 
     /// <inheritdoc cref="TestAtBreak()"/>

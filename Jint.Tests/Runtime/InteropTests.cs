@@ -26,8 +26,9 @@ public partial class InteropTests : IDisposable
                     typeof(Console).GetTypeInfo().Assembly,
                     typeof(File).GetTypeInfo().Assembly))
                 .SetValue("log", new Action<object>(Console.WriteLine))
-                .SetValue("assert", new Action<bool>(Assert.True))
-                .SetValue("equal", new Action<object, object>(Assert.Equal))
+                .SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()))
+                .SetValue("equal", new Action<object, object>(static (expected, actual) =>
+                    actual.Should().BeEquivalentTo(expected, static options => options.WithStrictOrdering())))
             ;
     }
 
@@ -58,7 +59,7 @@ public partial class InteropTests : IDisposable
     {
         _engine.SetValue("foo", typeof(Foo));
         var json = _engine.Evaluate("JSON.stringify(foo.GetBar())").AsString();
-        Assert.Equal("{\"Test\":\"123\"}", json);
+        json.Should().Be("{\"Test\":\"123\"}");
     }
 
 
@@ -71,7 +72,7 @@ public partial class InteropTests : IDisposable
         d["Values"] = 1;
         engine.SetValue("d", d);
 
-        Assert.Equal("{\"Values\":1}", engine.Evaluate($"JSON.stringify(d)").AsString());
+        engine.Evaluate($"JSON.stringify(d)").AsString().Should().Be("{\"Values\":1}");
     }
 
     [Fact]
@@ -87,7 +88,7 @@ public partial class InteropTests : IDisposable
         engine.SetValue(nameof(dictionary), dictionary);
 
         var result = engine.Evaluate($"JSON.stringify({nameof(dictionary)})").AsString();
-        Assert.Equal("{\"foo\":5,\"bar\":\"A string\"}", result);
+        result.Should().Be("{\"foo\":5,\"bar\":\"A string\"}");
     }
 
     [Fact]
@@ -103,10 +104,10 @@ public partial class InteropTests : IDisposable
         engine.SetValue(nameof(dictionary), dictionary);
 
         var result = engine.Evaluate($"JSON.stringify({nameof(dictionary)})").AsString();
-        Assert.Equal("{\"foo\":5,\"bar\":\"A string\"}", result);
+        result.Should().Be("{\"foo\":5,\"bar\":\"A string\"}");
 
         var keys = engine.Evaluate($"Object.keys({nameof(dictionary)})").AsArray();
-        Assert.Equal((uint) 2, keys.Length);
+        keys.Length.Should().Be((uint) 2);
     }
 
     [Fact]
@@ -119,7 +120,7 @@ public partial class InteropTests : IDisposable
         engine.SetValue(nameof(parsed), parsed);
 
         var result = engine.Evaluate($"JSON.stringify({nameof(parsed)})").AsString();
-        Assert.Equal(json, result);
+        result.Should().Be(json);
     }
 
     [Fact]
@@ -146,7 +147,7 @@ public partial class InteropTests : IDisposable
             .Evaluate("userclass.TypeProperty.Name;")
             .AsString();
 
-        Assert.Equal("Person", result);
+        result.Should().Be("Person");
     }
 
     [Fact]
@@ -171,15 +172,15 @@ public partial class InteropTests : IDisposable
             { "Item", "Item value" }
         };
 
-        Assert.Equal("item2 value", _engine.Invoke("item2", argument));
-        Assert.Equal("item value", _engine.Invoke("item1", argument));
-        Assert.Equal("Item value", _engine.Invoke("item3", argument));
+        _engine.Invoke("item2", argument).Should().Be("item2 value");
+        _engine.Invoke("item1", argument).Should().Be("item value");
+        _engine.Invoke("item3", argument).Should().Be("Item value");
 
         var company = new Company("Acme Ltd");
         _engine.SetValue("c", company);
-        Assert.Equal("item thingie", _engine.Evaluate("c.Item"));
-        Assert.Equal("item thingie", _engine.Evaluate("c.item"));
-        Assert.Equal("value", _engine.Evaluate("c['key']"));
+        _engine.Evaluate("c.Item").Should().Be("item thingie");
+        _engine.Evaluate("c.item").Should().Be("item thingie");
+        _engine.Evaluate("c['key']").Should().Be("value");
     }
 
     [Fact]
@@ -429,7 +430,7 @@ public partial class InteropTests : IDisposable
                 assert(p.Name === 'Donald Duck');
             ");
 
-        Assert.Equal("Donald Duck", p.Name);
+        p.Name.Should().Be("Donald Duck");
     }
 
     [Fact]
@@ -461,7 +462,7 @@ public partial class InteropTests : IDisposable
                 assert(dictionary['person2'].Name === 'Donald Duck');
             ");
 
-        Assert.Equal("Donald Duck", dictionary["person2"].Name);
+        dictionary["person2"].Name.Should().Be("Donald Duck");
     }
 
     [Fact]
@@ -493,8 +494,8 @@ public partial class InteropTests : IDisposable
                 assert(dictionary[2] === 'Donald Duck');
             ");
 
-        Assert.Equal("Mickey Mouse", dictionary[1]);
-        Assert.Equal("Donald Duck", dictionary[2]);
+        dictionary[1].Should().Be("Mickey Mouse");
+        dictionary[2].Should().Be("Donald Duck");
     }
 
     private class DoubleIndexedClass
@@ -531,8 +532,8 @@ public partial class InteropTests : IDisposable
                 assert(dictionary[2] === 'Goofy');
             ");
 
-        Assert.Equal("Mickey Mouse", dictionary[1]);
-        Assert.Equal("Goofy", dictionary[2]);
+        dictionary[1].Should().Be("Mickey Mouse");
+        dictionary[2].Should().Be("Goofy");
     }
 
     [Fact]
@@ -575,7 +576,7 @@ public partial class InteropTests : IDisposable
         _engine.SetValue("model", model);
 
         var result = _engine.Evaluate("'' + obj[model]");
-        Assert.Equal("value1", result.AsString());
+        result.AsString().Should().Be("value1");
     }
 
     [Fact]
@@ -590,7 +591,7 @@ public partial class InteropTests : IDisposable
         _engine.SetValue("model", model);
 
         _engine.Execute("obj[model] = 'updated';");
-        Assert.Equal("updated", dictionary[model]);
+        dictionary[model].Should().Be("updated");
     }
 
     [Fact]
@@ -606,8 +607,8 @@ public partial class InteropTests : IDisposable
         _engine.SetValue("present", model);
         _engine.SetValue("absent", other);
 
-        Assert.Equal("value1", _engine.Evaluate("obj[present]").AsString());
-        Assert.True(_engine.Evaluate("obj[absent] === undefined").AsBoolean());
+        _engine.Evaluate("obj[present]").AsString().Should().Be("value1");
+        _engine.Evaluate("obj[absent] === undefined").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -623,8 +624,8 @@ public partial class InteropTests : IDisposable
         _engine.SetValue("present", present);
         _engine.SetValue("absent", absent);
 
-        Assert.True(_engine.Evaluate("present in obj").AsBoolean());
-        Assert.False(_engine.Evaluate("absent in obj").AsBoolean());
+        _engine.Evaluate("present in obj").AsBoolean().Should().BeTrue();
+        _engine.Evaluate("absent in obj").AsBoolean().Should().BeFalse();
     }
 
     [Fact]
@@ -639,7 +640,7 @@ public partial class InteropTests : IDisposable
         _engine.SetValue("model", model);
 
         _engine.Execute("delete obj[model];");
-        Assert.False(dictionary.ContainsKey(model));
+        dictionary.ContainsKey(model).Should().BeFalse();
     }
 
     [Fact]
@@ -654,7 +655,7 @@ public partial class InteropTests : IDisposable
         _engine.SetValue("obj", readOnly);
         _engine.SetValue("model", model);
 
-        Assert.Equal("value1", _engine.Evaluate("'' + obj[model]").AsString());
+        _engine.Evaluate("'' + obj[model]").AsString().Should().Be("value1");
     }
 
     [Fact]
@@ -670,8 +671,8 @@ public partial class InteropTests : IDisposable
         _engine.SetValue("present", present);
         _engine.SetValue("absent", absent);
 
-        Assert.True(_engine.Evaluate("present in obj").AsBoolean());
-        Assert.False(_engine.Evaluate("absent in obj").AsBoolean());
+        _engine.Evaluate("present in obj").AsBoolean().Should().BeTrue();
+        _engine.Evaluate("absent in obj").AsBoolean().Should().BeFalse();
     }
 
     [Fact]
@@ -685,7 +686,7 @@ public partial class InteropTests : IDisposable
         _engine.SetValue("obj", dictionary);
         _engine.SetValue("model", derived);
 
-        Assert.Equal("fromDerived", _engine.Evaluate("'' + obj[model]").AsString());
+        _engine.Evaluate("'' + obj[model]").AsString().Should().Be("fromDerived");
     }
 
     [Fact]
@@ -699,7 +700,7 @@ public partial class InteropTests : IDisposable
         _engine.SetValue("obj", dictionary);
         _engine.SetValue("key", key);
 
-        Assert.Equal("valueForGuid", _engine.Evaluate("'' + obj[key]").AsString());
+        _engine.Evaluate("'' + obj[key]").AsString().Should().Be("valueForGuid");
     }
 
     [Fact]
@@ -715,7 +716,7 @@ public partial class InteropTests : IDisposable
 
         // assigning a non-numeric string to an int-valued dictionary must not throw and must not corrupt the entry
         _engine.Execute("obj[model] = 'not an int';");
-        Assert.Equal(42, dictionary[model]);
+        dictionary[model].Should().Be(42);
     }
 
     [Fact]
@@ -730,8 +731,8 @@ public partial class InteropTests : IDisposable
         _engine.SetValue("foo", DictionaryKeyEnum.Foo);
         _engine.SetValue("bar", DictionaryKeyEnum.Bar);
 
-        Assert.Equal("fooValue", _engine.Evaluate("'' + obj[foo]").AsString());
-        Assert.Equal("barValue", _engine.Evaluate("'' + obj[bar]").AsString());
+        _engine.Evaluate("'' + obj[foo]").AsString().Should().Be("fooValue");
+        _engine.Evaluate("'' + obj[bar]").AsString().Should().Be("barValue");
     }
 
     [Fact]
@@ -746,7 +747,7 @@ public partial class InteropTests : IDisposable
         };
         _engine.SetValue("obj", dictionary);
 
-        Assert.True(_engine.Evaluate("obj[42] === undefined").AsBoolean());
+        _engine.Evaluate("obj[42] === undefined").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -762,17 +763,17 @@ public partial class InteropTests : IDisposable
         };
         _engine.SetValue("obj", dictionary);
 
-        Assert.Equal("one", _engine.Evaluate("'' + obj[1]").AsString());
-        Assert.Equal("two", _engine.Evaluate("'' + obj[2]").AsString());
-        Assert.True(_engine.Evaluate("obj[3] === undefined").AsBoolean());
-        Assert.True(_engine.Evaluate("1 in obj").AsBoolean());
-        Assert.False(_engine.Evaluate("3 in obj").AsBoolean());
+        _engine.Evaluate("'' + obj[1]").AsString().Should().Be("one");
+        _engine.Evaluate("'' + obj[2]").AsString().Should().Be("two");
+        _engine.Evaluate("obj[3] === undefined").AsBoolean().Should().BeTrue();
+        _engine.Evaluate("1 in obj").AsBoolean().Should().BeTrue();
+        _engine.Evaluate("3 in obj").AsBoolean().Should().BeFalse();
 
         _engine.Execute("obj[3] = 'three';");
-        Assert.Equal("three", dictionary[3]);
+        dictionary[3].Should().Be("three");
 
         _engine.Execute("delete obj[1];");
-        Assert.False(dictionary.ContainsKey(1));
+        dictionary.ContainsKey(1).Should().BeFalse();
     }
 
     [Fact]
@@ -787,7 +788,7 @@ public partial class InteropTests : IDisposable
         };
         _engine.SetValue("obj", dictionary);
 
-        Assert.Equal("function", _engine.Evaluate("typeof obj[Symbol.iterator]").AsString());
+        _engine.Evaluate("typeof obj[Symbol.iterator]").AsString().Should().Be("function");
     }
 
     [Fact]
@@ -801,10 +802,10 @@ public partial class InteropTests : IDisposable
         };
         _engine.SetValue("obj", dictionary);
 
-        Assert.True(_engine.Evaluate("obj[null] === undefined").AsBoolean());
-        Assert.True(_engine.Evaluate("obj[undefined] === undefined").AsBoolean());
-        Assert.False(_engine.Evaluate("null in obj").AsBoolean());
-        Assert.False(_engine.Evaluate("delete obj[null]; null in obj").AsBoolean());
+        _engine.Evaluate("obj[null] === undefined").AsBoolean().Should().BeTrue();
+        _engine.Evaluate("obj[undefined] === undefined").AsBoolean().Should().BeTrue();
+        _engine.Evaluate("null in obj").AsBoolean().Should().BeFalse();
+        _engine.Evaluate("delete obj[null]; null in obj").AsBoolean().Should().BeFalse();
     }
 
     [Fact]
@@ -820,8 +821,8 @@ public partial class InteropTests : IDisposable
         _engine.SetValue("obj", dictionary);
 
         _engine.Execute("obj[null] = 'should not stick';");
-        Assert.Single(dictionary);
-        Assert.DoesNotContain("should not stick", dictionary.Values);
+        dictionary.Should().ContainSingle();
+        dictionary.Values.Should().NotContain("should not stick");
     }
 
     [Fact]
@@ -835,8 +836,8 @@ public partial class InteropTests : IDisposable
         _engine.SetValue("model", model);
 
         _engine.Execute("obj[model] = 'hello';");
-        Assert.Equal("hello", dictionary[model]);
-        Assert.IsType<string>(dictionary[model]);
+        dictionary[model].Should().Be("hello");
+        dictionary[model].Should().BeOfType<string>();
     }
 
     [Fact]
@@ -851,9 +852,9 @@ public partial class InteropTests : IDisposable
         _engine.SetValue("obj", dictionary);
         _engine.SetValue("model", model);
 
-        var ex = Assert.Throws<JavaScriptException>(() => _engine.Execute("'use strict'; obj[model] = 'not an int';"));
-        Assert.Contains("Cannot assign", ex.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(42, dictionary[model]);
+        var ex = Invoking(() => _engine.Execute("'use strict'; obj[model] = 'not an int';")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Message.Should().ContainEquivalentOf("Cannot assign");
+        dictionary[model].Should().Be(42);
     }
 
     [Fact]
@@ -874,11 +875,11 @@ public partial class InteropTests : IDisposable
 
         // sloppy mode: silent failure, value unchanged
         _engine.Execute("obj[model] = 'updated';");
-        Assert.Equal("value1", dictionary[model]);
+        dictionary[model].Should().Be("value1");
 
         // strict mode: TypeError, value unchanged
-        Assert.Throws<JavaScriptException>(() => _engine.Execute("'use strict'; obj[model] = 'updated';"));
-        Assert.Equal("value1", dictionary[model]);
+        Invoking(() => _engine.Execute("'use strict'; obj[model] = 'updated';")).Should().ThrowExactly<JavaScriptException>();
+        dictionary[model].Should().Be("value1");
     }
 
     [Fact]
@@ -920,11 +921,11 @@ public partial class InteropTests : IDisposable
 
         var before = engine.Evaluate("context.property[0]");
 
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("context.property[0] = {};"));
-        Assert.Contains("Cannot assign", ex.Message, StringComparison.OrdinalIgnoreCase);
+        var ex = Invoking(() => engine.Evaluate("context.property[0] = {};")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Message.Should().ContainEquivalentOf("Cannot assign");
 
         // the element must be left untouched (the issue's other symptom was a silent overwrite)
-        Assert.Equal(before, engine.Evaluate("context.property[0]"));
+        engine.Evaluate("context.property[0]").Should().Be(before);
     }
 
     [Fact]
@@ -958,7 +959,7 @@ public partial class InteropTests : IDisposable
         engine.Evaluate("context.property[0] = {};");
 
         // ...but the assignment must not have taken effect
-        Assert.Equal(before, engine.Evaluate("context.property[0]"));
+        engine.Evaluate("context.property[0]").Should().Be(before);
     }
 
     private static void LockDescriptorHelper(JsValue jsValue, HashSet<JsValue> visited)
@@ -999,9 +1000,9 @@ public partial class InteropTests : IDisposable
         engine.SetValue("list", list);
         engine.Execute("Object.freeze(list);");
 
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("list[0] = 'changed';"));
-        Assert.Contains("Cannot assign", ex.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal("a", list[0]); // not mutated
+        var ex = Invoking(() => engine.Evaluate("list[0] = 'changed';")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Message.Should().ContainEquivalentOf("Cannot assign");
+        list[0].Should().Be("a"); // not mutated
     }
 
     [Fact]
@@ -1013,7 +1014,7 @@ public partial class InteropTests : IDisposable
         engine.Execute("Object.freeze(list);");
 
         engine.Evaluate("list[0] = 'changed';"); // no throw in sloppy mode
-        Assert.Equal("a", list[0]); // ...but silently ignored, not mutated
+        list[0].Should().Be("a"); // ...but silently ignored, not mutated
     }
 
     [Fact]
@@ -1025,7 +1026,7 @@ public partial class InteropTests : IDisposable
         engine.SetValue("list", list);
 
         engine.Evaluate("list[0] = 'changed';");
-        Assert.Equal("changed", list[0]);
+        list[0].Should().Be("changed");
     }
 
     [Fact]
@@ -1039,14 +1040,14 @@ public partial class InteropTests : IDisposable
 
         var strict = new Engine(x => x.Strict());
         strict.SetValue("a", readOnly);
-        var ex = Assert.Throws<JavaScriptException>(() => strict.Evaluate("a[0] = 9;"));
-        Assert.Contains("Cannot assign", ex.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(1, readOnly[0]);
+        var ex = Invoking(() => strict.Evaluate("a[0] = 9;")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Message.Should().ContainEquivalentOf("Cannot assign");
+        readOnly[0].Should().Be(1);
 
         var sloppy = new Engine();
         sloppy.SetValue("a", readOnly);
         sloppy.Evaluate("a[0] = 9;"); // silently ignored, no throw
-        Assert.Equal(1, readOnly[0]);
+        readOnly[0].Should().Be(1);
     }
 
     [Fact]
@@ -1063,8 +1064,8 @@ public partial class InteropTests : IDisposable
                 assert(dictionary[1] === 'Donald Duck');
             ");
 
-        Assert.Equal("Mickey Mouse", collection[0]);
-        Assert.Equal("Donald Duck", collection[1]);
+        collection[0].Should().Be("Mickey Mouse");
+        collection[1].Should().Be("Donald Duck");
     }
 
     [Fact]
@@ -1077,9 +1078,9 @@ public partial class InteropTests : IDisposable
         _engine.SetValue("list", list);
         _engine.Evaluate("list[1] = 'Donald Duck';");
 
-        Assert.Equal("Donald Duck", _engine.Evaluate("list[1]").AsString());
-        Assert.Equal("Mickey Mouse", list[0]);
-        Assert.Equal("Donald Duck", list[1]);
+        _engine.Evaluate("list[1]").AsString().Should().Be("Donald Duck");
+        list[0].Should().Be("Mickey Mouse");
+        list[1].Should().Be("Donald Duck");
     }
 
     [Fact]
@@ -1089,7 +1090,7 @@ public partial class InteropTests : IDisposable
 
         var result = _engine.Evaluate("var l = ''; for (var x of list) l += x; return l;").AsString();
 
-        Assert.Equal("ab", result);
+        result.Should().Be("ab");
     }
 
     [Fact]
@@ -1099,7 +1100,7 @@ public partial class InteropTests : IDisposable
 
         var result = _engine.Evaluate("var l = ''; for (var x of arr) l += x; return l;").AsString();
 
-        Assert.Equal("ab", result);
+        result.Should().Be("ab");
     }
 
     [Fact]
@@ -1109,7 +1110,7 @@ public partial class InteropTests : IDisposable
 
         var result = _engine.Evaluate("var l = ''; for (var x of dict) l += x; return l;").AsString();
 
-        Assert.Equal("a,1b,2", result);
+        result.Should().Be("a,1b,2");
     }
 
     [Fact]
@@ -1119,7 +1120,7 @@ public partial class InteropTests : IDisposable
 
         var result = _engine.Evaluate("var l = ''; for (var x of c.getNameChars()) l += x + ','; return l;").AsString();
 
-        Assert.Equal("n,a,m,e,", result);
+        result.Should().Be("n,a,m,e,");
     }
 
     [Fact]
@@ -1129,8 +1130,8 @@ public partial class InteropTests : IDisposable
         var o = new { A = 1, B = 2 };
         _engine.SetValue("anonymous", o);
 
-        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("for (var x of anonymous) {}"));
-        Assert.Equal("The value is not iterable", ex.Message);
+        var ex = Invoking(() => _engine.Evaluate("for (var x of anonymous) {}")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Message.Should().Be("The value is not iterable");
     }
 
     [Fact]
@@ -1139,11 +1140,11 @@ public partial class InteropTests : IDisposable
         _engine.SetValue("list", new List<string> { "a", "b" });
 
         var result = _engine.Evaluate("var l = ''; for (var x of new Proxy(list, {})) l += x; return l;").AsString();
-        Assert.Equal("ab", result);
+        result.Should().Be("ab");
 
         // nested proxies unwrap all the way down to the wrapper
         result = _engine.Evaluate("var l = ''; for (var x of new Proxy(new Proxy(list, {}), {})) l += x; return l;").AsString();
-        Assert.Equal("ab", result);
+        result.Should().Be("ab");
     }
 
     [Fact]
@@ -1151,12 +1152,12 @@ public partial class InteropTests : IDisposable
     {
         _engine.SetValue("list", new List<string> { "a", "b" });
 
-        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("var f = list[Symbol.iterator]; f.call({});"));
-        Assert.Equal("Method '[Symbol.iterator]' called on incompatible receiver", ex.Message);
+        var ex = Invoking(() => _engine.Evaluate("var f = list[Symbol.iterator]; f.call({});")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Message.Should().Be("Method '[Symbol.iterator]' called on incompatible receiver");
 
         // the error is a proper TypeError catchable from script
         var result = _engine.Evaluate("var f = list[Symbol.iterator]; try { f.call({}); 'no error' } catch (e) { e instanceof TypeError }");
-        Assert.True(result.AsBoolean());
+        result.AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -1166,7 +1167,7 @@ public partial class InteropTests : IDisposable
 
         // primitive receiver has no engine attached, error is materialized as TypeError by the interpreter
         var result = _engine.Evaluate("var f = list[Symbol.iterator]; try { f.call('x'); 'no error' } catch (e) { e instanceof TypeError }");
-        Assert.True(result.AsBoolean());
+        result.AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -1174,11 +1175,11 @@ public partial class InteropTests : IDisposable
     {
         _engine.SetValue("list", new List<string> { "a", "b" });
 
-        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("Object.getOwnPropertyDescriptor(list, 'length').get.call({});"));
-        Assert.Equal("Method 'length' called on incompatible receiver", ex.Message);
+        var ex = Invoking(() => _engine.Evaluate("Object.getOwnPropertyDescriptor(list, 'length').get.call({});")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Message.Should().Be("Method 'length' called on incompatible receiver");
 
         var result = _engine.Evaluate("var g = Object.getOwnPropertyDescriptor(list, 'length').get; try { g.call('x'); 'no error' } catch (e) { e instanceof TypeError }");
-        Assert.True(result.AsBoolean());
+        result.AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -1188,20 +1189,20 @@ public partial class InteropTests : IDisposable
         _engine.SetValue("array", new[] { 1, 2, 3 });
 
         // plain reads (served by the ICollection fast path) and own-property reflection agree
-        Assert.Equal(2, _engine.Evaluate("list.length").AsNumber());
-        Assert.Equal(3, _engine.Evaluate("array.length").AsNumber());
-        Assert.True(_engine.Evaluate("'length' in list").AsBoolean());
-        Assert.True(_engine.Evaluate("list.hasOwnProperty('length')").AsBoolean());
-        Assert.True(_engine.Evaluate("array.hasOwnProperty('length')").AsBoolean());
+        _engine.Evaluate("list.length").AsNumber().Should().Be(2);
+        _engine.Evaluate("array.length").AsNumber().Should().Be(3);
+        _engine.Evaluate("'length' in list").AsBoolean().Should().BeTrue();
+        _engine.Evaluate("list.hasOwnProperty('length')").AsBoolean().Should().BeTrue();
+        _engine.Evaluate("array.hasOwnProperty('length')").AsBoolean().Should().BeTrue();
 
         // the accessor descriptor keeps its eager-era shape
-        Assert.Equal("function", _engine.Evaluate("typeof Object.getOwnPropertyDescriptor(list, 'length').get").AsString());
-        Assert.True(_engine.Evaluate("Object.getOwnPropertyDescriptor(list, 'length').configurable").AsBoolean());
-        Assert.True(_engine.Evaluate("Object.getOwnPropertyDescriptor(list, 'length').set === undefined").AsBoolean());
+        _engine.Evaluate("typeof Object.getOwnPropertyDescriptor(list, 'length').get").AsString().Should().Be("function");
+        _engine.Evaluate("Object.getOwnPropertyDescriptor(list, 'length').configurable").AsBoolean().Should().BeTrue();
+        _engine.Evaluate("Object.getOwnPropertyDescriptor(list, 'length').set === undefined").AsBoolean().Should().BeTrue();
 
         // deleting the forwarder removes the own property for good
-        Assert.True(_engine.Evaluate("delete list.length").AsBoolean());
-        Assert.False(_engine.Evaluate("list.hasOwnProperty('length')").AsBoolean());
+        _engine.Evaluate("delete list.length").AsBoolean().Should().BeTrue();
+        _engine.Evaluate("list.hasOwnProperty('length')").AsBoolean().Should().BeFalse();
     }
 
     [Fact]
@@ -1211,12 +1212,12 @@ public partial class InteropTests : IDisposable
 
         // the proxy's own [[Get]] rejects the revoked proxy before the iterator helper runs,
         // actual message: "Cannot perform 'get' on a proxy that has been revoked" (matches V8/node)
-        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("""
+        var ex = Invoking(() => _engine.Evaluate("""
             var r = Proxy.revocable(list, {});
             r.revoke();
             for (var x of r.proxy) {}
-        """));
-        Assert.Same(_engine.Realm.Intrinsics.TypeError.PrototypeObject, ex.Error.AsObject().Prototype);
+        """)).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Error.AsObject().Prototype.Should().BeSameAs(_engine.Realm.Intrinsics.TypeError.PrototypeObject);
     }
 
     [Fact]
@@ -1226,14 +1227,14 @@ public partial class InteropTests : IDisposable
 
         // extract while alive, revoke, then re-invoke with the revoked proxy as receiver;
         // this bypasses the proxy [[Get]] guard and exercises the iterator helper directly
-        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("""
+        var ex = Invoking(() => _engine.Evaluate("""
             var r = Proxy.revocable(list, {});
             var f = r.proxy[Symbol.iterator];
             r.revoke();
             f.call(r.proxy);
-        """));
-        Assert.Equal("Cannot perform '[Symbol.iterator]' on a proxy that has been revoked", ex.Message);
-        Assert.Same(_engine.Realm.Intrinsics.TypeError.PrototypeObject, ex.Error.AsObject().Prototype);
+        """)).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Message.Should().Be("Cannot perform '[Symbol.iterator]' on a proxy that has been revoked");
+        ex.Error.AsObject().Prototype.Should().BeSameAs(_engine.Realm.Intrinsics.TypeError.PrototypeObject);
     }
 
     [Fact]
@@ -1351,8 +1352,8 @@ public partial class InteropTests : IDisposable
                 p.Age = 10;
             ");
 
-        Assert.Equal("bar", p.Name);
-        Assert.Equal(10, p.Age);
+        p.Name.Should().Be("bar");
+        p.Age.Should().Be(10);
     }
 
     [Fact]
@@ -1370,8 +1371,8 @@ public partial class InteropTests : IDisposable
                 p.Age = '20';
             ");
 
-        Assert.Equal("10", p.Name);
-        Assert.Equal(20, p.Age);
+        p.Name.Should().Be("10");
+        p.Age.Should().Be(20);
     }
 
     [Fact]
@@ -1406,7 +1407,7 @@ public partial class InteropTests : IDisposable
                 assert(p.Name === 'foo');
             ");
 
-        Assert.Equal("foo", p.Name);
+        p.Name.Should().Be("foo");
     }
 
     [Fact]
@@ -1421,7 +1422,7 @@ public partial class InteropTests : IDisposable
                 assert(p.Name === 'Mickey Mouse');
             ");
 
-        Assert.Equal("Mickey Mouse", p.Name);
+        p.Name.Should().Be("Mickey Mouse");
     }
 
     [Fact]
@@ -1435,7 +1436,7 @@ public partial class InteropTests : IDisposable
                 assert(p.Age === 1);
             ");
 
-        Assert.Equal(1, p.Age);
+        p.Age.Should().Be(1);
     }
 
     [Fact]
@@ -1553,7 +1554,7 @@ public partial class InteropTests : IDisposable
         e.SetValue("o", obj);
 
         var name = e.Evaluate("o.values.filter(x => x.age == 12)[0].name").ToString();
-        Assert.Equal("John", name);
+        name.Should().Be("John");
     }
 
 
@@ -1568,25 +1569,25 @@ public partial class InteropTests : IDisposable
             .Execute("var array1 = ['A', 'B', 'C'];")
             .Execute("var array2 = ['D', 'E', 'F'];");
 
-        Assert.True(engine.Evaluate("list1[Symbol.isConcatSpreadable] = true; list1[Symbol.isConcatSpreadable];").AsBoolean());
-        Assert.True(engine.Evaluate("list2[Symbol.isConcatSpreadable] = true; list2[Symbol.isConcatSpreadable];").AsBoolean());
+        engine.Evaluate("list1[Symbol.isConcatSpreadable] = true; list1[Symbol.isConcatSpreadable];").AsBoolean().Should().BeTrue();
+        engine.Evaluate("list2[Symbol.isConcatSpreadable] = true; list2[Symbol.isConcatSpreadable];").AsBoolean().Should().BeTrue();
 
-        Assert.Equal("[\"A\",\"B\",\"C\"]", engine.Evaluate("JSON.stringify(array1);"));
-        Assert.Equal("[\"D\",\"E\",\"F\"]", engine.Evaluate("JSON.stringify(array2);"));
-        Assert.Equal("[\"A\",\"B\",\"C\"]", engine.Evaluate("JSON.stringify(list1);"));
-        Assert.Equal("[\"D\",\"E\",\"F\"]", engine.Evaluate("JSON.stringify(list2);"));
+        engine.Evaluate("JSON.stringify(array1);").Should().Be("[\"A\",\"B\",\"C\"]");
+        engine.Evaluate("JSON.stringify(array2);").Should().Be("[\"D\",\"E\",\"F\"]");
+        engine.Evaluate("JSON.stringify(list1);").Should().Be("[\"A\",\"B\",\"C\"]");
+        engine.Evaluate("JSON.stringify(list2);").Should().Be("[\"D\",\"E\",\"F\"]");
 
         const string Concatenated = "[\"A\",\"B\",\"C\",\"D\",\"E\",\"F\"]";
-        Assert.Equal(Concatenated, engine.Evaluate("JSON.stringify(array1.concat(array2));"));
-        Assert.Equal(Concatenated, engine.Evaluate("JSON.stringify(array1.concat(list2));"));
-        Assert.Equal(Concatenated, engine.Evaluate("JSON.stringify(list1.concat(array2));"));
-        Assert.Equal(Concatenated, engine.Evaluate("JSON.stringify(list1.concat(list2));"));
+        engine.Evaluate("JSON.stringify(array1.concat(array2));").Should().Be(Concatenated);
+        engine.Evaluate("JSON.stringify(array1.concat(list2));").Should().Be(Concatenated);
+        engine.Evaluate("JSON.stringify(list1.concat(array2));").Should().Be(Concatenated);
+        engine.Evaluate("JSON.stringify(list1.concat(list2));").Should().Be(Concatenated);
 
-        Assert.False(engine.Evaluate("list1[Symbol.isConcatSpreadable] = false; list1[Symbol.isConcatSpreadable];").AsBoolean());
-        Assert.False(engine.Evaluate("list2[Symbol.isConcatSpreadable] = false; list2[Symbol.isConcatSpreadable];").AsBoolean());
+        engine.Evaluate("list1[Symbol.isConcatSpreadable] = false; list1[Symbol.isConcatSpreadable];").AsBoolean().Should().BeFalse();
+        engine.Evaluate("list2[Symbol.isConcatSpreadable] = false; list2[Symbol.isConcatSpreadable];").AsBoolean().Should().BeFalse();
 
-        Assert.Equal("[[\"A\",\"B\",\"C\"]]", engine.Evaluate("JSON.stringify([].concat(list1));"));
-        Assert.Equal("[[\"A\",\"B\",\"C\"],[\"D\",\"E\",\"F\"]]", engine.Evaluate("JSON.stringify(list1.concat(list2));"));
+        engine.Evaluate("JSON.stringify([].concat(list1));").Should().Be("[[\"A\",\"B\",\"C\"]]");
+        engine.Evaluate("JSON.stringify(list1.concat(list2));").Should().Be("[[\"A\",\"B\",\"C\"],[\"D\",\"E\",\"F\"]]");
     }
 
     [Fact]
@@ -1598,11 +1599,11 @@ public partial class InteropTests : IDisposable
 
         var parts = result.ToObject();
 
-        Assert.True(parts.GetType().IsArray);
-        Assert.Equal(3, ((object[]) parts).Length);
-        Assert.Equal(2d, ((object[]) parts)[0]);
-        Assert.Equal(4d, ((object[]) parts)[1]);
-        Assert.Equal(6d, ((object[]) parts)[2]);
+        parts.GetType().IsArray.Should().BeTrue();
+        ((object[]) parts).Length.Should().Be(3);
+        ((object[]) parts)[0].Should().Be(2d);
+        ((object[]) parts)[1].Should().Be(4d);
+        ((object[]) parts)[2].Should().Be(6d);
     }
 
     [Fact]
@@ -1614,11 +1615,11 @@ public partial class InteropTests : IDisposable
 
         var parts = result.ToObject();
 
-        Assert.True(parts.GetType().IsArray);
-        Assert.Equal(3, ((object[]) parts).Length);
-        Assert.Equal(2d, ((object[]) parts)[0]);
-        Assert.Equal(4d, ((object[]) parts)[1]);
-        Assert.Equal(6d, ((object[]) parts)[2]);
+        parts.GetType().IsArray.Should().BeTrue();
+        ((object[]) parts).Length.Should().Be(3);
+        ((object[]) parts)[0].Should().Be(2d);
+        ((object[]) parts)[1].Should().Be(4d);
+        ((object[]) parts)[2].Should().Be(6d);
     }
 
     [Fact]
@@ -1626,10 +1627,10 @@ public partial class InteropTests : IDisposable
     {
         var parts = _engine.Evaluate("'foo@bar.com'.split('@');").ToObject();
 
-        Assert.True(parts.GetType().IsArray);
-        Assert.Equal(2, ((object[]) parts).Length);
-        Assert.Equal("foo", ((object[]) parts)[0]);
-        Assert.Equal("bar.com", ((object[]) parts)[1]);
+        parts.GetType().IsArray.Should().BeTrue();
+        ((object[]) parts).Length.Should().Be(2);
+        ((object[]) parts)[0].Should().Be("foo");
+        ((object[]) parts)[1].Should().Be("bar.com");
     }
 
     [Fact]
@@ -1653,7 +1654,7 @@ public partial class InteropTests : IDisposable
         var result = _engine.SetValue("getSum", new Func<JsValue, JsValue>(adder))
             .Evaluate("getSum([1,2,3]);");
 
-        Assert.True(result == 6);
+        result.Should().Be(6);
     }
 
     [Fact]
@@ -1661,8 +1662,8 @@ public partial class InteropTests : IDisposable
     {
         var value = _engine.Evaluate("new Boolean(true)").ToObject();
 
-        Assert.Equal(typeof(bool), value.GetType());
-        Assert.Equal(true, value);
+        value.GetType().Should().Be(typeof(bool));
+        value.Should().Be(true);
     }
 
     [Fact]
@@ -1671,28 +1672,28 @@ public partial class InteropTests : IDisposable
         var engine = new Engine(options => { options.Interop.ValueCoercion = ValueCoercionType.Boolean; });
 
         engine.SetValue("o", new TestClass());
-        Assert.True(engine.Evaluate("o.Bool = 1; return o.Bool;").AsBoolean());
-        Assert.True(engine.Evaluate("o.Bool = 'dog'; return o.Bool;").AsBoolean());
-        Assert.True(engine.Evaluate("o.Bool = {}; return o.Bool;").AsBoolean());
-        Assert.False(engine.Evaluate("o.Bool = 0; return o.Bool;").AsBoolean());
-        Assert.False(engine.Evaluate("o.Bool = ''; return o.Bool;").AsBoolean());
-        Assert.False(engine.Evaluate("o.Bool = null; return o.Bool;").AsBoolean());
-        Assert.False(engine.Evaluate("o.Bool = undefined; return o.Bool;").AsBoolean());
+        engine.Evaluate("o.Bool = 1; return o.Bool;").AsBoolean().Should().BeTrue();
+        engine.Evaluate("o.Bool = 'dog'; return o.Bool;").AsBoolean().Should().BeTrue();
+        engine.Evaluate("o.Bool = {}; return o.Bool;").AsBoolean().Should().BeTrue();
+        engine.Evaluate("o.Bool = 0; return o.Bool;").AsBoolean().Should().BeFalse();
+        engine.Evaluate("o.Bool = ''; return o.Bool;").AsBoolean().Should().BeFalse();
+        engine.Evaluate("o.Bool = null; return o.Bool;").AsBoolean().Should().BeFalse();
+        engine.Evaluate("o.Bool = undefined; return o.Bool;").AsBoolean().Should().BeFalse();
 
         engine.Evaluate("class MyClass { valueOf() { return 42; } }");
-        Assert.Equal(true, engine.Evaluate("let obj = new MyClass(); o.Bool = obj; return o.Bool;").AsBoolean());
+        engine.Evaluate("let obj = new MyClass(); o.Bool = obj; return o.Bool;").AsBoolean().Should().BeTrue();
 
         engine.SetValue("func3", new Action<bool, bool, bool>((param1, param2, param3) =>
         {
-            Assert.True(param1);
-            Assert.True(param2);
-            Assert.True(param3);
+            param1.Should().BeTrue();
+            param2.Should().BeTrue();
+            param3.Should().BeTrue();
         }));
         engine.Evaluate("func3(true, obj, [ 1, 2, 3])");
 
-        Assert.Equal(true, engine.Evaluate("o.SetBool(42); return o.Bool;").AsBoolean());
-        Assert.Equal(true, engine.Evaluate("o.SetBool(obj); return o.Bool;").AsBoolean());
-        Assert.Equal(true, engine.Evaluate("o.SetBool([ 1, 2, 3].length); return o.Bool;").AsBoolean());
+        engine.Evaluate("o.SetBool(42); return o.Bool;").AsBoolean().Should().BeTrue();
+        engine.Evaluate("o.SetBool(obj); return o.Bool;").AsBoolean().Should().BeTrue();
+        engine.Evaluate("o.SetBool([ 1, 2, 3].length); return o.Bool;").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -1701,27 +1702,27 @@ public partial class InteropTests : IDisposable
         var engine = new Engine(options => { options.Interop.ValueCoercion = ValueCoercionType.Number; });
 
         engine.SetValue("o", new TestClass());
-        Assert.Equal(1, engine.Evaluate("o.Int = true; return o.Int;").AsNumber());
-        Assert.Equal(0, engine.Evaluate("o.Int = false; return o.Int;").AsNumber());
+        engine.Evaluate("o.Int = true; return o.Int;").AsNumber().Should().Be(1);
+        engine.Evaluate("o.Int = false; return o.Int;").AsNumber().Should().Be(0);
 
         engine.Evaluate("class MyClass { valueOf() { return 42; } }");
-        Assert.Equal(42, engine.Evaluate("let obj = new MyClass(); o.Int = obj; return o.Int;").AsNumber());
+        engine.Evaluate("let obj = new MyClass(); o.Int = obj; return o.Int;").AsNumber().Should().Be(42);
 
         // but null and undefined should be injected as nulls to nullable objects
-        Assert.True(engine.Evaluate("o.NullableInt = null; return o.NullableInt;").IsNull());
-        Assert.True(engine.Evaluate("o.NullableInt = undefined; return o.NullableInt;").IsNull());
+        engine.Evaluate("o.NullableInt = null; return o.NullableInt;").IsNull().Should().BeTrue();
+        engine.Evaluate("o.NullableInt = undefined; return o.NullableInt;").IsNull().Should().BeTrue();
 
         engine.SetValue("func3", new Action<int, double, long>((param1, param2, param3) =>
         {
-            Assert.Equal(1, param1);
-            Assert.Equal(42, param2);
-            Assert.Equal(3, param3);
+            param1.Should().Be(1);
+            param2.Should().Be(42);
+            param3.Should().Be(3);
         }));
         engine.Evaluate("func3(true, obj, [ 1, 2, 3].length)");
 
-        Assert.Equal(1, engine.Evaluate("o.SetInt(true); return o.Int;").AsNumber());
-        Assert.Equal(42, engine.Evaluate("o.SetInt(obj); return o.Int;").AsNumber());
-        Assert.Equal(3, engine.Evaluate("o.SetInt([ 1, 2, 3].length); return o.Int;").AsNumber());
+        engine.Evaluate("o.SetInt(true); return o.Int;").AsNumber().Should().Be(1);
+        engine.Evaluate("o.SetInt(obj); return o.Int;").AsNumber().Should().Be(42);
+        engine.Evaluate("o.SetInt([ 1, 2, 3].length); return o.Int;").AsNumber().Should().Be(3);
     }
 
     [Fact]
@@ -1730,41 +1731,41 @@ public partial class InteropTests : IDisposable
         var engine = new Engine(options => { options.Interop.ValueCoercion = ValueCoercionType.String; });
 
         // basic premise, booleans in JS are lower-case, so should the the toString under interop
-        Assert.Equal("true", engine.Evaluate("'' + true").AsString());
+        engine.Evaluate("'' + true").AsString().Should().Be("true");
 
         engine.SetValue("o", new TestClass());
-        Assert.Equal("false", engine.Evaluate("'' + o.Bool").AsString());
+        engine.Evaluate("'' + o.Bool").AsString().Should().Be("false");
 
-        Assert.Equal("true", engine.Evaluate("o.Bool = true; o.String = o.Bool; return o.String;").AsString());
+        engine.Evaluate("o.Bool = true; o.String = o.Bool; return o.String;").AsString().Should().Be("true");
 
-        Assert.Equal("true", engine.Evaluate("o.String = true; return o.String;").AsString());
+        engine.Evaluate("o.String = true; return o.String;").AsString().Should().Be("true");
 
         engine.SetValue("func1", new Func<bool>(() => true));
-        Assert.Equal("true", engine.Evaluate("'' + func1()").AsString());
+        engine.Evaluate("'' + func1()").AsString().Should().Be("true");
 
         engine.SetValue("func2", new Func<JsValue>(() => JsBoolean.True));
-        Assert.Equal("true", engine.Evaluate("'' + func2()").AsString());
+        engine.Evaluate("'' + func2()").AsString().Should().Be("true");
 
         // but null and undefined should be injected as nulls to c# objects
-        Assert.True(engine.Evaluate("o.String = null; return o.String;").IsNull());
-        Assert.True(engine.Evaluate("o.String = undefined; return o.String;").IsNull());
+        engine.Evaluate("o.String = null; return o.String;").IsNull().Should().BeTrue();
+        engine.Evaluate("o.String = undefined; return o.String;").IsNull().Should().BeTrue();
 
-        Assert.Equal("1,2,3", engine.Evaluate("o.String = [ 1, 2, 3 ]; return o.String;").AsString());
+        engine.Evaluate("o.String = [ 1, 2, 3 ]; return o.String;").AsString().Should().Be("1,2,3");
 
         engine.Evaluate("class MyClass { toString() { return 'hello world'; } }");
-        Assert.Equal("hello world", engine.Evaluate("let obj = new MyClass(); o.String = obj; return o.String;").AsString());
+        engine.Evaluate("let obj = new MyClass(); o.String = obj; return o.String;").AsString().Should().Be("hello world");
 
         engine.SetValue("func3", new Action<string, string, string>((param1, param2, param3) =>
         {
-            Assert.Equal("true", param1);
-            Assert.Equal("hello world", param2);
-            Assert.Equal("1,2,3", param3);
+            param1.Should().Be("true");
+            param2.Should().Be("hello world");
+            param3.Should().Be("1,2,3");
         }));
         engine.Evaluate("func3(true, obj, [ 1, 2, 3])");
 
-        Assert.Equal("true", engine.Evaluate("o.SetString(true); return o.String;").AsString());
-        Assert.Equal("hello world", engine.Evaluate("o.SetString(obj); return o.String;").AsString());
-        Assert.Equal("1,2,3", engine.Evaluate("o.SetString([ 1, 2, 3]); return o.String;").AsString());
+        engine.Evaluate("o.SetString(true); return o.String;").AsString().Should().Be("true");
+        engine.Evaluate("o.SetString(obj); return o.String;").AsString().Should().Be("hello world");
+        engine.Evaluate("o.SetString([ 1, 2, 3]); return o.String;").AsString().Should().Be("1,2,3");
     }
 
     [Fact]
@@ -1773,8 +1774,8 @@ public partial class InteropTests : IDisposable
         var result = _engine.Evaluate("new Date(0)");
         var value = result.ToObject() is DateTime ? (DateTime) result.ToObject() : default;
 
-        Assert.Equal(new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc), value);
-        Assert.Equal(DateTimeKind.Utc, value.Kind);
+        value.Should().Be(new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        value.Kind.Should().Be(DateTimeKind.Utc);
     }
 
     [Fact]
@@ -1799,8 +1800,8 @@ public partial class InteropTests : IDisposable
         var result = engine.Evaluate("new Date(0)");
         var value = result.ToObject() is DateTime ? (DateTime) result.ToObject() : default;
 
-        Assert.Equal(new DateTime(1970, 1, 1, 2, 0, 0, DateTimeKind.Local), value);
-        Assert.Equal(DateTimeKind.Local, value.Kind);
+        value.Should().Be(new DateTime(1970, 1, 1, 2, 0, 0, DateTimeKind.Local));
+        value.Kind.Should().Be(DateTimeKind.Local);
     }
 
     [Fact]
@@ -1809,8 +1810,8 @@ public partial class InteropTests : IDisposable
         var result = _engine.Evaluate("new Number(10)");
         var value = result.ToObject();
 
-        Assert.Equal(typeof(double), value.GetType());
-        Assert.Equal(10d, value);
+        value.GetType().Should().Be(typeof(double));
+        value.Should().Be(10d);
     }
 
     [Fact]
@@ -1818,8 +1819,8 @@ public partial class InteropTests : IDisposable
     {
         var value = _engine.Evaluate("new String('foo')").ToObject();
 
-        Assert.Equal(typeof(string), value.GetType());
-        Assert.Equal("foo", value);
+        value.GetType().Should().Be(typeof(string));
+        value.Should().Be("foo");
     }
 
     [Fact]
@@ -1941,7 +1942,7 @@ public partial class InteropTests : IDisposable
     public void ShouldExecuteActionCallbackOnEventChanged()
     {
         var collection = new System.Collections.ObjectModel.ObservableCollection<string>();
-        Assert.True(collection.Count == 0);
+        collection.Should().HaveCount(0);
 
         _engine.SetValue("collection", collection);
 
@@ -1957,11 +1958,11 @@ public partial class InteropTests : IDisposable
             ");
 
         var callCount = (int) _engine.GetValue("callCount").AsNumber();
-        Assert.Equal(1, callCount);
-        Assert.Equal(2, collection.Count);
+        callCount.Should().Be(1);
+        collection.Should().HaveCount(2);
 
         // make sure our delegate holder is hidden
-        Assert.Equal("[]", _engine.Evaluate("json"));
+        _engine.Evaluate("json").Should().Be("[]");
     }
 
     [Fact]
@@ -2034,7 +2035,7 @@ public partial class InteropTests : IDisposable
                 function add(x, y) { return x + y; }
             ");
 
-        Assert.Equal(3, _engine.Invoke("add", 1, 2));
+        _engine.Invoke("add", 1, 2).Should().Be(3);
     }
 
     [Fact]
@@ -2044,7 +2045,7 @@ public partial class InteropTests : IDisposable
                 var x= 10;
             ");
 
-        Assert.Throws<JavaScriptException>(() => _engine.Invoke("x", 1, 2));
+        Invoking(() => _engine.Invoke("x", 1, 2)).Should().ThrowExactly<JavaScriptException>();
     }
 
     [Fact]
@@ -2074,7 +2075,7 @@ public partial class InteropTests : IDisposable
                 assert(o.Field === 'Mickey Mouse');
             ");
 
-        Assert.Equal("Mickey Mouse", o.Field);
+        o.Field.Should().Be("Mickey Mouse");
     }
 
     [Fact]
@@ -2097,7 +2098,7 @@ public partial class InteropTests : IDisposable
                 assert(statics.Set == 'hello');
             ");
 
-        Assert.Equal(ClassWithStaticFields.Set, "hello");
+        "hello".Should().Be(ClassWithStaticFields.Set);
     }
 
     [Fact]
@@ -2120,7 +2121,7 @@ public partial class InteropTests : IDisposable
                 assert(statics.Setter == 'hello');
             ");
 
-        Assert.Equal(ClassWithStaticFields.Setter, "hello");
+        "hello".Should().Be(ClassWithStaticFields.Setter);
     }
 
     [Fact]
@@ -2133,7 +2134,7 @@ public partial class InteropTests : IDisposable
                 assert(statics.Readonly == 'Readonly');
             ");
 
-        Assert.Equal(ClassWithStaticFields.Readonly, "Readonly");
+        "Readonly".Should().Be(ClassWithStaticFields.Readonly);
     }
 
     [Fact]
@@ -2142,23 +2143,23 @@ public partial class InteropTests : IDisposable
         var engine1 = new Engine();
         engine1.SetValue("p", new { Test = true });
         engine1.Execute("var result = p.Test;");
-        Assert.True((bool) engine1.GetValue("result").ToObject());
+        ((bool) engine1.GetValue("result").ToObject()).Should().BeTrue();
 
         var engine2 = new Engine(o => o.AddObjectConverter(new NegateBoolConverter()));
         engine2.SetValue("p", new { Test = true });
         engine2.Execute("var result = p.Test;");
-        Assert.False((bool) engine2.GetValue("result").ToObject());
+        ((bool) engine2.GetValue("result").ToObject()).Should().BeFalse();
     }
 
     [Fact]
     public void CanConvertEnumsToString()
     {
         var engine1 = new Engine(o => o.AddObjectConverter(new EnumsToStringConverter()))
-            .SetValue("assert", new Action<bool>(Assert.True));
+            .SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()));
         engine1.SetValue("p", new { Comparison = StringComparison.CurrentCulture });
         engine1.Execute("assert(p.Comparison === 'CurrentCulture');");
         engine1.Execute("var result = p.Comparison;");
-        Assert.Equal("CurrentCulture", (string) engine1.GetValue("result").ToObject());
+        ((string) engine1.GetValue("result").ToObject()).Should().Be("CurrentCulture");
     }
 
     [Fact]
@@ -2175,7 +2176,7 @@ public partial class InteropTests : IDisposable
                 assert(++p.Age === 2);
             ");
 
-        Assert.Equal(2, p.Age);
+        p.Age.Should().Be(2);
     }
 
     [Fact]
@@ -2213,7 +2214,7 @@ public partial class InteropTests : IDisposable
         };
 
         _engine.SetValue("o", o);
-        _engine.SetValue("assertFalse", new Action<bool>(Assert.False));
+        _engine.SetValue("assertFalse", new Action<bool>(static value => value.Should().BeFalse()));
 
         RunTest(@"
                 var domain = importNamespace('Jint.Tests.Runtime.Domain');
@@ -2250,7 +2251,7 @@ public partial class InteropTests : IDisposable
                 assert(s.Color === colors.Blue | colors.Green);
             ");
 
-        Assert.Equal(Colors.Blue | Colors.Green, s.Color);
+        s.Color.Should().Be(Colors.Blue | Colors.Green);
     }
 
     private enum TestEnumInt32 : int
@@ -2372,14 +2373,14 @@ public partial class InteropTests : IDisposable
                 assert(s.Color === 11);
             ");
 
-        Assert.Equal(Colors.Blue | Colors.Green, s.Color);
+        s.Color.Should().Be(Colors.Blue | Colors.Green);
     }
 
     [Fact]
     public void ShouldUseExplicitPropertyGetter()
     {
         _engine.SetValue("c", new Company("ACME"));
-        Assert.Equal("ACME", _engine.Evaluate("c.Name"));
+        _engine.Evaluate("c.Name").Should().Be("ACME");
     }
 
     [Fact]
@@ -2388,14 +2389,14 @@ public partial class InteropTests : IDisposable
         var company = new Company("ACME");
         ((ICompany) company)["Foo"] = "Bar";
         _engine.SetValue("c", company);
-        Assert.Equal("Bar", _engine.Evaluate("c.Foo"));
+        _engine.Evaluate("c.Foo").Should().Be("Bar");
     }
 
     [Fact]
     public void ShouldUseExplicitPropertySetter()
     {
         _engine.SetValue("c", new Company("ACME"));
-        Assert.Equal("Foo", _engine.Evaluate("c.Name = 'Foo'; c.Name;"));
+        _engine.Evaluate("c.Name = 'Foo'; c.Name;").Should().Be("Foo");
     }
 
     [Fact]
@@ -2480,7 +2481,7 @@ public partial class InteropTests : IDisposable
                 assert(p.Name == null);
             ");
 
-        Assert.True(p.Name == null);
+        p.Name.Should().Be(null);
     }
 
     [Fact]
@@ -2521,7 +2522,7 @@ public partial class InteropTests : IDisposable
         engine.Execute(@"function f2(obj) { return obj[1]; }");
 
         var failingObject = new FailingObject2();
-        Assert.Throws<ArgumentException>(() => engine.Invoke("f2", failingObject));
+        Invoking(() => engine.Invoke("f2", failingObject)).Should().ThrowExactly<ArgumentException>();
     }
 
     [Fact]
@@ -2618,7 +2619,7 @@ public partial class InteropTests : IDisposable
                 assert(statics.Set == 'hello');
             ");
 
-        Assert.Equal(Nested.ClassWithStaticFields.Set, "hello");
+        "hello".Should().Be(Nested.ClassWithStaticFields.Set);
     }
 
     [Fact]
@@ -2641,7 +2642,7 @@ public partial class InteropTests : IDisposable
                 assert(statics.Setter == 'hello');
             ");
 
-        Assert.Equal(Nested.ClassWithStaticFields.Setter, "hello");
+        "hello".Should().Be(Nested.ClassWithStaticFields.Setter);
     }
 
     [Fact]
@@ -2654,7 +2655,7 @@ public partial class InteropTests : IDisposable
                 assert(statics.Readonly == 'Readonly');
             ");
 
-        Assert.Equal(Nested.ClassWithStaticFields.Readonly, "Readonly");
+        "Readonly".Should().Be(Nested.ClassWithStaticFields.Readonly);
     }
 
     [Fact]
@@ -2717,8 +2718,8 @@ public partial class InteropTests : IDisposable
                     }
                 ");
 
-        Assert.ThrowsAny<NotSupportedException>(() => engine.Invoke("throwException1"));
-        Assert.ThrowsAny<NotSupportedException>(() => engine.Invoke("throwException2"));
+        Invoking(() => engine.Invoke("throwException1")).Should().Throw<NotSupportedException>();
+        Invoking(() => engine.Invoke("throwException2")).Should().Throw<NotSupportedException>();
     }
 
     [Fact]
@@ -2751,8 +2752,8 @@ public partial class InteropTests : IDisposable
                     }
                 ");
 
-        Assert.Equal(engine.Invoke("throwException1").AsString(), exceptionMessage);
-        Assert.Equal(engine.Invoke("throwException2").AsString(), exceptionMessage);
+        exceptionMessage.Should().Be(engine.Invoke("throwException1").AsString());
+        exceptionMessage.Should().Be(engine.Invoke("throwException2").AsString());
     }
 
     [Fact]
@@ -2765,22 +2766,23 @@ public partial class InteropTests : IDisposable
 // line 2
 new Thrower().ThrowExceptionWithMessage('boom');";
 
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Execute(script));
-        Assert.Equal("boom", ex.Message);
-        Assert.NotEqual(default, ex.Location);
-        Assert.Equal(3, ex.Location.Start.Line);
-        Assert.NotNull(ex.JavaScriptStackTrace);
-        Assert.Contains("3:", ex.JavaScriptStackTrace);
+        var ex = Invoking(() => engine.Execute(script)).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Message.Should().Be("boom");
+        ex.Location.Should().NotBe(default);
+        ex.Location.Start.Line.Should().Be(3);
+        ex.JavaScriptStackTrace.Should().NotBeNull();
+        ex.JavaScriptStackTrace.Should().Contain("3:");
     }
 
     [Fact]
     public void ShouldNotCatchClrFromApply()
     {
+        var handlerCalled = false;
         var engine = new Engine(options =>
         {
             options.CatchClrExceptions(e =>
             {
-                Assert.Fail("was called");
+                handlerCalled = true;
                 return true;
             });
         });
@@ -2796,6 +2798,8 @@ new Thrower().ThrowExceptionWithMessage('boom');";
                 // does cause ExceptionDelegateHandler call
                 try { throwError.apply(); } catch {}
             ");
+
+        handlerCalled.Should().BeFalse();
     }
 
     private class MemberExceptionTest
@@ -2835,7 +2839,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
             cfg.CatchClrExceptions();
         });
 
-        engine.SetValue("assert", new Action<bool>(Assert.True));
+        engine.SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()));
         engine.SetValue("log", new Action<object>(Console.WriteLine));
         engine.SetValue("create", typeof(MemberExceptionTest));
         engine.SetValue("instance", new MemberExceptionTest(false));
@@ -2954,10 +2958,10 @@ new Thrower().ThrowExceptionWithMessage('boom');";
                     }
                 ");
 
-        Assert.Equal(engine.Invoke("throwException1").AsString(), exceptionMessage);
-        Assert.Throws<ArgumentNullException>(() => engine.Invoke("throwException2"));
-        Assert.Equal(engine.Invoke("throwException3").AsString(), exceptionMessage);
-        Assert.Throws<ArgumentNullException>(() => engine.Invoke("throwException4"));
+        exceptionMessage.Should().Be(engine.Invoke("throwException1").AsString());
+        Invoking(() => engine.Invoke("throwException2")).Should().ThrowExactly<ArgumentNullException>();
+        exceptionMessage.Should().Be(engine.Invoke("throwException3").AsString());
+        Invoking(() => engine.Invoke("throwException4")).Should().ThrowExactly<ArgumentNullException>();
     }
 
     [Fact]
@@ -2997,15 +3001,15 @@ new Thrower().ThrowExceptionWithMessage('boom');";
             caughtError;
         ");
 
-        Assert.True(decoratorCalled, "Decorator should have been called");
-        Assert.NotNull(capturedOriginalException);
-        Assert.IsType<InvalidOperationException>(capturedOriginalException);
-        Assert.Equal(exceptionMessage, capturedOriginalException.Message);
+        decoratorCalled.Should().BeTrue("Decorator should have been called");
+        capturedOriginalException.Should().NotBeNull();
+        capturedOriginalException.Should().BeOfType<InvalidOperationException>();
+        capturedOriginalException.Message.Should().Be(exceptionMessage);
         
         var errorObject = result.AsObject();
-        Assert.Equal("decorated", errorObject.Get("customProperty").AsString());
-        Assert.Equal("System.InvalidOperationException", errorObject.Get("clrType").AsString());
-        Assert.Equal($"[Decorated] {exceptionMessage}", errorObject.Get("message").AsString());
+        errorObject.Get("customProperty").AsString().Should().Be("decorated");
+        errorObject.Get("clrType").AsString().Should().Be("System.InvalidOperationException");
+        errorObject.Get("message").AsString().Should().Be($"[Decorated] {exceptionMessage}");
     }
 
     [Fact]
@@ -3036,7 +3040,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
             }
         ");
 
-        Assert.Equal(1, decoratorCallCount);
+        decoratorCallCount.Should().Be(1);
     }
 
     [Fact]
@@ -3056,8 +3060,8 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         engine.SetValue("throwException", new Action(() => { throw new InvalidOperationException(); }));
 
         // Should throw because InvalidOperationException is not caught
-        Assert.Throws<InvalidOperationException>(() => engine.Evaluate("throwException()"));
-        Assert.False(decoratorCalled, "Decorator should not be called when exception is not caught");
+        Invoking(() => engine.Evaluate("throwException()")).Should().ThrowExactly<InvalidOperationException>();
+        decoratorCalled.Should().BeFalse("Decorator should not be called when exception is not caught");
     }
 
     [Fact]
@@ -3084,8 +3088,8 @@ new Thrower().ThrowExceptionWithMessage('boom');";
             }
         ").AsObject();
 
-        Assert.True(result.Get("hasRealm").AsBoolean());
-        Assert.True(result.Get("hasTimestamp").AsBoolean());
+        result.Get("hasRealm").AsBoolean().Should().BeTrue();
+        result.Get("hasTimestamp").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -3172,7 +3176,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         engine.SetValue("P", p);
         engine.Evaluate("P.Name = 'b';");
         engine.Evaluate("P.Name += 'c';");
-        Assert.Equal("bc", p.Name);
+        p.Name.Should().Be("bc");
     }
 
     [Fact]
@@ -3185,8 +3189,8 @@ new Thrower().ThrowExceptionWithMessage('boom');";
                 return new domain.FloatIndexer();
             ");
 
-        Assert.NotNull(c.ToString());
-        Assert.Equal((uint) 0, c.AsObject().GetLength());
+        c.ToString().Should().NotBeNull();
+        c.AsObject().GetLength().Should().Be((uint) 0);
     }
 
     private class DictionaryWrapper
@@ -3198,23 +3202,23 @@ new Thrower().ThrowExceptionWithMessage('boom');";
     {
         public void Test1(IDictionary<string, object> values)
         {
-            Assert.Equal(1, Convert.ToInt32(values["a"]));
+            Convert.ToInt32(values["a"]).Should().Be(1);
         }
 
         public void Test2(DictionaryWrapper dictionaryObject)
         {
-            Assert.Equal(1, Convert.ToInt32(dictionaryObject.Values["a"]));
+            Convert.ToInt32(dictionaryObject.Values["a"]).Should().Be(1);
         }
 
         public void Test3(Dictionary<string, object> values)
         {
-            Assert.Equal(1, Convert.ToInt32(values["a"]));
+            Convert.ToInt32(values["a"]).Should().Be(1);
         }
 
         public void Test4(Dictionary<string, object> values = null)
         {
-            Assert.NotNull(values);
-            Assert.Equal("world", values["value"]);
+            values.Should().NotBeNull();
+            values["value"].Should().Be("world");
         }
     }
 
@@ -3263,7 +3267,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
             """);
 
         var result = engine.Evaluate("globalScope.fuzzyScore('abc', 'xyz');");
-        Assert.Equal("abc:xyz", result.AsString());
+        result.AsString().Should().Be("abc:xyz");
     }
 
     [Fact]
@@ -3280,8 +3284,8 @@ new Thrower().ThrowExceptionWithMessage('boom');";
             .Evaluate("({ supplier: 'S1', ...state.invoice })")
             .ToObject();
 
-        Assert.Equal("S1", result["supplier"]);
-        Assert.Equal("42", result["number"]);
+        result["supplier"].Should().Be("S1");
+        result["number"].Should().Be("42");
     }
 
     [Fact]
@@ -3299,8 +3303,8 @@ new Thrower().ThrowExceptionWithMessage('boom');";
             .Invoke("getValue")
             .ToObject();
 
-        Assert.Equal("S1", result["supplier"]);
-        Assert.Equal("42", result["number"]);
+        result["supplier"].Should().Be("S1");
+        result["number"].Should().Be("42");
     }
 
     [Fact]
@@ -3318,9 +3322,9 @@ new Thrower().ThrowExceptionWithMessage('boom');";
             .Evaluate("({ supplier: 'S1', ...p })")
             .ToObject();
 
-        Assert.Equal("S1", result["supplier"]);
-        Assert.Equal("Mike", result["Name"]);
-        Assert.Equal(20d, result["Age"]);
+        result["supplier"].Should().Be("S1");
+        result["Name"].Should().Be("Mike");
+        result["Age"].Should().Be(20d);
     }
 
     [Fact]
@@ -3338,11 +3342,11 @@ new Thrower().ThrowExceptionWithMessage('boom');";
 
         var jsValue = engine.Evaluate("jsObj['key1']").AsString();
         var clrValue = engine.Evaluate("netObj['key1']").AsString();
-        Assert.Equal(jsValue, clrValue);
+        clrValue.Should().Be(jsValue);
 
         jsValue = engine.Evaluate("JSON.stringify(jsObj)").AsString();
         clrValue = engine.Evaluate("JSON.stringify(netObj)").AsString();
-        Assert.Equal(jsValue, clrValue);
+        clrValue.Should().Be(jsValue);
 
         // Write properties on screen using showProps function defined on https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Working_with_Objects
         engine.Execute(@"function showProps(obj, objName) {
@@ -3356,7 +3360,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
 }");
         jsValue = engine.Evaluate("showProps(jsObj, 'theObject')").AsString();
         clrValue = engine.Evaluate("showProps(jsObj, 'theObject')").AsString();
-        Assert.Equal(jsValue, clrValue);
+        clrValue.Should().Be(jsValue);
     }
 
     [Fact]
@@ -3370,9 +3374,9 @@ new Thrower().ThrowExceptionWithMessage('boom');";
                 log(fia[0]);
             ");
 
-        Assert.Equal(123, engine.Evaluate("fia[0]").AsNumber());
+        engine.Evaluate("fia[0]").AsNumber().Should().Be(123);
         engine.Evaluate("fia[0] = 678;");
-        Assert.Equal(678, engine.Evaluate("fia[0]").AsNumber());
+        engine.Evaluate("fia[0]").AsNumber().Should().Be(678);
     }
 
     [Fact]
@@ -3384,8 +3388,8 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         _engine.SetValue("animals", bsonAnimals["Animals"]);
 
         // weak equality does conversions from native types
-        Assert.True(_engine.Evaluate("animals[0].Type == 'Cat'").AsBoolean());
-        Assert.True(_engine.Evaluate("animals[0].Id == 1").AsBoolean());
+        _engine.Evaluate("animals[0].Type == 'Cat'").AsBoolean().Should().BeTrue();
+        _engine.Evaluate("animals[0].Id == 1").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -3393,8 +3397,8 @@ new Thrower().ThrowExceptionWithMessage('boom');";
     {
         var engine = new Engine(options => options.AllowClr(GetType().Assembly));
         engine.SetValue("a", new OverLoading());
-        Assert.Equal("int-val", engine.Evaluate("a.testFunc(123);").AsString());
-        Assert.Equal("float-val", engine.Evaluate("a.testFunc(12.3);").AsString());
+        engine.Evaluate("a.testFunc(123);").AsString().Should().Be("int-val");
+        engine.Evaluate("a.testFunc(12.3);").AsString().Should().Be("float-val");
     }
 
     [Fact]
@@ -3402,11 +3406,11 @@ new Thrower().ThrowExceptionWithMessage('boom');";
     {
         var engine = new Engine(options => options.AllowClr());
         engine.SetValue("IntValueInput", TypeReference.CreateTypeReference(engine, typeof(IntValueInput)));
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("new IntValueInput().testFunc(NaN);").AsString());
+        var ex = Invoking(() => engine.Evaluate("new IntValueInput().testFunc(NaN);").AsString()).Should().ThrowExactly<JavaScriptException>().Which;
         // detailed resolution errors are off by default, so the terse message is used
-        Assert.Equal("No public methods with the specified arguments were found.", ex.Message);
+        ex.Message.Should().Be("No public methods with the specified arguments were found.");
 
-        Assert.Equal(123, engine.Evaluate("new IntValueInput().testFunc(123);").AsNumber());
+        engine.Evaluate("new IntValueInput().testFunc(123);").AsNumber().Should().Be(123);
     }
 
     [Fact]
@@ -3414,7 +3418,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
     {
         var engine = new Engine(options => options.AllowClr());
         engine.SetValue("IntValueInput", TypeReference.CreateTypeReference(engine, typeof(IntValueInput)));
-        Assert.Equal(12, engine.Evaluate("new IntValueInput().testFunc(12.3);").AsNumber());
+        engine.Evaluate("new IntValueInput().testFunc(12.3);").AsNumber().Should().Be(12);
     }
 
     public class IntValueInput
@@ -3476,10 +3480,10 @@ new Thrower().ThrowExceptionWithMessage('boom');";
 
         engine.SetValue("lst", lst);
 
-        Assert.Equal(5, engine.Evaluate("lst.Sum(x => x.Cost);").AsNumber());
-        Assert.Equal(50, engine.Evaluate("lst.Sum(x => x.Age);").AsNumber());
-        Assert.Equal(3, engine.Evaluate("lst.Where(x => x.Name == 'b').Count;").AsNumber());
-        Assert.Equal(30, engine.Evaluate("lst.Where(x => x.Name == 'b').Sum(x => x.Age);").AsNumber());
+        engine.Evaluate("lst.Sum(x => x.Cost);").AsNumber().Should().Be(5);
+        engine.Evaluate("lst.Sum(x => x.Age);").AsNumber().Should().Be(50);
+        engine.Evaluate("lst.Where(x => x.Name == 'b').Count;").AsNumber().Should().Be(3);
+        engine.Evaluate("lst.Where(x => x.Name == 'b').Sum(x => x.Age);").AsNumber().Should().Be(30);
     }
 
     [Fact]
@@ -3490,24 +3494,24 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         _engine.SetValue("b", new Person { Name = "Name" });
         _engine.Evaluate("const arr = [ null, a, undefined ];");
 
-        Assert.Equal(1, _engine.Evaluate("arr.filter(x => x == b).length").AsNumber());
-        Assert.Equal(1, _engine.Evaluate("arr.filter(x => x === b).length").AsNumber());
+        _engine.Evaluate("arr.filter(x => x == b).length").AsNumber().Should().Be(1);
+        _engine.Evaluate("arr.filter(x => x === b).length").AsNumber().Should().Be(1);
 
-        Assert.True(_engine.Evaluate("arr.find(x => x == b) === a").AsBoolean());
-        Assert.True(_engine.Evaluate("arr.find(x => x === b) == a").AsBoolean());
+        _engine.Evaluate("arr.find(x => x == b) === a").AsBoolean().Should().BeTrue();
+        _engine.Evaluate("arr.find(x => x === b) == a").AsBoolean().Should().BeTrue();
 
-        Assert.Equal(1, _engine.Evaluate("arr.findIndex(x => x == b)").AsNumber());
-        Assert.Equal(1, _engine.Evaluate("arr.findIndex(x => x === b)").AsNumber());
+        _engine.Evaluate("arr.findIndex(x => x == b)").AsNumber().Should().Be(1);
+        _engine.Evaluate("arr.findIndex(x => x === b)").AsNumber().Should().Be(1);
 
-        Assert.Equal(1, _engine.Evaluate("arr.indexOf(b)").AsNumber());
-        Assert.True(_engine.Evaluate("arr.includes(b)").AsBoolean());
+        _engine.Evaluate("arr.indexOf(b)").AsNumber().Should().Be(1);
+        _engine.Evaluate("arr.includes(b)").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
     public void ObjectWrapperWrappingDictionaryShouldNotBeArrayLike()
     {
         var wrapper = ObjectWrapper.Create(_engine, new Dictionary<string, object>());
-        Assert.False(wrapper.IsArrayLike);
+        wrapper.IsArrayLike.Should().BeFalse();
     }
 
     [Theory]
@@ -3549,8 +3553,8 @@ new Thrower().ThrowExceptionWithMessage('boom');";
             """
         );
 
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Execute($"delete context.{access}"));
-        Assert.StartsWith($"Cannot delete property '{names[^1]}'", ex.Message);
+        var ex = Invoking(() => engine.Execute($"delete context.{access}")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Message.Should().StartWith($"Cannot delete property '{names[^1]}'");
     }
 
     [Fact]
@@ -3567,12 +3571,12 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         engine.Realm.GlobalObject.FastSetDataProperty("test", new DelegateWrapper(engine, (Action<string, object>) Test));
 
         {
-            var ex = Assert.Throws<JavaScriptException>(() => engine.Realm.GlobalObject.ToObject());
-            Assert.Equal("Cyclic reference detected.", ex.Message);
+            var ex = Invoking(() => engine.Realm.GlobalObject.ToObject()).Should().ThrowExactly<JavaScriptException>().Which;
+            ex.Message.Should().Be("Cyclic reference detected.");
         }
 
         {
-            var ex = Assert.Throws<JavaScriptException>(() =>
+            var ex = Invoking(() =>
                 engine.Execute(@"
                     var demo={};
                     demo.value=1;
@@ -3581,9 +3585,8 @@ new Thrower().ThrowExceptionWithMessage('boom');";
                     demo.demo=demo;
                     test('Test 3', demo);
                     test('Test 4', global);"
-                )
-            );
-            Assert.Equal("Cyclic reference detected.", ex.Message);
+                )).Should().ThrowExactly<JavaScriptException>().Which;
+            ex.Message.Should().Be("Cyclic reference detected.");
         }
     }
 
@@ -3593,9 +3596,9 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         // defaults
         var e = new Engine();
         e.SetValue("a", new A());
-        Assert.True(e.Evaluate("a.call1").IsObject());
-        Assert.True(e.Evaluate("a.Call1").IsObject());
-        Assert.True(e.Evaluate("a.CALL1").IsUndefined());
+        e.Evaluate("a.call1").IsObject().Should().BeTrue();
+        e.Evaluate("a.Call1").IsObject().Should().BeTrue();
+        e.Evaluate("a.CALL1").IsUndefined().Should().BeTrue();
 
         e = new Engine(options =>
         {
@@ -3605,9 +3608,9 @@ new Thrower().ThrowExceptionWithMessage('boom');";
             });
         });
         e.SetValue("a", new A());
-        Assert.True(e.Evaluate("a.call1").IsUndefined());
-        Assert.True(e.Evaluate("a.Call1").IsObject());
-        Assert.True(e.Evaluate("a.CALL1").IsUndefined());
+        e.Evaluate("a.call1").IsUndefined().Should().BeTrue();
+        e.Evaluate("a.Call1").IsObject().Should().BeTrue();
+        e.Evaluate("a.CALL1").IsUndefined().Should().BeTrue();
 
         e = new Engine(options =>
         {
@@ -3617,9 +3620,9 @@ new Thrower().ThrowExceptionWithMessage('boom');";
             });
         });
         e.SetValue("a", new A());
-        Assert.True(e.Evaluate("a.call1").IsObject());
-        Assert.True(e.Evaluate("a.Call1").IsObject());
-        Assert.True(e.Evaluate("a.CALL1").IsObject());
+        e.Evaluate("a.call1").IsObject().Should().BeTrue();
+        e.Evaluate("a.Call1").IsObject().Should().BeTrue();
+        e.Evaluate("a.CALL1").IsObject().Should().BeTrue();
     }
 
     [Fact]
@@ -3635,12 +3638,12 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         engine.SetValue("dictionary", dictionary);
 
         var result = engine.Evaluate($"Object.keys(dictionary).join(',')").AsString();
-        Assert.Equal("foo,bar", result);
+        result.Should().Be("foo,bar");
 
 
         engine.Execute("dictionary.ContainsKey('foo')");
         result = engine.Evaluate($"Object.keys(dictionary).join(',')").AsString();
-        Assert.Equal("foo,bar", result);
+        result.Should().Be("foo,bar");
     }
 
     [Fact]
@@ -3649,7 +3652,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         var engine = new Engine(cfg => cfg.AddExtensionMethods(typeof(Enumerable)));
 
         var result = engine.Evaluate("Object.keys({ ...[1,2,3] }).join(',')").AsString();
-        Assert.Equal("0,1,2", result);
+        result.Should().Be("0,1,2");
 
         var script = @"
                 var arr = [1,2,3];
@@ -3658,7 +3661,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
                 keys.join(',');
             ";
         result = engine.Evaluate(script).ToString();
-        Assert.Equal("0,1,2", result);
+        result.Should().Be("0,1,2");
     }
 
     [Fact]
@@ -3676,7 +3679,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         engine.SetValue("people", people);
 
         // indexer access keeps working
-        Assert.Equal("person1", engine.Evaluate("people['person1'].Name").AsString());
+        engine.Evaluate("people['person1'].Name").AsString().Should().Be("person1");
 
         // for...in now enumerates the reported keys and the body resolves values via the indexer
         var forIn = engine.Evaluate(@"
@@ -3684,13 +3687,13 @@ new Thrower().ThrowExceptionWithMessage('boom');";
             for (var p in people) { result += people[p].Name + ' '; }
             result.trim();
         ").AsString();
-        Assert.Equal("person1 person2", forIn);
+        forIn.Should().Be("person1 person2");
 
         // Object.keys shares the same enumeration path
-        Assert.Equal("person1,person2", engine.Evaluate("Object.keys(people).join(',')").AsString());
+        engine.Evaluate("Object.keys(people).join(',')").AsString().Should().Be("person1,person2");
 
         // regular CLR members remain accessible alongside the reported keys
-        Assert.Equal(2d, engine.Evaluate("people.Count").AsNumber());
+        engine.Evaluate("people.Count").AsNumber().Should().Be(2d);
     }
 
     [Fact]
@@ -3704,14 +3707,14 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         });
 
         // default delegate returns null, so dictionary enumeration is unchanged
-        Assert.Equal("foo,bar", engine.Evaluate("Object.keys(dictionary).join(',')").AsString());
+        engine.Evaluate("Object.keys(dictionary).join(',')").AsString().Should().Be("foo,bar");
 
         var forIn = engine.Evaluate(@"
             var keys = [];
             for (var k in dictionary) keys.push(k);
             keys.join(',');
         ").AsString();
-        Assert.Equal("foo,bar", forIn);
+        forIn.Should().Be("foo,bar");
     }
 
     public sealed class ReportedKeysPerson(string name)
@@ -3737,10 +3740,10 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         engine.Evaluate("var f = () => true;");
 
         var result = engine.GetValue("f");
-        Assert.True(result.IsCallable);
+        result.IsCallable.Should().BeTrue();
 
-        Assert.True(result.Call([]).AsBoolean());
-        Assert.True(result.Call().AsBoolean());
+        result.Call([]).AsBoolean().Should().BeTrue();
+        result.Call().AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -3774,30 +3777,30 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         });
 
         engine.SetValue("o", new CustomNamed());
-        Assert.Equal("StringField", engine.Evaluate("o.jsStringField").AsString());
-        Assert.Equal("StringField", engine.Evaluate("o.jsStringField2").AsString());
-        Assert.Equal("StringProperty", engine.Evaluate("o.jsStringProperty").AsString());
-        Assert.Equal("Method", engine.Evaluate("o.jsMethod()").AsString());
-        Assert.Equal("InterfaceStringProperty", engine.Evaluate("o.jsInterfaceStringProperty").AsString());
-        Assert.Equal("InterfaceMethod", engine.Evaluate("o.jsInterfaceMethod()").AsString());
-        Assert.Equal("ExtensionMethod", engine.Evaluate("o.jsExtensionMethod()").AsString());
+        engine.Evaluate("o.jsStringField").AsString().Should().Be("StringField");
+        engine.Evaluate("o.jsStringField2").AsString().Should().Be("StringField");
+        engine.Evaluate("o.jsStringProperty").AsString().Should().Be("StringProperty");
+        engine.Evaluate("o.jsMethod()").AsString().Should().Be("Method");
+        engine.Evaluate("o.jsInterfaceStringProperty").AsString().Should().Be("InterfaceStringProperty");
+        engine.Evaluate("o.jsInterfaceMethod()").AsString().Should().Be("InterfaceMethod");
+        engine.Evaluate("o.jsExtensionMethod()").AsString().Should().Be("ExtensionMethod");
 
         // static methods are reported by default, unlike properties and fields
-        Assert.Equal("StaticMethod", engine.Evaluate("o.jsStaticMethod()").AsString());
+        engine.Evaluate("o.jsStaticMethod()").AsString().Should().Be("StaticMethod");
 
         engine.SetValue("CustomNamed", typeof(CustomNamed));
-        Assert.Equal("StaticStringField", engine.Evaluate("CustomNamed.jsStaticStringField").AsString());
-        Assert.Equal("StaticMethod", engine.Evaluate("CustomNamed.jsStaticMethod()").AsString());
+        engine.Evaluate("CustomNamed.jsStaticStringField").AsString().Should().Be("StaticStringField");
+        engine.Evaluate("CustomNamed.jsStaticMethod()").AsString().Should().Be("StaticMethod");
 
         engine.SetValue("XmlHttpRequest", typeof(CustomNamedEnum));
         engine.Evaluate("o.jsEnumProperty = XmlHttpRequest.HEADERS_RECEIVED;");
-        Assert.Equal((int) CustomNamedEnum.HeadersReceived, engine.Evaluate("o.jsEnumProperty").AsNumber());
+        engine.Evaluate("o.jsEnumProperty").AsNumber().Should().Be((int) CustomNamedEnum.HeadersReceived);
 
         // can get static members with different configuration
         var engineWithStaticsReported = new Engine(options => options.Interop.ObjectWrapperReportedFieldBindingFlags |= BindingFlags.Static);
         engineWithStaticsReported.SetValue("o", new CustomNamed());
-        Assert.Equal("StaticMethod", engineWithStaticsReported.Evaluate("o.staticMethod()").AsString());
-        Assert.Equal("StaticStringField", engineWithStaticsReported.Evaluate("o.staticStringField").AsString());
+        engineWithStaticsReported.Evaluate("o.staticMethod()").AsString().Should().Be("StaticMethod");
+        engineWithStaticsReported.Evaluate("o.staticStringField").AsString().Should().Be("StaticStringField");
     }
 
     [Fact]
@@ -3805,17 +3808,17 @@ new Thrower().ThrowExceptionWithMessage('boom');";
     {
         var engine = new Engine(cfg => cfg.CatchClrExceptions());
         engine.SetValue("a", new Person());
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Execute("a.age = 'It will not work, but it is normal'"));
-        Assert.Contains("input string ", ex.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains(" was not in a correct format", ex.Message, StringComparison.OrdinalIgnoreCase);
+        var ex = Invoking(() => engine.Execute("a.age = 'It will not work, but it is normal'")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Message.Should().ContainEquivalentOf("input string ");
+        ex.Message.Should().ContainEquivalentOf(" was not in a correct format");
     }
 
     [Fact]
     public void ShouldLetNotSupportedExceptionBubble()
     {
         _engine.SetValue("profile", new Profile());
-        var ex = Assert.Throws<NotSupportedException>(() => _engine.Evaluate("profile.AnyProperty"));
-        Assert.Equal("NOT SUPPORTED", ex.Message);
+        var ex = Invoking(() => _engine.Evaluate("profile.AnyProperty")).Should().ThrowExactly<NotSupportedException>().Which;
+        ex.Message.Should().Be("NOT SUPPORTED");
     }
 
     [Fact]
@@ -3824,9 +3827,9 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         _engine.SetValue("test", new DiscordTestClass());
         _engine.SetValue("id", new DiscordId("12345"));
 
-        Assert.Equal("12345", _engine.Evaluate("String(id)").AsString());
-        Assert.Equal("12345", _engine.Evaluate("test.echo('12345')").AsString());
-        Assert.Equal("12345", _engine.Evaluate("test.create(12345)").AsString());
+        _engine.Evaluate("String(id)").AsString().Should().Be("12345");
+        _engine.Evaluate("test.echo('12345')").AsString().Should().Be("12345");
+        _engine.Evaluate("test.create(12345)").AsString().Should().Be("12345");
     }
 
     [Fact]
@@ -3843,10 +3846,10 @@ new Thrower().ThrowExceptionWithMessage('boom');";
                 return str;";
 
         _engine.SetValue("collection", new List<string> { "a", "b", "c" });
-        Assert.Equal("abc", _engine.Evaluate(Script));
+        _engine.Evaluate(Script).Should().Be("abc");
 
         _engine.SetValue("collection", new Dictionary<string, object> { { "a", 1 }, { "b", 2 }, { "c", 3 } });
-        Assert.Equal("a,1b,2c,3", _engine.Evaluate(Script));
+        _engine.Evaluate(Script).Should().Be("a,1b,2c,3");
     }
 
     [Fact]
@@ -3854,28 +3857,28 @@ new Thrower().ThrowExceptionWithMessage('boom');";
     {
         _engine.SetValue("x", new Dictionary<string, int> { { "First", 1 }, { "Second", 2 } });
 
-        Assert.Equal("[\"First\",\"Second\"]", _engine.Evaluate("JSON.stringify(Object.keys(x))"));
+        _engine.Evaluate("JSON.stringify(Object.keys(x))").Should().Be("[\"First\",\"Second\"]");
 
-        Assert.Equal("x['First']: 1", _engine.Evaluate("\"x['First']: \" + x['First']"));
-        Assert.Equal("[\"First\",\"Second\"]", _engine.Evaluate("JSON.stringify(Object.keys(x))"));
+        _engine.Evaluate("\"x['First']: \" + x['First']").Should().Be("x['First']: 1");
+        _engine.Evaluate("JSON.stringify(Object.keys(x))").Should().Be("[\"First\",\"Second\"]");
 
-        Assert.Equal("x['Third']: undefined", _engine.Evaluate("\"x['Third']: \" + x['Third']"));
-        Assert.Equal("[\"First\",\"Second\"]", _engine.Evaluate("JSON.stringify(Object.keys(x))"));
+        _engine.Evaluate("\"x['Third']: \" + x['Third']").Should().Be("x['Third']: undefined");
+        _engine.Evaluate("JSON.stringify(Object.keys(x))").Should().Be("[\"First\",\"Second\"]");
 
-        Assert.Equal(JsValue.Undefined, _engine.Evaluate("x.length"));
-        Assert.Equal("[\"First\",\"Second\"]", _engine.Evaluate("JSON.stringify(Object.keys(x))"));
+        _engine.Evaluate("x.length").Should().BeUndefined();
+        _engine.Evaluate("JSON.stringify(Object.keys(x))").Should().Be("[\"First\",\"Second\"]");
 
-        Assert.Equal(2, _engine.Evaluate("x.Count").AsNumber());
-        Assert.Equal("[\"First\",\"Second\"]", _engine.Evaluate("JSON.stringify(Object.keys(x))"));
+        _engine.Evaluate("x.Count").AsNumber().Should().Be(2);
+        _engine.Evaluate("JSON.stringify(Object.keys(x))").Should().Be("[\"First\",\"Second\"]");
 
         _engine.Evaluate("x.Clear();");
 
-        Assert.Equal("[]", _engine.Evaluate("JSON.stringify(Object.keys(x))"));
+        _engine.Evaluate("JSON.stringify(Object.keys(x))").Should().Be("[]");
 
         _engine.Evaluate("x['Fourth'] = 4;");
-        Assert.Equal("[\"Fourth\"]", _engine.Evaluate("JSON.stringify(Object.keys(x))"));
+        _engine.Evaluate("JSON.stringify(Object.keys(x))").Should().Be("[\"Fourth\"]");
 
-        Assert.False(_engine.Evaluate("Object.prototype.hasOwnProperty.call(x, 'Third')").AsBoolean());
+        _engine.Evaluate("Object.prototype.hasOwnProperty.call(x, 'Third')").AsBoolean().Should().BeFalse();
     }
 
     [Fact]
@@ -3891,9 +3894,9 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         engine.SetValue("callback", callback);
         engine.Evaluate("callback(({'a': 'b'}));");
 
-        Assert.IsType<Dictionary<string, object>>(capture);
+        capture.Should().BeOfType<Dictionary<string, object>>();
         var dictionary = (Dictionary<string, object>) capture;
-        Assert.Equal("b", dictionary["a"]);
+        dictionary["a"].Should().Be("b");
     }
 
     [Fact]
@@ -3903,11 +3906,11 @@ new Thrower().ThrowExceptionWithMessage('boom');";
 
         engine.SetValue("list", new List<string> { "A", "B", "C" });
 
-        Assert.Equal(1, engine.Evaluate("list.indexOf('B')"));
-        Assert.Equal(1, engine.Evaluate("list.lastIndexOf('B')"));
+        engine.Evaluate("list.indexOf('B')").Should().Be(1);
+        engine.Evaluate("list.lastIndexOf('B')").Should().Be(1);
 
-        Assert.Equal(1, engine.Evaluate("Array.prototype.indexOf.call(list, 'B')"));
-        Assert.Equal(1, engine.Evaluate("Array.prototype.lastIndexOf.call(list, 'B')"));
+        engine.Evaluate("Array.prototype.indexOf.call(list, 'B')").Should().Be(1);
+        engine.Evaluate("Array.prototype.lastIndexOf.call(list, 'B')").Should().Be(1);
     }
 
     [Fact]
@@ -3918,8 +3921,8 @@ new Thrower().ThrowExceptionWithMessage('boom');";
 
         engine.SetValue("list", list);
 
-        Assert.Equal(1, engine.Evaluate("list.findIndex((x) => x === 'B')"));
-        Assert.Equal('B', engine.Evaluate("list.find((x) => x === 'B')"));
+        engine.Evaluate("list.findIndex((x) => x === 'B')").Should().Be(1);
+        engine.Evaluate("list.find((x) => x === 'B')").Should().Be('B');
     }
 
     [Fact]
@@ -3932,9 +3935,9 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         engine.SetValue("list", list);
 
         engine.Evaluate("list.push('D')");
-        Assert.Equal(4, list.Count);
-        Assert.Equal("D", list[3]);
-        Assert.Equal(3, engine.Evaluate("list.lastIndexOf('D')"));
+        list.Should().HaveCount(4);
+        list[3].Should().Be("D");
+        engine.Evaluate("list.lastIndexOf('D')").Should().Be(3);
     }
 
     [Fact]
@@ -3945,11 +3948,11 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         var list = new List<string> { "A", "B", "C" };
         engine.SetValue("list", list);
 
-        Assert.Equal(2, engine.Evaluate("list.lastIndexOf('C')"));
-        Assert.Equal(3, list.Count);
-        Assert.Equal("C", engine.Evaluate("list.pop()"));
-        Assert.Equal(2, list.Count);
-        Assert.Equal(-1, engine.Evaluate("list.lastIndexOf('C')"));
+        engine.Evaluate("list.lastIndexOf('C')").Should().Be(2);
+        list.Should().HaveCount(3);
+        engine.Evaluate("list.pop()").Should().Be("C");
+        list.Should().HaveCount(2);
+        engine.Evaluate("list.lastIndexOf('C')").Should().Be(-1);
     }
 
     [Fact]
@@ -3962,8 +3965,8 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         engine.SetValue("list", list);
 
         var result = engine.Evaluate("list.reverse()");
-        Assert.True(result.IsNull());
-        Assert.Equal(new[] { 3, 2, 1 }, list);
+        result.IsNull().Should().BeTrue();
+        list.Should().Equal(new[] { 3, 2, 1 });
     }
 
     [Fact]
@@ -3973,8 +3976,8 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         var list = new List<int> { 1, 2, 3 };
         engine.SetValue("list", list);
 
-        Assert.True(engine.Evaluate("list.reverse() === list").AsBoolean());
-        Assert.Equal(new[] { 3, 2, 1 }, list);
+        engine.Evaluate("list.reverse() === list").AsBoolean().Should().BeTrue();
+        list.Should().Equal(new[] { 3, 2, 1 });
     }
 
     [Fact]
@@ -3987,7 +3990,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         var list = new List<int> { 10, 2, 1 };
         engine.SetValue("list", list);
 
-        Assert.Equal("[1,10,2]", engine.Evaluate("JSON.stringify(list.sort())").AsString());
+        engine.Evaluate("JSON.stringify(list.sort())").AsString().Should().Be("[1,10,2]");
     }
 
     [Fact]
@@ -3999,11 +4002,11 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         engine.SetValue("list", list);
 
         engine.Evaluate("list.Add('C')");
-        Assert.Equal(3, list.Count);
-        Assert.Equal("C", list[2]);
+        list.Should().HaveCount(3);
+        list[2].Should().Be("C");
 
         engine.Evaluate("list.RemoveAt(0)");
-        Assert.Equal(new[] { "B", "C" }, list);
+        list.Should().Equal(new[] { "B", "C" });
     }
 
     [Fact]
@@ -4014,7 +4017,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         var list = new List<int> { 10, 20, 30, 40 };
         engine.SetValue("list", list);
 
-        Assert.Equal(4, engine.Evaluate("list.length").AsNumber());
+        engine.Evaluate("list.length").AsNumber().Should().Be(4);
     }
 
     [Fact]
@@ -4024,7 +4027,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         var engine = new Jint.Engine(cfg => cfg.PreferJsPrototypeMethods());
         engine.SetValue("obj", new ClassWithToString());
 
-        Assert.Equal("Test", engine.Evaluate("obj.toString()").AsString());
+        engine.Evaluate("obj.toString()").AsString().Should().Be("Test");
     }
 
     [Fact]
@@ -4048,8 +4051,8 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         var list = new List<int> { 1, 2, 3 };
         engine.SetValue("list", list);
 
-        Assert.True(engine.Evaluate("list.reverse() === list").AsBoolean());
-        Assert.Equal(new[] { 3, 2, 1 }, list);
+        engine.Evaluate("list.reverse() === list").AsBoolean().Should().BeTrue();
+        list.Should().Equal(new[] { 3, 2, 1 });
     }
 
     [Fact]
@@ -4065,14 +4068,14 @@ new Thrower().ThrowExceptionWithMessage('boom');";
 					return result;
 				}");
         // checking working custom type
-        Assert.Equal(new Dimensional("kg", 90), (new Dimensional("kg", 30) + new Dimensional("kg", 60)));
-        Assert.Equal(new Dimensional("kg", 90), engine.Invoke("Eval", new object[] { new Dimensional("kg", 30), new Dimensional("kg", 60) }).ToObject());
-        Assert.Throws<InvalidOperationException>(() => new Dimensional("kg", 30) + new Dimensional("piece", 70));
+        (new Dimensional("kg", 30) + new Dimensional("kg", 60)).Should().Be(new Dimensional("kg", 90));
+        engine.Invoke("Eval", new object[] { new Dimensional("kg", 30), new Dimensional("kg", 60) }).ToObject().Should().Be(new Dimensional("kg", 90));
+        Invoking(() => new Dimensional("kg", 30) + new Dimensional("piece", 70)).Should().ThrowExactly<InvalidOperationException>();
 
         // checking throwing exception in override operator
         string errorMsg = string.Empty;
-        errorMsg = Assert.Throws<JavaScriptException>(() => engine.Invoke("Eval", new object[] { new Dimensional("kg", 30), new Dimensional("piece", 70) })).Message;
-        Assert.Equal("Dimensionals with different measure types are non-summable", errorMsg);
+        errorMsg = Invoking(() => engine.Invoke("Eval", new object[] { new Dimensional("kg", 30), new Dimensional("piece", 70) })).Should().ThrowExactly<JavaScriptException>().Which.Message;
+        errorMsg.Should().Be("Dimensionals with different measure types are non-summable");
     }
 
     private class Profile
@@ -4088,7 +4091,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
             .Evaluate("JintCommon.sum(1, null)")
             .AsNumber();
 
-        Assert.Equal(2, result);
+        result.Should().Be(2);
     }
 
     public class JintCommon
@@ -4131,7 +4134,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         GC.Collect();
 
         // make sure no dangling reference is left
-        Assert.False(reference.IsAlive);
+        reference.IsAlive.Should().BeFalse();
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -4145,8 +4148,8 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         var wrapper1 = (ObjectWrapper) engine.GetValue("o");
         var reference = new WeakReference(wrapper1);
 
-        Assert.Same(wrapper1, engine.GetValue("o"));
-        Assert.Same(o, wrapper1.Target);
+        engine.GetValue("o").Should().BeSameAs(wrapper1);
+        wrapper1.Target.Should().BeSameAs(o);
 
         // reset
         engine.Realm.GlobalObject.RemoveOwnProperty("o");
@@ -4161,7 +4164,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
 
         var result = engine.Evaluate("fn(1)");
 
-        Assert.Equal(2, result);
+        result.Should().Be(2);
     }
 
     [Fact]
@@ -4176,7 +4179,7 @@ function wrap() {
 wrap();
 ";
 
-        Assert.Throws<InvalidOperationException>(() => engine.Execute(Source));
+        Invoking(() => engine.Execute(Source)).Should().ThrowExactly<InvalidOperationException>();
     }
 
     [Fact]
@@ -4191,8 +4194,8 @@ function wrap() {
 wrap();
 ";
 
-        var exc = Assert.Throws<JavaScriptException>(() => engine.Execute(Source));
-        Assert.Equal(exc.Message, "This is a C# error");
+        var exc = Invoking(() => engine.Execute(Source)).Should().ThrowExactly<JavaScriptException>().Which;
+        "This is a C# error".Should().Be(exc.Message);
     }
 
     [Fact]
@@ -4208,8 +4211,8 @@ try {
 }
 ";
 
-        var exc = Assert.Throws<JavaScriptException>(() => engine.Execute(Source));
-        Assert.Equal(exc.Message, "Caught: This is a C# error");
+        var exc = Invoking(() => engine.Execute(Source)).Should().ThrowExactly<JavaScriptException>().Which;
+        "Caught: This is a C# error".Should().Be(exc.Message);
     }
 
     class Baz
@@ -4241,7 +4244,7 @@ try {
 for (let i of baz.Enumerator) {
 }";
         engine.Execute(Source);
-        Assert.Equal(1, baz.DisposeCalls);
+        baz.DisposeCalls.Should().Be(1);
     }
 
     [Fact]
@@ -4255,7 +4258,7 @@ for (let i of baz.Enumerator) {
   if (i == 2) break;
 }";
         engine.Execute(Source);
-        Assert.Equal(1, baz.DisposeCalls);
+        baz.DisposeCalls.Should().Be(1);
     }
 
     [Fact]
@@ -4272,7 +4275,7 @@ try {
 } catch (e) {
 }";
         engine.Execute(Source);
-        Assert.Equal(1, baz.DisposeCalls);
+        baz.DisposeCalls.Should().Be(1);
     }
 
     public class PropertyTestClass
@@ -4304,20 +4307,20 @@ try {
 
         engine.SetValue("data", dictionary);
 
-        Assert.True(engine.Evaluate("Object.hasOwn(data, 'a')").AsBoolean());
-        Assert.True(engine.Evaluate("data['a'] === 1").AsBoolean());
+        engine.Evaluate("Object.hasOwn(data, 'a')").AsBoolean().Should().BeTrue();
+        engine.Evaluate("data['a'] === 1").AsBoolean().Should().BeTrue();
 
         engine.Evaluate("data['a'] = 42");
-        Assert.True(engine.Evaluate("data['a'] === 42").AsBoolean());
+        engine.Evaluate("data['a'] === 42").AsBoolean().Should().BeTrue();
 
-        Assert.Equal(42, dictionary["a"]);
+        dictionary["a"].Should().Be(42);
 
         engine.Execute("delete data['a'];");
 
-        Assert.False(engine.Evaluate("Object.hasOwn(data, 'a')").AsBoolean());
-        Assert.False(engine.Evaluate("data['a'] === 42").AsBoolean());
+        engine.Evaluate("Object.hasOwn(data, 'a')").AsBoolean().Should().BeFalse();
+        engine.Evaluate("data['a'] === 42").AsBoolean().Should().BeFalse();
 
-        Assert.False(dictionary.ContainsKey("a"));
+        dictionary.ContainsKey("a").Should().BeFalse();
 
         var engineNoWrite = new Engine(options => options.Strict().AllowClrWrite(false));
 
@@ -4329,14 +4332,14 @@ try {
 
         engineNoWrite.SetValue("data", dictionary);
 
-        var ex1 = Assert.Throws<JavaScriptException>(() => engineNoWrite.Evaluate("data['a'] = 42"));
-        Assert.Equal("Cannot assign to read only property 'a' of System.Collections.Generic.Dictionary`2[System.String,System.Int32]", ex1.Message);
+        var ex1 = Invoking(() => engineNoWrite.Evaluate("data['a'] = 42")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex1.Message.Should().Be("Cannot assign to read only property 'a' of System.Collections.Generic.Dictionary`2[System.String,System.Int32]");
 
         // no changes
-        Assert.True(engineNoWrite.Evaluate("data['a'] === 1").AsBoolean());
+        engineNoWrite.Evaluate("data['a'] === 1").AsBoolean().Should().BeTrue();
 
-        var ex2 = Assert.Throws<JavaScriptException>(() => engineNoWrite.Execute("delete data['a'];"));
-        Assert.Equal("Cannot delete property 'a' of System.Collections.Generic.Dictionary`2[System.String,System.Int32]", ex2.Message);
+        var ex2 = Invoking(() => engineNoWrite.Execute("delete data['a'];")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex2.Message.Should().Be("Cannot delete property 'a' of System.Collections.Generic.Dictionary`2[System.String,System.Int32]");
     }
 
     public record RecordTestClass(object Value = null);
@@ -4362,18 +4365,18 @@ try {
         var engine = new Engine();
 
         engine.SetValue("obj", new ClassWithIndexerAndProperty());
-        Assert.Equal("Jint.Tests.Runtime.InteropTests+ClassWithIndexerAndProperty", engine.Evaluate("obj + ''").AsString());
+        engine.Evaluate("obj + ''").AsString().Should().Be("Jint.Tests.Runtime.InteropTests+ClassWithIndexerAndProperty");
 
         engine.SetValue("obj", new Company("name"));
-        Assert.Equal("Jint.Tests.Runtime.Domain.Company", engine.Evaluate("obj + ''").AsString());
+        engine.Evaluate("obj + ''").AsString().Should().Be("Jint.Tests.Runtime.Domain.Company");
     }
 
     [Fact]
     public void CanConstructOptionalRecordClass()
     {
         _engine.SetValue("Context", new RecordTestClassContext());
-        Assert.Equal(null, _engine.Evaluate("Context.method({});").ToObject());
-        Assert.Equal(5, _engine.Evaluate("Context.method({ value: 5 });").AsInteger());
+        _engine.Evaluate("Context.method({});").ToObject().Should().BeNull();
+        _engine.Evaluate("Context.method({ value: 5 });").AsInteger().Should().Be(5);
     }
 
     [Fact]
@@ -4386,11 +4389,11 @@ try {
 
         engine.SetValue("minDate", DateTime.MinValue);
         engine.Execute("capture(minDate);");
-        Assert.Equal(DateTime.MinValue, dt);
+        dt.Should().Be(DateTime.MinValue);
 
         engine.SetValue("maxDate", DateTime.MaxValue);
         engine.Execute("capture(maxDate);");
-        Assert.Equal(DateTime.MaxValue, dt);
+        dt.Should().Be(DateTime.MaxValue);
     }
 
     private class Container
@@ -4414,7 +4417,7 @@ try {
         var engine = new Engine().SetValue("container", new Container());
         var res = engine.Evaluate("container.Child === container.Get()"); // These two should be the same object. But this PR makes `container.Get()` return a different object
 
-        Assert.True(res.AsBoolean());
+        res.AsBoolean().Should().BeTrue();
     }
 
     public interface IIndexer<out T>
@@ -4457,7 +4460,7 @@ try {
         var engine = new Engine();
         engine.SetValue("Utils", new Utils());
         var result = engine.Evaluate("const strings = Utils.GetStrings(); strings.Count;").AsNumber();
-        Assert.Equal(3, result);
+        result.Should().Be(3);
     }
 
     [Fact]
@@ -4466,7 +4469,7 @@ try {
         var engine = new Engine();
         engine.SetValue("Utils", new Utils());
         var result = engine.Evaluate("const strings = Utils.GetStrings(); strings[2];");
-        Assert.Equal("c", result);
+        result.Should().Be("c");
     }
 
     [Fact]
@@ -4475,7 +4478,7 @@ try {
         var engine = new Engine();
         engine.SetValue("test", new Utils());
         var result = engine.Evaluate("const { getStrings } = test; getStrings().Count;");
-        Assert.Equal(3, result);
+        result.Should().Be(3);
     }
 
     private class MetadataWrapper : IDictionary<string, object>
@@ -4586,7 +4589,7 @@ try {
 
         engine.Evaluate("test.metadata['abc'] = 123");
         var result = engine.Evaluate("test.metadata['abc']");
-        Assert.Equal("from-wrapper", result);
+        result.Should().Be("from-wrapper");
     }
 
     [Fact]
@@ -4610,11 +4613,11 @@ try {
         engine.Execute("var t = dict.last(kvp => { debug(kvp); debug(kvp.key); return kvp.key != null; } );");
         engine.Execute("debug(t); debug(t.key);");
 
-        Assert.Equal(4, result.Count);
-        Assert.Equal("KeyValuePair`2: [test, val]", result[0]);
-        Assert.Equal("String: test", result[1]);
-        Assert.Equal("KeyValuePair`2: [test, val]", result[2]);
-        Assert.Equal("String: test", result[3]);
+        result.Should().HaveCount(4);
+        result[0].Should().Be("KeyValuePair`2: [test, val]");
+        result[1].Should().Be("String: test");
+        result[2].Should().Be("KeyValuePair`2: [test, val]");
+        result[3].Should().Be("String: test");
     }
 
     private class ClrMembersVisibilityTestClass
@@ -4779,7 +4782,7 @@ try {
         var engine = new Engine();
         engine.SetValue("zoo", new Zoo());
         var kingManeLength = engine.Evaluate("zoo.King.maneLength");
-        Assert.Equal(10, kingManeLength.AsNumber());
+        kingManeLength.AsNumber().Should().Be(10);
     }
 
     [Fact]
@@ -4788,22 +4791,22 @@ try {
         var engine = new Engine();
         engine.SetValue("zoo", new Zoo());
         var lionManeLength = engine.Evaluate("zoo.animals[0].maneLength");
-        Assert.Equal(10, lionManeLength.AsNumber());
+        lionManeLength.AsNumber().Should().Be(10);
     }
 
     [Fact]
     public void StaticFieldsShouldFollowJsSemantics()
     {
         _engine.Evaluate("Number.MAX_SAFE_INTEGER").AsNumber().Should().Be(NumberConstructor.MaxSafeInteger);
-        _engine.Evaluate("new Number().MAX_SAFE_INTEGER").Should().Be(JsValue.Undefined);
+        _engine.Evaluate("new Number().MAX_SAFE_INTEGER").Should().BeUndefined();
 
         _engine.Execute("class MyJsClass { static MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER; }");
         _engine.Evaluate("MyJsClass.MAX_SAFE_INTEGER").AsNumber().Should().Be(NumberConstructor.MaxSafeInteger);
-        _engine.Evaluate("new MyJsClass().MAX_SAFE_INTEGER").Should().Be(JsValue.Undefined);
+        _engine.Evaluate("new MyJsClass().MAX_SAFE_INTEGER").Should().BeUndefined();
 
         _engine.SetValue("MyCsClass", typeof(MyClass));
         _engine.Evaluate("MyCsClass.MAX_SAFE_INTEGER").AsNumber().Should().Be(NumberConstructor.MaxSafeInteger);
-        _engine.Evaluate("new MyCsClass().MAX_SAFE_INTEGER").Should().Be(JsValue.Undefined);
+        _engine.Evaluate("new MyCsClass().MAX_SAFE_INTEGER").Should().BeUndefined();
     }
 
     private class MyClass
@@ -4869,8 +4872,8 @@ try {
             ])
             .ToObject();
 
-        Assert.Equal(values[0], found1);
-        Assert.Equal(values[1], found2);
+        found1.Should().Be(values[0]);
+        found2.Should().Be(values[1]);
     }
 
     [Fact]
@@ -4972,10 +4975,10 @@ try {
 
         // Should access the X property from GeometryWrapperWithProperty, not the indexer from WrapperWithIndexer
         var result = engine.Evaluate("feature.Geometry.x").AsNumber();
-        Assert.Equal(10.5, result);
+        result.Should().Be(10.5);
 
         var resultY = engine.Evaluate("feature.Geometry.y").AsNumber();
-        Assert.Equal(20.5, resultY);
+        resultY.Should().Be(20.5);
     }
 
     [Fact]
@@ -4988,7 +4991,7 @@ try {
         engine.SetValue("feature", feature);
 
         var result = engine.Evaluate("feature.Geometry.customKey");
-        Assert.Equal("customValue", result.AsString());
+        result.AsString().Should().Be("customValue");
     }
 
     [Fact]
@@ -5001,7 +5004,7 @@ try {
         engine.Evaluate("feature.Geometry.x = 99.9");
 
         var geometry = (GeometryWrapperWithProperty) feature.Geometry;
-        Assert.Equal(99.9, geometry.X);
+        geometry.X.Should().Be(99.9);
     }
 
     public class TypeWithListConstructor
@@ -5038,11 +5041,11 @@ try {
         var result = engine.Evaluate("new TypeWithListConstructor(['a', 'b', 'c'])");
         var obj = result.ToObject() as TypeWithListConstructor;
 
-        Assert.NotNull(obj);
-        Assert.Equal(3, obj.Items.Count);
-        Assert.Equal("a", obj.Items[0]);
-        Assert.Equal("b", obj.Items[1]);
-        Assert.Equal("c", obj.Items[2]);
+        obj.Should().NotBeNull();
+        obj.Items.Should().HaveCount(3);
+        obj.Items[0].Should().Be("a");
+        obj.Items[1].Should().Be("b");
+        obj.Items[2].Should().Be("c");
     }
 
     [Fact]
@@ -5054,8 +5057,8 @@ try {
         var result = engine.Evaluate("new TypeWithListConstructor([])");
         var obj = result.ToObject() as TypeWithListConstructor;
 
-        Assert.NotNull(obj);
-        Assert.Empty(obj.Items);
+        obj.Should().NotBeNull();
+        obj.Items.Should().BeEmpty();
     }
 
     [Fact]
@@ -5066,20 +5069,20 @@ try {
         engine.SetValue("target", target);
 
         engine.Evaluate("target.SetIListItems(['a', 'b'])");
-        Assert.Equal(2, target.IListItems.Count);
-        Assert.Equal("a", target.IListItems[0]);
+        target.IListItems.Should().HaveCount(2);
+        target.IListItems[0].Should().Be("a");
 
         engine.Evaluate("target.SetICollectionItems(['c', 'd'])");
-        Assert.Equal(2, target.ICollectionItems.Count);
+        target.ICollectionItems.Should().HaveCount(2);
 
         engine.Evaluate("target.SetIEnumerableItems(['e', 'f'])");
-        Assert.Equal(2, target.IEnumerableItems.Count());
+        target.IEnumerableItems.Count().Should().Be(2);
 
         engine.Evaluate("target.SetIReadOnlyListItems(['g', 'h'])");
-        Assert.Equal(2, target.IReadOnlyListItems.Count);
-        Assert.Equal("g", target.IReadOnlyListItems[0]);
+        target.IReadOnlyListItems.Should().HaveCount(2);
+        target.IReadOnlyListItems[0].Should().Be("g");
 
         engine.Evaluate("target.SetIReadOnlyCollectionItems(['i', 'j'])");
-        Assert.Equal(2, target.IReadOnlyCollectionItems.Count);
+        target.IReadOnlyCollectionItems.Should().HaveCount(2);
     }
 }

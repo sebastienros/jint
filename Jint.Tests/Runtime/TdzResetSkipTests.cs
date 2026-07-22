@@ -1,4 +1,4 @@
-namespace Jint.Tests.Runtime;
+﻿namespace Jint.Tests.Runtime;
 
 /// <summary>
 /// Pins the semantics of the flattened for-loop body TDZ reset skip: when the body block's
@@ -41,7 +41,7 @@ public class TdzResetSkipTests
             })()
             """).AsString();
 
-        Assert.Equal("0,2,4|0,2,4|0,2,4", result);
+        result.Should().Be("0,2,4|0,2,4|0,2,4");
     }
 
     [Fact]
@@ -69,7 +69,7 @@ public class TdzResetSkipTests
             expected = expected + (i ^ (i * 3));
         }
 
-        Assert.Equal(expected, result);
+        result.Should().Be(expected);
     }
 
     [Fact]
@@ -90,7 +90,7 @@ public class TdzResetSkipTests
             })()
             """).AsNumber();
 
-        Assert.Equal(3, result);
+        result.Should().Be(3);
     }
 
     [Fact]
@@ -113,7 +113,7 @@ public class TdzResetSkipTests
             })()
             """).AsString();
 
-        Assert.Equal("tdz-write", result);
+        result.Should().Be("tdz-write");
     }
 
     [Fact]
@@ -135,7 +135,7 @@ public class TdzResetSkipTests
             })()
             """).AsString();
 
-        Assert.Equal("2:4", result);
+        result.Should().Be("2:4");
     }
 
     [Fact]
@@ -155,7 +155,7 @@ public class TdzResetSkipTests
             })()
             """).AsString();
 
-        Assert.Equal("0,10,20", result);
+        result.Should().Be("0,10,20");
     }
 
     [Fact]
@@ -180,7 +180,7 @@ public class TdzResetSkipTests
             })()
             """).AsNumber();
 
-        Assert.Equal(70, result);
+        result.Should().Be(70);
     }
 
     [Fact]
@@ -203,7 +203,7 @@ public class TdzResetSkipTests
                 return hits.join(',');
             })()
             """).AsString();
-        Assert.Equal("true,true", immediate);
+        immediate.Should().Be("true,true");
 
         // conditional self-reference: iteration 0 initializes z without reading it, iteration 1's
         // initializer reads z. The scan must treat the initializer as running before its own name
@@ -218,7 +218,7 @@ public class TdzResetSkipTests
                 return 'no-throw';
             })()
             """).AsString();
-        Assert.Equal("tdz", conditional);
+        conditional.Should().Be("tdz");
     }
 
     [Fact]
@@ -237,7 +237,7 @@ public class TdzResetSkipTests
                 return acc.join(',');
             })()
             """).AsString();
-        Assert.Equal("0,3", header);
+        header.Should().Be("0,3");
 
         // body slot shadowing an outer binding: body reads see the freshly initialized inner
         // binding every iteration and the outer binding stays untouched
@@ -253,7 +253,7 @@ public class TdzResetSkipTests
                 return acc.join(',');
             })()
             """).AsString();
-        Assert.Equal("inner0,inner1,outer", shadow);
+        shadow.Should().Be("inner0,inner1,outer");
 
         // shadow read before the declaration, conditionally so iteration 0 completes: the body's
         // own binding covers the whole block in TDZ, so iteration 1 must throw — never fall back
@@ -273,7 +273,7 @@ public class TdzResetSkipTests
                 return 'no-throw:' + seen;
             })()
             """).AsString();
-        Assert.Equal("true:none", beforeDeclaration);
+        beforeDeclaration.Should().Be("true:none");
     }
 
     [Fact]
@@ -291,7 +291,7 @@ public class TdzResetSkipTests
                 return acc.join('|');
             })()
             """).AsString();
-        Assert.Equal("1:10|2:20", forward);
+        forward.Should().Be("1:10|2:20");
 
         // ...but an earlier declarator referencing a later one is before-use: the scan rejects,
         // the reset stays, and iteration 1's read throws instead of seeing iteration 0's value
@@ -307,7 +307,7 @@ public class TdzResetSkipTests
                 return 'no-throw';
             })()
             """).AsString();
-        Assert.Equal("tdz", backward);
+        backward.Should().Be("tdz");
     }
 
     [Fact]
@@ -333,6 +333,6 @@ public class TdzResetSkipTests
             })()
             """).AsString();
 
-        Assert.Equal("0:1:set|1:3:undefined|2:5:undefined", result);
+        result.Should().Be("0:1:set|1:3:undefined|2:5:undefined");
     }
 }

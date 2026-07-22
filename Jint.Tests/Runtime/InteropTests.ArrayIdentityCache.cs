@@ -1,4 +1,4 @@
-using Jint.Runtime.Interop;
+﻿using Jint.Runtime.Interop;
 
 namespace Jint.Tests.Runtime;
 
@@ -21,10 +21,10 @@ public partial class InteropTests
         });
         engine.SetValue("host", new ArrayConversionHost());
 
-        Assert.False(engine.Evaluate("host.Numbers === host.Numbers").AsBoolean());
+        engine.Evaluate("host.Numbers === host.Numbers").AsBoolean().Should().BeFalse();
 
         // a script-side mutation of one snapshot is not visible in the next read
-        Assert.Equal(1, engine.Evaluate("var a = host.Numbers; a[0] = 42; host.Numbers[0]").AsNumber());
+        engine.Evaluate("var a = host.Numbers; a[0] = 42; host.Numbers[0]").AsNumber().Should().Be(1);
     }
 
     [Fact]
@@ -38,14 +38,14 @@ public partial class InteropTests
         });
         engine.SetValue("host", host);
 
-        Assert.True(engine.Evaluate("host.Numbers === host.Numbers").AsBoolean());
+        engine.Evaluate("host.Numbers === host.Numbers").AsBoolean().Should().BeTrue();
 
         // script-side mutations persist across reads (the identity contract)
-        Assert.Equal(42, engine.Evaluate("host.Numbers[0] = 42; host.Numbers[0]").AsNumber());
+        engine.Evaluate("host.Numbers[0] = 42; host.Numbers[0]").AsNumber().Should().Be(42);
 
         // CLR-side mutations after the first conversion are not re-copied (documented staleness)
         host.Numbers[1] = 99;
-        Assert.Equal(2, engine.Evaluate("host.Numbers[1]").AsNumber());
+        engine.Evaluate("host.Numbers[1]").AsNumber().Should().Be(2);
     }
 
     [Fact]
@@ -58,7 +58,7 @@ public partial class InteropTests
         });
         engine.SetValue("host", new ArrayConversionHost());
 
-        Assert.True(engine.Evaluate("host.Numbers === host.Numbers").AsBoolean());
+        engine.Evaluate("host.Numbers === host.Numbers").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -75,11 +75,11 @@ public partial class InteropTests
 
         var array = new[] { 1, 2, 3 };
         engine.SetValue("a", array);
-        Assert.Equal(1, engine.Evaluate("a[0]").AsNumber());
+        engine.Evaluate("a[0]").AsNumber().Should().Be(1);
 
         engine.Options.Interop.WrapObjectHandler = static (e, target, type) => ObjectWrapper.Create(e, target, type);
         engine.SetValue("b", array);
-        Assert.Equal(1, engine.Evaluate("b[0]").AsNumber());
+        engine.Evaluate("b[0]").AsNumber().Should().Be(1);
     }
 
     [Fact]
@@ -90,9 +90,9 @@ public partial class InteropTests
         var engine = new Engine();
         engine.SetValue("host", new ArrayConversionHost());
         engine.Evaluate("host.Numbers[0]");
-        Assert.NotNull(engine._recentObjectWrapperCache);
+        engine._recentObjectWrapperCache.Should().NotBeNull();
 
         engine.Dispose();
-        Assert.Null(engine._recentObjectWrapperCache);
+        engine._recentObjectWrapperCache.Should().BeNull();
     }
 }

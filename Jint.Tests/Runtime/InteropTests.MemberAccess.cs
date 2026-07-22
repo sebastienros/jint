@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using Jint.Native;
 using Jint.Native.Object;
@@ -28,11 +28,11 @@ public partial class InteropTests
 
         engine.SetValue("m", new HiddenMembers());
 
-        Assert.Equal("Member1", engine.Evaluate("m.Member1").ToString());
-        Assert.Equal("undefined", engine.Evaluate("m.Member2").ToString());
-        Assert.Equal("Method1", engine.Evaluate("m.Method1()").ToString());
+        engine.Evaluate("m.Member1").ToString().Should().Be("Member1");
+        engine.Evaluate("m.Member2").ToString().Should().Be("undefined");
+        engine.Evaluate("m.Method1()").ToString().Should().Be("Method1");
         // check the method itself, not its invokation as it would mean invoking "undefined"
-        Assert.Equal("undefined", engine.Evaluate("m.Method2").ToString());
+        engine.Evaluate("m.Method2").ToString().Should().Be("undefined");
     }
 
     [Fact]
@@ -50,7 +50,7 @@ public partial class InteropTests
 
         engine.SetValue("m", new HiddenMembers());
 
-        Assert.Equal("Orange", engine.Evaluate("m.Member1").ToString());
+        engine.Evaluate("m.Member1").ToString().Should().Be("Orange");
     }
 
     [Fact]
@@ -65,16 +65,16 @@ public partial class InteropTests
 
         engine.SetValue("m", new HiddenMembers());
 
-        Assert.True(engine.Evaluate("m.Field1").IsUndefined());
-        Assert.True(engine.Evaluate("m.Member1").IsUndefined());
-        Assert.True(engine.Evaluate("m.Method1").IsUndefined());
+        engine.Evaluate("m.Field1").IsUndefined().Should().BeTrue();
+        engine.Evaluate("m.Member1").IsUndefined().Should().BeTrue();
+        engine.Evaluate("m.Method1").IsUndefined().Should().BeTrue();
 
-        Assert.True(engine.Evaluate("m.Field2").IsString());
-        Assert.True(engine.Evaluate("m.Member2").IsString());
-        Assert.True(engine.Evaluate("m.Method2()").IsString());
+        engine.Evaluate("m.Field2").IsString().Should().BeTrue();
+        engine.Evaluate("m.Member2").IsString().Should().BeTrue();
+        engine.Evaluate("m.Method2()").IsString().Should().BeTrue();
 
         // we forbid GetType by default
-        Assert.True(engine.Evaluate("m.GetType").IsUndefined());
+        engine.Evaluate("m.GetType").IsUndefined().Should().BeTrue();
     }
 
     [Fact]
@@ -103,10 +103,10 @@ public partial class InteropTests
             options.Interop.AllowSystemReflection = true;
         });
         engine.SetValue("m", new HiddenMembers());
-        Assert.True(engine.Evaluate("m.GetType").IsCallable);
+        engine.Evaluate("m.GetType").IsCallable.Should().BeTrue();
 
         // reflection could bypass some safeguards
-        Assert.Equal("Method1", engine.Evaluate("m.GetType().GetMethod('Method1').Invoke(m, [])").AsString());
+        engine.Evaluate("m.GetType().GetMethod('Method1').Invoke(m, [])").AsString().Should().Be("Method1");
     }
 
     [Fact]
@@ -123,10 +123,10 @@ public partial class InteropTests
             return result;
         }
 
-        Assert.Equal("System.Uri", TestAllowGetTypeOption(allowGetType: true));
+        TestAllowGetTypeOption(allowGetType: true).Should().Be("System.Uri");
 
-        var ex = Assert.Throws<JavaScriptException>(() => TestAllowGetTypeOption(allowGetType: false));
-        Assert.Equal("Property 'GetType' of object is not a function", ex.Message);
+        var ex = Invoking(() => TestAllowGetTypeOption(allowGetType: false)).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Message.Should().Be("Property 'GetType' of object is not a function");
     }
 
     [Fact]
@@ -137,10 +137,10 @@ public partial class InteropTests
 
         // we can get a type reference if it's exposed via property, bypassing GetType
         var type = engine.Evaluate("m.Type");
-        Assert.IsType<ObjectWrapper>(type);
+        type.Should().BeOfType<ObjectWrapper>();
 
-        var ex = Assert.Throws<InvalidOperationException>(() => engine.Evaluate("m.Type.Module.GetType().Module.GetType('System.DateTime')"));
-        Assert.Equal("Cannot access System.Reflection namespace, check Engine's interop options", ex.Message);
+        var ex = Invoking(() => engine.Evaluate("m.Type.Module.GetType().Module.GetType('System.DateTime')")).Should().ThrowExactly<InvalidOperationException>().Which;
+        ex.Message.Should().Be("Cannot access System.Reflection namespace, check Engine's interop options");
     }
 
     [Fact]
@@ -154,11 +154,11 @@ public partial class InteropTests
             });
         });
         engine.SetValue("EchoService", TypeReference.CreateTypeReference(engine, typeof(EchoService)));
-        Assert.Equal("anyone there", engine.Evaluate("EchoService.Echo('anyone there')").AsString());
-        Assert.Equal("anyone there", engine.Evaluate("EchoService.echo('anyone there')").AsString());
-        Assert.True(engine.Evaluate("EchoService.ECHO").IsUndefined());
+        engine.Evaluate("EchoService.Echo('anyone there')").AsString().Should().Be("anyone there");
+        engine.Evaluate("EchoService.echo('anyone there')").AsString().Should().Be("anyone there");
+        engine.Evaluate("EchoService.ECHO").IsUndefined().Should().BeTrue();
 
-        Assert.True(engine.Evaluate("EchoService.Hidden").IsUndefined());
+        engine.Evaluate("EchoService.Hidden").IsUndefined().Should().BeTrue();
     }
 
     [Fact]
@@ -174,16 +174,16 @@ public partial class InteropTests
 
         engine.SetValue("dc", dc);
 
-        Assert.Equal(1, engine.Evaluate("dc.a"));
-        Assert.Equal(1, engine.Evaluate("dc['a']"));
-        Assert.NotEqual(JsValue.Undefined, engine.Evaluate("dc.Add"));
-        Assert.NotEqual(0, engine.Evaluate("dc.Add"));
-        Assert.Equal(JsValue.Undefined, engine.Evaluate("dc.b"));
+        engine.Evaluate("dc.a").Should().Be(1);
+        engine.Evaluate("dc['a']").Should().Be(1);
+        engine.Evaluate("dc.Add").Should().NotBe(JsValue.Undefined);
+        engine.Evaluate("dc.Add").Should().NotBe(0);
+        engine.Evaluate("dc.b").Should().BeUndefined();
 
         engine.Execute("dc.b = 5");
         engine.Execute("dc.Add('c', 10)");
-        Assert.Equal(5, engine.Evaluate("dc.b"));
-        Assert.Equal(10, engine.Evaluate("dc.c"));
+        engine.Evaluate("dc.b").Should().Be(5);
+        engine.Evaluate("dc.c").Should().Be(10);
     }
 
     [Fact]
@@ -195,8 +195,8 @@ public partial class InteropTests
         });
 
         engine.SetValue("B", TypeReference.CreateTypeReference(engine, typeof(InheritingFromClassWithStatics)));
-        Assert.Equal(42, engine.Evaluate("B.a").AsNumber());
-        Assert.Equal(24, engine.Evaluate("B.a = 24; B.a").AsNumber());
+        engine.Evaluate("B.a").AsNumber().Should().Be(42);
+        engine.Evaluate("B.a = 24; B.a").AsNumber().Should().Be(24);
     }
 
     private class BaseClassWithStatics
@@ -276,7 +276,7 @@ public partial class InteropTests
         engine.Execute("obj.Data = { Value: '123' };");
         var obj = engine.Evaluate("obj").ToObject() as ClassWithData;
 
-        Assert.Equal("123", obj?.Data.Value);
+        (obj?.Data.Value).Should().Be("123");
     }
 
     [Fact]
@@ -286,7 +286,7 @@ public partial class InteropTests
 
         engine.SetValue("obj", new ClassWithData());
         engine.Evaluate("obj.Age").AsNumber().Should().Be(42);
-        engine.Evaluate("obj.AgeMissing").Should().Be(JsValue.Undefined);
+        engine.Evaluate("obj.AgeMissing").Should().BeUndefined();
 
         engine = new Engine(options =>
         {
@@ -368,7 +368,7 @@ public partial class InteropTests
         engine.SetValue("dict", new Dictionary<string, string> { ["Foo"] = "bar" });
 
         engine.Evaluate("dict['Foo']").AsString().Should().Be("bar");
-        engine.Evaluate("dict['Missing']").Should().Be(JsValue.Undefined);
+        engine.Evaluate("dict['Missing']").Should().BeUndefined();
 
         // real CLR members on the dictionary still resolve
         engine.Evaluate("dict.Count").AsNumber().Should().Be(1);
@@ -383,7 +383,7 @@ public partial class InteropTests
         engine.SetValue("dict", hashtable);
 
         engine.Evaluate("dict['Foo']").AsString().Should().Be("bar");
-        engine.Evaluate("dict['Missing']").Should().Be(JsValue.Undefined);
+        engine.Evaluate("dict['Missing']").Should().BeUndefined();
     }
 
     [Fact]
@@ -395,7 +395,7 @@ public partial class InteropTests
         engine.SetValue("dict", dict);
 
         engine.Evaluate("dict['answer']").AsNumber().Should().Be(42);
-        engine.Evaluate("dict['missing']").Should().Be(JsValue.Undefined);
+        engine.Evaluate("dict['missing']").Should().BeUndefined();
     }
 
     public class ClassWithPropertyToHide

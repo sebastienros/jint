@@ -1,4 +1,4 @@
-using Jint.Native;
+﻿using Jint.Native;
 using Jint.Native.Global;
 using Jint.Native.Symbol;
 using Jint.Runtime.Descriptors;
@@ -42,8 +42,9 @@ public class PropertyDescriptorTests
                     typeof(Console).Assembly,
                     typeof(File).Assembly))
                 .SetValue("log", new Action<object>(Console.WriteLine))
-                .SetValue("assert", new Action<bool>(Assert.True))
-                .SetValue("equal", new Action<object, object>(Assert.Equal))
+                .SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()))
+                .SetValue("equal", new Action<object, object>(static (expected, actual) =>
+                    actual.Should().BeEquivalentTo(expected, static options => options.WithStrictOrdering())))
                 .SetValue("testClass", TestClass.Instance)
         ;
     }
@@ -57,11 +58,11 @@ public class PropertyDescriptorTests
               writable: false
             })
         """).AsObject().GetOwnProperty("value");
-        Assert.Equal(false, pd.IsAccessorDescriptor());
-        Assert.Equal(true, pd.IsDataDescriptor());
-        Assert.Equal(false, pd.Writable);
-        Assert.Null(pd.Get);
-        Assert.Null(pd.Set);
+        pd.IsAccessorDescriptor().Should().BeFalse();
+        pd.IsDataDescriptor().Should().BeTrue();
+        pd.Writable.Should().BeFalse();
+        pd.Get.Should().BeNull();
+        pd.Set.Should().BeNull();
     }
 
     [Fact]
@@ -73,11 +74,11 @@ public class PropertyDescriptorTests
               writable: true
             })
         """).AsObject().GetOwnProperty("value");
-        Assert.Equal(false, pd.IsAccessorDescriptor());
-        Assert.Equal(true, pd.IsDataDescriptor());
-        Assert.Equal(true, pd.Writable);
-        Assert.Null(pd.Get);
-        Assert.Null(pd.Set);
+        pd.IsAccessorDescriptor().Should().BeFalse();
+        pd.IsDataDescriptor().Should().BeTrue();
+        pd.Writable.Should().BeTrue();
+        pd.Get.Should().BeNull();
+        pd.Set.Should().BeNull();
     }
 
     [Fact]
@@ -85,18 +86,18 @@ public class PropertyDescriptorTests
     {
         var pd = PropertyDescriptor.Undefined;
         // PropertyDescriptor.UndefinedPropertyDescriptor is private
-        //if (checkType) Assert.IsType<PropertyDescriptor.UndefinedPropertyDescriptor>(pd);
-        Assert.Equal(false, pd.IsAccessorDescriptor());
-        Assert.Equal(false, pd.IsDataDescriptor());
+        //if (checkType) pd.Should().BeOfType<PropertyDescriptor.UndefinedPropertyDescriptor>();
+        pd.IsAccessorDescriptor().Should().BeFalse();
+        pd.IsDataDescriptor().Should().BeFalse();
     }
 
     [Fact]
     public void AllForbiddenDescriptor()
     {
         var pd = _engine.Evaluate("Object.getPrototypeOf('s')").AsObject().GetOwnProperty("length");
-        if (checkType) Assert.IsType<PropertyDescriptor.AllForbiddenDescriptor>(pd);
-        Assert.Equal(false, pd.IsAccessorDescriptor());
-        Assert.Equal(true, pd.IsDataDescriptor());
+        if (checkType) pd.Should().BeOfType<PropertyDescriptor.AllForbiddenDescriptor>();
+        pd.IsAccessorDescriptor().Should().BeFalse();
+        pd.IsDataDescriptor().Should().BeTrue();
     }
 
     [Fact]
@@ -105,13 +106,13 @@ public class PropertyDescriptorTests
         // Math uses builtin-shape storage; a raw property store of a non-shape name joins the
         // hybrid side dictionary, which every read/enumeration surface must consult — without
         // that, the property silently doesn't exist.
-        Assert.Equal(4, _engine.Evaluate("Math.floor(4.7)").AsNumber()); // initialize the shaped host
+        _engine.Evaluate("Math.floor(4.7)").AsNumber().Should().Be(4); // initialize the shaped host
         var math = _engine.Evaluate("Math").AsObject();
         math.FastSetProperty("custom", new PropertyDescriptor(42, PropertyFlag.ConfigurableEnumerableWritable));
 
-        Assert.Equal(42, _engine.Evaluate("Math.custom").AsNumber());
-        Assert.True(_engine.Evaluate("Object.getOwnPropertyNames(Math).includes('custom')").AsBoolean());
-        Assert.Equal(4, _engine.Evaluate("Math.floor(4.7)").AsNumber());
+        _engine.Evaluate("Math.custom").AsNumber().Should().Be(42);
+        _engine.Evaluate("Object.getOwnPropertyNames(Math).includes('custom')").AsBoolean().Should().BeTrue();
+        _engine.Evaluate("Math.floor(4.7)").AsNumber().Should().Be(4);
     }
 
     [Fact]
@@ -122,8 +123,8 @@ public class PropertyDescriptorTests
         var regExp = _engine.Evaluate("RegExp").AsObject();
         regExp.FastSetProperty("custom", new PropertyDescriptor(42, PropertyFlag.ConfigurableEnumerableWritable));
 
-        Assert.Equal(42, _engine.Evaluate("RegExp.custom").AsNumber());
-        Assert.True(_engine.Evaluate("typeof RegExp.escape === 'function'").AsBoolean());
+        _engine.Evaluate("RegExp.custom").AsNumber().Should().Be(42);
+        _engine.Evaluate("typeof RegExp.escape === 'function'").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -133,9 +134,9 @@ public class PropertyDescriptorTests
         var math = _engine.Evaluate("Math").AsObject();
         math.FastSetProperty("custom", new PropertyDescriptor(42, PropertyFlag.ConfigurableEnumerableWritable));
 
-        Assert.Equal(42, _engine.Evaluate("Math.custom").AsNumber());
-        Assert.True(_engine.Evaluate("Object.getOwnPropertyNames(Math).includes('custom')").AsBoolean());
-        Assert.Equal(4, _engine.Evaluate("Math.floor(4.7)").AsNumber());
+        _engine.Evaluate("Math.custom").AsNumber().Should().Be(42);
+        _engine.Evaluate("Object.getOwnPropertyNames(Math).includes('custom')").AsBoolean().Should().BeTrue();
+        _engine.Evaluate("Math.floor(4.7)").AsNumber().Should().Be(4);
     }
 
     [Fact]
@@ -145,8 +146,8 @@ public class PropertyDescriptorTests
         var math = _engine.Evaluate("Math").AsObject();
         math.SetProperty(GlobalSymbolRegistry.Iterator, new PropertyDescriptor(42, PropertyFlag.ConfigurableEnumerableWritable));
 
-        Assert.Equal(42, _engine.Evaluate("Math[Symbol.iterator]").AsNumber());
-        Assert.Equal("Math", _engine.Evaluate("Math[Symbol.toStringTag]").AsString());
+        _engine.Evaluate("Math[Symbol.iterator]").AsNumber().Should().Be(42);
+        _engine.Evaluate("Math[Symbol.toStringTag]").AsString().Should().Be("Math");
     }
 
     [Fact]
@@ -156,18 +157,18 @@ public class PropertyDescriptorTests
         var pd = _engine.Evaluate("globalThis").AsObject().GetOwnProperty("decodeURI");
         if (checkType)
         {
-            Assert.IsType<PropertyDescriptor>(pd);
+            pd.Should().BeOfType<PropertyDescriptor>();
         }
-        Assert.Equal(false, pd.IsAccessorDescriptor());
-        Assert.Equal(true, pd.IsDataDescriptor());
+        pd.IsAccessorDescriptor().Should().BeFalse();
+        pd.IsDataDescriptor().Should().BeTrue();
 
         // parseInt is a host-filled instance slot carrying a LazyPropertyDescriptor
         var lazy = _engine.Evaluate("globalThis").AsObject().GetOwnProperty("parseInt");
         if (checkType)
         {
-            Assert.IsType<LazyPropertyDescriptor<GlobalObject>>(lazy);
+            lazy.Should().BeOfType<LazyPropertyDescriptor<GlobalObject>>();
         }
-        Assert.Equal(true, lazy.IsDataDescriptor());
+        lazy.IsDataDescriptor().Should().BeTrue();
 
         // deleting a shape name deopts the global; untouched function slots must survive
         // as lazy wrappers instead of eagerly instantiating every built-in dispatcher
@@ -175,19 +176,19 @@ public class PropertyDescriptorTests
         var afterDeopt = _engine.Evaluate("globalThis").AsObject().GetOwnProperty("encodeURI");
         if (checkType)
         {
-            Assert.IsType<LazyBuiltinSlotDescriptor>(afterDeopt);
+            afterDeopt.Should().BeOfType<LazyBuiltinSlotDescriptor>();
         }
-        Assert.Equal(true, afterDeopt.IsDataDescriptor());
-        Assert.Equal("test", _engine.Evaluate("encodeURI('test')").AsString());
+        afterDeopt.IsDataDescriptor().Should().BeTrue();
+        _engine.Evaluate("encodeURI('test')").AsString().Should().Be("test");
     }
 
     [Fact]
     public void ThrowerPropertyDescriptor()
     {
         var pd = _engine.Evaluate("Object.getPrototypeOf(function() {})").AsObject().GetOwnProperty("arguments");
-        if (checkType) Assert.IsType<GetSetPropertyDescriptor.ThrowerPropertyDescriptor>(pd);
-        Assert.Equal(true, pd.IsAccessorDescriptor());
-        Assert.Equal(false, pd.IsDataDescriptor());
+        if (checkType) pd.Should().BeOfType<GetSetPropertyDescriptor.ThrowerPropertyDescriptor>();
+        pd.IsAccessorDescriptor().Should().BeTrue();
+        pd.IsDataDescriptor().Should().BeFalse();
     }
 
     [Fact]
@@ -198,11 +199,11 @@ public class PropertyDescriptorTests
               get() {}
             })
         """).AsObject().GetOwnProperty("value");
-        if (checkType) Assert.IsType<GetSetPropertyDescriptor>(pd);
-        Assert.Equal(true, pd.IsAccessorDescriptor());
-        Assert.Equal(false, pd.IsDataDescriptor());
-        Assert.NotNull(pd.Get);
-        Assert.Null(pd.Set);
+        if (checkType) pd.Should().BeOfType<GetSetPropertyDescriptor>();
+        pd.IsAccessorDescriptor().Should().BeTrue();
+        pd.IsDataDescriptor().Should().BeFalse();
+        pd.Get.Should().NotBeNull();
+        pd.Set.Should().BeNull();
     }
 
     [Fact]
@@ -213,11 +214,11 @@ public class PropertyDescriptorTests
               set() {}
             })
         """).AsObject().GetOwnProperty("value");
-        if (checkType) Assert.IsType<GetSetPropertyDescriptor>(pd);
-        Assert.Equal(true, pd.IsAccessorDescriptor());
-        Assert.Equal(false, pd.IsDataDescriptor());
-        Assert.Null(pd.Get);
-        Assert.NotNull(pd.Set);
+        if (checkType) pd.Should().BeOfType<GetSetPropertyDescriptor>();
+        pd.IsAccessorDescriptor().Should().BeTrue();
+        pd.IsDataDescriptor().Should().BeFalse();
+        pd.Get.Should().BeNull();
+        pd.Set.Should().NotBeNull();
     }
 
     [Fact]
@@ -229,11 +230,11 @@ public class PropertyDescriptorTests
               set() {}
             })
         """).AsObject().GetOwnProperty("value");
-        if (checkType) Assert.IsType<GetSetPropertyDescriptor>(pd);
-        Assert.Equal(true, pd.IsAccessorDescriptor());
-        Assert.Equal(false, pd.IsDataDescriptor());
-        Assert.NotNull(pd.Get);
-        Assert.NotNull(pd.Set);
+        if (checkType) pd.Should().BeOfType<GetSetPropertyDescriptor>();
+        pd.IsAccessorDescriptor().Should().BeTrue();
+        pd.IsDataDescriptor().Should().BeFalse();
+        pd.Get.Should().NotBeNull();
+        pd.Set.Should().NotBeNull();
     }
 
     [Fact]
@@ -251,9 +252,9 @@ public class PropertyDescriptorTests
             })(42)
         """);
         var pd = (PropertyDescriptor) ((ObjectWrapper) pdobj).Target;
-        if (checkType) Assert.IsType<ClrAccessDescriptor>(pd);
-        Assert.Equal(true, pd.IsAccessorDescriptor());
-        Assert.Equal(false, pd.IsDataDescriptor());
+        if (checkType) pd.Should().BeOfType<ClrAccessDescriptor>();
+        pd.IsAccessorDescriptor().Should().BeTrue();
+        pd.IsDataDescriptor().Should().BeFalse();
     }
 
     [Fact]
@@ -264,9 +265,9 @@ public class PropertyDescriptorTests
 
         var pd = _engine.Evaluate("testClass").AsObject().GetOwnProperty("Method");
         // use PropertyDescriptor to wrap method directly
-        //if (checkType) Assert.IsType<PropertyDescriptor>(pd);
-        Assert.Equal(false, pd.IsAccessorDescriptor());
-        Assert.Equal(true, pd.IsDataDescriptor());
+        //if (checkType) pd.Should().BeOfType<PropertyDescriptor>();
+        pd.IsAccessorDescriptor().Should().BeFalse();
+        pd.IsDataDescriptor().Should().BeTrue();
     }
 
     [Fact]
@@ -277,9 +278,9 @@ public class PropertyDescriptorTests
 
         var pd = _engine.Evaluate("testClass").AsObject().GetOwnProperty("NestedType");
         // use PropertyDescriptor to wrap nested type directly
-        //if (checkType) Assert.IsType<PropertyDescriptor>(pd);
-        Assert.Equal(false, pd.IsAccessorDescriptor());
-        Assert.Equal(true, pd.IsDataDescriptor());
+        //if (checkType) pd.Should().BeOfType<PropertyDescriptor>();
+        pd.IsAccessorDescriptor().Should().BeFalse();
+        pd.IsDataDescriptor().Should().BeTrue();
     }
 
     [Fact]
@@ -289,9 +290,9 @@ public class PropertyDescriptorTests
         CheckPropertyDescriptor(pdField, false, true, false, false, true, false);
 
         var pd = _engine.Evaluate("testClass").AsObject().GetOwnProperty("fieldReadOnly");
-        if (checkType) Assert.IsType<ReflectionDescriptor>(pd);
-        Assert.Equal(true, pd.IsAccessorDescriptor());
-        Assert.Equal(false, pd.IsDataDescriptor());
+        if (checkType) pd.Should().BeOfType<ReflectionDescriptor>();
+        pd.IsAccessorDescriptor().Should().BeTrue();
+        pd.IsDataDescriptor().Should().BeFalse();
     }
 
     [Fact]
@@ -301,9 +302,9 @@ public class PropertyDescriptorTests
         CheckPropertyDescriptor(pdField, false, true, true, false, true, true);
 
         var pd = _engine.Evaluate("testClass").AsObject().GetOwnProperty("field");
-        if (checkType) Assert.IsType<ReflectionDescriptor>(pd);
-        Assert.Equal(true, pd.IsAccessorDescriptor());
-        Assert.Equal(false, pd.IsDataDescriptor());
+        if (checkType) pd.Should().BeOfType<ReflectionDescriptor>();
+        pd.IsAccessorDescriptor().Should().BeTrue();
+        pd.IsDataDescriptor().Should().BeFalse();
     }
 
     [Fact]
@@ -313,9 +314,9 @@ public class PropertyDescriptorTests
         CheckPropertyDescriptor(pdPropertyReadOnly, false, true, false, false, true, false);
 
         var pd = _engine.Evaluate("testClass").AsObject().GetOwnProperty("PropertyReadOnly");
-        if (checkType) Assert.IsType<ReflectionDescriptor>(pd);
-        Assert.Equal(true, pd.IsAccessorDescriptor());
-        Assert.Equal(false, pd.IsDataDescriptor());
+        if (checkType) pd.Should().BeOfType<ReflectionDescriptor>();
+        pd.IsAccessorDescriptor().Should().BeTrue();
+        pd.IsDataDescriptor().Should().BeFalse();
     }
 
     [Fact]
@@ -325,9 +326,9 @@ public class PropertyDescriptorTests
         CheckPropertyDescriptor(pdPropertyWriteOnly, false, true, true, false, false, true);
 
         var pd = _engine.Evaluate("testClass").AsObject().GetOwnProperty("PropertyWriteOnly");
-        if (checkType) Assert.IsType<ReflectionDescriptor>(pd);
-        Assert.Equal(true, pd.IsAccessorDescriptor());
-        Assert.Equal(false, pd.IsDataDescriptor());
+        if (checkType) pd.Should().BeOfType<ReflectionDescriptor>();
+        pd.IsAccessorDescriptor().Should().BeTrue();
+        pd.IsDataDescriptor().Should().BeFalse();
     }
 
     [Fact]
@@ -337,9 +338,9 @@ public class PropertyDescriptorTests
         CheckPropertyDescriptor(pdPropertyReadWrite, false, true, true, false, true, true);
 
         var pd = _engine.Evaluate("testClass").AsObject().GetOwnProperty("PropertyReadWrite");
-        if (checkType) Assert.IsType<ReflectionDescriptor>(pd);
-        Assert.Equal(true, pd.IsAccessorDescriptor());
-        Assert.Equal(false, pd.IsDataDescriptor());
+        if (checkType) pd.Should().BeOfType<ReflectionDescriptor>();
+        pd.IsAccessorDescriptor().Should().BeTrue();
+        pd.IsDataDescriptor().Should().BeFalse();
     }
 
     [Fact]
@@ -350,9 +351,9 @@ public class PropertyDescriptorTests
 
         var pd1 = _engine.Evaluate("testClass.IndexerReadOnly");
         var pd = pd1.AsObject().GetOwnProperty("1");
-        if (checkType) Assert.IsType<ReflectionDescriptor>(pd);
-        Assert.Equal(true, pd.IsAccessorDescriptor());
-        Assert.Equal(false, pd.IsDataDescriptor());
+        if (checkType) pd.Should().BeOfType<ReflectionDescriptor>();
+        pd.IsAccessorDescriptor().Should().BeTrue();
+        pd.IsDataDescriptor().Should().BeFalse();
     }
 
     [Fact]
@@ -362,9 +363,9 @@ public class PropertyDescriptorTests
         CheckPropertyDescriptor(pdIndexerWriteOnly, false, true, true, false, false, true);
 
         var pd = _engine.Evaluate("testClass.IndexerWriteOnly").AsObject().GetOwnProperty("1");
-        if (checkType) Assert.IsType<ReflectionDescriptor>(pd);
-        Assert.Equal(true, pd.IsAccessorDescriptor());
-        Assert.Equal(false, pd.IsDataDescriptor());
+        if (checkType) pd.Should().BeOfType<ReflectionDescriptor>();
+        pd.IsAccessorDescriptor().Should().BeTrue();
+        pd.IsDataDescriptor().Should().BeFalse();
     }
 
     [Fact]
@@ -374,9 +375,9 @@ public class PropertyDescriptorTests
         CheckPropertyDescriptor(pdIndexerReadWrite, false, true, true, false, true, true);
 
         var pd = _engine.Evaluate("testClass.IndexerReadWrite").AsObject().GetOwnProperty("1");
-        if (checkType) Assert.IsType<ReflectionDescriptor>(pd);
-        Assert.Equal(true, pd.IsAccessorDescriptor());
-        Assert.Equal(false, pd.IsDataDescriptor());
+        if (checkType) pd.Should().BeOfType<ReflectionDescriptor>();
+        pd.IsAccessorDescriptor().Should().BeTrue();
+        pd.IsDataDescriptor().Should().BeFalse();
     }
 
     private void CheckPropertyDescriptor(
@@ -391,20 +392,20 @@ public class PropertyDescriptorTests
     {
         var pd = jsPropertyDescriptor.AsObject();
 
-        Assert.Equal(configurable, pd["configurable"].AsBoolean());
-        Assert.Equal(enumerable, pd["enumerable"].AsBoolean());
+        pd["configurable"].AsBoolean().Should().Be(configurable);
+        pd["enumerable"].AsBoolean().Should().Be(enumerable);
         if (writable)
         {
             var writableActual = pd["writable"];
             if (!writableActual.IsUndefined())
             {
-                Assert.True(writableActual.AsBoolean());
+                writableActual.AsBoolean().Should().BeTrue();
             }
         }
 
-        Assert.Equal(hasValue, !pd["value"].IsUndefined());
-        Assert.Equal(hasGet, !pd["get"].IsUndefined());
-        Assert.Equal(hasSet, !pd["set"].IsUndefined());
+        (!pd["value"].IsUndefined()).Should().Be(hasValue);
+        (!pd["get"].IsUndefined()).Should().Be(hasGet);
+        (!pd["set"].IsUndefined()).Should().Be(hasSet);
     }
 
     [Fact]
@@ -421,7 +422,7 @@ public class PropertyDescriptorTests
             });
             return Object.getOwnPropertyDescriptor(o, 'foo');
         """);
-        Assert.Equal(101, pd.AsObject().Get("value").AsInteger());
+        pd.AsObject().Get("value").AsInteger().Should().Be(101);
         CheckPropertyDescriptor(pd, true, false, false, true, false, false);
     }
 }

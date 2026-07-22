@@ -1,4 +1,4 @@
-using Jint.Native;
+﻿using Jint.Native;
 
 namespace Jint.Tests.Runtime;
 
@@ -13,7 +13,7 @@ public class ObjectInstanceTests
             JSON.stringify([Object.keys(o), Object.values(o), Object.entries(o)]);
             """).AsString();
 
-        Assert.Equal("[[\"a\",\"b\"],[1,2],[[\"a\",1],[\"b\",2]]]", result);
+        result.Should().Be("[[\"a\",\"b\"],[1,2],[[\"a\",1],[\"b\",2]]]");
     }
 
     [Fact]
@@ -28,7 +28,7 @@ public class ObjectInstanceTests
             JSON.stringify([Object.keys(o), Object.values(o), Object.entries(o).length]);
             """).AsString();
 
-        Assert.Equal("[[\"a\",\"b\"],[1,4],2]", result);
+        result.Should().Be("[[\"a\",\"b\"],[1,4],2]");
     }
 
     [Fact]
@@ -40,7 +40,7 @@ public class ObjectInstanceTests
             Array.isArray(e) && e.length === 2 && (e.push(3), e.length === 3);
             """).AsBoolean();
 
-        Assert.True(result);
+        result.Should().BeTrue();
     }
 
     [Fact]
@@ -56,7 +56,7 @@ public class ObjectInstanceTests
             JSON.stringify([Object.keys(p), calls]);
             """).AsString();
 
-        Assert.Equal("[[\"a\",\"b\"],[\"ownKeys\",\"gopd:a\",\"gopd:b\"]]", result);
+        result.Should().Be("[[\"a\",\"b\"],[\"ownKeys\",\"gopd:a\",\"gopd:b\"]]");
     }
 
     [Fact]
@@ -68,7 +68,7 @@ public class ObjectInstanceTests
         instance.FastSetDataProperty("scope", JsValue.Null);
         instance.RemoveOwnProperty("bare");
         var propertyNames = instance.GetOwnProperties().Select(x => x.Key).ToList();
-        Assert.Equal(new JsValue[] { "scope" }, propertyNames);
+        propertyNames.Should().Equal(new JsValue[] { "scope" });
     }
 
     [Theory]
@@ -91,7 +91,7 @@ public class ObjectInstanceTests
                 o.constructor === My{baseType}";
 
         var engine = new Engine();
-        Assert.True(engine.Evaluate(code).AsBoolean());
+        engine.Evaluate(code).AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -99,7 +99,7 @@ public class ObjectInstanceTests
     {
         var engine = new Engine();
         var instance = new JsObject(engine);
-        Assert.NotNull(instance.GetPrototypeOf());
-        Assert.Equal("[object Object]", instance.ToString());
+        instance.GetPrototypeOf().Should().NotBeNull();
+        instance.ToString().Should().Be("[object Object]");
     }
 }

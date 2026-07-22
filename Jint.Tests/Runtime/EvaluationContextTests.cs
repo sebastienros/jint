@@ -9,6 +9,6 @@ public class EvaluationContextTests
 
         Expression expression = new Identifier(NodeType.MemberExpression.ToString());
 
-        Assert.Throws<Jint.Runtime.JavaScriptException>(() => AstExtensions.TryGetComputedPropertyKey(expression, mockedEngine));
+        Invoking(() => AstExtensions.TryGetComputedPropertyKey(expression, mockedEngine)).Should().ThrowExactly<Jint.Runtime.JavaScriptException>();
     }
 }

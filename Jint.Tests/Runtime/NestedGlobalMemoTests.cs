@@ -1,4 +1,4 @@
-namespace Jint.Tests.Runtime;
+﻿namespace Jint.Tests.Runtime;
 
 /// <summary>
 /// Pins the semantics of the nested-scope global-read chain memo in JintIdentifierExpression:
@@ -30,7 +30,7 @@ public class NestedGlobalMemoTests
             host();
             """).AsString();
 
-        Assert.Equal("number;number;number;string;string;string;", result);
+        result.Should().Be("number;number;number;string;string;string;");
     }
 
     [Fact]
@@ -52,7 +52,7 @@ public class NestedGlobalMemoTests
             """).AsString();
 
         // after injection the write must land on host's binding; the global keeps run(1)'s value
-        Assert.Equal("2:1", result);
+        result.Should().Be("2:1");
     }
 
     [Fact]
@@ -75,7 +75,7 @@ public class NestedGlobalMemoTests
             host3();
             """).AsString();
 
-        Assert.Equal("undefined;undefined;function;function;", result);
+        result.Should().Be("undefined;undefined;function;function;");
     }
 
     [Fact]
@@ -96,7 +96,7 @@ public class NestedGlobalMemoTests
             f();
             """).AsString();
 
-        Assert.Equal("global;global;with;with;global;global;", result);
+        result.Should().Be("global;global;with;with;global;global;");
     }
 
     [Fact]
@@ -117,8 +117,8 @@ public class NestedGlobalMemoTests
 
         for (var i = 0; i < 3; i++)
         {
-            Assert.Equal("aaa", engine1.Evaluate(prepared).AsString());
-            Assert.Equal("bbb", engine2.Evaluate(prepared).AsString());
+            engine1.Evaluate(prepared).AsString().Should().Be("aaa");
+            engine2.Evaluate(prepared).AsString().Should().Be("bbb");
         }
     }
 
@@ -135,11 +135,11 @@ public class NestedGlobalMemoTests
             }
             """);
 
-        Assert.Equal("propprop", engine.Evaluate("r();").AsString());
+        engine.Evaluate("r();").AsString().Should().Be("propprop");
 
         // a global let now shadows the plain global property; _lexicalMutations invalidates
         engine.Execute("let gp = 'lexical';");
-        Assert.Equal("lexicallexical", engine.Evaluate("r();").AsString());
+        engine.Evaluate("r();").AsString().Should().Be("lexicallexical");
     }
 
     [Fact]
@@ -155,11 +155,11 @@ public class NestedGlobalMemoTests
             }
             """);
 
-        Assert.Equal("herehere", engine.Evaluate("r();").AsString());
+        engine.Evaluate("r();").AsString().Should().Be("herehere");
 
         engine.Execute("delete globalThis.gd;");
-        var ex = Assert.Throws<Jint.Runtime.JavaScriptException>(() => engine.Evaluate("r();"));
-        Assert.Contains("gd is not defined", ex.Message);
+        var ex = Invoking(() => engine.Evaluate("r();")).Should().ThrowExactly<Jint.Runtime.JavaScriptException>().Which;
+        ex.Message.Should().Contain("gd is not defined");
     }
 
     [Fact]
@@ -182,6 +182,6 @@ public class NestedGlobalMemoTests
             acc;
             """).AsString();
 
-        Assert.Equal("a:X;a:X;b:X;b:X;a:X;a:X;", result);
+        result.Should().Be("a:X;a:X;b:X;b:X;a:X;a:X;");
     }
 }

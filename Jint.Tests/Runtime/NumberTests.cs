@@ -1,4 +1,4 @@
-namespace Jint.Tests.Runtime;
+﻿namespace Jint.Tests.Runtime;
 
 public class NumberTests
 {
@@ -8,8 +8,9 @@ public class NumberTests
     {
         _engine = new Engine()
             .SetValue("log", new Action<object>(Console.WriteLine))
-            .SetValue("assert", new Action<bool>(Assert.True))
-            .SetValue("equal", new Action<object, object>(Assert.Equal));
+            .SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()))
+            .SetValue("equal", new Action<object, object>(static (expected, actual) =>
+                    actual.Should().BeEquivalentTo(expected, static options => options.WithStrictOrdering())));
     }
 
     private void RunTest(string source)
@@ -24,7 +25,7 @@ public class NumberTests
     public void ToExponential(int fractionDigits, string result)
     {
         var value = _engine.Evaluate($"(3).toExponential({fractionDigits}).toString()").AsString();
-        Assert.Equal(result, value);
+        value.Should().Be(result);
     }
 
     [Theory]
@@ -34,14 +35,14 @@ public class NumberTests
     public void ToFixed(int fractionDigits, string result)
     {
         var value = _engine.Evaluate($"(3).toFixed({fractionDigits}).toString()").AsString();
-        Assert.Equal(result, value);
+        value.Should().Be(result);
     }
 
     [Fact]
     public void ToFixedWith100FractionDigitsWorks()
     {
         var value = _engine.Evaluate("(3).toFixed(100)").AsString();
-        Assert.Equal("3." + new string('0', 100), value);
+        value.Should().Be("3." + new string('0', 100));
     }
 
     [Theory]
@@ -51,7 +52,7 @@ public class NumberTests
     public void ToPrecision(int fractionDigits, string result)
     {
         var value = _engine.Evaluate($"(3).toPrecision({fractionDigits}).toString()").AsString();
-        Assert.Equal(result, value);
+        value.Should().Be(result);
     }
 
     [Theory]
@@ -59,7 +60,7 @@ public class NumberTests
     public void ParseFloat(string input, double result)
     {
         var value = _engine.Evaluate($"parseFloat('{input}')").AsNumber();
-        Assert.Equal(result, value);
+        value.Should().Be(result);
     }
 
     // Results from node -v v18.18.0.
@@ -131,7 +132,7 @@ public class NumberTests
     public void ToLocaleString(string parseNumber, string culture, string result)
     {
         var value = _engine.Evaluate($"({parseNumber}).toLocaleString('{culture}')").AsString();
-        Assert.Equal(result, value);
+        value.Should().Be(result);
     }
 
     [Theory]
@@ -140,7 +141,7 @@ public class NumberTests
     public void ToLocaleStringNoArg(string parseNumber)
     {
         var value = _engine.Evaluate($"({parseNumber}).toLocaleString()").AsString();
-        Assert.DoesNotContain(".0", value);
+        value.Should().NotContain(".0");
     }
 
     [Fact]
@@ -148,21 +149,21 @@ public class NumberTests
     {
         var engine = new Engine();
 
-        Assert.Equal(double.PositiveInfinity, engine.Evaluate("Number(1e1000)").ToObject());
-        Assert.Equal(double.PositiveInfinity, engine.Evaluate("+1e1000").ToObject());
-        Assert.Equal("Infinity", engine.Evaluate("(+1e1000).toString()").ToObject());
+        engine.Evaluate("Number(1e1000)").ToObject().Should().Be(double.PositiveInfinity);
+        engine.Evaluate("+1e1000").ToObject().Should().Be(double.PositiveInfinity);
+        engine.Evaluate("(+1e1000).toString()").ToObject().Should().Be("Infinity");
 
-        Assert.Equal(double.PositiveInfinity, engine.Evaluate("Number('1e1000')").ToObject());
-        Assert.Equal(double.PositiveInfinity, engine.Evaluate("+'1e1000'").ToObject());
-        Assert.Equal("Infinity", engine.Evaluate("(+'1e1000').toString()").ToObject());
+        engine.Evaluate("Number('1e1000')").ToObject().Should().Be(double.PositiveInfinity);
+        engine.Evaluate("+'1e1000'").ToObject().Should().Be(double.PositiveInfinity);
+        engine.Evaluate("(+'1e1000').toString()").ToObject().Should().Be("Infinity");
 
-        Assert.Equal(double.NegativeInfinity, engine.Evaluate("Number(-1e1000)").ToObject());
-        Assert.Equal(double.NegativeInfinity, engine.Evaluate("-1e1000").ToObject());
-        Assert.Equal("-Infinity", engine.Evaluate("(-1e1000).toString()").ToObject());
+        engine.Evaluate("Number(-1e1000)").ToObject().Should().Be(double.NegativeInfinity);
+        engine.Evaluate("-1e1000").ToObject().Should().Be(double.NegativeInfinity);
+        engine.Evaluate("(-1e1000).toString()").ToObject().Should().Be("-Infinity");
 
-        Assert.Equal(double.NegativeInfinity, engine.Evaluate("Number('-1e1000')").ToObject());
-        Assert.Equal(double.NegativeInfinity, engine.Evaluate("-'1e1000'").ToObject());
-        Assert.Equal("-Infinity", engine.Evaluate("(-'1e1000').toString()").ToObject());
+        engine.Evaluate("Number('-1e1000')").ToObject().Should().Be(double.NegativeInfinity);
+        engine.Evaluate("-'1e1000'").ToObject().Should().Be(double.NegativeInfinity);
+        engine.Evaluate("(-'1e1000').toString()").ToObject().Should().Be("-Infinity");
     }
 
     [Fact]
@@ -172,18 +173,18 @@ public class NumberTests
 
         // internally Integer-tagged int.MinValue / int.MaxValue values must widen
         // to double on arithmetic instead of wrapping or raising hardware overflows
-        Assert.Equal(2147483648d, engine.Evaluate("var x = (1<<31)|0; -x").AsNumber());
-        Assert.Equal(2147483648d, engine.Evaluate("var x = (1<<31)|0; x / -1").AsNumber());
-        Assert.Equal(0d, engine.Evaluate("var x = (1<<31)|0; x % -1").AsNumber());
-        Assert.True(engine.Evaluate("var x = (1<<31)|0; Object.is(x % -1, -0)").AsBoolean());
+        engine.Evaluate("var x = (1<<31)|0; -x").AsNumber().Should().Be(2147483648d);
+        engine.Evaluate("var x = (1<<31)|0; x / -1").AsNumber().Should().Be(2147483648d);
+        engine.Evaluate("var x = (1<<31)|0; x % -1").AsNumber().Should().Be(0d);
+        engine.Evaluate("var x = (1<<31)|0; Object.is(x % -1, -0)").AsBoolean().Should().BeTrue();
 
-        Assert.Equal(2147483648d, engine.Evaluate("var a = 2147483647; a++; a").AsNumber());
-        Assert.Equal(2147483648d, engine.Evaluate("var a = 2147483647; ++a").AsNumber());
-        Assert.Equal(-2147483649d, engine.Evaluate("var b = (1<<31)|0; b--; b").AsNumber());
-        Assert.Equal(-2147483649d, engine.Evaluate("var b = (1<<31)|0; --b").AsNumber());
+        engine.Evaluate("var a = 2147483647; a++; a").AsNumber().Should().Be(2147483648d);
+        engine.Evaluate("var a = 2147483647; ++a").AsNumber().Should().Be(2147483648d);
+        engine.Evaluate("var b = (1<<31)|0; b--; b").AsNumber().Should().Be(-2147483649d);
+        engine.Evaluate("var b = (1<<31)|0; --b").AsNumber().Should().Be(-2147483649d);
 
-        Assert.Equal(-2147483649d, engine.Evaluate("var c = (1<<31)|0; c -= 1; c").AsNumber());
-        Assert.Equal(2147483648d, engine.Evaluate("var d = 2147483647; d += 1; d").AsNumber());
+        engine.Evaluate("var c = (1<<31)|0; c -= 1; c").AsNumber().Should().Be(-2147483649d);
+        engine.Evaluate("var d = 2147483647; d += 1; d").AsNumber().Should().Be(2147483648d);
     }
 
     [Fact]
@@ -192,34 +193,34 @@ public class NumberTests
         var engine = new Engine();
 
         // undefined operands must coerce to NaN, not stay undefined
-        Assert.True(engine.Evaluate("var u; u *= 2; Number.isNaN(u)").AsBoolean());
-        Assert.True(engine.Evaluate("var u; u /= 2; Number.isNaN(u)").AsBoolean());
-        Assert.True(engine.Evaluate("var u; u -= 2; Number.isNaN(u)").AsBoolean());
+        engine.Evaluate("var u; u *= 2; Number.isNaN(u)").AsBoolean().Should().BeTrue();
+        engine.Evaluate("var u; u /= 2; Number.isNaN(u)").AsBoolean().Should().BeTrue();
+        engine.Evaluate("var u; u -= 2; Number.isNaN(u)").AsBoolean().Should().BeTrue();
 
         // ** has spec semantics that differ from IEEE pow: (+/-1) ** Infinity is NaN
-        Assert.True(engine.Evaluate("var x = 1; x **= Infinity; Number.isNaN(x)").AsBoolean());
-        Assert.True(engine.Evaluate("var x = -1; x **= -Infinity; Number.isNaN(x)").AsBoolean());
-        Assert.Equal(8d, engine.Evaluate("var x = 2; x **= 3; x").AsNumber());
+        engine.Evaluate("var x = 1; x **= Infinity; Number.isNaN(x)").AsBoolean().Should().BeTrue();
+        engine.Evaluate("var x = -1; x **= -Infinity; Number.isNaN(x)").AsBoolean().Should().BeTrue();
+        engine.Evaluate("var x = 2; x **= 3; x").AsNumber().Should().Be(8d);
 
         // compound bitwise/shift operators support BigInt like their binary forms
-        Assert.Equal("1", engine.Evaluate("var b = 3n; b &= 1n; b.toString()").AsString());
-        Assert.Equal("3", engine.Evaluate("var b = 2n; b |= 1n; b.toString()").AsString());
-        Assert.Equal("2", engine.Evaluate("var b = 3n; b ^= 1n; b.toString()").AsString());
-        Assert.Equal("8", engine.Evaluate("var b = 2n; b <<= 2n; b.toString()").AsString());
-        Assert.Equal("2", engine.Evaluate("var b = 8n; b >>= 2n; b.toString()").AsString());
+        engine.Evaluate("var b = 3n; b &= 1n; b.toString()").AsString().Should().Be("1");
+        engine.Evaluate("var b = 2n; b |= 1n; b.toString()").AsString().Should().Be("3");
+        engine.Evaluate("var b = 3n; b ^= 1n; b.toString()").AsString().Should().Be("2");
+        engine.Evaluate("var b = 2n; b <<= 2n; b.toString()").AsString().Should().Be("8");
+        engine.Evaluate("var b = 8n; b >>= 2n; b.toString()").AsString().Should().Be("2");
 
         // mixing BigInt and Number must throw TypeError for compound forms too
-        Assert.Throws<Jint.Runtime.JavaScriptException>(() => engine.Evaluate("var b = 3n; b &= 1;"));
-        Assert.Throws<Jint.Runtime.JavaScriptException>(() => engine.Evaluate("var b = 3; b &= 1n;"));
-        Assert.Throws<Jint.Runtime.JavaScriptException>(() => engine.Evaluate("var b = 1n; b >>>= 1n;"));
+        Invoking(() => engine.Evaluate("var b = 3n; b &= 1;")).Should().ThrowExactly<Jint.Runtime.JavaScriptException>();
+        Invoking(() => engine.Evaluate("var b = 3; b &= 1n;")).Should().ThrowExactly<Jint.Runtime.JavaScriptException>();
+        Invoking(() => engine.Evaluate("var b = 1n; b >>>= 1n;")).Should().ThrowExactly<Jint.Runtime.JavaScriptException>();
 
         // compound assignment to an uninitialized (TDZ) binding must be a ReferenceError,
         // not a NullReferenceException from the identifier fast path
-        var tdz = Assert.Throws<Jint.Runtime.JavaScriptException>(() => engine.Evaluate("(function() { { x += 1; let x; } })()"));
-        Assert.Equal("ReferenceError", tdz.Error.AsObject().Get("constructor").AsObject().Get("name").AsString());
+        var tdz = Invoking(() => engine.Evaluate("(function() { { x += 1; let x; } })()")).Should().ThrowExactly<Jint.Runtime.JavaScriptException>().Which;
+        tdz.Error.AsObject().Get("constructor").AsObject().Get("name").AsString().Should().Be("ReferenceError");
 
-        var tdzUpdate = Assert.Throws<Jint.Runtime.JavaScriptException>(() => engine.Evaluate("(function() { { y++; let y; } })()"));
-        Assert.Equal("ReferenceError", tdzUpdate.Error.AsObject().Get("constructor").AsObject().Get("name").AsString());
+        var tdzUpdate = Invoking(() => engine.Evaluate("(function() { { y++; let y; } })()")).Should().ThrowExactly<Jint.Runtime.JavaScriptException>().Which;
+        tdzUpdate.Error.AsObject().Get("constructor").AsObject().Get("name").AsString().Should().Be("ReferenceError");
     }
 
     [Fact]
@@ -263,7 +264,7 @@ public class NumberTests
             })()
             """).AsString();
 
-        Assert.Equal("true,true,true,true,true,true,true,true,true,true,true,true,true,true", result);
+        result.Should().Be("true,true,true,true,true,true,true,true,true,true,true,true,true,true");
     }
 
     [Fact]
@@ -337,7 +338,7 @@ public class NumberTests
             })()
             """).AsString();
 
-        Assert.Equal(string.Join(",", Enumerable.Repeat("true", 63)), result);
+        result.Should().Be(string.Join(",", Enumerable.Repeat("true", 63)));
     }
 
     // The following tests guard the primitive-receiver method resolution that skips allocating a
@@ -350,21 +351,21 @@ public class NumberTests
     {
         var engine = new Engine();
 
-        Assert.Equal("3.14", engine.Evaluate("(3.14159).toFixed(2)").AsString());
-        Assert.Equal("3.14", engine.Evaluate("(3.14159).toPrecision(3)").AsString());
-        Assert.Equal("ff", engine.Evaluate("(255).toString(16)").AsString());
-        Assert.Equal("101", engine.Evaluate("(5).toString(2)").AsString());
-        Assert.Equal("10", engine.Evaluate("(10).toString()").AsString());
-        Assert.Equal(42d, engine.Evaluate("(42).valueOf()").AsNumber());
-        Assert.Equal("1.23e+3", engine.Evaluate("(1234).toExponential(2)").AsString());
-        Assert.Equal("-3", engine.Evaluate("(-2.5).toFixed(0)").AsString());
+        engine.Evaluate("(3.14159).toFixed(2)").AsString().Should().Be("3.14");
+        engine.Evaluate("(3.14159).toPrecision(3)").AsString().Should().Be("3.14");
+        engine.Evaluate("(255).toString(16)").AsString().Should().Be("ff");
+        engine.Evaluate("(5).toString(2)").AsString().Should().Be("101");
+        engine.Evaluate("(10).toString()").AsString().Should().Be("10");
+        engine.Evaluate("(42).valueOf()").AsNumber().Should().Be(42d);
+        engine.Evaluate("(1234).toExponential(2)").AsString().Should().Be("1.23e+3");
+        engine.Evaluate("(-2.5).toFixed(0)").AsString().Should().Be("-3");
 
         // computed-key and identifier-base (read-then-call) resolution paths
-        Assert.Equal("ff", engine.Evaluate("(255)['toString'](16)").AsString());
-        Assert.Equal("ff", engine.Evaluate("var n = 255; var f = n.toString; f.call(255, 16)").AsString());
+        engine.Evaluate("(255)['toString'](16)").AsString().Should().Be("ff");
+        engine.Evaluate("var n = 255; var f = n.toString; f.call(255, 16)").AsString().Should().Be("ff");
 
         // absent property resolves to undefined (not a throw)
-        Assert.Equal("undefined", engine.Evaluate("typeof (5).nope").AsString());
+        engine.Evaluate("typeof (5).nope").AsString().Should().Be("undefined");
     }
 
     [Fact]
@@ -374,14 +375,14 @@ public class NumberTests
         engine.Execute("Number.prototype.typ = function () { return typeof this; };");
 
         // Sloppy-mode user function boxes the primitive this-value, so it must observe an object.
-        Assert.Equal("object", engine.Evaluate("(5).typ()").AsString());
+        engine.Evaluate("(5).typ()").AsString().Should().Be("object");
         // and can still unwrap the underlying number
         engine.Execute("Number.prototype.dbl = function () { return this.valueOf() * 2; };");
-        Assert.Equal(42d, engine.Evaluate("(21).dbl()").AsNumber());
+        engine.Evaluate("(21).dbl()").AsNumber().Should().Be(42d);
 
         // resolution stays live after the method is reassigned
         engine.Execute("Number.prototype.typ = function () { return 'reassigned'; };");
-        Assert.Equal("reassigned", engine.Evaluate("(5).typ()").AsString());
+        engine.Evaluate("(5).typ()").AsString().Should().Be("reassigned");
     }
 
     [Fact]
@@ -391,9 +392,9 @@ public class NumberTests
         engine.Execute("Number.prototype.styp = function () { 'use strict'; return typeof this; };");
 
         // Strict-mode user function does not box the this-value, so it must observe the primitive.
-        Assert.Equal("number", engine.Evaluate("(5).styp()").AsString());
+        engine.Evaluate("(5).styp()").AsString().Should().Be("number");
         engine.Execute("Number.prototype.sinc = function () { 'use strict'; return this + 1; };");
-        Assert.Equal(42d, engine.Evaluate("(41).sinc()").AsNumber());
+        engine.Evaluate("(41).sinc()").AsNumber().Should().Be(42d);
     }
 
     [Fact]
@@ -403,8 +404,8 @@ public class NumberTests
         engine.Execute("Object.defineProperty(Number.prototype, 'gs', { get: function () { return typeof this; }, configurable: true });");
         engine.Execute("Object.defineProperty(Number.prototype, 'gt', { get: function () { 'use strict'; return typeof this; }, configurable: true });");
 
-        Assert.Equal("object", engine.Evaluate("(7).gs").AsString());
-        Assert.Equal("number", engine.Evaluate("(7).gt").AsString());
+        engine.Evaluate("(7).gs").AsString().Should().Be("object");
+        engine.Evaluate("(7).gt").AsString().Should().Be("number");
     }
 
     [Fact]
@@ -414,8 +415,8 @@ public class NumberTests
         engine.Execute("Object.prototype.op = function () { return 'fromObjectProto'; };");
 
         // property inherited from Object.prototype (past Number.prototype) still resolves
-        Assert.Equal("fromObjectProto", engine.Evaluate("(5).op()").AsString());
-        Assert.False(engine.Evaluate("(5).hasOwnProperty('x')").AsBoolean());
+        engine.Evaluate("(5).op()").AsString().Should().Be("fromObjectProto");
+        engine.Evaluate("(5).hasOwnProperty('x')").AsBoolean().Should().BeFalse();
     }
 
     [Fact]
@@ -429,8 +430,8 @@ public class NumberTests
 
         // spec: GetValue passes the primitive base as the receiver to [[Get]], so a Proxy get trap
         // on the prototype chain observes the primitive - identical to the boxed path.
-        Assert.Equal("viaProxy:number", engine.Evaluate("(5).trapped").AsString());
-        Assert.Equal(1d, engine.Evaluate("(5).base").AsNumber());
+        engine.Evaluate("(5).trapped").AsString().Should().Be("viaProxy:number");
+        engine.Evaluate("(5).base").AsNumber().Should().Be(1d);
     }
 
     [Fact]
@@ -438,14 +439,14 @@ public class NumberTests
     {
         var engine = new Engine();
 
-        Assert.Equal("true", engine.Evaluate("(true).toString()").AsString());
-        Assert.Equal("false", engine.Evaluate("(false).toString()").AsString());
-        Assert.True(engine.Evaluate("(true).valueOf()").AsBoolean());
+        engine.Evaluate("(true).toString()").AsString().Should().Be("true");
+        engine.Evaluate("(false).toString()").AsString().Should().Be("false");
+        engine.Evaluate("(true).valueOf()").AsBoolean().Should().BeTrue();
 
         engine.Execute("Boolean.prototype.typ = function () { return typeof this; };");
-        Assert.Equal("object", engine.Evaluate("(true).typ()").AsString());
+        engine.Evaluate("(true).typ()").AsString().Should().Be("object");
         engine.Execute("Boolean.prototype.styp = function () { 'use strict'; return typeof this; };");
-        Assert.Equal("boolean", engine.Evaluate("(true).styp()").AsString());
+        engine.Evaluate("(true).styp()").AsString().Should().Be("boolean");
     }
 
     [Fact]
@@ -453,13 +454,13 @@ public class NumberTests
     {
         var engine = new Engine();
 
-        Assert.Equal("ff", engine.Evaluate("(255n).toString(16)").AsString());
-        Assert.Equal("10", engine.Evaluate("(10n).valueOf().toString()").AsString());
-        Assert.Equal("12345678901234567890", engine.Evaluate("(12345678901234567890n).toString()").AsString());
+        engine.Evaluate("(255n).toString(16)").AsString().Should().Be("ff");
+        engine.Evaluate("(10n).valueOf().toString()").AsString().Should().Be("10");
+        engine.Evaluate("(12345678901234567890n).toString()").AsString().Should().Be("12345678901234567890");
 
         engine.Execute("BigInt.prototype.typ = function () { return typeof this; };");
-        Assert.Equal("object", engine.Evaluate("(5n).typ()").AsString());
+        engine.Evaluate("(5n).typ()").AsString().Should().Be("object");
         engine.Execute("BigInt.prototype.styp = function () { 'use strict'; return typeof this; };");
-        Assert.Equal("bigint", engine.Evaluate("(5n).styp()").AsString());
+        engine.Evaluate("(5n).styp()").AsString().Should().Be("bigint");
     }
 }

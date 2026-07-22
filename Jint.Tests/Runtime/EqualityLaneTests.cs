@@ -1,4 +1,4 @@
-namespace Jint.Tests.Runtime;
+﻿namespace Jint.Tests.Runtime;
 
 /// <summary>
 /// Pins the semantics of the unboxed slot-number lane on ==/===/!=/!== (JintBinaryExpression):
@@ -22,7 +22,7 @@ public class EqualityLaneTests
             })()
             """).AsString();
 
-        Assert.Equal("false,true,false,true,true,true,false,true,true,false,false", result);
+        result.Should().Be("false,true,false,true,true,true,false,true,true,false,false");
     }
 
     [Fact]
@@ -42,7 +42,7 @@ public class EqualityLaneTests
             })()
             """).AsNumber();
 
-        Assert.Equal(4, result); // '1' == 1 keeps matching through loose coercion
+        result.Should().Be(4); // '1' == 1 keeps matching through loose coercion
     }
 
     [Fact]
@@ -60,7 +60,7 @@ public class EqualityLaneTests
             })()
             """).AsString();
 
-        Assert.Equal("true,false,true,false,true,false,true,false", result);
+        result.Should().Be("true,false,true,false,true,false,true,false");
     }
 
     [Fact]
@@ -75,7 +75,7 @@ public class EqualityLaneTests
             })()
             """).AsBoolean();
 
-        Assert.True(result);
+        result.Should().BeTrue();
     }
 
     [Fact]
@@ -95,7 +95,7 @@ public class EqualityLaneTests
             """).AsString();
 
         var iteration = "true,true,false,true,true,true,false";
-        Assert.Equal($"{iteration},{iteration},{iteration}", result);
+        result.Should().Be($"{iteration},{iteration},{iteration}");
     }
 
     [Fact]
@@ -116,7 +116,7 @@ public class EqualityLaneTests
             hits + ':' + reads;
             """).AsString();
 
-        Assert.Equal("4:2", result);
+        result.Should().Be("4:2");
     }
 
     [Fact]
@@ -143,7 +143,7 @@ public class EqualityLaneTests
             "false,false,true,true,false,true",   // i = 1  → 1
             "true,true,false,false,false,false",  // i = 2  → 0
             "false,false,true,true,false,true");  // i = 3  → 1
-        Assert.Equal(expected, result);
+        result.Should().Be(expected);
     }
 
     [Fact]
@@ -162,7 +162,7 @@ public class EqualityLaneTests
             })()
             """).AsString();
 
-        Assert.Equal("false,true,false,true,true,true", result);
+        result.Should().Be("false,true,false,true,true,true");
     }
 
     [Fact]
@@ -180,7 +180,7 @@ public class EqualityLaneTests
             hits;
             """).AsNumber();
 
-        Assert.Equal(14, result);
+        result.Should().Be(14);
     }
 
     [Fact]
@@ -203,7 +203,7 @@ public class EqualityLaneTests
             })()
             """).AsNumber();
 
-        Assert.Equal(414, result); // 4 even-z hits + one z=3 (+10) + four z<4 (+400)
+        result.Should().Be(414); // 4 even-z hits + one z=3 (+10) + four z<4 (+400)
     }
 
     [Fact]
@@ -226,7 +226,7 @@ public class EqualityLaneTests
             })()
             """).AsString();
 
-        Assert.Equal("ReferenceError", result);
+        result.Should().Be("ReferenceError");
     }
 
     [Fact]
@@ -244,6 +244,6 @@ public class EqualityLaneTests
             hits;
             """).AsNumber();
 
-        Assert.Equal(3, result); // i = 0..2 while g is 1; 'x' == 1 is false afterwards
+        result.Should().Be(3); // i = 0..2 while g is 1; 'x' == 1 is false afterwards
     }
 }

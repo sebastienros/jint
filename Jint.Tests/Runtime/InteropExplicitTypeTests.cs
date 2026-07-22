@@ -93,43 +93,44 @@ public class InteropExplicitTypeTests
                     typeof(Console).Assembly,
                     typeof(File).Assembly))
                 .SetValue("log", new Action<object>(Console.WriteLine))
-                .SetValue("assert", new Action<bool>(Assert.True))
-                .SetValue("equal", new Action<object, object>(Assert.Equal))
+                .SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()))
+                .SetValue("equal", new Action<object, object>(static (expected, actual) =>
+                    actual.Should().BeEquivalentTo(expected, static options => options.WithStrictOrdering())))
                 .SetValue("holder", holder)
         ;
     }
     [Fact]
     public void EqualTest()
     {
-        Assert.Equal(_engine.Evaluate("holder.I1"), _engine.Evaluate("holder.i1"));
-        Assert.Equal(_engine.Evaluate("holder.Super"), _engine.Evaluate("holder.super"));
+        _engine.Evaluate("holder.i1").Should().Be(_engine.Evaluate("holder.I1"));
+        _engine.Evaluate("holder.super").Should().Be(_engine.Evaluate("holder.Super"));
     }
 
     [Fact]
     public void ExplicitInterfaceFromField()
     {
-        Assert.Equal(holder.i1.Name, _engine.Evaluate("holder.i1.Name"));
-        Assert.NotEqual(holder.i1.Name, _engine.Evaluate("holder.ci1.Name"));
+        _engine.Evaluate("holder.i1.Name").Should().Be(holder.i1.Name);
+        _engine.Evaluate("holder.ci1.Name").Should().NotBe(holder.i1.Name);
     }
 
     [Fact]
     public void ExplicitInterfaceFromProperty()
     {
-        Assert.Equal(holder.I1.Name, _engine.Evaluate("holder.I1.Name"));
-        Assert.NotEqual(holder.I1.Name, _engine.Evaluate("holder.CI1.Name"));
+        _engine.Evaluate("holder.I1.Name").Should().Be(holder.I1.Name);
+        _engine.Evaluate("holder.CI1.Name").Should().NotBe(holder.I1.Name);
     }
 
     [Fact]
     public void ExplicitInterfaceFromMethod()
     {
-        Assert.Equal(holder.GetI1().Name, _engine.Evaluate("holder.GetI1().Name"));
-        Assert.NotEqual(holder.GetI1().Name, _engine.Evaluate("holder.GetCI1().Name"));
+        _engine.Evaluate("holder.GetI1().Name").Should().Be(holder.GetI1().Name);
+        _engine.Evaluate("holder.GetCI1().Name").Should().NotBe(holder.GetI1().Name);
     }
 
     [Fact]
     public void ExplicitInterfaceFromIndexer()
     {
-        Assert.Equal(holder.IndexerI1[0].Name, _engine.Evaluate("holder.IndexerI1[0].Name"));
+        _engine.Evaluate("holder.IndexerI1[0].Name").Should().Be(holder.IndexerI1[0].Name);
     }
 
     [Fact]
@@ -137,42 +138,42 @@ public class InteropExplicitTypeTests
     {
         // the default recent-wrapper cache (see #2729) reuses wrappers by object identity; the same
         // instance exposed under different CLR types must still resolve each view's own members
-        Assert.Equal("CI1", _engine.Evaluate("holder.ci1.Name").AsString());
-        Assert.Equal("CI1 as I1", _engine.Evaluate("holder.i1.Name").AsString());
-        Assert.Equal("Super", _engine.Evaluate("holder.super.Name").AsString());
+        _engine.Evaluate("holder.ci1.Name").AsString().Should().Be("CI1");
+        _engine.Evaluate("holder.i1.Name").AsString().Should().Be("CI1 as I1");
+        _engine.Evaluate("holder.super.Name").AsString().Should().Be("Super");
 
         // and in reverse order against the now-populated cache slots
-        Assert.Equal("Super", _engine.Evaluate("holder.super.Name").AsString());
-        Assert.Equal("CI1 as I1", _engine.Evaluate("holder.i1.Name").AsString());
-        Assert.Equal("CI1", _engine.Evaluate("holder.ci1.Name").AsString());
+        _engine.Evaluate("holder.super.Name").AsString().Should().Be("Super");
+        _engine.Evaluate("holder.i1.Name").AsString().Should().Be("CI1 as I1");
+        _engine.Evaluate("holder.ci1.Name").AsString().Should().Be("CI1");
     }
 
 
     [Fact]
     public void SuperClassFromField()
     {
-        Assert.Equal(holder.super.Name, _engine.Evaluate("holder.super.Name"));
-        Assert.NotEqual(holder.super.Name, _engine.Evaluate("holder.ci1.Name"));
+        _engine.Evaluate("holder.super.Name").Should().Be(holder.super.Name);
+        _engine.Evaluate("holder.ci1.Name").Should().NotBe(holder.super.Name);
     }
 
     [Fact]
     public void SuperClassFromProperty()
     {
-        Assert.Equal(holder.Super.Name, _engine.Evaluate("holder.Super.Name"));
-        Assert.NotEqual(holder.Super.Name, _engine.Evaluate("holder.CI1.Name"));
+        _engine.Evaluate("holder.Super.Name").Should().Be(holder.Super.Name);
+        _engine.Evaluate("holder.CI1.Name").Should().NotBe(holder.Super.Name);
     }
 
     [Fact]
     public void SuperClassFromMethod()
     {
-        Assert.Equal(holder.GetSuper().Name, _engine.Evaluate("holder.GetSuper().Name"));
-        Assert.NotEqual(holder.GetSuper().Name, _engine.Evaluate("holder.GetCI1().Name"));
+        _engine.Evaluate("holder.GetSuper().Name").Should().Be(holder.GetSuper().Name);
+        _engine.Evaluate("holder.GetCI1().Name").Should().NotBe(holder.GetSuper().Name);
     }
 
     [Fact]
     public void SuperClassFromIndexer()
     {
-        Assert.Equal(holder.IndexerSuper[0].Name, _engine.Evaluate("holder.IndexerSuper[0].Name"));
+        _engine.Evaluate("holder.IndexerSuper[0].Name").Should().Be(holder.IndexerSuper[0].Name);
     }
 
     [Fact]
@@ -182,9 +183,9 @@ public class InteropExplicitTypeTests
         var holder = new BaseValueHolder();
         engine.SetValue("holder", holder);
 
-        Assert.Equal("base", engine.Evaluate("holder.Value.BaseOnly"));
+        engine.Evaluate("holder.Value.BaseOnly").Should().Be("base");
         engine.Execute("const obj = holder.Value; obj.DerivedOnlyProperty = 123;");
-        Assert.Equal(123, ((DerivedValue) holder.Value).DerivedOnlyProperty);
+        ((DerivedValue) holder.Value).DerivedOnlyProperty.Should().Be(123);
     }
 
     public struct NullabeStruct : I1
@@ -212,24 +213,24 @@ public class InteropExplicitTypeTests
         _engine.SetValue("nullableHolder", nullableHolder);
         _engine.SetValue("nullabeStruct", new NullabeStruct());
 
-        Assert.Equal(_engine.Evaluate("nullableHolder.NullabeStruct"), JsValue.Null);
+        _engine.Evaluate("nullableHolder.NullabeStruct").Should().Be(JsValue.Null);
         _engine.Evaluate("nullableHolder.NullabeStruct = nullabeStruct");
-        Assert.Equal(_engine.Evaluate("nullableHolder.NullabeStruct.Name"), nullableHolder.NullabeStruct?.Name);
+        _engine.Evaluate("nullableHolder.NullabeStruct.Name").Should().Be(nullableHolder.NullabeStruct?.Name);
     }
 
     [Fact]
     public void ClrHelperUnwrap()
     {
-        Assert.NotEqual(holder.CI1.Name, _engine.Evaluate("holder.I1.Name"));
-        Assert.Equal(holder.CI1.Name, _engine.Evaluate("clrHelper.unwrap(holder.I1).Name"));
+        _engine.Evaluate("holder.I1.Name").Should().NotBe(holder.CI1.Name);
+        _engine.Evaluate("clrHelper.unwrap(holder.I1).Name").Should().Be(holder.CI1.Name);
     }
 
     [Fact]
     public void ClrHelperWrap()
     {
         _engine.Execute("Jint = importNamespace('Jint');");
-        Assert.NotEqual(holder.I1.Name, _engine.Evaluate("holder.CI1.Name"));
-        Assert.Equal(holder.I1.Name, _engine.Evaluate("clrHelper.wrap(holder.CI1, Jint.Tests.Runtime.InteropExplicitTypeTests.I1).Name"));
+        _engine.Evaluate("holder.CI1.Name").Should().NotBe(holder.I1.Name);
+        _engine.Evaluate("clrHelper.wrap(holder.CI1, Jint.Tests.Runtime.InteropExplicitTypeTests.I1).Name").Should().Be(holder.I1.Name);
     }
 
     [Fact]
@@ -238,7 +239,7 @@ public class InteropExplicitTypeTests
         Action<Engine> runner = engine =>
         {
             engine.SetValue("clrobj", new object());
-            Assert.Equal(engine.Evaluate("System.Object"), engine.Evaluate("clrHelper.typeOf(clrobj)"));
+            engine.Evaluate("clrHelper.typeOf(clrobj)").Should().Be(engine.Evaluate("System.Object"));
         };
 
         runner.Invoke(new Engine(cfg =>
@@ -247,14 +248,14 @@ public class InteropExplicitTypeTests
             cfg.Interop.AllowGetType = true;
         }));
 
-        var ex = Assert.Throws<InvalidOperationException>(() =>
+        var ex = Invoking(() =>
         {
             runner.Invoke(new Engine(cfg =>
             {
                 cfg.AllowClr();
             }));
-        });
-        Assert.Equal("Invalid when Engine.Options.Interop.AllowGetType == false", ex.Message);
+        }).Should().ThrowExactly<InvalidOperationException>().Which;
+        ex.Message.Should().Be("Invalid when Engine.Options.Interop.AllowGetType == false");
     }
 
     [Fact]
@@ -268,8 +269,8 @@ public class InteropExplicitTypeTests
 
         engine.SetValue("holder", holder);
         engine.Execute("Jint = importNamespace('Jint');");
-        Assert.Equal(engine.Evaluate("Jint.Tests.Runtime.InteropExplicitTypeTests.CI1"), engine.Evaluate("clrHelper.typeOf(holder.CI1)"));
-        Assert.Equal(engine.Evaluate("Jint.Tests.Runtime.InteropExplicitTypeTests.I1"), engine.Evaluate("clrHelper.typeOf(holder.I1)"));
+        engine.Evaluate("clrHelper.typeOf(holder.CI1)").Should().Be(engine.Evaluate("Jint.Tests.Runtime.InteropExplicitTypeTests.CI1"));
+        engine.Evaluate("clrHelper.typeOf(holder.I1)").Should().Be(engine.Evaluate("Jint.Tests.Runtime.InteropExplicitTypeTests.I1"));
     }
 
     public class TypeHolder
@@ -283,8 +284,8 @@ public class InteropExplicitTypeTests
         Action<Engine> runner = engine =>
         {
             engine.SetValue("TypeHolder", typeof(TypeHolder));
-            Assert.True(engine.Evaluate("TypeHolder") is TypeReference);
-            Assert.True(engine.Evaluate("clrHelper.typeToObject(TypeHolder)") is ObjectWrapper);
+            engine.Evaluate("TypeHolder").Should().BeAssignableTo<TypeReference>();
+            engine.Evaluate("clrHelper.typeToObject(TypeHolder)").Should().BeAssignableTo<ObjectWrapper>();
         };
 
         runner.Invoke(new Engine(cfg =>
@@ -293,14 +294,14 @@ public class InteropExplicitTypeTests
             cfg.Interop.AllowGetType = true;
         }));
 
-        var ex = Assert.Throws<InvalidOperationException>(() =>
+        var ex = Invoking(() =>
         {
             runner.Invoke(new Engine(cfg =>
             {
                 cfg.AllowClr();
             }));
-        });
-        Assert.Equal("Invalid when Engine.Options.Interop.AllowGetType == false", ex.Message);
+        }).Should().ThrowExactly<InvalidOperationException>().Which;
+        ex.Message.Should().Be("Invalid when Engine.Options.Interop.AllowGetType == false");
     }
 
     [Fact]
@@ -309,8 +310,8 @@ public class InteropExplicitTypeTests
         Action<Engine> runner = engine =>
         {
             engine.SetValue("TypeHolder", typeof(TypeHolder));
-            Assert.True(engine.Evaluate("TypeHolder.Type") is ObjectWrapper);
-            Assert.True(engine.Evaluate("clrHelper.objectToType(TypeHolder.Type)") is TypeReference);
+            engine.Evaluate("TypeHolder.Type").Should().BeAssignableTo<ObjectWrapper>();
+            engine.Evaluate("clrHelper.objectToType(TypeHolder.Type)").Should().BeAssignableTo<TypeReference>();
         };
 
         runner.Invoke(new Engine(cfg =>
@@ -319,14 +320,14 @@ public class InteropExplicitTypeTests
             cfg.Interop.AllowGetType = true;
         }));
 
-        var ex = Assert.Throws<InvalidOperationException>(() =>
+        var ex = Invoking(() =>
         {
             runner.Invoke(new Engine(cfg =>
             {
                 cfg.AllowClr();
             }));
-        });
-        Assert.Equal("Invalid when Engine.Options.Interop.AllowGetType == false", ex.Message);
+        }).Should().ThrowExactly<InvalidOperationException>().Which;
+        ex.Message.Should().Be("Invalid when Engine.Options.Interop.AllowGetType == false");
     }
 
     public interface ICallObjectMethodFromInterface
@@ -351,7 +352,7 @@ public class InteropExplicitTypeTests
     {
         var inst = new CallObjectMethodFromInterface();
         _engine.SetValue("inst", inst);
-        Assert.Equal(inst.Instance.ToString(), _engine.Evaluate("inst.Instance.ToString()"));
+        _engine.Evaluate("inst.Instance.ToString()").Should().Be(inst.Instance.ToString());
     }
 
     [Fact]
@@ -359,7 +360,7 @@ public class InteropExplicitTypeTests
     {
         var inst = new CallObjectMethodFromInterface();
         _engine.SetValue("inst", inst);
-        Assert.Equal(inst.Instance.GetHashCode(), _engine.Evaluate("inst.Instance.GetHashCode()"));
+        _engine.Evaluate("inst.Instance.GetHashCode()").Should().Be(inst.Instance.GetHashCode());
     }
 
     [Fact(Skip = "TODO, no solution now.")]
@@ -367,10 +368,7 @@ public class InteropExplicitTypeTests
     {
         var inst = new CallObjectMethodFromInterface();
         _engine.SetValue("inst", inst);
-        Assert.Equal(
-            (inst.Instance as object).GetHashCode(),
-            _engine.Evaluate("clrHelper.unwrap(inst.Instance).GetHashCode()")
-        );
+        _engine.Evaluate("clrHelper.unwrap(inst.Instance).GetHashCode()").Should().Be((inst.Instance as object).GetHashCode());
     }
 
     [Fact]
@@ -378,7 +376,7 @@ public class InteropExplicitTypeTests
     {
         var inst = new CallObjectMethodFromInterface();
         _engine.SetValue("inst", inst);
-        Assert.Equal(inst.Instance.Equals(), _engine.Evaluate("inst.Instance.Equals()"));
-        Assert.Equal(inst.Instance.Equals(inst), _engine.Evaluate("inst.Instance.Equals(inst)"));
+        _engine.Evaluate("inst.Instance.Equals()").Should().Be(inst.Instance.Equals());
+        _engine.Evaluate("inst.Instance.Equals(inst)").Should().Be(inst.Instance.Equals(inst));
     }
 }

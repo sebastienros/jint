@@ -1,4 +1,4 @@
-namespace Jint.Tests.Runtime;
+﻿namespace Jint.Tests.Runtime;
 
 /// <summary>
 /// Functions created by the Function constructor share a definition-level call environment
@@ -18,7 +18,7 @@ public class DynamicFunctionTests
             }
             """);
 
-        Assert.Equal("1,1,1,1,1", engine.Evaluate("results.join(',')").AsString());
+        engine.Evaluate("results.join(',')").AsString().Should().Be("1,1,1,1,1");
     }
 
     [Fact]
@@ -33,7 +33,7 @@ public class DynamicFunctionTests
             var results = [counters[0](), counters[0](), counters[1](), counters[2]()];
             """);
 
-        Assert.Equal("1,2,1,1", engine.Evaluate("results.join(',')").AsString());
+        engine.Evaluate("results.join(',')").AsString().Should().Be("1,2,1,1");
     }
 
     [Fact]
@@ -48,6 +48,6 @@ public class DynamicFunctionTests
             var results = [f1(), f2(), f1()];
             """);
 
-        Assert.Equal("10,11,12", engine.Evaluate("results.join(',')").AsString());
+        engine.Evaluate("results.join(',')").AsString().Should().Be("10,11,12");
     }
 }

@@ -1,4 +1,4 @@
-namespace Jint.Tests.Runtime;
+﻿namespace Jint.Tests.Runtime;
 
 public class GlobalTests
 {
@@ -7,10 +7,10 @@ public class GlobalTests
     {
         var e = new Engine();
 
-        Assert.Equal("@", e.Evaluate("unescape('%40');").AsString());
-        Assert.Equal("@_", e.Evaluate("unescape('%40_');").AsString());
-        Assert.Equal("@@", e.Evaluate("unescape('%40%40');").AsString());
-        Assert.Equal("@", e.Evaluate("unescape('%u0040');").AsString());
-        Assert.Equal("@@", e.Evaluate("unescape('%u0040%u0040');").AsString());
+        e.Evaluate("unescape('%40');").AsString().Should().Be("@");
+        e.Evaluate("unescape('%40_');").AsString().Should().Be("@_");
+        e.Evaluate("unescape('%40%40');").AsString().Should().Be("@@");
+        e.Evaluate("unescape('%u0040');").AsString().Should().Be("@");
+        e.Evaluate("unescape('%u0040%u0040');").AsString().Should().Be("@@");
     }
 }

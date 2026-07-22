@@ -1,4 +1,4 @@
-using Jint.Runtime;
+﻿using Jint.Runtime;
 
 namespace Jint.Tests.Runtime;
 
@@ -14,7 +14,7 @@ public class CompoundAssignmentTests
         var engine = new Engine(static options => options.Strict());
         var result = engine.Evaluate("function f() { var s = ''; for (var i = 0; i < 100; i++) { s += 'ab'; } return s; } f();").AsString();
 
-        Assert.Equal(string.Concat(Enumerable.Repeat("ab", 100)), result);
+        result.Should().Be(string.Concat(Enumerable.Repeat("ab", 100)));
     }
 
     [Fact]
@@ -26,7 +26,7 @@ public class CompoundAssignmentTests
         var engine = new Engine(static options => options.Strict());
         var result = engine.Evaluate("function f() { var s = ''; s += 'x'; s += (s = 'z', 'a'); return s; } f();").AsString();
 
-        Assert.Equal("z", result);
+        result.Should().Be("z");
     }
 
     [Fact]
@@ -35,7 +35,7 @@ public class CompoundAssignmentTests
         var engine = new Engine(static options => options.Strict());
         var result = engine.Evaluate("function f() { var n = 5; n += (n = 1, 2); return n; } f();").AsNumber();
 
-        Assert.Equal(7, result);
+        result.Should().Be(7);
     }
 
     [Fact]
@@ -43,8 +43,8 @@ public class CompoundAssignmentTests
     {
         var engine = new Engine(static options => options.Strict());
 
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Execute("function f() { const c = 'a'; c += 'b'; } f();"));
-        Assert.True(ex.Error.InstanceofOperator(engine.Intrinsics.TypeError));
+        var ex = Invoking(() => engine.Execute("function f() { const c = 'a'; c += 'b'; } f();")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Error.InstanceofOperator(engine.Intrinsics.TypeError).Should().BeTrue();
     }
 
     [Fact]
@@ -52,8 +52,8 @@ public class CompoundAssignmentTests
     {
         var engine = new Engine(static options => options.Strict());
 
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Execute("function f() { { t += 'x'; let t; } } f();"));
-        Assert.True(ex.Error.InstanceofOperator(engine.Intrinsics.ReferenceError));
+        var ex = Invoking(() => engine.Execute("function f() { { t += 'x'; let t; } } f();")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Error.InstanceofOperator(engine.Intrinsics.ReferenceError).Should().BeTrue();
     }
 
     [Fact]
@@ -62,7 +62,7 @@ public class CompoundAssignmentTests
         var engine = new Engine(static options => options.Strict());
         var result = engine.Evaluate("function f() { var n = 2; n += 'x'; return n; } f();").AsString();
 
-        Assert.Equal("2x", result);
+        result.Should().Be("2x");
     }
 
     [Fact]
@@ -73,7 +73,7 @@ public class CompoundAssignmentTests
         var engine = new Engine(static options => options.Strict());
         var result = engine.Evaluate("eval(\"var s = ''; s += 'x'; s += (s = 'z', 'a'); s;\")").AsString();
 
-        Assert.Equal("z", result);
+        result.Should().Be("z");
     }
 
     [Fact]
@@ -81,8 +81,8 @@ public class CompoundAssignmentTests
     {
         var engine = new Engine(static options => options.Strict());
 
-        Assert.Equal("ab", engine.Evaluate("eval(\"var s = 'a'; s += 'b';\")").AsString());
-        Assert.Equal("ab|ab", engine.Evaluate("eval(\"var q = 'a'; var t = (q += 'b'); t + '|' + q;\")").AsString());
+        engine.Evaluate("eval(\"var s = 'a'; s += 'b';\")").AsString().Should().Be("ab");
+        engine.Evaluate("eval(\"var q = 'a'; var t = (q += 'b'); t + '|' + q;\")").AsString().Should().Be("ab|ab");
     }
 
     [Fact]
@@ -90,8 +90,8 @@ public class CompoundAssignmentTests
     {
         var engine = new Engine(static options => options.Strict());
 
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Execute("eval(\"const c = 'a'; c += 'b';\");"));
-        Assert.True(ex.Error.InstanceofOperator(engine.Intrinsics.TypeError));
+        var ex = Invoking(() => engine.Execute("eval(\"const c = 'a'; c += 'b';\");")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Error.InstanceofOperator(engine.Intrinsics.TypeError).Should().BeTrue();
     }
 
     [Fact]
@@ -103,7 +103,7 @@ public class CompoundAssignmentTests
         for (var i = 0; i < 3; i++)
         {
             engine.Execute("eval(src);");
-            Assert.Equal(new string('q', 50), engine.Evaluate("out").AsString());
+            engine.Evaluate("out").AsString().Should().Be(new string('q', 50));
         }
     }
 }

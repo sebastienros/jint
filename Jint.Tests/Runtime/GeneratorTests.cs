@@ -1,4 +1,4 @@
-namespace Jint.Tests.Runtime;
+﻿namespace Jint.Tests.Runtime;
 
 public class GeneratorTests
 {
@@ -24,7 +24,7 @@ public class GeneratorTests
             return str;
         """;
 
-        Assert.Equal("01234", _engine.Evaluate(Script));
+        _engine.Evaluate(Script).Should().Be("01234");
     }
 
     [Fact]
@@ -44,7 +44,7 @@ public class GeneratorTests
           return str;
       """;
 
-        Assert.Equal("abc", _engine.Evaluate(Script));
+        _engine.Evaluate(Script).Should().Be("abc");
     }
 
     [Fact]
@@ -64,7 +64,7 @@ public class GeneratorTests
           return str;
       """;
 
-        Assert.Equal("a", _engine.Evaluate(Script));
+        _engine.Evaluate(Script).Should().Be("a");
     }
 
     [Fact]
@@ -82,7 +82,7 @@ public class GeneratorTests
           return str;
       """;
 
-        Assert.Equal("", _engine.Evaluate(Script));
+        _engine.Evaluate(Script).Should().Be("");
     }
 
     [Fact]
@@ -100,7 +100,7 @@ public class GeneratorTests
           return str;
       """;
 
-        Assert.Equal("", _engine.Evaluate(Script));
+        _engine.Evaluate(Script).Should().Be("");
     }
 
     [Fact]
@@ -118,7 +118,7 @@ public class GeneratorTests
           return str;
       """;
 
-        Assert.Equal("undefined", _engine.Evaluate(Script));
+        _engine.Evaluate(Script).Should().Be("undefined");
     }
 
     [Fact]
@@ -136,7 +136,7 @@ public class GeneratorTests
           return str;
       """;
 
-        Assert.Equal("", _engine.Evaluate(Script));
+        _engine.Evaluate(Script).Should().Be("");
     }
 
     [Fact]
@@ -144,14 +144,14 @@ public class GeneratorTests
     {
         _engine.Execute("function * generator() { yield 5; yield 6; };");
         _engine.Execute("var iterator = generator(); var item = iterator.next();");
-        Assert.Equal(5, _engine.Evaluate("item.value"));
-        Assert.False(_engine.Evaluate("item.done").AsBoolean());
+        _engine.Evaluate("item.value").Should().Be(5);
+        _engine.Evaluate("item.done").AsBoolean().Should().BeFalse();
         _engine.Execute("item = iterator.next();");
-        Assert.Equal(6, _engine.Evaluate("item.value"));
-        Assert.False(_engine.Evaluate("item.done").AsBoolean());
+        _engine.Evaluate("item.value").Should().Be(6);
+        _engine.Evaluate("item.done").AsBoolean().Should().BeFalse();
         _engine.Execute("item = iterator.next();");
-        Assert.True(_engine.Evaluate("item.value === void undefined").AsBoolean());
-        Assert.True(_engine.Evaluate("item.done").AsBoolean());
+        _engine.Evaluate("item.value === void undefined").AsBoolean().Should().BeTrue();
+        _engine.Evaluate("item.done").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -159,14 +159,14 @@ public class GeneratorTests
     {
         _engine.Execute("var generator = function * () { yield 5; yield 6; };");
         _engine.Execute("var iterator = generator(); var item = iterator.next();");
-        Assert.Equal(5, _engine.Evaluate("item.value"));
-        Assert.False(_engine.Evaluate("item.done").AsBoolean());
+        _engine.Evaluate("item.value").Should().Be(5);
+        _engine.Evaluate("item.done").AsBoolean().Should().BeFalse();
         _engine.Execute("item = iterator.next();");
-        Assert.Equal(6, _engine.Evaluate("item.value"));
-        Assert.False(_engine.Evaluate("item.done").AsBoolean());
+        _engine.Evaluate("item.value").Should().Be(6);
+        _engine.Evaluate("item.done").AsBoolean().Should().BeFalse();
         _engine.Execute("item = iterator.next();");
-        Assert.True(_engine.Evaluate("item.value === void undefined").AsBoolean());
-        Assert.True(_engine.Evaluate("item.done").AsBoolean());
+        _engine.Evaluate("item.value === void undefined").AsBoolean().Should().BeTrue();
+        _engine.Evaluate("item.done").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -174,14 +174,14 @@ public class GeneratorTests
     {
         _engine.Execute("var generator = function * () { yield 5; yield 6; };");
         _engine.Execute("var iterator = { g: generator, x: 5, y: 6 }.g(); var item = iterator.next();");
-        Assert.Equal(5, _engine.Evaluate("item.value"));
-        Assert.False(_engine.Evaluate("item.done").AsBoolean());
+        _engine.Evaluate("item.value").Should().Be(5);
+        _engine.Evaluate("item.done").AsBoolean().Should().BeFalse();
         _engine.Execute("item = iterator.next();");
-        Assert.Equal(6, _engine.Evaluate("item.value"));
-        Assert.False(_engine.Evaluate("item.done").AsBoolean());
+        _engine.Evaluate("item.value").Should().Be(6);
+        _engine.Evaluate("item.done").AsBoolean().Should().BeFalse();
         _engine.Execute("item = iterator.next();");
-        Assert.True(_engine.Evaluate("item.value === void undefined").AsBoolean());
-        Assert.True(_engine.Evaluate("item.done").AsBoolean());
+        _engine.Evaluate("item.value === void undefined").AsBoolean().Should().BeTrue();
+        _engine.Evaluate("item.done").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -200,8 +200,8 @@ public class GeneratorTests
 
         _engine.Execute(Script);
 
-        Assert.Equal("foo", _engine.Evaluate("sent[0]"));
-        Assert.Equal("bar", _engine.Evaluate("sent[1]"));
+        _engine.Evaluate("sent[0]").Should().Be("foo");
+        _engine.Evaluate("sent[1]").Should().Be("bar");
     }
 
     [Fact]
@@ -223,13 +223,13 @@ public class GeneratorTests
 
         _engine.Execute(Script);
 
-        Assert.Equal(0, _engine.Evaluate("generatorFunc.next().value")); // 0
-        Assert.Equal(1, _engine.Evaluate("generatorFunc.next().value")); // 1
-        Assert.Equal(2, _engine.Evaluate("generatorFunc.next().value")); // 2
-        Assert.Equal(3, _engine.Evaluate("generatorFunc.next().value")); // 3
-        Assert.Equal(14, _engine.Evaluate("generatorFunc.next(10).value")); // 14
-        Assert.Equal(15, _engine.Evaluate("generatorFunc.next().value")); // 15
-        Assert.Equal(26, _engine.Evaluate("generatorFunc.next(10).value")); // 26
+        _engine.Evaluate("generatorFunc.next().value").Should().Be(0); // 0
+        _engine.Evaluate("generatorFunc.next().value").Should().Be(1); // 1
+        _engine.Evaluate("generatorFunc.next().value").Should().Be(2); // 2
+        _engine.Evaluate("generatorFunc.next().value").Should().Be(3); // 3
+        _engine.Evaluate("generatorFunc.next(10).value").Should().Be(14); // 14
+        _engine.Evaluate("generatorFunc.next().value").Should().Be(15); // 15
+        _engine.Evaluate("generatorFunc.next(10).value").Should().Be(26); // 26
     }
 
     [Fact]
@@ -254,17 +254,17 @@ public class GeneratorTests
 
         _engine.Execute(Script);
 
-        Assert.Equal(0, _engine.Evaluate("sequence.next().value"));
-        Assert.Equal(1, _engine.Evaluate("sequence.next().value"));
-        Assert.Equal(1, _engine.Evaluate("sequence.next().value"));
-        Assert.Equal(2, _engine.Evaluate("sequence.next().value"));
-        Assert.Equal(3, _engine.Evaluate("sequence.next().value"));
-        Assert.Equal(5, _engine.Evaluate("sequence.next().value"));
-        Assert.Equal(8, _engine.Evaluate("sequence.next().value"));
-        Assert.Equal(0, _engine.Evaluate("sequence.next(true).value"));
-        Assert.Equal(1, _engine.Evaluate("sequence.next().value"));
-        Assert.Equal(1, _engine.Evaluate("sequence.next().value"));
-        Assert.Equal(2, _engine.Evaluate("sequence.next().value"));
+        _engine.Evaluate("sequence.next().value").Should().Be(0);
+        _engine.Evaluate("sequence.next().value").Should().Be(1);
+        _engine.Evaluate("sequence.next().value").Should().Be(1);
+        _engine.Evaluate("sequence.next().value").Should().Be(2);
+        _engine.Evaluate("sequence.next().value").Should().Be(3);
+        _engine.Evaluate("sequence.next().value").Should().Be(5);
+        _engine.Evaluate("sequence.next().value").Should().Be(8);
+        _engine.Evaluate("sequence.next(true).value").Should().Be(0);
+        _engine.Evaluate("sequence.next().value").Should().Be(1);
+        _engine.Evaluate("sequence.next().value").Should().Be(1);
+        _engine.Evaluate("sequence.next().value").Should().Be(2);
     }
 
     // The following tests mirror PR #2469's AsyncTests for control-flow resume but
@@ -293,7 +293,7 @@ public class GeneratorTests
             })()
             """;
 
-        Assert.Equal(1, _engine.Evaluate(Script));
+        _engine.Evaluate(Script).Should().Be(1);
     }
 
     [Fact]
@@ -315,7 +315,7 @@ public class GeneratorTests
             })()
             """;
 
-        Assert.Equal(1, _engine.Evaluate(Script));
+        _engine.Evaluate(Script).Should().Be(1);
     }
 
     [Fact]
@@ -338,7 +338,7 @@ public class GeneratorTests
             })()
             """;
 
-        Assert.Equal("[1,1,0,1]", _engine.Evaluate(Script));
+        _engine.Evaluate(Script).Should().Be("[1,1,0,1]");
     }
 
     [Fact]
@@ -362,7 +362,7 @@ public class GeneratorTests
             })()
             """;
 
-        Assert.Equal(1, _engine.Evaluate(Script));
+        _engine.Evaluate(Script).Should().Be(1);
     }
 
     [Fact]
@@ -381,7 +381,7 @@ public class GeneratorTests
             })()
             """;
 
-        Assert.Equal("[1,6]", _engine.Evaluate(Script));
+        _engine.Evaluate(Script).Should().Be("[1,6]");
     }
 
     [Fact]
@@ -400,7 +400,7 @@ public class GeneratorTests
             })()
             """;
 
-        Assert.Equal("[1,7]", _engine.Evaluate(Script));
+        _engine.Evaluate(Script).Should().Be("[1,7]");
     }
 
     [Fact]
@@ -420,7 +420,7 @@ public class GeneratorTests
             })()
             """;
 
-        Assert.Equal("""[[1,2,"done"],3]""", _engine.Evaluate(Script));
+        _engine.Evaluate(Script).Should().Be("""[[1,2,"done"],3]""");
     }
 
     [Fact]
@@ -440,7 +440,7 @@ public class GeneratorTests
             })()
             """;
 
-        Assert.Equal("""[{"0":5},0]""", _engine.Evaluate(Script));
+        _engine.Evaluate(Script).Should().Be("""[{"0":5},0]""");
     }
 
     [Fact]
@@ -464,7 +464,7 @@ public class GeneratorTests
             })()
             """;
 
-        Assert.Equal(1, _engine.Evaluate(Script));
+        _engine.Evaluate(Script).Should().Be(1);
     }
 
     [Fact]
@@ -492,7 +492,7 @@ public class GeneratorTests
             })()
             """;
 
-        Assert.Equal("[0,1]", _engine.Evaluate(Script));
+        _engine.Evaluate(Script).Should().Be("[0,1]");
     }
 
     [Fact]
@@ -511,7 +511,7 @@ public class GeneratorTests
             })()
             """;
 
-        Assert.Equal("""[[1,2,"done"],3]""", _engine.Evaluate(Script));
+        _engine.Evaluate(Script).Should().Be("""[[1,2,"done"],3]""");
     }
 
     [Fact]
@@ -531,7 +531,7 @@ public class GeneratorTests
             })()
             """;
 
-        Assert.Equal("""["a","b","c","d"]""", _engine.Evaluate(Script));
+        _engine.Evaluate(Script).Should().Be("""["a","b","c","d"]""");
     }
 
     [Fact]
@@ -550,7 +550,7 @@ public class GeneratorTests
             })()
             """;
 
-        Assert.Equal("""["1-X-2",2]""", _engine.Evaluate(Script));
+        _engine.Evaluate(Script).Should().Be("""["1-X-2",2]""");
     }
 
     [Fact]
@@ -569,7 +569,7 @@ public class GeneratorTests
             })()
             """;
 
-        Assert.Equal("""[{"a":1,"b":2,"c":"done"},3]""", _engine.Evaluate(Script));
+        _engine.Evaluate(Script).Should().Be("""[{"a":1,"b":2,"c":"done"},3]""");
     }
 
     [Fact]
@@ -590,7 +590,7 @@ public class GeneratorTests
             })()
             """;
 
-        Assert.Equal("[1,1]", _engine.Evaluate(Script));
+        _engine.Evaluate(Script).Should().Be("[1,1]");
     }
 
     [Fact]
@@ -610,7 +610,7 @@ public class GeneratorTests
             })()
             """;
 
-        Assert.Equal("""[1,"done"]""", _engine.Evaluate(Script));
+        _engine.Evaluate(Script).Should().Be("""[1,"done"]""");
     }
 
     [Fact]
@@ -636,7 +636,7 @@ public class GeneratorTests
             })()
             """).UnwrapIfPromise(TimeSpan.FromSeconds(1));
 
-        Assert.Equal(1, result.AsNumber());
+        result.AsNumber().Should().Be(1);
     }
 
     [Fact]
@@ -663,7 +663,7 @@ public class GeneratorTests
             return JSON.stringify(out);
             """;
 
-        Assert.Equal("""[1,false,1,false,2,false,2,false,"sm",true,"sm",true]""", _engine.Evaluate(Script).AsString());
+        _engine.Evaluate(Script).AsString().Should().Be("""[1,false,1,false,2,false,2,false,"sm",true,"sm",true]""");
     }
 
     [Fact]
@@ -692,7 +692,7 @@ public class GeneratorTests
             return JSON.stringify(out);
             """;
 
-        Assert.Equal("""[1,false,1,false,2,false,2,false,"ab",true,"ab",true]""", _engine.Evaluate(Script).AsString());
+        _engine.Evaluate(Script).AsString().Should().Be("""[1,false,1,false,2,false,2,false,"ab",true,"ab",true]""");
     }
 
     [Fact]
@@ -715,7 +715,7 @@ public class GeneratorTests
             return JSON.stringify(out);
             """;
 
-        Assert.Equal("[1,1,2,2,true]", _engine.Evaluate(Script).AsString());
+        _engine.Evaluate(Script).AsString().Should().Be("[1,1,2,2,true]");
     }
 
     [Fact]
@@ -742,6 +742,6 @@ public class GeneratorTests
             })()
             """).UnwrapIfPromise(TimeSpan.FromSeconds(5));
 
-        Assert.Equal("""[1,false,1,false,2,false,2,false,"sm",true,"sm",true]""", result.AsString());
+        result.AsString().Should().Be("""[1,false,1,false,2,false,2,false,"sm",true,"sm",true]""");
     }
 }

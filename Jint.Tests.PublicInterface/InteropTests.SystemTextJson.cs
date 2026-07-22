@@ -1,4 +1,4 @@
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using Jint.Native;
 using Jint.Runtime.Interop;
 using System.Text.Json;
@@ -15,8 +15,8 @@ public partial class InteropTests
         var array = new JsonArray { "A", "B", "C" };
         engine.SetValue("array", array);
 
-        Assert.Equal(1, engine.Evaluate("array.findIndex((x) => x === 'B')"));
-        Assert.Equal('B', engine.Evaluate("array.find((x) => x === 'B')"));
+        engine.Evaluate("array.findIndex((x) => x === 'B')").Should().Be(1);
+        engine.Evaluate("array.find((x) => x === 'B')").Should().Be('B');
     }
 
     [Fact]
@@ -28,9 +28,9 @@ public partial class InteropTests
         engine.SetValue("array", array);
 
         engine.Evaluate("array.push('D')");
-        Assert.Equal(4, array.Count);
-        Assert.Equal("D", array[3]?.ToString());
-        Assert.Equal(3, engine.Evaluate("array.lastIndexOf('D')"));
+        array.Should().HaveCount(4);
+        (array[3]?.ToString()).Should().Be("D");
+        engine.Evaluate("array.lastIndexOf('D')").Should().Be(3);
     }
 
     [Fact]
@@ -41,11 +41,11 @@ public partial class InteropTests
         var array = new JsonArray { "A", "B", "C" };
         engine.SetValue("array", array);
 
-        Assert.Equal(2, engine.Evaluate("array.lastIndexOf('C')"));
-        Assert.Equal(3, array.Count);
-        Assert.Equal("C", engine.Evaluate("array.pop()"));
-        Assert.Equal(2, array.Count);
-        Assert.Equal(-1, engine.Evaluate("array.lastIndexOf('C')"));
+        engine.Evaluate("array.lastIndexOf('C')").Should().Be(2);
+        array.Should().HaveCount(3);
+        engine.Evaluate("array.pop()").Should().Be("C");
+        array.Should().HaveCount(2);
+        engine.Evaluate("array.lastIndexOf('C')").Should().Be(-1);
     }
 
     [Fact]
@@ -101,40 +101,40 @@ public partial class InteropTests
 
         // reading data
         var result = engine.Evaluate("populateFullName()").AsArray();
-        Assert.Equal((uint) 2, result.Length);
-        Assert.Equal("John Doe", result[0].AsObject()["fullName"]);
-        Assert.Equal("Jane Doe", result[1].AsObject()["fullName"]);
-        Assert.True(engine.Evaluate("variables.employees.trueValue == true").AsBoolean());
-        Assert.True(engine.Evaluate("variables.employees.number == 123.456").AsBoolean());
-        Assert.True(engine.Evaluate("variables.employees.other == 'abc'").AsBoolean());
+        result.Length.Should().Be((uint) 2);
+        result[0].AsObject()["fullName"].Should().Be("John Doe");
+        result[1].AsObject()["fullName"].Should().Be("Jane Doe");
+        engine.Evaluate("variables.employees.trueValue == true").AsBoolean().Should().BeTrue();
+        engine.Evaluate("variables.employees.number == 123.456").AsBoolean().Should().BeTrue();
+        engine.Evaluate("variables.employees.other == 'abc'").AsBoolean().Should().BeTrue();
 
         // mutating data via JS
         engine.Evaluate("variables.employees.type = 'array2'");
         engine.Evaluate("variables.employees.value[0].firstName = 'Jake'");
 
-        //Assert.Equal("array2", engine.Evaluate("variables['employees']['type']").ToString());
+        //engine.Evaluate("variables['employees']['type']").ToString().Should().Be("array2");
 
         result = engine.Evaluate("populateFullName()").AsArray();
-        Assert.Equal((uint) 2, result.Length);
-        Assert.Equal("Jake Doe", result[0].AsObject()["fullName"]);
+        result.Length.Should().Be((uint) 2);
+        result[0].AsObject()["fullName"].Should().Be("Jake Doe");
 
         // Validate boolean value in the if condition.
-        Assert.Equal(1, engine.Evaluate("if(!falseValue){ return 1 ;} else {return 0;}").AsNumber());
-        Assert.Equal(1, engine.Evaluate("if(falseValue===false){ return 1 ;} else {return 0;}").AsNumber());
-        Assert.True(engine.Evaluate("!variables.zeroNumber").AsBoolean());
-        Assert.True(engine.Evaluate("!variables.emptyString").AsBoolean());
-        Assert.True(engine.Evaluate("!variables.nullValue").AsBoolean());
+        engine.Evaluate("if(!falseValue){ return 1 ;} else {return 0;}").AsNumber().Should().Be(1);
+        engine.Evaluate("if(falseValue===false){ return 1 ;} else {return 0;}").AsNumber().Should().Be(1);
+        engine.Evaluate("!variables.zeroNumber").AsBoolean().Should().BeTrue();
+        engine.Evaluate("!variables.emptyString").AsBoolean().Should().BeTrue();
+        engine.Evaluate("!variables.nullValue").AsBoolean().Should().BeTrue();
         var result2 = engine.Evaluate("!variables.falseValue");
         var result3 = engine.Evaluate("!falseValue");
         var result4 = engine.Evaluate("variables.falseValue");
         var result5 = engine.Evaluate("falseValue");
-        Assert.NotNull(result2);
+        result2.Should().NotBeNull();
 
-        Assert.Equal(1, engine.Evaluate("if(variables.falseValue===false){ return 1 ;} else {return 0;}").AsNumber());
-        Assert.Equal(1, engine.Evaluate("if(falseValue===variables.falseValue){ return 1 ;} else {return 0;}").AsNumber());
-        Assert.Equal(1, engine.Evaluate("if(!variables.falseValue){ return 1 ;} else {return 0;}").AsNumber());
-        Assert.Equal(1, engine.Evaluate("if(!variables.employees.falseValue){ return 1 ;} else {return 0;}").AsNumber());
-        Assert.Equal(0, engine.Evaluate("if(!variables.employees.trueValue) return 1 ; else return 0;").AsNumber());
+        engine.Evaluate("if(variables.falseValue===false){ return 1 ;} else {return 0;}").AsNumber().Should().Be(1);
+        engine.Evaluate("if(falseValue===variables.falseValue){ return 1 ;} else {return 0;}").AsNumber().Should().Be(1);
+        engine.Evaluate("if(!variables.falseValue){ return 1 ;} else {return 0;}").AsNumber().Should().Be(1);
+        engine.Evaluate("if(!variables.employees.falseValue){ return 1 ;} else {return 0;}").AsNumber().Should().Be(1);
+        engine.Evaluate("if(!variables.employees.trueValue) return 1 ; else return 0;").AsNumber().Should().Be(0);
 
 
         // mutating original object that is wrapped inside the engine
@@ -144,14 +144,14 @@ public partial class InteropTests
         variables["employees"]["type"] = "array";
         variables["employees"]["value"][0]["firstName"] = "John";
 
-        Assert.Equal("array", engine.Evaluate("variables['employees']['type']").ToString());
+        engine.Evaluate("variables['employees']['type']").ToString().Should().Be("array");
 
         result = engine.Evaluate("populateFullName()").AsArray();
-        Assert.Equal((uint) 2, result.Length);
-        Assert.Equal("John Doe", result[0].AsObject()["fullName"]);
-        Assert.True(engine.Evaluate("variables.employees.trueValue == false").AsBoolean());
-        Assert.True(engine.Evaluate("variables.employees.number == 456.789").AsBoolean());
-        Assert.True(engine.Evaluate("variables.employees.other == 'def'").AsBoolean());
+        result.Length.Should().Be((uint) 2);
+        result[0].AsObject()["fullName"].Should().Be("John Doe");
+        engine.Evaluate("variables.employees.trueValue == false").AsBoolean().Should().BeTrue();
+        engine.Evaluate("variables.employees.number == 456.789").AsBoolean().Should().BeTrue();
+        engine.Evaluate("variables.employees.other == 'def'").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -159,9 +159,9 @@ public partial class InteropTests
     {
         var engine = GetEngine();
 
-        Assert.Equal(15, engine.SetValue("int", JsonValue.Create(15)).Evaluate("int"));
-        Assert.Equal(15.0, engine.SetValue("double", JsonValue.Create(15.0)).Evaluate("double"));
-        Assert.Equal(15f, engine.SetValue("float", JsonValue.Create(15.0f)).Evaluate("float"));
+        engine.SetValue("int", JsonValue.Create(15)).Evaluate("int").Should().Be(15);
+        engine.SetValue("double", JsonValue.Create(15.0)).Evaluate("double").Should().Be(15.0);
+        engine.SetValue("float", JsonValue.Create(15.0f)).Evaluate("float").Should().Be(15f);
     }
 
     private static Engine GetEngine()

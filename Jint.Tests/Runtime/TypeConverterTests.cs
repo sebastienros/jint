@@ -1,4 +1,4 @@
-using Jint.Native;
+﻿using Jint.Native;
 using Jint.Runtime;
 
 namespace Jint.Tests.Runtime;
@@ -11,8 +11,9 @@ public class TypeConverterTests
     {
         _engine = new Engine()
                 .SetValue("log", new Action<object>(o => output.WriteLine(o.ToString())))
-                .SetValue("assert", new Action<bool>(Assert.True))
-                .SetValue("equal", new Action<object, object>(Assert.Equal))
+                .SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()))
+                .SetValue("equal", new Action<object, object>(static (expected, actual) =>
+                    actual.Should().BeEquivalentTo(expected, static options => options.WithStrictOrdering())))
             ;
     }
 
@@ -74,8 +75,8 @@ public class TypeConverterTests
     public void ConvertNumberToInt32AndUint32(double value, int expectedResult)
     {
         JsValue jsval = value;
-        Assert.Equal(expectedResult, TypeConverter.ToInt32(jsval));
-        Assert.Equal((uint)expectedResult, TypeConverter.ToUint32(jsval));
+        TypeConverter.ToInt32(jsval).Should().Be(expectedResult);
+        TypeConverter.ToUint32(jsval).Should().Be((uint)expectedResult);
     }
 
     [Fact]

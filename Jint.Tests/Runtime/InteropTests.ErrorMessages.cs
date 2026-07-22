@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
 using Jint.Tests.Runtime.Domain;
@@ -17,11 +17,9 @@ public partial class InteropTests
         var engine = DetailedErrorsEngine();
         engine.SetValue("speaker", new Speaker());
 
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("speaker.Say('Hello', 'World')"));
+        var ex = Invoking(() => engine.Evaluate("speaker.Say('Hello', 'World')")).Should().ThrowExactly<JavaScriptException>().Which;
 
-        Assert.Equal(
-            "No public methods with the specified arguments were found. Target: Jint.Tests.Runtime.Speaker.Say; provided arguments: (string, string); candidate signatures: Say(String message)",
-            ex.Message);
+        ex.Message.Should().Be("No public methods with the specified arguments were found. Target: Jint.Tests.Runtime.Speaker.Say; provided arguments: (string, string); candidate signatures: Say(String message)");
     }
 
     [Fact]
@@ -31,11 +29,9 @@ public partial class InteropTests
         engine.SetValue("holder", new GreeterHolder(new Greeter()));
 
         // Greeter.Greet is collected both from the class and from IGreeter, it must be reported once
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("holder.Greeter.Greet()"));
+        var ex = Invoking(() => engine.Evaluate("holder.Greeter.Greet()")).Should().ThrowExactly<JavaScriptException>().Which;
 
-        Assert.Equal(
-            "No public methods with the specified arguments were found. Target: Jint.Tests.Runtime.Greeter.Greet; provided arguments: (); candidate signatures: Greet(String name)",
-            ex.Message);
+        ex.Message.Should().Be("No public methods with the specified arguments were found. Target: Jint.Tests.Runtime.Greeter.Greet; provided arguments: (); candidate signatures: Greet(String name)");
     }
 
     [Fact]
@@ -45,10 +41,10 @@ public partial class InteropTests
         engine.SetValue("speaker", new Speaker());
         engine.SetValue("other", new Speaker());
 
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate(
-            "speaker.Say(null, undefined, [1, 2, 3], x => x, {}, new Date(), other)"));
+        var ex = Invoking(() => engine.Evaluate(
+            "speaker.Say(null, undefined, [1, 2, 3], x => x, {}, new Date(), other)")).Should().ThrowExactly<JavaScriptException>().Which;
 
-        Assert.Contains("(null, undefined, Array, function, object, Date, Speaker)", ex.Message);
+        ex.Message.Should().Contain("(null, undefined, Array, function, object, Date, Speaker)");
     }
 
     [Fact]
@@ -57,11 +53,11 @@ public partial class InteropTests
         var engine = DetailedErrorsEngine();
         engine.SetValue("picker", new OverloadPicker());
 
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("picker.Pick()"));
+        var ex = Invoking(() => engine.Evaluate("picker.Pick()")).Should().ThrowExactly<JavaScriptException>().Which;
 
-        Assert.StartsWith("No public methods with the specified arguments were found.", ex.Message);
-        Assert.Contains("Pick(Int32 a)", ex.Message);
-        Assert.Contains(" and 2 more", ex.Message);
+        ex.Message.Should().StartWith("No public methods with the specified arguments were found.");
+        ex.Message.Should().Contain("Pick(Int32 a)");
+        ex.Message.Should().Contain(" and 2 more");
     }
 
     [Fact]
@@ -74,10 +70,10 @@ public partial class InteropTests
         var engine = new Engine(options);
         engine.SetValue("person", new Person());
 
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("person.MultiplyAge()"));
+        var ex = Invoking(() => engine.Evaluate("person.MultiplyAge()")).Should().ThrowExactly<JavaScriptException>().Which;
 
-        Assert.StartsWith("No public methods with the specified arguments were found.", ex.Message);
-        Assert.Contains("PersonExtensions.MultiplyAge(this Person person, Int32 factor)", ex.Message);
+        ex.Message.Should().StartWith("No public methods with the specified arguments were found.");
+        ex.Message.Should().Contain("PersonExtensions.MultiplyAge(this Person person, Int32 factor)");
     }
 
     [Fact]
@@ -86,11 +82,11 @@ public partial class InteropTests
         var engine = DetailedErrorsEngine();
         engine.SetValue("CtorFails", TypeReference.CreateTypeReference<CtorFails>(engine));
 
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("new CtorFails(1, 2)"));
+        var ex = Invoking(() => engine.Evaluate("new CtorFails(1, 2)")).Should().ThrowExactly<JavaScriptException>().Which;
 
-        Assert.StartsWith("Could not resolve a constructor for type Jint.Tests.Runtime.CtorFails for given arguments", ex.Message);
-        Assert.Contains("provided arguments: (number, number)", ex.Message);
-        Assert.Contains("candidate signatures: CtorFails(String name)", ex.Message);
+        ex.Message.Should().StartWith("Could not resolve a constructor for type Jint.Tests.Runtime.CtorFails for given arguments");
+        ex.Message.Should().Contain("provided arguments: (number, number)");
+        ex.Message.Should().Contain("candidate signatures: CtorFails(String name)");
     }
 
     [Fact]
@@ -99,10 +95,10 @@ public partial class InteropTests
         var engine = new Engine();
         engine.SetValue("speaker", new Speaker());
 
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("speaker.Say('Hello', 'World')"));
+        var ex = Invoking(() => engine.Evaluate("speaker.Say('Hello', 'World')")).Should().ThrowExactly<JavaScriptException>().Which;
 
         // the script-visible message must not leak the CLR type, member, argument types or signatures
-        Assert.Equal("No public methods with the specified arguments were found.", ex.Message);
+        ex.Message.Should().Be("No public methods with the specified arguments were found.");
     }
 
     [Fact]
@@ -111,12 +107,12 @@ public partial class InteropTests
         var engine = new Engine();
         engine.SetValue("CtorFails", TypeReference.CreateTypeReference<CtorFails>(engine));
 
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("new CtorFails(1, 2)"));
+        var ex = Invoking(() => engine.Evaluate("new CtorFails(1, 2)")).Should().ThrowExactly<JavaScriptException>().Which;
 
         // historical terse text (names the type, as it always has) but none of the added detail
-        Assert.Equal("Could not resolve a constructor for type Jint.Tests.Runtime.CtorFails for given arguments", ex.Message);
-        Assert.DoesNotContain("provided arguments", ex.Message);
-        Assert.DoesNotContain("candidate signatures", ex.Message);
+        ex.Message.Should().Be("Could not resolve a constructor for type Jint.Tests.Runtime.CtorFails for given arguments");
+        ex.Message.Should().NotContain("provided arguments");
+        ex.Message.Should().NotContain("candidate signatures");
     }
 
     [Fact]
@@ -126,13 +122,13 @@ public partial class InteropTests
         var engine = new Engine();
         engine.SetValue("speaker", new Speaker());
 
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("speaker.Say('Hello', 'World')"));
+        var ex = Invoking(() => engine.Evaluate("speaker.Say('Hello', 'World')")).Should().ThrowExactly<JavaScriptException>().Which;
 
-        Assert.True(JintException.TryGetClrType(ex, out var type));
-        Assert.Equal(typeof(Speaker), type);
+        JintException.TryGetClrType(ex, out var type).Should().BeTrue();
+        type.Should().Be(typeof(Speaker));
 
-        Assert.True(JintException.TryGetClrMemberName(ex, out var member));
-        Assert.Equal("Say", member);
+        JintException.TryGetClrMemberName(ex, out var member).Should().BeTrue();
+        member.Should().Be("Say");
     }
 
     [Fact]
@@ -141,13 +137,13 @@ public partial class InteropTests
         var engine = new Engine();
         engine.SetValue("CtorFails", TypeReference.CreateTypeReference<CtorFails>(engine));
 
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("new CtorFails(1, 2)"));
+        var ex = Invoking(() => engine.Evaluate("new CtorFails(1, 2)")).Should().ThrowExactly<JavaScriptException>().Which;
 
-        Assert.True(JintException.TryGetClrType(ex, out var type));
-        Assert.Equal(typeof(CtorFails), type);
+        JintException.TryGetClrType(ex, out var type).Should().BeTrue();
+        type.Should().Be(typeof(CtorFails));
 
         // constructors carry no member name
-        Assert.False(JintException.TryGetClrMemberName(ex, out _));
+        JintException.TryGetClrMemberName(ex, out _).Should().BeFalse();
     }
 
     [Fact]
@@ -163,11 +159,11 @@ public partial class InteropTests
 
         // a script-side try/catch sees the rewritten message, not the detailed one with the fully-qualified type
         var scriptVisible = engine.Evaluate("try { speaker.Say('Hello', 'World'); } catch (e) { e.message }");
-        Assert.Equal("Speaker.Say: no matching overload", scriptVisible.AsString());
+        scriptVisible.AsString().Should().Be("Speaker.Say: no matching overload");
 
         // and the host-side exception message matches
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("speaker.Say('Hello', 'World')"));
-        Assert.Equal("Speaker.Say: no matching overload", ex.Message);
+        var ex = Invoking(() => engine.Evaluate("speaker.Say('Hello', 'World')")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Message.Should().Be("Speaker.Say: no matching overload");
     }
 
     [Fact]
@@ -178,13 +174,13 @@ public partial class InteropTests
         engine.SetValue("speaker", new Speaker());
 
         var errorCode = engine.Evaluate("try { speaker.Say('Hello', 'World'); } catch (e) { e.errorCode }");
-        Assert.Equal("USR-001", errorCode.AsString());
+        errorCode.AsString().Should().Be("USR-001");
 
         // without a decorator the property does not exist
         var undecorated = new Engine();
         undecorated.SetValue("speaker", new Speaker());
         var missing = undecorated.Evaluate("try { speaker.Say('Hello', 'World'); } catch (e) { e.errorCode === undefined }");
-        Assert.True(missing.AsBoolean());
+        missing.AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -195,23 +191,21 @@ public partial class InteropTests
         var engine = new Engine(options => options.Interop.ClrResolutionErrorDecorator = (_, _, info) => capturedInfo = info);
         engine.SetValue("speaker", new Speaker());
 
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("speaker.Say('Hello', 'World')"));
+        var ex = Invoking(() => engine.Evaluate("speaker.Say('Hello', 'World')")).Should().ThrowExactly<JavaScriptException>().Which;
 
-        Assert.Equal("No public methods with the specified arguments were found.", ex.Message);
+        ex.Message.Should().Be("No public methods with the specified arguments were found.");
 
-        Assert.NotNull(capturedInfo);
-        Assert.Equal(typeof(Speaker), capturedInfo.Type);
-        Assert.Equal("Say", capturedInfo.MemberName);
-        Assert.False(capturedInfo.IsConstructor);
-        Assert.Equal(2, capturedInfo.Arguments.Count);
-        Assert.Equal("Hello", capturedInfo.Arguments[0].AsString());
-        Assert.Equal("World", capturedInfo.Arguments[1].AsString());
-        var candidate = Assert.Single(capturedInfo.Candidates);
-        Assert.Equal("Say", candidate.Name);
-        Assert.Equal("Say(String message)", Assert.Single(capturedInfo.CandidateSignatures));
-        Assert.Equal(
-            "No public methods with the specified arguments were found. Target: Jint.Tests.Runtime.Speaker.Say; provided arguments: (string, string); candidate signatures: Say(String message)",
-            capturedInfo.DetailedMessage);
+        capturedInfo.Should().NotBeNull();
+        capturedInfo.Type.Should().Be(typeof(Speaker));
+        capturedInfo.MemberName.Should().Be("Say");
+        capturedInfo.IsConstructor.Should().BeFalse();
+        capturedInfo.Arguments.Should().HaveCount(2);
+        capturedInfo.Arguments[0].AsString().Should().Be("Hello");
+        capturedInfo.Arguments[1].AsString().Should().Be("World");
+        var candidate = capturedInfo.Candidates.Should().ContainSingle().Which;
+        candidate.Name.Should().Be("Say");
+        capturedInfo.CandidateSignatures.Should().ContainSingle().Which.Should().Be("Say(String message)");
+        capturedInfo.DetailedMessage.Should().Be("No public methods with the specified arguments were found. Target: Jint.Tests.Runtime.Speaker.Say; provided arguments: (string, string); candidate signatures: Say(String message)");
     }
 
     [Fact]
@@ -221,16 +215,16 @@ public partial class InteropTests
         var engine = new Engine(options => options.DecorateClrResolutionErrors((_, _, info) => capturedInfo = info));
         engine.SetValue("CtorFails", TypeReference.CreateTypeReference<CtorFails>(engine));
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new CtorFails(1, 2)"));
+        Invoking(() => engine.Evaluate("new CtorFails(1, 2)")).Should().ThrowExactly<JavaScriptException>();
 
-        Assert.NotNull(capturedInfo);
-        Assert.Equal(typeof(CtorFails), capturedInfo.Type);
-        Assert.Null(capturedInfo.MemberName);
-        Assert.True(capturedInfo.IsConstructor);
-        Assert.Equal(2, capturedInfo.Arguments.Count);
-        var candidate = Assert.Single(capturedInfo.Candidates);
-        Assert.IsAssignableFrom<ConstructorInfo>(candidate);
-        Assert.Equal("CtorFails(String name)", Assert.Single(capturedInfo.CandidateSignatures));
+        capturedInfo.Should().NotBeNull();
+        capturedInfo.Type.Should().Be(typeof(CtorFails));
+        capturedInfo.MemberName.Should().BeNull();
+        capturedInfo.IsConstructor.Should().BeTrue();
+        capturedInfo.Arguments.Should().HaveCount(2);
+        var candidate = capturedInfo.Candidates.Should().ContainSingle().Which;
+        candidate.Should().BeAssignableTo<ConstructorInfo>();
+        capturedInfo.CandidateSignatures.Should().ContainSingle().Which.Should().Be("CtorFails(String name)");
     }
 
     [Fact]
@@ -242,8 +236,8 @@ public partial class InteropTests
 
         var result = engine.Evaluate("speaker.Say('Hello')");
 
-        Assert.Equal("Speaker says: Hello", result.AsString());
-        Assert.False(called);
+        result.AsString().Should().Be("Speaker says: Hello");
+        called.Should().BeFalse();
     }
 
     [Fact]
@@ -253,13 +247,13 @@ public partial class InteropTests
             static (_, error, _) => error.Set("message", "rewritten")));
         engine.SetValue("speaker", new Speaker());
 
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("speaker.Say('Hello', 'World')"));
+        var ex = Invoking(() => engine.Evaluate("speaker.Say('Hello', 'World')")).Should().ThrowExactly<JavaScriptException>().Which;
 
-        Assert.Equal("rewritten", ex.Message);
-        Assert.True(JintException.TryGetClrType(ex, out var type));
-        Assert.Equal(typeof(Speaker), type);
-        Assert.True(JintException.TryGetClrMemberName(ex, out var member));
-        Assert.Equal("Say", member);
+        ex.Message.Should().Be("rewritten");
+        JintException.TryGetClrType(ex, out var type).Should().BeTrue();
+        type.Should().Be(typeof(Speaker));
+        JintException.TryGetClrMemberName(ex, out var member).Should().BeTrue();
+        member.Should().Be("Say");
     }
 
     [Fact]
@@ -269,12 +263,12 @@ public partial class InteropTests
         var engine = new Engine(options => options.DecorateClrResolutionErrors((_, _, info) => capturedInfo = info));
         engine.SetValue("speaker", new Speaker());
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("speaker.Say('Hello', 'World')"));
+        Invoking(() => engine.Evaluate("speaker.Say('Hello', 'World')")).Should().ThrowExactly<JavaScriptException>();
         // churn the engine's pooled/cached argument arrays; the captured copy must be unaffected
         engine.Evaluate("for (var i = 0; i < 100; i++) { Math.max(i, i + 1, i + 2); }");
 
-        Assert.Equal("Hello", capturedInfo.Arguments[0].AsString());
-        Assert.Equal("World", capturedInfo.Arguments[1].AsString());
+        capturedInfo.Arguments[0].AsString().Should().Be("Hello");
+        capturedInfo.Arguments[1].AsString().Should().Be("World");
     }
 }
 

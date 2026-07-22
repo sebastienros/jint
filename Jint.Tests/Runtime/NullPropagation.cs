@@ -56,7 +56,7 @@ var output = { Tags : input.Tags.filter(x=>x!=null) };
 
         var output = engine.GetValue("output").AsObject();
 
-        Assert.True(output.Get("Tags").IsArray());
+        output.Get("Tags").IsArray().Should().BeTrue();
     }
 
     [Fact]
@@ -86,12 +86,12 @@ var output = {
         var length = engine.GetValue("length");
         var output = engine.GetValue("output").AsObject();
 
-        Assert.Equal(JsValue.Null, address);
-        Assert.Equal(JsValue.Null, city);
-        Assert.Equal(JsValue.Null, length);
+        address.Should().Be(JsValue.Null);
+        city.Should().Be(JsValue.Null);
+        length.Should().Be(JsValue.Null);
 
-        Assert.Equal(JsValue.Null, output.Get("Count1"));
-        Assert.Equal(JsValue.Undefined, output.Get("Count2"));
+        output.Get("Count1").Should().Be(JsValue.Null);
+        output.Get("Count2").Should().BeUndefined();
     }
 
     [Fact]
@@ -112,11 +112,11 @@ function test2(arg) {
         engine.Execute(Script);
         var result = engine.Invoke("test", JsValue.Null);
 
-        Assert.Equal(JsValue.Null, result);
+        result.Should().Be(JsValue.Null);
 
         result = engine.Invoke("test2", JsValue.Null);
 
-        Assert.Equal(JsValue.Null, result);
+        result.Should().Be(JsValue.Null);
     }
 
     [Fact]
@@ -139,8 +139,8 @@ this.has_emptyfield_not_null = this.EmptyField !== null;
 
         engine.Invoke("ExecutePatchScript", jsObject);
 
-        Assert.False(jsObject.Get("is_nullfield_not_null").AsBoolean());
-        Assert.True(jsObject.Get("is_notnullfield_not_null").AsBoolean());
-        Assert.True(jsObject.Get("has_emptyfield_not_null").AsBoolean());
+        jsObject.Get("is_nullfield_not_null").AsBoolean().Should().BeFalse();
+        jsObject.Get("is_notnullfield_not_null").AsBoolean().Should().BeTrue();
+        jsObject.Get("has_emptyfield_not_null").AsBoolean().Should().BeTrue();
     }
 }

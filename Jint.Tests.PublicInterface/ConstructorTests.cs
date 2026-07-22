@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -21,35 +21,35 @@ public class ConstructorTests
     {
         var wrapper = (IObjectWrapper) _engine.Evaluate("new DateOnly(1982, 6, 28);");
         var date = (DateOnly) wrapper.Target;
-        Assert.Equal(1982, date.Year);
-        Assert.Equal(6, date.Month);
-        Assert.Equal(28, date.Day);
+        date.Year.Should().Be(1982);
+        date.Month.Should().Be(6);
+        date.Day.Should().Be(28);
 
-        Assert.Equal(1982, _engine.Evaluate("new DateOnly(1982, 6, 28).year").AsNumber());
-        Assert.Equal(6, _engine.Evaluate("new DateOnly(1982, 6, 28).month").AsNumber());
-        Assert.Equal(28, _engine.Evaluate("new DateOnly(1982, 6, 28).day").AsNumber());
+        _engine.Evaluate("new DateOnly(1982, 6, 28).year").AsNumber().Should().Be(1982);
+        _engine.Evaluate("new DateOnly(1982, 6, 28).month").AsNumber().Should().Be(6);
+        _engine.Evaluate("new DateOnly(1982, 6, 28).day").AsNumber().Should().Be(28);
     }
 
     [Fact]
     public void CanConstructWithoutParameters()
     {
-        Assert.Equal(DateTime.Today.Year, _engine.Evaluate("new DateOnly().year").AsNumber());
-        Assert.Equal(DateTime.Today.Month, _engine.Evaluate("new DateOnly().month").AsNumber());
-        Assert.Equal(DateTime.Today.Day, _engine.Evaluate("new DateOnly().day").AsNumber());
+        _engine.Evaluate("new DateOnly().year").AsNumber().Should().Be(DateTime.Today.Year);
+        _engine.Evaluate("new DateOnly().month").AsNumber().Should().Be(DateTime.Today.Month);
+        _engine.Evaluate("new DateOnly().day").AsNumber().Should().Be(DateTime.Today.Day);
     }
 
     [Fact]
     public void CallThrows()
     {
-        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("DateOnly(1982, 6, 28);"));
-        Assert.Equal("Constructor DateOnly requires 'new'", ex.Message);
+        var ex = Invoking(() => _engine.Evaluate("DateOnly(1982, 6, 28);")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Message.Should().Be("Constructor DateOnly requires 'new'");
     }
 
     [Fact]
     public void CanThrowTypeError()
     {
-        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("new DateOnly(undefined, 1, 1);"));
-        Assert.Equal("Invalid year NaN", ex.Message);
+        var ex = Invoking(() => _engine.Evaluate("new DateOnly(undefined, 1, 1);")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Message.Should().Be("Invalid year NaN");
     }
 }
 

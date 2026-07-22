@@ -1,4 +1,4 @@
-using Jint.Runtime;
+﻿using Jint.Runtime;
 
 namespace Jint.Tests.Runtime;
 
@@ -20,8 +20,8 @@ public class ReflectTests
         engine.Evaluate("Reflect.construct(C, [])");
 
         // newTarget explicitly undefined — IsConstructor(undefined) is false, throws TypeError
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("Reflect.construct(C, [], undefined)"));
-        Assert.Equal("TypeError", ex.Error.Get("name").AsString());
+        var ex = Invoking(() => engine.Evaluate("Reflect.construct(C, [], undefined)")).Should().ThrowExactly<JavaScriptException>().Which;
+        ex.Error.Get("name").AsString().Should().Be("TypeError");
     }
 
     [Fact]
@@ -30,10 +30,10 @@ public class ReflectTests
         var engine = new Engine();
 
         // receiver not present — defaults to target, set succeeds
-        Assert.True(engine.Evaluate("Reflect.set({}, 'p', 1)").AsBoolean());
+        engine.Evaluate("Reflect.set({}, 'p', 1)").AsBoolean().Should().BeTrue();
 
         // receiver explicitly undefined — non-Object receiver, [[Set]] returns false
-        Assert.False(engine.Evaluate("Reflect.set({}, 'p', 1, undefined)").AsBoolean());
+        engine.Evaluate("Reflect.set({}, 'p', 1, undefined)").AsBoolean().Should().BeFalse();
     }
 
     [Fact]
@@ -49,10 +49,10 @@ public class ReflectTests
 
         // receiver not present — defaults to target, getter sees `this === obj`
         engine.Evaluate("Reflect.get(obj, 'p')");
-        Assert.True(engine.Evaluate("seen === obj").AsBoolean());
+        engine.Evaluate("seen === obj").AsBoolean().Should().BeTrue();
 
         // receiver explicitly undefined — getter sees `this === undefined`
         engine.Evaluate("Reflect.get(obj, 'p', undefined)");
-        Assert.True(engine.Evaluate("seen === undefined").AsBoolean());
+        engine.Evaluate("seen === undefined").AsBoolean().Should().BeTrue();
     }
 }

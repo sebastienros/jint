@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using Jint.Runtime;
 using Microsoft.Extensions.Time.Testing;
 using NodaTime;
@@ -32,7 +32,7 @@ public class TimeSystemTests
             options.TimeSystem = new NodaTimeSystem(dateTimeZone, timeZone);
         });
 
-        Assert.Equal(expected, engine.Evaluate($"new Date({input}) * 1").AsNumber());
+        engine.Evaluate($"new Date({input}) * 1").AsNumber().Should().Be(expected);
     }
     
     [Fact]
@@ -47,7 +47,7 @@ public class TimeSystemTests
         var beforeDefault = DateTimeOffset.Now.ToUnixTimeMilliseconds();
         var defaultScriptNow = defaultEngine.Evaluate("new Date() * 1").AsNumber();
         var afterDefault = DateTimeOffset.Now.ToUnixTimeMilliseconds();
-        Assert.InRange(defaultScriptNow, beforeDefault - 100, afterDefault + 100);
+        defaultScriptNow.Should().BeInRange(beforeDefault - 100, afterDefault + 100);
 
         var timeProvider = new FakeTimeProvider();
         timeProvider.SetUtcNow(new DateTimeOffset(2023, 11, 6, 0, 0, 0, 0, TimeSpan.Zero));
@@ -60,9 +60,9 @@ public class TimeSystemTests
         // the fake provider is frozen, so the script must read exactly its instant
         var timeProviderNow = timeProvider.GetUtcNow().ToUnixTimeMilliseconds();
         var timeProviderScriptNow = timeProviderEngine.Evaluate("new Date() * 1").AsNumber();
-        Assert.Equal(timeProviderNow, timeProviderScriptNow);
+        timeProviderScriptNow.Should().Be(timeProviderNow);
 
-        Assert.NotInRange(timeProviderScriptNow, defaultScriptNow - 10000, defaultScriptNow + 10000);
+        timeProviderScriptNow.Should().NotBeInRange(defaultScriptNow - 10000, defaultScriptNow + 10000);
     }
 }
 

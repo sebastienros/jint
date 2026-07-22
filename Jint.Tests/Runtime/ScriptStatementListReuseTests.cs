@@ -1,4 +1,4 @@
-namespace Jint.Tests.Runtime;
+﻿namespace Jint.Tests.Runtime;
 
 /// <summary>
 /// Pins the semantics of the per-engine top-level (Program) statement-list cache: re-evaluating the
@@ -34,13 +34,13 @@ public class ScriptStatementListReuseTests
         var prepared = Engine.PrepareScript(source);
 
         // Baseline: a first evaluation on a fresh engine (the uncached path).
-        Assert.Equal(expected, new Engine().Evaluate(prepared).ToString());
+        new Engine().Evaluate(prepared).ToString().Should().Be(expected);
 
         // Re-evaluations on a single engine must produce the identical value every time.
         var engine = new Engine();
         for (var i = 0; i < 5; i++)
         {
-            Assert.Equal(expected, engine.Evaluate(prepared).ToString());
+            engine.Evaluate(prepared).ToString().Should().Be(expected);
         }
     }
 
@@ -58,13 +58,13 @@ public class ScriptStatementListReuseTests
             """);
 
         engine.SetValue("seed", 1);
-        Assert.Equal(11, engine.Evaluate(prepared).AsNumber()); // base=10, add(1)=11
+        engine.Evaluate(prepared).AsNumber().Should().Be(11); // base=10, add(1)=11
 
         engine.SetValue("seed", 5);
-        Assert.Equal(55, engine.Evaluate(prepared).AsNumber()); // base=50, add(5)=55
+        engine.Evaluate(prepared).AsNumber().Should().Be(55); // base=50, add(5)=55
 
         engine.SetValue("seed", 9);
-        Assert.Equal(99, engine.Evaluate(prepared).AsNumber()); // base=90, add(9)=99
+        engine.Evaluate(prepared).AsNumber().Should().Be(99); // base=90, add(9)=99
     }
 
     [Fact]
@@ -85,7 +85,7 @@ public class ScriptStatementListReuseTests
 
         for (var i = 0; i < 4; i++)
         {
-            Assert.Equal(3, engine.Evaluate(prepared).AsNumber());
+            engine.Evaluate(prepared).AsNumber().Should().Be(3);
         }
     }
 }

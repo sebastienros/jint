@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Runtime;
@@ -13,7 +13,8 @@ public class FunctionTests
     public FunctionTests()
     {
         _engine = new Engine()
-            .SetValue("equal", new Action<object, object>(Assert.Equal));
+            .SetValue("equal", new Action<object, object>(static (expected, actual) =>
+                    actual.Should().BeEquivalentTo(expected, static options => options.WithStrictOrdering())));
     }
 
     [Fact]
@@ -22,10 +23,9 @@ public class FunctionTests
         var engine = new Engine();
         var length = ClrLimits.MaxArrayLength + 1UL;
 
-        var exception = Assert.Throws<JavaScriptException>(
-            () => engine.Evaluate($"(function(){{}}).apply(null, {{ length: {length} }});"));
+        var exception = Invoking(() => engine.Evaluate($"(function(){{}}).apply(null, {{ length: {length} }});")).Should().ThrowExactly<JavaScriptException>().Which;
 
-        Assert.True(exception.Error.InstanceofOperator(engine.Intrinsics.RangeError));
+        exception.Error.InstanceofOperator(engine.Intrinsics.RangeError).Should().BeTrue();
     }
 
     [Fact]
@@ -47,7 +47,7 @@ public class FunctionTests
             threw
         ".Replace("LENGTH", length.ToString());
 
-        Assert.True(((JsBoolean) engine.Evaluate(script))._value);
+        ((JsBoolean) engine.Evaluate(script))._value.Should().BeTrue();
     }
 
     [Fact]
@@ -73,7 +73,7 @@ public class FunctionTests
             threw
         ";
 
-        Assert.True(((JsBoolean) engine.Evaluate(script))._value);
+        ((JsBoolean) engine.Evaluate(script))._value.Should().BeTrue();
     }
 
     [Fact]
@@ -81,15 +81,15 @@ public class FunctionTests
     {
         _engine.Evaluate("var testFunc = function (a, b, c) { return a + ', ' + b + ', ' + c + ', ' + JSON.stringify(arguments); }");
 
-        Assert.Equal("a, 1, a, {\"0\":\"a\",\"1\":1,\"2\":\"a\"}", _engine.Evaluate("testFunc('a', 1, 'a');").AsString());
-        Assert.Equal("a, 1, a, {\"0\":\"a\",\"1\":1,\"2\":\"a\"}", _engine.Evaluate("testFunc.bind('anything')('a', 1, 'a');").AsString());
+        _engine.Evaluate("testFunc('a', 1, 'a');").AsString().Should().Be("a, 1, a, {\"0\":\"a\",\"1\":1,\"2\":\"a\"}");
+        _engine.Evaluate("testFunc.bind('anything')('a', 1, 'a');").AsString().Should().Be("a, 1, a, {\"0\":\"a\",\"1\":1,\"2\":\"a\"}");
     }
 
     [Fact]
     public void ArrowFunctionShouldBeExtensible()
     {
         new Engine()
-            .SetValue("assert", new Action<bool>(Assert.True))
+            .SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()))
             .Execute(@"
                     var a = () => null
                     Object.defineProperty(a, 'hello', { enumerable: true, get: () => 'world' })
@@ -124,7 +124,7 @@ function execute(doc, args){
 
         var obj = engine.Evaluate("var obj = {}; execute(obj); return obj;").AsObject();
 
-        Assert.Equal("ayende", obj.Get("Name").AsString());
+        obj.Get("Name").AsString().Should().Be("ayende");
     }
 
     [Fact]
@@ -147,14 +147,14 @@ assertEqual(booleanCount, 1);
             {
                 return engine.Invoke(thisValue, "then", [JsValue.Undefined, args.At(0)]);
             }))
-            .SetValue("assertEqual", new Action<object, object>((a, b) => Assert.Equal(b, a)))
+            .SetValue("assertEqual", new Action<object, object>((a, b) => a.Should().Be(b)))
             .Execute(Script);
     }
 
     [Fact]
     public void AnonymousLambdaShouldHaveNameDefined()
     {
-        Assert.True(_engine.Evaluate("(()=>{}).hasOwnProperty('name')").AsBoolean());
+        _engine.Evaluate("(()=>{}).hasOwnProperty('name')").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -164,17 +164,17 @@ assertEqual(booleanCount, 1);
         _engine.Evaluate("function TestFunction(a, b) { this.a = a; this.b = b; }");
 
         var instanceFromClass = _engine.Construct("TestClass", "abc", 123).AsObject();
-        Assert.Equal("abc", instanceFromClass.Get("a"));
-        Assert.Equal(123, instanceFromClass.Get("b"));
+        instanceFromClass.Get("a").Should().Be("abc");
+        instanceFromClass.Get("b").Should().Be(123);
 
         var instanceFromFunction = _engine.Construct("TestFunction", "abc", 123).AsObject();
-        Assert.Equal("abc", instanceFromFunction.Get("a"));
-        Assert.Equal(123, instanceFromFunction.Get("b"));
+        instanceFromFunction.Get("a").Should().Be("abc");
+        instanceFromFunction.Get("b").Should().Be(123);
 
         var arrayInstance = (JsArray) _engine.Construct("Array", "abc", 123).AsObject();
-        Assert.Equal((uint) 2, arrayInstance.Length);
-        Assert.Equal("abc", arrayInstance[0]);
-        Assert.Equal(123, arrayInstance[1]);
+        arrayInstance.Length.Should().Be((uint) 2);
+        arrayInstance[0].Should().Be("abc");
+        arrayInstance[1].Should().Be(123);
     }
 
     [Fact]
@@ -201,13 +201,13 @@ assertEqual(booleanCount, 1);
                 })();
 ");
 
-        Assert.Equal(5, engine.Evaluate("a"));
+        engine.Evaluate("a").Should().Be(5);
 
         ev(null, []);
-        Assert.Equal(10, engine.Evaluate("a"));
+        engine.Evaluate("a").Should().Be(10);
 
         ev(null, [20]);
-        Assert.Equal(30, engine.Evaluate("a"));
+        engine.Evaluate("a").Should().Be(30);
     }
 
     [Fact]
@@ -222,7 +222,7 @@ assertEqual(booleanCount, 1);
             Object.defineProperty(target, "prop", { get: holder.getter.bind(holder) });
             target.prop;
             """);
-        Assert.Equal(42, result.AsInteger());
+        result.AsInteger().Should().Be(42);
     }
 
     [Fact]
@@ -248,13 +248,13 @@ assertEqual(booleanCount, 1);
                 })();
             ");
 
-        Assert.Equal(5, engine.Evaluate("a"));
+        engine.Evaluate("a").Should().Be(5);
 
         ev(null, []);
-        Assert.Equal(10, engine.Evaluate("a"));
+        engine.Evaluate("a").Should().Be(10);
 
         ev(null, [20]);
-        Assert.Equal(30, engine.Evaluate("a"));
+        engine.Evaluate("a").Should().Be(30);
     }
 
     [Fact]
@@ -272,17 +272,18 @@ assertEqual(booleanCount, 1);
 
         engine.Execute(@"addListener(Boolean)");
 
-        Assert.Equal(true, ev(JsValue.Undefined, ["test"]));
-        Assert.Equal(true, ev(JsValue.Undefined, [5]));
-        Assert.Equal(false, ev(JsValue.Undefined, [false]));
-        Assert.Equal(false, ev(JsValue.Undefined, [0]));
-        Assert.Equal(false, ev(JsValue.Undefined, [JsValue.Undefined]));
+        ev(JsValue.Undefined, ["test"]).Should().BeTrue();
+        ev(JsValue.Undefined, [5]).Should().BeTrue();
+        ev(JsValue.Undefined, [false]).Should().BeFalse();
+        ev(JsValue.Undefined, [0]).Should().BeFalse();
+        ev(JsValue.Undefined, [JsValue.Undefined]).Should().BeFalse();
     }
 
     [Fact]
     public void FunctionsShouldResolveToSameReference()
     {
-        _engine.SetValue("equal", new Action<object, object>(Assert.Equal));
+        _engine.SetValue("equal", new Action<object, object>(static (expected, actual) =>
+                    actual.Should().BeEquivalentTo(expected, static options => options.WithStrictOrdering())));
         _engine.Execute(@"
                 function testFn() {}
                 equal(testFn, testFn);
@@ -307,8 +308,8 @@ assertEqual(booleanCount, 1);
                 })")
             .As<Function>().Call();
 
-        Assert.True(result.IsInteger());
-        Assert.Equal(123, result.AsInteger());
+        result.IsInteger().Should().BeTrue();
+        result.AsInteger().Should().Be(123);
     }
 
     [Fact]
@@ -316,11 +317,11 @@ assertEqual(booleanCount, 1);
     {
         _engine.Execute("function foo() { return Array.from(arguments).join(','); }");
         var function = _engine.GetValue("foo");
-        Assert.Equal("", function.Call());
-        Assert.Equal("1", function.Call(1));
-        Assert.Equal("1,2", function.Call(1, 2));
-        Assert.Equal("1,2,3", function.Call(1, 2, 3));
-        Assert.Equal("1,2,3,4", function.Call(1, 2, 3, 4));
+        function.Call().Should().Be("");
+        function.Call(1).Should().Be("1");
+        function.Call(1, 2).Should().Be("1,2");
+        function.Call(1, 2, 3).Should().Be("1,2,3");
+        function.Call(1, 2, 3, 4).Should().Be("1,2,3,4");
     }
 
     [Fact]
@@ -328,8 +329,8 @@ assertEqual(booleanCount, 1);
     {
         var function = _engine.Evaluate("function bar(a) { return a; }; bar;");
 
-        Assert.Equal(123, _engine.Call(function, 123));
-        Assert.Equal(123, _engine.Call("bar", 123));
+        _engine.Call(function, 123).Should().Be(123);
+        _engine.Call("bar", 123).Should().Be(123);
     }
 
     [Fact]
@@ -337,8 +338,8 @@ assertEqual(booleanCount, 1);
     {
         var function = _engine.Evaluate("function baz() { return this; }; baz;");
 
-        Assert.Equal("I'm this!", TypeConverter.ToString(_engine.Call(function, "I'm this!", Arguments.Empty)));
-        Assert.Equal("I'm this!", TypeConverter.ToString(function.Call("I'm this!", Arguments.Empty)));
+        TypeConverter.ToString(_engine.Call(function, "I'm this!", Arguments.Empty)).Should().Be("I'm this!");
+        TypeConverter.ToString(function.Call("I'm this!", Arguments.Empty)).Should().Be("I'm this!");
     }
 
     [Fact]
@@ -393,8 +394,8 @@ assertEqual(booleanCount, 1);
             ])
             .ToObject();
 
-        Assert.Equal(values[0], found1);
-        Assert.Equal(values[1], found2);
+        found1.Should().Be(values[0]);
+        found2.Should().Be(values[1]);
     }
 
     [Theory]
@@ -779,14 +780,14 @@ assertEqual(booleanCount, 1);
 
         var returnValue = new Engine(options => options.RetainFunctionSourceText()).Evaluate(code);
 
-        var actualResults = Assert.IsType<JsArray>(returnValue);
-        Assert.Equal(2u, actualResults.Length);
+        var actualResults = returnValue.Should().BeOfType<JsArray>().Which;
+        actualResults.Length.Should().Be(2u);
 
-        var actualResult1 = Assert.IsType<JsString>(actualResults[0]).ToString();
-        Assert.Equal(expectedResult, actualResult1);
+        var actualResult1 = actualResults[0].Should().BeOfType<JsString>().Which.ToString();
+        actualResult1.Should().Be(expectedResult);
 
-        var actualResult2 = Assert.IsType<JsString>(actualResults[1]).ToString();
-        Assert.Same(actualResult1, actualResult2);
+        var actualResult2 = actualResults[1].Should().BeOfType<JsString>().Which.ToString();
+        actualResult2.Should().BeSameAs(actualResult1);
     }
 
     [Fact]
@@ -796,9 +797,9 @@ assertEqual(booleanCount, 1);
         // native-code placeholder rather than the original source. See issue #2560.
         var engine = new Engine();
 
-        Assert.Equal("function fn() { [native code] }", engine.Evaluate("function fn() { return 0; } fn.toString();").AsString());
-        Assert.Equal("function foo() { [native code] }", engine.Evaluate("var foo = function () {}; foo.toString();").AsString());
-        Assert.Equal("function () { [native code] }", engine.Evaluate("(() => 0).toString();").AsString());
+        engine.Evaluate("function fn() { return 0; } fn.toString();").AsString().Should().Be("function fn() { [native code] }");
+        engine.Evaluate("var foo = function () {}; foo.toString();").AsString().Should().Be("function foo() { [native code] }");
+        engine.Evaluate("(() => 0).toString();").AsString().Should().Be("function () { [native code] }");
     }
 
     [Fact]
@@ -808,14 +809,12 @@ assertEqual(booleanCount, 1);
         var engine = new Engine();
         var parsingOptions = new ScriptParsingOptions { RetainFunctionSourceText = true };
 
-        Assert.Equal(
-            "function fn() { return 0; }",
-            engine.Evaluate("function fn() { return 0; } fn.toString();", parsingOptions).AsString());
+        engine.Evaluate("function fn() { return 0; } fn.toString();", parsingOptions).AsString().Should().Be("function fn() { return 0; }");
 
         var prepared = Engine.PrepareScript(
             "function fn() { return 42; } fn.toString();",
             options: new ScriptPreparationOptions { ParsingOptions = parsingOptions });
-        Assert.Equal("function fn() { return 42; }", new Engine().Evaluate(prepared).AsString());
+        new Engine().Evaluate(prepared).AsString().Should().Be("function fn() { return 42; }");
     }
 
     [Fact]
@@ -823,7 +822,7 @@ assertEqual(booleanCount, 1);
     {
         // A prepared script must not retain its source by default: toString() falls back to native code.
         var prepared = Engine.PrepareScript("function fn() { return 0; } fn.toString();");
-        Assert.Equal("function fn() { [native code] }", new Engine().Evaluate(prepared).AsString());
+        new Engine().Evaluate(prepared).AsString().Should().Be("function fn() { [native code] }");
     }
 
     [Fact]
@@ -841,7 +840,7 @@ assertEqual(booleanCount, 1);
             var g2 = f(2);
             [g1(), g2()].join(',');
             """);
-        Assert.Equal("1,2", result.AsString());
+        result.AsString().Should().Be("1,2");
 
         // Arrow variant + repeated calls so the reuse cache (had it been populated) would be exercised.
         result = engine.Evaluate("""
@@ -850,7 +849,7 @@ assertEqual(booleanCount, 1);
             for (var i = 0; i < 3; i++) { h(i); }
             getters.map(g => g()).join(',');
             """);
-        Assert.Equal("0,1,2", result.AsString());
+        result.AsString().Should().Be("0,1,2");
     }
 
     [Fact]
@@ -867,7 +866,7 @@ assertEqual(booleanCount, 1);
             var h2 = f.call({ name: 'o2' }, 2);
             [h1().name, h2().name].join(',');
             """);
-        Assert.Equal("o1,o2", result.AsString());
+        result.AsString().Should().Be("o1,o2");
 
         // new.target variant: constructing must not rebind the escaped arrow's captured new.target.
         result = engine.Evaluate("""
@@ -876,6 +875,6 @@ assertEqual(booleanCount, 1);
             new F(2);
             '' + h1();
             """);
-        Assert.Equal("undefined", result.AsString());
+        result.AsString().Should().Be("undefined");
     }
 }

@@ -1,4 +1,4 @@
-namespace Jint.Tests.Runtime;
+﻿namespace Jint.Tests.Runtime;
 
 /// <summary>
 /// Pins the semantics of State.CanSkipThisBinding: functions that provably never resolve
@@ -27,7 +27,7 @@ public class ThisBindingElisionTests
             })()
             """).AsNumber();
 
-        Assert.Equal(5, result);
+        result.Should().Be(5);
     }
 
     [Fact]
@@ -44,7 +44,7 @@ public class ThisBindingElisionTests
             """).AsString();
 
         // sloppy: primitive receiver boxed to object; null falls back to globalThis
-        Assert.Equal("object:5:object", result);
+        result.Should().Be("object:5:object");
     }
 
     [Fact]
@@ -59,7 +59,7 @@ public class ThisBindingElisionTests
             })()
             """).AsString();
 
-        Assert.Equal("number:undefined", result);
+        result.Should().Be("number:undefined");
     }
 
     [Fact]
@@ -75,7 +75,7 @@ public class ThisBindingElisionTests
             })()
             """).AsString();
 
-        Assert.Equal("object", result);
+        result.Should().Be("object");
     }
 
     [Fact]
@@ -91,7 +91,7 @@ public class ThisBindingElisionTests
             })()
             """).AsString();
 
-        Assert.Equal("true:object", result);
+        result.Should().Be("true:object");
     }
 
     [Fact]
@@ -111,7 +111,7 @@ public class ThisBindingElisionTests
             })()
             """).AsString();
 
-        Assert.Equal("7:2", result);
+        result.Should().Be("7:2");
     }
 
     [Fact]
@@ -136,6 +136,6 @@ public class ThisBindingElisionTests
             })()
             """).AsString();
 
-        Assert.Equal("100:50", result);
+        result.Should().Be("100:50");
     }
 }

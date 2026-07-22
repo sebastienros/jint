@@ -1,4 +1,4 @@
-#if !NETFRAMEWORK
+﻿#if !NETFRAMEWORK
 #nullable enable
 
 using System.Runtime.ExceptionServices;
@@ -33,8 +33,8 @@ public class EngineLimitTests
 
             var engine = new Engine();
             engine.Execute(script);
-            Assert.Equal(123, engine.Evaluate("func1(123);").AsNumber());
-            Assert.Equal(FunctionNestingCount, engine.Evaluate("x").AsNumber());
+            engine.Evaluate("func1(123);").AsNumber().Should().Be(123);
+            engine.Evaluate("x").AsNumber().Should().Be(FunctionNestingCount);
         });
     }
 
@@ -67,8 +67,8 @@ public class EngineLimitTests
 
         var engine = new Engine(option => option.Constraints.MaxExecutionStackCount = functionNestingCount);
         engine.Execute(script);
-        Assert.Equal(123, engine.Evaluate("func1(123);").AsNumber());
-        Assert.Equal(functionNestingCount, engine.Evaluate("x").AsNumber());
+        engine.Evaluate("func1(123);").AsNumber().Should().Be(123);
+        engine.Evaluate("x").AsNumber().Should().Be(functionNestingCount);
     }
 
     [Fact]
@@ -87,7 +87,7 @@ public class EngineLimitTests
         }
         catch (JavaScriptException jsException)
         {
-            Assert.Equal("Maximum call stack size exceeded", jsException.Message);
+            jsException.Message.Should().Be("Maximum call stack size exceeded");
         }
     }
 

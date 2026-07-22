@@ -30,6 +30,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Shared so that a JsValue can be compared against a CLR value in both test projects. -->
+    <Compile Include="..\Jint.Tests\JsValueAssertions.cs" Link="JsValueAssertions.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="AwesomeAssertions" />
+    <Using Include="AwesomeAssertions.FluentActions" Static="true" />
+    <Using Include="Jint.Tests" />
     <Using Include="Xunit" />
   </ItemGroup>
 
