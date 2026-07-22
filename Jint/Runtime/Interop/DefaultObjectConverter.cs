@@ -50,15 +50,34 @@ internal static class DefaultObjectConverter
         {
             if (value is Array a)
             {
-                // racy, we don't care, worst case we'll catch up later
-                Interlocked.CompareExchange(ref _typeMappers,
-                    new Dictionary<Type, Func<Engine, object, JsValue>>(typeMappers)
-                    {
-                        [valueType] = ConvertArray
-                    }, typeMappers);
+                if (valueType.IsArray)
+                {
+                    // memoization is only valid when the exposed type itself is an array type: every
+                    // future value crossing under it is an Array. A non-array exposed type (IEnumerable<T>,
+                    // IReadOnlyList<T>, ...) can later carry a List<T> or other non-array value, and
+                    // _typeMappers is a static cross-engine map — baking ConvertArray under such a type
+                    // would poison every engine in the process.
+                    // racy, we don't care, worst case we'll catch up later
+                    Interlocked.CompareExchange(ref _typeMappers,
+                        new Dictionary<Type, Func<Engine, object, JsValue>>(typeMappers)
+                        {
+                            [valueType] = ConvertArray
+                        }, typeMappers);
 
-                result = ConvertArray(engine, a);
-                return result is not null;
+                    result = ConvertArray(engine, a);
+                    return result is not null;
+                }
+
+                if (engine.Options.Interop.ArrayConversion == ArrayConversionMode.Copy)
+                {
+                    result = ConvertArray(engine, a);
+                    return result is not null;
+                }
+
+                // LiveView with a non-array exposed type: fall through to the wrapper lane below so the
+                // view honors the declared contract the same way other collections do — an array exposed
+                // as IReadOnlyList<T> must produce a read-only view, not a writable one keyed off the
+                // runtime type.
             }
 
             if (value is IConvertible convertible && TryConvertConvertible(engine, convertible, out result))
@@ -264,7 +283,7 @@ internal static class DefaultObjectConverter
         }
 
         if (e.Options.Interop.ArrayConversion == ArrayConversionMode.LiveView
-            && TryConvertArrayLiveView(e, v, out var liveView))
+            && TryConvertArrayLiveView(e, v, arrayType, out var liveView))
         {
             return liveView;
         }
@@ -283,6 +302,9 @@ internal static class DefaultObjectConverter
         if (e.Options.Interop.TrackObjectWrapperIdentity)
         {
             e._objectWrapperCache ??= new ConditionalWeakTable<object, ObjectInstance>();
+            // the table may hold a wrapper for a different exposed view of the same
+            // object (the type-guarded lookup above missed it) — last view wins
+            e._objectWrapperCache.Remove(v);
             e._objectWrapperCache.Add(v, result);
         }
         else if (e.Options.Interop.CacheRecentObjectWrappers)
@@ -301,9 +323,8 @@ internal static class DefaultObjectConverter
     /// plus the flag-gated identity caches — already consulted by the caller). Multi-rank (T[,]) and
     /// non-zero-based (T[*]) arrays return false so they keep the Copy-mode failure behavior.
     /// </summary>
-    private static bool TryConvertArrayLiveView(Engine e, object v, [NotNullWhen(true)] out JsValue? result)
+    private static bool TryConvertArrayLiveView(Engine e, object v, Type arrayType, [NotNullWhen(true)] out JsValue? result)
     {
-        var arrayType = v.GetType();
         if (arrayType.GetElementType() is not { } elementType
             || arrayType != elementType.MakeArrayType())
         {
@@ -322,6 +343,9 @@ internal static class DefaultObjectConverter
         if (e.Options.Interop.TrackObjectWrapperIdentity)
         {
             e._objectWrapperCache ??= new ConditionalWeakTable<object, ObjectInstance>();
+            // the table may hold a wrapper for a different exposed view of the same
+            // object (the type-guarded lookup above missed it) — last view wins
+            e._objectWrapperCache.Remove(v);
             e._objectWrapperCache.Add(v, wrapped);
         }
         else if (e.Options.Interop.CacheRecentObjectWrappers)
@@ -376,5 +400,12 @@ internal sealed class RecentObjectWrapperCache
         _targets[index] = target;
         _wrappers[index] = wrapper;
         _next = (index + 1) & (Capacity - 1);
+    }
+
+    public void Clear()
+    {
+        Array.Clear(_targets, 0, _targets.Length);
+        Array.Clear(_wrappers, 0, _wrappers.Length);
+        _next = 0;
     }
 }

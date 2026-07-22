@@ -640,7 +640,8 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
 
         private JsValue ReadValue(int index)
         {
-            return (uint) index < _target.Length ? JsValue.FromObject(_target.Engine, _target.GetAt(index)) : JsValue.Undefined;
+            // GetJsValueAt converts common primitive element types without boxing
+            return (uint) index < _target.Length ? _target.GetJsValueAt(index) : JsValue.Undefined;
         }
 
         public override bool HasProperty(ulong index) => index < (ulong) _target.Length;
