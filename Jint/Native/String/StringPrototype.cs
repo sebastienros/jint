@@ -941,6 +941,12 @@ internal sealed partial class StringPrototype : StringInstance
             return JsString.Create(s[from]);
         }
 
+        if (from == 0 && length == len)
+        {
+            // whole-string substring: strings are immutable, the receiver can be returned as-is
+            return s;
+        }
+
         return JsString.CreateSliced(s, from, length);
     }
 
@@ -969,6 +975,11 @@ internal sealed partial class StringPrototype : StringInstance
         if (l == 1)
         {
             return TypeConverter.ToString(s[startIndex]);
+        }
+        if (startIndex == 0 && l == s.Length)
+        {
+            // whole-string substr: strings are immutable, the receiver can be returned as-is
+            return s;
         }
         return JsString.CreateSliced(s, startIndex, l);
     }

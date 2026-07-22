@@ -220,7 +220,8 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
     {
         if (start == 0 && length == source.Length)
         {
-            return new JsString(source);
+            // Create keeps 0/1-char sources on the cached instances (e.g. ''.split('x'))
+            return Create(source);
         }
 
         if (length >= 512
@@ -385,6 +386,13 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         if (ReferenceEquals(this, other))
         {
             return true;
+        }
+
+        if (Length != other.Length)
+        {
+            // every Length override answers without materializing, so a mismatched compare
+            // (e.g. a short literal against a large unmaterialized view) stays allocation-free
+            return false;
         }
 
         return string.Equals(_value, other.ToString(), StringComparison.Ordinal);
