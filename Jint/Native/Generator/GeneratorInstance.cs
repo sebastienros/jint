@@ -240,8 +240,18 @@ internal sealed class GeneratorInstance : ObjectInstance, ISuspendable
         _generatorState = GeneratorState.Executing;
         _engine.EnterExecutionContext(genContext);
 
-        var result = _generatorBody.Execute(context);
-        _engine.LeaveExecutionContext();
+        Completion result;
+        try
+        {
+            result = _generatorBody.Execute(context);
+        }
+        finally
+        {
+            // a raw constraint exception (TimeoutException, ExecutionCanceledException) thrown inside
+            // the body must not skip the pop: the execution-context depth gates the host-boundary
+            // constraint checks, and a leaked frame would satisfy the gate forever
+            _engine.LeaveExecutionContext();
+        }
 
         // https://tc39.es/ecma262/#sec-generatorstart step 4.i-j
         // Dispose resources when generator body completes (not when yielding)

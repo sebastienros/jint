@@ -279,6 +279,14 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
                 final => SettleResumeRejection(final.Value, promiseCapability));
             return;
         }
+        catch
+        {
+            // a raw constraint exception (TimeoutException, ExecutionCanceledException) must not leak
+            // the entered frame: the execution-context depth gates the host-boundary constraint
+            // checks, and a leaked frame would satisfy the gate forever
+            _engine.LeaveExecutionContext();
+            throw;
+        }
 
         // Check if suspended at an await expression
         if (_awaitSuspended)

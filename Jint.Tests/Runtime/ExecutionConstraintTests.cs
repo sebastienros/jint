@@ -972,6 +972,112 @@ myarr[0](0);
         Assert.Equal(1, probe.Accesses);
     }
 
+    [Fact]
+    public void ConstraintThrowInsideGeneratorResumeDoesNotPoisonHostBoundaryGate()
+    {
+        // a raw constraint exception thrown inside a resumed generator frame used to skip the
+        // execution-context pop, permanently satisfying the depth-keyed host-boundary gate: every
+        // later C#-side read of a wrapped object then re-observed the constraints while idle
+        using var cts = new CancellationTokenSource();
+        var engine = new Engine(cfg => cfg.CancellationToken(cts.Token));
+        var probe = new HostBoundaryProbe();
+        engine.SetValue("probe", probe);
+        engine.SetValue("cancel", new Action(cts.Cancel));
+
+        engine.Execute("function* g() { cancel(); while (true) { } } var it = g();");
+        Assert.Throws<ExecutionCanceledException>(() => engine.Execute("it.next();"));
+
+        // the token stays cancelled; only a leaked frame would make this idle read observe it
+        var wrapper = engine.GetValue("probe").AsObject();
+        Assert.Equal(42, wrapper.Get("value").AsNumber());
+    }
+
+    [Fact]
+    public void ConstraintThrowInsideAsyncResumeDoesNotPoisonHostBoundaryGate()
+    {
+        using var cts = new CancellationTokenSource();
+        var engine = new Engine(cfg => cfg.CancellationToken(cts.Token));
+        var probe = new HostBoundaryProbe();
+        engine.SetValue("probe", probe);
+        engine.SetValue("cancel", new Action(cts.Cancel));
+
+        var gate = engine.Advanced.RegisterPromise();
+        engine.SetValue("gate", gate.Promise);
+        engine.Evaluate("(async () => { await gate; cancel(); })()");
+
+        Assert.Throws<ExecutionCanceledException>(() => gate.Resolve(JsValue.Undefined));
+
+        var wrapper = engine.GetValue("probe").AsObject();
+        Assert.Equal(42, wrapper.Get("value").AsNumber());
+    }
+
+    [Fact]
+    public void ConstraintThrowInsideAsyncGeneratorResumeDoesNotPoisonHostBoundaryGate()
+    {
+        using var cts = new CancellationTokenSource();
+        var engine = new Engine(cfg => cfg.CancellationToken(cts.Token));
+        var probe = new HostBoundaryProbe();
+        engine.SetValue("probe", probe);
+        engine.SetValue("cancel", new Action(cts.Cancel));
+
+        engine.Execute("async function* ag() { cancel(); yield 1; } var it = ag();");
+        Assert.Throws<ExecutionCanceledException>(() => engine.Execute("it.next();"));
+
+        var wrapper = engine.GetValue("probe").AsObject();
+        Assert.Equal(42, wrapper.Get("value").AsNumber());
+    }
+
+    [Fact]
+    public void ShadowRealmImportFailureDoesNotPoisonHostBoundaryGate()
+    {
+        // module resolution failures surface as ModuleResolutionException (not JavaScriptException);
+        // the ShadowRealm import lane must still pop the execution context it entered
+        using var cts = new CancellationTokenSource();
+        var engine = new Engine(cfg => cfg.CancellationToken(cts.Token));
+        var probe = new HostBoundaryProbe();
+        engine.SetValue("probe", probe);
+
+        engine.Execute("var sr = new ShadowRealm();");
+        Assert.ThrowsAny<Exception>(() => engine.Evaluate("sr.importValue('./does-not-exist.js', 'x')"));
+
+        cts.Cancel();
+        var wrapper = engine.GetValue("probe").AsObject();
+        Assert.Equal(42, wrapper.Get("value").AsNumber());
+    }
+
+    [Fact]
+    public void NestedEngineReentryDoesNotResetOuterConstraints()
+    {
+        // a host callback calling back into the engine re-enters ExecuteWithConstraints; the nested
+        // run must not re-arm the outer script's budget — "while (true) reenter();" would otherwise
+        // reset the statement counter (and timeout) on every iteration and run forever
+        var engine = new Engine(cfg => cfg.MaxStatements(5000));
+
+        var calls = 0;
+        engine.SetValue("reenter", new Action(() =>
+        {
+            if (++calls > 100_000)
+            {
+                throw new InvalidOperationException("outer budget was reset by nested evaluation");
+            }
+            engine.Evaluate("1;");
+        }));
+
+        Assert.Throws<StatementsCountOverflowException>(() => engine.Execute("while (true) { reenter(); }"));
+        Assert.True(calls < 5000);
+    }
+
+    [Fact]
+    public void SequentialTopLevelExecutionsStillResetConstraints()
+    {
+        // the nested-entry guard must not affect sequential top-level runs: each gets a fresh budget
+        var engine = new Engine(cfg => cfg.MaxStatements(100));
+        for (var i = 0; i < 5; i++)
+        {
+            Assert.Equal(90, engine.Evaluate("var x = 0; for (var j = 0; j < 30; j++) { x += 3; } x;").AsNumber());
+        }
+    }
+
     private sealed class HostBoundaryProbe
     {
         public int Accesses;
