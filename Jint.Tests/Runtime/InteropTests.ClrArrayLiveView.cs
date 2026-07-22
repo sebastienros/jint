@@ -32,6 +32,44 @@ public partial class InteropTests
         Assert.True(engine.Evaluate("h.Numbers === h.Numbers").AsBoolean());
     }
 
+    [Fact]
+    public void LiveViewElementReadsConvertPrimitiveItemTypes()
+    {
+        var engine = new Engine();
+        engine.SetValue("ints", new[] { 1, int.MaxValue, -1 });
+        engine.SetValue("doubles", new[] { 0.5, double.MaxValue, -0.0 });
+        engine.SetValue("longs", new[] { 1L, long.MaxValue });
+        engine.SetValue("floats", new[] { 0.1f, float.MaxValue });
+        engine.SetValue("bools", new[] { true, false });
+        engine.SetValue("bytes", new byte[] { 0, 255 });
+        engine.SetValue("chars", new[] { 'a', 'ö' });
+        engine.SetValue("strings", new[] { "x", null, "" });
+        engine.SetValue("intList", new List<int> { 7, 8 });
+        engine.SetValue("stringList", (IReadOnlyList<string>) new List<string> { "a", null });
+
+        Assert.Equal(int.MaxValue, engine.Evaluate("ints[1]").AsNumber());
+        Assert.Equal(-1, engine.Evaluate("ints[2]").AsNumber());
+        Assert.Equal(0.5, engine.Evaluate("doubles[0]").AsNumber());
+        Assert.Equal(double.MaxValue, engine.Evaluate("doubles[1]").AsNumber());
+        Assert.True(engine.Evaluate("Object.is(doubles[2], -0)").AsBoolean());
+        Assert.Equal((double) long.MaxValue, engine.Evaluate("longs[1]").AsNumber());
+        Assert.Equal((double) 0.1f, engine.Evaluate("floats[0]").AsNumber());
+        Assert.Equal((double) float.MaxValue, engine.Evaluate("floats[1]").AsNumber());
+        Assert.True(engine.Evaluate("bools[0]").AsBoolean());
+        Assert.False(engine.Evaluate("bools[1]").AsBoolean());
+        Assert.Equal(255, engine.Evaluate("bytes[1]").AsNumber());
+        Assert.Equal("ö", engine.Evaluate("chars[1]").AsString());
+        Assert.Equal("x", engine.Evaluate("strings[0]").AsString());
+        Assert.True(engine.Evaluate("strings[1] === null").AsBoolean());
+        Assert.Equal("", engine.Evaluate("strings[2]").AsString());
+        Assert.Equal(8, engine.Evaluate("intList[1]").AsNumber());
+        Assert.True(engine.Evaluate("stringList[1] === null").AsBoolean());
+
+        // out-of-range keeps the general converter's result
+        Assert.True(engine.Evaluate("ints[99] === null").AsBoolean());
+        Assert.True(engine.Evaluate("intList[99] === null").AsBoolean());
+    }
+
     private static Engine CreateCopyEngine(Action<Options> additionalConfiguration = null)
     {
         return new Engine(options =>
