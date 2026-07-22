@@ -452,6 +452,14 @@ internal class SourceTextModule : CyclicModule
                     }
                     return new Completion(CompletionType.Normal, JsValue.Undefined, null!);
                 }
+                catch
+                {
+                    // a raw constraint exception (TimeoutException, ExecutionCanceledException) must
+                    // not leak the entered frame: the execution-context depth gates the host-boundary
+                    // constraint checks, and a leaked frame would satisfy the gate forever
+                    _engine.LeaveExecutionContext();
+                    throw;
+                }
 
                 // Check if we suspended at an await
                 if (_tlaAsyncInstance._state == AsyncFunctionState.SuspendedAwait)

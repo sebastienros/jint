@@ -889,6 +889,15 @@ public sealed partial class Engine : IDisposable
     /// </summary>
     internal void CheckAmortizedConstraints()
     {
+        if (_debuggerEvaluating)
+        {
+            // a watch / conditional-breakpoint expression evaluated while paused past the timeout
+            // must not fail; the same exemption the host-boundary gate applies (see
+            // CheckAmortizedConstraintsAtHostBoundary), extended to the per-statement cadence so a
+            // longer debugger expression doesn't trip the countdown either
+            return;
+        }
+
         foreach (var constraint in _amortizedConstraints)
         {
             constraint.Check();
@@ -1248,7 +1257,17 @@ public sealed partial class Engine : IDisposable
 
     internal T ExecuteWithConstraints<T>(bool strict, Func<T> callback)
     {
-        ResetConstraints();
+        // A nested call — a host callback inside a running script calling back into the engine —
+        // must not re-arm the outer run's constraints: the outer budget (time/statements) keeps
+        // applying to everything the outer script triggers, otherwise `while (true) hostCallback()`
+        // where the callback re-enters the engine would reset the timeout on every iteration and
+        // run forever. Keyed on execution-context depth, the same signal the host-boundary
+        // constraint gate uses.
+        var isNested = _executionContexts.Count > 1;
+        if (!isNested)
+        {
+            ResetConstraints();
+        }
 
         var ownsContext = _activeEvaluationContext is null;
         _activeEvaluationContext ??= new EvaluationContext(this);
@@ -1266,7 +1285,10 @@ public sealed partial class Engine : IDisposable
             {
                 _activeEvaluationContext = null!;
             }
-            ResetConstraints();
+            if (!isNested)
+            {
+                ResetConstraints();
+            }
             _agent.ClearKeptObjects();
         }
     }

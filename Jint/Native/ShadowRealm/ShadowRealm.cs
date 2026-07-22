@@ -291,8 +291,17 @@ public sealed class ShadowRealm : ObjectInstance
         // 4. If runningContext is not already suspended, suspend runningContext.
 
         _engine.EnterExecutionContext(_executionContext);
-        _engine._host.LoadImportedModule(null, new ModuleRequest(specifierString, []), innerCapability);
-        _engine.LeaveExecutionContext();
+        try
+        {
+            _engine._host.LoadImportedModule(null, new ModuleRequest(specifierString, []), innerCapability);
+        }
+        finally
+        {
+            // module resolution failures throw ModuleResolutionException (not JavaScriptException);
+            // the entered frame must not leak — the execution-context depth gates the
+            // host-boundary constraint checks
+            _engine.LeaveExecutionContext();
+        }
 
         var onFulfilled = new StepsFunction(_engine, callerRealm, exportNameString);
         var promiseCapability = PromiseConstructor.NewPromiseCapability(_engine, _engine.Realm.Intrinsics.Promise);

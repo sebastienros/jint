@@ -262,6 +262,14 @@ internal sealed class JintAwaitExpression : JintExpression
                 final => SettleAsyncResumeCompletion(engine, asyncInstance, final));
             return;
         }
+        catch
+        {
+            // a raw constraint exception (TimeoutException, ExecutionCanceledException) must not leak
+            // the entered frame: the execution-context depth gates the host-boundary constraint
+            // checks, and a leaked frame would satisfy the gate forever
+            engine.LeaveExecutionContext();
+            throw;
+        }
 
         if (asyncInstance._state == AsyncFunctionState.SuspendedAwait)
         {
