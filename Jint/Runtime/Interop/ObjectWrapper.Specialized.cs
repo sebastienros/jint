@@ -6,6 +6,34 @@ using Jint.Native;
 
 namespace Jint.Runtime.Interop;
 
+/// <summary>
+/// Instantiated once per exposed CLR type (see ObjectWrapper's array-like resolution cache) so that
+/// per-wrapper creation is a plain virtual call and constructor invocation instead of
+/// <c>Activator.CreateInstance</c> with argument binding.
+/// </summary>
+internal abstract class ArrayLikeWrapperFactory
+{
+    public abstract ArrayLikeWrapper Create(Engine engine, object target, Type type);
+}
+
+internal sealed class ArrayWrapperFactory<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicFields)] T> : ArrayLikeWrapperFactory
+{
+    public override ArrayLikeWrapper Create(Engine engine, object target, Type type)
+        => new ArrayWrapper<T>(engine, (T[]) target, type);
+}
+
+internal sealed class GenericListWrapperFactory<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicFields)] T> : ArrayLikeWrapperFactory
+{
+    public override ArrayLikeWrapper Create(Engine engine, object target, Type type)
+        => new GenericListWrapper<T>(engine, (IList<T>) target, type);
+}
+
+internal sealed class ReadOnlyListWrapperFactory<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicFields)] T> : ArrayLikeWrapperFactory
+{
+    public override ArrayLikeWrapper Create(Engine engine, object target, Type type)
+        => new ReadOnlyListWrapper<T>(engine, (IReadOnlyList<T>) target, type);
+}
+
 internal abstract class ArrayLikeWrapper : ObjectWrapper
 {
     protected ArrayLikeWrapper(

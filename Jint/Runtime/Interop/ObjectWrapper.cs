@@ -22,6 +22,7 @@ namespace Jint.Runtime.Interop;
 public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWrapper>
 {
     internal readonly TypeDescriptor _typeDescriptor;
+    private bool _lengthPropertyPending;
 
     internal ObjectWrapper(
         Engine engine,
@@ -39,10 +40,10 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
         if (_typeDescriptor.LengthProperty is not null)
         {
-            // create a forwarder to produce length from Count or Length if one of them is present
-            var functionInstance = new ClrFunction(engine, "length", GetLength);
-            var descriptor = new GetSetPropertyDescriptor(functionInstance, Undefined, PropertyFlag.Configurable);
-            SetProperty(KnownKeys.Length, descriptor);
+            // the "length" forwarder (produced from Count or Length) is materialized lazily on first
+            // own-property consultation: plain length reads are served by the ICollection fast path in
+            // Get, so most wrappers never observe the descriptor itself
+            _lengthPropertyPending = true;
 
             if (_typeDescriptor.IsArrayLike && engine.Options.Interop.AttachArrayPrototype)
             {
@@ -132,7 +133,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         return new ObjectWrapper(engine, target, type);
     }
 
-    private static readonly ConcurrentDictionary<Type, Type?> _arrayLikeWrapperResolution = new();
+    private static readonly ConcurrentDictionary<Type, ArrayLikeWrapperFactory?> _arrayLikeWrapperResolution = new();
 
     private static bool TryBuildArrayLikeWrapper(
         Engine engine,
@@ -142,11 +143,16 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     {
         result = null;
 
-        var arrayWrapperType = _arrayLikeWrapperResolution.GetOrAdd(type, static t =>
+        // resolved once per exposed type: reflection (interface scan + generic instantiation +
+        // Activator) runs only on the first sighting, every later wrapper creation is a single
+        // virtual call into the cached factory
+        var factory = _arrayLikeWrapperResolution.GetOrAdd(type, static t =>
         {
 #pragma warning disable IL2055
 #pragma warning disable IL2070
 #pragma warning disable IL3050
+
+            Type? factoryType = null;
 
             // single-rank zero-based CLR arrays (T[]) get a fixed-size live wrapper; T[] implements
             // IList<T> and would otherwise flow into GenericListWrapper<T> below, whose growth paths
@@ -155,52 +161,57 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             // (T[*]) arrays, which keep their previous handling.
             if (t.IsArray && t.GetElementType() is { } elementType && t == elementType.MakeArrayType())
             {
-                return typeof(ArrayWrapper<>).MakeGenericType(elementType);
+                factoryType = typeof(ArrayWrapperFactory<>).MakeGenericType(elementType);
             }
-
-            // check for generic interfaces
-            foreach (var i in t.GetInterfaces())
+            else
             {
-                if (!i.IsGenericType)
+                // check for generic interfaces
+                foreach (var i in t.GetInterfaces())
                 {
-                    continue;
-                }
+                    if (!i.IsGenericType)
+                    {
+                        continue;
+                    }
 
-                var arrayItemType = i.GenericTypeArguments[0];
+                    var arrayItemType = i.GenericTypeArguments[0];
 
-                if (i.GetGenericTypeDefinition() == typeof(IList<>))
-                {
-                    return typeof(GenericListWrapper<>).MakeGenericType(arrayItemType);
-                }
+                    if (i.GetGenericTypeDefinition() == typeof(IList<>))
+                    {
+                        factoryType = typeof(GenericListWrapperFactory<>).MakeGenericType(arrayItemType);
+                        break;
+                    }
 
-                if (i.GetGenericTypeDefinition() == typeof(IReadOnlyList<>))
-                {
-                    return typeof(ReadOnlyListWrapper<>).MakeGenericType(arrayItemType);
+                    if (i.GetGenericTypeDefinition() == typeof(IReadOnlyList<>))
+                    {
+                        factoryType = typeof(ReadOnlyListWrapperFactory<>).MakeGenericType(arrayItemType);
+                        break;
+                    }
                 }
             }
 #pragma warning restore IL3050
 #pragma warning restore IL2070
 #pragma warning restore IL2055
 
-            return null;
-        });
+            if (factoryType is null)
+            {
+                return null;
+            }
 
-        if (arrayWrapperType is not null)
-        {
             // Activator.CreateInstance may fail in trimmed/AOT scenarios where the constructor
             // was removed by the linker - fall back to the non-generic ListWrapper in that case
             try
             {
-                result = (ArrayLikeWrapper) Activator.CreateInstance(arrayWrapperType, engine, target, type)!;
+                return (ArrayLikeWrapperFactory) Activator.CreateInstance(factoryType)!;
             }
             catch (MissingMethodException)
             {
-                // Constructor was trimmed, fall back to non-generic wrapper
-                if (target is IList list)
-                {
-                    result = new ListWrapper(engine, list, type);
-                }
+                return null;
             }
+        });
+
+        if (factory is not null)
+        {
+            result = factory.Create(engine, target, type);
         }
         else if (target is IList list)
         {
@@ -226,6 +237,10 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         if (property is JsString stringKey)
         {
             var member = stringKey.ToString();
+            if (_lengthPropertyPending && string.Equals(member, "length", StringComparison.Ordinal))
+            {
+                MaterializeLengthProperty();
+            }
             if (_properties is null || !_properties.ContainsKey(member))
             {
                 // can try utilize fast path
@@ -348,6 +363,13 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
     public override void RemoveOwnProperty(JsValue property)
     {
+        if (_lengthPropertyPending && CommonProperties.Length.Equals(property))
+        {
+            // an explicit removal of the not-yet-materialized forwarder must behave like removing the
+            // eagerly-created one did: the property is gone and does not come back
+            _lengthPropertyPending = false;
+        }
+
         if (_engine.Options.Interop.AllowWrite)
         {
             if (property is JsString jsString && _typeDescriptor.IsStringKeyedGenericDictionary)
@@ -628,6 +650,11 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             return x;
         }
 
+        if (_lengthPropertyPending && CommonProperties.Length.Equals(property))
+        {
+            return MaterializeLengthProperty();
+        }
+
         // if we have array-like or dictionary or expando, we can provide iterator
         if (property.IsSymbol())
         {
@@ -830,6 +857,16 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         return wrapper._typeDescriptor.IsDictionary
             ? new DictionaryIterator(wrapper._engine, wrapper)
             : new EnumerableIterator(wrapper._engine, (IEnumerable) wrapper.Target);
+    }
+
+    private GetSetPropertyDescriptor MaterializeLengthProperty()
+    {
+        _lengthPropertyPending = false;
+        // create a forwarder to produce length from Count or Length if one of them is present
+        var functionInstance = new ClrFunction(_engine, "length", GetLength);
+        var descriptor = new GetSetPropertyDescriptor(functionInstance, Undefined, PropertyFlag.Configurable);
+        SetProperty(KnownKeys.Length, descriptor);
+        return descriptor;
     }
 
     private static JsNumber GetLength(JsValue thisObject, JsCallArguments arguments)

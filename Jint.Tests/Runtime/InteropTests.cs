@@ -1182,6 +1182,29 @@ public partial class InteropTests : IDisposable
     }
 
     [Fact]
+    public void LazilyMaterializedLengthPropertyBehavesLikeEagerOne()
+    {
+        _engine.SetValue("list", new List<string> { "a", "b" });
+        _engine.SetValue("array", new[] { 1, 2, 3 });
+
+        // plain reads (served by the ICollection fast path) and own-property reflection agree
+        Assert.Equal(2, _engine.Evaluate("list.length").AsNumber());
+        Assert.Equal(3, _engine.Evaluate("array.length").AsNumber());
+        Assert.True(_engine.Evaluate("'length' in list").AsBoolean());
+        Assert.True(_engine.Evaluate("list.hasOwnProperty('length')").AsBoolean());
+        Assert.True(_engine.Evaluate("array.hasOwnProperty('length')").AsBoolean());
+
+        // the accessor descriptor keeps its eager-era shape
+        Assert.Equal("function", _engine.Evaluate("typeof Object.getOwnPropertyDescriptor(list, 'length').get").AsString());
+        Assert.True(_engine.Evaluate("Object.getOwnPropertyDescriptor(list, 'length').configurable").AsBoolean());
+        Assert.True(_engine.Evaluate("Object.getOwnPropertyDescriptor(list, 'length').set === undefined").AsBoolean());
+
+        // deleting the forwarder removes the own property for good
+        Assert.True(_engine.Evaluate("delete list.length").AsBoolean());
+        Assert.False(_engine.Evaluate("list.hasOwnProperty('length')").AsBoolean());
+    }
+
+    [Fact]
     public void ForOfOverRevokedProxyOfClrListThrowsTypeError()
     {
         _engine.SetValue("list", new List<string> { "a", "b" });
