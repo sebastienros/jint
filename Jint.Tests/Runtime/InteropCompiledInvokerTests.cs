@@ -255,4 +255,205 @@ public class InteropCompiledInvokerTests
     {
         public int Unrelated => 1;
     }
+
+    // -----------------------------------------------------------------------------------------
+    // Process-wide invoker cache.
+    //
+    // The compiled invoker and the BCL MethodInvoker/ConstructorInvoker are cached by MethodBase in
+    // static dictionaries, shared by every Engine, because MethodDescriptor instances themselves are
+    // per-Engine (Engine._reflectionAccessors). These tests prove that sharing carries no
+    // Engine-specific state - above all that one Engine's interop policy (a custom ITypeConverter or
+    // registered object converters, both of which must decline the compiled lane) never leaks into
+    // another Engine through the shared cache, in either order.
+    // -----------------------------------------------------------------------------------------
+
+    public enum Season
+    {
+        Spring = 0,
+        Summer = 1,
+    }
+
+    public sealed class Box
+    {
+        public Box(int value) => Value = value;
+
+        public int Value { get; }
+    }
+
+    public struct StructHost
+    {
+        public int Value { get; set; }
+
+        // instance method on a value-type receiver -> ineligible for the compiled lane
+        public int Doubled() => Value * 2;
+    }
+
+    public sealed class IneligibleHost
+    {
+        // generic -> ineligible for the compiled lane
+        public T Identity<T>(T value) => value;
+
+        // enum parameter -> unsupported parameter type
+        public string Name(Season season) => season.ToString();
+
+        // custom class parameter -> unsupported parameter type
+        public int Unwrap(Box box) => box.Value;
+    }
+
+    [Fact]
+    public void SharedInvokerCache_SameMethodsFromTwoIndependentEngines()
+    {
+        var first = CreateEngine();
+        var second = CreateEngine();
+
+        // interleave so each engine both populates and consumes the shared cache entries
+        first.Evaluate("host.AddInt(2, 3)").AsNumber().Should().Be(5);
+        second.Evaluate("host.AddInt(20, 30)").AsNumber().Should().Be(50);
+        second.Evaluate("host.Concat('a', 'b')").AsString().Should().Be("ab");
+        first.Evaluate("host.Concat('c', 'd')").AsString().Should().Be("cd");
+        first.Evaluate("host.AddLong(3, 4)").AsNumber().Should().Be(7);
+        second.Evaluate("host.AddDouble(1.5, 2.25)").AsNumber().Should().Be(3.75);
+        second.Evaluate("host.And(true, false)").AsBoolean().Should().BeFalse();
+        first.Evaluate("host.And(true, true)").AsBoolean().Should().BeTrue();
+        first.Evaluate("host.Echo('x')").AsString().Should().Be("x");
+        second.Evaluate("host.StaticAdd(4, 5)").AsNumber().Should().Be(9);
+    }
+
+    [Fact]
+    public void SharedInvokerCache_CustomTypeConverterEngineCreatedAfterDefaultEngine()
+    {
+        // default engine first: it populates the shared compiled-invoker entry for And
+        var plain = CreateEngine();
+        plain.Evaluate("host.And(true, true)").AsBoolean().Should().BeTrue();
+
+        var custom = new Engine(options => options.SetTypeConverter(e => new BoolVetoingTypeConverter(e)));
+        custom.SetValue("host", new Host());
+
+        // the vetoing converter must still be consulted - the cached invoker is available but the
+        // call site declines the lane for this engine
+        Invoking(() => custom.Evaluate("host.And(true, true)"))
+            .Should().ThrowExactly<Jint.Runtime.JavaScriptException>()
+            .Which.Message.Should().Contain("No public methods");
+
+        // and the default engine is unaffected by the other engine's policy
+        plain.Evaluate("host.And(true, true)").AsBoolean().Should().BeTrue();
+    }
+
+    [Fact]
+    public void SharedInvokerCache_DefaultEngineCreatedAfterCustomTypeConverterEngine()
+    {
+        // reverse order: the custom-converter engine runs first and never builds a compiled invoker
+        var custom = new Engine(options => options.SetTypeConverter(e => new BoolVetoingTypeConverter(e)));
+        custom.SetValue("host", new Host());
+
+        Invoking(() => custom.Evaluate("host.And(true, true)"))
+            .Should().ThrowExactly<Jint.Runtime.JavaScriptException>()
+            .Which.Message.Should().Contain("No public methods");
+
+        // a plain engine created afterwards must still get the fast lane and the correct result
+        var plain = CreateEngine();
+        plain.Evaluate("host.And(true, true)").AsBoolean().Should().BeTrue();
+        plain.Evaluate("host.And(true, false)").AsBoolean().Should().BeFalse();
+
+        // and the custom engine keeps vetoing after the plain engine populated the shared cache
+        Invoking(() => custom.Evaluate("host.And(false, true)"))
+            .Should().ThrowExactly<Jint.Runtime.JavaScriptException>()
+            .Which.Message.Should().Contain("No public methods");
+    }
+
+    [Fact]
+    public void SharedInvokerCache_ObjectConverterPolicyDoesNotLeakBetweenEngines()
+    {
+        var converting = new Engine(options => options.Interop.ObjectConverters.Add(new PlusOneIntConverter()));
+        converting.SetValue("host", new Host());
+        converting.Evaluate("host.AddInt(2, 3)").AsNumber().Should().Be(6);
+
+        var plain = CreateEngine();
+        plain.Evaluate("host.AddInt(2, 3)").AsNumber().Should().Be(5);
+
+        // both policies survive repeated interleaving over the shared cache entry
+        converting.Evaluate("host.AddInt(2, 3)").AsNumber().Should().Be(6);
+        plain.Evaluate("host.AddInt(2, 3)").AsNumber().Should().Be(5);
+    }
+
+    [Fact]
+    public void SharedInvokerCache_ThrowingHostMethodFromTwoEngines()
+    {
+        var first = CreateEngine();
+        var second = CreateEngine();
+
+        Invoking(() => first.Evaluate("host.Throws()"))
+            .Should().ThrowExactly<InvalidOperationException>()
+            .Which.Message.Should().Be("boom from host");
+
+        Invoking(() => second.Evaluate("host.Throws()"))
+            .Should().ThrowExactly<InvalidOperationException>()
+            .Which.Message.Should().Be("boom from host");
+
+        // the first engine still surfaces the same shape after the second engine used the same entry
+        Invoking(() => first.Evaluate("host.Throws()"))
+            .Should().ThrowExactly<InvalidOperationException>()
+            .Which.Message.Should().Be("boom from host");
+    }
+
+    [Fact]
+    public void SharedInvokerCache_IneligibleMethodsFromTwoEngines()
+    {
+        // exercises the null "known ineligible" sentinel in the shared cache: params, optional
+        // arguments, generic methods, a value-type receiver, an enum parameter and a custom class
+        // parameter all decline the compiled lane and must keep working from every engine.
+        static Engine Create()
+        {
+            var engine = new Engine();
+            engine.SetValue("host", new Host());
+            engine.SetValue("ineligible", new IneligibleHost());
+            engine.SetValue("point", new StructHost { Value = 21 });
+            engine.SetValue("box", new Box(7));
+            return engine;
+        }
+
+        var first = Create();
+        var second = Create();
+
+        foreach (var engine in new[] { first, second, first, second })
+        {
+            engine.Evaluate("host.SumParams(1, 2, 3)").AsNumber().Should().Be(6);
+            engine.Evaluate("host.WithOptional(5)").AsNumber().Should().Be(15);
+            engine.Evaluate("host.WithOptional(5, 4)").AsNumber().Should().Be(9);
+            engine.Evaluate("ineligible.Identity('abc')").AsString().Should().Be("abc");
+            engine.Evaluate("ineligible.Name(1)").AsString().Should().Be("Summer");
+            engine.Evaluate("ineligible.Unwrap(box)").AsNumber().Should().Be(7);
+            engine.Evaluate("point.Doubled()").AsNumber().Should().Be(42);
+        }
+    }
+
+    [Fact]
+    public void SharedInvokerCache_OverloadResolutionFromTwoEngines()
+    {
+        var first = CreateEngine();
+        var second = CreateEngine();
+
+        first.Evaluate("host.Over(5)").AsNumber().Should().Be(6);
+        second.Evaluate("host.Over('hi')").AsString().Should().Be("hi!");
+        first.Evaluate("host.Over('hi')").AsString().Should().Be("hi!");
+        second.Evaluate("host.Over(5)").AsNumber().Should().Be(6);
+    }
+
+    [Fact]
+    public void SharedInvokerCache_ConstructorInvokerFromTwoEngines()
+    {
+        static Engine Create()
+        {
+            var engine = new Engine();
+            engine.SetValue("Box", typeof(Box));
+            return engine;
+        }
+
+        var first = Create();
+        var second = Create();
+
+        first.Evaluate("new Box(3).Value").AsNumber().Should().Be(3);
+        second.Evaluate("new Box(4).Value").AsNumber().Should().Be(4);
+        first.Evaluate("new Box(5).Value").AsNumber().Should().Be(5);
+    }
 }
