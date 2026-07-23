@@ -120,6 +120,20 @@ function test2(arg) {
     }
 
     [Fact]
+    public void CanCallUnresolvableReference()
+    {
+        // A call to an unresolvable identifier must be routed through the reference resolver,
+        // like a read is, rather than throwing. Regression: the unresolvable reference base is a
+        // sentinel (not undefined), so the call path stopped consulting the resolver and cast the
+        // sentinel to an Environment, throwing InvalidCastException.
+        var engine = new Engine(cfg => cfg.SetReferencesResolver(new NullPropagationReferenceResolver()));
+
+        var act = () => engine.Execute("var read = missing; var called = missing();");
+
+        act.Should().NotThrow();
+    }
+
+    [Fact]
     public void NullPropagationShouldNotAffectOperators()
     {
         var engine = new Engine(cfg => cfg.SetReferencesResolver(new NullPropagationReferenceResolver()));
