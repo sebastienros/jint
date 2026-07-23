@@ -90,8 +90,9 @@ internal abstract class CompilableMemberAccessor : ReflectionAccessor
     {
         // The fallback conversion consults the engine's ITypeConverter for some of these member
         // types (an integer JsNumber assigned to a double member reaches ConvertValueToSet, for
-        // example), so a host-installed converter must keep seeing them.
-        if (engine.TypeConverter.GetType() != typeof(DefaultTypeConverter))
+        // example), so a host-installed converter must keep seeing them. The flag is maintained by
+        // the TypeConverter setter, so this costs a field read instead of a GetType() per write.
+        if (!engine._typeConverterIsDefault)
         {
             return false;
         }
