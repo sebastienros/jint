@@ -93,6 +93,43 @@ public class ExecutionConstraintTests
     }
 
     [Fact]
+    public void TimeoutIsNotObservedBeforeAnyExecutionStarts()
+    {
+        // The constraint is armed by Reset, which runs when a top-level execution begins. Probing
+        // it before that must not fail, however long the engine has been sitting idle.
+        var engine = new Engine(cfg => cfg.TimeoutInterval(TimeSpan.FromMilliseconds(1)));
+        Thread.Sleep(50);
+        Invoking(() => engine.Constraints.Check()).Should().NotThrow();
+    }
+
+    [Fact]
+    public void TimeoutIsRearmedForEachTopLevelExecution()
+    {
+        // Each execution gets the full interval, so a sequence of short scripts separated by pauses
+        // longer than the timeout must all succeed.
+        var engine = new Engine(cfg => cfg.TimeoutInterval(TimeSpan.FromMilliseconds(200)));
+        for (var i = 0; i < 3; i++)
+        {
+            engine.Evaluate("var x = 1 + 1;");
+            Thread.Sleep(250);
+        }
+
+        engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
+    }
+
+    [Fact]
+    public void TimeoutIsObservedWithoutWaitingForATimerCallback()
+    {
+        // The deadline is compared inline, so once the interval has elapsed the very next check
+        // fails - detection does not wait on a thread-pool timer callback. The engine is kept out
+        // of the picture between arming and checking so nothing but elapsed time can trip it.
+        var engine = new Engine(cfg => cfg.TimeoutInterval(TimeSpan.FromMilliseconds(20)));
+        engine.Constraints.Reset();
+        Thread.Sleep(60);
+        Invoking(() => engine.Constraints.Check()).Should().ThrowExactly<TimeoutException>();
+    }
+
+    [Fact]
     public void ShouldThrowTimeoutInsideFunctionLocalTightLoop()
     {
         // The function-local expression-body for loop is the shape that arms the interpreter's
