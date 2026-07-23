@@ -73,8 +73,8 @@ internal sealed class ReflectionDescriptor : PropertyDescriptor
             return fastResult;
         }
 
-        var value = _reflectionAccessor.GetValue(_engine, _target, _propertyName);
-        var type = _reflectionAccessor.MemberType ?? value?.GetType();
+        var value = _reflectionAccessor.GetValue(_engine, _target, _propertyName, out var valueType);
+        var type = valueType ?? value?.GetType();
         // conversion before the check so an awaitable result gets its continuation attached
         var result = JsValue.FromObjectWithType(_engine, value, type);
         _engine.CheckAmortizedConstraintsAtHostBoundary();
