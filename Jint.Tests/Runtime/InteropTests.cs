@@ -2393,6 +2393,32 @@ public partial class InteropTests : IDisposable
     }
 
     [Fact]
+    public void ShouldConvertIndexerHitByTheIndexersOwnType()
+    {
+        // The indexer is probed before the member itself, so it can answer for a name that a
+        // declared member also carries. The value then has the indexer's type, not the member's,
+        // and converting it as the member's type used to throw an InvalidCastException.
+        _engine.SetValue("h", new IndexerShadowingMember());
+        _engine.Evaluate("h.Value").Should().Be("from indexer");
+    }
+
+    [Fact]
+    public void ShouldFallBackToMemberWhenIndexerDoesNotAnswer()
+    {
+        // the same object, on a name the indexer returns null for: the declared member wins and is
+        // still converted by its own type
+        _engine.SetValue("h", new IndexerShadowingMember());
+        _engine.Evaluate("h.Other").Should().Be(7);
+    }
+
+    private sealed class IndexerShadowingMember
+    {
+        public int Value { get; set; } = 1;
+        public int Other { get; set; } = 7;
+        public string this[string key] => key == "Value" ? "from indexer" : null;
+    }
+
+    [Fact]
     public void ShouldUseExplicitPropertySetter()
     {
         _engine.SetValue("c", new Company("ACME"));

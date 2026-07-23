@@ -64,8 +64,17 @@ internal abstract class ReflectionAccessor
     /// </summary>
     public virtual bool TrySetJsValue(Engine engine, object target, JsValue value) => false;
 
-    public object? GetValue(Engine engine, object target, string memberName)
+    /// <summary>
+    /// Reads the member. <paramref name="valueType"/> receives the declared type of whatever
+    /// produced the value: the member's own type normally, or the indexer's when the indexer probe
+    /// below answered instead. They are not interchangeable — an indexer can answer for a name a
+    /// declared member also carries, and its value is then described by the indexer's type — so the
+    /// caller must convert by this type rather than by <see cref="MemberType"/>.
+    /// </summary>
+    public object? GetValue(Engine engine, object target, string memberName, out Type? valueType)
     {
+        valueType = _memberType;
+
         var constantValue = ConstantValue;
         if (constantValue is not null)
         {
@@ -86,6 +95,10 @@ internal abstract class ReflectionAccessor
                 engine.CheckAmortizedConstraintsAtHostBoundary();
                 Throw.MeaningfulException(engine, tie);
             }
+        }
+        else
+        {
+            valueType = _indexer!.PropertyType;
         }
 
         // the success-path boundary check runs in ReflectionDescriptor.DoGet after result
