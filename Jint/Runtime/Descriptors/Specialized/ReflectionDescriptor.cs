@@ -64,6 +64,15 @@ internal sealed class ReflectionDescriptor : PropertyDescriptor
 
     private JsValue DoGet(JsValue? thisObj)
     {
+        // compiled fast lane: produces the JsValue straight off the CLR member, skipping the boxed
+        // value and the FromObjectWithType dispatch below. Only the member shapes whose conversion
+        // it reproduces exactly take it; everything else declines.
+        if (_reflectionAccessor.TryGetJsValue(_engine, _target, out var fastResult))
+        {
+            _engine.CheckAmortizedConstraintsAtHostBoundary();
+            return fastResult;
+        }
+
         var value = _reflectionAccessor.GetValue(_engine, _target, _propertyName);
         var type = _reflectionAccessor.MemberType ?? value?.GetType();
         // conversion before the check so an awaitable result gets its continuation attached

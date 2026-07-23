@@ -34,9 +34,35 @@ internal abstract class ReflectionAccessor
 
     public abstract bool Writable { get; }
 
+    /// <summary>
+    /// An indexer is probed before the member itself (see <see cref="GetValue"/>), so the compiled
+    /// lanes in <see cref="CompilableMemberAccessor"/> must decline when one is present.
+    /// </summary>
+    protected bool HasIndexer => _indexer is not null;
+
     protected abstract object? DoGetValue(object target, string memberName);
 
     protected abstract void DoSetValue(object target, string memberName, object? value);
+
+    /// <summary>
+    /// Compiled fast lane: reads the member and produces the <see cref="JsValue"/> directly,
+    /// skipping the boxed round-trip through <see cref="JsValue.FromObjectWithType"/>. Returns
+    /// <see langword="false"/> when this accessor has no such lane, leaving the caller to run
+    /// <see cref="GetValue"/> plus its conversion.
+    /// </summary>
+    public virtual bool TryGetJsValue(Engine engine, object target, [NotNullWhen(true)] out JsValue? value)
+    {
+        value = null;
+        return false;
+    }
+
+    /// <summary>
+    /// Compiled fast lane: writes an exact-typed <see cref="JsValue"/> straight to the member.
+    /// Returns <see langword="false"/> — having written nothing — when this accessor has no such
+    /// lane or the value is not the exact expected JavaScript type, leaving the caller to run the
+    /// full conversion path.
+    /// </summary>
+    public virtual bool TrySetJsValue(Engine engine, object target, JsValue value) => false;
 
     public object? GetValue(Engine engine, object target, string memberName)
     {
@@ -90,6 +116,14 @@ internal abstract class ReflectionAccessor
 
     public void SetValue(Engine engine, object target, string memberName, JsValue value)
     {
+        // compiled fast lane: an exact-typed value is written without boxing and without the
+        // conversion dispatch below; anything else declines here having written nothing
+        if (TrySetJsValue(engine, target, value))
+        {
+            engine.CheckAmortizedConstraintsAtHostBoundary();
+            return;
+        }
+
         object? converted;
         if (_memberType == typeof(JsValue))
         {
