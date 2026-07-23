@@ -120,8 +120,11 @@ internal sealed class JintCallExpression : JintExpression
                 {
                     var baseValue = referenceRecord.Base;
 
-                    // deviation from the spec to support null-propagation helper
-                    if (baseValue.IsNullOrUndefined()
+                    // deviation from the spec to support null-propagation helper;
+                    // since the unresolvable reference base is a sentinel (not undefined), also
+                    // consult the resolver for unresolvable references so a call to an undefined
+                    // name is routed through it instead of casting the sentinel to an Environment
+                    if ((baseValue.IsNullOrUndefined() || referenceRecord.IsUnresolvableReference)
                         && engine._referenceResolver.TryUnresolvableReference(engine, referenceRecord, out var value))
                     {
                         thisObject = value;
