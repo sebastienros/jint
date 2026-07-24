@@ -1848,8 +1848,10 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         var thisArg = arguments.At(1);
         var callable = GetCallable(callbackfn);
 
+        // args is rented from the pool whose factory allocates new JsValue[3], so it is an exact
+        // JsValue[]; the per-element fills below bypass the covariant array store type check.
         var args = _engine._jsValueArrayPool.RentArray(3);
-        args[2] = this;
+        Arguments.WriteNoTypeCheck(args, 2, this);
 
         // try/finally so the rented pool array is returned on every exit path: the early
         // return-on-match below and a periodic Check() throw both previously leaked it.
@@ -1866,8 +1868,8 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
 
                     if (TryGetValue(k, out var kvalue) || visitUnassigned)
                     {
-                        args[0] = kvalue;
-                        args[1] = k;
+                        Arguments.WriteNoTypeCheck(args, 0, kvalue);
+                        Arguments.WriteNoTypeCheck(args, 1, k);
                         var testResult = callable.Call(thisArg, args);
                         if (TypeConverter.ToBoolean(testResult))
                         {
@@ -1890,8 +1892,8 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                     if (TryGetValue((ulong) k, out var kvalue) || visitUnassigned)
                     {
                         kvalue ??= Undefined;
-                        args[0] = kvalue;
-                        args[1] = k;
+                        Arguments.WriteNoTypeCheck(args, 0, kvalue);
+                        Arguments.WriteNoTypeCheck(args, 1, k);
                         var testResult = callable.Call(thisArg, args);
                         if (TypeConverter.ToBoolean(testResult))
                         {

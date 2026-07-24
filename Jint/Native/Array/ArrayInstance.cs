@@ -1624,14 +1624,16 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
 
         var callable = GetCallable(callbackfn);
         var a = _engine.Realm.Intrinsics.Array.ArrayCreate(len);
+        // args is rented from the pool whose factory allocates new JsValue[3], so it is an exact
+        // JsValue[]; the per-element fills below bypass the covariant array store type check.
         var args = _engine._jsValueArrayPool.RentArray(3);
-        args[2] = this;
+        Arguments.WriteNoTypeCheck(args, 2, this);
         for (uint k = 0; k < len; k++)
         {
             if (TryGetValue(k, out var kvalue))
             {
-                args[0] = kvalue;
-                args[1] = k;
+                Arguments.WriteNoTypeCheck(args, 0, kvalue);
+                Arguments.WriteNoTypeCheck(args, 1, k);
                 var mappedValue = callable.Call(thisArg, args);
                 if (a._dense != null && k < (uint) a._dense.Length)
                 {
@@ -1661,8 +1663,10 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         // materialize an exact-size result instead of growing the result's dense backing by
         // doubling. Capped initial rent so a large low-selectivity source doesn't rent ~len slots.
         var builder = new JsValueListBuilder((int) System.Math.Min(len, 1024));
+        // args is rented from the pool whose factory allocates new JsValue[3], so it is an exact
+        // JsValue[]; the per-element fills below bypass the covariant array store type check.
         var args = _engine._jsValueArrayPool.RentArray(3);
-        args[2] = this;
+        Arguments.WriteNoTypeCheck(args, 2, this);
 
         // try/finally so the rented args array and the pooled builder buffer are released
         // when the callback or a periodic Check() throws.
@@ -1677,8 +1681,8 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
 
                 if (TryGetValue(k, out var kvalue))
                 {
-                    args[0] = kvalue;
-                    args[1] = k;
+                    Arguments.WriteNoTypeCheck(args, 0, kvalue);
+                    Arguments.WriteNoTypeCheck(args, 1, k);
                     var selected = callable.Call(thisArg, args);
                     if (TypeConverter.ToBoolean(selected))
                     {
@@ -1716,8 +1720,10 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
             return false;
         }
 
+        // args is rented from the pool whose factory allocates new JsValue[3], so it is an exact
+        // JsValue[]; the per-element fills below bypass the covariant array store type check.
         var args = _engine._jsValueArrayPool.RentArray(3);
-        args[2] = this;
+        Arguments.WriteNoTypeCheck(args, 2, this);
 
         // try/finally so the rented pool array is returned on every exit path: the early
         // return-on-match below and a periodic Check() throw both previously leaked it.
@@ -1735,8 +1741,8 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
                     if (TryGetValue(k, out var kvalue) || visitUnassigned)
                     {
                         kvalue ??= Undefined;
-                        args[0] = kvalue;
-                        args[1] = k;
+                        Arguments.WriteNoTypeCheck(args, 0, kvalue);
+                        Arguments.WriteNoTypeCheck(args, 1, k);
                         var testResult = callable.Call(thisArg, args);
                         if (TypeConverter.ToBoolean(testResult))
                         {
@@ -1760,8 +1766,8 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
                     if (TryGetValue(idx, out var kvalue) || visitUnassigned)
                     {
                         kvalue ??= Undefined;
-                        args[0] = kvalue;
-                        args[1] = idx;
+                        Arguments.WriteNoTypeCheck(args, 0, kvalue);
+                        Arguments.WriteNoTypeCheck(args, 1, idx);
                         var testResult = callable.Call(thisArg, args);
                         if (TypeConverter.ToBoolean(testResult))
                         {
