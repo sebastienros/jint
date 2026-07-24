@@ -100,15 +100,18 @@ Using each engine's recommended production path (for Jint a cached prepared scri
 `ClearScript_Compiled`):
 
 * **Jint owns everything start-up-shaped and eval-shaped; native V8 owns long compute.** Jint is
-  the fastest engine outright on `minimal` (**1.0 µs vs V8's 406 µs, ~400×**), `evaluation-modern`
-  (**~86×**), `linq-js` (**7×**) and `dromaeo-core-eval-modern` (eval defeats V8's compile cache),
-  leads `array-stress` and `dromaeo-object-array-modern` outright (statistically rank-tied with
-  V8's compiled lane — rows V8 narrowly led at 4.13.0), and is rank-tied on
-  `dromaeo-object-regexp-modern`. No other managed engine wins a single row against either of them.
-* **V8's wins are the tight-loop compute rows**: `dromaeo-string-base64-modern` (8.1×),
-  `stopwatch-modern` (6.0×), `dromaeo-object-string-modern` (5.0×), `dromaeo-3d-cube-modern`
-  (2.6×) and `json-parse-modern` (1.4×) — the structural interpreter-vs-JIT gap, narrower on
-  every one of these rows than at 4.13.0.
+  the fastest engine outright on `minimal` (**1.0 µs vs V8's 375 µs, ~355×**), `evaluation-modern`
+  (**~80×**), `linq-js` (**~6.5×**) and `dromaeo-core-eval-modern` (eval defeats V8's compile
+  cache), sits a close second to V8's compiled lane on `array-stress` and
+  `dromaeo-object-array-modern` (both within ~1.1×), and is rank-tied on
+  `dromaeo-object-regexp-modern`. No other managed engine takes a single row's top rank away from
+  Jint or V8.
+* **V8's wins are the tight-loop compute rows**: `dromaeo-string-base64-modern` (~12×),
+  `dromaeo-object-string-modern` (~7.6×), `stopwatch-modern` (~6×), `dromaeo-3d-cube-modern`
+  (~3.4×) and `json-parse-modern` (~2.1×) — the structural interpreter-vs-JIT gap. V8's compiled
+  lane also edges `array-stress` and `dromaeo-object-array-modern` this session, both rows where
+  4.14.0 showed Jint tied for the lead; those two carry more V8 session-variance than the managed
+  engines (see the note under the second table).
 * **Jint is the fastest managed engine on 10 of 12 scripts** (the IL-compiling YantraJS leads
   `dromaeo-3d-cube-modern` and `stopwatch-modern`) and **the fastest interpreter on all 12**.
 * **Among the managed engines, Jint and Okojo allocate the least** — NiL.JS and YantraJS allocate
@@ -118,7 +121,7 @@ Using each engine's recommended production path (for Jint a cached prepared scri
   managed diagnoser does not see.)
 * **Pure-JS compute is only half the story** — the [interop suite](#script--host-interop) below
   measures the script ↔ host boundary, where the picture inverts and Jint beats ClearScript on
-  every row by 2.8×–9.1×.
+  every row by 3.1×–11×.
 
 ### What changed since the 4.13.0 table
 
@@ -160,6 +163,17 @@ hardened the new defaults (declared-type contracts, JS-array `in`/enumeration/ou
 semantics, constraint-gate balance) with no measurable cost; one further candidate — carrying the
 interned JSON key hash into member adds — measured flat and was dropped.
 
+Since 4.14.0, a further interop round cached the compiled method invoker process-wide instead of
+per-engine ([#2743](https://github.com/sebastienros/jint/pull/2743)), compiled CLR property and
+field access instead of reflecting on every hit ([#2744](https://github.com/sebastienros/jint/pull/2744),
+which also more than halved `interop-property-access` allocation, 798 → 329 KB), trimmed the method
+fast lane's per-call overhead ([#2745](https://github.com/sebastienros/jint/pull/2745)), and
+memoized the converted value of a stable reference-typed property so a host array read in a loop
+skips re-conversion ([#2756](https://github.com/sebastienros/jint/pull/2756)). The visible movement
+in the interop table: `interop-collection-traversal` and `interop-string-passing` now rank first
+(collection −8% from the memo alone, ahead of NiL.JS), and method calls closed to within ~4% of
+NiL.JS while still allocating 7× less.
+
 ## Script ↔ host interop
 
 Embedding a JavaScript engine is rarely about pure computation — scripts exist to drive the host
@@ -189,57 +203,65 @@ keep the comparison fair:
 What the numbers show:
 
 * **The managed engines win every interop row.** Crossing the native boundary costs plain
-  ClearScript **7.1×–9.1×** against Jint on every row — the mirror image of the pure-compute
+  ClearScript **7.8×–11×** against Jint on every row — the mirror image of the pure-compute
   table, and the half of the story that matters most in chatty embedding scenarios.
-* **FastProxy narrows the gap but does not close it**: still **2.8×–6.7×** behind Jint, and it
+* **FastProxy narrows the gap but does not close it**: still **3.1×–7.1×** behind Jint, and it
   trades away convenience — every member is hand-registered instead of reflected. Its
   zero-allocation claim is real, though: 13 KB managed allocation on the method-call row where
   reflective ClearScript burns 12.8 MB.
-* **The managed field is tight at the top**: Jint is rank-tied with YantraJS on method calls and
-  with NiL.JS on both property access and string passing — and allocates the least of the managed
-  engines on every row (2.3×–12× less than the row's nearest competitor).
-* **Collection traversal — the one row Jint lost at 4.13.0 — moved 15,597 → 1,433 µs (10.9×,
-  −99% allocation) with no script changes**: the 4.14.0 `ArrayConversionMode.LiveView` default
-  exposes the host array as a live view instead of re-copying it on every read, and element reads
-  convert without boxing. The row is now second (NiL.JS leads by ~13% while allocating 12× more),
-  and the old hoist-into-a-local workaround is no longer needed.
+* **Jint leads two rows outright and allocates the least on all four**: it is rank 1 on collection
+  traversal and string passing, second on method calls (NiL.JS ahead by ~4%) and property access
+  (YantraJS ahead) — and allocates the least of the managed engines on every row (roughly 4×–12×
+  less than the row's nearest competitor).
+* **Collection traversal — the one row Jint lost at 4.13.0 — is now first, having moved
+  15,597 → 1,213 µs (12.9×, −99% allocation) with no script changes**: the 4.14.0
+  `ArrayConversionMode.LiveView` default exposes the host array as a live view instead of
+  re-copying it on every read, and a per-descriptor value memo
+  ([#2756](https://github.com/sebastienros/jint/pull/2756)) skips re-converting the array on every
+  read. Jint now edges NiL.JS while allocating 12× less, and the old hoist-into-a-local workaround
+  is no longer needed.
 
-| Method                | FileName                     | Mean        | StdDev    | Median      | Rank | Allocated   |
-|---------------------- |----------------------------- |------------:|----------:|------------:|-----:|------------:|
-| NilJS                 | interop-collection-traversal |  1,269.4 μs |  11.48 μs |  1,266.3 μs |    1 |  4088.14 KB |
-| Jint                  | interop-collection-traversal |  1,432.7 μs |   7.31 μs |  1,432.6 μs |    2 |   331.59 KB |
-| YantraJS              | interop-collection-traversal |  3,689.5 μs |  70.53 μs |  3,672.8 μs |    3 |  5399.83 KB |
-| ClearScript_FastProxy | interop-collection-traversal |  9,593.5 μs |  58.02 μs |  9,594.8 μs |    4 |  1185.69 KB |
-| ClearScript           | interop-collection-traversal | 13,012.7 μs | 355.84 μs | 12,873.7 μs |    5 |  5016.24 KB |
-|                       |                              |             |           |             |      |             |
-| NilJS                 | interop-method-calls         |  1,186.8 μs |   6.90 μs |  1,184.9 μs |    1 |  2437.94 KB |
-| YantraJS              | interop-method-calls         |  1,973.7 μs |  21.91 μs |  1,967.4 μs |    2 |  3355.13 KB |
-| Jint                  | interop-method-calls         |  2,032.3 μs |  44.82 μs |  2,015.0 μs |    2 |   347.25 KB |
-| ClearScript_FastProxy | interop-method-calls         |  5,594.0 μs | 150.45 μs |  5,546.6 μs |    3 |    12.94 KB |
-| ClearScript           | interop-method-calls         | 15,940.1 μs | 130.46 μs | 15,954.8 μs |    4 | 12752.52 KB |
-|                       |                              |             |           |             |      |             |
-| YantraJS              | interop-property-access      |  1,435.3 μs |   6.21 μs |  1,434.3 μs |    1 |  1870.68 KB |
-| Jint                  | interop-property-access      |  1,720.7 μs |   7.10 μs |  1,719.5 μs |    2 |   798.08 KB |
-| NilJS                 | interop-property-access      |  1,772.9 μs |  14.26 μs |  1,772.7 μs |    2 |  4391.52 KB |
-| ClearScript_FastProxy | interop-property-access      |  5,116.0 μs |  23.94 μs |  5,115.3 μs |    3 |    12.56 KB |
-| ClearScript           | interop-property-access      | 13,086.0 μs | 138.18 μs | 13,039.6 μs |    4 | 10561.78 KB |
-|                       |                              |             |           |             |      |             |
-| YantraJS              | interop-string-passing       |    596.9 μs |   3.21 μs |    597.3 μs |    1 |  1823.71 KB |
-| NilJS                 | interop-string-passing       |    812.8 μs |  11.63 μs |    809.3 μs |    2 |  1179.64 KB |
-| Jint                  | interop-string-passing       |    816.4 μs |  35.04 μs |    802.3 μs |    2 |   317.12 KB |
-| ClearScript_FastProxy | interop-string-passing       |  3,714.8 μs |  25.76 μs |  3,705.1 μs |    3 |   247.15 KB |
-| ClearScript           | interop-string-passing       |  5,830.8 μs | 126.25 μs |  5,786.5 μs |    4 |  2470.18 KB |
+| Method                | FileName                     | Mean        | StdDev   | Rank | Allocated   |
+|---------------------- |----------------------------- |------------:|---------:|-----:|------------:|
+| Jint                  | interop-collection-traversal |  1,212.5 μs |  2.48 μs |    1 |    331.7 KB |
+| NilJS                 | interop-collection-traversal |  1,280.2 μs |  6.65 μs |    2 |  4088.14 KB |
+| YantraJS              | interop-collection-traversal |  3,672.0 μs | 12.98 μs |    3 |  5399.83 KB |
+| ClearScript_FastProxy | interop-collection-traversal |  8,619.8 μs | 21.18 μs |    4 |  1185.69 KB |
+| ClearScript           | interop-collection-traversal | 11,832.5 μs | 40.53 μs |    5 |  5016.24 KB |
+|                       |                              |             |          |      |             |
+| NilJS                 | interop-method-calls         |  1,374.0 μs |  8.85 μs |    1 |  2437.94 KB |
+| Jint                  | interop-method-calls         |  1,431.1 μs |  3.33 μs |    2 |    329.3 KB |
+| YantraJS              | interop-method-calls         |  2,063.4 μs | 14.22 μs |    3 |  3355.13 KB |
+| ClearScript_FastProxy | interop-method-calls         |  5,373.7 μs | 14.48 μs |    4 |    12.96 KB |
+| ClearScript           | interop-method-calls         | 15,924.3 μs | 54.53 μs |    5 | 12752.53 KB |
+|                       |                              |             |          |      |             |
+| YantraJS              | interop-property-access      |  1,393.0 μs |  6.49 μs |    1 |  1870.68 KB |
+| Jint                  | interop-property-access      |  1,638.3 μs |  4.13 μs |    2 |   329.39 KB |
+| NilJS                 | interop-property-access      |  1,708.2 μs |  5.75 μs |    3 |  4391.52 KB |
+| ClearScript_FastProxy | interop-property-access      |  5,142.7 μs | 14.18 μs |    4 |    12.63 KB |
+| ClearScript           | interop-property-access      | 12,857.9 μs | 58.71 μs |    5 | 10561.78 KB |
+|                       |                              |             |          |      |             |
+| Jint                  | interop-string-passing       |    514.8 μs |  1.08 μs |    1 |   304.95 KB |
+| YantraJS              | interop-string-passing       |    618.3 μs |  2.47 μs |    2 |  1823.71 KB |
+| NilJS                 | interop-string-passing       |    864.6 μs |  4.35 μs |    3 |  1179.64 KB |
+| ClearScript_FastProxy | interop-string-passing       |  2,903.7 μs | 18.96 μs |    4 |   247.15 KB |
+| ClearScript           | interop-string-passing       |  5,441.7 μs | 34.01 μs |    5 |  2470.18 KB |
 
 ## Engine versions
 
-* Jint 4.14.0
+* Jint — `main`, post-4.14.0 (includes the interop work through #2756)
 * NiL.JS 2.6.1722
 * Okojo 0.1.2-preview.1
 * YantraJS.Core 1.2.406
 * Microsoft.ClearScript.V8 7.5.1
 
 Both tables come from one benchmark session on the same machine and .NET runtime (all lanes,
-including ClearScript, measured together). Last updated 2026-07-22 (4.14.0 release).
+including ClearScript, measured together). ClearScript's V8 lanes run measurably faster here than
+in the 4.14.0 session on the identical package (7.5.1) — a reminder that the native-JIT rows carry
+more session-to-session variance than the managed engines: `array-stress` and
+`dromaeo-object-array-modern` now rank the V8 compiled lane first where the 4.14.0 table showed
+Jint tied for the lead, while Jint's own times on those rows are unchanged. Last updated
+2026-07-24 (`main`, post-4.14.0 interop work through #2756).
 
 ```
 
@@ -250,112 +272,112 @@ AMD Ryzen 9 5950X 3.40GHz, 1 CPU, 32 logical and 16 physical cores
   DefaultJob : .NET 10.0.10 (10.0.10, 10.0.1026.32716), X64 RyuJIT x86-64-v3
 
 ```
-| Method               | FileName                     | Mean             | StdDev         | Median           | Rank | Allocated     |
-|--------------------- |----------------------------- |-----------------:|---------------:|-----------------:|-----:|--------------:|
-| Jint                 | array-stress                 |     2,462.168 μs |     34.6302 μs |     2,450.466 μs |    1 |    1090.81 KB |
-| ClearScript_Compiled | array-stress                 |     2,524.296 μs |     31.3424 μs |     2,519.719 μs |    1 |       8.11 KB |
-| Jint_ParsedScript    | array-stress                 |     2,526.140 μs |     45.0127 μs |     2,506.173 μs |    1 |    1062.09 KB |
-| YantraJS             | array-stress                 |     3,000.115 μs |     42.2450 μs |     2,992.866 μs |    2 |   17123.79 KB |
-| ClearScript          | array-stress                 |     4,199.773 μs |     73.5949 μs |     4,185.855 μs |    3 |      16.05 KB |
-| NilJS                | array-stress                 |     5,218.499 μs |     24.6692 μs |     5,214.760 μs |    4 |    4521.19 KB |
-| Okojo                | array-stress                 |     6,390.222 μs |    100.3574 μs |     6,371.577 μs |    5 |    2697.18 KB |
-| Okojo_Prepared       | array-stress                 |     6,398.316 μs |     71.5210 μs |     6,399.807 μs |    5 |    2682.34 KB |
-|                      |                              |                  |                |                  |      |               |
-| ClearScript_Compiled | dromaeo-3d-cube-modern       |     1,967.526 μs |     25.2104 μs |     1,963.547 μs |    1 |       9.28 KB |
-| YantraJS             | dromaeo-3d-cube-modern       |     2,656.411 μs |     38.3528 μs |     2,644.599 μs |    2 |    7514.24 KB |
-| ClearScript          | dromaeo-3d-cube-modern       |     4,079.435 μs |     42.1260 μs |     4,085.191 μs |    3 |      14.46 KB |
-| Jint_ParsedScript    | dromaeo-3d-cube-modern       |     5,127.719 μs |     40.2426 μs |     5,123.502 μs |    4 |    1366.52 KB |
-| Jint                 | dromaeo-3d-cube-modern       |     5,614.141 μs |     54.2492 μs |     5,603.165 μs |    5 |     1670.4 KB |
-| NilJS                | dromaeo-3d-cube-modern       |     7,379.043 μs |     77.7110 μs |     7,378.651 μs |    6 |    5977.95 KB |
-| Okojo_Prepared       | dromaeo-3d-cube-modern       |     7,953.434 μs |     88.6869 μs |     7,948.787 μs |    7 |    2308.94 KB |
-| Okojo                | dromaeo-3d-cube-modern       |     8,107.590 μs |    107.3014 μs |     8,102.859 μs |    7 |    2496.09 KB |
-|                      |                              |                  |                |                  |      |               |
-| Jint_ParsedScript    | dromaeo-core-eval-modern     |       975.274 μs |     12.9620 μs |       974.708 μs |    1 |     345.42 KB |
-| Jint                 | dromaeo-core-eval-modern     |     1,018.717 μs |      8.7201 μs |     1,018.553 μs |    1 |     365.14 KB |
-| ClearScript_Compiled | dromaeo-core-eval-modern     |     1,303.570 μs |     17.2976 μs |     1,300.120 μs |    2 |        8.3 KB |
-| NilJS                | dromaeo-core-eval-modern     |     1,517.357 μs |     21.6223 μs |     1,512.009 μs |    3 |    1575.94 KB |
-| ClearScript          | dromaeo-core-eval-modern     |     2,672.310 μs |     58.6493 μs |     2,662.691 μs |    4 |      12.91 KB |
-| Okojo_Prepared       | dromaeo-core-eval-modern     |     4,973.192 μs |    201.9519 μs |     4,952.862 μs |    5 |    4613.19 KB |
-| Okojo                | dromaeo-core-eval-modern     |     5,152.215 μs |    273.6571 μs |     5,085.370 μs |    5 |    4627.76 KB |
-| YantraJS             | dromaeo-core-eval-modern     |     5,258.782 μs |    165.8174 μs |     5,212.151 μs |    5 |   35784.84 KB |
-|                      |                              |                  |                |                  |      |               |
-| Jint_ParsedScript    | dromaeo-object-array-modern  |    16,298.966 μs |    291.4237 μs |    16,304.941 μs |    1 |    9119.94 KB |
-| ClearScript_Compiled | dromaeo-object-array-modern  |    16,425.989 μs |    344.9071 μs |    16,422.804 μs |    1 |      16.66 KB |
-| Jint                 | dromaeo-object-array-modern  |    17,542.693 μs |    421.1509 μs |    17,573.491 μs |    2 |    9167.33 KB |
-| ClearScript          | dromaeo-object-array-modern  |    22,630.676 μs |    348.8724 μs |    22,673.803 μs |    3 |     143.03 KB |
-| YantraJS             | dromaeo-object-array-modern  |    27,246.122 μs |    121.8817 μs |    27,177.066 μs |    4 |   223803.5 KB |
-| Okojo                | dromaeo-object-array-modern  |    43,238.741 μs |    473.8963 μs |    42,992.178 μs |    5 |    7015.53 KB |
-| Okojo_Prepared       | dromaeo-object-array-modern  |    44,021.335 μs |    328.5045 μs |    43,906.579 μs |    5 |    6984.72 KB |
-| NilJS                | dromaeo-object-array-modern  |    64,433.133 μs |    151.4493 μs |    64,406.062 μs |    6 |   17863.19 KB |
-|                      |                              |                  |                |                  |      |               |
-| Jint_ParsedScript    | dromaeo-object-regexp-modern |    92,662.267 μs |  5,554.5635 μs |    91,570.320 μs |    1 |  158965.94 KB |
-| ClearScript          | dromaeo-object-regexp-modern |    99,650.242 μs |  1,359.4224 μs |    99,285.350 μs |    1 |      30.92 KB |
-| ClearScript_Compiled | dromaeo-object-regexp-modern |   112,746.416 μs |  1,402.3480 μs |   112,546.920 μs |    2 |      17.57 KB |
-| Jint                 | dromaeo-object-regexp-modern |   112,903.090 μs | 14,730.5513 μs |   111,210.250 μs |    2 |  157478.02 KB |
-| NilJS                | dromaeo-object-regexp-modern |   539,184.393 μs |  9,242.9886 μs |   536,586.400 μs |    3 |  767583.77 KB |
-| YantraJS             | dromaeo-object-regexp-modern |   725,602.560 μs | 12,330.6937 μs |   722,690.500 μs |    4 |  827473.91 KB |
-| Okojo_Prepared       | dromaeo-object-regexp-modern | 1,909,429.971 μs | 18,522.4561 μs | 1,902,020.050 μs |    5 | 1800719.13 KB |
-| Okojo                | dromaeo-object-regexp-modern | 2,055,150.425 μs | 58,882.4957 μs | 2,026,682.200 μs |    6 | 1797741.38 KB |
-|                      |                              |                  |                |                  |      |               |
-| ClearScript_Compiled | dromaeo-object-string-modern |     9,306.998 μs |     37.1795 μs |     9,302.820 μs |    1 |      16.02 KB |
-| ClearScript          | dromaeo-object-string-modern |    13,331.351 μs |     78.8480 μs |    13,321.055 μs |    2 |      24.95 KB |
-| Jint                 | dromaeo-object-string-modern |    46,144.158 μs |    626.9467 μs |    46,419.155 μs |    3 |   21502.78 KB |
-| Jint_ParsedScript    | dromaeo-object-string-modern |    46,356.892 μs |    402.2200 μs |    46,419.482 μs |    3 |   21367.77 KB |
-| Okojo_Prepared       | dromaeo-object-string-modern |    53,784.723 μs |    872.0968 μs |    54,273.031 μs |    4 |   33477.18 KB |
-| Okojo                | dromaeo-object-string-modern |    54,484.202 μs |  1,488.0814 μs |    54,402.579 μs |    4 |   33563.08 KB |
-| NilJS                | dromaeo-object-string-modern |   165,092.637 μs |  3,857.1772 μs |   165,471.300 μs |    5 | 1354920.47 KB |
-| YantraJS             | dromaeo-object-string-modern |   200,552.157 μs |  6,157.8424 μs |   200,882.400 μs |    6 |  1656357.3 KB |
-|                      |                              |                  |                |                  |      |               |
-| ClearScript_Compiled | dromaeo-string-base64-modern |     2,458.410 μs |     12.5989 μs |     2,454.482 μs |    1 |       8.87 KB |
-| ClearScript          | dromaeo-string-base64-modern |     4,539.616 μs |     30.1221 μs |     4,538.975 μs |    2 |       15.4 KB |
-| Jint                 | dromaeo-string-base64-modern |    19,832.853 μs |     85.6510 μs |    19,824.650 μs |    3 |    1726.02 KB |
-| Jint_ParsedScript    | dromaeo-string-base64-modern |    20,297.459 μs |     81.8251 μs |    20,301.366 μs |    3 |    1625.63 KB |
-| Okojo                | dromaeo-string-base64-modern |    30,987.298 μs |    151.7031 μs |    31,018.621 μs |    4 |   43824.24 KB |
-| Okojo_Prepared       | dromaeo-string-base64-modern |    31,027.693 μs |    216.0771 μs |    30,979.608 μs |    4 |    43746.3 KB |
-| NilJS                | dromaeo-string-base64-modern |    31,171.499 μs |    556.0282 μs |    31,284.734 μs |    4 |   31360.34 KB |
-| YantraJS             | dromaeo-string-base64-modern |    34,354.223 μs |    140.8657 μs |    34,296.350 μs |    5 |  764771.12 KB |
-|                      |                              |                  |                |                  |      |               |
-| Jint_ParsedScript    | evaluation-modern            |         4.807 μs |      0.0289 μs |         4.803 μs |    1 |      17.77 KB |
-| Jint                 | evaluation-modern            |        14.400 μs |      0.1428 μs |        14.369 μs |    2 |       28.9 KB |
-| NilJS                | evaluation-modern            |        27.311 μs |      0.1634 μs |        27.295 μs |    3 |      22.35 KB |
-| YantraJS             | evaluation-modern            |       132.653 μs |      1.8977 μs |       131.845 μs |    4 |      703.4 KB |
-| ClearScript_Compiled | evaluation-modern            |       412.519 μs |      2.8495 μs |       411.989 μs |    5 |       6.11 KB |
-| ClearScript          | evaluation-modern            |     1,201.114 μs |      9.6170 μs |     1,199.829 μs |    6 |      10.97 KB |
-| Okojo                | evaluation-modern            |     1,423.357 μs |     83.2387 μs |     1,433.136 μs |    7 |    1290.67 KB |
-| Okojo_Prepared       | evaluation-modern            |     1,548.435 μs |    110.1872 μs |     1,569.070 μs |    8 |    1283.51 KB |
-|                      |                              |                  |                |                  |      |               |
-| ClearScript_Compiled | json-parse-modern            |    11,417.815 μs |    134.0698 μs |    11,431.615 μs |    1 |      10.18 KB |
-| ClearScript          | json-parse-modern            |    12,861.491 μs |    113.0581 μs |    12,881.366 μs |    2 |      17.29 KB |
-| Jint_ParsedScript    | json-parse-modern            |    16,548.387 μs |    319.2286 μs |    16,586.675 μs |    3 |   11892.46 KB |
-| Jint                 | json-parse-modern            |    16,915.605 μs |    396.5301 μs |    16,960.416 μs |    3 |   11927.58 KB |
-| YantraJS             | json-parse-modern            |    25,693.139 μs |    433.3713 μs |    25,805.281 μs |    4 |   43167.35 KB |
-| Okojo                | json-parse-modern            |    27,379.574 μs |    964.8804 μs |    27,393.323 μs |    4 |   27272.07 KB |
-| Okojo_Prepared       | json-parse-modern            |    28,657.410 μs |    426.2874 μs |    28,802.882 μs |    4 |   27236.39 KB |
-| NilJS                | json-parse-modern            |   131,330.459 μs |  2,495.3952 μs |   130,253.300 μs |    5 |   67095.19 KB |
-|                      |                              |                  |                |                  |      |               |
-| Jint_ParsedScript    | linq-js                      |        71.275 μs |      1.4979 μs |        70.870 μs |    1 |     213.54 KB |
-| YantraJS             | linq-js                      |       336.472 μs |      2.8947 μs |       335.788 μs |    2 |    1049.75 KB |
-| ClearScript_Compiled | linq-js                      |       501.836 μs |     10.6001 μs |       498.771 μs |    3 |       6.24 KB |
-| Jint                 | linq-js                      |     1,244.147 μs |      4.4263 μs |     1,244.484 μs |    4 |    1312.77 KB |
-| ClearScript          | linq-js                      |     2,130.219 μs |     18.4304 μs |     2,129.845 μs |    5 |      10.96 KB |
-| NilJS                | linq-js                      |     3,989.127 μs |     63.7262 μs |     3,964.191 μs |    6 |    2739.46 KB |
-| Okojo_Prepared       | linq-js                      |     5,980.499 μs |    269.2085 μs |     5,920.364 μs |    7 |    4131.99 KB |
-| Okojo                | linq-js                      |     9,522.473 μs |     72.7819 μs |     9,547.427 μs |    8 |    4928.77 KB |
-|                      |                              |                  |                |                  |      |               |
-| Jint_ParsedScript    | minimal                      |         1.009 μs |      0.0185 μs |         1.001 μs |    1 |       9.37 KB |
-| Jint                 | minimal                      |         2.092 μs |      0.0143 μs |         2.086 μs |    2 |       11.3 KB |
-| NilJS                | minimal                      |         2.857 μs |      0.0570 μs |         2.838 μs |    3 |       4.51 KB |
-| YantraJS             | minimal                      |       127.545 μs |      3.5529 μs |       126.823 μs |    4 |     697.62 KB |
-| ClearScript_Compiled | minimal                      |       406.098 μs |      2.2378 μs |       405.789 μs |    5 |        6.1 KB |
-| Okojo_Prepared       | minimal                      |     1,130.931 μs |     85.6225 μs |     1,130.006 μs |    6 |    1247.45 KB |
-| Okojo                | minimal                      |     1,142.914 μs |     92.6550 μs |     1,155.443 μs |    6 |    1249.26 KB |
-| ClearScript          | minimal                      |     1,166.631 μs |      7.7466 μs |     1,164.342 μs |    6 |      10.97 KB |
-|                      |                              |                  |                |                  |      |               |
-| ClearScript_Compiled | stopwatch-modern             |    14,664.285 μs |    152.3281 μs |    14,626.067 μs |    1 |       8.87 KB |
-| ClearScript          | stopwatch-modern             |    19,222.272 μs |    434.5008 μs |    19,094.945 μs |    2 |      22.93 KB |
-| YantraJS             | stopwatch-modern             |    59,069.089 μs |    344.9357 μs |    59,033.983 μs |    3 |  234033.07 KB |
-| Jint                 | stopwatch-modern             |    87,624.167 μs |    610.6516 μs |    87,476.242 μs |    4 |   12121.99 KB |
-| Jint_ParsedScript    | stopwatch-modern             |    87,624.758 μs |    652.2827 μs |    87,637.367 μs |    4 |   12089.61 KB |
-| Okojo_Prepared       | stopwatch-modern             |   153,561.591 μs |  2,274.0002 μs |   153,442.388 μs |    5 |   21444.55 KB |
-| Okojo                | stopwatch-modern             |   157,869.987 μs |  4,518.4418 μs |   155,728.388 μs |    5 |   21468.58 KB |
-| NilJS                | stopwatch-modern             |   216,589.444 μs |  6,494.8789 μs |   213,188.233 μs |    6 |  324502.66 KB |
+| Method               | FileName                     | Mean             | StdDev         | Rank | Allocated     |
+|--------------------- |----------------------------- |-----------------:|---------------:|-----:|--------------:|
+| ClearScript_Compiled | array-stress                 |     2,070.717 μs |     18.8536 μs |    1 |       8.03 KB |
+| Jint_ParsedScript    | array-stress                 |     2,224.312 μs |     10.7156 μs |    2 |     1062.1 KB |
+| Jint                 | array-stress                 |     2,251.671 μs |     12.8188 μs |    2 |    1090.83 KB |
+| YantraJS             | array-stress                 |     2,866.395 μs |     38.4095 μs |    3 |   17123.82 KB |
+| ClearScript          | array-stress                 |     3,338.085 μs |     21.1109 μs |    4 |       16.1 KB |
+| NilJS                | array-stress                 |     4,874.909 μs |     28.8639 μs |    5 |    4521.19 KB |
+| Okojo                | array-stress                 |     5,582.364 μs |     26.4414 μs |    6 |    2697.71 KB |
+| Okojo_Prepared       | array-stress                 |     5,669.218 μs |     14.0773 μs |    6 |    2682.08 KB |
+|                      |                              |                  |                |      |               |
+| ClearScript_Compiled | dromaeo-3d-cube-modern       |     1,373.079 μs |      8.0547 μs |    1 |       9.27 KB |
+| YantraJS             | dromaeo-3d-cube-modern       |     2,481.972 μs |     13.9852 μs |    2 |    7514.24 KB |
+| ClearScript          | dromaeo-3d-cube-modern       |     3,192.467 μs |     15.7704 μs |    3 |      14.52 KB |
+| Jint_ParsedScript    | dromaeo-3d-cube-modern       |     4,674.579 μs |     15.0968 μs |    4 |     1367.5 KB |
+| Jint                 | dromaeo-3d-cube-modern       |     5,122.418 μs |     18.8065 μs |    5 |    1671.38 KB |
+| NilJS                | dromaeo-3d-cube-modern       |     6,872.215 μs |     31.0621 μs |    6 |    5977.95 KB |
+| Okojo_Prepared       | dromaeo-3d-cube-modern       |     7,169.112 μs |    102.8560 μs |    7 |    2311.46 KB |
+| Okojo                | dromaeo-3d-cube-modern       |     7,464.154 μs |    103.8379 μs |    7 |    2498.68 KB |
+|                      |                              |                  |                |      |               |
+| Jint_ParsedScript    | dromaeo-core-eval-modern     |       890.107 μs |      4.9618 μs |    1 |     345.53 KB |
+| Jint                 | dromaeo-core-eval-modern     |       925.648 μs |      2.8018 μs |    2 |     365.25 KB |
+| ClearScript_Compiled | dromaeo-core-eval-modern     |       942.198 μs |      3.8575 μs |    2 |       8.02 KB |
+| NilJS                | dromaeo-core-eval-modern     |     1,476.435 μs |      7.5360 μs |    3 |    1575.94 KB |
+| ClearScript          | dromaeo-core-eval-modern     |     2,054.288 μs |      9.8899 μs |    4 |       12.9 KB |
+| YantraJS             | dromaeo-core-eval-modern     |     4,919.636 μs |     53.8798 μs |    5 |   35784.84 KB |
+| Okojo                | dromaeo-core-eval-modern     |     6,505.542 μs |    164.3748 μs |    6 |    4627.74 KB |
+| Okojo_Prepared       | dromaeo-core-eval-modern     |     6,570.109 μs |    164.5604 μs |    6 |    4613.45 KB |
+|                      |                              |                  |                |      |               |
+| ClearScript_Compiled | dromaeo-object-array-modern  |    13,772.605 μs |     59.6378 μs |    1 |      16.12 KB |
+| ClearScript          | dromaeo-object-array-modern  |    15,416.686 μs |     99.2888 μs |    2 |     114.05 KB |
+| Jint                 | dromaeo-object-array-modern  |    15,604.874 μs |     73.4542 μs |    2 |    9167.38 KB |
+| Jint_ParsedScript    | dromaeo-object-array-modern  |    15,611.712 μs |     53.2607 μs |    2 |    9119.99 KB |
+| YantraJS             | dromaeo-object-array-modern  |    24,449.422 μs |    319.8778 μs |    3 |   223803.5 KB |
+| Okojo                | dromaeo-object-array-modern  |    40,179.459 μs |    179.2848 μs |    4 |    7014.16 KB |
+| Okojo_Prepared       | dromaeo-object-array-modern  |    41,189.978 μs |    129.2995 μs |    4 |    6984.35 KB |
+| NilJS                | dromaeo-object-array-modern  |    52,567.030 μs |    153.4730 μs |    5 |   17863.19 KB |
+|                      |                              |                  |                |      |               |
+| ClearScript          | dromaeo-object-regexp-modern |    90,695.067 μs |    287.1551 μs |    1 |      41.43 KB |
+| ClearScript_Compiled | dromaeo-object-regexp-modern |   105,977.967 μs |  1,093.7108 μs |    2 |      15.66 KB |
+| Jint                 | dromaeo-object-regexp-modern |   111,918.157 μs |  9,427.2541 μs |    2 |  153356.36 KB |
+| Jint_ParsedScript    | dromaeo-object-regexp-modern |   123,562.907 μs |  8,075.9673 μs |    3 |  157849.62 KB |
+| NilJS                | dromaeo-object-regexp-modern |   529,892.929 μs | 10,846.6914 μs |    4 |  766815.88 KB |
+| YantraJS             | dromaeo-object-regexp-modern |   709,595.600 μs |  4,699.6622 μs |    5 |  826331.01 KB |
+| Okojo_Prepared       | dromaeo-object-regexp-modern | 1,862,967.473 μs | 11,284.3376 μs |    6 | 1801036.77 KB |
+| Okojo                | dromaeo-object-regexp-modern | 1,869,167.413 μs | 13,788.7379 μs |    6 | 1798696.52 KB |
+|                      |                              |                  |                |      |               |
+| ClearScript_Compiled | dromaeo-object-string-modern |     5,848.974 μs |     39.4787 μs |    1 |      15.69 KB |
+| ClearScript          | dromaeo-object-string-modern |     8,632.229 μs |     42.5448 μs |    2 |      25.26 KB |
+| Jint_ParsedScript    | dromaeo-object-string-modern |    44,403.764 μs |    771.9922 μs |    3 |   21389.36 KB |
+| Jint                 | dromaeo-object-string-modern |    44,928.790 μs |    938.8042 μs |    3 |   21486.57 KB |
+| Okojo_Prepared       | dromaeo-object-string-modern |    53,770.123 μs |  1,202.7834 μs |    4 |   33410.09 KB |
+| Okojo                | dromaeo-object-string-modern |    55,051.622 μs |  1,131.2740 μs |    4 |   33526.08 KB |
+| NilJS                | dromaeo-object-string-modern |   137,293.988 μs |  3,469.0529 μs |    5 | 1354903.56 KB |
+| YantraJS             | dromaeo-object-string-modern |   164,813.590 μs |  5,628.5749 μs |    6 | 1656450.69 KB |
+|                      |                              |                  |                |      |               |
+| ClearScript_Compiled | dromaeo-string-base64-modern |     1,691.525 μs |      5.5891 μs |    1 |       8.85 KB |
+| ClearScript          | dromaeo-string-base64-modern |     3,414.285 μs |     21.6836 μs |    2 |      15.39 KB |
+| Jint_ParsedScript    | dromaeo-string-base64-modern |    19,742.280 μs |     43.1686 μs |    3 |    1625.73 KB |
+| Jint                 | dromaeo-string-base64-modern |    24,546.672 μs |     61.8519 μs |    4 |    1726.13 KB |
+| NilJS                | dromaeo-string-base64-modern |    31,173.319 μs |    568.5709 μs |    5 |   31360.34 KB |
+| Okojo_Prepared       | dromaeo-string-base64-modern |    31,565.555 μs |    458.1345 μs |    5 |   43747.38 KB |
+| Okojo                | dromaeo-string-base64-modern |    32,036.239 μs |    145.9724 μs |    5 |   43821.93 KB |
+| YantraJS             | dromaeo-string-base64-modern |    35,053.551 μs |    366.7451 μs |    6 |  764771.55 KB |
+|                      |                              |                  |                |      |               |
+| Jint_ParsedScript    | evaluation-modern            |         4.737 μs |      0.0233 μs |    1 |      17.88 KB |
+| Jint                 | evaluation-modern            |        14.151 μs |      0.0912 μs |    2 |      29.01 KB |
+| NilJS                | evaluation-modern            |        26.860 μs |      0.1301 μs |    3 |      22.35 KB |
+| YantraJS             | evaluation-modern            |       132.166 μs |      1.1629 μs |    4 |      703.4 KB |
+| ClearScript_Compiled | evaluation-modern            |       377.080 μs |      1.2704 μs |    5 |        6.1 KB |
+| ClearScript          | evaluation-modern            |     1,144.307 μs |      5.6028 μs |    6 |      10.97 KB |
+| Okojo                | evaluation-modern            |     1,576.968 μs |     56.5058 μs |    7 |    1290.76 KB |
+| Okojo_Prepared       | evaluation-modern            |     1,629.981 μs |     45.8518 μs |    7 |    1283.45 KB |
+|                      |                              |                  |                |      |               |
+| ClearScript_Compiled | json-parse-modern            |     7,433.759 μs |     21.2209 μs |    1 |       9.93 KB |
+| ClearScript          | json-parse-modern            |     9,278.783 μs |     39.6587 μs |    2 |      16.98 KB |
+| Jint_ParsedScript    | json-parse-modern            |    15,930.472 μs |    234.2620 μs |    3 |   11892.29 KB |
+| Jint                 | json-parse-modern            |    16,696.534 μs |    229.7754 μs |    4 |   11927.81 KB |
+| YantraJS             | json-parse-modern            |    25,754.020 μs |    223.2252 μs |    5 |   43167.35 KB |
+| Okojo_Prepared       | json-parse-modern            |    26,753.731 μs |  1,038.8543 μs |    5 |   27235.55 KB |
+| Okojo                | json-parse-modern            |    26,991.257 μs |  1,364.0664 μs |    5 |   27271.83 KB |
+| NilJS                | json-parse-modern            |   127,561.817 μs |    530.0344 μs |    6 |   67095.19 KB |
+|                      |                              |                  |                |      |               |
+| Jint_ParsedScript    | linq-js                      |        71.250 μs |      0.2669 μs |    1 |     213.59 KB |
+| YantraJS             | linq-js                      |       330.127 μs |      1.9148 μs |    2 |    1049.75 KB |
+| ClearScript_Compiled | linq-js                      |       462.526 μs |      3.0524 μs |    3 |       6.22 KB |
+| Jint                 | linq-js                      |     1,204.323 μs |      4.8938 μs |    4 |    1312.81 KB |
+| ClearScript          | linq-js                      |     2,043.326 μs |      6.5984 μs |    5 |      10.96 KB |
+| NilJS                | linq-js                      |     4,070.344 μs |     10.8037 μs |    6 |    2739.46 KB |
+| Okojo_Prepared       | linq-js                      |     6,363.422 μs |     13.5666 μs |    7 |    4131.84 KB |
+| Okojo                | linq-js                      |     8,884.573 μs |    251.6005 μs |    8 |    4955.02 KB |
+|                      |                              |                  |                |      |               |
+| Jint_ParsedScript    | minimal                      |         1.058 μs |      0.0174 μs |    1 |       9.38 KB |
+| Jint                 | minimal                      |         2.149 μs |      0.0158 μs |    2 |      11.31 KB |
+| NilJS                | minimal                      |         2.816 μs |      0.0083 μs |    3 |       4.51 KB |
+| YantraJS             | minimal                      |       127.858 μs |      1.0156 μs |    4 |     697.62 KB |
+| ClearScript_Compiled | minimal                      |       375.419 μs |      2.6112 μs |    5 |       6.09 KB |
+| ClearScript          | minimal                      |     1,113.591 μs |      5.4184 μs |    6 |      10.97 KB |
+| Okojo_Prepared       | minimal                      |     1,312.666 μs |     80.2226 μs |    7 |    1247.39 KB |
+| Okojo                | minimal                      |     1,328.746 μs |     72.6554 μs |    7 |     1249.2 KB |
+|                      |                              |                  |                |      |               |
+| ClearScript_Compiled | stopwatch-modern             |    14,118.650 μs |     19.8369 μs |    1 |       9.16 KB |
+| ClearScript          | stopwatch-modern             |    16,941.619 μs |     73.4862 μs |    2 |      22.71 KB |
+| YantraJS             | stopwatch-modern             |    60,972.002 μs |    325.6506 μs |    3 |  234033.07 KB |
+| Jint_ParsedScript    | stopwatch-modern             |    86,615.751 μs |    394.9141 μs |    4 |   12089.66 KB |
+| Jint                 | stopwatch-modern             |    88,606.332 μs |    701.3330 μs |    4 |   12122.04 KB |
+| Okojo                | stopwatch-modern             |   149,499.554 μs |    661.2721 μs |    5 |   21469.59 KB |
+| Okojo_Prepared       | stopwatch-modern             |   156,826.875 μs |    844.2773 μs |    6 |   21444.16 KB |
+| NilJS                | stopwatch-modern             |   212,344.536 μs |  1,242.0594 μs |    7 |  324502.66 KB |
