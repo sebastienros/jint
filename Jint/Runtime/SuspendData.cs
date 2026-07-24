@@ -293,7 +293,8 @@ internal sealed class ForAwaitSuspendData : SuspendData
     public JsValue AccumulatedValue { get; set; } = JsValue.Undefined;
 
     /// <summary>
-    /// The current value being processed when yield fired inside destructuring.
+    /// The current value being processed when a yield/await suspended mid-iteration
+    /// (inside destructuring or inside the loop body).
     /// When set, the resume should skip the iterator step and use this value.
     /// </summary>
     public JsValue? CurrentValue { get; set; }
@@ -303,6 +304,15 @@ internal sealed class ForAwaitSuspendData : SuspendData
     /// async-dispose suspension so the dispose state machine can advance on resume.
     /// </summary>
     public DeclarativeEnvironment? IterationEnv { get; set; }
+
+    /// <summary>
+    /// True when the iteration's lhs setup (iteration env creation, BindingInstantiation,
+    /// destructuring/simple-binding initialization) had already completed for the current
+    /// value before suspension occurred (i.e. suspension happened inside the loop body, not
+    /// inside destructuring). On resume, the lhs setup must be skipped to avoid re-running
+    /// destructuring against a one-shot iterator that has already been consumed.
+    /// </summary>
+    public bool LhsBindingComplete { get; set; }
 
     /// <summary>
     /// The outer environment of the for-of loop body evaluation, restored on

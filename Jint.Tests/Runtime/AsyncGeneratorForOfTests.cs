@@ -279,6 +279,103 @@ public class AsyncGeneratorForOfTests
     }
 
     [Fact]
+    public void ForAwaitOfWithAwaitInBodyInAsyncGeneratorReEntersCurrentIteration()
+    {
+        // A plain await inside the for-await-of body suspends mid-iteration; the resume
+        // must re-enter the CURRENT iteration rather than awaiting the iterator's next
+        // result — otherwise every in-flight item is dropped and the loop silently
+        // completes empty once the stream ends.
+        var result = EvaluateWithGuard("""
+            (async function () {
+                async function* source() { yield 'a'; yield 'b'; yield 'c'; yield 'd'; }
+                async function* gen(iterable) {
+                    for await (const x of iterable) {
+                        await Promise.resolve();
+                        yield x;
+                    }
+                }
+                const seen = [];
+                let guard = 0;
+                for await (const x of gen(source())) {
+                    seen.push(x);
+                    if (++guard > 12) { seen.push('RUNAWAY'); break; }
+                }
+                return seen.join(',') || '(EMPTY)';
+            })()
+            """);
+        result.Should().Be("a,b,c,d");
+    }
+
+    [Fact]
+    public void ForAwaitOfWithAwaitInBodyInAsyncFunctionReEntersCurrentIteration()
+    {
+        // The same in-body-await drop in a plain async function (no generator involved).
+        var result = EvaluateWithGuard("""
+            (async function () {
+                async function* source() { yield 'a'; yield 'b'; yield 'c'; yield 'd'; }
+                const seen = [];
+                let guard = 0;
+                for await (const x of source()) {
+                    await Promise.resolve();
+                    seen.push(x);
+                    if (++guard > 12) { seen.push('RUNAWAY'); break; }
+                }
+                return seen.join(',') || '(EMPTY)';
+            })()
+            """);
+        result.Should().Be("a,b,c,d");
+    }
+
+    [Fact]
+    public void ForAwaitOfWithMultipleAwaitsPerIterationReEntersCurrentIteration()
+    {
+        var result = EvaluateWithGuard("""
+            (async function () {
+                async function* source() { yield 'a'; yield 'b'; }
+                async function* gen(iterable) {
+                    for await (const x of iterable) {
+                        const one = await Promise.resolve(1);
+                        const two = await Promise.resolve(2);
+                        yield x + one + two;
+                    }
+                }
+                const seen = [];
+                let guard = 0;
+                for await (const x of gen(source())) {
+                    seen.push(x);
+                    if (++guard > 12) { seen.push('RUNAWAY'); break; }
+                }
+                return seen.join(',') || '(EMPTY)';
+            })()
+            """);
+        result.Should().Be("a12,b12");
+    }
+
+    [Fact]
+    public void ForAwaitOfWithAwaitInBodyAccumulatesAcrossIterations()
+    {
+        // Values computed before the await must survive the mid-iteration suspension,
+        // and the loop must visit every item exactly once.
+        var result = EvaluateWithGuard("""
+            (async function () {
+                async function* source() { yield 1; yield 2; yield 3; }
+                const seen = [];
+                let total = 0;
+                let guard = 0;
+                for await (const n of source()) {
+                    const doubled = n * 2;
+                    await Promise.resolve();
+                    total += doubled;
+                    seen.push(n);
+                    if (++guard > 12) { seen.push('RUNAWAY'); break; }
+                }
+                return seen.join(',') + '|' + total;
+            })()
+            """);
+        result.Should().Be("1,2,3|12");
+    }
+
+    [Fact]
     public void SyncGeneratorForOfWithYieldStaysCorrect()
     {
         // The sync-generator route (ExecutionContext.Generator) already saved suspend
