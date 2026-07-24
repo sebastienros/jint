@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Globalization;
 
 namespace Jint;
@@ -10,6 +11,14 @@ internal static class Polyfills
 
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     internal static bool StartsWith(this string source, char c) => source.Length > 0 && source[0] == c;
+
+    // The string.Join(char, ...) overloads were added in .NET Core 2.1 / netstandard2.1.
+    // Backfill the IEnumerable<string> overload the codebase uses so call sites can pass a char
+    // separator uniformly on every target framework, without a per-call-site #if.
+    extension(string)
+    {
+        public static string Join(char separator, IEnumerable<string?> values) => string.Join(separator.ToString(), values);
+    }
 #endif
 
 #if NETFRAMEWORK

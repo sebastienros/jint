@@ -733,7 +733,7 @@ internal sealed class LocaleConstructor : Constructor
                                     }
                                     if (result.FirstDayOfWeek == null)
                                     {
-                                        result.FirstDayOfWeek = string.Join("-", fwParts);
+                                        result.FirstDayOfWeek = string.Join('-', fwParts);
                                     }
                                     handled = true;
                                 }
@@ -834,7 +834,7 @@ internal sealed class LocaleConstructor : Constructor
                     }
 
                     // Store this extension as (singleton, content)
-                    result.OtherExtensions.Add(new ExtensionEntry(singleton, string.Join("-", extParts)));
+                    result.OtherExtensions.Add(new ExtensionEntry(singleton, string.Join('-', extParts)));
                 }
             }
             else
@@ -950,7 +950,7 @@ internal sealed class LocaleConstructor : Constructor
             index++;
         }
 
-        return string.Join("-", valueParts);
+        return string.Join('-', valueParts);
     }
 
     private static string BuildBaseName(string? language, string? script, string? region, List<string>? variants = null)
@@ -977,7 +977,7 @@ internal sealed class LocaleConstructor : Constructor
             parts.AddRange(variants);
         }
 
-        return string.Join("-", parts);
+        return string.Join('-', parts);
     }
 
     private static string BuildLocaleString(
@@ -1093,7 +1093,7 @@ internal sealed class LocaleConstructor : Constructor
         // Add the Unicode extension to the list if it has content
         if (unicodeExtParts.Count > 0)
         {
-            allExtensions.Add(new ExtensionEntry('u', string.Join("-", unicodeExtParts)));
+            allExtensions.Add(new ExtensionEntry('u', string.Join('-', unicodeExtParts)));
         }
 
         // Add other extensions

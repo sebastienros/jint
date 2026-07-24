@@ -220,8 +220,8 @@ internal sealed partial class StringPrototype : StringInstance
             // Code specific to .NET Framework 4.6.2.
             // For no good reason this verison does not upper case these characters correctly.
             return new JsString(ToUpperCaseWithSpecialCasing(s, culture)
-                .Replace("ϳ", "Ϳ")
-                .Replace("ʝ", "Ʝ"));
+                .Replace('ϳ', 'Ϳ')
+                .Replace('ʝ', 'Ʝ'));
 #endif
         }
 

@@ -273,7 +273,7 @@ internal static class LikelySubtags
             return string.Empty;
         }
 
-        return "-" + string.Join("-", variants);
+        return "-" + string.Join('-', variants);
     }
 
     private static bool IsAllLetters(string s)

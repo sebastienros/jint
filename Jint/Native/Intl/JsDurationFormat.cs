@@ -756,7 +756,7 @@ internal sealed class JsDurationFormat : ObjectInstance
         // Join parts based on style
         if (string.Equals(Style, "narrow", StringComparison.Ordinal))
         {
-            return string.Join(" ", parts);
+            return string.Join(' ', parts);
         }
 
         // For long and short, use comma-separated

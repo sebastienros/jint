@@ -180,7 +180,7 @@ internal sealed partial class CollatorConstructor : Constructor
 
         // Sort extensions alphabetically (co, kf, kn order)
         extensions.Sort(StringComparer.Ordinal);
-        return baseLocale + "-u-" + string.Join("-", extensions);
+        return baseLocale + "-u-" + string.Join('-', extensions);
     }
 
     private string GetStringOption(ObjectInstance options, string property, in StringSearchValues values, string fallback)

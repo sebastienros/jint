@@ -166,7 +166,7 @@ internal sealed partial class LocalePrototype : Prototype
             return Undefined;
         }
 
-        return string.Join("-", variants);
+        return string.Join('-', variants);
     }
 
     [JsAccessor("firstDayOfWeek")]

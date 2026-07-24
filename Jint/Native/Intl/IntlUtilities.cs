@@ -1315,7 +1315,7 @@ internal static class IntlUtilities
                     if (LocaleData.UnicodeMappings.TryGetValue(kw.Key, out var valueAliases))
                     {
                         // First try looking up the full joined value (for hyphenated aliases like "ethiopic-amete-alem")
-                        var fullValue = string.Join("-", kw.Values);
+                        var fullValue = string.Join('-', kw.Values);
                         if (valueAliases.TryGetValue(fullValue, out var aliasedValue))
                         {
                             // Replace all parts with the new value (may also be hyphenated)
@@ -1405,7 +1405,7 @@ internal static class IntlUtilities
             }
         }
 
-        return string.Join("-", result);
+        return string.Join('-', result);
     }
 
     private sealed class ParsedLanguageTag

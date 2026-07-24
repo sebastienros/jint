@@ -786,7 +786,7 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
             return baseLocale;
         }
 
-        return $"{baseLocale}-u-{string.Join("-", extensions)}";
+        return $"{baseLocale}-u-{string.Join('-', extensions)}";
     }
 
     /// <summary>
