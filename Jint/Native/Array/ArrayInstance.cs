@@ -91,7 +91,23 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
     {
         InitializePrototypeAndValidateCapacity(engine, capacity: 0);
 
-        _dense = items;
+        // _dense must be an exact JsValue[] so the dense element-write fast paths can store any JsValue
+        // without paying a per-write CLR array-covariance check (see WriteDenseUnchecked). Array covariance
+        // lets a caller hand us a subtype array (e.g. a JsString[]) through the JsValue[] parameter, so
+        // normalize anything that is not exactly JsValue[] into a real one. This costs a single type check
+        // on the common (already-exact) path and also removes a latent ArrayTypeMismatchException that a
+        // subtype-backed array would throw on the first heterogeneous element write.
+        if (items.GetType() == typeof(JsValue[]))
+        {
+            _dense = items;
+        }
+        else
+        {
+            var exact = new JsValue?[items.Length];
+            System.Array.Copy(items, exact, items.Length);
+            _dense = exact;
+        }
+
         _lengthValue = JsNumber.Create(items.Length);
     }
 
@@ -1010,6 +1026,30 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
     }
 
     /// <summary>
+    /// Stores <paramref name="value"/> into <paramref name="dense"/> without the CLR array-covariance
+    /// check that a plain <c>dense[index] = value</c> pays on every write (<c>stelem.ref</c> →
+    /// <c>CastHelpers.StelemRef_Helper</c>) because <see cref="JsValue"/> is not sealed. Sound only because
+    /// <c>_dense</c> is always an exact <see cref="JsValue"/>[]: the <c>items</c> constructor normalizes any
+    /// covariant input, every other assignment allocates <c>new JsValue?[]</c>, and
+    /// <see cref="System.Array.Resize{T}"/> yields an exact array. Callers must have already bounds-checked
+    /// <paramref name="index"/> (both invariants are asserted in debug builds). Mirrors
+    /// <see cref="Jint.Runtime.Arguments.WriteNoTypeCheck"/> for the dense backing store.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void WriteDenseUnchecked(JsValue?[] dense, uint index, JsValue? value)
+    {
+        System.Diagnostics.Debug.Assert(dense.GetType() == typeof(JsValue[]), "_dense must be an exact JsValue[]");
+        System.Diagnostics.Debug.Assert(index < (uint) dense.Length, "index must be within the dense backing");
+
+#if NET8_0_OR_GREATER
+        ref var slot = ref System.Runtime.InteropServices.MemoryMarshal.GetArrayDataReference(dense);
+        Unsafe.Add(ref slot, (nint) index) = value;
+#else
+        dense[index] = value;
+#endif
+    }
+
+    /// <summary>
     /// Fast overwrite of an existing dense element: returns true only when <paramref name="index"/>
     /// is in range and the slot is already non-null. This never grows the array, fills a hole, or
     /// changes length, so growing/hole-filling writes return false and defer to the full set path.
@@ -1034,7 +1074,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
                 return false;
             }
 
-            temp[index] = value;
+            WriteDenseUnchecked(temp, index, value);
             return true;
         }
 
@@ -1065,7 +1105,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
 
         if (index < (uint) temp.Length)
         {
-            temp[index] = value;
+            WriteDenseUnchecked(temp, index, value);
         }
         else
         {
@@ -1077,7 +1117,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
             }
 
             EnsureCapacity(newSize);
-            _dense![index] = value;
+            WriteDenseUnchecked(_dense!, index, value);
         }
 
         SetLengthValue(JsNumber.Create(index + 1));
@@ -1147,7 +1187,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         {
             if (index < (uint) temp.Length)
             {
-                temp[index] = descriptor.Value;
+                WriteDenseUnchecked(temp, index, descriptor.Value);
             }
             else
             {
@@ -1168,7 +1208,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         {
             if (index < (uint) temp.Length)
             {
-                temp[index] = value;
+                WriteDenseUnchecked(temp, index, value);
                 return;
             }
         }
@@ -1199,7 +1239,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         if (canUseDense)
         {
             EnsureCapacity((uint) newSize);
-            _dense![index] = value;
+            WriteDenseUnchecked(_dense!, index, value);
         }
         else
         {
