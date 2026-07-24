@@ -174,7 +174,21 @@ public sealed partial class Engine : IDisposable
     internal readonly ObjectTraverseStackPool _objectTraverseStackPool;
     internal readonly ExtensionMethodCache _extensionMethods;
 
-    public ITypeConverter TypeConverter { get; internal set; }
+    private ITypeConverter _typeConverter = null!;
+
+    // kept in sync by the TypeConverter setter so the interop fast lane, which is only valid for the
+    // stock converter, can gate on a bool field instead of a per-call GetType() comparison
+    internal bool _typeConverterIsDefault;
+
+    public ITypeConverter TypeConverter
+    {
+        get => _typeConverter;
+        internal set
+        {
+            _typeConverter = value;
+            _typeConverterIsDefault = value.GetType() == typeof(DefaultTypeConverter);
+        }
+    }
 
     // cache of types used when resolving CLR type names
     internal readonly Dictionary<string, Type?> TypeCache = new(StringComparer.Ordinal);

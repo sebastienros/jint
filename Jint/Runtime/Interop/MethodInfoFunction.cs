@@ -116,16 +116,13 @@ internal sealed class MethodInfoFunction : Function
         {
             return method;
         }
-        if (!method.IsGenericMethodDefinition)
+        // the cached flag is "Method is a MethodInfo that is a generic method definition", which folds
+        // in the MethodInfo cast the reflection path used to repeat here
+        if (!descriptor.IsGenericMethodDefinition)
         {
             return method;
         }
-        var methodInfo = method as MethodInfo;
-        if (methodInfo == null)
-        {
-            // probably should issue at least a warning here
-            return method;
-        }
+        var methodInfo = (MethodInfo) method;
 
         // TPC: we could also && "(method.Method.IsGenericMethodDefinition)" because we won't create a generic method if that isn't the case
         var methodGenericArgs = method.GetGenericArguments();
@@ -179,9 +176,9 @@ internal sealed class MethodInfoFunction : Function
                 // A wrong-typed receiver (extracted method invoked via .call on a foreign this) also
                 // declines so the reflection path surfaces the same TargetException it always did.
                 if (_engine._objectConverters is null
-                    && _engine.TypeConverter.GetType() == typeof(DefaultTypeConverter)
+                    && _engine._typeConverterIsDefault
                     && method.GetCompiledInvoker() is { } compiledInvoker
-                    && (method.Method.IsStatic || method.Method.DeclaringType?.IsInstanceOfType(thisObj) == true))
+                    && (method.IsStatic || method.DeclaringType?.IsInstanceOfType(thisObj) == true))
                 {
                     JsValue compiledResult = null!;
                     bool handled;
@@ -295,7 +292,7 @@ internal sealed class MethodInfoFunction : Function
         {
             // the resolved parameters differ from the descriptor's, re-classify them
             methodParameters = resolvedMethod.GetParameters();
-            isGenericDefinition = method.Method is MethodInfo { IsGenericMethodDefinition: true };
+            isGenericDefinition = method.IsGenericMethodDefinition;
             parameterFlags = new InteropParameterFlags[methodParameters.Length];
             for (var i = 0; i < methodParameters.Length; i++)
             {
@@ -377,7 +374,7 @@ internal sealed class MethodInfoFunction : Function
             }
 
             var invokeResult = method.Invoke(thisObj, parameters);
-            callResult = FromObjectWithType(Engine, invokeResult, type: (method.Method as MethodInfo)?.ReturnType);
+            callResult = FromObjectWithType(Engine, invokeResult, type: method.ReturnType);
             _engine.CheckAmortizedConstraintsAtHostBoundary();
             return true;
         }

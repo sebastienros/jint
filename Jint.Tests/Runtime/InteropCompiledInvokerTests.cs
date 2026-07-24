@@ -23,6 +23,12 @@ public class InteropCompiledInvokerTests
         public JsValue Echo(JsValue value) => value;
         public int TimesTwo(int x) => x * 2;
 
+        public int IdentityInt(int value) => value;
+        public long IdentityLong(long value) => value;
+        public double IdentityDouble(double value) => value;
+
+        public static int StaticIdentityInt(int value) => value;
+
         public void DoVoid() => VoidCalled = true;
 
         public int Throws() => throw new InvalidOperationException("boom from host");
@@ -427,6 +433,115 @@ public class InteropCompiledInvokerTests
         }
     }
 
+    [Theory]
+    // exact integers, including the int boundaries and negative zero, are exact-type hits
+    [InlineData("host.IdentityInt(0)", 0)]
+    [InlineData("host.IdentityInt(-0)", 0)]
+    [InlineData("host.IdentityInt(1)", 1)]
+    [InlineData("host.IdentityInt(-1)", -1)]
+    [InlineData("host.IdentityInt(2147483647)", int.MaxValue)]
+    [InlineData("host.IdentityInt(-2147483648)", int.MinValue)]
+    public void IntBoundaryValuesBindExactly(string script, int expected)
+    {
+        var engine = CreateEngine();
+        engine.Evaluate(script).AsNumber().Should().Be(expected);
+    }
+
+    [Theory]
+    // non-integral values are declined by the fast lane and rounded by the fallback converter
+    // (banker's rounding) exactly as before the fast lane existed
+    [InlineData("host.IdentityInt(1.5)", 2)]
+    [InlineData("host.IdentityInt(2.5)", 2)]
+    [InlineData("host.IdentityInt(-1.5)", -2)]
+    [InlineData("host.IdentityInt(-0.5)", 0)]
+    [InlineData("host.IdentityInt(0.5)", 0)]
+    public void NonIntegralIntArgumentsFallBackToRoundingConversion(string script, int expected)
+    {
+        var engine = CreateEngine();
+        engine.Evaluate(script).AsNumber().Should().Be(expected);
+    }
+
+    [Theory]
+    // out-of-range and non-finite numbers are declined by the fast lane AND rejected by the
+    // fallback conversion, which surfaces the resolution error
+    [InlineData("host.IdentityInt(2147483648)")]
+    [InlineData("host.IdentityInt(-2147483649)")]
+    [InlineData("host.IdentityInt(NaN)")]
+    [InlineData("host.IdentityInt(Infinity)")]
+    [InlineData("host.IdentityInt(-Infinity)")]
+    [InlineData("host.IdentityLong(NaN)")]
+    [InlineData("host.IdentityLong(Infinity)")]
+    [InlineData("host.IdentityLong(-Infinity)")]
+    // (double) long.MaxValue rounds up to 2^63, which overflows long - the upper bound is exclusive
+    [InlineData("host.IdentityLong(9223372036854775808)")]
+    public void OutOfRangeOrNonFiniteIntegerArgumentsAreRejected(string script)
+    {
+        var engine = CreateEngine();
+        var ex = Invoking(() => engine.Evaluate(script)).Should().ThrowExactly<Jint.Runtime.JavaScriptException>().Which;
+        ex.Message.Should().Contain("No public methods");
+    }
+
+    [Theory]
+    [InlineData("host.IdentityLong(0)", 0d)]
+    [InlineData("host.IdentityLong(-0)", 0d)]
+    [InlineData("host.IdentityLong(1)", 1d)]
+    // a very large integral double still binds exactly
+    [InlineData("host.IdentityLong(1e18)", 1e18)]
+    [InlineData("host.IdentityLong(-1e18)", -1e18)]
+    // long.MinValue is exactly representable as a double, so it is still in range
+    [InlineData("host.IdentityLong(-9223372036854775808)", -9223372036854775808d)]
+    public void LongBoundaryValuesBindExactly(string script, double expected)
+    {
+        var engine = CreateEngine();
+        engine.Evaluate(script).AsNumber().Should().Be(expected);
+    }
+
+    [Fact]
+    public void DoubleParameterAcceptsEveryNumberIncludingNonFinite()
+    {
+        var engine = CreateEngine();
+        // a double parameter has no integrality/range test at all, every JsNumber flows through
+        engine.Evaluate("host.IdentityDouble(1.5)").AsNumber().Should().Be(1.5);
+        engine.Evaluate("host.IdentityDouble(-0.5)").AsNumber().Should().Be(-0.5);
+        engine.Evaluate("host.IdentityDouble(1e300)").AsNumber().Should().Be(1e300);
+        double.IsNaN(engine.Evaluate("host.IdentityDouble(NaN)").AsNumber()).Should().BeTrue();
+        engine.Evaluate("host.IdentityDouble(Infinity)").AsNumber().Should().Be(double.PositiveInfinity);
+        engine.Evaluate("host.IdentityDouble(-Infinity)").AsNumber().Should().Be(double.NegativeInfinity);
+        // negative zero survives the round trip
+        engine.Evaluate("1 / host.IdentityDouble(-0)").AsNumber().Should().Be(double.NegativeInfinity);
+    }
+
+    /// <summary>
+    /// Values that straddle every interesting integrality/range boundary of the interop numeric
+    /// binding: integral and non-integral, the int/long limits, the 2^52 and 2^53 precision steps,
+    /// negative zero, subnormals and the non-finite values.
+    /// </summary>
+    private static double[] IntegralityProbeValues() =>
+    [
+        0d, -0d, 1d, -1d, 0.5, -0.5, 1.5, -1.5, 2.5, -2.5,
+        int.MaxValue, int.MinValue, 2147483648d, -2147483649d, 2147483647.5, -2147483648.5,
+        4503599627370495.5, // largest representable non-integral magnitude (just below 2^52)
+        4503599627370496d,  // 2^52 - every double from here up is integral
+        9007199254740992d,  // 2^53
+        9223372036854775808d, -9223372036854775808d, // +-2^63
+        1e18, -1e18, 1e300, -1e300,
+        double.Epsilon, -double.Epsilon,
+        double.MaxValue, double.MinValue,
+        double.NaN, double.PositiveInfinity, double.NegativeInfinity,
+    ];
+
+    [Fact]
+    public void IsIntegralNumberMatchesRemainderFormulation()
+    {
+        // the Math.Floor(v) == v formulation must agree with the v % 1 == 0 one it replaced on every
+        // value, so no interop or spec boundary can shift
+        foreach (var value in IntegralityProbeValues())
+        {
+            var viaRemainder = !double.IsNaN(value) && !double.IsInfinity(value) && value % 1 == 0;
+            Jint.Runtime.TypeConverter.IsIntegralNumber(value).Should().Be(viaRemainder, "for {0}", value);
+        }
+    }
+
     [Fact]
     public void SharedInvokerCache_OverloadResolutionFromTwoEngines()
     {
@@ -455,5 +570,83 @@ public class InteropCompiledInvokerTests
         first.Evaluate("new Box(3).Value").AsNumber().Should().Be(3);
         second.Evaluate("new Box(4).Value").AsNumber().Should().Be(4);
         first.Evaluate("new Box(5).Value").AsNumber().Should().Be(5);
+    }
+
+    [Fact]
+    public void IsIntegralNumberEquivalenceIsObservableThroughBigIntConversion()
+    {
+        // BigInt(number) is a JS-visible consumer of IsIntegralNumber: it throws a RangeError for
+        // every non-integral (or non-finite) number and succeeds for every integral one
+        var engine = new Engine();
+        var isIntegral = engine.Evaluate("(function (v) { try { BigInt(v); return true; } catch (e) { return false; } })");
+
+        foreach (var value in IntegralityProbeValues())
+        {
+            var viaRemainder = !double.IsNaN(value) && !double.IsInfinity(value) && value % 1 == 0;
+            engine.Invoke(isIntegral, value).AsBoolean().Should().Be(viaRemainder, "for {0}", value);
+        }
+    }
+
+    [Fact]
+    public void CustomTypeConverterInstalledAfterConstructionDisablesFastLane()
+    {
+        // the fast lane gates on a cached "is the stock converter" flag; swapping the converter after
+        // construction has to keep that flag in sync, otherwise the custom converter is skipped
+        var engine = new Engine();
+        engine.SetValue("host", new Host());
+
+        engine._typeConverterIsDefault.Should().BeTrue();
+        engine.Evaluate("host.And(true, true)").AsBoolean().Should().BeTrue();
+
+        engine.TypeConverter = new BoolVetoingTypeConverter(engine);
+        engine._typeConverterIsDefault.Should().BeFalse();
+
+        var ex = Invoking(() => engine.Evaluate("host.And(true, true)")).Should().ThrowExactly<Jint.Runtime.JavaScriptException>().Which;
+        ex.Message.Should().Contain("No public methods");
+        // conversions the veto does not touch keep working through the slow path
+        engine.Evaluate("host.AddInt(2, 3)").AsNumber().Should().Be(5);
+
+        // swapping the stock converter back re-enables the fast lane
+        engine.TypeConverter = new Jint.Runtime.Interop.DefaultTypeConverter(engine);
+        engine._typeConverterIsDefault.Should().BeTrue();
+        engine.Evaluate("host.And(true, true)").AsBoolean().Should().BeTrue();
+    }
+
+    [Fact]
+    public void DefaultEngineUsesTheStockTypeConverterFastLane()
+    {
+        var engine = CreateEngine();
+        engine._typeConverterIsDefault.Should().BeTrue();
+        engine.Evaluate("host.AddInt(2, 3)").AsNumber().Should().Be(5);
+        engine.Evaluate("host.And(true, false)").AsBoolean().Should().BeFalse();
+    }
+
+    [Fact]
+    public void StaticAndInstanceMethodsDispatchThroughCachedReflectionFacts()
+    {
+        var engine = CreateEngine();
+        engine.SetValue("other", new OtherHost());
+
+        // instance method: the receiver type check must still pass
+        engine.Evaluate("host.IdentityInt(7)").AsNumber().Should().Be(7);
+        engine.Evaluate("var f = host.IdentityInt; f.call(host, 8)").AsNumber().Should().Be(8);
+
+        // static method: no receiver type check at all, including through an extracted reference
+        engine.Evaluate("host.StaticIdentityInt(9)").AsNumber().Should().Be(9);
+        engine.Evaluate("var g = host.StaticIdentityInt; g.call(null, 10)").AsNumber().Should().Be(10);
+        engine.Evaluate("var h = host.StaticIdentityInt; h.call(other, 11)").AsNumber().Should().Be(11);
+    }
+
+    [Fact]
+    public void ExtractedInstanceMethodWithWrongReceiverKeepsSurfacingTargetException()
+    {
+        // same guarantee as WrongTypedThisSurfacesReflectionPathException, but for a method whose
+        // receiver check now reads the cached DeclaringType instead of the reflection property
+        var engine = new Engine(options => options.Interop.ExceptionHandler = _ => false);
+        engine.SetValue("host", new Host());
+        engine.SetValue("other", new OtherHost());
+
+        var ex = Invoking(() => engine.Evaluate("var f = host.IdentityInt; f.call(other, 3)")).Should().Throw<Exception>().Which;
+        ex.Should().BeAssignableTo<System.Reflection.TargetException>();
     }
 }

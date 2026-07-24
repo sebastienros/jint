@@ -19,6 +19,10 @@ internal sealed class MethodDescriptor
         // MethodBase.IsGenericMethod ends up in RuntimeMethodHandle::HasMethodInstantiation, a
         // non-trivial reflection call; cache it so the per-call binding path never pays for it.
         IsGenericMethod = method.IsGenericMethod;
+        IsGenericMethodDefinition = method is MethodInfo { IsGenericMethodDefinition: true };
+        IsStatic = method.IsStatic;
+        DeclaringType = method.DeclaringType;
+        ReturnType = (method as MethodInfo)?.ReturnType;
 
         foreach (var parameter in Parameters)
         {
@@ -52,6 +56,31 @@ internal sealed class MethodDescriptor
     /// hotspot in argument binding, so it is computed once in the constructor.
     /// </summary>
     public bool IsGenericMethod { get; }
+
+    /// <summary>
+    /// Cached "<see cref="Method"/> is a <see cref="MethodInfo"/> whose
+    /// <see cref="MethodBase.IsGenericMethodDefinition"/> is true" — same rationale as
+    /// <see cref="IsGenericMethod"/>, it is read per call while resolving a generic method.
+    /// </summary>
+    public bool IsGenericMethodDefinition { get; }
+
+    /// <summary>
+    /// Cached <see cref="MethodBase.IsStatic"/> — read on every call to decide whether the receiver
+    /// has to be type-checked, and the virtual reflection property shows up in interop call profiles.
+    /// </summary>
+    public bool IsStatic { get; }
+
+    /// <summary>
+    /// Cached <see cref="MemberInfo.DeclaringType"/> — read on every call to validate the receiver.
+    /// </summary>
+    public Type? DeclaringType { get; }
+
+    /// <summary>
+    /// Cached <see cref="MethodInfo.ReturnType"/>, or <see langword="null"/> when <see cref="Method"/>
+    /// is a <see cref="ConstructorInfo"/> — read on every call to map the CLR result back to a
+    /// <see cref="JsValue"/>.
+    /// </summary>
+    public Type? ReturnType { get; }
 
     /// <summary>
     /// Facts about each parameter type that argument binding consults on every call — computed
