@@ -89,6 +89,30 @@ dotnet_diagnostic.MA0089.severity = warning
 # MA0209: Use 'in' keyword for readonly struct parameters passed by value
 dotnet_diagnostic.MA0209.severity = warning
 
+# Enabled as guardrails: the codebase currently has zero violations of each.
+# MA0020: Use direct methods instead of LINQ methods
+dotnet_diagnostic.MA0020.severity = warning
+# MA0028: Optimize StringBuilder usage
+dotnet_diagnostic.MA0028.severity = warning
+# MA0031: Optimize Enumerable.Count() usage
+dotnet_diagnostic.MA0031.severity = warning
+# MA0052: Replace constant Enum.ToString with nameof
+dotnet_diagnostic.MA0052.severity = warning
+# MA0078: Use 'Cast' instead of 'Select' to cast
+dotnet_diagnostic.MA0078.severity = warning
+# MA0098: Use indexer instead of LINQ methods (First/Last/ElementAt on IList)
+dotnet_diagnostic.MA0098.severity = warning
+# MA0111: Use string.Create instead of FormattableString
+dotnet_diagnostic.MA0111.severity = warning
+# MA0112: Use 'Count > 0' instead of 'Any()' when a Count/Length is available
+dotnet_diagnostic.MA0112.severity = warning
+# MA0179: Use Attribute.IsDefined instead of GetCustomAttribute(s)
+dotnet_diagnostic.MA0179.severity = warning
+# MA0185: Simplify string.Create when all parameters are culture invariant
+dotnet_diagnostic.MA0185.severity = warning
+# MA0210: Use the in keyword when calling a method whose parameter is declared in
+dotnet_diagnostic.MA0210.severity = warning
+
 # Sort using and Import directives with System.* appearing first
 dotnet_sort_system_directives_first = true
 dotnet_separate_import_directive_groups = false
