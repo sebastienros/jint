@@ -8,7 +8,6 @@ namespace Jint.Benchmark;
 /// uses [JsFunction] for all 49 methods + [JsSymbolFunction] for [Symbol.toPrimitive]. The
 /// toGMTString === toUTCString aliasing is preserved via post-init SetOwnProperty.
 /// </summary>
-[ShortRunJob]
 [MemoryDiagnoser]
 public class DatePrototypeBenchmarks
 {

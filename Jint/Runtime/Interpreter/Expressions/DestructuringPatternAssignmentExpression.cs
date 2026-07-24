@@ -576,7 +576,7 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                             }
                             else
                             {
-                                if (checkReference && bindingRef.IsUnresolvableReference && StrictModeScope.IsStrictModeCode)
+                                if (checkReference && bindingRef.IsUnresolvableReference && context.Engine.ExecutionContext.Strict)
                                 {
                                     Throw.ReferenceError(context.Engine.Realm, bindingRef);
                                 }
@@ -615,7 +615,7 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                     }
                     else
                     {
-                        if (checkReference && lhs.IsUnresolvableReference && StrictModeScope.IsStrictModeCode)
+                        if (checkReference && lhs.IsUnresolvableReference && context.Engine.ExecutionContext.Strict)
                         {
                             Throw.ReferenceError(context.Engine.Realm, lhs);
                         }
@@ -698,7 +698,7 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
         }
         else
         {
-            if (checkReference && lhs.IsUnresolvableReference && StrictModeScope.IsStrictModeCode)
+            if (checkReference && lhs.IsUnresolvableReference && engine.ExecutionContext.Strict)
             {
                 Throw.ReferenceError(engine.Realm, lhs);
             }

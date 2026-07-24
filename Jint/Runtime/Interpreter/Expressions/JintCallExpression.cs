@@ -247,7 +247,7 @@ internal sealed class JintCallExpression : JintExpression
 
         var evalFunctionInstance = (EvalFunction) func;
         var evalArg = argList[0];
-        var strictCaller = StrictModeScope.IsStrictModeCode;
+        var strictCaller = engine.ExecutionContext.Strict;
         var evalRealm = evalFunctionInstance._realm;
         var direct = !_expression.IsOptional();
         var value = evalFunctionInstance.PerformEval(evalArg, evalRealm, strictCaller, direct);

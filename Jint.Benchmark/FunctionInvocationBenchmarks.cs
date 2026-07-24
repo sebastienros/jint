@@ -8,7 +8,6 @@ namespace Jint.Benchmark;
 /// `ICallable thisObject` directly with the generator emitting the cast + TypeError. Warm-path numbers
 /// should match the pre-source-gen baseline; the cast emit replaces a manual `as ICallable` + null check.
 /// </summary>
-[ShortRunJob]
 [MemoryDiagnoser]
 public class FunctionInvocationBenchmarks
 {

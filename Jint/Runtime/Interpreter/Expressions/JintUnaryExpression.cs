@@ -272,7 +272,7 @@ internal sealed class JintUnaryExpression : JintExpression
                             Throw.TypeError(engine.Realm, $"Cannot delete property '{r.ReferencedName}' of {o}");
                         }
 
-                        if (StrictModeScope.IsStrictModeCode && !r.Base.AsObject().GetOwnProperty(r.ReferencedName).Configurable)
+                        if (engine.ExecutionContext.Strict && !r.Base.AsObject().GetOwnProperty(r.ReferencedName).Configurable)
                         {
                             Throw.TypeError(engine.Realm, $"Cannot delete property '{r.ReferencedName}' of {o}");
                         }

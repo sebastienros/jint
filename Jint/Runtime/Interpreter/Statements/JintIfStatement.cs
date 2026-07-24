@@ -47,7 +47,7 @@ internal sealed class JintIfStatement : JintStatement<IfStatement>
             else if (testResult)
             {
                 // B.3.2/B.3.3: IfStatement function declarations need runtime AnnexB handling
-                if (_consequentIsFunctionDecl && !StrictModeScope.IsStrictModeCode)
+                if (_consequentIsFunctionDecl && !context.Engine.ExecutionContext.Strict)
                 {
                     result = ExecuteAnnexBFunctionDeclaration(context, (FunctionDeclaration) _statement.Consequent);
                 }
@@ -58,7 +58,7 @@ internal sealed class JintIfStatement : JintStatement<IfStatement>
             }
             else if (_alternate != null)
             {
-                if (_alternateIsFunctionDecl && !StrictModeScope.IsStrictModeCode)
+                if (_alternateIsFunctionDecl && !context.Engine.ExecutionContext.Strict)
                 {
                     result = ExecuteAnnexBFunctionDeclaration(context, (FunctionDeclaration) _statement.Alternate!);
                 }

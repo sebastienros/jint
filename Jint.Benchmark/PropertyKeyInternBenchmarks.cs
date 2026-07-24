@@ -16,7 +16,6 @@ namespace Jint.Benchmark;
 ///     and probes via the existing dictionary).
 ///   - All-rare keys (user-domain names): all-miss baseline. Phase 4 should leave this unchanged.
 /// </summary>
-[ShortRunJob]
 [MemoryDiagnoser]
 public class PropertyKeyInternBenchmarks
 {

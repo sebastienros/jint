@@ -55,7 +55,11 @@ public class Host
             variableEnvironment: realm.GlobalEnv,
             privateEnvironment: null,
             realm: realm,
-            function: null);
+            function: null,
+            // The base global context is pushed once at realm init and never popped; it governs
+            // strictness for any code that runs before an inner frame is pushed (e.g. engine.Invoke
+            // argument handling). _isStrict is assigned after this runs, so read Options directly.
+            strict: Engine.Options.Strict);
 
         Engine.EnterExecutionContext(newContext);
     }

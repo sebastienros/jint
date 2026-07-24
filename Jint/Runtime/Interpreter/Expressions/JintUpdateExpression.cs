@@ -79,7 +79,7 @@ internal sealed class JintUpdateExpression : JintExpression
             return false;
         }
 
-        if (_evalOrArguments && StrictModeScope.IsStrictModeCode)
+        if (_evalOrArguments && engine.ExecutionContext.Strict)
         {
             // full path raises the proper SyntaxError
             return false;
@@ -114,7 +114,7 @@ internal sealed class JintUpdateExpression : JintExpression
             return false;
         }
 
-        if (_evalOrArguments && StrictModeScope.IsStrictModeCode)
+        if (_evalOrArguments && engine.ExecutionContext.Strict)
         {
             // full path raises the proper SyntaxError
             result = null;
@@ -225,7 +225,7 @@ internal sealed class JintUpdateExpression : JintExpression
             // flag in place without bumping the versions the validator checks.
             if (descriptor is not null && descriptor.Writable && descriptor._value is { } current)
             {
-                if (_evalOrArguments && StrictModeScope.IsStrictModeCode)
+                if (_evalOrArguments && engine.ExecutionContext.Strict)
                 {
                     Throw.SyntaxError(engine.Realm);
                 }
@@ -261,7 +261,7 @@ internal sealed class JintUpdateExpression : JintExpression
         }
 
         var name = _leftIdentifier!.Identifier;
-        var strict = StrictModeScope.IsStrictModeCode;
+        var strict = engine.ExecutionContext.Strict;
 
         if (JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
                 context.Engine.ExecutionContext.LexicalEnvironment,

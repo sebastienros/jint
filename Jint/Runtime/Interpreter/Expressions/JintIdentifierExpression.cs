@@ -115,8 +115,9 @@ internal sealed class JintIdentifierExpression : JintExpression
     protected override object EvaluateInternal(EvaluationContext context)
     {
         var engine = context.Engine;
-        var env = engine.ExecutionContext.LexicalEnvironment;
-        var strict = StrictModeScope.IsStrictModeCode;
+        ref readonly var executionContext = ref engine.ExecutionContext;
+        var env = executionContext.LexicalEnvironment;
+        var strict = executionContext.Strict;
 
         if (ReferenceEquals(env, _cachedEnvironment)
             && _cachedStrict == strict
@@ -156,8 +157,9 @@ internal sealed class JintIdentifierExpression : JintExpression
         }
 
         var engine = context.Engine;
-        var env = engine.ExecutionContext.LexicalEnvironment;
-        var strict = StrictModeScope.IsStrictModeCode;
+        ref readonly var executionContext = ref engine.ExecutionContext;
+        var env = executionContext.LexicalEnvironment;
+        var strict = executionContext.Strict;
         JsValue? value;
 
         // Slot-cache fast path, hop 0 first: the overwhelmingly common case is that the

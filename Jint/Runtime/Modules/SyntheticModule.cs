@@ -48,7 +48,8 @@ internal sealed class SyntheticModule : Module
             lexicalEnvironment: _environment,
             privateEnvironment: null,
             generator: null,
-            parserOptions: _parserOptions);
+            parserOptions: _parserOptions,
+            strict: true);
 
         // 7.Suspend the currently running execution context.
         _engine.EnterExecutionContext(moduleContext);

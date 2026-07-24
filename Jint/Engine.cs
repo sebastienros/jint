@@ -371,7 +371,8 @@ public sealed partial class Engine : IDisposable
         Environment lexicalEnvironment,
         Environment variableEnvironment,
         Realm realm,
-        PrivateEnvironment? privateEnvironment)
+        PrivateEnvironment? privateEnvironment,
+        bool strict)
     {
         var context = new ExecutionContext(
             null,
@@ -379,7 +380,8 @@ public sealed partial class Engine : IDisposable
             variableEnvironment,
             privateEnvironment,
             realm,
-            null);
+            null,
+            strict: strict);
 
         _executionContexts.Push(context);
     }
@@ -399,7 +401,8 @@ public sealed partial class Engine : IDisposable
         Environment environment,
         PrivateEnvironment? privateEnvironment,
         Realm realm,
-        Native.Function.Function function)
+        Native.Function.Function function,
+        bool strict)
     {
         _executionContexts.Push(new ExecutionContext(
             scriptOrModule,
@@ -408,7 +411,8 @@ public sealed partial class Engine : IDisposable
             privateEnvironment,
             realm,
             generator: null,
-            function: function));
+            function: function,
+            strict: strict));
     }
 
     /// <summary>
@@ -613,7 +617,8 @@ public sealed partial class Engine : IDisposable
             variableEnvironment: globalEnv,
             privateEnvironment: null,
             Realm,
-            parserOptions: parserOptions);
+            parserOptions: parserOptions,
+            strict: _isStrict || scriptRecord.EcmaScriptCode.Strict);
 
         EnterExecutionContext(scriptContext);
         try
@@ -1286,15 +1291,24 @@ public sealed partial class Engine : IDisposable
         var ownsContext = _activeEvaluationContext is null;
         _activeEvaluationContext ??= new EvaluationContext(this);
 
+        // Establish the requested strictness on the active (entry) execution context for the
+        // callback, mirroring the former non-force StrictModeScope(strict): it can only raise
+        // strictness for the window before an inner frame is pushed, never lower it (strict:false
+        // is a no-op). Inner function/script/module frames push their own contexts carrying their
+        // own strictness, so this governs only code that runs before such a push (e.g. argument
+        // handling in Invoke, or the base global context itself). The base context pushed at
+        // realm init is never popped, so a top context is always present.
+        var previousStrict = strict && ReplaceTopStrict(true);
         try
         {
-            using (new StrictModeScope(strict))
-            {
-                return callback();
-            }
+            return callback();
         }
         finally
         {
+            if (strict)
+            {
+                ReplaceTopStrict(previousStrict);
+            }
             if (ownsContext)
             {
                 _activeEvaluationContext = null!;
@@ -1379,7 +1393,7 @@ public sealed partial class Engine : IDisposable
     internal Reference ResolveBinding(string name, Environment? env = null)
     {
         env ??= ExecutionContext.LexicalEnvironment;
-        return GetIdentifierReference(env, name, StrictModeScope.IsStrictModeCode);
+        return GetIdentifierReference(env, name, ExecutionContext.Strict);
     }
 
     private static Reference GetIdentifierReference(Environment? env, string name, bool strict)
@@ -1584,8 +1598,8 @@ public sealed partial class Engine : IDisposable
 
         var calleeContext = ExecutionContext;
 
-        var env = (FunctionEnvironment) ExecutionContext.LexicalEnvironment;
-        var strict = _isStrict || StrictModeScope.IsStrictModeCode;
+        var env = (FunctionEnvironment) calleeContext.LexicalEnvironment;
+        var strict = _isStrict || calleeContext.Strict;
 
         var parameterNames = configuration.ParameterNames;
         var hasDuplicates = configuration.HasDuplicates;
@@ -2107,6 +2121,17 @@ public sealed partial class Engine : IDisposable
     internal void UpdatePrivateEnvironment(PrivateEnvironment? newEnv)
     {
         _executionContexts.ReplaceTopPrivateEnvironment(newEnv);
+    }
+
+    /// <summary>
+    /// Overrides the strictness of the currently active execution context and returns the previous
+    /// value. Used only where strict-mode code runs without pushing its own context (a class body
+    /// evaluated in the enclosing context - see ClassDefinition); the caller must restore the
+    /// returned value in a finally.
+    /// </summary>
+    internal bool ReplaceTopStrict(bool strict)
+    {
+        return _executionContexts.ReplaceTopStrict(strict);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

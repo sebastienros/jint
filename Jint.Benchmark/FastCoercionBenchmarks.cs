@@ -15,7 +15,6 @@ namespace Jint.Benchmark;
 /// All three currently pay a TypeConverter call inside the dispatcher; [FastJsValue] would emit a
 /// type-flag check + direct cast so the JsString-already case bypasses ToJsString entirely.
 /// </summary>
-[ShortRunJob]
 [MemoryDiagnoser]
 public class FastCoercionBenchmarks
 {

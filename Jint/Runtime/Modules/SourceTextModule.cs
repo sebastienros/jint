@@ -286,7 +286,8 @@ internal class SourceTextModule : CyclicModule
             }
         }
 
-        var moduleContext = new ExecutionContext(this, _environment, _environment, null, realm, null);
+        // Module code is always strict.
+        var moduleContext = new ExecutionContext(this, _environment, _environment, null, realm, null, strict: true);
         _context = moduleContext;
 
         _engine.EnterExecutionContext(_context);
@@ -362,136 +363,133 @@ internal class SourceTextModule : CyclicModule
     /// </summary>
     internal override Completion ExecuteModule(PromiseCapability? capability = null)
     {
-        var moduleContext = new ExecutionContext(this, _environment, _environment, privateEnvironment: null, _realm, parserOptions: _parserOptions);
+        // Module code is always strict; the moduleContext carries strict:true, replacing the
+        // former StrictModeScope(strict: true, force: true).
+        var moduleContext = new ExecutionContext(this, _environment, _environment, privateEnvironment: null, _realm, parserOptions: _parserOptions, strict: true);
         if (!_hasTLA)
         {
-            using (new StrictModeScope(strict: true, force: true))
+            var result = Completion.Empty();
+            _engine.EnterExecutionContext(moduleContext);
+            try
             {
-                var result = Completion.Empty();
-                _engine.EnterExecutionContext(moduleContext);
-                try
-                {
-                    var statementList = new JintStatementList(statement: null, _source.Body);
+                var statementList = new JintStatementList(statement: null, _source.Body);
 
-                    //Create new evaluation context when called from e.g. module tests
-                    var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
+                //Create new evaluation context when called from e.g. module tests
+                var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
 
-                    result = statementList.Execute(context);
-                }
-                finally
-                {
-                    result = _environment.DisposeResources(result);
-                    _engine.LeaveExecutionContext();
-                }
-
-                return result;
+                result = statementList.Execute(context);
             }
+            finally
+            {
+                result = _environment.DisposeResources(result);
+                _engine.LeaveExecutionContext();
+            }
+
+            return result;
         }
         else
         {
             // https://tc39.es/ecma262/#sec-source-text-module-record-execute-module
-            // Top-Level Await: execute module asynchronously
-            using (new StrictModeScope(strict: true, force: true))
-            {
-                _engine.EnterExecutionContext(moduleContext);
+            // Top-Level Await: execute module asynchronously. Module code is always strict; the
+            // moduleContext (and the async context derived from it) carries strict:true.
+            _engine.EnterExecutionContext(moduleContext);
 
-                // Create the statement list and async instance once, reuse for resumption
-                if (_tlaStatementList is null)
+            // Create the statement list and async instance once, reuse for resumption
+            if (_tlaStatementList is null)
+            {
+                _tlaStatementList = new JintStatementList(statement: null, _source.Body);
+                _tlaAsyncInstance = new AsyncFunctionInstance
                 {
-                    _tlaStatementList = new JintStatementList(statement: null, _source.Body);
-                    _tlaAsyncInstance = new AsyncFunctionInstance
-                    {
-                        _state = AsyncFunctionState.Executing,
-                        _capability = capability!,
-                        _body = _tlaStatementList
-                    };
+                    _state = AsyncFunctionState.Executing,
+                    _capability = capability!,
+                    _body = _tlaStatementList
+                };
+            }
+            else
+            {
+                // Update capability for this execution (may differ between calls)
+                _tlaAsyncInstance!._capability = capability!;
+                _tlaAsyncInstance._state = AsyncFunctionState.Executing;
+            }
+
+            // Update the execution context with the async function instance
+            var asyncContext = _engine.ExecutionContext.UpdateAsyncFunction(_tlaAsyncInstance);
+            _tlaAsyncInstance._savedContext = asyncContext;
+
+            // Replace the current execution context with the updated one
+            _engine.LeaveExecutionContext();
+            _engine.EnterExecutionContext(asyncContext);
+
+            // Create evaluation context
+            var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
+
+            Completion result;
+            try
+            {
+                result = _tlaStatementList.Execute(context);
+            }
+            catch (JavaScriptException e)
+            {
+                // Leave the module's execution context up front so the dispose chain's
+                // Promise.then callbacks don't run with it still on the stack — same
+                // rationale as the AsyncGenerator path (see AsyncGeneratorInstance).
+                var env = _environment;
+                _engine.LeaveExecutionContext();
+                _tlaAsyncInstance!._state = AsyncFunctionState.Completed;
+                var cap = capability!;
+                if (!env.HasDisposeResources)
+                {
+                    cap.Reject(e.Error);
                 }
                 else
                 {
-                    // Update capability for this execution (may differ between calls)
-                    _tlaAsyncInstance!._capability = capability!;
-                    _tlaAsyncInstance._state = AsyncFunctionState.Executing;
+                    DisposeResourcesHelper.DisposeAndThen(
+                        _engine,
+                        env,
+                        new Completion(CompletionType.Throw, e.Error, null!),
+                        final => cap.Reject(final.Value));
                 }
-
-                // Update the execution context with the async function instance
-                var asyncContext = _engine.ExecutionContext.UpdateAsyncFunction(_tlaAsyncInstance);
-                _tlaAsyncInstance._savedContext = asyncContext;
-
-                // Replace the current execution context with the updated one
-                _engine.LeaveExecutionContext();
-                _engine.EnterExecutionContext(asyncContext);
-
-                // Create evaluation context
-                var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
-
-                Completion result;
-                try
-                {
-                    result = _tlaStatementList.Execute(context);
-                }
-                catch (JavaScriptException e)
-                {
-                    // Leave the module's execution context up front so the dispose chain's
-                    // Promise.then callbacks don't run with it still on the stack — same
-                    // rationale as the AsyncGenerator path (see AsyncGeneratorInstance).
-                    var env = _environment;
-                    _engine.LeaveExecutionContext();
-                    _tlaAsyncInstance!._state = AsyncFunctionState.Completed;
-                    var cap = capability!;
-                    if (!env.HasDisposeResources)
-                    {
-                        cap.Reject(e.Error);
-                    }
-                    else
-                    {
-                        DisposeResourcesHelper.DisposeAndThen(
-                            _engine,
-                            env,
-                            new Completion(CompletionType.Throw, e.Error, null!),
-                            final => cap.Reject(final.Value));
-                    }
-                    return new Completion(CompletionType.Normal, JsValue.Undefined, null!);
-                }
-                catch
-                {
-                    // a raw constraint exception (TimeoutException, ExecutionCanceledException) must
-                    // not leak the entered frame: the execution-context depth gates the host-boundary
-                    // constraint checks, and a leaked frame would satisfy the gate forever
-                    _engine.LeaveExecutionContext();
-                    throw;
-                }
-
-                // Check if we suspended at an await
-                if (_tlaAsyncInstance._state == AsyncFunctionState.SuspendedAwait)
-                {
-                    // Suspended - promise reaction will resume execution later
-                    // Leave context to restore caller's context (will re-enter on resume)
-                    _engine.LeaveExecutionContext();
-                    return new Completion(CompletionType.Normal, JsValue.Undefined, null!);
-                }
-
-                // Module body complete. Leave context BEFORE dispatching the dispose chain
-                // so its Promise.then callbacks run with the caller's context on top, not
-                // the module's — otherwise a later sync await would mis-route via this
-                // module's _tlaAsyncInstance.
-                {
-                    var env = _environment;
-                    _engine.LeaveExecutionContext();
-                    _tlaAsyncInstance._state = AsyncFunctionState.Completed;
-                    var cap = capability!;
-                    if (!env.HasDisposeResources)
-                    {
-                        SettleTla(cap, result);
-                    }
-                    else
-                    {
-                        DisposeResourcesHelper.DisposeAndThen(_engine, env, result,
-                            final => SettleTla(cap, final));
-                    }
-                }
-
                 return new Completion(CompletionType.Normal, JsValue.Undefined, null!);
             }
+            catch
+            {
+                // a raw constraint exception (TimeoutException, ExecutionCanceledException) must
+                // not leak the entered frame: the execution-context depth gates the host-boundary
+                // constraint checks, and a leaked frame would satisfy the gate forever
+                _engine.LeaveExecutionContext();
+                throw;
+            }
+
+            // Check if we suspended at an await
+            if (_tlaAsyncInstance._state == AsyncFunctionState.SuspendedAwait)
+            {
+                // Suspended - promise reaction will resume execution later
+                // Leave context to restore caller's context (will re-enter on resume)
+                _engine.LeaveExecutionContext();
+                return new Completion(CompletionType.Normal, JsValue.Undefined, null!);
+            }
+
+            // Module body complete. Leave context BEFORE dispatching the dispose chain
+            // so its Promise.then callbacks run with the caller's context on top, not
+            // the module's — otherwise a later sync await would mis-route via this
+            // module's _tlaAsyncInstance.
+            {
+                var env = _environment;
+                _engine.LeaveExecutionContext();
+                _tlaAsyncInstance._state = AsyncFunctionState.Completed;
+                var cap = capability!;
+                if (!env.HasDisposeResources)
+                {
+                    SettleTla(cap, result);
+                }
+                else
+                {
+                    DisposeResourcesHelper.DisposeAndThen(_engine, env, result,
+                        final => SettleTla(cap, final));
+                }
+            }
+
+            return new Completion(CompletionType.Normal, JsValue.Undefined, null!);
         }
     }
 

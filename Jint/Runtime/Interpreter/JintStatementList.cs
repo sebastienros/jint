@@ -338,7 +338,7 @@ internal sealed class JintStatementList
 
                 // B.3.2/B.3.3/B.3.3.1: Copy block-level function declaration to var scope in sloppy mode
                 // Only regular function declarations get AnnexB treatment (not generators, async, or async generators)
-                if (!functionDeclaration.Generator && !functionDeclaration.Async && !StrictModeScope.IsStrictModeCode)
+                if (!functionDeclaration.Generator && !functionDeclaration.Async && !env._engine.ExecutionContext.Strict)
                 {
                     var engine = env._engine;
                     var executionContext = engine.ExecutionContext;

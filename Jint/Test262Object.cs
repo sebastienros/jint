@@ -95,7 +95,9 @@ internal static class Test262Object
             variableEnvironment: realm.GlobalEnv,
             privateEnvironment: null,
             realm: realm,
-            function: null);
+            function: null,
+            // The harness scripts pushed via engine.Evaluate below carry their own strictness.
+            strict: false);
 
         engine.EnterExecutionContext(context);
         try

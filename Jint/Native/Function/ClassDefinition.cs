@@ -54,9 +54,25 @@ internal sealed class ClassDefinition
     /// </summary>
     public JsValue BuildConstructor(EvaluationContext context, Environment env, string? classBinding = null)
     {
-        // A class definition is always strict mode code.
-        using var _ = new StrictModeScope(true, true);
+        // A class definition is always strict mode code. The class body (superclass expression,
+        // decorators, computed property keys) is evaluated directly in the enclosing execution
+        // context - no new context is pushed - so establish strict on the current context and
+        // restore it on exit. Restoring the PREVIOUS value (not false) is required because the
+        // enclosing frame may be strict or a generator, and computed keys can be yield expressions
+        // that suspend and re-enter.
+        var previousStrict = context.Engine.ReplaceTopStrict(true);
+        try
+        {
+            return BuildConstructorCore(context, env, classBinding);
+        }
+        finally
+        {
+            context.Engine.ReplaceTopStrict(previousStrict);
+        }
+    }
 
+    private JsValue BuildConstructorCore(EvaluationContext context, Environment env, string? classBinding = null)
+    {
         var engine = context.Engine;
         var classEnv = JintEnvironment.NewDeclarativeEnvironment(engine, env);
 

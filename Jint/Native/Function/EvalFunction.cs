@@ -73,7 +73,7 @@ public sealed class EvalFunction : Function
             engine,
             realm,
             _functionName,
-            StrictModeScope.IsStrictModeCode ? FunctionThisMode.Strict : FunctionThisMode.Global)
+            engine.ExecutionContext.Strict ? FunctionThisMode.Strict : FunctionThisMode.Global)
     {
         _prototype = functionPrototype;
         _length = new PropertyDescriptor(JsNumber.PositiveOne, PropertyFlag.Configurable);
@@ -272,87 +272,86 @@ public sealed class EvalFunction : Function
         var strictEval = script.Strict || (direct && _engine._isStrict);
         var ctx = _engine.ExecutionContext;
 
-        // For indirect eval, we need to force reset the strict mode scope
-        // because the caller's strict mode should not apply
-        using (new StrictModeScope(strictEval, force: !direct))
+        // strictEval is established directly on the pushed eval execution context below. For
+        // indirect eval a fresh context is pushed whose environments inherit nothing from the
+        // caller, so the caller's strictness cannot leak in - this reproduces the former
+        // StrictModeScope(strictEval, force: !direct) exactly.
+        Environment outerLexEnv;
+        Environment varEnv;
+        PrivateEnvironment? privateEnv;
+        if (direct)
         {
-            Environment outerLexEnv;
-            Environment varEnv;
-            PrivateEnvironment? privateEnv;
-            if (direct)
-            {
-                outerLexEnv = ctx.LexicalEnvironment;
-                varEnv = ctx.VariableEnvironment;
-                privateEnv = ctx.PrivateEnvironment;
-            }
-            else
-            {
-                outerLexEnv = evalRealm.GlobalEnv;
-                varEnv = evalRealm.GlobalEnv;
-                privateEnv = null;
-            }
+            outerLexEnv = ctx.LexicalEnvironment;
+            varEnv = ctx.VariableEnvironment;
+            privateEnv = ctx.PrivateEnvironment;
+        }
+        else
+        {
+            outerLexEnv = evalRealm.GlobalEnv;
+            varEnv = evalRealm.GlobalEnv;
+            privateEnv = null;
+        }
 
-            DeclarativeEnvironment lexEnv;
-            var useSlots = strictEval && cached.SlotNames is not null;
-            if (useSlots)
+        DeclarativeEnvironment lexEnv;
+        var useSlots = strictEval && cached.SlotNames is not null;
+        if (useSlots)
+        {
+            // Rent the pooled environment for this source, or build a fresh slot-backed one
+            // from the cached templates. Bindings come up in their post-instantiation state
+            // (a parked environment was reset to the templates when it was pooled).
+            var pooled = Interlocked.Exchange(ref cached._cachedEnv, null);
+            if (pooled is not null && ReferenceEquals(pooled._engine, _engine))
             {
-                // Rent the pooled environment for this source, or build a fresh slot-backed one
-                // from the cached templates. Bindings come up in their post-instantiation state
-                // (a parked environment was reset to the templates when it was pooled).
-                var pooled = Interlocked.Exchange(ref cached._cachedEnv, null);
-                if (pooled is not null && ReferenceEquals(pooled._engine, _engine))
-                {
-                    pooled._outerEnv = outerLexEnv;
-                    lexEnv = pooled;
-                }
-                else
-                {
-                    lexEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, outerLexEnv);
-                    lexEnv._slotNames = cached.SlotNames;
-                    lexEnv._slots = (Binding[]) cached.SlotTemplates!.Clone();
-                }
-                varEnv = lexEnv;
+                pooled._outerEnv = outerLexEnv;
+                lexEnv = pooled;
             }
             else
             {
                 lexEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, outerLexEnv);
-                if (strictEval)
-                {
-                    varEnv = lexEnv;
-                }
+                lexEnv._slotNames = cached.SlotNames;
+                lexEnv._slots = (Binding[]) cached.SlotTemplates!.Clone();
             }
-
-            // If ctx is not already suspended, suspend ctx.
-
-            Engine.EnterExecutionContext(lexEnv, varEnv, evalRealm, privateEnv);
-
-            try
+            varEnv = lexEnv;
+        }
+        else
+        {
+            lexEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, outerLexEnv);
+            if (strictEval)
             {
-                Engine.EvalDeclarationInstantiation(script, cached.HoistingScope, varEnv, lexEnv, privateEnv, strictEval, bindingsPreInitialized: useSlots);
-
-                var statement = cached.JintScript;
-                var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
-                var result = statement.Execute(context);
-
-                var value = result.GetValueOrDefault();
-
-                if (result.Type == CompletionType.Throw)
-                {
-                    Throw.JavaScriptException(_engine, value, result);
-                    return null!;
-                }
-
-                if (useSlots && entryIsShared)
-                {
-                    TryPoolEvalEnvironment(cached, lexEnv, script);
-                }
-
-                return value;
+                varEnv = lexEnv;
             }
-            finally
+        }
+
+        // If ctx is not already suspended, suspend ctx.
+
+        Engine.EnterExecutionContext(lexEnv, varEnv, evalRealm, privateEnv, strictEval);
+
+        try
+        {
+            Engine.EvalDeclarationInstantiation(script, cached.HoistingScope, varEnv, lexEnv, privateEnv, strictEval, bindingsPreInitialized: useSlots);
+
+            var statement = cached.JintScript;
+            var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
+            var result = statement.Execute(context);
+
+            var value = result.GetValueOrDefault();
+
+            if (result.Type == CompletionType.Throw)
             {
-                Engine.LeaveExecutionContext();
+                Throw.JavaScriptException(_engine, value, result);
+                return null!;
             }
+
+            if (useSlots && entryIsShared)
+            {
+                TryPoolEvalEnvironment(cached, lexEnv, script);
+            }
+
+            return value;
+        }
+        finally
+        {
+            Engine.LeaveExecutionContext();
         }
     }
 

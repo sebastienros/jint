@@ -73,8 +73,9 @@ internal sealed class JintAssignmentExpression : JintExpression
     private JsValue EvaluateMaterialized(EvaluationContext context)
     {
         var engine = context.Engine;
-        var strict = StrictModeScope.IsStrictModeCode;
-        var suspendable = engine.ExecutionContext.Suspendable;
+        ref readonly var executionContext = ref engine.ExecutionContext;
+        var strict = executionContext.Strict;
+        var suspendable = executionContext.Suspendable;
 
         JsValue originalLeftValue;
         Reference lref;
@@ -456,7 +457,7 @@ internal sealed class JintAssignmentExpression : JintExpression
         // cannot apply and the result is always stored.
         var wasMutatedInPlace = false;
         var newLeftValue = ComputeCompound(context, JsNumber.Create(left), rval, ref wasMutatedInPlace);
-        declarativeEnvironment.SetMutableBinding(_leftIdentifier.Identifier.Key, newLeftValue, StrictModeScope.IsStrictModeCode);
+        declarativeEnvironment.SetMutableBinding(_leftIdentifier.Identifier.Key, newLeftValue, context.Engine.ExecutionContext.Strict);
         return true;
     }
 
@@ -494,7 +495,7 @@ internal sealed class JintAssignmentExpression : JintExpression
         var newLeftValue = ComputeCompound(context, originalLeftValue, rval, ref wasMutatedInPlace);
         if (!wasMutatedInPlace)
         {
-            environment.SetMutableBinding(_leftIdentifier!.Identifier.Key, newLeftValue, StrictModeScope.IsStrictModeCode);
+            environment.SetMutableBinding(_leftIdentifier!.Identifier.Key, newLeftValue, context.Engine.ExecutionContext.Strict);
         }
 
         result = newLeftValue;
@@ -832,7 +833,7 @@ internal sealed class JintAssignmentExpression : JintExpression
             {
                 // degenerate: the right-hand side changed the binding's state; the full store
                 // produces the exact semantics
-                environment.SetMutableBinding(_leftIdentifier.Identifier, rval, StrictModeScope.IsStrictModeCode);
+                environment.SetMutableBinding(_leftIdentifier.Identifier, rval, engine.ExecutionContext.Strict);
             }
 
             result = rval;
@@ -994,8 +995,9 @@ internal sealed class JintAssignmentExpression : JintExpression
             bool nameAnonymousFunction = true)
         {
             var engine = context.Engine;
-            var env = engine.ExecutionContext.LexicalEnvironment;
-            var strict = StrictModeScope.IsStrictModeCode;
+            ref readonly var executionContext = ref engine.ExecutionContext;
+            var env = executionContext.LexicalEnvironment;
+            var strict = executionContext.Strict;
             var identifier = left.Identifier;
 
             // Global-binding fast path: write directly through the cached plain writable

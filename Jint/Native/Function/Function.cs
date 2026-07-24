@@ -483,7 +483,7 @@ public abstract partial class Function : ObjectInstance, ICallable
     /// https://tc39.es/ecma262/#sec-prepareforordinarycall
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal ref readonly ExecutionContext PrepareForOrdinaryCall(JsValue newTarget, JintFunctionDefinition.State state)
+    internal ref readonly ExecutionContext PrepareForOrdinaryCall(JsValue newTarget, JintFunctionDefinition.State state, bool strict)
     {
         var localEnv = JintEnvironment.NewFunctionEnvironment(_engine, this, newTarget, state);
         var calleeRealm = _realm;
@@ -495,7 +495,8 @@ public abstract partial class Function : ObjectInstance, ICallable
             _privateEnvironment,
             calleeRealm,
             generator: null,
-            function: this);
+            function: this,
+            strict: strict);
 
         // If callerContext is not already suspended, suspend callerContext.
         // Push calleeContext onto the execution context stack; calleeContext is now the running execution context.

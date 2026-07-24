@@ -17,7 +17,8 @@ internal readonly struct ExecutionContext
         Function? function = null,
         ParserOptions? parserOptions = null,
         AsyncFunctionInstance? asyncFunction = null,
-        AsyncGeneratorInstance? asyncGenerator = null)
+        AsyncGeneratorInstance? asyncGenerator = null,
+        bool strict = false)
     {
         ScriptOrModule = scriptOrModule;
         LexicalEnvironment = lexicalEnvironment;
@@ -29,6 +30,7 @@ internal readonly struct ExecutionContext
         ParserOptions = parserOptions;
         AsyncFunction = asyncFunction;
         AsyncGenerator = asyncGenerator;
+        Strict = strict;
     }
 
     public readonly IScriptOrModule? ScriptOrModule;
@@ -41,6 +43,15 @@ internal readonly struct ExecutionContext
     public readonly ParserOptions? ParserOptions;
     public readonly AsyncFunctionInstance? AsyncFunction;
     public readonly AsyncGeneratorInstance? AsyncGenerator;
+
+    /// <summary>
+    /// Whether the code running in this execution context is strict-mode code. Established once when
+    /// the context is pushed (from the statically-known JintFunctionDefinition.Strict /
+    /// script / module strictness) and popped for free with the context, replacing the former
+    /// thread-static StrictModeScope push/pop. Because generator/async suspension saves and re-pushes
+    /// the whole struct, this survives suspend/resume automatically.
+    /// </summary>
+    public readonly bool Strict;
 
     public bool Suspended => Generator?._generatorState == GeneratorState.SuspendedYield;
 
@@ -67,32 +78,32 @@ internal readonly struct ExecutionContext
 
     public ExecutionContext UpdateLexicalEnvironment(Environment lexicalEnvironment)
     {
-        return new ExecutionContext(ScriptOrModule, lexicalEnvironment, VariableEnvironment, PrivateEnvironment, Realm, Generator, Function, ParserOptions, AsyncFunction, AsyncGenerator);
+        return new ExecutionContext(ScriptOrModule, lexicalEnvironment, VariableEnvironment, PrivateEnvironment, Realm, Generator, Function, ParserOptions, AsyncFunction, AsyncGenerator, Strict);
     }
 
     public ExecutionContext UpdateVariableEnvironment(Environment variableEnvironment)
     {
-        return new ExecutionContext(ScriptOrModule, LexicalEnvironment, variableEnvironment, PrivateEnvironment, Realm, Generator, Function, ParserOptions, AsyncFunction, AsyncGenerator);
+        return new ExecutionContext(ScriptOrModule, LexicalEnvironment, variableEnvironment, PrivateEnvironment, Realm, Generator, Function, ParserOptions, AsyncFunction, AsyncGenerator, Strict);
     }
 
     public ExecutionContext UpdatePrivateEnvironment(PrivateEnvironment? privateEnvironment)
     {
-        return new ExecutionContext(ScriptOrModule, LexicalEnvironment, VariableEnvironment, privateEnvironment, Realm, Generator, Function, ParserOptions, AsyncFunction, AsyncGenerator);
+        return new ExecutionContext(ScriptOrModule, LexicalEnvironment, VariableEnvironment, privateEnvironment, Realm, Generator, Function, ParserOptions, AsyncFunction, AsyncGenerator, Strict);
     }
 
     public ExecutionContext UpdateGenerator(GeneratorInstance generator)
     {
-        return new ExecutionContext(ScriptOrModule, LexicalEnvironment, VariableEnvironment, PrivateEnvironment, Realm, generator, Function, ParserOptions, AsyncFunction, AsyncGenerator);
+        return new ExecutionContext(ScriptOrModule, LexicalEnvironment, VariableEnvironment, PrivateEnvironment, Realm, generator, Function, ParserOptions, AsyncFunction, AsyncGenerator, Strict);
     }
 
     public ExecutionContext UpdateAsyncFunction(AsyncFunctionInstance asyncFunction)
     {
-        return new ExecutionContext(ScriptOrModule, LexicalEnvironment, VariableEnvironment, PrivateEnvironment, Realm, Generator, Function, ParserOptions, asyncFunction, AsyncGenerator);
+        return new ExecutionContext(ScriptOrModule, LexicalEnvironment, VariableEnvironment, PrivateEnvironment, Realm, Generator, Function, ParserOptions, asyncFunction, AsyncGenerator, Strict);
     }
 
     public ExecutionContext UpdateAsyncGenerator(AsyncGeneratorInstance asyncGenerator)
     {
-        return new ExecutionContext(ScriptOrModule, LexicalEnvironment, VariableEnvironment, PrivateEnvironment, Realm, Generator, Function, ParserOptions, AsyncFunction, asyncGenerator);
+        return new ExecutionContext(ScriptOrModule, LexicalEnvironment, VariableEnvironment, PrivateEnvironment, Realm, Generator, Function, ParserOptions, AsyncFunction, asyncGenerator, Strict);
     }
 
     /// <summary>

@@ -8,7 +8,6 @@ namespace Jint.Benchmark;
 /// PropertyDictionary + ClrFunction registration; post-source-gen it's [JsObject] + [JsFunction] +
 /// [ToInteger] for digit args. The warm-path numbers should be equivalent.
 /// </summary>
-[ShortRunJob]
 [MemoryDiagnoser]
 public class NumberBenchmarks
 {

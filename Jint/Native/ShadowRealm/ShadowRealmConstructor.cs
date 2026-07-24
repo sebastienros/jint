@@ -48,7 +48,10 @@ public sealed class ShadowRealmConstructor : Constructor
                     variableEnvironment: realmRec.GlobalEnv,
                     privateEnvironment: null,
                     realm: realmRec,
-                    function: null);
+                    function: null,
+                    // Base context for the shadow realm; realm eval/import push their own
+                    // strict-correct contexts. Mirror the host realm's default strictness.
+                    strict: engine.Options.Strict);
 
                 return new ShadowRealm(engine, context, realmRec);
             },

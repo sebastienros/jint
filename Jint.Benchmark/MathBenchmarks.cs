@@ -7,7 +7,6 @@ namespace Jint.Benchmark;
 /// Compares cold/warm Math intrinsic costs for the source-generator branch versus upstream main.
 /// Run alone (no parallel workloads) per project memory; intended to be diff'd between branches.
 /// </summary>
-[ShortRunJob]
 [MemoryDiagnoser]
 public class MathBenchmarks
 {

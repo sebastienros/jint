@@ -13,7 +13,6 @@ namespace Jint.Benchmark;
 /// for-of over a JsArray invokes ArrayIteratorPrototype.next() on every iteration; that's a tight
 /// loop where the precondition cost is measurable. Map/Set iteration uses the same pattern.
 /// </summary>
-[ShortRunJob]
 [MemoryDiagnoser]
 public class InternalCallBenchmarks
 {

@@ -13,7 +13,6 @@ namespace Jint.Benchmark;
 ///
 /// Each scenario reads the same property in a tight loop so the inline cache's hit path dominates.
 /// </summary>
-[ShortRunJob]
 [MemoryDiagnoser]
 public class SingletonAccessBenchmarks
 {

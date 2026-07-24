@@ -164,7 +164,7 @@ public sealed class ShadowRealm : ObjectInstance
 
         // If runningContext is not already suspended, suspend runningContext.
 
-        var evalContext = new ExecutionContext(null, lexEnv, varEnv, null, evalRealm, null, parserOptions: preparedScript.ParserOptions);
+        var evalContext = new ExecutionContext(null, lexEnv, varEnv, null, evalRealm, null, parserOptions: preparedScript.ParserOptions, strict: strictEval);
         _engine.EnterExecutionContext(evalContext);
 
         Completion result;
@@ -172,21 +172,18 @@ public sealed class ShadowRealm : ObjectInstance
         {
             _engine.EvalDeclarationInstantiation(script, script.GetHoistingScope(), varEnv, lexEnv, privateEnv: null, strictEval);
 
-            using (new StrictModeScope(strictEval, force: true))
-            {
-                // _activeEvaluationContext must be set or e.g. a nested eval could lead to NullReferenceException...
+            // _activeEvaluationContext must be set or e.g. a nested eval could lead to NullReferenceException...
 
-                // TODO: is this correct or should we join the current EvaluationContext if any?
-                var originalEvaluationContext = _engine._activeEvaluationContext;
-                _engine._activeEvaluationContext = new EvaluationContext(_engine);
-                try
-                {
-                    result = new JintScript(script).Execute(_engine._activeEvaluationContext);
-                }
-                finally
-                {
-                    _engine._activeEvaluationContext = originalEvaluationContext;
-                }
+            // TODO: is this correct or should we join the current EvaluationContext if any?
+            var originalEvaluationContext = _engine._activeEvaluationContext;
+            _engine._activeEvaluationContext = new EvaluationContext(_engine);
+            try
+            {
+                result = new JintScript(script).Execute(_engine._activeEvaluationContext);
+            }
+            finally
+            {
+                _engine._activeEvaluationContext = originalEvaluationContext;
             }
 
             if (result.Type == CompletionType.Throw)

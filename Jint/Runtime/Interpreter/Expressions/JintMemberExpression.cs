@@ -224,8 +224,9 @@ internal sealed class JintMemberExpression : JintExpression
         JsValue? baseValue = null;
 
         var engine = context.Engine;
-        var strict = StrictModeScope.IsStrictModeCode;
-        var suspendable = engine.ExecutionContext.Suspendable;
+        ref readonly var executionContext = ref engine.ExecutionContext;
+        var strict = executionContext.Strict;
+        var suspendable = executionContext.Suspendable;
 
         if (suspendable is { IsResuming: true }
             && suspendable.Data.TryGet(this, out MemberExpressionSuspendData? suspendData))
@@ -285,7 +286,7 @@ internal sealed class JintMemberExpression : JintExpression
                     // real result via its own resume mechanism. Returning a sentinel
                     // Reference here matches previous behavior; the caller's IsSuspended
                     // check bails before use.
-                    return context.Engine._referencePool.Rent(JsValue.Undefined, JsValue.Undefined, StrictModeScope.IsStrictModeCode, thisValue: null);
+                    return context.Engine._referencePool.Rent(JsValue.Undefined, JsValue.Undefined, strict, thisValue: null);
                 }
                 if (ReferenceEquals(JsValue.Undefined, baseReference))
                 {
@@ -332,7 +333,7 @@ internal sealed class JintMemberExpression : JintExpression
             return MakePrivateReference(engine, baseValue!, property);
         }
 
-        return context.Engine._referencePool.Rent(baseValue!, property, StrictModeScope.IsStrictModeCode, thisValue: actualThis);
+        return context.Engine._referencePool.Rent(baseValue!, property, strict, thisValue: actualThis);
     }
 
     /// <summary>
@@ -469,7 +470,7 @@ internal sealed class JintMemberExpression : JintExpression
                 return fastValue;
             }
 
-            var rentedReference = engine._referencePool.Rent(baseValue, property, StrictModeScope.IsStrictModeCode, thisValue: null);
+            var rentedReference = engine._referencePool.Rent(baseValue, property, engine.ExecutionContext.Strict, thisValue: null);
             return CompleteReadFromReference(context, engine, rentedReference);
         }
 
@@ -928,7 +929,7 @@ internal sealed class JintMemberExpression : JintExpression
         }
 
         // Fallback: complete via the normal pipeline from the already-resolved base + key (no re-evaluation).
-        var reference = engine._referencePool.Rent(baseValue, determinedProperty, StrictModeScope.IsStrictModeCode, thisValue: null);
+        var reference = engine._referencePool.Rent(baseValue, determinedProperty, engine.ExecutionContext.Strict, thisValue: null);
         engine.PutValue(reference, rval);
         engine._referencePool.Return(reference);
         result = rval;

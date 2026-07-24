@@ -145,139 +145,128 @@ public sealed class ScriptFunction : Function, IConstructor
         // Env-less leaf call: no bindings to create, no this/arguments/new.target route, no
         // closures — the callee FunctionEnvironment would exist only as a chain pointer, so the
         // frame runs against the captured environment directly. `arguments` are intentionally
-        // ignored (0 params, no arguments object). The StrictModeScope push is itself skippable
-        // when the ambient strictness already matches: every reader consumes only the boolean.
+        // ignored (0 params, no arguments object). Strictness rides on the pushed execution
+        // context (set in CallLeaf), so no separate scope is needed here.
         if (state.SupportsLeafCall && !_engine._isDebugMode && !_isClassConstructor)
         {
-            if (StrictModeScope.IsStrictModeCode == strict)
-            {
-                return CallLeaf();
-            }
-
-            using (new StrictModeScope(strict, force: true))
-            {
-                return CallLeaf();
-            }
+            return CallLeaf(strict);
         }
 
-        using (new StrictModeScope(strict, force: true))
+        FunctionEnvironment? funcEnv = null;
+
+        try
         {
-            FunctionEnvironment? funcEnv = null;
+            ref readonly var calleeContext = ref PrepareForOrdinaryCall(Undefined, state, strict);
 
-            try
+            if (_isClassConstructor)
             {
-                ref readonly var calleeContext = ref PrepareForOrdinaryCall(Undefined, state);
-
-                if (_isClassConstructor)
-                {
-                    Throw.TypeError(calleeContext.Realm, $"Class constructor {_functionDefinition.Name} cannot be invoked without 'new'");
-                }
-
-                // Capture funcEnv for end-of-call pool return when bindings can't escape. Direct-recursive
-                // functions return their env to a small bounded pool (so each live frame reuses a distinct
-                // env); other non-escaping functions use the single-slot pool. Escaping envs are not pooled.
-                if (!state.EnvironmentMayEscape)
-                {
-                    funcEnv = (FunctionEnvironment) calleeContext.LexicalEnvironment;
-                }
-
-                // Bodies that provably never resolve this/super/new.target leave the this-binding
-                // Uninitialized (any missed route throws via GetThisBinding rather than silently
-                // observing a wrong value). The debugger reads the binding through CallFrame.This,
-                // so debug mode always binds.
-                if (!state.CanSkipThisBinding || _engine._isDebugMode)
-                {
-                    OrdinaryCallBindThis(calleeContext, thisObject);
-                }
-
-                // actual call
-                var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
-
-                var result = _functionDefinition.EvaluateBody(context, this, arguments, state);
-
-                // For async functions/generators, DisposeResources is deferred to when
-                // the body truly completes (AsyncBlockStart/AsyncFunctionResume).
-                // Calling it here would dispose too early (before awaits complete).
-                if (!_functionDefinition.Function.Async)
-                {
-                    result = calleeContext.LexicalEnvironment.DisposeResources(result);
-                }
-
-                if (result.Type == CompletionType.Throw)
-                {
-                    Throw.JavaScriptException(_engine, result.Value, result);
-                }
-
-                // The DebugHandler needs the current execution context before the return for stepping through the return point
-                if (context.DebugMode)
-                {
-                    // We don't have a statement, but we still need a Location for debuggers. DebugHandler will infer one from
-                    // the function body:
-                    _engine.Debugger.OnReturnPoint(
-                        _functionDefinition.Function.Body,
-                        result.Type == CompletionType.Normal ? Undefined : result.Value
-                    );
-                }
-
-                if (result.Type == CompletionType.Return)
-                {
-                    return result.Value;
-                }
+                Throw.TypeError(calleeContext.Realm, $"Class constructor {_functionDefinition.Name} cannot be invoked without 'new'");
             }
-            finally
+
+            // Capture funcEnv for end-of-call pool return when bindings can't escape. Direct-recursive
+            // functions return their env to a small bounded pool (so each live frame reuses a distinct
+            // env); other non-escaping functions use the single-slot pool. Escaping envs are not pooled.
+            if (!state.EnvironmentMayEscape)
             {
-                if (funcEnv is not null)
+                funcEnv = (FunctionEnvironment) calleeContext.LexicalEnvironment;
+            }
+
+            // Bodies that provably never resolve this/super/new.target leave the this-binding
+            // Uninitialized (any missed route throws via GetThisBinding rather than silently
+            // observing a wrong value). The debugger reads the binding through CallFrame.This,
+            // so debug mode always binds.
+            if (!state.CanSkipThisBinding || _engine._isDebugMode)
+            {
+                OrdinaryCallBindThis(calleeContext, thisObject);
+            }
+
+            // actual call
+            var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
+
+            var result = _functionDefinition.EvaluateBody(context, this, arguments, state);
+
+            // For async functions/generators, DisposeResources is deferred to when
+            // the body truly completes (AsyncBlockStart/AsyncFunctionResume).
+            // Calling it here would dispose too early (before awaits complete).
+            if (!_functionDefinition.Function.Async)
+            {
+                result = calleeContext.LexicalEnvironment.DisposeResources(result);
+            }
+
+            if (result.Type == CompletionType.Throw)
+            {
+                Throw.JavaScriptException(_engine, result.Value, result);
+            }
+
+            // The DebugHandler needs the current execution context before the return for stepping through the return point
+            if (context.DebugMode)
+            {
+                // We don't have a statement, but we still need a Location for debuggers. DebugHandler will infer one from
+                // the function body:
+                _engine.Debugger.OnReturnPoint(
+                    _functionDefinition.Function.Body,
+                    result.Type == CompletionType.Normal ? Undefined : result.Value
+                );
+            }
+
+            if (result.Type == CompletionType.Return)
+            {
+                return result.Value;
+            }
+        }
+        finally
+        {
+            if (funcEnv is not null)
+            {
+                // Cache on this function instance (per-engine by construction, so a prepared script's
+                // shared State can't pin engines — see _envReuse). Single-threaded like the engine, so
+                // no Interlocked is needed on the instance side.
+                if (state.IsDirectRecursive)
                 {
-                    // Cache on this function instance (per-engine by construction, so a prepared script's
-                    // shared State can't pin engines — see _envReuse). Single-threaded like the engine, so
-                    // no Interlocked is needed on the instance side.
-                    if (state.IsDirectRecursive)
+                    // Return the env (with its fixed-slot array still attached) to the bounded
+                    // recursive pool so another simultaneously live frame can reuse env + slots.
+                    if (funcEnv._slots is { } recursiveSlots)
                     {
-                        // Return the env (with its fixed-slot array still attached) to the bounded
-                        // recursive pool so another simultaneously live frame can reuse env + slots.
-                        if (funcEnv._slots is { } recursiveSlots)
-                        {
-                            System.Array.Clear(recursiveSlots, 0, recursiveSlots.Length);
-                        }
-                        var pool = _envReuse as RecursiveEnvPool;
-                        if (pool is null)
-                        {
-                            _envReuse = pool = new RecursiveEnvPool();
-                        }
-                        pool.Return(funcEnv);
+                        System.Array.Clear(recursiveSlots, 0, recursiveSlots.Length);
+                    }
+                    var pool = _envReuse as RecursiveEnvPool;
+                    if (pool is null)
+                    {
+                        _envReuse = pool = new RecursiveEnvPool();
+                    }
+                    pool.Return(funcEnv);
+                }
+                else
+                {
+                    // Cache the slot array on the shared State: cleared, it holds no engine references,
+                    // so any instance sharing this State (also in another engine) can reuse it.
+                    if (funcEnv._slots is { } slots)
+                    {
+                        System.Array.Clear(slots, 0, slots.Length);
+                        Interlocked.Exchange(ref state._cachedSlots, slots);
+                        funcEnv._slots = null;
+                    }
+
+                    if (_functionDefinition!.IsDynamic)
+                    {
+                        // Function-constructor instances are one-shot (a fresh ScriptFunction per
+                        // `new Function(...)`), so an instance-level cache never warms. Park the env
+                        // on the per-realm definition instead — env identity then stays stable across
+                        // instances, keeping the shared statement tree's per-node slot caches valid.
+                        funcEnv._outerEnv = null;
+                        Interlocked.Exchange(ref state._dynamicCachedEnv, funcEnv);
                     }
                     else
                     {
-                        // Cache the slot array on the shared State: cleared, it holds no engine references,
-                        // so any instance sharing this State (also in another engine) can reuse it.
-                        if (funcEnv._slots is { } slots)
-                        {
-                            System.Array.Clear(slots, 0, slots.Length);
-                            Interlocked.Exchange(ref state._cachedSlots, slots);
-                            funcEnv._slots = null;
-                        }
-
-                        if (_functionDefinition!.IsDynamic)
-                        {
-                            // Function-constructor instances are one-shot (a fresh ScriptFunction per
-                            // `new Function(...)`), so an instance-level cache never warms. Park the env
-                            // on the per-realm definition instead — env identity then stays stable across
-                            // instances, keeping the shared statement tree's per-node slot caches valid.
-                            funcEnv._outerEnv = null;
-                            Interlocked.Exchange(ref state._dynamicCachedEnv, funcEnv);
-                        }
-                        else
-                        {
-                            // Cache the env itself so the next call to this function avoids the allocation.
-                            _envReuse = funcEnv;
-                        }
+                        // Cache the env itself so the next call to this function avoids the allocation.
+                        _envReuse = funcEnv;
                     }
                 }
-                _engine.LeaveExecutionContext();
             }
-
-            return Undefined;
+            _engine.LeaveExecutionContext();
         }
+
+        return Undefined;
     }
 
     /// <summary>
@@ -290,10 +279,10 @@ public sealed class ScriptFunction : Function, IConstructor
     /// the CAPTURED environment would drain the enclosing function's pending `using` resources
     /// mid-lifetime. Nested blocks own their disposal end-to-end.
     /// </summary>
-    private JsValue CallLeaf()
+    private JsValue CallLeaf(bool strict)
     {
         var engine = _engine;
-        engine.EnterLeafCallExecutionContext(_scriptOrModule, _environment!, _privateEnvironment, _realm, this);
+        engine.EnterLeafCallExecutionContext(_scriptOrModule, _environment!, _privateEnvironment, _realm, this, strict);
         try
         {
             var context = engine._activeEvaluationContext ?? new EvaluationContext(engine);
@@ -384,66 +373,63 @@ public sealed class ScriptFunction : Function, IConstructor
             }
         }
 
-        ref readonly var calleeContext = ref PrepareForOrdinaryCall(newTarget, state);
+        var strict = _thisMode == FunctionThisMode.Strict;
+        ref readonly var calleeContext = ref PrepareForOrdinaryCall(newTarget, state, strict);
         var constructorEnv = (FunctionEnvironment) calleeContext.LexicalEnvironment;
 
-        var strict = _thisMode == FunctionThisMode.Strict;
-        using (new StrictModeScope(strict, force: true))
+        try
         {
-            try
+            if (kind == ConstructorKind.Base)
             {
+                OrdinaryCallBindThis(calleeContext, thisArgument);
+                ((ObjectInstance) thisArgument).InitializeInstanceElements(this);
+            }
+
+            var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
+
+            var result = _functionDefinition.EvaluateBody(context, this, arguments, state);
+            result = constructorEnv.DisposeResources(result);
+
+            // The DebugHandler needs the current execution context before the return for stepping through the return point
+            // We exclude the empty constructor generated for classes without an explicit constructor.
+            bool isStep = context.DebugMode &&
+                          result.Type != CompletionType.Throw &&
+                          _functionDefinition.Function != ClassDefinition._emptyConstructor.Value;
+            if (isStep)
+            {
+                // We don't have a statement, but we still need a Location for debuggers. DebugHandler will infer one from
+                // the function body:
+                _engine.Debugger.OnReturnPoint(
+                    _functionDefinition.Function.Body,
+                    result.Type == CompletionType.Normal ? thisArgument : result.Value
+                );
+            }
+
+            if (result.Type == CompletionType.Return)
+            {
+                if (result.Value is ObjectInstance oi)
+                {
+                    return oi;
+                }
+
                 if (kind == ConstructorKind.Base)
                 {
-                    OrdinaryCallBindThis(calleeContext, thisArgument);
-                    ((ObjectInstance) thisArgument).InitializeInstanceElements(this);
+                    return (ObjectInstance) thisArgument;
                 }
 
-                var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
-
-                var result = _functionDefinition.EvaluateBody(context, this, arguments, state);
-                result = constructorEnv.DisposeResources(result);
-
-                // The DebugHandler needs the current execution context before the return for stepping through the return point
-                // We exclude the empty constructor generated for classes without an explicit constructor.
-                bool isStep = context.DebugMode &&
-                              result.Type != CompletionType.Throw &&
-                              _functionDefinition.Function != ClassDefinition._emptyConstructor.Value;
-                if (isStep)
+                if (!result.Value.IsUndefined())
                 {
-                    // We don't have a statement, but we still need a Location for debuggers. DebugHandler will infer one from
-                    // the function body:
-                    _engine.Debugger.OnReturnPoint(
-                        _functionDefinition.Function.Body,
-                        result.Type == CompletionType.Normal ? thisArgument : result.Value
-                    );
-                }
-
-                if (result.Type == CompletionType.Return)
-                {
-                    if (result.Value is ObjectInstance oi)
-                    {
-                        return oi;
-                    }
-
-                    if (kind == ConstructorKind.Base)
-                    {
-                        return (ObjectInstance) thisArgument;
-                    }
-
-                    if (!result.Value.IsUndefined())
-                    {
-                        Throw.TypeError(callerContext.Realm);
-                    }
-                }
-                else if (result.Type == CompletionType.Throw)
-                {
-                    Throw.JavaScriptException(_engine, result.Value, result);
+                    Throw.TypeError(callerContext.Realm);
                 }
             }
-            finally
+            else if (result.Type == CompletionType.Throw)
             {
-                _engine.LeaveExecutionContext();
+                Throw.JavaScriptException(_engine, result.Value, result);
             }
+        }
+        finally
+        {
+            _engine.LeaveExecutionContext();
         }
 
         return (ObjectInstance) constructorEnv.GetThisBinding();

@@ -8,7 +8,6 @@ namespace Jint.Benchmark;
 /// accessor. Post-source-gen the prototype uses [JsFunction] for the methods and [JsAccessor] for
 /// __proto__'s get/set pair. Warm-path numbers should match the pre-source-gen baseline.
 /// </summary>
-[ShortRunJob]
 [MemoryDiagnoser]
 public class ObjectPrototypeBenchmarks
 {

@@ -48,6 +48,20 @@ internal sealed class ExecutionContextStack
         executionContext = executionContext.UpdatePrivateEnvironment(newEnv);
     }
 
+    public bool ReplaceTopStrict(bool strict)
+    {
+        var array = _stack._array;
+        var size = _stack._size;
+        ref var executionContext = ref array[size - 1];
+        // In-place single-field write instead of rebuilding the whole struct; the instance lives
+        // in a mutable array slot, so casting away the field's readonly is safe. Used for the one
+        // case where strictness changes without pushing a new context (a class body evaluated in
+        // the enclosing context); returns the previous value so the caller can restore it.
+        var previous = executionContext.Strict;
+        Unsafe.AsRef(in executionContext.Strict) = strict;
+        return previous;
+    }
+
     public ref readonly ExecutionContext ReplaceTopGenerator(GeneratorInstance newEnv)
     {
         var array = _stack._array;
