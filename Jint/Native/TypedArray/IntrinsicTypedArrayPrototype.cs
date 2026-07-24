@@ -1888,8 +1888,10 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
 
             if (_compare is not null)
             {
-                _comparableArray[0] = x;
-                _comparableArray[1] = y;
+                // _comparableArray is an exact JsValue[2]; bypass the per-comparison covariance check
+                // (stelem.ref -> CastHelpers.StelemRef) a plain store pays because JsValue is not sealed.
+                Arguments.WriteNoTypeCheck(_comparableArray, 0, x);
+                Arguments.WriteNoTypeCheck(_comparableArray, 1, y);
 
                 var v = TypeConverter.ToNumber(_compare.Call(Undefined, _comparableArray));
 
