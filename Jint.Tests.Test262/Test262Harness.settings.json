@@ -1,5 +1,5 @@
 {
-  "SuiteGitSha": "f2d1435644797268dca1f7988cad5a4e89ccd8d2",
+  "SuiteGitSha": "5f1f06f0cacf5c15b9387760375e897d7ae3f6d5",
   //"SuiteDirectory": "//mnt/c/work/test262",
   "TargetPath": "./Generated",
   "Namespace": "Jint.Tests.Test262",
@@ -67,6 +67,26 @@
 
     // PluralRules - compact notation affects plural category
     //"intl402/PluralRules/prototype/select/notation.js",
+
+    // Locale - Intl.Locale-info RegionPreference region fallback is not implemented. The spec
+    // (WeekInfoOfLocale/CalendarsOfLocale/HourCyclesOfLocale -> RegionPreference) selects the
+    // lookup region in priority order: "rg" region-override keyword > region subtag > "sd"
+    // subdivision keyword > Add Likely Subtags region > "001". Jint uses only the literal region
+    // subtag (getWeekInfo) or the .NET CultureInfo (getHourCycles) and does not honor the "rg"/"sd"
+    // Unicode keywords, so region-override/subdivision/region-priority cases mismatch. getCalendars
+    // additionally has no region-specific calendar data (it always reports "gregory"), so its
+    // region tests are inconclusive by the test's own precondition.
+    "intl402/Locale/prototype/getCalendars/likely-subtags-region.js",
+    "intl402/Locale/prototype/getCalendars/region-override.js",
+    "intl402/Locale/prototype/getCalendars/region-priority.js",
+    "intl402/Locale/prototype/getCalendars/subdivision-region.js",
+    "intl402/Locale/prototype/getHourCycles/region-override.js",
+    "intl402/Locale/prototype/getHourCycles/region-priority.js",
+    "intl402/Locale/prototype/getHourCycles/subdivision-region.js",
+    "intl402/Locale/prototype/getWeekInfo/likely-subtags-region.js",
+    "intl402/Locale/prototype/getWeekInfo/region-override.js",
+    "intl402/Locale/prototype/getWeekInfo/region-priority.js",
+    "intl402/Locale/prototype/getWeekInfo/subdivision-region.js",
 
     // === INTL402 TEMPORAL EXCLUSIONS ===
 
