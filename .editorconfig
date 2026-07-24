@@ -112,6 +112,8 @@ dotnet_diagnostic.MA0179.severity = warning
 dotnet_diagnostic.MA0185.severity = warning
 # MA0210: Use the in keyword when calling a method whose parameter is declared in
 dotnet_diagnostic.MA0210.severity = warning
+# MA0168: Use readonly struct for in or ref readonly parameter
+dotnet_diagnostic.MA0168.severity = warning
 
 # Sort using and Import directives with System.* appearing first
 dotnet_sort_system_directives_first = true

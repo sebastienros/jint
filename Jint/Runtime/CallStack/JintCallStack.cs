@@ -151,7 +151,7 @@ internal sealed class JintCallStack
             ref ValueStringBuilder sb,
             string shortDescription,
             in SourceLocation loc,
-            in CallStackElement? element,
+            CallStackElement? element,
             Options.BuildCallStackDelegate? callStackBuilder)
         {
             if (callStackBuilder != null && TryInvokeCustomCallStackHandler(callStackBuilder, element, shortDescription, loc, ref sb))
@@ -191,7 +191,7 @@ internal sealed class JintCallStack
         var element = index >= 0 ? frames[index] : (CallStackElement?) null;
         var shortDescription = element?.ToString() ?? "";
 
-        AppendLocation(ref builder, shortDescription, in location, in element, customCallStackBuilder);
+        AppendLocation(ref builder, shortDescription, in location, element, customCallStackBuilder);
 
         location = element?.Location ?? default;
         index--;
@@ -201,7 +201,7 @@ internal sealed class JintCallStack
             element = index >= 0 ? frames[index] : null;
             shortDescription = element?.ToString() ?? "";
 
-            AppendLocation(ref builder, shortDescription, in location, in element, customCallStackBuilder);
+            AppendLocation(ref builder, shortDescription, in location, element, customCallStackBuilder);
 
             location = element?.Location ?? default;
             index--;

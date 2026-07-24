@@ -58,7 +58,11 @@ internal sealed class ExecutionContextStack
         // case where strictness changes without pushing a new context (a class body evaluated in
         // the enclosing context); returns the previous value so the caller can restore it.
         var previous = executionContext.Strict;
+        // MA0168 (net462/netstandard2.0 only): the older Unsafe.AsRef(in T) overload flags this
+        // intentional in-place write of a readonly field on the deliberately mutable ExecutionContext.
+#pragma warning disable MA0168
         Unsafe.AsRef(in executionContext.Strict) = strict;
+#pragma warning restore MA0168
         return previous;
     }
 
