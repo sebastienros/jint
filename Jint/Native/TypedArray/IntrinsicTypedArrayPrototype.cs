@@ -361,8 +361,10 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
 
         var predicate = GetCallable(callbackFn);
 
+        // args is rented from the pool whose factory allocates new JsValue[3], so it is an exact
+        // JsValue[]; the per-element fills below bypass the covariant array store type check.
         var args = _engine._jsValueArrayPool.RentArray(3);
-        args[2] = o;
+        Arguments.WriteNoTypeCheck(args, 2, o);
         for (var k = 0; k < len; k++)
         {
             if (k > 0 && k % ConstraintCheckInterval == 0)
@@ -370,8 +372,8 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
                 _engine.Constraints.Check();
             }
 
-            args[0] = o[k];
-            args[1] = k;
+            Arguments.WriteNoTypeCheck(args, 0, o[k]);
+            Arguments.WriteNoTypeCheck(args, 1, k);
             if (!TypeConverter.ToBoolean(predicate.Call(thisArg, args)))
             {
                 return JsBoolean.False;
@@ -487,8 +489,10 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         var kept = new List<JsValue>();
         var captured = 0;
 
+        // args is rented from the pool whose factory allocates new JsValue[3], so it is an exact
+        // JsValue[]; the per-element fills below bypass the covariant array store type check.
         var args = _engine._jsValueArrayPool.RentArray(3);
-        args[2] = o;
+        Arguments.WriteNoTypeCheck(args, 2, o);
         for (var k = 0; k < len; k++)
         {
             if (k > 0 && k % ConstraintCheckInterval == 0)
@@ -497,8 +501,8 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
             }
 
             var kValue = o[k];
-            args[0] = kValue;
-            args[1] = k;
+            Arguments.WriteNoTypeCheck(args, 0, kValue);
+            Arguments.WriteNoTypeCheck(args, 1, k);
             var selected = callbackfn.Call(thisArg, args);
             if (TypeConverter.ToBoolean(selected))
             {
@@ -561,8 +565,10 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
             return new KeyValuePair<JsValue, JsValue>(JsNumber.IntegerNegativeOne, Undefined);
         }
 
+        // args is rented from the pool whose factory allocates new JsValue[3], so it is an exact
+        // JsValue[]; the per-element fills below bypass the covariant array store type check.
         var args = _engine._jsValueArrayPool.RentArray(3);
-        args[2] = o;
+        Arguments.WriteNoTypeCheck(args, 2, o);
         if (!fromEnd)
         {
             for (var k = 0; k < len; k++)
@@ -574,8 +580,8 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
 
                 var kNumber = JsNumber.Create(k);
                 var kValue = o[k];
-                args[0] = kValue;
-                args[1] = kNumber;
+                Arguments.WriteNoTypeCheck(args, 0, kValue);
+                Arguments.WriteNoTypeCheck(args, 1, kNumber);
                 if (TypeConverter.ToBoolean(predicate.Call(thisArg, args)))
                 {
                     return new KeyValuePair<JsValue, JsValue>(kNumber, kValue);
@@ -593,8 +599,8 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
 
                 var kNumber = JsNumber.Create(k);
                 var kValue = o[k];
-                args[0] = kValue;
-                args[1] = kNumber;
+                Arguments.WriteNoTypeCheck(args, 0, kValue);
+                Arguments.WriteNoTypeCheck(args, 1, kNumber);
                 if (TypeConverter.ToBoolean(predicate.Call(thisArg, args)))
                 {
                     return new KeyValuePair<JsValue, JsValue>(kNumber, kValue);
@@ -617,8 +623,10 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         var o = taRecord.Object;
         var len = taRecord.TypedArrayLength;
 
+        // args is rented from the pool whose factory allocates new JsValue[3], so it is an exact
+        // JsValue[]; the per-element fills below bypass the covariant array store type check.
         var args = _engine._jsValueArrayPool.RentArray(3);
-        args[2] = o;
+        Arguments.WriteNoTypeCheck(args, 2, o);
         for (var k = 0; k < len; k++)
         {
             if (k > 0 && k % ConstraintCheckInterval == 0)
@@ -627,8 +635,8 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
             }
 
             var kValue = o[k];
-            args[0] = kValue;
-            args[1] = k;
+            Arguments.WriteNoTypeCheck(args, 0, kValue);
+            Arguments.WriteNoTypeCheck(args, 1, k);
             callbackfn.Call(thisArg, args);
         }
 
@@ -900,8 +908,10 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         var callable = GetCallable(callbackFn);
 
         var a = _realm.Intrinsics.TypedArray.TypedArraySpeciesCreate(o, [len], isWrite: true);
+        // args is rented from the pool whose factory allocates new JsValue[3], so it is an exact
+        // JsValue[]; the per-element fills below bypass the covariant array store type check.
         var args = _engine._jsValueArrayPool.RentArray(3);
-        args[2] = o;
+        Arguments.WriteNoTypeCheck(args, 2, o);
         for (var k = 0; k < len; k++)
         {
             if (k > 0 && k % ConstraintCheckInterval == 0)
@@ -909,8 +919,8 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
                 _engine.Constraints.Check();
             }
 
-            args[0] = o[k];
-            args[1] = k;
+            Arguments.WriteNoTypeCheck(args, 0, o[k]);
+            Arguments.WriteNoTypeCheck(args, 1, k);
             var mappedValue = callable.Call(thisArg, args);
             a[k] = mappedValue;
         }
@@ -951,8 +961,10 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
             k++;
         }
 
+        // args is rented from the pool whose factory allocates new JsValue[4], so it is an exact
+        // JsValue[]; the per-element fills below bypass the covariant array store type check.
         var args = _engine._jsValueArrayPool.RentArray(4);
-        args[3] = o;
+        Arguments.WriteNoTypeCheck(args, 3, o);
         while (k < len)
         {
             if (k > 0 && k % ConstraintCheckInterval == 0)
@@ -961,9 +973,9 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
             }
 
             var kValue = o[k];
-            args[0] = accumulator;
-            args[1] = kValue;
-            args[2] = k;
+            Arguments.WriteNoTypeCheck(args, 0, accumulator);
+            Arguments.WriteNoTypeCheck(args, 1, kValue);
+            Arguments.WriteNoTypeCheck(args, 2, k);
             accumulator = callbackfn.Call(Undefined, args);
             k++;
         }
@@ -1004,8 +1016,10 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
             k--;
         }
 
+        // jsValues is rented from the pool whose factory allocates new JsValue[4], so it is an exact
+        // JsValue[]; the per-element fills below bypass the covariant array store type check.
         var jsValues = _engine._jsValueArrayPool.RentArray(4);
-        jsValues[3] = o;
+        Arguments.WriteNoTypeCheck(jsValues, 3, o);
         for (; k >= 0; k--)
         {
             if (k % ConstraintCheckInterval == 0)
@@ -1013,9 +1027,9 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
                 _engine.Constraints.Check();
             }
 
-            jsValues[0] = accumulator;
-            jsValues[1] = o[(int) k];
-            jsValues[2] = k;
+            Arguments.WriteNoTypeCheck(jsValues, 0, accumulator);
+            Arguments.WriteNoTypeCheck(jsValues, 1, o[(int) k]);
+            Arguments.WriteNoTypeCheck(jsValues, 2, k);
             accumulator = callbackfn.Call(Undefined, jsValues);
         }
 
@@ -1391,8 +1405,10 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
 
         var callbackfn = GetCallable(callbackFn);
 
+        // args is rented from the pool whose factory allocates new JsValue[3], so it is an exact
+        // JsValue[]; the per-element fills below bypass the covariant array store type check.
         var args = _engine._jsValueArrayPool.RentArray(3);
-        args[2] = o;
+        Arguments.WriteNoTypeCheck(args, 2, o);
         for (var k = 0; k < len; k++)
         {
             if (k > 0 && k % ConstraintCheckInterval == 0)
@@ -1400,8 +1416,8 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
                 _engine.Constraints.Check();
             }
 
-            args[0] = o[k];
-            args[1] = k;
+            Arguments.WriteNoTypeCheck(args, 0, o[k]);
+            Arguments.WriteNoTypeCheck(args, 1, k);
             if (TypeConverter.ToBoolean(callbackfn.Call(thisArg, args)))
             {
                 return JsBoolean.True;
@@ -1888,8 +1904,10 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
 
             if (_compare is not null)
             {
-                _comparableArray[0] = x;
-                _comparableArray[1] = y;
+                // _comparableArray is an exact JsValue[2]; bypass the per-comparison covariance check
+                // (stelem.ref -> CastHelpers.StelemRef) a plain store pays because JsValue is not sealed.
+                Arguments.WriteNoTypeCheck(_comparableArray, 0, x);
+                Arguments.WriteNoTypeCheck(_comparableArray, 1, y);
 
                 var v = TypeConverter.ToNumber(_compare.Call(Undefined, _comparableArray));
 

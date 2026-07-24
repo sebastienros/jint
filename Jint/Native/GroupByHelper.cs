@@ -49,8 +49,10 @@ internal static class GroupByHelper
                 Throw.TypeError(_engine.Realm);
             }
 
-            _callArgs[0] = currentValue;
-            _callArgs[1] = _k;
+            // _callArgs is an exact JsValue[2]; bypass the per-element covariance check
+            // (stelem.ref -> CastHelpers.StelemRef) a plain store pays because JsValue is not sealed.
+            Arguments.WriteNoTypeCheck(_callArgs, 0, currentValue);
+            Arguments.WriteNoTypeCheck(_callArgs, 1, _k);
 
             var value = _callable.Call(JsValue.Undefined, _callArgs);
             JsValue key;
