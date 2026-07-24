@@ -41,13 +41,34 @@ internal ref struct JsValueListBuilder
         var array = _array;
         if ((uint) pos < (uint) array.Length)
         {
-            array[pos] = value;
+            WriteUnchecked(array, pos, value);
             _pos = pos + 1;
         }
         else
         {
             GrowAndAdd(value);
         }
+    }
+
+    /// <summary>
+    /// Stores into the backing buffer without the CLR array-covariance check that a plain
+    /// <c>array[index] = value</c> pays on every write (<c>stelem.ref</c> → <c>CastHelpers.StelemRef</c>)
+    /// because <see cref="JsValue"/> is not sealed. Sound because <c>_array</c> is always an exact
+    /// <see cref="JsValue"/>[]: <see cref="ArrayPool{T}"/>.Rent never hands back a covariant subtype array.
+    /// Callers have already bounds-checked <paramref name="index"/> (both invariants asserted in debug builds).
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void WriteUnchecked(JsValue?[] array, int index, JsValue? value)
+    {
+        Debug.Assert(array.GetType() == typeof(JsValue[]), "backing buffer must be an exact JsValue[]");
+        Debug.Assert((uint) index < (uint) array.Length, "index must be within the backing buffer");
+
+#if NET8_0_OR_GREATER
+        ref var slot = ref System.Runtime.InteropServices.MemoryMarshal.GetArrayDataReference(array);
+        Unsafe.Add(ref slot, (nint) index) = value;
+#else
+        array[index] = value;
+#endif
     }
 
     /// <summary>
@@ -60,7 +81,7 @@ internal ref struct JsValueListBuilder
         var array = _array;
         if ((uint) pos < (uint) array.Length)
         {
-            array[pos] = null;
+            WriteUnchecked(array, pos, null);
             _pos = pos + 1;
         }
         else
@@ -103,7 +124,8 @@ internal ref struct JsValueListBuilder
     private void GrowAndAdd(JsValue? value)
     {
         Grow(1);
-        _array[_pos++] = value;
+        WriteUnchecked(_array, _pos, value);
+        _pos++;
     }
 
     private void Grow(int additionalCapacityBeyondPos)
