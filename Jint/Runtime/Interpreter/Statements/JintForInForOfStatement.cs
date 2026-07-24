@@ -736,12 +736,37 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     asyncData.LhsBindingComplete = true;
                 }
 
+                // Async generators iterating a SYNC iterable (a plain for...of in an async
+                // generator body) need the same treatment: a yield/await in the body suspends
+                // and later re-enters this statement from the top, and without saved state
+                // the resume path restarts the loop with a fresh iterator — replaying the
+                // first step into the consumed resume value and re-yielding the second
+                // element forever. for-await-of (async iterables) is handled separately via
+                // ForAwaitSuspendData in SuspendForAsyncIteration.
+                var asyncGenBody = engine.ExecutionContext.AsyncGenerator;
+                if (iteratorKind == IteratorKind.Sync && asyncGenBody is not null)
+                {
+                    var asyncGenData = asyncGenBody.Data.GetOrCreate<ForOfSuspendData>(this, iteratorRecord);
+                    asyncGenData.AccumulatedValue = v;
+                    asyncGenData.CurrentValue = valueForResume;
+                    asyncGenData.IterationEnv = iterationEnv;
+                    asyncGenData.OuterEnv = oldEnv;
+                    asyncGenData.LhsBindingComplete = true;
+                }
+
                 var result = stmt.Execute(context);
 
                 // Clear current value after successful body execution (not suspended)
                 if (generator is not null && !context.IsSuspended())
                 {
                     if (generator.Data.TryGet<ForOfSuspendData>(this, out var currentData))
+                    {
+                        currentData!.CurrentValue = null;
+                    }
+                }
+                else if (asyncGenBody is not null && !context.IsSuspended())
+                {
+                    if (asyncGenBody.Data.TryGet<ForOfSuspendData>(this, out var currentData))
                     {
                         currentData!.CurrentValue = null;
                     }
@@ -791,6 +816,10 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     if (generator is not null && generator.Data.TryGet<ForOfSuspendData>(this, out var data))
                     {
                         data!.AccumulatedValue = v;
+                    }
+                    else if (asyncGenBody is not null && asyncGenBody.Data.TryGet<ForOfSuspendData>(this, out var asyncGenAccData))
+                    {
+                        asyncGenAccData!.AccumulatedValue = v;
                     }
                 }
 
