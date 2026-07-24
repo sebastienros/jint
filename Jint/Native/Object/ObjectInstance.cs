@@ -593,6 +593,11 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         var keys = new List<JsValue>((_properties?.Count ?? 0) + (_symbols?.Count ?? 0) + initialOwnPropertyKeys.Count);
         if (returningStringKeys && _properties != null)
         {
+            // Integer-index keys must come first in ascending numeric order. Collect their already-parsed
+            // uint indices and sort those directly, instead of materializing JsStrings and re-parsing each
+            // one back to a Number on every sort comparison — TypeConverter.ToNumber → Number.TryParseNumber
+            // dominated JSON.stringify / enumeration of index-keyed objects (Kraken json-stringify-tinderbox).
+            List<uint>? indices = null;
             foreach (var pair in _properties)
             {
                 var propertyName = pair.Key.Name;
@@ -600,16 +605,24 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
 
                 if (arrayIndex < ArrayOperations.MaxArrayLength)
                 {
-                    keys.Add(JsString.Create(arrayIndex));
+                    (indices ??= new List<uint>(_properties.Count)).Add(arrayIndex);
                 }
                 else
                 {
                     initialOwnPropertyKeys.Add(new JsString(propertyName));
                 }
             }
+
+            if (indices != null)
+            {
+                indices.Sort();
+                foreach (var arrayIndex in indices)
+                {
+                    keys.Add(JsString.Create(arrayIndex));
+                }
+            }
         }
 
-        keys.Sort((v1, v2) => TypeConverter.ToNumber(v1).CompareTo(TypeConverter.ToNumber(v2)));
         keys.AddRange(initialOwnPropertyKeys);
 
         if (returningSymbols)
