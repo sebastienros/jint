@@ -55,3 +55,15 @@ updates:
         patterns:
           - "Microsoft.*"
           - "System.*"
+
+  # GitHub Actions used by the workflows under .github/workflows. Kept in a single
+  # grouped PR so the whole workflow tooling moves together instead of one PR per action.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      actions:
+        patterns:
+          - "*"

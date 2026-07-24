@@ -16,15 +16,15 @@ jobs:
     steps:
 
     - name: Setup NET
-      uses: actions/setup-dotnet@v5
+      uses: actions/setup-dotnet@v6
       with:
         dotnet-version: 10.0
 
     - name: Checkout source code
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
 
     - name: Cache Test262 generated suite
-      uses: actions/cache@v5
+      uses: actions/cache@v6
       with:
         path: Jint.Tests.Test262/Generated
         key: test262-generated-${{ hashFiles('Jint.Tests.Test262/Test262Harness.settings.json') }}

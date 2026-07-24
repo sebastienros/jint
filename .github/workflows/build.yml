@@ -19,15 +19,23 @@ jobs:
     steps:
 
     - name: Setup NET
-      uses: actions/setup-dotnet@v5
+      uses: actions/setup-dotnet@v6
       with:
         dotnet-version: 10.0
 
     - name: Checkout source code
       uses: actions/checkout@v7
 
-    - name: Cache Test262 generated suite
-      uses: actions/cache@v6
+    # This job (push to main) is the only one that seeds a cache the PR workflow can read: PR jobs
+    # can restore caches from the base branch, but a cache saved inside a PR is scoped to that PR
+    # and invisible to other PRs. Restore/save are split (rather than the combined actions/cache)
+    # so the suite is cached even when a later step fails. The combined action saves in a post-step
+    # gated on success(); the "Push with dotnet" publish can fail (e.g. MyGet quota) and would then
+    # skip the save, leaving the main-scoped cache empty so no PR ever gets a hit. The explicit save
+    # below runs right after the suite is generated, before publishing.
+    - name: Restore Test262 generated suite
+      id: cache-test262
+      uses: actions/cache/restore@v6
       with:
         path: Jint.Tests.Test262/Generated
         key: test262-generated-${{ hashFiles('Jint.Tests.Test262/Test262Harness.settings.json') }}
@@ -36,6 +44,14 @@ jobs:
 
     - name: Test
       run: dotnet test --configuration Release --logger "console;verbosity=quiet" --logger "GitHubActions;summary-include-passed=false;summary-include-skipped=false"
+
+    - name: Save Test262 generated suite
+      if: steps.cache-test262.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: Jint.Tests.Test262/Generated
+        key: test262-generated-${{ hashFiles('Jint.Tests.Test262/Test262Harness.settings.json') }}
+        enableCrossOsArchive: true
 
     - name: Pack with dotnet
       run: dotnet pack Jint/Jint.csproj --output artifacts --configuration Release -p:VersionSuffix=preview-$GITHUB_RUN_NUMBER -p:ContinuousIntegrationBuild=True
