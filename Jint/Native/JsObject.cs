@@ -81,8 +81,30 @@ public sealed class JsObject : ObjectInstance
         }
         else
         {
-            _overflow![slot - InlineCapacity] = value;
+            WriteOverflowUnchecked(_overflow!, slot - InlineCapacity, value);
         }
+    }
+
+    /// <summary>
+    /// Stores into the overflow slot array without the CLR array-covariance check that a plain
+    /// <c>_overflow[index] = value</c> pays on every write (<c>stelem.ref</c> → <c>CastHelpers.StelemRef</c>)
+    /// because <see cref="JsValue"/> is not sealed. Sound because <c>_overflow</c> is always an exact
+    /// <see cref="JsValue"/>[]: every assignment allocates <c>new JsValue[]</c> and growth uses
+    /// <see cref="System.Array.Resize{T}"/>, neither of which yields a covariant subtype. The caller has
+    /// already proven <paramref name="index"/> in range (both invariants asserted in debug builds).
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void WriteOverflowUnchecked(JsValue[] overflow, int index, JsValue value)
+    {
+        System.Diagnostics.Debug.Assert(overflow.GetType() == typeof(JsValue[]), "_overflow must be an exact JsValue[]");
+        System.Diagnostics.Debug.Assert((uint) index < (uint) overflow.Length, "overflow index must be in range");
+
+#if NET8_0_OR_GREATER
+        ref var slot = ref System.Runtime.InteropServices.MemoryMarshal.GetArrayDataReference(overflow);
+        Unsafe.Add(ref slot, (nint) index) = value;
+#else
+        overflow[index] = value;
+#endif
     }
 
     /// <summary>Drops shape mode back to dictionary mode's starting state (clears the shape and slot
@@ -162,7 +184,7 @@ public sealed class JsObject : ObjectInstance
             {
                 System.Array.Resize(ref _overflow, _overflow.Length * 2);
             }
-            _overflow[overflowIndex] = value;
+            WriteOverflowUnchecked(_overflow, overflowIndex, value);
         }
 
         _shape = shape.Add(key, out created);
