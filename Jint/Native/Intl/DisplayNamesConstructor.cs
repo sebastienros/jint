@@ -71,10 +71,10 @@ internal sealed partial class DisplayNamesConstructor : Constructor
 
         // Per spec: Get options in the correct order
         // Step 8: localeMatcher
-        var localeMatcher = GetStringOption(optionsObj, "localeMatcher", LocaleMatcherValues, "best fit");
+        var localeMatcher = GetStringOption(optionsObj, "localeMatcher", in LocaleMatcherValues, "best fit");
 
         // Step 11: style (comes before type per spec)
-        var style = GetStringOption(optionsObj, "style", StyleValues, "long");
+        var style = GetStringOption(optionsObj, "style", in StyleValues, "long");
 
         // Step 13: type (required)
         var typeValue = optionsObj.Get("type");
@@ -82,16 +82,16 @@ internal sealed partial class DisplayNamesConstructor : Constructor
         {
             Throw.TypeError(_realm, "Required option 'type' is undefined");
         }
-        var type = GetStringOption(optionsObj, "type", TypeValues, "");
+        var type = GetStringOption(optionsObj, "type", in TypeValues, "");
 
         // Step 15: fallback
-        var fallback = GetStringOption(optionsObj, "fallback", FallbackValues, "code");
+        var fallback = GetStringOption(optionsObj, "fallback", in FallbackValues, "code");
 
         // Step 17: languageDisplay (only valid for type: "language")
         string? languageDisplay = null;
         if (string.Equals(type, "language", StringComparison.Ordinal))
         {
-            languageDisplay = GetStringOption(optionsObj, "languageDisplay", LanguageDisplayValues, "dialect");
+            languageDisplay = GetStringOption(optionsObj, "languageDisplay", in LanguageDisplayValues, "dialect");
         }
 
         // Resolve locale
@@ -148,7 +148,7 @@ internal sealed partial class DisplayNamesConstructor : Constructor
 
         // Validate localeMatcher option
         var optionsObj = IntlUtilities.CoerceOptionsToObject(_engine, options);
-        GetStringOption(optionsObj, "localeMatcher", LocaleMatcherValues, "best fit");
+        GetStringOption(optionsObj, "localeMatcher", in LocaleMatcherValues, "best fit");
 
         List<JsValue> supported = [];
         foreach (var locale in requestedLocales)

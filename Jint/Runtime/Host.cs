@@ -61,7 +61,7 @@ public class Host
             // argument handling). _isStrict is assigned after this runs, so read Options directly.
             strict: Engine.Options.Strict);
 
-        Engine.EnterExecutionContext(newContext);
+        Engine.EnterExecutionContext(in newContext);
     }
 
     internal virtual GlobalEnvironment CreateGlobalEnvironment(ObjectInstance globalObject)

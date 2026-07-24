@@ -504,7 +504,7 @@ public static class AstExtensions
     /// </summary>
     internal static Node CreateLocationNode(in SourceLocation location)
     {
-        return new MinimalSyntaxElement(location);
+        return new MinimalSyntaxElement(in location);
     }
 
     /// <summary>

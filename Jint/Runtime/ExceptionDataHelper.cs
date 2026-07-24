@@ -29,7 +29,7 @@ internal static class ExceptionDataHelper
 
             if (!data.Contains(JintExceptionDataKeys.Location))
             {
-                data[JintExceptionDataKeys.Location] = JintExceptionLocation.FromSourceLocation(location);
+                data[JintExceptionDataKeys.Location] = JintExceptionLocation.FromSourceLocation(in location);
             }
 
             if (!data.Contains(JintExceptionDataKeys.CallStack))

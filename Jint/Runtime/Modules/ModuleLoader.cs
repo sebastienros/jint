@@ -19,7 +19,7 @@ public abstract class ModuleLoader : IModuleLoader
             }
             catch (Exception)
             {
-                Throw.JavaScriptException(engine, $"Could not load module {resolved.ModuleRequest.Specifier}", AstExtensions.DefaultLocation);
+                Throw.JavaScriptException(engine, $"Could not load module {resolved.ModuleRequest.Specifier}", in AstExtensions.DefaultLocation);
                 return default!;
             }
 
@@ -34,7 +34,7 @@ public abstract class ModuleLoader : IModuleLoader
             }
             catch (Exception)
             {
-                Throw.JavaScriptException(engine, $"Could not load module {resolved.ModuleRequest.Specifier}", AstExtensions.DefaultLocation);
+                Throw.JavaScriptException(engine, $"Could not load module {resolved.ModuleRequest.Specifier}", in AstExtensions.DefaultLocation);
                 return default!;
             }
 

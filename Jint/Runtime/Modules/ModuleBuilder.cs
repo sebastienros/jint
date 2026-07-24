@@ -148,7 +148,7 @@ public sealed class ModuleBuilder
         catch (ParseErrorException ex)
         {
             var location = SourceLocation.From(Position.From(ex.LineNumber, ex.Column), Position.From(ex.LineNumber, ex.Column), _specifier);
-            Throw.SyntaxError(_engine.Realm, $"Error while loading module: error in module '{_specifier}': {ex.Error}", location);
+            Throw.SyntaxError(_engine.Realm, $"Error while loading module: error in module '{_specifier}': {ex.Error}", in location);
             return default;
         }
     }

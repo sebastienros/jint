@@ -108,7 +108,7 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
         var optionsObj = IntlUtilities.CoerceOptionsToObject(_engine, options);
 
         // Step 5: Get localeMatcher option first
-        var localeMatcher = GetStringOption(optionsObj, "localeMatcher", LocaleMatcherValues, "best fit") ?? "best fit";
+        var localeMatcher = GetStringOption(optionsObj, "localeMatcher", in LocaleMatcherValues, "best fit") ?? "best fit";
 
         // Resolve locale (uses pre-read localeMatcher)
         var requestedLocales = IntlUtilities.CanonicalizeLocaleList(_engine, locales);
@@ -280,7 +280,7 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
         }
 
         // Step 14: Get hourCycle option
-        var hourCycleOption = GetStringOption(optionsObj, "hourCycle", HourCycleValues, null);
+        var hourCycleOption = GetStringOption(optionsObj, "hourCycle", in HourCycleValues, null);
         string? hourCycle;
 
         if (hourCycleOption != null || hour12.HasValue)
@@ -350,17 +350,17 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
 
         // Step 36: Get component options in order (per Table 7 of ECMA-402)
         // Order: weekday, era, year, month, day, dayPeriod, hour, minute, second, fractionalSecondDigits, timeZoneName
-        var weekday = GetStringOption(optionsObj, "weekday", WeekdayValues, null);
-        var era = GetStringOption(optionsObj, "era", EraValues, null);
-        var year = GetStringOption(optionsObj, "year", YearValues, null);
-        var month = GetStringOption(optionsObj, "month", MonthValues, null);
-        var day = GetStringOption(optionsObj, "day", DayValues, null);
-        var dayPeriod = GetStringOption(optionsObj, "dayPeriod", DayPeriodValues, null);
-        var hour = GetStringOption(optionsObj, "hour", HourValues, null);
-        var minute = GetStringOption(optionsObj, "minute", MinuteValues, null);
-        var second = GetStringOption(optionsObj, "second", SecondValues, null);
+        var weekday = GetStringOption(optionsObj, "weekday", in WeekdayValues, null);
+        var era = GetStringOption(optionsObj, "era", in EraValues, null);
+        var year = GetStringOption(optionsObj, "year", in YearValues, null);
+        var month = GetStringOption(optionsObj, "month", in MonthValues, null);
+        var day = GetStringOption(optionsObj, "day", in DayValues, null);
+        var dayPeriod = GetStringOption(optionsObj, "dayPeriod", in DayPeriodValues, null);
+        var hour = GetStringOption(optionsObj, "hour", in HourValues, null);
+        var minute = GetStringOption(optionsObj, "minute", in MinuteValues, null);
+        var second = GetStringOption(optionsObj, "second", in SecondValues, null);
         var fractionalSecondDigits = GetNumberOption(optionsObj, "fractionalSecondDigits", 1, 3, null);
-        var timeZoneName = GetStringOption(optionsObj, "timeZoneName", TimeZoneNameValues, null);
+        var timeZoneName = GetStringOption(optionsObj, "timeZoneName", in TimeZoneNameValues, null);
 
         // Track whether user explicitly specified any core component option (before defaults are applied).
         // Per spec, era and timeZoneName are supplementary options - they don't participate in
@@ -370,11 +370,11 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
             minute != null || second != null || fractionalSecondDigits != null;
 
         // Step 37: Get formatMatcher option
-        GetStringOption(optionsObj, "formatMatcher", FormatMatcherValues, null);
+        GetStringOption(optionsObj, "formatMatcher", in FormatMatcherValues, null);
 
         // Date/time style options
-        var dateStyle = GetStringOption(optionsObj, "dateStyle", DateStyleValues, null);
-        var timeStyle = GetStringOption(optionsObj, "timeStyle", TimeStyleValues, null);
+        var dateStyle = GetStringOption(optionsObj, "dateStyle", in DateStyleValues, null);
+        var timeStyle = GetStringOption(optionsObj, "timeStyle", in TimeStyleValues, null);
 
         // If dateStyle or timeStyle is specified, component options must NOT be specified
         if (dateStyle != null || timeStyle != null)
@@ -709,7 +709,7 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
 
         // Validate localeMatcher option
         var optionsObj = IntlUtilities.CoerceOptionsToObject(_engine, options);
-        GetStringOption(optionsObj, "localeMatcher", LocaleMatcherValues, fallback: null);
+        GetStringOption(optionsObj, "localeMatcher", in LocaleMatcherValues, fallback: null);
 
         List<JsValue> supported = [];
         foreach (var locale in requestedLocales)

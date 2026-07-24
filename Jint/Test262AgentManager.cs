@@ -225,7 +225,7 @@ internal sealed class Test262AgentManager : IDisposable
                 {
                     ParsingOptions = ScriptParsingOptions.Default with { Tolerant = false },
                 });
-                engine.Execute(script);
+                engine.Execute(in script);
 
                 // Drain the event loop for async agent scripts (e.g., await Atomics.waitAsync).
                 // Without this, the worker thread exits before promise resolutions are processed.

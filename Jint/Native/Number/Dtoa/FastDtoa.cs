@@ -433,7 +433,7 @@ internal sealed class FastDtoa
         var tooHigh = new DiyFp(high.F + unit, high.E);
         // too_low and too_high are guaranteed to lie outside the interval we want the
         // generated number in.
-        var unsafeInterval = DiyFp.Minus(tooHigh, tooLow);
+        var unsafeInterval = DiyFp.Minus(in tooHigh, in tooLow);
         // We now cut the input number into two parts: the integral digits and the
         // fractionals. We will not write any decimal separator though, but adapt
         // kappa instead.
@@ -474,7 +474,7 @@ internal sealed class FastDtoa
                 // that lies within the unsafe interval.
                 return RoundWeed(
                     ref buffer,
-                    DiyFp.Minus(tooHigh, w).F,
+                    DiyFp.Minus(in tooHigh, in w).F,
                     unsafeInterval.F,
                     rest,
                     (ulong) divider << -one.E,
@@ -512,7 +512,7 @@ internal sealed class FastDtoa
             {
                 return RoundWeed(
                     ref buffer,
-                    DiyFp.Minus(tooHigh, w).F * unit,
+                    DiyFp.Minus(in tooHigh, in w).F * unit,
                     unsafeInterval.F,
                     fractionals,
                     one.F,
@@ -664,7 +664,7 @@ internal sealed class FastDtoa
         // In fact: scaled_w - w*10^k < 1ulp (unit in the last place) of scaled_w.
         // In other words: let f = scaled_w.f() and e = scaled_w.e(), then
         //           (f-1) * 2^e < w*10^k < (f+1) * 2^e
-        DiyFp scaledW = DiyFp.Times(w, tenMk);
+        DiyFp scaledW = DiyFp.Times(in w, in tenMk);
         Debug.Assert(scaledW.E ==
                      boundaryPlus.E + tenMk.E + DiyFp.KSignificandSize);
         // In theory it would be possible to avoid some recomputations by computing
@@ -672,8 +672,8 @@ internal sealed class FastDtoa
         // compute scaled_boundary_minus/plus by subtracting/adding from
         // scaled_w. However the code becomes much less readable and the speed
         // enhancements are not terriffic.
-        DiyFp scaledBoundaryMinus = DiyFp.Times(boundaryMinus, tenMk);
-        DiyFp scaledBoundaryPlus = DiyFp.Times(boundaryPlus, tenMk);
+        DiyFp scaledBoundaryMinus = DiyFp.Times(in boundaryMinus, in tenMk);
+        DiyFp scaledBoundaryPlus = DiyFp.Times(in boundaryPlus, in tenMk);
 
         // DigitGen will generate the digits of scaled_w. Therefore we have
         // v == (double) (scaled_w * 10^-mk).
@@ -682,7 +682,7 @@ internal sealed class FastDtoa
         // the buffer will be filled with "123" und the decimal_exponent will be
         // decreased by 2.
         int kappa;
-        var digitGen = DigitGen(scaledBoundaryMinus, scaledW, scaledBoundaryPlus, ref buffer, mk, out kappa);
+        var digitGen = DigitGen(in scaledBoundaryMinus, in scaledW, in scaledBoundaryPlus, ref buffer, mk, out kappa);
         decimal_exponent = -mk + kappa;
         return digitGen;
     }
@@ -719,14 +719,14 @@ internal sealed class FastDtoa
         // In fact: scaled_w - w*10^k < 1ulp (unit in the last place) of scaled_w.
         // In other words: let f = scaled_w.f() and e = scaled_w.e(), then
         //           (f-1) * 2^e < w*10^k < (f+1) * 2^e
-        DiyFp scaled_w = DiyFp.Times(w, ten_mk);
+        DiyFp scaled_w = DiyFp.Times(in w, in ten_mk);
 
         // We now have (double) (scaled_w * 10^-mk).
         // DigitGen will generate the first requested_digits digits of scaled_w and
         // return together with a kappa such that scaled_w ~= buffer * 10^kappa. (It
         // will not always be exactly the same since DigitGenCounted only produces a
         // limited number of digits.)
-        bool result = DigitGenCounted(scaled_w, requested_digits, ref buffer, out var kappa);
+        bool result = DigitGenCounted(in scaled_w, requested_digits, ref buffer, out var kappa);
         decimal_exponent = -mk + kappa;
         return result;
     }

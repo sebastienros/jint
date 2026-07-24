@@ -86,6 +86,9 @@ dotnet_diagnostic.MA0212.severity = warning
 # MA0089: Optimize string method usage (e.g. char separators/args over single-char strings)
 dotnet_diagnostic.MA0089.severity = warning
 
+# MA0209: Use 'in' keyword for readonly struct parameters passed by value
+dotnet_diagnostic.MA0209.severity = warning
+
 # Sort using and Import directives with System.* appearing first
 dotnet_sort_system_directives_first = true
 dotnet_separate_import_directive_groups = false

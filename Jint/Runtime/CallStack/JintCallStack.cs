@@ -56,8 +56,8 @@ internal sealed class JintCallStack
 
     public int Push(Function function, JintExpression? expression, in ExecutionContext executionContext)
     {
-        var item = new CallStackElement(function, expression, new CallStackExecutionContext(executionContext));
-        _stack.Push(item);
+        var item = new CallStackElement(function, expression, new CallStackExecutionContext(in executionContext));
+        _stack.Push(in item);
         if (_statistics is not null)
         {
 #pragma warning disable CA1854
@@ -191,7 +191,7 @@ internal sealed class JintCallStack
         var element = index >= 0 ? frames[index] : (CallStackElement?) null;
         var shortDescription = element?.ToString() ?? "";
 
-        AppendLocation(ref builder, shortDescription, location, element, customCallStackBuilder);
+        AppendLocation(ref builder, shortDescription, in location, in element, customCallStackBuilder);
 
         location = element?.Location ?? default;
         index--;
@@ -201,7 +201,7 @@ internal sealed class JintCallStack
             element = index >= 0 ? frames[index] : null;
             shortDescription = element?.ToString() ?? "";
 
-            AppendLocation(ref builder, shortDescription, location, element, customCallStackBuilder);
+            AppendLocation(ref builder, shortDescription, in location, in element, customCallStackBuilder);
 
             location = element?.Location ?? default;
             index--;

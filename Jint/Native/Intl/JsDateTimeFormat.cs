@@ -605,7 +605,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         try
         {
             var isoDate = new IsoDate(originalYear ?? dateTime.Year, dateTime.Month, dateTime.Day);
-            var calDate = NonIsoCalendars.IsoToCalendarDate(Calendar, isoDate);
+            var calDate = NonIsoCalendars.IsoToCalendarDate(Calendar, in isoDate);
             year = calDate.Year;
             month = calDate.Month;
             day = calDate.Day;

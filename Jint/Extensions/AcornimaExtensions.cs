@@ -48,7 +48,7 @@ internal static class AcornimaExtensions
         }
         catch (Exception)
         {
-            Throw.JavaScriptException(engine, $"Could not load module {source}", AstExtensions.DefaultLocation);
+            Throw.JavaScriptException(engine, $"Could not load module {source}", in AstExtensions.DefaultLocation);
             return default;
         }
     }

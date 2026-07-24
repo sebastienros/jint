@@ -97,14 +97,14 @@ internal static class RegExpParseCache
 
         if (compilation == RegexCompilation.Compiled)
         {
-            return _cache.TryGetValue(compiledKey, out var cached) ? cached.Result : Adapt(compiledKey);
+            return _cache.TryGetValue(compiledKey, out var cached) ? cached.Result : Adapt(in compiledKey);
         }
 
         var interpretedKey = compiledKey with { Compiled = false };
 
         if (compilation == RegexCompilation.Interpreted)
         {
-            return _cache.TryGetValue(interpretedKey, out var cached) ? cached.Result : Adapt(interpretedKey);
+            return _cache.TryGetValue(interpretedKey, out var cached) ? cached.Result : Adapt(in interpretedKey);
         }
 
         // RegexCompilation.Adaptive
@@ -122,7 +122,7 @@ internal static class RegExpParseCache
 
             // Repeated construction of the same pattern: reuse is proven, so the one-time compilation cost
             // is amortized from here on. Upgrade and drop the now-redundant interpreted entry.
-            var result = Adapt(compiledKey);
+            var result = Adapt(in compiledKey);
             if (!result.Success)
             {
                 // Shouldn't happen (the same pattern already adapted successfully), but never trade a
@@ -134,7 +134,7 @@ internal static class RegExpParseCache
             return result;
         }
 
-        return Adapt(interpretedKey);
+        return Adapt(in interpretedKey);
     }
 
     private static RegExpParseResult Adapt(in Key key)
@@ -152,7 +152,7 @@ internal static class RegExpParseCache
                 _cache.Clear();
             }
 
-            _cache.TryAdd(key, new Entry(result));
+            _cache.TryAdd(key, new Entry(in result));
         }
 
         return result;

@@ -1243,7 +1243,7 @@ internal sealed partial class RegExpPrototype : Prototype
             R.Set(JsRegExp.PropertyLastIndex, e, true);
         }
 
-        return CreateReturnValueArrayFromCustom(R, result, s, hasIndices);
+        return CreateReturnValueArrayFromCustom(R, in result, s, hasIndices);
     }
 
     /// <summary>
@@ -1402,7 +1402,7 @@ internal sealed partial class RegExpPrototype : Prototype
         }
 
         // B.2.4 Update legacy RegExp static properties
-        UpdateLegacyStaticPropertiesFromCustom(engine, result, s, actualGroupCount);
+        UpdateLegacyStaticPropertiesFromCustom(engine, in result, s, actualGroupCount);
 
         return array;
     }

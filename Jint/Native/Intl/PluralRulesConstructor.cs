@@ -68,14 +68,14 @@ internal sealed partial class PluralRulesConstructor : Constructor
         var resolvedLocale = ResolvePluralRulesLocale(_engine, availableLocales, requestedLocales, optionsObj);
 
         // Get type option
-        var type = GetStringOption(optionsObj, "type", TypeValues, "cardinal");
+        var type = GetStringOption(optionsObj, "type", in TypeValues, "cardinal");
 
         // Read notation option
-        var notation = GetStringOption(optionsObj, "notation", NotationValues, "standard");
+        var notation = GetStringOption(optionsObj, "notation", in NotationValues, "standard");
 
         // Read compactDisplay option (always read for option-validation/observable-getter order, but
         // only retained as [[CompactDisplay]] when notation is "compact").
-        var compactDisplay = GetStringOption(optionsObj, "compactDisplay", CompactDisplayValues, "short");
+        var compactDisplay = GetStringOption(optionsObj, "compactDisplay", in CompactDisplayValues, "short");
 
         // Digit options - must be read in spec order (SetNumberFormatDigitOptions)
         var minimumIntegerDigits = GetNumberOption(optionsObj, "minimumIntegerDigits", 1, 21, 1);
@@ -114,9 +114,9 @@ internal sealed partial class PluralRulesConstructor : Constructor
 
         // Rounding options (in spec order)
         var roundingIncrement = GetNumberOption(optionsObj, "roundingIncrement", 1, 5000, 1);
-        var roundingMode = GetStringOption(optionsObj, "roundingMode", RoundingModeValues, "halfExpand");
-        var roundingPriority = GetStringOption(optionsObj, "roundingPriority", RoundingPriorityValues, "auto");
-        var trailingZeroDisplay = GetStringOption(optionsObj, "trailingZeroDisplay", TrailingZeroDisplayValues, "auto");
+        var roundingMode = GetStringOption(optionsObj, "roundingMode", in RoundingModeValues, "halfExpand");
+        var roundingPriority = GetStringOption(optionsObj, "roundingPriority", in RoundingPriorityValues, "auto");
+        var trailingZeroDisplay = GetStringOption(optionsObj, "trailingZeroDisplay", in TrailingZeroDisplayValues, "auto");
 
         // Get CultureInfo for the locale
         var culture = IntlUtilities.GetCultureInfo(resolvedLocale) ?? CultureInfo.InvariantCulture;
@@ -211,7 +211,7 @@ internal sealed partial class PluralRulesConstructor : Constructor
 
         // Validate localeMatcher option
         var optionsObj = IntlUtilities.CoerceOptionsToObject(_engine, options);
-        GetStringOption(optionsObj, "localeMatcher", LocaleMatcherValues, "best fit");
+        GetStringOption(optionsObj, "localeMatcher", in LocaleMatcherValues, "best fit");
 
         List<JsValue> supported = [];
         foreach (var locale in requestedLocales)

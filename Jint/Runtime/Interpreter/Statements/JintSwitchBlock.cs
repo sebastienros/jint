@@ -47,7 +47,7 @@ internal sealed class JintSwitchBlock
         for (var i = 0; i < temp.Length; i++)
         {
             var clause = temp[i];
-            if (clause.TestRange is { } testRange && JintStatement.IsNodeInsideRange(suspensionNode, testRange))
+            if (clause.TestRange is { } testRange && JintStatement.IsNodeInsideRange(suspensionNode, in testRange))
             {
                 return Execute(
                     context,
@@ -58,7 +58,7 @@ internal sealed class JintSwitchBlock
                     initialValue: suspendData?.AccumulatedValue ?? JsValue.Undefined);
             }
 
-            if (JintStatement.IsNodeInsideRange(suspensionNode, clause.Range))
+            if (JintStatement.IsNodeInsideRange(suspensionNode, in clause.Range))
             {
                 return Execute(
                     context,

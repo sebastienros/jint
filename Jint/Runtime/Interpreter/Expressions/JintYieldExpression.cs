@@ -50,7 +50,7 @@ internal sealed class JintYieldExpression : JintExpression
                 if (generator._resumeCompletionType == CompletionType.Throw)
                 {
                     generator._resumeCompletionType = CompletionType.Normal; // Reset for future
-                    Throw.JavaScriptException(context.Engine, returnValue, AstExtensions.DefaultLocation);
+                    Throw.JavaScriptException(context.Engine, returnValue, in AstExtensions.DefaultLocation);
                 }
 
                 // If we're resuming with a Return completion, signal return request
@@ -103,7 +103,7 @@ internal sealed class JintYieldExpression : JintExpression
                 if (asyncGenerator._resumeCompletionType == CompletionType.Throw)
                 {
                     asyncGenerator._resumeCompletionType = CompletionType.Normal;
-                    Throw.JavaScriptException(context.Engine, returnValue, AstExtensions.DefaultLocation);
+                    Throw.JavaScriptException(context.Engine, returnValue, in AstExtensions.DefaultLocation);
                 }
 
                 // If this was a Return completion from the inner iterator,
@@ -136,7 +136,7 @@ internal sealed class JintYieldExpression : JintExpression
                 if (asyncGenerator._resumeCompletionType == CompletionType.Throw)
                 {
                     asyncGenerator._resumeCompletionType = CompletionType.Normal;
-                    Throw.JavaScriptException(context.Engine, returnValue, AstExtensions.DefaultLocation);
+                    Throw.JavaScriptException(context.Engine, returnValue, in AstExtensions.DefaultLocation);
                 }
 
                 // If we're resuming with a Return completion, signal return request.

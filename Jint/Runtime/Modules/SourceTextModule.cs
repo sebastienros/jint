@@ -290,7 +290,7 @@ internal class SourceTextModule : CyclicModule
         var moduleContext = new ExecutionContext(this, _environment, _environment, null, realm, null, strict: true);
         _context = moduleContext;
 
-        _engine.EnterExecutionContext(_context);
+        _engine.EnterExecutionContext(in _context);
 
         var hoistingScope = HoistingScope.GetModuleLevelDeclarations(_source);
 
@@ -369,7 +369,7 @@ internal class SourceTextModule : CyclicModule
         if (!_hasTLA)
         {
             var result = Completion.Empty();
-            _engine.EnterExecutionContext(moduleContext);
+            _engine.EnterExecutionContext(in moduleContext);
             try
             {
                 var statementList = new JintStatementList(statement: null, _source.Body);
@@ -392,7 +392,7 @@ internal class SourceTextModule : CyclicModule
             // https://tc39.es/ecma262/#sec-source-text-module-record-execute-module
             // Top-Level Await: execute module asynchronously. Module code is always strict; the
             // moduleContext (and the async context derived from it) carries strict:true.
-            _engine.EnterExecutionContext(moduleContext);
+            _engine.EnterExecutionContext(in moduleContext);
 
             // Create the statement list and async instance once, reuse for resumption
             if (_tlaStatementList is null)
@@ -418,7 +418,7 @@ internal class SourceTextModule : CyclicModule
 
             // Replace the current execution context with the updated one
             _engine.LeaveExecutionContext();
-            _engine.EnterExecutionContext(asyncContext);
+            _engine.EnterExecutionContext(in asyncContext);
 
             // Create evaluation context
             var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);

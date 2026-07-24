@@ -44,7 +44,7 @@ public sealed class ShadowRealm : ObjectInstance
         }
 
         var callerRealm = _engine.Realm;
-        return PerformShadowRealmEval(preparedScript, callerRealm);
+        return PerformShadowRealmEval(in preparedScript, callerRealm);
     }
 
     public JsValue ImportValue(string specifier, string exportName)
@@ -135,7 +135,7 @@ public sealed class ShadowRealm : ObjectInstance
 
         _engine._host.EnsureCanCompileStrings(callerRealm, evalRealm);
 
-        return PerformShadowRealmEvalInternal(preparedScript, callerRealm);
+        return PerformShadowRealmEvalInternal(in preparedScript, callerRealm);
     }
 
     internal JsValue PerformShadowRealmEvalInternal(in Prepared<Script> preparedScript, Realm callerRealm)
@@ -165,7 +165,7 @@ public sealed class ShadowRealm : ObjectInstance
         // If runningContext is not already suspended, suspend runningContext.
 
         var evalContext = new ExecutionContext(null, lexEnv, varEnv, null, evalRealm, null, parserOptions: preparedScript.ParserOptions, strict: strictEval);
-        _engine.EnterExecutionContext(evalContext);
+        _engine.EnterExecutionContext(in evalContext);
 
         Completion result;
         try
@@ -287,7 +287,7 @@ public sealed class ShadowRealm : ObjectInstance
         // var runningContext = _engine.ExecutionContext;
         // 4. If runningContext is not already suspended, suspend runningContext.
 
-        _engine.EnterExecutionContext(_executionContext);
+        _engine.EnterExecutionContext(in _executionContext);
         try
         {
             _engine._host.LoadImportedModule(null, new ModuleRequest(specifierString, []), innerCapability);

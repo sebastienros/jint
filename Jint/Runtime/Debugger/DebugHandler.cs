@@ -169,7 +169,7 @@ public class DebugHandler
             return;
         }
 
-        var args = new ExceptionThrownEventArgs(_engine, thrownValue, location);
+        var args = new ExceptionThrownEventArgs(_engine, thrownValue, in location);
         ExceptionThrown.Invoke(_engine, args);
     }
 
@@ -206,7 +206,7 @@ public class DebugHandler
         var functionBodyEnd = bodyLocation.End;
         var location = SourceLocation.From(functionBodyEnd, functionBodyEnd, bodyLocation.SourceFile);
 
-        CheckBreakPointAndPause(node: null, location, returnValue);
+        CheckBreakPointAndPause(node: null, in location, returnValue);
     }
 
     private void CheckBreakPointAndPause(
@@ -242,7 +242,7 @@ public class DebugHandler
             pauseType = PauseType.Skip;
         }
 
-        Pause(pauseType, node, location, returnValue, breakPoint);
+        Pause(pauseType, node, in location, returnValue, breakPoint);
 
         _paused = false;
     }
@@ -257,7 +257,7 @@ public class DebugHandler
         var info = new DebugInformation(
             engine: _engine,
             currentNode: node,
-            currentLocation: location,
+            currentLocation: in location,
             returnValue: returnValue,
             currentMemoryUsage: _engine.CurrentMemoryUsage,
             pauseType: type,

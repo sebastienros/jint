@@ -53,7 +53,7 @@ public sealed class ShadowRealmConstructor : Constructor
                     // strict-correct contexts. Mirror the host realm's default strictness.
                     strict: engine.Options.Strict);
 
-                return new ShadowRealm(engine, context, realmRec);
+                return new ShadowRealm(engine, in context, realmRec);
             },
             realmRec);
 

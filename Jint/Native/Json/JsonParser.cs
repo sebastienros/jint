@@ -987,7 +987,7 @@ public sealed class JsonParser
             if (!digitLeading)
             {
                 Key key = name;
-                if (obj.ShapeOf.TryGetSlot(key, out var slot))
+                if (obj.ShapeOf.TryGetSlot(in key, out var slot))
                 {
                     // Duplicate key: last value wins at the first occurrence's position, matching the
                     // dictionary representation's replace-in-place.
@@ -995,7 +995,7 @@ public sealed class JsonParser
                     return;
                 }
 
-                if (obj.TryShapeAdd(key, value, out var created))
+                if (obj.TryShapeAdd(in key, value, out var created))
                 {
                     if (created)
                     {

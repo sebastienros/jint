@@ -250,7 +250,7 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
         _currentPromiseCapability = promiseCapability;
 
         var genContext = _asyncGeneratorContext;
-        _engine.EnterExecutionContext(genContext);
+        _engine.EnterExecutionContext(in genContext);
 
         var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
         Completion result;
@@ -471,7 +471,7 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
         _asyncGeneratorState = AsyncGeneratorState.Executing;
 
         // Resume execution - enter the generator context and continue
-        _engine.EnterExecutionContext(_asyncGeneratorContext);
+        _engine.EnterExecutionContext(in _asyncGeneratorContext);
 
         try
         {

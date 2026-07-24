@@ -162,7 +162,7 @@ internal sealed class MethodInfoFunction : Function
             // single candidate, no overload resolution needed - bind directly and skip scoring
             var method = _methods[0];
             var parameterInfos = method.Parameters;
-            var arguments = ArgumentProvider(method, state);
+            var arguments = ArgumentProvider(method, in state);
             if (arguments.Length <= parameterInfos.Length
                 && arguments.Length >= parameterInfos.Length - method.ParameterDefaultValuesCount
                 && CanBindNullArguments(parameterInfos, arguments))
@@ -212,7 +212,7 @@ internal sealed class MethodInfoFunction : Function
         }
         else
         {
-            foreach (var (method, arguments, _) in InteropHelper.FindBestMatch(_engine, _methods, static (method, state) => ArgumentProvider(method, state), state))
+            foreach (var (method, arguments, _) in InteropHelper.FindBestMatch(_engine, _methods, static (method, state) => ArgumentProvider(method, in state), state))
             {
                 if (TryCall(method, arguments, thisObj, converter, out var result))
                 {

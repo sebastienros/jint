@@ -33,7 +33,7 @@ public partial class Engine
     /// <returns>The resolved value if the result is a promise, otherwise the direct result.</returns>
     public Task<JsValue> EvaluateAsync(in Prepared<Script> preparedScript, CancellationToken cancellationToken = default)
     {
-        var result = Evaluate(preparedScript);
+        var result = Evaluate(in preparedScript);
         return UnwrapResultAsync(result, cancellationToken);
     }
 
