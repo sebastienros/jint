@@ -43,7 +43,13 @@ public sealed class BindFunction : ObjectInstance, IConstructor, ICallable
 
     JsValue ICallable.Call(JsValue thisObject, params JsCallArguments arguments)
     {
-        var f = BoundTargetFunction as Function;
+        // Per https://tc39.es/ecma262/#sec-bound-function-exotic-objects-call-thisargument-argumentslist
+        // the [[BoundTargetFunction]] only needs to be callable — it is not necessarily a
+        // Function instance. Binding an already-bound function produces a BindFunction whose
+        // target is another BindFunction (an ObjectInstance, not a Function), which a
+        // Function-only cast rejected — making `f.bind(a).bind(b)()` throw where the spec
+        // (and every other engine) calls through.
+        var f = BoundTargetFunction as ICallable;
         if (f is null)
         {
             Throw.TypeError(_realm, "Bind must be called on a function");
@@ -79,7 +85,16 @@ public sealed class BindFunction : ObjectInstance, IConstructor, ICallable
 
     internal override bool OrdinaryHasInstance(JsValue v)
     {
-        var f = BoundTargetFunction as Function;
+        // Per https://tc39.es/ecma262/#sec-instanceofoperator a bound function delegates
+        // instanceof to its [[BoundTargetFunction]], which may itself be a bound function —
+        // follow the chain to the underlying function.
+        var target = BoundTargetFunction;
+        while (target is BindFunction nested)
+        {
+            target = nested.BoundTargetFunction;
+        }
+
+        var f = target as Function;
         if (f is null)
         {
             Throw.TypeError(_realm, "Right-hand side of 'instanceof' is not callable");
