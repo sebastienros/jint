@@ -78,6 +78,11 @@ dotnet_diagnostic.MA0025.severity = none
 #  Error MA0091 : Sender parameter should be 'this' for instance events
 dotnet_diagnostic.MA0091.severity = none
 
+# --- Performance rules promoted above their (disabled/info) defaults ---
+
+# MA0212: Use MemoryMarshal.GetReference instead of indexing at 0 (disabled by default; regression guardrail)
+dotnet_diagnostic.MA0212.severity = warning
+
 # Sort using and Import directives with System.* appearing first
 dotnet_sort_system_directives_first = true
 dotnet_separate_import_directive_groups = false

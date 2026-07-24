@@ -4,6 +4,7 @@ using System.Linq;
 using System.Numerics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Jint.Extensions;
 using Jint.Native;
 using Jint.Native.Object;
@@ -547,9 +548,12 @@ internal abstract class JintBinaryExpression : JintExpression
             var negated = _negated;
 
             // the first term seeds the accumulator (never negated in a left-deep chain) — seeding
-            // with +0 would inject a phantom term and lose a -0 sum's sign
-            if (!TryReadLeaf(ref leaves[0], engine, env, out var seedLeft)
-                || !TryReadLeaf(ref leaves[1], engine, env, out var seedRight))
+            // with +0 would inject a phantom term and lose a -0 sum's sign.
+            // The lane always carries at least the two seed leaves, so take a bounds-check-free
+            // reference to element 0 (MA0212) and reach element 1 through Unsafe.Add.
+            ref var seedLeaf = ref MemoryMarshal.GetReference(leaves.AsSpan());
+            if (!TryReadLeaf(ref seedLeaf, engine, env, out var seedLeft)
+                || !TryReadLeaf(ref Unsafe.Add(ref seedLeaf, 1), engine, env, out var seedRight))
             {
                 return false;
             }
