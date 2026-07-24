@@ -105,7 +105,7 @@ public partial class Engine
         {
             var parsedModule = moduleBuilder.Parse();
             var hasTopLevelAwait = HoistingScope.HasTopLevelAwait(parsedModule.Program!);
-            var module = new BuilderModule(_engine, _engine.Realm, parsedModule, location: parsedModule.Program!.Location.SourceFile, async: hasTopLevelAwait);
+            var module = new BuilderModule(_engine, _engine.Realm, in parsedModule, location: parsedModule.Program!.Location.SourceFile, async: hasTopLevelAwait);
             _modules[cacheKey] = module;
             moduleBuilder.BindExportedValues(module);
             _builders.Remove(specifier);
@@ -225,7 +225,7 @@ public partial class Engine
                     ? cyclicModuleRecord.AbnormalCompletionLocation
                     : SourceLocation.From(new Position(), new Position());
 
-                var node = AstExtensions.CreateLocationNode(location);
+                var node = AstExtensions.CreateLocationNode(in location);
                 Throw.JavaScriptException(_engine, promise.Value, node.Location);
             }
             else if (promise.State != PromiseState.Fulfilled)

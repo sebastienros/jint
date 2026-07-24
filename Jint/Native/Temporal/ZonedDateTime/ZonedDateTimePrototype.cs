@@ -159,7 +159,7 @@ internal sealed partial class ZonedDateTimePrototype : Prototype
     {
         var zdt = ValidateZonedDateTime(thisObject);
         var date = zdt.GetIsoDateTime().Date;
-        return JsNumber.Create(TemporalHelpers.CalendarDayOfYear(zdt.Calendar, date, _engine));
+        return JsNumber.Create(TemporalHelpers.CalendarDayOfYear(zdt.Calendar, in date, _engine));
     }
 
     [JsAccessor("weekOfYear")]

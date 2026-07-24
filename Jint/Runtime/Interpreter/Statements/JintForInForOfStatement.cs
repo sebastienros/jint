@@ -274,7 +274,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         }
 
         var iteratorKind = _iterationKind == IterationKind.AsyncIterate ? IteratorKind.Async : IteratorKind.Sync;
-        return BodyEvaluation(context, _expr, _body, keyResult!, _iterationKind, _lhsKind, suspendData, resuming, iteratorKind);
+        return BodyEvaluation(context, _expr, in _body, keyResult!, _iterationKind, _lhsKind, suspendData, resuming, iteratorKind);
     }
 
     /// <summary>
@@ -1249,7 +1249,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         // BodyEvaluation's `v` init).
         suspendable.Data.Clear(this);
         var carrier = new ForOfSuspendData { Iterator = iteratorRecord, AccumulatedValue = v };
-        return BodyEvaluation(context, _expr, _body, iteratorRecord, _iterationKind, _lhsKind, carrier, resuming: false, iteratorKind);
+        return BodyEvaluation(context, _expr, in _body, iteratorRecord, _iterationKind, _lhsKind, carrier, resuming: false, iteratorKind);
     }
 
     /// <summary>

@@ -109,8 +109,8 @@ internal sealed class LocaleConstructor : Constructor
         var calendar = GetUnicodeExtensionOption(optionsObj, "calendar", parsedLocale.Calendar);
         var collation = GetUnicodeExtensionOption(optionsObj, "collation", parsedLocale.Collation);
         var firstDayOfWeek = GetFirstDayOfWeekOption(optionsObj, parsedLocale.FirstDayOfWeek);
-        var hourCycle = GetOptionString(optionsObj, "hourCycle", parsedLocale.HourCycle, HourCycleValues);
-        var caseFirst = GetOptionString(optionsObj, "caseFirst", parsedLocale.CaseFirst, CaseFirstValues);
+        var hourCycle = GetOptionString(optionsObj, "hourCycle", parsedLocale.HourCycle, in HourCycleValues);
+        var caseFirst = GetOptionString(optionsObj, "caseFirst", parsedLocale.CaseFirst, in CaseFirstValues);
         var numericValue = IntlUtilities.GetOption(_engine, optionsObj, "numeric", IntlUtilities.OptionType.Boolean, null, JsValue.Undefined);
         bool? numeric = numericValue.IsUndefined() ? parsedLocale.Numeric : TypeConverter.ToBoolean(numericValue);
         var numberingSystem = GetUnicodeExtensionOption(optionsObj, "numberingSystem", parsedLocale.NumberingSystem);

@@ -225,7 +225,7 @@ internal sealed class JintAwaitExpression : JintExpression
         asyncInstance._state = AsyncFunctionState.Executing;
         asyncInstance._isResuming = true;
 
-        engine.EnterExecutionContext(asyncInstance._savedContext);
+        engine.EnterExecutionContext(in asyncInstance._savedContext);
 
         var context = engine._activeEvaluationContext ?? new EvaluationContext(engine);
 

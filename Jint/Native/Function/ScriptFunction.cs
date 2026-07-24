@@ -177,7 +177,7 @@ public sealed class ScriptFunction : Function, IConstructor
             // so debug mode always binds.
             if (!state.CanSkipThisBinding || _engine._isDebugMode)
             {
-                OrdinaryCallBindThis(calleeContext, thisObject);
+                OrdinaryCallBindThis(in calleeContext, thisObject);
             }
 
             // actual call
@@ -195,7 +195,7 @@ public sealed class ScriptFunction : Function, IConstructor
 
             if (result.Type == CompletionType.Throw)
             {
-                Throw.JavaScriptException(_engine, result.Value, result);
+                Throw.JavaScriptException(_engine, result.Value, in result);
             }
 
             // The DebugHandler needs the current execution context before the return for stepping through the return point
@@ -290,7 +290,7 @@ public sealed class ScriptFunction : Function, IConstructor
 
             if (result.Type == CompletionType.Throw)
             {
-                Throw.JavaScriptException(engine, result.Value, result);
+                Throw.JavaScriptException(engine, result.Value, in result);
             }
 
             return result.Type == CompletionType.Return ? result.Value : Undefined;
@@ -381,7 +381,7 @@ public sealed class ScriptFunction : Function, IConstructor
         {
             if (kind == ConstructorKind.Base)
             {
-                OrdinaryCallBindThis(calleeContext, thisArgument);
+                OrdinaryCallBindThis(in calleeContext, thisArgument);
                 ((ObjectInstance) thisArgument).InitializeInstanceElements(this);
             }
 
@@ -424,7 +424,7 @@ public sealed class ScriptFunction : Function, IConstructor
             }
             else if (result.Type == CompletionType.Throw)
             {
-                Throw.JavaScriptException(_engine, result.Value, result);
+                Throw.JavaScriptException(_engine, result.Value, in result);
             }
         }
         finally

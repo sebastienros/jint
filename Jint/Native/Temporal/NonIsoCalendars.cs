@@ -81,17 +81,17 @@ internal static class NonIsoCalendars
         {
             return calendar switch
             {
-                "chinese" => LunisolarToCalendarDate(ChineseCal, isoDate),
-                "dangi" => LunisolarToCalendarDate(DangiCal, isoDate),
-                "hebrew" => HebrewToCalendarDate(isoDate),
-                "persian" => PersianToCalendarDate(isoDate),
-                "coptic" => FixedEpochToCalendarDate(CopticEpochDays, isoDate),
-                "ethiopic" => FixedEpochToCalendarDate(EthiopicEpochDays, isoDate),
-                "ethioaa" => FixedEpochToCalendarDate(EthioAAEpochDays, isoDate),
-                "indian" => IndianToCalendarDate(isoDate),
-                "islamic-umalqura" => IslamicUmalquraToCalendarDate(isoDate),
-                "islamic-civil" => IslamicCivilToCalendarDate(isoDate, 1948439L),
-                "islamic-tbla" => IslamicCivilToCalendarDate(isoDate, 1948438L),
+                "chinese" => LunisolarToCalendarDate(ChineseCal, in isoDate),
+                "dangi" => LunisolarToCalendarDate(DangiCal, in isoDate),
+                "hebrew" => HebrewToCalendarDate(in isoDate),
+                "persian" => PersianToCalendarDate(in isoDate),
+                "coptic" => FixedEpochToCalendarDate(CopticEpochDays, in isoDate),
+                "ethiopic" => FixedEpochToCalendarDate(EthiopicEpochDays, in isoDate),
+                "ethioaa" => FixedEpochToCalendarDate(EthioAAEpochDays, in isoDate),
+                "indian" => IndianToCalendarDate(in isoDate),
+                "islamic-umalqura" => IslamicUmalquraToCalendarDate(in isoDate),
+                "islamic-civil" => IslamicCivilToCalendarDate(in isoDate, 1948439L),
+                "islamic-tbla" => IslamicCivilToCalendarDate(in isoDate, 1948438L),
                 _ => throw new NotSupportedException($"Calendar '{calendar}' not supported by NonIsoCalendars")
             };
         }
@@ -176,21 +176,21 @@ internal static class NonIsoCalendars
         // or Indian calendar, handle them directly
         if (calendar is "coptic" or "ethiopic" or "ethioaa")
         {
-            return FixedEpochCalendarDateAdd(calendar, isoDate, years, months, overflow);
+            return FixedEpochCalendarDateAdd(calendar, in isoDate, years, months, overflow);
         }
 
         if (calendar is "indian")
         {
-            return IndianCalendarDateAdd(isoDate, years, months, overflow);
+            return IndianCalendarDateAdd(in isoDate, years, months, overflow);
         }
 
         if (calendar is "islamic-civil" or "islamic-tbla" or "islamic-umalqura")
         {
-            return IslamicTabularCalendarDateAdd(calendar, isoDate, years, months, overflow);
+            return IslamicTabularCalendarDateAdd(calendar, in isoDate, years, months, overflow);
         }
 
         var cal = GetCalendar(calendar);
-        var calDate = IsoToCalendarDate(calendar, isoDate);
+        var calDate = IsoToCalendarDate(calendar, in isoDate);
         var newYear = calDate.Year + years;
         int newOrdinalMonth;
 
@@ -316,8 +316,8 @@ internal static class NonIsoCalendars
         // Spec convention: sign = +1 if two > one (forward), -1 if backward.
         var sign = -rawSign;
 
-        var calOne = IsoToCalendarDate(calendar, one);
-        var calTwo = IsoToCalendarDate(calendar, two);
+        var calOne = IsoToCalendarDate(calendar, in one);
+        var calTwo = IsoToCalendarDate(calendar, in two);
 
         var years = 0;
         var diffYears = calTwo.Year - calOne.Year;
@@ -340,8 +340,8 @@ internal static class NonIsoCalendars
             // day-overflow within the same year boundary all flow through this check.
             if (years != 0)
             {
-                var check = CalendarDateAdd(calendar, one, years, 0, "constrain");
-                var checkCal = IsoToCalendarDate(calendar, check);
+                var check = CalendarDateAdd(calendar, in one, years, 0, "constrain");
+                var checkCal = IsoToCalendarDate(calendar, in check);
                 var notional = checkCal.Day != calOne.Day ? calOne.Day : checkCal.Day;
                 var ccd = CompareCalendarFields(calTwo.Year, calTwo.MonthCode, calTwo.Day, checkCal.Year, checkCal.MonthCode, notional);
                 if (ccd * sign < 0)
@@ -365,15 +365,15 @@ internal static class NonIsoCalendars
         }
 
         var currentIso = years != 0 || months != 0
-            ? CalendarDateAdd(calendar, one, years, months, "constrain")
+            ? CalendarDateAdd(calendar, in one, years, months, "constrain")
             : one;
 
         while (true)
         {
             var prevMonths = months;
             months += sign;
-            var nextIso = CalendarDateAdd(calendar, one, years, months, "constrain");
-            var nextCal = IsoToCalendarDate(calendar, nextIso);
+            var nextIso = CalendarDateAdd(calendar, in one, years, months, "constrain");
+            var nextCal = IsoToCalendarDate(calendar, in nextIso);
             // Un-constrain the day in calendar-field space: if AddCalendar forced day down
             // to fit the target month, we still want to consider "next" as standing at the
             // source's original day for comparison (matches polyfill behavior).
@@ -1487,14 +1487,14 @@ internal static class NonIsoCalendars
         // we cannot construct a DateTime at all, so route directly to the algorithmic path.
         if (isoDate.Year < 1 || isoDate.Year > 9999)
         {
-            return HebrewAlgorithmicFromIso(isoDate);
+            return HebrewAlgorithmicFromIso(in isoDate);
         }
 
         var dt = new DateTime(isoDate.Year, isoDate.Month, isoDate.Day);
 
         if (dt < cal.MinSupportedDateTime || dt > cal.MaxSupportedDateTime)
         {
-            return HebrewAlgorithmicFromIso(isoDate);
+            return HebrewAlgorithmicFromIso(in isoDate);
         }
 
         var year = cal.GetYear(dt);
@@ -1763,14 +1763,14 @@ internal static class NonIsoCalendars
 
         if (isoDate.Year < 1 || isoDate.Year > 9999)
         {
-            return PersianAlgorithmicFromIso(isoDate);
+            return PersianAlgorithmicFromIso(in isoDate);
         }
 
         var dt = new DateTime(isoDate.Year, isoDate.Month, isoDate.Day);
 
         if (dt < cal.MinSupportedDateTime || dt > cal.MaxSupportedDateTime)
         {
-            return PersianAlgorithmicFromIso(isoDate);
+            return PersianAlgorithmicFromIso(in isoDate);
         }
 
         var year = cal.GetYear(dt);
@@ -2418,7 +2418,7 @@ internal static class NonIsoCalendars
     /// </summary>
     private static IsoDate IndianCalendarDateAdd(in IsoDate isoDate, int years, int months, string overflow)
     {
-        var calDate = IndianToCalendarDate(isoDate);
+        var calDate = IndianToCalendarDate(in isoDate);
         var newYear = calDate.Year + years;
         var newMonth = calDate.Month;
 
@@ -2531,7 +2531,7 @@ internal static class NonIsoCalendars
         // outer catch return ISO-like fields.
         if (isoDate.Year < 1 || isoDate.Year > 9999)
         {
-            return IslamicCivilToCalendarDate(isoDate);
+            return IslamicCivilToCalendarDate(in isoDate);
         }
 
         var dt = new DateTime(isoDate.Year, isoDate.Month, isoDate.Day);
@@ -2551,7 +2551,7 @@ internal static class NonIsoCalendars
         }
 
         // Fall back to islamic-civil algorithm for dates outside UmAlQura range
-        return IslamicCivilToCalendarDate(isoDate);
+        return IslamicCivilToCalendarDate(in isoDate);
     }
 
     /// <summary>
@@ -2863,7 +2863,7 @@ internal static class NonIsoCalendars
     /// </summary>
     private static IsoDate IslamicTabularCalendarDateAdd(string calendar, in IsoDate isoDate, int years, int months, string overflow)
     {
-        var calDate = IsoToCalendarDate(calendar, isoDate);
+        var calDate = IsoToCalendarDate(calendar, in isoDate);
         var newYear = calDate.Year + years;
         var newMonth = calDate.Month;
 

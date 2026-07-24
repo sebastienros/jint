@@ -338,7 +338,7 @@ public sealed class EvalFunction : Function
 
             if (result.Type == CompletionType.Throw)
             {
-                Throw.JavaScriptException(_engine, value, result);
+                Throw.JavaScriptException(_engine, value, in result);
                 return null!;
             }
 

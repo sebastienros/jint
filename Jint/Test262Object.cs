@@ -38,7 +38,7 @@ internal static class Test262Object
                     ParsingOptions = ScriptParsingOptions.Default with { Tolerant = false, RetainFunctionSourceText = true },
                 });
 
-                return engine.Evaluate(script);
+                return engine.Evaluate(in script);
             }), true, true, true));
 
         o.FastSetProperty("createRealm", new PropertyDescriptor(new ClrFunction(engine, "createRealm",
@@ -99,10 +99,10 @@ internal static class Test262Object
             // The harness scripts pushed via engine.Evaluate below carry their own strictness.
             strict: false);
 
-        engine.EnterExecutionContext(context);
+        engine.EnterExecutionContext(in context);
         try
         {
-            return engine.Evaluate(script);
+            return engine.Evaluate(in script);
         }
         finally
         {

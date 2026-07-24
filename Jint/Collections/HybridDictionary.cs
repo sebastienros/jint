@@ -206,7 +206,7 @@ internal sealed class HybridDictionary<TValue> : IEngineDictionary<Key, TValue>,
     {
         if (_dictionary != null)
         {
-            _dictionary.AddDangerous(key, value);
+            _dictionary.AddDangerous(in key, value);
         }
         else
         {

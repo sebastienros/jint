@@ -383,12 +383,12 @@ public sealed partial class Engine : IDisposable
             null,
             strict: strict);
 
-        _executionContexts.Push(context);
+        _executionContexts.Push(in context);
     }
 
     internal void EnterExecutionContext(in ExecutionContext context)
     {
-        _executionContexts.Push(context);
+        _executionContexts.Push(in context);
     }
 
     /// <summary>
@@ -547,7 +547,7 @@ public sealed partial class Engine : IDisposable
     /// Evaluates code and returns last return value.
     /// </summary>
     public JsValue Evaluate(in Prepared<Script> preparedScript)
-        => ExecuteForCompletion(preparedScript);
+        => ExecuteForCompletion(in preparedScript);
 
     /// <summary>
     /// Executes code into engine and returns the engine instance (useful for chaining).
@@ -579,7 +579,7 @@ public sealed partial class Engine : IDisposable
     /// </summary>
     public Engine Execute(in Prepared<Script> preparedScript)
     {
-        ExecuteForCompletion(preparedScript);
+        ExecuteForCompletion(in preparedScript);
         return this;
     }
 
@@ -620,7 +620,7 @@ public sealed partial class Engine : IDisposable
             parserOptions: parserOptions,
             strict: _isStrict || scriptRecord.EcmaScriptCode.Strict);
 
-        EnterExecutionContext(scriptContext);
+        EnterExecutionContext(in scriptContext);
         try
         {
             var script = scriptRecord.EcmaScriptCode;

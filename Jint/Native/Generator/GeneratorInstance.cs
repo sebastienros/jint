@@ -186,7 +186,7 @@ internal sealed class GeneratorInstance : ObjectInstance, ISuspendable
         _suspendedValue = null;
 
         var context = _engine._activeEvaluationContext;
-        return ResumeExecution(genContext, context ?? new EvaluationContext(_engine));
+        return ResumeExecution(in genContext, context ?? new EvaluationContext(_engine));
     }
 
     /// <summary>
@@ -208,7 +208,7 @@ internal sealed class GeneratorInstance : ObjectInstance, ISuspendable
                 return new IteratorResult(_engine, abruptCompletion.Value, JsBoolean.True);
             }
 
-            Throw.JavaScriptException(_engine, abruptCompletion.Value, AstExtensions.DefaultLocation);
+            Throw.JavaScriptException(_engine, abruptCompletion.Value, in AstExtensions.DefaultLocation);
         }
 
         var genContext = _generatorContext;
@@ -232,13 +232,13 @@ internal sealed class GeneratorInstance : ObjectInstance, ISuspendable
         _suspendedValue = null;
 
         var context = _engine._activeEvaluationContext;
-        return ResumeExecution(genContext, context ?? new EvaluationContext(_engine));
+        return ResumeExecution(in genContext, context ?? new EvaluationContext(_engine));
     }
 
     private ObjectInstance ResumeExecution(in ExecutionContext genContext, EvaluationContext context)
     {
         _generatorState = GeneratorState.Executing;
-        _engine.EnterExecutionContext(genContext);
+        _engine.EnterExecutionContext(in genContext);
 
         Completion result;
         try
@@ -293,7 +293,7 @@ internal sealed class GeneratorInstance : ObjectInstance, ISuspendable
         if (result.Type == CompletionType.Throw)
         {
             _generatorState = GeneratorState.Completed;
-            Throw.JavaScriptException(_engine, result.Value, result);
+            Throw.JavaScriptException(_engine, result.Value, in result);
         }
 
         return resultValue!;

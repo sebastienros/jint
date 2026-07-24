@@ -735,7 +735,7 @@ internal sealed class ClassDefinition
         public ClassFieldFunction(Expression expression) : base(NodeType.ExpressionStatement)
         {
             var nodeList = NodeList.From<Statement>(new ReturnStatement(expression));
-            _statement = new FunctionBody(nodeList, strict: true);
+            _statement = new FunctionBody(in nodeList, strict: true);
         }
 
         protected override object Accept(AstVisitor visitor) => throw new NotImplementedException();

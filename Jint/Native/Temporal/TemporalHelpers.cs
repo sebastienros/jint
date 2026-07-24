@@ -2014,7 +2014,7 @@ internal static class TemporalHelpers
 
         if (NonIsoCalendars.IsNonIsoCalendar(calendar))
         {
-            return NonIsoCalendars.IsoToCalendarDate(calendar, isoDate, engine).Year;
+            return NonIsoCalendars.IsoToCalendarDate(calendar, in isoDate, engine).Year;
         }
 
         return isoDate.Year;
@@ -2032,7 +2032,7 @@ internal static class TemporalHelpers
 
         if (NonIsoCalendars.IsNonIsoCalendar(calendar))
         {
-            return NonIsoCalendars.IsoToCalendarDate(calendar, isoDate, engine).Month;
+            return NonIsoCalendars.IsoToCalendarDate(calendar, in isoDate, engine).Month;
         }
 
         return isoDate.Month;
@@ -2050,7 +2050,7 @@ internal static class TemporalHelpers
 
         if (NonIsoCalendars.IsNonIsoCalendar(calendar))
         {
-            return NonIsoCalendars.IsoToCalendarDate(calendar, isoDate, engine).MonthCode;
+            return NonIsoCalendars.IsoToCalendarDate(calendar, in isoDate, engine).MonthCode;
         }
 
         return $"M{isoDate.Month:D2}";
@@ -2068,7 +2068,7 @@ internal static class TemporalHelpers
 
         if (NonIsoCalendars.IsNonIsoCalendar(calendar))
         {
-            return NonIsoCalendars.IsoToCalendarDate(calendar, isoDate, engine).Day;
+            return NonIsoCalendars.IsoToCalendarDate(calendar, in isoDate, engine).Day;
         }
 
         return isoDate.Day;
@@ -2090,7 +2090,7 @@ internal static class TemporalHelpers
 
         if (NonIsoCalendars.IsNonIsoCalendar(calendar))
         {
-            var calDate = NonIsoCalendars.IsoToCalendarDate(calendar, isoDate, engine);
+            var calDate = NonIsoCalendars.IsoToCalendarDate(calendar, in isoDate, engine);
             var firstOfMonth = NonIsoCalendars.CalendarDateToIso(calendar, calDate.Year, calDate.MonthCode, calDate.Month, 1, "constrain", engine);
             if (firstOfMonth is not null)
             {
@@ -2117,7 +2117,7 @@ internal static class TemporalHelpers
 
         if (NonIsoCalendars.IsNonIsoCalendar(calendar))
         {
-            var calDate = NonIsoCalendars.IsoToCalendarDate(calendar, isoDate, engine);
+            var calDate = NonIsoCalendars.IsoToCalendarDate(calendar, in isoDate, engine);
             // Find the first day of the calendar year
             var firstDay = NonIsoCalendars.CalendarDateToIso(calendar, calDate.Year, "M01", 0, 1, "constrain", engine);
             if (firstDay is not null)
@@ -2143,7 +2143,7 @@ internal static class TemporalHelpers
 
         if (NonIsoCalendars.IsNonIsoCalendar(calendar))
         {
-            return NonIsoCalendars.IsoToCalendarDate(calendar, isoDate, engine).DaysInMonth;
+            return NonIsoCalendars.IsoToCalendarDate(calendar, in isoDate, engine).DaysInMonth;
         }
 
         return isoDate.DaysInMonth();
@@ -2161,7 +2161,7 @@ internal static class TemporalHelpers
 
         if (NonIsoCalendars.IsNonIsoCalendar(calendar))
         {
-            return NonIsoCalendars.IsoToCalendarDate(calendar, isoDate, engine).DaysInYear;
+            return NonIsoCalendars.IsoToCalendarDate(calendar, in isoDate, engine).DaysInYear;
         }
 
         return isoDate.DaysInYear();
@@ -2179,7 +2179,7 @@ internal static class TemporalHelpers
 
         if (NonIsoCalendars.IsNonIsoCalendar(calendar))
         {
-            return NonIsoCalendars.IsoToCalendarDate(calendar, isoDate, engine).MonthsInYear;
+            return NonIsoCalendars.IsoToCalendarDate(calendar, in isoDate, engine).MonthsInYear;
         }
 
         return 12;
@@ -2197,7 +2197,7 @@ internal static class TemporalHelpers
 
         if (NonIsoCalendars.IsNonIsoCalendar(calendar))
         {
-            return NonIsoCalendars.IsoToCalendarDate(calendar, isoDate, engine).InLeapYear;
+            return NonIsoCalendars.IsoToCalendarDate(calendar, in isoDate, engine).InLeapYear;
         }
 
         return IsoDate.IsLeapYear(isoDate.Year);
@@ -2210,7 +2210,7 @@ internal static class TemporalHelpers
     {
         if (calendar is "japanese")
         {
-            return JapaneseEra(isoDate);
+            return JapaneseEra(in isoDate);
         }
 
         if (IsGregorianBasedCalendar(calendar))
@@ -2220,8 +2220,8 @@ internal static class TemporalHelpers
 
         if (NonIsoCalendars.IsNonIsoCalendar(calendar))
         {
-            var calDate = NonIsoCalendars.IsoToCalendarDate(calendar, isoDate);
-            return NonIsoCalendars.CalendarEra(calendar, calDate);
+            var calDate = NonIsoCalendars.IsoToCalendarDate(calendar, in isoDate);
+            return NonIsoCalendars.CalendarEra(calendar, in calDate);
         }
 
         return CalendarEra(calendar, isoDate.Year);
@@ -2234,7 +2234,7 @@ internal static class TemporalHelpers
     {
         if (calendar is "japanese")
         {
-            return JapaneseEraYear(isoDate);
+            return JapaneseEraYear(in isoDate);
         }
 
         if (IsGregorianBasedCalendar(calendar))
@@ -2244,8 +2244,8 @@ internal static class TemporalHelpers
 
         if (NonIsoCalendars.IsNonIsoCalendar(calendar))
         {
-            var calDate = NonIsoCalendars.IsoToCalendarDate(calendar, isoDate);
-            return NonIsoCalendars.CalendarEraYear(calendar, calDate);
+            var calDate = NonIsoCalendars.IsoToCalendarDate(calendar, in isoDate);
+            return NonIsoCalendars.CalendarEraYear(calendar, in calDate);
         }
 
         return CalendarEraYear(calendar, isoDate.Year);
@@ -2276,7 +2276,7 @@ internal static class TemporalHelpers
 
     private static int JapaneseEraYear(in IsoDate d)
     {
-        var era = JapaneseEra(d);
+        var era = JapaneseEra(in d);
         return era switch
         {
             "reiwa" => d.Year - 2018,
@@ -2739,7 +2739,7 @@ internal static class TemporalHelpers
             try
             {
                 // Add years and months using calendar-specific reckoning
-                var result = NonIsoCalendars.CalendarDateAdd(calendar, isoDate, (int) duration.Years, (int) duration.Months, overflow);
+                var result = NonIsoCalendars.CalendarDateAdd(calendar, in isoDate, (int) duration.Years, (int) duration.Months, overflow);
 
                 // Add weeks and days using ISO arithmetic
                 var days = duration.Days + 7 * duration.Weeks;
@@ -6830,7 +6830,7 @@ internal static class TemporalHelpers
         {
             if (NonIsoCalendars.IsNonIsoCalendar(calendar))
             {
-                return NonIsoCalendars.CalendarDateUntil(calendar, one, two, largestUnit);
+                return NonIsoCalendars.CalendarDateUntil(calendar, in one, in two, largestUnit);
             }
 
             throw new NotSupportedException($"Calendar '{calendar}' not yet supported");

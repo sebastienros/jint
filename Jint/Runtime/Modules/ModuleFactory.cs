@@ -45,7 +45,7 @@ public static class ModuleFactory
         }
 
         var hasTopLevelAwait = HoistingScope.HasTopLevelAwait(preparedModule.Program!);
-        return new SourceTextModule(engine, engine.Realm, preparedModule, preparedModule.Program!.Location.SourceFile, isAsync: hasTopLevelAwait);
+        return new SourceTextModule(engine, engine.Realm, in preparedModule, preparedModule.Program!.Location.SourceFile, isAsync: hasTopLevelAwait);
     }
 
     /// <summary>

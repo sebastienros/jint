@@ -393,7 +393,7 @@ internal sealed class InteropHelper
 
         public static MethodMatches Empty => default;
 
-        public static MethodMatches Single(in MethodMatch match) => new(match, list: null, hasSingle: true);
+        public static MethodMatches Single(in MethodMatch match) => new(in match, list: null, hasSingle: true);
 
         public static MethodMatches Sorted(List<MethodMatch> list) => new(default, list, hasSingle: false);
 
@@ -407,7 +407,7 @@ internal sealed class InteropHelper
             return _list is { Count: > 0 } ? _list[0] : default;
         }
 
-        public Enumerator GetEnumerator() => new(this);
+        public Enumerator GetEnumerator() => new(in this);
 
         internal struct Enumerator
         {

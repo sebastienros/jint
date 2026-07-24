@@ -57,13 +57,13 @@ internal sealed partial class ListFormatConstructor : Constructor
 
         // Per ECMA-402 13.1.1: Get options in the correct order
         // Step 8: localeMatcher
-        var localeMatcher = GetStringOption(optionsObj, "localeMatcher", LocaleMatcherValues, "best fit");
+        var localeMatcher = GetStringOption(optionsObj, "localeMatcher", in LocaleMatcherValues, "best fit");
 
         // Step 10: type
-        var type = GetStringOption(optionsObj, "type", TypeValues, "conjunction");
+        var type = GetStringOption(optionsObj, "type", in TypeValues, "conjunction");
 
         // Step 12: style
-        var style = GetStringOption(optionsObj, "style", StyleValues, "long");
+        var style = GetStringOption(optionsObj, "style", in StyleValues, "long");
 
         // Resolve locale (don't re-read localeMatcher from options)
         var requestedLocales = IntlUtilities.CanonicalizeLocaleList(_engine, locales);
@@ -121,7 +121,7 @@ internal sealed partial class ListFormatConstructor : Constructor
 
         // Validate localeMatcher option
         var optionsObj = IntlUtilities.CoerceOptionsToObject(_engine, options);
-        GetStringOption(optionsObj, "localeMatcher", LocaleMatcherValues, "best fit");
+        GetStringOption(optionsObj, "localeMatcher", in LocaleMatcherValues, "best fit");
 
         List<JsValue> supported = [];
         foreach (var locale in requestedLocales)

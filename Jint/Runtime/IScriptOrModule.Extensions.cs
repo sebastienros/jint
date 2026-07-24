@@ -8,7 +8,7 @@ internal static class ScriptOrModuleExtensions
     {
         if (scriptOrModule is not Module module)
         {
-            Throw.SyntaxError(engine.Realm, "Cannot use import/export statements outside a module", location);
+            Throw.SyntaxError(engine.Realm, "Cannot use import/export statements outside a module", in location);
             return default!;
         }
         return module;

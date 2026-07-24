@@ -56,7 +56,7 @@ internal sealed class JintRegExpEngine
     /// </summary>
     public RegExpMatchResult Execute(string input, int startIndex, long deadline = NoDeadline)
     {
-        var captures = RegExpInterpreter.Execute(_bytecode, input, startIndex, _scanInfo, deadline);
+        var captures = RegExpInterpreter.Execute(_bytecode, input, startIndex, in _scanInfo, deadline);
         if (captures is null)
         {
             return RegExpMatchResult.NoMatch;
@@ -68,7 +68,7 @@ internal sealed class JintRegExpEngine
     /// <summary>Test if the regex matches the input string. See <see cref="Execute"/> for <paramref name="deadline"/>.</summary>
     public bool IsMatch(string input, int startIndex = 0, long deadline = NoDeadline)
     {
-        return RegExpInterpreter.ExecuteIsMatch(_bytecode, input, startIndex, _scanInfo, deadline);
+        return RegExpInterpreter.ExecuteIsMatch(_bytecode, input, startIndex, in _scanInfo, deadline);
     }
 
     private RegExpMatchResult BuildResult(string input, int[] captures)

@@ -347,7 +347,7 @@ internal sealed class JintObjectExpression : JintExpression
             shape = engine.GetEmptyShape(proto);
             for (var i = 0; i < keys.Length; i++)
             {
-                shape = shape.Add(keys[i]);
+                shape = shape.Add(in keys[i]);
             }
 
             _cachedShape = shape;

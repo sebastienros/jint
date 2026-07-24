@@ -503,7 +503,7 @@ public abstract partial class Function : ObjectInstance, ICallable
         // NOTE: Any exception objects produced after this point are associated with calleeRealm.
         // Return calleeContext.
 
-        _engine.EnterExecutionContext(calleeContext);
+        _engine.EnterExecutionContext(in calleeContext);
         return ref _engine.ExecutionContext;
     }
 

@@ -152,7 +152,7 @@ public sealed class JsObject : ObjectInstance
     /// so the caller deopts to the dictionary representation. The key must be known-absent (callers check).
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal bool TryShapeAdd(in Key key, JsValue value) => TryShapeAdd(key, value, out _);
+    internal bool TryShapeAdd(in Key key, JsValue value) => TryShapeAdd(in key, value, out _);
 
     /// <summary>
     /// Same as <see cref="TryShapeAdd(in Key, JsValue)"/>, additionally reporting whether the shape
@@ -187,7 +187,7 @@ public sealed class JsObject : ObjectInstance
             WriteOverflowUnchecked(_overflow, overflowIndex, value);
         }
 
-        _shape = shape.Add(key, out created);
+        _shape = shape.Add(in key, out created);
         unchecked { _propertiesVersion++; }
         return true;
     }

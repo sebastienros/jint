@@ -84,7 +84,7 @@ internal sealed partial class CollatorConstructor : Constructor
         var optionsObj = IntlUtilities.CoerceOptionsToObject(_engine, options);
 
         // Validate localeMatcher option first (must be done before other processing)
-        GetStringOption(optionsObj, "localeMatcher", LocaleMatcherValues, "best fit");
+        GetStringOption(optionsObj, "localeMatcher", in LocaleMatcherValues, "best fit");
 
         // Resolve locale
         var requestedLocales = IntlUtilities.CanonicalizeLocaleList(_engine, locales);
@@ -101,7 +101,7 @@ internal sealed partial class CollatorConstructor : Constructor
         }
 
         // Get options (options override unicode extensions)
-        var usage = GetStringOption(optionsObj, "usage", UsageValues, "sort");
+        var usage = GetStringOption(optionsObj, "usage", in UsageValues, "sort");
         var sensitivity = GetSensitivity(optionsObj);
         var collation = GetCollationOption(optionsObj, uCollation, resolvedLocale);
         var numeric = GetNumericOption(optionsObj, uNumeric);
@@ -422,7 +422,7 @@ internal sealed partial class CollatorConstructor : Constructor
 
         // Validate localeMatcher option
         var optionsObj = IntlUtilities.CoerceOptionsToObject(_engine, options);
-        GetStringOption(optionsObj, "localeMatcher", LocaleMatcherValues, "best fit");
+        GetStringOption(optionsObj, "localeMatcher", in LocaleMatcherValues, "best fit");
 
         // For now, return all requested locales that are available
         List<JsValue> supported = [];

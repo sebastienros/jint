@@ -41,7 +41,7 @@ internal sealed class DisposableStack : ObjectInstance
         var completion = _disposeCapability.DisposeResources(new Completion(CompletionType.Normal, Undefined, _engine.GetLastSyntaxElement()));
         if (completion.Type == CompletionType.Throw)
         {
-            Throw.JavaScriptException(_engine, completion.Value, completion);
+            Throw.JavaScriptException(_engine, completion.Value, in completion);
         }
         return completion.Value;
     }

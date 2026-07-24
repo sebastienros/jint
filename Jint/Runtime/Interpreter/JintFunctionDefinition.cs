@@ -214,7 +214,7 @@ internal sealed class JintFunctionDefinition
         // Step 5: "Push asyncContext onto the execution context stack"
         // We leave the old context and push the new one (equivalent to spec's push operation)
         engine.LeaveExecutionContext();
-        engine.EnterExecutionContext(asyncContext);
+        engine.EnterExecutionContext(in asyncContext);
 
         // Step 6: "Resume the suspended evaluation of asyncContext"
         // Perform AsyncBlockStart to begin executing the async function body

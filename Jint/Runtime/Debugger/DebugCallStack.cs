@@ -14,13 +14,13 @@ public sealed class DebugCallStack : IReadOnlyList<CallFrame>
         var executionContext = new CallStackExecutionContext(engine.ExecutionContext);
         foreach (var element in callStack.Stack)
         {
-            _stack.Add(new CallFrame(element, executionContext, location, returnValue));
+            _stack.Add(new CallFrame(element, in executionContext, in location, returnValue));
             location = element.Location;
             returnValue = null;
             executionContext = element.CallingExecutionContext;
         }
         // Add root location
-        _stack.Add(new CallFrame(null, executionContext, location, returnValue: null));
+        _stack.Add(new CallFrame(null, in executionContext, in location, returnValue: null));
     }
 
     public CallFrame this[int index] => _stack[index];

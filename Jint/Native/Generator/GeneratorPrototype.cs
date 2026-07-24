@@ -53,7 +53,7 @@ internal sealed partial class GeneratorPrototype : BuiltinShapeObject
     {
         var g = AssertGeneratorInstance(thisObject);
         var C = new Completion(CompletionType.Return, value, null!);
-        return g.GeneratorResumeAbrupt(C, null);
+        return g.GeneratorResumeAbrupt(in C, null);
     }
 
     /// <summary>
@@ -64,7 +64,7 @@ internal sealed partial class GeneratorPrototype : BuiltinShapeObject
     {
         var g = AssertGeneratorInstance(thisObject);
         var C = new Completion(CompletionType.Throw, exception, null!);
-        return g.GeneratorResumeAbrupt(C, null);
+        return g.GeneratorResumeAbrupt(in C, null);
     }
 
     private GeneratorInstance AssertGeneratorInstance(JsValue thisObj)

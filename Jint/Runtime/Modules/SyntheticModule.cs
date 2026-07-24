@@ -52,7 +52,7 @@ internal sealed class SyntheticModule : Module
             strict: true);
 
         // 7.Suspend the currently running execution context.
-        _engine.EnterExecutionContext(moduleContext);
+        _engine.EnterExecutionContext(in moduleContext);
 
         _environment.SetMutableBinding(KnownKeys.Default, _obj, strict: true);
 

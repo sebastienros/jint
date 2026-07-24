@@ -129,7 +129,7 @@ internal static class RegExpInterpreter
 
         try
         {
-            int ret = ExecBacktrack(bc, input, capture, cindex, captureCount, isUnicode, scanInfo, deadline);
+            int ret = ExecBacktrack(bc, input, capture, cindex, captureCount, isUnicode, in scanInfo, deadline);
 
             int[]? result = null;
             if (ret == 1)
@@ -187,7 +187,7 @@ internal static class RegExpInterpreter
 
         try
         {
-            return ExecBacktrack(bc, input, capture, cindex, captureCount, isUnicode, scanInfo, deadline) == 1;
+            return ExecBacktrack(bc, input, capture, cindex, captureCount, isUnicode, in scanInfo, deadline) == 1;
         }
         finally
         {
@@ -946,7 +946,7 @@ internal static class RegExpInterpreter
             }
             else
             {
-                int pos = FindScanChar(input, cindex, effectiveScanInfo);
+                int pos = FindScanChar(input, cindex, in effectiveScanInfo);
                 if (pos < 0)
                 {
                     ReturnStack(stackPooled);
@@ -1766,7 +1766,7 @@ noMatch:
                             return 0;
                         }
 
-                        int nextPos = FindScanChar(input, nextStart, effectiveScanInfo);
+                        int nextPos = FindScanChar(input, nextStart, in effectiveScanInfo);
                         if (nextPos < 0)
                         {
                             return 0;

@@ -1172,7 +1172,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             if ((_type & InternalTypes.ShapeMode) != InternalTypes.Empty)
             {
                 var jo = Unsafe.As<JsObject>(this);
-                if (jo.ShapeOf.TryGetSlot(key, out var slot))
+                if (jo.ShapeOf.TryGetSlot(in key, out var slot))
                 {
                     jo.SetSlot(slot, value); // shape-mode properties are always writable (CEW)
                     return true;
@@ -2071,7 +2071,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             if ((_type & InternalTypes.ShapeMode) != InternalTypes.Empty)
             {
                 var jo = Unsafe.As<JsObject>(this);
-                if (jo.ShapeOf.TryGetSlot(key, out var slot))
+                if (jo.ShapeOf.TryGetSlot(in key, out var slot))
                 {
                     // Existing CEW data property: CreateDataProperty just updates the value (spec: a CEW
                     // DefineOwnProperty overwrite — last value wins, first-occurrence position kept). This
@@ -2094,7 +2094,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                 // they take the dictionary fallback below instead.
                 if ((_type & InternalTypes.ShapeBuilding) != InternalTypes.Empty
                     && (key.Name.Length == 0 || !char.IsDigit(key.Name[0]))
-                    && jo.TryShapeAdd(key, v))
+                    && jo.TryShapeAdd(in key, v))
                 {
                     return true;
                 }

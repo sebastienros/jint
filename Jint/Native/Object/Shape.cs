@@ -89,7 +89,7 @@ internal sealed class Shape
     /// with the same key return the same instance, so identical layouts share their whole chain.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal Shape Add(in Key key) => Add(key, out _);
+    internal Shape Add(in Key key) => Add(in key, out _);
 
     /// <summary>
     /// Same as <see cref="Add(in Key)"/>, additionally reporting whether a new transition node was
@@ -101,7 +101,7 @@ internal sealed class Shape
         var transitions = _transitions ??= new Dictionary<Key, Shape>();
         if (!transitions.TryGetValue(key, out var child))
         {
-            child = new Shape(this, key);
+            child = new Shape(this, in key);
             transitions[key] = child;
             created = true;
         }

@@ -25,7 +25,7 @@ internal static class Throw
     [DoesNotReturn]
     public static void SyntaxError(Realm realm, string message, in SourceLocation location)
     {
-        throw CreateSyntaxError(realm, message).SetJavaScriptLocation(location);
+        throw CreateSyntaxError(realm, message).SetJavaScriptLocation(in location);
     }
 
     public static JavaScriptException CreateSyntaxError(Realm realm, string? message)
@@ -62,7 +62,7 @@ internal static class Throw
     public static void ReferenceError(Realm realm, string? message)
     {
         var location = realm.GlobalObject.Engine.GetLastSyntaxElement()?.Location ?? default;
-        throw new JavaScriptException(realm.Intrinsics.ReferenceError, message).SetJavaScriptLocation(location);
+        throw new JavaScriptException(realm.Intrinsics.ReferenceError, message).SetJavaScriptLocation(in location);
     }
 
     [DoesNotReturn]
@@ -81,7 +81,7 @@ internal static class Throw
     public static void TypeError(Realm realm, string? message = null)
     {
         var location = realm.GlobalObject.Engine.GetLastSyntaxElement()?.Location ?? default;
-        throw new JavaScriptException(realm.Intrinsics.TypeError, message).SetJavaScriptLocation(location);
+        throw new JavaScriptException(realm.Intrinsics.TypeError, message).SetJavaScriptLocation(in location);
     }
 
     /// <summary>
@@ -121,14 +121,14 @@ internal static class Throw
             decorator(engine, error, new ClrResolutionErrorInfo(clrType, memberName, arguments, candidates));
         }
 
-        throw new JavaScriptException(error).SetJavaScriptLocation(location);
+        throw new JavaScriptException(error).SetJavaScriptLocation(in location);
     }
 
     [DoesNotReturn]
     public static void RangeError(Realm realm, string? message = null)
     {
         var location = realm.GlobalObject.Engine.GetLastSyntaxElement()?.Location ?? default;
-        throw new JavaScriptException(realm.Intrinsics.RangeError, message).SetJavaScriptLocation(location);
+        throw new JavaScriptException(realm.Intrinsics.RangeError, message).SetJavaScriptLocation(in location);
     }
 
     public static ErrorDispatchInfo CreateUriError(Realm realm, string message)
@@ -200,7 +200,7 @@ internal static class Throw
     [DoesNotReturn]
     public static void JavaScriptException(Engine engine, JsValue value, in SourceLocation location)
     {
-        throw new JavaScriptException(value).SetJavaScriptCallstack(engine, location);
+        throw new JavaScriptException(value).SetJavaScriptCallstack(engine, in location);
     }
 
     [DoesNotReturn]
@@ -226,7 +226,7 @@ internal static class Throw
         {
             // overwriteExisting:false preserves a "stack" property a decorator may have written
             // (e.g. copying clrException.StackTrace onto the JS Error).
-            jsException.SetJavaScriptCallstack(engine, location, overwriteExisting: false);
+            jsException.SetJavaScriptCallstack(engine, in location, overwriteExisting: false);
         }
         throw jsException;
     }
