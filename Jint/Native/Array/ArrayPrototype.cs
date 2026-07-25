@@ -1822,6 +1822,14 @@ public sealed partial class ArrayPrototype : ArrayInstance
 
             using var sb = new ValueStringBuilder();
             sb.Append(s);
+
+            // Hoisted out of the loop: the separator is fixed for the whole join, so its emptiness was
+            // being re-decided with a string comparison once per element. A single-character separator
+            // — the default "," and by far the most common — then appends as a char, which keeps it in
+            // a register instead of re-loading the string's length and first character every element.
+            var separatorLength = sep.Length;
+            var singleCharSeparator = separatorLength == 1 ? sep[0] : '\0';
+
             for (uint k = 1; k < len; k++)
             {
                 if (k % ConstraintCheckInterval == 0)
@@ -1829,10 +1837,15 @@ public sealed partial class ArrayPrototype : ArrayInstance
                     _engine.Constraints.Check();
                 }
 
-                if (sep != "")
+                if (separatorLength == 1)
+                {
+                    sb.Append(singleCharSeparator);
+                }
+                else if (separatorLength != 0)
                 {
                     sb.Append(sep);
                 }
+
                 sb.Append(StringFromJsValue(o.Get(k)));
             }
 
