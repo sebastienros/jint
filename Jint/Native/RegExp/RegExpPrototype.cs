@@ -1411,7 +1411,7 @@ internal sealed partial class RegExpPrototype : Prototype
     {
         var constructor = engine.Realm.Intrinsics.RegExp;
         constructor._legacyInput = s;
-        constructor._legacyLastMatch = result.Value;
+        // lastMatch/leftContext/rightContext are all derived from this position on read.
         constructor.SetLegacyContext(s, result.Index, result.Length);
 
         var groups = result.Groups;
@@ -1421,8 +1421,9 @@ internal sealed partial class RegExpPrototype : Prototype
             var groupIndex = i + 1;
             if (groups is not null && groupIndex < actualGroupCount && groups[groupIndex].Success)
             {
-                constructor._legacyParens[i] = groups[groupIndex].Value;
-                lastParen = groups[groupIndex].Value;
+                var groupValue = groups[groupIndex].Value;
+                constructor._legacyParens[i] = groupValue;
+                lastParen = groupValue;
             }
             else
             {
@@ -1479,7 +1480,10 @@ internal sealed partial class RegExpPrototype : Prototype
             var capturedValue = Undefined;
             if (capture?.Success == true)
             {
-                capturedValue = capture.Value;
+                // Capture.Value would copy the captured span out of the subject. CreateSliced lets
+                // its retention policy decide: a capture covering most of a large subject becomes a
+                // zero-copy view, while short captures still copy so they cannot pin the subject.
+                capturedValue = JsString.CreateSliced(s, capture.Index, capture.Length);
             }
 
             if (hasIndices)
@@ -1527,7 +1531,7 @@ internal sealed partial class RegExpPrototype : Prototype
     {
         var constructor = engine.Realm.Intrinsics.RegExp;
         constructor._legacyInput = s;
-        constructor._legacyLastMatch = match.Value;
+        // lastMatch/leftContext/rightContext are all derived from this position on read.
         constructor.SetLegacyContext(s, match.Index, match.Length);
 
         // Update $1-$9
@@ -1537,8 +1541,10 @@ internal sealed partial class RegExpPrototype : Prototype
             var groupIndex = i + 1;
             if (groupIndex < actualGroupCount && match.Groups[groupIndex].Success)
             {
-                constructor._legacyParens[i] = match.Groups[groupIndex].Value;
-                lastParen = match.Groups[groupIndex].Value;
+                // Capture.Value builds a fresh string on every read, so take it once.
+                var groupValue = match.Groups[groupIndex].Value;
+                constructor._legacyParens[i] = groupValue;
+                lastParen = groupValue;
             }
             else
             {
