@@ -104,16 +104,34 @@ internal struct SlotLocationCache
         // the binding. The engine-identity gate stays in front so a cached env from another
         // engine (handler trees shared via Prepared<Script>) is never dereferenced for slots.
         var cached = _cachedSlotEnv;
-        if (cached is not null && ReferenceEquals(cached._engine, engine) && ReferenceEquals(env, cached))
+        if (cached is not null && ReferenceEquals(cached._engine, engine))
         {
-            slotEnv = cached;
-            slotIndex = _cachedSlotIndex;
-            return true;
+            if (ReferenceEquals(env, cached))
+            {
+                slotEnv = cached;
+                slotIndex = _cachedSlotIndex;
+                return true;
+            }
+
+            // Hops 1-3 (a closure read or write of an outer binding) settle inline too when a
+            // chain memo is still valid: that is three reference compares plus an epoch compare,
+            // yet reaching it used to cost two non-inlined calls (TryResolveNonLocal ->
+            // CanReachAtOuterHop). Closure access is pervasive — `ret = str.charAt(0)` inside a
+            // callback resolves two such bindings per statement — so the validated hit belongs on
+            // the inline path next to hop 0. Everything else still falls through to the
+            // authoritative walk below.
+            var memo = _chainMemo;
+            if (memo is not null && MemoStillPins(memo, engine, env, cached))
+            {
+                slotEnv = cached;
+                slotIndex = _cachedSlotIndex;
+                return true;
+            }
         }
 
         // Permanently declined nodes (binding can never be slot-stored) also answer inline:
         // consuming lanes re-ask on every evaluation, so the miss must not pay a call.
-        if (cached is null && _disabled)
+        else if (_disabled)
         {
             slotEnv = null!;
             slotIndex = -1;
@@ -172,34 +190,66 @@ internal struct SlotLocationCache
     /// Because hop 0 failed, the current environment sits BETWEEN the reader and the cached
     /// env and must be probed like any other intermediate before hopping outward. A valid
     /// <see cref="SlotChainMemo"/> answers with reference compares alone (see its remarks for
-    /// why identity + epoch freeze the probe results); everything else takes the walk, which
-    /// re-publishes the memo on success.
+    /// why identity + epoch freeze the probe results) and stays inline; everything else takes
+    /// the out-of-line walk, which re-publishes the memo on success.
     /// </summary>
-    [MethodImpl(MethodImplOptions.NoInlining)]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool CanReachAtOuterHop(Engine engine, Environment env, DeclarativeEnvironment cached, Key key, ref SlotChainMemo? memoSlot)
     {
         var memo = memoSlot;
-        if (memo is not null
-            && ReferenceEquals(env, memo.Start)
-            && engine._envBindingInjectionEpoch == memo.InjectionEpoch)
+        if (memo is not null && MemoStillPins(memo, engine, env, cached))
         {
-            // Re-derive the chain from the CURRENT _outerEnv pointers against the pinned
-            // links: identity per link leaves no room for an inserted environment, and a
-            // pooled link re-attached under a different outer fails here and re-walks.
-            var next = env._outerEnv;
-            if (memo.Next1 is null
-                ? ReferenceEquals(next, cached)
-                : ReferenceEquals(next, memo.Next1)
-                  && (memo.Next2 is null
-                      ? ReferenceEquals(memo.Next1._outerEnv, cached)
-                      : ReferenceEquals(memo.Next1._outerEnv, memo.Next2)
-                        && ReferenceEquals(memo.Next2._outerEnv, cached)))
-            {
-                return true;
-            }
+            return true;
         }
 
         return WalkAndMemoize(engine, env, cached, key, ref memoSlot);
+    }
+
+    /// <summary>
+    /// Whether <paramref name="memo"/> still proves that <paramref name="cached"/> is reachable from
+    /// <paramref name="env"/> with no intermediate owning the name: the start matches, no binding has
+    /// been injected into a pre-existing environment since the walk
+    /// (<see cref="Engine._envBindingInjectionEpoch"/>), and the chain re-derived from the CURRENT
+    /// <c>_outerEnv</c> pointers still matches the pinned links. Identity per link leaves no room for
+    /// an inserted environment, and a pooled link re-attached under a different outer fails here so
+    /// the caller re-walks.
+    /// <para>
+    /// Shared by the inline hit in <see cref="TryResolve"/> and by <see cref="CanReachAtOuterHop"/>
+    /// (the identifier read path calls the latter directly) so the soundness argument has exactly one
+    /// implementation.
+    /// </para>
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool MemoStillPins(SlotChainMemo memo, Engine engine, Environment env, DeclarativeEnvironment cached)
+    {
+        if (!ReferenceEquals(env, memo.Start) || engine._envBindingInjectionEpoch != memo.InjectionEpoch)
+        {
+            return false;
+        }
+
+        // One pinned link per hop: follow the current pointers and require each to still land
+        // where the successful walk found it, terminating at the cached slot environment. A null
+        // link means the walk reached `cached` at that hop, so the chain ends there.
+        var next = env._outerEnv;
+
+        var next1 = memo.Next1;
+        if (next1 is null)
+        {
+            return ReferenceEquals(next, cached);
+        }
+
+        if (!ReferenceEquals(next, next1))
+        {
+            return false;
+        }
+
+        var next2 = memo.Next2;
+        if (next2 is null)
+        {
+            return ReferenceEquals(next1._outerEnv, cached);
+        }
+
+        return ReferenceEquals(next1._outerEnv, next2) && ReferenceEquals(next2._outerEnv, cached);
     }
 
     /// <summary>
