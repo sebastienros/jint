@@ -18,6 +18,7 @@ public sealed class BindFunction : ObjectInstance, IConstructor, ICallable
         JsValue[] boundArgs)
         : base(engine, ObjectClass.Function)
     {
+        _type |= InternalTypes.Callable;
         _realm = realm;
         _prototype = proto;
         BoundTargetFunction = targetFunction;

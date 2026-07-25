@@ -65,7 +65,10 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         ProxyHandler? clrHandler)
         : base(engine, target.Class)
     {
-        _type |= InternalTypes.ExoticGet;
+        // JsProxy always implements ICallable; whether it is *callable* is reported by IsCallable
+        // from the target. The flag mirrors `is ICallable`, so a proxy over a non-callable target
+        // still carries it and still throws from Call, exactly as before.
+        _type |= InternalTypes.ExoticGet | InternalTypes.Callable;
         _target = target;
         _handler = handler;
         _clrHandler = clrHandler;

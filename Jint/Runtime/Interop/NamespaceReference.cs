@@ -24,7 +24,9 @@ public class NamespaceReference : ObjectInstance, ICallable
     {
         // Member access resolves namespace/type segments, not ordinary property lookup, so the
         // prototype-method inline cache must skip this receiver. See InternalTypes.ExoticGet.
-        _type |= InternalTypes.ExoticGet;
+        // Callable: `importNamespace('System.Collections.Generic').List(...)` calls through
+        // ICallable to bind a generic type, so call sites must see this as callable.
+        _type |= InternalTypes.ExoticGet | InternalTypes.Callable;
         _path = path;
     }
 

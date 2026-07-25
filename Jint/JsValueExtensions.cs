@@ -247,6 +247,34 @@ public static class JsValueExtensions
         return (int) ((JsNumber) value)._value;
     }
 
+    /// <summary>
+    /// Reinterprets a value the caller has already proven to be an object with <see cref="IsObject"/>.
+    /// <see cref="InternalTypes.Object"/> is set by <see cref="ObjectInstance"/>'s constructors and
+    /// nowhere else — the same invariant <see cref="IsObject"/> and <see cref="AsObject"/> already rely
+    /// on — so this is exactly as sound as `is ObjectInstance` but costs a flag test instead of a
+    /// <c>CastHelpers.IsInstanceOfClass</c> hierarchy walk. Mirrors <see cref="AsNumber"/>'s shape.
+    /// </summary>
+    [Pure]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static ObjectInstance AsObjectNoTypeCheck(this JsValue value)
+    {
+        Debug.Assert(value.IsObject() && value is ObjectInstance);
+        return Unsafe.As<ObjectInstance>(value);
+    }
+
+    /// <summary>
+    /// Reinterprets a value the caller has already proven to be a string with <see cref="IsString"/>.
+    /// <see cref="InternalTypes.String"/> is set only by <see cref="JsString"/> and its two nested
+    /// subclasses (ConcatenatedString, SlicedString), all of which are <see cref="JsString"/>.
+    /// </summary>
+    [Pure]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static JsString AsStringNoTypeCheck(this JsValue value)
+    {
+        Debug.Assert(value.IsString() && value is JsString);
+        return Unsafe.As<JsString>(value);
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static BigInteger AsBigInt(this JsValue value)
     {

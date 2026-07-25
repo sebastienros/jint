@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Jint.Native;
@@ -74,7 +75,7 @@ internal sealed class JintCallExpression : JintExpression
             {
                 return fastFunc;
             }
-            if (fastFunc is not ICallable)
+            if (!IsCallableFlagged(fastFunc))
             {
                 fastFunc = null;
             }
@@ -175,11 +176,12 @@ internal sealed class JintCallExpression : JintExpression
             ThrowMemberIsNotFunction(referenceRecord, reference, engine);
         }
 
-        var callable = func as ICallable;
-        if (callable is null)
+        if (!IsCallableFlagged(func))
         {
             ThrowReferenceNotFunction(referenceRecord, reference, engine);
         }
+
+        var callable = Unsafe.As<ICallable>(func);
 
         if (tailCall)
         {
@@ -226,6 +228,21 @@ internal sealed class JintCallExpression : JintExpression
 
         engine._referencePool.Return(referenceRecord);
         return result;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="value"/> implements <see cref="ICallable"/>, decided by the
+    /// <see cref="InternalTypes.Callable"/> flag instead of an `is ICallable` interface-map scan.
+    /// Every <see cref="ICallable"/> root sets the flag in its constructor, so the two answers are
+    /// equivalent by construction — asserted here so a future ICallable implementer that forgets
+    /// the flag trips in debug builds rather than silently losing callability.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsCallableFlagged(JsValue value)
+    {
+        var flagged = (value._type & InternalTypes.Callable) != InternalTypes.Empty;
+        Debug.Assert(flagged == value is ICallable, $"InternalTypes.Callable disagrees with `is ICallable` for {value.GetType()}");
+        return flagged;
     }
 
     [DoesNotReturn]

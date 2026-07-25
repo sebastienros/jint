@@ -51,7 +51,15 @@ internal enum InternalTypes
     // to dictionary mode. Mutually exclusive with ShapeMode; lets ObjectInstance's property virtuals
     // discriminate built-in-shape vs dictionary storage with a single flag test on the already-loaded _type.
     BuiltinShapeMode = 524288,
+    // the value implements ICallable. Set by every ICallable root (Function, BindFunction,
+    // IsHTMLDDA, JsProxy) so a call site can decide callability with a flag test on the
+    // already-loaded _type plus an Unsafe.As, instead of an `is ICallable` interface-map scan —
+    // measured at 1.2% of dromaeo-object-string-modern, all of it from JintCallExpression, which
+    // tests it twice per call. Note this is strictly "implements ICallable", NOT "is callable":
+    // a JsProxy over a non-callable target carries the flag and reports IsCallable == false,
+    // matching what `is ICallable` answers today.
+    Callable = 1048576,
 
     Primitive = Boolean | String | Number | Integer | BigInt | Symbol,
-    InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Array | Module | IsHTMLDDA | ShapeMode | ShapeBuilding | ExoticGet | BuiltinShapeMode
+    InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Array | Module | IsHTMLDDA | ShapeMode | ShapeBuilding | ExoticGet | BuiltinShapeMode | Callable
 }

@@ -12,7 +12,7 @@ namespace Jint.Native;
 /// </summary>
 internal sealed class IsHTMLDDA : ObjectInstance, ICallable
 {
-    internal IsHTMLDDA(Engine engine) : base(engine, ObjectClass.Object, InternalTypes.Object | InternalTypes.IsHTMLDDA)
+    internal IsHTMLDDA(Engine engine) : base(engine, ObjectClass.Object, InternalTypes.Object | InternalTypes.IsHTMLDDA | InternalTypes.Callable)
     {
     }
 
