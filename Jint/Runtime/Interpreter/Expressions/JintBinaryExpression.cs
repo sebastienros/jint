@@ -819,7 +819,7 @@ internal abstract class JintBinaryExpression : JintExpression
                 result = new GreaterBinaryExpression(expression);
                 break;
             case Operator.Addition:
-                if (TryBuildStringConcatenation(expression, out var concatExpr))
+                if (TryBuildAdditionChain(expression, out var concatExpr))
                 {
                     return concatExpr;
                 }
@@ -992,10 +992,11 @@ internal abstract class JintBinaryExpression : JintExpression
     };
 
     /// <summary>
-    /// Detects left-recursive chains of '+' operations that include at least one string literal,
-    /// and flattens them into a single StringConcatenationExpression to avoid intermediate allocations.
+    /// Detects left-recursive chains of '+' operations and flattens them into a single
+    /// <see cref="AdditionChainExpression"/>, so a string-producing chain allocates its result once
+    /// instead of materializing one intermediate string per '+'.
     /// </summary>
-    private static bool TryBuildStringConcatenation(
+    private static bool TryBuildAdditionChain(
         NonLogicalBinaryExpression expression,
         [NotNullWhen(true)] out JintExpression? result)
     {
@@ -1011,18 +1012,30 @@ internal abstract class JintBinaryExpression : JintExpression
         var operands = new List<Expression>();
         CollectAdditionOperands(expression, operands);
 
-        // Must have a string literal in the first two operands to guarantee string concatenation semantics
-        // from the very first operation. A string literal at index 2+ is not enough because earlier operands
-        // could be numerically added (e.g., 2.0 + 3.0 + 'm' should yield '5m', not '23m').
-        // The early return above guarantees at least 3 operands, so operands[0] and operands[1] are always valid.
-        if (operands.Count < 2 || (operands[0] is not Literal { Value: string } && operands[1] is not Literal { Value: string }))
+        // The early return above guarantees at least 3 operands.
+        if (operands.Count < 3)
         {
             return false;
         }
 
-        result = new StringConcatenationExpression(expression, operands.ToArray());
+        // A chain whose opening pair is statically numeric can never become a string concatenation,
+        // so leave it on PlusBinaryExpression and keep that node's unboxed numeric lanes
+        // (BoxedNumericOperandLane / AreIntegerOperands) which the flattened form does not have.
+        if (IsStaticallyNumeric(operands[0]) && IsStaticallyNumeric(operands[1]))
+        {
+            return false;
+        }
+
+        result = new AdditionChainExpression(expression, operands.ToArray());
         return true;
     }
+
+    /// <summary>
+    /// True when an operand is a literal that is certainly a number, so no ToPrimitive call and no
+    /// string outcome is possible from it.
+    /// </summary>
+    private static bool IsStaticallyNumeric(Expression expression)
+        => expression is NumericLiteral;
 
     private static void CollectAdditionOperands(Expression expression, List<Expression> operands)
     {
@@ -1418,7 +1431,12 @@ internal abstract class JintBinaryExpression : JintExpression
         }
     }
 
-    private sealed class PlusBinaryExpression : JintBinaryExpression
+    /// <summary>
+    /// A single <c>+</c>. Not sealed so <see cref="AdditionChainExpression"/> can derive from it and
+    /// reach the pairwise behaviour — including the unboxed numeric lanes, which are built per operand
+    /// pair and so have no flattened equivalent — through a non-virtual <c>base</c> call.
+    /// </summary>
+    private class PlusBinaryExpression : JintBinaryExpression
     {
         private readonly BoxedNumericOperandLane? _numericLane;
 
@@ -1457,36 +1475,77 @@ internal abstract class JintBinaryExpression : JintExpression
 
             var lprim = TypeConverter.ToPrimitive(left);
             var rprim = TypeConverter.ToPrimitive(right);
-            JsValue result;
-            if (lprim.IsString() || rprim.IsString())
-            {
-                result = JsString.Create(TypeConverter.ToString(lprim) + TypeConverter.ToString(rprim));
-            }
-            else if (AreNonBigIntOperands(left, right))
-            {
-                result = JsNumber.Create(TypeConverter.ToNumber(lprim) + TypeConverter.ToNumber(rprim));
-            }
-            else
-            {
-                AssertValidBigIntArithmeticOperands(lprim, rprim);
-                result = JsBigInt.Create(TypeConverter.ToBigInt(lprim) + TypeConverter.ToBigInt(rprim));
-            }
 
-            return result;
+            return ApplyAdditionToPrimitives(lprim, rprim);
         }
     }
 
     /// <summary>
-    /// Optimized expression for chains of string concatenation (e.g., a + b + c + d).
-    /// Evaluates all operands and concatenates in a single pass using a ValueStringBuilder,
-    /// avoiding intermediate JsString allocations.
+    /// The primitive half of ApplyStringOrNumericBinaryOperator for '+': both operands have already
+    /// been through ToPrimitive. Shared by <see cref="PlusBinaryExpression"/> and the pairwise fold
+    /// in <see cref="AdditionChainExpression"/> so the two stay in lockstep.
     /// </summary>
-    private sealed class StringConcatenationExpression : JintExpression
+    /// <remarks>
+    /// The BigInt test reads the primitives rather than the pre-ToPrimitive operands, matching the
+    /// spec (ApplyStringOrNumericBinaryOperator classifies after ToPrimitive). The only difference
+    /// this makes is which TypeError message a BigInt-wrapper-plus-non-BigInt raises; both spellings
+    /// throw TypeError, as required.
+    /// </remarks>
+    internal static JsValue ApplyAdditionToPrimitives(JsValue lprim, JsValue rprim)
     {
+        if (lprim.IsString() || rprim.IsString())
+        {
+            return JsString.Create(TypeConverter.ToString(lprim) + TypeConverter.ToString(rprim));
+        }
+
+        if (AreNonBigIntOperands(lprim, rprim))
+        {
+            return JsNumber.Create(TypeConverter.ToNumber(lprim) + TypeConverter.ToNumber(rprim));
+        }
+
+        AssertValidBigIntArithmeticOperands(lprim, rprim);
+        return JsBigInt.Create(TypeConverter.ToBigInt(lprim) + TypeConverter.ToBigInt(rprim));
+    }
+
+    /// <summary>
+    /// A left-recursive chain of '+' operations (<c>a + b + c [+ d ...]</c>) flattened into one node.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Left-associativity means that once the first operation yields a string, every later '+' in the
+    /// chain is also a string concatenation. So the chain's kind can be decided once, from the first
+    /// two primitives: if either is a string the whole chain is concatenated in a single pass and the
+    /// result is allocated exactly once. The nested <see cref="PlusBinaryExpression"/> form instead
+    /// materializes one intermediate string per '+' — for a 3-operand chain of large strings that is
+    /// about twice the result's bytes (measured 250 KB per concat against a 125 KB result).
+    /// </para>
+    /// <para>
+    /// Evaluation order matches ApplyStringOrNumericBinaryOperator exactly: evaluate operand 0,
+    /// evaluate operand 1, ToPrimitive 0, ToPrimitive 1, then evaluate-and-ToPrimitive each remaining
+    /// operand in turn. Interleaving matters because ToPrimitive on an object runs user code
+    /// (<c>valueOf</c>/<c>toString</c>/<c>@@toPrimitive</c>), so the relative order of those calls and
+    /// the operand evaluations is observable.
+    /// </para>
+    /// </remarks>
+    private sealed class AdditionChainExpression : PlusBinaryExpression
+    {
+        /// <summary>
+        /// What the opening pair of this chain produced last time it ran. Purely a performance hint:
+        /// both paths compute the same result, so a benign race on this field (handler trees are
+        /// shared between engines) can only cost a mispredicted path, never correctness.
+        /// </summary>
+        private enum ChainKind : byte
+        {
+            Unknown = 0,
+            String,
+            NotString,
+        }
+
         private readonly Expression[] _operandExpressions;
         private JintExpression[]? _operands;
+        private ChainKind _kind;
 
-        public StringConcatenationExpression(Expression expression, Expression[] operandExpressions)
+        public AdditionChainExpression(NonLogicalBinaryExpression expression, Expression[] operandExpressions)
             : base(expression)
         {
             _operandExpressions = operandExpressions;
@@ -1499,64 +1558,232 @@ internal abstract class JintBinaryExpression : JintExpression
                 return;
             }
 
-            _operands = new JintExpression[_operandExpressions.Length];
+            var operands = new JintExpression[_operandExpressions.Length];
             for (var i = 0; i < _operandExpressions.Length; i++)
             {
-                _operands[i] = Build(_operandExpressions[i]);
+                operands[i] = Build(_operandExpressions[i]);
             }
+
+            _operands = operands;
         }
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
             EnsureInitialized();
 
+            // A chain that did not produce a string last time gains nothing from flattening, and
+            // CLR operator overloading hooks the pre-ToPrimitive operand pair of each individual '+',
+            // which the flattened form never forms. Both defer to the nested tree. The overloading
+            // test has to happen at runtime: a Prepared script can be shared between engines that
+            // differ on the option. Nothing has been evaluated yet here, so handing the whole chain
+            // over is side-effect free.
+            if (_kind == ChainKind.NotString || context.OperatorOverloadingAllowed)
+            {
+                return base.EvaluateInternal(context);
+            }
+
             var operands = _operands!;
             var count = operands.Length;
+            var engine = context.Engine;
+            var suspendable = engine.ExecutionContext.Suspendable;
 
-            // Fast path for small chains — use string.Concat overloads
+            // IsSuspended() is `Suspendable?.IsSuspended == true`, so with no suspendable execution
+            // context in scope no operand can suspend and none of the resume bookkeeping below is
+            // reachable. That is the overwhelmingly common case, and it gets to keep its operands in
+            // locals instead of a buffer.
+            if (suspendable is null)
+            {
+                return EvaluateWithoutSuspension(context, operands, count);
+            }
+
+            JsValue[] buffer;
+            int nextEvaluate;
+            int nextPrimitive;
+            if (suspendable is { IsResuming: true }
+                && suspendable.Data.TryGet(this, out AdditionChainSuspendData? suspendData))
+            {
+                buffer = suspendData!.Buffer;
+                nextEvaluate = suspendData.NextEvaluate;
+                nextPrimitive = suspendData.NextPrimitive;
+            }
+            else
+            {
+                buffer = engine._jsValueArrayPool.RentArray(count);
+                nextEvaluate = 0;
+                nextPrimitive = 0;
+            }
+
+            var suspended = false;
+            try
+            {
+                // The opening pair is evaluated before either is coerced; from then on each operand is
+                // coerced before the next one is evaluated.
+                while (nextPrimitive < count)
+                {
+                    var target = System.Math.Min(nextPrimitive == 0 ? 2 : nextPrimitive + 1, count);
+
+                    while (nextEvaluate < target)
+                    {
+                        buffer[nextEvaluate] = operands[nextEvaluate].GetValue(context);
+                        if (context.IsSuspended())
+                        {
+                            suspended = true;
+                            Suspend(suspendable, buffer, nextEvaluate, nextPrimitive);
+                            return JsValue.Undefined;
+                        }
+
+                        nextEvaluate++;
+                    }
+
+                    while (nextPrimitive < target)
+                    {
+                        buffer[nextPrimitive] = TypeConverter.ToPrimitive(buffer[nextPrimitive]);
+                        if (context.IsSuspended())
+                        {
+                            suspended = true;
+                            Suspend(suspendable, buffer, nextEvaluate, nextPrimitive);
+                            return JsValue.Undefined;
+                        }
+
+                        nextPrimitive++;
+                    }
+                }
+
+                if (buffer[0].IsString() || buffer[1].IsString())
+                {
+                    _kind = ChainKind.String;
+                    return JsString.Create(ConcatAll(buffer, count));
+                }
+
+                // Not a string chain: fold pairwise, exactly as the nested tree would. Each step's
+                // accumulator is already a primitive, so it needs no further ToPrimitive. Later
+                // evaluations skip straight to the nested tree.
+                _kind = ChainKind.NotString;
+                var accumulator = ApplyAdditionToPrimitives(buffer[0], buffer[1]);
+                for (var i = 2; i < count; i++)
+                {
+                    accumulator = ApplyAdditionToPrimitives(accumulator, buffer[i]);
+                }
+
+                return accumulator;
+            }
+            finally
+            {
+                if (!suspended)
+                {
+                    // Kept alive in suspend data when suspended; released on both normal completion
+                    // and an exception thrown out of an operand.
+                    suspendable?.Data.Clear(this);
+                    engine._jsValueArrayPool.ReturnArray(buffer);
+                }
+            }
+
+            void Suspend(ISuspendable? target, JsValue[] pending, int evaluateCursor, int primitiveCursor)
+            {
+                if (target is null)
+                {
+                    return;
+                }
+
+                var data = target.Data.GetOrCreate<AdditionChainSuspendData>(this);
+                data.Buffer = pending;
+                data.NextEvaluate = evaluateCursor;
+                data.NextPrimitive = primitiveCursor;
+            }
+        }
+
+        /// <summary>
+        /// The no-suspension path: operands live in locals, so a 3- or 4-operand chain — nearly all of
+        /// them — touches no buffer at all, and a chain that folds numerically allocates nothing
+        /// beyond its result.
+        /// </summary>
+        private object EvaluateWithoutSuspension(EvaluationContext context, JintExpression[] operands, int count)
+        {
+            // Opening pair: both evaluated before either is coerced.
+            var raw0 = operands[0].GetValue(context);
+            var raw1 = operands[1].GetValue(context);
+            var p0 = TypeConverter.ToPrimitive(raw0);
+            var p1 = TypeConverter.ToPrimitive(raw1);
+
+            if (!p0.IsString() && !p1.IsString())
+            {
+                _kind = ChainKind.NotString;
+                var accumulator = ApplyAdditionToPrimitives(p0, p1);
+                for (var i = 2; i < count; i++)
+                {
+                    accumulator = ApplyAdditionToPrimitives(accumulator, TypeConverter.ToPrimitive(operands[i].GetValue(context)));
+                }
+
+                return accumulator;
+            }
+
+            _kind = ChainKind.String;
+            var s0 = TypeConverter.ToString(p0);
+            var s1 = TypeConverter.ToString(p1);
+
             if (count == 3)
             {
-                var v0 = operands[0].GetValue(context);
-                if (context.IsSuspended()) return JsValue.Undefined;
-                var v1 = operands[1].GetValue(context);
-                if (context.IsSuspended()) return JsValue.Undefined;
-                var v2 = operands[2].GetValue(context);
-                if (context.IsSuspended()) return JsValue.Undefined;
-
-                return JsString.Create(string.Concat(
-                    TypeConverter.ToString(TypeConverter.ToPrimitive(v0)),
-                    TypeConverter.ToString(TypeConverter.ToPrimitive(v1)),
-                    TypeConverter.ToString(TypeConverter.ToPrimitive(v2))));
+                var s2 = NextOperandAsString(context, operands[2]);
+                return JsString.Create(string.Concat(s0, s1, s2));
             }
 
             if (count == 4)
             {
-                var v0 = operands[0].GetValue(context);
-                if (context.IsSuspended()) return JsValue.Undefined;
-                var v1 = operands[1].GetValue(context);
-                if (context.IsSuspended()) return JsValue.Undefined;
-                var v2 = operands[2].GetValue(context);
-                if (context.IsSuspended()) return JsValue.Undefined;
-                var v3 = operands[3].GetValue(context);
-                if (context.IsSuspended()) return JsValue.Undefined;
-
-                return JsString.Create(string.Concat(
-                    TypeConverter.ToString(TypeConverter.ToPrimitive(v0)),
-                    TypeConverter.ToString(TypeConverter.ToPrimitive(v1)),
-                    TypeConverter.ToString(TypeConverter.ToPrimitive(v2)),
-                    TypeConverter.ToString(TypeConverter.ToPrimitive(v3))));
+                var s2 = NextOperandAsString(context, operands[2]);
+                var s3 = NextOperandAsString(context, operands[3]);
+                return JsString.Create(string.Concat(s0, s1, s2, s3));
             }
 
-            // General path for 5+ operands
             var strings = new string[count];
-            for (var i = 0; i < count; i++)
+            strings[0] = s0;
+            strings[1] = s1;
+            for (var i = 2; i < count; i++)
             {
-                var val = operands[i].GetValue(context);
-                if (context.IsSuspended()) return JsValue.Undefined;
-                strings[i] = TypeConverter.ToString(TypeConverter.ToPrimitive(val));
+                strings[i] = NextOperandAsString(context, operands[i]);
             }
 
             return JsString.Create(string.Concat(strings));
+        }
+
+        /// <summary>
+        /// Evaluates one trailing operand and coerces it, in that order — past the opening pair each
+        /// operand is coerced before the next one is evaluated.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static string NextOperandAsString(EvaluationContext context, JintExpression operand)
+            => TypeConverter.ToString(TypeConverter.ToPrimitive(operand.GetValue(context)));
+
+        /// <summary>
+        /// Joins every operand's string form with a single allocation for the result. The 3- and
+        /// 4-operand overloads avoid the intermediate <see cref="string"/>[] that the general
+        /// <see cref="string.Concat(string[])"/> path needs.
+        /// </summary>
+        private static string ConcatAll(JsValue[] buffer, int count)
+        {
+            if (count == 3)
+            {
+                return string.Concat(
+                    TypeConverter.ToString(buffer[0]),
+                    TypeConverter.ToString(buffer[1]),
+                    TypeConverter.ToString(buffer[2]));
+            }
+
+            if (count == 4)
+            {
+                return string.Concat(
+                    TypeConverter.ToString(buffer[0]),
+                    TypeConverter.ToString(buffer[1]),
+                    TypeConverter.ToString(buffer[2]),
+                    TypeConverter.ToString(buffer[3]));
+            }
+
+            var strings = new string[count];
+            for (var i = 0; i < count; i++)
+            {
+                strings[i] = TypeConverter.ToString(buffer[i]);
+            }
+
+            return string.Concat(strings);
         }
     }
 
