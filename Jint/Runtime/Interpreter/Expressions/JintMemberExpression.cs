@@ -385,8 +385,9 @@ internal sealed class JintMemberExpression : JintExpression
 
             context.LastSyntaxElement = _expression;
 
-            if (baseValue is ObjectInstance baseObject)
+            if (baseValue.IsObject())
             {
+                var baseObject = baseValue.AsObjectNoTypeCheck();
                 if ((baseObject._type & InternalTypes.ShapeMode) != InternalTypes.Empty)
                 {
                     // Shape-keyed read: a matching shape proves the slot index; read it straight out of
@@ -451,9 +452,9 @@ internal sealed class JintMemberExpression : JintExpression
             // wrapper is needed for spec-compliant numeric-index lookup like t['0'] returning
             // the indexed char via StringInstance.GetOwnProperty's ToNumber coercion. v4.8.0
             // allocated for these too via Engine.GetValue's ToObject path.
-            if (baseValue is JsString jsString && CommonProperties.Length.Equals(determinedProperty))
+            if (baseValue.IsString() && CommonProperties.Length.Equals(determinedProperty))
             {
-                return JsNumber.Create((uint) jsString.Length);
+                return JsNumber.Create((uint) baseValue.AsStringNoTypeCheck().Length);
             }
 
             return baseValue.GetV(engine.Realm, determinedProperty);
@@ -588,8 +589,9 @@ internal sealed class JintMemberExpression : JintExpression
         // (number/boolean/...) return undefined here so the caller falls through to the Reference path.
         // The identifier/`this` receiver is side-effect-free, so re-evaluating it on that path is
         // unobservable.
-        if (baseValue is ObjectInstance baseObject)
+        if (baseValue.IsObject())
         {
+            var baseObject = baseValue.AsObjectNoTypeCheck();
             thisObject = baseObject;
 
             if ((baseObject._type & InternalTypes.ShapeMode) != InternalTypes.Empty)
@@ -639,8 +641,10 @@ internal sealed class JintMemberExpression : JintExpression
             return ReadFromNonPlainReceiver(baseObject, determinedProperty);
         }
 
-        if (_stringReceiverCallEligible && baseValue is JsString jsString)
+        if (_stringReceiverCallEligible && baseValue.IsString())
         {
+            var jsString = baseValue.AsStringNoTypeCheck();
+
             // Primitive-string member call (str.slice(...)): the name can never be an own property of a
             // boxed string (build-time proof), so resolve straight off the realm's %String.prototype% —
             // the same object and receiver-binding Engine.GetValue's string lane uses — guarded by
@@ -810,8 +814,9 @@ internal sealed class JintMemberExpression : JintExpression
 
         context.LastSyntaxElement = _expression;
 
-        if (baseValue is ObjectInstance baseObject)
+        if (baseValue.IsObject())
         {
+            var baseObject = baseValue.AsObjectNoTypeCheck();
             if ((baseObject._type & InternalTypes.ShapeMode) != InternalTypes.Empty)
             {
                 // Shape-keyed write: shape-mode properties are always writable data, so a slot match is
