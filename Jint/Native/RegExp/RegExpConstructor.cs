@@ -836,7 +836,11 @@ public sealed partial class RegExpConstructor : Constructor
                     }
                 }
 
+                // GroupScanState is a deliberately mutable scan cursor (updated in place via ref while
+                // scanning the group body), so it cannot be a readonly struct as MA0168 would prefer.
+#pragma warning disable MA0168
                 groupStack.Push(new GroupScanState { Number = groupNumber, Type = groupType, CurrentBranchNullable = true });
+#pragma warning restore MA0168
                 continue;
             }
 
