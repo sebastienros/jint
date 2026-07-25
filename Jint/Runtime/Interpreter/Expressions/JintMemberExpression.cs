@@ -489,7 +489,8 @@ internal sealed class JintMemberExpression : JintExpression
         var result = Evaluate(context);
         if (result is not Reference reference)
         {
-            return (JsValue) result;
+            // see JintExpression.GetValue: not a Reference means the protocol guarantees a JsValue
+            return Unsafe.As<JsValue>(result);
         }
 
         return CompleteReadFromReference(context, engine, reference);

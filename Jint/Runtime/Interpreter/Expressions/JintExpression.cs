@@ -26,7 +26,11 @@ internal abstract class JintExpression
         var result = Evaluate(context);
         if (result is not Reference reference)
         {
-            return (JsValue) result;
+            // Not a Reference, so the evaluation protocol guarantees a JsValue (asserted for
+            // every node in Evaluate). An unchecked reinterpret keeps CastHelpers.ChkCastClass off
+            // the value path, which every expression read and every assignment right-hand side
+            // travels through.
+            return Unsafe.As<JsValue>(result);
         }
 
         // Set LastSyntaxElement for proper error location if GetValue throws
@@ -41,6 +45,7 @@ internal abstract class JintExpression
         context.PrepareFor(_expression);
 
         var result = EvaluateInternal(context);
+        AssertEvaluationResult(result);
 
         context.LastSyntaxElement = oldSyntaxElement;
 
@@ -50,7 +55,22 @@ internal abstract class JintExpression
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal object EvaluateWithoutNodeTracking(EvaluationContext context)
     {
-        return EvaluateInternal(context);
+        var result = EvaluateInternal(context);
+        AssertEvaluationResult(result);
+        return result;
+    }
+
+    /// <summary>
+    /// The evaluation protocol: every <see cref="EvaluateInternal"/> implementation returns either a
+    /// <see cref="JsValue"/> or a <see cref="Reference"/>, never anything else. Callers that have
+    /// ruled out <see cref="Reference"/> rely on that to reinterpret the result as a
+    /// <see cref="JsValue"/> without a checked cast, so the contract is enforced here — in one place
+    /// for all node types — rather than trusted at each of those call sites.
+    /// </summary>
+    [Conditional("DEBUG")]
+    private static void AssertEvaluationResult(object result)
+    {
+        Debug.Assert(result is JsValue or Reference, $"expression evaluation produced {result?.GetType().ToString() ?? "null"}, which is neither a JsValue nor a Reference");
     }
 
     protected abstract object EvaluateInternal(EvaluationContext context);
