@@ -2004,6 +2004,14 @@ internal sealed partial class StringPrototype : StringInstance
     {
         var s = TypeConverter.ToString(thisObject);
 
+        // An already well-formed string maps to the same sequence of code units, so there is nothing
+        // to rebuild — hand back the receiver's own string instead of copying it through the builder.
+        // This is the overwhelmingly common case, and it was previously paying a full copy.
+        if (IsStringWellFormedUnicode(s))
+        {
+            return thisObject.IsString() ? thisObject : JsString.Create(s);
+        }
+
         var strLen = s.Length;
         var k = 0;
 
@@ -2034,6 +2042,15 @@ internal sealed partial class StringPrototype : StringInstance
 
     private static bool IsStringWellFormedUnicode(string s)
     {
+#if NET8_0_OR_GREATER
+        // Only a surrogate code unit can make a string ill-formed, and most strings contain none.
+        // One vectorized range scan settles those, leaving the pairing walk below for the rest.
+        if (!s.AsSpan().ContainsAnyInRange('\uD800', '\uDFFF'))
+        {
+            return true;
+        }
+#endif
+
         for (var i = 0; i < s.Length; ++i)
         {
             var isSurrogate = (s.CharCodeAt(i) & 0xF800) == 0xD800;
