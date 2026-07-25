@@ -47,6 +47,45 @@ public class CallableFlagTests
     }
 
     /// <summary>
+    /// The call path also decides whether a callee gets a call-stack frame from
+    /// <c>InternalTypes.Function</c> rather than <c>is Function</c>, so the flag must be set by
+    /// <see cref="Function"/> and by nothing else. The other <c>ICallable</c> roots must NOT carry it —
+    /// if one did, it would be reinterpreted as a <see cref="Function"/> and pushed onto the call stack.
+    /// </summary>
+    [Fact]
+    public void OnlyFunctionCarriesTheFunctionFlag()
+    {
+        var engine = new Engine(options => options.AllowClr(typeof(System.Collections.Generic.List<>).Assembly));
+
+        // a Function: ordinary script function, and a built-in
+        AssertFunctionFlag(engine.Evaluate("(function () {})"), expected: true);
+        AssertFunctionFlag(engine.Evaluate("String.prototype.charAt"), expected: true);
+
+        // ICallable but NOT Function — these must not be reinterpreted as functions
+        AssertFunctionFlag(engine.Evaluate("(function () {}).bind(null)"), expected: false);   // BindFunction
+        AssertFunctionFlag(engine.Evaluate("new Proxy(function () {}, {})"), expected: false); // JsProxy
+        AssertFunctionFlag(engine.Evaluate("importNamespace('System.Collections.Generic')"), expected: false); // NamespaceReference
+
+        // and calling each of them still works, i.e. the non-Function branch is exercised
+        Assert.Equal(3d, engine.Evaluate("(function (a, b) { return a + b; }).bind(null, 1)(2)").AsNumber());
+        Assert.Equal(3d, engine.Evaluate("new Proxy(function (a, b) { return a + b; }, {})(1, 2)").AsNumber());
+    }
+
+    private static void AssertFunctionFlag(Jint.Native.JsValue value, bool expected)
+    {
+        var isFunction = value is Function;
+        isFunction.Should().Be(expected, "`is Function` for {0}", value.GetType());
+
+        // read the internal flag through the same enum the call path uses
+        var type = (global::Jint.Runtime.InternalTypes) typeof(Jint.Native.JsValue)
+            .GetField("_type", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(value)!;
+        var flagged = (type & global::Jint.Runtime.InternalTypes.Function) != global::Jint.Runtime.InternalTypes.Empty;
+
+        flagged.Should().Be(expected, "InternalTypes.Function for {0} must agree with `is Function`", value.GetType());
+    }
+
+    /// <summary>
     /// The flag is only meaningful if it agrees with the interface check for values that actually
     /// reach a call site, so exercise the four shapes that are easy to get wrong: an ordinary
     /// function, a bound function, a proxy over a function, and the interop namespace reference

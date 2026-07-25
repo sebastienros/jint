@@ -59,7 +59,13 @@ internal enum InternalTypes
     // a JsProxy over a non-callable target carries the flag and reports IsCallable == false,
     // matching what `is ICallable` answers today.
     Callable = 1048576,
+    // the value is a Function. Implies Callable, and narrows it: the other ICallable roots
+    // (BindFunction, IsHTMLDDA, JsProxy, NamespaceReference) do not carry it. Function is an
+    // abstract class with many subclasses, so `is Function` costs a CastHelpers.IsInstanceOfClass
+    // hierarchy walk — the last such walk left on the call-dispatch path, where it decides whether
+    // the callee gets a call-stack frame.
+    Function = 2097152,
 
     Primitive = Boolean | String | Number | Integer | BigInt | Symbol,
-    InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Array | Module | IsHTMLDDA | ShapeMode | ShapeBuilding | ExoticGet | BuiltinShapeMode | Callable
+    InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Array | Module | IsHTMLDDA | ShapeMode | ShapeBuilding | ExoticGet | BuiltinShapeMode | Callable | Function
 }

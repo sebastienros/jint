@@ -91,8 +91,9 @@ public abstract partial class Function : ObjectInstance, ICallable
         FunctionThisMode thisMode = FunctionThisMode.Global)
         : base(engine, ObjectClass.Function)
     {
-        // every Function is an ICallable; the flag lets call sites skip the interface-map scan
-        _type |= InternalTypes.Callable;
+        // every Function is an ICallable; the flags let call sites skip the interface-map scan and,
+        // for Function specifically, the class-hierarchy walk that decides call-stack framing
+        _type |= InternalTypes.Callable | InternalTypes.Function;
         if (name is not null)
         {
             _nameDescriptor = new PropertyDescriptor(name, PropertyFlag.Configurable);
