@@ -645,6 +645,106 @@ return get + '' === ""length,0,1,2,3"";";
         enumerableResult[1].Key.Should().Be(item1.Key);
     }
 
+    /// <summary>
+    /// reverse and fill take a dense fast path that works on the backing store directly. reverse must
+    /// decline it whenever the range contains a hole, since the spec creates and deletes properties
+    /// there and a plain swap cannot express that; fill may keep it, because filling makes every index
+    /// in the range present. Every expectation was verified against V8.
+    /// </summary>
+    [Theory]
+    // reverse, fully populated: takes the fast path
+    [InlineData("[1,2,3].reverse()", "[3,2,1]len=3")]
+    [InlineData("[1,2,3,4].reverse()", "[4,3,2,1]len=4")]
+    [InlineData("[].reverse()", "[]len=0")]
+    [InlineData("[7].reverse()", "[7]len=1")]
+    // undefined is a present value, not a hole, so it still qualifies
+    [InlineData("[1,undefined,3].reverse()", "[3,undefined,1]len=3")]
+    // reverse with holes: must fall through and preserve them
+    [InlineData("[1,,3].reverse()", "[3,<hole>,1]len=3")]
+    [InlineData("[,,3].reverse()", "[3,<hole>,<hole>]len=3")]
+    [InlineData("new Array(3).reverse()", "[<hole>,<hole>,<hole>]len=3")]
+    [InlineData("(function(){var a=[1,2,3];a[10]=11;return a.reverse();})()", "[11,<hole>,<hole>,<hole>,<hole>,<hole>,<hole>,<hole>,3,2,1]len=11")]
+    // length shortened below the backing store
+    [InlineData("(function(){var a=[1,2,3,4,5];a.length=3;return a.reverse();})()", "[3,2,1]len=3")]
+    // fill: ranges, clamping, fractional and inverted
+    [InlineData("[1,2,3,4].fill(0)", "[0,0,0,0]len=4")]
+    [InlineData("[1,2,3,4].fill(0,1,3)", "[1,0,0,4]len=4")]
+    [InlineData("[1,2,3].fill(0,-2)", "[1,0,0]len=3")]
+    [InlineData("[1,2,3].fill(0,-100,100)", "[0,0,0]len=3")]
+    [InlineData("[1,2,3].fill(0,2,1)", "[1,2,3]len=3")]
+    [InlineData("[1,2,3].fill(0,1.7,2.9)", "[1,0,3]len=3")]
+    [InlineData("[].fill(1)", "[]len=0")]
+    [InlineData("[1,2,3].fill(undefined,1)", "[1,undefined,undefined]len=3")]
+    // fill turns holes into present values
+    [InlineData("[1,,3].fill(9,1,2)", "[1,9,3]len=3")]
+    [InlineData("new Array(3).fill(5)", "[5,5,5]len=3")]
+    [InlineData("(function(){var a=[1,2,3];a[8]=9;return a.fill(7,2,6);})()", "[1,2,7,7,7,7,<hole>,<hole>,9]len=9")]
+    public void ReverseAndFillPreserveHoleSemantics(string expression, string expected)
+    {
+        var engine = new Engine();
+        engine.Execute("""
+            function d(a) {
+                var parts = [];
+                for (var i = 0; i < a.length; i++) parts.push(i in a ? String(a[i]) : "<hole>");
+                return "[" + parts.join(",") + "]len=" + a.length;
+            }
+            """);
+        engine.Evaluate($"d({expression})").AsString().Should().Be(expected);
+    }
+
+    [Fact]
+    public void ReverseAndFillReturnTheSameObjectAndHandleArrayLikes()
+    {
+        var engine = new Engine();
+
+        engine.Evaluate("var a = [1,2,3]; a.reverse() === a").AsBoolean().Should().BeTrue();
+        engine.Evaluate("var b = [1,2,3]; b.fill(0) === b").AsBoolean().Should().BeTrue();
+
+        // array-likes never reach the dense path
+        engine.Evaluate("""
+            var o = { length: 3, 0: 'a', 2: 'c' };
+            Array.prototype.reverse.call(o);
+            o[0] + '|' + (1 in o) + '|' + o[2];
+            """).AsString().Should().Be("c|false|a");
+
+        engine.Evaluate("""
+            var p = { length: 3, 0: 'a' };
+            Array.prototype.fill.call(p, 'z', 1);
+            p[0] + p[1] + p[2];
+            """).AsString().Should().Be("azz");
+
+        // an extra non-index property does not disturb the element reversal
+        engine.Evaluate("var q = [1,2,3]; q.foo = 1; q.reverse().join(',')").AsString().Should().Be("3,2,1");
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-array.prototype.fill step 8.c is <c>Set(O, Pk, value, true)</c>, so a
+    /// write that cannot succeed must throw. fill previously passed <c>throwOnError: false</c> and silently
+    /// did nothing, unlike reverse next to it. Verified against V8: frozen throws, sealed succeeds (its
+    /// existing elements stay writable).
+    /// </summary>
+    [Fact]
+    public void FillThrowsWhenAnElementCannotBeWritten()
+    {
+        var engine = new Engine();
+
+        Invoking(() => engine.Evaluate("var a = [1,2,3]; Object.freeze(a); a.fill(0);"))
+            .Should().Throw<JavaScriptException>().WithMessage("*not*");
+
+        // the frozen array is left untouched
+        engine.Evaluate("a.join(',')").AsString().Should().Be("1,2,3");
+
+        // a single non-writable element is enough to fail the whole fill
+        Invoking(() => engine.Evaluate("""
+            var b = [1,2,3];
+            Object.defineProperty(b, '1', { value: 2, writable: false, enumerable: true, configurable: true });
+            b.fill(0);
+            """)).Should().Throw<JavaScriptException>();
+
+        // sealed keeps its elements writable, so fill still succeeds
+        engine.Evaluate("var c = [1,2,3]; Object.seal(c); c.fill(0); c.join(',')").AsString().Should().Be("0,0,0");
+    }
+
     [Fact]
     public void PopWrappedGenericList()
     {

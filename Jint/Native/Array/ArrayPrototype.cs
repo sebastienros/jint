@@ -205,10 +205,29 @@ public sealed partial class ArrayPrototype : ArrayInstance
             final = (ulong) System.Math.Min(relativeEnd, length);
         }
 
+        // Fast path: fill the dense backing store directly instead of paying a Set (and its
+        // property-protocol dispatch) per element. Fill makes every index in the range present, so
+        // holes inside it need no special handling — unlike reverse/copyWithin, which must preserve
+        // them. Span.Fill is vectorized where the runtime supports it.
+        // `final` can land below `k` for an inverted range (fill(v, 2, 1)), which the loop below
+        // treats as a no-op, so the range must be checked as non-empty before it becomes a span length.
+        if (k <= final
+            && o is JsArray { CanUseFastAccess: true } fast
+            && fast._dense is { } dense
+            && final <= (ulong) dense.Length)
+        {
+            dense.AsSpan((int) k, (int) (final - k)).Fill(value);
+            return o;
+        }
+
         // Check constraints periodically to prevent memory exhaustion in large fills
         for (var i = k; i < final; ++i)
         {
-            operations.Set(i, value, throwOnError: false);
+            // https://tc39.es/ecma262/#sec-array.prototype.fill step 8.c is `Set(O, Pk, value, true)`,
+            // so a failed write must throw rather than be swallowed — reverse above already does this.
+            // Only the generic path can fail: the dense lane requires CanUseFastAccess, which a frozen
+            // or otherwise non-default-descriptor array does not have.
+            operations.Set(i, value, throwOnError: true);
 
             if (i > k && (i - k) % ConstraintCheckInterval == 0)
             {
@@ -1667,6 +1686,24 @@ public sealed partial class ArrayPrototype : ArrayInstance
     {
         var o = ArrayOperations.For(_realm, thisObject, forWrite: true);
         var len = o.GetLongLength();
+
+        // Fast path: reverse the dense backing store in place instead of paying two HasProperty and
+        // up to two Set/Delete calls per swapped pair. Only a fully populated range qualifies — a
+        // hole makes the spec create and delete properties, which the swap below cannot express — so
+        // a single missing element falls through to the generic path. Span.Reverse is vectorized
+        // where the runtime supports it.
+        if (o.Target is JsArray { CanUseFastAccess: true } fast
+            && fast._dense is { } dense
+            && len <= (ulong) dense.Length)
+        {
+            var count = (int) len;
+            if (System.Array.IndexOf(dense, null, 0, count) < 0)
+            {
+                dense.AsSpan(0, count).Reverse();
+                return fast;
+            }
+        }
+
         var middle = (ulong) System.Math.Floor(len / 2.0);
         uint lower = 0;
         while (lower != middle)
