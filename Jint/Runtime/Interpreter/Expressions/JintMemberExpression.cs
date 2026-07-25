@@ -56,6 +56,11 @@ internal sealed class JintMemberExpression : JintExpression
     private PropertyDescriptor? _cachedStringProtoDescriptor;
     private readonly bool _stringReceiverCallEligible;
 
+    // Member-call eligibility is a pure function of this node's shape, so it is decided once in the
+    // constructor instead of re-deriving four type tests on every call this node is the callee of —
+    // JintCallExpression probes it before every member call it dispatches.
+    private readonly bool _fastCallEligible;
+
     // ObjectWrapper member cache: interop receivers carry InternalTypes.ExoticGet (members resolve against
     // the wrapped CLR object), so none of the caches above apply and every host.value read/write walks
     // ObjectWrapper.Get/Set → GetOwnProperty → dictionary probe → reflection accessor. But once
@@ -100,7 +105,13 @@ internal sealed class JintMemberExpression : JintExpression
             _determinedProperty = determined;
         }
 
-        _stringReceiverCallEligible = IsFastCallEligible && !CanBeOwnStringInstanceProperty((JsString) _determinedProperty!);
+        _fastCallEligible = _propertyExpression is null
+                            && _determinedProperty is JsString
+                            && !_memberExpression.Optional
+                            && !_objectExpressionCanShortCircuit
+                            && _objectExpression is JintIdentifierExpression or JintThisExpression;
+
+        _stringReceiverCallEligible = _fastCallEligible && !CanBeOwnStringInstanceProperty((JsString) _determinedProperty!);
     }
 
     /// <summary>
@@ -547,12 +558,7 @@ internal sealed class JintMemberExpression : JintExpression
     /// effect, so the call's slow-path fallback (taken when the resolved value is not callable) never
     /// double-evaluates anything observable.
     /// </summary>
-    internal bool IsFastCallEligible
-        => _propertyExpression is null
-           && _determinedProperty is JsString
-           && !_memberExpression.Optional
-           && !_objectExpressionCanShortCircuit
-           && _objectExpression is JintIdentifierExpression or JintThisExpression;
+    internal bool IsFastCallEligible => _fastCallEligible;
 
     /// <summary>
     /// member call when the receiver is an object, reusing the same version-gated own-property inline

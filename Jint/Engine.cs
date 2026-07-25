@@ -168,6 +168,12 @@ public sealed partial class Engine : IDisposable
     internal readonly bool _customResolver;
     internal readonly IReferenceResolver _referenceResolver;
 
+    // Snapshot of Options.Constraints.MaxRecursionDepth. Every call expression compares the pushed
+    // depth against it, and reaching it through Options.Constraints costs two extra dereferences per
+    // call. The limit is already treated as fixed at construction time — CallStack decides whether to
+    // track depth at all from the same value (see the JintCallStack construction below).
+    internal readonly int _maxRecursionDepth;
+
     internal readonly ReferencePool _referencePool;
     internal readonly ArgumentsInstancePool _argumentsInstancePool;
     internal readonly JsValueArrayPool _jsValueArrayPool;
@@ -287,7 +293,10 @@ public sealed partial class Engine : IDisposable
 
         Options.Apply(this);
 
-        CallStack = new JintCallStack(Options.Constraints.MaxRecursionDepth >= 0);
+        // Read after Options.Apply so the snapshot observes the same value JintCallStack does
+        // (Apply runs the user's configuration callbacks, which can still touch Constraints).
+        _maxRecursionDepth = Options.Constraints.MaxRecursionDepth;
+        CallStack = new JintCallStack(_maxRecursionDepth >= 0);
         _stackGuard = new StackGuard(this);
 
         var scriptParsingDefaults = Options.RetainFunctionSourceText

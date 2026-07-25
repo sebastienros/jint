@@ -14,10 +14,19 @@ internal sealed class JintCallExpression : JintExpression
     private readonly ExpressionCache _arguments = new();
     private readonly JintExpression _calleeExpression;
 
+    // Callee shape is fixed at build time. Keeping it in fields instead of re-testing
+    // `_calleeExpression._expression.Type == NodeType.Super` and `_calleeExpression is
+    // JintMemberExpression` on every evaluation removes two loads and a type check per call;
+    // `_calleeMember` doubles as the already-narrowed receiver for the fast member-call lane.
+    private readonly bool _calleeIsSuper;
+    private readonly JintMemberExpression? _calleeMember;
+
     public JintCallExpression(CallExpression expression) : base(expression)
     {
         _arguments.Initialize(expression.Arguments.AsSpan());
         _calleeExpression = Build(expression.Callee);
+        _calleeIsSuper = _calleeExpression._expression.Type == NodeType.Super;
+        _calleeMember = _calleeExpression as JintMemberExpression;
     }
 
     protected override object EvaluateInternal(EvaluationContext context)
@@ -28,7 +37,7 @@ internal sealed class JintCallExpression : JintExpression
             return StackGuard.RunOnEmptyStack(EvaluateInternal, context);
         }
 
-        if (_calleeExpression._expression.Type == NodeType.Super)
+        if (_calleeIsSuper)
         {
             return SuperCall(context);
         }
@@ -55,7 +64,8 @@ internal sealed class JintCallExpression : JintExpression
         // receiver is side-effect-free, so re-evaluating it on that rare path is unobservable).
         JsValue? fastFunc = null;
         var fastThis = JsValue.Undefined;
-        if (_calleeExpression is JintMemberExpression member
+        var member = _calleeMember;
+        if (member is not null
             && member.IsFastCallEligible
             && !engine._customResolver)
         {
@@ -185,7 +195,7 @@ internal sealed class JintCallExpression : JintExpression
             var callStack = engine.CallStack;
             var recursionDepth = callStack.Push(functionInstance, _calleeExpression, engine.ExecutionContext);
 
-            if (recursionDepth > engine.Options.Constraints.MaxRecursionDepth)
+            if (recursionDepth > engine._maxRecursionDepth)
             {
                 // automatically pops the current element as it was never reached
                 Throw.RecursionDepthOverflowException(callStack);
