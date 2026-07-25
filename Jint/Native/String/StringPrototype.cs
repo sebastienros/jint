@@ -1556,34 +1556,20 @@ internal sealed partial class StringPrototype : StringInstance
             return JsNumber.IntegerNegativeOne;
         }
 
-        var s = jsString.ToString();
-        var i = start;
-        bool found;
-
-        do
+        // An empty search string matches at the clamped position itself.
+        if (searchLen == 0)
         {
-            found = true;
-            var j = 0;
+            return JsNumber.Create(start);
+        }
 
-            while (found && j < searchLen)
-            {
-                if (i + searchLen > len || s[i + j] != searchStr[j])
-                {
-                    found = false;
-                }
-                else
-                {
-                    j++;
-                }
-            }
-            if (!found)
-            {
-                i--;
-            }
+        // The spec asks for the greatest k <= start at which searchStr occurs, so a match must lie
+        // entirely within s[0 .. start + searchLen). Searching that prefix with the vectorized span
+        // search replaces a hand-rolled backward character-by-character scan that was O(len * searchLen)
+        // whenever the needle was absent or far from `start`.
+        var end = System.Math.Min(start + searchLen, len);
+        var index = jsString.ToString().AsSpan(0, end).LastIndexOf(searchStr.AsSpan());
 
-        } while (!found && i >= 0);
-
-        return i;
+        return index < 0 ? JsNumber.IntegerNegativeOne : JsNumber.Create(index);
     }
 
     /// <summary>
