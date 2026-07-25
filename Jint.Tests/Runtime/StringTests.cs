@@ -523,6 +523,45 @@ var big = (s + '|tail').split('|');       // [s, 'tail']: first segment is ~the 
         _engine.Evaluate($"('{input}').toLowerCase()").AsString().Should().Be(lower);
     }
 
+    /// <summary>
+    /// lastIndexOf's position argument bounds where a match may <em>start</em>, not where the search
+    /// begins, which is easy to get off by one. Every expectation here was verified against V8.
+    /// </summary>
+    [Theory]
+    // no position: whole string
+    [InlineData("'abcabc'.lastIndexOf('abc')", 3)]
+    [InlineData("'abcabc'.lastIndexOf('abcabc')", 0)]
+    [InlineData("'abcabc'.lastIndexOf('x')", -1)]
+    [InlineData("'abc'.lastIndexOf('abcd')", -1)]
+    [InlineData("'aaa'.lastIndexOf('aa')", 1)]
+    // position clamps the start of the match, so a match may extend past it
+    [InlineData("'abcabc'.lastIndexOf('abc', 2)", 0)]
+    [InlineData("'abcabc'.lastIndexOf('abc', 3)", 3)]
+    [InlineData("'abcabc'.lastIndexOf('bc', 1)", 1)]
+    [InlineData("'abcabc'.lastIndexOf('bc', 0)", -1)]
+    [InlineData("'abcabc'.lastIndexOf('c', 4)", 2)]
+    [InlineData("'hello world hello'.lastIndexOf('hello', 11)", 0)]
+    [InlineData("'hello world hello'.lastIndexOf('hello', 12)", 12)]
+    // out-of-range, fractional and negative-zero positions
+    [InlineData("'abcabc'.lastIndexOf('abc', 0)", 0)]
+    [InlineData("'abcabc'.lastIndexOf('abc', -1)", 0)]
+    [InlineData("'abcabc'.lastIndexOf('abc', -100)", 0)]
+    [InlineData("'abcabc'.lastIndexOf('abc', -0)", 0)]
+    [InlineData("'abcabc'.lastIndexOf('abc', 1.9)", 0)]
+    [InlineData("'abcabc'.lastIndexOf('abc', 100)", 3)]
+    [InlineData("'abcabc'.lastIndexOf('abc', NaN)", 3)]
+    // the empty needle matches at the clamped position
+    [InlineData("'abcabc'.lastIndexOf('')", 6)]
+    [InlineData("'abcabc'.lastIndexOf('', 3)", 3)]
+    [InlineData("'abcabc'.lastIndexOf('', 100)", 6)]
+    [InlineData("'abcabc'.lastIndexOf('', -5)", 0)]
+    [InlineData("''.lastIndexOf('')", 0)]
+    [InlineData("''.lastIndexOf('a')", -1)]
+    public void LastIndexOfMatchesSpecPositionSemantics(string expression, int expected)
+    {
+        _engine.Evaluate(expression).AsNumber().Should().Be(expected);
+    }
+
     public static TheoryData<string, string> GetLithuaniaTestsData()
     {
         return new StringTetsLithuaniaData().TestData();
