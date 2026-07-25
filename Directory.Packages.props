@@ -10,7 +10,7 @@
     <PackageVersion Include="BenchmarkDotNet.TestAdapter" Version="0.15.8" />
     <PackageVersion Include="AwesomeAssertions" Version="9.5.0" />
     <PackageVersion Include="Flurl.Http.Signed" Version="4.0.2" />
-    <PackageVersion Include="GitHubActionsTestLogger" Version="3.0.4" />
+    <PackageVersion Include="GitHubActionsTestLogger" Version="3.0.5" />
     <PackageVersion Include="ICU4N" Version="60.1.0-alpha.440" />
     <PackageVersion Include="Meziantou.Analyzer" Version="3.0.125" />
     <PackageVersion Include="Microsoft.ClearScript.V8" Version="7.5.1" />
