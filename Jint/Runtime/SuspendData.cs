@@ -163,6 +163,24 @@ internal sealed class ExpressionBufferSuspendData : SuspendData
 }
 
 /// <summary>
+/// Stores the in-progress operand buffer of a flattened <c>+</c> chain together with the two
+/// cursors that reproduce ApplyStringOrNumericBinaryOperator's evaluate/ToPrimitive interleaving.
+/// Reused on resume so a suspension inside any operand (e.g. <c>a + await x + b</c>) neither
+/// re-evaluates nor re-coerces the operands that already ran — either of which may have
+/// observable side effects.
+/// </summary>
+internal sealed class AdditionChainSuspendData : SuspendData
+{
+    public JsValue[] Buffer { get; set; } = [];
+
+    /// <summary>Index of the next operand to evaluate.</summary>
+    public int NextEvaluate { get; set; }
+
+    /// <summary>Index of the next buffered operand to convert with ToPrimitive.</summary>
+    public int NextPrimitive { get; set; }
+}
+
+/// <summary>
 /// Stores the partial target list and next expression index for an argument
 /// list that contains spread elements (call/new/array-literal). Without
 /// preservation, one-shot iterators (e.g. generators) would be re-iterated

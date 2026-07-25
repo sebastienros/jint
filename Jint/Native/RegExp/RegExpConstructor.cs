@@ -19,13 +19,16 @@ public sealed partial class RegExpConstructor : Constructor
 
     // B.2.4 RegExp Legacy Static Properties
     internal string _legacyInput = "";
-    internal string _legacyLastMatch = "";
     internal string _legacyLastParen = "";
     internal readonly string[] _legacyParens = new string[9];
-    // Left/right context computed lazily to avoid Substring allocations per exec()
+    // Last match and left/right context are all computed lazily from the match position, so a
+    // successful exec() only stores the input and two offsets. Materializing them eagerly cost a
+    // Substring per exec() — for a match that spans most of a large subject that is a copy of the
+    // whole subject, paid whether or not anything ever reads these Annex B properties.
     private string _legacyContextInput = "";
     private int _legacyMatchIndex;
     private int _legacyMatchEnd;
+    internal string _legacyLastMatch => _legacyContextInput.Length > 0 ? _legacyContextInput.Substring(_legacyMatchIndex, _legacyMatchEnd - _legacyMatchIndex) : "";
     internal string _legacyLeftContext => _legacyContextInput.Length > 0 ? _legacyContextInput.Substring(0, _legacyMatchIndex) : "";
     internal string _legacyRightContext => _legacyContextInput.Length > 0 ? _legacyContextInput.Substring(_legacyMatchEnd) : "";
 
