@@ -562,6 +562,51 @@ var big = (s + '|tail').split('|');       // [s, 'tail']: first segment is ~the 
         _engine.Evaluate(expression).AsNumber().Should().Be(expected);
     }
 
+    /// <summary>
+    /// isWellFormed/toWellFormed short-circuit on a vectorized "does this string contain any surrogate
+    /// code unit at all?" scan, and toWellFormed additionally hands back the receiver's own string when
+    /// nothing needs replacing. These cases pin the surrogate range boundary and every unpaired shape;
+    /// all expectations were verified against V8.
+    /// </summary>
+    [Theory]
+    // no surrogates at all — the vectorized reject path
+    [InlineData("''", true, "")]
+    [InlineData("'abc'", true, "abc")]
+    // just outside the surrogate range on both sides, so still well-formed
+    [InlineData("'\\uD7FF\\uE000'", true, "퟿")]
+    // valid pairs
+    [InlineData("'a\\uD83D\\uDE00b'", true, "a😀b")]
+    // unpaired leading surrogate
+    [InlineData("'a\\uD800'", false, "a�")]
+    [InlineData("'ab\\uD83D'", false, "ab�")]
+    [InlineData("'\\uD800\\uD800'", false, "��")]
+    // unpaired trailing surrogate
+    [InlineData("'a\\uDC00b'", false, "a�b")]
+    [InlineData("'x\\uDFFFy'", false, "x�y")]
+    // reversed pair: both halves are unpaired
+    [InlineData("'\\uDC00\\uD800'", false, "��")]
+    [InlineData("'\\uD800a\\uDC00'", false, "�a�")]
+    // an unpaired lead immediately followed by a valid pair
+    [InlineData("'\\uD83D\\uD83D\\uDE00'", false, "�😀")]
+    public void WellFormedHandlesSurrogateBoundaries(string literal, bool wellFormed, string toWellFormed)
+    {
+        _engine.Evaluate($"({literal}).isWellFormed()").AsBoolean().Should().Be(wellFormed);
+        _engine.Evaluate($"({literal}).toWellFormed()").AsString().Should().Be(toWellFormed);
+    }
+
+    [Fact]
+    public void ToWellFormedReturnsAnEquivalentPrimitiveForObjectReceivers()
+    {
+        // toWellFormed must produce a primitive string even when `this` is a String object, including
+        // on the already-well-formed path where the receiver's own value is reused.
+        _engine.Evaluate("typeof new String('abc').toWellFormed()").AsString().Should().Be("string");
+        _engine.Evaluate("new String('abc').toWellFormed()").AsString().Should().Be("abc");
+        _engine.Evaluate("new String('a\\uD800b').toWellFormed()").AsString().Should().Be("a�b");
+
+        // an already-well-formed primitive maps to the same sequence of code units
+        _engine.Evaluate("var s = 'abcde'.repeat(1000); s.toWellFormed() === s").AsBoolean().Should().BeTrue();
+    }
+
     public static TheoryData<string, string> GetLithuaniaTestsData()
     {
         return new StringTetsLithuaniaData().TestData();
