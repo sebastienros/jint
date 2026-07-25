@@ -9,10 +9,24 @@ env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
 
+permissions:
+  contents: read
+
 jobs:
   build:
 
     runs-on: ubuntu-latest
+
+    # Must match the Environment field of the nuget.org trusted publishing policy.
+    # Also the place to add required reviewers if releases should be approval-gated.
+    environment: nuget
+
+    permissions:
+      contents: read
+      # Lets the job request a GitHub OIDC token, which is exchanged below for a short-lived
+      # nuget.org API key. Without this the NuGet/login step fails.
+      id-token: write
+
     steps:
 
     - name: Setup NET
@@ -32,13 +46,32 @@ jobs:
     - name: Test
       run: dotnet test --configuration Release --logger "console;verbosity=quiet" --logger "GitHubActions;summary-include-passed=false;summary-include-skipped=false"
 
-    - name: Pack with dotnet
+    - name: Determine version from tag
+      id: version
       run: |
-        arrTag=(${GITHUB_REF//\// })
-        VERSION="${arrTag[2]}"
-        VERSION="${VERSION//v}"
-        echo "$VERSION"
-        dotnet pack Jint/Jint.csproj --output artifacts --configuration Release -p:Version=$VERSION -p:ContinuousIntegrationBuild=True
+        # The tag is the single source of truth: v4.14.0 -> 4.14.0, v5.0.0-rc.1 -> 5.0.0-rc.1.
+        # Strips only the leading 'v' ("${VERSION//v}" removed every 'v', mangling e.g. v5.0.0-preview).
+        VERSION="${GITHUB_REF_NAME#v}"
+        # AssemblyVersion/FileVersion must be numeric, so drop any prerelease label.
+        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+        echo "numeric=${VERSION%%-*}" >> "$GITHUB_OUTPUT"
+        echo "Releasing $VERSION"
+
+    - name: Pack with dotnet
+      run: >
+        dotnet pack Jint/Jint.csproj --output artifacts --configuration Release
+        -p:Version=${{ steps.version.outputs.version }}
+        -p:AssemblyVersion=${{ steps.version.outputs.numeric }}
+        -p:FileVersion=${{ steps.version.outputs.numeric }}
+        -p:ContinuousIntegrationBuild=True
+
+    # Kept next to the push: the minted key is short-lived, so it must not be requested
+    # before the (slow) test and pack steps.
+    - name: NuGet login
+      uses: NuGet/login@v1
+      id: login
+      with:
+        user: sebastienros
 
     - name: Push with dotnet
-      run: dotnet nuget push artifacts/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
+      run: dotnet nuget push artifacts/*.nupkg --api-key ${{ steps.login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json

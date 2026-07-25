@@ -11,9 +11,8 @@
     <PackageLicenseExpression>BSD-2-Clause</PackageLicenseExpression>
 
     <BuildNumber Condition="'$(BuildNumber)' == ''">0</BuildNumber>
-    <VersionPrefix>4.5.0</VersionPrefix>
+    <VersionPrefix>4.15.0</VersionPrefix>
     <VersionSuffix>beta-$(BuildNumber)</VersionSuffix>
-    <FileVersion>$(VersionPrefix).$(BuildNumber)</FileVersion>
 
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
