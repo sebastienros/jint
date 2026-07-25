@@ -85,7 +85,8 @@ internal sealed class JintUnaryExpression : JintExpression
             }
             else
             {
-                v = (JsValue) result;
+                // see JintExpression.GetValue: not a Reference means the protocol guarantees a JsValue
+                v = Unsafe.As<JsValue>(result);
             }
 
             return GetTypeOfString(v);
