@@ -14,14 +14,23 @@ internal sealed class StackGuard
 
     private readonly Engine _engine;
 
+    // Snapshot of Options.Constraints.MaxExecutionStackCount, taken at construction like the
+    // engine's other option-derived fast-check fields. Every call expression enters through
+    // TryEnterOnCurrentStack, and the disabled check previously cost three dereferences
+    // (Options → Constraints → property) before it could return.
+    private readonly int _maxExecutionStackCount;
+    private readonly bool _enabled;
+
     public StackGuard(Engine engine)
     {
         _engine = engine;
+        _maxExecutionStackCount = engine.Options.Constraints.MaxExecutionStackCount;
+        _enabled = _maxExecutionStackCount != Disabled;
     }
 
     public bool TryEnterOnCurrentStack()
     {
-        if (_engine.Options.Constraints.MaxExecutionStackCount == Disabled)
+        if (!_enabled)
         {
             return true;
         }
@@ -42,7 +51,7 @@ internal sealed class StackGuard
         }
 #endif
 
-        if (_engine.CallStack.Count > _engine.Options.Constraints.MaxExecutionStackCount)
+        if (_engine.CallStack.Count > _maxExecutionStackCount)
         {
             Throw.RangeError(_engine.Realm, "Maximum call stack size exceeded");
         }

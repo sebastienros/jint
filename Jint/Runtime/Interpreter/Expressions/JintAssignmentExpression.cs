@@ -641,6 +641,14 @@ internal sealed class JintAssignmentExpression : JintExpression
         // and box once instead of per binary node; see JintBinaryExpression.SumOfProductsLane.
         private JintBinaryExpression.SumOfProductsLane? _rightSumOfProducts;
 
+        // Right-hand-side shape, decided once in Initialize. Both are pure AST properties, but the
+        // slot-store lane re-tested them on every assignment: `right is JintClassExpression` plus an
+        // IsAnonymousFunctionDefinition() node probe before evaluating, and IsFunctionDefinition()
+        // plus another type test after. Assignment is the most frequently executed expression form
+        // in the interpreter, so both move to fields.
+        private bool _rightIsAnonymousClassExpression;
+        private bool _rightNeedsFunctionName;
+
         public SimpleAssignmentExpression(AssignmentExpression expression) : base(expression)
         {
             _structurallyNumeric = IsNumericAssignmentShape(expression);
@@ -684,6 +692,11 @@ internal sealed class JintAssignmentExpression : JintExpression
             _leftIsCoverParenthesized = _left._expression.Range.Start != assignmentExpression.Range.Start;
 
             _right = Build(assignmentExpression.Right);
+
+            _rightIsAnonymousClassExpression = _right is JintClassExpression
+                                               && _right._expression.IsAnonymousFunctionDefinition();
+            _rightNeedsFunctionName = _right._expression.IsFunctionDefinition()
+                                      && _right is not JintClassExpression;
 
             TryEnableNumericFastPath(assignmentExpression);
             _rightSumOfProducts = JintBinaryExpression.SumOfProductsLane.TryBuild(_right);
@@ -802,9 +815,9 @@ internal sealed class JintAssignmentExpression : JintExpression
 
             JsValue completion;
             var right = _right;
-            if (right is JintClassExpression classExpression && right._expression.IsAnonymousFunctionDefinition())
+            if (_rightIsAnonymousClassExpression)
             {
-                completion = classExpression.EvaluateWithName(context, _leftIdentifier.Identifier.Value.ToString());
+                completion = ((JintClassExpression) right).EvaluateWithName(context, _leftIdentifier.Identifier.Value.ToString());
             }
             else
             {
@@ -819,7 +832,7 @@ internal sealed class JintAssignmentExpression : JintExpression
 
             var rval = completion.Clone();
 
-            if (right._expression.IsFunctionDefinition() && right is not JintClassExpression)
+            if (_rightNeedsFunctionName)
             {
                 ((Function) rval).SetFunctionName(_leftIdentifier.Identifier.Value);
             }
