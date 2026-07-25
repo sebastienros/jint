@@ -283,6 +283,18 @@ internal sealed partial class StringPrototype : StringInstance
 
     private static bool NeedsUpperSpecialCasing(string s)
     {
+#if NET8_0_OR_GREATER
+        // No SpecialCasing.txt expansion exists below U+00DF — exactly the short-circuit
+        // GetSpecialUpperCasing already performs per character. Asking that question once with a
+        // vectorized range scan rejects any string made only of such characters (ASCII text being
+        // the overwhelmingly common case) without ever entering the per-character switch below,
+        // which is then only reached for strings that really do carry a high code point.
+        if (!s.AsSpan().ContainsAnyExceptInRange('\0', 'Þ'))
+        {
+            return false;
+        }
+#endif
+
         foreach (var c in s)
         {
             if (GetSpecialUpperCasing(c) is not null)
@@ -579,6 +591,10 @@ internal sealed partial class StringPrototype : StringInstance
     /// </summary>
     private static bool NeedsSpecialCasing(string s)
     {
+#if NET8_0_OR_GREATER
+        // GREEK CAPITAL LETTER SIGMA (Final_Sigma) and LATIN CAPITAL LETTER I WITH DOT ABOVE.
+        return s.AsSpan().ContainsAny('\u03A3', '\u0130');
+#else
         foreach (var c in s)
         {
             if (c == '\u03A3' || c == '\u0130')
@@ -587,6 +603,7 @@ internal sealed partial class StringPrototype : StringInstance
             }
         }
         return false;
+#endif
     }
 
     /// <summary>

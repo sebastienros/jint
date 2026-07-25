@@ -499,6 +499,30 @@ var big = (s + '|tail').split('|');       // [s, 'tail']: first segment is ~the 
         _engine.Evaluate("big.length === 2 && big[0] === s && big[1] === 'tail'").AsBoolean().Should().BeTrue();
     }
 
+    /// <summary>
+    /// The special-casing pre-scans decide whether a conversion can delegate to the plain
+    /// framework ToUpper/ToLower or must walk the string character by character. The upper scan
+    /// rejects a string outright when every character sits below U+00DF, since no SpecialCasing.txt
+    /// expansion exists below that point — so U+00DF itself is the boundary that must NOT be
+    /// rejected, and these cases pin both sides of it.
+    /// </summary>
+    [Theory]
+    // below the boundary: plain framework casing
+    [InlineData("abc", "ABC", "abc")]
+    [InlineData("Þ", "Þ", "þ")]                      // U+00DE, last character with no expansion
+    // at and above the boundary: must reach the per-character expansion path
+    [InlineData("ß", "SS", "ß")]                     // U+00DF LATIN SMALL LETTER SHARP S
+    [InlineData("aßb", "ASSB", "aßb")]               // expansion in the middle of ASCII
+    [InlineData("ﬄ", "FFL", "ﬄ")]                    // U+FB04 LATIN SMALL LIGATURE FFL
+    [InlineData("İ", "İ", "i̇")]                // U+0130, lower-cases to an expansion
+    [InlineData("ΑΣ", "ΑΣ", "ας")]                   // Final_Sigma: sigma at end lower-cases to final form
+    [InlineData("ΑΣΒ", "ΑΣΒ", "ασβ")]                // non-final sigma keeps the medial form
+    public void CasingHandlesTheSpecialCasingBoundary(string input, string upper, string lower)
+    {
+        _engine.Evaluate($"('{input}').toUpperCase()").AsString().Should().Be(upper);
+        _engine.Evaluate($"('{input}').toLowerCase()").AsString().Should().Be(lower);
+    }
+
     public static TheoryData<string, string> GetLithuaniaTestsData()
     {
         return new StringTetsLithuaniaData().TestData();
