@@ -789,12 +789,22 @@ internal sealed class JintAssignmentExpression : JintExpression
             result = null!;
 
             var engine = context.Engine;
-            if (engine.ExecutionContext.Suspendable is not null)
+
+            // One execution-context read for the gate: each `engine.ExecutionContext` is a stack
+            // Peek with its own bounds check, and the gate did two of them per assignment
+            // (Suspendable, then LexicalEnvironment).
+            //
+            // Valid only until the right-hand side runs. Evaluating it can push execution contexts
+            // and grow the stack's backing array, which would leave this ref pointing at the old
+            // one — so the degenerate tail below deliberately re-reads engine.ExecutionContext
+            // instead of reusing this.
+            ref readonly var executionContext = ref engine.ExecutionContext;
+            if (executionContext.Suspendable is not null)
             {
                 return false;
             }
 
-            if (!_lhsSlotCache.TryResolve(engine, engine.ExecutionContext.LexicalEnvironment, _leftIdentifier!.Identifier, out var environment, out var slotIndex))
+            if (!_lhsSlotCache.TryResolve(engine, executionContext.LexicalEnvironment, _leftIdentifier!.Identifier, out var environment, out var slotIndex))
             {
                 return false;
             }
@@ -805,12 +815,14 @@ internal sealed class JintAssignmentExpression : JintExpression
                 return false;
             }
 
+            // One bounds-checked element access for both the pre-check and the store. Holding the
+            // ref across the right-hand side is equivalent to re-indexing afterwards: the store
+            // already targeted this same local `slots` array, so a mid-evaluation reallocation of
+            // environment._slots was (and still is) not observed here.
+            ref var binding = ref slots[slotIndex];
+            if (!binding.Mutable || !binding.IsInitialized())
             {
-                ref var binding = ref slots[slotIndex];
-                if (!binding.Mutable || !binding.IsInitialized())
-                {
-                    return false;
-                }
+                return false;
             }
 
             JsValue completion;
@@ -837,10 +849,11 @@ internal sealed class JintAssignmentExpression : JintExpression
                 ((Function) rval).SetFunctionName(_leftIdentifier.Identifier.Value);
             }
 
-            ref var bindingAfterRight = ref slots[slotIndex];
-            if (bindingAfterRight.Mutable && bindingAfterRight.IsInitialized())
+            // Re-validated, not re-resolved: the right-hand side may have written or (degenerately)
+            // deleted the binding, so the flags are read live before storing through the same ref.
+            if (binding.Mutable && binding.IsInitialized())
             {
-                slots[slotIndex] = bindingAfterRight.ChangeValue(rval);
+                binding = binding.ChangeValue(rval);
             }
             else
             {
