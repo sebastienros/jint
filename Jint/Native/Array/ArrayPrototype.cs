@@ -294,6 +294,21 @@ public sealed partial class ArrayPrototype : ArrayInstance
         var count = (long) System.Math.Min(final - from, len - to);
         var initialCount = count;
 
+        // Fast path: move the elements inside the dense backing store with a single Array.Copy, which
+        // already behaves as if the source were staged in a temporary — exactly the overlapping case
+        // the direction flip below exists to handle. Only a hole-free source range qualifies, since a
+        // hole makes the spec delete the target index rather than write it.
+        if (count > 0
+            && o is JsArray { CanUseFastAccess: true } fast
+            && fast._dense is { } dense
+            && from + count <= dense.Length
+            && to + count <= dense.Length
+            && System.Array.IndexOf(dense, null, (int) from, (int) count) < 0)
+        {
+            System.Array.Copy(dense, (int) from, dense, (int) to, (int) count);
+            return o;
+        }
+
         long direction = 1;
 
         if (from < to && to < from + count)
@@ -361,6 +376,25 @@ public sealed partial class ArrayPrototype : ArrayInstance
         }
 
         var searchElement = arguments.At(0);
+
+        // Fast path: dense JsArray scan avoids the per-element HasProperty + Get virtual call pair,
+        // mirroring indexOf's lane. Indices at or beyond _dense are holes, so the scan starts at the
+        // last dense slot within the requested range and a null slot is skipped as a hole.
+        if (thisObject is JsArray { CanUseFastAccess: true } fast && fast._dense is { } dense)
+        {
+            var start = (int) System.Math.Min(k, dense.Length - 1);
+            for (var index = start; index >= 0; index--)
+            {
+                var v = dense[index];
+                if (v is not null && v == searchElement)
+                {
+                    return JsNumber.Create((uint) index);
+                }
+            }
+
+            return JsNumber.IntegerNegativeOne;
+        }
+
         var i = (ulong) k;
         for (; ; i--)
         {

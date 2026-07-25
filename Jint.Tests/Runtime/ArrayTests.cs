@@ -715,6 +715,86 @@ return get + '' === ""length,0,1,2,3"";";
 
         // an extra non-index property does not disturb the element reversal
         engine.Evaluate("var q = [1,2,3]; q.foo = 1; q.reverse().join(',')").AsString().Should().Be("3,2,1");
+
+        engine.Evaluate("var r = [1,2,3]; r.copyWithin(0,1) === r").AsBoolean().Should().BeTrue();
+
+        engine.Evaluate("""
+            var s = { length: 5, 0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e' };
+            Array.prototype.copyWithin.call(s, 0, 3);
+            s[0] + s[1] + s[2] + s[3] + s[4];
+            """).AsString().Should().Be("decde");
+
+        engine.Evaluate("""
+            var u = { length: 3, 0: 'a', 2: 'a' };
+            Array.prototype.lastIndexOf.call(u, 'a');
+            """).AsNumber().Should().Be(2);
+    }
+
+    /// <summary>
+    /// copyWithin and lastIndexOf take the same dense fast path. copyWithin relies on Array.Copy
+    /// behaving as if the source were staged in a temporary, which is what the generic path's
+    /// direction flip exists for, so overlap in both directions is covered here; a hole in the source
+    /// range makes the spec delete the target index, so those cases must decline the lane. Every
+    /// expectation was verified against V8.
+    /// </summary>
+    [Theory]
+    // copyWithin, no overlap
+    [InlineData("[1,2,3,4,5].copyWithin(0,3)", "[4,5,3,4,5]len=5")]
+    [InlineData("[1,2,3,4,5].copyWithin(1,3)", "[1,4,5,4,5]len=5")]
+    // copyWithin, overlapping in both directions
+    [InlineData("[1,2,3,4,5].copyWithin(3,0)", "[1,2,3,1,2]len=5")]
+    [InlineData("[1,2,3,4,5].copyWithin(0,1)", "[2,3,4,5,5]len=5")]
+    [InlineData("[1,2,3,4,5].copyWithin(1,0,3)", "[1,1,2,3,5]len=5")]
+    [InlineData("[1,2,3,4,5].copyWithin(-2,-3,-1)", "[1,2,3,3,4]len=5")]
+    // no-op, empty and clamped ranges
+    [InlineData("[1,2,3,4,5].copyWithin(0,0)", "[1,2,3,4,5]len=5")]
+    [InlineData("[1,2,3,4,5].copyWithin(2,2,2)", "[1,2,3,4,5]len=5")]
+    [InlineData("[1,2,3,4,5].copyWithin(10,0)", "[1,2,3,4,5]len=5")]
+    [InlineData("[1,2,3,4,5].copyWithin(0,10)", "[1,2,3,4,5]len=5")]
+    [InlineData("[].copyWithin(0,0)", "[]len=0")]
+    [InlineData("[1,2,3].copyWithin(0,1.6,2.9)", "[2,2,3]len=3")]
+    // a hole in the source range deletes the target index, so the lane must decline
+    [InlineData("[1,,3,4].copyWithin(0,1,3)", "[<hole>,3,3,4]len=4")]
+    [InlineData("[1,2,,4].copyWithin(1,2)", "[1,<hole>,4,4]len=4")]
+    [InlineData("(function(){var a=[1,2,3];a[8]=9;return a.copyWithin(0,7,9);})()", "[<hole>,9,3,<hole>,<hole>,<hole>,<hole>,<hole>,9]len=9")]
+    [InlineData("(function(){var a=[1,2,3,4,5];a.length=3;return a.copyWithin(0,1);})()", "[2,3,3]len=3")]
+    public void CopyWithinPreservesOverlapAndHoleSemantics(string expression, string expected)
+    {
+        var engine = new Engine();
+        engine.Execute("""
+            function d(a) {
+                var parts = [];
+                for (var i = 0; i < a.length; i++) parts.push(i in a ? String(a[i]) : "<hole>");
+                return "[" + parts.join(",") + "]len=" + a.length;
+            }
+            """);
+        engine.Evaluate($"d({expression})").AsString().Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData("[1,2,3,2,1].lastIndexOf(2)", 3)]
+    [InlineData("[1,2,3,2,1].lastIndexOf(2,2)", 1)]
+    [InlineData("[1,2,3].lastIndexOf(9)", -1)]
+    [InlineData("[1,2,3,2].lastIndexOf(2,-1)", 3)]
+    [InlineData("[1,2,3,2].lastIndexOf(2,-3)", 1)]
+    [InlineData("[1,2,3].lastIndexOf(1,-100)", -1)]
+    [InlineData("[1,2,3].lastIndexOf(3,100)", 2)]
+    [InlineData("[].lastIndexOf(1)", -1)]
+    [InlineData("[1,2,3].lastIndexOf(2,1.9)", 1)]
+    // a hole is not undefined
+    [InlineData("[1,,1].lastIndexOf(undefined)", -1)]
+    [InlineData("[1,undefined,1].lastIndexOf(undefined)", 1)]
+    // strict equality: NaN never matches, +0 matches -0, no coercion
+    [InlineData("[NaN].lastIndexOf(NaN)", -1)]
+    [InlineData("[0].lastIndexOf(-0)", 0)]
+    [InlineData("['1'].lastIndexOf(1)", -1)]
+    // a match beyond the dense backing store
+    [InlineData("(function(){var a=[1,2,3];a[8]=2;return a.lastIndexOf(2);})()", 8)]
+    // length shortened below the backing store hides the trailing elements
+    [InlineData("(function(){var a=[1,2,3,4,5];a.length=2;return a.lastIndexOf(3);})()", -1)]
+    public void LastIndexOfMatchesStrictEqualityAndHoles(string expression, int expected)
+    {
+        new Engine().Evaluate(expression).AsNumber().Should().Be(expected);
     }
 
     /// <summary>
