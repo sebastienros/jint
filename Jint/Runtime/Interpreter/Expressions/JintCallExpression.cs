@@ -192,8 +192,9 @@ internal sealed class JintCallExpression : JintExpression
         // ensure logic is in sync between Call, Construct and JintCallExpression!
 
         JsValue result;
-        if (callable is Function functionInstance)
+        if (IsFunctionFlagged(func))
         {
+            var functionInstance = Unsafe.As<Function>(func);
             var callStack = engine.CallStack;
             var recursionDepth = callStack.Push(functionInstance, _calleeExpression, engine.ExecutionContext);
 
@@ -226,7 +227,13 @@ internal sealed class JintCallExpression : JintExpression
             engine._jsValueArrayPool.ReturnArray(arguments);
         }
 
-        engine._referencePool.Return(referenceRecord);
+        // The fast member-call lane never rents a Reference, so skip the call on that path rather
+        // than entering Return only to have it discover the null.
+        if (referenceRecord is not null)
+        {
+            engine._referencePool.Return(referenceRecord);
+        }
+
         return result;
     }
 
@@ -237,6 +244,20 @@ internal sealed class JintCallExpression : JintExpression
     /// equivalent by construction — asserted here so a future ICallable implementer that forgets
     /// the flag trips in debug builds rather than silently losing callability.
     /// </summary>
+    /// <summary>
+    /// Whether <paramref name="value"/> is a <see cref="Function"/>, decided by the
+    /// <see cref="InternalTypes.Function"/> flag instead of a class-hierarchy walk. Only functions get a
+    /// call-stack frame, so this runs on every dispatched call; <see cref="Function"/> is abstract with
+    /// many subclasses, which is exactly the shape `is` resolves via <c>CastHelpers.IsInstanceOfClass</c>.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsFunctionFlagged(JsValue value)
+    {
+        var flagged = (value._type & InternalTypes.Function) != InternalTypes.Empty;
+        Debug.Assert(flagged == value is Function, $"InternalTypes.Function disagrees with `is Function` for {value.GetType()}");
+        return flagged;
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool IsCallableFlagged(JsValue value)
     {
