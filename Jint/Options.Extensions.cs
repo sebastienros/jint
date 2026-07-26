@@ -91,7 +91,15 @@ public static class OptionsExtensions
     /// The allowed depth.
     /// a) In case max depth is zero no recursion is allowed.
     /// b) In case max depth is equal to n it means that in one scope function can be called no more than n times.
+    /// c) A negative depth (the default of <see cref="Options.ConstraintOptions.MaxRecursionDepth"/>)
+    /// disables the check, and with it the call-stack depth tracking that feeds it.
     /// </param>
+    /// <remarks>
+    /// Unlike the constraint helpers in <see cref="ConstraintsOptionsExtensions"/>, this one does not
+    /// treat a saturated value as "no limit": any non-negative depth — <see cref="int.MaxValue"/>
+    /// included — turns depth tracking on, so a limit chosen to be unreachable still costs what
+    /// enforcement costs while never failing. Pass a negative depth to mean unlimited.
+    /// </remarks>
     /// <returns>Options instance for fluent syntax</returns>
     public static Options LimitRecursion(this Options options, int maxRecursionDepth = 0)
     {
