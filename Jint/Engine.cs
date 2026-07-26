@@ -286,7 +286,7 @@ public sealed partial class Engine : IDisposable
             : null;
         _enumsAsStrings = Options.Interop.EnumConversion == EnumConversionMode.String;
 
-        _constraints = Options.Constraints.Constraints.ToArray();
+        _constraints = BuildConstraints(Options.Constraints);
         var partitionedConstraints = PartitionConstraints(_constraints);
         _exactConstraints = partitionedConstraints.Exact;
         _amortizedConstraints = partitionedConstraints.Amortized;

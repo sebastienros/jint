@@ -1,4 +1,5 @@
 using Jint.Constraints;
+using Jint.Runtime;
 
 namespace Jint;
 
@@ -8,6 +9,51 @@ public partial class Engine
 
     [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
     private readonly record struct ConstraintPartition(Constraint[] Exact, Constraint[] Amortized);
+
+    /// <summary>
+    /// Materializes the constraint set for this engine.
+    /// </summary>
+    /// <remarks>
+    /// Constraints hold per-execution state — a statement counter, a deadline, an observed token — and
+    /// <see cref="ResetConstraints"/> rewinds that state at the start of every execution. Sharing one
+    /// <see cref="Options"/> instance across engines is a supported (and recommended) pattern, so the
+    /// engine cannot simply take a reference to whatever the options hold: two engines would then share
+    /// one budget and one engine's reset would rewind another engine's in-flight execution. Factory
+    /// registrations therefore produce a fresh instance per engine here. Instances registered directly
+    /// through <see cref="OptionsExtensions.Constraint(Options, Constraint)"/> are used as given — that
+    /// overload is documented as single-engine-only, and nothing can be cloned out of an arbitrary
+    /// user-derived <see cref="Constraint"/>.
+    /// </remarks>
+    private static Constraint[] BuildConstraints(Options.ConstraintOptions options)
+    {
+        var factories = options.ConstraintFactories;
+        var instances = options.Constraints;
+
+        if (factories.Count == 0)
+        {
+            return instances.Count == 0 ? [] : instances.ToArray();
+        }
+
+        var constraints = new Constraint[factories.Count + instances.Count];
+        var index = 0;
+        foreach (var factory in factories)
+        {
+            var constraint = factory();
+            if (constraint is null)
+            {
+                Throw.InvalidOperationException("A registered constraint factory returned null.");
+            }
+
+            constraints[index++] = constraint;
+        }
+
+        foreach (var instance in instances)
+        {
+            constraints[index++] = instance;
+        }
+
+        return constraints;
+    }
 
     /// <summary>
     /// Splits the registered constraints by required check frequency. The built-in time and
