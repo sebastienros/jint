@@ -20,8 +20,16 @@ internal sealed class ReferencePool
         _pool = new ObjectPool<Reference>(Factory, PoolSize);
     }
 
-    private static Reference Factory()
+    /// <summary>
+    /// How many instances the pool has had to create because it had none to hand out. A workload that
+    /// rents and returns in balance settles at the pool's capacity; a path that rents without returning
+    /// keeps this climbing, one per rent, which is what makes it worth asserting on in tests.
+    /// </summary>
+    internal int CreatedCount { get; private set; }
+
+    private Reference Factory()
     {
+        CreatedCount++;
         return new Reference(JsValue.Undefined, JsString.Empty, false, null);
     }
 
