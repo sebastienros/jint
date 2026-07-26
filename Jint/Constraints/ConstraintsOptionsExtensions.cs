@@ -39,6 +39,8 @@ public static class ConstraintsOptionsExtensions
     /// </summary>
     public static Options TimeoutInterval(this Options options, TimeSpan timeoutInterval)
     {
+        options.WithoutConstraint(x => x is TimeConstraint);
+
         if (timeoutInterval > TimeSpan.Zero && timeoutInterval < TimeSpan.MaxValue)
         {
             options.Constraint(new TimeConstraint(timeoutInterval));
