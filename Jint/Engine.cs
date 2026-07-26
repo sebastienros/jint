@@ -1071,6 +1071,15 @@ public sealed partial class Engine : IDisposable
                 reference.EvaluateAndCachePropertyKey();
                 if (_referenceResolver.TryUnresolvableReference(this, reference, out var val))
                 {
+                    // Same contract as the exits below: the caller handed over ownership of a rented
+                    // Reference, so a claimed read has to hand it back too. The resolver only inspects
+                    // the reference for the duration of the call — the declined path already recycles
+                    // this very instance a few lines down.
+                    if (returnReferenceToPool)
+                    {
+                        _referencePool.Return(reference);
+                    }
+
                     return val;
                 }
             }
@@ -1085,6 +1094,11 @@ public sealed partial class Engine : IDisposable
             reference.EvaluateAndCachePropertyKey();
             if (_referenceResolver.TryPropertyReference(this, reference, ref baseValue))
             {
+                if (returnReferenceToPool)
+                {
+                    _referencePool.Return(reference);
+                }
+
                 return baseValue;
             }
         }
