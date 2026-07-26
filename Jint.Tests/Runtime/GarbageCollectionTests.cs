@@ -1,5 +1,6 @@
 ﻿using System.Text;
 using Acornima.Ast;
+using Jint.Runtime.Interop;
 
 namespace Jint.Tests.Runtime;
 
@@ -161,6 +162,46 @@ public class GarbageCollectionTests
             var engine = new Engine();
             engine.Execute(prepared);
             return new WeakReference(engine);
+        }
+    }
+
+    [Fact]
+    public void NestedTypeAccessDoesNotRetainEngines()
+    {
+        // Regression test: the accessors backing static member access on a type reference live in a cache
+        // shared by the whole process and keyed only by (declaring type, member name). A nested type
+        // resolves to an accessor that holds a type reference — an object owned by the engine that created
+        // it — so caching that accessor kept the engine, its realm and all of its intrinsics reachable for
+        // the lifetime of the process. Only the engine that first resolved the member was pinned, so a
+        // single engine is enough to observe it: with the leak in place this one is never collected.
+
+        var reference = RunOnceAndForget();
+
+        GC.Collect(2, GCCollectionMode.Forced, blocking: true);
+        GC.WaitForPendingFinalizers();
+        GC.Collect(2, GCCollectionMode.Forced, blocking: true);
+
+        reference.IsAlive.Should().BeFalse("the engine is still pinned by the shared static member accessor cache.");
+
+        // NoInlining so the engine reference cannot be stack-rooted in this frame across the GC.Collect calls.
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static WeakReference RunOnceAndForget()
+        {
+            var engine = new Engine();
+            engine.SetValue("Holder", TypeReference.CreateTypeReference<NestedTypeLeakHolder>(engine));
+            engine.Evaluate("Holder.Inner");
+            return new WeakReference(engine);
+        }
+    }
+
+    /// <summary>
+    /// Only ever used by <see cref="NestedTypeAccessDoesNotRetainEngines"/>: the accessor cache is
+    /// process-wide, so a type another test also resolves would let that test's engine take the blame.
+    /// </summary>
+    private sealed class NestedTypeLeakHolder
+    {
+        public sealed class Inner
+        {
         }
     }
 
