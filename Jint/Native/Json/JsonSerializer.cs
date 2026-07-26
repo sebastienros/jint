@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -38,20 +39,10 @@ public sealed class JsonSerializer
 
     public JsValue Serialize(JsValue value, JsValue replacer, JsValue space)
     {
-        _stack = new ObjectTraverseStack(_engine);
-
-        // for JSON.stringify(), any function passed as the first argument will return undefined
-        // if the replacer is not defined. The function is not called either.
-        if (value.IsCallable && ReferenceEquals(replacer, JsValue.Undefined))
+        if (!TryCreateHolder(value, replacer, space, out var wrapper))
         {
             return JsValue.Undefined;
         }
-
-        SetupReplacer(replacer);
-        _gap = BuildSpacingGap(space);
-
-        var wrapper = _engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
-        wrapper.DefineOwnProperty(JsString.Empty, new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable));
 
         string result;
         var json = new ValueStringBuilder();
@@ -67,6 +58,130 @@ public sealed class JsonSerializer
             result = json.ToString();
         }
         return new JsString(result);
+    }
+
+    /// <summary>
+    /// Serializes <paramref name="value"/> and writes the document to <paramref name="writer"/> as UTF-8,
+    /// for callers that hold or emit UTF-8 and would otherwise transcode the result of
+    /// <see cref="Serialize(JsValue)"/> themselves.
+    /// </summary>
+    /// <returns>
+    /// <see langword="false"/> when the value has no JSON representation, matching the cases where
+    /// <see cref="Serialize(JsValue)"/> returns <see cref="JsValue.Undefined"/>; nothing is written then.
+    /// Otherwise <see langword="true"/>.
+    /// </returns>
+    public bool Serialize(JsValue value, IBufferWriter<byte> writer)
+    {
+        return Serialize(value, JsValue.Undefined, JsValue.Undefined, writer);
+    }
+
+    /// <summary>
+    /// Serializes <paramref name="value"/> and writes the document to <paramref name="writer"/> as UTF-8,
+    /// for callers that hold or emit UTF-8 and would otherwise transcode the result of
+    /// <see cref="Serialize(JsValue, JsValue, JsValue)"/> themselves.
+    /// </summary>
+    /// <returns>
+    /// <see langword="false"/> when the value has no JSON representation, matching the cases where
+    /// <see cref="Serialize(JsValue, JsValue, JsValue)"/> returns <see cref="JsValue.Undefined"/>; nothing
+    /// is written then. Otherwise <see langword="true"/>.
+    /// </returns>
+    /// <remarks>
+    /// The bytes are exactly <c>Encoding.UTF8.GetBytes</c> of what the string-returning overload produces
+    /// for the same arguments. That is byte-for-byte round-trippable except where the document itself is
+    /// not well-formed UTF-16: string contents and property names are always escaped as <c>\uXXXX</c>, but
+    /// the <c>space</c> indentation, raw JSON text and host-supplied interop JSON are copied through
+    /// verbatim, so an unpaired surrogate reaching the output through one of those becomes U+FFFD here.
+    /// A caller transcoding the string overload's result with <c>Encoding.UTF8</c> gets the same
+    /// substitution, so this is a property of UTF-8 rather than a divergence between the two overloads.
+    /// </remarks>
+    public bool Serialize(JsValue value, JsValue replacer, JsValue space, IBufferWriter<byte> writer)
+    {
+        if (writer is null)
+        {
+            Throw.ArgumentNullException(nameof(writer));
+        }
+
+        if (!TryCreateHolder(value, replacer, space, out var wrapper))
+        {
+            return false;
+        }
+
+        var json = new ValueStringBuilder();
+        try
+        {
+            if (SerializeJSONProperty(JsString.Empty, wrapper, ref json) == SerializeResult.Undefined)
+            {
+                return false;
+            }
+
+            WriteUtf8(json.AsSpan(), writer);
+            return true;
+        }
+        finally
+        {
+            json.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// The shared prologue of https://tc39.es/ecma262/#sec-json.stringify: configures the replacer and the
+    /// gap, and builds the wrapper object the value is serialized out of. Returns <see langword="false"/>
+    /// for the inputs that produce no output at all.
+    /// </summary>
+    private bool TryCreateHolder(JsValue value, JsValue replacer, JsValue space, out ObjectInstance wrapper)
+    {
+        _stack = new ObjectTraverseStack(_engine);
+
+        // for JSON.stringify(), any function passed as the first argument will return undefined
+        // if the replacer is not defined. The function is not called either.
+        if (value.IsCallable && ReferenceEquals(replacer, JsValue.Undefined))
+        {
+            wrapper = null!;
+            return false;
+        }
+
+        SetupReplacer(replacer);
+        _gap = BuildSpacingGap(space);
+
+        wrapper = _engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
+        wrapper.DefineOwnProperty(JsString.Empty, new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable));
+        return true;
+    }
+
+    /// <summary>
+    /// Transcodes the finished document in bounded rounds so the writer is never asked for more than one
+    /// chunk's worth of destination space, however large the document is. The stateful encoder carries a
+    /// surrogate pair split across a chunk boundary into the next round.
+    /// </summary>
+    private static unsafe void WriteUtf8(ReadOnlySpan<char> chars, IBufferWriter<byte> writer)
+    {
+        const int ChunkLength = 1024;
+
+        var encoder = Encoding.UTF8.GetEncoder();
+        while (!chars.IsEmpty)
+        {
+            var chunk = chars.Length <= ChunkLength ? chars : chars.Slice(0, ChunkLength);
+            var flush = chunk.Length == chars.Length;
+
+            // GetMaxByteCount leaves room for a surrogate held over from the previous round, so a
+            // conforming writer always hands back enough space to drain the whole chunk in one go.
+            var destination = writer.GetSpan(Encoding.UTF8.GetMaxByteCount(chunk.Length));
+
+            int charsUsed;
+            int bytesUsed;
+#if SUPPORTS_SPAN_PARSE
+            encoder.Convert(chunk, destination, flush, out charsUsed, out bytesUsed, out _);
+#else
+            fixed (char* chunkPtr = chunk)
+            fixed (byte* destinationPtr = destination)
+            {
+                encoder.Convert(chunkPtr, chunk.Length, destinationPtr, destination.Length, flush, out charsUsed, out bytesUsed, out _);
+            }
+#endif
+
+            writer.Advance(bytesUsed);
+            chars = chars.Slice(charsUsed);
+        }
     }
 
     private void SetupReplacer(JsValue replacer)
