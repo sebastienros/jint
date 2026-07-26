@@ -11,11 +11,17 @@ namespace Jint.Tests.Runtime;
 /// </summary>
 public class ConstraintRegistrationTests
 {
-    private static List<Constraint> Register(Action<Options> configure)
+    /// <summary>
+    /// The constraints an engine built from these options actually ends up with. Asking the engine
+    /// rather than the options is what makes this independent of <em>how</em> a helper registered its
+    /// constraint: the built-in helpers register a factory so that each engine gets its own instance,
+    /// while a directly registered instance is shared, and both arrive here the same way.
+    /// </summary>
+    private static IReadOnlyList<Constraint> Register(Action<Options> configure)
     {
         var options = new Options();
         configure(options);
-        return options.Constraints.Constraints;
+        return new Engine(options)._constraints;
     }
 
     private static int CountOf<T>(Action<Options> configure) where T : Constraint

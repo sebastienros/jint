@@ -281,7 +281,7 @@ public sealed partial class Engine : IDisposable
             ? Options.Interop.ObjectConverters.ToArray()
             : null;
 
-        _constraints = Options.Constraints.Constraints.ToArray();
+        _constraints = BuildConstraints(Options.Constraints);
         var partitionedConstraints = PartitionConstraints(_constraints);
         _exactConstraints = partitionedConstraints.Exact;
         _amortizedConstraints = partitionedConstraints.Amortized;

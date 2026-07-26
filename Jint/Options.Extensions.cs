@@ -254,6 +254,15 @@ public static class OptionsExtensions
         return options;
     }
 
+    /// <summary>
+    /// Registers a single constraint instance.
+    /// </summary>
+    /// <remarks>
+    /// The instance is shared by every engine built from these options. Constraints normally carry
+    /// per-execution state, so this overload is only safe for options that build exactly one engine.
+    /// Use <see cref="Constraint(Options, Func{Constraint})"/> when the same options are reused for
+    /// several engines.
+    /// </remarks>
     public static Options Constraint(this Options options, Constraint constraint)
     {
         if (constraint != null)
@@ -264,9 +273,50 @@ public static class OptionsExtensions
         return options;
     }
 
+    /// <summary>
+    /// Registers a factory that produces a constraint. Each engine built from these options invokes the
+    /// factory exactly once while constructing, so no per-execution constraint state is ever shared
+    /// between engines — which makes it safe to build many engines, including concurrently running ones,
+    /// from a single <see cref="Options"/> instance.
+    /// </summary>
+    /// <param name="options">The engine options.</param>
+    /// <param name="constraintFactory">
+    /// Produces a fresh, unconfigured constraint instance on every invocation. It must not hand out the
+    /// same instance twice, otherwise the isolation this overload exists for is lost, and it must have no
+    /// side effect beyond creating the constraint: <see cref="WithoutConstraint"/> invokes it once more to
+    /// classify the registration.
+    /// </param>
+    /// <returns>The options instance for fluent configuration.</returns>
+    public static Options Constraint(this Options options, Func<Constraint> constraintFactory)
+    {
+        if (constraintFactory != null)
+        {
+            options.Constraints.ConstraintFactories.Add(constraintFactory);
+        }
+
+        return options;
+    }
+
+    /// <summary>
+    /// Removes every registered constraint matching <paramref name="predicate"/>.
+    /// </summary>
+    /// <remarks>
+    /// A factory registration has no instance to test against, so the predicate is evaluated against a
+    /// throw-away probe obtained from the factory — which is why a factory must not do anything beyond
+    /// creating the constraint. Because a factory is required to return a fresh, unconfigured instance,
+    /// the classification predicates this method is used with (<c>x =&gt; x is SomeConstraint</c>) select
+    /// exactly the same registrations they would have selected before the registration became
+    /// factory-based, which is what keeps the "replace the constraint of this kind" behaviour of
+    /// <see cref="ConstraintsOptionsExtensions"/> intact.
+    /// </remarks>
     public static Options WithoutConstraint(this Options options, Predicate<Constraint> predicate)
     {
         options.Constraints.Constraints.RemoveAll(predicate);
+        options.Constraints.ConstraintFactories.RemoveAll(factory =>
+        {
+            var probe = factory();
+            return probe is not null && predicate(probe);
+        });
         return options;
     }
 

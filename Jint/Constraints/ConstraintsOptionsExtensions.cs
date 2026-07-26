@@ -22,6 +22,12 @@ namespace Jint;
 /// an engine against itself.
 /// </para>
 /// </summary>
+/// <remarks>
+/// Every method here registers a <i>factory</i> rather than a constraint instance, so each engine
+/// built from the options gets its own constraint and its own per-execution state (statement
+/// counter, deadline). That is what keeps a single <see cref="Options"/> instance safe to reuse for
+/// many engines, including engines running concurrently.
+/// </remarks>
 public static class ConstraintsOptionsExtensions
 {
     /// <summary>
@@ -43,7 +49,7 @@ public static class ConstraintsOptionsExtensions
 
         if (maxStatements > 0 && maxStatements < int.MaxValue)
         {
-            options.Constraint(new MaxStatementsConstraint(maxStatements));
+            options.Constraint(() => new MaxStatementsConstraint(maxStatements));
         }
         return options;
     }
@@ -66,7 +72,7 @@ public static class ConstraintsOptionsExtensions
 
         if (memoryLimit > 0 && memoryLimit < long.MaxValue)
         {
-            options.Constraint(new MemoryLimitConstraint(memoryLimit));
+            options.Constraint(() => new MemoryLimitConstraint(memoryLimit));
         }
         return options;
     }
@@ -89,7 +95,7 @@ public static class ConstraintsOptionsExtensions
 
         if (timeoutInterval > TimeSpan.Zero && timeoutInterval < TimeSpan.MaxValue)
         {
-            options.Constraint(new TimeConstraint(timeoutInterval));
+            options.Constraint(() => new TimeConstraint(timeoutInterval));
         }
         return options;
     }
@@ -110,7 +116,7 @@ public static class ConstraintsOptionsExtensions
 
         if (cancellationToken != default)
         {
-            options.Constraint(new CancellationConstraint(cancellationToken));
+            options.Constraint(() => new CancellationConstraint(cancellationToken));
         }
         return options;
     }

@@ -531,9 +531,24 @@ public class Options
     public class ConstraintOptions
     {
         /// <summary>
-        /// Registered constraints.
+        /// Registered constraint instances.
         /// </summary>
+        /// <remarks>
+        /// Every engine built from these options observes these exact instances. Constraints normally
+        /// carry per-execution state (a statement counter, a deadline), so a shared instance is only
+        /// safe when a single engine is built from the options and it is never used concurrently.
+        /// To share one <see cref="Options"/> across several engines, register a factory instead
+        /// (<see cref="OptionsExtensions.Constraint(Options, Func{Constraint})"/>) so each engine gets
+        /// its own instance; the built-in constraint extension methods already do that.
+        /// </remarks>
         public List<Constraint> Constraints { get; } = new();
+
+        /// <summary>
+        /// Registered constraint factories. Each engine built from these options invokes every factory
+        /// exactly once while constructing, so the constraints — and the per-execution state they carry —
+        /// belong to that engine alone.
+        /// </summary>
+        internal List<Func<Constraint>> ConstraintFactories { get; } = new();
 
         /// <summary>
         /// Maximum recursion depth allowed, defaults to -1 (no checks).
