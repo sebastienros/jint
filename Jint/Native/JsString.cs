@@ -565,7 +565,12 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
             return string.Equals(ToString(), other.ToString(), StringComparison.Ordinal);
         }
 
-        public override int GetHashCode() => _stringBuilder?.GetHashCode() ?? StringComparer.Ordinal.GetHashCode(_value);
+        // Hash the content, exactly like the flat base implementation: StringBuilder does not
+        // override GetHashCode, so hashing the buffer would hash its identity and an equal value
+        // would land in a different bucket than the flat string Equals says it matches.
+        // Materializing is unavoidable for a content hash, and Equals already materializes, so no
+        // previously allocation-free path becomes allocating.
+        public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(ToString());
 
         internal override JsValue DoClone()
         {
