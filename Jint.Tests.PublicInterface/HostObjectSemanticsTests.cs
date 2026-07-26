@@ -28,8 +28,10 @@ public class HostObjectSemanticsTests
     // Release strips the verification, and its count is the one the probes-per-read guard is about.
 #if DEBUG
     private const int OrdinaryOwnReadProbes = 3;
+    private const int OrdinaryWarmPrototypeReadProbes = 3;
 #else
     private const int OrdinaryOwnReadProbes = 1;
+    private const int OrdinaryWarmPrototypeReadProbes = 1;
 #endif
 
     [Fact]
@@ -125,7 +127,7 @@ public class HostObjectSemanticsTests
     }
 
     [Fact]
-    public void AWarmPrototypeReadDoesNotReprobeTheHost()
+    public void AWarmPrototypeReadProbesTheHostOncePerRead()
     {
         var engine = new Engine();
         var host = new ProjectedHostObject(engine);
@@ -134,11 +136,13 @@ public class HostObjectSemanticsTests
 
         engine.Evaluate("var total = 0; for (var i = 0; i < 10; i++) { total += host.protoMethod(); } total;").Should().Be(10);
 
-        // The ordinary lane must not cost the prototype-method cache: ten reads of a prototype method through a
-        // single node probe the receiver once, not ten times. That is why the lane consults that cache before it
-        // probes for an own property — doing it the other way round turns the nine cached iterations back into
-        // nine virtual probes.
-        host.GetOwnPropertyCalls.Should().Be(OrdinaryOwnReadProbes);
+        // Ten reads of a prototype method through a single node, and each one asks the host whether it now owns
+        // that name. That probe cannot be skipped: the host stores its own-property set itself, so nothing the
+        // engine watches moves when a projected member appears, and a cached prototype hit reused on trust would
+        // keep shadowing it. Its result is what makes the next line honest — the prototype-method cache still
+        // answers the read, so the cost is one probe per read rather than the two an uncached read pays (one to
+        // establish the miss, one inside the Get that follows it).
+        host.GetOwnPropertyCalls.Should().Be(10 * OrdinaryWarmPrototypeReadProbes);
     }
 
     [Fact]
@@ -243,6 +247,16 @@ internal class ProjectedHostObject : ObjectInstance
     public ProjectedHostObject Project(string name, JsValue value)
     {
         _fields[name] = value;
+        return this;
+    }
+
+    /// <summary>
+    /// Drops a projected field, the way the native state behind a host object changes on its own. Like
+    /// <see cref="Project"/> this is not a JavaScript-visible write, so nothing in the engine observes it.
+    /// </summary>
+    public ProjectedHostObject Unproject(string name)
+    {
+        _fields.Remove(name);
         return this;
     }
 

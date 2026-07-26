@@ -330,7 +330,16 @@ public abstract partial class Function : ObjectInstance, ICallable
         else
         {
             base.SetOwnProperty(property, desc);
+            return;
         }
+
+        // These own properties live in fields rather than in the property bag, so the base store's version
+        // bump does not run for them. It has to run anyway: every one of them is configurable, so a define
+        // can make the name own again after a delete removed it, and the member-read inline caches read
+        // _propertiesVersion as proof that no own property has appeared to shadow a cached prototype hit.
+        // Materializing a pending descriptor deliberately does not bump — that changes the descriptor, not
+        // which names are own.
+        unchecked { _propertiesVersion++; }
     }
 
     public override void RemoveOwnProperty(JsValue property)
@@ -620,11 +629,20 @@ public abstract partial class Function : ObjectInstance, ICallable
         return $"function {name}() {{ [native code] }}";
     }
 
+    /// <summary>
+    /// A constructor's lazily created <c>prototype</c> object, which serves <c>constructor</c> from a field
+    /// instead of the property bag. It goes through the internal constructor rather than the protected one so
+    /// its type flags are stated rather than derived per type: it does not override
+    /// <see cref="ObjectInstance.Get(JsValue, JsValue)"/>, so the derivation would answer
+    /// <see cref="Native.Object.PropertyAccessSemantics.Ordinary"/> — correct, but it would also put an in-box
+    /// type on the lane meant for objects whose own-property set the engine cannot version, and this one keeps
+    /// its version accurate itself (below).
+    /// </summary>
     private sealed class ObjectInstanceWithConstructor : ObjectInstance
     {
         private PropertyDescriptor? _constructor;
 
-        public ObjectInstanceWithConstructor(Engine engine, ObjectInstance thisObj) : base(engine)
+        public ObjectInstanceWithConstructor(Engine engine, ObjectInstance thisObj) : base(engine, ObjectClass.Object)
         {
             _constructor = new PropertyDescriptor(thisObj, PropertyFlag.NonEnumerable);
         }
@@ -656,7 +674,11 @@ public abstract partial class Function : ObjectInstance, ICallable
         {
             if (CommonProperties.Constructor.Equals(property))
             {
+                // Same reason as Function.SetOwnProperty: the field is own-property storage the base store's
+                // version bump never sees, and `constructor` is configurable, so it can be deleted and defined
+                // again while a member-read inline cache holds a prototype hit for that name.
                 _constructor = desc;
+                unchecked { _propertiesVersion++; }
             }
             else
             {
@@ -669,6 +691,7 @@ public abstract partial class Function : ObjectInstance, ICallable
             if (CommonProperties.Constructor.Equals(property))
             {
                 _constructor = null;
+                unchecked { _propertiesVersion++; }
             }
             else
             {
