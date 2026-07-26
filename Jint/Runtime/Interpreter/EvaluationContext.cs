@@ -12,10 +12,12 @@ internal sealed class EvaluationContext
     /// <summary>
     /// How many statements may execute between checks of the amortized constraints (see
     /// Engine.Constraints.cs for the partition rationale). Small enough that timeout /
-    /// cancellation / memory-limit detection latency stays far below anything observable at
-    /// the granularity those constraints operate on, large enough that the per-statement cost
-    /// collapses to a countdown decrement and branch. Statements that call user CLR code
-    /// re-check on return instead — see <see cref="Engine.CheckAmortizedConstraintsAtHostBoundary"/>.
+    /// cancellation detection latency stays far below anything observable at the granularity
+    /// those constraints operate on, large enough that the per-statement cost collapses to a
+    /// countdown decrement and branch. Nothing whose budget a single statement can blow past is
+    /// checked at this cadence; see <see cref="Constraint.IsAmortizable"/>. Statements that call
+    /// user CLR code re-check on return instead — see
+    /// <see cref="Engine.CheckAmortizedConstraintsAtHostBoundary"/>.
     /// </summary>
     internal const int AmortizedConstraintCheckInterval = 64;
 
