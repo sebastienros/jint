@@ -1081,7 +1081,9 @@ public static class TypeConverter
         Node sourceNode,
         string? referenceName)
     {
-        if (!engine._referenceResolver.CheckCoercible(o))
+        // Only a resolver that subscribed to null/undefined bases gets a say here; otherwise the
+        // interface call is skipped entirely and the read throws as it would with no resolver at all.
+        if (!engine._resolverWatchesNullishBase || !engine._referenceResolver.CheckCoercible(o))
         {
             ThrowMemberNullOrUndefinedError(engine, o, sourceNode, referenceName);
         }

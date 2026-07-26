@@ -82,9 +82,13 @@ internal sealed class JintCallExpression : JintExpression
         JsValue? fastFunc = null;
         var fastThis = JsValue.Undefined;
         var member = _calleeMember;
+        // Only a resolver watching object/primitive property bases has to disarm this: GetCalleeForCall
+        // returns Undefined for a null/undefined receiver and for a non-callable result, and both of those
+        // fall through to the Reference path where CheckCoercible / TryUnresolvableReference / TryGetCallable
+        // still run.
         if (member is not null
             && member.IsFastCallEligible
-            && !engine._customResolver)
+            && !engine._resolverWatchesValueBase)
         {
             fastFunc = member.GetCalleeForCall(context, out fastThis);
             if (suspendable is not null && suspendable.IsSuspended)
@@ -151,7 +155,8 @@ internal sealed class JintCallExpression : JintExpression
                     // since the unresolvable reference base is a sentinel (not undefined), also
                     // consult the resolver for unresolvable references so a call to an undefined
                     // name is routed through it instead of casting the sentinel to an Environment
-                    if ((baseValue.IsNullOrUndefined() || referenceRecord.IsUnresolvableReference)
+                    if (engine._resolverWatchesUnresolvable
+                        && (baseValue.IsNullOrUndefined() || referenceRecord.IsUnresolvableReference)
                         && engine._referenceResolver.TryUnresolvableReference(engine, referenceRecord, out var value))
                     {
                         thisObject = value;
@@ -203,7 +208,8 @@ internal sealed class JintCallExpression : JintExpression
             return func; // Return any value, caller will check Suspended
         }
 
-        if (!func.IsObject() && !engine._referenceResolver.TryGetCallable(engine, reference, out func))
+        if (!func.IsObject()
+            && (!engine._resolverWatchesCallee || !engine._referenceResolver.TryGetCallable(engine, reference, out func)))
         {
             ThrowMemberIsNotFunction(referenceRecord, reference, engine);
         }
