@@ -39,10 +39,10 @@ namespace Jint.Runtime.Interop.Reflection;
 /// </para>
 /// <para>
 /// The compiled delegates are cached process-wide keyed by the <see cref="MemberInfo"/>, because
-/// they are engine-independent: nothing they close over is affine to an <see cref="Engine"/>. This
-/// matters because <see cref="ReflectionAccessor"/> instances live in a per-engine cache
-/// (<c>Engine._reflectionAccessors</c>), so a per-accessor cache would recompile every member for
-/// every engine — the cost this type exists to remove. The trade-off is the same one the other
+/// they are engine-independent: nothing they close over is affine to an <see cref="Engine"/>. That
+/// keeps them shared even when <see cref="ReflectionAccessor"/> instances are not — the accessor
+/// cache lives on <see cref="TypeResolver"/>, so engines configured with resolvers of their own
+/// would otherwise recompile every member each time. The trade-off is the same one the other
 /// process-wide reflection caches in this assembly make (<see cref="TypeDescriptor"/>,
 /// <see cref="TypeReference"/>, <c>JintBinaryExpression._knownOperators</c>): the cached
 /// <see cref="MemberInfo"/> keeps its declaring assembly alive for the process lifetime.

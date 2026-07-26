@@ -111,9 +111,9 @@ internal sealed class MethodDescriptor
 #if NET8_0_OR_GREATER
     // Process-wide L2 caches for the invoker machinery, keyed by the reflected member.
     //
-    // MethodDescriptor instances are per-Engine: TypeResolver.GetAccessor caches the
-    // ReflectionAccessor that owns them in Engine._reflectionAccessors. With a purely per-instance
-    // cache every new Engine therefore re-emitted an invoke stub and re-compiled the whole
+    // MethodDescriptor instances live on the ReflectionAccessor that TypeResolver.GetAccessor caches,
+    // so they are only shared as far as the resolver is. With a purely per-instance cache every Engine
+    // configured with a resolver of its own would re-emit an invoke stub and re-compile the whole
     // expression tree for every host method it called, which dominates the common
     // fresh-Engine-per-operation embedding pattern.
     //
