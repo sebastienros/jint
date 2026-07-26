@@ -1,5 +1,4 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using Jint.Native;
@@ -141,67 +140,49 @@ internal static class DefaultObjectConverter
                 Throw.InvalidOperationException(Message);
             }
 
-            if (t.IsEnum)
-            {
-                var ut = Enum.GetUnderlyingType(t);
+            // NOTE: enums never reach this point. Every enum is an IConvertible whose GetTypeCode()
+            // reports its underlying type, so the convertible lane above already converted it to the
+            // JsNumber for its underlying value and returned. Any enum-specific handling therefore
+            // belongs in TryConvertConvertible (or ahead of the convertible check), never here.
 
-                if (ut == typeof(ulong))
-                {
-                    result = JsNumber.Create(Convert.ToDouble(value, CultureInfo.InvariantCulture));
-                }
-                else
-                {
-                    if (ut == typeof(uint) || ut == typeof(long))
-                    {
-                        result = JsNumber.Create(Convert.ToInt64(value, CultureInfo.InvariantCulture));
-                    }
-                    else
-                    {
-                        result = JsNumber.Create(Convert.ToInt32(value, CultureInfo.InvariantCulture));
-                    }
-                }
+            // check global cache, have we already wrapped the value? A cached wrapper is only
+            // valid for the same exposed CLR type — the same object may also cross as an
+            // explicit interface/superclass view, which resolves a different member set.
+            if (engine._objectWrapperCache?.TryGetValue(value, out var cached) == true
+                && (cached is not ObjectWrapper cachedWrapper || cachedWrapper.ClrType == valueType))
+            {
+                result = cached;
+            }
+            else if (engine._recentObjectWrapperCache?.TryGet(value, valueType) is { } recentlyWrapped)
+            {
+                result = recentlyWrapped;
             }
             else
             {
-                // check global cache, have we already wrapped the value? A cached wrapper is only
-                // valid for the same exposed CLR type — the same object may also cross as an
-                // explicit interface/superclass view, which resolves a different member set.
-                if (engine._objectWrapperCache?.TryGetValue(value, out var cached) == true
-                    && (cached is not ObjectWrapper cachedWrapper || cachedWrapper.ClrType == valueType))
-                {
-                    result = cached;
-                }
-                else if (engine._recentObjectWrapperCache?.TryGet(value, valueType) is { } recentlyWrapped)
-                {
-                    result = recentlyWrapped;
-                }
-                else
-                {
-                    var wrapped = engine.Options.Interop.WrapObjectHandler.Invoke(engine, value, type);
+                var wrapped = engine.Options.Interop.WrapObjectHandler.Invoke(engine, value, type);
 
-                    if (ReferenceEquals(wrapped?.GetPrototypeOf(), engine.Realm.Intrinsics.Object.PrototypeObject)
-                        && engine._typeReferences?.TryGetValue(t, out var typeReference) == true)
+                if (ReferenceEquals(wrapped?.GetPrototypeOf(), engine.Realm.Intrinsics.Object.PrototypeObject)
+                    && engine._typeReferences?.TryGetValue(t, out var typeReference) == true)
+                {
+                    wrapped.SetPrototypeOf(typeReference);
+                }
+
+                result = wrapped;
+
+                if (wrapped is not null)
+                {
+                    if (engine.Options.Interop.TrackObjectWrapperIdentity)
                     {
-                        wrapped.SetPrototypeOf(typeReference);
+                        engine._objectWrapperCache ??= new ConditionalWeakTable<object, ObjectInstance>();
+                        // the table may hold a wrapper for a different exposed view of the same
+                        // object (the type-guarded lookup above missed it) — last view wins
+                        engine._objectWrapperCache.Remove(value);
+                        engine._objectWrapperCache.Add(value, wrapped);
                     }
-
-                    result = wrapped;
-
-                    if (wrapped is not null)
+                    else if (engine.Options.Interop.CacheRecentObjectWrappers)
                     {
-                        if (engine.Options.Interop.TrackObjectWrapperIdentity)
-                        {
-                            engine._objectWrapperCache ??= new ConditionalWeakTable<object, ObjectInstance>();
-                            // the table may hold a wrapper for a different exposed view of the same
-                            // object (the type-guarded lookup above missed it) — last view wins
-                            engine._objectWrapperCache.Remove(value);
-                            engine._objectWrapperCache.Add(value, wrapped);
-                        }
-                        else if (engine.Options.Interop.CacheRecentObjectWrappers)
-                        {
-                            engine._recentObjectWrapperCache ??= new RecentObjectWrapperCache();
-                            engine._recentObjectWrapperCache.Add(value, wrapped);
-                        }
+                        engine._recentObjectWrapperCache ??= new RecentObjectWrapperCache();
+                        engine._recentObjectWrapperCache.Add(value, wrapped);
                     }
                 }
             }
