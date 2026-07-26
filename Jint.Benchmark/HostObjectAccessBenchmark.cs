@@ -51,6 +51,13 @@ namespace Jint.Benchmark;
 /// together. Its useful control is <see cref="HostReceiverKind.PlainObject"/>: the two build the
 /// same key order into the same representation, so FixedLayout landing on the PlainObject row is
 /// the expected result and any gap is host-side projection cost, not access cost.
+/// <see cref="HostReceiverKind.LazyHostValueHook"/> is the LazyHost record again, this time also
+/// overriding <see cref="ObjectInstance.TryGetOwnPropertyValue"/> so the projected value is handed
+/// over directly. The probe and the descriptor both disappear — including on the reads the member
+/// lane never sees, such as the computed <c>items[i]</c> — so this row is where <c>Allocated</c>
+/// should close on the PlainObject floor while the receiver stays a custom subclass. The
+/// LazyHost → LazyHostValueHook delta separates "no descriptor churn" from the "fewer virtual
+/// calls" the derivation already bought, instead of conflating the two.
 /// </description></item>
 /// <item><description>
 /// <see cref="ResolverKind"/> — installing any <see cref="IReferenceResolver"/> sets
@@ -109,13 +116,12 @@ public class HostObjectAccessBenchmark
     private Engine _engine = null!;
     private Prepared<Script> _projection;
 
-    // Only the lanes that compile and run against today's public API are in [Params]; the members
-    // awaiting a Jint feature are handled (and rejected) by GlobalSetup so that adding them here is
-    // a one-line change once the feature lands.
+    // Every lane compiles and runs against today's public API now that the value hook has landed.
     [Params(
         HostReceiverKind.PlainObject,
         HostReceiverKind.LazyHost,
         HostReceiverKind.LazyHostExotic,
+        HostReceiverKind.LazyHostValueHook,
         HostReceiverKind.FixedLayout)]
     public HostReceiverKind ReceiverKind { get; set; }
 
@@ -133,13 +139,9 @@ public class HostObjectAccessBenchmark
             case HostReceiverKind.PlainObject:
             case HostReceiverKind.LazyHost:
             case HostReceiverKind.LazyHostExotic:
+            case HostReceiverKind.LazyHostValueHook:
             case HostReceiverKind.FixedLayout:
                 break;
-
-            // TODO: enable once the descriptor-free read hook lands — a host hook that returns the
-            // JsValue directly, so a read no longer allocates a PropertyDescriptor to carry it.
-            case HostReceiverKind.LazyHostValueHook:
-                throw new NotSupportedException($"{ReceiverKind} awaits a Jint feature that does not exist yet; see the TODO in {nameof(GlobalSetup)}.");
 
             default:
                 throw new NotSupportedException(ReceiverKind.ToString());
@@ -205,7 +207,6 @@ public class HostObjectAccessBenchmark
         // projected values end up in and what that representation declares about its own access.
         var fixedLayout = kind == HostReceiverKind.FixedLayout;
         var slots = fixedLayout ? new JsValue[_itemLayout.Count] : [];
-        var exotic = kind == HostReceiverKind.LazyHostExotic;
 
         var items = new JsValue[ItemCount];
         for (var i = 0; i < items.Length; i++)
@@ -222,9 +223,12 @@ public class HostObjectAccessBenchmark
 
             if (!fixedLayout)
             {
-                items[i] = exotic
-                    ? new ExoticLazyHostObject(engine, text, numbers)
-                    : new LazyHostObject(engine, text, numbers);
+                items[i] = kind switch
+                {
+                    HostReceiverKind.LazyHostExotic => new ExoticLazyHostObject(engine, text, numbers),
+                    HostReceiverKind.LazyHostValueHook => new ValueAnsweringLazyHostObject(engine, text, numbers),
+                    _ => new LazyHostObject(engine, text, numbers),
+                };
                 continue;
             }
 
@@ -263,7 +267,12 @@ public enum HostReceiverKind
     /// </summary>
     LazyHostExotic,
 
-    /// <summary>Awaits the descriptor-free read hook. Not runnable yet.</summary>
+    /// <summary>
+    /// The same projection with one added override of
+    /// <see cref="ObjectInstance.TryGetOwnPropertyValue"/>, so an own read hands the value straight
+    /// over and materializes no <see cref="PropertyDescriptor"/> at all — on the computed
+    /// <c>items[i]</c> reads too, which never reach the interpreter's member lane.
+    /// </summary>
     LazyHostValueHook,
 
     /// <summary>
@@ -332,10 +341,13 @@ internal sealed class UnfilteredNullPropagationResolver : IReferenceResolver
 ///
 /// <para>
 /// It overrides <see cref="GetOwnProperty"/> and nothing else, so the engine derives
-/// <see cref="PropertyAccessSemantics.Ordinary"/> for it without the host declaring anything. The
-/// <see cref="HostReceiverKind.LazyHostExotic"/> row is <see cref="ExoticLazyHostObject"/>, which adds
-/// a pass-through <c>Get</c> override and nothing else — so the delta between the two rows is exactly
-/// what being derived exotic costs.
+/// <see cref="PropertyAccessSemantics.Ordinary"/> for it without the host declaring anything. The two
+/// subclasses each add exactly one override on top of the identical projection code, which is what
+/// makes the deltas between the rows readable: <see cref="ExoticLazyHostObject"/> adds a pass-through
+/// <c>Get</c> (the <see cref="HostReceiverKind.LazyHostExotic"/> row, so the delta is what being
+/// derived exotic costs) and <see cref="ValueAnsweringLazyHostObject"/> adds
+/// <see cref="ObjectInstance.TryGetOwnPropertyValue"/> (the
+/// <see cref="HostReceiverKind.LazyHostValueHook"/> row, so the delta is the descriptor).
 /// </para>
 ///
 /// <para>
@@ -398,7 +410,8 @@ internal class LazyHostObject : ObjectInstance
         }
 
         // Fresh descriptor per call: the public PropertyDescriptor surface has no reusable
-        // data-descriptor form an embedder can hand back, so this allocation is unavoidable today.
+        // data-descriptor form an embedder can hand back, so this allocation is only avoidable by
+        // answering through TryGetOwnPropertyValue instead.
         return new PropertyDescriptor(Project(slot), writable: true, enumerable: true, configurable: true);
     }
 
@@ -423,7 +436,7 @@ internal class LazyHostObject : ObjectInstance
         }
     }
 
-    private JsValue Project(int slot)
+    protected JsValue Project(int slot)
     {
         var projected = _projected[slot];
         if (projected is not null)
@@ -453,7 +466,7 @@ internal class LazyHostObject : ObjectInstance
         _ => new JsString(text[slot]),
     };
 
-    private static int SlotOf(string name) => name switch
+    protected static int SlotOf(string name) => name switch
     {
         "id" => SlotId,
         "kind" => SlotKind,
@@ -480,6 +493,45 @@ internal sealed class ExoticLazyHostObject : LazyHostObject
     }
 
     public override JsValue Get(JsValue property, JsValue receiver) => base.Get(property, receiver);
+}
+
+/// <summary>
+/// The <see cref="HostReceiverKind.LazyHostValueHook"/> receiver: identical projection, identical
+/// values, one added override of <see cref="ObjectInstance.TryGetOwnPropertyValue"/>. It answers off
+/// the same <c>SlotOf</c> the descriptor lane uses, so its <c>false</c> means exactly what
+/// <see cref="LazyHostObject.GetOwnProperty"/> returning <c>Undefined</c> means — which is the
+/// contract, and the reason the engine may skip the probe rather than merely postpone it.
+/// <para>
+/// Overriding it is the whole opt-in; the engine derives the flag from the type, so the
+/// <see cref="HostReceiverKind.LazyHost"/> row above is untouched by this class existing.
+/// </para>
+/// </summary>
+internal sealed class ValueAnsweringLazyHostObject : LazyHostObject
+{
+    public ValueAnsweringLazyHostObject(Engine engine, string[] text, double[] numbers) : base(engine, text, numbers)
+    {
+    }
+
+    // Spelled `protected internal override` because this project is a friend assembly of Jint; an
+    // embedder outside it writes `protected override`. Same member either way — the keyword is the
+    // only difference, and it is the one place in this file where the friend relationship shows.
+    protected internal override bool TryGetOwnPropertyValue(JsValue property, JsValue receiver, out JsValue value)
+    {
+        if (property.IsString())
+        {
+            var slot = SlotOf(property.ToString());
+            if (slot >= 0)
+            {
+                value = Project(slot);
+                return true;
+            }
+        }
+
+        // Not this record's key — and GetOwnProperty would say the same, which is what makes
+        // answering false here honest rather than a deferral.
+        value = JsValue.Undefined;
+        return false;
+    }
 }
 
 /// <summary>

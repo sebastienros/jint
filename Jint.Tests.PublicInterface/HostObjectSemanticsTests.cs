@@ -20,18 +20,41 @@ namespace Jint.Tests.PublicInterface;
 /// is the only one that can. <c>SetPropertyAccessSemantics</c> exists for the two shapes the rule cannot see,
 /// and both are covered below.
 /// </para>
+///
+/// <para>
+/// A second, orthogonal thing is derived the same way: whether the type overrides
+/// <c>ObjectInstance.TryGetOwnPropertyValue</c>, which answers the own-property question <em>and</em> produces
+/// the value without a <see cref="PropertyDescriptor"/>. That one is not a semantics claim — its answer is
+/// what <c>GetOwnProperty</c>'s would have been — so it changes only how many descriptors a read costs. Its
+/// <c>false</c> is authoritative, and the tests below pin both halves of that.
+/// </para>
 /// </summary>
 public class HostObjectSemanticsTests
 {
     // A Debug build of Jint verifies the Ordinary contract on every read by recomputing it (one probe to walk
-    // the chain looking for side-effect-free descriptors, one more inside the Get it compares against).
-    // Release strips the verification, and its count is the one the probes-per-read guard is about.
+    // the chain looking for side-effect-free descriptors, one more inside the Get it compares against), and
+    // verifies a value-hook answer against the descriptor it claims to match (one more, on the hook lanes
+    // only). Release strips both, and its count is the one the probes-per-read guard is about.
 #if DEBUG
     private const int OrdinaryOwnReadProbes = 3;
     private const int OrdinaryWarmPrototypeReadProbes = 3;
+    private const int HookMemberReadProbes = 3;
+    private const int HookMemberReadHookCalls = 2;
+    private const int HookComputedReadProbes = 1;
+    private const int HookPrototypeReadProbes = 3;
+    private const int HookAbsentReadProbes = 4;
+    // Deferring to the base implementation is the descriptor lane again, plus the verifier that asks
+    // GetOwnProperty a second time on each of the two hook consults a Debug read makes.
+    private const int HookDeferredReadProbes = 5;
 #else
     private const int OrdinaryOwnReadProbes = 1;
     private const int OrdinaryWarmPrototypeReadProbes = 1;
+    private const int HookMemberReadProbes = 0;
+    private const int HookMemberReadHookCalls = 1;
+    private const int HookComputedReadProbes = 0;
+    private const int HookPrototypeReadProbes = 0;
+    private const int HookAbsentReadProbes = 0;
+    private const int HookDeferredReadProbes = 1;
 #endif
 
     [Fact]
@@ -225,6 +248,96 @@ public class HostObjectSemanticsTests
         Invoking(() => new RedeclaringHostObject(engine, PropertyAccessSemantics.Ordinary, (PropertyAccessSemantics) 99))
             .Should().Throw<ArgumentOutOfRangeException>();
     }
+
+    [Fact]
+    public void AnOwnReadAnsweredByTheValueHookMaterializesNoDescriptor()
+    {
+        var engine = new Engine();
+        var host = new ValueAnsweringHostObject(engine);
+        host.Project("fast", "fast-value");
+        engine.SetValue("host", host);
+
+        host.Reset();
+        engine.Evaluate("host.fast").Should().Be("fast-value");
+        host.TryGetOwnPropertyValueCalls.Should().Be(HookMemberReadHookCalls);
+        host.GetOwnPropertyCalls.Should().Be(HookMemberReadProbes);
+
+        // Computed keys never reach the interpreter's member lane, so they exercise the wiring in Get itself.
+        host.Reset();
+        engine.Evaluate("host['fas' + 't']").Should().Be("fast-value");
+        host.GetOwnPropertyCalls.Should().Be(HookComputedReadProbes);
+    }
+
+    [Fact]
+    public void AFalseFromTheValueHookIsAnAuthoritativeOwnMiss()
+    {
+        // The half of the contract that makes the hook usable as a replacement for the probe rather than an
+        // addition to it: false says "no own property of this name", so the read continues up the chain
+        // without asking GetOwnProperty a second time — and the host is not probed at all.
+        var engine = new Engine();
+        var host = new ValueAnsweringHostObject(engine);
+        engine.SetValue("host", host);
+        engine.Execute("Object.prototype.inheritedOnly = 'from-prototype';");
+
+        host.Reset();
+        engine.Evaluate("host.inheritedOnly").Should().Be("from-prototype");
+        host.GetOwnPropertyCalls.Should().Be(HookPrototypeReadProbes);
+
+        host.Reset();
+        engine.Evaluate("host.absent").Should().Be(JsValue.Undefined);
+        host.GetOwnPropertyCalls.Should().Be(HookAbsentReadProbes);
+    }
+
+    [Fact]
+    public void AWarmPrototypeReadOffAValueAnsweringHostDoesNotProbeIt()
+    {
+        // The cost the ordinary host cannot avoid. It re-establishes the own miss with a real probe before
+        // every prototype-cache consult, so ten warm reads cost ten probes; the hook re-establishes the same
+        // miss by answering false, so they cost none. Correctness is identical — the question is asked on
+        // every read either way, which is what AProjectedPropertyAppearingOnAReceiverShadowsThePrototype...
+        // in HostObjectPropertySetChangeTests pins for both.
+        var engine = new Engine();
+        var host = new ValueAnsweringHostObject(engine);
+        engine.SetValue("host", host);
+        engine.Execute("Object.prototype.protoMethod = function () { return 1; };");
+
+        host.Reset();
+        engine.Evaluate("var total = 0; for (var i = 0; i < 10; i++) { total += host.protoMethod(); } total;").Should().Be(10);
+
+        host.GetOwnPropertyCalls.Should().Be(10 * HookPrototypeReadProbes);
+    }
+
+    [Fact]
+    public void DeferringToTheBaseImplementationResolvesFromTheDescriptor()
+    {
+        // What an override does with a key it cannot serve itself. `false` would be a lie — the property is
+        // there — so the base implementation, which is exactly GetOwnProperty plus the unwrap, answers it.
+        var engine = new Engine();
+        var host = new ValueAnsweringHostObject(engine);
+        host.Project(ValueAnsweringHostObject.DeferredName, "deferred-value");
+        engine.SetValue("host", host);
+
+        host.Reset();
+        engine.Evaluate("host." + ValueAnsweringHostObject.DeferredName).Should().Be("deferred-value");
+        host.GetOwnPropertyCalls.Should().Be(HookDeferredReadProbes);
+
+        // ...and the enumeration paths, which only ever see descriptors, agree with all of it.
+        engine.Evaluate("Object.keys(host).join(',')").Should().Be(ValueAnsweringHostObject.DeferredName);
+        engine.Evaluate("JSON.stringify(host)").Should().Be("""{"deferred":"deferred-value"}""");
+    }
+
+    [Fact]
+    public void AHostThatDoesNotOverrideTheValueHookIsNeverAsked()
+    {
+        var engine = new Engine();
+        var host = new ProjectedHostObject(engine).Project("value", 1);
+        engine.SetValue("host", host);
+
+        // The hook is derived per type, so a host that never heard of it stays on the descriptor lane at
+        // exactly the cost it had before the hook existed — the probe count is the ordinary one, unchanged.
+        engine.Evaluate("host.value").Should().Be(1);
+        host.GetOwnPropertyCalls.Should().Be(OrdinaryOwnReadProbes);
+    }
 }
 
 /// <summary>
@@ -242,6 +355,8 @@ internal class ProjectedHostObject : ObjectInstance
     }
 
     public int GetOwnPropertyCalls { get; private set; }
+
+    public virtual void Reset() => GetOwnPropertyCalls = 0;
 
     /// <summary>Seeds the projected native state. Not a JavaScript-visible write.</summary>
     public ProjectedHostObject Project(string name, JsValue value)
@@ -385,6 +500,45 @@ internal sealed class MutatingHostObject : ProjectedHostObject
         }
 
         return base.GetOwnProperty(property);
+    }
+}
+
+/// <summary>
+/// Hands own values straight over from native storage, so an own read materializes no descriptor at all — and
+/// answers <c>false</c> for a name it does not project, which the engine takes as proof there is no own
+/// property of that name. One name is deliberately left to the base implementation, covering the only correct
+/// way to say "not me" about a property that does exist.
+/// </summary>
+internal sealed class ValueAnsweringHostObject : ProjectedHostObject
+{
+    public const string DeferredName = "deferred";
+
+    public ValueAnsweringHostObject(Engine engine) : base(engine)
+    {
+    }
+
+    public int TryGetOwnPropertyValueCalls { get; private set; }
+
+    public override void Reset()
+    {
+        base.Reset();
+        TryGetOwnPropertyValueCalls = 0;
+    }
+
+    // Outside the Jint assembly a protected-internal member is inherited as protected, so that is what an
+    // embedder writes here.
+    protected override bool TryGetOwnPropertyValue(JsValue property, JsValue receiver, out JsValue value)
+    {
+        TryGetOwnPropertyValueCalls++;
+
+        // Not `return false` — this host owns the name, it just declines to produce the value itself, and
+        // false would state the opposite. base is the descriptor-driven answer.
+        if (property.IsString() && string.Equals(property.AsString(), DeferredName, StringComparison.Ordinal))
+        {
+            return base.TryGetOwnPropertyValue(property, receiver, out value);
+        }
+
+        return TryProject(property, out value);
     }
 }
 
