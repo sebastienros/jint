@@ -719,9 +719,21 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
         var engine = context.Engine;
         var resetBodySlotsPerIteration = flattenActive && !_flattenedBodySlotsInitBeforeUse;
 
+        // The generic lane charges the statement counter once more per iteration than the per-statement
+        // charges below account for, whenever the body is not a single statement: a block body whose
+        // contents run through JintStatementList charges for the block, and an EmptyStatement body (which
+        // leaves both references null) charges for the empty statement. Both are exactly the `single is
+        // null` shape.
+        var chargeBodyEnvelope = single is null;
+
         while (test.GetBooleanValue(context))
         {
             context.RunAmortizedConstraintChecks();
+
+            if (chargeBodyEnvelope)
+            {
+                context.ChargeStatement();
+            }
 
             if (resetBodySlotsPerIteration)
             {

@@ -137,9 +137,18 @@ internal sealed class JintDoWhileStatement : JintStatement<DoWhileStatement>
         var list = _tightBodyList;
         var engine = context.Engine;
 
+        // See JintForStatement.TightForBody: a non-single body costs the generic lane one extra
+        // statement-counter charge per iteration (the block, or the bare EmptyStatement body).
+        var chargeBodyEnvelope = single is null;
+
         do
         {
             context.RunAmortizedConstraintChecks();
+
+            if (chargeBodyEnvelope)
+            {
+                context.ChargeStatement();
+            }
 
             if (single is not null)
             {

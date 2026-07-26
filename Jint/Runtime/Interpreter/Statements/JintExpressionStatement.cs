@@ -48,6 +48,8 @@ internal sealed class JintExpressionStatement : JintStatement<ExpressionStatemen
     /// </summary>
     internal override void ExecuteDiscarded(EvaluationContext context)
     {
+        context.ChargeStatement();
+
         if (_expressionCanDiscard)
         {
             _expression.EvaluateAndDiscard(context);

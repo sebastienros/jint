@@ -33,6 +33,12 @@ internal sealed class TimeConstraint : Constraint
         _timeoutTicks = ticks >= long.MaxValue / 2.0 ? long.MaxValue / 2 : (long) ticks;
     }
 
+    /// <summary>
+    /// A deadline is external state that <see cref="Check"/> only reads, and a clock only advances, so
+    /// checking less often bounds how late the timeout is noticed rather than changing what is measured.
+    /// </summary>
+    public override bool IsAmortizable => true;
+
     public override void Check()
     {
         var deadline = _deadline;

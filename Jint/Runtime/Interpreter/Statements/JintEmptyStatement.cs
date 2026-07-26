@@ -15,5 +15,6 @@ internal sealed class JintEmptyStatement : JintStatement<EmptyStatement>
 
     internal override void ExecuteDiscarded(EvaluationContext context)
     {
+        context.ChargeStatement();
     }
 }

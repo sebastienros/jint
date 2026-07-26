@@ -19,6 +19,13 @@ public sealed class CancellationConstraint : Constraint
     /// </summary>
     internal CancellationToken Token => _cancellationToken;
 
+    /// <summary>
+    /// A cancellation token is external state that <see cref="Check"/> only reads and never consumes, and
+    /// it never un-cancels, so checking less often bounds how late cancellation is noticed rather than
+    /// changing whether it is.
+    /// </summary>
+    public override bool IsAmortizable => true;
+
     public override void Check()
     {
         if (_cancellationToken.IsCancellationRequested)
