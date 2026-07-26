@@ -793,14 +793,21 @@ internal sealed class JintMemberExpression : JintExpression
     {
         var engine = context.Engine;
 
-        // Same eligibility as GetValue's primary fast path, plus the computed-read path's Suspendable==null gate:
-        // a static string-named, non-optional, non-short-circuiting, non-super property write with no custom
-        // resolver, in a context where neither operand can suspend (so no generator/async bookkeeping is needed).
+        // Same eligibility as GetValue's primary fast path, minus its custom-resolver gate, plus the
+        // computed-read path's Suspendable==null gate: a static string-named, non-optional,
+        // non-short-circuiting, non-super property write in a context where neither operand can suspend
+        // (so no generator/async bookkeeping is needed).
+        //
+        // Unlike the read path, this one needs no custom-resolver gate: IReferenceResolver has no write-side
+        // member, and none of its four methods is consulted while completing a property store —
+        // Engine.PutValue reaches the resolver on none of its branches. The base is still evaluated through
+        // the normal read path (which does consult the resolver, including for an unresolvable base), and a
+        // nullish base is not an ObjectInstance so it flows to the PutValue fallback and throws there exactly
+        // as the slow path would.
         if (_propertyExpression is not null
             || _determinedProperty is not JsString determinedProperty
             || _memberExpression.Optional
             || _objectExpressionCanShortCircuit
-            || engine._customResolver
             || _objectExpression is JintSuperExpression
             || engine.ExecutionContext.Suspendable is not null)
         {
