@@ -39,6 +39,10 @@ public class JavaScriptException : JintException
         : base(message, new JavaScriptErrorWrapperException(errorConstructor.Construct(message), message))
     {
         _jsErrorException = (JavaScriptErrorWrapperException) InnerException!;
+
+        // A frameless built-in must not be able to raise a JavaScript error: the error's stack would
+        // be missing the built-in's own frame, which user code can read.
+        Native.Function.LeafCallGuard.AssertNotInLeafCall("JavaScript error construction");
     }
 
     public JavaScriptException(JsValue error)

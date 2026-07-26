@@ -1,0 +1,17 @@
+﻿{
+  Diagnostics: [
+    {
+      Location: : (12,27)-(12,30),
+      Message: Method 'Bad' requests FastCall = true but the generator cannot honor it: it declares an [ArgCount] parameter, and CallFast carries no argument count,
+      Severity: Error,
+      Descriptor: {
+        Id: JINT023,
+        Title: [JsFunction] cannot be invoked through the requested fast-call lane,
+        MessageFormat: Method '{0}' requests {1} = true but the generator cannot honor it: {2},
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Error,
+        IsEnabledByDefault: true
+      }
+    }
+  ]
+}

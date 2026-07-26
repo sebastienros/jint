@@ -56,10 +56,10 @@ internal sealed partial class NumberConstructor : Constructor
         CreateProperties_Generated();
     }
 
-    [JsFunction(Length = 1)]
-    private static JsValue IsFinite(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1, FastCall = true)]
+    private static JsValue IsFinite(JsValue thisObject, JsValue arg0)
     {
-        if (!(arguments.At(0) is JsNumber num))
+        if (!(arg0 is JsNumber num))
         {
             return false;
         }
@@ -67,10 +67,10 @@ internal sealed partial class NumberConstructor : Constructor
         return double.IsInfinity(num._value) || double.IsNaN(num._value) ? JsBoolean.False : JsBoolean.True;
     }
 
-    [JsFunction(Length = 1)]
-    private static JsValue IsInteger(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1, FastCall = true)]
+    private static JsValue IsInteger(JsValue thisObject, JsValue arg0)
     {
-        if (!(arguments.At(0) is JsNumber num))
+        if (!(arg0 is JsNumber num))
         {
             return false;
         }
@@ -85,10 +85,10 @@ internal sealed partial class NumberConstructor : Constructor
         return integer == num._value;
     }
 
-    [JsFunction(Length = 1)]
-    private static JsValue IsNaN(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1, FastCall = true)]
+    private static JsValue IsNaN(JsValue thisObject, JsValue arg0)
     {
-        if (!(arguments.At(0) is JsNumber num))
+        if (!(arg0 is JsNumber num))
         {
             return false;
         }
@@ -96,10 +96,10 @@ internal sealed partial class NumberConstructor : Constructor
         return double.IsNaN(num._value);
     }
 
-    [JsFunction(Length = 1)]
-    private static JsValue IsSafeInteger(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1, FastCall = true)]
+    private static JsValue IsSafeInteger(JsValue thisObject, JsValue arg0)
     {
-        if (!(arguments.At(0) is JsNumber num))
+        if (!(arg0 is JsNumber num))
         {
             return false;
         }

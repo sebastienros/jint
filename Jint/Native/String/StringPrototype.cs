@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using Jint.Native.Intl;
 using Jint.Native.Json;
+using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Native.RegExp;
 using Jint.Native.Symbol;
@@ -198,15 +199,15 @@ internal sealed partial class StringPrototype : StringInstance
         return TrimEndEx(s.ToString());
     }
 
-    [JsFunction]
+    [JsFunction(Length = 0, FastCall = true)]
     [RequireObjectCoercible]
-    private JsValue ToLocaleUpperCase(JsValue thisObject, JsCallArguments arguments)
+    private JsValue ToLocaleUpperCase(JsValue thisObject, JsValue arg0)
     {
         var s = TypeConverter.ToString(thisObject);
 
         // https://tc39.es/ecma402/#sup-string.prototype.tolocaleuppercase
         // 1. Let requestedLocales be ? CanonicalizeLocaleList(locales).
-        var requestedLocales = IntlUtilities.CanonicalizeLocaleList(_engine, arguments.At(0));
+        var requestedLocales = IntlUtilities.CanonicalizeLocaleList(_engine, arg0);
         var culture = CultureInfo.InvariantCulture;
         if (requestedLocales.Count > 0)
         {
@@ -425,15 +426,15 @@ internal sealed partial class StringPrototype : StringInstance
         };
     }
 
-    [JsFunction]
+    [JsFunction(Length = 0, FastCall = true)]
     [RequireObjectCoercible]
-    private JsValue ToLocaleLowerCase(JsValue thisObject, JsCallArguments arguments)
+    private JsValue ToLocaleLowerCase(JsValue thisObject, JsValue arg0)
     {
         var s = TypeConverter.ToString(thisObject);
 
         // https://tc39.es/ecma402/#sup-string.prototype.tolocalelowercase
         // 1. Let requestedLocales be ? CanonicalizeLocaleList(locales).
-        var requestedLocales = IntlUtilities.CanonicalizeLocaleList(_engine, arguments.At(0));
+        var requestedLocales = IntlUtilities.CanonicalizeLocaleList(_engine, arg0);
         var culture = CultureInfo.InvariantCulture;
         if (requestedLocales.Count > 0)
         {
@@ -919,13 +920,13 @@ internal sealed partial class StringPrototype : StringInstance
         return intVal;
     }
 
-    [JsFunction(Length = 2)]
+    [JsFunction(Length = 2, FastCall = true, Leaf = true, LeafReceiver = FastCallGuard.String)]
     [RequireObjectCoercible]
-    private static JsValue Substring(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Substring(JsValue thisObject, JsValue startArg, JsValue endArg)
     {
         var s = TypeConverter.ToJsString(thisObject);
-        var start = TypeConverter.ToNumber(arguments.At(0));
-        var end = TypeConverter.ToNumber(arguments.At(1));
+        var start = TypeConverter.ToNumber(startArg);
+        var end = TypeConverter.ToNumber(endArg);
 
         if (double.IsNaN(start) || start < 0)
         {
@@ -940,7 +941,7 @@ internal sealed partial class StringPrototype : StringInstance
         var len = s.Length;
         var intStart = ToIntegerSupportInfinity(start);
 
-        var intEnd = arguments.At(1).IsUndefined() ? len : ToIntegerSupportInfinity(end);
+        var intEnd = endArg.IsUndefined() ? len : ToIntegerSupportInfinity(end);
         var finalStart = System.Math.Min(len, System.Math.Max(intStart, 0));
         var finalEnd = System.Math.Min(len, System.Math.Max(intEnd, 0));
         // Swap value if finalStart < finalEnd
@@ -970,15 +971,15 @@ internal sealed partial class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.substr
     /// </summary>
-    [JsFunction(Length = 2)]
+    [JsFunction(Length = 2, FastCall = true)]
     [RequireObjectCoercible]
-    private static JsValue Substr(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Substr(JsValue thisObject, JsValue arg0, JsValue arg1)
     {
         var s = TypeConverter.ToJsString(thisObject);
-        var start = TypeConverter.ToInteger(arguments.At(0));
-        var length = arguments.At(1).IsUndefined()
+        var start = TypeConverter.ToInteger(arg0);
+        var length = arg1.IsUndefined()
             ? double.PositiveInfinity
-            : TypeConverter.ToInteger(arguments.At(1));
+            : TypeConverter.ToInteger(arg1);
 
         start = start >= 0 ? start : System.Math.Max(s.Length + start, 0);
         length = System.Math.Min(System.Math.Max(length, 0), s.Length - start);
@@ -1074,12 +1075,12 @@ internal sealed partial class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.split
     /// </summary>
-    [JsFunction(Length = 2)]
+    [JsFunction(Length = 2, FastCall = true)]
     [RequireObjectCoercible]
-    private JsValue Split(JsValue thisObject, JsCallArguments arguments)
+    private JsValue Split(JsValue thisObject, JsValue arg0, JsValue arg1)
     {
-        var separator = arguments.At(0);
-        var limit = arguments.At(1);
+        var separator = arg0;
+        var limit = arg1;
 
         // fast path for empty regexp
         if (separator is JsRegExp R && string.Equals(R.Source, JsRegExp.regExpForMatchingAllCharacters, StringComparison.Ordinal))
@@ -1203,11 +1204,11 @@ internal sealed partial class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/proposal-relative-indexing-method/#sec-string-prototype-additions
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction(Length = 1, FastCall = true)]
     [RequireObjectCoercible]
-    private static JsValue At(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue At(JsValue thisObject, JsValue arg0)
     {
-        var start = arguments.At(0);
+        var start = arg0;
 
         var o = thisObject.ToString();
         long len = o.Length;
@@ -1232,11 +1233,11 @@ internal sealed partial class StringPrototype : StringInstance
         return o[k];
     }
 
-    [JsFunction(Length = 2)]
+    [JsFunction(Length = 2, FastCall = true, Leaf = true, LeafReceiver = FastCallGuard.String)]
     [RequireObjectCoercible]
-    private static JsValue Slice(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue Slice(JsValue thisObject, JsValue startArg, JsValue endArg)
     {
-        var start = TypeConverter.ToNumber(arguments.At(0));
+        var start = TypeConverter.ToNumber(startArg);
         if (double.IsNegativeInfinity(start))
         {
             start = 0;
@@ -1247,7 +1248,7 @@ internal sealed partial class StringPrototype : StringInstance
         }
 
         var s = TypeConverter.ToJsString(thisObject);
-        var end = TypeConverter.ToNumber(arguments.At(1));
+        var end = TypeConverter.ToNumber(endArg);
         if (double.IsPositiveInfinity(end))
         {
             end = s.Length;
@@ -1255,7 +1256,7 @@ internal sealed partial class StringPrototype : StringInstance
 
         var len = s.Length;
         var intStart = (int) start;
-        var intEnd = arguments.At(1).IsUndefined() ? len : (int) TypeConverter.ToInteger(end);
+        var intEnd = endArg.IsUndefined() ? len : (int) TypeConverter.ToInteger(end);
         var from = intStart < 0 ? System.Math.Max(len + intStart, 0) : System.Math.Min(intStart, len);
         var to = intEnd < 0 ? System.Math.Max(len + intEnd, 0) : System.Math.Min(intEnd, len);
         var span = System.Math.Max(to - from, 0);
@@ -1281,11 +1282,11 @@ internal sealed partial class StringPrototype : StringInstance
         return JsString.CreateSliced(s, from, span);
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction(Length = 1, FastCall = true)]
     [RequireObjectCoercible]
-    private JsValue Search(JsValue thisObject, JsCallArguments arguments)
+    private JsValue Search(JsValue thisObject, JsValue arg0)
     {
-        var regex = arguments.At(0);
+        var regex = arg0;
 
         if (regex is ObjectInstance oi)
         {
@@ -1304,12 +1305,12 @@ internal sealed partial class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.replace
     /// </summary>
-    [JsFunction(Length = 2)]
+    [JsFunction(Length = 2, FastCall = true)]
     [RequireObjectCoercible]
-    private JsValue Replace(JsValue thisObject, JsCallArguments arguments)
+    private JsValue Replace(JsValue thisObject, JsValue arg0, JsValue arg1)
     {
-        var searchValue = arguments.At(0);
-        var replaceValue = arguments.At(1);
+        var searchValue = arg0;
+        var replaceValue = arg1;
 
         // 2. If searchValue is neither undefined nor null, then
         // Note: spec requires checking if searchValue IS an object, not just not-null/undefined
@@ -1358,12 +1359,12 @@ internal sealed partial class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.replaceall
     /// </summary>
-    [JsFunction(Length = 2)]
+    [JsFunction(Length = 2, FastCall = true)]
     [RequireObjectCoercible]
-    private JsValue ReplaceAll(JsValue thisObject, JsCallArguments arguments)
+    private JsValue ReplaceAll(JsValue thisObject, JsValue arg0, JsValue arg1)
     {
-        var searchValue = arguments.At(0);
-        var replaceValue = arguments.At(1);
+        var searchValue = arg0;
+        var replaceValue = arg1;
 
         // 2. If searchValue is neither undefined nor null, then
         // Note: spec requires checking if searchValue IS an object, not just not-null/undefined
@@ -1461,11 +1462,11 @@ internal sealed partial class StringPrototype : StringInstance
         return result.ToString();
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction(Length = 1, FastCall = true)]
     [RequireObjectCoercible]
-    private JsValue Match(JsValue thisObject, JsCallArguments arguments)
+    private JsValue Match(JsValue thisObject, JsValue arg0)
     {
-        var regex = arguments.At(0);
+        var regex = arg0;
         if (regex is ObjectInstance oi)
         {
             var matcher = GetMethod(_realm, oi, GlobalSymbolRegistry.Match);
@@ -1481,11 +1482,11 @@ internal sealed partial class StringPrototype : StringInstance
         return _engine.Invoke(rx, GlobalSymbolRegistry.Match, [s]);
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction(Length = 1, FastCall = true)]
     [RequireObjectCoercible]
-    private JsValue MatchAll(JsValue thisObject, JsCallArguments arguments)
+    private JsValue MatchAll(JsValue thisObject, JsValue arg0)
     {
-        var regex = arguments.At(0);
+        var regex = arg0;
         // 2. If regexp is neither undefined nor null, then
         // Note: spec requires checking if regexp IS an object, not just not-null/undefined
         if (regex is ObjectInstance)
@@ -1575,16 +1576,16 @@ internal sealed partial class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.indexof
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction(Length = 1, FastCall = true)]
     [RequireObjectCoercible]
-    private static JsValue IndexOf(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue IndexOf(JsValue thisObject, JsValue searchArg, JsValue posArg)
     {
         var s = TypeConverter.ToJsString(thisObject);
-        var searchStr = TypeConverter.ToString(arguments.At(0));
+        var searchStr = TypeConverter.ToString(searchArg);
         double pos = 0;
-        if (arguments.Length > 1 && !arguments[1].IsUndefined())
+        if (!posArg.IsUndefined())
         {
-            pos = TypeConverter.ToInteger(arguments[1]);
+            pos = TypeConverter.ToInteger(posArg);
         }
 
         if (pos > s.Length)
@@ -1621,11 +1622,10 @@ internal sealed partial class StringPrototype : StringInstance
         return jsString;
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction(Length = 1, FastCall = true, Leaf = true, LeafReceiver = FastCallGuard.String)]
     [RequireObjectCoercible]
-    private static JsValue CharCodeAt(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue CharCodeAt(JsValue thisObject, JsValue pos)
     {
-        JsValue pos = arguments.Length > 0 ? arguments[0] : 0;
         var s = TypeConverter.ToJsString(thisObject);
         var position = (int) TypeConverter.ToInteger(pos);
         if (position < 0 || position >= s.Length)
@@ -1683,12 +1683,12 @@ internal sealed partial class StringPrototype : StringInstance
         return new CodePointResult(char.ConvertToUtf32(first, second), 2, false);
     }
 
-    [JsFunction(Length = 1)]
+    [JsFunction(Length = 1, FastCall = true, Leaf = true, LeafReceiver = FastCallGuard.String)]
     [RequireObjectCoercible]
-    private static JsValue CharAt(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue CharAt(JsValue thisObject, JsValue pos)
     {
         var s = TypeConverter.ToJsString(thisObject);
-        var position = TypeConverter.ToInteger(arguments.At(0));
+        var position = TypeConverter.ToInteger(pos);
         var size = s.Length;
         if (position >= size || position < 0)
         {
@@ -1807,13 +1807,13 @@ internal sealed partial class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.startswith
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction(Length = 1, FastCall = true)]
     [RequireObjectCoercible]
-    private JsValue StartsWith(JsValue thisObject, JsCallArguments arguments)
+    private JsValue StartsWith(JsValue thisObject, JsValue arg0, JsValue arg1)
     {
         var s = TypeConverter.ToJsString(thisObject);
 
-        var searchString = arguments.At(0);
+        var searchString = arg0;
         if (ReferenceEquals(searchString, Null))
         {
             searchString = "null";
@@ -1828,7 +1828,7 @@ internal sealed partial class StringPrototype : StringInstance
 
         var searchStr = TypeConverter.ToString(searchString);
 
-        var pos = TypeConverter.ToInt32(arguments.At(1));
+        var pos = TypeConverter.ToInt32(arg1);
 
         var len = s.Length;
         var start = System.Math.Min(System.Math.Max(pos, 0), len);
@@ -1902,13 +1902,13 @@ internal sealed partial class StringPrototype : StringInstance
         return s.IndexOf(searchStr, (int) pos) > -1;
     }
 
-    [JsFunction]
+    [JsFunction(Length = 0, FastCall = true)]
     [RequireObjectCoercible]
-    private JsValue Normalize(JsValue thisObject, JsCallArguments arguments)
+    private JsValue Normalize(JsValue thisObject, JsValue arg0)
     {
         var str = TypeConverter.ToString(thisObject);
 
-        var param = arguments.At(0);
+        var param = arg0;
 
         var form = "NFC";
         if (!param.IsUndefined())
@@ -1944,12 +1944,12 @@ internal sealed partial class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.repeat
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction(Length = 1, FastCall = true)]
     [RequireObjectCoercible]
-    private JsValue Repeat(JsValue thisObject, JsCallArguments arguments)
+    private JsValue Repeat(JsValue thisObject, JsValue arg0)
     {
         var s = TypeConverter.ToString(thisObject);
-        var count = arguments.At(0);
+        var count = arg0;
 
         var n = TypeConverter.ToIntegerOrInfinity(count);
 

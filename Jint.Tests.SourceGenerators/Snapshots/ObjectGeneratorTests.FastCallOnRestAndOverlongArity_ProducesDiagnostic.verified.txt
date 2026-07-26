@@ -1,0 +1,30 @@
+﻿{
+  Diagnostics: [
+    {
+      Location: : (13,27)-(13,35),
+      Message: Method 'Variadic' requests FastCall = true but the generator cannot honor it: it has a [Rest] parameter, and a variadic tail cannot be carried in two argument registers,
+      Severity: Error,
+      Descriptor: {
+        Id: JINT023,
+        Title: [JsFunction] cannot be invoked through the requested fast-call lane,
+        MessageFormat: Method '{0}' requests {1} = true but the generator cannot honor it: {2},
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Error,
+        IsEnabledByDefault: true
+      }
+    },
+    {
+      Location: : (17,27)-(17,34),
+      Message: Method 'TooWide' requests Leaf = true but the generator cannot honor it: it declares 3 value parameters and the fast-call lane carries at most 2,
+      Severity: Error,
+      Descriptor: {
+        Id: JINT023,
+        Title: [JsFunction] cannot be invoked through the requested fast-call lane,
+        MessageFormat: Method '{0}' requests {1} = true but the generator cannot honor it: {2},
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Error,
+        IsEnabledByDefault: true
+      }
+    }
+  ]
+}

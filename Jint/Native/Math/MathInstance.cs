@@ -36,7 +36,7 @@ internal sealed partial class MathInstance : BuiltinShapeObject
         CreateSymbols_Generated();
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true)]
     private static JsValue Abs(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x))
@@ -55,7 +55,7 @@ internal sealed partial class MathInstance : BuiltinShapeObject
         return System.Math.Abs(x);
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true)]
     private static JsValue Acos(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x) || (x > 1) || (x < -1))
@@ -81,7 +81,7 @@ internal sealed partial class MathInstance : BuiltinShapeObject
         return System.Math.Log(x + System.Math.Sqrt(x * x - 1.0));
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true)]
     private static JsValue Asin(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x) || (x > 1) || (x < -1))
@@ -107,7 +107,7 @@ internal sealed partial class MathInstance : BuiltinShapeObject
         return System.Math.Log(x + System.Math.Sqrt(x * x + 1.0));
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true)]
     private static JsValue Atan(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x))
@@ -291,7 +291,7 @@ internal sealed partial class MathInstance : BuiltinShapeObject
         return System.Math.Atan2(y, x);
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true)]
     private static JsValue Ceil(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x))
@@ -325,7 +325,7 @@ internal sealed partial class MathInstance : BuiltinShapeObject
         return System.Math.Ceiling(x);
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true)]
     private static JsValue Cos(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x))
@@ -348,7 +348,7 @@ internal sealed partial class MathInstance : BuiltinShapeObject
         return System.Math.Cos(x);
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true)]
     private static JsValue Cosh(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x))
@@ -371,7 +371,7 @@ internal sealed partial class MathInstance : BuiltinShapeObject
         return System.Math.Cosh(x);
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true)]
     private static JsValue Exp(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x))
@@ -409,7 +409,7 @@ internal sealed partial class MathInstance : BuiltinShapeObject
         return JsNumber.Create(System.Math.Exp(x) - 1.0);
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true)]
     private static JsValue Floor(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x))
@@ -436,7 +436,7 @@ internal sealed partial class MathInstance : BuiltinShapeObject
         return System.Math.Floor(x);
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true)]
     private static JsValue Log(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x))
@@ -463,7 +463,7 @@ internal sealed partial class MathInstance : BuiltinShapeObject
         return System.Math.Log(x);
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true)]
     private static JsValue Log1p(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x))
@@ -489,7 +489,7 @@ internal sealed partial class MathInstance : BuiltinShapeObject
         return System.Math.Log(1 + x);
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true)]
     private static JsValue Log2(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x))
@@ -516,7 +516,7 @@ internal sealed partial class MathInstance : BuiltinShapeObject
         return System.Math.Log(x, 2);
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true)]
     private static JsValue Log10(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x))
@@ -767,7 +767,7 @@ internal sealed partial class MathInstance : BuiltinShapeObject
         return System.Math.Pow(x, y);
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true)]
     private JsValue Random(JsValue thisObject)
     {
         if (_random == null)
@@ -778,7 +778,7 @@ internal sealed partial class MathInstance : BuiltinShapeObject
         return _random.NextDouble();
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true)]
     private static JsValue Round(JsValue thisObject, [ToNumber] double x)
     {
         var round = System.Math.Round(x);
@@ -790,10 +790,10 @@ internal sealed partial class MathInstance : BuiltinShapeObject
         return round;
     }
 
-    [JsFunction(Length = 1)]
-    private static JsValue Fround(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1, FastCall = true)]
+    private static JsValue Fround(JsValue thisObject, JsValue arg0)
     {
-        var x = arguments.At(0);
+        var x = arg0;
         var n = TypeConverter.ToNumber(x);
         return (double) (float) n;
     }
@@ -802,10 +802,10 @@ internal sealed partial class MathInstance : BuiltinShapeObject
     /// https://tc39.es/proposal-float16array/#sec-math.f16round
     /// </summary>
     [JsFunction(Length = 1, Name = "f16round")]
-    private static JsValue F16Round(JsValue thisObject, JsCallArguments arguments)
+    private static JsValue F16Round(JsValue thisObject, JsValue arg0)
     {
 #if SUPPORTS_HALF
-        var x = arguments.At(0);
+        var x = arg0;
         var n = TypeConverter.ToNumber(x);
 
         if (double.IsNaN(n))
@@ -825,7 +825,7 @@ internal sealed partial class MathInstance : BuiltinShapeObject
 #endif
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true)]
     private static JsValue Sin(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x))
@@ -848,7 +848,7 @@ internal sealed partial class MathInstance : BuiltinShapeObject
         return System.Math.Sin(x);
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true)]
     private static JsValue Sinh(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x))
@@ -928,7 +928,7 @@ internal sealed partial class MathInstance : BuiltinShapeObject
         return System.Math.Truncate(x);
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true)]
     private static JsValue Sign(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x))
@@ -954,7 +954,7 @@ internal sealed partial class MathInstance : BuiltinShapeObject
         return System.Math.Sign(x);
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true)]
     private static JsValue Cbrt(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x))

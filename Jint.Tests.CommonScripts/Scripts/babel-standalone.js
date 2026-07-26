@@ -12,8 +12,6 @@ if (!console) console = {
     debug: () => null,
 };
 
-Uint8Array = Array;
-
 globalThis = global = window = parent = this;
 
 
