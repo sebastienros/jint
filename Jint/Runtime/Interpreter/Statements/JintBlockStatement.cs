@@ -343,9 +343,15 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
     {
         if (_singleStatement is not null)
         {
+            // ExecuteSingle runs the statement directly, so only that statement is charged — matched here
+            // by its own ExecuteDiscarded.
             _singleStatement.ExecuteDiscarded(context);
             return;
         }
+
+        // The list form runs through JintStatementList.Execute, which charges once for the block itself
+        // before charging each contained statement; reproduce that first charge here.
+        context.ChargeStatement();
 
         var list = _statementList!;
         var count = list.Count;

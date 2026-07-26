@@ -48,6 +48,11 @@ internal abstract class JintStatement
     /// predicate (no break/continue/return/labels, so only Normal completions can occur). Deferred
     /// errors surface via <see cref="Engine._error"/>, which the caller polls after each statement.
     /// The base implementation falls back to the full <see cref="Execute"/> ceremony.
+    /// <para>
+    /// Overrides must call <see cref="EvaluationContext.ChargeStatement"/> first: it stands in for the
+    /// statement-counting constraint that <see cref="Execute"/> would have charged here, and its cadence
+    /// decides where a statement limit throws.
+    /// </para>
     /// </summary>
     internal virtual void ExecuteDiscarded(EvaluationContext context)
     {

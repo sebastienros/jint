@@ -166,6 +166,15 @@ public sealed partial class Engine : IDisposable
     internal readonly Constraint[] _exactConstraints;
     internal readonly Constraint[] _amortizedConstraints;
 
+    /// <summary>
+    /// Set when the exact partition consists of nothing but a <see cref="MaxStatementsConstraint"/>. That
+    /// single constraint is one the interpreter can charge itself — a devirtualized call on a sealed type
+    /// rather than a walk over <see cref="_exactConstraints"/> — which lets the tight-loop lanes stay armed
+    /// while still hitting the counter once per executed statement, at exactly the points
+    /// <see cref="RunPerStatementChecks"/> would have.
+    /// </summary>
+    internal readonly MaxStatementsConstraint? _inlineStatementCounter;
+
     internal readonly bool _isDebugMode;
     internal readonly bool _isStrict;
 
@@ -306,6 +315,7 @@ public sealed partial class Engine : IDisposable
         var partitionedConstraints = PartitionConstraints(_constraints);
         _exactConstraints = partitionedConstraints.Exact;
         _amortizedConstraints = partitionedConstraints.Amortized;
+        _inlineStatementCounter = partitionedConstraints.InlineStatementCounter;
         _referenceResolver = Options.ReferenceResolver;
         var resolverInterests = ReferenceEquals(_referenceResolver, DefaultReferenceResolver.Instance)
             ? ReferenceResolverInterests.None

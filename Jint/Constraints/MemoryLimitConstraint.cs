@@ -27,6 +27,15 @@ public sealed class MemoryLimitConstraint : Constraint
         _memoryLimit = memoryLimit;
     }
 
+    /// <summary>
+    /// Never amortizable: unlike a clock, allocation between two checks is irreversible and unbounded per
+    /// statement — a single iteration can allocate arbitrarily much (exponential string growth, say) — so
+    /// checking less often would let the process overshoot the configured cap, potentially to a real
+    /// <see cref="OutOfMemoryException"/>, instead of merely noticing it late. Staying exact is what keeps
+    /// the limit usable as a hard-ish bound when sandboxing untrusted code.
+    /// </summary>
+    public override bool IsAmortizable => false;
+
     public override void Check()
     {
         if (_memoryLimit <= 0)

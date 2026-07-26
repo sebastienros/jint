@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using Jint.Constraints;
 using Jint.Native.Generator;
 
 namespace Jint.Runtime.Interpreter;
@@ -20,13 +21,21 @@ internal sealed class EvaluationContext
 
     private readonly bool _shouldRunPerStatementChecks;
     private readonly bool _hasAmortizedConstraints;
+    private readonly MaxStatementsConstraint? _statementCounter;
     private int _amortizedConstraintCountdown;
 
     public EvaluationContext(Engine engine)
     {
         Engine = engine;
         OperatorOverloadingAllowed = engine.Options.Interop.AllowOperatorOverloading;
-        _shouldRunPerStatementChecks = engine._exactConstraints.Length > 0 || engine._isDebugMode;
+
+        // A lone statement counter does not have to disarm the statement fast paths: it is charged
+        // inline instead (see ChargeStatement), once per executed statement, at the same points
+        // RunPerStatementChecks would have reached. Debug mode still forces the generic path, because
+        // the debugger's step hook rides along in RunPerStatementChecks.
+        _statementCounter = engine._isDebugMode ? null : engine._inlineStatementCounter;
+        _shouldRunPerStatementChecks = (engine._exactConstraints.Length > 0 || engine._isDebugMode)
+                                       && _statementCounter is null;
         _hasAmortizedConstraints = engine._amortizedConstraints.Length > 0;
         _amortizedConstraintCountdown = AmortizedConstraintCheckInterval;
     }
@@ -38,6 +47,7 @@ internal sealed class EvaluationContext
         OperatorOverloadingAllowed = false;
         _shouldRunPerStatementChecks = false;
         _hasAmortizedConstraints = false;
+        _statementCounter = null;
     }
 
     public readonly Engine Engine;
@@ -47,7 +57,8 @@ internal sealed class EvaluationContext
     /// Frozen per context (exact constraints or debug mode at creation); statement fast paths
     /// that skip <see cref="RunBeforeExecuteStatementChecks"/> must be gated on this AND keep
     /// amortized constraints live by driving <see cref="RunAmortizedConstraintChecks"/> at a
-    /// bounded cadence (e.g. once per loop iteration).
+    /// bounded cadence (e.g. once per loop iteration), AND charge <see cref="ChargeStatement"/>
+    /// once per statement they execute.
     /// </summary>
     internal bool ShouldRunPerStatementChecks => _shouldRunPerStatementChecks;
 
@@ -99,8 +110,30 @@ internal sealed class EvaluationContext
         {
             Engine.RunPerStatementChecks(statement);
         }
+        else
+        {
+            // Mutually exclusive by construction: _statementCounter is only set when the exact list
+            // collapsed to that one constraint, which is precisely when _shouldRunPerStatementChecks
+            // is false. Charging in both branches would double-count.
+            ChargeStatement();
+        }
 
         RunAmortizedConstraintChecks();
+    }
+
+    /// <summary>
+    /// Charges one executed statement against the inline statement counter, if there is one. Statement
+    /// fast paths that bypass <see cref="RunBeforeExecuteStatementChecks"/> must call this exactly where
+    /// the generic path would have run the check — once per non-block statement, plus once for a block
+    /// whose contents run through a <see cref="JintStatementList"/> — so the statement at which
+    /// <see cref="MaxStatementsConstraint"/> throws is the same with the fast path armed or disarmed.
+    /// <see cref="MaxStatementsConstraint"/> is sealed, so this is a devirtualized, inlineable call, and a
+    /// null field is a predictable branch when no counter is configured.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void ChargeStatement()
+    {
+        _statementCounter?.Check();
     }
 
     /// <summary>

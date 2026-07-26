@@ -97,6 +97,7 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
     /// </summary>
     internal override void ExecuteDiscarded(EvaluationContext context)
     {
+        context.ChargeStatement();
         context.LastSyntaxElement = _statement;
         ExecuteInternal(context);
     }

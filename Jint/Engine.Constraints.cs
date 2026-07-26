@@ -8,7 +8,10 @@ public partial class Engine
     public ConstraintOperations Constraints { get; }
 
     [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
-    private readonly record struct ConstraintPartition(Constraint[] Exact, Constraint[] Amortized);
+    private readonly record struct ConstraintPartition(
+        Constraint[] Exact,
+        Constraint[] Amortized,
+        MaxStatementsConstraint? InlineStatementCounter);
 
     /// <summary>
     /// Materializes the constraint set for this engine.
@@ -56,40 +59,38 @@ public partial class Engine
     }
 
     /// <summary>
-    /// Splits the registered constraints by required check frequency. The built-in time and
-    /// cancellation constraints only observe external state that a check reads without consuming
-    /// (a timer, a token), so checking them every N statements is semantically equivalent to
-    /// checking per statement — only the detection latency is bounded instead of immediate (the
-    /// same reasoning bulk built-ins apply via <see cref="ConstraintCheckInterval"/>). Everything
-    /// else stays exact:
-    /// <list type="bullet">
-    /// <item><see cref="MaxStatementsConstraint"/> counts statements, so its call frequency IS its
-    /// semantics.</item>
-    /// <item><see cref="MemoryLimitConstraint"/> reads an allocation counter, but unlike a clock
-    /// that only advances, allocation between checks is irreversible and unbounded per statement
-    /// (a single iteration can allocate arbitrarily much, e.g. exponential string growth), so
-    /// amortizing it would let the process overshoot the configured cap — potentially to a real
-    /// OutOfMemoryException — before the next check. Keeping it exact preserves the memory bound
-    /// as a hard-ish guarantee for sandboxing untrusted code (matching pre-tight-lane behavior).</item>
-    /// <item>User-derived constraints may depend on being called once per statement — silently
-    /// amortizing them would be a breaking behavior change.</item>
-    /// </list>
+    /// Splits the registered constraints by required check frequency, which each constraint declares for
+    /// itself through <see cref="Constraint.IsAmortizable"/>. An amortizable constraint only observes
+    /// external state that a check reads without consuming, so checking it every N statements is
+    /// semantically equivalent to checking per statement — only the detection latency is bounded instead
+    /// of immediate (the same reasoning bulk built-ins apply via <see cref="ConstraintCheckInterval"/>).
+    /// Everything else stays exact, which is the default and therefore what a user-derived constraint gets
+    /// unless it opts in. See <see cref="Constraint.IsAmortizable"/> for when opting in is sound, and each
+    /// built-in constraint for why it answers the way it does.
+    /// <para>
+    /// <see cref="MaxStatementsConstraint"/> additionally gets a dedicated lane: when it is the
+    /// <em>only</em> exact constraint it is also reported as
+    /// <see cref="ConstraintPartition.InlineStatementCounter"/>, so the interpreter can charge it directly
+    /// (a devirtualized call on a sealed type) at exactly the same points <see cref="RunPerStatementChecks"/>
+    /// would, and the tight-loop lanes — which cannot run the exact list — stay armed.
+    /// </para>
+    /// <para>
     /// Interop call sites additionally re-check on return from user CLR code — see
     /// <see cref="CheckAmortizedConstraintsAtHostBoundary"/> for that mechanism's rationale.
+    /// </para>
     /// </summary>
     private static ConstraintPartition PartitionConstraints(Constraint[] constraints)
     {
         if (constraints.Length == 0)
         {
-            return new ConstraintPartition([], []);
+            return new ConstraintPartition([], [], null);
         }
 
         var exact = new List<Constraint>(constraints.Length);
         var amortized = new List<Constraint>(constraints.Length);
         foreach (var constraint in constraints)
         {
-            // Both types are sealed, so the check cannot match a user-derived subclass.
-            if (constraint is TimeConstraint or CancellationConstraint)
+            if (constraint.IsAmortizable)
             {
                 amortized.Add(constraint);
             }
@@ -99,7 +100,12 @@ public partial class Engine
             }
         }
 
-        return new ConstraintPartition(exact.ToArray(), amortized.ToArray());
+        // A lone statement counter is the one exact constraint the interpreter can charge itself, so
+        // report it separately and let the per-statement path skip the exact-list walk entirely.
+        // MaxStatementsConstraint is sealed, hence the exact type match.
+        var inlineStatementCounter = exact.Count == 1 ? exact[0] as MaxStatementsConstraint : null;
+
+        return new ConstraintPartition(exact.ToArray(), amortized.ToArray(), inlineStatementCounter);
     }
 
     public class ConstraintOperations

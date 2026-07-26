@@ -84,6 +84,8 @@ internal sealed class JintIfStatement : JintStatement<IfStatement>
     /// </summary>
     internal override void ExecuteDiscarded(EvaluationContext context)
     {
+        context.ChargeStatement();
+
         if (_test.GetBooleanValue(context))
         {
             if (context.Engine._error is not null)
