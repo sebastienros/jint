@@ -169,7 +169,23 @@ public sealed partial class Engine : IDisposable
     internal readonly bool _isDebugMode;
     internal readonly bool _isStrict;
 
+    // Whether the reference resolver is consulted at all, plus the per-situation subscription flags
+    // derived from Options.ReferenceResolverInterests. Splitting them is what lets a resolver that only
+    // cares about, say, null/undefined bases keep the member-read, indexed-read and member-call fast
+    // lanes armed instead of forcing every property reference through Reference + TryPropertyReference.
     internal readonly bool _customResolver;
+    internal readonly bool _resolverWatchesObjectBase;
+    internal readonly bool _resolverWatchesPrimitiveBase;
+
+    /// <summary>
+    /// <c>ObjectPropertyBase | PrimitivePropertyBase</c>: the gate for the read/call fast paths, which
+    /// resolve a member without renting a <see cref="Reference"/> and therefore cannot offer a non-nullish
+    /// base to <see cref="IReferenceResolver.TryPropertyReference"/>.
+    /// </summary>
+    internal readonly bool _resolverWatchesValueBase;
+    internal readonly bool _resolverWatchesNullishBase;
+    internal readonly bool _resolverWatchesUnresolvable;
+    internal readonly bool _resolverWatchesCallee;
     internal readonly IReferenceResolver _referenceResolver;
 
     // Snapshot of Options.Constraints.MaxRecursionDepth. Every call expression compares the pushed
@@ -291,7 +307,16 @@ public sealed partial class Engine : IDisposable
         _exactConstraints = partitionedConstraints.Exact;
         _amortizedConstraints = partitionedConstraints.Amortized;
         _referenceResolver = Options.ReferenceResolver;
-        _customResolver = !ReferenceEquals(_referenceResolver, DefaultReferenceResolver.Instance);
+        var resolverInterests = ReferenceEquals(_referenceResolver, DefaultReferenceResolver.Instance)
+            ? ReferenceResolverInterests.None
+            : Options.ReferenceResolverInterests;
+        _customResolver = resolverInterests != ReferenceResolverInterests.None;
+        _resolverWatchesObjectBase = (resolverInterests & ReferenceResolverInterests.ObjectPropertyBase) != ReferenceResolverInterests.None;
+        _resolverWatchesPrimitiveBase = (resolverInterests & ReferenceResolverInterests.PrimitivePropertyBase) != ReferenceResolverInterests.None;
+        _resolverWatchesValueBase = _resolverWatchesObjectBase || _resolverWatchesPrimitiveBase;
+        _resolverWatchesNullishBase = (resolverInterests & ReferenceResolverInterests.NullishPropertyBase) != ReferenceResolverInterests.None;
+        _resolverWatchesUnresolvable = (resolverInterests & ReferenceResolverInterests.UnresolvableReference) != ReferenceResolverInterests.None;
+        _resolverWatchesCallee = (resolverInterests & ReferenceResolverInterests.NonCallableCallee) != ReferenceResolverInterests.None;
 
         _referencePool = new ReferencePool();
         _argumentsInstancePool = new ArgumentsInstancePool(this);
@@ -1016,7 +1041,7 @@ public sealed partial class Engine : IDisposable
 
         if (reference.IsUnresolvableReference)
         {
-            if (_customResolver)
+            if (_resolverWatchesUnresolvable)
             {
                 reference.EvaluateAndCachePropertyKey();
                 if (_referenceResolver.TryUnresolvableReference(this, reference, out var val))
@@ -1028,7 +1053,9 @@ public sealed partial class Engine : IDisposable
             Throw.ReferenceError(Realm, reference);
         }
 
-        if ((baseValue._type & InternalTypes.ObjectEnvironmentRecord) == InternalTypes.Empty && _customResolver)
+        if (_customResolver
+            && (baseValue._type & InternalTypes.ObjectEnvironmentRecord) == InternalTypes.Empty
+            && ResolverWatchesBase(baseValue))
         {
             reference.EvaluateAndCachePropertyKey();
             if (_referenceResolver.TryPropertyReference(this, reference, ref baseValue))
@@ -1059,7 +1086,14 @@ public sealed partial class Engine : IDisposable
                     return baseObj.PrivateGet((PrivateName) reference.ReferencedName);
                 }
 
-                reference.EvaluateAndCachePropertyKey();
+                // An object-base-watching resolver already evaluated the key above (the branch's guard is
+                // exactly this branch's precondition), so the key is cached and this call would be pure
+                // overhead; everything else still needs it.
+                if (!_resolverWatchesObjectBase)
+                {
+                    reference.EvaluateAndCachePropertyKey();
+                }
+
                 var v = baseObj.Get(reference.ReferencedName, reference.ThisValue);
                 return v;
             }
@@ -1106,6 +1140,22 @@ public sealed partial class Engine : IDisposable
         }
 
         return bindingValue;
+    }
+
+    /// <summary>
+    /// Whether the registered reference resolver subscribed to property references with this kind of base.
+    /// The base's kind is only known once it has been evaluated, so this is the runtime half of the
+    /// build-time <see cref="_resolverWatchesValueBase"/> gate.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private bool ResolverWatchesBase(JsValue baseValue)
+    {
+        if (baseValue.IsNullOrUndefined())
+        {
+            return _resolverWatchesNullishBase;
+        }
+
+        return baseValue.IsObject() ? _resolverWatchesObjectBase : _resolverWatchesPrimitiveBase;
     }
 
     private void ThrowPropertyNotFound(JsValue property, JsValue baseValue)

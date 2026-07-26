@@ -369,7 +369,7 @@ internal sealed class JintMemberExpression : JintExpression
             && _determinedProperty is JsString determinedProperty
             && !_memberExpression.Optional
             && !_objectExpressionCanShortCircuit
-            && !engine._customResolver
+            && !engine._resolverWatchesValueBase
             && _objectExpression is not JintSuperExpression)
         {
             var baseValue = _objectExpression.GetValue(context);
@@ -380,6 +380,16 @@ internal sealed class JintMemberExpression : JintExpression
 
             if (baseValue.IsNullOrUndefined())
             {
+                if (engine._resolverWatchesNullishBase)
+                {
+                    // A resolver subscribed to null/undefined bases can substitute a value for this read
+                    // (the null-propagation use case), and only Engine.GetValue's TryPropertyReference lane
+                    // offers it that chance. Complete through a Reference rented from the already-resolved
+                    // base — the base is not re-evaluated, so nothing observable happens twice.
+                    var nullishBaseReference = engine._referencePool.Rent(baseValue, determinedProperty, engine.ExecutionContext.Strict, thisValue: null);
+                    return CompleteReadFromReference(context, engine, nullishBaseReference);
+                }
+
                 TypeConverter.CheckObjectCoercible(engine, baseValue, _memberExpression.Property, determinedProperty.ToString());
             }
 
@@ -465,8 +475,12 @@ internal sealed class JintMemberExpression : JintExpression
         // the index once, then read the dense slot directly. A miss rents a Reference from the
         // already-resolved operands — no re-evaluation — and completes through the normal path. The
         // Suspendable==null gate means neither operand can suspend, so no suspend bookkeeping is needed.
+        // The dense-array hit below only fires for an object (JsArray) base; every other outcome —
+        // including a null/undefined base — completes through the rented Reference, which still reaches
+        // CheckCoercible and TryPropertyReference. So only a resolver watching non-nullish bases has to
+        // disarm this lane.
         if (_computedReadEligible
-            && !engine._customResolver
+            && !engine._resolverWatchesValueBase
             && engine.ExecutionContext.Suspendable is null)
         {
             var baseValue = _objectExpression.GetValue(context);

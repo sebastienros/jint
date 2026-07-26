@@ -339,9 +339,25 @@ public static class OptionsExtensions
         return options;
     }
 
+    /// <summary>
+    /// Registers a reference resolver that is consulted in every situation
+    /// (<see cref="ReferenceResolverInterests.All"/>).
+    /// </summary>
     public static Options SetReferencesResolver(this Options options, IReferenceResolver resolver)
     {
+        return SetReferencesResolver(options, resolver, ReferenceResolverInterests.All);
+    }
+
+    /// <summary>
+    /// Registers a reference resolver together with the situations it wants to be consulted for. The engine
+    /// does not call the resolver for anything outside <paramref name="interests"/>, and keeps the
+    /// interpreter fast paths those situations would otherwise disable — see
+    /// <see cref="ReferenceResolverInterests"/>.
+    /// </summary>
+    public static Options SetReferencesResolver(this Options options, IReferenceResolver resolver, ReferenceResolverInterests interests)
+    {
         options.ReferenceResolver = resolver;
+        options.ReferenceResolverInterests = interests;
         return options;
     }
 

@@ -51,3 +51,72 @@ public interface IReferenceResolver
     /// <returns>Whether to accept the value.</returns>
     bool CheckCoercible(JsValue value);
 }
+
+/// <summary>
+/// The situations in which an <see cref="IReferenceResolver"/> wants to be consulted, declared when the
+/// resolver is registered via
+/// <see cref="OptionsExtensions.SetReferencesResolver(Options, IReferenceResolver, ReferenceResolverInterests)"/>.
+/// </summary>
+/// <remarks>
+/// <para>
+/// This is a <b>subscription filter, not a promise</b>. Every situation the resolver does not subscribe to
+/// is one the engine simply does not call it for, so there is no contract a host can violate by narrowing:
+/// the engine behaves exactly as if no resolver were registered for those situations.
+/// </para>
+/// <para>
+/// Narrowing matters because the mere presence of a resolver disables several interpreter fast paths — the
+/// member-read inline caches, the dense-array indexed-read lane and the member-call callee lane all have to
+/// route through a <see cref="Reference"/> so the resolver gets its chance. Declaring only what is actually
+/// used keeps those lanes armed. A resolver registered through
+/// <see cref="OptionsExtensions.SetReferencesResolver(Options, IReferenceResolver)"/> gets <see cref="All"/>,
+/// which behaves exactly as before this filter existed.
+/// </para>
+/// </remarks>
+[Flags]
+public enum ReferenceResolverInterests
+{
+    /// <summary>
+    /// The resolver is never consulted. Equivalent to registering no resolver at all.
+    /// </summary>
+    None = 0,
+
+    /// <summary>
+    /// Property references whose base is <c>null</c> or <c>undefined</c> — the null-propagation use case
+    /// (<c>a.b.c</c> yielding <see cref="JsValue.Undefined"/> instead of throwing). Enables both
+    /// <see cref="IReferenceResolver.CheckCoercible"/> and <see cref="IReferenceResolver.TryPropertyReference"/>
+    /// for those references.
+    /// </summary>
+    NullishPropertyBase = 1 << 0,
+
+    /// <summary>
+    /// Property references whose base is an object. This is the costliest interest to subscribe to: it
+    /// disables the non-computed member-read caches, the dense-array indexed-read lane and the member-call
+    /// callee lane, because every property read has to be offered to
+    /// <see cref="IReferenceResolver.TryPropertyReference"/> first.
+    /// </summary>
+    ObjectPropertyBase = 1 << 1,
+
+    /// <summary>
+    /// Property references whose base is a primitive other than <c>null</c>/<c>undefined</c> — a string,
+    /// number, boolean, symbol or BigInt. Shares the read-lane cost with <see cref="ObjectPropertyBase"/>,
+    /// since the base's type is only known once the base has been evaluated.
+    /// </summary>
+    PrimitivePropertyBase = 1 << 2,
+
+    /// <summary>
+    /// Unresolvable references — reads of names that resolve to no binding — routed through
+    /// <see cref="IReferenceResolver.TryUnresolvableReference"/> instead of throwing a <c>ReferenceError</c>.
+    /// </summary>
+    UnresolvableReference = 1 << 3,
+
+    /// <summary>
+    /// Call expressions whose resolved callee is not callable, routed through
+    /// <see cref="IReferenceResolver.TryGetCallable"/> instead of throwing a <c>TypeError</c>.
+    /// </summary>
+    NonCallableCallee = 1 << 4,
+
+    /// <summary>
+    /// Every situation. The default for resolvers registered without an explicit interest set.
+    /// </summary>
+    All = NullishPropertyBase | ObjectPropertyBase | PrimitivePropertyBase | UnresolvableReference | NonCallableCallee,
+}

@@ -121,6 +121,20 @@ public class Options
     public IReferenceResolver ReferenceResolver { get; set; } = DefaultReferenceResolver.Instance;
 
     /// <summary>
+    /// The situations <see cref="ReferenceResolver"/> is consulted for. Defaults to
+    /// <see cref="ReferenceResolverInterests.All"/>, which is how every resolver behaved before this filter
+    /// existed. Narrowing it keeps interpreter fast paths armed for the situations the resolver opts out of;
+    /// see <see cref="ReferenceResolverInterests"/> for what each flag costs. Ignored while
+    /// <see cref="ReferenceResolver"/> is the built-in default.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="OptionsExtensions.SetReferencesResolver(Options, IReferenceResolver)"/> resets this to
+    /// <see cref="ReferenceResolverInterests.All"/>, so registering a second resolver through the
+    /// interest-free overload never silently inherits a narrower set from the first.
+    /// </remarks>
+    public ReferenceResolverInterests ReferenceResolverInterests { get; set; } = ReferenceResolverInterests.All;
+
+    /// <summary>
     /// Whether calling 'eval' with custom code and function constructors taking function code as string is allowed.
     /// Defaults to true.
     /// </summary>
