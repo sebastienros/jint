@@ -68,6 +68,18 @@ internal sealed class Shape
     // be numerically sorted through the dictionary path.
     private JsValue[]? _orderedKeyStrings;
 
+    /// <summary>
+    /// The single conservative classifier every shape entry point uses to keep integer-index-like keys
+    /// out of shapes. Own-key order places integer indices first, in ascending numeric order
+    /// (https://tc39.es/ecma262/#sec-ordinaryownpropertykeys), which slot (= insertion) order cannot
+    /// express — so such a key would guarantee a build-then-deopt and would intern junk transition
+    /// chains under the shared per-prototype root. Digit-leading is deliberately broader than
+    /// "is a canonical array index" ("1x" is rejected too): it is a single char test on a hot path, and
+    /// over-rejecting only costs the dictionary representation.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool IsIntegerIndexLikeKey(string name) => name.Length > 0 && char.IsDigit(name[0]);
+
     /// <summary>Creates an empty root shape. There is one root per prototype, interned by the engine's
     /// empty-shape table, so all objects sharing a prototype build their layouts from the same tree.</summary>
     internal Shape()
@@ -210,7 +222,7 @@ internal sealed class Shape
         for (var i = 0; i < keys.Length; i++)
         {
             var name = keys[i].Name;
-            if (name.Length > 0 && char.IsDigit(name[0]))
+            if (IsIntegerIndexLikeKey(name))
             {
                 // integer-index-like key: order needs the numeric sort; leave the memo unbuilt.
                 strings = null;
