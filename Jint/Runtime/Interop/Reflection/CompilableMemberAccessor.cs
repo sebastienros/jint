@@ -156,9 +156,8 @@ internal abstract class CompilableMemberAccessor : ReflectionAccessor
 
         // The compiled setter casts the incoming value straight to the member type, so it can only
         // accept a value whose runtime type is exactly that. Reflection additionally performs
-        // widening conversions - and the coercion path above produces exactly such a case, handing
-        // a boxed int to a long member - which an unbox.any cannot do, so those keep the
-        // reflection path. A null for a value-type member likewise stays on reflection, whose
+        // widening conversions, which an unbox.any cannot do, so anything not exactly typed keeps
+        // the reflection path. A null for a value-type member likewise stays on reflection, whose
         // ArgumentException is the established behaviour (unbox.any would throw a
         // NullReferenceException instead).
         var setter = _rawSetter;

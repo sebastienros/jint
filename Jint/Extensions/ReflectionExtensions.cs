@@ -141,11 +141,22 @@ internal static class ReflectionExtensions
         JsValue value,
         [NotNullWhen(true)] out object? converted)
     {
-        if (value.IsInteger() && (memberType == typeof(int) || memberType == typeof(long)))
+        if (value.IsInteger())
         {
-            // safe and doesn't require configuration
-            converted = value.AsInteger();
-            return true;
+            // safe and doesn't require configuration. The box must carry the declared member type:
+            // reflection binders widen a boxed int to a long parameter, but a direct unbox (a
+            // generic collection element write, a compiled setter, a plain cast) does not.
+            if (memberType == typeof(int))
+            {
+                converted = value.AsInteger();
+                return true;
+            }
+
+            if (memberType == typeof(long))
+            {
+                converted = (long) value.AsInteger();
+                return true;
+            }
         }
 
         if (memberType == typeof(bool) && (valueCoercionType & ValueCoercionType.Boolean) != ValueCoercionType.None)
