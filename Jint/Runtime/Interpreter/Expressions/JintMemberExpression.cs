@@ -39,7 +39,8 @@ internal sealed class JintMemberExpression : JintExpression
     // prototype's dictionary. Validity: same receiver (so a per-site monomorphic hit), receiver own-shape
     // unchanged (no own property added that would shadow), direct prototype unchanged (not re-pointed),
     // and the holder's own-property shape unchanged (method not redefined/removed). Exotic receivers and
-    // prototypes (Proxy/TypedArray/IteratorResult) are excluded via InternalTypes.ExoticGet.
+    // prototypes (Proxy/TypedArray/IteratorResult) are excluded via InternalTypes.ExoticGet, and objects
+    // whose _propertiesVersion cannot witness this property name are excluded by CanCacheAgainstVersions.
     private ObjectInstance? _cachedProtoReceiver;
     private uint _cachedProtoReceiverVersion;
     private ObjectInstance? _cachedProtoHolder;
@@ -697,8 +698,9 @@ internal sealed class JintMemberExpression : JintExpression
     }
 
     /// <summary>
-    /// Read completion for receivers outside the shape / plain-object lanes. A host object that declared
-    /// <see cref="PropertyAccessSemantics.Ordinary"/> resolves from a single own-property probe. Otherwise an
+    /// Read completion for receivers outside the shape / plain-object lanes. A host object resolved to
+    /// <see cref="PropertyAccessSemantics.Ordinary"/> resolves from a single own-property probe, which also
+    /// re-establishes the own miss the prototype-method cache needs. Otherwise an
     /// <see cref="ObjectWrapper"/> receiver consults the wrapper member cache: on a hit (same wrapper instance,
     /// unchanged <c>_propertiesVersion</c>) the stored descriptor is still exactly what <c>ObjectWrapper.Get</c>'s
     /// own-property probe would return, so it unwraps directly — for a CLR property that re-invokes the CLR
@@ -710,30 +712,27 @@ internal sealed class JintMemberExpression : JintExpression
     {
         if ((baseObject._type & InternalTypes.OrdinaryGet) != InternalTypes.Empty)
         {
-            // A host-defined object that promised ordinary [[Get]]. The prototype-method cache goes first: a
-            // warm hit already proved this name resolves on the prototype for this receiver, so probing the
-            // host again would undo the whole point of the cache (a member node reads one name, so a site that
-            // hits here is never an own-property site). It is one null test when it does not apply.
-            var protoHolder = _cachedProtoHolder;
-            if (protoHolder is not null && TryReadFromPrototypeCache(baseObject, protoHolder, out var cachedValue))
-            {
-                return cachedValue;
-            }
-
-            // Otherwise the probe that proves the own property exists *is* the read: the descriptor no longer
-            // has to be materialized a second time inside Get (ObjectInstance.Get's fast path needs
-            // PlainObject, which such an object cannot claim because it stores nothing in _properties). On a
-            // miss the probe also discharges ReadAfterOwnMissUncached's shadow re-check, and — unlike the
-            // ExoticGet receivers that share this method — the prototype-method cache may then be populated.
+            // A host-defined object with ordinary [[Get]]. Its own properties live in the host, not in the
+            // engine's property bag, so nothing moves _propertiesVersion when that set changes and the version
+            // cannot stand in for "this receiver still has no own property of this name" — a projected member
+            // that appears after a prototype read was cached must shadow it from the very next read.
+            //
+            // The question is answered by the same probe that reads the value, so the probe goes first, and
+            // the prototype-method cache is consulted only once it has missed. That order is also the whole
+            // reason such a receiver may be cached at all: it is the only lane that reaches the cache with one,
+            // and it re-proves the own miss before every consult (see CanCacheAgainstVersions).
             var ownDescriptor = baseObject.GetOwnProperty(property);
             if (!ReferenceEquals(ownDescriptor, PropertyDescriptor.Undefined))
             {
+                // The probe that proves the own property exists *is* the read: the descriptor no longer has to
+                // be materialized a second time inside Get (ObjectInstance.Get's fast path needs PlainObject,
+                // which such an object cannot claim because it stores nothing in _properties).
                 var ownValue = ObjectInstance.UnwrapJsValue(ownDescriptor, baseObject);
                 AssertOrdinaryGetAgrees(baseObject, property, ownValue);
                 return ownValue;
             }
 
-            var inheritedValue = ReadAfterOwnMissUncached(baseObject, property, ownMissConfirmed: true);
+            var inheritedValue = ReadAfterOwnMiss(baseObject, property, ownMissConfirmed: true);
             AssertOrdinaryGetAgrees(baseObject, property, inheritedValue);
             return inheritedValue;
         }
@@ -819,8 +818,9 @@ internal sealed class JintMemberExpression : JintExpression
 
     /// <summary>
     /// The prototype-method inline cache's validity check, split out so the ordinary-semantics lane can consult
-    /// it before probing the receiver. <paramref name="holder"/> is the already-loaded <c>_cachedProtoHolder</c>,
-    /// non-null.
+    /// it after probing the receiver. <paramref name="holder"/> is the already-loaded <c>_cachedProtoHolder</c>,
+    /// non-null. Both version comparisons are only meaningful because
+    /// <see cref="CanCacheAgainstVersions"/> refused to create an entry whose versions cannot witness the name.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool TryReadFromPrototypeCache(ObjectInstance baseObject, ObjectInstance holder, out JsValue value)
@@ -859,7 +859,8 @@ internal sealed class JintMemberExpression : JintExpression
             {
                 // ...and an own property on the *direct* prototype (deeper chains fall to the slow Get).
                 var descriptor = proto.GetOwnProperty(property);
-                if (!ReferenceEquals(descriptor, PropertyDescriptor.Undefined))
+                if (!ReferenceEquals(descriptor, PropertyDescriptor.Undefined)
+                    && CanCacheAgainstVersions(baseObject, proto, property))
                 {
                     _cachedProtoReceiver = baseObject;
                     _cachedProtoReceiverVersion = baseObject._propertiesVersion;
@@ -872,6 +873,49 @@ internal sealed class JintMemberExpression : JintExpression
         }
 
         return baseObject.Get(property, baseObject);
+    }
+
+    /// <summary>
+    /// Whether an entry may be created for this (receiver, holder, name) triple — that is, whether the two
+    /// <c>_propertiesVersion</c> comparisons <see cref="TryReadFromPrototypeCache"/> makes can still prove, on a
+    /// later read, that the name is absent from the receiver and owned by the holder.
+    /// <para>
+    /// A version only witnesses the own properties the engine stores itself. Two kinds of object keep some of
+    /// theirs elsewhere and move no version when that part of the set changes: an <b>array</b>, whose elements
+    /// live in its own dense/sparse storage and are written straight there by the hot element paths, and a
+    /// <b>host-defined subclass</b> with ordinary reads, whose whole own-property set lives outside the engine.
+    /// So an array must not be validated by its version for an index-like name, and a host object must not be
+    /// validated by its version for any name.
+    /// </para>
+    /// <para>
+    /// The receiver side has one exemption: <see cref="ReadFromNonPlainReceiver"/> is the only lane that reaches
+    /// this cache with a host receiver, and it establishes the own miss with a real probe before every consult,
+    /// so that receiver's frozen version is never load-bearing. A holder has no such lane and must be witnessed
+    /// outright.
+    /// </para>
+    /// </summary>
+    private static bool CanCacheAgainstVersions(ObjectInstance receiver, ObjectInstance holder, JsString property)
+    {
+        var receiverIsProvable = (receiver._type & InternalTypes.OrdinaryGet) != InternalTypes.Empty
+                                 || VersionWitnessesOwnProperty(receiver, property);
+
+        return receiverIsProvable && VersionWitnessesOwnProperty(holder, property);
+    }
+
+    /// <summary>
+    /// Whether <paramref name="o"/>'s <c>_propertiesVersion</c> moves when a property named
+    /// <paramref name="property"/> joins or leaves its own-property set. See <see cref="CanCacheAgainstVersions"/>
+    /// for the two storage kinds it does not cover.
+    /// </summary>
+    private static bool VersionWitnessesOwnProperty(ObjectInstance o, JsString property)
+    {
+        if ((o._type & InternalTypes.OrdinaryGet) != InternalTypes.Empty)
+        {
+            return false;
+        }
+
+        return (o._type & InternalTypes.Array) == InternalTypes.Empty
+               || !ArrayInstance.IsArrayIndex(property, out _);
     }
 
     /// <summary>
