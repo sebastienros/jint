@@ -1,0 +1,43 @@
+﻿{
+  Diagnostics: [
+    {
+      Location: : (14,27)-(14,40),
+      Message: Method 'UnguardedCast' requests Leaf = true but the generator cannot honor it: 'this' is cast to 'Jint.Native.Object.ObjectInstance', which no FastCallGuard can prove, so the cast's TypeError stays reachable,
+      Severity: Error,
+      Descriptor: {
+        Id: JINT023,
+        Title: [JsFunction] cannot be invoked through the requested fast-call lane,
+        MessageFormat: Method '{0}' requests {1} = true but the generator cannot honor it: {2},
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Error,
+        IsEnabledByDefault: true
+      }
+    },
+    {
+      Location: : (17,27)-(17,34),
+      Message: Method 'Coerced' requests Leaf = true but the generator cannot honor it: parameter 0 uses a coercion no FastCallGuard can make a no-op,
+      Severity: Error,
+      Descriptor: {
+        Id: JINT023,
+        Title: [JsFunction] cannot be invoked through the requested fast-call lane,
+        MessageFormat: Method '{0}' requests {1} = true but the generator cannot honor it: {2},
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Error,
+        IsEnabledByDefault: true
+      }
+    },
+    {
+      Location: : (21,27)-(21,41),
+      Message: Method 'NeedsCoercible' requests Leaf = true but the generator cannot honor it: it is [RequireObjectCoercible] with an unguarded 'this', so its TypeError stays reachable,
+      Severity: Error,
+      Descriptor: {
+        Id: JINT023,
+        Title: [JsFunction] cannot be invoked through the requested fast-call lane,
+        MessageFormat: Method '{0}' requests {1} = true but the generator cannot honor it: {2},
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Error,
+        IsEnabledByDefault: true
+      }
+    }
+  ]
+}

@@ -56,6 +56,10 @@ internal sealed class JintCallStack
 
     public int Push(Function function, JintExpression? expression, in ExecutionContext executionContext)
     {
+        // A frameless built-in that reaches here has re-entered interpreted code, which means its
+        // missing frame is observable in any stack trace taken below this point.
+        Native.Function.LeafCallGuard.AssertNotInLeafCall("a nested call (JintCallStack.Push)");
+
         var item = new CallStackElement(function, expression, new CallStackExecutionContext(in executionContext));
         _stack.Push(in item);
         if (_statistics is not null)

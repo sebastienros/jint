@@ -145,6 +145,27 @@ public abstract partial class Function : ObjectInstance, ICallable
     /// </summary>
     internal virtual bool IsZeroArgLeafConstructor => false;
 
+    /// <summary>
+    /// How this function may be invoked with <paramref name="argumentCount"/> arguments. Call sites
+    /// resolve this ONCE and cache it next to the callee identity, so the per-call cost is a
+    /// reference compare rather than a virtual call. The default declines both lanes.
+    /// </summary>
+    /// <remarks>
+    /// Keyed on arity because a body that distinguishes an absent argument from an explicit
+    /// <c>undefined</c> is only safe to invoke positionally at the arities the implementation
+    /// actually accounts for.
+    /// </remarks>
+    internal virtual FastCallShape GetFastCallShape(int argumentCount) => default;
+
+    /// <summary>
+    /// Arity-specialized entry point: same observable behaviour as <see cref="Call"/>, but with
+    /// arguments passed directly instead of through a pooled <c>JsValue[]</c>. Absent arguments
+    /// arrive as <see cref="JsValue.Undefined"/>, matching <c>Arguments.At</c>. Only valid when
+    /// <see cref="GetFastCallShape"/> reported <see cref="FastCallShape.Supported"/> for the arity.
+    /// </summary>
+    internal virtual JsValue CallFast(JsValue thisObject, JsValue arg0, JsValue arg1)
+        => throw new InvalidOperationException($"{GetType()} does not implement CallFast; GetFastCallShape must not report Supported.");
+
     public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
     {
         var prototypeDescriptor = ReferenceEquals(_prototypeDescriptor, _pendingDescriptor)

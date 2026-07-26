@@ -108,6 +108,14 @@ internal static class DiagnosticDescriptors
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
 
+    public static readonly DiagnosticDescriptor FastCallNotExpressible = new(
+        id: "JINT023",
+        title: "[JsFunction] cannot be invoked through the requested fast-call lane",
+        messageFormat: "Method '{0}' requests {1} = true but the generator cannot honor it: {2}",
+        category: "Jint.SourceGenerators",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
     // JINT022 (UnsupportedShapeMember) retired: it was declared for the era when the shape path
     // couldn't express accessors / intrinsic references / throwers, was never actually reported,
     // and all three member kinds are supported by the shape builder today (see the

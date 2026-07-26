@@ -557,83 +557,7 @@ internal static class Emitter
         }
         foreach (var fn in obj.Functions)
         {
-            // If thisObject is typed as a JsValue subtype or ICallable, emit a cast + TypeError precondition.
-            string? castType = null;
-            foreach (var p in fn.Parameters)
-            {
-                if (p.Kind == ParameterKind.ThisObject && p.CastTargetType is not null)
-                {
-                    castType = p.CastTargetType;
-                    break;
-                }
-            }
-
-            // Coerced [Rest]: param is `[Rest, ToX] ReadOnlySpan<T>`. Generator emits a Span<T>
-            // local with stackalloc for ≤16 elements and a heap array for larger sizes, then
-            // populates it via TypeConverter.ToX in a separate pass *before* calling the host
-            // method (the spec requires every element's coercion to run before any scanning logic
-            // — observable via valueOf side effects).
-            ParameterDefinition? coercedRest = null;
-            foreach (var p in fn.Parameters)
-            {
-                if (p.Kind == ParameterKind.Rest && p.CoercionKind is not null)
-                {
-                    coercedRest = p;
-                    break;
-                }
-            }
-
-            // Indent: "                " (16 sp) for switch-case body, "            " (12 sp) for flat single-slot body.
-            var bodyIndent = singleSlot ? "            " : "                ";
-
-            if (castType is not null || fn.RequireObjectCoercible || coercedRest is not null)
-            {
-                if (!singleSlot)
-                {
-                    sb.Append("                case Slot.").Append(fn.ClrName).AppendLine(":");
-                    sb.AppendLine("                {");
-                }
-                if (fn.RequireObjectCoercible)
-                {
-                    sb.Append(bodyIndent).Append("    ").AppendLine("global::Jint.Runtime.TypeConverter.RequireObjectCoercible(_host._engine, thisObject);");
-                }
-                if (castType is not null)
-                {
-                    sb.Append(bodyIndent).Append("    ").Append("var __cast = thisObject as global::").Append(castType).AppendLine(";");
-                    // Use the host's _realm (which carries the realm where the host was constructed) — not the
-                    // dispatcher's own _realm, which only reflects the engine's active realm at first access of
-                    // the lazy descriptor. Cross-realm tests like apply/this-not-callable-realm depend on this.
-                    sb.Append(bodyIndent).Append("    ").Append("if (__cast is null) global::Jint.Runtime.Throw.TypeError(_host._realm, \"")
-                      .Append(EscapeStringLit(fn.FunctionName))
-                      .Append(" requires 'this' to be of type ")
-                      .Append(EscapeStringLit(castType.Substring(castType.LastIndexOf('.') + 1)))
-                      .AppendLine("\");");
-                }
-                if (coercedRest is { } cr)
-                {
-                    EmitCoercedRestPreamble(sb, cr, singleSlot);
-                }
-                sb.Append(bodyIndent).Append("    ").Append("return ");
-                EmitInvocation(sb, obj, fn);
-                sb.AppendLine(";");
-                if (!singleSlot)
-                {
-                    sb.AppendLine("                }");
-                }
-            }
-            else
-            {
-                if (singleSlot)
-                {
-                    sb.Append("            return ");
-                }
-                else
-                {
-                    sb.Append("                case Slot.").Append(fn.ClrName).Append(": return ");
-                }
-                EmitInvocation(sb, obj, fn);
-                sb.AppendLine(";");
-            }
+            EmitSlotBody(sb, obj, fn, singleSlot, fast: false);
         }
         if (!singleSlot)
         {
@@ -675,8 +599,177 @@ internal static class Emitter
             sb.AppendLine("            => new global::System.InvalidOperationException(\"Unknown slot \" + slot + \" — generator/runtime mismatch.\");");
         }
 
+        EmitFastCall(sb, obj, singleSlot);
+
         sb.AppendLine("    }");
     }
+
+    /// <summary>
+    /// Emits one slot's body — the optional preconditions plus the invocation — shared verbatim by
+    /// <c>Call</c> and <c>CallFast</c> so the two entry points can never drift. The only difference
+    /// between them is where argument values come from, which <paramref name="fast"/> selects:
+    /// <c>Arguments.At(arguments, N)</c> versus the <c>arg0</c>/<c>arg1</c> registers. Both yield
+    /// <c>Undefined</c> for an absent argument, so the bodies stay observationally identical.
+    /// </summary>
+    private static void EmitSlotBody(StringBuilder sb, ObjectDefinition obj, FunctionDefinition fn, bool singleSlot, bool fast)
+    {
+        // If thisObject is typed as a JsValue subtype or ICallable, emit a cast + TypeError precondition.
+        string? castType = null;
+        foreach (var p in fn.Parameters)
+        {
+            if (p.Kind == ParameterKind.ThisObject && p.CastTargetType is not null)
+            {
+                castType = p.CastTargetType;
+                break;
+            }
+        }
+
+        // Coerced [Rest]: param is `[Rest, ToX] ReadOnlySpan<T>`. Generator emits a Span<T>
+        // local with stackalloc for ≤16 elements and a heap array for larger sizes, then
+        // populates it via TypeConverter.ToX in a separate pass *before* calling the host
+        // method (the spec requires every element's coercion to run before any scanning logic
+        // — observable via valueOf side effects). Never reached on the fast path: a [Rest]
+        // method declines the lane outright.
+        ParameterDefinition? coercedRest = null;
+        foreach (var p in fn.Parameters)
+        {
+            if (p.Kind == ParameterKind.Rest && p.CoercionKind is not null)
+            {
+                coercedRest = p;
+                break;
+            }
+        }
+
+        // Indent: "                " (16 sp) for switch-case body, "            " (12 sp) for flat single-slot body.
+        var bodyIndent = singleSlot ? "            " : "                ";
+
+        if (castType is not null || fn.RequireObjectCoercible || coercedRest is not null)
+        {
+            if (!singleSlot)
+            {
+                sb.Append("                case Slot.").Append(fn.ClrName).AppendLine(":");
+                sb.AppendLine("                {");
+            }
+            if (fn.RequireObjectCoercible)
+            {
+                sb.Append(bodyIndent).Append("    ").AppendLine("global::Jint.Runtime.TypeConverter.RequireObjectCoercible(_host._engine, thisObject);");
+            }
+            if (castType is not null)
+            {
+                sb.Append(bodyIndent).Append("    ").Append("var __cast = thisObject as global::").Append(castType).AppendLine(";");
+                // Use the host's _realm (which carries the realm where the host was constructed) — not the
+                // dispatcher's own _realm, which only reflects the engine's active realm at first access of
+                // the lazy descriptor. Cross-realm tests like apply/this-not-callable-realm depend on this.
+                sb.Append(bodyIndent).Append("    ").Append("if (__cast is null) global::Jint.Runtime.Throw.TypeError(_host._realm, \"")
+                  .Append(EscapeStringLit(fn.FunctionName))
+                  .Append(" requires 'this' to be of type ")
+                  .Append(EscapeStringLit(castType.Substring(castType.LastIndexOf('.') + 1)))
+                  .AppendLine("\");");
+            }
+            if (coercedRest is { } cr)
+            {
+                EmitCoercedRestPreamble(sb, cr, singleSlot);
+            }
+            sb.Append(bodyIndent).Append("    ").Append("return ");
+            EmitInvocation(sb, obj, fn, fast);
+            sb.AppendLine(";");
+            if (!singleSlot)
+            {
+                sb.AppendLine("                }");
+            }
+        }
+        else
+        {
+            if (singleSlot)
+            {
+                sb.Append("            return ");
+            }
+            else
+            {
+                sb.Append("                case Slot.").Append(fn.ClrName).Append(": return ");
+            }
+            EmitInvocation(sb, obj, fn, fast);
+            sb.AppendLine(";");
+        }
+    }
+
+    /// <summary>
+    /// Emits the two fast-call overrides for the slots that opted in, or nothing at all when no slot
+    /// did — an un-annotated host keeps inheriting the base virtuals, which decline both lanes.
+    /// <para>
+    /// <c>GetFastCallShape</c> ignores <c>argumentCount</c> for every shape the generator can
+    /// produce: a fast-callable slot reads at most two fixed positions and never the argument count
+    /// (an <c>[ArgCount]</c> parameter declines the lane), so its behaviour is identical at every
+    /// arity. Arguments past the second are dropped, which is unobservable precisely because such a
+    /// body has no way to read them.
+    /// </para>
+    /// </summary>
+    private static void EmitFastCall(StringBuilder sb, ObjectDefinition obj, bool singleSlot)
+    {
+        var fastFunctions = new List<FunctionDefinition>();
+        foreach (var fn in obj.Functions)
+        {
+            if (fn.FastCall is not null) fastFunctions.Add(fn);
+        }
+        if (fastFunctions.Count == 0) return;
+
+        sb.AppendLine();
+        sb.AppendLine("        internal override global::Jint.Native.Function.FastCallShape GetFastCallShape(int argumentCount)");
+        if (singleSlot)
+        {
+            sb.Append("            => ").Append(ShapeExpression(fastFunctions[0].FastCall!)).AppendLine(";");
+        }
+        else
+        {
+            sb.AppendLine("        {");
+            sb.AppendLine("            switch (_slot)");
+            sb.AppendLine("            {");
+            foreach (var fn in fastFunctions)
+            {
+                sb.Append("                case Slot.").Append(fn.ClrName).Append(": return ")
+                  .Append(ShapeExpression(fn.FastCall!)).AppendLine(";");
+            }
+            sb.AppendLine("                default: return default;");
+            sb.AppendLine("            }");
+            sb.AppendLine("        }");
+        }
+
+        sb.AppendLine();
+        sb.AppendLine("        internal override global::Jint.Native.JsValue CallFast(global::Jint.Native.JsValue thisObject, global::Jint.Native.JsValue arg0, global::Jint.Native.JsValue arg1)");
+        sb.AppendLine("        {");
+        if (singleSlot)
+        {
+            EmitSlotBody(sb, obj, fastFunctions[0], singleSlot: true, fast: true);
+        }
+        else
+        {
+            sb.AppendLine("            switch (_slot)");
+            sb.AppendLine("            {");
+            foreach (var fn in fastFunctions)
+            {
+                EmitSlotBody(sb, obj, fn, singleSlot: false, fast: true);
+            }
+            // A slot that declined the lane can only get here through a call site that ignored
+            // GetFastCallShape; the base throws with the offending type named.
+            sb.AppendLine("                default: return base.CallFast(thisObject, arg0, arg1);");
+            sb.AppendLine("            }");
+        }
+        sb.AppendLine("        }");
+    }
+
+    private static string ShapeExpression(FastCallSpec spec)
+    {
+        var sb = new StringBuilder(160);
+        sb.Append("new global::Jint.Native.Function.FastCallShape(true, ")
+          .Append(spec.Leaf ? "true" : "false").Append(", ")
+          .Append(GuardExpression(spec.Receiver)).Append(", ")
+          .Append(GuardExpression(spec.Arg0)).Append(", ")
+          .Append(GuardExpression(spec.Arg1)).Append(')');
+        return sb.ToString();
+    }
+
+    private static string GuardExpression(FastCallGuardKind guard)
+        => "global::Jint.Native.Function.FastCallGuard." + guard;
 
     /// <summary>
     /// Emits the stackalloc-or-heap span + coerce-loop preamble for a coerced <c>[Rest]</c>
@@ -730,7 +823,13 @@ internal static class Emitter
         _ => throw new System.InvalidOperationException($"Coerced [Rest] does not support {kind}"),
     };
 
-    private static void EmitInvocation(StringBuilder sb, ObjectDefinition obj, FunctionDefinition fn)
+    /// <summary>
+    /// Emits the call to the host method. <paramref name="fast"/> switches the argument source from
+    /// the <c>JsValue[]</c> to the <c>arg0</c>/<c>arg1</c> registers; every other part of the
+    /// invocation — the receiver, the coercions and their evaluation order — is identical, which is
+    /// what keeps <c>CallFast</c> observationally equal to <c>Call</c>.
+    /// </summary>
+    private static void EmitInvocation(StringBuilder sb, ObjectDefinition obj, FunctionDefinition fn, bool fast)
     {
         if (fn.IsStatic) sb.Append(obj.Name).Append('.');
         else sb.Append("_host.");
@@ -747,31 +846,38 @@ internal static class Emitter
                     sb.Append(p.CastTargetType is null ? "thisObject" : "__cast");
                     break;
                 case ParameterKind.ValueAt:
-                    sb.Append("global::Jint.Runtime.Arguments.At(arguments, ").Append(p.Position).Append(')');
+                    AppendArgument(sb, p.Position, fast);
                     break;
                 case ParameterKind.ToNumber:
-                    sb.Append("global::Jint.Runtime.TypeConverter.ToNumber(global::Jint.Runtime.Arguments.At(arguments, ").Append(p.Position).Append("))");
+                    AppendCoercedArgument(sb, "ToNumber", p.Position, fast);
                     break;
                 case ParameterKind.ToInt32:
-                    sb.Append("global::Jint.Runtime.TypeConverter.ToInt32(global::Jint.Runtime.Arguments.At(arguments, ").Append(p.Position).Append("))");
+                    AppendCoercedArgument(sb, "ToInt32", p.Position, fast);
                     break;
                 case ParameterKind.ToUint32:
-                    sb.Append("global::Jint.Runtime.TypeConverter.ToUint32(global::Jint.Runtime.Arguments.At(arguments, ").Append(p.Position).Append("))");
+                    AppendCoercedArgument(sb, "ToUint32", p.Position, fast);
                     break;
                 case ParameterKind.ToInteger:
-                    sb.Append("global::Jint.Runtime.TypeConverter.ToInteger(global::Jint.Runtime.Arguments.At(arguments, ").Append(p.Position).Append("))");
+                    AppendCoercedArgument(sb, "ToInteger", p.Position, fast);
                     break;
                 case ParameterKind.ToLength:
-                    sb.Append("global::Jint.Runtime.TypeConverter.ToLength(global::Jint.Runtime.Arguments.At(arguments, ").Append(p.Position).Append("))");
+                    AppendCoercedArgument(sb, "ToLength", p.Position, fast);
                     break;
                 case ParameterKind.ToString:
-                    sb.Append("global::Jint.Runtime.TypeConverter.ToString(global::Jint.Runtime.Arguments.At(arguments, ").Append(p.Position).Append("))");
+                    AppendCoercedArgument(sb, "ToString", p.Position, fast);
                     break;
                 case ParameterKind.ToJsString:
-                    sb.Append("global::Jint.Runtime.TypeConverter.ToJsString(global::Jint.Runtime.Arguments.At(arguments, ").Append(p.Position).Append("))");
+                    AppendCoercedArgument(sb, "ToJsString", p.Position, fast);
                     break;
                 case ParameterKind.ToObject:
-                    sb.Append("global::Jint.Runtime.TypeConverter.ToObject(_realm, global::Jint.Runtime.Arguments.At(arguments, ").Append(p.Position).Append("))");
+                    sb.Append("global::Jint.Runtime.TypeConverter.ToObject(_realm, ");
+                    AppendArgument(sb, p.Position, fast);
+                    sb.Append(')');
+                    break;
+                case ParameterKind.ArgCount:
+                    // Only reachable on the slow path: an [ArgCount] method declines the fast lane,
+                    // because CallFast has no arity to hand it.
+                    sb.Append("arguments.Length");
                     break;
                 case ParameterKind.Rest:
                     if (p.CoercionKind is not null)
@@ -798,6 +904,28 @@ internal static class Emitter
             }
         }
 
+        sb.Append(')');
+    }
+
+    /// <summary>
+    /// The expression yielding the argument at <paramref name="position"/>. Both forms produce
+    /// <c>Undefined</c> when the caller omitted it — <c>Arguments.At</c> by bounds check, the
+    /// registers because the call site pads them — so the two lanes agree on absent arguments.
+    /// </summary>
+    private static void AppendArgument(StringBuilder sb, int position, bool fast)
+    {
+        if (fast)
+        {
+            sb.Append(position == 0 ? "arg0" : "arg1");
+            return;
+        }
+        sb.Append("global::Jint.Runtime.Arguments.At(arguments, ").Append(position).Append(')');
+    }
+
+    private static void AppendCoercedArgument(StringBuilder sb, string converter, int position, bool fast)
+    {
+        sb.Append("global::Jint.Runtime.TypeConverter.").Append(converter).Append('(');
+        AppendArgument(sb, position, fast);
         sb.Append(')');
     }
 

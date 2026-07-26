@@ -515,9 +515,35 @@ internal enum ParameterKind
     ToObject,
     Rest,
     AllArguments,
+    ArgCount,
 }
 
 internal sealed record class ParameterDefinition(ParameterKind Kind, int Position, string? CastTargetType = null, ParameterKind? CoercionKind = null);
+
+/// <summary>
+/// Mirrors <c>Jint.Native.Function.FastCallGuard</c>. Kept as a generator-local enum so the emitter
+/// never has to bind the runtime symbol; the names are emitted verbatim and must stay in sync.
+/// </summary>
+internal enum FastCallGuardKind
+{
+    Any,
+    Number,
+    String,
+    Date,
+    Array,
+}
+
+/// <summary>
+/// The generator's verdict for one <c>[JsFunction(FastCall = true)]</c> method: what
+/// <c>GetFastCallShape</c> should report and which argument expressions <c>CallFast</c> should read.
+/// Present only when the method both requested a fast-call lane and is expressible in it — a
+/// requested-but-inexpressible method is reported as JINT023 instead, never silently dropped.
+/// </summary>
+internal sealed record class FastCallSpec(
+    bool Leaf,
+    FastCallGuardKind Receiver,
+    FastCallGuardKind Arg0,
+    FastCallGuardKind Arg1);
 
 internal enum RegistrationKind
 {
@@ -547,7 +573,8 @@ internal sealed record class FunctionDefinition(
     RegistrationKind Registration,
     string FlagsExpression,
     bool RequireObjectCoercible,
-    string? CaptureField = null)
+    string? CaptureField = null,
+    FastCallSpec? FastCall = null)
 {
     public static FunctionDefinition? FromJsFunction(IMethodSymbol method, ParseContext pc, List<DiagnosticInfo> diagnostics)
     {
@@ -560,8 +587,20 @@ internal sealed record class FunctionDefinition(
             : null;
         var flags = FlagExpression.From(flagsExplicit, "NonEnumerable");
         var captureField = ObjectDefinition.GetNamedArg(attr, "CaptureField") as string;
+        // Leaf implies FastCall: frame elision is a strictly stronger claim than register passing.
+        var leafRequested = ObjectDefinition.GetNamedArg(attr, "Leaf") as bool? ?? false;
+        var fastCallRequested = leafRequested || (ObjectDefinition.GetNamedArg(attr, "FastCall") as bool? ?? false);
+        // FastCallGuard is byte-backed, so the named argument arrives boxed as a byte, not an int —
+        // `as int?` silently yields null and the guard would be dropped. Convert on the raw value.
+        var leafReceiverRaw = ObjectDefinition.GetNamedArg(attr, "LeafReceiver");
+        var declaredLeafReceiver = leafReceiverRaw is null
+            ? FastCallGuardKind.Any
+            : (FastCallGuardKind) Convert.ToInt32(leafReceiverRaw, System.Globalization.CultureInfo.InvariantCulture);
         return BuildCommon(method, pc, diagnostics, jsName, /* functionName */ jsName, explicitLength, RegistrationKind.DataProperty, flags,
-            captureField: string.IsNullOrWhiteSpace(captureField) ? null : captureField);
+            captureField: string.IsNullOrWhiteSpace(captureField) ? null : captureField,
+            fastCallRequested: fastCallRequested,
+            leafRequested: leafRequested,
+            declaredLeafReceiver: declaredLeafReceiver);
     }
 
     public static FunctionDefinition? FromJsAccessor(IMethodSymbol method, ParseContext pc, List<DiagnosticInfo> diagnostics)
@@ -587,7 +626,7 @@ internal sealed record class FunctionDefinition(
         var actualValueParams = 0;
         foreach (var p in fn.Parameters)
         {
-            if (p.Kind != ParameterKind.ThisObject && p.Kind != ParameterKind.AllArguments && p.Kind != ParameterKind.Rest)
+            if (p.Kind != ParameterKind.ThisObject && p.Kind != ParameterKind.AllArguments && p.Kind != ParameterKind.Rest && p.Kind != ParameterKind.ArgCount)
             {
                 actualValueParams++;
             }
@@ -652,7 +691,7 @@ internal sealed record class FunctionDefinition(
         var actualValueParams = 0;
         foreach (var p in fn.Parameters)
         {
-            if (p.Kind != ParameterKind.ThisObject && p.Kind != ParameterKind.AllArguments && p.Kind != ParameterKind.Rest)
+            if (p.Kind != ParameterKind.ThisObject && p.Kind != ParameterKind.AllArguments && p.Kind != ParameterKind.Rest && p.Kind != ParameterKind.ArgCount)
             {
                 actualValueParams++;
             }
@@ -675,7 +714,7 @@ internal sealed record class FunctionDefinition(
         return fn;
     }
 
-    private static FunctionDefinition? BuildCommon(IMethodSymbol method, ParseContext pc, List<DiagnosticInfo> diagnostics, string jsName, string functionName, int explicitLength, RegistrationKind registration, string flagsExpression, string? captureField = null)
+    private static FunctionDefinition? BuildCommon(IMethodSymbol method, ParseContext pc, List<DiagnosticInfo> diagnostics, string jsName, string functionName, int explicitLength, RegistrationKind registration, string flagsExpression, string? captureField = null, bool fastCallRequested = false, bool leafRequested = false, FastCallGuardKind declaredLeafReceiver = FastCallGuardKind.Any)
     {
         if (!pc.IsJsValueOrSubtype(method.ReturnType))
         {
@@ -723,6 +762,23 @@ internal sealed record class FunctionDefinition(
             // dispatcher (replaces the hand-rolled pattern in MathInstance.Max/Min/Hypot etc.).
             var conversion = DetectConversion(param, method, diagnostics, out var failed);
             if (failed) return null;
+
+            // [ArgCount] int argc — the caller's argument count, for bodies that must tell an ABSENT
+            // argument from an explicitly passed `undefined`. Not a JS-visible parameter, so it
+            // neither advances `valuePosition` nor contributes to `length`.
+            if (ObjectDefinition.HasAttribute(param, "ArgCountAttribute"))
+            {
+                if (param.Type.SpecialType != SpecialType.System_Int32)
+                {
+                    diagnostics.Add(new DiagnosticInfo(
+                        DiagnosticDescriptors.ConversionTypeMismatch,
+                        param.Locations.FirstOrDefault(),
+                        param.Name, method.Name, "ArgCount", param.Type.ToDisplayString(), "int"));
+                    return null;
+                }
+                parameters.Add(new ParameterDefinition(ParameterKind.ArgCount, 0));
+                continue;
+            }
 
             if (ObjectDefinition.HasAttribute(param, "RestAttribute"))
             {
@@ -810,6 +866,8 @@ internal sealed record class FunctionDefinition(
 
         var requireOc = ObjectDefinition.HasAttribute(method, "RequireObjectCoercibleAttribute");
 
+        var fastCall = BuildFastCallSpec(method, parameters, requireOc, fastCallRequested, leafRequested, declaredLeafReceiver, diagnostics);
+
         return new FunctionDefinition(
             ClrName: method.Name,
             JsName: jsName,
@@ -820,8 +878,187 @@ internal sealed record class FunctionDefinition(
             Registration: registration,
             FlagsExpression: flagsExpression,
             RequireObjectCoercible: requireOc,
-            CaptureField: captureField);
+            CaptureField: captureField,
+            FastCall: fastCall);
     }
+
+    /// <summary>
+    /// Decides whether a method that asked for a fast-call lane can actually be given one.
+    /// <para>
+    /// Lane 1 (<c>FastCall</c>) only needs the signature to be expressible with a receiver plus two
+    /// argument registers, because the call-stack frame is still pushed — the built-in runs its own
+    /// coercions and may throw or re-enter user code exactly as before.
+    /// </para>
+    /// <para>
+    /// Lane 2 (<c>Leaf</c>) additionally elides the frame, so every way the dispatcher preamble
+    /// itself could reach user code or raise a JS error must be closed off by a
+    /// <c>FastCallGuard</c> that the runtime can check per call. A coercion contributes the guard
+    /// that makes it a no-op (<c>[ToNumber]</c> on an actual number never calls <c>valueOf</c>); a
+    /// cast <c>thisObject</c> contributes the guard that makes its TypeError unreachable. Anything
+    /// with no expressible guard fails here rather than silently downgrading, so an unsound
+    /// annotation is a build error.
+    /// </para>
+    /// </summary>
+    private static FastCallSpec? BuildFastCallSpec(
+        IMethodSymbol method,
+        List<ParameterDefinition> parameters,
+        bool requireObjectCoercible,
+        bool fastCallRequested,
+        bool leafRequested,
+        FastCallGuardKind declaredLeafReceiver,
+        List<DiagnosticInfo> diagnostics)
+    {
+        if (!fastCallRequested) return null;
+
+        string? decline = null;
+        string? leafBlocked = null;
+        var receiver = FastCallGuardKind.Any;
+        var argGuards = new[] { FastCallGuardKind.Any, FastCallGuardKind.Any };
+        var valueCount = 0;
+
+        foreach (var p in parameters)
+        {
+            switch (p.Kind)
+            {
+                case ParameterKind.ThisObject:
+                    if (p.CastTargetType is not null)
+                    {
+                        var castGuard = GuardForCastType(p.CastTargetType);
+                        if (castGuard is null)
+                        {
+                            leafBlocked ??= $"'this' is cast to '{p.CastTargetType}', which no FastCallGuard can prove, so the cast's TypeError stays reachable";
+                        }
+                        else
+                        {
+                            receiver = castGuard.Value;
+                        }
+                    }
+                    break;
+
+                case ParameterKind.AllArguments:
+                    decline ??= "it takes the raw JsCallArguments array, which has no positional model — declare its parameters instead";
+                    break;
+
+                case ParameterKind.Rest:
+                    decline ??= "it has a [Rest] parameter, and a variadic tail cannot be carried in two argument registers";
+                    break;
+
+                case ParameterKind.ArgCount:
+                    // CallFast carries a receiver and two argument registers but no arity, so a body
+                    // that reads the argument count cannot be invoked through it at all.
+                    decline ??= "it declares an [ArgCount] parameter, and CallFast carries no argument count";
+                    break;
+
+                default:
+                {
+                    var position = valueCount;
+                    valueCount++;
+                    if (position < argGuards.Length)
+                    {
+                        var argGuard = GuardForCoercion(p.Kind);
+                        if (argGuard is null)
+                        {
+                            leafBlocked ??= $"parameter {position} uses a coercion no FastCallGuard can make a no-op";
+                        }
+                        else
+                        {
+                            argGuards[position] = argGuard.Value;
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+
+        if (valueCount > argGuards.Length)
+        {
+            decline ??= $"it declares {valueCount} value parameters and the fast-call lane carries at most {argGuards.Length}";
+        }
+
+        if (decline is not null)
+        {
+            diagnostics.Add(new DiagnosticInfo(
+                DiagnosticDescriptors.FastCallNotExpressible,
+                method.Locations.FirstOrDefault(),
+                method.Name,
+                leafRequested ? "Leaf" : "FastCall",
+                decline));
+            return null;
+        }
+
+        if (!leafRequested)
+        {
+            // Lane 1 only. Guards exist purely to gate frame elision, so publish none — a shape whose
+            // Leaf is false never consults them, and emitting the derived ones would imply a claim
+            // about the body that the author has not made.
+            return new FastCallSpec(Leaf: false, FastCallGuardKind.Any, FastCallGuardKind.Any, FastCallGuardKind.Any);
+        }
+
+        // An explicitly declared receiver guard stands in for a cast when 'this' is untyped. Only
+        // honour it if the declaration did not already pin the receiver, so an explicit value can
+        // never weaken a guard the generator derived itself.
+        if (receiver == FastCallGuardKind.Any && declaredLeafReceiver != FastCallGuardKind.Any)
+        {
+            receiver = declaredLeafReceiver;
+        }
+
+        // RequireObjectCoercible throws for undefined/null, and "not nullish" is not a guard we can
+        // express — unless the receiver is already pinned to a concrete type, which implies it.
+        if (requireObjectCoercible && receiver == FastCallGuardKind.Any)
+        {
+            leafBlocked ??= "it is [RequireObjectCoercible] with an unguarded 'this', so its TypeError stays reachable";
+        }
+
+        if (leafBlocked is not null)
+        {
+            diagnostics.Add(new DiagnosticInfo(
+                DiagnosticDescriptors.FastCallNotExpressible,
+                method.Locations.FirstOrDefault(),
+                method.Name,
+                "Leaf",
+                leafBlocked));
+            return null;
+        }
+
+        return new FastCallSpec(Leaf: true, receiver, argGuards[0], argGuards[1]);
+    }
+
+    /// <summary>
+    /// The guard that proves a cast <c>thisObject</c> succeeds. Each mapping must be exact in the
+    /// direction the runtime checks it: <c>FastCallGuard.Array</c> tests
+    /// <c>InternalTypes.Array</c>, which <em>every</em> <c>ArrayInstance</c> carries — including
+    /// <c>ArrayPrototype</c> — so it proves <c>ArrayInstance</c> but deliberately NOT <c>JsArray</c>,
+    /// where a passing guard could still fail the cast and throw an un-framed TypeError. Types with
+    /// no exact guard return null and merely lose the leaf lane.
+    /// </summary>
+    private static FastCallGuardKind? GuardForCastType(string castTargetType) => castTargetType switch
+    {
+        "Jint.Native.JsDate" => FastCallGuardKind.Date,
+        "Jint.Native.JsString" => FastCallGuardKind.String,
+        "Jint.Native.JsNumber" => FastCallGuardKind.Number,
+        "Jint.Native.Array.ArrayInstance" => FastCallGuardKind.Array,
+        _ => null,
+    };
+
+    /// <summary>
+    /// The guard under which a parameter coercion provably runs no user code. Every numeric
+    /// conversion funnels through <c>ToNumber</c>, whose object path calls <c>valueOf</c>; the string
+    /// ones call <c>toString</c>. A plain <c>JsValue</c> parameter is forwarded untouched, so it
+    /// needs no guard. <c>[ToObject]</c> gets none: it throws for null/undefined, and no guard
+    /// expresses "not nullish".
+    /// </summary>
+    private static FastCallGuardKind? GuardForCoercion(ParameterKind kind) => kind switch
+    {
+        ParameterKind.ValueAt => FastCallGuardKind.Any,
+        ParameterKind.ToNumber => FastCallGuardKind.Number,
+        ParameterKind.ToInteger => FastCallGuardKind.Number,
+        ParameterKind.ToInt32 => FastCallGuardKind.Number,
+        ParameterKind.ToUint32 => FastCallGuardKind.Number,
+        ParameterKind.ToLength => FastCallGuardKind.Number,
+        ParameterKind.ToString => FastCallGuardKind.String,
+        ParameterKind.ToJsString => FastCallGuardKind.String,
+        _ => null,
+    };
 
     private static ParameterKind? DetectConversion(IParameterSymbol param, IMethodSymbol method, List<DiagnosticInfo> diagnostics, out bool failed)
     {

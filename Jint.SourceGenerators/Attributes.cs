@@ -46,6 +46,52 @@ internal static class Attributes
             // ReferenceEquals fast paths such as ArrayIteratorPrototype._originalNextFunction and
             // WeakSetPrototype.OriginalAddFunction.
             public string? CaptureField { get; set; }
+
+            /// <summary>
+            /// Opt in to the arity-specialized invoke (<c>Function.CallFast</c>): the call site passes
+            /// arguments in registers instead of renting a pooled <c>JsValue[]</c>, and jumps straight
+            /// at the target instead of going through the generated <c>switch (_slot)</c>. The
+            /// call-stack frame is still pushed, so this is semantics-preserving for ANY built-in —
+            /// including ones that throw or re-enter user code.
+            /// <para>
+            /// Requires a positionally expressible signature: at most two declared value parameters,
+            /// no <c>[Rest]</c>, no raw <c>JsCallArguments</c> and no <c>[ArgCount]</c> (CallFast
+            /// carries no arity to hand it). Anything the generator cannot honor is reported as
+            /// JINT023 rather than silently ignored.
+            /// </para>
+            /// </summary>
+            public bool FastCall { get; set; }
+
+            /// <summary>
+            /// Opt in to frame elision on top of <see cref="FastCall"/> (which this implies). Only
+            /// declare it when the body provably runs no user code and raises no JavaScript error
+            /// once every <see cref="global::Jint.Native.Function.FastCallGuard"/> the generator
+            /// derives from the declaration holds — user code reached through a coercion can observe
+            /// <c>error.stack</c>, and a missing frame would be visible there.
+            /// <para>
+            /// Guards come from the declaration, never from inference: a coercion attribute
+            /// (<c>[ToNumber]</c>, <c>[ToInteger]</c>, <c>[ToInt32]</c>, <c>[ToUint32]</c>,
+            /// <c>[ToLength]</c>) contributes a Number guard, <c>[ToString]</c>/<c>[ToJsString]</c>
+            /// contribute a String guard, and a cast <c>thisObject</c> contributes the guard matching
+            /// its type. A plain <c>JsValue</c> parameter carries no guard, so declaring
+            /// <c>Leaf</c> asserts the body is leaf-safe for <em>any</em> value in that position.
+            /// </para>
+            /// <para>
+            /// This is never inferred from the signature, because a body with perfectly numeric
+            /// parameters can still <c>Throw.RangeError</c>.
+            /// </para>
+            /// </summary>
+            public bool Leaf { get; set; }
+
+            /// <summary>
+            /// Declares the receiver precondition under which <see cref="Leaf"/> holds, for methods
+            /// whose 'this' stays untyped because they legitimately accept any coercible receiver.
+            /// The frameless lane is then taken only when the receiver actually matches at runtime;
+            /// every other receiver keeps its frame and its exact semantics. This is what lets a
+            /// String.prototype method be leaf for a primitive string without giving up boxed or
+            /// object receivers, which coerce through user code and must stay framed.
+            /// </summary>
+            public global::Jint.Native.Function.FastCallGuard LeafReceiver { get; set; }
         }
 
         [global::System.AttributeUsage(global::System.AttributeTargets.Field | global::System.AttributeTargets.Property)]
@@ -97,6 +143,24 @@ internal static class Attributes
         [global::System.AttributeUsage(global::System.AttributeTargets.Parameter)]
         [global::System.Diagnostics.Conditional("JINT_SOURCE_GENERATORS")]
         internal sealed class ToObjectAttribute : global::System.Attribute { }
+
+        // Marks an `int` pseudo-parameter that receives the caller's argument count. It exists so a
+        // body that must distinguish an ABSENT argument from an explicitly passed `undefined` can
+        // still declare its real parameters positionally instead of taking the raw JsCallArguments
+        // array. Two spec shapes need it:
+        //   * the Date setters — "arguments.Length <= 1 ? MsFromTime(t) : ToNumber(arg1)", i.e.
+        //     an omitted field keeps its current value while an explicit undefined poisons it to NaN;
+        //   * the reduce family — "if (argc < 2) throw" distinguishing a missing initial value from
+        //     a supplied `undefined` one.
+        // The parameter does NOT count toward the JS-visible `length`, and may appear at any position
+        // after `thisObject`.
+        //
+        // A method declaring [ArgCount] cannot opt into JsFunction.FastCall: Function.CallFast
+        // carries a receiver and two argument registers but no arity, so an argument count simply
+        // cannot be conveyed through it (JINT023).
+        [global::System.AttributeUsage(global::System.AttributeTargets.Parameter)]
+        [global::System.Diagnostics.Conditional("JINT_SOURCE_GENERATORS")]
+        internal sealed class ArgCountAttribute : global::System.Attribute { }
 
         // Marks a [JsFunction]/[JsSymbolFunction] method whose dispatcher should call
         // TypeConverter.RequireObjectCoercible(_host._engine, thisObject) before invoking the user method.

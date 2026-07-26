@@ -22,12 +22,28 @@ internal sealed class JintCallExpression : JintExpression
     private readonly bool _calleeIsSuper;
     private readonly JintMemberExpression? _calleeMember;
 
+    // Monomorphic fast-call cache: the callee seen by the last evaluation plus its verdict for this
+    // site's arity. Identity is what makes the verdict safe to reuse — re-assigning the property
+    // (`Math.abs = f`) swaps the value without bumping any version counter, so nothing weaker than a
+    // reference compare would notice. A miss re-caches rather than declining permanently, which
+    // matters because a Prepared<Script> shares these nodes across engines and each engine brings its
+    // own built-in instances.
+    private Function? _fastCallee;
+    private FastCallShape _fastShape;
+
+    // Argument shape is fixed at build time; only sites the fast lane could ever serve pay any probe.
+    private readonly int _argCount;
+    private readonly bool _fastArgsEligible;
+
     public JintCallExpression(CallExpression expression) : base(expression)
     {
         _arguments.Initialize(expression.Arguments.AsSpan());
         _calleeExpression = Build(expression.Callee);
         _calleeIsSuper = _calleeExpression._expression.Type == NodeType.Super;
         _calleeMember = _calleeExpression as JintMemberExpression;
+
+        _argCount = expression.Arguments.Count;
+        _fastArgsEligible = !_arguments.HasSpreads && _argCount <= 2;
     }
 
     protected override object EvaluateInternal(EvaluationContext context)
@@ -155,6 +171,22 @@ internal sealed class JintCallExpression : JintExpression
             reference = calleeReference;
         }
 
+        // Fast-call lane. Gated on callee identity, so a re-assigned or shadowed built-in, a different
+        // engine's instance, or any non-built-in callee simply misses and takes the path below.
+        // Debug mode is excluded because the debugger walks the call stack, and generator/async frames
+        // are excluded because argument evaluation there must go through ExpressionCache's resume
+        // buffer rather than straight into locals.
+        if (_fastArgsEligible
+            && suspendable is null
+            && ReferenceEquals(func, _fastCallee)
+            && _fastShape.Supported
+            && !engine._isDebugMode)
+        {
+            var arg0 = _argCount >= 1 ? _arguments.GetValue(context, 0) : JsValue.Undefined;
+            var arg1 = _argCount >= 2 ? _arguments.GetValue(context, 1) : JsValue.Undefined;
+            return FastCall(engine, Unsafe.As<Function>(func), thisObject, arg0, arg1);
+        }
+
         var tailCall = IsInTailPosition((CallExpression) _expression);
 
         var arguments = this._arguments.ArgumentListEvaluation(context, this, out var rented);
@@ -216,6 +248,15 @@ internal sealed class JintCallExpression : JintExpression
                     callStack.Pop();
                 }
             }
+
+            // Populate the fast-call cache after a successful dispatch, so the *next* evaluation of
+            // this site can take the lane above. Deliberately after the call: asking the callee for
+            // its shape is only worth it once we know this site actually reaches a Function.
+            if (_fastArgsEligible && !ReferenceEquals(functionInstance, _fastCallee))
+            {
+                _fastCallee = functionInstance;
+                _fastShape = functionInstance.GetFastCallShape(_argCount);
+            }
         }
         else
         {
@@ -264,6 +305,48 @@ internal sealed class JintCallExpression : JintExpression
         var flagged = (value._type & InternalTypes.Callable) != InternalTypes.Empty;
         Debug.Assert(flagged == value is ICallable, $"InternalTypes.Callable disagrees with `is ICallable` for {value.GetType()}");
         return flagged;
+    }
+
+    /// <summary>
+    /// Invokes a built-in through its arity-specialized entry point, eliding the call-stack frame
+    /// only when the shape's guards hold for these exact values.
+    /// </summary>
+    /// <remarks>
+    /// The leaf test is per-call and not per-method on purpose: <c>Math.abs(x)</c> cannot reach user
+    /// code when <c>x</c> is a number, but with an object it coerces through <c>valueOf</c>, and that
+    /// user code can both throw and read <c>error.stack</c> — where the built-in's own frame is
+    /// observable. Anything that fails a guard keeps its frame and only takes the argument-passing
+    /// half of the optimization.
+    /// </remarks>
+    private JsValue FastCall(Engine engine, Function target, JsValue thisObject, JsValue arg0, JsValue arg1)
+    {
+        if (_fastShape.IsLeafFor(thisObject, arg0, arg1))
+        {
+            LeafCallGuard.Enter();
+            var leafResult = target.CallFast(thisObject, arg0, arg1);
+            LeafCallGuard.Exit();
+            return leafResult;
+        }
+
+        var callStack = engine.CallStack;
+        var recursionDepth = callStack.Push(target, _calleeExpression, engine.ExecutionContext);
+
+        if (recursionDepth > engine._maxRecursionDepth)
+        {
+            Throw.RecursionDepthOverflowException(callStack);
+        }
+
+        try
+        {
+            return target.CallFast(thisObject, arg0, arg1);
+        }
+        finally
+        {
+            if (callStack.Count > 0)
+            {
+                callStack.Pop();
+            }
+        }
     }
 
     [DoesNotReturn]
