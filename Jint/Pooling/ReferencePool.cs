@@ -8,7 +8,11 @@ namespace Jint.Pooling;
 /// </summary>
 internal sealed class ReferencePool
 {
-    private const int PoolSize = 10;
+    /// <summary>
+    /// How many instances the pool can hold, and therefore the upper bound on how many distinct
+    /// <see cref="Reference" /> instances a balanced rent/return workload can ever be handed.
+    /// </summary>
+    internal const int PoolSize = 10;
     private readonly ObjectPool<Reference> _pool;
 
     public ReferencePool()
