@@ -8,6 +8,40 @@ using Jint.Runtime;
 
 namespace Jint.Native;
 
+/// <summary>
+/// A JavaScript string value.
+/// </summary>
+/// <remarks>
+/// <para>
+/// This type is designed to be subclassed so that a host can expose its own string representation
+/// (a native handle, an encoded buffer, a view over a larger buffer) without eagerly producing a
+/// .NET <see cref="string"/>. Jint's own sliced and concatenated string representations use the same
+/// mechanism.
+/// </para>
+/// <para>
+/// <b>Subclassing contract.</b> Passing a <see langword="null"/> backing value to the constructor is
+/// supported and is the intended way to express "not materialized yet". A subclass that does so
+/// <b>must</b> override every member that would otherwise observe the backing value:
+/// <list type="bullet">
+/// <item><see cref="ToString()"/> — produces (and normally caches) the flat value. Every other
+/// member of this class that needs the text routes through it, so overriding it alone is enough for
+/// correctness; the remaining overrides exist only to avoid materializing.</item>
+/// <item><see cref="Length"/> — must answer without materializing, otherwise a length comparison
+/// (which <see cref="Equals(JsString)"/> performs first) defeats the laziness.</item>
+/// <item><see cref="this[int]"/> — character access.</item>
+/// <item><see cref="Equals(JsString)"/>, <see cref="Equals(string)"/> and
+/// <see cref="GetHashCode()"/> — only needed to stay allocation-free; the base implementations are
+/// correct but materialize. An overridden <see cref="GetHashCode()"/> must produce the same hash as
+/// the equivalent flat string (<see cref="StringComparer.Ordinal"/>), otherwise the value cannot be
+/// used interchangeably as a property key or collection key.</item>
+/// </list>
+/// </para>
+/// <para>
+/// A subclass that leaves the backing value <see langword="null"/> and does not override
+/// <see cref="ToString()"/> is not usable — the base implementation returns
+/// <see langword="null"/>.
+/// </para>
+/// </remarks>
 [DebuggerDisplay("{ToString()}")]
 public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
 {
@@ -304,7 +338,10 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
 
     internal virtual JsString EnsureCapacity(int capacity)
     {
-        return new ConcatenatedString(_value, capacity);
+        // ToString() rather than _value: a subclass can carry a null backing value until it
+        // materializes, and ConcatenatedString cannot start from null. For a flat string
+        // ToString() just returns _value, so the common path is unchanged.
+        return new ConcatenatedString(ToString(), capacity);
     }
 
     public sealed override object ToObject() => ToString();
@@ -395,7 +432,9 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
             return false;
         }
 
-        return string.Equals(_value, other.ToString(), StringComparison.Ordinal);
+        // both sides go through ToString() so a subclass carrying a null backing value compares by
+        // content instead of silently reporting "not equal"
+        return string.Equals(ToString(), other.ToString(), StringComparison.Ordinal);
     }
 
     protected internal override bool IsLooselyEqual(JsValue value)
@@ -413,7 +452,9 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         return base.IsLooselyEqual(value);
     }
 
-    public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(_value);
+    // ToString() rather than _value so a subclass with a null backing value hashes its content
+    // instead of throwing; a flat string returns _value from ToString(), so nothing changes there
+    public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(ToString());
 
     internal sealed class ConcatenatedString : JsString
     {
@@ -593,12 +634,6 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         internal override bool Contains(char c)
         {
             return c != 0 && AsSpan().IndexOf(c) >= 0;
-        }
-
-        internal override JsString EnsureCapacity(int capacity)
-        {
-            // base implementation reads _value directly, which may not be materialized yet
-            return new ConcatenatedString(ToString(), capacity);
         }
 
         public override bool Equals(string? other)
