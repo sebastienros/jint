@@ -6,16 +6,18 @@ namespace Jint.Tests.PublicInterface;
 /// The read path resolves a <see cref="PropertyAccessSemantics.Ordinary"/> host object from a single
 /// own-property probe instead of routing through <c>Get</c>. These tests pin the enumeration and
 /// existence-check paths — which never took that shortcut — against the same object, so a future change to the
-/// read lane cannot desync the two.
+/// read lane cannot desync the two. Each case runs over both derived outcomes: a host that overrides only
+/// <c>GetOwnProperty</c> (derived ordinary, short lane) and one that adds a pure pass-through <c>Get</c>
+/// override (derived exotic, full pipeline). The two answer identically by construction, so any difference an
+/// assertion below can see is the engine's doing, not the host's.
 /// </summary>
 public class HostObjectEnumerationTests
 {
-    private static Engine CreateEngineWithHost(PropertyAccessSemantics semantics)
+    private static Engine CreateEngineWithHost(bool overridesGet)
     {
         var engine = new Engine();
-        var host = new ProjectedHostObject(engine, semantics)
-            .Project("alpha", 1)
-            .Project("beta", "two");
+        var host = overridesGet ? new PassThroughGetHostObject(engine) : new ProjectedHostObject(engine);
+        host.Project("alpha", 1).Project("beta", "two");
 
         engine.SetValue("host", host);
         engine.Execute("Object.prototype.inheritedOnly = 'from-prototype';");
@@ -23,11 +25,11 @@ public class HostObjectEnumerationTests
     }
 
     [Theory]
-    [InlineData(PropertyAccessSemantics.Unspecified)]
-    [InlineData(PropertyAccessSemantics.Ordinary)]
-    public void ExistenceChecksSeeExactlyTheProjectedProperties(PropertyAccessSemantics semantics)
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ExistenceChecksSeeExactlyTheProjectedProperties(bool overridesGet)
     {
-        var engine = CreateEngineWithHost(semantics);
+        var engine = CreateEngineWithHost(overridesGet);
 
         engine.Evaluate("'alpha' in host").Should().Be(true);
         engine.Evaluate("'absent' in host").Should().Be(false);
@@ -43,11 +45,11 @@ public class HostObjectEnumerationTests
     }
 
     [Theory]
-    [InlineData(PropertyAccessSemantics.Unspecified)]
-    [InlineData(PropertyAccessSemantics.Ordinary)]
-    public void ReflectionOverAHostObjectMatchesItsReads(PropertyAccessSemantics semantics)
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ReflectionOverAHostObjectMatchesItsReads(bool overridesGet)
     {
-        var engine = CreateEngineWithHost(semantics);
+        var engine = CreateEngineWithHost(overridesGet);
 
         engine.Evaluate("Object.keys(host).join(',')").Should().Be("alpha,beta");
         engine.Evaluate("Object.values(host).join(',')").Should().Be("1,two");
@@ -60,11 +62,11 @@ public class HostObjectEnumerationTests
     }
 
     [Theory]
-    [InlineData(PropertyAccessSemantics.Unspecified)]
-    [InlineData(PropertyAccessSemantics.Ordinary)]
-    public void CopyingAHostObjectProducesItsProjectedValues(PropertyAccessSemantics semantics)
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CopyingAHostObjectProducesItsProjectedValues(bool overridesGet)
     {
-        var engine = CreateEngineWithHost(semantics);
+        var engine = CreateEngineWithHost(overridesGet);
 
         engine.Evaluate("JSON.stringify(Object.assign({}, host))").Should().Be("""{"alpha":1,"beta":"two"}""");
         engine.Evaluate("JSON.stringify({ ...host })").Should().Be("""{"alpha":1,"beta":"two"}""");

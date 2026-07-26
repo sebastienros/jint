@@ -21,9 +21,12 @@ internal sealed class IteratorResult : ObjectInstance
     private PropertyDescriptor? _valueDesc;
     private PropertyDescriptor? _doneDesc;
 
-    public IteratorResult(Engine engine, JsValue value, JsBoolean done) : base(engine)
+    // Flags go through the internal constructor rather than being derived from the type: one of these is
+    // allocated per iterator step, so it cannot afford even a cached per-instance type lookup. The value
+    // stated here is the same one the derivation would reach, since this type overrides Get.
+    public IteratorResult(Engine engine, JsValue value, JsBoolean done)
+        : base(engine, ObjectClass.Object, InternalTypes.Object | InternalTypes.ExoticGet)
     {
-        _type |= InternalTypes.ExoticGet;
         _value = value;
         _done = done;
     }

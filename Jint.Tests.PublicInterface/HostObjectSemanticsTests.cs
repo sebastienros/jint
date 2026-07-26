@@ -7,29 +7,36 @@ using Jint.Runtime.Descriptors;
 namespace Jint.Tests.PublicInterface;
 
 /// <summary>
-/// Covers <see cref="PropertyAccessSemantics"/>, the opt-in declaration an embedder's
-/// <see cref="ObjectInstance"/> subclass uses to tell the engine how its property reads behave. These live in
-/// the public-interface suite on purpose: the project references Jint without any internals access, so
-/// everything used here is genuinely reachable by a third-party host.
+/// Covers <see cref="PropertyAccessSemantics"/> — how the engine decides what an embedder's
+/// <see cref="ObjectInstance"/> subclass promises about its property reads. These live in the public-interface
+/// suite on purpose: the project references Jint without any internals access, so everything used here is
+/// genuinely reachable by a third-party host.
+///
+/// <para>
+/// The engine <b>derives</b> the answer from the type and nothing else: a subclass that overrides
+/// <c>Get</c> is <see cref="PropertyAccessSemantics.Exotic"/>, one that does not is
+/// <see cref="PropertyAccessSemantics.Ordinary"/>. Both directions are safe by construction — a type that
+/// never overrides <c>Get</c> cannot have non-ordinary <c>Get</c> semantics, and a type that does override it
+/// is the only one that can. <c>SetPropertyAccessSemantics</c> exists for the two shapes the rule cannot see,
+/// and both are covered below.
+/// </para>
 /// </summary>
 public class HostObjectSemanticsTests
 {
     // A Debug build of Jint verifies the Ordinary contract on every read by recomputing it (one probe to walk
     // the chain looking for side-effect-free descriptors, one more inside the Get it compares against).
-    // Release strips the verification, and its count is the one the two-probes-per-read guard is about.
+    // Release strips the verification, and its count is the one the probes-per-read guard is about.
 #if DEBUG
     private const int OrdinaryOwnReadProbes = 3;
 #else
     private const int OrdinaryOwnReadProbes = 1;
 #endif
 
-    private const int UnspecifiedOwnReadProbes = 2;
-
     [Fact]
     public void OrdinarySemanticsAgreeWithGetOwnPropertyForEveryReadOutcome()
     {
         var engine = new Engine();
-        var host = new ProjectedHostObject(engine, PropertyAccessSemantics.Ordinary)
+        var host = new ProjectedHostObject(engine)
             .Project("own", "own-value")
             .Project("shadowed", "from-host");
 
@@ -55,51 +62,40 @@ public class HostObjectSemanticsTests
     }
 
     [Fact]
-    public void OrdinarySemanticsResolveAnOwnReadFromASingleProbe()
+    public void AHostThatDoesNotOverrideGetResolvesAnOwnReadFromASingleProbe()
     {
         var engine = new Engine();
-        var ordinary = new ProjectedHostObject(engine, PropertyAccessSemantics.Ordinary).Project("value", 42);
-        var unspecified = new ProjectedHostObject(engine, PropertyAccessSemantics.Unspecified).Project("value", 42);
+        var host = new ProjectedHostObject(engine).Project("value", 42);
+        engine.SetValue("host", host);
 
-        engine.SetValue("ordinary", ordinary);
-        engine.SetValue("unspecified", unspecified);
+        engine.Evaluate("host.value").Should().Be(42);
 
-        // Each Evaluate compiles a fresh AST, so both reads below start from a cold inline cache.
-        engine.Evaluate("ordinary.value").Should().Be(42);
-        engine.Evaluate("unspecified.value").Should().Be(42);
-
-        // The regression guard: an object that declared ordinary [[Get]] is probed exactly once per own read.
-        // Without the declaration the engine probes once to prove the own property exists and a second time
-        // inside Get to fetch it — for a host that materializes descriptors lazily that is two virtual calls
-        // and two descriptor allocations per read, forever.
-        ordinary.GetOwnPropertyCalls.Should().Be(OrdinaryOwnReadProbes);
-        unspecified.GetOwnPropertyCalls.Should().Be(UnspecifiedOwnReadProbes);
+        // The whole point of deriving rather than asking: this host declares nothing, and it still gets the
+        // single-probe lane, because not overriding Get already proves its Get is the ordinary one. Before the
+        // derivation the same type paid two probes and two descriptor allocations per read — one to prove the
+        // own property was not shadowed and one inside Get to fetch it.
+        host.GetOwnPropertyCalls.Should().Be(OrdinaryOwnReadProbes);
     }
 
     [Fact]
-    public void OrdinarySemanticsResolveAMemberCallCalleeFromASingleProbe()
+    public void AHostThatDoesNotOverrideGetResolvesAMemberCallCalleeFromASingleProbe()
     {
         var engine = new Engine();
         var fn = engine.Evaluate("(function () { return 'called'; })");
-        var ordinary = new ProjectedHostObject(engine, PropertyAccessSemantics.Ordinary).Project("fn", fn);
-        var unspecified = new ProjectedHostObject(engine, PropertyAccessSemantics.Unspecified).Project("fn", fn);
-
-        engine.SetValue("ordinary", ordinary);
-        engine.SetValue("unspecified", unspecified);
+        var host = new ProjectedHostObject(engine).Project("fn", fn);
+        engine.SetValue("host", host);
 
         // The member-call callee path shares the same non-plain-receiver completion, so it inherits the lane.
-        engine.Evaluate("ordinary.fn()").Should().Be("called");
-        engine.Evaluate("unspecified.fn()").Should().Be("called");
+        engine.Evaluate("host.fn()").Should().Be("called");
 
-        ordinary.GetOwnPropertyCalls.Should().Be(OrdinaryOwnReadProbes);
-        unspecified.GetOwnPropertyCalls.Should().Be(UnspecifiedOwnReadProbes);
+        host.GetOwnPropertyCalls.Should().Be(OrdinaryOwnReadProbes);
     }
 
     [Fact]
     public void PrototypeMethodResolvedOffAHostReceiverStaysCorrectAcrossPrototypeMutation()
     {
         var engine = new Engine();
-        var host = new ProjectedHostObject(engine, PropertyAccessSemantics.Ordinary);
+        var host = new ProjectedHostObject(engine);
         engine.SetValue("host", host);
 
         // One member-call node read four times, so the prototype-method inline cache is warm from the second
@@ -132,52 +128,40 @@ public class HostObjectSemanticsTests
     public void AWarmPrototypeReadDoesNotReprobeTheHost()
     {
         var engine = new Engine();
-        var ordinary = new ProjectedHostObject(engine, PropertyAccessSemantics.Ordinary);
-        var unspecified = new ProjectedHostObject(engine, PropertyAccessSemantics.Unspecified);
-        engine.SetValue("ordinary", ordinary);
-        engine.SetValue("unspecified", unspecified);
+        var host = new ProjectedHostObject(engine);
+        engine.SetValue("host", host);
         engine.Execute("Object.prototype.protoMethod = function () { return 1; };");
 
-        engine.Evaluate("var total = 0; for (var i = 0; i < 10; i++) { total += ordinary.protoMethod(); } total;").Should().Be(10);
-        engine.Evaluate("var total = 0; for (var i = 0; i < 10; i++) { total += unspecified.protoMethod(); } total;").Should().Be(10);
+        engine.Evaluate("var total = 0; for (var i = 0; i < 10; i++) { total += host.protoMethod(); } total;").Should().Be(10);
 
-        // The declaration must not cost the prototype-method cache: ten reads of a prototype method through a
-        // single node probe the receiver once, exactly as they do without the declaration. That is why the
-        // ordinary lane consults that cache before it probes for an own property — doing it the other way round
-        // turns the nine cached iterations back into nine virtual probes.
-        ordinary.GetOwnPropertyCalls.Should().Be(OrdinaryOwnReadProbes);
-        unspecified.GetOwnPropertyCalls.Should().Be(1);
+        // The ordinary lane must not cost the prototype-method cache: ten reads of a prototype method through a
+        // single node probe the receiver once, not ten times. That is why the lane consults that cache before it
+        // probes for an own property — doing it the other way round turns the nine cached iterations back into
+        // nine virtual probes.
+        host.GetOwnPropertyCalls.Should().Be(OrdinaryOwnReadProbes);
     }
 
     [Fact]
-    public void HostGetIsBypassedWithoutADeclarationAndHonouredWithExotic()
+    public void AHostThatOverridesGetIsHonouredWithoutDeclaringAnything()
     {
-        // The correctness hole this API closes: the read path treats "does not declare exotic semantics" as
-        // "has ordinary [[Get]]" and can answer from a prototype descriptor without ever calling the host's
-        // Get. A host that computes a fallback for names it owns no descriptor for is therefore silently
-        // bypassed for any name that happens to resolve on its prototype. Declaring Exotic fixes it.
-        var undeclared = ReadOnPrototypeName(PropertyAccessSemantics.Unspecified);
-        var declared = ReadOnPrototypeName(PropertyAccessSemantics.Exotic);
+        // The correctness hole the derivation closes. The read path used to treat "carries no exotic flag" as
+        // "has ordinary [[Get]]", and a subclass defined outside Jint could not carry that flag: a host whose
+        // Get computes a value for names it owns no descriptor for was therefore silently bypassed for every
+        // name that happened to resolve on its prototype. Object.prototype alone was enough to trigger it.
+        var engine = new Engine();
+        var host = new ComputingHostObject(engine);
+        engine.SetValue("host", host);
+        engine.Execute("Object.prototype.onPrototype = 42;");
 
-        // Documents the hole: the prototype's value wins over the host's computed fallback.
-        undeclared.Should().Be(42);
-        declared.Should().Be("computed:onPrototype");
-
-        static JsValue ReadOnPrototypeName(PropertyAccessSemantics semantics)
-        {
-            var engine = new Engine();
-            var host = new ComputingHostObject(engine, semantics);
-            engine.SetValue("host", host);
-            engine.Execute("Object.prototype.onPrototype = 42;");
-            return engine.Evaluate("host.onPrototype");
-        }
+        // The host's computed value wins, because overriding Get is itself the declaration.
+        engine.Evaluate("host.onPrototype").Should().Be("computed:onPrototype");
     }
 
     [Fact]
-    public void ExoticSemanticsRouteEveryReadThroughGet()
+    public void AHostThatOverridesGetRoutesEveryReadThroughIt()
     {
         var engine = new Engine();
-        var host = new ComputingHostObject(engine, PropertyAccessSemantics.Exotic).Project("own", "own-value");
+        var host = new ComputingHostObject(engine).Project("own", "own-value");
         engine.SetValue("host", host);
 
         engine.Evaluate("host.own").Should().Be("own-value");
@@ -190,43 +174,67 @@ public class HostObjectSemanticsTests
     }
 
     [Fact]
-    public void DeclarationCanBeReplacedAndUnspecifiedClearsIt()
+    public void AGetOverrideThatIsOrdinaryCanDeclareItselfBackOntoTheShortLane()
     {
+        // Residual case one: the rule sees an override and assumes it may deviate. A host that overrides Get
+        // only to observe reads — tracing, metrics, a special case that still agrees with GetOwnProperty — says
+        // so and gets the single-probe lane back.
         var engine = new Engine();
+        var traced = new TracingHostObject(engine).Project("value", 42);
+        engine.SetValue("traced", traced);
 
+        engine.Evaluate("traced.value").Should().Be(42);
+
+        traced.GetOwnPropertyCalls.Should().Be(OrdinaryOwnReadProbes);
+    }
+
+    [Fact]
+    public void AHostThatDoesNotOverrideGetCanStillDeclareItselfExotic()
+    {
+        // Residual case two: the rule sees no override and concludes Ordinary, but the host knows its
+        // GetOwnProperty is not a stable answer for the same name. Declaring Exotic routes every read through
+        // Get, which is what makes the second read observe the changed projection.
+        var engine = new Engine();
+        var host = new MutatingHostObject(engine);
+        engine.SetValue("host", host);
+
+        engine.Evaluate("var seen = []; for (var i = 0; i < 3; i++) { seen.push(host.counter); } seen.join(',');")
+            .Should().Be("1,2,3");
+    }
+
+    [Fact]
+    public void ADeclarationCanBeReplaced()
+    {
         // Last call wins, so a subclass can override what its base class declared.
+        var engine = new Engine();
         var redeclared = new RedeclaringHostObject(engine, PropertyAccessSemantics.Exotic, PropertyAccessSemantics.Ordinary);
         engine.SetValue("redeclared", redeclared);
+
         engine.Evaluate("redeclared.value").Should().Be("value");
         redeclared.GetOwnPropertyCalls.Should().Be(OrdinaryOwnReadProbes);
-
-        var cleared = new RedeclaringHostObject(engine, PropertyAccessSemantics.Ordinary, PropertyAccessSemantics.Unspecified);
-        engine.SetValue("cleared", cleared);
-        engine.Evaluate("cleared.value").Should().Be("value");
-        cleared.GetOwnPropertyCalls.Should().Be(UnspecifiedOwnReadProbes);
     }
 
     [Fact]
     public void AnUnknownSemanticsValueIsRejected()
     {
         var engine = new Engine();
-        Invoking(() => new ProjectedHostObject(engine, (PropertyAccessSemantics) 99))
+        Invoking(() => new RedeclaringHostObject(engine, PropertyAccessSemantics.Ordinary, (PropertyAccessSemantics) 99))
             .Should().Throw<ArgumentOutOfRangeException>();
     }
 }
 
 /// <summary>
 /// A host object whose properties live outside the engine — no descriptor exists until one is asked for, which
-/// is the shape that pays twice for every read without a semantics declaration. Records the probe count so a
-/// test can assert how many the engine needed.
+/// is the shape that used to pay twice for every read. It overrides <see cref="GetOwnProperty"/> and nothing
+/// else, so the engine derives <see cref="PropertyAccessSemantics.Ordinary"/> for it. Records the probe count
+/// so a test can assert how many the engine needed.
 /// </summary>
 internal class ProjectedHostObject : ObjectInstance
 {
     private readonly Dictionary<string, JsValue> _fields = new Dictionary<string, JsValue>(StringComparer.Ordinal);
 
-    public ProjectedHostObject(Engine engine, PropertyAccessSemantics semantics) : base(engine)
+    public ProjectedHostObject(Engine engine) : base(engine)
     {
-        SetPropertyAccessSemantics(semantics);
     }
 
     public int GetOwnPropertyCalls { get; private set; }
@@ -288,11 +296,12 @@ internal class ProjectedHostObject : ObjectInstance
 
 /// <summary>
 /// A host object with genuinely non-ordinary reads: <see cref="Get"/> computes a value for every name it owns
-/// no descriptor for, so a read that never reaches <c>Get</c> is a read the host never sees.
+/// no descriptor for, so a read that never reaches <c>Get</c> is a read the host never sees. It declares
+/// nothing — overriding <c>Get</c> is what tells the engine so.
 /// </summary>
 internal sealed class ComputingHostObject : ProjectedHostObject
 {
-    public ComputingHostObject(Engine engine, PropertyAccessSemantics semantics) : base(engine, semantics)
+    public ComputingHostObject(Engine engine) : base(engine)
     {
     }
 
@@ -307,13 +316,72 @@ internal sealed class ComputingHostObject : ProjectedHostObject
     }
 }
 
+/// <summary>
+/// Overrides <see cref="Get"/> with a pure pass-through, so it is derived exotic while behaving exactly like
+/// the ordinary host. The control for any test that must produce the same answer under both derived outcomes.
+/// </summary>
+internal sealed class PassThroughGetHostObject : ProjectedHostObject
+{
+    public PassThroughGetHostObject(Engine engine) : base(engine)
+    {
+    }
+
+    public override JsValue Get(JsValue property, JsValue receiver) => base.Get(property, receiver);
+}
+
+/// <summary>
+/// Overrides <see cref="Get"/> without deviating from it — the shape the derivation rule is deliberately
+/// pessimistic about, and the reason <c>SetPropertyAccessSemantics</c> survives.
+/// </summary>
+internal sealed class TracingHostObject : ProjectedHostObject
+{
+    public TracingHostObject(Engine engine) : base(engine)
+    {
+        SetPropertyAccessSemantics(PropertyAccessSemantics.Ordinary);
+    }
+
+    public int GetCalls { get; private set; }
+
+    public override JsValue Get(JsValue property, JsValue receiver)
+    {
+        GetCalls++;
+        return base.Get(property, receiver);
+    }
+}
+
+/// <summary>
+/// Does not override <see cref="ObjectInstance.Get"/>, yet is not ordinary: its projection changes on every
+/// probe, so a descriptor is only ever true for the call that produced it. The other reason
+/// <c>SetPropertyAccessSemantics</c> survives.
+/// </summary>
+internal sealed class MutatingHostObject : ProjectedHostObject
+{
+    private int _counter;
+
+    public MutatingHostObject(Engine engine) : base(engine)
+    {
+        SetPropertyAccessSemantics(PropertyAccessSemantics.Exotic);
+    }
+
+    public override PropertyDescriptor GetOwnProperty(JsValue property)
+    {
+        if (property.IsString() && string.Equals(property.AsString(), "counter", StringComparison.Ordinal))
+        {
+            return new PropertyDescriptor(++_counter, writable: true, enumerable: true, configurable: true);
+        }
+
+        return base.GetOwnProperty(property);
+    }
+}
+
 /// <summary>Declares twice, mimicking a subclass overriding what its base class declared.</summary>
 internal sealed class RedeclaringHostObject : ProjectedHostObject
 {
     public RedeclaringHostObject(Engine engine, PropertyAccessSemantics first, PropertyAccessSemantics second)
-        : base(engine, first)
+        : base(engine)
     {
         Project("value", "value");
+        SetPropertyAccessSemantics(first);
         SetPropertyAccessSemantics(second);
     }
 }

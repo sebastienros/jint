@@ -29,19 +29,19 @@ namespace Jint.Benchmark;
 /// <list type="bullet">
 /// <item><description>
 /// <see cref="ReceiverKind"/> — <see cref="HostReceiverKind.PlainObject"/> is the script-object
-/// floor. <see cref="HostReceiverKind.LazyHost"/> is the cost an embedder pays when it declares
-/// nothing: every own-property read goes through the virtual
-/// <see cref="ObjectInstance.GetOwnProperty"/> (the fast shape/dictionary lanes in
-/// <see cref="ObjectInstance.Get(JsValue, JsValue)"/> are not reachable for a
-/// non-<c>PlainObject</c> receiver) <b>twice</b>, allocating a fresh
-/// <see cref="PropertyDescriptor"/> each time and discarding one of them. Expect the LazyHost row
-/// to be several times the PlainObject row in both time and <c>Allocated</c>, with the allocation
-/// delta ≈ (descriptor size × own-property reads) — descriptor churn is half the story, so always
-/// read the <c>Allocated</c> column next to <c>Mean</c> here.
-/// <see cref="HostReceiverKind.LazyHostOrdinary"/> is the same host declaring
-/// <see cref="PropertyAccessSemantics.Ordinary"/>, which halves the probes on an own-property hit;
-/// it still allocates the descriptor the surviving probe returns, so the gap it closes against
-/// PlainObject should be visible on <c>Mean</c> and only partial on <c>Allocated</c>.
+/// floor. <see cref="HostReceiverKind.LazyHost"/> is what an embedder pays for a custom subclass
+/// that overrides <see cref="ObjectInstance.GetOwnProperty"/> and nothing else: the engine derives
+/// <see cref="PropertyAccessSemantics.Ordinary"/> for it, so an own-property read costs one virtual
+/// probe (the fast shape/dictionary lanes in <see cref="ObjectInstance.Get(JsValue, JsValue)"/> are
+/// not reachable for a non-<c>PlainObject</c> receiver) and the fresh
+/// <see cref="PropertyDescriptor"/> that probe returns. Descriptor churn is half the story, so
+/// always read the <c>Allocated</c> column next to <c>Mean</c> here — the allocation delta against
+/// PlainObject is ≈ (descriptor size × own-property reads).
+/// <see cref="HostReceiverKind.LazyHostExotic"/> is the identical projection behind an override of
+/// <c>Get</c> that only delegates to <c>base.Get</c>. Nothing about the values changes; the engine
+/// derives <see cref="PropertyAccessSemantics.Exotic"/> from the override alone and routes every
+/// read through the full <c>Get</c> pipeline. The LazyHost → LazyHostExotic delta is therefore the
+/// price of being exotic, paid by a host that genuinely needs to observe every read.
 /// <see cref="HostReceiverKind.FixedLayout"/> is the same host records built through
 /// <see cref="JsObject.Create(Engine, JsObjectLayout, ReadOnlySpan{JsValue})"/>: a declared layout
 /// resolves to one interned hidden class, so every item in the batch shares it and reads take the
@@ -115,7 +115,7 @@ public class HostObjectAccessBenchmark
     [Params(
         HostReceiverKind.PlainObject,
         HostReceiverKind.LazyHost,
-        HostReceiverKind.LazyHostOrdinary,
+        HostReceiverKind.LazyHostExotic,
         HostReceiverKind.FixedLayout)]
     public HostReceiverKind ReceiverKind { get; set; }
 
@@ -132,7 +132,7 @@ public class HostObjectAccessBenchmark
         {
             case HostReceiverKind.PlainObject:
             case HostReceiverKind.LazyHost:
-            case HostReceiverKind.LazyHostOrdinary:
+            case HostReceiverKind.LazyHostExotic:
             case HostReceiverKind.FixedLayout:
                 break;
 
@@ -205,9 +205,7 @@ public class HostObjectAccessBenchmark
         // projected values end up in and what that representation declares about its own access.
         var fixedLayout = kind == HostReceiverKind.FixedLayout;
         var slots = fixedLayout ? new JsValue[_itemLayout.Count] : [];
-        var semantics = kind == HostReceiverKind.LazyHostOrdinary
-            ? PropertyAccessSemantics.Ordinary
-            : PropertyAccessSemantics.Unspecified;
+        var exotic = kind == HostReceiverKind.LazyHostExotic;
 
         var items = new JsValue[ItemCount];
         for (var i = 0; i < items.Length; i++)
@@ -224,7 +222,9 @@ public class HostObjectAccessBenchmark
 
             if (!fixedLayout)
             {
-                items[i] = new LazyHostObject(engine, text, numbers, semantics);
+                items[i] = exotic
+                    ? new ExoticLazyHostObject(engine, text, numbers)
+                    : new LazyHostObject(engine, text, numbers);
                 continue;
             }
 
@@ -249,16 +249,19 @@ public enum HostReceiverKind
 
     /// <summary>
     /// Custom <see cref="ObjectInstance"/> subclass projecting from a native record through the
-    /// virtual <see cref="ObjectInstance.GetOwnProperty"/>, declaring nothing. This is the default,
-    /// so it is what an embedder pays unless it opts in.
+    /// virtual <see cref="ObjectInstance.GetOwnProperty"/>, overriding nothing else and declaring
+    /// nothing. The engine derives <see cref="PropertyAccessSemantics.Ordinary"/> for it, so this is
+    /// what an embedder gets without doing anything.
     /// </summary>
     LazyHost,
 
     /// <summary>
-    /// The same host declaring <see cref="PropertyAccessSemantics.Ordinary"/>, so the engine may
-    /// resolve an own-property read from a single <see cref="ObjectInstance.GetOwnProperty"/> probe.
+    /// The same projection behind an override of <see cref="ObjectInstance.Get(JsValue, JsValue)"/>
+    /// that only delegates to the base implementation. The override alone makes the engine derive
+    /// <see cref="PropertyAccessSemantics.Exotic"/>, so this row is the cost of being exotic with
+    /// every other variable held fixed.
     /// </summary>
-    LazyHostOrdinary,
+    LazyHostExotic,
 
     /// <summary>Awaits the descriptor-free read hook. Not runnable yet.</summary>
     LazyHostValueHook,
@@ -328,9 +331,11 @@ internal sealed class UnfilteredNullPropagationResolver : IReferenceResolver
 /// </para>
 ///
 /// <para>
-/// The <c>semantics</c> argument is the only difference between the
-/// <see cref="HostReceiverKind.LazyHost"/> and <see cref="HostReceiverKind.LazyHostOrdinary"/> rows:
-/// the projection code is identical, so the delta between them is exactly what the declaration buys.
+/// It overrides <see cref="GetOwnProperty"/> and nothing else, so the engine derives
+/// <see cref="PropertyAccessSemantics.Ordinary"/> for it without the host declaring anything. The
+/// <see cref="HostReceiverKind.LazyHostExotic"/> row is <see cref="ExoticLazyHostObject"/>, which adds
+/// a pass-through <c>Get</c> override and nothing else — so the delta between the two rows is exactly
+/// what being derived exotic costs.
 /// </para>
 ///
 /// <para>
@@ -339,7 +344,7 @@ internal sealed class UnfilteredNullPropagationResolver : IReferenceResolver
 /// Jint.Tests.PublicInterface.
 /// </para>
 /// </summary>
-internal sealed class LazyHostObject : ObjectInstance
+internal class LazyHostObject : ObjectInstance
 {
     // id, kind, name, note come from the text array; amount, rate from the numbers array.
     private const int SlotId = 0;
@@ -363,9 +368,8 @@ internal sealed class LazyHostObject : ObjectInstance
     private readonly double[] _numbers;
     private readonly JsValue?[] _projected = new JsValue?[SlotCount];
 
-    public LazyHostObject(Engine engine, string[] text, double[] numbers, PropertyAccessSemantics semantics) : base(engine)
+    public LazyHostObject(Engine engine, string[] text, double[] numbers) : base(engine)
     {
-        SetPropertyAccessSemantics(semantics);
         _text = text;
         _numbers = numbers;
     }
@@ -459,6 +463,23 @@ internal sealed class LazyHostObject : ObjectInstance
         "rate" => SlotRate,
         _ => -1,
     };
+}
+
+/// <summary>
+/// The <see cref="HostReceiverKind.LazyHostExotic"/> receiver: identical projection, identical values,
+/// one added override of <see cref="ObjectInstance.Get(JsValue, JsValue)"/> that does nothing but
+/// delegate. The engine derives <see cref="PropertyAccessSemantics.Exotic"/> from the presence of that
+/// override alone, which is the point — a host does not have to behave exotically to be treated as
+/// exotic, it only has to reserve the right to. A host in this position that knows it is ordinary
+/// declares so through <c>SetPropertyAccessSemantics</c> and lands back on the LazyHost row.
+/// </summary>
+internal sealed class ExoticLazyHostObject : LazyHostObject
+{
+    public ExoticLazyHostObject(Engine engine, string[] text, double[] numbers) : base(engine, text, numbers)
+    {
+    }
+
+    public override JsValue Get(JsValue property, JsValue receiver) => base.Get(property, receiver);
 }
 
 /// <summary>
