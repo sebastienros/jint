@@ -559,9 +559,10 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
         // Tight loop: with an expression-statements-only body, a non-suspendable frame, no
         // per-statement (exact) constraint/debug checks, dead completion values and no fresh
         // per-iteration environment, nothing per iteration remains observable but test, body
-        // expressions and update. Amortized constraints (timeout, cancellation, memory limit)
-        // do not disarm the lane: TightForBody drives the shared amortized countdown once per
-        // iteration, keeping their detection latency bounded.
+        // expressions and update. Amortized constraints (timeout, cancellation) do not disarm
+        // the lane: TightForBody drives the shared amortized countdown once per iteration,
+        // keeping their detection latency bounded. Exact constraints do disarm it, and the
+        // memory limit is exact — registering one sends the loop down the generic path below.
         // The DebugMode probe is live (same coarseness as the debugHandler hoisting below).
         if (_tightBodyEligible
             && !skipTestOnce

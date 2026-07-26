@@ -42,9 +42,12 @@ internal enum InternalTypes
     // brand-new property grows the shape via a transition. Plain shaped objects (object literals) lack this
     // flag and deopt to a dictionary when they gain a key, since they aren't a reused allocation site.
     ShapeBuilding = 131072,
-    // the object overrides [[Get]] / [[GetOwnProperty]] with non-ordinary semantics (Proxy, TypedArray
-    // integer-index access, IteratorResult). The prototype-method inline cache skips such receivers and
-    // prototypes so it never bypasses their custom property resolution.
+    // the object's [[Get]] / [[GetOwnProperty]] may deviate from ordinary semantics (Proxy, TypedArray
+    // integer-index access, IteratorResult). Set explicitly by those built-ins, and otherwise derived for
+    // a host subclass that overrides Get — conservatively, since the engine cannot tell whether such an
+    // override actually deviates; a subclass that knows it does not declares OrdinaryGet through
+    // ObjectInstance.SetPropertyAccessSemantics. The prototype-method inline cache skips such receivers
+    // and prototypes so it never bypasses their custom property resolution.
     ExoticGet = 262144,
     // a built-in whose string-keyed own properties live in a shared BuiltinShape + a per-realm descriptor
     // array reached via IBuiltinShaped, not _properties. Set when the shape is installed, cleared on deopt
@@ -67,8 +70,10 @@ internal enum InternalTypes
     Function = 2097152,
     // the object promises ORDINARY [[Get]] semantics even though it is not a PlainObject: Get(p, receiver)
     // returns exactly UnwrapJsValue(GetOwnProperty(p), receiver) for an existing own property and otherwise
-    // walks the prototype chain. Declared by a host-defined subclass through
-    // ObjectInstance.SetPropertyAccessSemantics; never inferred. Unlike PlainObject (a *storage* claim, which
+    // walks the prototype chain. Derived in the public ObjectInstance(Engine) constructor from whether the
+    // runtime type overrides Get(JsValue, JsValue) — a subclass that does not gets this flag, one that does
+    // gets ExoticGet instead; the probe is cached per Type. ObjectInstance.SetPropertyAccessSemantics stays
+    // as the escape hatch for the two shapes that rule cannot see. Unlike PlainObject (a *storage* claim, which
     // lets the engine read _properties / the shape directly and so cannot be honoured by an object that
     // projects properties lazily from native state) this is purely a *semantics* claim, so the interpreter
     // may resolve a read from a single GetOwnProperty probe. Mutually exclusive with ExoticGet.
