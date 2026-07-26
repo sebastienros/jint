@@ -233,6 +233,44 @@ internal static class CompiledMethodInvoker
     }
 
     /// <summary>
+    /// Whether a return value of <paramref name="returnType"/> is one that registered
+    /// <see cref="IObjectConverter"/>s could never observe anyway, so producing the
+    /// <see cref="JsValue"/> here instead of through <see cref="JsValue.FromObjectWithType"/> keeps
+    /// their contract intact.
+    /// <para>
+    /// <see cref="JsValue.FromObjectWithType"/> consults the converters only after two
+    /// short-circuits: a <see langword="null"/> value becomes <see cref="JsValue.Null"/>, and a value
+    /// that already is a <see cref="JsValue"/> flows straight back. Two of the supported return
+    /// types can only ever hit those short-circuits:
+    /// </para>
+    /// <list type="bullet">
+    /// <item><c>void</c> — the reflection path invokes it and converts the <see langword="null"/>
+    /// result, so no CLR value exists for a converter to see.</item>
+    /// <item><see cref="JsValue"/> and its subtypes — the value already is a
+    /// <see cref="JsValue"/> (or <see langword="null"/>).</item>
+    /// </list>
+    /// <para>
+    /// Every other supported return type (<see cref="int"/>, <see cref="long"/>,
+    /// <see cref="double"/>, <see cref="bool"/>, <see cref="string"/>) boxes into a plain CLR value
+    /// that the converters are entitled to intercept, so those keep the converter gate. This is
+    /// only about <see cref="IObjectConverter"/> (CLR value to <see cref="JsValue"/>); argument
+    /// binding runs the other direction and is gated separately on the engine's
+    /// <see cref="ITypeConverter"/>.
+    /// </para>
+    /// <para>
+    /// Keep this in sync with <see cref="IsSupportedReturnType"/>: a newly supported return type is
+    /// converter-observable unless it provably lands on one of those two short-circuits.
+    /// </para>
+    /// </summary>
+    internal static bool ReturnValueIsInvisibleToObjectConverters(Type? returnType)
+    {
+        // a null return type means the descriptor wraps a ConstructorInfo, which is never eligible
+        // for this lane in the first place
+        return returnType is not null
+               && (returnType == typeof(void) || typeof(JsValue).IsAssignableFrom(returnType));
+    }
+
+    /// <summary>
     /// Emits the type test + typed read for one argument, returning an expression of the parameter
     /// type. A non-exact match jumps to <paramref name="returnLabel"/> with <see langword="false"/>.
     /// </summary>
