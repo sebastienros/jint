@@ -155,6 +155,32 @@ internal sealed class MethodDescriptor
     private CompiledMethodInvoker.Invoker? _compiledInvoker;
     private bool _compiledInvokerUnavailable;
 
+    // Lazily resolved, like the invoker itself: the answer is a pure function of ReturnType, so a
+    // duplicate resolve is harmless and only engines that actually registered an object converter
+    // ever ask (see the gate in MethodInfoFunction.Call).
+    private bool _returnValueVisibilityResolved;
+    private bool _returnValueIsInvisibleToObjectConverters;
+
+    /// <summary>
+    /// Whether this method's return value is one that registered <see cref="IObjectConverter"/>s
+    /// could never observe, so the compiled invoker may produce the <see cref="JsValue"/> itself
+    /// even when converters are registered. See
+    /// <see cref="CompiledMethodInvoker.ReturnValueIsInvisibleToObjectConverters"/>.
+    /// </summary>
+    internal bool ReturnValueIsInvisibleToObjectConverters
+    {
+        get
+        {
+            if (!_returnValueVisibilityResolved)
+            {
+                _returnValueIsInvisibleToObjectConverters = CompiledMethodInvoker.ReturnValueIsInvisibleToObjectConverters(ReturnType);
+                _returnValueVisibilityResolved = true;
+            }
+
+            return _returnValueIsInvisibleToObjectConverters;
+        }
+    }
+
     /// <summary>
     /// Returns a compiled delegate that binds and invokes this method without the per-call
     /// <c>object?[]</c> parameter array, argument boxing, boxed return, and return-mapper lookup —

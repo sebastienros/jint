@@ -170,12 +170,15 @@ internal sealed class MethodInfoFunction : Function
 #if NET8_0_OR_GREATER
                 // exact-type fast lane: a compiled delegate binds and invokes without the object?[]
                 // parameter array, argument boxes, boxed return, and return-mapper lookup. Skipped
-                // when custom object converters are registered because those must see return values,
-                // and when a custom ITypeConverter is installed because the slow path consults it for
-                // some exact-type conversions (e.g. bool) that the compiled lane performs directly.
-                // A wrong-typed receiver (extracted method invoked via .call on a foreign this) also
-                // declines so the reflection path surfaces the same TargetException it always did.
-                if (_engine._objectConverters is null
+                // when custom object converters are registered because those must see return values
+                // - except for the return types they provably cannot observe (void and JsValue,
+                // which JsValue.FromObjectWithType short-circuits before ever reaching a converter),
+                // where the lane stays available. Also skipped when a custom ITypeConverter is
+                // installed because the slow path consults it for some exact-type conversions
+                // (e.g. bool) that the compiled lane performs directly. A wrong-typed receiver
+                // (extracted method invoked via .call on a foreign this) also declines so the
+                // reflection path surfaces the same TargetException it always did.
+                if ((_engine._objectConverters is null || method.ReturnValueIsInvisibleToObjectConverters)
                     && _engine._typeConverterIsDefault
                     && method.GetCompiledInvoker() is { } compiledInvoker
                     && (method.IsStatic || method.DeclaringType?.IsInstanceOfType(thisObj) == true))

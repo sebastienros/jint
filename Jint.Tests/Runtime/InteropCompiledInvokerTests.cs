@@ -207,6 +207,169 @@ public class InteropCompiledInvokerTests
         }
     }
 
+    /// <summary>
+    /// Records every CLR value handed to it and never converts, so a test can assert exactly which
+    /// return values reached the converter chain.
+    /// </summary>
+    private sealed class RecordingConverter : Jint.Runtime.Interop.IObjectConverter
+    {
+        public List<object> Seen { get; } = [];
+
+        public bool TryConvert(Engine engine, object value, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out JsValue? result)
+        {
+            Seen.Add(value);
+            result = null;
+            return false;
+        }
+    }
+
+    public sealed class ConverterInvisibleReturnsHost
+    {
+        public int Calls { get; private set; }
+
+        public void DoVoid() => Calls++;
+        public JsValue ReturnsJsValue() => JsNumber.Create(7);
+        public JsString ReturnsJsValueSubtype() => new JsString("sub");
+        public JsValue? ReturnsNullJsValue() => null;
+        public string ReturnsString() => "raw";
+    }
+
+    [Fact]
+    public void ObjectConverterNeverSeesVoidOrJsValueReturns()
+    {
+        // A converter can only ever observe a return value that FromObjectWithType actually hands
+        // it, and that excludes void (no CLR value at all) and JsValue (short-circuited before the
+        // converter chain). Those return types therefore keep the fast lane even with a converter
+        // registered - and the observable results are identical either way.
+        var recorder = new RecordingConverter();
+        var engine = new Engine(options => options.Interop.ObjectConverters.Add(recorder));
+        var host = new ConverterInvisibleReturnsHost();
+        engine.SetValue("host", host);
+        // exposing the host itself is a conversion too - only the return values matter here
+        recorder.Seen.Clear();
+
+        engine.Evaluate("host.DoVoid()").IsNull().Should().BeTrue();
+        host.Calls.Should().Be(1);
+        engine.Evaluate("host.ReturnsJsValue()").AsNumber().Should().Be(7);
+        engine.Evaluate("host.ReturnsJsValueSubtype()").AsString().Should().Be("sub");
+        engine.Evaluate("host.ReturnsNullJsValue()").IsNull().Should().BeTrue();
+
+        // none of the above is a CLR value the converter chain is entitled to see
+        recorder.Seen.Should().BeEmpty();
+
+        // a string return is a plain CLR value, so it must still reach the converter
+        engine.Evaluate("host.ReturnsString()").AsString().Should().Be("raw");
+        recorder.Seen.Should().ContainSingle().Which.Should().Be("raw");
+    }
+
+    [Fact]
+    public void ObjectConverterStillSeesEveryPrimitiveReturnType()
+    {
+        // the narrowing must not let int/long/double/bool/string slip past the converter chain
+        var recorder = new RecordingConverter();
+        var engine = new Engine(options => options.Interop.ObjectConverters.Add(recorder));
+        engine.SetValue("host", new Host());
+        recorder.Seen.Clear();
+
+        engine.Evaluate("host.AddInt(2, 3)").AsNumber().Should().Be(5);
+        engine.Evaluate("host.AddLong(3, 4)").AsNumber().Should().Be(7);
+        engine.Evaluate("host.AddDouble(1.5, 2.25)").AsNumber().Should().Be(3.75);
+        engine.Evaluate("host.And(true, true)").AsBoolean().Should().BeTrue();
+        engine.Evaluate("host.Concat('a', 'b')").AsString().Should().Be("ab");
+
+        recorder.Seen.Should().Equal(5, 7L, 3.75d, true, "ab");
+    }
+
+    [Fact]
+    public void VoidAndJsValueLaneStaysConsistentAcrossConverterPolicies()
+    {
+        // the compiled invoker is cached process-wide; registering a converter in one engine must
+        // not change what another engine observes for these return types, in either order
+        var host = new ConverterInvisibleReturnsHost();
+
+        var converting = new Engine(options => options.Interop.ObjectConverters.Add(new RecordingConverter()));
+        converting.SetValue("host", host);
+        var plain = new Engine();
+        plain.SetValue("host", host);
+
+        converting.Evaluate("host.ReturnsJsValue()").AsNumber().Should().Be(7);
+        plain.Evaluate("host.ReturnsJsValue()").AsNumber().Should().Be(7);
+        converting.Evaluate("host.DoVoid()").IsNull().Should().BeTrue();
+        plain.Evaluate("host.DoVoid()").IsNull().Should().BeTrue();
+        host.Calls.Should().Be(2);
+    }
+
+    public sealed class ByRefHost
+    {
+        public bool TryGet(int input, out int doubled)
+        {
+            doubled = input * 2;
+            return true;
+        }
+
+        public void Bump(ref int value) => value++;
+    }
+
+    private static string DescribeEvaluation(Engine engine, string script)
+    {
+        try
+        {
+            return "ok:" + engine.Evaluate(script);
+        }
+        catch (Exception e)
+        {
+            return e.GetType().Name + ":" + e.Message;
+        }
+    }
+
+    [Fact]
+    public void ByRefParameterMethodsBehaveIdenticallyUnderEveryConverterPolicy()
+    {
+        // out/ref parameter types are ByRef types (Int32&) which never equal any supported
+        // parameter type, so such methods are ineligible for the compiled lane. Whatever the
+        // reflection path does with them, registering an object converter must not change it.
+        var host = new ByRefHost();
+
+        var plain = new Engine();
+        plain.SetValue("host", host);
+        var converting = new Engine(o => o.Interop.ObjectConverters.Add(new RecordingConverter()));
+        converting.SetValue("host", host);
+
+        foreach (var script in new[] { "host.TryGet(21)", "host.TryGet(21, 0)", "host.Bump(1)" })
+        {
+            DescribeEvaluation(converting, script).Should().Be(DescribeEvaluation(plain, script), script);
+        }
+    }
+
+#if NET8_0_OR_GREATER
+    [Fact]
+    public void ReturnTypeVisibilityPredicateMatchesFromObjectWithTypeShortCircuits()
+    {
+        static bool Invisible(Type? t) => Jint.Runtime.Interop.CompiledMethodInvoker.ReturnValueIsInvisibleToObjectConverters(t);
+
+        // FromObjectWithType returns before the converter chain for null and for JsValue values
+        Invisible(typeof(void)).Should().BeTrue();
+        Invisible(typeof(JsValue)).Should().BeTrue();
+        Invisible(typeof(JsString)).Should().BeTrue();
+        Invisible(typeof(JsNumber)).Should().BeTrue();
+
+        // plain CLR values the converter chain is entitled to intercept
+        Invisible(typeof(int)).Should().BeFalse();
+        Invisible(typeof(long)).Should().BeFalse();
+        Invisible(typeof(double)).Should().BeFalse();
+        Invisible(typeof(bool)).Should().BeFalse();
+        Invisible(typeof(string)).Should().BeFalse();
+
+        // types the lane does not support at all are conservatively converter-visible
+        Invisible(typeof(System.Threading.Tasks.Task)).Should().BeFalse();
+        Invisible(typeof(DateTime)).Should().BeFalse();
+        Invisible(typeof(object)).Should().BeFalse();
+
+        // a constructor descriptor has no return type
+        Invisible(null).Should().BeFalse();
+    }
+#endif
+
     [Fact]
     public void CustomTypeConverterStillIntercepts()
     {
