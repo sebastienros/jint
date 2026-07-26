@@ -155,6 +155,10 @@ public sealed partial class Engine : IDisposable
     // cached access
     internal readonly IObjectConverter[]? _objectConverters;
 
+    // which declared CLR member types the registered converters can claim, null when none are registered.
+    // Lets the compiled interop read lanes stay in play for members no converter can ever be handed.
+    internal readonly ObjectConverterTypeFilter? _objectConverterTypeFilter;
+
     // snapshot of Options.Interop.EnumConversion, read on every CLR value crossing into script
     internal readonly bool _enumsAsStrings;
 
@@ -284,6 +288,7 @@ public sealed partial class Engine : IDisposable
         _objectConverters = Options.Interop.ObjectConverters.Count > 0
             ? Options.Interop.ObjectConverters.ToArray()
             : null;
+        _objectConverterTypeFilter = ObjectConverterTypeFilter.Create(_objectConverters);
         _enumsAsStrings = Options.Interop.EnumConversion == EnumConversionMode.String;
 
         _constraints = BuildConstraints(Options.Constraints);

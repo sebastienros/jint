@@ -86,6 +86,49 @@ public static class OptionsExtensions
     }
 
     /// <summary>
+    /// Adds a <see cref="IObjectConverter"/> instance to convert CLR types to <see cref="JsValue"/>, declaring
+    /// the CLR types the converter can handle.
+    /// </summary>
+    /// <remarks>
+    /// The declaration is a promise: the converter is still offered every value, but the engine is free to keep
+    /// its compiled member-read fast lanes for members whose declared type cannot produce a value of any of the
+    /// <paramref name="handledTypes"/> — such a member never reaches the converter. Declare a base type, an
+    /// interface or <see cref="System.Enum"/> to cover a family of values, or use the overload without
+    /// <paramref name="handledTypes"/> for a converter that inspects everything.
+    /// </remarks>
+    /// <param name="options">Options to modify.</param>
+    /// <param name="objectConverter">The converter to register.</param>
+    /// <param name="handledTypes">
+    /// The CLR types the converter handles. Values assignable to any of them (including through a declared
+    /// base type or interface) are considered convertible by this converter.
+    /// </param>
+    public static Options AddObjectConverter(this Options options, IObjectConverter objectConverter, params Type[] handledTypes)
+    {
+        if (objectConverter is null)
+        {
+            Throw.ArgumentNullException(nameof(objectConverter));
+        }
+
+        if (handledTypes is null || handledTypes.Length == 0)
+        {
+            Throw.ArgumentException(
+                "At least one handled type is required, use the overload without handled types for a converter that handles every value.",
+                nameof(handledTypes));
+        }
+
+        foreach (var handledType in handledTypes!)
+        {
+            if (handledType is null)
+            {
+                Throw.ArgumentException("Handled types cannot contain null.", nameof(handledTypes));
+            }
+        }
+
+        options.Interop.ObjectConverters.Add(new TypedObjectConverter(objectConverter!, handledTypes));
+        return options;
+    }
+
+    /// <summary>
     /// Sets maximum allowed depth of recursion.
     /// </summary>
     /// <param name="options">Options to modify</param>

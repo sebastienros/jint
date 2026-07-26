@@ -53,11 +53,20 @@ internal abstract class CompilableMemberAccessor : ReflectionAccessor
     {
         value = null;
 
-        // An indexer is probed before the member itself (see GetValue), and registered object
-        // converters must see every CLR value before it becomes a JsValue - the JsValue lane
-        // produces the JsValue itself, so it cannot run in either case. These accessors never
-        // expose a ConstantValue, the third thing GetValue would consult.
-        if (HasIndexer || engine._objectConverters is not null)
+        // An indexer is probed before the member itself (see GetValue), so the lane cannot run when one
+        // is present. These accessors never expose a ConstantValue, the third thing GetValue would consult.
+        if (HasIndexer)
+        {
+            return false;
+        }
+
+        // Registered object converters must see every CLR value before it becomes a JsValue, and this lane
+        // produces the JsValue itself. Only the converters that could actually be handed a value of this
+        // member's declared type matter though: a converter that declared its handled types (see
+        // OptionsExtensions.AddObjectConverter) leaves every other member on the fast lane. A converter
+        // registered without declaring them claims everything, which is the pre-existing behaviour.
+        var converterTypeFilter = engine._objectConverterTypeFilter;
+        if (converterTypeFilter is not null && converterTypeFilter.Claims(MemberType))
         {
             return false;
         }
