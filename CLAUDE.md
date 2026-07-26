@@ -343,6 +343,75 @@ CLR access is disabled by default. Enable via:
 var engine = new Engine(cfg => cfg.AllowClr());
 ```
 
+## Third-party integration surface
+
+Jint is not only an engine to work on, it is an engine that gets **embedded**. Integrators host it in-process, project host-supplied objects into script, and bound execution. A significant part of the public API exists only to serve them, and for everything in this section **changing observable behaviour is breaking even when the signature is untouched**. Assume an embedder depends on it before simplifying or "optimising" it.
+
+### What counts as a public contract
+
+| Surface | Location |
+| --- | --- |
+| `ObjectInstance` overridable virtuals — `GetOwnProperty`, `HasProperty`, `Delete`, `DefineOwnProperty`, `GetOwnPropertyKeys`, `GetOwnProperties`, `RemoveOwnProperty`, `PreventExtensions`, `TryGetProperty`, `Initialize`, plus the `protected internal` `ProbeOwnProperty`, `SetOwnProperty`, `GetPrototypeOf` | `Jint/Native/Object/ObjectInstance.cs` |
+| `PropertyDescriptor` and `PropertyFlag.CustomJsValue` | `Jint/Runtime/Descriptors/` |
+| `ProbeOwnProperty` / `OwnPropertyProbe` | `Jint/Native/Object/` |
+| `IReferenceResolver` + `ReferenceResolverInterests` | `Jint/Runtime/Interop/IReferenceResolver.cs` |
+| `IObjectConverter`, `ITypeConverter` | `Jint/Runtime/Interop/` |
+| `Constraint` + `IsAmortizable` | `Jint/IConstraint.cs` |
+| `ProxyHandler` — public abstract class, 14 virtual traps, `null` meaning "forward to target" | `Jint/Runtime/Interop/ProxyHandler.cs` |
+| `ObjectWrapper.GetPropertyDescriptor(Engine, object, MemberInfo)` — public **static** | `Jint/Runtime/Interop/ObjectWrapper.cs` |
+| `JsObjectLayout`, `JsObject.Create`, `JsObject.CreateFromEntries` | `Jint/Native/` |
+| `Options.AddLazyGlobal` — extension method on `OptionsExtensions` | `Jint/Options.Extensions.cs` |
+
+`Get` and `Set` are overridable too, but they are `public override` of `JsValue` virtuals rather than declared on `ObjectInstance`.
+
+**`PropertyFlag.CustomJsValue` is the supported lazy-value hook.** A `PropertyDescriptor` subclass overriding `CustomValue` keeps working under the read inline caches: every caching lane returns through `ObjectInstance.UnwrapJsValue`, which re-reads the flag on each hit and caches the descriptor *reference*, never a value snapshot. Overriding `Get` has no such guarantee — the prototype-method cache can bypass `Get` entirely for any receiver not carrying the internal `InternalTypes.ExoticGet` flag, and no external subclass can set that flag. (The *write* fast path and the global-identifier cache deliberately decline to cache `CustomJsValue` descriptors; that is correct-but-uncached, not broken.)
+
+### The subclassing cliff
+
+`ObjectInstance` has two constructors: `protected ObjectInstance(Engine)` and an `internal` one whose parameter types (`ObjectClass`, `InternalTypes`) are themselves internal. A third-party subclass can therefore only reach the protected one, and consequently never carries:
+
+- `InternalTypes.PlainObject` — supplied only through the internal constructor;
+- `InternalTypes.ShapeMode` — only ever set on the **sealed** `JsObject`;
+- `InternalTypes.ExoticGet` — set only by in-box exotic types.
+
+Every member-read inline cache in `Jint/Runtime/Interpreter/Expressions/JintMemberExpression.cs` is gated on one of those flags (or on the receiver being an `ObjectWrapper`), so **a host `ObjectInstance` subclass is invisible to all of them** and gets no own-property caching whatsoever.
+
+The cost today: on the fast-call-eligible member-read lane an own-property read probes the host **twice** — once to prove the name is not shadowed (descriptor discarded), then again inside `Get` — so two virtual `GetOwnProperty` calls and two `PropertyDescriptor` allocations, one thrown away. `Jint.Tests.PublicInterface/HostObjectProbeCountTests.cs` pins the exact counts. That count belongs to that lane, not to host objects generally: `host.prop.toUpperCase()` costs one probe, because the outer member expression is not fast-call-eligible and the inner read completes through `Engine.GetValue`.
+
+What exists today to reduce it:
+
+- Override `ProbeOwnProperty` so existence/enumerability questions (`in`, `hasOwnProperty`, `propertyIsEnumerable`, `Object.keys`/`values`/`entries`, `Object.assign`, spread, `JSON.stringify`) are answered without materializing a descriptor at all. The override must agree with `GetOwnProperty` at the same instant — the engine trusts it without re-verifying, and a wrong `Missing` silently drops the key from every enumeration above.
+- Where the data is a fixed record, do not subclass at all: `JsObject.Create(engine, layout, values)` and `JsObject.CreateFromEntries` build straight into the hidden-class representation, so objects sharing a layout share one shape and a script reading a batch of them keeps a monomorphic inline cache.
+
+Removing the second probe itself is in flight and **not on `main`** — do not document or rely on it until it lands.
+
+### Engine-affine vs shareable state
+
+- **`Prepared<Script>` / `Prepared<Module>` are reusable and thread-safe** and may be shared across engines. The guarantee is documented on `Engine.PrepareScript` / `Engine.PrepareModule` (not on `Prepared<T>` itself); `Jint.Tests.CommonScripts/ConcurrencyTest.cs` runs one prepared AST on several engines in parallel.
+- **Why that holds:** interpreter handler trees accumulate per-node inline caches that are engine-affine, so they are engine-owned (`Engine._functionDefinitions`, `Engine._scriptStatementLists`) and never shared through the AST. The rule for AST `UserData` is *nothing engine-affine may be stashed there* — not *nothing mutable*: mutable but engine-independent state (slot arrays, a compiled-RegExp memo) is deliberately allowed. `JintStatement.Build` carries an explicit `INVARIANT` comment saying so; `JintExpression.Build` relies on the same rule but has no equivalent comment. `Jint.Tests/Runtime/GarbageCollectionTests.cs` → `SharedPreparedScriptDoesNotRetainEngines` pins it: 20 engines run one prepared script and every one must be collectable while the script stays rooted.
+- **`Options` is meant to be shared** across engines, including concurrent ones. Constraints carry per-execution state (a statement counter, a deadline), which used to break that; the built-in helpers now register a **factory** so each engine gets its own instance. The instance overload `Constraint(Options, Constraint)` stays documented as single-engine-only — nothing can be cloned out of an arbitrary user-derived `Constraint`.
+- **Shared interop caches may hold only engine-independent values.** Resolved CLR member accessors are cached on `TypeResolver` and shared by every engine using that resolver — and engines constructed without an explicit one all share `TypeResolver.Default`, which lives for the process. The key is `(Type, member name, MemberResolutionRequirement, InteropResolutionProfile)`; the profile is part of it because two engines whose interop configuration differs must not answer from one another's entries. `TypeResolver.IsShareable` is the exclusion: a `NestedTypeAccessor` never enters the cache (it holds a `TypeReference`, a `JsValue` owned by the engine that created it), and an `IndexerAccessor` does not when a host `ITypeConverter` is installed. `TypeReference` keeps its own process-wide static member cache carrying the same hazard, pinned by `Jint.Tests/Runtime/GarbageCollectionTests.cs` → `NestedTypeAccessDoesNotRetainEngines`. A resolver's cache keeps the reflected `Type`s alive for as long as the resolver does, so give a private resolver to any engine that must not outlive the types it touches.
+
+### Gotchas
+
+Each of these cost a real integrator or a real bug.
+
+- **`FastSetProperty` / `FastSetDataProperty` always create an *own* property.** They shadow anything of that name on the prototype chain, invoke no inherited setter, and run no `[[DefineOwnProperty]]` validation (so they can never raise `TypeError`). Storing a raw descriptor under a string key is a dictionary-mode operation, so a shape-mode receiver is permanently deoptimized and forfeits the shape inline cache. Two refinements: symbol keys do not deopt, and a `BuiltinShapeMode` receiver can survive an in-place slot replacement. Use them for setup-time writes only — `Set` for steady-state mutation, `JsObject.Create` to build objects.
+- **A registered `IObjectConverter` used to disable the compiled interop member-read lane engine-wide.** It can now declare the CLR types it handles — through the registration overload `AddObjectConverter(converter, params Type[] handledTypes)`, not an interface member — so unrelated members keep the fast lane. A converter registered untyped still degrades every wrapped member.
+- **A non-default `IReferenceResolver` used to disable the member and call inline caches engine-wide.** It can now declare `ReferenceResolverInterests` at registration or via `Options.ReferenceResolverInterests`. The scope was always the non-computed member-read caches, the dense-array indexed-read lane and the member-call callee lane; identifier caches were never affected.
+- **Execution constraints and the interpreter's tight-loop lane.** The lane is disarmed whenever the *exact* (non-amortizable) partition is non-empty, with one exception: a lone `MaxStatementsConstraint` is charged inline and keeps the lane armed. Membership is decided by the constraint's own `public virtual bool IsAmortizable => false`. So a timeout or cancellation keeps the lane, `LimitMemory` disarms it, `MaxStatements` + `LimitMemory` together disarm it, and **any user-derived `Constraint` disarms it unless it overrides `IsAmortizable`**. Only override that for a constraint which merely *observes* external state — never one that counts its own invocations, and never a budget over a quantity that can grow without bound between two checks.
+- **The handler-tree caches engage only on the *second* evaluation of a given script on a given engine.** A host that builds a fresh engine per operation never reaches them, by design. This concerns that cross-run carry-over only — caches which are not engine-scoped still pay back, and CLR member resolution in particular now survives across engines through the shared `TypeResolver` described above, which is the main reason a fresh engine per operation costs less than it used to.
+- **Saturated sentinels register nothing.** `MaxStatements(int.MaxValue)`, `LimitMemory(long.MaxValue)` and `TimeoutInterval(TimeSpan.MaxValue)` — and any non-positive value, including `MaxStatements()`'s own parameter default — produce exactly the same engine as never calling the method, and additionally *remove* any previously registered constraint of that kind. A host spelling "effectively unlimited" that way has no limit, not a very large one.
+- **Sharing a `JsValue` across engines** is neither validated nor documented anywhere in this repository. An `ObjectInstance` holds a hard reference to its creating engine and realm, so treat it as unsupported — but do not claim the repo says so.
+
+### Where integrator-facing tests belong
+
+`Jint.Tests.PublicInterface` is the only test project **without** `InternalsVisibleTo` (the grant list is `Jint.Tests`, `Jint.Tests.Test262`, `Jint.Benchmark`, `Jint.Repl`), so a test there actually proves the surface is reachable by a third party. Put new integrator-facing tests there, in **generically named files** describing the capability rather than any particular integrator. Remember that a `protected internal` member is seen as `protected` from outside the assembly, so an override is spelled `protected override`.
+
+### Benchmarking host-object shapes
+
+`Jint.Benchmark` **does** have `InternalsVisibleTo`, so a "host object" written there can accidentally use members no real embedder could reach. Restrict such types to the public surface deliberately and say so in the type's doc comment — the existing host types in that project do, and record where the restriction bites. Measurement must be serial on an otherwise idle machine; treat a small delta on an untouched control row as the cross-process floor rather than as a result.
+
 ## AOT Compatibility
 
 - Jint is AOT-compatible for .NET 7.0+ targets
