@@ -244,7 +244,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             if (_properties is null || !_properties.ContainsKey(member))
             {
                 // can try utilize fast path
-                var accessor = ResolveMemberAccessor(member, mustBeWritable: true);
+                var accessor = ResolveMemberAccessor(member, MemberResolutionRequirement.Writable);
 
                 if (ReferenceEquals(accessor, ConstantValueAccessor.NullAccessor))
                 {
@@ -257,7 +257,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                     // JS-side own property that hides the CLR member from every later read.
                     // https://tc39.es/ecma262/#sec-ordinarysetwithowndescriptor
                     // https://tc39.es/ecma262/#sec-putvalue
-                    if (!ReferenceEquals(ResolveMemberAccessor(member, mustBeWritable: false), ConstantValueAccessor.NullAccessor))
+                    if (!ReferenceEquals(ResolveMemberAccessor(member, MemberResolutionRequirement.None), ConstantValueAccessor.NullAccessor))
                     {
                         return false;
                     }
@@ -326,14 +326,14 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     }
 
     /// <summary>
-    /// Resolves the accessor the write lane in <see cref="Set"/> consults, optionally requiring the
-    /// resolved member to be writable. Falls back to the runtime type when the exposed type differs,
-    /// mirroring <see cref="GetOwnProperty(JsValue, bool, bool, bool)"/>.
+    /// Resolves the accessor the write lane in <see cref="Set"/> consults, under the given
+    /// <paramref name="requirement"/>. Falls back to the runtime type when the exposed type differs,
+    /// mirroring <see cref="GetOwnProperty(JsValue, MemberResolutionRequirement, bool)"/>.
     /// </summary>
-    private ReflectionAccessor ResolveMemberAccessor(string member, bool mustBeWritable)
+    private ReflectionAccessor ResolveMemberAccessor(string member, MemberResolutionRequirement requirement)
     {
         var typeResolver = _engine.Options.Interop.TypeResolver;
-        var accessor = typeResolver.GetAccessor(_engine, ClrType, member, mustBeReadable: false, mustBeWritable: mustBeWritable, throwOnError: false);
+        var accessor = typeResolver.GetAccessor(_engine, ClrType, member, requirement, throwOnError: false);
 
         var actualType = Target.GetType();
         if (ClrType == actualType)
@@ -346,7 +346,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         // that should take precedence over the indexer
         if (accessor is IndexerAccessor)
         {
-            var runtimeAccessor = typeResolver.GetAccessor(_engine, actualType, member, mustBeReadable: false, mustBeWritable: mustBeWritable, throwOnError: false);
+            var runtimeAccessor = typeResolver.GetAccessor(_engine, actualType, member, requirement, throwOnError: false);
             if (runtimeAccessor is not IndexerAccessor && runtimeAccessor != ConstantValueAccessor.NullAccessor)
             {
                 accessor = runtimeAccessor;
@@ -354,7 +354,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         }
         else if (ReferenceEquals(accessor, ConstantValueAccessor.NullAccessor))
         {
-            accessor = typeResolver.GetAccessor(_engine, actualType, member, mustBeReadable: false, mustBeWritable: mustBeWritable, throwOnError: false);
+            accessor = typeResolver.GetAccessor(_engine, actualType, member, requirement, throwOnError: false);
         }
 
         return accessor;
@@ -540,7 +540,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         // slow path requires us to create a property descriptor that might get cached or not
         // suppress ThrowOnUnresolvedMember here so we can fall back to the prototype chain
         // (e.g. valueOf/toString from Object.prototype during implicit coercion)
-        var desc = GetOwnProperty(property, mustBeReadable: true, mustBeWritable: false, throwOnError: false);
+        var desc = GetOwnProperty(property, MemberResolutionRequirement.Readable, throwOnError: false);
         if (desc != PropertyDescriptor.Undefined)
         {
             return UnwrapJsValue(desc, receiver);
@@ -683,10 +683,10 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     public override PropertyDescriptor GetOwnProperty(JsValue property)
     {
         // we do not know if we need to read or write
-        return GetOwnProperty(property, mustBeReadable: false, mustBeWritable: false);
+        return GetOwnProperty(property, MemberResolutionRequirement.None);
     }
 
-    private PropertyDescriptor GetOwnProperty(JsValue property, bool mustBeReadable, bool mustBeWritable, bool throwOnError = true)
+    private PropertyDescriptor GetOwnProperty(JsValue property, MemberResolutionRequirement requirement, bool throwOnError = true)
     {
         if (TryGetProperty(property, out var x))
         {
@@ -779,7 +779,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             return new PropertyDescriptor(result, PropertyFlag.OnlyEnumerable);
         }
 
-        var accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, ClrType, member, mustBeReadable, mustBeWritable, throwOnError);
+        var accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, ClrType, member, requirement, throwOnError);
         var actualType = Target.GetType();
         if (ClrType != actualType)
         {
@@ -789,11 +789,11 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             //   that should take precedence over the indexer
             if (accessor == ConstantValueAccessor.NullAccessor)
             {
-                accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, actualType, member, mustBeReadable, mustBeWritable, throwOnError);
+                accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, actualType, member, requirement, throwOnError);
             }
             else if (accessor is IndexerAccessor)
             {
-                var runtimeAccessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, actualType, member, mustBeReadable, mustBeWritable, throwOnError);
+                var runtimeAccessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, actualType, member, requirement, throwOnError);
                 if (runtimeAccessor is not IndexerAccessor && runtimeAccessor != ConstantValueAccessor.NullAccessor)
                 {
                     // Prefer direct property/field/method from runtime type over indexer from declared type
@@ -804,8 +804,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         var descriptor = accessor.CreatePropertyDescriptor(_engine, Target, member, enumerable: !isDictionary);
         if (!isDictionary
             && !ReferenceEquals(descriptor, PropertyDescriptor.Undefined)
-            && (!mustBeReadable || accessor.Readable)
-            && (!mustBeWritable || accessor.Writable))
+            && requirement.IsSatisfiedBy(accessor))
         {
             // cache the accessor for faster subsequent accesses
             SetProperty(member, descriptor);
@@ -873,7 +872,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             };
         }
 
-        var accessor = engine.Options.Interop.TypeResolver.GetAccessor(engine, target.GetType(), member.Name, mustBeReadable: false, mustBeWritable: false, accessorFactory: Factory);
+        var accessor = engine.Options.Interop.TypeResolver.GetAccessor(engine, target.GetType(), member.Name, MemberResolutionRequirement.None, accessorFactory: Factory);
         return accessor.CreatePropertyDescriptor(engine, target, member.Name);
     }
 

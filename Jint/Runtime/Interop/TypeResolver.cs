@@ -13,20 +13,6 @@ using Jint.Runtime.Interop.Reflection;
 namespace Jint.Runtime.Interop;
 
 /// <summary>
-/// What a member resolution requires of the member it accepts. Resolution is filtered by this
-/// (a member that cannot satisfy the requirement is skipped in favour of an indexer, an explicit
-/// interface implementation, an extension method, ...), so it is part of the accessor cache key:
-/// the accessor a read settles on is not necessarily the one a write settles on.
-/// </summary>
-[Flags]
-internal enum MemberResolutionRequirement : byte
-{
-    None = 0,
-    Readable = 1,
-    Writable = 2,
-}
-
-/// <summary>
 /// Interop strategy for resolving types and members.
 /// </summary>
 public sealed class TypeResolver
@@ -88,21 +74,10 @@ public sealed class TypeResolver
         Engine engine,
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.Interfaces)] Type type,
         string member,
-        bool mustBeReadable,
-        bool mustBeWritable,
+        MemberResolutionRequirement requirement,
         bool throwOnError = true,
         Func<ReflectionAccessor?>? accessorFactory = null)
     {
-        var requirement = MemberResolutionRequirement.None;
-        if (mustBeReadable)
-        {
-            requirement |= MemberResolutionRequirement.Readable;
-        }
-        if (mustBeWritable)
-        {
-            requirement |= MemberResolutionRequirement.Writable;
-        }
-
         var key = new Engine.ClrPropertyDescriptorFactoriesKey(type, member, requirement);
 
         var factories = engine._reflectionAccessors;
@@ -117,7 +92,7 @@ public sealed class TypeResolver
             return accessor;
         }
 
-        accessor = accessorFactory?.Invoke() ?? ResolvePropertyDescriptorFactory(engine, type, member, mustBeReadable, mustBeWritable, throwOnError);
+        accessor = accessorFactory?.Invoke() ?? ResolvePropertyDescriptorFactory(engine, type, member, requirement, throwOnError);
 
         // don't cache if numeric indexer
         if (uint.TryParse(member, out _))
@@ -139,8 +114,7 @@ public sealed class TypeResolver
         Engine engine,
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.Interfaces)] Type type,
         string memberName,
-        bool mustBeReadable,
-        bool mustBeWritable,
+        MemberResolutionRequirement requirement,
         bool throwOnError)
     {
         var isInteger = long.TryParse(memberName, NumberStyles.Integer, CultureInfo.InvariantCulture, out _);
@@ -151,8 +125,7 @@ public sealed class TypeResolver
         // properties and fields cannot be numbers
         if (!isInteger
             && TryFindMemberAccessor(engine, type, memberName, bindingFlags: null, indexer, out var temp)
-            && (!mustBeReadable || temp.Readable)
-            && (!mustBeWritable || temp.Writable))
+            && requirement.IsSatisfiedBy(temp))
         {
             return temp;
         }
