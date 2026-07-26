@@ -1,0 +1,182 @@
+using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
+using Jint.Native;
+
+namespace Jint.Runtime.Interop;
+
+/// <summary>
+/// Answers "could any of this engine's registered <see cref="IObjectConverter"/>s be handed a value read
+/// from a member of this declared type?" for the interop fast lanes, which have to decline whenever the
+/// answer is yes (a converter must see every CLR value before it becomes a <see cref="JsValue"/>, and those
+/// lanes produce the <see cref="JsValue"/> themselves).
+/// <para>
+/// A converter registered without declaring the CLR types it handles can be handed anything, so a single
+/// such converter makes the filter claim every member — which is exactly the behaviour every registration
+/// had before declared types existed. Only when <b>every</b> registered converter declared its types can a
+/// member whose declared type none of them claims keep the fast lane.
+/// </para>
+/// <para>
+/// The per-type answer is memoized: the set of member types an engine touches is small and fixed, so the
+/// steady-state cost is one dictionary probe instead of the assignability walk.
+/// </para>
+/// </summary>
+internal sealed class ObjectConverterTypeFilter
+{
+    /// <summary>
+    /// Filter for a converter set containing at least one converter that did not declare its types.
+    /// </summary>
+    private static readonly ObjectConverterTypeFilter _unrestricted = new(declaredTypes: null);
+
+    /// <summary><see langword="null"/> means "claims everything", see <see cref="_unrestricted"/>.</summary>
+    private readonly Type[]? _declaredTypes;
+
+    private readonly ConcurrentDictionary<Type, bool>? _claims;
+
+    private ObjectConverterTypeFilter(Type[]? declaredTypes)
+    {
+        _declaredTypes = declaredTypes;
+        _claims = declaredTypes is not null ? new ConcurrentDictionary<Type, bool>() : null;
+    }
+
+    /// <summary>
+    /// Builds the filter for an engine's converter set, or <see langword="null"/> when no converters are
+    /// registered at all (in which case no fast lane ever has to consider them).
+    /// </summary>
+    internal static ObjectConverterTypeFilter? Create(IObjectConverter[]? converters)
+    {
+        if (converters is null || converters.Length == 0)
+        {
+            return null;
+        }
+
+        List<Type>? declaredTypes = null;
+        foreach (var converter in converters)
+        {
+            if (converter is not TypedObjectConverter typed)
+            {
+                return _unrestricted;
+            }
+
+            declaredTypes ??= new List<Type>();
+            foreach (var handledType in typed.HandledTypes)
+            {
+                if (!declaredTypes.Contains(handledType))
+                {
+                    declaredTypes.Add(handledType);
+                }
+            }
+        }
+
+        return new ObjectConverterTypeFilter(declaredTypes!.ToArray());
+    }
+
+    /// <summary>
+    /// Whether a value read from a member declared as <paramref name="memberType"/> could reach one of the
+    /// converters. Conservative: an unknown declared type is claimed.
+    /// </summary>
+    internal bool Claims(Type? memberType)
+    {
+        var declaredTypes = _declaredTypes;
+        if (declaredTypes is null || memberType is null)
+        {
+            return true;
+        }
+
+        var claims = _claims!;
+        if (claims.TryGetValue(memberType, out var result))
+        {
+            return result;
+        }
+
+        result = ComputeClaims(declaredTypes, memberType);
+        claims.TryAdd(memberType, result);
+        return result;
+    }
+
+    private static bool ComputeClaims(Type[] declaredTypes, Type memberType)
+    {
+        // a member typed as object can hold a value of any type at all
+        if (memberType == typeof(object))
+        {
+            return true;
+        }
+
+        // a boxed Nullable<T> is a boxed T, so the converter sees the underlying type
+        var underlyingType = Nullable.GetUnderlyingType(memberType);
+
+        foreach (var declaredType in declaredTypes)
+        {
+            if (Claims(declaredType, memberType)
+                || (underlyingType is not null && Claims(declaredType, underlyingType)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Whether some runtime type assignable to <paramref name="memberType"/> is also a
+    /// <paramref name="declaredType"/>. Errs towards <see langword="true"/> — a wrong <c>true</c> only
+    /// forgoes a fast lane, a wrong <c>false</c> would silently bypass a converter.
+    /// </summary>
+    private static bool Claims(Type declaredType, Type memberType)
+    {
+        // an open generic (typeof(List<>)) is not comparable through IsAssignableFrom at all
+        if (declaredType.ContainsGenericParameters)
+        {
+            return true;
+        }
+
+        // every value of the member's type is a declaredType (covers a member typed as a concrete enum
+        // against a converter declaring System.Enum, and an implementer against a declared interface)
+        if (declaredType.IsAssignableFrom(memberType))
+        {
+            return true;
+        }
+
+        // the member could hold a declaredType (or one of its subtypes)
+        if (memberType.IsAssignableFrom(declaredType))
+        {
+            return true;
+        }
+
+        // neither is a view of the other, so only a type deriving from both could be claimed.
+        // A value type or sealed type has no such subtype (IsSealed also covers value types).
+        if (memberType.IsSealed || declaredType.IsSealed)
+        {
+            return false;
+        }
+
+        // an interface on either side can be mixed into a subtype of the other
+        if (memberType.IsInterface || declaredType.IsInterface)
+        {
+            return true;
+        }
+
+        // two unrelated non-sealed classes: single inheritance means no type can be both
+        return false;
+    }
+}
+
+/// <summary>
+/// An <see cref="IObjectConverter"/> registered together with the CLR types it handles. The declaration is
+/// carried by this wrapper rather than by an interface member because <see cref="IObjectConverter"/> is a
+/// shipped public interface and the target frameworks include ones without default interface methods.
+/// </summary>
+internal sealed class TypedObjectConverter : IObjectConverter
+{
+    private readonly IObjectConverter _converter;
+
+    internal TypedObjectConverter(IObjectConverter converter, Type[] handledTypes)
+    {
+        _converter = converter;
+        HandledTypes = handledTypes;
+    }
+
+    internal Type[] HandledTypes { get; }
+
+    public bool TryConvert(Engine engine, object value, [NotNullWhen(true)] out JsValue? result)
+        => _converter.TryConvert(engine, value, out result);
+}
