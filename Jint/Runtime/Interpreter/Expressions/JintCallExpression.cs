@@ -112,9 +112,17 @@ internal sealed class JintCallExpression : JintExpression
         {
             var calleeReference = _calleeExpression.Evaluate(context);
 
+            // Narrowed up front rather than after the exits below, so every one of them can hand the
+            // rented Reference back. GetValue is called with returnReferenceToPool: false because the
+            // reference is still needed for the this-binding and for the "not a function" messages, so
+            // releasing it is this method's job on every path it can leave by.
+            referenceRecord = calleeReference as Reference;
+
             // Check for generator suspension after evaluating callee
             if (suspendable is not null && suspendable.IsSuspended)
             {
+                // Resume re-evaluates the callee and rents its own reference, so this one is done with.
+                engine._referencePool.Return(referenceRecord);
                 return calleeReference as JsValue ?? JsValue.Undefined;
             }
 
@@ -127,10 +135,10 @@ internal sealed class JintCallExpression : JintExpression
 
             if (func.IsNullOrUndefined() && _expression.IsOptional())
             {
+                engine._referencePool.Return(referenceRecord);
                 return JsValue.Undefined;
             }
 
-            referenceRecord = calleeReference as Reference;
             if (ReferenceEquals(func, engine.Realm.Intrinsics.Eval)
                 && referenceRecord != null
                 && !referenceRecord.IsPropertyReference
@@ -189,6 +197,14 @@ internal sealed class JintCallExpression : JintExpression
         {
             var arg0 = _argCount >= 1 ? _arguments.GetValue(context, 0) : JsValue.Undefined;
             var arg1 = _argCount >= 2 ? _arguments.GetValue(context, 1) : JsValue.Undefined;
+
+            // Everything the reference was kept for has been read (the this-binding above; the
+            // "not a function" messages below cannot be reached from here, the callee is callable).
+            if (referenceRecord is not null)
+            {
+                engine._referencePool.Return(referenceRecord);
+            }
+
             return FastCall(engine, Unsafe.As<Function>(func), thisObject, arg0, arg1);
         }
 
@@ -205,6 +221,9 @@ internal sealed class JintCallExpression : JintExpression
             {
                 engine._jsValueArrayPool.ReturnArray(arguments);
             }
+
+            // Resume re-evaluates the callee and rents its own reference, so this one is done with.
+            engine._referencePool.Return(referenceRecord);
             return func; // Return any value, caller will check Suspended
         }
 
@@ -379,6 +398,7 @@ internal sealed class JintCallExpression : JintExpression
 
         if (argList.Length == 0)
         {
+            engine._referencePool.Return(referenceRecord);
             return JsValue.Undefined;
         }
 
