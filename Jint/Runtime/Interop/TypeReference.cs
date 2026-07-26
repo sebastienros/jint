@@ -308,7 +308,25 @@ public sealed class TypeReference : Constructor, IObjectWrapper
     private PropertyDescriptor CreatePropertyDescriptor(string name)
     {
         var key = new MemberAccessorKey(ReferenceType, name);
-        var accessor = _memberAccessors.GetOrAdd(key, x => ResolveMemberAccessor(_engine, x.Type, x.PropertyName));
+        if (!_memberAccessors.TryGetValue(key, out var accessor))
+        {
+            accessor = ResolveMemberAccessor(_engine, key.Type, key.PropertyName);
+
+            // The cache is process-wide, so an accessor may only enter it when it captures nothing bound to
+            // a single engine. Everything this path can produce is derived from the reflected type alone — a
+            // PropertyInfo or FieldInfo and the delegates compiled from it, a MethodDescriptor set, or a
+            // ConstantValueAccessor over a primitive enum value — and the engine-affine parts are built per
+            // call in CreatePropertyDescriptor below. The one exception is a nested type: it resolves to an
+            // accessor holding a TypeReference, an object owned by this engine, so caching it would keep the
+            // engine, its realm and all of its intrinsics alive for the lifetime of the process and hand this
+            // engine's object to any other engine that later asks for the same member. Those are re-resolved.
+            if (accessor is not NestedTypeAccessor)
+            {
+                // racy, we don't care: both racers resolved the same member the same way
+                _memberAccessors.TryAdd(key, accessor);
+            }
+        }
+
         return accessor.CreatePropertyDescriptor(_engine, ReferenceType, name, enumerable: true);
     }
 
