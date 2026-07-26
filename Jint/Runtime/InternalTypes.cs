@@ -65,7 +65,15 @@ internal enum InternalTypes
     // hierarchy walk — the last such walk left on the call-dispatch path, where it decides whether
     // the callee gets a call-stack frame.
     Function = 2097152,
+    // the object promises ORDINARY [[Get]] semantics even though it is not a PlainObject: Get(p, receiver)
+    // returns exactly UnwrapJsValue(GetOwnProperty(p), receiver) for an existing own property and otherwise
+    // walks the prototype chain. Declared by a host-defined subclass through
+    // ObjectInstance.SetPropertyAccessSemantics; never inferred. Unlike PlainObject (a *storage* claim, which
+    // lets the engine read _properties / the shape directly and so cannot be honoured by an object that
+    // projects properties lazily from native state) this is purely a *semantics* claim, so the interpreter
+    // may resolve a read from a single GetOwnProperty probe. Mutually exclusive with ExoticGet.
+    OrdinaryGet = 4194304,
 
     Primitive = Boolean | String | Number | Integer | BigInt | Symbol,
-    InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Array | Module | IsHTMLDDA | ShapeMode | ShapeBuilding | ExoticGet | BuiltinShapeMode | Callable | Function
+    InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Array | Module | IsHTMLDDA | ShapeMode | ShapeBuilding | ExoticGet | BuiltinShapeMode | Callable | Function | OrdinaryGet
 }

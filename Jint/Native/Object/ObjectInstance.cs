@@ -1,5 +1,7 @@
+﻿using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using Jint.Collections;
 using Jint.Native.Array;
@@ -46,8 +48,19 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     internal ObjectInstance? _prototype;
     protected readonly Engine _engine;
 
+    /// <summary>
+    /// The constructor a subclass defined outside Jint reaches. It resolves the subclass's
+    /// <see cref="PropertyAccessSemantics"/> from the type itself, so a host never has to declare anything for
+    /// the engine to read it correctly — see <see cref="DeriveAccessSemantics"/>. A subclass that disagrees
+    /// with the derived answer overrides it from its own constructor body, which runs after this one.
+    /// </summary>
     protected ObjectInstance(Engine engine) : this(engine, ObjectClass.Object)
     {
+        // GetType() in a base constructor is the most-derived runtime type, which is exactly what the
+        // derivation is about. Jint's own types that want a specific set of flags (or the hot ones, which
+        // cannot afford even a cached lookup per instance) pass them through the internal constructor and
+        // never reach this line.
+        _type |= DeriveAccessSemantics(GetType());
     }
 
     internal ObjectInstance(
@@ -699,6 +712,101 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         }
 
         _symbols?.Remove((JsSymbol) key);
+    }
+
+    /// <summary>
+    /// Overrides the <see cref="PropertyAccessSemantics"/> the engine derived for this type. Needed only for
+    /// the two shapes the derivation rule cannot see: a type that overrides
+    /// <see cref="Get(JsValue, JsValue)"/> and is nevertheless ordinary (declare
+    /// <see cref="PropertyAccessSemantics.Ordinary"/> to get the short read path back), and a type that does
+    /// not override it yet still is not ordinary (declare <see cref="PropertyAccessSemantics.Exotic"/>).
+    /// See <see cref="PropertyAccessSemantics"/> for the invariant each value promises.
+    /// </summary>
+    /// <remarks>
+    /// Must be called from the constructor, before the instance becomes reachable from script: the engine
+    /// caches reads against the resolved semantics and does not re-check them. The last call wins.
+    /// </remarks>
+    protected void SetPropertyAccessSemantics(PropertyAccessSemantics semantics)
+    {
+        switch (semantics)
+        {
+            case PropertyAccessSemantics.Ordinary:
+                _type = (_type & ~InternalTypes.ExoticGet) | InternalTypes.OrdinaryGet;
+                break;
+            case PropertyAccessSemantics.Exotic:
+                _type = (_type & ~InternalTypes.OrdinaryGet) | InternalTypes.ExoticGet;
+                break;
+            default:
+                Throw.ArgumentOutOfRangeException(nameof(semantics), semantics.ToString());
+                break;
+        }
+    }
+
+    /// <summary>
+    /// The derived <see cref="PropertyAccessSemantics"/> flag for a subclass, resolved from the type once and
+    /// cached. Keyed by <see cref="Type"/> and shared process-wide because the answer depends only on the
+    /// type's own virtual dispatch, never on the engine, the realm or the instance — so a per-engine cache
+    /// would multiply the reflection without changing an answer.
+    /// <para>
+    /// Retention: the value is an enum and holds no back-reference, so an entry retains nothing but its
+    /// <see cref="Type"/> key — the same shape as the reflection caches in <c>ReflectionExtensions</c> and
+    /// <see cref="JsValue"/>. Only subclasses reaching the public constructor are ever added.
+    /// </para>
+    /// </summary>
+    private static readonly ConcurrentDictionary<Type, InternalTypes> _derivedAccessSemantics = new();
+
+    /// <summary>
+    /// How many times the reflection probe actually ran for a type — one, however many instances are built.
+    /// Exposed so a test can pin that, since the derivation is otherwise indistinguishable from probing per
+    /// instance. Written only on a cache miss.
+    /// </summary>
+    private static readonly ConcurrentDictionary<Type, int> _accessSemanticsProbes = new();
+
+    internal static int AccessSemanticsProbeCount(Type type)
+        => _accessSemanticsProbes.TryGetValue(type, out var count) ? count : 0;
+
+    private static InternalTypes DeriveAccessSemantics(Type type)
+        => _derivedAccessSemantics.TryGetValue(type, out var semantics)
+            ? semantics
+            : DeriveAccessSemanticsUncached(type);
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static InternalTypes DeriveAccessSemanticsUncached(Type type)
+        => _derivedAccessSemantics.GetOrAdd(type, static t =>
+        {
+            _accessSemanticsProbes.AddOrUpdate(t, 1, static (_, count) => count + 1);
+            return ProbeAccessSemantics(t);
+        });
+
+    /// <summary>
+    /// Decides a subclass's read semantics from the one thing that can make them deviate: whether the type
+    /// overrides <see cref="Get(JsValue, JsValue)"/>. A type that does not override it <em>has</em> the ordinary
+    /// implementation, so <see cref="PropertyAccessSemantics.Ordinary"/> is correct for it by construction —
+    /// overriding <see cref="GetOwnProperty"/> alone does not change that, because the single probe the
+    /// interpreter then does is exactly the one <c>base.Get</c> would have done. A type that overrides it may
+    /// deviate, and the engine cannot tell whether it does, so it is treated as
+    /// <see cref="PropertyAccessSemantics.Exotic"/> until the type says otherwise.
+    /// </summary>
+    /// <remarks>
+    /// Everything the probe cannot answer resolves to <see cref="InternalTypes.ExoticGet"/>: routing every read
+    /// through <c>Get</c> is always observably correct, so an inconclusive probe costs speed and never
+    /// correctness. A member hidden with <c>new</c> rather than overridden also lands there — the engine would
+    /// never dispatch to it, so the answer is merely pessimistic.
+    /// </remarks>
+    [UnconditionalSuppressMessage("Trimming", "IL2070",
+        Justification = "Reads a single well-known virtual member of this very type's own hierarchy, which the trimmer keeps because the engine calls it virtually. If the metadata is unavailable the probe answers ExoticGet, which is the conservative outcome and preserves observable behaviour.")]
+    private static InternalTypes ProbeAccessSemantics(Type type)
+    {
+        var get = type.GetMethod(
+            nameof(Get),
+            BindingFlags.Public | BindingFlags.Instance,
+            binder: null,
+            types: [typeof(JsValue), typeof(JsValue)],
+            modifiers: null);
+
+        return get is not null && get.DeclaringType == typeof(ObjectInstance)
+            ? InternalTypes.OrdinaryGet
+            : InternalTypes.ExoticGet;
     }
 
     public override JsValue Get(JsValue property, JsValue receiver)
