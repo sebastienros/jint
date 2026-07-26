@@ -2,7 +2,6 @@
 
 using System.Collections.Generic;
 using Jint.Native;
-using Jint.Native.Array;
 using Jint.Runtime.Descriptors;
 
 namespace Jint.Tests.PublicInterface;
@@ -13,10 +12,6 @@ namespace Jint.Tests.PublicInterface;
 /// </summary>
 public class HostValueBridgingTests
 {
-    // ArrayInstance.Length is not part of the public surface; hosts read the length the same way script
-    // does. Kept as a helper so the tests below stay about TryGetValue.
-    private static uint ArrayLength(ArrayInstance array) => (uint) array.Get("length").AsNumber();
-
     [Fact]
     public void PropertyDescriptorCanBeConstructedFromFlagsDirectly()
     {
@@ -64,13 +59,18 @@ public class HostValueBridgingTests
         engine.Evaluate("target.hidden").AsNumber().Should().Be(1);
     }
 
+    // Arrays are bridged as JsArray, not as ArrayInstance. ArrayInstance's constructors are all
+    // private protected, so it cannot be subclassed outside the assembly, and every array an embedder
+    // can get hold of - literals, Array(), and `class X extends Array {}` alike - is a JsArray; the one
+    // ArrayInstance that is not is Array.prototype itself. JsArray adds the non-allocating Length on top
+    // of the hole-aware TryGetValue it inherits, which is the whole pair needed to walk an array.
     [Fact]
     public void ArrayTryGetValueDistinguishesHolesFromStoredUndefined()
     {
         var engine = new Engine();
-        var array = (ArrayInstance) engine.Evaluate("[0, 1, , undefined, 4]").AsObject();
+        var array = engine.Evaluate("[0, 1, , undefined, 4]").AsArray();
 
-        ArrayLength(array).Should().Be(5);
+        array.Length.Should().Be(5);
 
         array.TryGetValue(0, out var zero).Should().BeTrue();
         zero.AsNumber().Should().Be(0);
@@ -95,13 +95,13 @@ public class HostValueBridgingTests
     public void ArrayTryGetValueResolvesInheritedIndices()
     {
         var engine = new Engine();
-        var array = (ArrayInstance) engine.Evaluate("""
+        var array = engine.Evaluate("""
             var proto = { 1: 'from-proto' };
             var a = [ 'own' ];
             a.length = 3;
             Object.setPrototypeOf(a, proto);
             a
-            """).AsObject();
+            """).AsArray();
 
         array.TryGetValue(0, out var own).Should().BeTrue();
         own.AsString().Should().Be("own");
@@ -116,10 +116,10 @@ public class HostValueBridgingTests
     public void ArrayTryGetValueBridgesASparseArrayInOnePass()
     {
         var engine = new Engine();
-        var array = (ArrayInstance) engine.Evaluate("var a = []; a[0] = 'a'; a[3] = 'd'; a").AsObject();
+        var array = engine.Evaluate("var a = []; a[0] = 'a'; a[3] = 'd'; a").AsArray();
 
         var bridged = new List<string?>();
-        for (uint i = 0; i < ArrayLength(array); i++)
+        for (uint i = 0; i < array.Length; i++)
         {
             bridged.Add(array.TryGetValue(i, out var value) ? value.ToString() : null);
         }
