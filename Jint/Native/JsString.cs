@@ -501,11 +501,12 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
             return this;
         }
 
-        internal override JsString EnsureCapacity(int capacity)
-        {
-            _stringBuilder!.EnsureCapacity(capacity);
-            return this;
-        }
+        // No override of EnsureCapacity: the inherited one hands back a fresh instance seeded with
+        // this value's text. Growing this instance's buffer and returning "this" instead would let
+        // the caller append into a value that is still reachable from wherever it was read, and
+        // appending mutates in place -- so the receiver of the concatenation would change too.
+        // The buffer is also only created on the first append, so a value produced by a single
+        // concatenation has none to grow.
 
         public override int Length => _stringBuilder?.Length ?? _value?.Length ?? 0;
 
