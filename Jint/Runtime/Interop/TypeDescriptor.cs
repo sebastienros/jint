@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using Jint.Runtime.Interop.Reflection;
 
 #pragma warning disable IL2067
 #pragma warning disable IL2075
@@ -28,6 +29,10 @@ internal sealed class TypeDescriptor
     private readonly MethodInfo? _genericContainsKeyMethod;
     private readonly MethodInfo? _genericIndexerSetMethod;
     private readonly MethodInfo? _genericRemoveMethod;
+
+    // per-descriptor L1 cache over the process-wide compiled reader, so a dictionary read is a field read
+    private CompiledDictionaryAccessor.DictionaryValueGetter? _compiledValueGetter;
+    private bool _compiledValueGetterResolved;
 
     private TypeDescriptor(
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.Interfaces)]
@@ -249,6 +254,50 @@ internal sealed class TypeDescriptor
     }
 
     public bool TryGetDictionaryValue(object target, object key, out object? o)
+    {
+        // resolved lazily and racily - the delegate is pure, so a duplicate resolve is harmless
+        if (!_compiledValueGetterResolved)
+        {
+            _compiledValueGetter = CompiledDictionaryAccessor.GetValueGetter(_tryGetValueMethod);
+            _compiledValueGetterResolved = true;
+        }
+
+        // The compiled reader casts the key straight to the dictionary's key type, so it can only accept a
+        // key whose runtime type is already assignable to it. Anything else keeps the reflection path, whose
+        // ArgumentException for a mismatched key is the established behaviour.
+        var getter = _compiledValueGetter;
+        if (getter is not null && (IsStringKeyedGenericDictionary ? key is string : _keyType!.IsInstanceOfType(key)))
+        {
+            return TryGetDictionaryValueCompiled(getter, target, key, out o);
+        }
+
+        return TryGetDictionaryValueReflection(target, key, out o);
+    }
+
+    private static bool TryGetDictionaryValueCompiled(
+        CompiledDictionaryAccessor.DictionaryValueGetter getter,
+        object target,
+        object key,
+        out object? o)
+    {
+        try
+        {
+            return getter(target, key, out o);
+        }
+        catch (KeyNotFoundException)
+        {
+            o = null;
+            return false;
+        }
+        catch (Exception exception) when (exception is not TargetInvocationException)
+        {
+            // reflection wraps whatever the dictionary throws, the compiled delegate rethrows it as-is:
+            // normalize so the callers' TargetInvocationException handling stays identical
+            throw new TargetInvocationException(exception);
+        }
+    }
+
+    private bool TryGetDictionaryValueReflection(object target, object key, out object? o)
     {
         // IDictionary<,>.TryGetValue / IReadOnlyDictionary<,>.TryGetValue do not throw KeyNotFoundException,
         // but a custom implementation of either interface might — keep the catch defensively.
