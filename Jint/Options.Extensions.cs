@@ -4,6 +4,8 @@ using System.Reflection;
 using Jint.Native;
 using Jint.Runtime;
 using Jint.Runtime.Debugger;
+using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 using Jint.Runtime.Modules;
 
@@ -310,6 +312,74 @@ public static class OptionsExtensions
     public static Options PreferJsPrototypeMethods(this Options options, bool prefer = true)
     {
         options.Interop.PreferJsPrototypeMethods = prefer;
+        return options;
+    }
+
+    /// <summary>
+    /// Registers a global whose value is produced the first time script reads it, instead of when the
+    /// engine is created. Hosts that install a large fixed set of globals — of which a given script
+    /// typically touches a handful — pay only for the ones actually used.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The property is installed eagerly, so existence checks and enumeration — <c>in</c>,
+    /// <c>hasOwnProperty</c>, <c>Object.keys(globalThis)</c>, <c>Object.getOwnPropertyNames</c> — see it
+    /// from the start without materializing anything. Only its value is left unresolved:
+    /// <paramref name="valueFactory"/> runs at most once per engine, on the first read of that value, and
+    /// the produced value is stored in the descriptor so subsequent reads are ordinary property reads.
+    /// <c>typeof</c> counts as a read, since it has to inspect the value to name its type.
+    /// </para>
+    /// <para>
+    /// A script that <b>deletes</b> the global before ever reading it (<c>delete globalThis.name</c>,
+    /// requires <see cref="PropertyFlag.Configurable"/>) removes the descriptor outright, and the factory
+    /// never runs. A script that <b>overwrites or redefines</b> it first does still run the factory once
+    /// and then discard the result: <c>[[Set]]</c> on the global object funnels into
+    /// <c>[[DefineOwnProperty]]</c>, whose ValidateAndApplyPropertyDescriptor step reads the current
+    /// value before replacing it. The end state is correct in every case — the script's value wins — the
+    /// laziness is simply not preserved through that particular sequence.
+    /// </para>
+    /// <para>
+    /// Registration is recorded on the <see cref="Options"/> instance and applied per engine, so a single
+    /// <see cref="Options"/> object may be shared by any number of engines: each gets its own descriptor
+    /// and its own invocation of <paramref name="valueFactory"/>, with the engine being built passed in.
+    /// The factory must not return <see langword="null"/>; <see cref="JsValue.Undefined"/> is substituted
+    /// if it does, so that a null return cannot silently turn into a factory that re-runs on every read.
+    /// </para>
+    /// </remarks>
+    /// <param name="options">Options to modify.</param>
+    /// <param name="name">The global property name.</param>
+    /// <param name="valueFactory">
+    /// Produces the value for a given engine. Invoked lazily, so it may use anything the engine exposes
+    /// after construction — unlike <see cref="UseHostFactory{T}"/> callbacks, which observe a half-built engine.
+    /// </param>
+    /// <param name="flags">
+    /// Property attributes; defaults to the configurable/enumerable/writable combination that
+    /// <see cref="Engine.SetValue(string, JsValue)"/> produces.
+    /// </param>
+    public static Options AddLazyGlobal(
+        this Options options,
+        string name,
+        Func<Engine, JsValue> valueFactory,
+        PropertyFlag flags = PropertyFlag.ConfigurableEnumerableWritable)
+    {
+        if (name is null)
+        {
+            Throw.ArgumentNullException(nameof(name));
+        }
+
+        if (valueFactory is null)
+        {
+            Throw.ArgumentNullException(nameof(valueFactory));
+        }
+
+        // Resolved once per registration, not per engine: LazyPropertyDescriptor treats a null value as
+        // "not materialized yet", so a factory returning null would silently re-run on every read.
+        Func<Engine, JsValue> resolver = engine => valueFactory(engine) ?? JsValue.Undefined;
+
+        options._configurations.Add(engine => engine.Realm.GlobalObject.SetProperty(
+            name,
+            new LazyPropertyDescriptor<Engine>(engine, resolver, flags)));
+
         return options;
     }
 
