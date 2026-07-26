@@ -485,7 +485,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
     /// beside <c>_dense</c>. Presence and flags answer here allocation-free; a previously
     /// materialized descriptor (if any) stays authoritative for its flags.
     /// </summary>
-    internal override OwnPropertyProbe ProbeOwnProperty(JsValue property)
+    protected internal override OwnPropertyProbe ProbeOwnProperty(JsValue property)
     {
         if (CommonProperties.Length.Equals(property))
         {

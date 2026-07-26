@@ -837,7 +837,29 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     /// virtual <see cref="GetOwnProperty"/>. Read-only callers that don't need the descriptor's
     /// value (existence checks, enumerability filters) should prefer this over GetOwnProperty.
     /// </summary>
-    internal virtual OwnPropertyProbe ProbeOwnProperty(JsValue property)
+    /// <remarks>
+    /// <para>
+    /// Host objects whose <see cref="GetOwnProperty"/> is expensive — because it reflects over a CLR
+    /// member, allocates a descriptor per key, or consults a backing store — can override this to answer
+    /// existence and enumerability directly. It backs <c>in</c>, <c>hasOwnProperty</c>,
+    /// <c>propertyIsEnumerable</c>, <c>Object.keys</c>/<c>values</c>/<c>entries</c>, <c>Object.assign</c>,
+    /// <c>Object.defineProperties</c>, object spread and <c>JSON.stringify</c>, each of which otherwise
+    /// materializes one descriptor per key purely to test it and a second one to read the value.
+    /// </para>
+    /// <para>
+    /// <b>Contract:</b> the answer must agree with <see cref="GetOwnProperty"/> for the same key at the
+    /// same point in time — <see cref="OwnPropertyProbe.Missing"/> exactly when GetOwnProperty returns
+    /// <see cref="PropertyDescriptor.Undefined"/>, and otherwise
+    /// <see cref="OwnPropertyProbe.Enumerable"/>/<see cref="OwnPropertyProbe.NonEnumerable"/> matching
+    /// that descriptor's <see cref="PropertyDescriptor.Enumerable"/> flag. The engine trusts the probe
+    /// and does not re-verify it: an override that wrongly answers <see cref="OwnPropertyProbe.Missing"/>
+    /// silently drops the key from every enumeration and copy above, with no error. The probe must also
+    /// be side-effect free with respect to observable state; it is a filter, not an accessor invocation,
+    /// and callers that need the value still call <c>Get</c> afterwards.
+    /// </para>
+    /// </remarks>
+    /// <param name="property">The property key to probe: a <see cref="JsString"/>, a <see cref="JsSymbol"/> or a number-like key, never a private name.</param>
+    protected internal virtual OwnPropertyProbe ProbeOwnProperty(JsValue property)
     {
         if ((_type & InternalTypes.ShapeMode) != InternalTypes.Empty && property is JsString jsString)
         {
