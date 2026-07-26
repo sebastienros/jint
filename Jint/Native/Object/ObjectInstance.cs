@@ -701,6 +701,37 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         _symbols?.Remove((JsSymbol) key);
     }
 
+    /// <summary>
+    /// Declares how this object resolves property reads, letting the engine take shorter paths for a
+    /// host-defined subclass — or, for <see cref="PropertyAccessSemantics.Exotic"/>, forcing it to route every
+    /// read through <see cref="Get(JsValue, JsValue)"/>. See <see cref="PropertyAccessSemantics"/> for the
+    /// invariant each value promises.
+    /// </summary>
+    /// <remarks>
+    /// Must be called from the constructor, before the instance becomes reachable from script: the engine
+    /// caches reads against the declaration and does not re-check it. The last call wins — declaring
+    /// <see cref="PropertyAccessSemantics.Unspecified"/> clears a previous declaration, including one made by
+    /// a Jint base class.
+    /// </remarks>
+    protected void SetPropertyAccessSemantics(PropertyAccessSemantics semantics)
+    {
+        switch (semantics)
+        {
+            case PropertyAccessSemantics.Unspecified:
+                _type &= ~(InternalTypes.OrdinaryGet | InternalTypes.ExoticGet);
+                break;
+            case PropertyAccessSemantics.Ordinary:
+                _type = (_type & ~InternalTypes.ExoticGet) | InternalTypes.OrdinaryGet;
+                break;
+            case PropertyAccessSemantics.Exotic:
+                _type = (_type & ~InternalTypes.OrdinaryGet) | InternalTypes.ExoticGet;
+                break;
+            default:
+                Throw.ArgumentOutOfRangeException(nameof(semantics), semantics.ToString());
+                break;
+        }
+    }
+
     public override JsValue Get(JsValue property, JsValue receiver)
     {
         if ((_type & (InternalTypes.PlainObject | InternalTypes.BuiltinShapeMode)) == InternalTypes.PlainObject && _initialized && ReferenceEquals(this, receiver) && property.IsString())

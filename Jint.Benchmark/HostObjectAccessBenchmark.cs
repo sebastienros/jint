@@ -29,14 +29,19 @@ namespace Jint.Benchmark;
 /// <list type="bullet">
 /// <item><description>
 /// <see cref="ReceiverKind"/> — <see cref="HostReceiverKind.PlainObject"/> is the script-object
-/// floor. <see cref="HostReceiverKind.LazyHost"/> is the cost an embedder actually pays today:
-/// every own-property read goes through the virtual <see cref="ObjectInstance.GetOwnProperty"/>
-/// (the fast shape/dictionary lanes in <see cref="ObjectInstance.Get(JsValue, JsValue)"/> are not
-/// reachable for a non-<c>PlainObject</c> receiver) and allocates a fresh
-/// <see cref="PropertyDescriptor"/> per read. Expect the LazyHost row to be several times the
-/// PlainObject row in both time and <c>Allocated</c>, with the allocation delta ≈
-/// (descriptor size × own-property reads) — descriptor churn is half the story, so always read the
-/// <c>Allocated</c> column next to <c>Mean</c> here.
+/// floor. <see cref="HostReceiverKind.LazyHost"/> is the cost an embedder pays when it declares
+/// nothing: every own-property read goes through the virtual
+/// <see cref="ObjectInstance.GetOwnProperty"/> (the fast shape/dictionary lanes in
+/// <see cref="ObjectInstance.Get(JsValue, JsValue)"/> are not reachable for a
+/// non-<c>PlainObject</c> receiver) <b>twice</b>, allocating a fresh
+/// <see cref="PropertyDescriptor"/> each time and discarding one of them. Expect the LazyHost row
+/// to be several times the PlainObject row in both time and <c>Allocated</c>, with the allocation
+/// delta ≈ (descriptor size × own-property reads) — descriptor churn is half the story, so always
+/// read the <c>Allocated</c> column next to <c>Mean</c> here.
+/// <see cref="HostReceiverKind.LazyHostOrdinary"/> is the same host declaring
+/// <see cref="PropertyAccessSemantics.Ordinary"/>, which halves the probes on an own-property hit;
+/// it still allocates the descriptor the surviving probe returns, so the gap it closes against
+/// PlainObject should be visible on <c>Mean</c> and only partial on <c>Allocated</c>.
 /// <see cref="HostReceiverKind.FixedLayout"/> is the same host records built through
 /// <see cref="JsObject.Create(Engine, JsObjectLayout, ReadOnlySpan{JsValue})"/>: a declared layout
 /// resolves to one interned hidden class, so every item in the batch shares it and reads take the
@@ -96,8 +101,8 @@ public class HostObjectAccessBenchmark
     /// builds — which is the whole point of the API: one layout resolves to one interned hidden
     /// class per engine, so the projection loop stays monomorphic across the batch instead of
     /// meeting a new shape per item. The names are <see cref="LazyHostObject"/>'s own field order,
-    /// which is also the order the <see cref="HostReceiverKind.PlainObject"/> literal uses, so all
-    /// three receivers present identical own-key order.
+    /// which is also the order the <see cref="HostReceiverKind.PlainObject"/> literal uses, so every
+    /// receiver kind presents identical own-key order.
     /// </summary>
     private static readonly JsObjectLayout _itemLayout = new(LazyHostObject.FieldNames);
 
@@ -107,7 +112,11 @@ public class HostObjectAccessBenchmark
     // Only the lanes that compile and run against today's public API are in [Params]; the members
     // awaiting a Jint feature are handled (and rejected) by GlobalSetup so that adding them here is
     // a one-line change once the feature lands.
-    [Params(HostReceiverKind.PlainObject, HostReceiverKind.LazyHost, HostReceiverKind.FixedLayout)]
+    [Params(
+        HostReceiverKind.PlainObject,
+        HostReceiverKind.LazyHost,
+        HostReceiverKind.LazyHostOrdinary,
+        HostReceiverKind.FixedLayout)]
     public HostReceiverKind ReceiverKind { get; set; }
 
     [Params(HostResolverKind.None, HostResolverKind.Unfiltered)]
@@ -123,14 +132,9 @@ public class HostObjectAccessBenchmark
         {
             case HostReceiverKind.PlainObject:
             case HostReceiverKind.LazyHost:
+            case HostReceiverKind.LazyHostOrdinary:
             case HostReceiverKind.FixedLayout:
                 break;
-
-            // TODO: enable once the host-object "ordinary access semantics" opt-in lands — the host
-            // declares a fixed set of own properties up front so reads can take the ordinary
-            // (shape/dictionary) lane instead of the virtual GetOwnProperty lane. Distinct from
-            // FixedLayout above, which gives up the custom subclass entirely; this one keeps it.
-            case HostReceiverKind.LazyHostOrdinary:
 
             // TODO: enable once the descriptor-free read hook lands — a host hook that returns the
             // JsValue directly, so a read no longer allocates a PropertyDescriptor to carry it.
@@ -196,11 +200,14 @@ public class HostObjectAccessBenchmark
                 """);
         }
 
-        // Both host lanes start from the identical native record and run it through the identical
-        // projection, so the only thing that varies between them is the object representation the
-        // projected values end up in.
+        // Every host lane starts from the identical native record and runs it through the identical
+        // projection, so the only things that vary between them are the object representation the
+        // projected values end up in and what that representation declares about its own access.
         var fixedLayout = kind == HostReceiverKind.FixedLayout;
         var slots = fixedLayout ? new JsValue[_itemLayout.Count] : [];
+        var semantics = kind == HostReceiverKind.LazyHostOrdinary
+            ? PropertyAccessSemantics.Ordinary
+            : PropertyAccessSemantics.Unspecified;
 
         var items = new JsValue[ItemCount];
         for (var i = 0; i < items.Length; i++)
@@ -217,7 +224,7 @@ public class HostObjectAccessBenchmark
 
             if (!fixedLayout)
             {
-                items[i] = new LazyHostObject(engine, text, numbers);
+                items[i] = new LazyHostObject(engine, text, numbers, semantics);
                 continue;
             }
 
@@ -242,11 +249,15 @@ public enum HostReceiverKind
 
     /// <summary>
     /// Custom <see cref="ObjectInstance"/> subclass projecting from a native record through the
-    /// virtual <see cref="ObjectInstance.GetOwnProperty"/>. This is what embedders write today.
+    /// virtual <see cref="ObjectInstance.GetOwnProperty"/>, declaring nothing. This is the default,
+    /// so it is what an embedder pays unless it opts in.
     /// </summary>
     LazyHost,
 
-    /// <summary>Awaits the host-object "ordinary access semantics" opt-in. Not runnable yet.</summary>
+    /// <summary>
+    /// The same host declaring <see cref="PropertyAccessSemantics.Ordinary"/>, so the engine may
+    /// resolve an own-property read from a single <see cref="ObjectInstance.GetOwnProperty"/> probe.
+    /// </summary>
     LazyHostOrdinary,
 
     /// <summary>Awaits the descriptor-free read hook. Not runnable yet.</summary>
@@ -308,13 +319,18 @@ internal sealed class UnfilteredNullPropagationResolver : IReferenceResolver
 /// arrives in) into JavaScript properties on demand.
 ///
 /// <para>
-/// This is deliberately the <b>today</b> baseline, written the only way the current public API
-/// allows: override the virtual <see cref="GetOwnProperty"/> and hand back a
-/// <see cref="PropertyDescriptor"/>. The projected <see cref="JsValue"/> is memoized per field
-/// (an embedder that re-projected on every read would also defeat every downstream identity cache,
-/// which would measure something else), but the descriptor itself is rebuilt on every call because
-/// the public API offers no way to avoid it. That per-read descriptor is the allocation this lane
-/// exists to size.
+/// Written the only way the public API allows: override the virtual <see cref="GetOwnProperty"/> and
+/// hand back a <see cref="PropertyDescriptor"/>. The projected <see cref="JsValue"/> is memoized per
+/// field (an embedder that re-projected on every read would also defeat every downstream identity
+/// cache, which would measure something else), but the descriptor itself is rebuilt on every call
+/// because the public API offers no way to avoid it. That per-read descriptor is the allocation this
+/// lane exists to size.
+/// </para>
+///
+/// <para>
+/// The <c>semantics</c> argument is the only difference between the
+/// <see cref="HostReceiverKind.LazyHost"/> and <see cref="HostReceiverKind.LazyHostOrdinary"/> rows:
+/// the projection code is identical, so the delta between them is exactly what the declaration buys.
 /// </para>
 ///
 /// <para>
@@ -347,8 +363,9 @@ internal sealed class LazyHostObject : ObjectInstance
     private readonly double[] _numbers;
     private readonly JsValue?[] _projected = new JsValue?[SlotCount];
 
-    public LazyHostObject(Engine engine, string[] text, double[] numbers) : base(engine)
+    public LazyHostObject(Engine engine, string[] text, double[] numbers, PropertyAccessSemantics semantics) : base(engine)
     {
+        SetPropertyAccessSemantics(semantics);
         _text = text;
         _numbers = numbers;
     }

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Jint.Native;
@@ -696,9 +697,10 @@ internal sealed class JintMemberExpression : JintExpression
     }
 
     /// <summary>
-    /// Read completion for receivers outside the shape / plain-object lanes. An <see cref="ObjectWrapper"/>
-    /// receiver first consults the wrapper member cache: on a hit (same wrapper instance, unchanged
-    /// <c>_propertiesVersion</c>) the stored descriptor is still exactly what <c>ObjectWrapper.Get</c>'s
+    /// Read completion for receivers outside the shape / plain-object lanes. A host object that declared
+    /// <see cref="PropertyAccessSemantics.Ordinary"/> resolves from a single own-property probe. Otherwise an
+    /// <see cref="ObjectWrapper"/> receiver consults the wrapper member cache: on a hit (same wrapper instance,
+    /// unchanged <c>_propertiesVersion</c>) the stored descriptor is still exactly what <c>ObjectWrapper.Get</c>'s
     /// own-property probe would return, so it unwraps directly — for a CLR property that re-invokes the CLR
     /// getter through the live <c>ReflectionDescriptor</c>, identical to the full path. Everything else —
     /// and any wrapper bail — funnels into <see cref="ReadAfterOwnMiss"/>, whose full <c>Get</c> resolves
@@ -706,6 +708,36 @@ internal sealed class JintMemberExpression : JintExpression
     /// </summary>
     private JsValue ReadFromNonPlainReceiver(ObjectInstance baseObject, JsString property)
     {
+        if ((baseObject._type & InternalTypes.OrdinaryGet) != InternalTypes.Empty)
+        {
+            // A host-defined object that promised ordinary [[Get]]. The prototype-method cache goes first: a
+            // warm hit already proved this name resolves on the prototype for this receiver, so probing the
+            // host again would undo the whole point of the cache (a member node reads one name, so a site that
+            // hits here is never an own-property site). It is one null test when it does not apply.
+            var protoHolder = _cachedProtoHolder;
+            if (protoHolder is not null && TryReadFromPrototypeCache(baseObject, protoHolder, out var cachedValue))
+            {
+                return cachedValue;
+            }
+
+            // Otherwise the probe that proves the own property exists *is* the read: the descriptor no longer
+            // has to be materialized a second time inside Get (ObjectInstance.Get's fast path needs
+            // PlainObject, which such an object cannot claim because it stores nothing in _properties). On a
+            // miss the probe also discharges ReadAfterOwnMissUncached's shadow re-check, and — unlike the
+            // ExoticGet receivers that share this method — the prototype-method cache may then be populated.
+            var ownDescriptor = baseObject.GetOwnProperty(property);
+            if (!ReferenceEquals(ownDescriptor, PropertyDescriptor.Undefined))
+            {
+                var ownValue = ObjectInstance.UnwrapJsValue(ownDescriptor, baseObject);
+                AssertOrdinaryGetAgrees(baseObject, property, ownValue);
+                return ownValue;
+            }
+
+            var inheritedValue = ReadAfterOwnMissUncached(baseObject, property, ownMissConfirmed: true);
+            AssertOrdinaryGetAgrees(baseObject, property, inheritedValue);
+            return inheritedValue;
+        }
+
         if (ReferenceEquals(baseObject, _cachedWrapper)
             && baseObject._propertiesVersion == _cachedWrapperVersion)
         {
@@ -728,6 +760,45 @@ internal sealed class JintMemberExpression : JintExpression
     }
 
     /// <summary>
+    /// Debug-only verifier for the <see cref="PropertyAccessSemantics.Ordinary"/> contract a host object
+    /// declares but Jint cannot check statically: the value the descriptor-driven lane produced must equal
+    /// what the object's own <c>Get</c> returns. Free in Release ([Conditional]), so an integration suite run
+    /// against a Debug build of Jint becomes the checker. The recomputation is skipped whenever it could be
+    /// observable — an accessor, a custom-valued descriptor, or an exotic holder anywhere on the chain — so
+    /// enabling it never changes what a script sees.
+    /// </summary>
+    [Conditional("DEBUG")]
+    private static void AssertOrdinaryGetAgrees(ObjectInstance baseObject, JsString property, JsValue value)
+    {
+#if DEBUG
+        for (var o = (ObjectInstance?) baseObject; o is not null; o = o.GetPrototypeOf())
+        {
+            if ((o._type & InternalTypes.ExoticGet) != InternalTypes.Empty)
+            {
+                return;
+            }
+
+            var descriptor = o.GetOwnProperty(property);
+            if (ReferenceEquals(descriptor, PropertyDescriptor.Undefined))
+            {
+                continue;
+            }
+
+            if ((descriptor._flags & (PropertyFlag.NonData | PropertyFlag.CustomJsValue)) != PropertyFlag.None)
+            {
+                return;
+            }
+
+            break;
+        }
+
+        Debug.Assert(
+            JsValue.SameValue(baseObject.Get(property, baseObject), value),
+            $"{baseObject.GetType()} declared PropertyAccessSemantics.Ordinary but its Get('{property}') disagrees with UnwrapJsValue(GetOwnProperty('{property}')). Declare PropertyAccessSemantics.Exotic instead, or make Get ordinary.");
+#endif
+    }
+
+    /// <summary>
     /// Resolves a member read from <paramref name="baseObject"/> after the own-property fast paths have
     /// missed: tries the prototype-method inline cache, then falls back to the full
     /// <see cref="ObjectInstance.Get(JsValue, JsValue)"/> (deeper prototype chains, exotic objects, absent).
@@ -738,8 +809,23 @@ internal sealed class JintMemberExpression : JintExpression
     private JsValue ReadAfterOwnMiss(ObjectInstance baseObject, JsString property, bool ownMissConfirmed)
     {
         var holder = _cachedProtoHolder;
-        if (holder is not null
-            && ReferenceEquals(baseObject, _cachedProtoReceiver)
+        if (holder is not null && TryReadFromPrototypeCache(baseObject, holder, out var value))
+        {
+            return value;
+        }
+
+        return ReadAfterOwnMissUncached(baseObject, property, ownMissConfirmed);
+    }
+
+    /// <summary>
+    /// The prototype-method inline cache's validity check, split out so the ordinary-semantics lane can consult
+    /// it before probing the receiver. <paramref name="holder"/> is the already-loaded <c>_cachedProtoHolder</c>,
+    /// non-null.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private bool TryReadFromPrototypeCache(ObjectInstance baseObject, ObjectInstance holder, out JsValue value)
+    {
+        if (ReferenceEquals(baseObject, _cachedProtoReceiver)
             && baseObject._propertiesVersion == _cachedProtoReceiverVersion
             // GetPrototypeOf(), not the _prototype field: a subclass may shadow the field and override
             // [[GetPrototypeOf]] (e.g. interop instances), and base Get walks via the same accessor. The
@@ -748,10 +834,12 @@ internal sealed class JintMemberExpression : JintExpression
             && ReferenceEquals(baseObject.GetPrototypeOf(), holder)
             && holder._propertiesVersion == _cachedProtoHolderVersion)
         {
-            return ObjectInstance.UnwrapJsValue(_cachedProtoDescriptor!, baseObject);
+            value = ObjectInstance.UnwrapJsValue(_cachedProtoDescriptor!, baseObject);
+            return true;
         }
 
-        return ReadAfterOwnMissUncached(baseObject, property, ownMissConfirmed);
+        value = JsValue.Undefined;
+        return false;
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
