@@ -1,8 +1,9 @@
+using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Dynamic;
 using System.Globalization;
 using System.Reflection;
-using System.Threading;
+using System.Runtime.InteropServices;
 using Jint.Runtime.Interop.Reflection;
 
 #pragma warning disable IL2067
@@ -15,9 +16,19 @@ namespace Jint.Runtime.Interop;
 /// <summary>
 /// Interop strategy for resolving types and members.
 /// </summary>
+/// <remarks>
+/// Holds the cache of resolved CLR member accessors, so the same instance should be shared between engines:
+/// resolving a member — and compiling the delegates that read and write it — then happens once per member
+/// rather than once per member per engine, which matters most for embedders that construct a fresh engine per
+/// operation. The cache keeps the reflected <see cref="Type"/>s alive for as long as the resolver lives, and
+/// <see cref="Default"/> lives for the process; give a resolver of your own to engines that must not outlive
+/// the types they touch.
+/// </remarks>
 public sealed class TypeResolver
 {
     public static readonly TypeResolver Default = new();
+
+    private readonly ConcurrentDictionary<AccessorCacheKey, ReflectionAccessor> _reflectionAccessors = new();
 
     /// <summary>
     /// Registers a filter that determines whether given member is wrapped to interop or returned as undefined.
@@ -78,9 +89,18 @@ public sealed class TypeResolver
         bool throwOnError = true,
         Func<ReflectionAccessor?>? accessorFactory = null)
     {
-        var key = new Engine.ClrPropertyDescriptorFactoriesKey(type, member, requirement);
+        var profile = engine._interopResolutionProfile;
+        if (!profile.IsCaptured)
+        {
+            // The engine is still running its configuration callbacks and has not captured the profile that
+            // partitions the cache yet — a host-installed ITypeConverter, for one, is only in place once they
+            // have all run. Resolve without touching the cache rather than risk mislabeling an entry.
+            return accessorFactory?.Invoke() ?? ResolvePropertyDescriptorFactory(engine, type, member, requirement, throwOnError);
+        }
 
-        var factories = engine._reflectionAccessors;
+        var key = new AccessorCacheKey(type, member, requirement, profile);
+
+        var factories = _reflectionAccessors;
         if (factories.TryGetValue(key, out var accessor))
         {
             if (throwOnError
@@ -100,14 +120,40 @@ public sealed class TypeResolver
             return accessor;
         }
 
-        // racy, we don't care, worst case we'll catch up later
-        Interlocked.CompareExchange(ref engine._reflectionAccessors,
-            new Dictionary<Engine.ClrPropertyDescriptorFactoriesKey, ReflectionAccessor>(factories)
-            {
-                [key] = accessor
-            }, factories);
+        if (IsShareable(engine, accessor))
+        {
+            // racy, we don't care: both racers resolved the same member the same way
+            factories.TryAdd(key, accessor);
+        }
 
         return accessor;
+    }
+
+    /// <summary>
+    /// Whether an accessor may enter the cache this resolver shares between engines. Everything a
+    /// <see cref="ReflectionAccessor"/> normally holds is derived from the reflected type alone — a
+    /// <see cref="PropertyInfo"/>/<see cref="FieldInfo"/> plus the delegates compiled from it, a
+    /// <see cref="MethodDescriptor"/> set, a converted indexer key — and the engine-affine parts are built
+    /// per call in <see cref="ReflectionAccessor.CreatePropertyDescriptor"/>. The two exceptions are below.
+    /// </summary>
+    private static bool IsShareable(Engine engine, ReflectionAccessor accessor)
+    {
+        // A nested type resolves to a TypeReference, which is a JsValue owned by the engine that created it:
+        // sharing it would hand one engine's object to another and pin that engine for the resolver's lifetime.
+        if (accessor is NestedTypeAccessor)
+        {
+            return false;
+        }
+
+        // An indexer accessor bakes in the index key that the engine's ITypeConverter produced from the member
+        // name. The stock converter only ever yields a plain CLR value, but a host-installed one may return
+        // anything at all, including something bound to its engine.
+        if (accessor is IndexerAccessor && !engine._typeConverterIsDefault)
+        {
+            return false;
+        }
+
+        return true;
     }
 
     private ReflectionAccessor ResolvePropertyDescriptorFactory(
@@ -611,4 +657,100 @@ public sealed class TypeResolver
             throw new NotImplementedException();
         }
     }
+}
+
+/// <summary>
+/// Key into the accessor cache a <see cref="TypeResolver"/> shares between the engines using it.
+/// </summary>
+/// <remarks>
+/// Two independent things partition this cache. <see cref="Requirement"/> is what member resolution is
+/// filtered by, so a resolution that had to skip a member for not being readable/writable must not answer a
+/// lookup carrying a different requirement. <see cref="Profile"/> is the interop configuration that steers
+/// resolution but lives on the engine's options rather than on the resolver, so an entry is only served back
+/// to an engine that would have resolved the member the same way.
+/// </remarks>
+[StructLayout(LayoutKind.Auto)]
+internal readonly record struct AccessorCacheKey(
+    Type Type,
+    Key PropertyName,
+    MemberResolutionRequirement Requirement,
+    InteropResolutionProfile Profile);
+
+/// <summary>
+/// The interop configuration that steers member resolution but does not live on the
+/// <see cref="TypeResolver"/> itself, so that its accessor cache can be partitioned by it: an entry is only
+/// ever served back to an engine that would have resolved the member the same way.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Nothing here is affine to an engine or a realm — the flags are values, the extension method lookup holds
+/// only <see cref="MethodInfo"/>s and is itself meant to be shared, and a host-installed
+/// <see cref="ITypeConverter"/> is reduced to "is it the stock one", never captured, because those are
+/// routinely constructed per engine.
+/// </para>
+/// <para>
+/// Hand-written rather than a positional record struct so the hash is computed once, when an engine captures
+/// its profile, instead of on every cache probe.
+/// </para>
+/// </remarks>
+[StructLayout(LayoutKind.Auto)]
+internal readonly struct InteropResolutionProfile : IEquatable<InteropResolutionProfile>
+{
+    private readonly BindingFlags _fieldBindingFlags;
+    private readonly BindingFlags _propertyBindingFlags;
+    private readonly BindingFlags _methodBindingFlags;
+    private readonly ExtensionMethodCache? _extensionMethods;
+    private readonly bool _allowGetType;
+    private readonly bool _stockTypeConverter;
+    private readonly int _hashCode;
+
+    internal InteropResolutionProfile(
+        bool allowGetType,
+        BindingFlags fieldBindingFlags,
+        BindingFlags propertyBindingFlags,
+        BindingFlags methodBindingFlags,
+        ExtensionMethodCache extensionMethods,
+        bool stockTypeConverter)
+    {
+        _allowGetType = allowGetType;
+        _fieldBindingFlags = fieldBindingFlags;
+        _propertyBindingFlags = propertyBindingFlags;
+        _methodBindingFlags = methodBindingFlags;
+        _extensionMethods = extensionMethods;
+        _stockTypeConverter = stockTypeConverter;
+
+        var hashCode = allowGetType ? 1 : 0;
+        hashCode = (hashCode * 397) ^ (int) fieldBindingFlags;
+        hashCode = (hashCode * 397) ^ (int) propertyBindingFlags;
+        hashCode = (hashCode * 397) ^ (int) methodBindingFlags;
+        // ExtensionMethodCache does not override GetHashCode, this is its reference identity
+        hashCode = (hashCode * 397) ^ extensionMethods.GetHashCode();
+        _hashCode = (hashCode * 397) ^ (stockTypeConverter ? 1 : 0);
+    }
+
+    /// <summary>
+    /// Whether this is a profile an engine actually captured, as opposed to the <see langword="default"/>
+    /// an engine still inside its constructor carries. The extension method lookup is never null on a
+    /// captured one.
+    /// </summary>
+    internal bool IsCaptured => _extensionMethods is not null;
+
+    public bool Equals(InteropResolutionProfile other)
+    {
+        return _hashCode == other._hashCode
+               && _allowGetType == other._allowGetType
+               && _stockTypeConverter == other._stockTypeConverter
+               && _fieldBindingFlags == other._fieldBindingFlags
+               && _propertyBindingFlags == other._propertyBindingFlags
+               && _methodBindingFlags == other._methodBindingFlags
+               && ReferenceEquals(_extensionMethods, other._extensionMethods);
+    }
+
+    public override bool Equals(object? obj) => obj is InteropResolutionProfile other && Equals(other);
+
+    public override int GetHashCode() => _hashCode;
+
+    public static bool operator ==(InteropResolutionProfile left, InteropResolutionProfile right) => left.Equals(right);
+
+    public static bool operator !=(InteropResolutionProfile left, InteropResolutionProfile right) => !left.Equals(right);
 }

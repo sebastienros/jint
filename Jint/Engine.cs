@@ -253,11 +253,11 @@ public sealed partial class Engine : IDisposable
     internal Intrinsics _originalIntrinsics = null!;
     internal Host _host = null!;
 
-    // we need to cache reflection accessors on engine level as configuration options can affect outcome.
-    // The requirement is part of the key because member resolution is filtered by it (see TypeResolver):
-    // a member that failed a readable/writable requirement must not answer for lookups carrying another one.
-    internal readonly record struct ClrPropertyDescriptorFactoriesKey(Type Type, Key PropertyName, MemberResolutionRequirement Requirement);
-    internal Dictionary<ClrPropertyDescriptorFactoriesKey, ReflectionAccessor> _reflectionAccessors = new();
+    // The resolved reflection accessors themselves live on Options.Interop.TypeResolver so that every engine
+    // sharing a resolver shares the resolution (and the delegates compiled from it). The interop configuration
+    // that steers resolution but does not live on the resolver is captured here, and partitions that cache so
+    // an entry is only ever served back to an engine that would have resolved it identically.
+    internal readonly InteropResolutionProfile _interopResolutionProfile;
 
     /// <summary>
     /// Constructs a new engine instance.
@@ -343,6 +343,16 @@ public sealed partial class Engine : IDisposable
         // Read after Options.Apply so the snapshot observes the same value JintCallStack does
         // (Apply runs the user's configuration callbacks, which can still touch Constraints).
         _maxRecursionDepth = Options.Constraints.MaxRecursionDepth;
+
+        // likewise after Apply, which is where a custom ITypeConverter gets installed
+        _interopResolutionProfile = new InteropResolutionProfile(
+            Options.Interop.AllowGetType,
+            Options.Interop.ObjectWrapperReportedFieldBindingFlags,
+            Options.Interop.ObjectWrapperReportedPropertyBindingFlags,
+            Options.Interop.ObjectWrapperReportedMethodBindingFlags,
+            _extensionMethods,
+            _typeConverterIsDefault);
+
         CallStack = new JintCallStack(_maxRecursionDepth >= 0);
         _stackGuard = new StackGuard(this);
 

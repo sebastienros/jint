@@ -429,8 +429,9 @@ public class InteropCompiledInvokerTests
     // Process-wide invoker cache.
     //
     // The compiled invoker and the BCL MethodInvoker/ConstructorInvoker are cached by MethodBase in
-    // static dictionaries, shared by every Engine, because MethodDescriptor instances themselves are
-    // per-Engine (Engine._reflectionAccessors). These tests prove that sharing carries no
+    // static dictionaries, shared by every Engine, because MethodDescriptor instances themselves live
+    // on the accessors cached by a TypeResolver and so are only shared as far as the resolver is.
+    // These tests prove that sharing carries no
     // Engine-specific state - above all that one Engine's interop policy (a custom ITypeConverter or
     // registered object converters, both of which must decline the compiled lane) never leaks into
     // another Engine through the shared cache, in either order.
