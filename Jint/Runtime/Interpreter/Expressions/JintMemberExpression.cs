@@ -700,7 +700,9 @@ internal sealed class JintMemberExpression : JintExpression
     /// <summary>
     /// Read completion for receivers outside the shape / plain-object lanes. A host object resolved to
     /// <see cref="PropertyAccessSemantics.Ordinary"/> resolves from a single own-property probe, which also
-    /// re-establishes the own miss the prototype-method cache needs. Otherwise an
+    /// re-establishes the own miss the prototype-method cache needs — or, when the host overrides
+    /// <see cref="ObjectInstance.TryGetOwnPropertyValue"/>, from that hook instead, which answers the same
+    /// question and produces the same value with no descriptor. Otherwise an
     /// <see cref="ObjectWrapper"/> receiver consults the wrapper member cache: on a hit (same wrapper instance,
     /// unchanged <c>_propertiesVersion</c>) the stored descriptor is still exactly what <c>ObjectWrapper.Get</c>'s
     /// own-property probe would return, so it unwraps directly — for a CLR property that re-invokes the CLR
@@ -717,10 +719,32 @@ internal sealed class JintMemberExpression : JintExpression
             // cannot stand in for "this receiver still has no own property of this name" — a projected member
             // that appears after a prototype read was cached must shadow it from the very next read.
             //
-            // The question is answered by the same probe that reads the value, so the probe goes first, and
-            // the prototype-method cache is consulted only once it has missed. That order is also the whole
-            // reason such a receiver may be cached at all: it is the only lane that reaches the cache with one,
-            // and it re-proves the own miss before every consult (see CanCacheAgainstVersions).
+            // So the own-property question is asked again on every read, and the prototype-method cache is
+            // consulted only once it has been answered "no". That order is also the whole reason such a
+            // receiver may be cached at all: this is the only lane that reaches the cache with one, and it
+            // re-establishes the own miss before every consult (see CanCacheAgainstVersions).
+            //
+            // A host that overrides TryGetOwnPropertyValue answers it without a descriptor — one that projects
+            // from native storage would otherwise allocate one per read purely for UnwrapJsValue to discard.
+            // The hook answers the *same* question, so the ordering above is untouched: a false is an
+            // authoritative own miss, exactly what the discarded descriptor would have proved, re-established
+            // on this read like every other.
+            if ((baseObject._type & InternalTypes.OwnValueHook) != InternalTypes.Empty)
+            {
+                if (baseObject.TryGetOwnPropertyValue(property, baseObject, out var projectedValue))
+                {
+                    ObjectInstance.AssertOwnValueAgreesWithDescriptor(baseObject, property, baseObject, answered: true, projectedValue);
+                    AssertOrdinaryGetAgrees(baseObject, property, projectedValue);
+                    return projectedValue;
+                }
+
+                ObjectInstance.AssertOwnValueAgreesWithDescriptor(baseObject, property, baseObject, answered: false, JsValue.Undefined);
+
+                var projectedMiss = ReadAfterOwnMiss(baseObject, property, ownMissConfirmed: true);
+                AssertOrdinaryGetAgrees(baseObject, property, projectedMiss);
+                return projectedMiss;
+            }
+
             var ownDescriptor = baseObject.GetOwnProperty(property);
             if (!ReferenceEquals(ownDescriptor, PropertyDescriptor.Undefined))
             {
@@ -889,9 +913,10 @@ internal sealed class JintMemberExpression : JintExpression
     /// </para>
     /// <para>
     /// The receiver side has one exemption: <see cref="ReadFromNonPlainReceiver"/> is the only lane that reaches
-    /// this cache with a host receiver, and it establishes the own miss with a real probe before every consult,
-    /// so that receiver's frozen version is never load-bearing. A holder has no such lane and must be witnessed
-    /// outright.
+    /// this cache with a host receiver, and it establishes the own miss anew before every consult — with a real
+    /// <c>GetOwnProperty</c> probe, or with a <c>false</c> from
+    /// <see cref="ObjectInstance.TryGetOwnPropertyValue"/>, which states the same thing — so that receiver's
+    /// frozen version is never load-bearing. A holder has no such lane and must be witnessed outright.
     /// </para>
     /// </summary>
     private static bool CanCacheAgainstVersions(ObjectInstance receiver, ObjectInstance holder, JsString property)

@@ -15,13 +15,17 @@ namespace Jint.Tests.PublicInterface;
 /// <para>
 /// A host receiver is neither shape-mode nor plain-object, so member reads take the non-plain lane. What that
 /// lane may assume is decided by the object's <see cref="PropertyAccessSemantics"/>, which the engine derives
-/// from the type: a subclass that overrides <c>Get</c> is exotic, one that does not is ordinary.
+/// from the type: a subclass that overrides <c>Get</c> is exotic, one that does not is ordinary. A second,
+/// orthogonal thing is derived alongside it: whether the type overrides
+/// <c>ObjectInstance.TryGetOwnPropertyValue</c>, which answers the own-property question and produces the
+/// value in one call and without a <see cref="PropertyDescriptor"/>.
 /// </para>
 ///
 /// <para>
 /// <b>What changed.</b> These counts were originally written as "today's behaviour, not desired behaviour",
-/// with a note that they should drop once the engine could tell an ordinary host from an exotic one. It can, so
-/// there are two columns and no host is left paying the old price:
+/// with a note that they should drop once the engine could tell an ordinary host from an exotic one. It can,
+/// and a host can now also answer the question itself, so there are three columns and no host is left paying
+/// the old price:
 /// </para>
 ///
 /// <list type="bullet">
@@ -30,6 +34,12 @@ namespace Jint.Tests.PublicInterface;
 /// because the probe that proves the own property is not shadowed <i>is</i> the read. It used to cost two: one
 /// to prove that, discarded, and one inside <c>Get</c> to produce the value. Nothing had to be declared for
 /// this — not overriding <c>Get</c> is already proof that <c>Get</c> is the ordinary one.
+/// </description></item>
+/// <item><description>
+/// <b>Ordinary + value hook</b> — the same host, additionally overriding <c>TryGetOwnPropertyValue</c>.
+/// <b>Zero</b> probes and no descriptor, on every outcome: the hook's <c>true</c> carries the value, and its
+/// <c>false</c> is an authoritative own miss the read continues past without asking again. It is not
+/// member-read-only — the base of a member call resolves through <c>Get</c>, which consults the hook too.
 /// </description></item>
 /// <item><description>
 /// <b>Exotic</b> — a host overriding <c>Get</c>. Every read is routed through <c>Get</c> and the engine probes
@@ -41,10 +51,13 @@ namespace Jint.Tests.PublicInterface;
 /// </list>
 ///
 /// <para>
-/// One count is worth reading twice, because it is the one that did <i>not</i> improve: an own-property
-/// <i>miss</i> costs the ordinary host two probes, the same as before. The probe that establishes the miss
-/// cannot also produce a value, so the read still ends in a <c>Get</c> that re-probes the receiver before
-/// walking to the prototype. The exotic host pays one there simply because only its <c>Get</c> probes at all.
+/// Two counts are worth reading twice. An own-property <i>miss</i> costs the <b>ordinary</b> host two probes,
+/// the same as before: the probe that establishes the miss cannot also produce a value, so the read still ends
+/// in a <c>Get</c> that re-probes the receiver before walking to the prototype. And a <i>prototype</i> hit
+/// costs it one, warm cache or cold — a host stores its own-property set itself, so nothing the engine
+/// versions moves when a projected member appears, and the own miss has to be re-established on every single
+/// read before the prototype-method cache may be trusted. The value hook is what removes both, because a
+/// <c>false</c> re-establishes exactly the same miss at no cost.
 /// </para>
 ///
 /// <para>
@@ -55,35 +68,50 @@ namespace Jint.Tests.PublicInterface;
 public class HostObjectProbeCountTests
 {
     // A Debug build of Jint verifies the ordinary semantics on every read, by recomputing the read through Get
-    // and through GetOwnProperty and comparing, which costs probes of its own. Release strips the verification
-    // entirely, and Release is the configuration these numbers are about.
+    // and through GetOwnProperty and comparing, and verifies a value-hook answer against the descriptor it
+    // claims to agree with. Both cost probes of their own. Release strips them entirely, and Release is the
+    // configuration these numbers are about.
 #if DEBUG
     private const int OrdinaryOwnHit = 3;
     private const int OrdinaryOwnMiss = 4;
+    private const int OrdinaryPrototypeHit = 3;
+    private const int HookOwnHit = 3;
+    private const int HookOwnMiss = 4;
+    private const int HookPrototypeHit = 3;
+    private const int HookMemberCallBase = 1;
 #else
     private const int OrdinaryOwnHit = 1;
     private const int OrdinaryOwnMiss = 2;
+    private const int OrdinaryPrototypeHit = 1;
+    private const int HookOwnHit = 0;
+    private const int HookOwnMiss = 0;
+    private const int HookPrototypeHit = 0;
+    private const int HookMemberCallBase = 0;
 #endif
 
     // The exotic host's Get delegates to base.Get, which probes once whatever the outcome: on a hit the probe
     // produces the value, on a miss it establishes the miss before the prototype walk. Nothing in the
-    // interpreter probes on its own behalf for an exotic receiver, so these are entirely the host's own doing.
+    // interpreter probes on its own behalf for an exotic receiver, so these are entirely the host's own doing —
+    // which is also why no Debug verifier runs for them and the counts do not depend on the configuration.
     private const int ExoticOwnHit = 1;
     private const int ExoticOwnMiss = 1;
+    private const int ExoticPrototypeHit = 1;
 
     // The base of a member call resolves straight through ObjectInstance.Get rather than through the
-    // member-read lane, so it costs one probe in both columns — and the member lane's Debug verifier never runs
-    // for it. This was already true before the derivation; it is what showed that the extra probe on the value
-    // lane was removable rather than intrinsic.
+    // member-read lane, so it costs one probe in the two descriptor columns — and the member lane's Debug
+    // verifier never runs for it. This was already true before the derivation; it is what showed that the extra
+    // probe on the value lane was removable rather than intrinsic. The value hook does reach this lane, because
+    // Get consults it, which is what shows the hook is not member-read-only.
     private const int MemberCallBase = 1;
 
     [Theory]
-    [InlineData(false, OrdinaryOwnHit)]
-    [InlineData(true, ExoticOwnHit)]
-    public void AnOwnPropertyReadProbesTheHostObject(bool overridesGet, int expectedProbes)
+    [InlineData(ProbeCountingHostKind.Ordinary, OrdinaryOwnHit)]
+    [InlineData(ProbeCountingHostKind.OrdinaryWithValueHook, HookOwnHit)]
+    [InlineData(ProbeCountingHostKind.Exotic, ExoticOwnHit)]
+    public void AnOwnPropertyReadProbesTheHostObject(ProbeCountingHostKind kind, int expectedProbes)
     {
         var engine = new Engine();
-        var host = ProbeCountingHostObject.Create(engine, overridesGet);
+        var host = ProbeCountingHostObject.Create(engine, kind);
         engine.SetValue("host", host);
 
         host.Reset();
@@ -91,35 +119,38 @@ public class HostObjectProbeCountTests
 
         value.Should().Be("value-of-prop");
 
-        // Ordinary: the probe that proves the name is not shadowed is the read. Exotic: the interpreter probes
-        // nothing and the single probe is the one base.Get makes.
+        // Ordinary: the probe that proves the name is not shadowed is the read. Value hook: the host hands the
+        // value over and no descriptor is built at all. Exotic: the interpreter probes nothing and the single
+        // probe is the one base.Get makes.
         host.GetOwnPropertyCallCount.Should().Be(expectedProbes);
     }
 
     [Theory]
-    [InlineData(false, 3 * OrdinaryOwnHit)]
-    [InlineData(true, 3 * ExoticOwnHit)]
-    public void EachOwnPropertyReadCostsItsOwnProbes(bool overridesGet, int expectedProbes)
+    [InlineData(ProbeCountingHostKind.Ordinary, 3 * OrdinaryOwnHit)]
+    [InlineData(ProbeCountingHostKind.OrdinaryWithValueHook, 3 * HookOwnHit)]
+    [InlineData(ProbeCountingHostKind.Exotic, 3 * ExoticOwnHit)]
+    public void EachOwnPropertyReadCostsItsOwnProbes(ProbeCountingHostKind kind, int expectedProbes)
     {
         var engine = new Engine();
-        var host = ProbeCountingHostObject.Create(engine, overridesGet);
+        var host = ProbeCountingHostObject.Create(engine, kind);
         engine.SetValue("host", host);
 
         host.Reset();
         engine.Evaluate("host.prop; host.other; host.prop;");
 
-        // Nothing is cached across reads for a host receiver in either column: three reads, three times the
+        // Nothing is cached across reads for a host receiver in any column: three reads, three times the
         // single-read cost.
         host.GetOwnPropertyCallCount.Should().Be(expectedProbes);
     }
 
     [Theory]
-    [InlineData(false, OrdinaryOwnMiss)]
-    [InlineData(true, ExoticOwnMiss)]
-    public void AMissingOwnPropertyReadIsNoCheaperThanAHit(bool overridesGet, int expectedProbes)
+    [InlineData(ProbeCountingHostKind.Ordinary, OrdinaryOwnMiss)]
+    [InlineData(ProbeCountingHostKind.OrdinaryWithValueHook, HookOwnMiss)]
+    [InlineData(ProbeCountingHostKind.Exotic, ExoticOwnMiss)]
+    public void AMissingOwnPropertyReadIsNoCheaperThanAHit(ProbeCountingHostKind kind, int expectedProbes)
     {
         var engine = new Engine();
-        var host = ProbeCountingHostObject.Create(engine, overridesGet);
+        var host = ProbeCountingHostObject.Create(engine, kind);
         engine.SetValue("host", host);
 
         host.Reset();
@@ -127,17 +158,41 @@ public class HostObjectProbeCountTests
 
         // For the ordinary host a miss is not cheaper than a hit: the probe that establishes the miss cannot
         // produce a value, so the read still ends in a Get that re-probes the receiver before walking to the
-        // prototype. This is the one count the derivation did not move.
+        // prototype. That is the one count the derivation did not move, and the value hook is what moves it —
+        // its false answers the same question the discarded probe answered, for nothing. The exotic host pays
+        // one here simply because only its Get probes at all.
         host.GetOwnPropertyCallCount.Should().Be(expectedProbes);
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void AMemberCallBaseProbesOnce(bool overridesGet)
+    [InlineData(ProbeCountingHostKind.Ordinary, OrdinaryPrototypeHit)]
+    [InlineData(ProbeCountingHostKind.OrdinaryWithValueHook, HookPrototypeHit)]
+    [InlineData(ProbeCountingHostKind.Exotic, ExoticPrototypeHit)]
+    public void APrototypeReadReEstablishesTheOwnMissOnTheHost(ProbeCountingHostKind kind, int expectedProbes)
     {
         var engine = new Engine();
-        var host = ProbeCountingHostObject.Create(engine, overridesGet);
+        var host = ProbeCountingHostObject.Create(engine, kind);
+        engine.SetValue("host", host);
+        engine.Execute("Object.prototype.inherited = 'from-prototype';");
+
+        host.Reset();
+        engine.Evaluate("host.inherited;").Should().Be("from-prototype");
+
+        // A read that resolves on the prototype still has to ask this receiver whether it has since started
+        // owning the name: a projected member appearing behind the engine's back moves nothing the engine
+        // watches, so a prototype answer reused on trust would keep shadowing it. The ordinary host answers
+        // that with a probe on every read, warm prototype cache or not; the value hook answers it for free.
+        host.GetOwnPropertyCallCount.Should().Be(expectedProbes);
+    }
+
+    [Theory]
+    [InlineData(ProbeCountingHostKind.Ordinary, MemberCallBase)]
+    [InlineData(ProbeCountingHostKind.OrdinaryWithValueHook, HookMemberCallBase)]
+    [InlineData(ProbeCountingHostKind.Exotic, MemberCallBase)]
+    public void AMemberCallBaseProbesOnceUnlessTheHostAnswersItself(ProbeCountingHostKind kind, int expectedProbes)
+    {
+        var engine = new Engine();
+        var host = ProbeCountingHostObject.Create(engine, kind);
         engine.SetValue("host", host);
 
         host.Reset();
@@ -146,16 +201,32 @@ public class HostObjectProbeCountTests
         // Reading a host property as the base of a member call takes a different lane than reading it as a
         // value: it goes straight through ObjectInstance.Get, so it already cost only one probe before any of
         // this — which is the evidence that the extra probe on the value lane was removable rather than
-        // intrinsic. Neither derived outcome changes it.
-        host.GetOwnPropertyCallCount.Should().Be(MemberCallBase);
+        // intrinsic. Neither derived Get outcome changes it; the value hook does, because Get consults it.
+        host.GetOwnPropertyCallCount.Should().Be(expectedProbes);
     }
 }
 
 /// <summary>
+/// Which of the three host shapes a fixture is. They differ in exactly the two things the engine derives from
+/// the runtime type, and in nothing else: whether <c>Get</c> is overridden, and whether
+/// <c>TryGetOwnPropertyValue</c> is.
+/// </summary>
+public enum ProbeCountingHostKind
+{
+    /// <summary>Overrides <c>GetOwnProperty</c> and nothing else.</summary>
+    Ordinary,
+
+    /// <summary>Also overrides <c>TryGetOwnPropertyValue</c>, so it answers own reads with no descriptor.</summary>
+    OrdinaryWithValueHook,
+
+    /// <summary>Overrides <c>Get</c>, without changing what it answers.</summary>
+    Exotic,
+}
+
+/// <summary>
 /// The minimum viable host object: it projects a couple of fields on demand and counts how often the engine
-/// asks. Written against the public surface only, exactly as an embedder must. The subclass below overrides
-/// <c>Get</c> without changing what it answers, so the two differ in exactly one thing — the semantics the
-/// engine derives for them.
+/// asks. Written against the public surface only, exactly as an embedder must. The two subclasses below change
+/// exactly one thing each, so the columns differ only in what the engine derives for them.
 /// </summary>
 internal class ProbeCountingHostObject : ObjectInstance
 {
@@ -163,8 +234,12 @@ internal class ProbeCountingHostObject : ObjectInstance
     {
     }
 
-    internal static ProbeCountingHostObject Create(Engine engine, bool overridesGet)
-        => overridesGet ? new GetOverridingProbeCountingHostObject(engine) : new ProbeCountingHostObject(engine);
+    internal static ProbeCountingHostObject Create(Engine engine, ProbeCountingHostKind kind) => kind switch
+    {
+        ProbeCountingHostKind.OrdinaryWithValueHook => new ValueAnsweringProbeCountingHostObject(engine),
+        ProbeCountingHostKind.Exotic => new GetOverridingProbeCountingHostObject(engine),
+        _ => new ProbeCountingHostObject(engine),
+    };
 
     public int GetOwnPropertyCallCount { get; private set; }
 
@@ -183,7 +258,7 @@ internal class ProbeCountingHostObject : ObjectInstance
         return new PropertyDescriptor(value, writable: true, enumerable: true, configurable: true);
     }
 
-    private static bool TryProject(JsValue property, out JsValue value)
+    protected static bool TryProject(JsValue property, out JsValue value)
     {
         if (property.IsString())
         {
@@ -223,4 +298,21 @@ internal sealed class GetOverridingProbeCountingHostObject : ProbeCountingHostOb
     }
 
     public override JsValue Get(JsValue property, JsValue receiver) => base.Get(property, receiver);
+}
+
+/// <summary>
+/// Identical behaviour, one difference: it overrides <c>TryGetOwnPropertyValue</c>, answering the same question
+/// off the same projection with no descriptor in between. Its <c>false</c> is authoritative, which holds here
+/// because the same <c>TryProject</c> decides what <c>GetOwnProperty</c> would have answered.
+/// </summary>
+internal sealed class ValueAnsweringProbeCountingHostObject : ProbeCountingHostObject
+{
+    public ValueAnsweringProbeCountingHostObject(Engine engine) : base(engine)
+    {
+    }
+
+    // Outside the Jint assembly a protected-internal member is inherited as protected, so that is what an
+    // embedder writes here.
+    protected override bool TryGetOwnPropertyValue(JsValue property, JsValue receiver, out JsValue value)
+        => TryProject(property, out value);
 }

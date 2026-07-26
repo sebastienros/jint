@@ -78,7 +78,14 @@ internal enum InternalTypes
     // projects properties lazily from native state) this is purely a *semantics* claim, so the interpreter
     // may resolve a read from a single GetOwnProperty probe. Mutually exclusive with ExoticGet.
     OrdinaryGet = 4194304,
+    // the runtime type overrides ObjectInstance.TryGetOwnPropertyValue, so it can resolve an own read straight
+    // from its own storage and asking it is worth a virtual call. Derived in the public ObjectInstance(Engine)
+    // constructor alongside OrdinaryGet / ExoticGet and cached per Type with them. Purely a *routing* flag: the
+    // base implementation answers exactly what GetOwnProperty does, so an object without the flag would get the
+    // same answer — one probe and one discarded descriptor later. Orthogonal to the Ordinary/Exotic pair,
+    // because what the hook answers (own property or not) does not depend on what Get does with the answer.
+    OwnValueHook = 8388608,
 
     Primitive = Boolean | String | Number | Integer | BigInt | Symbol,
-    InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Array | Module | IsHTMLDDA | ShapeMode | ShapeBuilding | ExoticGet | BuiltinShapeMode | Callable | Function | OrdinaryGet
+    InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Array | Module | IsHTMLDDA | ShapeMode | ShapeBuilding | ExoticGet | BuiltinShapeMode | Callable | Function | OrdinaryGet | OwnValueHook
 }

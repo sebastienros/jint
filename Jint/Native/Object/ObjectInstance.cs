@@ -786,15 +786,25 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     /// interpreter then does is exactly the one <c>base.Get</c> would have done. A type that overrides it may
     /// deviate, and the engine cannot tell whether it does, so it is treated as
     /// <see cref="PropertyAccessSemantics.Exotic"/> until the type says otherwise.
+    /// <para>
+    /// The same reflection answers a second, orthogonal question: whether the type overrides
+    /// <see cref="TryGetOwnPropertyValue"/>, in which case it also gets
+    /// <see cref="InternalTypes.OwnValueHook"/> and the read lanes ask it instead of building a descriptor.
+    /// That one is a pure routing decision — the base implementation answers exactly what
+    /// <see cref="GetOwnProperty"/> does, so a missing flag costs a descriptor and never an answer.
+    /// </para>
     /// </summary>
     /// <remarks>
-    /// Everything the probe cannot answer resolves to <see cref="InternalTypes.ExoticGet"/>: routing every read
-    /// through <c>Get</c> is always observably correct, so an inconclusive probe costs speed and never
-    /// correctness. A member hidden with <c>new</c> rather than overridden also lands there — the engine would
-    /// never dispatch to it, so the answer is merely pessimistic.
+    /// Everything the probe cannot answer resolves to <see cref="InternalTypes.ExoticGet"/> without
+    /// <see cref="InternalTypes.OwnValueHook"/>: routing every read through <c>Get</c> and building the
+    /// descriptor are both always observably correct, so an inconclusive probe costs speed and never
+    /// correctness. A member hidden with <c>new</c> rather than overridden also lands there for <c>Get</c> —
+    /// the engine would never dispatch to it, so the answer is merely pessimistic — and lands on the
+    /// <em>set</em> side for the hook, where the engine then calls the base implementation through the vtable
+    /// and gets the descriptor-driven answer anyway.
     /// </remarks>
     [UnconditionalSuppressMessage("Trimming", "IL2070",
-        Justification = "Reads a single well-known virtual member of this very type's own hierarchy, which the trimmer keeps because the engine calls it virtually. If the metadata is unavailable the probe answers ExoticGet, which is the conservative outcome and preserves observable behaviour.")]
+        Justification = "Reads two well-known virtual members of this very type's own hierarchy, which the trimmer keeps because the engine calls them virtually. If the metadata is unavailable the probe answers ExoticGet without OwnValueHook, which is the conservative outcome for both and preserves observable behaviour.")]
     private static InternalTypes ProbeAccessSemantics(Type type)
     {
         var get = type.GetMethod(
@@ -804,9 +814,23 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             types: [typeof(JsValue), typeof(JsValue)],
             modifiers: null);
 
-        return get is not null && get.DeclaringType == typeof(ObjectInstance)
+        var semantics = get is not null && get.DeclaringType == typeof(ObjectInstance)
             ? InternalTypes.OrdinaryGet
             : InternalTypes.ExoticGet;
+
+        var ownValue = type.GetMethod(
+            nameof(TryGetOwnPropertyValue),
+            BindingFlags.NonPublic | BindingFlags.Instance,
+            binder: null,
+            types: [typeof(JsValue), typeof(JsValue), typeof(JsValue).MakeByRefType()],
+            modifiers: null);
+
+        if (ownValue is not null && ownValue.DeclaringType != typeof(ObjectInstance))
+        {
+            semantics |= InternalTypes.OwnValueHook;
+        }
+
+        return semantics;
     }
 
     public override JsValue Get(JsValue property, JsValue receiver)
@@ -833,7 +857,26 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             return Prototype?.Get(property, receiver) ?? Undefined;
         }
 
-        // slow path
+        // slow path — a host that overrides TryGetOwnPropertyValue answers the own-property question from its
+        // own storage, so a read it serves costs no descriptor at all. `false` is an *authoritative* own miss
+        // (see the contract on the member), so the read continues up the prototype chain without asking a
+        // second time. Covers the reads the interpreter's member lane never sees: computed keys (obj[i]),
+        // Reflect.get, super, built-ins, and the base of a member call. Gated on the derived flag rather than
+        // called unconditionally, so every object that does not override the hook — which is every in-box type
+        // and every host that never heard of it — pays one test on the already-loaded _type instead of a
+        // virtual call that would only turn around and probe GetOwnProperty.
+        if ((_type & InternalTypes.OwnValueHook) != InternalTypes.Empty)
+        {
+            if (TryGetOwnPropertyValue(property, receiver, out var ownValue))
+            {
+                AssertOwnValueAgreesWithDescriptor(this, property, receiver, answered: true, ownValue);
+                return ownValue;
+            }
+
+            AssertOwnValueAgreesWithDescriptor(this, property, receiver, answered: false, Undefined);
+            return Prototype?.Get(property, receiver) ?? Undefined;
+        }
+
         var desc = GetOwnProperty(property);
         if (desc != PropertyDescriptor.Undefined)
         {
@@ -841,6 +884,104 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         }
 
         return Prototype?.Get(property, receiver) ?? Undefined;
+    }
+
+    /// <summary>
+    /// Debug-only verifier for <see cref="TryGetOwnPropertyValue"/>, checking <b>both</b> directions of its
+    /// contract against <see cref="GetOwnProperty"/> for the same key: a <c>true</c> answer must carry exactly
+    /// what the descriptor would have unwrapped to, and a <c>false</c> answer must mean the descriptor is
+    /// <see cref="PropertyDescriptor.Undefined"/>. Free in Release ([Conditional]), so a host's own suite run
+    /// against a Debug build of Jint becomes the checker. The value comparison is skipped when unwrapping would
+    /// be observable (an accessor or a custom-valued descriptor).
+    /// <para>
+    /// It is a second verifier rather than a reuse of <c>AssertOrdinaryGetAgrees</c>: that one recomputes the
+    /// read through <c>Get</c>, and <c>Get</c> consults this hook too, so it can no longer catch a hook that
+    /// disagrees with <c>GetOwnProperty</c>. This one asks <c>GetOwnProperty</c> directly.
+    /// </para>
+    /// </summary>
+    [Conditional("DEBUG")]
+    internal static void AssertOwnValueAgreesWithDescriptor(ObjectInstance target, JsValue property, JsValue receiver, bool answered, JsValue value)
+    {
+#if DEBUG
+        var descriptor = target.GetOwnProperty(property);
+        var owns = !ReferenceEquals(descriptor, PropertyDescriptor.Undefined);
+
+        if (!owns)
+        {
+            if (answered)
+            {
+                Debug.Fail($"{target.GetType()}.TryGetOwnPropertyValue answered '{property}' but its GetOwnProperty reports that property as absent.");
+            }
+
+            return;
+        }
+
+        if (!answered)
+        {
+            Debug.Fail($"{target.GetType()}.TryGetOwnPropertyValue returned false for '{property}' but its GetOwnProperty reports that property as present. Returning false states that there is no own property of that name and the read continues up the prototype chain; call base.TryGetOwnPropertyValue to hand the key back to GetOwnProperty instead.");
+            return;
+        }
+
+        if ((descriptor._flags & (PropertyFlag.NonData | PropertyFlag.CustomJsValue)) != PropertyFlag.None)
+        {
+            return;
+        }
+
+        Debug.Assert(
+            SameValue(UnwrapJsValue(descriptor, receiver), value),
+            $"{target.GetType()}.TryGetOwnPropertyValue answered '{property}' with a value its GetOwnProperty descriptor does not unwrap to.");
+#endif
+    }
+
+    /// <summary>
+    /// Answers whether this object has the named <em>own</em> property and, if so, what it reads as — without
+    /// materializing a <see cref="PropertyDescriptor"/>. A host that projects values out of native storage
+    /// overrides this to hand the value over directly, instead of allocating a descriptor per read purely for
+    /// <c>UnwrapJsValue</c> to throw away.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Contract:</b> the answer must be what <see cref="GetOwnProperty"/> would have given for the same key
+    /// at the same instant. Return <c>true</c> with <paramref name="value"/> equal to that descriptor unwrapped
+    /// for <paramref name="receiver"/>; return <c>false</c> <em>exactly</em> when <c>GetOwnProperty</c> would
+    /// return <see cref="PropertyDescriptor.Undefined"/>. <c>false</c> is an authoritative statement that this
+    /// object has no own property of that name — the engine trusts it, does not re-probe, and continues the
+    /// read up the prototype chain. A <c>false</c> returned merely because the value was awkward to produce
+    /// therefore does not fall back: it makes the read resolve on the prototype, or evaluate to
+    /// <c>undefined</c>, for a property that exists. This is the same obligation
+    /// <see cref="ProbeOwnProperty"/> carries, and a Debug build of Jint verifies both directions of it on
+    /// every read.
+    /// </para>
+    /// <para>
+    /// <b>When you cannot answer,</b> call <c>base.TryGetOwnPropertyValue(property, receiver, out value)</c>.
+    /// The base implementation is the descriptor-driven answer — <c>GetOwnProperty</c> plus the unwrap — so
+    /// deferring to it is always correct and costs exactly what not overriding this member would have. That is
+    /// what an implementation which only understands, say, string names should do with everything else:
+    /// <paramref name="property"/> is the key exactly as the caller supplied it and has <em>not</em> been
+    /// through <c>ToPropertyKey</c>, which is the same key <c>GetOwnProperty</c> receives.
+    /// </para>
+    /// <para>
+    /// <paramref name="receiver"/> is the <c>[[Get]]</c> receiver and differs from <c>this</c> only when the
+    /// read reached this object as somebody else's prototype; it matters solely for accessor properties, which
+    /// a value projection does not have.
+    /// </para>
+    /// <para>
+    /// Overriding this is what puts the object on the lane — the engine derives
+    /// <see cref="InternalTypes.OwnValueHook"/> from the runtime type once, so a type that does not override it
+    /// is never asked and pays nothing.
+    /// </para>
+    /// </remarks>
+    protected internal virtual bool TryGetOwnPropertyValue(JsValue property, JsValue receiver, out JsValue value)
+    {
+        var descriptor = GetOwnProperty(property);
+        if (ReferenceEquals(descriptor, PropertyDescriptor.Undefined))
+        {
+            value = Undefined;
+            return false;
+        }
+
+        value = UnwrapJsValue(descriptor, receiver);
+        return true;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
