@@ -12,7 +12,10 @@ internal sealed class FieldAccessor : CompilableMemberAccessor
         _fieldInfo = fieldInfo;
     }
 
-    public override bool Writable => (_fieldInfo.Attributes & FieldAttributes.InitOnly) == (FieldAttributes) 0;
+    // InitOnly is a readonly field, Literal is a compile-time constant. Reflection refuses to write
+    // either one: omitting Literal here let a constant look writable and surfaced the resulting
+    // FieldAccessException to the host instead of the ordinary non-writable [[Set]] answer.
+    public override bool Writable => (_fieldInfo.Attributes & (FieldAttributes.InitOnly | FieldAttributes.Literal)) == (FieldAttributes) 0;
 
     protected override object? ReflectionGetValue(object target)
     {

@@ -13,6 +13,20 @@ using Jint.Runtime.Interop.Reflection;
 namespace Jint.Runtime.Interop;
 
 /// <summary>
+/// What a member resolution requires of the member it accepts. Resolution is filtered by this
+/// (a member that cannot satisfy the requirement is skipped in favour of an indexer, an explicit
+/// interface implementation, an extension method, ...), so it is part of the accessor cache key:
+/// the accessor a read settles on is not necessarily the one a write settles on.
+/// </summary>
+[Flags]
+internal enum MemberResolutionRequirement : byte
+{
+    None = 0,
+    Readable = 1,
+    Writable = 2,
+}
+
+/// <summary>
 /// Interop strategy for resolving types and members.
 /// </summary>
 public sealed class TypeResolver
@@ -79,7 +93,17 @@ public sealed class TypeResolver
         bool throwOnError = true,
         Func<ReflectionAccessor?>? accessorFactory = null)
     {
-        var key = new Engine.ClrPropertyDescriptorFactoriesKey(type, member);
+        var requirement = MemberResolutionRequirement.None;
+        if (mustBeReadable)
+        {
+            requirement |= MemberResolutionRequirement.Readable;
+        }
+        if (mustBeWritable)
+        {
+            requirement |= MemberResolutionRequirement.Writable;
+        }
+
+        var key = new Engine.ClrPropertyDescriptorFactoriesKey(type, member, requirement);
 
         var factories = engine._reflectionAccessors;
         if (factories.TryGetValue(key, out var accessor))
