@@ -603,13 +603,13 @@ public sealed partial class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.flat
     /// </summary>
-    [JsFunction]
-    private JsValue Flat(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 0, FastCall = true)]
+    private JsValue Flat(JsValue thisObject, JsValue arg0)
     {
         var operations = ArrayOperations.For(_realm, thisObject, forWrite: false);
         var sourceLen = operations.GetLength();
         double depthNum = 1;
-        var depth = arguments.At(0);
+        var depth = arg0;
         if (!depth.IsUndefined())
         {
             depthNum = TypeConverter.ToIntegerOrInfinity(depth);
@@ -645,12 +645,12 @@ public sealed partial class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.flatmap
     /// </summary>
-    [JsFunction(Length = 1)]
-    private JsValue FlatMap(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1, FastCall = true)]
+    private JsValue FlatMap(JsValue thisObject, JsValue arg0, JsValue arg1)
     {
         var O = ArrayOperations.For(_realm, thisObject, forWrite: false);
-        var mapperFunction = arguments.At(0);
-        var thisArg = arguments.At(1);
+        var mapperFunction = arg0;
+        var thisArg = arg1;
 
         var sourceLen = O.GetLength();
 
@@ -840,11 +840,11 @@ public sealed partial class ArrayPrototype : ArrayInstance
         }
     }
 
-    [JsFunction(Length = 1)]
-    private JsValue ForEach(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1, FastCall = true)]
+    private JsValue ForEach(JsValue thisObject, JsValue arg0, JsValue arg1)
     {
-        var callbackfn = arguments.At(0);
-        var thisArg = arguments.At(1);
+        var callbackfn = arg0;
+        var thisArg = arg1;
 
         var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
         var len = o.GetLength();
@@ -877,8 +877,8 @@ public sealed partial class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.includes
     /// </summary>
-    [JsFunction(Length = 1)]
-    private JsValue Includes(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1, FastCall = true)]
+    private JsValue Includes(JsValue thisObject, JsValue arg0, JsValue arg1)
     {
         var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
         var len = (long) o.GetLongLength();
@@ -888,8 +888,8 @@ public sealed partial class ArrayPrototype : ArrayInstance
             return JsBoolean.False;
         }
 
-        var searchElement = arguments.At(0);
-        var fromIndex = arguments.At(1);
+        var searchElement = arg0;
+        var fromIndex = arg1;
 
         long k = 0;
         var n = TypeConverter.ToIntegerOrInfinity(fromIndex);
@@ -963,8 +963,8 @@ public sealed partial class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.every
     /// </summary>
-    [JsFunction(Length = 1)]
-    private JsValue Every(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1, FastCall = true)]
+    private JsValue Every(JsValue thisObject, JsValue arg0, JsValue arg1)
     {
         var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
         ulong len = o.GetLongLength();
@@ -974,8 +974,8 @@ public sealed partial class ArrayPrototype : ArrayInstance
             return JsBoolean.True;
         }
 
-        var callbackfn = arguments.At(0);
-        var thisArg = arguments.At(1);
+        var callbackfn = arg0;
+        var thisArg = arg1;
         var callable = GetCallable(callbackfn);
 
         // args is rented from the pool whose factory allocates new JsValue[3], so it is an exact
@@ -1140,12 +1140,12 @@ public sealed partial class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/proposal-relative-indexing-method/#sec-array-prototype-additions
     /// </summary>
-    [JsFunction(Length = 1)]
-    private JsValue At(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1, FastCall = true)]
+    private JsValue At(JsValue thisObject, JsValue arg0)
     {
         var target = TypeConverter.ToObject(_realm, thisObject);
         var len = target.GetLength();
-        var relativeIndex = TypeConverter.ToInteger(arguments.At(0));
+        var relativeIndex = TypeConverter.ToInteger(arg0);
 
         long actualIndex;
         if (relativeIndex < 0)
@@ -1440,11 +1440,11 @@ public sealed partial class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.sort
     /// </summary>
-    [JsFunction(Length = 1)]
-    private JsValue Sort(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1, FastCall = true)]
+    private JsValue Sort(JsValue thisObject, JsValue arg0)
     {
         var obj = ArrayOperations.For(_realm, thisObject, forWrite: true);
-        var compareFn = GetCompareFunction(arguments.At(0));
+        var compareFn = GetCompareFunction(arg0);
 
         var len = obj.GetLength();
         if (len <= 1)
@@ -1596,11 +1596,11 @@ public sealed partial class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.slice
     /// </summary>
-    [JsFunction(Length = 2)]
-    private JsValue Slice(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 2, FastCall = true)]
+    private JsValue Slice(JsValue thisObject, JsValue arg0, JsValue arg1)
     {
-        var start = arguments.At(0);
-        var end = arguments.At(1);
+        var start = arg0;
+        var end = arg1;
 
         var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
         var len = o.GetLongLength();
@@ -1783,10 +1783,10 @@ public sealed partial class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.join
     /// </summary>
-    [JsFunction(Length = 1)]
-    private JsValue Join(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1, FastCall = true)]
+    private JsValue Join(JsValue thisObject, JsValue arg0)
     {
-        var separator = arguments.At(0);
+        var separator = arg0;
         var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
         var len = o.GetLength();
 
@@ -2236,11 +2236,11 @@ public sealed partial class ArrayPrototype : ArrayInstance
         return new JsArray(_engine, a);
     }
 
-    [JsFunction(Length = 1)]
-    private JsValue ToSorted(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1, FastCall = true)]
+    private JsValue ToSorted(JsValue thisObject, JsValue arg0)
     {
         var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
-        var compareFn = GetCompareFunction(arguments.At(0));
+        var compareFn = GetCompareFunction(arg0);
 
         var len = o.GetLongLength();
         ValidateArrayLength(len);
@@ -2486,7 +2486,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
         return n;
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true)]
     public JsValue Pop(JsValue thisObject)
     {
         if (thisObject is JsArray { CanUseFastAccess: true } array)

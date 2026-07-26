@@ -47,10 +47,10 @@ internal sealed partial class DateConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.parse
     /// </summary>
-    [JsFunction(Length = 1)]
-    private JsValue Parse(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1, FastCall = true)]
+    private JsValue Parse(JsValue thisObject, JsValue arg0)
     {
-        var dateString = TypeConverter.ToString(arguments.At(0));
+        var dateString = TypeConverter.ToString(arg0);
         var date = ParseFromString(dateString);
         return date.ToJsValue();
     }

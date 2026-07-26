@@ -1,5 +1,6 @@
 #pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of prototype methods return JsValue
 
+using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -46,14 +47,14 @@ internal sealed partial class WeakSetPrototype : Prototype
         return thisObject;
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true)]
     private JsValue Delete(JsValue thisObject, JsValue value)
     {
         var set = AssertWeakSetInstance(thisObject);
         return set.WeakSetDelete(value) ? JsBoolean.True : JsBoolean.False;
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true)]
     private JsValue Has(JsValue thisObject, JsValue value)
     {
         var set = AssertWeakSetInstance(thisObject);

@@ -1,5 +1,6 @@
 #pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of prototype methods return JsValue
 
+using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -67,7 +68,7 @@ internal sealed partial class WeakMapPrototype : Prototype
         return key;
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true)]
     private JsValue Delete(JsValue thisObject, JsValue key)
     {
         var map = AssertWeakMapInstance(thisObject);
@@ -82,7 +83,7 @@ internal sealed partial class WeakMapPrototype : Prototype
         return thisObject;
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true)]
     private JsValue Has(JsValue thisObject, JsValue key)
     {
         var map = AssertWeakMapInstance(thisObject);

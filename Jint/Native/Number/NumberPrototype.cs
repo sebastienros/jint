@@ -205,8 +205,8 @@ internal sealed partial class NumberPrototype : NumberInstance
     /// <summary>
     /// https://www.ecma-international.org/ecma-262/6.0/#sec-number.prototype.toexponential
     /// </summary>
-    [JsFunction(Length = 1)]
-    private JsValue ToExponential(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1, FastCall = true)]
+    private JsValue ToExponential(JsValue thisObject, JsValue arg0)
     {
         if (!thisObject.IsNumber() && ReferenceEquals(thisObject.TryCast<NumberInstance>(), null))
         {
@@ -214,7 +214,7 @@ internal sealed partial class NumberPrototype : NumberInstance
         }
 
         var x = TypeConverter.ToNumber(thisObject);
-        var fractionDigits = arguments.At(0);
+        var fractionDigits = arg0;
         if (fractionDigits.IsUndefined())
         {
             fractionDigits = JsNumber.PositiveZero;
@@ -237,7 +237,7 @@ internal sealed partial class NumberPrototype : NumberInstance
             Throw.RangeError(_realm, "toExponential() argument must be between 0 and 100");
         }
 
-        if (arguments.At(0).IsUndefined())
+        if (arg0.IsUndefined())
         {
             f = -1;
         }
@@ -282,8 +282,8 @@ internal sealed partial class NumberPrototype : NumberInstance
         return result;
     }
 
-    [JsFunction(Length = 1)]
-    private JsValue ToPrecision(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1, FastCall = true)]
+    private JsValue ToPrecision(JsValue thisObject, JsValue arg0)
     {
         if (!thisObject.IsNumber() && ReferenceEquals(thisObject.TryCast<NumberInstance>(), null))
         {
@@ -291,7 +291,7 @@ internal sealed partial class NumberPrototype : NumberInstance
         }
 
         var x = TypeConverter.ToNumber(thisObject);
-        var precisionArgument = arguments.At(0);
+        var precisionArgument = arg0;
 
         if (precisionArgument.IsUndefined())
         {

@@ -788,11 +788,12 @@ public sealed partial class ArrayConstructor : Constructor
     [JsSymbolAccessor("Species")]
     private static JsValue Species(JsValue thisObject) => thisObject;
 
-    [JsFunction(Length = 1)]
-    private static JsValue IsArray(JsValue thisObject, JsCallArguments arguments)
+    // Lane 1 only, deliberately NOT Leaf: IsArray on a revoked Proxy throws a TypeError
+    // (JsProxy.IsArray -> AssertNotRevoked), and "argument is not a revoked proxy" is not something
+    // a FastCallGuard can express. Skipping the frame would drop this call out of that error's stack.
+    [JsFunction(Length = 1, FastCall = true)]
+    private static JsValue IsArray(JsValue thisObject, JsValue o)
     {
-        var o = arguments.At(0);
-
         return IsArray(o);
     }
 

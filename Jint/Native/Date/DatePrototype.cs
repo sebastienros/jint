@@ -5,6 +5,7 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Jint.Native.Intl;
+using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -354,7 +355,7 @@ internal sealed partial class DatePrototype : Prototype
         }
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true, LeafReceiver = FastCallGuard.Date)]
     private JsValue GetTime(JsValue thisObject)
     {
         var t = ThisTimeValue(thisObject);
@@ -365,7 +366,7 @@ internal sealed partial class DatePrototype : Prototype
         return t.ToJsValue();
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true, LeafReceiver = FastCallGuard.Date)]
     private JsValue GetFullYear(JsValue thisObject)
     {
         var t = ThisTimeValue(thisObject);
@@ -376,7 +377,7 @@ internal sealed partial class DatePrototype : Prototype
         return YearFromTime(LocalTime(t));
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true, LeafReceiver = FastCallGuard.Date)]
     private JsValue GetYear(JsValue thisObject)
     {
         var t = ThisTimeValue(thisObject);
@@ -387,7 +388,7 @@ internal sealed partial class DatePrototype : Prototype
         return YearFromTime(LocalTime(t)) - 1900;
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true, LeafReceiver = FastCallGuard.Date)]
     private JsValue GetUTCFullYear(JsValue thisObject)
     {
         var t = ThisTimeValue(thisObject);
@@ -398,7 +399,7 @@ internal sealed partial class DatePrototype : Prototype
         return YearFromTime(t);
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true, LeafReceiver = FastCallGuard.Date)]
     private JsValue GetMonth(JsValue thisObject)
     {
         var t = ThisTimeValue(thisObject);
@@ -412,7 +413,7 @@ internal sealed partial class DatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.getutcmonth
     /// </summary>
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true, LeafReceiver = FastCallGuard.Date)]
     private JsValue GetUTCMonth(JsValue thisObject)
     {
         var t = ThisTimeValue(thisObject);
@@ -426,7 +427,7 @@ internal sealed partial class DatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.getdate
     /// </summary>
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true, LeafReceiver = FastCallGuard.Date)]
     private JsValue GetDate(JsValue thisObject)
     {
         var t = ThisTimeValue(thisObject);
@@ -437,7 +438,7 @@ internal sealed partial class DatePrototype : Prototype
         return DateFromTime(LocalTime(t));
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true, LeafReceiver = FastCallGuard.Date)]
     private JsValue GetUTCDate(JsValue thisObject)
     {
         var t = ThisTimeValue(thisObject);
@@ -448,7 +449,7 @@ internal sealed partial class DatePrototype : Prototype
         return DateFromTime(t);
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true, LeafReceiver = FastCallGuard.Date)]
     private JsValue GetDay(JsValue thisObject)
     {
         var t = ThisTimeValue(thisObject);
@@ -459,7 +460,7 @@ internal sealed partial class DatePrototype : Prototype
         return WeekDay(LocalTime(t));
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true, LeafReceiver = FastCallGuard.Date)]
     private JsValue GetUTCDay(JsValue thisObject)
     {
         var t = ThisTimeValue(thisObject);
@@ -470,7 +471,7 @@ internal sealed partial class DatePrototype : Prototype
         return WeekDay(t);
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true, LeafReceiver = FastCallGuard.Date)]
     private JsValue GetHours(JsValue thisObject)
     {
         var t = ThisTimeValue(thisObject);
@@ -481,7 +482,7 @@ internal sealed partial class DatePrototype : Prototype
         return HourFromTime(LocalTime(t));
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true, LeafReceiver = FastCallGuard.Date)]
     private JsValue GetUTCHours(JsValue thisObject)
     {
         var t = ThisTimeValue(thisObject);
@@ -492,7 +493,7 @@ internal sealed partial class DatePrototype : Prototype
         return HourFromTime(t);
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true, LeafReceiver = FastCallGuard.Date)]
     private JsValue GetMinutes(JsValue thisObject)
     {
         var t = ThisTimeValue(thisObject);
@@ -503,7 +504,7 @@ internal sealed partial class DatePrototype : Prototype
         return MinFromTime(LocalTime(t));
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true, LeafReceiver = FastCallGuard.Date)]
     private JsValue GetUTCMinutes(JsValue thisObject)
     {
         var t = ThisTimeValue(thisObject);
@@ -514,7 +515,7 @@ internal sealed partial class DatePrototype : Prototype
         return MinFromTime(t);
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true, LeafReceiver = FastCallGuard.Date)]
     private JsValue GetSeconds(JsValue thisObject)
     {
         var t = ThisTimeValue(thisObject);
@@ -525,7 +526,7 @@ internal sealed partial class DatePrototype : Prototype
         return SecFromTime(LocalTime(t));
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true, LeafReceiver = FastCallGuard.Date)]
     private JsValue GetUTCSeconds(JsValue thisObject)
     {
         var t = ThisTimeValue(thisObject);
@@ -536,7 +537,7 @@ internal sealed partial class DatePrototype : Prototype
         return SecFromTime(t);
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true, LeafReceiver = FastCallGuard.Date)]
     private JsValue GetMilliseconds(JsValue thisObject)
     {
         var t = ThisTimeValue(thisObject);
@@ -547,7 +548,7 @@ internal sealed partial class DatePrototype : Prototype
         return MsFromTime(LocalTime(t));
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true, LeafReceiver = FastCallGuard.Date)]
     private JsValue GetUTCMilliseconds(JsValue thisObject)
     {
         var t = ThisTimeValue(thisObject);
@@ -558,7 +559,7 @@ internal sealed partial class DatePrototype : Prototype
         return MsFromTime(t);
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true, LeafReceiver = FastCallGuard.Date)]
     private JsValue GetTimezoneOffset(JsValue thisObject)
     {
         var t = ThisTimeValue(thisObject);
