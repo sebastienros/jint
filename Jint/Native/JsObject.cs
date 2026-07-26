@@ -7,7 +7,7 @@ namespace Jint.Native;
 /// <summary>
 /// Dynamically constructed JavaScript object instance.
 /// </summary>
-public sealed class JsObject : ObjectInstance
+public sealed partial class JsObject : ObjectInstance
 {
     // Hidden-class shape storage lives here (not on base ObjectInstance) so only plain objects — the
     // population that benefits from shapes — carry these fields; JsDate/JsArray/TypedArray/wrappers/

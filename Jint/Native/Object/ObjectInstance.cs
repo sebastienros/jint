@@ -2093,7 +2093,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                 // build-then-deopt and intern junk "0"→"1"→… chains under the shared per-prototype root;
                 // they take the dictionary fallback below instead.
                 if ((_type & InternalTypes.ShapeBuilding) != InternalTypes.Empty
-                    && (key.Name.Length == 0 || !char.IsDigit(key.Name[0]))
+                    && !Shape.IsIntegerIndexLikeKey(key.Name)
                     && jo.TryShapeAdd(in key, v))
                 {
                     return true;

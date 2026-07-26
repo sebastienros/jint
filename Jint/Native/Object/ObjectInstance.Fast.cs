@@ -9,6 +9,13 @@ namespace Jint.Native.Object;
 /// created object, or installing members on a host-provided global — and are not a general substitute for
 /// <see cref="ObjectInstance.Set(JsValue,JsValue,JsValue)"/> or
 /// <see cref="ObjectInstance.DefineOwnProperty"/>. See the individual members for what is skipped.
+/// <para>
+/// For building a <em>new</em> plain object out of host data, prefer
+/// <see cref="JsObject.Create(Engine, JsObjectLayout, ReadOnlySpan{JsValue})"/> or
+/// <see cref="JsObject.CreateFromEntries(Engine, ReadOnlySpan{KeyValuePair{string, JsValue}})"/> over
+/// populating a fresh <see cref="JsObject"/> through these helpers: those build directly into the
+/// hidden-class representation instead of deoptimizing out of it.
+/// </para>
 /// </summary>
 public partial class ObjectInstance
 {
@@ -95,6 +102,16 @@ public partial class ObjectInstance
     /// writes. Prefer this for setup-time writes only; for steady-state mutation of an existing property use
     /// <see cref="ObjectInstance.Set(JsValue,JsValue,JsValue)"/>, which stores through the existing
     /// descriptor and leaves the receiver's layout intact.
+    /// </para>
+    /// <para>
+    /// Despite the name, a loop of these calls is <em>not</em> the fastest way to project host data into a
+    /// new object, precisely because of that deopt: each object gets a descriptor per property and a
+    /// property dictionary, and the script reading a batch of them never keeps a monomorphic inline cache.
+    /// Use <see cref="JsObject.Create(Engine, JsObjectLayout, ReadOnlySpan{JsValue})"/> when the property
+    /// names are known up front, or
+    /// <see cref="JsObject.CreateFromEntries(Engine, ReadOnlySpan{KeyValuePair{string, JsValue}})"/> when
+    /// they are only known at runtime; both build straight into the shaped representation, so objects
+    /// sharing a layout share one hidden class.
     /// </para>
     /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
