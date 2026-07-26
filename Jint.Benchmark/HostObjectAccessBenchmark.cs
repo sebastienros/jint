@@ -37,6 +37,15 @@ namespace Jint.Benchmark;
 /// PlainObject row in both time and <c>Allocated</c>, with the allocation delta ≈
 /// (descriptor size × own-property reads) — descriptor churn is half the story, so always read the
 /// <c>Allocated</c> column next to <c>Mean</c> here.
+/// <see cref="HostReceiverKind.FixedLayout"/> is the same host records built through
+/// <see cref="JsObject.Create(Engine, JsObjectLayout, ReadOnlySpan{JsValue})"/>: a declared layout
+/// resolves to one interned hidden class, so every item in the batch shares it and reads take the
+/// ordinary shape-keyed lane. The LazyHost → FixedLayout delta is therefore the whole cost of the
+/// custom-subclass representation — the virtual <see cref="ObjectInstance.GetOwnProperty"/> call
+/// <i>and</i> the per-read <see cref="PropertyDescriptor"/>, which the shaped form removes
+/// together. Its useful control is <see cref="HostReceiverKind.PlainObject"/>: the two build the
+/// same key order into the same representation, so FixedLayout landing on the PlainObject row is
+/// the expected result and any gap is host-side projection cost, not access cost.
 /// </description></item>
 /// <item><description>
 /// <see cref="ResolverKind"/> — installing any <see cref="IReferenceResolver"/> sets
@@ -82,13 +91,23 @@ public class HostObjectAccessBenchmark
         }
         """;
 
+    /// <summary>
+    /// Declared once and shared by every item the <see cref="HostReceiverKind.FixedLayout"/> lane
+    /// builds — which is the whole point of the API: one layout resolves to one interned hidden
+    /// class per engine, so the projection loop stays monomorphic across the batch instead of
+    /// meeting a new shape per item. The names are <see cref="LazyHostObject"/>'s own field order,
+    /// which is also the order the <see cref="HostReceiverKind.PlainObject"/> literal uses, so all
+    /// three receivers present identical own-key order.
+    /// </summary>
+    private static readonly JsObjectLayout _itemLayout = new(LazyHostObject.FieldNames);
+
     private Engine _engine = null!;
     private Prepared<Script> _projection;
 
     // Only the lanes that compile and run against today's public API are in [Params]; the members
     // awaiting a Jint feature are handled (and rejected) by GlobalSetup so that adding them here is
     // a one-line change once the feature lands.
-    [Params(HostReceiverKind.PlainObject, HostReceiverKind.LazyHost)]
+    [Params(HostReceiverKind.PlainObject, HostReceiverKind.LazyHost, HostReceiverKind.FixedLayout)]
     public HostReceiverKind ReceiverKind { get; set; }
 
     [Params(HostResolverKind.None, HostResolverKind.Unfiltered)]
@@ -104,20 +123,18 @@ public class HostObjectAccessBenchmark
         {
             case HostReceiverKind.PlainObject:
             case HostReceiverKind.LazyHost:
+            case HostReceiverKind.FixedLayout:
                 break;
 
             // TODO: enable once the host-object "ordinary access semantics" opt-in lands — the host
             // declares a fixed set of own properties up front so reads can take the ordinary
-            // (shape/dictionary) lane instead of the virtual GetOwnProperty lane.
+            // (shape/dictionary) lane instead of the virtual GetOwnProperty lane. Distinct from
+            // FixedLayout above, which gives up the custom subclass entirely; this one keeps it.
             case HostReceiverKind.LazyHostOrdinary:
 
             // TODO: enable once the descriptor-free read hook lands — a host hook that returns the
             // JsValue directly, so a read no longer allocates a PropertyDescriptor to carry it.
             case HostReceiverKind.LazyHostValueHook:
-
-            // TODO: enable once the fixed-layout object factory lands — the host declares the layout
-            // once and the engine allocates a flat slot array per instance.
-            case HostReceiverKind.FixedLayout:
                 throw new NotSupportedException($"{ReceiverKind} awaits a Jint feature that does not exist yet; see the TODO in {nameof(GlobalSetup)}.");
 
             default:
@@ -179,6 +196,12 @@ public class HostObjectAccessBenchmark
                 """);
         }
 
+        // Both host lanes start from the identical native record and run it through the identical
+        // projection, so the only thing that varies between them is the object representation the
+        // projected values end up in.
+        var fixedLayout = kind == HostReceiverKind.FixedLayout;
+        var slots = fixedLayout ? new JsValue[_itemLayout.Count] : [];
+
         var items = new JsValue[ItemCount];
         for (var i = 0; i < items.Length; i++)
         {
@@ -191,7 +214,20 @@ public class HostObjectAccessBenchmark
                 "note for record " + index,
             };
             var numbers = new double[] { i + 1, 1.5 };
-            items[i] = new LazyHostObject(engine, text, numbers);
+
+            if (!fixedLayout)
+            {
+                items[i] = new LazyHostObject(engine, text, numbers);
+                continue;
+            }
+
+            for (var slot = 0; slot < slots.Length; slot++)
+            {
+                slots[slot] = LazyHostObject.ProjectSlot(slot, text, numbers);
+            }
+
+            // Create copies the values into the object's own slots, so one buffer serves the batch.
+            items[i] = JsObject.Create(engine, _itemLayout, slots);
         }
 
         return new JsArray(engine, items);
@@ -216,7 +252,11 @@ public enum HostReceiverKind
     /// <summary>Awaits the descriptor-free read hook. Not runnable yet.</summary>
     LazyHostValueHook,
 
-    /// <summary>Awaits the fixed-layout object factory. Not runnable yet.</summary>
+    /// <summary>
+    /// The same native records, projected once into ordinary objects built straight into the hidden
+    /// class through <see cref="JsObject.Create(Engine, JsObjectLayout, ReadOnlySpan{JsValue})"/>.
+    /// No custom subclass, so reads take the shape-keyed lane and allocate no descriptor.
+    /// </summary>
     FixedLayout,
 }
 
@@ -294,15 +334,14 @@ internal sealed class LazyHostObject : ObjectInstance
     private const int SlotRate = 5;
     private const int SlotCount = 6;
 
-    private static readonly JsValue[] _keys =
-    [
-        new JsString("id"),
-        new JsString("kind"),
-        new JsString("name"),
-        new JsString("note"),
-        new JsString("amount"),
-        new JsString("rate"),
-    ];
+    /// <summary>
+    /// Own-property names in slot order — the single source of truth for this record's shape, shared
+    /// with the <see cref="HostReceiverKind.FixedLayout"/> lane's <see cref="JsObjectLayout"/> so the
+    /// two receivers cannot drift apart in key set or key order.
+    /// </summary>
+    internal static readonly string[] FieldNames = ["id", "kind", "name", "note", "amount", "rate"];
+
+    private static readonly JsValue[] _keys = Array.ConvertAll(FieldNames, static name => (JsValue) new JsString(name));
 
     private readonly string[] _text;
     private readonly double[] _numbers;
@@ -371,19 +410,27 @@ internal sealed class LazyHostObject : ObjectInstance
             return projected;
         }
 
-        projected = slot switch
-        {
-            SlotAmount => JsNumber.Create(_numbers[0]),
-            SlotRate => JsNumber.Create(_numbers[1]),
-            // The one field the script calls a string method on is handed over unmaterialized, so
-            // the String.prototype receiver inline cache is on the measured path.
-            SlotName => LazyHostString.FromUtf8(_text[SlotName]),
-            _ => new JsString(_text[slot]),
-        };
-
+        projected = ProjectSlot(slot, _text, _numbers);
         _projected[slot] = projected;
         return projected;
     }
+
+    /// <summary>
+    /// The one place a native record field becomes a <see cref="JsValue"/>. Static and shared with
+    /// the <see cref="HostReceiverKind.FixedLayout"/> lane, which builds its objects eagerly from
+    /// the same records — so the two host receivers hand the script value-for-value identical
+    /// properties and the only difference left between them is the representation carrying those
+    /// values.
+    /// </summary>
+    internal static JsValue ProjectSlot(int slot, string[] text, double[] numbers) => slot switch
+    {
+        SlotAmount => JsNumber.Create(numbers[0]),
+        SlotRate => JsNumber.Create(numbers[1]),
+        // The one field the script calls a string method on is handed over unmaterialized, so
+        // the String.prototype receiver inline cache is on the measured path.
+        SlotName => LazyHostString.FromUtf8(text[SlotName]),
+        _ => new JsString(text[slot]),
+    };
 
     private static int SlotOf(string name) => name switch
     {
@@ -409,15 +456,15 @@ internal sealed class LazyHostObject : ObjectInstance
 /// </para>
 ///
 /// <para>
-/// <b>Hazard:</b> the base class stores its flat value in an internal field that a subclass cannot
-/// populate, and a handful of base members read that field directly instead of going through
-/// <see cref="ToString"/>. Everything reachable through the public surface is overridden below,
-/// but <c>JsString.EnsureCapacity</c> is <c>internal virtual</c> and so <b>not overridable by an
-/// embedder</b> — it dereferences the null backing value, so <c>String.prototype.concat</c> on an
-/// instance of this class currently throws a <see cref="NullReferenceException"/>. The projection
-/// workload deliberately avoids <c>concat</c>; drop this note (and feel free to add a concat lane)
-/// once the base class routes <c>EnsureCapacity</c> through <c>ToString()</c> the way
-/// <c>JsString.SlicedString</c> does.
+/// The overrides below are exactly the ones the base class's subclassing contract asks of a value
+/// carrying a null backing field: <see cref="ToString"/> for correctness, the rest to keep reads
+/// from materializing. Nothing here needs to work around the base class any more — the members
+/// that used to read the backing field directly now route through <see cref="ToString"/> — so a
+/// concatenation lane over this receiver would be sound. It is deliberately not added: the
+/// projection script is shared by every parameter combination so that the columns are the only
+/// thing that varies, and string concatenation is a string-representation question rather than a
+/// host-object-access one. The lazy string is already on the measured path through
+/// <c>it.name.toUpperCase()</c>.
 /// </para>
 /// </summary>
 internal sealed class LazyHostString : JsString

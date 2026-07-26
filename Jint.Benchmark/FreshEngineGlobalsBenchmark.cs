@@ -30,9 +30,25 @@ namespace Jint.Benchmark;
 /// reflects over the delegate's <c>Invoke</c> signature; <see cref="GlobalKind.ClrFunction"/> is
 /// the hand-written escape hatch that skips that. The gap between the two rows is the price of the
 /// convenient API, and it is only visible with a fresh engine per operation — on a reused engine
-/// it is amortized to nothing.
+/// it is amortized to nothing. <see cref="GlobalKind.Lazy"/> registers the very same
+/// <see cref="ClrFunction"/> bodies through <see cref="OptionsExtensions.AddLazyGlobal"/>, so the
+/// Lazy-vs-ClrFunction gap is exactly what deferring the value construction buys or costs — the
+/// function objects being built are identical, only <i>when</i> and <i>whether</i> differs.
 /// </description></item>
 /// </list>
+///
+/// <para><b>Keeping the lazy row honest</b></para>
+/// <para>
+/// A lazy global is only cheaper if its factory never runs, so a workload that reads every
+/// registered global would measure the eager cost plus an indirection and the row would say
+/// nothing. The script here calls <c>fn0</c> and nothing else, so exactly <b>one</b> of the
+/// <see cref="GlobalCount"/> registered globals is ever materialized. The
+/// <see cref="GlobalCount"/> axis then spans both ends of the honesty question on its own:
+/// at <c>GlobalCount=1</c> the single global is read, which is the worst case where laziness is
+/// pure overhead and the row must not win; at <c>GlobalCount=40</c> one of forty is read, which is
+/// the case the API exists for. A Lazy row that beats <c>ClrFunction</c> at <c>GlobalCount=1</c>
+/// would mean the comparison had drifted, not that laziness got faster.
+/// </para>
 ///
 /// <para>
 /// The delegates are built by a factory <b>per engine</b> and several of them are capturing
@@ -41,6 +57,11 @@ namespace Jint.Benchmark;
 /// for any cache keyed on something coarser than the delegate instance (a <c>MethodInfo</c>, say):
 /// a fresh closure instance still shares its <c>MethodInfo</c>, a fresh lambda body does not.
 /// Reusing one cached delegate array across operations would measure a different, easier problem.
+/// The Lazy row is the one place this cannot apply, and deliberately so: registration lives on
+/// <see cref="Options"/>, which the engine replays per construction, so the factory delegates are
+/// created once and the per-engine work is the descriptor installation the API actually charges.
+/// Re-registering per operation would grow the shared <see cref="Options"/> without bound and
+/// measure a leak rather than a feature.
 /// </para>
 /// </summary>
 [MemoryDiagnoser]
@@ -59,26 +80,34 @@ public class FreshEngineGlobalsBenchmark
     [Params(1, 10, 40)]
     public int GlobalCount { get; set; }
 
-    // GlobalKind.Lazy is intentionally absent from [Params] — see GlobalSetup.
-    [Params(GlobalKind.Delegate, GlobalKind.ClrFunction)]
+    [Params(GlobalKind.Delegate, GlobalKind.ClrFunction, GlobalKind.Lazy)]
     public GlobalKind Kind { get; set; }
 
     [GlobalSetup]
     public void GlobalSetup()
     {
-        if (Kind == GlobalKind.Lazy)
-        {
-            // TODO: enable once lazy global registration lands — the embedder hands over a name and
-            // a factory, and the engine only builds the function object if the script reads the
-            // name. That turns the per-global slope measured here into a per-*used*-global slope.
-            throw new NotSupportedException($"{Kind} awaits a Jint feature that does not exist yet; see the TODO in {nameof(GlobalSetup)}.");
-        }
-
         // One Options instance shared by every constructed engine: an embedder configures interop
         // policy once at start-up and only the globals differ per engine.
         _sharedOptions = new Options();
 
+        if (Kind == GlobalKind.Lazy)
+        {
+            // Lazy globals are declared on the options rather than on the engine, and the engine
+            // replays that declaration as it is constructed — so this loop runs once for the whole
+            // benchmark and every operation still gets its own descriptors and its own (at most one
+            // per engine) factory invocation. The factory produces the same ClrFunction the eager
+            // ClrFunction row hands over directly, so the two rows differ only in when it is built.
+            for (var i = 0; i < GlobalCount; i++)
+            {
+                var name = _names[i];
+                var index = i;
+                _sharedOptions.AddLazyGlobal(name, engine => CreateClrFunction(engine, name, index));
+            }
+        }
+
         // One statement, and it calls into the host so global resolution is on the measured path.
+        // It reads fn0 only: that single read is what keeps the Lazy row a per-*used*-global cost
+        // instead of a restatement of the eager one. See "Keeping the lazy row honest" above.
         _script = Engine.PrepareScript("fn0(1) + fn0(2);");
 
         // Prove the lane before it is measured.
@@ -97,6 +126,12 @@ public class FreshEngineGlobalsBenchmark
 
     private void RegisterGlobals(Engine engine)
     {
+        if (Kind == GlobalKind.Lazy)
+        {
+            // Already installed: constructing the engine replayed the options' registrations.
+            return;
+        }
+
         var count = GlobalCount;
         for (var i = 0; i < count; i++)
         {
@@ -170,6 +205,11 @@ public enum GlobalKind
     /// <summary>A hand-written <see cref="ClrFunction"/> — no delegate signature reflection.</summary>
     ClrFunction,
 
-    /// <summary>Awaits lazy global registration. Not runnable yet.</summary>
+    /// <summary>
+    /// The same <see cref="ClrFunction"/> bodies, declared through
+    /// <see cref="OptionsExtensions.AddLazyGlobal"/>: the property is installed on every engine but
+    /// its value is only built if the script reads it. Turns the per-global registration slope into
+    /// a per-<i>used</i>-global one.
+    /// </summary>
     Lazy,
 }
