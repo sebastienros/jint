@@ -107,6 +107,35 @@ dotnet run -c Release -- --allCategories EngineComparison
 - **`Jint.Tests.Ecma`** — Legacy ECMA test cases.
 - **`Jint.Tests.CommonScripts`** — SunSpider benchmark scripts used for testing.
 
+## Third-party integration surface
+
+Jint is not only an engine to work on — it is an engine that gets **embedded**. Parts of the public
+API exist only to serve integrators who host it in-process and project their own objects into script.
+For those members, **changing observable behaviour is breaking even when the signature is untouched.**
+
+Treat as third-party contracts: `ObjectInstance`'s public/protected virtuals, `PropertyDescriptor`
+and `PropertyFlag.CustomJsValue`, `ProbeOwnProperty`/`OwnPropertyProbe`, `IReferenceResolver` and
+`ReferenceResolverInterests`, `IObjectConverter`, `ITypeConverter`, `Constraint` and `IsAmortizable`,
+`ProxyHandler`, `ObjectWrapper.GetPropertyDescriptor`, `JsObjectLayout`/`JsObject.Create`, and
+`Options.AddLazyGlobal`.
+
+Two things to know before touching any of them:
+
+- A custom `ObjectInstance` subclass can only reach `protected ObjectInstance(Engine)`, so it carries
+  none of the internal type flags the member-read inline caches are gated on and is invisible to
+  every one of them. Do not rewrite those caches assuming all receivers are in-box types.
+- `Prepared<Script>` is shared across engines and threads, so interpreter handler trees — which
+  accumulate engine-affine inline-cache state — are engine-owned and must never be cached on the
+  AST. See the `INVARIANT` comment in `JintStatement.Build`.
+
+Integrator-facing tests belong in `Jint.Tests.PublicInterface`, the only test project without
+`InternalsVisibleTo`, in generically named files.
+
+**Full detail** — the contract list, the subclassing cliff, engine-affine vs shareable state, and a
+gotcha checklist (`Fast*` setters, converter/resolver de-optimizations, constraints and the
+tight-loop lane, saturated sentinels) — is in [`CLAUDE.md`](CLAUDE.md) under
+"Third-party integration surface".
+
 ## Conventions
 
 ### Performance is Critical
