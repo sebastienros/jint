@@ -988,8 +988,20 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         return descriptor is not null;
     }
 
+    /// <summary>
+    /// Hole-aware indexed read: returns <see langword="false"/> when <paramref name="index"/> resolves to
+    /// nothing — an array hole or an index past the end with no inherited property — and
+    /// <see langword="true"/> with the resolved value otherwise. Unlike <c>this[uint]</c>, which cannot
+    /// distinguish a hole from a stored <c>undefined</c>, this preserves that distinction, so host code
+    /// bridging a JavaScript array into a sparse-aware representation can tell the two apart in a single
+    /// pass. Getters on the array or its prototype chain are invoked, exactly as an indexed read from
+    /// script would.
+    /// </summary>
+    /// <param name="index">The array index to read.</param>
+    /// <param name="value">The resolved value, or <see cref="JsValue.Undefined"/> when the result is <see langword="false"/>.</param>
+    /// <returns>Whether the index resolved to a value.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal bool TryGetValue(uint index, out JsValue value)
+    public bool TryGetValue(uint index, out JsValue value)
     {
         value = GetValue(index, unwrapFromNonDataDescriptor: true)!;
 

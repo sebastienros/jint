@@ -23,8 +23,24 @@ public class PropertyDescriptor
         _flags = flags & ~PropertyFlag.NonData;
     }
 
+    /// <summary>
+    /// Creates a descriptor with the attribute bits given directly, instead of the three
+    /// <see cref="Nullable{T}"/> attributes the <see cref="PropertyDescriptor(JsValue?, bool?, bool?, bool?)"/>
+    /// overload has to translate into flags one branchy setter at a time. Host code that already
+    /// knows the attributes it wants — the common case when bridging host state into JavaScript —
+    /// should prefer this constructor and a ready-made combination such as
+    /// <see cref="PropertyFlag.ConfigurableEnumerableWritable"/>.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="PropertyFlag.CustomJsValue"/> is reserved for subclasses that override
+    /// <see cref="CustomValue"/>: passing it routes <paramref name="value"/> through that virtual
+    /// setter, so on a type that does not override it the flag only adds an indirection on every
+    /// read and write. Do not pass it from ordinary host descriptors.
+    /// </remarks>
+    /// <param name="value">The property value, or <see langword="null"/> for a descriptor whose value is supplied later.</param>
+    /// <param name="flags">The property attributes.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected internal PropertyDescriptor(JsValue? value, PropertyFlag flags) : this(flags)
+    public PropertyDescriptor(JsValue? value, PropertyFlag flags) : this(flags)
     {
         if ((_flags & PropertyFlag.CustomJsValue) != PropertyFlag.None)
         {
