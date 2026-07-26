@@ -10,7 +10,9 @@ internal sealed class OrderedSet<T> : IEnumerable<T>
     public OrderedSet(HashSet<T> values)
     {
         _list = new List<T>(values);
-        _set = new HashSet<T>(values);
+        // carry the source comparer over: the copy has to keep answering equality the same way,
+        // otherwise a derived set silently falls back to default equality
+        _set = new HashSet<T>(values, values.Comparer);
     }
 
     public OrderedSet(IEqualityComparer<T> comparer)
@@ -60,8 +62,25 @@ internal sealed class OrderedSet<T> : IEnumerable<T>
 
     public bool Remove(T item)
     {
-        _set.Remove(item);
-        return _list.Remove(item);
+        if (!_set.Remove(item))
+        {
+            return false;
+        }
+
+        // List.Remove would compare with the default comparer, which can disagree with the set's
+        // one and leave the ordering list holding a value the set no longer has
+        var comparer = _set.Comparer;
+        var list = _list;
+        for (var i = 0; i < list.Count; i++)
+        {
+            if (comparer.Equals(list[i], item))
+            {
+                list.RemoveAt(i);
+                break;
+            }
+        }
+
+        return true;
     }
 
     public IEnumerator<T> GetEnumerator() => _list.GetEnumerator();
