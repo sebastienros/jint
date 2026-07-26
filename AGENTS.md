@@ -114,16 +114,23 @@ API exist only to serve integrators who host it in-process and project their own
 For those members, **changing observable behaviour is breaking even when the signature is untouched.**
 
 Treat as third-party contracts: `ObjectInstance`'s public/protected virtuals, `PropertyDescriptor`
-and `PropertyFlag.CustomJsValue`, `ProbeOwnProperty`/`OwnPropertyProbe`, `IReferenceResolver` and
-`ReferenceResolverInterests`, `IObjectConverter`, `ITypeConverter`, `Constraint` and `IsAmortizable`,
-`ProxyHandler`, `ObjectWrapper.GetPropertyDescriptor`, `JsObjectLayout`/`JsObject.Create`, and
-`Options.AddLazyGlobal`.
+and `PropertyFlag.CustomJsValue`, `ProbeOwnProperty`/`OwnPropertyProbe`, `PropertyAccessSemantics`
+and `SetPropertyAccessSemantics`, `IReferenceResolver` and `ReferenceResolverInterests`,
+`IObjectConverter`, `ITypeConverter`, `Constraint` and `IsAmortizable`, `ProxyHandler`,
+`ObjectWrapper.GetPropertyDescriptor`, `JsObjectLayout`/`JsObject.Create`, and
+`Options.AddLazyGlobal`. `ObjectRepresentation` is deliberately *not* one — it is a diagnostic that
+may change in any release.
 
-Two things to know before touching any of them:
+Three things to know before touching any of them:
 
 - A custom `ObjectInstance` subclass can only reach `protected ObjectInstance(Engine)`, so it carries
-  none of the internal type flags the member-read inline caches are gated on and is invisible to
-  every one of them. Do not rewrite those caches assuming all receivers are in-box types.
+  none of the *storage* flags the own-property inline caches are gated on and gets no own-property
+  caching. It does get a `PropertyAccessSemantics` derived from the type — overriding `Get` makes it
+  `Exotic`, not overriding it `Ordinary`, which resolves an own read from a single probe. Do not
+  rewrite those caches assuming all receivers are in-box types.
+- Several of the fastest lanes are keyed on `internal` type flags a host type cannot opt into. When
+  adding a new fast lane, decide deliberately whether a host type can reach it — and if not, whether
+  it should be able to.
 - `Prepared<Script>` is shared across engines and threads, so interpreter handler trees — which
   accumulate engine-affine inline-cache state — are engine-owned and must never be cached on the
   AST. See the `INVARIANT` comment in `JintStatement.Build`.
