@@ -438,6 +438,14 @@ public class Options
         public ValueCoercionType ValueCoercion { get; set; } = ValueCoercionType.String;
 
         /// <summary>
+        /// How CLR enum values are exposed to script code when they cross into JavaScript, defaults to
+        /// <see cref="Jint.EnumConversionMode.Number"/> (the underlying numeric value). This is the read direction;
+        /// the write direction is governed by <see cref="ValueCoercion"/> and always accepts both the member name
+        /// and the numeric value.
+        /// </summary>
+        public EnumConversionMode EnumConversion { get; set; } = EnumConversionMode.Number;
+
+        /// <summary>
         /// Strategy to create a CLR object to hold converted <see cref="ObjectInstance"/>.
         /// </summary>
         public Func<ObjectInstance, IDictionary<string, object?>>? CreateClrObject { get; set; } = _ => new ExpandoObject();
@@ -737,6 +745,24 @@ public enum ExperimentalFeature
     /// All coercion rules enabled.
     /// </summary>
     All = TaskInterop,
+}
+
+/// <summary>
+/// Strategy for exposing CLR enum values to script code, see <see cref="Options.InteropOptions.EnumConversion"/>.
+/// </summary>
+public enum EnumConversionMode
+{
+    /// <summary>
+    /// The enum's underlying numeric value is exposed. This is the default.
+    /// </summary>
+    Number,
+
+    /// <summary>
+    /// The enum member name is exposed as a string, as produced by <see cref="object.ToString"/> — a combination
+    /// of names for a matching <see cref="FlagsAttribute"/> value, and the numeric value rendered as a string for
+    /// a value that has no name. Values converted back to the CLR keep accepting both the name and the number.
+    /// </summary>
+    String,
 }
 
 /// <summary>

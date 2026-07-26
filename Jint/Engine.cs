@@ -154,6 +154,10 @@ public sealed partial class Engine : IDisposable
 
     // cached access
     internal readonly IObjectConverter[]? _objectConverters;
+
+    // snapshot of Options.Interop.EnumConversion, read on every CLR value crossing into script
+    internal readonly bool _enumsAsStrings;
+
     internal readonly Constraint[] _constraints;
 
     // _constraints partitioned once at construction (the set is fixed for the engine's lifetime):
@@ -280,6 +284,7 @@ public sealed partial class Engine : IDisposable
         _objectConverters = Options.Interop.ObjectConverters.Count > 0
             ? Options.Interop.ObjectConverters.ToArray()
             : null;
+        _enumsAsStrings = Options.Interop.EnumConversion == EnumConversionMode.String;
 
         _constraints = Options.Constraints.Constraints.ToArray();
         var partitionedConstraints = PartitionConstraints(_constraints);

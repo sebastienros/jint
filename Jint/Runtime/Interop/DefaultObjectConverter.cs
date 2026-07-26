@@ -79,6 +79,16 @@ internal static class DefaultObjectConverter
                 // runtime type.
             }
 
+            // An enum is IConvertible and reports its underlying type code, so the convertible lane just
+            // below is what turns it into a number — there is no enum-specific handling left to reach.
+            // The string form is Enum.ToString(): the member name, the comma separated names of a matching
+            // Flags combination, or the number for a nameless value.
+            if (engine._enumsAsStrings && value is Enum enumValue)
+            {
+                result = JsString.Create(enumValue.ToString());
+                return true;
+            }
+
             if (value is IConvertible convertible && TryConvertConvertible(engine, convertible, out result))
             {
                 return true;
