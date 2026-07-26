@@ -244,29 +244,24 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             if (_properties is null || !_properties.ContainsKey(member))
             {
                 // can try utilize fast path
-                var accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, ClrType, member, mustBeReadable: false, mustBeWritable: true, throwOnError: false);
-                var actualType = Target.GetType();
-                if (ClrType != actualType)
-                {
-                    // When the declared type differs from the actual runtime type:
-                    // If only an indexer was found, check if the runtime type has a direct property/field/method
-                    // that should take precedence over the indexer
-                    if (accessor is IndexerAccessor)
-                    {
-                        var runtimeAccessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, actualType, member, mustBeReadable: false, mustBeWritable: true, throwOnError: false);
-                        if (runtimeAccessor is not IndexerAccessor && runtimeAccessor != ConstantValueAccessor.NullAccessor)
-                        {
-                            accessor = runtimeAccessor;
-                        }
-                    }
-                    else if (ReferenceEquals(accessor, ConstantValueAccessor.NullAccessor))
-                    {
-                        accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, actualType, member, mustBeReadable: false, mustBeWritable: true, throwOnError: false);
-                    }
-                }
+                var accessor = ResolveMemberAccessor(member, mustBeWritable: true);
 
                 if (ReferenceEquals(accessor, ConstantValueAccessor.NullAccessor))
                 {
+                    // The writable-filtered resolution answers with the same NullAccessor for "no such
+                    // member" and for "the member exists but nothing writable answers for it", so probe
+                    // again without the requirement before treating this as an unknown name. A member
+                    // that exists but cannot be written must behave like a non-writable ordinary
+                    // property - [[Set]] returns false, which PutValue turns into a silent no-op in
+                    // sloppy mode and a TypeError in strict mode - rather than being shadowed by a
+                    // JS-side own property that hides the CLR member from every later read.
+                    // https://tc39.es/ecma262/#sec-ordinarysetwithowndescriptor
+                    // https://tc39.es/ecma262/#sec-putvalue
+                    if (!ReferenceEquals(ResolveMemberAccessor(member, mustBeWritable: false), ConstantValueAccessor.NullAccessor))
+                    {
+                        return false;
+                    }
+
                     if (_engine.Options.Interop.ThrowOnUnresolvedMember)
                     {
                         throw new MissingMemberException($"Cannot access property '{member}' on type '{ClrType.FullName}");
@@ -328,6 +323,41 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         }
 
         return SetSlow(property, value);
+    }
+
+    /// <summary>
+    /// Resolves the accessor the write lane in <see cref="Set"/> consults, optionally requiring the
+    /// resolved member to be writable. Falls back to the runtime type when the exposed type differs,
+    /// mirroring <see cref="GetOwnProperty(JsValue, bool, bool, bool)"/>.
+    /// </summary>
+    private ReflectionAccessor ResolveMemberAccessor(string member, bool mustBeWritable)
+    {
+        var typeResolver = _engine.Options.Interop.TypeResolver;
+        var accessor = typeResolver.GetAccessor(_engine, ClrType, member, mustBeReadable: false, mustBeWritable: mustBeWritable, throwOnError: false);
+
+        var actualType = Target.GetType();
+        if (ClrType == actualType)
+        {
+            return accessor;
+        }
+
+        // When the declared type differs from the actual runtime type:
+        // If only an indexer was found, check if the runtime type has a direct property/field/method
+        // that should take precedence over the indexer
+        if (accessor is IndexerAccessor)
+        {
+            var runtimeAccessor = typeResolver.GetAccessor(_engine, actualType, member, mustBeReadable: false, mustBeWritable: mustBeWritable, throwOnError: false);
+            if (runtimeAccessor is not IndexerAccessor && runtimeAccessor != ConstantValueAccessor.NullAccessor)
+            {
+                accessor = runtimeAccessor;
+            }
+        }
+        else if (ReferenceEquals(accessor, ConstantValueAccessor.NullAccessor))
+        {
+            accessor = typeResolver.GetAccessor(_engine, actualType, member, mustBeReadable: false, mustBeWritable: mustBeWritable, throwOnError: false);
+        }
+
+        return accessor;
     }
 
     private bool SetSlow(JsValue property, JsValue value)

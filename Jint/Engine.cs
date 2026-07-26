@@ -220,8 +220,10 @@ public sealed partial class Engine : IDisposable
     internal Intrinsics _originalIntrinsics = null!;
     internal Host _host = null!;
 
-    // we need to cache reflection accessors on engine level as configuration options can affect outcome
-    internal readonly record struct ClrPropertyDescriptorFactoriesKey(Type Type, Key PropertyName);
+    // we need to cache reflection accessors on engine level as configuration options can affect outcome.
+    // The requirement is part of the key because member resolution is filtered by it (see TypeResolver):
+    // a member that failed a readable/writable requirement must not answer for lookups carrying another one.
+    internal readonly record struct ClrPropertyDescriptorFactoriesKey(Type Type, Key PropertyName, MemberResolutionRequirement Requirement);
     internal Dictionary<ClrPropertyDescriptorFactoriesKey, ReflectionAccessor> _reflectionAccessors = new();
 
     /// <summary>
