@@ -963,7 +963,7 @@ public sealed class JsonParser
         // integer indices first (https://tc39.es/ecma262/#sec-ordinaryownpropertykeys), which the
         // slot (= insertion) order cannot express. Same conservative digit-leading classifier as the
         // other shape guards.
-        var digitLeading = name.Length > 0 && char.IsDigit(name[0]);
+        var digitLeading = Shape.IsIntegerIndexLikeKey(name);
 
         if (first)
         {

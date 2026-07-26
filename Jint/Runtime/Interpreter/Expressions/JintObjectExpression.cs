@@ -186,7 +186,7 @@ internal sealed class JintObjectExpression : JintExpression
 
                 // A digit-leading key (an array index or an index-like string) would deopt the shape
                 // on first enumeration; keep such literals on the dictionary build instead.
-                if (name.Length > 0 && char.IsDigit(name[0]))
+                if (Shape.IsIntegerIndexLikeKey(name))
                 {
                     _fastKeysShapeable = false;
                 }
