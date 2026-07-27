@@ -34,7 +34,10 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net6.0'))">
-    <DefineConstants>$(DefineConstants);SUPPORTS_HALF</DefineConstants>
+    <!-- SUPPORTS_UTF8_TRANSCODE: System.Text.Unicode.Utf8 (OperationStatus-based, allocation-free
+         transcoding). It is a .NET Core 3.0+ type and is NOT part of netstandard2.1, so it cannot ride
+         along on SUPPORTS_SPAN_PARSE. -->
+    <DefineConstants>$(DefineConstants);SUPPORTS_HALF;SUPPORTS_UTF8_TRANSCODE</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>

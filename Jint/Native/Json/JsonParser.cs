@@ -44,6 +44,20 @@ public sealed class JsonParser
 {
     private const int ConstraintCheckInterval = Engine.ConstraintCheckInterval;
 
+    /// <summary>
+    /// Documents up to this many UTF-8 bytes transcode into a stack buffer of the same char count (the
+    /// char count can never exceed the byte count); longer ones rent from <see cref="ArrayPool{T}"/>.
+    /// </summary>
+    private const int Utf8TranscodeStackallocLimit = 256;
+
+#if !SUPPORTS_UTF8_TRANSCODE
+    /// <summary>
+    /// Throws on malformed input instead of substituting U+FFFD, matching the strictness of
+    /// <c>Utf8.ToUtf16(..., replaceInvalidSequences: false)</c> used on the newer runtimes.
+    /// </summary>
+    private static readonly UTF8Encoding StrictUtf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+#endif
+
     private readonly Engine _engine;
     private readonly int _maxDepth;
 
@@ -79,7 +93,6 @@ public sealed class JsonParser
     private int _index; // position in the stream
     private int _length; // length of the stream
     private Token _lookahead = null!;
-    private string _source = null!;
     private readonly Token[] _tokenBuffer;
     private int _tokenBufferIndex;
 
@@ -164,15 +177,15 @@ public sealed class JsonParser
                (ch == '\r');
     }
 
-    private char ScanHexEscape()
+    private char ScanHexEscape(ReadOnlySpan<char> source)
     {
         int code = char.MinValue;
 
         for (int i = 0; i < 4; ++i)
         {
-            if (_index < _length && IsHexDigit(_source[_index]))
+            if (_index < _length && IsHexDigit(source[_index]))
             {
-                char ch = char.ToLower(_source[_index++], CultureInfo.InvariantCulture);
+                char ch = char.ToLower(source[_index++], CultureInfo.InvariantCulture);
                 code = code * 16 + "0123456789abcdef".IndexOf(ch);
             }
             else
@@ -183,16 +196,16 @@ public sealed class JsonParser
         return (char) code;
     }
 
-    private char ReadToNextSignificantCharacter()
+    private char ReadToNextSignificantCharacter(ReadOnlySpan<char> source)
     {
-        char result = _index < _length ? _source[_index] : char.MinValue;
+        char result = _index < _length ? source[_index] : char.MinValue;
         while (IsWhiteSpace(result))
         {
             if ((++_index) >= _length)
             {
                 return char.MinValue;
             }
-            result = _source[_index];
+            result = source[_index];
         }
         return result;
     }
@@ -212,10 +225,10 @@ public sealed class JsonParser
         return result;
     }
 
-    private Token ScanPunctuator()
+    private Token ScanPunctuator(ReadOnlySpan<char> source)
     {
         int start = _index;
-        char code = start < _source.Length ? _source[_index] : char.MinValue;
+        char code = start < source.Length ? source[_index] : char.MinValue;
 
         string value = ScanPunctuatorValue(start, code);
         ++_index;
@@ -239,25 +252,25 @@ public sealed class JsonParser
         }
     }
 
-    private Token ScanNumericLiteral()
+    private Token ScanNumericLiteral(ReadOnlySpan<char> source)
     {
         using var sb = new ValueStringBuilder(stackalloc char[64]);
         var start = _index;
-        var ch = _source.CharCodeAt(_index);
+        var ch = source.CharCodeAt(_index);
         var canBeInteger = true;
 
         // Number start with a -
         if (ch == '-')
         {
             sb.Append(ch);
-            ch = _source.CharCodeAt(++_index);
+            ch = source.CharCodeAt(++_index);
         }
 
         if (ch != '.')
         {
             var firstCharacter = ch;
             sb.Append(ch);
-            ch = _source.CharCodeAt(++_index);
+            ch = source.CharCodeAt(++_index);
 
             // Hex number starts with '0x'.
             // Octal number starts with '0'.
@@ -273,7 +286,7 @@ public sealed class JsonParser
                 }
             }
 
-            while (IsDecimalDigit((ch = _source.CharCodeAt(_index))))
+            while (IsDecimalDigit((ch = source.CharCodeAt(_index))))
             {
                 sb.Append(ch);
                 _index++;
@@ -287,12 +300,12 @@ public sealed class JsonParser
             _index++;
 
             // the JSON grammar requires at least one digit after the decimal point ('1.' is illegal)
-            if (!IsDecimalDigit(_source.CharCodeAt(_index)))
+            if (!IsDecimalDigit(source.CharCodeAt(_index)))
             {
-                ThrowError(_index, Messages.UnexpectedToken, _source.CharCodeAt(_index));
+                ThrowError(_index, Messages.UnexpectedToken, source.CharCodeAt(_index));
             }
 
-            while (IsDecimalDigit((ch = _source.CharCodeAt(_index))))
+            while (IsDecimalDigit((ch = source.CharCodeAt(_index))))
             {
                 sb.Append(ch);
                 _index++;
@@ -303,15 +316,15 @@ public sealed class JsonParser
         {
             canBeInteger = false;
             sb.Append(ch);
-            ch = _source.CharCodeAt(++_index);
+            ch = source.CharCodeAt(++_index);
             if (ch is '+' or '-')
             {
                 sb.Append(ch);
-                ch = _source.CharCodeAt(++_index);
+                ch = source.CharCodeAt(++_index);
             }
             if (IsDecimalDigit(ch))
             {
-                while (IsDecimalDigit(ch = _source.CharCodeAt(_index)))
+                while (IsDecimalDigit(ch = source.CharCodeAt(_index)))
                 {
                     sb.Append(ch);
                     _index++;
@@ -319,7 +332,7 @@ public sealed class JsonParser
             }
             else
             {
-                ThrowError(_index, Messages.UnexpectedToken, _source.CharCodeAt(_index));
+                ThrowError(_index, Messages.UnexpectedToken, source.CharCodeAt(_index));
             }
         }
 
@@ -466,15 +479,15 @@ public sealed class JsonParser
     }
 #endif
 
-    private Token ScanBooleanLiteral()
+    private Token ScanBooleanLiteral(ReadOnlySpan<char> source)
     {
         var start = _index;
-        if (ConsumeMatch("true"))
+        if (ConsumeMatch(source, "true"))
         {
             return CreateToken(Tokens.BooleanLiteral, "true", '\t', JsBoolean.True, new TextRange(start, _index));
         }
 
-        if (ConsumeMatch("false"))
+        if (ConsumeMatch(source, "false"))
         {
             return CreateToken(Tokens.BooleanLiteral, "false", '\f', JsBoolean.False, new TextRange(start, _index));
         }
@@ -483,11 +496,11 @@ public sealed class JsonParser
         return null!;
     }
 
-    private bool ConsumeMatch(string text)
+    private bool ConsumeMatch(ReadOnlySpan<char> source, string text)
     {
         var start = _index;
         var length = text.Length;
-        if (start + length - 1 < _source.Length && _source.AsSpan(start, length).SequenceEqual(text.AsSpan()))
+        if (start + length - 1 < source.Length && source.Slice(start, length).SequenceEqual(text.AsSpan()))
         {
             _index += length;
             return true;
@@ -496,10 +509,10 @@ public sealed class JsonParser
         return false;
     }
 
-    private Token ScanNullLiteral()
+    private Token ScanNullLiteral(ReadOnlySpan<char> source)
     {
         int start = _index;
-        if (ConsumeMatch("null"))
+        if (ConsumeMatch(source, "null"))
         {
             return CreateToken(Tokens.NullLiteral, "null", 'n', JsValue.Null, new TextRange(start, _index));
         }
@@ -549,11 +562,11 @@ public sealed class JsonParser
 
     private Token ScanStringLiteral(ref State state, bool isPropertyKey)
     {
-        char quote = _source[_index];
+        var source = state.Source;
+        char quote = source[_index];
         int start = _index;
         ++_index;
 
-        var source = _source;
         var length = _length;
 
         using var sb = new ValueStringBuilder(stackalloc char[64]);
@@ -564,7 +577,7 @@ public sealed class JsonParser
             // control character (< 0x20) in one shot. The search lands on exactly the character a
             // per-char loop would have stopped at, so escapes and every error position are preserved
             // byte-for-byte.
-            var remaining = source.AsSpan(_index, length - _index);
+            var remaining = source.Slice(_index, length - _index);
 #if NET8_0_OR_GREATER
             var stop = remaining.IndexOfAny(JsonStringStopChars);
 #else
@@ -630,7 +643,7 @@ public sealed class JsonParser
                         sb.Append('\t');
                         break;
                     case 'u':
-                        sb.Append(ScanHexEscape());
+                        sb.Append(ScanHexEscape(source));
                         break;
                     case 'b':
                         sb.Append('\b');
@@ -731,7 +744,8 @@ public sealed class JsonParser
         var isPropertyKey = _expectKey;
         _expectKey = false;
 
-        char ch = ReadToNextSignificantCharacter();
+        var source = state.Source;
+        char ch = ReadToNextSignificantCharacter(source);
 
         if (ch == char.MinValue)
         {
@@ -747,29 +761,29 @@ public sealed class JsonParser
 
         if (ch == '-') // Negative Number
         {
-            if (IsDecimalDigit(_source.CharCodeAt(_index + 1)))
+            if (IsDecimalDigit(source.CharCodeAt(_index + 1)))
             {
-                return ScanNumericLiteral();
+                return ScanNumericLiteral(source);
             }
-            return ScanPunctuator();
+            return ScanPunctuator(source);
         }
 
         if (IsDecimalDigit(ch))
         {
-            return ScanNumericLiteral();
+            return ScanNumericLiteral(source);
         }
 
         if (ch == 't' || ch == 'f')
         {
-            return ScanBooleanLiteral();
+            return ScanBooleanLiteral(source);
         }
 
         if (ch == 'n')
         {
-            return ScanNullLiteral();
+            return ScanNullLiteral(source);
         }
 
-        return ScanPunctuator();
+        return ScanPunctuator(source);
     }
 
     private Token Lex(ref State state)
@@ -812,12 +826,12 @@ public sealed class JsonParser
     /// (to avoid the per-number string allocation), so their raw source text is reconstructed from the
     /// token range here — byte-identical to the scanned text since numbers contain no escapes.
     /// </summary>
-    private string TokenText(Token token)
-        => token.Text ?? _source.Substring(token.Range.Start, token.Range.End - token.Range.Start);
+    private static string TokenText(ReadOnlySpan<char> source, Token token)
+        => token.Text ?? source.Slice(token.Range.Start, token.Range.End - token.Range.Start).ToString();
 
     // Throw an exception because of the token.
 
-    private void ThrowUnexpected(Token token)
+    private void ThrowUnexpected(ReadOnlySpan<char> source, Token token)
     {
         if (token.Type == Tokens.EOF)
         {
@@ -835,7 +849,7 @@ public sealed class JsonParser
         }
 
         // BooleanLiteral, NullLiteral, or Punctuator.
-        ThrowError(token, Messages.UnexpectedToken, TokenText(token));
+        ThrowError(token, Messages.UnexpectedToken, TokenText(source, token));
     }
 
     // Expect the next token to match the specified punctuator.
@@ -845,7 +859,7 @@ public sealed class JsonParser
         Token token = Lex(ref state);
         if (token.Type != Tokens.Punctuator || value != token.FirstCharacter)
         {
-            ThrowUnexpected(token);
+            ThrowUnexpected(state.Source, token);
         }
     }
 
@@ -923,7 +937,7 @@ public sealed class JsonParser
             Tokens type = _lookahead.Type;
             if (type != Tokens.String)
             {
-                ThrowUnexpected(Lex(ref state));
+                ThrowUnexpected(state.Source, Lex(ref state));
             }
 
             var nameToken = Lex(ref state);
@@ -1043,33 +1057,45 @@ public sealed class JsonParser
                 {
                     return ParseJsonObject(ref state);
                 }
-                ThrowUnexpected(Lex(ref state));
+                ThrowUnexpected(state.Source, Lex(ref state));
                 break;
         }
 
-        ThrowUnexpected(Lex(ref state));
+        ThrowUnexpected(state.Source, Lex(ref state));
         // can't be reached
         return JsValue.Null;
     }
 
+    /// <summary>
+    /// Parses a JSON document, throwing a <see cref="JavaScriptException"/> carrying a
+    /// <c>SyntaxError</c> if it is malformed.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="code"/> is <see langword="null"/>.</exception>
     public JsValue Parse(string code)
     {
-        _source = code;
-        _index = 0;
-        _length = _source.Length;
-        _lookahead = null!;
-        _shapeBudget = ShapeTransitionBudget;
-        if (_internedKeys is not null)
+        if (code is null)
         {
-            System.Array.Clear(_internedKeys, 0, _internedKeys.Length);
+            Throw.ArgumentNullException(nameof(code));
         }
-        if (_internedValues is not null)
-        {
-            System.Array.Clear(_internedValues, 0, _internedValues.Length);
-        }
-        _expectKey = false;
 
-        State state = new State();
+        return Parse(code.AsSpan());
+    }
+
+    /// <summary>
+    /// Parses a JSON document held as UTF-16 characters, for callers that already have the document in a
+    /// buffer and would otherwise materialize a <see cref="string"/> only to hand it to
+    /// <see cref="Parse(string)"/>. The document itself is never copied: the scanner reads straight out of
+    /// <paramref name="code"/>, so only the values the document actually produces are allocated.
+    /// </summary>
+    /// <remarks>
+    /// Byte-for-byte equivalent to <see cref="Parse(string)"/> over the same characters, error positions
+    /// included. In particular a leading U+FEFF is <em>not</em> skipped — it is not JSON whitespace, so it
+    /// is a syntax error exactly as it is for the string overload. Only the UTF-8 overload strips a byte
+    /// order mark.
+    /// </remarks>
+    public JsValue Parse(ReadOnlySpan<char> code)
+    {
+        State state = Reset(code);
 
         Peek(ref state);
         JsValue jsv = ParseJsonValue(ref state);
@@ -1078,20 +1104,118 @@ public sealed class JsonParser
 
         if (_lookahead.Type != Tokens.EOF)
         {
-            ThrowError(_lookahead, Messages.UnexpectedToken, TokenText(_lookahead));
+            ThrowError(_lookahead, Messages.UnexpectedToken, TokenText(state.Source, _lookahead));
         }
         return jsv;
     }
 
     /// <summary>
-    /// Parses JSON and returns both the value and source tracking information.
-    /// Used for the JSON.parse source text access proposal.
+    /// Parses a JSON document held as UTF-8 bytes, for callers such as network and storage layers that
+    /// hold the document as bytes and would otherwise transcode it to a <see cref="string"/> only to hand
+    /// it to <see cref="Parse(string)"/>.
     /// </summary>
-    internal JsonParseResult ParseWithSourceInfo(string code)
+    /// <remarks>
+    /// <para>
+    /// The engine's scanner is UTF-16, so the bytes are transcoded before parsing; what is avoided is the
+    /// intermediate <see cref="string"/>, not the transcode. Short documents are converted on the stack
+    /// and longer ones into a buffer rented from <see cref="ArrayPool{T}"/> and returned on every path,
+    /// so no per-parse allocation is made for the document text itself. This is not a byte-level parser.
+    /// </para>
+    /// <para>
+    /// A leading UTF-8 byte order mark (<c>EF BB BF</c>) is skipped, matching what callers of
+    /// <c>JsonDocument.Parse</c> over UTF-8 expect. Only one leading mark is skipped; a U+FEFF anywhere
+    /// else is a syntax error, as it is for the other overloads.
+    /// </para>
+    /// <para>
+    /// <paramref name="utf8Json"/> must be well-formed UTF-8. An invalid sequence is reported the same way
+    /// malformed JSON is — a <see cref="JavaScriptException"/> carrying a <c>SyntaxError</c>, catchable by
+    /// script — rather than as an <see cref="ArgumentException"/> from the decoder. The position in the
+    /// message is the byte offset of the offending sequence, counted after any byte order mark.
+    /// </para>
+    /// </remarks>
+    public JsValue Parse(ReadOnlySpan<byte> utf8Json)
     {
-        _source = code;
+        // Matches JsonDocument.Parse: a byte order mark is a legitimate part of a UTF-8 stream but not of
+        // the JSON grammar, so exactly one leading mark is consumed here.
+        if (utf8Json.Length >= 3 && utf8Json[0] == 0xEF && utf8Json[1] == 0xBB && utf8Json[2] == 0xBF)
+        {
+            utf8Json = utf8Json.Slice(3);
+        }
+
+        // A UTF-8 sequence never decodes to more UTF-16 code units than it has bytes (a 4-byte sequence
+        // becomes a 2-char surrogate pair), so the byte count is always a sufficient char capacity.
+        char[]? rented = null;
+        Span<char> buffer = utf8Json.Length <= Utf8TranscodeStackallocLimit
+            ? stackalloc char[Utf8TranscodeStackallocLimit]
+            : (rented = ArrayPool<char>.Shared.Rent(utf8Json.Length));
+
+        try
+        {
+            var length = TranscodeUtf8(utf8Json, buffer);
+            return Parse(buffer.Slice(0, length));
+        }
+        finally
+        {
+            if (rented is not null)
+            {
+                ArrayPool<char>.Shared.Return(rented);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Decodes <paramref name="utf8Json"/> into <paramref name="destination"/>, which the caller has sized
+    /// to at least the byte count. Decoding is strict: an invalid sequence raises the parser's own
+    /// <c>SyntaxError</c> at its byte offset rather than being replaced with U+FFFD, so a corrupt document
+    /// is reported as such instead of being parsed as if it contained replacement characters.
+    /// </summary>
+    private unsafe int TranscodeUtf8(ReadOnlySpan<byte> utf8Json, Span<char> destination)
+    {
+        if (utf8Json.IsEmpty)
+        {
+            return 0;
+        }
+
+#if SUPPORTS_UTF8_TRANSCODE
+        // The destination cannot be too small (see the caller) and the whole document is present, so Done
+        // is the only non-error outcome; everything else means the bytes are not well-formed UTF-8.
+        var status = System.Text.Unicode.Utf8.ToUtf16(utf8Json, destination, out var bytesRead, out var charsWritten, replaceInvalidSequences: false);
+        if (status != OperationStatus.Done)
+        {
+            ThrowError(bytesRead, Messages.InvalidUtf8);
+        }
+
+        return charsWritten;
+#else
+        // No span-based decoding on the legacy runtimes: a UTF8Encoding configured to throw gives the same
+        // strictness through the pointer overloads, and reports the offending offset on the exception.
+        try
+        {
+            fixed (byte* bytes = utf8Json)
+            fixed (char* chars = destination)
+            {
+                return StrictUtf8.GetChars(bytes, utf8Json.Length, chars, destination.Length);
+            }
+        }
+        catch (DecoderFallbackException ex)
+        {
+            ThrowError(ex.Index, Messages.InvalidUtf8);
+            return 0;
+        }
+#endif
+    }
+
+    /// <summary>
+    /// Resets the per-parse scanner state and returns the <see cref="State"/> carrying the document being
+    /// parsed. The document lives in the state rather than in a field because a
+    /// <see cref="ReadOnlySpan{T}"/> cannot be a field of a class, and <see cref="State"/> is a
+    /// <c>ref struct</c> already threaded through the whole descent — which is what lets the scanner read
+    /// the caller's buffer directly, whatever kind of buffer it is.
+    /// </summary>
+    private State Reset(ReadOnlySpan<char> code)
+    {
         _index = 0;
-        _length = _source.Length;
+        _length = code.Length;
         _lookahead = null!;
         _shapeBudget = ShapeTransitionBudget;
         if (_internedKeys is not null)
@@ -1104,7 +1228,16 @@ public sealed class JsonParser
         }
         _expectKey = false;
 
-        State state = new State();
+        return new State(code);
+    }
+
+    /// <summary>
+    /// Parses JSON and returns both the value and source tracking information.
+    /// Used for the JSON.parse source text access proposal.
+    /// </summary>
+    internal JsonParseResult ParseWithSourceInfo(string code)
+    {
+        State state = Reset(code.AsSpan());
 
         Peek(ref state);
         var result = ParseJsonValueWithSourceInfo(ref state);
@@ -1113,7 +1246,7 @@ public sealed class JsonParser
 
         if (_lookahead.Type != Tokens.EOF)
         {
-            ThrowError(_lookahead, Messages.UnexpectedToken, TokenText(_lookahead));
+            ThrowError(_lookahead, Messages.UnexpectedToken, TokenText(state.Source, _lookahead));
         }
         return result;
     }
@@ -1145,11 +1278,11 @@ public sealed class JsonParser
                 {
                     return ParseJsonObjectWithSourceInfo(ref state);
                 }
-                ThrowUnexpected(Lex(ref state));
+                ThrowUnexpected(state.Source, Lex(ref state));
                 break;
         }
 
-        ThrowUnexpected(Lex(ref state));
+        ThrowUnexpected(state.Source, Lex(ref state));
         return new JsonParseResult(JsValue.Null, null);
     }
 
@@ -1239,7 +1372,7 @@ public sealed class JsonParser
             Tokens type = _lookahead.Type;
             if (type != Tokens.String)
             {
-                ThrowUnexpected(Lex(ref state));
+                ThrowUnexpected(state.Source, Lex(ref state));
             }
 
             var nameToken = Lex(ref state);
@@ -1280,6 +1413,18 @@ public sealed class JsonParser
     [StructLayout(LayoutKind.Auto)]
     private ref struct State
     {
+        public State(ReadOnlySpan<char> source)
+        {
+            Source = source;
+        }
+
+        /// <summary>
+        /// The document being parsed. It is carried here rather than in a field of the parser because a
+        /// <see cref="ReadOnlySpan{T}"/> cannot be a field of a class, and this struct is already threaded
+        /// by <c>ref</c> through the whole descent.
+        /// </summary>
+        public readonly ReadOnlySpan<char> Source;
+
         /// <summary>
         /// The current recursion depth
         /// </summary>
@@ -1347,6 +1492,7 @@ public sealed class JsonParser
         public const string UnexpectedString = "Unexpected string in JSON";
         public const string UnexpectedEOS = "Unexpected end of JSON input";
         public const string MaxDepthLevelReached = "Max. depth level of JSON reached";
+        public const string InvalidUtf8 = "Invalid UTF-8 sequence in JSON";
     };
 }
 
@@ -1355,6 +1501,18 @@ internal static class StringExtensions
     internal static char CharCodeAt(this string source, int index)
     {
         if (index > source.Length - 1)
+        {
+            // char.MinValue is used as the null value
+            return char.MinValue;
+        }
+
+        return source[index];
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static char CharCodeAt(this ReadOnlySpan<char> source, int index)
+    {
+        if ((uint) index >= (uint) source.Length)
         {
             // char.MinValue is used as the null value
             return char.MinValue;
