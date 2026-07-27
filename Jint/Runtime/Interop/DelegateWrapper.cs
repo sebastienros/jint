@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Jint.Extensions;
 using Jint.Native;
@@ -31,6 +33,12 @@ internal sealed class DelegateWrapper : Function
     // Strongly-typed invocation lane; null when the runtime cannot compile one, in which case the
     // reflection-based DynamicInvoke path is kept.
     private readonly CompiledDelegateInvoker.Invoker? _invoker;
+
+    // The same lane for a delegate of exactly one or two parameters, taking its arguments in registers
+    // so the arity-specialized call lane needs no argument array at all. At most one is ever non-null,
+    // and only when _invoker is too.
+    private readonly CompiledDelegateInvoker.Invoker1? _invoker1;
+    private readonly CompiledDelegateInvoker.Invoker2? _invoker2;
 #endif
 
     public DelegateWrapper(
@@ -43,7 +51,12 @@ internal sealed class DelegateWrapper : Function
 
 #if NET8_0_OR_GREATER
         var compiled = CompiledDelegateInvoker.For(d.GetType());
-        _invoker = ThunkBindsTheTargetSignature(in compiled, d.Method) ? compiled.Invoke : null;
+        if (ThunkBindsTheTargetSignature(in compiled, d.Method))
+        {
+            _invoker = compiled.Invoke;
+            _invoker1 = compiled.Invoke1;
+            _invoker2 = compiled.Invoke2;
+        }
 #endif
     }
 
@@ -129,6 +142,14 @@ internal sealed class DelegateWrapper : Function
         return new FastCallShape(Supported: true, Leaf: false, FastCallGuard.Any, FastCallGuard.Any, FastCallGuard.Any);
     }
 
+    /// <remarks>
+    /// The arity is fixed per delegate type, so on this lane the argument array exists only to satisfy the
+    /// thunk's own signature. Where a register-passing thunk was built for that arity, the converted values
+    /// go straight into it and no array is allocated. Everything else — the conversions, the exact-type
+    /// check that decides between the compiled and the reflection lane, and the exceptions either produces —
+    /// is unchanged; only the shapes that stay on <see cref="Delegate.DynamicInvoke"/>, which takes the
+    /// array, still build one.
+    /// </remarks>
     internal override JsValue CallFast(JsValue thisObject, JsValue arg0, JsValue arg1)
     {
         var parameterMetadata = _metadata.Parameters;
@@ -141,13 +162,35 @@ internal sealed class DelegateWrapper : Function
         var converter = Engine.TypeConverter;
         var valueCoercionType = Engine.Options.Interop.ValueCoercion;
 
-        var parameters = new object?[count];
-        for (var i = 0; i < count; i++)
+        // GetFastCallShape only offers this lane for one or two parameters, so element 0 always exists:
+        // take a bounds-check-free reference to it (MA0212) and reach element 1 through Unsafe.Add.
+        ref var parameter0 = ref MemoryMarshal.GetReference(parameterMetadata.AsSpan());
+
+        var converted0 = Convert(in parameter0, arg0, converter, valueCoercionType);
+        if (count == 1)
         {
-            parameters[i] = Convert(in parameterMetadata[i], i == 0 ? arg0 : arg1, converter, valueCoercionType);
+#if NET8_0_OR_GREATER
+            var invoker1 = _invoker1;
+            if (invoker1 is not null && DelegateMetadata.CanBind(in parameter0, converted0))
+            {
+                return InvokeInRegisters(invoker1, converted0);
+            }
+#endif
+            return Invoke([converted0]);
         }
 
-        return Invoke(parameters);
+        ref var parameter1 = ref Unsafe.Add(ref parameter0, 1);
+        var converted1 = Convert(in parameter1, arg1, converter, valueCoercionType);
+#if NET8_0_OR_GREATER
+        var invoker2 = _invoker2;
+        if (invoker2 is not null
+            && DelegateMetadata.CanBind(in parameter0, converted0)
+            && DelegateMetadata.CanBind(in parameter1, converted1))
+        {
+            return InvokeInRegisters(invoker2, converted0, converted1);
+        }
+#endif
+        return Invoke([converted0, converted1]);
     }
 
     private object?[] BindArguments(JsCallArguments arguments)
@@ -265,13 +308,60 @@ internal sealed class DelegateWrapper : Function
         catch (TargetInvocationException exception)
 #endif
         {
-            // a throwing host call never reaches the post-invoke check below; re-check here so a
-            // loop of throwing host calls cannot stretch the detection window either
-            Engine.CheckAmortizedConstraintsAtHostBoundary();
-            Throw.MeaningfulException(Engine, exception as TargetInvocationException ?? new TargetInvocationException(exception));
+            ThrowHostCallFailure(exception);
             throw;
         }
 
+        return CompleteHostCall(result);
+    }
+
+#if NET8_0_OR_GREATER
+    private JsValue InvokeInRegisters(CompiledDelegateInvoker.Invoker1 invoker, object? argument0)
+    {
+        object? result;
+        try
+        {
+            result = invoker(_d, argument0);
+        }
+        catch (Exception exception)
+        {
+            ThrowHostCallFailure(exception);
+            throw;
+        }
+
+        return CompleteHostCall(result);
+    }
+
+    private JsValue InvokeInRegisters(CompiledDelegateInvoker.Invoker2 invoker, object? argument0, object? argument1)
+    {
+        object? result;
+        try
+        {
+            result = invoker(_d, argument0, argument1);
+        }
+        catch (Exception exception)
+        {
+            ThrowHostCallFailure(exception);
+            throw;
+        }
+
+        return CompleteHostCall(result);
+    }
+#endif
+
+    /// <summary>
+    /// A throwing host call never reaches the post-invoke boundary check, so it is re-checked here: a loop
+    /// of throwing host calls must not stretch the constraint-detection window either.
+    /// </summary>
+    [DoesNotReturn]
+    private void ThrowHostCallFailure(Exception exception)
+    {
+        Engine.CheckAmortizedConstraintsAtHostBoundary();
+        Throw.MeaningfulException(Engine, exception as TargetInvocationException ?? new TargetInvocationException(exception));
+    }
+
+    private JsValue CompleteHostCall(object? result)
+    {
         // an awaitable result must reach promise conversion before a constraint can throw,
         // so that the in-flight Task gets a continuation attached and is never left unobserved
         var returnValue = IsAwaitable(result)
@@ -413,32 +503,34 @@ internal sealed class DelegateMetadata
         var parameterMetadata = Parameters;
         for (var i = 0; i < parameterMetadata.Length; i++)
         {
-            var parameter = parameterMetadata[i];
-            var value = parameters[i];
-
-            if (value is null)
-            {
-                // a castclass accepts null and so does a Nullable<T> conversion; a plain unbox does not
-                if (parameter.IsValueType && ReferenceEquals(parameter.BoxedType, parameter.ParameterType))
-                {
-                    return false;
-                }
-
-                continue;
-            }
-
-            if (ReferenceEquals(value.GetType(), parameter.BoxedType))
-            {
-                continue;
-            }
-
-            if (parameter.IsValueType || !parameter.ParameterType.IsInstanceOfType(value))
+            if (!CanBind(in parameterMetadata[i], parameters[i]))
             {
                 return false;
             }
         }
 
         return true;
+    }
+
+    /// <inheritdoc cref="CanBind(object?[])"/>
+    /// <remarks>
+    /// The single-parameter form, so a caller holding its converted arguments in locals can ask the same
+    /// question without materializing an array to ask it through.
+    /// </remarks>
+    internal static bool CanBind(in ParameterMetadata parameter, object? value)
+    {
+        if (value is null)
+        {
+            // a castclass accepts null and so does a Nullable<T> conversion; a plain unbox does not
+            return !parameter.IsValueType || !ReferenceEquals(parameter.BoxedType, parameter.ParameterType);
+        }
+
+        if (ReferenceEquals(value.GetType(), parameter.BoxedType))
+        {
+            return true;
+        }
+
+        return !parameter.IsValueType && parameter.ParameterType.IsInstanceOfType(value);
     }
 #endif
 }

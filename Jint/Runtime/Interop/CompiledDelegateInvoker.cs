@@ -1,6 +1,5 @@
 #if NET8_0_OR_GREATER
 using System.Collections.Concurrent;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -42,13 +41,32 @@ internal static class CompiledDelegateInvoker
     internal delegate object? Invoker(Delegate target, object?[] arguments);
 
     /// <summary>
+    /// The one- and two-parameter twins of <see cref="Invoker"/>: same thunk, same casts, but the
+    /// arguments arrive in registers instead of an array the caller has to allocate and fill first.
+    /// A delegate type's arity is fixed at build time, so exactly one of them is ever built (and only
+    /// for arity 1 or 2 — the arities the arity-specialized call lane offers).
+    /// </summary>
+    internal delegate object? Invoker1(Delegate target, object? argument0);
+
+    /// <inheritdoc cref="Invoker1"/>
+    internal delegate object? Invoker2(Delegate target, object? argument0, object? argument1);
+
+    /// <summary>
     /// A built thunk together with the signature it binds — the delegate type's own <c>Invoke</c> signature,
     /// which the caller has to check against the target method before using the thunk.
-    /// <see cref="Invoke"/> is <see langword="null"/> for a declined delegate type, in which case the other
-    /// two members are <see langword="null"/> as well.
+    /// <see cref="Invoke"/> is <see langword="null"/> for a declined delegate type, in which case every other
+    /// member is <see langword="null"/> as well. <see cref="Invoke1"/>/<see cref="Invoke2"/> are the
+    /// register-passing twins, non-null only for a delegate type of exactly that arity; a caller that has one
+    /// may skip building the argument array entirely, and a caller that does not falls back to
+    /// <see cref="Invoke"/>.
     /// </summary>
     [StructLayout(LayoutKind.Auto)]
-    internal readonly record struct CompiledInvoker(Invoker? Invoke, Type[]? ParameterTypes, Type? ReturnType);
+    internal readonly record struct CompiledInvoker(
+        Invoker? Invoke,
+        Invoker1? Invoke1,
+        Invoker2? Invoke2,
+        Type[]? ParameterTypes,
+        Type? ReturnType);
 
     // Process-wide L2 cache; a null thunk is the "known ineligible" sentinel so a declined delegate
     // type is never re-probed. Keyed on a Type, which pins nothing the delegate instance did not
@@ -72,24 +90,18 @@ internal static class CompiledDelegateInvoker
             // Build ONLY when the runtime will JIT the thunk. Under AOT and under an interpreted-only
             // Expression.Compile (e.g. the Mono interpreter) an interpreted lambda is no faster than
             // DynamicInvoke, so decline and keep the reflection path.
-            if (!RuntimeFeature.IsDynamicCodeCompiled || !TryBuild(t, out var built, out var parameterTypes, out var returnType))
+            if (!RuntimeFeature.IsDynamicCodeCompiled || !TryBuild(t, out var built))
             {
                 return default;
             }
 
-            return new CompiledInvoker(built, parameterTypes, returnType);
+            return built;
         });
     }
 
-    private static bool TryBuild(
-        Type delegateType,
-        [NotNullWhen(true)] out Invoker? invoker,
-        [NotNullWhen(true)] out Type[]? parameterTypes,
-        [NotNullWhen(true)] out Type? returnType)
+    private static bool TryBuild(Type delegateType, out CompiledInvoker result)
     {
-        invoker = null;
-        parameterTypes = null;
-        returnType = null;
+        result = default;
 
         if (!delegateType.IsVisible || delegateType.GetMethod("Invoke") is not { } invokeMethod)
         {
@@ -124,32 +136,73 @@ internal static class CompiledDelegateInvoker
         for (var i = 0; i < parameters.Length; i++)
         {
             var element = Expression.ArrayIndex(argumentsParameter, Expression.Constant(i));
-            arguments[i] = Expression.Convert(element, parameters[i].ParameterType);
+            arguments[i] = Expression.Convert(element, invokeParameterTypes[i]);
         }
 
-        Expression body = Expression.Invoke(Expression.Convert(delegateParameter, delegateType), arguments);
+        var invoker = Compile<Invoker>(delegateType, invokeReturnType, arguments, delegateParameter, argumentsParameter);
+        if (invoker is null)
+        {
+            return false;
+        }
+
+        // The register-passing twin for the arities the arity-specialized call lane serves. It is a
+        // pure convenience for the caller — same delegate type, same casts, same exceptions — so
+        // failing to build one is not a reason to decline the array-shaped thunk.
+        Invoker1? invoker1 = null;
+        Invoker2? invoker2 = null;
+        if (parameters.Length == 1)
+        {
+            var argument0 = Expression.Parameter(typeof(object), "a0");
+            invoker1 = Compile<Invoker1>(
+                delegateType,
+                invokeReturnType,
+                [Expression.Convert(argument0, invokeParameterTypes[0])],
+                delegateParameter,
+                argument0);
+        }
+        else if (parameters.Length == 2)
+        {
+            var argument0 = Expression.Parameter(typeof(object), "a0");
+            var argument1 = Expression.Parameter(typeof(object), "a1");
+            invoker2 = Compile<Invoker2>(
+                delegateType,
+                invokeReturnType,
+                [Expression.Convert(argument0, invokeParameterTypes[0]), Expression.Convert(argument1, invokeParameterTypes[1])],
+                delegateParameter,
+                argument0,
+                argument1);
+        }
+
+        result = new CompiledInvoker(invoker, invoker1, invoker2, invokeParameterTypes, invokeReturnType);
+        return true;
+    }
+
+    /// <summary>
+    /// Compiles one thunk shape: <c>(Delegate d, ...) =&gt; (object) ((TDelegate) d).Invoke(&lt;arguments&gt;)</c>,
+    /// with a <see langword="null"/> stand-in for a <c>void</c> return. The first lambda parameter is always
+    /// the <see cref="Delegate"/> to cast; the rest supply the arguments and differ per shape.
+    /// </summary>
+    private static TInvoker? Compile<TInvoker>(
+        Type delegateType,
+        Type invokeReturnType,
+        Expression[] arguments,
+        params ParameterExpression[] lambdaParameters)
+        where TInvoker : Delegate
+    {
+        Expression body = Expression.Invoke(Expression.Convert(lambdaParameters[0], delegateType), arguments);
         body = invokeReturnType == typeof(void)
             ? Expression.Block(body, Expression.Constant(null, typeof(object)))
             : Expression.Convert(body, typeof(object));
 
         try
         {
-            invoker = Expression.Lambda<Invoker>(body, delegateParameter, argumentsParameter).Compile();
+            return Expression.Lambda<TInvoker>(body, lambdaParameters).Compile();
         }
         catch (Exception)
         {
             // any shape the expression compiler refuses keeps the reflection path
-            return false;
+            return null;
         }
-
-        if (invoker is null)
-        {
-            return false;
-        }
-
-        parameterTypes = invokeParameterTypes;
-        returnType = invokeReturnType;
-        return true;
     }
 
     private static bool IsBindable(Type type) => !type.IsByRef && !type.IsPointer && type.IsVisible;
