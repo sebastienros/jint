@@ -347,6 +347,11 @@ internal sealed class JintCallExpression : JintExpression
     /// </remarks>
     private JsValue FastCall(Engine engine, Function target, JsValue thisObject, JsValue arg0, JsValue arg1)
     {
+        if (_fastShape.Variadic)
+        {
+            return FastCallVariadic(engine, target, thisObject, arg0, arg1);
+        }
+
         if (_fastShape.IsLeafFor(thisObject, arg0, arg1))
         {
 #if DEBUG
@@ -379,6 +384,113 @@ internal sealed class JintCallExpression : JintExpression
         try
         {
             return target.CallFast(thisObject, arg0, arg1);
+        }
+        finally
+        {
+            if (callStack.Count > 0)
+            {
+                callStack.Pop();
+            }
+        }
+    }
+
+#if NET8_0_OR_GREATER
+    /// <summary>
+    /// Stack storage for the argument span a variadic built-in receives. It exists only because a
+    /// <see cref="ReadOnlySpan{T}"/> needs contiguous memory and <see cref="JsValue"/> is a managed
+    /// type, so <c>stackalloc</c> cannot supply it; the length matches the fast-call lane's two
+    /// argument registers, which is the widest site the lane serves.
+    /// </summary>
+    [InlineArray(2)]
+    private struct TwoArguments
+    {
+        private JsValue _element0;
+    }
+#endif
+
+    /// <summary>
+    /// The <see cref="FastCallShape.Variadic"/> lane: same dispatch as <see cref="FastCall"/>, but the
+    /// built-in takes a <c>[Rest]</c> tail and so is handed a span sized to the site's real arity.
+    /// The site's arity is a build-time constant and spreads are excluded, which is what makes the
+    /// span's length knowable without walking an argument array.
+    /// </summary>
+    /// <remarks>
+    /// On runtimes with inline arrays the buffer is stack memory and the lane allocates nothing;
+    /// elsewhere it falls back to the same pooled array the framed path would have rented, which
+    /// costs what today's path costs rather than adding to it.
+    /// </remarks>
+    private JsValue FastCallVariadic(Engine engine, Function target, JsValue thisObject, JsValue arg0, JsValue arg1)
+    {
+        var count = _argCount;
+
+#if NET8_0_OR_GREATER
+        TwoArguments buffer = default;
+        buffer[0] = arg0;
+        buffer[1] = arg1;
+        return InvokeVariadic(engine, target, thisObject, arg0, arg1, ((ReadOnlySpan<JsValue>) buffer).Slice(0, count));
+#else
+        var rented = engine._jsValueArrayPool.RentArray(count);
+        if (count >= 1)
+        {
+            rented[0] = arg0;
+        }
+        if (count >= 2)
+        {
+            rented[1] = arg1;
+        }
+
+        try
+        {
+            return InvokeVariadic(engine, target, thisObject, arg0, arg1, new ReadOnlySpan<JsValue>(rented, 0, count));
+        }
+        finally
+        {
+            engine._jsValueArrayPool.ReturnArray(rented);
+        }
+#endif
+    }
+
+    /// <summary>
+    /// The frame decision for the variadic lane, kept identical to <see cref="FastCall"/>'s: the
+    /// guards are consulted before the frameless branch is entered, and the debug leaf audit brackets
+    /// it, so a mis-annotated variadic built-in trips the same assertions as any other.
+    /// </summary>
+    private JsValue InvokeVariadic(
+        Engine engine,
+        Function target,
+        JsValue thisObject,
+        JsValue arg0,
+        JsValue arg1,
+        ReadOnlySpan<JsValue> arguments)
+    {
+        if (_fastShape.IsLeafFor(thisObject, arg0, arg1))
+        {
+#if DEBUG
+            LeafCallGuard.Enter();
+            try
+            {
+                return target.CallFastVariadic(thisObject, arguments);
+            }
+            finally
+            {
+                LeafCallGuard.Exit();
+            }
+#else
+            return target.CallFastVariadic(thisObject, arguments);
+#endif
+        }
+
+        var callStack = engine.CallStack;
+        var recursionDepth = callStack.Push(target, _calleeExpression, engine.ExecutionContext);
+
+        if (recursionDepth > engine._maxRecursionDepth)
+        {
+            Throw.RecursionDepthOverflowException(callStack);
+        }
+
+        try
+        {
+            return target.CallFastVariadic(thisObject, arguments);
         }
         finally
         {

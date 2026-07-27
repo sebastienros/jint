@@ -557,7 +557,7 @@ internal static class Emitter
         }
         foreach (var fn in obj.Functions)
         {
-            EmitSlotBody(sb, obj, fn, singleSlot, fast: false);
+            EmitSlotBody(sb, obj, fn, singleSlot, ArgSource.Array);
         }
         if (!singleSlot)
         {
@@ -605,13 +605,31 @@ internal static class Emitter
     }
 
     /// <summary>
-    /// Emits one slot's body — the optional preconditions plus the invocation — shared verbatim by
-    /// <c>Call</c> and <c>CallFast</c> so the two entry points can never drift. The only difference
-    /// between them is where argument values come from, which <paramref name="fast"/> selects:
-    /// <c>Arguments.At(arguments, N)</c> versus the <c>arg0</c>/<c>arg1</c> registers. Both yield
-    /// <c>Undefined</c> for an absent argument, so the bodies stay observationally identical.
+    /// Where a slot body reads its argument values from. The three entry points differ in nothing
+    /// else — <see cref="EmitSlotBody"/> emits the same preconditions and the same invocation for
+    /// all of them, which is what keeps them from drifting apart.
     /// </summary>
-    private static void EmitSlotBody(StringBuilder sb, ObjectDefinition obj, FunctionDefinition fn, bool singleSlot, bool fast)
+    private enum ArgSource
+    {
+        /// <summary><c>Call</c>: the pooled <c>JsValue[]</c>.</summary>
+        Array,
+
+        /// <summary><c>CallFast</c>: the <c>arg0</c>/<c>arg1</c> registers.</summary>
+        Registers,
+
+        /// <summary><c>CallFastVariadic</c>: a <c>ReadOnlySpan&lt;JsValue&gt;</c> sized to the site's arity.</summary>
+        Span,
+    }
+
+    /// <summary>
+    /// Emits one slot's body — the optional preconditions plus the invocation — shared verbatim by
+    /// <c>Call</c>, <c>CallFast</c> and <c>CallFastVariadic</c> so the entry points can never drift.
+    /// The only difference between them is where argument values come from, which
+    /// <paramref name="source"/> selects. All three yield <c>Undefined</c> for an absent argument
+    /// (the registers because the call site pads them, the array and the span by bounds check), so
+    /// the bodies stay observationally identical.
+    /// </summary>
+    private static void EmitSlotBody(StringBuilder sb, ObjectDefinition obj, FunctionDefinition fn, bool singleSlot, ArgSource source)
     {
         // If thisObject is typed as a JsValue subtype or ICallable, emit a cast + TypeError precondition.
         string? castType = null;
@@ -628,8 +646,8 @@ internal static class Emitter
         // local with stackalloc for ≤16 elements and a heap array for larger sizes, then
         // populates it via TypeConverter.ToX in a separate pass *before* calling the host
         // method (the spec requires every element's coercion to run before any scanning logic
-        // — observable via valueOf side effects). Never reached on the fast path: a [Rest]
-        // method declines the lane outright.
+        // — observable via valueOf side effects). Emitted for the variadic fast entry point too,
+        // reading the span instead of the array; the register entry point never sees a [Rest].
         ParameterDefinition? coercedRest = null;
         foreach (var p in fn.Parameters)
         {
@@ -668,10 +686,10 @@ internal static class Emitter
             }
             if (coercedRest is { } cr)
             {
-                EmitCoercedRestPreamble(sb, cr, singleSlot);
+                EmitCoercedRestPreamble(sb, cr, singleSlot, source);
             }
             sb.Append(bodyIndent).Append("    ").Append("return ");
-            EmitInvocation(sb, obj, fn, fast);
+            EmitInvocation(sb, obj, fn, source);
             sb.AppendLine(";");
             if (!singleSlot)
             {
@@ -688,88 +706,218 @@ internal static class Emitter
             {
                 sb.Append("                case Slot.").Append(fn.ClrName).Append(": return ");
             }
-            EmitInvocation(sb, obj, fn, fast);
+            EmitInvocation(sb, obj, fn, source);
             sb.AppendLine(";");
         }
     }
 
     /// <summary>
-    /// Emits the two fast-call overrides for the slots that opted in, or nothing at all when no slot
-    /// did — an un-annotated host keeps inheriting the base virtuals, which decline both lanes.
+    /// The widest call-site arity the fast-call lane carries — the two argument registers of
+    /// <c>Function.CallFast</c>, which the variadic entry point's span also mirrors. Only a variadic
+    /// slot has to police it: a fixed-arity body cannot read past its declared parameters, so
+    /// dropping the arguments beyond them is unobservable, while a variadic body would see the
+    /// dropped ones missing from its tail.
+    /// </summary>
+    private const int FastCallArity = 2;
+
+    /// <summary>
+    /// Emits the fast-call overrides for the slots that opted in, or nothing at all when no slot did
+    /// — an un-annotated host keeps inheriting the base virtuals, which decline every lane.
     /// <para>
-    /// <c>GetFastCallShape</c> ignores <c>argumentCount</c> for every shape the generator can
-    /// produce: a fast-callable slot reads at most two fixed positions and never the argument count
-    /// (an <c>[ArgCount]</c> parameter declines the lane), so its behaviour is identical at every
-    /// arity. Arguments past the second are dropped, which is unobservable precisely because such a
-    /// body has no way to read them.
+    /// <c>GetFastCallShape</c> ignores <c>argumentCount</c> for a fixed-arity slot: it reads at most
+    /// two fixed positions and never the argument count (an <c>[ArgCount]</c> parameter declines the
+    /// lane), so its behaviour is identical at every arity. A variadic slot is the reason the
+    /// parameter exists — the guards it publishes cover only the registers its tail actually
+    /// receives, and arities past <see cref="FastCallArity"/> decline outright.
     /// </para>
     /// </summary>
     private static void EmitFastCall(StringBuilder sb, ObjectDefinition obj, bool singleSlot)
     {
         var fastFunctions = new List<FunctionDefinition>();
+        var registerFunctions = new List<FunctionDefinition>();
+        var variadicFunctions = new List<FunctionDefinition>();
         foreach (var fn in obj.Functions)
         {
-            if (fn.FastCall is not null) fastFunctions.Add(fn);
+            if (fn.FastCall is null) continue;
+            fastFunctions.Add(fn);
+            if (fn.FastCall.Variadic) variadicFunctions.Add(fn);
+            else registerFunctions.Add(fn);
         }
         if (fastFunctions.Count == 0) return;
 
-        sb.AppendLine();
-        sb.AppendLine("        internal override global::Jint.Native.Function.FastCallShape GetFastCallShape(int argumentCount)");
-        if (singleSlot)
+        EmitFastCallShape(sb, fastFunctions, singleSlot);
+
+        if (registerFunctions.Count > 0)
         {
-            sb.Append("            => ").Append(ShapeExpression(fastFunctions[0].FastCall!)).AppendLine(";");
-        }
-        else
-        {
+            sb.AppendLine();
+            sb.AppendLine("        internal override global::Jint.Native.JsValue CallFast(global::Jint.Native.JsValue thisObject, global::Jint.Native.JsValue arg0, global::Jint.Native.JsValue arg1)");
             sb.AppendLine("        {");
-            sb.AppendLine("            switch (_slot)");
-            sb.AppendLine("            {");
-            foreach (var fn in fastFunctions)
+            if (singleSlot)
             {
-                sb.Append("                case Slot.").Append(fn.ClrName).Append(": return ")
-                  .Append(ShapeExpression(fn.FastCall!)).AppendLine(";");
+                EmitSlotBody(sb, obj, registerFunctions[0], singleSlot: true, ArgSource.Registers);
             }
-            sb.AppendLine("                default: return default;");
-            sb.AppendLine("            }");
+            else
+            {
+                sb.AppendLine("            switch (_slot)");
+                sb.AppendLine("            {");
+                foreach (var fn in registerFunctions)
+                {
+                    EmitSlotBody(sb, obj, fn, singleSlot: false, ArgSource.Registers);
+                }
+                // A slot that declined the lane can only get here through a call site that ignored
+                // GetFastCallShape; the base throws with the offending type named.
+                sb.AppendLine("                default: return base.CallFast(thisObject, arg0, arg1);");
+                sb.AppendLine("            }");
+            }
             sb.AppendLine("        }");
         }
 
+        if (variadicFunctions.Count > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine("        internal override global::Jint.Native.JsValue CallFastVariadic(global::Jint.Native.JsValue thisObject, global::System.ReadOnlySpan<global::Jint.Native.JsValue> arguments)");
+            sb.AppendLine("        {");
+            if (singleSlot)
+            {
+                EmitSlotBody(sb, obj, variadicFunctions[0], singleSlot: true, ArgSource.Span);
+            }
+            else
+            {
+                sb.AppendLine("            switch (_slot)");
+                sb.AppendLine("            {");
+                foreach (var fn in variadicFunctions)
+                {
+                    EmitSlotBody(sb, obj, fn, singleSlot: false, ArgSource.Span);
+                }
+                sb.AppendLine("                default: return base.CallFastVariadic(thisObject, arguments);");
+                sb.AppendLine("            }");
+            }
+            sb.AppendLine("        }");
+        }
+    }
+
+    private static void EmitFastCallShape(StringBuilder sb, List<FunctionDefinition> fastFunctions, bool singleSlot)
+    {
         sb.AppendLine();
-        sb.AppendLine("        internal override global::Jint.Native.JsValue CallFast(global::Jint.Native.JsValue thisObject, global::Jint.Native.JsValue arg0, global::Jint.Native.JsValue arg1)");
-        sb.AppendLine("        {");
+        sb.AppendLine("        internal override global::Jint.Native.Function.FastCallShape GetFastCallShape(int argumentCount)");
+
         if (singleSlot)
         {
-            EmitSlotBody(sb, obj, fastFunctions[0], singleSlot: true, fast: true);
-        }
-        else
-        {
-            sb.AppendLine("            switch (_slot)");
-            sb.AppendLine("            {");
-            foreach (var fn in fastFunctions)
+            var only = fastFunctions[0].FastCall!;
+            if (!only.Variadic)
             {
-                EmitSlotBody(sb, obj, fn, singleSlot: false, fast: true);
+                sb.Append("            => ").Append(ShapeExpression(only, arity: null)).AppendLine(";");
+                return;
             }
-            // A slot that declined the lane can only get here through a call site that ignored
-            // GetFastCallShape; the base throws with the offending type named.
-            sb.AppendLine("                default: return base.CallFast(thisObject, arg0, arg1);");
-            sb.AppendLine("            }");
+
+            sb.AppendLine("        {");
+            EmitVariadicArityShapes(sb, only, "            ");
+            sb.AppendLine("        }");
+            return;
         }
+
+        sb.AppendLine("        {");
+        sb.AppendLine("            switch (_slot)");
+        sb.AppendLine("            {");
+        foreach (var fn in fastFunctions)
+        {
+            var spec = fn.FastCall!;
+            if (!spec.Variadic)
+            {
+                sb.Append("                case Slot.").Append(fn.ClrName).Append(": return ")
+                  .Append(ShapeExpression(spec, arity: null)).AppendLine(";");
+                continue;
+            }
+
+            sb.Append("                case Slot.").Append(fn.ClrName).AppendLine(":");
+            sb.AppendLine("                {");
+            EmitVariadicArityShapes(sb, spec, "                    ");
+            sb.AppendLine("                }");
+        }
+        sb.AppendLine("                default: return default;");
+        sb.AppendLine("            }");
         sb.AppendLine("        }");
     }
 
-    private static string ShapeExpression(FastCallSpec spec)
+    /// <summary>
+    /// Emits a variadic slot's per-arity shapes. A register the call site pads because the site did
+    /// not supply that argument is not part of the tail the body receives, so publishing the tail's
+    /// guard for it would decline the lane for every shorter call — hence one shape per arity rather
+    /// than one for the slot. A slot carrying no guards has nothing to vary, so all that is left of
+    /// the mechanism there is the arity bound.
+    /// </summary>
+    private static void EmitVariadicArityShapes(StringBuilder sb, FastCallSpec spec, string indent)
     {
-        var sb = new StringBuilder(160);
+        if (spec.Arg0 == FastCallGuardKind.Any && spec.Arg1 == FastCallGuardKind.Any)
+        {
+            sb.Append(indent).Append("if (argumentCount > ").Append(FastCallArity).AppendLine(") return default;");
+            sb.Append(indent).Append("return ").Append(ShapeExpression(spec, arity: null)).AppendLine(";");
+            return;
+        }
+
+        sb.Append(indent).AppendLine("switch (argumentCount)");
+        sb.Append(indent).AppendLine("{");
+        for (var arity = 0; arity <= FastCallArity; arity++)
+        {
+            sb.Append(indent).Append("    case ").Append(arity).Append(": return ")
+              .Append(ShapeExpression(spec, arity)).AppendLine(";");
+        }
+        sb.Append(indent).AppendLine("    default: return default;");
+        sb.Append(indent).AppendLine("}");
+    }
+
+    /// <summary>
+    /// The shape literal. <paramref name="arity"/> is null for a fixed-arity slot, whose guards hold
+    /// whatever the site passed; for a variadic one it masks off the registers the body will not see.
+    /// </summary>
+    private static string ShapeExpression(FastCallSpec spec, int? arity)
+    {
+        var arg0 = arity is null || arity > 0 ? spec.Arg0 : FastCallGuardKind.Any;
+        var arg1 = arity is null || arity > 1 ? spec.Arg1 : FastCallGuardKind.Any;
+
+        var sb = new StringBuilder(200);
         sb.Append("new global::Jint.Native.Function.FastCallShape(true, ")
           .Append(spec.Leaf ? "true" : "false").Append(", ")
+          .Append(spec.Variadic ? "true" : "false").Append(", ")
           .Append(GuardExpression(spec.Receiver)).Append(", ")
-          .Append(GuardExpression(spec.Arg0)).Append(", ")
-          .Append(GuardExpression(spec.Arg1)).Append(')');
+          .Append(GuardExpression(arg0)).Append(", ")
+          .Append(GuardExpression(arg1)).Append(')');
         return sb.ToString();
     }
 
+    /// <summary>
+    /// Declaration order for a composed guard, so the same set always renders the same text and a
+    /// snapshot diff means a changed guard rather than a reordered one.
+    /// </summary>
+    private static readonly FastCallGuardKind[] GuardFlags =
+    [
+        FastCallGuardKind.Number,
+        FastCallGuardKind.String,
+        FastCallGuardKind.Date,
+        FastCallGuardKind.Array,
+        FastCallGuardKind.Undefined,
+    ];
+
+    /// <summary>
+    /// Renders a possibly composed guard. <c>FastCallGuard</c> is a flags enum, so a declaration such
+    /// as <c>Number | Undefined</c> has to come back out as the same expression rather than as the
+    /// combined number, which names no member.
+    /// </summary>
     private static string GuardExpression(FastCallGuardKind guard)
-        => "global::Jint.Native.Function.FastCallGuard." + guard;
+    {
+        const string Prefix = "global::Jint.Native.Function.FastCallGuard.";
+        if (guard == FastCallGuardKind.Any) return Prefix + nameof(FastCallGuardKind.Any);
+
+        var sb = new StringBuilder(64);
+        foreach (var flag in GuardFlags)
+        {
+            if ((guard & flag) != flag) continue;
+            if (sb.Length > 0) sb.Append(" | ");
+            sb.Append(Prefix).Append(flag);
+        }
+
+        return sb.ToString();
+    }
 
     /// <summary>
     /// Emits the stackalloc-or-heap span + coerce-loop preamble for a coerced <c>[Rest]</c>
@@ -777,16 +925,14 @@ internal static class Emitter
     /// <c>__coerced</c> which <see cref="EmitInvocation"/> then references. Stackalloc threshold
     /// is 16 elements — the same convention <c>MathInstance.Max/Min/Hypot</c> used pre-migration.
     /// </summary>
-    private static void EmitCoercedRestPreamble(StringBuilder sb, ParameterDefinition p, bool singleSlot)
+    private static void EmitCoercedRestPreamble(StringBuilder sb, ParameterDefinition p, bool singleSlot, ArgSource source)
     {
         var (csharpType, _) = ConversionTargetTypeNames(p.CoercionKind!.Value);
         var converter = ConversionConverterCall(p.CoercionKind!.Value);
-        var startExpr = p.Position == 0 ? "0" : "global::System.Math.Min(" + p.Position + ", arguments.Length)";
-        var lenExpr   = p.Position == 0 ? "arguments.Length" : "global::System.Math.Max(0, arguments.Length - " + p.Position + ")";
         // Switch-case body lives at 16 sp; flat single-slot Call body at 12 sp. Inner indent +4.
         var i = singleSlot ? "            " : "                    ";
 
-        sb.Append(i).Append("var __values = new global::System.ReadOnlySpan<global::Jint.Native.JsValue>(arguments, ").Append(startExpr).Append(", ").Append(lenExpr).AppendLine(");");
+        sb.Append(i).Append("var __values = ").Append(RestTailExpression(source, p.Position)).AppendLine(";");
         sb.Append(i).Append("global::System.Span<").Append(csharpType).AppendLine("> __coerced = __values.Length <= 16");
         sb.Append(i).Append("    ? stackalloc ").Append(csharpType).AppendLine("[__values.Length]");
         sb.Append(i).Append("    : new ").Append(csharpType).AppendLine("[__values.Length];");
@@ -794,6 +940,25 @@ internal static class Emitter
         sb.Append(i).AppendLine("{");
         sb.Append(i).Append("    __coerced[__i] = ").Append(converter).AppendLine("(__values[__i]);");
         sb.Append(i).AppendLine("}");
+    }
+
+    /// <summary>
+    /// The <c>[Rest]</c> tail as a span over whichever argument store the entry point was handed.
+    /// The array form has to construct a span; the variadic entry point already has one, and a tail
+    /// that starts at zero <em>is</em> that span. Both clamp, so an arity below the tail's start
+    /// yields an empty tail rather than throwing.
+    /// </summary>
+    private static string RestTailExpression(ArgSource source, int position)
+    {
+        var startExpr = position == 0 ? "0" : "global::System.Math.Min(" + position + ", arguments.Length)";
+        var lenExpr = position == 0 ? "arguments.Length" : "global::System.Math.Max(0, arguments.Length - " + position + ")";
+
+        if (source == ArgSource.Span)
+        {
+            return position == 0 ? "arguments" : "arguments.Slice(" + startExpr + ", " + lenExpr + ")";
+        }
+
+        return "new global::System.ReadOnlySpan<global::Jint.Native.JsValue>(arguments, " + startExpr + ", " + lenExpr + ")";
     }
 
     private static (string csharpType, string attrName) ConversionTargetTypeNames(ParameterKind kind) => kind switch
@@ -824,12 +989,12 @@ internal static class Emitter
     };
 
     /// <summary>
-    /// Emits the call to the host method. <paramref name="fast"/> switches the argument source from
-    /// the <c>JsValue[]</c> to the <c>arg0</c>/<c>arg1</c> registers; every other part of the
-    /// invocation — the receiver, the coercions and their evaluation order — is identical, which is
-    /// what keeps <c>CallFast</c> observationally equal to <c>Call</c>.
+    /// Emits the call to the host method. <paramref name="source"/> switches where argument values
+    /// come from; every other part of the invocation — the receiver, the coercions and their
+    /// evaluation order — is identical, which is what keeps the fast entry points observationally
+    /// equal to <c>Call</c>.
     /// </summary>
-    private static void EmitInvocation(StringBuilder sb, ObjectDefinition obj, FunctionDefinition fn, bool fast)
+    private static void EmitInvocation(StringBuilder sb, ObjectDefinition obj, FunctionDefinition fn, ArgSource source)
     {
         if (fn.IsStatic) sb.Append(obj.Name).Append('.');
         else sb.Append("_host.");
@@ -846,37 +1011,37 @@ internal static class Emitter
                     sb.Append(p.CastTargetType is null ? "thisObject" : "__cast");
                     break;
                 case ParameterKind.ValueAt:
-                    AppendArgument(sb, p.Position, fast);
+                    AppendArgument(sb, p.Position, source);
                     break;
                 case ParameterKind.ToNumber:
-                    AppendCoercedArgument(sb, "ToNumber", p.Position, fast);
+                    AppendCoercedArgument(sb, "ToNumber", p.Position, source);
                     break;
                 case ParameterKind.ToInt32:
-                    AppendCoercedArgument(sb, "ToInt32", p.Position, fast);
+                    AppendCoercedArgument(sb, "ToInt32", p.Position, source);
                     break;
                 case ParameterKind.ToUint32:
-                    AppendCoercedArgument(sb, "ToUint32", p.Position, fast);
+                    AppendCoercedArgument(sb, "ToUint32", p.Position, source);
                     break;
                 case ParameterKind.ToInteger:
-                    AppendCoercedArgument(sb, "ToInteger", p.Position, fast);
+                    AppendCoercedArgument(sb, "ToInteger", p.Position, source);
                     break;
                 case ParameterKind.ToLength:
-                    AppendCoercedArgument(sb, "ToLength", p.Position, fast);
+                    AppendCoercedArgument(sb, "ToLength", p.Position, source);
                     break;
                 case ParameterKind.ToString:
-                    AppendCoercedArgument(sb, "ToString", p.Position, fast);
+                    AppendCoercedArgument(sb, "ToString", p.Position, source);
                     break;
                 case ParameterKind.ToJsString:
-                    AppendCoercedArgument(sb, "ToJsString", p.Position, fast);
+                    AppendCoercedArgument(sb, "ToJsString", p.Position, source);
                     break;
                 case ParameterKind.ToObject:
                     sb.Append("global::Jint.Runtime.TypeConverter.ToObject(_realm, ");
-                    AppendArgument(sb, p.Position, fast);
+                    AppendArgument(sb, p.Position, source);
                     sb.Append(')');
                     break;
                 case ParameterKind.ArgCount:
-                    // Only reachable on the slow path: an [ArgCount] method declines the fast lane,
-                    // because CallFast has no arity to hand it.
+                    // Only reachable on the slow path: an [ArgCount] method declines both fast lanes,
+                    // because neither entry point carries an argument count.
                     sb.Append("arguments.Length");
                     break;
                 case ParameterKind.Rest:
@@ -886,16 +1051,10 @@ internal static class Emitter
                         // already populated `__coerced`; just pass it through.
                         sb.Append("__coerced");
                     }
-                    else if (p.Position == 0)
-                    {
-                        // Slice past the fixed positional value parameters into a ReadOnlySpan over the array tail; no allocation.
-                        sb.Append("new global::System.ReadOnlySpan<global::Jint.Native.JsValue>(arguments, 0, arguments.Length)");
-                    }
                     else
                     {
-                        sb.Append("new global::System.ReadOnlySpan<global::Jint.Native.JsValue>(arguments, ");
-                        sb.Append("global::System.Math.Min(").Append(p.Position).Append(", arguments.Length), ");
-                        sb.Append("global::System.Math.Max(0, arguments.Length - ").Append(p.Position).Append("))");
+                        // Slice past the fixed positional value parameters into a ReadOnlySpan over the tail; no allocation.
+                        sb.Append(RestTailExpression(source, p.Position));
                     }
                     break;
                 case ParameterKind.AllArguments:
@@ -908,13 +1067,14 @@ internal static class Emitter
     }
 
     /// <summary>
-    /// The expression yielding the argument at <paramref name="position"/>. Both forms produce
-    /// <c>Undefined</c> when the caller omitted it — <c>Arguments.At</c> by bounds check, the
-    /// registers because the call site pads them — so the two lanes agree on absent arguments.
+    /// The expression yielding the argument at <paramref name="position"/>. Every form produces
+    /// <c>Undefined</c> when the caller omitted it — <c>Arguments.At</c> by bounds check (over the
+    /// array or over the span), the registers because the call site pads them — so the lanes agree
+    /// on absent arguments.
     /// </summary>
-    private static void AppendArgument(StringBuilder sb, int position, bool fast)
+    private static void AppendArgument(StringBuilder sb, int position, ArgSource source)
     {
-        if (fast)
+        if (source == ArgSource.Registers)
         {
             sb.Append(position == 0 ? "arg0" : "arg1");
             return;
@@ -922,10 +1082,10 @@ internal static class Emitter
         sb.Append("global::Jint.Runtime.Arguments.At(arguments, ").Append(position).Append(')');
     }
 
-    private static void AppendCoercedArgument(StringBuilder sb, string converter, int position, bool fast)
+    private static void AppendCoercedArgument(StringBuilder sb, string converter, int position, ArgSource source)
     {
         sb.Append("global::Jint.Runtime.TypeConverter.").Append(converter).Append('(');
-        AppendArgument(sb, position, fast);
+        AppendArgument(sb, position, source);
         sb.Append(')');
     }
 

@@ -1555,7 +1555,14 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
     /// <summary>
     /// Pushes the given values to the end of the array.
     /// </summary>
-    public uint Push(JsValue[] values)
+    public uint Push(JsValue[] values) => Push(new ReadOnlySpan<JsValue>(values));
+
+    /// <summary>
+    /// The span form of <see cref="Push(JsValue[])"/>, so a caller whose arguments are not already in
+    /// an array — the variadic fast-call lane, which holds them in stack storage — does not have to
+    /// materialize one to reach it.
+    /// </summary>
+    internal uint Push(ReadOnlySpan<JsValue> values)
     {
         var initialLength = GetLength();
         var newLength = initialLength + values.Length;

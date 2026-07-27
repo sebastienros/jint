@@ -51,9 +51,12 @@ internal sealed class JsFunctionAttribute : global::System.Attribute
     /// including ones that throw or re-enter user code.
     /// <para>
     /// Requires a positionally expressible signature: at most two declared value parameters,
-    /// no <c>[Rest]</c>, no raw <c>JsCallArguments</c> and no <c>[ArgCount]</c> (CallFast
-    /// carries no arity to hand it). Anything the generator cannot honor is reported as
-    /// JINT023 rather than silently ignored.
+    /// no raw <c>JsCallArguments</c> and no <c>[ArgCount]</c> (CallFast carries no arity to
+    /// hand it). A <c>[Rest]</c> tail is expressible — such a method is dispatched through
+    /// <c>Function.CallFastVariadic</c>, which carries a span whose length is the call site's
+    /// statically known arity, and simply declines the arities that overflow the registers.
+    /// Anything the generator cannot honor is reported as JINT023 rather than silently
+    /// ignored.
     /// </para>
     /// </summary>
     public bool FastCall { get; set; }
@@ -69,9 +72,10 @@ internal sealed class JsFunctionAttribute : global::System.Attribute
     /// (<c>[ToNumber]</c>, <c>[ToInteger]</c>, <c>[ToInt32]</c>, <c>[ToUint32]</c>,
     /// <c>[ToLength]</c>) contributes a Number guard, <c>[ToString]</c>/<c>[ToJsString]</c>
     /// contribute a String guard, and a cast <c>thisObject</c> contributes the guard matching
-    /// its type. A plain <c>JsValue</c> value parameter carries no guard and is therefore
-    /// rejected outright (JINT023): the generator cannot see whether the body coerces it,
-    /// and a body that does would run user code frameless.
+    /// its type. A plain <c>JsValue</c> value parameter derives no guard and is therefore
+    /// rejected outright (JINT023) unless the declaration supplies one through
+    /// <see cref="LeafArg0"/>/<see cref="LeafArg1"/>: the generator cannot see whether the
+    /// body coerces it, and a body that does would run user code frameless.
     /// </para>
     /// <para>
     /// This is never inferred from the signature, because a body with perfectly numeric
@@ -89,6 +93,30 @@ internal sealed class JsFunctionAttribute : global::System.Attribute
     /// object receivers, which coerce through user code and must stay framed.
     /// </summary>
     public global::Jint.Native.Function.FastCallGuard LeafReceiver { get; set; }
+
+    /// <summary>
+    /// Declares the precondition under which <see cref="Leaf"/> holds for the first declared
+    /// value parameter, for a body that takes it as a plain <c>JsValue</c> and coerces it
+    /// itself. Without one such a parameter blocks <see cref="Leaf"/> outright, because the
+    /// generator cannot see the coercion; with one, the frameless lane is taken only for
+    /// values the declaration names, and every other value keeps its frame and its exact
+    /// semantics — which is what makes a <c>String.prototype</c> method leaf for a number
+    /// without letting an object's <c>valueOf</c> anywhere near the frameless window.
+    /// <para>
+    /// Include <c>FastCallGuard.Undefined</c> when the body is also safe for an omitted
+    /// argument; the call site pads the registers with <c>undefined</c>, so a Number-only
+    /// guard silently costs the lane every call site that omits the argument.
+    /// </para>
+    /// <para>
+    /// Only consulted for a parameter that derives no guard of its own. A declared conversion
+    /// already carries one, and an explicit value must never be able to weaken it — the same
+    /// rule <see cref="LeafReceiver"/> follows.
+    /// </para>
+    /// </summary>
+    public global::Jint.Native.Function.FastCallGuard LeafArg0 { get; set; }
+
+    /// <summary><see cref="LeafArg0"/> for the second declared value parameter.</summary>
+    public global::Jint.Native.Function.FastCallGuard LeafArg1 { get; set; }
 }
 
 [global::System.AttributeUsage(global::System.AttributeTargets.Field | global::System.AttributeTargets.Property)]

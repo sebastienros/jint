@@ -41,7 +41,7 @@
     },
     {
       Location: : (24,27)-(24,37),
-      Message: Method 'Undeclared' requests Leaf = true but the generator cannot honor it: parameter 0 is a plain JsValue, so nothing stops the body coercing it through a user valueOf/toString inside the frameless window — declare the conversion ([ToNumber], [ToInteger], …) so the lane can guard it,
+      Message: Method 'Undeclared' requests Leaf = true but the generator cannot honor it: parameter 0 is a plain JsValue, so nothing stops the body coercing it through a user valueOf/toString inside the frameless window — declare the conversion ([ToNumber], [ToInteger], …), or the values the body is leaf-safe for (LeafArg0 = FastCallGuard.…), so the lane can guard it,
       Severity: Error,
       Descriptor: {
         Id: JINT023,

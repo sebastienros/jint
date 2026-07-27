@@ -11,22 +11,38 @@ namespace Jint.Native.Function;
 /// arity-specialized invoke is semantics-preserving for any value, because the built-in still runs
 /// its own coercions — dropping the call-stack frame is what needs the value to be provably unable
 /// to reach user code.
+/// <para>
+/// Composable, because a built-in that coerces a raw <c>JsValue</c> argument in its body is
+/// typically safe for more than one shape of value: <c>"abc".substring(start, end)</c> reaches no
+/// user code for a number <em>or</em> for the <c>undefined</c> an omitted argument produces, and
+/// requiring a single kind would cost the leaf lane every one-argument call site. <c>Any</c> is the
+/// absence of a constraint rather than "all bits", so an unguarded position stays a zero.
+/// </para>
 /// </summary>
+[Flags]
 internal enum FastCallGuard : byte
 {
     /// <summary>No constraint.</summary>
     Any = 0,
-    Number,
-    String,
-    Date,
-    Array,
+    Number = 1,
+    String = 2,
+    Date = 4,
+    Array = 8,
+
+    /// <summary>
+    /// Only meaningful on an argument. Coercing <c>undefined</c> runs no user code for any converter
+    /// the guards model, but the body can still tell it apart from a number (that is the whole point
+    /// of <c>end === undefined</c> meaning "to the end of the string"), so it is never folded into
+    /// the other kinds — a declaration has to ask for it.
+    /// </summary>
+    Undefined = 16,
 }
 
 /// <summary>
 /// Per-(function, arity) verdict describing how a built-in may be invoked, resolved once per call
 /// site and cached alongside the callee so no virtual dispatch happens per call.
 ///
-/// The two lanes have deliberately different eligibility:
+/// The lanes have deliberately different eligibility:
 /// <list type="bullet">
 /// <item><see cref="Supported"/> enables the arity-specialized invoke — arguments passed in
 /// registers instead of a pooled <c>JsValue[]</c>, straight to the target instead of through the
@@ -37,16 +53,26 @@ internal enum FastCallGuard : byte
 /// number argument can absolutely do so with an object one (via <c>valueOf</c>), and that user code
 /// can observe <c>error.stack</c> — so this is a per-call verdict, never a static property of the
 /// method.</item>
+/// <item><see cref="Variadic"/> selects <c>Function.CallFastVariadic</c> over <c>Function.CallFast</c>:
+/// the built-in takes a <c>[Rest]</c> tail, so it needs the arguments as a span whose length is the
+/// site's real arity rather than two registers padded with <c>undefined</c>. Shapes are resolved per
+/// arity, so a variadic slot simply declines every arity the lane cannot carry.</item>
 /// </list>
 /// </summary>
 [StructLayout(LayoutKind.Auto)]
 internal readonly record struct FastCallShape(
     bool Supported,
     bool Leaf,
+    bool Variadic,
     FastCallGuard Receiver,
     FastCallGuard Arg0,
     FastCallGuard Arg1)
 {
+    /// <summary>
+    /// Whether <paramref name="value"/> matches any kind the composed <paramref name="guard"/> names.
+    /// Ordered by how often built-ins declare each kind, so the common single-flag guards decide in
+    /// one test; <c>Date</c> comes last because it is the only one that is not a <c>_type</c> bit.
+    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool Satisfies(FastCallGuard guard, JsValue value)
     {
@@ -55,18 +81,36 @@ internal readonly record struct FastCallShape(
             return true;
         }
 
-        return guard switch
+        var type = value._type;
+
+        if ((guard & FastCallGuard.Number) == FastCallGuard.Number && (type & (InternalTypes.Number | InternalTypes.Integer)) != InternalTypes.Empty)
         {
-            FastCallGuard.Number => (value._type & (InternalTypes.Number | InternalTypes.Integer)) != InternalTypes.Empty,
-            FastCallGuard.String => (value._type & InternalTypes.String) != InternalTypes.Empty,
-            FastCallGuard.Array => (value._type & InternalTypes.Array) != InternalTypes.Empty,
-            FastCallGuard.Date => value is JsDate,
-            _ => false,
-        };
+            return true;
+        }
+
+        if ((guard & FastCallGuard.String) == FastCallGuard.String && (type & InternalTypes.String) != InternalTypes.Empty)
+        {
+            return true;
+        }
+
+        if ((guard & FastCallGuard.Undefined) == FastCallGuard.Undefined && (type & InternalTypes.Undefined) != InternalTypes.Empty)
+        {
+            return true;
+        }
+
+        if ((guard & FastCallGuard.Array) == FastCallGuard.Array && (type & InternalTypes.Array) != InternalTypes.Empty)
+        {
+            return true;
+        }
+
+        return (guard & FastCallGuard.Date) == FastCallGuard.Date && value is JsDate;
     }
 
     /// <summary>
-    /// Whether the frame may be elided for this exact invocation.
+    /// Whether the frame may be elided for this exact invocation. Both argument registers are always
+    /// tested; a <see cref="Variadic"/> shape resolved for an arity below two therefore publishes
+    /// <see cref="FastCallGuard.Any"/> for the registers its body will never see, since the padding
+    /// the call site puts there is not part of the argument list.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal bool IsLeafFor(JsValue thisObject, JsValue arg0, JsValue arg1)

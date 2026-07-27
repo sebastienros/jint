@@ -1154,10 +1154,10 @@ public class ObjectGeneratorTests
     }
 
     [Test]
-    public Task FastCallOnRestAndOverlongArity_ProducesDiagnostic()
+    public Task FastCallOnOverlongArity_ProducesDiagnostic()
     {
-        // Two independent ways to overflow two argument registers: a variadic tail, and simply
-        // declaring three value parameters. Both are JINT023 rather than a silent no-op.
+        // Three declared value parameters overflow the two argument registers, and unlike a variadic
+        // tail there is no arity at which they fit — JINT023 rather than a silent no-op.
         return VerifyGenerator("""
             using System;
             using Jint;
@@ -1171,12 +1171,164 @@ public class ObjectGeneratorTests
             {
                 internal Foo(Engine engine) : base(engine) { }
 
-                [JsFunction(Length = 2, FastCall = true)]
-                private static JsValue Variadic(JsValue thisObject, [Rest] ReadOnlySpan<JsValue> values)
-                    => JsValue.Undefined;
-
                 [JsFunction(Length = 3, Leaf = true)]
                 private static JsValue TooWide(JsValue thisObject, JsValue a, JsValue b, JsValue c) => a;
+
+                protected override void Initialize() => CreateProperties_Generated();
+            }
+            """);
+    }
+
+    [Test]
+    public Task FastCallVariadicLanes()
+    {
+        // A [Rest] tail takes the lane through CallFastVariadic, which carries a span sized to the
+        // call site's arity instead of two registers padded with undefined — the distinction a
+        // variadic body would otherwise see as an extra element. GetFastCallShape becomes
+        // arity-keyed for those slots: it declines the arities that overflow the registers, and
+        // publishes the tail's guard only for the registers the tail actually receives, so
+        // `Max(a)` is still leaf even though register 1 holds padding. The fixed-arity slot
+        // alongside keeps its own CallFast entry point.
+        return VerifyGenerator("""
+            using System;
+            using Jint;
+            using Jint.Native;
+            using Jint.Native.Object;
+
+            namespace Sample;
+
+            [JsObject]
+            internal sealed partial class Foo : ObjectInstance
+            {
+                internal Foo(Engine engine) : base(engine) { }
+
+                [JsFunction(Length = 2, Leaf = true)]
+                private static JsValue Max(JsValue thisObject, [Rest, ToNumber] ReadOnlySpan<double> values)
+                    => JsNumber.Create(values.Length);
+
+                [JsFunction(Length = 1, FastCall = true)]
+                private static JsValue Push(JsValue thisObject, [Rest] ReadOnlySpan<JsValue> values)
+                    => JsNumber.Create(values.Length);
+
+                [JsFunction(Length = 1, FastCall = true)]
+                private static JsValue Concat(JsValue thisObject, JsValue first, [Rest] ReadOnlySpan<JsValue> rest)
+                    => first;
+
+                [JsFunction(Length = 1, Leaf = true)]
+                private static JsValue Abs(JsValue thisObject, [ToNumber] double x) => JsNumber.Create(x);
+
+                protected override void Initialize() => CreateProperties_Generated();
+            }
+            """);
+    }
+
+    [Test]
+    public Task FastCallVariadicSingleSlot()
+    {
+        // A host with one [JsFunction] has no Slot enum, so the arity switch is the whole body of
+        // GetFastCallShape and CallFastVariadic collapses to a flat one.
+        return VerifyGenerator("""
+            using System;
+            using Jint;
+            using Jint.Native;
+            using Jint.Native.Object;
+
+            namespace Sample;
+
+            [JsObject]
+            internal sealed partial class Foo : ObjectInstance
+            {
+                internal Foo(Engine engine) : base(engine) { }
+
+                [JsFunction(Length = 2, Leaf = true)]
+                private static JsValue Min(JsValue thisObject, [Rest, ToNumber] ReadOnlySpan<double> values)
+                    => JsNumber.Create(values.Length);
+
+                protected override void Initialize() => CreateProperties_Generated();
+            }
+            """);
+    }
+
+    [Test]
+    public Task FastCallDeclaredArgumentGuards()
+    {
+        // LeafArg0/LeafArg1 are how a body that takes a raw JsValue and coerces it itself earns the
+        // frameless lane back: the declaration names the values it is leaf-safe for, and the runtime
+        // checks them per call. Undefined is composed in because the call site pads absent arguments
+        // with it, so a Number-only guard would cost the lane every one-argument call of a
+        // two-parameter method. A parameter that already derives a guard from its conversion ignores
+        // a declared one — an explicit value must never be able to weaken a derived guard.
+        //
+        // FastCallGuard is internal to Jint and this compilation is not on its InternalsVisibleTo
+        // list, so the test declares its own — source wins over an inaccessible imported type, and
+        // the values are what the generator reads back. That the two enums agree is what the real
+        // Jint build and FastCallLaneTests check; what is being verified here is the rendering.
+        return VerifyGenerator("""
+            using Jint;
+            using Jint.Native;
+            using Jint.Native.Object;
+            using Jint.Native.Function;
+
+            namespace Jint.Native.Function
+            {
+                [System.Flags]
+                internal enum FastCallGuard : byte
+                {
+                    Any = 0,
+                    Number = 1,
+                    String = 2,
+                    Date = 4,
+                    Array = 8,
+                    Undefined = 16,
+                }
+            }
+
+            namespace Sample;
+
+            [JsObject]
+            internal sealed partial class Foo : ObjectInstance
+            {
+                internal Foo(Engine engine) : base(engine) { }
+
+                [JsFunction(Length = 2, Leaf = true, LeafReceiver = FastCallGuard.String,
+                    LeafArg0 = FastCallGuard.Number | FastCallGuard.Undefined,
+                    LeafArg1 = FastCallGuard.Number | FastCallGuard.Undefined)]
+                private static JsValue Substring(JsValue thisObject, JsValue startArg, JsValue endArg) => thisObject;
+
+                [JsFunction(Length = 1, Leaf = true, LeafReceiver = FastCallGuard.String, LeafArg0 = FastCallGuard.Number)]
+                private static JsValue CharCodeAt(JsValue thisObject, JsValue pos) => pos;
+
+                [JsFunction(Length = 1, Leaf = true, LeafArg0 = FastCallGuard.String)]
+                private static JsValue Derived(JsValue thisObject, [ToNumber] double x) => JsNumber.Create(x);
+
+                protected override void Initialize() => CreateProperties_Generated();
+            }
+            """);
+    }
+
+    [Test]
+    public Task LeafOnUncoercedRest_ProducesDiagnostic()
+    {
+        // A [Rest] tail with no declared conversion hands the body raw JsValues, which is the same
+        // unguardable hazard a plain JsValue parameter is — and unlike one, no per-position
+        // declaration could speak for a list of unbounded length. FastCall alone is fine; Leaf is
+        // JINT023.
+        return VerifyGenerator("""
+            using System;
+            using Jint;
+            using Jint.Native;
+            using Jint.Native.Object;
+
+            namespace Sample;
+
+            [JsObject]
+            internal sealed partial class Foo : ObjectInstance
+            {
+                internal Foo(Engine engine) : base(engine) { }
+
+                [JsFunction(Length = 1, Leaf = true)]
+                private static JsValue Bad(JsValue thisObject, [Rest] ReadOnlySpan<JsValue> values)
+                    => JsValue.Undefined;
 
                 protected override void Initialize() => CreateProperties_Generated();
             }
@@ -1215,10 +1367,11 @@ public class ObjectGeneratorTests
         // Frame elision needs every route to user code or a JS error closed off by a guard the
         // runtime can check. None of these four can be: ObjectInstance has no matching
         // FastCallGuard, [ToObject] throws for null/undefined and "not nullish" is not expressible,
-        // [RequireObjectCoercible] on an unguarded 'this' is the same problem, and an undeclared
-        // JsValue parameter hides whatever the body does with it — the shape that let four
-        // String.prototype methods run a user valueOf frameless. Each is an error at the
-        // declaration rather than a silent downgrade to the non-leaf lane.
+        // [RequireObjectCoercible] on an unguarded 'this' is the same problem, and a JsValue
+        // parameter with neither a conversion nor a LeafArgN declaration hides whatever the body
+        // does with it — the shape that let four String.prototype methods run a user valueOf
+        // frameless. Each is an error at the declaration rather than a silent downgrade to the
+        // non-leaf lane.
         return VerifyGenerator("""
             using Jint;
             using Jint.Native;
