@@ -78,8 +78,8 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
             return;
         }
 
-        var desc = objectInstance.GetOwnProperty(p);
-        if (desc == PropertyDescriptor.Undefined)
+        // step 4's `desc is undefined` is the only thing the descriptor was ever consulted for
+        if (!objectInstance.HasOwnProperty(p))
         {
             objectInstance.CreateDataPropertyOrThrow(p, v);
         }

@@ -139,10 +139,9 @@ internal sealed partial class ErrorPrototype : ErrorInstance
         }
 
         // 3. Let desc be ? this.[[GetOwnProperty]](p).
-        var desc = objectInstance.GetOwnProperty(p);
-
         // 4. If desc is undefined, perform ? CreateDataPropertyOrThrow(this, p, v).
-        if (desc == PropertyDescriptor.Undefined)
+        // Whether the descriptor exists is all steps 3-5 ask of it, so probe instead of materializing.
+        if (!objectInstance.HasOwnProperty(p))
         {
             objectInstance.CreateDataPropertyOrThrow(p, v);
         }

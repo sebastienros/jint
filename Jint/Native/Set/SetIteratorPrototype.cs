@@ -134,7 +134,7 @@ internal sealed partial class SetIteratorPrototype : IteratorPrototype
         }
         else if (set.Contains(lastValue))
         {
-            var newIndex = set._list.IndexOf(lastValue);
+            var newIndex = set.IndexOf(lastValue);
             if (newIndex < position - 1)
             {
                 // Value moved backward (entries before it were deleted)

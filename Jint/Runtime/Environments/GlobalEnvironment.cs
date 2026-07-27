@@ -117,18 +117,12 @@ internal sealed class GlobalEnvironment : Environment
         BindingName name,
         [NotNullWhen(true)] out JsValue? value)
     {
-        value = default;
-
-        var parent = _global._prototype!;
-        var property = parent.GetOwnProperty(name.Value);
-
-        if (property == PropertyDescriptor.Undefined)
-        {
-            return false;
-        }
-
-        value = ObjectInstance.UnwrapJsValue(property, _global);
-        return true;
+        // TryGetOwnPropertyValue's base body is exactly what this used to spell out — GetOwnProperty,
+        // Undefined means no, otherwise UnwrapJsValue against the global as receiver — so for every
+        // in-box prototype the two are the same call. Asking through the hook additionally lets a host
+        // object installed as the global's prototype answer from its own state without building a
+        // descriptor it would only throw away.
+        return _global._prototype!.TryGetOwnPropertyValue(name.Value, _global, out value);
     }
 
     /// <summary>
