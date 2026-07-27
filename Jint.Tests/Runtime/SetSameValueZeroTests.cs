@@ -119,6 +119,58 @@ public class SetSameValueZeroTests
         engine.Evaluate("var o = {}; var s = new Set([o]); s.delete(o); s.size").AsNumber().Should().Be(0);
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-set.prototype.foreach visits each value at most once unless it is
+    /// deleted and re-added. Deleting an <em>earlier</em> entry from inside the callback shifts the rest
+    /// of the ordering left, so the walker has to re-locate the value it just visited — with the set's
+    /// own comparer. Locating NaN with the default one instead reports "not found", which reads as
+    /// "moved to the front" and restarts the walk over already-visited entries. Expected order matches V8.
+    /// </summary>
+    [Fact]
+    public void ForEachDoesNotRevisitEntriesWhenNaNIsVisitedAndAnEarlierEntryIsDeleted()
+    {
+        var engine = CreateEngine();
+
+        engine.Evaluate("""
+            var s = new Set([1, NaN, 2]);
+            var v = [];
+            s.forEach(function (x) { v.push(x); if (Number.isNaN(x)) s.delete(1); });
+            v.join(',')
+            """).AsString().Should().Be("1,NaN,2");
+
+        // deleting the NaN entry itself still terminates the walk cleanly
+        engine.Evaluate("""
+            var s2 = new Set([1, NaN, 2]);
+            var v2 = [];
+            s2.forEach(function (x) { v2.push(x); if (x === 1) s2.delete(NaN); });
+            v2.join(',')
+            """).AsString().Should().Be("1,2");
+    }
+
+    /// <summary>
+    /// The same adjuster on the iterator side (https://tc39.es/ecma262/#sec-createsetiterator), reached
+    /// by <c>for...of</c> and by spreading a set that is mutated mid-iteration.
+    /// </summary>
+    [Fact]
+    public void IteratingDoesNotRevisitEntriesWhenNaNIsVisitedAndAnEarlierEntryIsDeleted()
+    {
+        var engine = CreateEngine();
+
+        engine.Evaluate("""
+            var s = new Set([1, NaN, 2]);
+            var v = [];
+            for (var x of s) { v.push(x); if (Number.isNaN(x)) s.delete(1); }
+            v.join(',')
+            """).AsString().Should().Be("1,NaN,2");
+
+        engine.Evaluate("""
+            var s2 = new Set([1, NaN, 2, 3]);
+            var v2 = [];
+            for (var y of s2.values()) { v2.push(y); if (Number.isNaN(y)) { s2.delete(1); s2.delete(2); } }
+            v2.join(',')
+            """).AsString().Should().Be("1,NaN,3");
+    }
+
     [Fact]
     public void MapAlreadyHandledNaN()
     {

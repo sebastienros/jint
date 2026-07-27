@@ -825,6 +825,103 @@ return get + '' === ""length,0,1,2,3"";";
         engine.Evaluate("var c = [1,2,3]; Object.seal(c); c.fill(0); c.join(',')").AsString().Should().Be("0,0,0");
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-array.prototype.copywithin captures <c>len</c> at step 3, before the
+    /// target/start/end coercions at steps 5, 7 and 9 get to run arbitrary user code. Keeping that stale
+    /// bound is correct for the copy loop, but the loop writes through <c>Set(O, toKey, fromVal, true)</c>,
+    /// which runs ArrayDefineOwnProperty (https://tc39.es/ecma262/#sec-arraysetlength) and so extends
+    /// <c>length</c> back over any index a shrinking <c>valueOf</c> deleted. A raw span copy inside the
+    /// backing store does not, and would leave own index properties at or beyond <c>length</c> — a state
+    /// an Array can never reach through the spec. Expected values match V8.
+    /// </summary>
+    [Fact]
+    public void CopyWithinRestoresLengthWhenArgumentCoercionShrinksTheArray()
+    {
+        var engine = new Engine();
+
+        var result = engine.Evaluate("""
+            var a = [0,1,2,3,4,5,6,7];
+            a.copyWithin(4, 0, { valueOf: function () { a.length = 4; return 3; } });
+            a.length + '|' + a.join(',') + '|' + (5 in a)
+            """).AsString();
+
+        result.Should().Be("7|0,1,2,3,0,1,2|true");
+
+        // nothing may survive past the length the array reports
+        engine.Evaluate("a.length").AsNumber().Should().Be(7);
+        engine.Evaluate("7 in a").AsBoolean().Should().BeFalse();
+        engine.Evaluate("Object.keys(a).join(',')").AsString().Should().Be("0,1,2,3,4,5,6");
+    }
+
+    /// <summary>
+    /// The <see cref="CopyWithinRestoresLengthWhenArgumentCoercionShrinksTheArray"/> defect in its fill
+    /// twin: https://tc39.es/ecma262/#sec-array.prototype.fill captures <c>len</c> at step 3 and coerces
+    /// start/end at steps 4 and 6, then writes each index with <c>Set(O, Pk, value, true)</c>.
+    /// </summary>
+    [Fact]
+    public void FillRestoresLengthWhenArgumentCoercionShrinksTheArray()
+    {
+        var engine = new Engine();
+
+        var result = engine.Evaluate("""
+            var a = [0,1,2,3,4,5,6,7];
+            a.fill(9, 0, { valueOf: function () { a.length = 4; return 8; } });
+            a.length + '|' + a.join(',') + '|' + (5 in a)
+            """).AsString();
+
+        result.Should().Be("8|9,9,9,9,9,9,9,9|true");
+
+        engine.Evaluate("8 in a").AsBoolean().Should().BeFalse();
+        engine.Evaluate("Object.keys(a).join(',')").AsString().Should().Be("0,1,2,3,4,5,6,7");
+    }
+
+    /// <summary>
+    /// Writing a hole makes the element exist, and
+    /// https://tc39.es/ecma262/#sec-ordinarysetwithowndescriptor step 3.b refuses to create a property on
+    /// a non-extensible object — which <c>Set(O, Pk, value, true)</c> then turns into a TypeError
+    /// (fill step 8.c, copyWithin step 12.b.iii). The array keeps whatever the loop managed to write
+    /// before the failure, so this is a partial update, not an atomic one. Verified against V8.
+    /// <para>
+    /// The <c>true</c> is baked into the spec algorithm, so the throw does not depend on the caller's
+    /// strictness — both modes are pinned here.
+    /// </para>
+    /// </summary>
+    [Theory]
+    [InlineData("")]
+    [InlineData("'use strict';")]
+    public void FillThrowsWhenItWouldCreateAnElementOnANonExtensibleArray(string prologue)
+    {
+        var engine = new Engine();
+
+        Invoking(() => engine.Evaluate(prologue + "var a = [0,,2]; Object.preventExtensions(a); a.fill(9);"))
+            .Should().Throw<JavaScriptException>();
+
+        // index 0 existed and was written before the hole at 1 failed
+        engine.Evaluate("a[0] + '|' + (1 in a) + '|' + a[2] + '|' + a.length").AsString().Should().Be("9|false|2|3");
+
+        // no hole, nothing to create: the same array is filled without complaint
+        engine.Evaluate(prologue + "var b = [0,1,2]; Object.preventExtensions(b); b.fill(9); b.join(',')")
+            .AsString().Should().Be("9,9,9");
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("'use strict';")]
+    public void CopyWithinThrowsWhenItWouldCreateAnElementOnANonExtensibleArray(string prologue)
+    {
+        var engine = new Engine();
+
+        Invoking(() => engine.Evaluate(prologue + "var a = [1,2,,4]; Object.preventExtensions(a); a.copyWithin(2,0,2);"))
+            .Should().Throw<JavaScriptException>();
+
+        // the destination hole at index 2 is the first write, so nothing changed at all
+        engine.Evaluate("a[0] + '|' + a[1] + '|' + (2 in a) + '|' + a[3]").AsString().Should().Be("1|2|false|4");
+
+        // hole-free destination: the copy goes through
+        engine.Evaluate(prologue + "var b = [1,2,3,4]; Object.preventExtensions(b); b.copyWithin(2,0,2); b.join(',')")
+            .AsString().Should().Be("1,2,1,2");
+    }
+
     [Fact]
     public void PopWrappedGenericList()
     {
