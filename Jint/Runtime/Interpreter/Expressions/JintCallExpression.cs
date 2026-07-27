@@ -25,9 +25,11 @@ internal sealed class JintCallExpression : JintExpression
     // Monomorphic fast-call cache: the callee seen by the last evaluation plus its verdict for this
     // site's arity. Identity is what makes the verdict safe to reuse — re-assigning the property
     // (`Math.abs = f`) swaps the value without bumping any version counter, so nothing weaker than a
-    // reference compare would notice. A miss re-caches rather than declining permanently, which
-    // matters because a Prepared<Script> shares these nodes across engines and each engine brings its
-    // own built-in instances.
+    // reference compare would notice. A miss re-caches rather than declining permanently, so a site
+    // that legitimately sees more than one callee over its lifetime keeps the lane.
+    // NOTE: _fastCallee is a Function, i.e. engine-affine state. Handler trees are engine-owned for
+    // exactly this reason (Engine._functionDefinitions / _scriptStatementLists) and must never be
+    // stashed on the AST shared by a Prepared<Script> — see the INVARIANT in JintStatement.Build.
     private Function? _fastCallee;
     private FastCallShape _fastShape;
 
@@ -304,13 +306,6 @@ internal sealed class JintCallExpression : JintExpression
     }
 
     /// <summary>
-    /// Whether <paramref name="value"/> implements <see cref="ICallable"/>, decided by the
-    /// <see cref="InternalTypes.Callable"/> flag instead of an `is ICallable` interface-map scan.
-    /// Every <see cref="ICallable"/> root sets the flag in its constructor, so the two answers are
-    /// equivalent by construction — asserted here so a future ICallable implementer that forgets
-    /// the flag trips in debug builds rather than silently losing callability.
-    /// </summary>
-    /// <summary>
     /// Whether <paramref name="value"/> is a <see cref="Function"/>, decided by the
     /// <see cref="InternalTypes.Function"/> flag instead of a class-hierarchy walk. Only functions get a
     /// call-stack frame, so this runs on every dispatched call; <see cref="Function"/> is abstract with
@@ -324,6 +319,13 @@ internal sealed class JintCallExpression : JintExpression
         return flagged;
     }
 
+    /// <summary>
+    /// Whether <paramref name="value"/> implements <see cref="ICallable"/>, decided by the
+    /// <see cref="InternalTypes.Callable"/> flag instead of an `is ICallable` interface-map scan.
+    /// Every <see cref="ICallable"/> root sets the flag in its constructor, so the two answers are
+    /// equivalent by construction — asserted here so a future ICallable implementer that forgets
+    /// the flag trips in debug builds rather than silently losing callability.
+    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool IsCallableFlagged(JsValue value)
     {

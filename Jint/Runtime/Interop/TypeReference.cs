@@ -307,6 +307,18 @@ public sealed class TypeReference : Constructor, IObjectWrapper
 
     private PropertyDescriptor CreatePropertyDescriptor(string name)
     {
+        if (ReferenceType.IsEnum)
+        {
+            // An enum constant resolves to the value the engine's EnumConversion mode calls for - a JsString
+            // name under String mode, a JsNumber otherwise - which the (type, name) key of the process-wide
+            // cache below cannot express. Rather than widen that key for every member of every type just to
+            // carry a bit only enum types read, enum references resolve per instance: this reference memoizes
+            // the descriptor in its own _properties on the first read anyway, and resolving one is a scan over
+            // the enum's own members, so the shared cache bought little here to begin with.
+            return ResolveMemberAccessor(_engine, ReferenceType, name)
+                .CreatePropertyDescriptor(_engine, ReferenceType, name, enumerable: true);
+        }
+
         var key = new MemberAccessorKey(ReferenceType, name);
         if (!_memberAccessors.TryGetValue(key, out var accessor))
         {
@@ -358,7 +370,19 @@ public sealed class TypeReference : Constructor, IObjectWrapper
                     if (memberNameComparer.Equals(name, exposedName))
                     {
                         var value = enumValues.GetValue(i)!;
-                        return new ConstantValueAccessor(JsNumber.Create(value));
+                        if (!engine._enumsAsStrings)
+                        {
+                            return new ConstantValueAccessor(JsNumber.Create(value));
+                        }
+
+                        // Under EnumConversionMode.String the same enum value coming the other way — off a
+                        // CLR member, out of a method return — becomes its name, so a constant read here has
+                        // to agree or `host.Level == Level.Two` compares a string against a number. Take the
+                        // canonical name for the value rather than the name matched above, which is what
+                        // Enum.ToString() (the conversion those other routes end in) reports when several
+                        // constants share one value.
+                        var canonicalName = Enum.GetName(type, value) ?? enumOriginalName;
+                        return new ConstantValueAccessor(JsString.Create(canonicalName));
                     }
                 }
             }

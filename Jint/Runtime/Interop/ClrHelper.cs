@@ -6,11 +6,15 @@ namespace Jint.Runtime.Interop;
 
 internal sealed class ClrHelper
 {
-    private readonly Options.InteropOptions _interopOptions;
+    // Snapshot, like every other engine-visible reading of this option: it is settled once the engine's
+    // configuration callbacks have run (this type is built right after them) and mutating it afterwards is
+    // not a supported pattern - member resolution could not honour a later change either, since the accessor
+    // cache is partitioned by the value captured at construction.
+    private readonly bool _allowGetType;
 
     internal ClrHelper(Options.InteropOptions interopOptions)
     {
-        _interopOptions = interopOptions;
+        _allowGetType = interopOptions.AllowGetType;
     }
 
     /// <summary>
@@ -83,7 +87,7 @@ internal sealed class ClrHelper
 
     private void MustAllowGetType()
     {
-        if (!_interopOptions.AllowGetType)
+        if (!_allowGetType)
         {
             Throw.InvalidOperationException("Invalid when Engine.Options.Interop.AllowGetType == false");
         }

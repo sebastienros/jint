@@ -35,8 +35,14 @@ internal abstract class ReflectionAccessor
     public abstract bool Writable { get; }
 
     /// <summary>
-    /// An indexer is probed before the member itself (see <see cref="GetValue"/>), so the compiled
-    /// lanes in <see cref="CompilableMemberAccessor"/> must decline when one is present.
+    /// An indexer is probed before the member itself (see <see cref="GetValue"/>), so the one compiled
+    /// lane that would answer <em>instead of</em> <see cref="GetValue"/> —
+    /// <see cref="CompilableMemberAccessor.TryGetJsValue"/>, which produces the <see cref="JsValue"/>
+    /// itself — must decline when one is present. The other compiled lanes need no such guard:
+    /// <see cref="SetValue"/> never probes the indexer at all, so
+    /// <see cref="CompilableMemberAccessor.TrySetJsValue"/> has nothing to decline for, and the compiled
+    /// raw getter runs from inside <see cref="GetValue"/>, only after the indexer probe has already
+    /// missed.
     /// </summary>
     protected bool HasIndexer => _indexer is not null;
 

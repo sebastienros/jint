@@ -607,6 +607,103 @@ var big = (s + '|tail').split('|');       // [s, 'tail']: first segment is ~the 
         _engine.Evaluate("var s = 'abcde'.repeat(1000); s.toWellFormed() === s").AsBoolean().Should().BeTrue();
     }
 
+    // ---- coercion order and receiver coercion ----
+
+    [Fact]
+    public void SliceCoercesTheReceiverBeforeItsArguments()
+    {
+        // https://tc39.es/ecma262/#sec-string.prototype.slice - step 2 (ToString of the receiver)
+        // precedes ToIntegerOrInfinity of start (step 4) and of end (step 8).
+        var order = _engine.Evaluate("""
+            var log = [];
+            var o = { toString: function () { log.push('this'); return 'abcdef'; } };
+            var start = { valueOf: function () { log.push('start'); return 1; } };
+            var end = { valueOf: function () { log.push('end'); return 3; } };
+            String.prototype.slice.call(o, start, end) + '|' + log.join(',')
+            """).AsString();
+
+        order.Should().Be("bc|this,start,end");
+    }
+
+    [Fact]
+    public void SliceThrowsForASymbolReceiverWhateverTheStartIs()
+    {
+        Invoking(() => _engine.Evaluate("String.prototype.slice.call(Symbol(), Infinity)"))
+            .Should().Throw<JavaScriptException>().WithMessage("Cannot convert a Symbol value to a string");
+    }
+
+    [Fact]
+    public void SliceCoercesEndEvenWhenStartIsInfinite()
+    {
+        // An infinite start clamps to the end of the string, but step 8 still coerces end.
+        var coerced = _engine.Evaluate("""
+            var seen = false;
+            var end = { valueOf: function () { seen = true; return 3; } };
+            'abcdef'.slice(Infinity, end) + '|' + seen
+            """).AsString();
+
+        coerced.Should().Be("|true");
+    }
+
+    [Fact]
+    public void AtCoercesTheReceiverPerSpec()
+    {
+        // https://tc39.es/ecma262/#sec-string.prototype.at - step 2 is ToString(O), which rejects a Symbol
+        // and honours a user-defined toString.
+        Invoking(() => _engine.Evaluate("String.prototype.at.call(Symbol('x'), 0)"))
+            .Should().Throw<JavaScriptException>().WithMessage("Cannot convert a Symbol value to a string");
+
+        _engine.Evaluate("String.prototype.at.call({ toString: function () { return 'zq'; } }, 1)")
+            .AsString().Should().Be("q");
+    }
+
+    [Fact]
+    public void IncludesHandlesAnOutOfRangeFromIndex()
+    {
+        // https://tc39.es/ecma262/#sec-string.prototype.includes step 8 clamps pos between 0 and the
+        // length of S, so a position no int can hold must still answer rather than fault.
+        _engine.Evaluate("'abc'.includes('b', 1e20)").AsBoolean().Should().BeFalse();
+        _engine.Evaluate("'abc'.includes('', 1e20)").AsBoolean().Should().BeTrue();
+        _engine.Evaluate("'abc'.includes('b', -1e20)").AsBoolean().Should().BeTrue();
+    }
+
+    // ---- split's empty-regexp shortcut ----
+
+    [Theory]
+    [InlineData("u")]
+    [InlineData("v")]
+    public void SplitOnAnEmptyUnicodeRegExpKeepsSurrogatePairsTogether(string flags)
+    {
+        // RegExp.prototype[@@split] advances by code point under u/v, so the shortcut that rewrites
+        // /(?:)/ into the empty string separator must not take unicode-mode regexps.
+        var result = _engine.Evaluate($"var a = '\\u{{1F600}}'.split(/(?:)/{flags}); a.length + ':' + a[0]").AsString();
+
+        result.Should().Be("1:\uD83D\uDE00");
+    }
+
+    [Fact]
+    public void SplitOnAnEmptyRegExpHonoursAUserSuppliedSplitSymbol()
+    {
+        // https://tc39.es/ecma262/#sec-string.prototype.split step 2: an own @@split wins over the
+        // built-in behaviour, empty pattern or not.
+        var result = _engine.Evaluate("""
+            var re = /(?:)/;
+            re[Symbol.split] = function () { return 'custom'; };
+            'abc'.split(re)
+            """).AsString();
+
+        result.Should().Be("custom");
+    }
+
+    [Fact]
+    public void SplitOnAnEmptyNonUnicodeRegExpStillYieldsCodeUnits()
+    {
+        _engine.Evaluate("""var a = '\u{1F600}'.split(/(?:)/); a.length + ':' + a[0].charCodeAt(0)""")
+            .AsString().Should().Be("2:55357");
+        _engine.Evaluate("""JSON.stringify('abc'.split(/(?:)/))""").AsString().Should().Be("""["a","b","c"]""");
+        _engine.Evaluate("""JSON.stringify('abc'.split(/(?:)/, 2))""").AsString().Should().Be("""["a","b"]""");
+    }
+
     public static TheoryData<string, string> GetLithuaniaTestsData()
     {
         return new StringTetsLithuaniaData().TestData();

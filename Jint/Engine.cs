@@ -1465,6 +1465,13 @@ public sealed partial class Engine : IDisposable
     /// <summary>
     /// Gets a named value from the Global scope.
     /// </summary>
+    /// <remarks>
+    /// Convenience overload: every call allocates a <see cref="JsString"/> for
+    /// <paramref name="propertyName"/>. A host that reads the same name repeatedly — once per request,
+    /// once per evaluation, in a loop — should hoist that <see cref="JsString"/> once and use
+    /// <see cref="GetValue(JsValue, JsValue)"/>, or read straight off <see cref="Global"/> with
+    /// <c>engine.Global.Get(cachedName)</c>.
+    /// </remarks>
     /// <param name="propertyName">The name of the property to return.</param>
     public JsValue GetValue(string propertyName)
     {
@@ -2362,7 +2369,7 @@ public sealed partial class Engine : IDisposable
 
         var recursionDepth = CallStack.Push(function, expression, ExecutionContext);
 
-        if (recursionDepth > Options.Constraints.MaxRecursionDepth)
+        if (recursionDepth > _maxRecursionDepth)
         {
             // automatically pops the current element as it was never reached
             Throw.RecursionDepthOverflowException(CallStack);
@@ -2395,7 +2402,7 @@ public sealed partial class Engine : IDisposable
 
         var recursionDepth = CallStack.Push(function, expression, ExecutionContext);
 
-        if (recursionDepth > Options.Constraints.MaxRecursionDepth)
+        if (recursionDepth > _maxRecursionDepth)
         {
             // automatically pops the current element as it was never reached
             Throw.RecursionDepthOverflowException(CallStack);

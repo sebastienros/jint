@@ -7,8 +7,11 @@ namespace Jint.Runtime.Interop;
 /// <summary>
 /// Answers "could any of this engine's registered <see cref="IObjectConverter"/>s be handed a value read
 /// from a member of this declared type?" for the interop fast lanes, which have to decline whenever the
-/// answer is yes (a converter must see every CLR value before it becomes a <see cref="JsValue"/>, and those
-/// lanes produce the <see cref="JsValue"/> themselves).
+/// answer is yes: on the paths those lanes short-circuit, a converter is otherwise offered every CLR value
+/// on its way to a <see cref="JsValue"/>, and the lanes produce the <see cref="JsValue"/> themselves.
+/// (That is a property of those paths, not a global invariant — the array-like element lane in
+/// <c>ObjectWrapper.Specialized</c> turns common primitive item types into <see cref="JsValue"/>s without
+/// consulting any converter.)
 /// <para>
 /// A converter registered without declaring the CLR types it handles can be handed anything, so a single
 /// such converter makes the filter claim every member — which is exactly the behaviour every registration
@@ -31,6 +34,14 @@ internal sealed class ObjectConverterTypeFilter
     private readonly Type[]? _declaredTypes;
 
     private readonly ConcurrentDictionary<Type, bool>? _claims;
+
+    /// <summary>
+    /// Memoized <see cref="ConcurrentDictionary{TKey,TValue}.GetOrAdd(TKey, Func{TKey, TValue})"/> factory.
+    /// It cannot be <c>static</c> — the answer depends on <see cref="_declaredTypes"/>, which lives on this
+    /// instance — and the state-carrying <c>GetOrAdd</c> overload that would let it be does not exist on
+    /// every target framework, so the delegate is built once per filter instead of once per miss.
+    /// </summary>
+    private Func<Type, bool>? _computeClaims;
 
     private ObjectConverterTypeFilter(Type[]? declaredTypes)
     {
@@ -76,21 +87,12 @@ internal sealed class ObjectConverterTypeFilter
     /// </summary>
     internal bool Claims(Type? memberType)
     {
-        var declaredTypes = _declaredTypes;
-        if (declaredTypes is null || memberType is null)
+        if (_declaredTypes is null || memberType is null)
         {
             return true;
         }
 
-        var claims = _claims!;
-        if (claims.TryGetValue(memberType, out var result))
-        {
-            return result;
-        }
-
-        result = ComputeClaims(declaredTypes, memberType);
-        claims.TryAdd(memberType, result);
-        return result;
+        return _claims!.GetOrAdd(memberType, _computeClaims ??= type => ComputeClaims(_declaredTypes!, type));
     }
 
     private static bool ComputeClaims(Type[] declaredTypes, Type memberType)

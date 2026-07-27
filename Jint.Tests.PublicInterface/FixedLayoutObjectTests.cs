@@ -64,6 +64,22 @@ public class FixedLayoutObjectTests
             .WithMessage("*starts with a digit*");
     }
 
+    [Theory]
+    [InlineData("３ｄ")]  // FULLWIDTH DIGIT THREE + FULLWIDTH LATIN SMALL LETTER D
+    [InlineData("٣x")]       // ARABIC-INDIC DIGIT THREE
+    [InlineData("৩")]        // BENGALI DIGIT THREE
+    public void LayoutAcceptsNamesStartingWithANonAsciiDigit(string name)
+    {
+        // Only ASCII digits can begin a canonical array index, so a name like "３ｄ" enumerates
+        // as an ordinary string key and a fixed layout can express it.
+        var layout = new JsObjectLayout("a", name);
+        layout.IndexOf(name).Should().Be(1);
+
+        var engine = new Engine();
+        engine.SetValue("o", JsObject.Create(engine, layout, [JsNumber.Create(1), JsNumber.Create(2)]));
+        engine.Evaluate("Object.keys(o).join()").Should().Be("a," + name);
+    }
+
     [Fact]
     public void LayoutAcceptsUpToSixtyFourNamesAndRejectsMore()
     {

@@ -55,7 +55,7 @@ internal enum InternalTypes
     // discriminate built-in-shape vs dictionary storage with a single flag test on the already-loaded _type.
     BuiltinShapeMode = 524288,
     // the value implements ICallable. Set by every ICallable root (Function, BindFunction,
-    // IsHTMLDDA, JsProxy) so a call site can decide callability with a flag test on the
+    // IsHTMLDDA, JsProxy, NamespaceReference) so a call site can decide callability with a flag test on the
     // already-loaded _type plus an Unsafe.As, instead of an `is ICallable` interface-map scan —
     // measured at 1.2% of dromaeo-object-string-modern, all of it from JintCallExpression, which
     // tests it twice per call. Note this is strictly "implements ICallable", NOT "is callable":

@@ -825,10 +825,8 @@ internal sealed partial class RegExpPrototype : Prototype
                     return IsMatchWithTimeout(R, customEngine, s, 0);
                 }
 
-                var lastIndex = (int) TypeConverter.ToLength(R.Get(JsRegExp.PropertyLastIndex));
-                if (lastIndex >= s.Length && s.Length > 0)
+                if (!TryGetSearchStart(R, s, out var lastIndex))
                 {
-                    R.Set(JsRegExp.PropertyLastIndex, 0, throwOnError: true);
                     return JsBoolean.False;
                 }
 
@@ -848,12 +846,13 @@ internal sealed partial class RegExpPrototype : Prototype
             {
                 if (!R.Sticky && !R.Global)
                 {
-                    R.Set(JsRegExp.PropertyLastIndex, 0, throwOnError: true);
+                    // RegExpBuiltinExec step 10 zeroes the *local* lastIndex for a non-global,
+                    // non-sticky regexp; the property itself is never written (which would raise a
+                    // TypeError on a non-writable lastIndex, as exec does not).
                     return R.Value.IsMatch(s);
                 }
 
-                var lastIndex = (int) TypeConverter.ToLength(R.Get(JsRegExp.PropertyLastIndex));
-                if (lastIndex >= s.Length && s.Length > 0)
+                if (!TryGetSearchStart(R, s, out var lastIndex))
                 {
                     return JsBoolean.False;
                 }
@@ -871,6 +870,28 @@ internal sealed partial class RegExpPrototype : Prototype
 
         var match = RegExpExec(r, s);
         return !match.IsNull();
+    }
+
+    /// <summary>
+    /// Reads the search start for a global or sticky regexp from its <c>lastIndex</c>, applying
+    /// RegExpBuiltinExec step 15.a: a <c>lastIndex</c> strictly past the end of the subject resets the
+    /// property and fails the match. <c>lastIndex == length</c> is a legal start (a zero-length match can
+    /// still succeed there), and the comparison happens before the narrowing cast so a value above
+    /// <see cref="int.MaxValue"/> cannot wrap into a valid position.
+    /// https://tc39.es/ecma262/#sec-regexpbuiltinexec
+    /// </summary>
+    private static bool TryGetSearchStart(JsRegExp R, string s, out int start)
+    {
+        var lastIndex = TypeConverter.ToLength(R.Get(JsRegExp.PropertyLastIndex));
+        if (lastIndex > (ulong) s.Length)
+        {
+            R.Set(JsRegExp.PropertyLastIndex, 0, throwOnError: true);
+            start = 0;
+            return false;
+        }
+
+        start = (int) lastIndex;
+        return true;
     }
 
     /// <summary>
@@ -1453,7 +1474,7 @@ internal sealed partial class RegExpPrototype : Prototype
             array.CreateDataPropertyOrThrow("indices", indicesArray);
         }
 
-        // B.2.4 Update legacy RegExp static properties
+        // Update the legacy RegExp static properties (RegExp Legacy Features proposal, not Annex B)
         UpdateLegacyStaticPropertiesFromCustom(engine, in result, s, actualGroupCount);
 
         return array;
@@ -1570,14 +1591,16 @@ internal sealed partial class RegExpPrototype : Prototype
             array.CreateDataPropertyOrThrow("indices", indicesArray);
         }
 
-        // B.2.4 Update legacy RegExp static properties
+        // Update the legacy RegExp static properties (RegExp Legacy Features proposal, not Annex B)
         UpdateLegacyStaticProperties(engine, match, s, actualGroupCount);
 
         return array;
     }
 
     /// <summary>
-    /// B.2.4 Update RegExp legacy static properties after a successful match.
+    /// Updates the RegExp legacy static properties after a successful match. These come from the TC39
+    /// "RegExp Legacy Features" proposal (https://github.com/tc39/proposal-regexp-legacy-features),
+    /// not from ECMA-262 Annex B.
     /// </summary>
     private static void UpdateLegacyStaticProperties(Engine engine, Match match, string s, int actualGroupCount)
     {
@@ -1663,10 +1686,17 @@ internal sealed partial class RegExpPrototype : Prototype
         return engine.Realm.Intrinsics.Array.CreateArrayFromList(match);
     }
 
+    /// <summary>
+    /// Whether capture-group metadata can be read off the parse result. A host-supplied Regex
+    /// (<see cref="JsRegExp.IsHostRegex"/>) was never adapted from a JavaScript pattern, so it has none
+    /// and its groups are described by the <see cref="Regex"/> itself.
+    /// </summary>
+    private static bool HasParseResultGroupInfo(JsRegExp rei) => rei.UsesDotNetEngine && !rei.IsHostRegex;
+
     private static int GetActualRegexGroupCount(JsRegExp rei, Match match)
     {
 #pragma warning disable CS0618 // Type or member is obsolete
-        return rei.UsesDotNetEngine ? rei.ParseResult.ActualRegexGroupCount : match.Groups.Count;
+        return HasParseResultGroupInfo(rei) ? rei.ParseResult.ActualRegexGroupCount : match.Groups.Count;
 #pragma warning restore CS0618 // Type or member is obsolete
     }
 
@@ -1676,6 +1706,11 @@ internal sealed partial class RegExpPrototype : Prototype
     /// </summary>
     private static int GetRegexGroupCount(JsRegExp rei)
     {
+        if (!HasParseResultGroupInfo(rei))
+        {
+            return rei.Value.GetGroupNumbers().Length;
+        }
+
 #pragma warning disable CS0618 // Type or member is obsolete
         return rei.ParseResult.ActualRegexGroupCount;
 #pragma warning restore CS0618 // Type or member is obsolete
@@ -1688,7 +1723,7 @@ internal sealed partial class RegExpPrototype : Prototype
             return null;
         }
 
-        if (rei.UsesDotNetEngine)
+        if (HasParseResultGroupInfo(rei))
         {
 #pragma warning disable CS0618 // Type or member is obsolete
             return rei.ParseResult.GetRegexGroupName(index);

@@ -735,6 +735,29 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         return base.HasProperty(index);
     }
 
+    /// <summary>
+    /// The own-property half of <see cref="HasProperty(ulong)"/>: whether this array itself holds an
+    /// element at <paramref name="index"/>, without the prototype walk. This is the question
+    /// [[Set]] asks before refusing to create a property on a non-extensible object
+    /// (https://tc39.es/ecma262/#sec-ordinarysetwithowndescriptor step 3.b), where an inherited
+    /// element must not count as present.
+    /// </summary>
+    internal bool HasOwnIndexProperty(ulong index)
+    {
+        if (index >= uint.MaxValue)
+        {
+            return false;
+        }
+
+        var temp = _dense;
+        if (temp is not null)
+        {
+            return index < (uint) temp.Length && temp[index] is not null;
+        }
+
+        return _sparse!.ContainsKey((uint) index);
+    }
+
     protected internal sealed override void SetOwnProperty(JsValue property, PropertyDescriptor desc)
     {
         var isArrayIndex = IsArrayIndex(property, out var index);
@@ -1146,10 +1169,11 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
             JsValue key = index;
             while (prototype is not null)
             {
-                var desc = prototype.GetOwnProperty(key);
-                if (desc != PropertyDescriptor.Undefined)
+                // The hook's base body is this level's GetOwnProperty plus the same unwrap against the
+                // same receiver (the one-argument UnwrapJsValue forwards `this`), so nothing in the walk
+                // changes for an in-box prototype; a host one gets to answer without a descriptor.
+                if (prototype.TryGetOwnPropertyValue(key, this, out value))
                 {
-                    value = UnwrapJsValue(desc);
                     return true;
                 }
 

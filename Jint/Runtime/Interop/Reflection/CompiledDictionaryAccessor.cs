@@ -19,8 +19,10 @@ namespace Jint.Runtime.Interop.Reflection;
 /// Builds and caches a delegate that calls <c>TryGetValue</c> on a closed generic
 /// <see cref="IDictionary{TKey,TValue}"/> / <see cref="IReadOnlyDictionary{TKey,TValue}"/>, so that reading a
 /// property off a dictionary-shaped host object does not go through <see cref="MethodBase.Invoke(object, object[])"/>
-/// — which costs a boxed argument array and a reflection dispatch on <b>every</b> property read, there being
-/// no inline-cache backstop for dictionaries.
+/// — which costs an <c>object[]</c> argument array and a reflection dispatch on <b>every</b> property read,
+/// there being no inline-cache backstop for dictionaries. Those two are what the lane removes; a
+/// value-typed <c>TValue</c> is still boxed on the way out, because the delegate hands the value back as
+/// <see cref="object"/> exactly as the reflection path did.
 /// <para>
 /// Keyed by the <c>TryGetValue</c> <see cref="MethodInfo"/>, which is the one declared on the generic
 /// interface and therefore already shared by every implementation of it, and cached process-wide because

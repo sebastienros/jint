@@ -15,9 +15,19 @@ public partial class Engine
     /// During IO-bound operations (e.g., .NET Tasks awaited from JS), the calling
     /// thread is released and zero threads are consumed until work is available.
     /// </summary>
+    /// <remarks>
+    /// <paramref name="cancellationToken"/> does <b>not</b> preempt the synchronous evaluation loop. The
+    /// script is evaluated to completion first and the token is only observed afterwards, while awaiting
+    /// promise settlement — that is, at event-loop continuation boundaries. A script that never yields
+    /// (<c>while (true) { }</c>) is therefore not cancellable through this parameter. To bound the
+    /// interpreter itself, register an execution constraint on the engine's <see cref="Options"/>:
+    /// <see cref="ConstraintsOptionsExtensions.CancellationToken"/> for token-driven cancellation or
+    /// <see cref="ConstraintsOptionsExtensions.TimeoutInterval"/> for a wall-clock bound. Both are
+    /// amortizable, so neither disarms the interpreter's tight-loop lane.
+    /// </remarks>
     /// <param name="code">The JavaScript code to evaluate.</param>
     /// <param name="source">Optional source identifier for debugging.</param>
-    /// <param name="cancellationToken">Cancellation token to observe.</param>
+    /// <param name="cancellationToken">Cancellation token to observe while awaiting promise settlement; see the remarks.</param>
     /// <returns>The resolved value if the result is a promise, otherwise the direct result.</returns>
     public Task<JsValue> EvaluateAsync(string code, string? source = null, CancellationToken cancellationToken = default)
     {
@@ -28,8 +38,18 @@ public partial class Engine
     /// <summary>
     /// Evaluates a prepared script asynchronously, properly awaiting any promises.
     /// </summary>
+    /// <remarks>
+    /// <paramref name="cancellationToken"/> does <b>not</b> preempt the synchronous evaluation loop. The
+    /// script is evaluated to completion first and the token is only observed afterwards, while awaiting
+    /// promise settlement — that is, at event-loop continuation boundaries. A script that never yields
+    /// (<c>while (true) { }</c>) is therefore not cancellable through this parameter. To bound the
+    /// interpreter itself, register an execution constraint on the engine's <see cref="Options"/>:
+    /// <see cref="ConstraintsOptionsExtensions.CancellationToken"/> for token-driven cancellation or
+    /// <see cref="ConstraintsOptionsExtensions.TimeoutInterval"/> for a wall-clock bound. Both are
+    /// amortizable, so neither disarms the interpreter's tight-loop lane.
+    /// </remarks>
     /// <param name="preparedScript">The pre-parsed script to evaluate.</param>
-    /// <param name="cancellationToken">Cancellation token to observe.</param>
+    /// <param name="cancellationToken">Cancellation token to observe while awaiting promise settlement; see the remarks.</param>
     /// <returns>The resolved value if the result is a promise, otherwise the direct result.</returns>
     public Task<JsValue> EvaluateAsync(in Prepared<Script> preparedScript, CancellationToken cancellationToken = default)
     {
@@ -41,9 +61,17 @@ public partial class Engine
     /// Executes JavaScript code asynchronously, properly awaiting completion of any promises.
     /// This is the non-blocking alternative to Execute() when the code may contain async operations.
     /// </summary>
+    /// <remarks>
+    /// <paramref name="cancellationToken"/> does <b>not</b> preempt the synchronous evaluation loop. The
+    /// code runs to completion first and the token is only observed afterwards, while awaiting promise
+    /// settlement — that is, at event-loop continuation boundaries. To bound the interpreter itself,
+    /// register an execution constraint on the engine's <see cref="Options"/>:
+    /// <see cref="ConstraintsOptionsExtensions.CancellationToken"/> or
+    /// <see cref="ConstraintsOptionsExtensions.TimeoutInterval"/>.
+    /// </remarks>
     /// <param name="code">The JavaScript code to execute.</param>
     /// <param name="source">Optional source identifier for debugging.</param>
-    /// <param name="cancellationToken">Cancellation token to observe.</param>
+    /// <param name="cancellationToken">Cancellation token to observe while awaiting promise settlement; see the remarks.</param>
     /// <returns>The engine instance for chaining, after all async work completes.</returns>
     public async Task<Engine> ExecuteAsync(string code, string? source = null, CancellationToken cancellationToken = default)
     {
@@ -70,8 +98,16 @@ public partial class Engine
     /// <summary>
     /// Invokes a JavaScript function asynchronously, properly awaiting any returned promise.
     /// </summary>
+    /// <remarks>
+    /// <paramref name="cancellationToken"/> does <b>not</b> preempt the synchronous call. The function runs
+    /// to completion first and the token is only observed afterwards, while awaiting promise settlement —
+    /// that is, at event-loop continuation boundaries. To bound the interpreter itself, register an
+    /// execution constraint on the engine's <see cref="Options"/>:
+    /// <see cref="ConstraintsOptionsExtensions.CancellationToken"/> or
+    /// <see cref="ConstraintsOptionsExtensions.TimeoutInterval"/>.
+    /// </remarks>
     /// <param name="propertyName">The name of the function to invoke.</param>
-    /// <param name="cancellationToken">Cancellation token to observe.</param>
+    /// <param name="cancellationToken">Cancellation token to observe while awaiting promise settlement; see the remarks.</param>
     /// <param name="arguments">Arguments to pass to the function.</param>
     /// <returns>The resolved value if the function returns a promise, otherwise the direct result.</returns>
     public Task<JsValue> InvokeAsync(string propertyName, CancellationToken cancellationToken, params object?[] arguments)

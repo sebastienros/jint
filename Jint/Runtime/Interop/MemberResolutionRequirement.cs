@@ -33,7 +33,7 @@ internal static class MemberResolutionRequirementExtensions
     /// Whether <paramref name="accessor"/> may answer for a resolution carrying this requirement.
     /// <see cref="MemberResolutionRequirement.None"/> is satisfied by every accessor.
     /// </summary>
-    public static bool IsSatisfiedBy(this MemberResolutionRequirement requirement, ReflectionAccessor accessor)
+    internal static bool IsSatisfiedBy(this MemberResolutionRequirement requirement, ReflectionAccessor accessor)
     {
         if ((requirement & MemberResolutionRequirement.Readable) != MemberResolutionRequirement.None && !accessor.Readable)
         {

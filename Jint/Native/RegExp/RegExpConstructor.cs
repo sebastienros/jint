@@ -17,14 +17,19 @@ public sealed partial class RegExpConstructor : Constructor
     private static readonly JsString _functionName = new JsString("RegExp");
     private static readonly Regex DummyRegex = new("(?:)", RegexOptions.None, TimeSpan.FromSeconds(1));
 
-    // B.2.4 RegExp Legacy Static Properties
+    // RegExp legacy static properties ($1-$9, lastMatch, lastParen, leftContext, rightContext, input).
+    // These are NOT Annex B — they come from the TC39 "RegExp Legacy Features" proposal
+    // (https://github.com/tc39/proposal-regexp-legacy-features); ECMA-262's B.2.4 is the
+    // Date.prototype additions.
     internal string _legacyInput = "";
     internal string _legacyLastParen = "";
     internal readonly string[] _legacyParens = new string[9];
-    // Last match and left/right context are all computed lazily from the match position, so a
-    // successful exec() only stores the input and two offsets. Materializing them eagerly cost a
-    // Substring per exec() — for a match that spans most of a large subject that is a copy of the
-    // whole subject, paid whether or not anything ever reads these Annex B properties.
+    // Last match and left/right context are computed lazily from the match position, so those three
+    // cost nothing beyond the subject reference and two offsets stored per successful exec().
+    // Materializing them eagerly cost a Substring per exec() — for a match that spans most of a large
+    // subject that is a copy of the whole subject, paid whether or not anything ever reads them.
+    // The fields above are not lazy: $1-$9 and lastParen are copied out of the Match on every
+    // successful exec() (see RegExpPrototype.UpdateLegacyStaticProperties).
     private string _legacyContextInput = "";
     private int _legacyMatchIndex;
     private int _legacyMatchEnd;
@@ -68,11 +73,11 @@ public sealed partial class RegExpConstructor : Constructor
     [JsSymbolAccessor("Species")]
     private static JsValue Species(JsValue thisObject) => thisObject;
 
-    // B.2.4 Legacy static accessors. Kept hand-rolled (rather than [JsAccessor]) because the
-    // accessor function names are non-identifier strings like "$&" / "$_" / "$1" / "$`" — when
-    // the source generator names the underlying function "get $&", `Function.prototype.toString`
-    // returns text that fails test262's native-function-syntax matcher. Building the accessors
-    // here with empty-named ClrFunctions preserves the pre-source-gen behaviour.
+    // Legacy static accessors (RegExp Legacy Features proposal). Kept hand-rolled rather than
+    // [JsAccessor] because the accessor function names are non-identifier strings like
+    // "$&" / "$_" / "$1" / "$`" — when the source generator names the underlying function "get $&",
+    // `Function.prototype.toString` returns text that fails test262's native-function-syntax matcher.
+    // Building the accessors here with empty-named ClrFunctions preserves the pre-source-gen behaviour.
     private void AddLegacyAccessors()
     {
         const PropertyFlag LengthFlags = PropertyFlag.Configurable;
@@ -108,7 +113,7 @@ public sealed partial class RegExpConstructor : Constructor
         }, 1, LengthFlags);
         var inputAccessor = new GetSetPropertyDescriptor(get: inputGetter, set: inputSetter, flags: PropertyFlag.Configurable);
 
-        // $1-$9 — readable, [[Set]]: undefined per B.2.4
+        // $1-$9 — readable, [[Set]]: undefined per the RegExp Legacy Features proposal
         GetSetPropertyDescriptor CreateParenAccessor(int index)
         {
             var i = index;
@@ -454,6 +459,10 @@ public sealed partial class RegExpConstructor : Constructor
     {
         // This method is called when a RegExp object is created at run-time, e.g.,
         // `new RegExp("abc", "i")`, `RegExp("abc", "i")`, `/x/.compile("abc", "i")`, `"x".match("abc")`, etc.
+
+        // A previously host-supplied Regex is re-initialized from a JavaScript pattern here (compile),
+        // so it stops being a host regex and gets a real parse result below.
+        r.IsHostRegex = false;
 
         var p = pattern.IsUndefined() ? "" : TypeConverter.ToString(pattern);
         if (string.IsNullOrEmpty(p))
@@ -1296,6 +1305,11 @@ AppendEscapedNewLine:
 
         var r = RegExpAlloc(this);
         r.Value = regExp;
+
+        // There is no JavaScript pattern to adapt, so there is no RegExpParseResult either: mark the
+        // instance so the prototype lanes route to the .NET engine (rather than dereferencing an absent
+        // custom engine) and read capture-group metadata off the Regex.
+        r.IsHostRegex = true;
 
         // We shouldn't return the .NET pattern as if it were a JS pattern since that would be
         // incorrect and misleading. We could try to convert the .NET pattern to a JS one,

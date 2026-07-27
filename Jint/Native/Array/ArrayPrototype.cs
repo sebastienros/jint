@@ -211,10 +211,19 @@ public sealed partial class ArrayPrototype : ArrayInstance
         // them. Span.Fill is vectorized where the runtime supports it.
         // `final` can land below `k` for an inverted range (fill(v, 2, 1)), which the loop below
         // treats as a no-op, so the range must be checked as non-empty before it becomes a span length.
+        // `length` was captured before the start/end coercions ran arbitrary user code (steps 3 and 5),
+        // and staying with that stale bound is spec-correct for the *loop* — but not for a raw span
+        // write. A `valueOf` that shrank the array leaves dense slots past the new length whose
+        // capacity still covers them; writing those directly would leave own index properties at or
+        // beyond `length`, a state an Array can never reach through the spec (which re-creates them via
+        // Set, growing length back). So bound the span by the *live* length as well as by capacity and
+        // decline the lane on any disagreement. Extensibility is likewise a lane condition: filling a
+        // hole creates a property, which step 8.c requires to fail on a non-extensible array.
         if (k <= final
-            && o is JsArray { CanUseFastAccess: true } fast
+            && o is JsArray { CanUseFastAccess: true, Extensible: true } fast
             && fast._dense is { } dense
-            && final <= (ulong) dense.Length)
+            && final <= (ulong) dense.Length
+            && final <= fast.GetLongLength())
         {
             dense.AsSpan((int) k, (int) (final - k)).Fill(value);
             return o;
@@ -223,11 +232,12 @@ public sealed partial class ArrayPrototype : ArrayInstance
         // Check constraints periodically to prevent memory exhaustion in large fills
         for (var i = k; i < final; ++i)
         {
-            // https://tc39.es/ecma262/#sec-array.prototype.fill step 8.c is `Set(O, Pk, value, true)`,
-            // so a failed write must throw rather than be swallowed — reverse above already does this.
-            // Only the generic path can fail: the dense lane requires CanUseFastAccess, which a frozen
-            // or otherwise non-default-descriptor array does not have.
-            operations.Set(i, value, throwOnError: true);
+            // https://tc39.es/ecma262/#sec-array.prototype.fill step 11.b is `Set(O, Pk, value, true)`,
+            // so a failed write must throw rather than be swallowed — reverse (below) already does this.
+            // `updateLength` mirrors the same step: Set on an index at or past `length` runs
+            // ArrayDefineOwnProperty (10.4.2.1), which extends length — the behaviour a fill whose end
+            // coercion shrank the array depends on to put it back.
+            operations.Set(i, value, updateLength: true, throwOnError: true);
 
             if (i > k && (i - k) % ConstraintCheckInterval == 0)
             {
@@ -298,11 +308,21 @@ public sealed partial class ArrayPrototype : ArrayInstance
         // already behaves as if the source were staged in a temporary — exactly the overlapping case
         // the direction flip below exists to handle. Only a hole-free source range qualifies, since a
         // hole makes the spec delete the target index rather than write it.
+        // `len` was captured before the target/start/end coercions ran arbitrary user code (steps 3, 5
+        // and 7), and staying with that stale bound is spec-correct for the *loop* — but not for a raw
+        // Array.Copy. A `valueOf` that shrank the array leaves dense slots past the new length whose
+        // capacity still covers them; copying into those would leave own index properties at or beyond
+        // `length`, a state an Array can never reach through the spec (which re-creates them via Set,
+        // growing length back). So bound both spans by the *live* length as well as by capacity and
+        // decline the lane on any disagreement. Extensibility is likewise a lane condition: the target
+        // range may hold holes, and filling one creates a property, which step 12.b.iii requires to
+        // fail on a non-extensible array.
         if (count > 0
-            && o is JsArray { CanUseFastAccess: true } fast
+            && o is JsArray { CanUseFastAccess: true, Extensible: true } fast
             && fast._dense is { } dense
             && from + count <= dense.Length
             && to + count <= dense.Length
+            && System.Math.Max(from + count, (long) to + count) <= (long) fast.GetLongLength()
             && System.Array.IndexOf(dense, null, (int) from, (int) count) < 0)
         {
             System.Array.Copy(dense, (int) from, dense, (int) to, (int) count);
@@ -903,15 +923,23 @@ public sealed partial class ArrayPrototype : ArrayInstance
         }
         else if (n >= 0)
         {
+            // `fromIndex` is an unbounded integral Number: step 8 sets k to it as-is and step 10 loops
+            // `while k < len`, so anything at or past len simply has nothing left to scan. Answering
+            // that *before* narrowing is what makes it safe — an out-of-range double-to-long conversion
+            // saturates to long.MaxValue on .NET Core (and is unspecified on .NET Framework), and the
+            // low 32 bits of that are -1, which the dense scan below would use as an array index.
+            if (n >= len)
+            {
+                return JsBoolean.False;
+            }
+
             k = (long) n;
         }
         else
         {
-            k = len + (long) n;
-            if (k < 0)
-            {
-                k = 0;
-            }
+            // step 9 clamps a negative fromIndex to 0, and the same narrowing hazard applies, so the
+            // clamp has to be decided in double arithmetic too
+            k = n <= -len ? 0 : len + (long) n;
         }
 
         // Fast path: dense JsArray scan avoids the per-element virtual call through ArrayOperations.Get.
@@ -969,14 +997,17 @@ public sealed partial class ArrayPrototype : ArrayInstance
         var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
         ulong len = o.GetLongLength();
 
+        var callbackfn = arg0;
+        var thisArg = arg1;
+        // Step 3 rejects an uncallable callback before the iteration starts, so an empty array is no
+        // reason to skip it: `[].every(null)` is a TypeError, not a vacuous `true`. Every sibling
+        // (some/forEach/map/filter/find*/reduce*) already validates ahead of its own length check.
+        var callable = GetCallable(callbackfn);
+
         if (len == 0)
         {
             return JsBoolean.True;
         }
-
-        var callbackfn = arg0;
-        var thisArg = arg1;
-        var callable = GetCallable(callbackfn);
 
         // args is rented from the pool whose factory allocates new JsValue[3], so it is an exact
         // JsValue[]; the per-element fills below bypass the covariant array store type check.
@@ -996,6 +1027,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
                 var testResult = callable.Call(thisArg, args);
                 if (!TypeConverter.ToBoolean(testResult))
                 {
+                    _engine._jsValueArrayPool.ReturnArray(args);
                     return JsBoolean.False;
                 }
             }

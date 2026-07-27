@@ -341,14 +341,16 @@ public sealed class JsArguments : ObjectInstance
         if (ParameterMap is not null)
         {
             var map = ParameterMap;
-            var isMapped = map.GetOwnProperty(property);
+            // snapshot taken before base.DefineOwnProperty can change the map, exactly as before —
+            // only existence was ever read off the descriptor
+            var isMapped = map.HasOwnProperty(property);
             var allowed = base.DefineOwnProperty(property, desc);
             if (!allowed)
             {
                 return false;
             }
 
-            if (isMapped != PropertyDescriptor.Undefined)
+            if (isMapped)
             {
                 if (desc.IsAccessorDescriptor())
                 {
@@ -382,9 +384,9 @@ public sealed class JsArguments : ObjectInstance
         if (ParameterMap is not null)
         {
             var map = ParameterMap;
-            var isMapped = map.GetOwnProperty(property);
+            var isMapped = map.HasOwnProperty(property);
             var result = base.Delete(property);
-            if (result && isMapped != PropertyDescriptor.Undefined)
+            if (result && isMapped)
             {
                 map.Delete(property);
             }

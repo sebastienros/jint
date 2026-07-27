@@ -42,12 +42,13 @@ internal static class CompiledDelegateInvoker
     internal delegate object? Invoker(Delegate target, object?[] arguments);
 
     /// <summary>
-    /// A built thunk together with the number of arguments it indexes out of the array it is handed.
-    /// <see cref="Invoke"/> is <see langword="null"/> for a declined delegate type, in which case
-    /// <see cref="Arity"/> is meaningless.
+    /// A built thunk together with the signature it binds — the delegate type's own <c>Invoke</c> signature,
+    /// which the caller has to check against the target method before using the thunk.
+    /// <see cref="Invoke"/> is <see langword="null"/> for a declined delegate type, in which case the other
+    /// two members are <see langword="null"/> as well.
     /// </summary>
     [StructLayout(LayoutKind.Auto)]
-    private readonly record struct CompiledInvoker(Invoker? Invoke, int Arity);
+    internal readonly record struct CompiledInvoker(Invoker? Invoke, Type[]? ParameterTypes, Type? ReturnType);
 
     // Process-wide L2 cache; a null thunk is the "known ineligible" sentinel so a declined delegate
     // type is never re-probed. Keyed on a Type, which pins nothing the delegate instance did not
@@ -56,58 +57,64 @@ internal static class CompiledDelegateInvoker
     private static readonly ConcurrentDictionary<Type, CompiledInvoker> _cache = new();
 
     /// <summary>
-    /// Returns the thunk for <paramref name="delegateType"/>, or <see langword="null"/> when the type
-    /// is ineligible or the runtime cannot compile the thunk to native code.
+    /// Returns the thunk for <paramref name="delegateType"/> together with the signature it binds, or an
+    /// entry whose <see cref="CompiledInvoker.Invoke"/> is <see langword="null"/> when the type is
+    /// ineligible or the runtime cannot compile the thunk to native code. The reported signature is the
+    /// delegate type's, which the caller must reconcile with the target method's before running the thunk:
+    /// the argument array is built for the target's parameter types while the thunk casts to the delegate's,
+    /// and relaxed delegate binding lets the two differ.
     /// </summary>
     /// <param name="delegateType">The concrete delegate type to build for.</param>
-    /// <param name="arity">
-    /// How many arguments the thunk reads. The caller must only hand it an argument array of exactly
-    /// that length, since the thunk indexes it positionally with no bounds reasoning of its own.
-    /// </param>
-    internal static Invoker? For(Type delegateType, out int arity)
+    internal static CompiledInvoker For(Type delegateType)
     {
-        var entry = _cache.GetOrAdd(delegateType, static t =>
+        return _cache.GetOrAdd(delegateType, static t =>
         {
             // Build ONLY when the runtime will JIT the thunk. Under AOT and under an interpreted-only
             // Expression.Compile (e.g. the Mono interpreter) an interpreted lambda is no faster than
             // DynamicInvoke, so decline and keep the reflection path.
-            if (!RuntimeFeature.IsDynamicCodeCompiled || !TryBuild(t, out var built, out var builtArity))
+            if (!RuntimeFeature.IsDynamicCodeCompiled || !TryBuild(t, out var built, out var parameterTypes, out var returnType))
             {
                 return default;
             }
 
-            return new CompiledInvoker(built, builtArity);
+            return new CompiledInvoker(built, parameterTypes, returnType);
         });
-
-        arity = entry.Arity;
-        return entry.Invoke;
     }
 
-    private static bool TryBuild(Type delegateType, [NotNullWhen(true)] out Invoker? invoker, out int arity)
+    private static bool TryBuild(
+        Type delegateType,
+        [NotNullWhen(true)] out Invoker? invoker,
+        [NotNullWhen(true)] out Type[]? parameterTypes,
+        [NotNullWhen(true)] out Type? returnType)
     {
         invoker = null;
-        arity = 0;
+        parameterTypes = null;
+        returnType = null;
 
         if (!delegateType.IsVisible || delegateType.GetMethod("Invoke") is not { } invokeMethod)
         {
             return false;
         }
 
-        var returnType = invokeMethod.ReturnType;
-        if (returnType != typeof(void) && !IsBindable(returnType))
+        var invokeReturnType = invokeMethod.ReturnType;
+        if (invokeReturnType != typeof(void) && !IsBindable(invokeReturnType))
         {
             return false;
         }
 
         var parameters = invokeMethod.GetParameters();
-        foreach (var parameter in parameters)
+        var invokeParameterTypes = parameters.Length == 0 ? [] : new Type[parameters.Length];
+        for (var i = 0; i < parameters.Length; i++)
         {
             // by-ref (ref / out / in) and pointer parameters cannot be fed from an object?[] element,
             // and the reflection path is the only one that models them
-            if (!IsBindable(parameter.ParameterType))
+            var parameterType = parameters[i].ParameterType;
+            if (!IsBindable(parameterType))
             {
                 return false;
             }
+
+            invokeParameterTypes[i] = parameterType;
         }
 
         var delegateParameter = Expression.Parameter(typeof(Delegate), "d");
@@ -121,7 +128,7 @@ internal static class CompiledDelegateInvoker
         }
 
         Expression body = Expression.Invoke(Expression.Convert(delegateParameter, delegateType), arguments);
-        body = returnType == typeof(void)
+        body = invokeReturnType == typeof(void)
             ? Expression.Block(body, Expression.Constant(null, typeof(object)))
             : Expression.Convert(body, typeof(object));
 
@@ -135,8 +142,14 @@ internal static class CompiledDelegateInvoker
             return false;
         }
 
-        arity = parameters.Length;
-        return invoker is not null;
+        if (invoker is null)
+        {
+            return false;
+        }
+
+        parameterTypes = invokeParameterTypes;
+        returnType = invokeReturnType;
+        return true;
     }
 
     private static bool IsBindable(Type type) => !type.IsByRef && !type.IsPointer && type.IsVisible;

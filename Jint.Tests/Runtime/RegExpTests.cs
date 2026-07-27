@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Text.RegularExpressions;
 using Jint.Native;
+using Jint.Runtime;
 
 namespace Jint.Tests.Runtime;
 
@@ -560,5 +561,98 @@ public class RegExpTests
         sw.Stop();
 
         sw.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(MaxAcceptableTimeoutSeconds), $"Expected RegexMatchTimeoutException within {MaxAcceptableTimeoutSeconds}s, took {sw.Elapsed.TotalSeconds:F1}s");
+    }
+
+    // ---- host-supplied .NET Regex (RegExpConstructor.Construct(Regex, ...)) ----
+
+    [Fact]
+    public void HostSuppliedRegexSupportsPrototypeMethods()
+    {
+        // A Regex handed over by the host carries no Acornima parse result, so every lane keyed on it
+        // has to fall back to the .NET engine rather than dereferencing an absent custom engine.
+        var engine = new Engine();
+        engine.SetValue("re", new Regex("[a-z]+"));
+
+        engine.Evaluate("re.test('abc')").AsBoolean().Should().BeTrue();
+        engine.Evaluate("re.test('123')").AsBoolean().Should().BeFalse();
+        engine.Evaluate("JSON.stringify(re.exec('12ab34'))").AsString().Should().Be("""["ab"]""");
+        engine.Evaluate("'12ab34'.search(re)").AsNumber().Should().Be(2);
+        engine.Evaluate("JSON.stringify('12ab34'.match(re))").AsString().Should().Be("""["ab"]""");
+        engine.Evaluate("'12ab34'.replace(re, 'X')").AsString().Should().Be("12X34");
+
+        // split is the one operation out of reach: @@split rebuilds a sticky splitter from `source`,
+        // which for a host Regex is deliberately an invalid JS pattern ("?[native regex]").
+        Invoking(() => engine.Evaluate("'1a2b3'.split(re)")).Should().Throw<JavaScriptException>();
+    }
+
+    [Fact]
+    public void HostSuppliedRegexReportsCaptureGroups()
+    {
+        var engine = new Engine();
+        engine.SetValue("re", new Regex("([a-z])(b)"));
+        engine.SetValue("named", new Regex("(?<first>[a-z])b"));
+
+        engine.Evaluate("JSON.stringify(Array.from(re.exec('xab')))").AsString().Should().Be("""["ab","a","b"]""");
+        engine.Evaluate("'xab'.replace(re, '[$1|$2]')").AsString().Should().Be("x[a|b]");
+        engine.Evaluate("named.exec('xab').groups.first").AsString().Should().Be("a");
+    }
+
+    // ---- RegExp.prototype.test lastIndex handling (https://tc39.es/ecma262/#sec-regexpbuiltinexec) ----
+
+    [Theory]
+    [InlineData("g")]
+    [InlineData("y")]
+    [InlineData("gu")]
+    public void TestOnEmptySubjectWithLastIndexPastTheEnd(string flags)
+    {
+        // Step 15.a: lastIndex > length returns null after resetting lastIndex; the empty subject is
+        // not special-cased.
+        var engine = new Engine();
+        var result = engine.Evaluate($"var re = /a/{flags}; re.lastIndex = 5; JSON.stringify([re.test(''), re.lastIndex])");
+
+        result.AsString().Should().Be("[false,0]");
+    }
+
+    [Theory]
+    [InlineData("g")]
+    [InlineData("y")]
+    public void TestMatchesZeroLengthAtEndOfSubject(string flags)
+    {
+        // lastIndex == length is a legal start position: only lastIndex > length fails outright.
+        var engine = new Engine();
+        var result = engine.Evaluate($"var re = /a*/{flags}; re.lastIndex = 3; JSON.stringify([re.test('abc'), re.lastIndex])");
+
+        result.AsString().Should().Be("[true,3]");
+    }
+
+    [Theory]
+    [InlineData("g")]
+    [InlineData("y")]
+    public void TestResetsLastIndexWhenItIsPastTheEnd(string flags)
+    {
+        // Step 15.a.i: a global/sticky regexp resets lastIndex before returning null, so the next
+        // test() starts over instead of latching false.
+        var engine = new Engine();
+        var result = engine.Evaluate($"var re = /a/{flags}; re.lastIndex = 10; JSON.stringify([re.test('abc'), re.lastIndex, re.test('abc'), re.lastIndex])");
+
+        result.AsString().Should().Be("[false,0,true,1]");
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("i")]
+    [InlineData("u")]
+    public void TestLeavesLastIndexAloneOnNonGlobalNonStickyRegExp(string flags)
+    {
+        // Step 10 sets the *local* lastIndex to 0 for a non-global, non-sticky regexp; the property
+        // itself is never written, so a non-writable lastIndex must not raise a TypeError.
+        var engine = new Engine();
+        var result = engine.Evaluate($$"""
+            var re = /a/{{flags}};
+            Object.defineProperty(re, 'lastIndex', { value: 5, writable: false });
+            JSON.stringify([re.test('abc'), re.lastIndex])
+            """);
+
+        result.AsString().Should().Be("[true,5]");
     }
 }

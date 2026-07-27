@@ -42,16 +42,58 @@ internal sealed class DelegateWrapper : Function
         _metadata = DelegateMetadata.For(d.Method);
 
 #if NET8_0_OR_GREATER
-        var invoker = CompiledDelegateInvoker.For(d.GetType(), out var invokerArity);
-
-        // The thunk indexes the argument array positionally, so it can only serve an argument list
-        // built to the delegate type's own arity. That is not always the target method's arity: an
-        // open-instance delegate declares the receiver as an Invoke parameter while the MethodInfo
-        // behind it does not. Such a delegate cannot be bound by this wrapper at all, and keeping it
-        // on the reflection path preserves the exception it already produced.
-        _invoker = invokerArity == _metadata.Parameters.Length ? invoker : null;
+        var compiled = CompiledDelegateInvoker.For(d.GetType());
+        _invoker = ThunkBindsTheTargetSignature(in compiled, d.Method) ? compiled.Invoke : null;
 #endif
     }
+
+#if NET8_0_OR_GREATER
+    /// <summary>
+    /// Whether the thunk built for the delegate <em>type</em> may be used to run this delegate's target
+    /// method — that is, whether the signature it binds is the one the argument list is built to.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The thunk indexes the argument array positionally and casts each element to the delegate type's own
+    /// <c>Invoke</c> parameter type, while <see cref="BindArguments"/> converts to the <em>target method's</em>
+    /// parameter types. The CLR does not require those to agree: relaxed delegate binding accepts a target
+    /// whose parameter is a base type of the delegate's — an <c>Action&lt;string&gt;</c> over a
+    /// <c>void M(object)</c> — and a return type the other way round. Conversion would then hand over a value
+    /// the target accepts and the thunk's cast rejects, turning what the reflection binder reports as an
+    /// <see cref="ArgumentException"/> against the delegate signature into a cast failure surfaced as a host
+    /// error. Only an exact element-wise match keeps the two lanes indistinguishable.
+    /// </para>
+    /// <para>
+    /// Arity is part of the same check: an open-instance delegate declares the receiver as an <c>Invoke</c>
+    /// parameter while the <see cref="MethodInfo"/> behind it does not. Such a delegate cannot be bound by
+    /// this wrapper at all, and keeping it on the reflection path preserves the exception it already produced.
+    /// </para>
+    /// </remarks>
+    private bool ThunkBindsTheTargetSignature(in CompiledDelegateInvoker.CompiledInvoker compiled, MethodInfo target)
+    {
+        if (compiled.Invoke is null)
+        {
+            return false;
+        }
+
+        var invokeParameterTypes = compiled.ParameterTypes!;
+        var targetParameters = _metadata.Parameters;
+        if (invokeParameterTypes.Length != targetParameters.Length || compiled.ReturnType != target.ReturnType)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < targetParameters.Length; i++)
+        {
+            if (invokeParameterTypes[i] != targetParameters[i].ParameterType)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+#endif
 
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {

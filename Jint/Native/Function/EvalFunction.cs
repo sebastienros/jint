@@ -168,7 +168,10 @@ public sealed class EvalFunction : Function
             var analyzer = new EvalScriptAnalyzer();
             analyzer.Visit(parsedScript);
 
-            var hoistingScope = HoistingScope.GetProgramLevelDeclarations(parsedScript, collectVarNames: analyzer._containsLoop);
+            // Always collect: EvalDeclarationInstantiation needs the bound names for its
+            // conflict checks on every call, and collecting rides the walk this parse
+            // already pays for — a cached entry then serves them allocation-free.
+            var hoistingScope = HoistingScope.GetProgramLevelDeclarations(parsedScript, collectVarNames: true);
 
             // The fixed-slot machinery only pays off when it can amortize: a loop in the body
             // (many accesses within one call) or a promoted source (repeats, so the pooled
@@ -265,8 +268,9 @@ public sealed class EvalFunction : Function
             }
         }
 
-        // Per ECMAScript 19.2.1.1 step 6-7:
-        // strictEval is true if:
+        // PerformEval (https://tc39.es/ecma262/#sec-performeval), the strictEval determination:
+        // "If strictCaller is true, let strictEval be true; else let strictEval be IsStrict of script."
+        // strictCaller can only be true for a direct eval from strict code, so strictEval is true if:
         // - The eval code has a "use strict" directive, OR
         // - It's a DIRECT eval and the caller is in strict mode
         var strictEval = script.Strict || (direct && _engine._isStrict);

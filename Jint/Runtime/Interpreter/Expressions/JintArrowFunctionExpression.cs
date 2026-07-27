@@ -1,4 +1,5 @@
 using Jint.Native.Function;
+using Jint.Runtime.Environments;
 
 namespace Jint.Runtime.Interpreter.Expressions;
 
@@ -44,9 +45,21 @@ internal sealed class JintArrowFunctionExpression : JintExpression
             privateEnv
         );
 
+        InheritStrictness(closure, in runningExecutionContext);
         closure.SetFunctionName(name);
 
         return closure;
+    }
+
+    /// <summary>
+    /// An arrow function is strict whenever the code it appears in is
+    /// (https://tc39.es/ecma262/#sec-strict-mode-code). The parser records that on the function's
+    /// <c>FunctionBody</c>, which a concise (expression) body is not — for those the flag has to come
+    /// from the context the arrow is instantiated in, which is exactly the code containing it.
+    /// </summary>
+    private static void InheritStrictness(ScriptFunction closure, in ExecutionContext runningExecutionContext)
+    {
+        closure._strict |= runningExecutionContext.Strict;
     }
 
     /// <summary>
@@ -67,6 +80,7 @@ internal sealed class JintArrowFunctionExpression : JintExpression
             privateEnv
         );
 
+        InheritStrictness(closure, in executionContext);
         closure.SetFunctionName(name);
 
         return closure;

@@ -181,6 +181,97 @@ public class StringRepresentationKeyTests
         engine.Evaluate(ConcatenatedInArray + " a.includes('abc')").AsBoolean().Should().BeTrue();
     }
 
+    /// <summary>
+    /// Everything above probes a collection whose contents stopped changing at insertion time. The
+    /// growable-buffer representation is the one <see cref="JsValue"/> whose content can still change
+    /// afterwards — the interpreter's <c>+=</c> lane appends into the buffer in place and hands the same
+    /// instance back — and a hashed collection caches the hash an entry was inserted with. A key that
+    /// re-hashes itself after insertion is stranded: it answers to neither its old nor its new content
+    /// and cannot be deleted. The Set holds the string <em>value</em> as of the insertion, so appending
+    /// to the variable afterwards must leave the entry exactly as it was.
+    /// </summary>
+    [Fact]
+    public void ConcatenatedStringMutatedAfterInsertionLeavesTheSetEntryIntact()
+    {
+        var engine = CreateEngine();
+
+        engine.Evaluate(ConcatenatedInArray + """
+            var s = new Set(a);
+            a[0] += 'd';
+            s.has('abc') + '|' + s.has('abcd') + '|' + s.size + '|' + [...s].join(',')
+            """).AsString().Should().Be("true|false|1|abc");
+
+        // and it is still deletable, by a literal and by the (now longer) instance alike
+        engine.Evaluate(ConcatenatedInArray + " var s = new Set(a); a[0] += 'd'; s.delete('abc') + '|' + s.size")
+            .AsString().Should().Be("true|0");
+        engine.Evaluate(ConcatenatedInArray + " var s = new Set(a); a[0] += 'd'; s.delete(a[0]) + '|' + s.size")
+            .AsString().Should().Be("false|1");
+    }
+
+    [Fact]
+    public void ConcatenatedStringMutatedAfterInsertionDoesNotSplitASetEntry()
+    {
+        // re-adding the mutated value is a genuinely new value, so the set holds two distinct strings —
+        // never two entries that SameValueZero says are the same
+        var engine = CreateEngine();
+
+        engine.Evaluate(ConcatenatedInArray + """
+            var s = new Set(a);
+            a[0] += 'd';
+            s.add(a[0]);
+            s.size + '|' + [...s].join(',') + '|' + s.has('abcd')
+            """).AsString().Should().Be("2|abc,abcd|true");
+
+        // adding the same value twice through the mutated instance still collapses to one entry
+        engine.Evaluate(ConcatenatedInArray + " var s = new Set(); s.add(a[0]); a[0] += 'd'; s.add(a[0]); s.add('abcd'); s.size")
+            .AsNumber().Should().Be(2);
+    }
+
+    /// <summary>
+    /// The Map twin. The entry has to be the live array itself: an interpreted <c>m.set(a[0], v)</c>
+    /// flattens the key on the way in as an ordinary argument evaluation and so never reaches the
+    /// collection boundary, whereas the constructor's entry-iterable route reads it straight out of the
+    /// array and hands it to the adder untouched.
+    /// </summary>
+    [Fact]
+    public void ConcatenatedStringMutatedAfterInsertionLeavesTheMapEntryIntact()
+    {
+        const string ConcatenatedEntry = "var a = ['a', 'v']; a[0] += 'b'; a[0] += 'c';";
+        var engine = CreateEngine();
+
+        engine.Evaluate(ConcatenatedEntry + """
+            var m = new Map([a]);
+            a[0] += 'd';
+            m.get('abc') + '|' + m.has('abcd') + '|' + m.size + '|' + [...m.keys()].join(',')
+            """).AsString().Should().Be("v|false|1|abc");
+
+        engine.Evaluate(ConcatenatedEntry + " var m = new Map([a]); a[0] += 'd'; m.delete('abc') + '|' + m.size")
+            .AsString().Should().Be("true|0");
+
+        // the argument-evaluated route was never broken; pinned as the control
+        engine.Evaluate(ConcatenatedEntry + " var m = new Map(); m.set(a[0], 1); a[0] += 'd'; m.get('abc') + '|' + m.size")
+            .AsString().Should().Be("1|1");
+    }
+
+    /// <summary>
+    /// <c>Set.prototype.union</c> is the one adder that reaches the ordering set directly instead of
+    /// going through the JS-visible <c>add</c>, so it needs the same treatment.
+    /// </summary>
+    [Fact]
+    public void ConcatenatedStringMutatedAfterASetOperationLeavesTheResultIntact()
+    {
+        var engine = CreateEngine();
+
+        // the value has to arrive from a *user* iterator: routing it through another Set would flatten
+        // it at that Set's own add and leave union's direct adder untested
+        engine.Evaluate(ConcatenatedInArray + """
+            var setLike = { size: 1, has: function (v) { return v === a[0]; }, keys: function () { return a.values(); } };
+            var u = new Set(['z']).union(setLike);
+            a[0] += 'd';
+            u.has('abc') + '|' + u.size + '|' + [...u].join(',')
+            """).AsString().Should().Be("true|2|z,abc");
+    }
+
     [Fact]
     public void SlicedStringIsUsableAsACollectionKey()
     {

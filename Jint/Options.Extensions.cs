@@ -454,7 +454,42 @@ public static class OptionsExtensions
     /// The factory must not return <see langword="null"/>; <see cref="JsValue.Undefined"/> is substituted
     /// if it does, so that a null return cannot silently turn into a factory that re-runs on every read.
     /// </para>
+    /// <para>
+    /// <b>Sharing an <see cref="Options"/> instance is supported, not required.</b> Because the factory
+    /// receives only the <see cref="Engine"/>, a host whose values depend on per-request or per-scope state
+    /// (a scoped <c>IServiceProvider</c>, a workflow context) cannot express that through a process-wide
+    /// <see cref="Options"/>. Constructing a fresh <see cref="Options"/> per scope or per evaluation and
+    /// letting the factories close over that scope is a supported and cheap pattern — an
+    /// <see cref="Options"/> object is a plain configuration record, and the caches that make repeated
+    /// engine construction cheap (resolved CLR members on the <see cref="TypeResolver"/>, delegate
+    /// metadata, compiled invokers) are keyed process-wide rather than on the <see cref="Options"/>
+    /// instance. Share one instance when the configuration is genuinely global; build one per scope when
+    /// it is not.
+    /// </para>
+    /// <para>
+    /// <b>Flags differ from <see cref="Engine.SetValue(string, Delegate)"/>.</b> The default here matches
+    /// <see cref="Engine.SetValue(string, JsValue)"/> — configurable, enumerable and writable — whereas
+    /// registering a delegate global installs it as <see cref="PropertyFlag.NonEnumerable"/> (configurable
+    /// and writable, but hidden from <c>Object.keys(globalThis)</c> and <c>for...in</c>). A host converting
+    /// delegate registrations to lazy ones must pass <see cref="PropertyFlag.NonEnumerable"/> explicitly to
+    /// keep global enumeration looking the same.
+    /// </para>
     /// </remarks>
+    /// <example>
+    /// Deferring an expensive host object — here a CLR type projection, which otherwise builds an engine-affine
+    /// <c>TypeReference</c> (and resolves its members) at engine-construction time whether or not the script
+    /// mentions it:
+    /// <code>
+    /// options.AddLazyGlobal("DateTime", static engine => TypeReference.CreateTypeReference&lt;DateTime&gt;(engine));
+    ///
+    /// // A delegate global, deferred and given a real name: DelegateWrapper always reports
+    /// // fn.name === "delegate", while a ClrFunction carries the name it was constructed with.
+    /// options.AddLazyGlobal(
+    ///     "log",
+    ///     engine => new ClrFunction(engine, "log", (_, args) => { Console.WriteLine(args.At(0)); return JsValue.Undefined; }),
+    ///     PropertyFlag.NonEnumerable);
+    /// </code>
+    /// </example>
     /// <param name="options">Options to modify.</param>
     /// <param name="name">The global property name.</param>
     /// <param name="valueFactory">
@@ -463,7 +498,8 @@ public static class OptionsExtensions
     /// </param>
     /// <param name="flags">
     /// Property attributes; defaults to the configurable/enumerable/writable combination that
-    /// <see cref="Engine.SetValue(string, JsValue)"/> produces.
+    /// <see cref="Engine.SetValue(string, JsValue)"/> produces — <b>not</b> the
+    /// <see cref="PropertyFlag.NonEnumerable"/> that <see cref="Engine.SetValue(string, Delegate)"/> uses.
     /// </param>
     public static Options AddLazyGlobal(
         this Options options,

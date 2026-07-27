@@ -1529,11 +1529,6 @@ internal abstract class JintBinaryExpression : JintExpression
     /// </remarks>
     private sealed class AdditionChainExpression : PlusBinaryExpression
     {
-        /// <summary>
-        /// What the opening pair of this chain produced last time it ran. Purely a performance hint:
-        /// both paths compute the same result, so a benign race on this field (handler trees are
-        /// shared between engines) can only cost a mispredicted path, never correctness.
-        /// </summary>
         private enum ChainKind : byte
         {
             Unknown = 0,
@@ -1543,6 +1538,19 @@ internal abstract class JintBinaryExpression : JintExpression
 
         private readonly Expression[] _operandExpressions;
         private JintExpression[]? _operands;
+
+        /// <summary>
+        /// What the opening pair of this chain produced last time it ran. A performance hint, but
+        /// only where nothing can suspend: it selects between two lanes whose suspend/resume
+        /// protocols are incompatible — this node stores <see cref="AdditionChainSuspendData"/>
+        /// under itself as the key, the nested tree stores <c>LeftOperandSuspendData</c> under the
+        /// same key — and one handler node serves every live generator/async invocation of the
+        /// declaration. Honouring a latch inside a suspendable frame therefore let one invocation
+        /// completing numerically divert another invocation's resume into the other lane, which
+        /// re-evaluated already-evaluated operands and cast the stored suspend data to the wrong
+        /// type. The gate below reads it only when no suspension is possible, which is what makes a
+        /// stale value (or a benign race on it) cost at most a mispredicted path.
+        /// </summary>
         private ChainKind _kind;
 
         public AdditionChainExpression(NonLogicalBinaryExpression expression, Expression[] operandExpressions)
@@ -1571,21 +1579,28 @@ internal abstract class JintBinaryExpression : JintExpression
         {
             EnsureInitialized();
 
+            var engine = context.Engine;
+            var suspendable = engine.ExecutionContext.Suspendable;
+
             // A chain that did not produce a string last time gains nothing from flattening, and
             // CLR operator overloading hooks the pre-ToPrimitive operand pair of each individual '+',
             // which the flattened form never forms. Both defer to the nested tree. The overloading
             // test has to happen at runtime: a Prepared script can be shared between engines that
             // differ on the option. Nothing has been evaluated yet here, so handing the whole chain
             // over is side-effect free.
-            if (_kind == ChainKind.NotString || context.OperatorOverloadingAllowed)
+            //
+            // The _kind hint is honoured only where no operand can suspend (see the field's remarks):
+            // inside a generator/async frame both lanes keep their suspend data under this node, so a
+            // lane change between a suspension and its resume hands one lane's state to the other.
+            // OperatorOverloadingAllowed is per-engine constant and _kind is not consulted once a
+            // suspendable is in scope, so the lane an invocation starts in is the lane it resumes in.
+            if (context.OperatorOverloadingAllowed || (_kind == ChainKind.NotString && suspendable is null))
             {
                 return base.EvaluateInternal(context);
             }
 
             var operands = _operands!;
             var count = operands.Length;
-            var engine = context.Engine;
-            var suspendable = engine.ExecutionContext.Suspendable;
 
             // IsSuspended() is `Suspendable?.IsSuspended == true`, so with no suspendable execution
             // context in scope no operand can suspend and none of the resume bookkeeping below is
@@ -1596,31 +1611,42 @@ internal abstract class JintBinaryExpression : JintExpression
                 return EvaluateWithoutSuspension(context, operands, count);
             }
 
+            var suspendDataDictionary = suspendable.Data;
+
             JsValue[] buffer;
             int nextEvaluate;
             int nextPrimitive;
-            if (suspendable is { IsResuming: true }
-                && suspendable.Data.TryGet(this, out AdditionChainSuspendData? suspendData))
+            int nextFold;
+            JsValue? accumulator;
+            if (suspendable.IsResuming
+                && suspendDataDictionary.TryGet(this, out AdditionChainSuspendData? suspendData))
             {
                 buffer = suspendData!.Buffer;
                 nextEvaluate = suspendData.NextEvaluate;
                 nextPrimitive = suspendData.NextPrimitive;
+                nextFold = suspendData.NextFold;
+                accumulator = suspendData.Accumulator;
             }
             else
             {
                 buffer = engine._jsValueArrayPool.RentArray(count);
                 nextEvaluate = 0;
                 nextPrimitive = 0;
+                nextFold = 0;
+                accumulator = null;
             }
 
             var suspended = false;
             try
             {
                 // The opening pair is evaluated before either is coerced; from then on each operand is
-                // coerced before the next one is evaluated.
-                while (nextPrimitive < count)
+                // coerced and folded into the result before the next one is evaluated. Folding as we
+                // go is what keeps a fold's TypeError (ToString of a Symbol, a BigInt/Number mix)
+                // ahead of the later operands' side effects, exactly as the pairwise spec algorithm
+                // and EvaluateWithoutSuspension order them.
+                while (nextFold < count)
                 {
-                    var target = System.Math.Min(nextPrimitive == 0 ? 2 : nextPrimitive + 1, count);
+                    var target = nextFold == 0 ? 2 : nextFold + 1;
 
                     while (nextEvaluate < target)
                     {
@@ -1628,7 +1654,7 @@ internal abstract class JintBinaryExpression : JintExpression
                         if (context.IsSuspended())
                         {
                             suspended = true;
-                            Suspend(suspendable, buffer, nextEvaluate, nextPrimitive);
+                            Suspend(buffer, nextEvaluate, nextPrimitive, nextFold, accumulator);
                             return JsValue.Undefined;
                         }
 
@@ -1641,31 +1667,51 @@ internal abstract class JintBinaryExpression : JintExpression
                         if (context.IsSuspended())
                         {
                             suspended = true;
-                            Suspend(suspendable, buffer, nextEvaluate, nextPrimitive);
+                            Suspend(buffer, nextEvaluate, nextPrimitive, nextFold, accumulator);
                             return JsValue.Undefined;
                         }
 
                         nextPrimitive++;
                     }
+
+                    if (nextFold == 0)
+                    {
+                        // Left-associativity decides the whole chain from the opening pair.
+                        if (buffer[0].IsString() || buffer[1].IsString())
+                        {
+                            _kind = ChainKind.String;
+                            buffer[0] = TypeConverter.ToJsString(buffer[0]);
+                            buffer[1] = TypeConverter.ToJsString(buffer[1]);
+                        }
+                        else
+                        {
+                            // Later evaluations of a numeric chain skip straight to the nested tree.
+                            _kind = ChainKind.NotString;
+                            accumulator = ApplyAdditionToPrimitives(buffer[0], buffer[1]);
+                        }
+
+                        nextFold = 2;
+                        continue;
+                    }
+
+                    if (accumulator is null)
+                    {
+                        // String chain: each operand's text replaces its primitive in the buffer, so
+                        // the coercion happens now and the result is still concatenated in a single
+                        // allocation once the last operand has arrived.
+                        buffer[nextFold] = TypeConverter.ToJsString(buffer[nextFold]);
+                    }
+                    else
+                    {
+                        // Numeric chain: fold pairwise, exactly as the nested tree would. Each step's
+                        // accumulator is already a primitive, so it needs no further ToPrimitive.
+                        accumulator = ApplyAdditionToPrimitives(accumulator, buffer[nextFold]);
+                    }
+
+                    nextFold++;
                 }
 
-                if (buffer[0].IsString() || buffer[1].IsString())
-                {
-                    _kind = ChainKind.String;
-                    return JsString.Create(ConcatAll(buffer, count));
-                }
-
-                // Not a string chain: fold pairwise, exactly as the nested tree would. Each step's
-                // accumulator is already a primitive, so it needs no further ToPrimitive. Later
-                // evaluations skip straight to the nested tree.
-                _kind = ChainKind.NotString;
-                var accumulator = ApplyAdditionToPrimitives(buffer[0], buffer[1]);
-                for (var i = 2; i < count; i++)
-                {
-                    accumulator = ApplyAdditionToPrimitives(accumulator, buffer[i]);
-                }
-
-                return accumulator;
+                return accumulator ?? JsString.Create(ConcatAll(buffer, count));
             }
             finally
             {
@@ -1673,22 +1719,19 @@ internal abstract class JintBinaryExpression : JintExpression
                 {
                     // Kept alive in suspend data when suspended; released on both normal completion
                     // and an exception thrown out of an operand.
-                    suspendable?.Data.Clear(this);
+                    suspendDataDictionary.Clear(this);
                     engine._jsValueArrayPool.ReturnArray(buffer);
                 }
             }
 
-            void Suspend(ISuspendable? target, JsValue[] pending, int evaluateCursor, int primitiveCursor)
+            void Suspend(JsValue[] pending, int evaluateCursor, int primitiveCursor, int foldCursor, JsValue? pendingAccumulator)
             {
-                if (target is null)
-                {
-                    return;
-                }
-
-                var data = target.Data.GetOrCreate<AdditionChainSuspendData>(this);
+                var data = suspendDataDictionary.GetOrCreate<AdditionChainSuspendData>(this);
                 data.Buffer = pending;
                 data.NextEvaluate = evaluateCursor;
                 data.NextPrimitive = primitiveCursor;
+                data.NextFold = foldCursor;
+                data.Accumulator = pendingAccumulator;
             }
         }
 

@@ -157,6 +157,34 @@ public class JsonUtf8SerializationTests
         Invoking(() => serializer.Serialize(JsValue.Undefined, null!)).Should().Throw<ArgumentNullException>();
     }
 
+    [Fact]
+    public void AWriterHandingBackLessThanTheRequestedSpanIsRejected()
+    {
+        // GetSpan(sizeHint) must return at least sizeHint bytes. A writer that does not is a contract
+        // violation the transcode loop cannot make progress against, so it has to be reported rather
+        // than spun on.
+        var engine = new Engine();
+        var value = engine.Evaluate("({ a: 'x' })");
+
+        Invoking(() => new JsonSerializer(engine).Serialize(value, new ShortSpanBufferWriter()))
+            .Should().Throw<InvalidOperationException>();
+    }
+
+    /// <summary>
+    /// A deliberately contract-violating writer: <see cref="IBufferWriter{T}.GetSpan"/> ignores the size
+    /// hint and hands back an empty span.
+    /// </summary>
+    private sealed class ShortSpanBufferWriter : IBufferWriter<byte>
+    {
+        public void Advance(int count)
+        {
+        }
+
+        public Memory<byte> GetMemory(int sizeHint = 0) => Memory<byte>.Empty;
+
+        public Span<byte> GetSpan(int sizeHint = 0) => Span<byte>.Empty;
+    }
+
     /// <summary>
     /// Strings and property names are always escaped, so an unpaired surrogate cannot reach the output
     /// through them. The <c>space</c> argument is copied verbatim, which is the one route by which the
