@@ -1082,6 +1082,15 @@ public static class TypeConverter
         Node sourceNode,
         string? referenceName)
     {
+        // An engine serving null propagation inline must never throw here: both of this method's callers
+        // complete such a read by returning the nullish base, and a throw in between would pre-empt them.
+        // Today both callers already skip the call in that configuration, so this is the standing guarantee
+        // for any future one rather than a live branch.
+        if (engine._nullishPropagatesInline)
+        {
+            return;
+        }
+
         // Only a resolver that subscribed to null/undefined bases gets a say here; otherwise the
         // interface call is skipped entirely and the read throws as it would with no resolver at all.
         if (!engine._resolverWatchesNullishBase || !engine._referenceResolver.CheckCoercible(o))

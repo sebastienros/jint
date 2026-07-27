@@ -114,6 +114,7 @@ Jint is not only an engine to work on, it is an engine that gets **embedded**. I
 | `ProbeOwnProperty` / `OwnPropertyProbe` | `Jint/Native/Object/` |
 | `PropertyAccessSemantics` + `ObjectInstance.SetPropertyAccessSemantics` | `Jint/Native/Object/PropertyAccessSemantics.cs` |
 | `IReferenceResolver` + `ReferenceResolverInterests` | `Jint/Runtime/Interop/IReferenceResolver.cs` |
+| `NullPropagatingReferenceResolver` — sealed, singleton `Instance`, the shipped null-propagation resolver the engine recognizes by identity and serves inline | `Jint/Runtime/Interop/NullPropagatingReferenceResolver.cs` |
 | `IObjectConverter`, `ITypeConverter` | `Jint/Runtime/Interop/` |
 | `Constraint` + `IsAmortizable` | `Jint/IConstraint.cs` |
 | `ProxyHandler` — public abstract class, 13 virtual traps (the ECMAScript trap set), `null` meaning "forward to target" | `Jint/Runtime/Interop/ProxyHandler.cs` |
