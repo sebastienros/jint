@@ -119,6 +119,46 @@ public class EvalTests
     }
 
     [Fact]
+    public void SloppyDirectEvalSupportsVarDestructuring()
+    {
+        var engine = new Engine();
+
+        var result = engine.Evaluate("""
+            try {
+                eval('var { first: f, last: l } = { first: "Jane", last: "Doe" }');
+                f + " " + l;
+            } catch (error) {
+                "caught";
+            }
+            """);
+
+        result.AsString().Should().Be("Jane Doe");
+    }
+
+    [Fact]
+    public void SloppyDirectEvalSupportsVarDestructuringInNestedScopes()
+    {
+        var engine = new Engine();
+
+        var result = engine.Evaluate("""
+            function blockScope() {
+                {
+                    let outer = 0;
+                    eval('var { blockResult } = { blockResult: "block" }');
+                }
+                return blockResult;
+            }
+            function parameterScope(parameter = 0) {
+                eval('var { parameterResult } = { parameterResult: "parameter" }');
+                return parameterResult;
+            }
+            [blockScope(), parameterScope()].join(",");
+            """);
+
+        result.AsString().Should().Be("block,parameter");
+    }
+
+    [Fact]
     public void IndirectEvalWithUseStrictKeepsVarsLocal()
     {
         var engine = new Engine();
