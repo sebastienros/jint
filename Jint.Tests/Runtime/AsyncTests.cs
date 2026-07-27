@@ -89,6 +89,79 @@ public class AsyncTests
     }
 
     [Fact]
+    public void RejectedAwaitInARightHandSideMustNotClobberALocalTarget()
+    {
+        // `x = await p` suspends in the middle of the assignment: the right-hand side value on
+        // the suspend pass is the suspension sentinel, and storing it overwrites x. When p
+        // RESOLVES the resumed re-entry re-assigns and hides the damage, but when p REJECTS the
+        // resumption throws before reaching the store — so x stays clobbered forever.
+        var result = EvaluateAsyncJson("""
+            let value = 'initial';
+            try {
+                value = await Promise.reject(new Error('boom'));
+            } catch (e) {
+                return { value: value, caught: e.message };
+            }
+            return { value: value, caught: null };
+            """);
+
+        result.Should().Be("""{"value":"initial","caught":"boom"}""");
+    }
+
+    [Fact]
+    public void RejectedAwaitInARightHandSideMustNotClobberAMemberTarget()
+    {
+        var result = EvaluateAsyncJson("""
+            const holder = { value: 'initial' };
+            try {
+                holder.value = await Promise.reject(new Error('boom'));
+            } catch (e) {
+                return holder;
+            }
+            return holder;
+            """);
+
+        result.Should().Be("""{"value":"initial"}""");
+    }
+
+    [Fact]
+    public void RejectedAwaitInARightHandSideMustNotClobberAGlobalTarget()
+    {
+        // Repeated so the write goes through the warmed cached-global-binding lane too, not
+        // just the environment-record slow path it takes on the first pass.
+        var engine = new Engine();
+
+        var result = engine.Evaluate("""
+            var value = 'initial';
+            (async () => {
+                for (let i = 0; i < 3; i++) {
+                    try {
+                        value = await Promise.reject(new Error('boom'));
+                    } catch (e) {
+                    }
+                }
+                return value;
+            })()
+            """).UnwrapIfPromise(TimeSpan.FromSeconds(1));
+
+        result.AsString().Should().Be("initial");
+    }
+
+    [Fact]
+    public void ResolvedAwaitInARightHandSideStillAssigns()
+    {
+        var result = EvaluateAsyncJson("""
+            let local = 'initial';
+            const holder = { value: 'initial' };
+            local = await Promise.resolve('local-ok');
+            holder.value = await Promise.resolve('member-ok');
+            return { local: local, member: holder.value };
+            """);
+
+        result.Should().Be("""{"local":"local-ok","member":"member-ok"}""");
+    }
+
+    [Fact]
     public void ShouldNotLeakCatchBindingAfterAwaitInsideCatch()
     {
         var result = EvaluateAsyncJson("""

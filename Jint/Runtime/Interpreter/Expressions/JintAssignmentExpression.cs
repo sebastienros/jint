@@ -984,8 +984,12 @@ internal sealed class JintAssignmentExpression : JintExpression
                 ? JsNumber.Create(unboxedProductSum)
                 : _right.GetValue(context);
 
-            // If generator suspended or return requested during right-hand side evaluation, don't assign
-            if (context.IsGeneratorAborted())
+            // If generator suspended or return requested during right-hand side evaluation, don't assign.
+            // IsSuspended also covers an async function suspending at an `await` in the right-hand side:
+            // the RHS value at that point is the suspension sentinel (undefined), and storing it would
+            // clobber the target's previous value - visible forever if the awaited promise then REJECTS,
+            // because the resumed re-entry throws before it can re-assign.
+            if (context.IsGeneratorAborted() || context.IsSuspended())
             {
                 engine._referencePool.Return(lref);
                 return rval;
@@ -1065,8 +1069,11 @@ internal sealed class JintAssignmentExpression : JintExpression
                     return completion;
                 }
 
-                // If generator suspended or return requested during right-hand side evaluation, don't assign
-                if (context.IsGeneratorAborted())
+                // If generator suspended or return requested during right-hand side evaluation, don't assign.
+                // IsSuspended also covers an async function suspending at an `await` in the right-hand side
+                // (see the note in SetValue): storing the suspension sentinel here permanently clobbers the
+                // target when the awaited promise rejects.
+                if (context.IsGeneratorAborted() || context.IsSuspended())
                 {
                     return completion;
                 }
@@ -1133,8 +1140,12 @@ internal sealed class JintAssignmentExpression : JintExpression
                 return completion;
             }
 
-            // If generator suspended or return requested during right-hand side evaluation, don't assign
-            if (context.IsGeneratorAborted())
+            // If generator suspended or return requested during right-hand side evaluation, don't assign.
+            // IsSuspended also covers an async function suspending at an `await` in the right-hand side:
+            // the RHS value at that point is the suspension sentinel (undefined), and storing it would
+            // clobber the target's previous value - visible forever if the awaited promise then REJECTS,
+            // because the resumed re-entry throws before it can re-assign.
+            if (context.IsGeneratorAborted() || context.IsSuspended())
             {
                 return completion;
             }
