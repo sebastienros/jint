@@ -22,7 +22,10 @@ namespace Jint.Runtime.Interop.Reflection;
 /// <summary>
 /// Builds and caches strongly-typed delegates that read and write CLR properties and fields, so a
 /// member access does not go through <see cref="PropertyInfo.GetValue(object, object[])"/> /
-/// <see cref="PropertyInfo.SetValue(object, object, object[])"/> reflection on every hit.
+/// <see cref="PropertyInfo.SetValue(object, object, object[])"/> reflection on every hit. Static members
+/// are covered too — they simply ignore the target parameter — which is what puts the static reads a
+/// <see cref="TypeReference"/> serves on the same lanes as instance reads off an
+/// <see cref="ObjectWrapper"/>.
 /// <para>
 /// Two lanes are built per member. The <b>JsValue lane</b> covers the dominant member shapes
 /// (<see cref="int"/>, <see cref="long"/>, <see cref="double"/>, <see cref="bool"/>,
@@ -152,7 +155,7 @@ internal static class CompiledMemberAccessor
 
     private static JsValueSetter? BuildJsValueSetter(MemberInfo member)
     {
-        if (!TryGetEligibleMember(member, out var declaringType, out var memberType)
+        if (!TryGetEligibleMember(member, out var declaringType, out var memberType, out var isStatic)
             || !IsSupportedWrittenMemberType(memberType))
         {
             return null;
@@ -168,7 +171,7 @@ internal static class CompiledMemberAccessor
         // emits the type test; a non-exact match jumps to the label with false, writing nothing
         var bound = BuildValueBinding(memberType, valueParameter, returnLabel, locals, body);
 
-        if (!TryBuildWrite(member, declaringType, memberType, targetParameter, bound, out var write))
+        if (!TryBuildWrite(member, declaringType, memberType, isStatic, targetParameter, bound, out var write))
         {
             return null;
         }
@@ -185,7 +188,7 @@ internal static class CompiledMemberAccessor
 
     private static Action<object, object?>? BuildRawSetter(MemberInfo member)
     {
-        if (!TryGetEligibleMember(member, out var declaringType, out var memberType))
+        if (!TryGetEligibleMember(member, out var declaringType, out var memberType, out var isStatic))
         {
             return null;
         }
@@ -196,7 +199,7 @@ internal static class CompiledMemberAccessor
         // the caller only takes this lane when the value's runtime type is exactly the member type,
         // so the unbox/cast can never fail (see CompilableMemberAccessor.DoSetValue)
         var typedValue = Expression.Convert(valueParameter, memberType);
-        if (!TryBuildWrite(member, declaringType, memberType, targetParameter, typedValue, out var write))
+        if (!TryBuildWrite(member, declaringType, memberType, isStatic, targetParameter, typedValue, out var write))
         {
             return null;
         }
@@ -218,18 +221,20 @@ internal static class CompiledMemberAccessor
         access = null;
         memberType = null;
 
-        if (!TryGetEligibleMember(member, out var declaringType, out var type))
+        if (!TryGetEligibleMember(member, out var declaringType, out var type, out var isStatic))
         {
             return false;
         }
 
+        // The target parameter is part of the delegate shape either way; a static member simply never
+        // reads it, which is also why a TypeReference passing the Type itself as the target is fine.
         var targetParameter = Expression.Parameter(typeof(object), "target");
-        var typedTarget = Expression.Convert(targetParameter, declaringType);
+        var typedTarget = isStatic ? null : Expression.Convert(targetParameter, declaringType);
 
         if (member is PropertyInfo property)
         {
             var getMethod = property.GetGetMethod();
-            if (getMethod is null || getMethod.IsStatic)
+            if (getMethod is null)
             {
                 return false;
             }
@@ -239,12 +244,15 @@ internal static class CompiledMemberAccessor
             // compiled lambda, which erases the getter's frame from the stack trace of an exception
             // it throws. The reflection path never inlines, so bubbling CLR exceptions would stop
             // looking identical. (Same reasoning as CompiledMethodInvoker.)
-            if (!TryCreateOpenDelegate(getMethod, [declaringType], type, out var accessorDelegate, out var delegateType))
+            Type[] argumentTypes = isStatic ? [] : [declaringType];
+            if (!TryCreateOpenDelegate(getMethod, argumentTypes, type, out var accessorDelegate, out var delegateType))
             {
                 return false;
             }
 
-            access = Expression.Invoke(Expression.Constant(accessorDelegate, delegateType), typedTarget);
+            access = isStatic
+                ? Expression.Invoke(Expression.Constant(accessorDelegate, delegateType))
+                : Expression.Invoke(Expression.Constant(accessorDelegate, delegateType), typedTarget!);
         }
         else
         {
@@ -264,28 +272,32 @@ internal static class CompiledMemberAccessor
         MemberInfo member,
         Type declaringType,
         Type memberType,
+        bool isStatic,
         ParameterExpression target,
         Expression value,
         [NotNullWhen(true)] out Expression? write)
     {
         write = null;
-        var typedTarget = Expression.Convert(target, declaringType);
+        var typedTarget = isStatic ? null : Expression.Convert(target, declaringType);
 
         if (member is PropertyInfo property)
         {
             var setMethod = property.GetSetMethod();
-            if (setMethod is null || setMethod.IsStatic)
+            if (setMethod is null)
             {
                 return false;
             }
 
             // open delegate for the same stack-trace-fidelity reason as the read path
-            if (!TryCreateOpenDelegate(setMethod, [declaringType, memberType], returnType: null, out var accessorDelegate, out var delegateType))
+            Type[] argumentTypes = isStatic ? [memberType] : [declaringType, memberType];
+            if (!TryCreateOpenDelegate(setMethod, argumentTypes, returnType: null, out var accessorDelegate, out var delegateType))
             {
                 return false;
             }
 
-            write = Expression.Invoke(Expression.Constant(accessorDelegate, delegateType), typedTarget, value);
+            write = isStatic
+                ? Expression.Invoke(Expression.Constant(accessorDelegate, delegateType), value)
+                : Expression.Invoke(Expression.Constant(accessorDelegate, delegateType), typedTarget!, value);
             return true;
         }
 
@@ -300,17 +312,21 @@ internal static class CompiledMemberAccessor
     }
 
     /// <summary>
-    /// Members reachable through a compiled delegate: an instance property or field of a visible
-    /// reference type. Value-type receivers are excluded because an open-instance delegate over one
-    /// needs a by-ref receiver, and a write through the boxed copy would not reach the original.
+    /// Members reachable through a compiled delegate: a property or field of a visible type. An
+    /// <b>instance</b> member of a value type is excluded because an open-instance delegate over one
+    /// needs a by-ref receiver, and a write through the boxed copy would not reach the original; a
+    /// <b>static</b> member has no receiver at all, so a value-type declaring type is fine there — which
+    /// is what lets a <see cref="TypeReference"/>'s static reads reach the lane.
     /// </summary>
     private static bool TryGetEligibleMember(
         MemberInfo member,
         [NotNullWhen(true)] out Type? declaringType,
-        [NotNullWhen(true)] out Type? memberType)
+        [NotNullWhen(true)] out Type? memberType,
+        out bool isStatic)
     {
         declaringType = null;
         memberType = null;
+        isStatic = false;
 
         // Under AOT and an interpreted-only Expression.Compile (e.g. the Mono interpreter) an
         // interpreted lambda is slower than the reflection path it replaces, so decline entirely.
@@ -320,7 +336,7 @@ internal static class CompiledMemberAccessor
         }
 
         var type = member.DeclaringType;
-        if (type is null || !type.IsVisible || type.IsValueType)
+        if (type is null || !type.IsVisible)
         {
             return false;
         }
@@ -333,14 +349,23 @@ internal static class CompiledMemberAccessor
                 {
                     return false;
                 }
+                var accessor = property.GetGetMethod() ?? property.GetSetMethod();
+                if (accessor is null)
+                {
+                    return false;
+                }
+                isStatic = accessor.IsStatic;
                 memberType = property.PropertyType;
                 break;
 
             case FieldInfo field:
-                if (field.IsStatic)
+                // A literal is a compile-time constant with no storage, so the ldsfld a compiled read
+                // would emit does not exist for it; reflection answers those out of metadata anyway.
+                if (field.IsLiteral)
                 {
                     return false;
                 }
+                isStatic = field.IsStatic;
                 memberType = field.FieldType;
                 break;
 
@@ -348,7 +373,7 @@ internal static class CompiledMemberAccessor
                 return false;
         }
 
-        if (memberType.IsByRef || memberType.IsPointer)
+        if (memberType.IsByRef || memberType.IsPointer || (!isStatic && type.IsValueType))
         {
             return false;
         }

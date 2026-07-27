@@ -20,6 +20,19 @@ internal abstract class ReflectionAccessor
     private readonly Type? _memberType;
     private readonly PropertyInfo? _indexer;
 
+    /// <summary>
+    /// The indexer's getter, resolved once instead of on every read, and only when the probe below could
+    /// ever answer: it is invoked with the member <em>name</em>, so an indexer whose single index parameter
+    /// cannot accept a <see cref="string"/> (a <c>this[int]</c>, or one taking several indices) makes
+    /// <see cref="MethodBase.Invoke(object, object[])"/> throw before reaching the target — which the probe
+    /// swallowed into "no value" anyway. Not resolving it is that same answer without the per-read cost.
+    /// </summary>
+    private readonly MethodInfo? _indexerGetter;
+
+    // per-accessor L1 cache over the process-wide compiled probe, resolved lazily and racily
+    private CompiledKeyedAccessor.KeyedIndexerGetter? _compiledIndexerGetter;
+    private bool _compiledIndexerGetterResolved;
+
     public Type? MemberType => _memberType;
 
     protected ReflectionAccessor(
@@ -27,7 +40,15 @@ internal abstract class ReflectionAccessor
         PropertyInfo? indexer = null)
     {
         _memberType = memberType;
-        _indexer = indexer;
+
+        var indexerGetter = indexer?.GetGetMethod();
+        if (indexerGetter is not null
+            && indexerGetter.GetParameters() is [{ ParameterType: var indexType }]
+            && indexType.IsAssignableFrom(typeof(string)))
+        {
+            _indexer = indexer;
+            _indexerGetter = indexerGetter;
+        }
     }
 
     public virtual bool Readable => true;
@@ -35,10 +56,12 @@ internal abstract class ReflectionAccessor
     public abstract bool Writable { get; }
 
     /// <summary>
-    /// An indexer is probed before the member itself (see <see cref="GetValue"/>), so the one compiled
-    /// lane that would answer <em>instead of</em> <see cref="GetValue"/> —
+    /// Whether an indexer probe runs before the member itself (see <see cref="GetValue"/>), in which case
+    /// the one compiled lane that would answer <em>instead of</em> <see cref="GetValue"/> —
     /// <see cref="CompilableMemberAccessor.TryGetJsValue"/>, which produces the <see cref="JsValue"/>
-    /// itself — must decline when one is present. The other compiled lanes need no such guard:
+    /// itself — must decline. An indexer that cannot be handed a member name is not one: the constructor
+    /// does not record it, so such a member keeps the lane rather than paying for a probe whose only
+    /// possible outcome was a swallowed exception. The other compiled lanes need no such guard:
     /// <see cref="SetValue"/> never probes the indexer at all, so
     /// <see cref="CompilableMemberAccessor.TrySetJsValue"/> has nothing to decline for, and the compiled
     /// raw getter runs from inside <see cref="GetValue"/>, only after the indexer probe has already
@@ -116,14 +139,29 @@ internal abstract class ReflectionAccessor
 
     private object? TryReadFromIndexer(object target, string memberName)
     {
-        var getter = _indexer?.GetGetMethod();
+        var getter = _indexerGetter;
         if (getter is null)
         {
             return null;
         }
 
+        if (!_compiledIndexerGetterResolved)
+        {
+            _compiledIndexerGetter = CompiledKeyedAccessor.GetIndexerGetter(getter);
+            _compiledIndexerGetterResolved = true;
+        }
+
+        // Both lanes are equivalent here because every failure is swallowed the same way: reflection wraps
+        // whatever the indexer throws in a TargetInvocationException, the compiled delegate rethrows it
+        // as-is, and the catch below turns either into "the indexer did not answer".
         try
         {
+            var compiled = _compiledIndexerGetter;
+            if (compiled is not null)
+            {
+                return compiled(target, memberName);
+            }
+
             object[] parameters = [memberName];
             return getter.Invoke(target, parameters);
         }

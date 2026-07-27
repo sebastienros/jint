@@ -6,9 +6,10 @@ namespace Jint.Runtime.Interop;
 
 /// <summary>
 /// Answers "could any of this engine's registered <see cref="IObjectConverter"/>s be handed a value read
-/// from a member of this declared type?" for the interop fast lanes, which have to decline whenever the
-/// answer is yes: on the paths those lanes short-circuit, a converter is otherwise offered every CLR value
-/// on its way to a <see cref="JsValue"/>, and the lanes produce the <see cref="JsValue"/> themselves.
+/// from a member — or returned by a method — of this declared type?" for the interop fast lanes, which have
+/// to decline whenever the answer is yes: on the paths those lanes short-circuit, a converter is otherwise
+/// offered every CLR value on its way to a <see cref="JsValue"/>, and the lanes produce the
+/// <see cref="JsValue"/> themselves.
 /// (That is a property of those paths, not a global invariant — the array-like element lane in
 /// <c>ObjectWrapper.Specialized</c> turns common primitive item types into <see cref="JsValue"/>s without
 /// consulting any converter.)

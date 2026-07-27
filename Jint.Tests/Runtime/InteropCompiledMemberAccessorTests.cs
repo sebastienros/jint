@@ -1110,4 +1110,86 @@ public class InteropCompiledMemberAccessorTests
     }
 
     #endregion
+
+    #region 10. static members
+
+#if NET8_0_OR_GREATER
+
+    public static class StaticLaneHost
+    {
+        public static int Number { get; set; }
+        public static string TextField = "field";
+        public const string Constant = "constant";
+        public static readonly string ReadOnlyField = "readonly";
+    }
+
+    public struct StaticValueTypeLaneHost
+    {
+        public static int Number { get; set; }
+    }
+
+    [Fact]
+    public void CompiledLanesCoverStaticProperties()
+    {
+        // the engagement probe for the static half: the behavioral tests in the public-interface suite pass
+        // either way, only this says a static read stopped going through PropertyInfo.GetValue
+        var property = typeof(StaticLaneHost).GetProperty(nameof(StaticLaneHost.Number))!;
+
+        var getter = Jint.Runtime.Interop.Reflection.CompiledMemberAccessor.GetJsValueGetter(property);
+        var setter = Jint.Runtime.Interop.Reflection.CompiledMemberAccessor.GetJsValueSetter(property);
+        getter.Should().NotBeNull();
+        setter.Should().NotBeNull();
+
+        StaticLaneHost.Number = 5;
+        // the target parameter is part of the delegate shape but a static member never reads it, which is
+        // what lets a TypeReference pass the Type object itself
+        getter!(typeof(StaticLaneHost)).Should().Be(5);
+
+        setter!(typeof(StaticLaneHost), JsNumber.Create(7)).Should().BeTrue();
+        StaticLaneHost.Number.Should().Be(7);
+    }
+
+    [Fact]
+    public void CompiledLanesCoverStaticFields()
+    {
+        var field = typeof(StaticLaneHost).GetField(nameof(StaticLaneHost.TextField))!;
+
+        var getter = Jint.Runtime.Interop.Reflection.CompiledMemberAccessor.GetJsValueGetter(field);
+        getter.Should().NotBeNull();
+
+        StaticLaneHost.TextField = "field";
+        getter!(typeof(StaticLaneHost)).Should().Be("field");
+    }
+
+    [Fact]
+    public void CompiledLanesCoverStaticMembersOfAValueType()
+    {
+        // an instance member of a struct is excluded (the boxed copy), but a static one has no receiver
+        var property = typeof(StaticValueTypeLaneHost).GetProperty(nameof(StaticValueTypeLaneHost.Number))!;
+
+        var getter = Jint.Runtime.Interop.Reflection.CompiledMemberAccessor.GetJsValueGetter(property);
+        getter.Should().NotBeNull();
+
+        StaticValueTypeLaneHost.Number = 3;
+        getter!(typeof(StaticValueTypeLaneHost)).Should().Be(3);
+    }
+
+    [Fact]
+    public void CompiledLanesDeclineLiteralFields()
+    {
+        // a const has no storage an ldsfld could load; reflection answers it out of metadata
+        var constant = typeof(StaticLaneHost).GetField(nameof(StaticLaneHost.Constant))!;
+
+        Jint.Runtime.Interop.Reflection.CompiledMemberAccessor.GetJsValueGetter(constant).Should().BeNull();
+        Jint.Runtime.Interop.Reflection.CompiledMemberAccessor.GetRawGetter(constant).Should().BeNull();
+
+        // a readonly static field is readable but not writable, exactly as an instance one is
+        var readOnly = typeof(StaticLaneHost).GetField(nameof(StaticLaneHost.ReadOnlyField))!;
+        Jint.Runtime.Interop.Reflection.CompiledMemberAccessor.GetJsValueGetter(readOnly).Should().NotBeNull();
+        Jint.Runtime.Interop.Reflection.CompiledMemberAccessor.GetJsValueSetter(readOnly).Should().BeNull();
+    }
+
+#endif
+
+    #endregion
 }

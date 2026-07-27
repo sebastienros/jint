@@ -50,8 +50,11 @@ public class InteropCompiledInvokerTests
             return sum;
         }
 
-        // optional argument -> ineligible for the fast lane
+        // optional argument -> eligible; the declared default is baked into the thunk
         public int WithOptional(int a, int b = 10) => a + b;
+
+        // a default the thunk cannot bake in (decimal is outside the lane's parameter set)
+        public decimal WithDecimalOptional(decimal a, decimal b = 1.5m) => a + b;
     }
 
     private static Engine CreateEngine()
@@ -173,12 +176,54 @@ public class InteropCompiledInvokerTests
     }
 
     [Fact]
-    public void Fallback_OptionalArgMethod()
+    public void OptionalArgMethod()
     {
+        // the values here predate the lane covering optional parameters: whichever lane runs, an elided
+        // argument has to arrive as the declared default the reflection binder would have substituted
         var engine = CreateEngine();
         engine.Evaluate("host.WithOptional(5)").AsNumber().Should().Be(15);
         engine.Evaluate("host.WithOptional(5, 4)").AsNumber().Should().Be(9);
+
+        // declining on a non-exact argument still reaches the same answer through the binding path
+        engine.Evaluate("host.WithOptional(5.5)").AsNumber().Should().Be(16);
     }
+
+    [Fact]
+    public void Fallback_OptionalArgOfANonLaneType()
+    {
+        var engine = CreateEngine();
+        engine.Evaluate("host.WithDecimalOptional(1)").AsNumber().Should().Be(2.5);
+        engine.Evaluate("host.WithDecimalOptional(1, 2)").AsNumber().Should().Be(3);
+    }
+
+#if NET8_0_OR_GREATER
+
+    [Fact]
+    public void CompiledInvokerIsBuiltForAMethodWithAnOptionalParameter()
+    {
+        // the engagement probe: the behavioral assertions above pass either way, only this says the
+        // reflection binder was actually replaced
+        var descriptor = new Jint.Runtime.Interop.MethodDescriptor(typeof(Host).GetMethod(nameof(Host.WithOptional))!);
+
+        descriptor.GetCompiledInvoker().Should().NotBeNull();
+
+        var host = new Host();
+        descriptor.GetCompiledInvoker()!(host, [JsNumber.Create(5)], out var elided).Should().BeTrue();
+        elided.AsNumber().Should().Be(15);
+
+        descriptor.GetCompiledInvoker()!(host, [JsNumber.Create(5), JsNumber.Create(4)], out var supplied).Should().BeTrue();
+        supplied.AsNumber().Should().Be(9);
+    }
+
+    [Fact]
+    public void CompiledInvokerDeclinesWhenTheDefaultIsOutsideTheLane()
+    {
+        var descriptor = new Jint.Runtime.Interop.MethodDescriptor(typeof(Host).GetMethod(nameof(Host.WithDecimalOptional))!);
+
+        descriptor.GetCompiledInvoker().Should().BeNull();
+    }
+
+#endif
 
     [Fact]
     public void CustomObjectConverterStillSeesReturnValue()
@@ -569,9 +614,10 @@ public class InteropCompiledInvokerTests
     [Fact]
     public void SharedInvokerCache_IneligibleMethodsFromTwoEngines()
     {
-        // exercises the null "known ineligible" sentinel in the shared cache: params, optional
-        // arguments, generic methods, a value-type receiver, an enum parameter and a custom class
-        // parameter all decline the compiled lane and must keep working from every engine.
+        // exercises the null "known ineligible" sentinel in the shared cache: params, generic methods, a
+        // value-type receiver, an enum parameter and a custom class parameter all decline the compiled lane
+        // and must keep working from every engine. The optional-argument rows are here for the converse -
+        // they do take the lane now, and must agree across engines sharing one cached invoker.
         static Engine Create()
         {
             var engine = new Engine();
