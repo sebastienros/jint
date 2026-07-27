@@ -38,6 +38,12 @@ public class ObjectConverterRegistrationTests
         public string Text { get; set; } = "text";
         public Level EnumValue { get; set; } = Level.One;
         public object? Boxed { get; set; }
+
+        public bool GetFlag() => Flag;
+        public int GetNumber() => Number;
+        public string GetText() => Text;
+        public Level GetEnumValue() => EnumValue;
+        public object? GetBoxed() => Boxed;
     }
 
     private static Engine CreateEngine(Host host, Action<Options> configure)
@@ -217,6 +223,71 @@ public class ObjectConverterRegistrationTests
         withoutConverter.Evaluate("host.Flag").Should().Be(true);
         withConverter.Evaluate("host.Flag").Should().Be(false);
     }
+
+    #endregion
+
+    #region 3. the same question, asked for a method's return value
+
+    /// <summary>
+    /// The compiled method-invoker lane produces the <see cref="JsValue"/> for a return value itself, so it
+    /// asks the identical question of the identical filter. It is sound for the same reason: every return
+    /// type the lane covers and a converter could observe (<see cref="int"/>, <see cref="long"/>,
+    /// <see cref="double"/>, <see cref="bool"/>, <see cref="string"/>) is sealed, so the value handed to
+    /// <c>FromObjectWithType</c> has exactly that runtime type — the very type the filter was asked about.
+    /// </summary>
+    [Fact]
+    public void UndeclaredConverterSeesEveryReturnValue()
+    {
+        var engine = CreateEngine(new Host(), options => options.AddObjectConverter(new MeddlingConverter()));
+
+        engine.Evaluate("host.GetFlag()").Should().Be(false);
+        engine.Evaluate("host.GetEnumValue()").Should().Be("One");
+    }
+
+    [Fact]
+    public void ConverterDeclaringOnlyUnrelatedTypesDoesNotSeeTheReturnValue()
+    {
+        var engine = CreateEngine(new Host(), options => options.AddObjectConverter(new MeddlingConverter(), typeof(Guid)));
+
+        ShouldRead(engine, "host.GetFlag()", whenBypassed: true, whenConverted: false);
+        engine.Evaluate("host.GetNumber()").Should().Be(1);
+        engine.Evaluate("host.GetText()").Should().Be("text");
+    }
+
+    [Fact]
+    public void ConverterDeclaringTheReturnTypeStillSeesIt()
+    {
+        var engine = CreateEngine(new Host(), options => options.AddObjectConverter(new MeddlingConverter(), typeof(bool)));
+
+        engine.Evaluate("host.GetFlag()").Should().Be(false);
+    }
+
+    [Fact]
+    public void ReturnTypesOutsideTheLaneAlwaysReachTheConverter()
+    {
+        // an enum return type is not one the compiled invoker can produce, so the whole call keeps the
+        // reflection path and the converter sees the value however it was registered
+        var declared = CreateEngine(new Host(), options => options.AddObjectConverter(new MeddlingConverter(), typeof(Enum)));
+        declared.Evaluate("host.GetEnumValue()").Should().Be("One");
+
+        // and a method declared to return object can hand back anything at all
+        var boxed = CreateEngine(new Host { Boxed = true }, options => options.AddObjectConverter(new MeddlingConverter(), typeof(Guid)));
+        boxed.Evaluate("host.GetBoxed()").Should().Be(false);
+    }
+
+    [Fact]
+    public void OneUndeclaredConverterDisablesTheNarrowingForReturnValuesToo()
+    {
+        var engine = CreateEngine(new Host(), options => options
+            .AddObjectConverter(new NeverConverter(), typeof(Guid))
+            .AddObjectConverter(new MeddlingConverter()));
+
+        engine.Evaluate("host.GetFlag()").Should().Be(false);
+    }
+
+    #endregion
+
+    #region 4. writes
 
     [Fact]
     public void DeclaredConverterDoesNotAffectWrites()

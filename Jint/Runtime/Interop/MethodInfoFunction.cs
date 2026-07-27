@@ -170,15 +170,21 @@ internal sealed class MethodInfoFunction : Function
 #if NET8_0_OR_GREATER
                 // exact-type fast lane: a compiled delegate binds and invokes without the object?[]
                 // parameter array, argument boxes, boxed return, and return-mapper lookup. Skipped
-                // when custom object converters are registered because those must see return values
-                // - except for the return types they provably cannot observe (void and JsValue,
-                // which JsValue.FromObjectWithType short-circuits before ever reaching a converter),
-                // where the lane stays available. Also skipped when a custom ITypeConverter is
-                // installed because the slow path consults it for some exact-type conversions
-                // (e.g. bool) that the compiled lane performs directly. A wrong-typed receiver
-                // (extracted method invoked via .call on a foreign this) also declines so the
-                // reflection path surfaces the same TargetException it always did.
-                if ((_engine._objectConverters is null || method.ReturnValueIsInvisibleToObjectConverters)
+                // when custom object converters are registered because those must see return values,
+                // with two exceptions. The return types a converter provably cannot observe (void and
+                // JsValue, which JsValue.FromObjectWithType short-circuits before ever reaching a
+                // converter) keep the lane whatever is registered; and when every registered converter
+                // declared the CLR types it handles (see OptionsExtensions.AddObjectConverter), a
+                // return type none of them claims keeps it too - the same filter, asked the same
+                // question, as the compiled member-read lane in CompilableMemberAccessor. Also skipped
+                // when a custom ITypeConverter is installed because the slow path consults it for some
+                // exact-type conversions (e.g. bool) that the compiled lane performs directly. A
+                // wrong-typed receiver (extracted method invoked via .call on a foreign this) also
+                // declines so the reflection path surfaces the same TargetException it always did.
+                var converterTypeFilter = _engine._objectConverterTypeFilter;
+                if ((converterTypeFilter is null
+                        || method.ReturnValueIsInvisibleToObjectConverters
+                        || !converterTypeFilter.Claims(method.ReturnType))
                     && _engine._typeConverterIsDefault
                     && method.GetCompiledInvoker() is { } compiledInvoker
                     && (method.IsStatic || method.DeclaringType?.IsInstanceOfType(thisObj) == true))
