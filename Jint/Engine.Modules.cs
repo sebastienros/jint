@@ -176,6 +176,16 @@ public partial class Engine
                     Throw.NotSupportedException($"Error while evaluating module: Module is in an invalid state: '{cyclicModule.Status}'");
                 }
             }
+            else if (cyclicModule.Status == ModuleStatus.Evaluated)
+            {
+                // The module has already been evaluated - either as its own entry point or as a
+                // dependency of some other graph. https://tc39.es/ecma262/#sec-ContinueDynamicImport
+                // evaluates it again regardless, and https://tc39.es/ecma262/#sec-moduleevaluation
+                // makes that a no-op that hands back the already settled promise, with one exception:
+                // a module whose evaluation threw replays its recorded [[EvaluationError]]. Skipping
+                // the call returned a namespace over bindings the failed evaluation never initialized.
+                _engine.ExecuteWithConstraints(true, () => EvaluateModule(request.Specifier, cyclicModule));
+            }
 
             _engine.RunAvailableContinuations();
 
