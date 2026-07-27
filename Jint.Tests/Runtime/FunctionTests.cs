@@ -877,4 +877,67 @@ assertEqual(booleanCount, 1);
             """);
         result.AsString().Should().Be("undefined");
     }
+
+    // An arrow function has no directive prologue of its own, so its strictness is inherited from the
+    // surrounding code (https://tc39.es/ecma262/#sec-strict-mode-code). A concise (expression) body is
+    // not a FunctionBody node, which is where the parser records the inherited flag.
+
+    [Fact]
+    public void ConciseBodyArrowInheritsStrictnessFromEnclosingCode()
+    {
+        var engine = new Engine();
+
+        Invoking(() => engine.Evaluate("""
+            'use strict';
+            var o = Object.freeze({ x: 0 });
+            var f = () => o.x = 1;
+            f();
+            """)).Should().Throw<JavaScriptException>().WithMessage("*read only*");
+
+        Invoking(() => engine.Evaluate("""
+            'use strict';
+            var f = () => (undeclaredGlobalXyz = 1);
+            f();
+            """)).Should().Throw<JavaScriptException>().WithMessage("*undeclaredGlobalXyz*");
+    }
+
+    [Fact]
+    public void ConciseBodyArrowInsideAStrictFunctionIsStrict()
+    {
+        var engine = new Engine();
+
+        Invoking(() => engine.Evaluate("""
+            function outer() {
+                'use strict';
+                var o = Object.freeze({ x: 0 });
+                return (() => o.x = 1)();
+            }
+            outer();
+            """)).Should().Throw<JavaScriptException>().WithMessage("*read only*");
+    }
+
+    [Fact]
+    public void ConciseBodyArrowInSloppyCodeStaysSloppy()
+    {
+        var engine = new Engine();
+
+        engine.Evaluate("""
+            var o = Object.freeze({ x: 0 });
+            var f = () => o.x = 1;
+            f();
+            o.x;
+            """).AsNumber().Should().Be(0);
+    }
+
+    [Fact]
+    public void ConciseBodyArrowInAStrictModuleIsStrict()
+    {
+        // Module code is always strict.
+        var engine = new Engine();
+        engine.Modules.Add("my-module", "const o = Object.freeze({ x: 0 }); const f = () => o.x = 1; export const run = f;");
+
+        var ns = engine.Modules.Import("my-module");
+        Invoking(() => engine.Invoke(ns.Get("run")))
+            .Should().Throw<JavaScriptException>().WithMessage("*read only*");
+    }
 }
