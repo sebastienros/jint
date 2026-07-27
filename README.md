@@ -201,6 +201,15 @@ caches, because every caching lane re-reads the flag on each hit and caches the 
 than a value snapshot. For a whole global that may never be touched, `Options.AddLazyGlobal` defers building
 the value until script reads the name.
 
+**Sparse data.** Hosts that read deep chains off optional data — `input.Address.City.length`, where any link
+may be absent — usually install an `IReferenceResolver` so a nullish base yields a value instead of throwing.
+Register `NullPropagatingReferenceResolver.Instance` rather than writing that class yourself: the engine
+recognizes the singleton and serves the propagation inline, with no interface call and no pooled `Reference`
+per nullish read, which an equivalent hand-written resolver cannot get. Pass
+`ReferenceResolverInterests.NullishPropertyBase` alongside it so every unrelated read lane stays armed. The
+boundary is that *reads* propagate: a call on a nullish base still throws, and a host that needs callable
+substitution or unresolvable-identifier handling writes its own resolver and forgoes the inline lane.
+
 **Prepared scripts and engine reuse.** `Engine.PrepareScript` / `PrepareModule` return an object that is
 reusable *and* thread-safe: prepare once at startup and feed the same `Prepared<T>` to as many engines, on as
 many threads, as you like. The engine's own per-node caches are a separate matter — they are engine-owned and

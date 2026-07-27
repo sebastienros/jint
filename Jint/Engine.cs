@@ -199,6 +199,17 @@ public sealed partial class Engine : IDisposable
     internal readonly bool _resolverWatchesNullishBase;
     internal readonly bool _resolverWatchesUnresolvable;
     internal readonly bool _resolverWatchesCallee;
+
+    /// <summary>
+    /// Set when the registered resolver is <see cref="NullPropagatingReferenceResolver.Instance"/> <i>and</i>
+    /// it is subscribed to nullish bases. That resolver's answer is fixed — a null/undefined base is its own
+    /// result — so the engine can produce it directly instead of renting a <see cref="Reference"/> and making
+    /// two interface calls to learn the same thing. It is purely a shortcut: the two sites that honour it
+    /// (<c>JintMemberExpression.GetValue</c> and <see cref="GetValue(Reference, bool)"/>) must produce exactly
+    /// what the interface lane would, which is what makes a recognized instance and a hand-written equivalent
+    /// resolver indistinguishable to a script.
+    /// </summary>
+    internal readonly bool _nullishPropagatesInline;
     internal readonly IReferenceResolver _referenceResolver;
 
     // Snapshot of Options.Constraints.MaxRecursionDepth. Every call expression compares the pushed
@@ -332,6 +343,12 @@ public sealed partial class Engine : IDisposable
         _resolverWatchesNullishBase = (resolverInterests & ReferenceResolverInterests.NullishPropertyBase) != ReferenceResolverInterests.None;
         _resolverWatchesUnresolvable = (resolverInterests & ReferenceResolverInterests.UnresolvableReference) != ReferenceResolverInterests.None;
         _resolverWatchesCallee = (resolverInterests & ReferenceResolverInterests.NonCallableCallee) != ReferenceResolverInterests.None;
+
+        // The interest is part of the condition on purpose: a host that registers the shipped resolver but
+        // does not subscribe to nullish bases has told the engine not to consult it for them, and the inline
+        // lane must obey that filter exactly as the interface lane does.
+        _nullishPropagatesInline = _resolverWatchesNullishBase
+            && ReferenceEquals(_referenceResolver, NullPropagatingReferenceResolver.Instance);
 
         _referencePool = new ReferencePool();
         _argumentsInstancePool = new ArgumentsInstancePool(this);
@@ -1092,7 +1109,15 @@ public sealed partial class Engine : IDisposable
             && ResolverWatchesBase(baseValue))
         {
             reference.EvaluateAndCachePropertyKey();
-            if (_referenceResolver.TryPropertyReference(this, reference, ref baseValue))
+
+            // Inline lane for the recognized NullPropagatingReferenceResolver, whose TryPropertyReference is
+            // exactly "a nullish base is its own result". The key is evaluated first either way, so a property
+            // key with an observable ToPrimitive behaves the same on both lanes.
+            var claimed = _nullishPropagatesInline
+                ? baseValue.IsNullOrUndefined()
+                : _referenceResolver.TryPropertyReference(this, reference, ref baseValue);
+
+            if (claimed)
             {
                 if (returnReferenceToPool)
                 {

@@ -382,6 +382,16 @@ internal sealed class JintMemberExpression : JintExpression
 
             if (baseValue.IsNullOrUndefined())
             {
+                if (engine._nullishPropagatesInline)
+                {
+                    // The recognized NullPropagatingReferenceResolver yields the base itself for a nullish
+                    // base. Serving it here is what the whole recognition is for: no Reference rent, no
+                    // interface call, and no error message built only to be discarded. Returning a value is
+                    // mandatory rather than merely faster — merely suppressing the throw would fall through to
+                    // GetV, whose ToObject(null) raises a different and worse error.
+                    return baseValue;
+                }
+
                 if (engine._resolverWatchesNullishBase)
                 {
                     // A resolver subscribed to null/undefined bases can substitute a value for this read
@@ -554,7 +564,11 @@ internal sealed class JintMemberExpression : JintExpression
         // This ensures the error has the correct location (the property access)
         // Per ECMAScript spec, ToObject(base) must happen before ToPropertyKey(property),
         // so we must NOT try to convert property to string for the error message if it's an object.
-        if (reference.Base.IsNullOrUndefined())
+        // The recognized NullPropagatingReferenceResolver is excluded: the read is completed by
+        // Engine.GetValue's matching branch, which returns the nullish base, so nothing may throw on the way
+        // there — and the error message this block would build is never used. (Were it reached anyway, the
+        // resolver's own CheckCoercible accepts a nullish value, so it still would not throw.)
+        if (reference.Base.IsNullOrUndefined() && !engine._nullishPropagatesInline)
         {
             var property = reference.ReferencedName;
             // Only use property for error message if it's already a primitive (won't trigger ToPropertyKey)
