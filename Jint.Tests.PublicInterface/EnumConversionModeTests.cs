@@ -1,15 +1,21 @@
 #nullable enable
+
 using Jint.Native;
 
-namespace Jint.Tests.Runtime;
+namespace Jint.Tests.PublicInterface;
 
 /// <summary>
-/// Exercises <see cref="Options.InteropOptions.EnumConversion"/>, the built-in replacement for the
-/// hand-written "render enums as their name" object converter that embedders otherwise have to register.
-/// The numeric default itself is pinned across every underlying-type route by
-/// <see cref="InteropEnumConversionTests"/>.
+/// Covers <see cref="Options.InteropOptions.EnumConversion"/>, the built-in replacement for the hand-written
+/// "render enums as their name" object converter that embedders otherwise have to register — the very
+/// registration that used to cost every unrelated member its compiled read lane. These live in the
+/// public-interface suite on purpose: the project references Jint without any internals access, so the whole
+/// knob is proven reachable by a third-party host.
+/// <para>
+/// The numeric default itself is additionally pinned across every underlying-type route by
+/// <c>Jint.Tests.Runtime.InteropEnumConversionTests</c>.
+/// </para>
 /// </summary>
-public class InteropEnumConversionModeTests
+public class EnumConversionModeTests
 {
     public enum Level
     {

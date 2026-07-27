@@ -1,13 +1,18 @@
 #nullable enable
 using Jint.Constraints;
-using Jint.Runtime;
 
 namespace Jint.Tests.Runtime;
 
 /// <summary>
-/// Pins the registration semantics of the built-in constraint helpers, as distinct from what the
+/// Pins the registration <em>counts</em> of the built-in constraint helpers, as distinct from what the
 /// constraints do once registered: which values register a constraint at all, and that calling a
-/// helper twice replaces rather than accumulates.
+/// helper twice replaces rather than accumulates. Counting needs the engine's internal constraint list —
+/// nothing public enumerates it, and the time constraint has no public type to look up either — which is
+/// why this file stays inside the assembly.
+/// <para>
+/// What an embedder can observe of the same behaviour is pinned from outside by
+/// <c>Jint.Tests.PublicInterface.ConstraintReplacementTests</c>.
+/// </para>
 /// </summary>
 public class ConstraintRegistrationTests
 {
@@ -106,28 +111,6 @@ public class ConstraintRegistrationTests
     }
 
     [Fact]
-    public void TheLaterTimeoutIsTheOneEnforced()
-    {
-        // a widened timeout must actually take effect, which it cannot while the earlier, stricter
-        // constraint is still registered alongside it
-        var engine = new Engine(o => o
-            .TimeoutInterval(TimeSpan.FromMilliseconds(1))
-            .TimeoutInterval(TimeSpan.FromSeconds(30)));
-
-        engine.Evaluate("var n = 0; for (var i = 0; i < 200000; i++) { n += i; } n").AsNumber().Should().BeGreaterThan(0);
-    }
-
-    [Fact]
-    public void ARemovedTimeoutNoLongerApplies()
-    {
-        var engine = new Engine(o => o
-            .TimeoutInterval(TimeSpan.FromMilliseconds(1))
-            .TimeoutInterval(TimeSpan.MaxValue));
-
-        engine.Evaluate("var n = 0; for (var i = 0; i < 200000; i++) { n += i; } n").AsNumber().Should().BeGreaterThan(0);
-    }
-
-    [Fact]
     public void CancellationTokenRegistersNothingForTheDefaultToken()
     {
         CountOf<CancellationConstraint>(o => o.CancellationToken(default)).Should().Be(0);
@@ -142,38 +125,5 @@ public class ConstraintRegistrationTests
         CountOf<CancellationConstraint>(o => o.CancellationToken(source.Token)).Should().Be(1);
         CountOf<CancellationConstraint>(o => o.CancellationToken(source.Token).CancellationToken(other.Token)).Should().Be(1);
         CountOf<CancellationConstraint>(o => o.CancellationToken(source.Token).CancellationToken(default)).Should().Be(0);
-    }
-
-    [Fact]
-    public void ASaturatedStatementLimitLeavesTheEngineIndistinguishableFromNoLimit()
-    {
-        // The documented consequence of the sentinel: this is not "a very large limit", it is the
-        // unconstrained engine, tight-loop lane and all. Registering the constraint instead would
-        // buy nothing, because the constraint counts statements in an int and so can never reach
-        // int.MaxValue.
-        var saturated = new Engine(o => o.MaxStatements(int.MaxValue));
-        var unlimited = new Engine();
-
-        saturated.Constraints.Find<MaxStatementsConstraint>().Should().BeNull();
-        unlimited.Constraints.Find<MaxStatementsConstraint>().Should().BeNull();
-
-        const string Script = "var n = 0; for (var i = 0; i < 50000; i++) { n += i; } n";
-        saturated.Evaluate(Script).AsNumber().Should().Be(unlimited.Evaluate(Script).AsNumber());
-    }
-
-    [Fact]
-    public void ASaturatedRecursionDepthStillEnablesDepthTracking()
-    {
-        // LimitRecursion is deliberately documented as the exception: any non-negative depth turns
-        // the check on, so a saturated value costs enforcement without ever failing.
-        new Engine(o => o.LimitRecursion(int.MaxValue)).Options.Constraints.MaxRecursionDepth.Should().Be(int.MaxValue);
-        new Engine().Options.Constraints.MaxRecursionDepth.Should().Be(-1);
-
-        // and it really does not fail, unlike a small depth
-        new Engine(o => o.LimitRecursion(int.MaxValue))
-            .Evaluate("function f(n) { return n === 0 ? 0 : f(n - 1); } f(100)").AsNumber().Should().Be(0);
-
-        Invoking(() => new Engine(o => o.LimitRecursion(10)).Evaluate("function f(n) { return n === 0 ? 0 : f(n - 1); } f(100)"))
-            .Should().ThrowExactly<RecursionDepthOverflowException>();
     }
 }
