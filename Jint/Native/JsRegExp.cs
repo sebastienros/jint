@@ -84,6 +84,15 @@ public sealed class JsRegExp : ObjectInstance
 
     public RegExpParseResult ParseResult { get; set; }
 
+    /// <summary>
+    /// Whether this instance wraps a .NET <see cref="Regex"/> the host supplied directly (through
+    /// <see cref="RegExp.RegExpConstructor.Construct(Regex, string, string)"/>, which the default interop
+    /// converter routes every <see cref="Regex"/> through) instead of one adapted from a JavaScript
+    /// pattern. Such an instance carries no <see cref="ParseResult"/>, so it always runs on the .NET
+    /// engine and its capture-group metadata is read off <see cref="Value"/>.
+    /// </summary>
+    internal bool IsHostRegex { get; set; }
+
     public bool DotAll { get; private set; }
     public bool Global { get; private set; }
     public bool Indices { get; private set; }
@@ -99,7 +108,7 @@ public sealed class JsRegExp : ObjectInstance
     internal bool HasDefaultRegExpExec => Properties == null && Prototype is RegExpPrototype { HasDefaultExec: true };
 
     /// <summary>Whether this regex uses the .NET Regex engine (not the custom engine).</summary>
-    internal bool UsesDotNetEngine => ParseResult.ConversionResult is Regex;
+    internal bool UsesDotNetEngine => IsHostRegex || ParseResult.ConversionResult is Regex;
 
     public override PropertyDescriptor GetOwnProperty(JsValue property)
     {
