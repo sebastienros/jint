@@ -118,7 +118,25 @@ public class Options
     /// An example of such is <code>var a = obj.field.subField.value</code>. Custom resolver could accept chain to return
     /// null/undefined on first occurrence.
     /// </summary>
-    public IReferenceResolver ReferenceResolver { get; set; } = DefaultReferenceResolver.Instance;
+    /// <remarks>
+    /// Assigning a resolver resets <see cref="ReferenceResolverInterests"/> to
+    /// <see cref="ReferenceResolverInterests.All"/>: interests describe one particular resolver, so a
+    /// replacement never inherits the set narrowed for its predecessor. Assign the interests after the
+    /// resolver — which is what
+    /// <see cref="OptionsExtensions.SetReferencesResolver(Options, IReferenceResolver, ReferenceResolverInterests)"/>
+    /// does — to register a resolver with a narrower set.
+    /// </remarks>
+    public IReferenceResolver ReferenceResolver
+    {
+        get => _referenceResolver;
+        set
+        {
+            _referenceResolver = value;
+            ReferenceResolverInterests = ReferenceResolverInterests.All;
+        }
+    }
+
+    private IReferenceResolver _referenceResolver = DefaultReferenceResolver.Instance;
 
     /// <summary>
     /// The situations <see cref="ReferenceResolver"/> is consulted for. Defaults to
@@ -128,9 +146,10 @@ public class Options
     /// <see cref="ReferenceResolver"/> is the built-in default.
     /// </summary>
     /// <remarks>
-    /// <see cref="OptionsExtensions.SetReferencesResolver(Options, IReferenceResolver)"/> resets this to
-    /// <see cref="ReferenceResolverInterests.All"/>, so registering a second resolver through the
-    /// interest-free overload never silently inherits a narrower set from the first.
+    /// Assigning <see cref="ReferenceResolver"/> — directly or through
+    /// <see cref="OptionsExtensions.SetReferencesResolver(Options, IReferenceResolver)"/> — resets this to
+    /// <see cref="ReferenceResolverInterests.All"/>, so a second resolver never silently inherits a narrower
+    /// set from the first. Narrow it after registering the resolver it describes.
     /// </remarks>
     public ReferenceResolverInterests ReferenceResolverInterests { get; set; } = ReferenceResolverInterests.All;
 
@@ -318,6 +337,11 @@ public class Options
         /// Whether to expose <see cref="object.GetType"></see> which can allow bypassing allow lists and open a way to reflection.
         /// Defaults to false.
         /// </summary>
+        /// <remarks>
+        /// Read once, while the engine is being constructed. Changing it afterwards has no effect on an
+        /// engine that already exists: resolved members are cached under the value captured then, so a later
+        /// change could only be honoured by some reads and not others.
+        /// </remarks>
         public bool AllowGetType { get; set; }
 
         /// <summary>
@@ -527,16 +551,19 @@ public class Options
         /// <summary>
         /// Reported member binding flags when reflecting, defaults to <see cref="BindingFlags.Instance" /> | <see cref="BindingFlags.Public" />.
         /// </summary>
+        /// <inheritdoc cref="AllowGetType" path="/remarks"/>
         public BindingFlags ObjectWrapperReportedFieldBindingFlags { get; set; } = BindingFlags.Instance | BindingFlags.Public;
 
         /// <summary>
         /// Reported member binding flags when reflecting, defaults to <see cref="BindingFlags.Instance" /> | <see cref="BindingFlags.Public" />.
         /// </summary>
+        /// <inheritdoc cref="AllowGetType" path="/remarks"/>
         public BindingFlags ObjectWrapperReportedPropertyBindingFlags { get; set; } = BindingFlags.Instance | BindingFlags.Public;
 
         /// <summary>
         /// Reported member binding flags when reflecting, defaults to <see cref="BindingFlags.Instance" /> | <see cref="BindingFlags.Public" /> | <see cref="BindingFlags.Static" />.
         /// </summary>
+        /// <inheritdoc cref="AllowGetType" path="/remarks"/>
         public BindingFlags ObjectWrapperReportedMethodBindingFlags { get; set; } = BindingFlags.Instance | BindingFlags.Public | BindingFlags.Static;
 
         /// <summary>
@@ -575,6 +602,11 @@ public class Options
         /// <summary>
         /// Maximum recursion depth allowed, defaults to -1 (no checks).
         /// </summary>
+        /// <remarks>
+        /// Read once, while the engine is being constructed. Changing it afterwards has no effect on an
+        /// engine that already exists — the call stack decides from the same value whether to track depth at
+        /// all, so the limit could not be raised later even if every check re-read it.
+        /// </remarks>
         public int MaxRecursionDepth { get; set; } = -1;
 
         /// <summary>
@@ -584,6 +616,8 @@ public class Options
         /// Chrome and V8 based engines (ClearScript) that can handle 13955.
         /// When set to a different value except -1, it can reduce slight performance/stack trace readability drawback. (after hitting the engine's own limit),
         /// When max stack size to be exceeded, Engine throws an exception <see cref="JavaScriptException" />.
+        /// Read once, while the engine is being constructed; changing it afterwards has no effect on an
+        /// engine that already exists.
         /// </remarks>
         public int MaxExecutionStackCount { get; set; } = StackGuard.Disabled;
 

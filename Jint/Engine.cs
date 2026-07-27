@@ -2362,7 +2362,7 @@ public sealed partial class Engine : IDisposable
 
         var recursionDepth = CallStack.Push(function, expression, ExecutionContext);
 
-        if (recursionDepth > Options.Constraints.MaxRecursionDepth)
+        if (recursionDepth > _maxRecursionDepth)
         {
             // automatically pops the current element as it was never reached
             Throw.RecursionDepthOverflowException(CallStack);
@@ -2395,7 +2395,7 @@ public sealed partial class Engine : IDisposable
 
         var recursionDepth = CallStack.Push(function, expression, ExecutionContext);
 
-        if (recursionDepth > Options.Constraints.MaxRecursionDepth)
+        if (recursionDepth > _maxRecursionDepth)
         {
             // automatically pops the current element as it was never reached
             Throw.RecursionDepthOverflowException(CallStack);

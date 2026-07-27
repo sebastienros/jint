@@ -194,6 +194,43 @@ public class ReferenceResolverAssignmentTests
     }
 
     [Fact]
+    public void AssigningAResolverResetsTheInterestsNarrowedForThePreviousOne()
+    {
+        // Interests describe one particular resolver, so registering another one - through the property
+        // just as much as through SetReferencesResolver - must not leave the newcomer consulted only for
+        // the situations its predecessor cared about.
+        var options = new Options();
+        options.SetReferencesResolver(new PassThroughResolver(), ReferenceResolverInterests.NullishPropertyBase);
+        options.ReferenceResolverInterests.Should().Be(ReferenceResolverInterests.NullishPropertyBase);
+
+        var substituting = new SubstitutingResolver();
+        options.ReferenceResolver = substituting;
+
+        options.ReferenceResolverInterests.Should().Be(ReferenceResolverInterests.All);
+
+        // ... and the engine built from those options really does consult it for an unresolvable
+        // identifier, which the narrowed set excluded
+        var engine = new Engine(options);
+        var target = engine.Evaluate("({})").AsObject();
+        substituting.Substitute = target;
+
+        engine.Execute("neverDeclared.assigned = 42;");
+        target.Get("assigned").AsNumber().Should().Be(42);
+    }
+
+    [Fact]
+    public void NarrowedInterestsSurviveWhenAssignedAfterTheResolver()
+    {
+        // The documented way to register a resolver with a narrower set is to assign the interests after
+        // the resolver, which is exactly what the two-argument overload does.
+        var options = new Options();
+        options.ReferenceResolver = new PassThroughResolver();
+        options.ReferenceResolverInterests = ReferenceResolverInterests.NullishPropertyBase;
+
+        options.ReferenceResolverInterests.Should().Be(ReferenceResolverInterests.NullishPropertyBase);
+    }
+
+    [Fact]
     public void BaseOfAnAssignmentIsStillResolvedThroughTheResolver()
     {
         // The write itself never consults the resolver, but the base is read through the normal read

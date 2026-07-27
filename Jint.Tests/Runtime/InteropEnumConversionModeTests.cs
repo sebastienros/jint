@@ -1,5 +1,6 @@
 #nullable enable
 using Jint.Native;
+using Jint.Runtime.Interop;
 
 namespace Jint.Tests.Runtime;
 
@@ -175,4 +176,63 @@ public class InteropEnumConversionModeTests
         CreateEngine(host, EnumConversionMode.String).Evaluate("host.Level").Should().Be("One");
         CreateEngine(host).Evaluate("host.Level").Should().Be(1);
     }
+
+    #region enum constants read off a TypeReference
+
+    private static Engine CreateEngineWithLevelType(Host host, EnumConversionMode? mode = null)
+    {
+        var engine = CreateEngine(host, mode);
+        engine.SetValue("Level", TypeReference.CreateTypeReference<Level>(engine));
+        return engine;
+    }
+
+    [Fact]
+    public void TypeReferenceConstantsDefaultToTheNumber()
+    {
+        var engine = CreateEngineWithLevelType(new Host());
+
+        engine.Evaluate("Level.Two").Should().Be(2);
+        engine.Evaluate("host.Level === Level.One").Should().Be(true);
+    }
+
+    [Fact]
+    public void TypeReferenceConstantsFollowStringMode()
+    {
+        // Values crossing out of a CLR member become names under String mode, so the constants a
+        // TypeReference exposes have to as well - otherwise comparing the two compares a string to a number.
+        var engine = CreateEngineWithLevelType(new Host(), EnumConversionMode.String);
+
+        engine.Evaluate("Level.Two").Should().Be("Two");
+        engine.Evaluate("typeof Level.Two").Should().Be("string");
+        engine.Evaluate("host.Level === Level.One").Should().Be(true);
+        engine.Evaluate("host.Echo(Level.Two) === Level.Two").Should().Be(true);
+    }
+
+    [Fact]
+    public void TypeReferenceConstantsOfDifferentModesDoNotPoisonEachOther()
+    {
+        // The accessor cache TypeReference keeps is process-wide and keyed on (type, member name) only,
+        // which cannot express the mode - whichever engine resolves first must not decide for the others.
+        CreateEngineWithLevelType(new Host()).Evaluate("Level.Two").Should().Be(2);
+        CreateEngineWithLevelType(new Host(), EnumConversionMode.String).Evaluate("Level.Two").Should().Be("Two");
+        CreateEngineWithLevelType(new Host()).Evaluate("Level.Two").Should().Be(2);
+
+        // ... and starting from the other mode
+        CreateEngineWithLevelType(new Host(), EnumConversionMode.String).Evaluate("Level.Zero").Should().Be("Zero");
+        CreateEngineWithLevelType(new Host()).Evaluate("Level.Zero").Should().Be(0);
+    }
+
+    [Fact]
+    public void TypeReferenceConstantsCoverFlagsAndWideUnderlyingTypes()
+    {
+        var engine = CreateEngine(new Host(), EnumConversionMode.String);
+        engine.SetValue("Access", TypeReference.CreateTypeReference<Access>(engine));
+        engine.SetValue("LongLevel", TypeReference.CreateTypeReference<LongLevel>(engine));
+
+        engine.Evaluate("Access.Write").Should().Be("Write");
+        engine.Evaluate("LongLevel.Big").Should().Be("Big");
+        engine.Evaluate("host.LongLevel === LongLevel.Big").Should().Be(true);
+    }
+
+    #endregion
 }
