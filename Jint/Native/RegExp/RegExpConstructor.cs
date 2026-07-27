@@ -44,6 +44,26 @@ public sealed partial class RegExpConstructor : Constructor
         _legacyMatchEnd = matchIndex + matchLength;
     }
 
+    /// <summary>
+    /// Returns the legacy statics above to their initial (empty) state. Every successful match writes them,
+    /// so without this a later evaluation reading <c>RegExp.$1</c> or <c>RegExp.input</c> would see the
+    /// previous evaluation's subject text.
+    /// </summary>
+    internal void ResetLegacyProperties()
+    {
+        _legacyInput = "";
+        _legacyLastParen = "";
+        var parens = _legacyParens;
+        for (var i = 0; i < parens.Length; i++)
+        {
+            parens[i] = "";
+        }
+
+        _legacyContextInput = "";
+        _legacyMatchIndex = 0;
+        _legacyMatchEnd = 0;
+    }
+
     internal RegExpConstructor(
         Engine engine,
         Realm realm,

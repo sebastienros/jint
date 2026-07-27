@@ -10,7 +10,7 @@ public partial class Engine
 {
     public AdvancedOperations Advanced { get; }
 
-    public class AdvancedOperations
+    public partial class AdvancedOperations
     {
         private readonly Engine _engine;
 

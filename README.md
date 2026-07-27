@@ -232,6 +232,28 @@ engine per operation never reaches them by design. Note the mirror image if you 
 warmed call site holds a reference to the last receiver it served until it caches a different one, so pooled
 engines can keep host objects alive between runs.
 
+**Reusing a configured engine.** If you build a fresh engine per evaluation only because you need a clean
+global, `engine.Advanced.CaptureGlobalSnapshot()` and `RestoreGlobalSnapshot(snapshot)` are the cheaper route:
+capture once after your `SetValue` calls and module setup, then restore between evaluations. Restore reverts
+the global object's own properties, its prototype and extensibility, and the top-level `let`/`const`/`class`
+declarations (which nothing else can clear, so a script with a top-level `let` can otherwise only be run once
+per engine); it also clears the `RegExp.$1`-style legacy statics and resets the interop wrapper caches. The
+per-node caches above are deliberately kept, so the next run starts warm.
+
+Restore also ends the previous cycle on the event loop. Queued jobs are discarded, and — because discarding
+cannot reach work that has not been enqueued yet — any promise registered before the restore is dropped when
+it settles instead of resuming its continuation, so a fire-and-forget `async` function suspended on a host
+`Task` never wakes up against the restored globals. Register a promise that is meant to outlive a restore
+*after* it. Restore refuses (`InvalidOperationException`) while an evaluation is in progress, including an
+`EvaluateAsync`/`ExecuteAsync`/`InvokeAsync` whose `Task` you still hold. What it cannot fence is you calling
+back in: invoking a function a previous evaluation handed you runs it against the restored surface.
+
+**It is a configuration-reuse primitive, not an isolation boundary** — mutations of `Object.prototype` and
+other intrinsics, of object graphs behind restored bindings, of host CLR state, plus `Symbol.for`
+registrations and registered modules, all survive a restore, so mutually distrusting scripts still need
+separate engines. A snapshot also keeps its engine and every captured value strongly reachable, so do not
+cache one past that engine's lifetime.
+
 **Constraints and options.** An `Options` instance is meant to be shared across engines, including concurrent
 ones — the built-in constraint helpers register a *factory*, so each engine gets its own counter and its own
 deadline. (Sharing it is not required: building an `Options` per scope is fine when your globals depend on

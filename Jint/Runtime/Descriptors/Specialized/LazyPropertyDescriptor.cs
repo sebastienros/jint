@@ -3,7 +3,7 @@ using Jint.Native;
 
 namespace Jint.Runtime.Descriptors.Specialized;
 
-internal sealed class LazyPropertyDescriptor<T> : PropertyDescriptor
+internal sealed class LazyPropertyDescriptor<T> : PropertyDescriptor, IFieldBackedLazyDescriptor
 {
     private readonly T _state;
     private readonly Func<T, JsValue> _resolver;

@@ -11,7 +11,7 @@ namespace Jint.Runtime.Descriptors.Specialized;
 /// <see cref="ObjectInstance"/>'s builtin-shape slot materialization. Shared between an
 /// alias slot and its target at deopt time so both names keep one function identity.
 /// </summary>
-internal sealed class LazyBuiltinSlotDescriptor : PropertyDescriptor
+internal sealed class LazyBuiltinSlotDescriptor : PropertyDescriptor, IFieldBackedLazyDescriptor
 {
     private readonly IBuiltinShaped _shaped;
     private readonly ushort _functionSlot;
