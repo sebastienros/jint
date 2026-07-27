@@ -384,6 +384,58 @@ public class SharedObjectShapeTests
         }
     }
 
+    [Fact]
+    public void ASharedShapeDoesNotRetainHostStateOfDroppedEngines()
+    {
+        // Host state is the one thing a host is invited to hang off a shaped object, and the invitation is
+        // only safe while the shape holds none of it. It is stored on the instantiated object, which is
+        // engine-affine, so it must die with the engine — including when the state itself references that
+        // engine, which is the case the API explicitly permits (a constructor, a JsValue, anything).
+        var shape = new JsObjectShape.Builder()
+            .Method("describe", static (t, args) => new JsString("described"))
+            .Build();
+
+        const int count = 20;
+        var engines = new List<WeakReference>(count);
+        var states = new List<WeakReference>(count);
+        for (var i = 0; i < count; i++)
+        {
+            var (engine, state) = RunOnceAndForget(shape);
+            engines.Add(engine);
+            states.Add(state);
+        }
+
+        GC.Collect(2, GCCollectionMode.Forced, blocking: true);
+        GC.WaitForPendingFinalizers();
+        GC.Collect(2, GCCollectionMode.Forced, blocking: true);
+
+        var enginesAlive = engines.Count(static r => r.IsAlive);
+        var statesAlive = states.Count(static r => r.IsAlive);
+        GC.KeepAlive(shape);
+
+        enginesAlive.Should().Be(0, $"{enginesAlive} of {count} engines were not collected — attaching host state made the shape pin engines.");
+        statesAlive.Should().Be(0, $"{statesAlive} of {count} host-state objects were not collected — the shape retains state of instances whose engine is gone.");
+
+        // NoInlining so neither reference can be stack-rooted in this frame across the GC.Collect calls.
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static (WeakReference Engine, WeakReference State) RunOnceAndForget(JsObjectShape shape)
+        {
+            var engine = new Engine();
+            var proto = shape.Instantiate(engine);
+
+            // Deliberately engine-affine and mutually referential: the state points at a value of this
+            // engine, and the engine reaches the state through the prototype. Only the pair dying together
+            // makes that safe.
+            var state = new object[] { proto, new JsString("engine-affine") };
+            JsObjectShape.SetHostState(proto, state);
+
+            engine.SetValue("proto", proto);
+            engine.Execute("var el = Object.create(proto); el.describe();");
+
+            return (new WeakReference(engine), new WeakReference(state));
+        }
+    }
+
     private static JsValue GlobalSymbolRegistryToStringTag(Engine engine)
         => engine.Evaluate("Symbol.toStringTag");
 }

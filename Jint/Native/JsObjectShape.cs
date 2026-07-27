@@ -128,6 +128,85 @@ public sealed class JsObjectShape
         return new SharedShapeObject(engine, this, prototype);
     }
 
+    /// <summary>
+    /// Attaches opaque host state to an object created by <see cref="Instantiate(Engine, ObjectInstance)"/>,
+    /// replacing anything attached before. The engine never reads the value; this exists so that a host whose
+    /// prototypes carry their own bookkeeping — a type token, a back-reference to the constructor, the
+    /// collection an indexer projects — can keep it <em>on</em> the object instead of in a side table keyed
+    /// by it.
+    /// <para>
+    /// The state is <b>per instance</b>, not per shape, so unlike everything placed into the shape itself it
+    /// may be freely engine-affine: a <see cref="JsValue"/>, a constructor, anything belonging to the engine
+    /// that created this object. It is held by that object and by nothing else, so it becomes collectable
+    /// exactly when the object does — a process-held shape never retains the state of an instance whose
+    /// engine has been dropped.
+    /// </para>
+    /// <para>
+    /// Attaching after creation rather than during it is deliberate, and it is what makes the common case
+    /// expressible: a prototype's state usually includes a reference to the constructor whose
+    /// <c>prototype</c> property <em>is</em> this object, so the object has to exist first.
+    /// </para>
+    /// </summary>
+    /// <param name="target">An object returned by <see cref="Instantiate(Engine, ObjectInstance)"/>.</param>
+    /// <param name="hostState">The state to attach, or <c>null</c> to detach.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="target"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="target"/> was not created by a <see cref="JsObjectShape"/>. Note that an object which
+    /// has merely fallen back to the ordinary property representation is still such an object and still
+    /// accepts state — the representation is an implementation detail, the identity is not.
+    /// </exception>
+    public static void SetHostState(ObjectInstance target, object? hostState)
+    {
+        if (target is null)
+        {
+            Throw.ArgumentNullException(nameof(target));
+        }
+
+        if (target is not SharedShapeObject shaped)
+        {
+            // Silently dropping the state would strand it: every later GetHostState would answer null and
+            // the host would be debugging a lookup that never had a chance of working.
+            Throw.ArgumentException(
+                "Host state can only be attached to an object created by JsObjectShape.Instantiate.",
+                nameof(target));
+            return;
+        }
+
+        shaped.HostState = hostState;
+    }
+
+    /// <summary>
+    /// The host state attached to <paramref name="target"/> by <see cref="SetHostState"/>, or <c>null</c>
+    /// when there is none — including when <paramref name="target"/> is <c>null</c> or was not created by a
+    /// <see cref="JsObjectShape"/> at all. Tolerating both keeps the natural retrieval pattern a single
+    /// expression: a member implementation receives the <em>instance</em> as its receiver and walks up to the
+    /// prototype that owns it, and a walk that runs off the end of the chain simply yields <c>null</c>.
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// static JsValue Describe(JsValue thisObject, JsValue[] arguments)
+    /// {
+    ///     for (var o = (thisObject as ObjectInstance)?.Prototype; o is not null; o = o.Prototype)
+    ///     {
+    ///         if (JsObjectShape.GetHostState(o) is NodeTypeInfo info)
+    ///         {
+    ///             return new JsString(info.InterfaceName);
+    ///         }
+    ///     }
+    ///
+    ///     return JsValue.Undefined;
+    /// }
+    /// </code>
+    /// </example>
+    /// <param name="target">The object to read the state from.</param>
+    /// <remarks>
+    /// The state is stored on the object created by <c>Instantiate</c>, which keeps it for its whole life —
+    /// including after script has done something the shared layout cannot express (deleting a member, adding
+    /// an integer-like key) and the object has fallen back to the ordinary property representation. Only that
+    /// object carries it: an object merely <em>inheriting</em> from a shaped prototype has none of its own.
+    /// </remarks>
+    public static object? GetHostState(ObjectInstance? target) => (target as SharedShapeObject)?.HostState;
+
     /// <summary>The shared member layout, handed to the engine's <c>IBuiltinShaped</c> storage protocol.</summary>
     internal BuiltinShape Layout => _layout;
 

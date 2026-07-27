@@ -43,6 +43,14 @@ internal sealed class SharedShapeObject : ObjectInstance, IBuiltinShaped
     // null until first materialized. Null once the object has deopted to the ordinary dictionary.
     private PropertyDescriptor?[]? _builtinDescriptors;
 
+    /// <summary>
+    /// Opaque per-instance state the host attached through <see cref="JsObjectShape.SetHostState"/>. The
+    /// engine never reads it; it exists so that a host does not have to keep a side table keyed by the
+    /// object it was handed. It lives here rather than on the shape precisely because it is per-instance:
+    /// engine-affine state is fine in it, and it dies with this object.
+    /// </summary>
+    internal object? HostState;
+
     internal SharedShapeObject(Engine engine, JsObjectShape shape, ObjectInstance? prototype)
         : base(engine, ObjectClass.Object, InternalTypes.Object)
     {
