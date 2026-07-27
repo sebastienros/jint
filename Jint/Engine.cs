@@ -1958,6 +1958,8 @@ public sealed partial class Engine : IDisposable
 
         if (!strict && hoistingScope._variablesDeclarations != null)
         {
+            void ThrowDuplicateBindingError(Key name) => Throw.SyntaxError(realm, $"Identifier '{name}' has already been declared");
+
             var varNames = script.GetVarNames(hoistingScope);
             if (varEnvRec is GlobalEnvironment globalEnvironmentRecord)
             {
@@ -1966,7 +1968,7 @@ public sealed partial class Engine : IDisposable
                     var varName = varNames[i];
                     if (globalEnvironmentRecord.HasLexicalDeclaration(varName))
                     {
-                        Throw.SyntaxError(realm, $"Identifier '{varName}' has already been declared");
+                        ThrowDuplicateBindingError(varName);
                     }
                 }
             }
@@ -1984,7 +1986,7 @@ public sealed partial class Engine : IDisposable
                         var varName = varNames[i];
                         if (thisEnvRec.HasBinding(varName))
                         {
-                            Throw.SyntaxError(realm, $"Identifier '{varName}' has already been declared");
+                            ThrowDuplicateBindingError(varName);
                         }
                     }
                 }
@@ -2006,7 +2008,7 @@ public sealed partial class Engine : IDisposable
                     var varName = varNames[i];
                     if (funcEnv.HasBinding(varName))
                     {
-                        Throw.SyntaxError(realm, $"Identifier '{varName}' has already been declared");
+                        ThrowDuplicateBindingError(varName);
                     }
 
                     // Non-arrow functions always have an implicit "arguments" binding per spec
@@ -2016,7 +2018,7 @@ public sealed partial class Engine : IDisposable
                     if (string.Equals(varName.Name, "arguments", StringComparison.Ordinal)
                         && funcEnv._functionObject._thisMode != FunctionThisMode.Lexical)
                     {
-                        Throw.SyntaxError(realm, $"Identifier '{varName}' has already been declared");
+                        ThrowDuplicateBindingError(varName);
                     }
                 }
             }
