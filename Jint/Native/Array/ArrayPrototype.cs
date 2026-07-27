@@ -981,11 +981,11 @@ public sealed partial class ArrayPrototype : ArrayInstance
         return false;
     }
 
-    [JsFunction(Length = 1)]
-    private JsValue Some(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1, FastCall = true)]
+    private JsValue Some(JsValue thisObject, JsValue arg0, JsValue arg1)
     {
         var target = TypeConverter.ToObject(_realm, thisObject);
-        return target.FindWithCallback(arguments, out _, out _, false);
+        return target.FindWithCallback(arg0, arg1, out _, out _, false);
     }
 
     /// <summary>
@@ -1040,8 +1040,8 @@ public sealed partial class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.indexof
     /// </summary>
-    [JsFunction(Length = 1)]
-    private JsValue IndexOf(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1, FastCall = true)]
+    private JsValue IndexOf(JsValue thisObject, JsValue arg0, JsValue arg1)
     {
         var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
         var len = o.GetLongLength();
@@ -1050,9 +1050,10 @@ public sealed partial class ArrayPrototype : ArrayInstance
             return -1;
         }
 
-        var startIndex = arguments.Length > 1
-            ? TypeConverter.ToIntegerOrInfinity(arguments.At(1))
-            : 0;
+        // An absent fromIndex and an explicit `undefined` both coerce to 0 (step 4 is
+        // ToIntegerOrInfinity, and ToNumber(undefined) is NaN, which it maps to +0), so reading the
+        // argument positionally keeps the answer the branch on arguments.Length gave.
+        var startIndex = TypeConverter.ToIntegerOrInfinity(arg1);
 
         if (startIndex > ArrayOperations.MaxArrayLikeLength)
         {
@@ -1087,7 +1088,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
             k = smallestIndex;
         }
 
-        var searchElement = arguments.At(0);
+        var searchElement = arg0;
 
         // Fast path: dense JsArray scan avoids the per-element HasProperty + Get virtual call pair.
         if (thisObject is JsArray { CanUseFastAccess: true } fast && fast._dense is { } dense)
@@ -1128,22 +1129,22 @@ public sealed partial class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.find
     /// </summary>
-    [JsFunction(Length = 1)]
-    private JsValue Find(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1, FastCall = true)]
+    private JsValue Find(JsValue thisObject, JsValue arg0, JsValue arg1)
     {
         var target = TypeConverter.ToObject(_realm, thisObject);
-        target.FindWithCallback(arguments, out _, out var value, visitUnassigned: true);
+        target.FindWithCallback(arg0, arg1, out _, out var value, visitUnassigned: true);
         return value;
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.findindex
     /// </summary>
-    [JsFunction(Length = 1)]
-    private JsValue FindIndex(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1, FastCall = true)]
+    private JsValue FindIndex(JsValue thisObject, JsValue arg0, JsValue arg1)
     {
         var target = TypeConverter.ToObject(_realm, thisObject);
-        if (target.FindWithCallback(arguments, out var index, out _, visitUnassigned: true))
+        if (target.FindWithCallback(arg0, arg1, out var index, out _, visitUnassigned: true))
         {
             return index;
         }
@@ -1154,7 +1155,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
     private JsValue FindLast(JsValue thisObject, JsCallArguments arguments)
     {
         var target = TypeConverter.ToObject(_realm, thisObject);
-        target.FindWithCallback(arguments, out _, out var value, visitUnassigned: true, fromEnd: true);
+        target.FindWithCallback(arguments.At(0), arguments.At(1), out _, out var value, visitUnassigned: true, fromEnd: true);
         return value;
     }
 
@@ -1162,7 +1163,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
     private JsValue FindLastIndex(JsValue thisObject, JsCallArguments arguments)
     {
         var target = TypeConverter.ToObject(_realm, thisObject);
-        if (target.FindWithCallback(arguments, out var index, out _, visitUnassigned: true, fromEnd: true))
+        if (target.FindWithCallback(arguments.At(0), arguments.At(1), out var index, out _, visitUnassigned: true, fromEnd: true))
         {
             return index;
         }

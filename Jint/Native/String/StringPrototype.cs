@@ -1864,13 +1864,13 @@ internal sealed partial class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.endswith
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction(Length = 1, FastCall = true)]
     [RequireObjectCoercible]
-    private JsValue EndsWith(JsValue thisObject, JsCallArguments arguments)
+    private JsValue EndsWith(JsValue thisObject, JsValue arg0, JsValue arg1)
     {
         var s = TypeConverter.ToJsString(thisObject);
 
-        var searchString = arguments.At(0);
+        var searchString = arg0;
         if (ReferenceEquals(searchString, Null))
         {
             searchString = "null";
@@ -1886,7 +1886,11 @@ internal sealed partial class StringPrototype : StringInstance
         var searchStr = TypeConverter.ToString(searchString);
 
         var len = s.Length;
-        var pos = TypeConverter.ToInt32(arguments.At(1, len));
+        // Step 7 keys on the *value* undefined, not on the argument being absent: both spell "search the
+        // whole string". Reading the argument positionally is what makes that spelling the only one
+        // available, and it is the spec's - an explicit `undefined` used to be coerced to 0 here, which
+        // made `'abc'.endsWith('c', undefined)` false.
+        var pos = arg1.IsUndefined() ? len : TypeConverter.ToInt32(arg1);
         var end = System.Math.Min(System.Math.Max(pos, 0), len);
 
         return s.EndsWith(searchStr, end);
@@ -1895,12 +1899,12 @@ internal sealed partial class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.includes
     /// </summary>
-    [JsFunction(Length = 1)]
+    [JsFunction(Length = 1, FastCall = true)]
     [RequireObjectCoercible]
-    private JsValue Includes(JsValue thisObject, JsCallArguments arguments)
+    private JsValue Includes(JsValue thisObject, JsValue arg0, JsValue arg1)
     {
         var s = TypeConverter.ToJsString(thisObject);
-        var searchString = arguments.At(0);
+        var searchString = arg0;
 
         if (searchString.IsRegExp())
         {
@@ -1909,9 +1913,9 @@ internal sealed partial class StringPrototype : StringInstance
 
         var searchStr = TypeConverter.ToString(searchString);
         double pos = 0;
-        if (arguments.Length > 1 && !arguments[1].IsUndefined())
+        if (!arg1.IsUndefined())
         {
-            pos = TypeConverter.ToInteger(arguments[1]);
+            pos = TypeConverter.ToInteger(arg1);
         }
 
         if (searchStr.Length == 0)

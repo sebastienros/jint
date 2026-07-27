@@ -2182,10 +2182,13 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     }
 
     /// <summary>
-    /// Handles the generic find of (callback[, thisArg])
+    /// Handles the generic find of (callback[, thisArg]). The two arguments are taken positionally rather
+    /// than as a <c>JsCallArguments</c> array so the callers can be reached through the fast-call lane,
+    /// which carries its arguments in registers; an absent argument is <c>Undefined</c> either way.
     /// </summary>
     internal virtual bool FindWithCallback(
-        JsCallArguments arguments,
+        JsValue callbackfn,
+        JsValue thisArg,
         out ulong index,
         out JsValue value,
         bool visitUnassigned,
@@ -2217,8 +2220,6 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             return false;
         }
 
-        var callbackfn = arguments.At(0);
-        var thisArg = arguments.At(1);
         var callable = GetCallable(callbackfn);
 
         // args is rented from the pool whose factory allocates new JsValue[3], so it is an exact
