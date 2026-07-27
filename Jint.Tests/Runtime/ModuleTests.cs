@@ -1096,4 +1096,101 @@ export const count = globals.counter;
         // Must not be SyntaxError per test262 expectations for SourceTextModule source phase.
         ex.Error.Get("name").AsString().Should().NotBe("SyntaxError");
     }
+
+    [Fact]
+    public void ShouldRethrowWhenImportingAModuleThatAlreadyFailed()
+    {
+        // https://tc39.es/ecma262/#sec-moduleevaluation - a module whose evaluation threw stays
+        // EVALUATED with a recorded [[EvaluationError]], and Evaluate() replays it forever after.
+        // The host-facing Import must not hand back a namespace whose bindings were never
+        // initialized. Mirrors test262 language/expressions/dynamic-import/import-errored-module.js.
+        _engine.Modules.Add("my-module", "throw new Error('boom');");
+
+        Invoking(() => _engine.Modules.Import("my-module")).Should().ThrowExactly<JavaScriptException>()
+            .Which.Message.Should().Be("boom");
+
+        Invoking(() => _engine.Modules.Import("my-module")).Should().ThrowExactly<JavaScriptException>()
+            .Which.Message.Should().Be("boom");
+    }
+
+    [Fact]
+    public void ShouldRethrowWhenAnotherEntryPointImportsAModuleThatAlreadyThrew()
+    {
+        // https://tc39.es/ecma262/#sec-innermoduleevaluation step 13.a is `Perform ?
+        // module.ExecuteModule()`: an abrupt execution returns at once, so the throwing module
+        // stays on the stack and Evaluate() step 9.a.iii records the error on it. If it were
+        // popped and marked EVALUATED with an empty [[EvaluationError]] instead, a second entry
+        // point importing it would evaluate happily against uninitialized bindings.
+        _engine.Modules.Add("throws", "export const value = 1; throw new Error('boom');");
+        _engine.Modules.Add("first", "import 'throws';");
+        _engine.Modules.Add("second", "import { value } from 'throws'; globalThis.seen = value;");
+
+        Invoking(() => _engine.Modules.Import("first")).Should().ThrowExactly<JavaScriptException>()
+            .Which.Message.Should().Be("boom");
+
+        Invoking(() => _engine.Modules.Import("second")).Should().ThrowExactly<JavaScriptException>()
+            .Which.Message.Should().Be("boom");
+    }
+
+    [Fact]
+    public void ShouldReplayTheEvaluationErrorWhenReevaluatingAModuleWithoutACycleRoot()
+    {
+        // https://tc39.es/ecma262/#sec-moduleevaluation step 3: the redirect to [[CycleRoot]] is
+        // guarded by "If module.[[CycleRoot]] is not empty". A module marked EVALUATED by step
+        // 9.a - because a dependency threw - never reached the InnerModuleEvaluation pop loop that
+        // assigns [[CycleRoot]], so it keeps an empty one and stays the subject of the evaluation.
+        _engine.Modules.Add("throws", "throw new Error('boom');");
+        _engine.Modules.Add("main", "import 'throws';");
+
+        Invoking(() => _engine.Modules.Import("main")).Should().ThrowExactly<JavaScriptException>()
+            .Which.Message.Should().Be("boom");
+
+        _engine.Evaluate("globalThis.outcome = null; import('main').then(() => { globalThis.outcome = 'resolved'; }, e => { globalThis.outcome = e.message; });");
+        _engine.Advanced.ProcessTasks();
+
+        _engine.Evaluate("globalThis.outcome").AsString().Should().Be("boom");
+    }
+
+    [Fact]
+    public void ShouldRecordTheEvaluationErrorOnEveryMemberOfAFailedCycle()
+    {
+        // https://tc39.es/ecma262/#sec-innermoduleevaluation ends with "Return index"; Jint used to
+        // return the execution completion instead, so the DFS counter collapsed to 0 (ToInt32 of
+        // undefined) after the first synchronous dependency. Every later sibling then saw
+        // moduleIndex == [[DFSAncestorIndex]] and popped itself out of the strongly connected
+        // component, becoming its own [[CycleRoot]] and going EVALUATED before the real root ran.
+        // 'member' is genuinely part of the cycle {root, member} and must therefore be marked
+        // EVALUATED *with* root's [[EvaluationError]] by Evaluate() step 9.a.
+        _engine.Modules.Add("leaf", "export const v = 1;");
+        _engine.Modules.Add("member", "import 'root'; export const w = 2;");
+        _engine.Modules.Add("root", "import 'leaf'; import 'member'; throw new Error('root-boom');");
+        _engine.Modules.Add("other", "import { w } from 'member'; globalThis.seen = w;");
+
+        Invoking(() => _engine.Modules.Import("root")).Should().ThrowExactly<JavaScriptException>()
+            .Which.Message.Should().Be("root-boom");
+
+        Invoking(() => _engine.Modules.Import("other")).Should().ThrowExactly<JavaScriptException>()
+            .Which.Message.Should().Be("root-boom");
+    }
+
+    [Fact]
+    public void ShouldNotExecuteAnAsyncParentThatAlreadyFailed()
+    {
+        // https://tc39.es/ecma262/#sec-async-module-execution-fulfilled step 12.a: a module of
+        // sortedExecList whose [[Status]] is already EVALUATED must be skipped (its
+        // [[EvaluationError]] is not empty). Here 'mid' throws when the exec list is drained, and
+        // AsyncModuleExecutionRejected propagates that to its async parent 'top' - which appears
+        // later in the very same list. Executing 'top' anyway would run a module body the spec
+        // never runs.
+        var log = new List<string>();
+        _engine.SetValue("log", log.Add);
+        _engine.Modules.Add("async-dep", "await 0; export const x = 1;");
+        _engine.Modules.Add("mid", "import 'async-dep'; log('mid'); throw new Error('mid-boom');");
+        _engine.Modules.Add("top", "import 'mid'; log('top');");
+
+        Invoking(() => _engine.Modules.Import("top")).Should().ThrowExactly<JavaScriptException>()
+            .Which.Message.Should().Be("mid-boom");
+
+        log.Should().Equal("mid");
+    }
 }

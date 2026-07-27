@@ -100,8 +100,16 @@ public abstract class CyclicModule : Module
         var module = this;
 
         // https://tc39.es/ecma262/#sec-moduleevaluation
-        // Step 4: If module.[[Status]] is either evaluating-async or evaluated, set module to module.[[CycleRoot]].
-        if (module.Status is ModuleStatus.EvaluatingAsync or ModuleStatus.Evaluated)
+        // Step 3: If module.[[Status]] is either evaluating-async or evaluated, then
+        //   a. If module.[[CycleRoot]] is not empty, then
+        //      i. Set module to module.[[CycleRoot]].
+        //   b. Else,
+        //      i. Assert: module.[[Status]] is evaluated and module.[[EvaluationError]] is a throw completion.
+        // The guard is load-bearing: only the InnerModuleEvaluation pop loop assigns [[CycleRoot]],
+        // and a module marked evaluated by step 9.a below - because a dependency threw before the
+        // loop could reach it - never got one. Such a module stays the subject of the evaluation and
+        // replays its own recorded [[EvaluationError]] through InnerModuleEvaluation.
+        if ((module.Status is ModuleStatus.EvaluatingAsync or ModuleStatus.Evaluated) && module._cycleRoot is not null)
         {
             module = module._cycleRoot;
         }
@@ -391,7 +399,6 @@ public abstract class CyclicModule : Module
             }
         }
 
-        Completion completion;
         if (_pendingAsyncDependencies > 0 || _hasTLA)
         {
             if (_asyncEvaluation)
@@ -403,20 +410,28 @@ public abstract class CyclicModule : Module
             _asyncEvalOrder = asyncEvalOrder++;
             if (_pendingAsyncDependencies == 0)
             {
-                // No pending dependencies, execute immediately
-                completion = ExecuteAsyncModule();
+                // Step 12.c: If module.[[PendingAsyncDependencies]] = 0, perform ExecuteAsyncModule(module).
+                // ExecuteAsyncModule returns unused - it routes both outcomes through the module's own
+                // promise capability - so there is no completion to propagate from here.
+                ExecuteAsyncModule();
             }
-            else
-            {
-                // Has pending async dependencies - don't execute yet.
-                // The module will be executed by AsyncModuleExecutionFulfilled
-                // when all dependencies complete.
-                completion = new Completion(CompletionType.Normal, index, default);
-            }
+
+            // Otherwise the module has pending async dependencies and must not execute yet:
+            // AsyncModuleExecutionFulfilled runs it once they all complete.
         }
         else
         {
-            completion = ExecuteModule();
+            // Step 13.a: Perform ? module.ExecuteModule().
+            // The "?" is load-bearing. On an abrupt execution InnerModuleEvaluation returns at once,
+            // leaving this module and every unfinished ancestor on the stack so that Evaluate() step
+            // 9.a can mark them all evaluated *with* the evaluation error. Falling through to the pop
+            // loop below instead stranded them as evaluated with an empty [[EvaluationError]], and a
+            // later import then resolved against bindings the failed evaluation never initialized.
+            var completion = ExecuteModule();
+            if (completion.Type != CompletionType.Normal)
+            {
+                return completion;
+            }
         }
 
         if (StackReferenceCount(stack) != 1)
@@ -449,7 +464,14 @@ public abstract class CyclicModule : Module
             }
         }
 
-        return completion;
+        // Step 17: Return index.
+        // This is the DFS counter, not the module's execution completion. Returning the latter made
+        // the caller's step 11.b (`index = TypeConverter.ToInt32(result.Value)`) read ToInt32 of the
+        // completion value - undefined, so 0 - which collapsed the counter: every sibling visited
+        // after the first synchronous dependency then started at index 0, saw
+        // moduleIndex == [[DFSAncestorIndex]], and popped itself out of its strongly connected
+        // component as its own [[CycleRoot]] before the real root had executed.
+        return new Completion(CompletionType.Normal, index, default);
     }
 
     private int StackReferenceCount(Stack<CyclicModule> stack)
@@ -540,9 +562,18 @@ public abstract class CyclicModule : Module
         for (var i = 0; i < execList.Count; i++)
         {
             var m = execList[i];
-            if (m.Status == ModuleStatus.Evaluated && m._evalError is null)
+
+            // Step 12.a: If m.[[Status]] is evaluated, then i. Assert: m.[[EvaluationError]] is not empty.
+            // Nothing else happens for such a module. An earlier element of sortedExecList can reject
+            // and, through AsyncModuleExecutionRejected, record the error on its async parents - which
+            // may sit later in this very list. Those are finished; executing them anyway would run a
+            // module body the spec never runs and resolve a capability that was already rejected.
+            if (m.Status == ModuleStatus.Evaluated)
             {
-                Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state");
+                if (m._evalError is null)
+                {
+                    Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state");
+                }
             }
             else if (m._hasTLA)
             {
