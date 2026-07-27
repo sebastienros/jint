@@ -193,6 +193,16 @@ receiver gets no own-property inline caching — every own read reaches your `Ge
   create one object per engine with `Instantiate`: members materialize only when a script touches them, and
   because the engine stores and versions the whole member set itself, a shaped prototype can serve the
   prototype-method inline cache — which an `ObjectInstance` subclass used as a prototype can never do.
+- For a **live indexed collection** — a DOM `NodeList`, a result window, any list computed on demand — derive
+  from `ArrayLikeObject` rather than assembling the property model yourself. You implement two members,
+  `uint Length` and `bool TryGetIndex(uint index, out JsValue value)`; the base class derives everything else
+  (index and `length` descriptors, enumeration order, the existence and value hooks, WebIDL-shaped `delete` /
+  `defineProperty` refusals) and the engine keys two lanes on the type, so `list[i]`, `Array.prototype`
+  generics, `for-of` / spread / `Array.from` / destructuring and `JSON.stringify` each cost one
+  `TryGetIndex` per element with no descriptor and no key allocation. It is array-*like*, not an array:
+  `Array.isArray` stays `false` by design, the same answer a browser gives for a `NodeList`. Reach for it when
+  the collection is live; when it is a snapshot, copying into a `JsArray` once is cheaper still — and give it a
+  `JsObjectShape` prototype, per the bullet above, for the collection's own methods.
 - If you must subclass, override `TryGetOwnPropertyValue` so an own read hands the value over with no
   descriptor at all, and `ProbeOwnProperty` so existence and enumerability questions (`in`, `Object.keys`,
   spread, `JSON.stringify`) are answered without materializing one either. Both carry an obligation to agree
