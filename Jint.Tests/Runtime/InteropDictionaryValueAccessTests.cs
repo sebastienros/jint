@@ -226,7 +226,7 @@ public class InteropDictionaryValueAccessTests
     [Fact]
     public void CompiledReaderIsBuiltForAVisibleDictionary()
     {
-        var getter = Jint.Runtime.Interop.Reflection.CompiledDictionaryAccessor.GetValueGetter(
+        var getter = Jint.Runtime.Interop.Reflection.CompiledKeyedAccessor.GetValueGetter(
             typeof(IDictionary<string, string>).GetMethod("TryGetValue"));
 
         // this is the engagement probe: the behavioral tests above pass either way, only this says the
@@ -243,7 +243,7 @@ public class InteropDictionaryValueAccessTests
     [Fact]
     public void CompiledReaderBoxesValueTypedValues()
     {
-        var getter = Jint.Runtime.Interop.Reflection.CompiledDictionaryAccessor.GetValueGetter(
+        var getter = Jint.Runtime.Interop.Reflection.CompiledKeyedAccessor.GetValueGetter(
             typeof(IReadOnlyDictionary<string, int>).GetMethod("TryGetValue"));
         getter.Should().NotBeNull();
 
@@ -262,13 +262,90 @@ public class InteropDictionaryValueAccessTests
     {
         var method = typeof(IDictionary<,>).MakeGenericType(typeof(string), typeof(Hidden)).GetMethod("TryGetValue");
 
-        Jint.Runtime.Interop.Reflection.CompiledDictionaryAccessor.GetValueGetter(method).Should().BeNull();
+        Jint.Runtime.Interop.Reflection.CompiledKeyedAccessor.GetValueGetter(method).Should().BeNull();
     }
 
     [Fact]
     public void CompiledReaderDeclinesWithoutAMethod()
     {
-        Jint.Runtime.Interop.Reflection.CompiledDictionaryAccessor.GetValueGetter(null).Should().BeNull();
+        Jint.Runtime.Interop.Reflection.CompiledKeyedAccessor.GetValueGetter(null).Should().BeNull();
+    }
+
+    [Fact]
+    public void CompiledKeyPredicateMatchesReflectionForContainsKeyAndRemove()
+    {
+        var containsKeyMethod = typeof(IDictionary<string, string>).GetMethod("ContainsKey")!;
+        var removeMethod = typeof(IDictionary<string, string>).GetMethod("Remove", [typeof(string)])!;
+
+        var containsKey = Jint.Runtime.Interop.Reflection.CompiledKeyedAccessor.GetKeyPredicate(containsKeyMethod);
+        var remove = Jint.Runtime.Interop.Reflection.CompiledKeyedAccessor.GetKeyPredicate(removeMethod);
+
+        containsKey.Should().NotBeNull();
+        remove.Should().NotBeNull();
+
+        var dictionary = new Dictionary<string, string> { ["a"] = "one" };
+
+        containsKey!(dictionary, "a").Should().Be(containsKeyMethod.Invoke(dictionary, ["a"]) is true);
+        containsKey(dictionary, "missing").Should().Be(containsKeyMethod.Invoke(dictionary, ["missing"]) is true);
+
+        remove!(dictionary, "missing").Should().BeFalse();
+        remove(dictionary, "a").Should().BeTrue();
+        dictionary.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void CompiledValueSetterMatchesReflectionForTheIndexer()
+    {
+        var setMethod = typeof(IDictionary<string, int>).GetProperty("Item")!.GetSetMethod()!;
+        var setter = Jint.Runtime.Interop.Reflection.CompiledKeyedAccessor.GetValueSetter(setMethod);
+        setter.Should().NotBeNull();
+
+        var compiled = new Dictionary<string, int>();
+        setter!(compiled, "a", 1);
+        setter(compiled, "a", 2);
+
+        var reflected = new Dictionary<string, int>();
+        setMethod.Invoke(reflected, ["a", 1]);
+        setMethod.Invoke(reflected, ["a", 2]);
+
+        compiled.Should().Equal(reflected);
+    }
+
+    [Fact]
+    public void CompiledIndexerGetterMatchesReflectionAndRethrowsRaw()
+    {
+        var getMethod = typeof(Dictionary<string, string>).GetProperty("Item")!.GetGetMethod()!;
+        var getter = Jint.Runtime.Interop.Reflection.CompiledKeyedAccessor.GetIndexerGetter(getMethod);
+        getter.Should().NotBeNull();
+
+        var dictionary = new Dictionary<string, string> { ["a"] = "one" };
+        getter!(dictionary, "a").Should().Be(getMethod.Invoke(dictionary, ["a"]));
+
+        // reflection wraps a miss in TargetInvocationException, the delegate rethrows it raw - the callers
+        // in IndexerAccessor are what normalize the difference away
+        Invoking(() => getter(dictionary, "missing")).Should().Throw<KeyNotFoundException>();
+        Invoking(() => getMethod.Invoke(dictionary, ["missing"])).Should().Throw<System.Reflection.TargetInvocationException>();
+    }
+
+    [Fact]
+    public void CompiledLanesDeclineForANonVisibleClosedGeneric()
+    {
+        var hiddenDictionary = typeof(IDictionary<,>).MakeGenericType(typeof(string), typeof(Hidden));
+
+        Jint.Runtime.Interop.Reflection.CompiledKeyedAccessor
+            .GetKeyPredicate(hiddenDictionary.GetMethod("ContainsKey")).Should().BeNull();
+        Jint.Runtime.Interop.Reflection.CompiledKeyedAccessor
+            .GetValueSetter(hiddenDictionary.GetProperty("Item")!.GetSetMethod()).Should().BeNull();
+    }
+
+    [Fact]
+    public void CompiledLanesDeclineForAValueTypeReceiver()
+    {
+        // a compiled call would run against the unboxed copy, so a write through it would be lost
+        Jint.Runtime.Interop.Reflection.CompiledKeyedAccessor
+            .GetIndexerGetter(typeof(StructIndexer).GetProperty("Item")!.GetGetMethod()).Should().BeNull();
+        Jint.Runtime.Interop.Reflection.CompiledKeyedAccessor
+            .GetValueSetter(typeof(StructIndexer).GetProperty("Item")!.GetSetMethod()).Should().BeNull();
     }
 
 #endif
@@ -280,6 +357,17 @@ public class InteropDictionaryValueAccessTests
     private struct Hidden
     {
         public int Value { get; set; }
+    }
+
+    public struct StructIndexer
+    {
+        private string _value;
+
+        public string this[string key]
+        {
+            get => _value;
+            set => _value = value;
+        }
     }
 
     private sealed class ExplicitDictionary : IReadOnlyDictionary<string, string>

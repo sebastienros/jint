@@ -30,9 +30,19 @@ internal sealed class TypeDescriptor
     private readonly MethodInfo? _genericIndexerSetMethod;
     private readonly MethodInfo? _genericRemoveMethod;
 
-    // per-descriptor L1 cache over the process-wide compiled reader, so a dictionary read is a field read
-    private CompiledDictionaryAccessor.DictionaryValueGetter? _compiledValueGetter;
+    // per-descriptor L1 caches over the process-wide compiled delegates, so a dictionary operation is a
+    // field read. Resolved lazily and racily - the delegates are pure, so a duplicate resolve is harmless.
+    private CompiledKeyedAccessor.KeyedValueGetter? _compiledValueGetter;
     private bool _compiledValueGetterResolved;
+
+    private CompiledKeyedAccessor.KeyedPredicate? _compiledContainsKey;
+    private bool _compiledContainsKeyResolved;
+
+    private CompiledKeyedAccessor.KeyedValueSetter? _compiledValueSetter;
+    private bool _compiledValueSetterResolved;
+
+    private CompiledKeyedAccessor.KeyedPredicate? _compiledRemove;
+    private bool _compiledRemoveResolved;
 
     private TypeDescriptor(
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.Interfaces)]
@@ -253,20 +263,41 @@ internal sealed class TypeDescriptor
         }
     }
 
+    /// <summary>
+    /// Whether the compiled lanes may cast <paramref name="key"/> straight to the dictionary's key type.
+    /// A key that is not already an instance of it keeps the reflection path, whose
+    /// <see cref="ArgumentException"/> for a mismatched key is the established behaviour.
+    /// </summary>
+    private bool KeyFitsCompiledLane(object key)
+    {
+        return IsStringKeyedGenericDictionary ? key is string : _keyType!.IsInstanceOfType(key);
+    }
+
+    /// <summary>
+    /// Whether <paramref name="method"/>'s first parameter is exactly the key type
+    /// <see cref="KeyFitsCompiledLane"/> guards with. The member and the key type are read off the same
+    /// interface in <see cref="AnalyzeType"/>, so they agree in practice; verifying it keeps a type whose
+    /// interface map surprises us on the reflection path rather than emitting a cast that could fail.
+    /// </summary>
+    private bool KeyParameterMatchesGuard(MethodInfo? method)
+    {
+        return method is not null
+               && method.GetParameters() is [{ ParameterType: var keyParameterType }, ..]
+               && keyParameterType == _keyType;
+    }
+
     public bool TryGetDictionaryValue(object target, object key, out object? o)
     {
-        // resolved lazily and racily - the delegate is pure, so a duplicate resolve is harmless
         if (!_compiledValueGetterResolved)
         {
-            _compiledValueGetter = CompiledDictionaryAccessor.GetValueGetter(_tryGetValueMethod);
+            _compiledValueGetter = KeyParameterMatchesGuard(_tryGetValueMethod)
+                ? CompiledKeyedAccessor.GetValueGetter(_tryGetValueMethod)
+                : null;
             _compiledValueGetterResolved = true;
         }
 
-        // The compiled reader casts the key straight to the dictionary's key type, so it can only accept a
-        // key whose runtime type is already assignable to it. Anything else keeps the reflection path, whose
-        // ArgumentException for a mismatched key is the established behaviour.
         var getter = _compiledValueGetter;
-        if (getter is not null && (IsStringKeyedGenericDictionary ? key is string : _keyType!.IsInstanceOfType(key)))
+        if (getter is not null && KeyFitsCompiledLane(key))
         {
             return TryGetDictionaryValueCompiled(getter, target, key, out o);
         }
@@ -275,7 +306,7 @@ internal sealed class TypeDescriptor
     }
 
     private static bool TryGetDictionaryValueCompiled(
-        CompiledDictionaryAccessor.DictionaryValueGetter getter,
+        CompiledKeyedAccessor.KeyedValueGetter getter,
         object target,
         object key,
         out object? o)
@@ -317,8 +348,26 @@ internal sealed class TypeDescriptor
 
     public bool ContainsDictionaryKey(object target, object key)
     {
-        return _genericContainsKeyMethod is not null
-            && _genericContainsKeyMethod.Invoke(target, [key]) is true;
+        if (_genericContainsKeyMethod is null)
+        {
+            return false;
+        }
+
+        if (!_compiledContainsKeyResolved)
+        {
+            _compiledContainsKey = KeyParameterMatchesGuard(_genericContainsKeyMethod)
+                ? CompiledKeyedAccessor.GetKeyPredicate(_genericContainsKeyMethod)
+                : null;
+            _compiledContainsKeyResolved = true;
+        }
+
+        var containsKey = _compiledContainsKey;
+        if (containsKey is not null && KeyFitsCompiledLane(key))
+        {
+            return InvokeKeyPredicateCompiled(containsKey, target, key);
+        }
+
+        return _genericContainsKeyMethod.Invoke(target, [key]) is true;
     }
 
     public bool TrySetDictionaryValue(object target, object key, object? value)
@@ -328,9 +377,28 @@ internal sealed class TypeDescriptor
             return false;
         }
 
+        if (!_compiledValueSetterResolved)
+        {
+            _compiledValueSetter = KeyParameterMatchesGuard(_genericIndexerSetMethod)
+                                  && _genericIndexerSetMethod.GetParameters() is [_, { ParameterType: var valueParameterType }]
+                                  && valueParameterType == _valueType
+                ? CompiledKeyedAccessor.GetValueSetter(_genericIndexerSetMethod)
+                : null;
+            _compiledValueSetterResolved = true;
+        }
+
         try
         {
-            _genericIndexerSetMethod.Invoke(target, [key, value]);
+            var setter = _compiledValueSetter;
+            if (setter is not null && KeyFitsCompiledLane(key) && ValueFitsCompiledLane(value))
+            {
+                InvokeSetterCompiled(setter, target, key, value);
+            }
+            else
+            {
+                _genericIndexerSetMethod.Invoke(target, [key, value]);
+            }
+
             return true;
         }
         catch (TargetInvocationException tie) when (tie.InnerException is ArgumentException or InvalidCastException)
@@ -341,7 +409,85 @@ internal sealed class TypeDescriptor
 
     public bool TryRemoveDictionaryValue(object target, object key)
     {
-        return _genericRemoveMethod is not null
-            && _genericRemoveMethod.Invoke(target, [key]) is true;
+        if (_genericRemoveMethod is null)
+        {
+            return false;
+        }
+
+        if (!_compiledRemoveResolved)
+        {
+            _compiledRemove = KeyParameterMatchesGuard(_genericRemoveMethod)
+                ? CompiledKeyedAccessor.GetKeyPredicate(_genericRemoveMethod)
+                : null;
+            _compiledRemoveResolved = true;
+        }
+
+        var remove = _compiledRemove;
+        if (remove is not null && KeyFitsCompiledLane(key))
+        {
+            return InvokeKeyPredicateCompiled(remove, target, key);
+        }
+
+        return _genericRemoveMethod.Invoke(target, [key]) is true;
+    }
+
+    /// <summary>
+    /// Whether the compiled setter may cast <paramref name="value"/> straight to the dictionary's value
+    /// type. Reflection additionally performs widening conversions, which an <c>unbox.any</c> cannot do, so
+    /// anything not already an instance keeps the reflection path — as does a <see langword="null"/> for a
+    /// non-nullable value type, whose <see cref="ArgumentException"/> is the established behaviour.
+    /// </summary>
+    private bool ValueFitsCompiledLane(object? value)
+    {
+        var valueType = _valueType;
+        if (valueType is null)
+        {
+            return false;
+        }
+
+        var underlyingType = Nullable.GetUnderlyingType(valueType);
+
+        if (value is null)
+        {
+            // unbox.any of a null reference yields the empty Nullable<T>, which is what reflection stores too
+            return !valueType.IsValueType || underlyingType is not null;
+        }
+
+        // a Nullable<T> never has a boxed form of its own: the value arrives boxed as T, and unbox.any
+        // Nullable<T> accepts exactly that
+        return valueType.IsInstanceOfType(value) || underlyingType?.IsInstanceOfType(value) == true;
+    }
+
+    private static bool InvokeKeyPredicateCompiled(
+        CompiledKeyedAccessor.KeyedPredicate predicate,
+        object target,
+        object key)
+    {
+        try
+        {
+            return predicate(target, key);
+        }
+        catch (Exception exception) when (exception is not TargetInvocationException)
+        {
+            // reflection wraps whatever the dictionary throws, the compiled delegate rethrows it as-is:
+            // normalize so the callers' TargetInvocationException handling stays identical
+            throw new TargetInvocationException(exception);
+        }
+    }
+
+    private static void InvokeSetterCompiled(
+        CompiledKeyedAccessor.KeyedValueSetter setter,
+        object target,
+        object key,
+        object? value)
+    {
+        try
+        {
+            setter(target, key, value);
+        }
+        catch (Exception exception) when (exception is not TargetInvocationException)
+        {
+            throw new TargetInvocationException(exception);
+        }
     }
 }
