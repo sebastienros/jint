@@ -290,6 +290,39 @@ public class ObjectConverterRegistrationTests
     #region 4. writes
 
     [Fact]
+    public void ASharedAccessorAnswersTheConverterQuestionPerFilterNotOnce()
+    {
+        // Same shape as above, but both engines have a converter - only one of them declares bool. The
+        // accessor remembers which filter last told it "this member type is not claimed" so it need not
+        // re-derive a constant answer per read; that memo is keyed on the filter, so the engine whose
+        // converter does claim bool must never be served the other's verdict. Interleaved in both orders,
+        // and repeated, so a memo that ignored the filter would show up whichever engine warmed it.
+        var resolver = new TypeResolver();
+
+        Engine Create(Type declared)
+        {
+            var engine = new Engine(options =>
+            {
+                options.Interop.TypeResolver = resolver;
+                options.AddObjectConverter(new MeddlingConverter(), declared);
+            });
+            engine.SetValue("host", new Host());
+            return engine;
+        }
+
+        var claiming = Create(typeof(bool));
+        var unrelated = Create(typeof(Guid));
+
+        for (var i = 0; i < 3; i++)
+        {
+            ShouldRead(unrelated, "host.Flag", whenBypassed: true, whenConverted: false);
+            claiming.Evaluate("host.Flag").Should().Be(false);
+            claiming.Evaluate("host.Flag").Should().Be(false);
+            ShouldRead(unrelated, "host.Flag", whenBypassed: true, whenConverted: false);
+        }
+    }
+
+    [Fact]
     public void DeclaredConverterDoesNotAffectWrites()
     {
         var host = new Host();

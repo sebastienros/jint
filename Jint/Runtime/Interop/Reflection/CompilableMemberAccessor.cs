@@ -37,6 +37,12 @@ internal abstract class CompilableMemberAccessor : ReflectionAccessor
     private Action<object, object?>? _rawSetter;
     private bool _rawSetterResolved;
 
+    /// <summary>
+    /// The last converter-type filter that answered "does not claim <see cref="ReflectionAccessor.MemberType"/>",
+    /// or <see langword="null"/> if none has. See <see cref="Claims"/>.
+    /// </summary>
+    private ObjectConverterTypeFilter? _unclaimedBy;
+
     protected CompilableMemberAccessor(MemberInfo member, Type memberType, PropertyInfo? indexer)
         : base(memberType, indexer)
     {
@@ -66,7 +72,7 @@ internal abstract class CompilableMemberAccessor : ReflectionAccessor
         // OptionsExtensions.AddObjectConverter) leaves every other member on the fast lane. A converter
         // registered without declaring them claims everything, which is the pre-existing behaviour.
         var converterTypeFilter = engine._objectConverterTypeFilter;
-        if (converterTypeFilter is not null && converterTypeFilter.Claims(MemberType))
+        if (converterTypeFilter is not null && Claims(converterTypeFilter))
         {
             return false;
         }
@@ -184,6 +190,43 @@ internal abstract class CompilableMemberAccessor : ReflectionAccessor
         {
             throw new TargetInvocationException(exception);
         }
+    }
+
+    /// <summary>
+    /// Whether <paramref name="filter"/> claims this accessor's member type, with the affirmative answer —
+    /// the one every read on the lane has to have — memoized.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The answer is constant for a given <c>(accessor, filter)</c> pair: <see cref="ReflectionAccessor.MemberType"/>
+    /// is fixed at construction and a filter's declared type set is immutable. It cannot be stored on the
+    /// accessor outright, because <c>TypeResolver</c>'s accessor cache key deliberately excludes the converter
+    /// set, so one accessor is shared by engines whose filters differ — hence the filter reference is part of
+    /// the memo and a mismatch simply recomputes.
+    /// </para>
+    /// <para>
+    /// Only the <see langword="false"/> verdict is remembered, which is what makes a single reference field
+    /// enough and keeps the memo safe to read and write without synchronization: the field is written only
+    /// after that filter answered "does not claim", and it is only ever compared for reference equality, so a
+    /// stale or half-published read can at worst repeat the computation — never produce a wrong
+    /// <see langword="false"/>, which would silently bypass a converter. The affirmative verdict needs no memo:
+    /// it takes the read off this lane entirely, onto a path far more expensive than the probe saved.
+    /// </para>
+    /// </remarks>
+    private bool Claims(ObjectConverterTypeFilter filter)
+    {
+        if (ReferenceEquals(_unclaimedBy, filter))
+        {
+            return false;
+        }
+
+        if (filter.Claims(MemberType))
+        {
+            return true;
+        }
+
+        _unclaimedBy = filter;
+        return false;
     }
 
     [DoesNotReturn]
