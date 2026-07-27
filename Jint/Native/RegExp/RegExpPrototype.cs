@@ -1453,7 +1453,7 @@ internal sealed partial class RegExpPrototype : Prototype
             array.CreateDataPropertyOrThrow("indices", indicesArray);
         }
 
-        // B.2.4 Update legacy RegExp static properties
+        // Update the legacy RegExp static properties (RegExp Legacy Features proposal, not Annex B)
         UpdateLegacyStaticPropertiesFromCustom(engine, in result, s, actualGroupCount);
 
         return array;
@@ -1570,14 +1570,16 @@ internal sealed partial class RegExpPrototype : Prototype
             array.CreateDataPropertyOrThrow("indices", indicesArray);
         }
 
-        // B.2.4 Update legacy RegExp static properties
+        // Update the legacy RegExp static properties (RegExp Legacy Features proposal, not Annex B)
         UpdateLegacyStaticProperties(engine, match, s, actualGroupCount);
 
         return array;
     }
 
     /// <summary>
-    /// B.2.4 Update RegExp legacy static properties after a successful match.
+    /// Updates the RegExp legacy static properties after a successful match. These come from the TC39
+    /// "RegExp Legacy Features" proposal (https://github.com/tc39/proposal-regexp-legacy-features),
+    /// not from ECMA-262 Annex B.
     /// </summary>
     private static void UpdateLegacyStaticProperties(Engine engine, Match match, string s, int actualGroupCount)
     {

@@ -223,8 +223,8 @@ public sealed partial class ArrayPrototype : ArrayInstance
         // Check constraints periodically to prevent memory exhaustion in large fills
         for (var i = k; i < final; ++i)
         {
-            // https://tc39.es/ecma262/#sec-array.prototype.fill step 8.c is `Set(O, Pk, value, true)`,
-            // so a failed write must throw rather than be swallowed — reverse above already does this.
+            // https://tc39.es/ecma262/#sec-array.prototype.fill step 11.b is `Set(O, Pk, value, true)`,
+            // so a failed write must throw rather than be swallowed — reverse (below) already does this.
             // Only the generic path can fail: the dense lane requires CanUseFastAccess, which a frozen
             // or otherwise non-default-descriptor array does not have.
             operations.Set(i, value, throwOnError: true);

@@ -59,7 +59,12 @@ internal sealed class IndexerAccessor : ReflectionAccessor
 
         var filter = new Func<MemberInfo, bool>(m => engine.Options.Interop.TypeResolver.Filter(engine, targetType, m));
 
-        // default indexer wins
+        // The type's declared integer indexer is preferred over the candidate scan below.
+        // NOTE the guard is `!filter(...)`, so this branch is taken when the member filter *rejects*
+        // that indexer — the opposite polarity to the candidate loop further down, which skips
+        // rejected members (`if (!filter(candidate)) continue;`), and to TypeResolver.Filter, whose
+        // `true` means "allowed". The inversion dates back to #1826. Left alone here because flipping
+        // it changes behaviour for hosts with a custom MemberFilter; it is not a comment fix.
         var descriptor = TypeDescriptor.Get(targetType);
         if (descriptor.IntegerIndexerProperty is not null && !filter(descriptor.IntegerIndexerProperty))
         {

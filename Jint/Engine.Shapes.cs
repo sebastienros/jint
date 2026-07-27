@@ -49,7 +49,8 @@ public partial class Engine
     /// <summary>
     /// Resolves a host-declared <see cref="JsObjectLayout"/> to the interned leaf <see cref="Shape"/> for
     /// <paramref name="prototype"/> in this engine, memoizing the result so every later call with the same
-    /// layout is a single weak-table probe. Returns <c>null</c> when the layout is not memoized yet and the
+    /// layout is two weak-table probes — the prototype's <see cref="ShapeRoot"/>, then that root's layout
+    /// memo — and nothing else. Returns <c>null</c> when the layout is not memoized yet and the
     /// engine's host transition budget cannot cover it, in which case the caller builds an ordinary
     /// dictionary-mode object instead.
     /// <para>

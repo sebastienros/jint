@@ -48,7 +48,7 @@ internal readonly record struct FastCallShape(
     FastCallGuard Arg1)
 {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static bool Satisfies(FastCallGuard guard, JsValue value)
+    private static bool Satisfies(FastCallGuard guard, JsValue value)
     {
         if (guard == FastCallGuard.Any)
         {

@@ -1531,8 +1531,11 @@ internal abstract class JintBinaryExpression : JintExpression
     {
         /// <summary>
         /// What the opening pair of this chain produced last time it ran. Purely a performance hint:
-        /// both paths compute the same result, so a benign race on this field (handler trees are
-        /// shared between engines) can only cost a mispredicted path, never correctness.
+        /// both paths compute the same result, so a wrong value can only cost a mispredicted path,
+        /// never correctness — <c>NotString</c> is sticky and just keeps the chain on the nested
+        /// tree from then on. This is ordinary per-node handler state: handler trees are engine-owned
+        /// and never stashed on the shared AST (see the INVARIANT in <c>JintStatement.Build</c>), so
+        /// no two engines reach this field.
         /// </summary>
         private enum ChainKind : byte
         {
@@ -1574,9 +1577,10 @@ internal abstract class JintBinaryExpression : JintExpression
             // A chain that did not produce a string last time gains nothing from flattening, and
             // CLR operator overloading hooks the pre-ToPrimitive operand pair of each individual '+',
             // which the flattened form never forms. Both defer to the nested tree. The overloading
-            // test has to happen at runtime: a Prepared script can be shared between engines that
-            // differ on the option. Nothing has been evaluated yet here, so handing the whole chain
-            // over is side-effect free.
+            // test has to happen at runtime rather than at build time: EvaluationContext snapshots
+            // the option per Evaluate() call from the (mutable) Options, so the same node can meet
+            // either answer. Nothing has been evaluated yet here, so handing the whole chain over is
+            // side-effect free.
             if (_kind == ChainKind.NotString || context.OperatorOverloadingAllowed)
             {
                 return base.EvaluateInternal(context);

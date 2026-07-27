@@ -37,8 +37,19 @@ public partial class Engine
         }
 
         /// <summary>
-        /// Initializes list of references of called functions
+        /// Clears the engine's call stack. The frames are zeroed, so everything an interrupted execution
+        /// left them holding — callee functions, receivers, arguments — is released.
         /// </summary>
+        /// <remarks>
+        /// This does <b>not</b> clear the interpreter's per-node inline caches, and there is no API that
+        /// does. In particular, a member-read site that resolved a name on its receiver's prototype keeps
+        /// a strong reference to the last receiver it served (along with that prototype and the resolved
+        /// descriptor) so the next read can be validated by identity; the entry is only replaced when that
+        /// same site later caches a <i>different</i> receiver. Handler trees are engine-owned and survive
+        /// between evaluations on an engine that re-runs a script, so a pooled engine can keep one host
+        /// object alive per warmed call site until its next run. A host whose receivers wrap large native
+        /// state that must not outlive a run should drop the engine rather than pool it.
+        /// </remarks>
         public void ResetCallStack()
         {
             _engine.ResetCallStack();
