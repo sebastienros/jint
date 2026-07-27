@@ -33,6 +33,34 @@ public sealed class ClrFunction : Function, IEquatable<ClrFunction>
         _bubbleExceptions = _engine.Options.Interop.ExceptionHandler == Options.InteropOptions._defaultExceptionHandler;
     }
 
+    /// <summary>
+    /// Creates a function pinned to <paramref name="realm"/> rather than to whichever realm happens to be
+    /// active. The public constructor above reads <c>engine.Realm</c> at call time and anchors the function
+    /// to the engine's original intrinsics, which is right for a host wiring a function up front but wrong
+    /// for one created lazily: a shared-shape prototype can materialize a member while another realm is
+    /// running (from a ShadowRealm callback, say), and the function must still belong to the realm that owns
+    /// the object it came from.
+    /// </summary>
+    internal ClrFunction(
+        Engine engine,
+        Realm realm,
+        string name,
+        JsCallDelegate func,
+        int length,
+        PropertyFlag lengthFlags = PropertyFlag.AllForbidden)
+        : base(engine, realm, JsString.CachedCreate(name))
+    {
+        _func = func;
+
+        _prototype = realm.Intrinsics.Function.PrototypeObject;
+
+        _length = lengthFlags == PropertyFlag.AllForbidden
+            ? PropertyDescriptor.AllForbiddenDescriptor.ForNumber(length)
+            : new PropertyDescriptor(JsNumber.Create(length), lengthFlags);
+
+        _bubbleExceptions = _engine.Options.Interop.ExceptionHandler == Options.InteropOptions._defaultExceptionHandler;
+    }
+
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments) => _bubbleExceptions ? _func(thisObject, arguments) : CallSlow(thisObject, arguments);
 
     [MethodImpl(MethodImplOptions.NoInlining)]
