@@ -405,17 +405,17 @@ internal sealed partial class NumberPrototype : NumberInstance
         return sb.ToString();
     }
 
-    [JsFunction(Length = 1, Name = "toString")]
-    private JsValue ToNumberString(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1, Name = "toString", FastCall = true)]
+    private JsValue ToNumberString(JsValue thisObject, JsValue arg0)
     {
         if (!thisObject.IsNumber() && (ReferenceEquals(thisObject.TryCast<NumberInstance>(), null)))
         {
             Throw.TypeError(_realm, "Number.prototype.toString requires that 'this' be a Number");
         }
 
-        var radix = arguments.At(0).IsUndefined()
+        var radix = arg0.IsUndefined()
             ? 10
-            : (int) TypeConverter.ToInteger(arguments.At(0));
+            : (int) TypeConverter.ToInteger(arg0);
 
         if (radix < 2 || radix > 36)
         {
@@ -441,7 +441,7 @@ internal sealed partial class NumberPrototype : NumberInstance
 
         if (x < 0)
         {
-            return "-" + ToNumberString(-x, arguments);
+            return "-" + ToNumberString(-x, arg0);
         }
 
         if (radix == 10)

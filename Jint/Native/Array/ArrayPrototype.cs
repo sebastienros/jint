@@ -132,6 +132,34 @@ public sealed partial class ArrayPrototype : ArrayInstance
         }
 
         var a = CreateBackingArray(len);
+
+        // Fast path: step 9 reads every index the source still has and copies it into a brand-new array,
+        // so a hole-free dense source is one Array.Copy plus the single replaced element instead of `len`
+        // trips through the property protocol.
+        //
+        // Every condition is re-derived HERE, after step 3's ToIntegerOrInfinity has run arbitrary user
+        // code, and none of it may be hoisted above that: a valueOf can switch the receiver's prototype,
+        // define an accessor over an index, make the array sparse, or replace the backing store outright,
+        // and step 9.c is a live `? Get(O, Pk)` that has to observe all of it. CanUseFastAccess is what
+        // proves no index property lives on the prototype chain and no own index carries exotic
+        // attributes; the hole scan is what proves every index in range answers from the backing store,
+        // since a hole is a full [[Get]] that would walk that chain. `len` is the length captured at step
+        // 2 and can exceed the live one, so the store must cover it and still report it - matching the
+        // fill/copyWithin lanes, which bound by the live length as well as by capacity.
+        if (o.Target is JsArray { CanUseFastAccess: true } fast
+            && fast._dense is { } dense
+            && len <= (ulong) dense.Length
+            && len <= fast.GetLongLength())
+        {
+            var count = (int) len;
+            if (System.Array.IndexOf(dense, null, 0, count) < 0)
+            {
+                System.Array.Copy(dense, a, count);
+                a[actualIndex] = value;
+                return new JsArray(_engine, a);
+            }
+        }
+
         ulong k = 0;
         while (k < len)
         {
@@ -981,11 +1009,11 @@ public sealed partial class ArrayPrototype : ArrayInstance
         return false;
     }
 
-    [JsFunction(Length = 1)]
-    private JsValue Some(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1, FastCall = true)]
+    private JsValue Some(JsValue thisObject, JsValue arg0, JsValue arg1)
     {
         var target = TypeConverter.ToObject(_realm, thisObject);
-        return target.FindWithCallback(arguments, out _, out _, false);
+        return target.FindWithCallback(arg0, arg1, out _, out _, false);
     }
 
     /// <summary>
@@ -1040,8 +1068,8 @@ public sealed partial class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.indexof
     /// </summary>
-    [JsFunction(Length = 1)]
-    private JsValue IndexOf(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1, FastCall = true)]
+    private JsValue IndexOf(JsValue thisObject, JsValue arg0, JsValue arg1)
     {
         var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
         var len = o.GetLongLength();
@@ -1050,9 +1078,10 @@ public sealed partial class ArrayPrototype : ArrayInstance
             return -1;
         }
 
-        var startIndex = arguments.Length > 1
-            ? TypeConverter.ToIntegerOrInfinity(arguments.At(1))
-            : 0;
+        // An absent fromIndex and an explicit `undefined` both coerce to 0 (step 4 is
+        // ToIntegerOrInfinity, and ToNumber(undefined) is NaN, which it maps to +0), so reading the
+        // argument positionally keeps the answer the branch on arguments.Length gave.
+        var startIndex = TypeConverter.ToIntegerOrInfinity(arg1);
 
         if (startIndex > ArrayOperations.MaxArrayLikeLength)
         {
@@ -1087,7 +1116,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
             k = smallestIndex;
         }
 
-        var searchElement = arguments.At(0);
+        var searchElement = arg0;
 
         // Fast path: dense JsArray scan avoids the per-element HasProperty + Get virtual call pair.
         if (thisObject is JsArray { CanUseFastAccess: true } fast && fast._dense is { } dense)
@@ -1128,22 +1157,22 @@ public sealed partial class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.find
     /// </summary>
-    [JsFunction(Length = 1)]
-    private JsValue Find(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1, FastCall = true)]
+    private JsValue Find(JsValue thisObject, JsValue arg0, JsValue arg1)
     {
         var target = TypeConverter.ToObject(_realm, thisObject);
-        target.FindWithCallback(arguments, out _, out var value, visitUnassigned: true);
+        target.FindWithCallback(arg0, arg1, out _, out var value, visitUnassigned: true);
         return value;
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.findindex
     /// </summary>
-    [JsFunction(Length = 1)]
-    private JsValue FindIndex(JsValue thisObject, JsCallArguments arguments)
+    [JsFunction(Length = 1, FastCall = true)]
+    private JsValue FindIndex(JsValue thisObject, JsValue arg0, JsValue arg1)
     {
         var target = TypeConverter.ToObject(_realm, thisObject);
-        if (target.FindWithCallback(arguments, out var index, out _, visitUnassigned: true))
+        if (target.FindWithCallback(arg0, arg1, out var index, out _, visitUnassigned: true))
         {
             return index;
         }
@@ -1154,7 +1183,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
     private JsValue FindLast(JsValue thisObject, JsCallArguments arguments)
     {
         var target = TypeConverter.ToObject(_realm, thisObject);
-        target.FindWithCallback(arguments, out _, out var value, visitUnassigned: true, fromEnd: true);
+        target.FindWithCallback(arguments.At(0), arguments.At(1), out _, out var value, visitUnassigned: true, fromEnd: true);
         return value;
     }
 
@@ -1162,7 +1191,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
     private JsValue FindLastIndex(JsValue thisObject, JsCallArguments arguments)
     {
         var target = TypeConverter.ToObject(_realm, thisObject);
-        if (target.FindWithCallback(arguments, out var index, out _, visitUnassigned: true, fromEnd: true))
+        if (target.FindWithCallback(arguments.At(0), arguments.At(1), out var index, out _, visitUnassigned: true, fromEnd: true))
         {
             return index;
         }
@@ -2253,6 +2282,28 @@ public sealed partial class ArrayPrototype : ArrayInstance
         }
 
         var a = CreateBackingArray(len);
+
+        // Fast path: a hole-free dense source is copied wholesale and reversed in place, instead of
+        // paying a virtual Get per element. Same lane conditions as `with` — CanUseFastAccess proves no
+        // index property is inherited and none of the own ones is exotic, and the hole scan proves every
+        // index answers from the backing store rather than from a [[Get]] up the prototype chain. Unlike
+        // `with` there is no coercion window to guard against: toReversed takes no arguments, so nothing
+        // between the length read and here can run user code. Span.Reverse is vectorized where the
+        // runtime supports it.
+        if (o.Target is JsArray { CanUseFastAccess: true } fast
+            && fast._dense is { } dense
+            && len <= (ulong) dense.Length
+            && len <= fast.GetLongLength())
+        {
+            var count = (int) len;
+            if (System.Array.IndexOf(dense, null, 0, count) < 0)
+            {
+                System.Array.Copy(dense, a, count);
+                a.AsSpan(0, count).Reverse();
+                return new JsArray(_engine, a);
+            }
+        }
+
         ulong k = 0;
         while (k < len)
         {

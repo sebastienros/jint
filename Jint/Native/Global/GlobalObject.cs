@@ -296,15 +296,32 @@ public sealed partial class GlobalObject : ObjectInstance
     private JsValue Encode(string uri, SearchValues<char> allowedCharacters)
     {
         var strLen = uri.Length;
+
+        // Nothing needs escaping: hand the input straight back rather than rebuilding it character by
+        // character into a fresh buffer. This is the shape Decode already has for a '%'-free input, and
+        // the overwhelmingly common one — most strings handed to encodeURI are already URI-safe.
+        var k = IndexOfFirstDisallowed(uri.AsSpan(), allowedCharacters);
+        if (k < 0)
+        {
+            return uri;
+        }
+
         var builder = new ValueStringBuilder(uri.Length);
+        builder.Append(uri.AsSpan(0, k));
         Span<byte> buffer = stackalloc byte[4];
 
-        for (var k = 0; k < strLen; k++)
+        for (; k < strLen; k++)
         {
             var c = uri[k];
             if (allowedCharacters.Contains(c))
             {
-                builder.Append(c);
+                // Copy the whole clean run at once instead of one character per loop turn. The run
+                // cannot be empty (c is allowed), so k always advances.
+                var remaining = uri.AsSpan(k);
+                var next = IndexOfFirstDisallowed(remaining, allowedCharacters);
+                var runLength = next < 0 ? remaining.Length : next;
+                builder.Append(remaining.Slice(0, runLength));
+                k += runLength - 1;
             }
             else
             {
@@ -386,6 +403,29 @@ uriError:
         builder.Dispose();
         _engine.SignalError(UriError);
         return JsEmpty.Instance;
+    }
+
+    /// <summary>
+    /// Index of the first character <paramref name="allowed"/> does not cover, or -1 when it covers every
+    /// one of them. Vectorized where the runtime provides it; the fallback is the character-at-a-time scan
+    /// this replaced.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int IndexOfFirstDisallowed(ReadOnlySpan<char> value, SearchValues<char> allowed)
+    {
+#if NET8_0_OR_GREATER
+        return value.IndexOfAnyExcept(allowed);
+#else
+        for (var i = 0; i < value.Length; i++)
+        {
+            if (!allowed.Contains(value[i]))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+#endif
     }
 
     [JsFunction(Name = "decodeURI")]

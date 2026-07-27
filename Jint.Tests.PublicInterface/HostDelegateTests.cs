@@ -119,6 +119,33 @@ public class HostDelegateTests
         engine.Evaluate("join('-', 'a', 'b', 'c')").AsString().Should().Be("a-b-c");
     }
 
+    private static string Describe(params JsValue[] values)
+    {
+        var parts = new List<string>();
+        foreach (var value in values)
+        {
+            parts.Add(value.Type.ToString());
+        }
+        return string.Join(",", parts);
+    }
+
+    [Fact]
+    public void ParamsJsValueArrayDelegatePassesEveryArgumentThrough()
+    {
+        // A `params JsValue[]` tail is the one params shape whose elements need no conversion at all, so
+        // it is built as the typed array it already is. Every value kind has to survive that unchanged.
+        var engine = new Engine();
+        engine.SetValue("describe", new Func<JsValue[], string>(Describe));
+
+        engine.Evaluate("describe()").AsString().Should().Be("");
+        engine.Evaluate("describe(1)").AsString().Should().Be("Number");
+        engine.Evaluate("describe('a', 1, true, null, undefined, {}, [])").AsString()
+            .Should().Be("String,Number,Boolean,Null,Undefined,Object,Object");
+        // repeated evaluation of one call site, so a warmed site is covered too
+        engine.Evaluate("function f() { return describe('a', 1); } f(); f(); f()").AsString()
+            .Should().Be("String,Number");
+    }
+
     [Fact]
     public void ValueReferenceAndVoidReturnTypes()
     {
@@ -331,5 +358,83 @@ public class HostDelegateTests
         engine.Evaluate("callZero()").Should().Be(engine.Invoke("zero"));
         engine.Evaluate("callOne()").Should().Be(engine.Invoke("one", 5));
         engine.Evaluate("callTwo()").Should().Be(engine.Invoke("two", 5, "x"));
+    }
+
+    // The tests below warm one call site before asserting, so the arity-specialized lane — only selected
+    // once a site has dispatched at least once — is the one under test. Each has an unwarmed twin above;
+    // together they pin that the specialized lane answers identically.
+
+    [Fact]
+    public void AWarmedSiteConvertsAndReturnsExactlyAsAColdOne()
+    {
+        var engine = new Engine();
+        engine.SetValue("one", new Func<int, string>(a => $"{a}"));
+        engine.SetValue("two", new Func<int, string, string>((a, b) => $"{a}|{b}"));
+        engine.SetValue("nullable", new Func<int?, string>(a => a?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "none"));
+
+        engine.Execute("""
+            function callOne(v) { return one(v); }
+            function callTwo(a, b) { return two(a, b); }
+            function callNullable(v) { return nullable(v); }
+            for (var i = 0; i < 5; i++) { callOne(1); callTwo(1, 'a'); callNullable(1); }
+            """);
+
+        engine.Evaluate("callOne(7)").AsString().Should().Be("7");
+        engine.Evaluate("callTwo(7, 'z')").AsString().Should().Be("7|z");
+        engine.Evaluate("callNullable(7)").AsString().Should().Be("7");
+        engine.Evaluate("callNullable(null)").AsString().Should().Be("none");
+    }
+
+    [Fact]
+    public void AWarmedVarianceRelaxedSiteKeepsTheBinderError()
+    {
+        // The unwarmed twin is AVarianceRelaxedDelegateKeepsTheBinderError. The specialized lane declines
+        // on exactly the same exact-type check, so a wrong-typed argument must still reach the reflection
+        // binder rather than a cast failure surfaced as a host error.
+        var recorder = new Recorder();
+        Action<string> narrowed = recorder.Record;
+
+        var engine = new Engine();
+        engine.SetValue("f", narrowed);
+        engine.Execute("function call(v) { f(v); } for (var i = 0; i < 5; i++) { call('warm'); }");
+
+        recorder.Values.Should().HaveCount(5);
+        Invoking(() => engine.Execute("call(1);")).Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void AWarmedJsValueParameterNarrowerThanItsArgumentKeepsTheBinderError()
+    {
+        var engine = new Engine();
+        engine.SetValue("f", new Func<JsString, string>(v => v.ToString()));
+        engine.Execute("function call(v) { return f(v); } for (var i = 0; i < 5; i++) { call('warm'); }");
+
+        engine.Evaluate("call('ok')").AsString().Should().Be("ok");
+        Invoking(() => engine.Execute("call(1);")).Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void AWarmedSiteKeepsTheHostExceptionAndItsThrowSite()
+    {
+        var engine = new Engine();
+        engine.SetValue("boom", new Func<int, int>(x => x < 0 ? throw new InvalidOperationException("host failure") : x));
+        engine.Execute("function call(v) { return boom(v); } for (var i = 0; i < 5; i++) { call(1); }");
+
+        var exception = Invoking(() => engine.Execute("call(-1);"))
+            .Should().Throw<InvalidOperationException>()
+            .WithMessage("host failure")
+            .Which;
+
+        exception.StackTrace.Should().Contain(nameof(AWarmedSiteKeepsTheHostExceptionAndItsThrowSite));
+    }
+
+    [Fact]
+    public void AWarmedSiteStillConvertsAnAwaitableResult()
+    {
+        var engine = new Engine();
+        engine.SetValue("later", new Func<int, Task<int>>(x => Task.FromResult(x + 1)));
+        engine.Execute("function call(v) { return later(v); } for (var i = 0; i < 5; i++) { call(1); }");
+
+        engine.Evaluate("call(41)").UnwrapIfPromise().AsNumber().Should().Be(42);
     }
 }

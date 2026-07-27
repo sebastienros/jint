@@ -322,6 +322,98 @@ public class FastCallLaneTests
         result.Should().Be("7|true|true|321|321|1|1.23|-4|true|true|true|true|number|TypeError");
     }
 
+    /// <summary>
+    /// The audit every migration from a raw <c>JsCallArguments</c> body to positional parameters has to
+    /// pass: the lane pads its argument registers with <c>Undefined</c>, so an absent argument and an
+    /// explicit <c>undefined</c> become indistinguishable inside the body. Each pair below must therefore
+    /// already agree — and each is checked cold as well as warm, since only the warm call takes the lane.
+    /// </summary>
+    [Theory]
+    [InlineData("\"abcdef\".includes(\"cd\")", "true")]
+    [InlineData("\"abcdef\".includes(\"cd\", undefined)", "true")]
+    [InlineData("\"abcdef\".includes(\"cd\", 3)", "false")]
+    [InlineData("\"abcdef\".endsWith(\"ef\")", "true")]
+    [InlineData("\"abcdef\".endsWith(\"ef\", undefined)", "true")]
+    [InlineData("\"abcdef\".endsWith(\"cd\", 4)", "true")]
+    [InlineData("String([1,2,3].indexOf(2))", "1")]
+    [InlineData("String([1,2,3].indexOf(2, undefined))", "1")]
+    [InlineData("String([1,2,3].indexOf(2, 2))", "-1")]
+    [InlineData("String([1,2,3].some(function (v) { return v === 2; }))", "true")]
+    [InlineData("String([1,2,3].some(function (v) { return v === 2; }, undefined))", "true")]
+    [InlineData("String([1,2,3].find(function (v) { return v === 2; }))", "2")]
+    [InlineData("String([1,2,3].find(function (v) { return v === 2; }, undefined))", "2")]
+    [InlineData("String([1,2,3].findIndex(function (v) { return v === 2; }))", "1")]
+    [InlineData("String([1,2,3].findIndex(function (v) { return v === 2; }, undefined))", "1")]
+    [InlineData("(255).toString()", "255")]
+    [InlineData("(255).toString(undefined)", "255")]
+    [InlineData("(255).toString(16)", "ff")]
+    public void AnAbsentOptionalArgumentMatchesAnExplicitUndefined(string expression, string expected)
+    {
+        var engine = new Engine();
+
+        engine.Evaluate($"function f() {{ return String({expression}); }} f();").AsString().Should().Be(expected);
+        engine.Evaluate($"function g() {{ return String({expression}); }} g(); g();").AsString().Should().Be(expected);
+    }
+
+    /// <summary>
+    /// The sibling of <see cref="NewlyLaneEligibleBuiltinsAgreeWarmAndCold"/> for the built-ins whose
+    /// bodies had to be migrated off <c>JsCallArguments</c> to become lane-expressible. Callback-taking
+    /// methods are included with a <c>thisArg</c>, since that is the second argument register.
+    /// </summary>
+    [Fact]
+    public void MigratedLaneEligibleBuiltinsAgreeWarmAndCold()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            const out = [];
+            function run(f, a, b) {
+                const cold = f(a, b);
+                f(a, b);
+                return f(a, b) === cold ? cold : "DRIFT";
+            }
+            out.push(run(function (v, p) { return "abcdef".includes(v, p); }, "cd", 1));
+            out.push(run(function (v, p) { return "abcdef".endsWith(v, p); }, "cd", 4));
+            out.push(run(function (v, p) { return [1, 2, 3].indexOf(v, p); }, 3, 1));
+            const box = { limit: 2 };
+            out.push(run(function (f, t) { return [1, 2, 3].some(f, t); }, function (v) { return v > this.limit; }, box));
+            out.push(run(function (f, t) { return [1, 2, 3].find(f, t); }, function (v) { return v > this.limit; }, box));
+            out.push(run(function (f, t) { return [1, 2, 3].findIndex(f, t); }, function (v) { return v > this.limit; }, box));
+            out.push(run(function (v) { return (255).toString(v); }, 16));
+            let brand = "";
+            try { const t = Number.prototype.toString; t.call({}); t.call({}); } catch (e) { brand = e.constructor.name; }
+            out.push(brand);
+            let uncallable = "";
+            try { [1].find(1); [1].find(1); } catch (e) { uncallable = e.constructor.name; }
+            out.push(uncallable);
+            out.join("|");
+            """).AsString();
+
+        result.Should().Be("true|true|2|true|3|2|ff|TypeError|TypeError");
+    }
+
+    /// <summary>
+    /// Step 7 of <c>String.prototype.endsWith</c> keys on <c>endPosition</c> being the value
+    /// <c>undefined</c>, not on the argument being absent. Jint read the argument with a non-undefined
+    /// default that only applied when it was missing, so an explicit <c>undefined</c> was coerced to 0 and
+    /// searched an empty prefix. test262 does not discriminate the two (its only <c>undefined</c> case
+    /// uses an empty search string, which matches at any position).
+    /// </summary>
+    [Fact]
+    public void EndsWithTreatsAnExplicitUndefinedEndPositionAsTheStringLength()
+    {
+        var engine = new Engine();
+
+        engine.Evaluate("'abc'.endsWith('c', undefined)").AsBoolean().Should().BeTrue();
+        engine.Evaluate("'abc'.endsWith('c')").AsBoolean().Should().BeTrue();
+        engine.Evaluate("'abc'.endsWith('b', undefined)").AsBoolean().Should().BeFalse();
+        // an explicit numeric position is unaffected
+        engine.Evaluate("'abc'.endsWith('b', 2)").AsBoolean().Should().BeTrue();
+        engine.Evaluate("'abc'.endsWith('c', 0)").AsBoolean().Should().BeFalse();
+        // null still coerces to 0, per step 7's else branch
+        engine.Evaluate("'abc'.endsWith('c', null)").AsBoolean().Should().BeFalse();
+        engine.Evaluate("'abc'.endsWith('', null)").AsBoolean().Should().BeTrue();
+    }
+
 #if !NETFRAMEWORK // Math.f16round needs System.Half, which .NET Framework does not have
     /// <summary>
     /// <c>Math.f16round</c> must return a Number for every input. It used to hand back the argument

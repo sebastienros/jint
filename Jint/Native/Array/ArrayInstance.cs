@@ -1738,14 +1738,13 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
 
     /// <inheritdoc />
     internal sealed override bool FindWithCallback(
-        JsCallArguments arguments,
+        JsValue callbackfn,
+        JsValue thisArg,
         out ulong index,
         out JsValue value,
         bool visitUnassigned,
         bool fromEnd = false)
     {
-        var thisArg = arguments.At(1);
-        var callbackfn = arguments.At(0);
         var callable = GetCallable(callbackfn);
 
         var len = GetLength();
