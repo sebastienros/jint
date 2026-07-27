@@ -508,6 +508,18 @@ internal sealed class JintMemberExpression : JintExpression
                 return fastValue;
             }
 
+            // Same lane for a host array-like: one virtual TryGetIndex, no Reference and no key object. Sits
+            // after the JsArray hit so array traffic is untouched. A false is an authoritative own miss and
+            // falls through to the Reference path below, which keeps prototype-resolved indices and
+            // out-of-range reads on the full pipeline.
+            if (baseValue is ArrayLikeObject fastArrayLike
+                && property is JsNumber arrayLikeIndexNumber
+                && ArrayInstance.IsArrayIndex(arrayLikeIndexNumber, out var arrayLikeIndex)
+                && fastArrayLike.ReadIndex(arrayLikeIndex, out var arrayLikeValue))
+            {
+                return arrayLikeValue;
+            }
+
             var rentedReference = engine._referencePool.Rent(baseValue, property, engine.ExecutionContext.Strict, thisValue: null);
             return CompleteReadFromReference(context, engine, rentedReference);
         }
@@ -558,6 +570,20 @@ internal sealed class JintMemberExpression : JintExpression
         {
             engine._referencePool.Return(reference);
             return arrayValue;
+        }
+
+        // Host array-like element access, reached when the read arrived here with an already-rented Reference
+        // (the non-computed-eligible shapes: optional chaining, super bases, short-circuitable object
+        // expressions). Same authoritative-miss rule as the branch in GetValue — a false keeps the read on the
+        // full pipeline below.
+        if (_memberExpression.Computed
+            && reference.Base is ArrayLikeObject arrayLike
+            && reference.ReferencedName is JsNumber arrayLikeIndexNumber
+            && ArrayInstance.IsArrayIndex(arrayLikeIndexNumber, out var arrayLikeIndex)
+            && arrayLike.ReadIndex(arrayLikeIndex, out var arrayLikeValue))
+        {
+            engine._referencePool.Return(reference);
+            return arrayLikeValue;
         }
 
         // Check if base is null/undefined before calling Engine.GetValue

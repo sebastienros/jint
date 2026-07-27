@@ -47,6 +47,15 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
             return new JsTypedArrayOperations(typedArrayInstance);
         }
 
+        // Read-only host collection: every element resolves through one virtual TryGetIndex, with no key object
+        // and no descriptor. Reads only — a write-mode dispatch falls through to ObjectOperations so the mutating
+        // generics (sort, fill, reverse, …) produce the spec-shaped TypeError an ordinary non-writable property
+        // gives, instead of a CLR exception from a lane that cannot write.
+        if (!forWrite && instance is ArrayLikeObject arrayLikeObject)
+        {
+            return new ArrayLikeObjectOperations(arrayLikeObject);
+        }
+
         if (instance is ArrayLikeWrapper arrayWrapper)
         {
             return new ArrayLikeOperations(arrayWrapper);
@@ -601,6 +610,70 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
 
         public override void DeletePropertyOrThrow(ulong index)
             => _target.DeletePropertyOrThrow(index);
+    }
+
+    /// <summary>
+    /// Read side of a host <see cref="ArrayLikeObject"/>: length and elements come straight off the two abstract
+    /// members, so an <c>Array.prototype</c> generic, the array iterator (for-of, spread, <c>Array.from</c>,
+    /// destructuring) or <c>apply</c>-spreading costs one virtual call per element and allocates no key.
+    /// <para>
+    /// A <c>false</c> from <c>TryGetIndex</c> is an authoritative own miss, not "no such element anywhere", so the
+    /// miss path re-asks the object the ordinary way and the prototype chain still resolves an index the host does
+    /// not own. That costs nothing on the hit path, which is the one that runs per element.
+    /// </para>
+    /// </summary>
+    private sealed class ArrayLikeObjectOperations : ArrayOperations<ArrayLikeObject>
+    {
+        public ArrayLikeObjectOperations(ArrayLikeObject target) : base(target)
+        {
+        }
+
+        public override ulong GetSmallestIndex(ulong length) => 0;
+
+        public override uint GetLength() => _target.Length;
+
+        public override ulong GetLongLength() => _target.Length;
+
+        public override void SetLength(ulong length) => _target.Set(CommonProperties.Length, length, true);
+
+        public override void EnsureCapacity(ulong capacity)
+        {
+        }
+
+        public override JsValue Get(ulong index)
+            => index < uint.MaxValue && _target.ReadIndex((uint) index, out var value)
+                ? value
+                : _target.Get(JsString.Create(index));
+
+        public override bool TryGetValue(ulong index, out JsValue value)
+        {
+            if (index < uint.MaxValue && _target.ReadIndex((uint) index, out value))
+            {
+                return true;
+            }
+
+            var property = JsString.Create(index);
+            if (_target.HasProperty(property))
+            {
+                value = _target.Get(property);
+                return true;
+            }
+
+            value = JsValue.Undefined;
+            return false;
+        }
+
+        public override bool HasProperty(ulong index)
+            => (index < uint.MaxValue && _target.ReadIndex((uint) index, out _)) || _target.HasProperty(JsString.Create(index));
+
+        public override void CreateDataPropertyOrThrow(ulong index, JsValue value)
+            => _target.CreateDataPropertyOrThrow(JsString.Create(index), value);
+
+        public override void Set(ulong index, JsValue value, bool updateLength = false, bool throwOnError = true)
+            => _target.Set(JsString.Create(index), value, throwOnError);
+
+        public override void DeletePropertyOrThrow(ulong index)
+            => _target.DeletePropertyOrThrow(JsString.Create(index));
     }
 
     private sealed class ArrayLikeOperations : ArrayOperations

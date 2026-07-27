@@ -461,6 +461,14 @@ public sealed class JsonSerializer
             return true;
         }
 
+        // A host array-like serializes as a JSON array, following the ObjectWrapper convention above rather than
+        // the browser's NodeList answer ({"0":…}) — consistency within Jint's host surface wins, and the type is
+        // new so nothing can regress.
+        if (value is ArrayLikeObject)
+        {
+            return true;
+        }
+
         return false;
     }
 

@@ -75,7 +75,30 @@ public class PrototypeMethodCacheTests
             "Jint.Native.Array.ArrayInstance",
         };
 
-        var expected = exoticGet.Concat(safeWithoutFlag).OrderBy(n => n, StringComparer.Ordinal).ToArray();
+        // Not exotic at all: the override is a sealed `=> base.Get(...)` whose only purpose is to stop a host
+        // subclass from going exotic underneath the lanes that resolve an indexed read without calling Get. The
+        // constructor therefore declares PropertyAccessSemantics.Ordinary, which is what CanCacheAgainstVersions
+        // keys the receiver-side exemption on: ReadFromNonPlainReceiver is the only lane that reaches the cache
+        // with such a receiver, and it re-establishes the own miss — here through the class's
+        // TryGetOwnPropertyValue, which consults the live collection — before every consult. So an element
+        // appearing at an index-like name cannot be shadowed by a stale entry, even though the host's
+        // own-property set lives outside the engine and moves no version.
+        //
+        // Receiver only. On the *holder* side VersionWitnessesOwnProperty refuses it, and must keep refusing it:
+        // the BuiltinShapeMode carve-out there is sound precisely because such an object keeps its whole
+        // own-property set in engine storage and versions it, which is the one thing a live host collection does
+        // not do. ArrayLikeObject cannot enter that mode (InitializeBuiltinShape is private protected), so the
+        // refusal stands by construction — pinned in ArrayLikeObjectLaneTests.
+        var ordinaryByConstruction = new[]
+        {
+            "Jint.Native.Object.ArrayLikeObject",
+        };
+
+        var expected = exoticGet
+            .Concat(safeWithoutFlag)
+            .Concat(ordinaryByConstruction)
+            .OrderBy(n => n, StringComparer.Ordinal)
+            .ToArray();
 
         overriders.Should().Equal(expected);
     }
