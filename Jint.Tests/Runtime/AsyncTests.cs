@@ -47,6 +47,48 @@ public class AsyncTests
     }
 
     [Fact]
+    public void ShouldResumeForAwaitInsideElseWithoutReevaluatingIfTest()
+    {
+        // A `for await...of` records its suspension against the LOOP STATEMENT - its implicit
+        // await lives in JintForInForOfStatement itself, not in a JintExpression.
+        // GetSuspensionNode only unwrapped Node and JintExpression, so it returned null for every
+        // for-await suspension and JintIfStatement forgot which branch it was in, re-running its
+        // test on resume. Here the else-branch sets `built` before suspending, so a re-evaluated
+        // test takes the `if` branch and returns the half-filled array (0 items).
+        var engine = new Engine();
+
+        var result = engine.Evaluate("""
+            (async () => {
+                async function* gen() {
+                    for await (const x of [1, 2, 3]) {
+                        yield x;
+                    }
+                }
+
+                const state = { built: false, items: [] };
+
+                async function build() {
+                    if (state.built) {
+                        return state.items;       // must NOT be reached on resume
+                    } else {
+                        state.built = true;       // the test above reads this
+                        for (const _ of ['a']) {
+                            for await (const v of gen()) {
+                                state.items.push(v);
+                            }
+                        }
+                        return state.items;
+                    }
+                }
+
+                return (await build()).length;
+            })()
+            """).UnwrapIfPromise(TimeSpan.FromSeconds(5));
+
+        result.AsNumber().Should().Be(3);
+    }
+
+    [Fact]
     public void ShouldNotLeakCatchBindingAfterAwaitInsideCatch()
     {
         var result = EvaluateAsyncJson("""

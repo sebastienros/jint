@@ -129,8 +129,16 @@ internal abstract class JintStatement
             return null;
         }
 
+        // LastSuspensionNode may be an AST Node, a JintExpression (an await/yield expression),
+        // or a JintStatement. The last case is what `for await...of` records: its implicit await
+        // lives in the loop statement itself, not in a JintExpression. Without that case this
+        // returned null for EVERY for-await suspension, so resume-aware statements
+        // (JintIfStatement, JintSwitchStatement, ...) lost track of which branch they were in and
+        // re-evaluated their test on resume - silently taking the other branch when that test
+        // reads state the suspended code had already mutated.
         return suspendable.LastSuspensionNode as Node
-            ?? (suspendable.LastSuspensionNode as JintExpression)?._expression as Node;
+            ?? (suspendable.LastSuspensionNode as JintExpression)?._expression as Node
+            ?? (suspendable.LastSuspensionNode as JintStatement)?._statement;
     }
 
     internal static bool IsNodeInsideRange(Node node, in Range range)
